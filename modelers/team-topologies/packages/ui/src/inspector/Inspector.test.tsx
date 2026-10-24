@@ -208,6 +208,52 @@ describe("the inspector's content", () => {
     expect(fake.canvas.focus).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ["an interaction", interaction],
+    ["a flow of change", flow],
+  ])("hands the focus to the canvas after Enter in the label of %s", (_kind, element) => {
+    const fake = fakeModeler();
+    act(() => root.render(<Host modeler={fake.modeler} />));
+    fake.select(element);
+    const label = host.querySelector<HTMLInputElement>('input[type="text"]');
+    if (!label) throw new Error("no label field");
+
+    act(() => label.focus());
+    act(() => typeInto(label, "Fraud rules"));
+    act(() => press(label, "Enter"));
+
+    expect(fake.ttModeling.updateLabel).toHaveBeenCalledWith(element, "Fraud rules");
+    expect(fake.canvas.focus).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes on Close and hands focus to the canvas", () => {
+    const fake = fakeModeler();
+    act(() => root.render(<Host modeler={fake.modeler} />));
+    fake.select(team);
+
+    act(() => host.querySelector<HTMLButtonElement>('[aria-label="Close"]')?.click());
+
+    expect(fake.selection.select).toHaveBeenLastCalledWith(null);
+    expect(fake.canvas.focus).toHaveBeenCalledTimes(1);
+    expect(panel()).toBeNull();
+  });
+
+  it.each([
+    ["Delete team", team],
+    ["Delete interaction", interaction],
+    ["Delete flow of change", flow],
+    ["Delete annotation", annotation],
+  ])("%s removes the element and hands focus to the canvas", (name, element) => {
+    const fake = fakeModeler();
+    act(() => root.render(<Host modeler={fake.modeler} />));
+    fake.select(element);
+
+    act(() => button(name)?.click());
+
+    expect(fake.modeling.removeElements).toHaveBeenCalledWith([element]);
+    expect(fake.canvas.focus).toHaveBeenCalledTimes(1);
+  });
+
   it("leaves an Enter or Escape that ends an IME composition to the composition", () => {
     const fake = fakeModeler();
     act(() => root.render(<Host modeler={fake.modeler} />));

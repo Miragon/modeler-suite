@@ -386,6 +386,7 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     await page.locator('.djs-context-pad.open [data-action="edit-label"]').focus();
     await page.keyboard.press("ControlOrMeta+Z");
     await expect.poll(async () => (await exportDocument(page)).nodes.length).toBe(0);
+    await expect(canvasSvg(page)).toBeFocused();
   });
 
   test("Cmd/Ctrl+Z on the focused canvas is the canvas's own, also where it declines", async ({
@@ -432,37 +433,6 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
 
     await page.keyboard.press("ControlOrMeta+Z");
     await expect(team).toHaveCount(1);
-  });
-
-  test("after a click on an annotation's attach entry, Escape and Delete act on the canvas", async ({
-    page,
-  }) => {
-    await gotoApp(page);
-    await loadExample(page);
-    const annotation = page.locator('[data-element-id="ann_fraud_handover"]');
-    await annotation.click();
-    await page.locator('.djs-context-pad.open [data-action="connect"]').click();
-
-    await page.keyboard.press("Escape");
-    expect(await selectedIds(page)).toEqual(["ann_fraud_handover"]);
-    await page.keyboard.press("Delete");
-
-    await expect(annotation).toHaveCount(0);
-  });
-
-  test("Enter in the inspector's name field hands the keys back to the canvas", async ({
-    page,
-  }) => {
-    await gotoApp(page);
-    await loadExample(page);
-    await page.locator('[data-element-id="team_checkout"]').click();
-    const name = page.locator('[data-chrome="inspector"]').getByRole("textbox", { name: "Name" });
-
-    await name.fill("Payments");
-    await name.press("Enter");
-    await page.keyboard.press("Delete");
-
-    await expect(page.locator('[data-element-id="team_checkout"]')).toHaveCount(0);
   });
 
   test("Cmd/Ctrl+Z after Reset colours in the inspector takes the colours back", async ({

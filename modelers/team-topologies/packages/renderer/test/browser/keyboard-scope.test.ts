@@ -41,6 +41,13 @@ function topologyDocument(): TtDocument {
         position: { x: 300, y: 360 },
         size: { width: 160, height: 48 },
       },
+      {
+        id: "ann_on_b",
+        text: "Owns the runtime",
+        position: { x: 540, y: 60 },
+        size: { width: 160, height: 48 },
+        attachedTo: "team_b",
+      },
     ],
   };
 }
@@ -70,9 +77,23 @@ function mount(): Mounted {
   return { modeler, container, svg, text };
 }
 
-function select(modeler: Modeler, id: string): void {
+function select(modeler: Modeler, ...ids: string[]): void {
   const registry = modeler.get<{ get(id: string): unknown }>("elementRegistry");
-  modeler.get<{ select(element: unknown): void }>("selection").select(registry.get(id));
+  modeler
+    .get<{ select(elements: unknown[]): void }>("selection")
+    .select(ids.map((id) => registry.get(id)));
+}
+
+/** The connector that attaches an annotation to its element. */
+function connectorOf(modeler: Modeler, annotationId: string): string {
+  const annotation = modeler
+    .get<{ get(id: string): { incoming: { id: string }[]; outgoing: { id: string }[] } }>(
+      "elementRegistry",
+    )
+    .get(annotationId);
+  const [connector] = [...annotation.outgoing, ...annotation.incoming];
+  expect(connector, `connector of ${annotationId}`).toBeDefined();
+  return connector!.id;
 }
 
 function selectedCount(modeler: Modeler): number {
@@ -258,6 +279,21 @@ test("a drag from a palette entry hands the keys to the canvas", () => {
   }
 });
 
+test("Enter on a creating palette entry hands the keys to the canvas once its label editor closes", async () => {
+  const { modeler, container, svg } = mount();
+  try {
+    keyboardClick(paletteEntry(container, "team.enabling"));
+    expect(document.activeElement).toBe(container.querySelector("textarea.tt-label-editor"));
+
+    await userEvent.keyboard("{Escape}");
+    expect(document.activeElement).toBe(svg);
+    await userEvent.keyboard("{Delete}");
+    expect(modeler.exportDocument().nodes.map((node) => node.id)).toEqual(["team_a", "team_b"]);
+  } finally {
+    modeler.destroy();
+  }
+});
+
 test("Enter or Space on a focused tool entry leave the focus on the entry", () => {
   const { modeler, container } = mount();
   try {
@@ -269,61 +305,85 @@ test("Enter or Space on a focused tool entry leave the focus on the entry", () =
   }
 });
 
-test("pad entries that open nothing hand the keys to the canvas", async () => {
+const PAD_DELETIONS: Record<string, (modeler: Modeler) => string[]> = {
+  "a team": () => ["team_b"],
+  "a connector": (modeler) => [connectorOf(modeler, "ann_on_b")],
+  "several elements": () => ["team_a", "ann_free"],
+};
+
+for (const [what, toDelete] of Object.entries(PAD_DELETIONS)) {
+  for (const by of ["a pointer", "Enter"] as const) {
+    test(`the pad's delete for ${what} by ${by} hands the keys to the canvas`, async () => {
+      const { modeler, container, svg } = mount();
+      try {
+        const ids = toDelete(modeler);
+        select(modeler, ...ids);
+        await settle();
+        const deleteEntry = padEntry(container, "delete");
+        if (by === "a pointer") {
+          await userEvent.click(deleteEntry);
+        } else {
+          deleteEntry.focus();
+          await userEvent.keyboard("{Enter}");
+        }
+        expect(ids.filter((id) => exists(modeler, id))).toEqual([]);
+        expect(document.activeElement).toBe(svg);
+
+        await userEvent.keyboard("{Control>}z{/Control}");
+        expect(ids.filter((id) => exists(modeler, id))).toEqual(ids);
+      } finally {
+        modeler.destroy();
+      }
+    });
+  }
+}
+
+test("a pointer on an annotation's attach entry hands the keys to the canvas", async () => {
   const { modeler, container, svg } = mount();
   try {
-    select(modeler, "team_b");
-    await settle();
-    await userEvent.click(padEntry(container, "delete"));
-    expect(exists(modeler, "team_b")).toBe(false);
-    expect(document.activeElement).toBe(svg);
-    await userEvent.keyboard("{Control>}z{/Control}");
-    expect(exists(modeler, "team_b")).toBe(true);
-
     select(modeler, "ann_free");
     await settle();
     await userEvent.click(padEntry(container, "connect"));
     expect(document.activeElement).toBe(svg);
+
     await userEvent.keyboard("{Escape}");
+    await userEvent.keyboard("{Delete}");
+    expect(exists(modeler, "ann_free")).toBe(false);
   } finally {
     modeler.destroy();
   }
 });
 
-test("Enter on the pad's delete hands the keys to the canvas", async () => {
-  const { modeler, container, svg } = mount();
-  try {
-    select(modeler, "team_b");
-    await settle();
-    const deleteEntry = padEntry(container, "delete");
-    deleteEntry.focus();
-    await userEvent.keyboard("{Enter}");
-    expect(exists(modeler, "team_b")).toBe(false);
-    expect(document.activeElement).toBe(svg);
-    await userEvent.keyboard("{Control>}z{/Control}");
-    expect(exists(modeler, "team_b")).toBe(true);
-  } finally {
-    modeler.destroy();
-  }
-});
-
-test("pad entries that open the label editor keep the focus there", async () => {
-  const { modeler, container, svg } = mount();
-  try {
-    for (const action of ["edit-label", "append-annotation"]) {
-      select(modeler, "team_a");
-      await settle();
-      await userEvent.click(padEntry(container, action));
-      expect(document.activeElement, action).toBe(
-        container.querySelector("textarea.tt-label-editor"),
-      );
-      await userEvent.keyboard("{Escape}");
-      expect(document.activeElement, action).toBe(svg);
+for (const by of ["a pointer", "Enter"] as const) {
+  test(`pad entries that open the label editor by ${by} keep the focus there`, async () => {
+    const { modeler, container, svg } = mount();
+    try {
+      const entries = [
+        ["team_a", "edit-label"],
+        ["team_a", "append-annotation"],
+        ["ann_free", "edit-label"],
+      ] as const;
+      for (const [id, action] of entries) {
+        select(modeler, id);
+        await settle();
+        const entry = padEntry(container, action);
+        if (by === "a pointer") {
+          await userEvent.click(entry);
+        } else {
+          entry.focus();
+          await userEvent.keyboard("{Enter}");
+        }
+        expect(document.activeElement, `${id} ${action}`).toBe(
+          container.querySelector("textarea.tt-label-editor"),
+        );
+        await userEvent.keyboard("{Escape}");
+        expect(document.activeElement, `${id} ${action}`).toBe(svg);
+      }
+    } finally {
+      modeler.destroy();
     }
-  } finally {
-    modeler.destroy();
-  }
-});
+  });
+}
 
 test("a focused pad entry stays with its pad when diagram-js rebuilds or closes it", async () => {
   const { modeler, container, svg } = mount();
