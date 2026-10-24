@@ -7,6 +7,11 @@
  * Connecting has none, because it is a pointer gesture that needs a drop target,
  * so Tab skips it. "Add annotation" on the element attaches one by keyboard.
  *
+ * The canvas keys act only while the canvas has the focus. Entries that open the
+ * label editor leave the focus to it; connect and delete hand it to the canvas,
+ * which a pointer press would otherwise leave on the entry or, once the entry
+ * goes, on `<body>`.
+ *
  * Every entry changes the diagram, so under the read-only lock there is no context pad at all.
  */
 
@@ -33,6 +38,7 @@ import {
 import type TtLabelEditing from "../label-editing/TtLabelEditing.js";
 import type TtModeling from "../modeling/TtModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type TtReadOnly } from "../read-only/index.js";
+import { handFocusToCanvas } from "../keyboard/canvasFocus.js";
 import {
   ICON_LINK,
   ICON_MESSAGE_SQUARE_PLUS,
@@ -98,7 +104,10 @@ export default class TtContextPadProvider implements ContextPadProvider {
     if (!isTtElement(element)) return {};
 
     if (isTtAnnotation(element)) {
-      const startConnect = (event: Event) => this.connect.start(event as MouseEvent, element);
+      const startConnect = (event: Event) => {
+        this.connect.start(event as MouseEvent, element);
+        handFocusToCanvas(this.canvas, event);
+      };
       return {
         "edit-label": this.editEntry(element),
         connect: {
@@ -155,17 +164,15 @@ export default class TtContextPadProvider implements ContextPadProvider {
   }
 
   private deleteEntry(elements: Element[], title: string): ContextPadEntry {
+    const remove = () => {
+      this.modeling.removeElements([...elements]);
+      this.canvas.focus();
+    };
     return {
       group: "edit",
       title,
       html: cpHtml(ICON_TRASH, title),
-      action: {
-        click: () => this.modeling.removeElements([...elements]),
-        keyboard: () => {
-          this.modeling.removeElements([...elements]);
-          this.canvas.focus();
-        },
-      },
+      action: { click: remove, keyboard: remove },
     };
   }
 }

@@ -320,6 +320,69 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     await expect.poll(async () => (await exportDocument(page)).nodes.length).toBe(1);
   });
 
+  test("Cmd/Ctrl+Z on a focused palette or context-pad entry undoes the canvas", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await startBlankCanvas(page);
+    await addTeamByKeyboard(page);
+    await addTeamByKeyboard(page);
+    expect((await exportDocument(page)).nodes).toHaveLength(2);
+
+    await page.locator('.djs-palette [data-action="team.platform"]').focus();
+    await page.keyboard.press("ControlOrMeta+Z");
+    await expect.poll(async () => (await exportDocument(page)).nodes.length).toBe(1);
+
+    const [team] = (await exportDocument(page)).nodes;
+    await page.locator(`[data-element-id="${team!.id}"]`).click();
+    await page.locator('.djs-context-pad.open [data-action="edit-label"]').focus();
+    await page.keyboard.press("ControlOrMeta+Z");
+    await expect.poll(async () => (await exportDocument(page)).nodes.length).toBe(0);
+  });
+
+  test("with nothing focused the canvas keys leave the diagram alone", async ({ page }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    await page.locator('[data-element-id="team_checkout"]').click();
+    expect(await selectedIds(page)).toEqual(["team_checkout"]);
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+
+    for (const key of ["Delete", "Backspace", "ControlOrMeta+A", "Escape"]) {
+      await page.keyboard.press(key);
+    }
+
+    expect(await selectedIds(page)).toEqual(["team_checkout"]);
+    expect((await exportDocument(page)).nodes.map((node) => node.id)).toContain("team_checkout");
+  });
+
+  test("Cmd/Ctrl+Z after a click on the context pad's delete takes it back", async ({ page }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    const team = page.locator('[data-element-id="team_checkout"]');
+    await team.click();
+    await page.locator('.djs-context-pad.open [data-action="delete"]').click();
+    await expect(team).toHaveCount(0);
+
+    await page.keyboard.press("ControlOrMeta+Z");
+    await expect(team).toHaveCount(1);
+  });
+
+  test("Enter in the inspector's name field hands the keys back to the canvas", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    await page.locator('[data-element-id="team_checkout"]').click();
+    const name = page.locator('[data-chrome="inspector"]').getByRole("textbox", { name: "Name" });
+
+    await name.fill("Payments");
+    await name.press("Enter");
+    await page.keyboard.press("Delete");
+
+    await expect(page.locator('[data-element-id="team_checkout"]')).toHaveCount(0);
+  });
+
   test("Open… reads a .tt file and replaces the diagram", async ({ page }) => {
     await gotoApp(page, diagramLink(documentWithWarnings()));
     const renamed: TtDocumentJson = { ...sampleDocument(), title: "Other topology" };

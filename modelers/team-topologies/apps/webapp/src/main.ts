@@ -624,10 +624,14 @@ function historyLetter(event: KeyboardEvent): string {
   return event.code === "KeyZ" ? "z" : event.code === "KeyY" ? "y" : "";
 }
 
+function isOnCanvas(target: Node): boolean {
+  return modeler.container.querySelector(":scope > svg")?.contains(target) ?? false;
+}
+
 /**
- * The canvas keyboard acts only while the canvas or the page has the focus. After a click on a
- * chrome control (zoom, Share, the inspector's buttons) the focus stays there, and undo should
- * still undo; after a replacement the canvas has nothing to undo, so the key takes the diagram back.
+ * The canvas keyboard acts only while the canvas itself has the focus. While a chrome control holds
+ * it (zoom, Share, the inspector's buttons, a palette or context-pad entry), undo should still
+ * undo; after a replacement the canvas has nothing to undo, so the key takes the diagram back.
  */
 function onHistoryKey(event: KeyboardEvent): void {
   if (event.isComposing || !isUndoRedoKey(event) || shell.isEmptyStateShown()) return;
@@ -638,7 +642,7 @@ function onHistoryKey(event: KeyboardEvent): void {
     !event.defaultPrevented &&
     target instanceof Node &&
     shell.root.contains(target) &&
-    !modeler.container.contains(target);
+    !isOnCanvas(target);
   if (onChrome) {
     event.preventDefault();
     if (event.repeat) return;

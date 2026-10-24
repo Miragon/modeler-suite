@@ -42,6 +42,31 @@ test.describe("VS Code webview", () => {
     );
   });
 
+  test("with nothing focused Delete and Backspace leave the diagram and post no edit", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await selectOnCanvas(page, "team_fraud");
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+
+    await page.keyboard.press("Delete");
+    await page.keyboard.press("Backspace");
+
+    await expect(shape(page, "team_fraud")).toBeAttached();
+    expect((await postedMessages(page)).some((message) => message.type === "edit")).toBe(false);
+  });
+
+  test("after a click on the context pad's delete the keys act on the canvas", async ({ page }) => {
+    await openWebview(page);
+    await selectOnCanvas(page, "team_fraud");
+    await page.locator('.djs-context-pad.open [data-action="delete"]').click();
+    await expect(shape(page, "team_fraud")).toHaveCount(0);
+
+    await page.keyboard.press("ControlOrMeta+A");
+
+    await expect(shape(page, "team_checkout")).toHaveClass(/selected/);
+  });
+
   test("an outside change keeps the view and the selection", async ({ page }) => {
     await openWebview(page);
     const fitted = await zoomReadout(page);

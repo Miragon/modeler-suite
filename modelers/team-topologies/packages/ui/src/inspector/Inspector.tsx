@@ -59,6 +59,7 @@ interface InspectorServices {
   ttModeling: TtModeling;
   removeAndFocusCanvas: (elements: Element[]) => void;
   closeAndFocusCanvas: () => void;
+  focusCanvas: () => void;
 }
 
 function inspectorServices(modeler: Modeler): InspectorServices {
@@ -74,6 +75,11 @@ function inspectorServices(modeler: Modeler): InspectorServices {
       modeler.get<Selection>("selection").select(null);
       canvas.focus();
     },
+    /**
+     * After Enter in a single-line field, as after Enter in the label editor: the canvas keys act
+     * only while the canvas has the focus, and a field that only blurred would leave it on `<body>`.
+     */
+    focusCanvas: () => canvas.focus(),
   };
 }
 
@@ -132,7 +138,7 @@ interface PanelProps {
 }
 
 function TeamInspector({ team, services, readOnly }: PanelProps & { team: TtTeam }) {
-  const { ttModeling, removeAndFocusCanvas, closeAndFocusCanvas } = services;
+  const { ttModeling, removeAndFocusCanvas, closeAndFocusCanvas, focusCanvas } = services;
   const type = team.teamType;
   const spec = TEAM_TYPE_SPECS[type];
 
@@ -164,6 +170,7 @@ function TeamInspector({ team, services, readOnly }: PanelProps & { team: TtTeam
             value={team.ttLabel ?? ""}
             placeholder="Team name"
             onCommit={(label) => ttModeling.updateLabel(team, label.trim())}
+            afterEnter={focusCanvas}
           />
         </label>
 
@@ -214,7 +221,7 @@ function InteractionInspector({
   services,
   readOnly,
 }: PanelProps & { interaction: TtInteraction }) {
-  const { ttModeling, removeAndFocusCanvas, closeAndFocusCanvas } = services;
+  const { ttModeling, removeAndFocusCanvas, closeAndFocusCanvas, focusCanvas } = services;
   const mode = interaction.mode;
   const spec = INTERACTION_MODE_SPECS[mode];
 
@@ -252,6 +259,7 @@ function InteractionInspector({
             value={interaction.ttLabel ?? ""}
             placeholder="What is provided or discovered"
             onCommit={(label) => ttModeling.updateLabel(interaction, label.trim())}
+            afterEnter={focusCanvas}
           />
         </label>
 
@@ -267,7 +275,7 @@ function InteractionInspector({
 }
 
 function FlowInspector({ flow, services, readOnly }: PanelProps & { flow: TtFlow }) {
-  const { ttModeling, removeAndFocusCanvas, closeAndFocusCanvas } = services;
+  const { ttModeling, removeAndFocusCanvas, closeAndFocusCanvas, focusCanvas } = services;
 
   return (
     <div className="tt-inspector__content" key={flow.id}>
@@ -285,6 +293,7 @@ function FlowInspector({ flow, services, readOnly }: PanelProps & { flow: TtFlow
             value={flow.ttLabel ?? ""}
             placeholder="Flow of change"
             onCommit={(label) => ttModeling.updateLabel(flow, label.trim())}
+            afterEnter={focusCanvas}
           />
         </label>
 

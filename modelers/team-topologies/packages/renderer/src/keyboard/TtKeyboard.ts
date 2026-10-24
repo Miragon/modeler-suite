@@ -2,11 +2,13 @@
  * Keyboard shortcuts of the canvas: undo / redo / select all / delete-selection / copy / paste /
  * nudge the selection with the arrow keys / clear the selection (Escape).
  *
- * Bound to the document so they work right after a click on the canvas, but they only act when the
- * key press targets the page itself or the canvas (diagram-js focuses its SVG on mouse-down). Key
- * presses in host chrome, open dialogs, form fields and the inline label editor stay with those
- * controls, a key a closer listener already handled (`defaultPrevented`) is left alone, and an
- * `inert` canvas takes no keys at all.
+ * They act only while the canvas itself has the focus: the key press targets the canvas `<svg>` or
+ * something inside it, as diagram-js 15 binds its own keyboard. diagram-js focuses the svg on
+ * mouse-down, and the palette and the context pad hand the focus back to it. `<body>`, host chrome,
+ * form fields, the label editor and the palette and context pad themselves never count, so a canvas
+ * the host hides cannot take a key, and nothing acts while a modal dialog is open or the canvas is
+ * `inert`. A key a closer listener already handled (`defaultPrevented`), part of an IME composition
+ * or without a `key` is left alone.
  *
  * Zoom and fit keys are the host chrome's (guide §5.8: only Cmd/Ctrl + `+` `-` `0` and Shift+1,
  * each acting exactly once), so the canvas binds none. A host that owns the history (the VS Code
@@ -46,29 +48,14 @@ export interface TtKeyboardConfig {
   undoRedoKeys?: boolean | undefined;
 }
 
-function isTypingTarget(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  if (!el) return false;
-  return (
-    el.tagName === "INPUT" ||
-    el.tagName === "TEXTAREA" ||
-    el.tagName === "SELECT" ||
-    el.isContentEditable
-  );
-}
-
 function isNode(target: EventTarget | null): target is Node {
   return typeof (target as Node | null)?.nodeType === "number";
 }
 
-function isCanvasScope(target: EventTarget | null, canvasContainer: HTMLElement): boolean {
+function isOnCanvas(target: EventTarget | null, svg: SVGSVGElement): boolean {
   // A host marks the canvas inert while something else fronts it, e.g. a start screen.
-  if (canvasContainer.closest("[inert]")) return false;
-  if (!isNode(target)) return true;
-  if (target.nodeType === Node.DOCUMENT_NODE) return true;
-  const ownerDocument = target.ownerDocument;
-  if (target === ownerDocument?.body || target === ownerDocument?.documentElement) return true;
-  return canvasContainer.contains(target);
+  if (svg.closest("[inert]")) return false;
+  return isNode(target) && svg.contains(target);
 }
 
 function isShape(element: Element): element is Shape {
@@ -102,6 +89,7 @@ export default class TtKeyboard {
     injector: Injector,
   ) {
     const container = canvas.getContainer();
+    const svg = container.querySelector<SVGSVGElement>(":scope > svg")!;
     const doc = container.ownerDocument ?? document;
     const undoRedoKeys = config?.undoRedoKeys ?? true;
     const dragging = injector.get<Dragging>("dragging", false);
@@ -155,8 +143,8 @@ export default class TtKeyboard {
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.altKey || e.isComposing || isTypingTarget(e.target)) return;
-      if (!isCanvasScope(e.target, container) || doc.querySelector(MODAL_SELECTOR)) return;
+      if (typeof e.key !== "string" || e.defaultPrevented || e.altKey || e.isComposing) return;
+      if (!isOnCanvas(e.target, svg) || doc.querySelector(MODAL_SELECTOR)) return;
       const cmd = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
       if (handleReadingKey(e, cmd, key)) return;

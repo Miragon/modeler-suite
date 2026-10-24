@@ -83,15 +83,17 @@ test("the lock vetoes every edit rule and announces itself", () => {
 });
 
 test("under the lock the keyboard only reads: select all and copy, no delete, paste or nudge", () => {
-  const { modeler } = mountModeler();
+  const { modeler, container } = mountModeler();
   modeler.importDocument(SAMPLE_DOCUMENT);
   const { registry, selection, readOnly } = services(modeler);
   const before = modeler.exportDocument();
   readOnly.setReadOnly(true);
+  const svg = container.querySelector<SVGSVGElement>(".djs-container > svg")!;
+  svg.focus();
 
-  expect(pressOn(document, "a", { ctrlKey: true }).defaultPrevented).toBe(true);
+  expect(pressOn(svg, "a", { ctrlKey: true }).defaultPrevented).toBe(true);
   expect(selection.get().length).toBeGreaterThan(5);
-  expect(pressOn(document, "c", { metaKey: true }).defaultPrevented).toBe(true);
+  expect(pressOn(svg, "c", { metaKey: true }).defaultPrevented).toBe(true);
 
   for (const [key, init] of [
     ["Delete", {}],
@@ -100,7 +102,7 @@ test("under the lock the keyboard only reads: select all and copy, no delete, pa
     ["v", { ctrlKey: true }],
     ["z", { ctrlKey: true }],
   ] as const) {
-    expect(pressOn(document, key, init).defaultPrevented, key).toBe(false);
+    expect(pressOn(svg, key, init).defaultPrevented, key).toBe(false);
   }
   expect(registry.get("team_checkout")).toBeDefined();
   expect(modeler.exportDocument()).toEqual(before);

@@ -179,6 +179,25 @@ describe("the inspector's content", () => {
     expect(fake.ttModeling.updateLabel).toHaveBeenCalledWith(team, "Payments");
   });
 
+  it("hands the focus to the canvas after Enter in a single-line field, not in a text area", () => {
+    const fake = fakeModeler();
+    act(() => root.render(<Host modeler={fake.modeler} />));
+    fake.select(team);
+    const name = host.querySelector<HTMLInputElement>('input[type="text"]');
+    const description = host.querySelector<HTMLTextAreaElement>("textarea");
+    if (!name || !description) throw new Error("no name or description field");
+
+    act(() => description.focus());
+    act(() => press(description, "Enter"));
+    expect(fake.canvas.focus).not.toHaveBeenCalled();
+
+    act(() => name.focus());
+    act(() => typeInto(name, "Payments"));
+    act(() => press(name, "Enter"));
+    expect(fake.ttModeling.updateLabel).toHaveBeenCalledWith(team, "Payments");
+    expect(fake.canvas.focus).toHaveBeenCalledTimes(1);
+  });
+
   it("deletes a multi-selection together and hands focus to the canvas", () => {
     const fake = fakeModeler();
     act(() => root.render(<Host modeler={fake.modeler} />));
