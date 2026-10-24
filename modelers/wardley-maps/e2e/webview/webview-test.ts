@@ -18,5 +18,6 @@ void webview.ready.then(() => {
   window.webviewReady = true;
 });
 
-const map = new URLSearchParams(location.search).get("map");
-window.postMessage({ type: "init", text: map === "empty" ? EMPTY_MAP : EXAMPLE_MAP }, "*");
+const MAPS: Record<string, string> = { empty: EMPTY_MAP, blank: "", example: EXAMPLE_MAP };
+const map = new URLSearchParams(location.search).get("map") ?? "example";
+window.postMessage({ type: "init", text: MAPS[map] ?? EXAMPLE_MAP }, "*");

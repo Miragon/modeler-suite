@@ -6,6 +6,7 @@ export type {
   CspHooks,
   DropFixture,
   DropFixtures,
+  EmptyDocument,
   LabelEditorHooks,
   OpenContext,
   RegisterShellConformanceOptions,

@@ -750,7 +750,7 @@ interface InspectorOptions {
   label: string; // aria-label of the <aside>
 }
 interface EmptyHintOptions {
-  onInsertExample?(): void; // shows "Insert example"; the modeler writes the example as one edit
+  onInsertExample?(): void; // "Insert example" (IDE, embedded); the modeler writes it as one edit
 }
 ```
 
@@ -1614,7 +1614,11 @@ interface EmptyStateOptions {
   (an image drag can carry a file and would open the drop zone). Any other start (Open…, a dropped
   file, a shared link, the first edit) is the modeler's to end with `setEmptyState(false)`; the card
   does not come back in the session.
-- The IDE and embedded hosts have no start screen; they use the empty-file hint (§13.5).
+- The IDE and embedded hosts have no start screen; they use the empty-file hint (§13.5). The web
+  app shows that hint too once the card is gone and the diagram is empty, after "New diagram" as
+  after deleting the last element (§8, design system 1.23.0): pass `emptyHint: {}` without
+  `onInsertExample`, since the File group's "Show example" opens the example. While the card shows,
+  it hides the hint with the rest of the work chrome.
 
 ### Drop zone (§9)
 
@@ -2162,6 +2166,7 @@ interface PageLike {
 interface OpenContext {
   size: Size; // the shell container's size (grow the page by any frame around an embedded root)
   requested: Appearance; // what the host requests; the harness opens the page with it (embedded, web: see below)
+  document?: string; // after 0.5.0: a key of harness.documents; absent: the default document
 }
 interface ShowHooks<P extends PageLike = PageLike> {
   problems?(page: P): Promise<void>; // web: with items, so the popover has rows
@@ -2192,6 +2197,11 @@ interface CspHooks<P extends PageLike = PageLike> {
 // "labelEditor" (0.4): the notation has no labels to edit on the canvas
 // "canvasMenuAction" (0.4): no File or Model action without a dialog (an IDE host whose Model group holds toggles and dialogs)
 type AbsentFeature = ShowHook | "drop" | "problemSelection" | "labelEditor" | "canvasMenuAction";
+// after 0.5.0: the keys of harness.documents the kit reserves for a document without an element
+// "empty": the empty diagram a user starts from (IDE: the file "New Empty <Diagram>" writes;
+//          web: the canvas after "New diagram" on the start screen; embedded: the host's new one)
+// "blank": a file of zero bytes (IDE)
+type EmptyDocument = "empty" | "blank";
 interface ToastFixture {
   status: ToastStatus;
   text: string;
@@ -2219,9 +2229,10 @@ interface ShellConformanceHarness<P extends PageLike = PageLike> {
   csp?: CspHooks<P>; // 0.6, ide: the production webview bundle of the csp case
   absent?: readonly AbsentFeature[]; // islands, states, the drop zone and a label editor the modeler does not have
   sizes?: readonly Size[]; // default 1280 × 900, 720 × 700, 420 × 700
+  documents?: readonly string[]; // after 0.5.0: documents open loads by key besides its default one
 }
 interface ShellSkip {
-  hook: ShowHook | "drop" | "labelEditor" | "csp" | "destroy" | "open"; // the harness field that would feed the skipped part
+  hook: ShowHook | "drop" | "labelEditor" | "csp" | "destroy" | "documents" | "open"; // the harness field that would feed the skipped part
   reason: string;
 }
 interface ShellCaseOutcome {
@@ -2362,18 +2373,29 @@ affected.
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `csp` | the bundle the extension ships, opened through `csp.open` (`openWebviewBundle`): the page carries exactly `renderWebviewHtml`'s policy for its origin (with any nonce, with or without `'unsafe-inline'` styles), so a `csp.open` cannot loosen it, and the VS Code stub that records; then a walk over what renders late: the tooltip of a palette entry, a shape a pointer reaches clicked and each entry of its context pad hovered, a double-click on it (the label editor) and Escape, every enabled menu entry that is not `data-danger` from a freshly opened menu (the exports, each dialog closed again by Escape, the toggles such as the Legend, each radio option not chosen yet), zoom in and Fit, and 500ms for what they started. Fails on every `securitypolicyviolation` (directive, blocked URI, source, with a hint for eval, inline styles and fonts), every uncaught error, unhandled rejection, failed resource load and `console.error` the stub recorded, and on a shell font (the first family of the root's text and mono stacks, Geist Variable and Geist Mono Variable) that loads no face for `13px` or whose `@font-face` takes its `src` from a `data:` URL or carries no `unicode-range` beside the family's other subsets (every page would fetch that file), and on every font face of the page whose load failed (`FontFace.status` `"error"`, such as a missing italic the canvas uses). Fails, too, when the walk finds no palette entry, no menu trigger or no `role="menu"` after clicking it, or activates no menu entry, since the bundle's tooltips, exports and dialogs would then go unverified. Skips with `hook: "csp"` without `csp` and with `hook: "open"` when the bundle shows no shape a pointer reaches |
 
+**After 0.5.0, documents and the empty file.** `documents` lists further documents `open` loads by
+key (`OpenContext.document`): the reserved keys of `EmptyDocument` and any of the harness's own (a
+document in a style the renderer paints differently, say). `appearance` runs on each of them. The
+other cases keep the default document: the chrome they measure does not change with the document, or
+they need content to act on. One case joins after `create` and runs in every host:
+
+| Case / extension        | Checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `emptyFile`             | guide §5.9, §8 (design system 1.23.0) and §13.5, on `"empty"` and, listed, `"blank"`, each opened light at the first and the last of `sizes` (by default 1280 × 900 and 420 × 700, where the palette moves to the second row): with Fit `aria-disabled` (nothing to fit) the readout shows 100 %; with Fit enabled (content bounds that always hold a plot, as Wardley's) a click on Fit leaves the view as it is, so the diagram opened fitted to it; the empty-file hint (`.cd-shell-hint`) is visible, reads "Pick a tool from the palette to start.", and its content is centred in the free rectangle (the container minus the fit insets recomputed from the measured chrome) within 1px; no start screen card; in the web host no button in the hint (no "Insert example", the File group has "Show example"), elsewhere none but "Insert example". At the first size, after `INVALID_STATUS_DELAY_MS`: no `data-readonly` and no visible status box (an empty file is no invalid file); then Enter on the first creating palette entry (as `create`) adds one element whose own bounds (its `.djs-hit`, `width × height`) are centred within 12px of the free rectangle's middle, the hint goes and the view does not move; Escape, then Delete on that element removes it and the hint is back in the middle. Skips with `hook: "documents"` without `"empty"`, and in the IDE host without `"blank"` |
+| `appearance` (extended) | runs on the default document and on every document of `documents`, its problems prefixed `[document "<key>"]`; the visible empty-file hint counts as a part, so it is never half-dark                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+
 - **Skips.** A case the harness cannot feed reports what it skipped as `ShellSkip`s, one per missing
   harness field, through `onSkip` (default `console.warn`). A hook that is neither in `show` nor in
   `absent` is skipped with `hook` set to its name, a missing `drop`, `labelEditor` or (in the `ide`
-  host) `csp` with `hook` set to that field, a missing `destroy` with `hook: "destroy"`, and a
-  document that lacks what a case needs (a shape a pointer reaches, for `readOnly`, `reducedMotion`
-  and `csp`; a shape or connection, for `overlayLayers`; a File or Model action without a dialog,
-  for `focusHandBack`) with `hook: "open"`, as is a page without `emulateMedia` in `reducedMotion`
-  and `forcedColors`. `absent` lists what the modeler does not have (an island, the `invalid` state,
-  the drop zone, a label editor or a File or Model action without a dialog), which is then never
-  reported, while `geometry` and `aria` assert that the island never shows. Listing a hook in both
-  `show` (or `drop`, `labelEditor`) and `absent` fails every case that uses it. A suite that lists
-  what it lacks can fail on every remaining skip:
+  host) `csp` with `hook` set to that field, a missing `destroy` with `hook: "destroy"`, a missing
+  reserved key of `documents` with `hook: "documents"`, and a document that lacks what a case needs
+  (a shape a pointer reaches, for `readOnly`, `reducedMotion` and `csp`; a shape or connection, for
+  `overlayLayers`; a File or Model action without a dialog, for `focusHandBack`) with `hook: "open"`,
+  as is a page without `emulateMedia` in `reducedMotion` and `forcedColors`. `absent` lists what the
+  modeler does not have (an island, the `invalid` state, the drop zone, a label editor or a File or
+  Model action without a dialog), which is then never reported, while `geometry` and `aria` assert
+  that the island never shows. Listing a hook in both `show` (or `drop`, `labelEditor`) and `absent`
+  fails every case that uses it. A suite that lists what it lacks can fail on every remaining skip:
   `onSkip(name, skips) { throw new Error(…) }`.
 - **`show.invalid`** makes the file invalid the way the host does (in a webview: a document update
   the parser rejects), not by calling `shell.setReadOnly` alone: the `readOnly` case also checks the
@@ -3560,12 +3582,6 @@ Later candidates unless noted:
   free rectangle is taken (§5.5), next to `Viewport.freeRectCenter()`.
 - the `appearance` surface of the modeler-api contract (a later 1.x minor) for embedded hosts and
   the `miragon.<modeler>.colorTheme` setting UI (the bridge already honours `settingKey`).
-- **Kit** (the cases for reduced motion, forced colours and the canvas's overlay layers joined it
-  after 0.5.0, the `csp` case in 0.6):
-  - a harness field `documents?: readonly string[]` that hands `open` a document key (for example
-    `["example", "style-dark", "empty"]`), so `appearance` runs per document; until then a modeler
-    registers a second harness whose `open` loads the variant;
-  - on those documents, a check that an empty one opens at 100 % with the empty-file hint.
 - **VS Code smoke driver** (`./testing/vscode-electron`): keeping a local run on macOS in the
   background (no focus change; the Docker command is the way until then), a reused `node_modules`
   between Docker runs; viewbox and selection kept across the

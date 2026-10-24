@@ -15,6 +15,9 @@ import { waitForApp } from "./support/modeler.js";
  * clean teardown. The web app has no invalid-file state (it edits no text, and a file it cannot
  * read leaves the diagram as it was), so the harness declares only that absent; any skip fails the
  * suite.
+ * `documents` adds the empty diagram after "New diagram" on the start screen: at 100 % with the
+ * empty-file hint in the middle, gone with the first team (the `emptyFile` case), and the
+ * appearance case runs on it too.
  */
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
@@ -35,6 +38,15 @@ function currentDocument(page: Page): Promise<string> {
   );
 }
 
+/** The web host's empty document: the start screen of a fresh visit, then its "New diagram". */
+async function openNewDiagram(page: Page): Promise<void> {
+  await page.goto("about:blank");
+  await page.goto("/");
+  await waitForApp(page);
+  await page.getByRole("button", { name: "New diagram" }).click();
+  await page.locator('[data-chrome="empty-state"]').waitFor({ state: "hidden" });
+}
+
 test.describe("web app: shell conformance", () => {
   test.describe.configure({ timeout: 90_000 });
 
@@ -43,7 +55,7 @@ test.describe("web app: shell conformance", () => {
       host: "web",
       themes: THEMES,
       // The kit emulates the system's colour scheme and contrast before every open.
-      async open(page, { size }) {
+      async open(page, { size, document: documentKey }) {
         if (!freshPages.has(page)) {
           freshPages.add(page);
           await page.addInitScript(() => {
@@ -55,12 +67,17 @@ test.describe("web app: shell conformance", () => {
           });
         }
         await page.setViewportSize(size);
+        if (documentKey === "empty") {
+          await openNewDiagram(page);
+          return;
+        }
         // A new document, as on a first visit: from the app, a link that changes only the fragment
         // keeps the page, and the shell reads the legend's start state once per mount.
         await page.goto("about:blank");
         await page.goto(diagramLink(sampleDocument()));
         await waitForApp(page);
       },
+      documents: ["empty"],
       async destroy(page) {
         await page.evaluate(() => window.__ttApp?.destroy());
       },

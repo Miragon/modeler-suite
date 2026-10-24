@@ -53,6 +53,8 @@ import { openShortcutsDialog } from "./demo-dialog.js";
  * - `empty`: start without content; `legend` (`legend=open`: open at start), `inspector`: mount
  *   those slots; `wideLegend`: a second legend row wider than the card's minimum width, so the
  *   card's width depends on its font;
+ * - `plot`: content bounds that always hold a fixed plot (`DEMO_PLOT`), as Wardley's do, so an
+ *   empty diagram opens fitted to it and the empty-file hint follows the shapes alone;
  * - `problems=<count>:<errors>`, `status=danger|warning`: show pill and status box at start;
  * - `invalid`: the invalid-file state (`__demo.setInvalid(true)`: read-only canvas at once, its
  *   marks and the status box after 800ms).
@@ -252,8 +254,14 @@ const shell: ShellHandle =
     ? mountVsCodeShell(root, { ...options, themes })
     : mountShell(root, { ...options, host, ...(host === "web" ? { appearance } : {}) });
 
+/** The fixed plot of `plot`: wider than any demo container, so its fit lands below 100 %. */
+const DEMO_PLOT = { x: 0, y: 0, width: 2400, height: 1600 };
+const plot = params.has("plot") ? DEMO_PLOT : undefined;
+
 const connection: DiagramJsConnection = connectDiagramJs(shell, diagram, {
-  modeler: createDemoModeler(diagram),
+  modeler: createDemoModeler(diagram, plot),
+  // With a plot the bounds never tell an empty diagram; empty means no shape (guide §13.5).
+  ...(plot ? { isEmpty: () => demoContentBounds(diagram) === undefined } : {}),
 });
 const stopPersisting = vscode ? persistView(vscode, connection.viewport) : undefined;
 

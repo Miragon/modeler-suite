@@ -25,5 +25,8 @@ void webview.ready.then(() => {
   window.webviewReady = true;
 });
 
-const map = search.get("map");
-window.postMessage({ type: "init", text: map === "empty" ? EMPTY_MAP : EXAMPLE_MAP }, "*");
+const MAPS: Record<string, string> = { empty: EMPTY_MAP, blank: "", example: EXAMPLE_MAP };
+window.postMessage(
+  { type: "init", text: MAPS[search.get("map") ?? "example"] ?? EXAMPLE_MAP },
+  "*",
+);

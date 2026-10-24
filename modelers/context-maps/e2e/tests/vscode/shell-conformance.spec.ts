@@ -18,7 +18,9 @@ import { INVALID_MAP, openShippedWebview } from "./support/webview.js";
  * kit asserts it never shows. The webview's menu has no File group (VS Code's own File menu opens
  * and saves) and its Model group holds only "Map title…", a dialog, and the Legend checkbox, so
  * no menu entry acts on the canvas: the harness declares that absent too. Any skip fails the
- * suite. Every case opens the example.
+ * suite. Every case but `emptyFile` opens the example; `documents` adds the map "New Empty
+ * Diagram" writes and a file of zero bytes, on which `emptyFile` checks the empty file (100 %, the
+ * empty-file hint, gone with the first context) and `appearance` runs as well.
  */
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
@@ -31,11 +33,14 @@ test.describe("VS Code webview: shell conformance", () => {
       host: "ide",
       themes: WEBVIEW_THEMES,
       csp: { open: openShippedWebview },
-      async open(page, { size, requested }) {
+      async open(page, { size, requested, document: documentKey }) {
         await page.setViewportSize(size);
-        await page.goto(`/webview-test.html?${vsCodeStubSearch(requested)}`);
+        const search = new URLSearchParams(vsCodeStubSearch(requested));
+        if (documentKey) search.set("map", documentKey);
+        await page.goto(`/webview-test.html?${search.toString()}`);
         await page.waitForFunction(() => window.webviewReady === true);
       },
+      documents: ["empty", "blank"],
       async destroy(page) {
         await page.evaluate(() => {
           window.connection?.destroy();

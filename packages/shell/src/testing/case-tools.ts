@@ -1,6 +1,13 @@
 import { TOOLTIP_DELAY_MS, type Appearance, type ShellHost, type Size } from "../core/index.js";
-import { harnessHookProblems } from "./checks.js";
-import { menuEntriesProbe, shapesProbe, type MenuEntryFacts, type ShapeFacts } from "./facts.js";
+import { harnessHookProblems, isToolEntry } from "./checks.js";
+import {
+  menuEntriesProbe,
+  paletteFocusProbe,
+  shapesProbe,
+  type MenuEntryFacts,
+  type PaletteEntryState,
+  type ShapeFacts,
+} from "./facts.js";
 import type {
   AbsentFeature,
   OpenContext,
@@ -11,7 +18,14 @@ import type {
   ShowHooks,
 } from "./harness.js";
 import type { PageLike } from "./page.js";
-import { findTarget, inPage, settle, type ChromeTarget, type TargetFacts } from "./page-tools.js";
+import {
+  findTarget,
+  focusTarget,
+  inPage,
+  settle,
+  type ChromeTarget,
+  type TargetFacts,
+} from "./page-tools.js";
 
 /*
  * What every case shares: opening the harness, failing and finishing, skips, polling and the
@@ -39,6 +53,9 @@ export const POLL_MS = 50;
 
 /** Room for the chrome tooltip's own fade after its 300ms hover delay. */
 export const HOVER_MARGIN_MS = 200;
+
+/** Room for a modeler that places, selects or re-renders a frame or two after Enter. */
+export const CREATE_WAIT_MS = 1000;
 
 /** A spot without chrome: the root's top-left corner lies outside every island (12px edge). */
 export const PARK = { x: 1, y: 1 } as const;
@@ -182,4 +199,47 @@ export async function menuEntries(page: PageLike, root: string): Promise<MenuEnt
 /** The visible shapes on the canvas. */
 export function shapes(page: PageLike, root: string): Promise<ShapeFacts[]> {
   return inPage(page, shapesProbe, { root });
+}
+
+/** Moves the palette's roving focus by keyboard to `action`; `false` when it cannot get there. */
+export async function focusPaletteEntry(
+  page: PageLike,
+  root: string,
+  action: string,
+): Promise<boolean> {
+  const before = await inPage(page, paletteFocusProbe, { root });
+  if (!before || !before.entries.includes(action)) return false;
+  if (!(await focusTarget(page, root, "palette-tab-stop"))) return false;
+  await page.keyboard.press("Home");
+  for (let step = 0; step <= before.entries.length; step++) {
+    if ((await inPage(page, paletteFocusProbe, { root }))?.active === action) return true;
+    await page.keyboard.press("ArrowRight");
+  }
+  return false;
+}
+
+/** The first entry that creates something: outside the tools group and not a tool. */
+export function firstCreatingEntry(
+  entries: readonly PaletteEntryState[],
+): PaletteEntryState | undefined {
+  return entries.find((entry) => !isToolEntry(entry));
+}
+
+/** Enter on `entry`; the shapes once a new one appeared or `CREATE_WAIT_MS` passed. */
+export async function enterOnEntry(
+  page: PageLike,
+  root: string,
+  entry: string,
+  before: readonly ShapeFacts[],
+): Promise<ShapeFacts[] | undefined> {
+  if (!(await focusPaletteEntry(page, root, entry))) return undefined;
+  await page.keyboard.press("Enter");
+  await settle(page);
+  const known = new Set(before.map((shape) => shape.id));
+  return pollUntil(
+    page,
+    () => shapes(page, root),
+    (after) => after.some((shape) => !known.has(shape.id)),
+    CREATE_WAIT_MS,
+  );
 }

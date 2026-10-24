@@ -6,7 +6,7 @@ import {
   type ShellConformanceHarness,
 } from "../src/testing.js";
 import { createWebCases } from "../src/testing/web-cases.js";
-import { demoHarness } from "./demo-harness.js";
+import { demoHarness, type DemoHarnessOptions } from "./demo-harness.js";
 import { webDemoHarness, type WebDemoHarnessOptions } from "./web-harness.js";
 
 /*
@@ -54,6 +54,7 @@ const OWN_SABOTEURS_ONLY: ReadonlySet<string> = new Set([
   "reducedMotion",
   "forcedColors",
   "overlayLayers",
+  "emptyFile",
 ]);
 
 /**
@@ -128,6 +129,8 @@ function sabotaged(
   return {
     ...harness,
     sizes: WIDE_ONLY,
+    // appearance on each empty document adds seconds to every saboteur; emptySabotaged keeps them
+    documents: undefined,
     async open(page, context) {
       await harness.open(page, context);
       await page.evaluate(sabotage);
@@ -144,9 +147,30 @@ function webSabotaged(
   return {
     ...harness,
     sizes: WIDE_ONLY,
+    documents: undefined,
     async open(page, context) {
       await harness.open(page, context);
       await page.evaluate(sabotage);
+    },
+  };
+}
+
+/**
+ * The demo's harness with its empty documents and `sabotage` applied right after every open; the
+ * sabotage receives the document's key, `null` for the default document.
+ */
+function emptySabotaged(
+  sabotage: (key: string | null) => void,
+  host: "ide" | "web" = "ide",
+  options: DemoHarnessOptions = {},
+): ShellConformanceHarness<Page> {
+  const harness = host === "web" ? webDemoHarness() : demoHarness(host, options);
+  return {
+    ...harness,
+    sizes: WIDE_ONLY,
+    async open(page, context) {
+      await harness.open(page, context);
+      await page.evaluate(sabotage, context.document ?? null);
     },
   };
 }
@@ -207,6 +231,7 @@ function toastsLiftedBy(reading: ToastReading): ShellConformanceHarness<Page> {
   return {
     ...harness,
     sizes: WIDE_ONLY,
+    documents: undefined,
     async open(page, context) {
       await harness.open(page, context);
       await page.evaluate(liftToasts, reading);
@@ -965,6 +990,163 @@ test.describe("saboteurs", () => {
       /label editor: Cmd\/Ctrl\+0 on the canvas committed the open label editor/,
     );
     expect(failure).not.toMatch(/left the view as it was/);
+  });
+
+  test("emptyFile fails an empty diagram that does not open at 100 %", async ({ page }) => {
+    // a renderer that sets a zoom of its own on every import, as Event Storming's did (118 %)
+    const harness = emptySabotaged((key) => {
+      if (key) window.__demo!.connection.viewport.stepZoom(1);
+    });
+    const failure = await failureOf("emptyFile", page, harness);
+    for (const key of ["empty", "blank"]) {
+      expect(failure).toMatch(
+        new RegExp(
+          `\\[document "${key}", 1280 × 900\\] zoom: the empty diagram opens at \\d+%, expected 100 %: with nothing to fit \\(Fit is aria-disabled\\) it opens at 100 %, without a fit \\(guide §5\\.9, §13\\.5\\)`,
+        ),
+      );
+    }
+  });
+
+  test("emptyFile fails an empty diagram without the empty-file hint", async ({ page }) => {
+    const harness = emptySabotaged((key) => {
+      if (key) window.__demo!.shell.setEmptyHint(false);
+    });
+    expect(await failureOf("emptyFile", page, harness)).toMatch(
+      /\[document "empty", 1280 × 900\] hint: no visible empty-file hint \(\.cd-shell-hint\) on the empty diagram; it says "Pick a tool from the palette to start\." in the middle of the free rectangle \(guide §13\.5\)/,
+    );
+  });
+
+  test("emptyFile fails a hint centred in the container instead of the free rectangle", async ({
+    page,
+  }) => {
+    // the fit's 88px on top and 64px below leave the middle of the free rectangle 12px lower
+    const harness = emptySabotaged(() => {
+      const style = document.createElement("style");
+      style.textContent = ".cd-shell-hint { inset: 0 !important; }";
+      document.head.append(style);
+    });
+    const failure = await failureOf("emptyFile", page, harness);
+    expect(failure).toMatch(
+      /\[document "empty", 1280 × 900\] hint: its content is centred at \(640, 450\)px, expected the middle of the free rectangle at \(640, 462\)px \(guide §5\.9, §13\.5\)/,
+    );
+    expect(failure).toMatch(
+      /after Delete removed the last element: hint: its content is centred at \(640, 450\)px/,
+    );
+  });
+
+  test("emptyFile fails a hint that stays with the first element", async ({ page }) => {
+    // an isEmpty that never sees the canvas's own elements
+    const harness = emptySabotaged(() => {
+      const shell = window.__demo!.shell;
+      const setEmptyHint = shell.setEmptyHint.bind(shell);
+      shell.setEmptyHint = (visible) => {
+        if (visible) setEmptyHint(true);
+      };
+    });
+    expect(await failureOf("emptyFile", page, harness)).toMatch(
+      /\[document "empty", 1280 × 900\] hint: still visible after Enter on palette entry "create\.box" placed "[^"]+"; the hint goes with the first element \(guide §13\.5\)/,
+    );
+  });
+
+  test("emptyFile fails a hint that does not return once the last element is deleted", async ({
+    page,
+  }) => {
+    // a hint that only an import shows, as if it were the start screen
+    const harness = emptySabotaged(() => {
+      const shell = window.__demo!.shell;
+      const setEmptyHint = shell.setEmptyHint.bind(shell);
+      let hadElements = false;
+      shell.setEmptyHint = (visible) => {
+        hadElements ||= !visible;
+        if (!visible || !hadElements) setEmptyHint(visible);
+      };
+    });
+    const failure = await failureOf("emptyFile", page, harness);
+    expect(failure).toMatch(
+      /\[document "empty", 1280 × 900\] after Delete removed the last element: hint: no visible empty-file hint/,
+    );
+    expect(failure).not.toMatch(/still visible after Enter/);
+  });
+
+  test("emptyFile fails a file of zero bytes that opens as an invalid file", async ({ page }) => {
+    const harness = emptySabotaged((key) => {
+      if (key === "blank") window.__demo!.setInvalid(true);
+    });
+    const failure = await failureOf("emptyFile", page, harness);
+    expect(failure).toMatch(
+      /\[document "blank", 1280 × 900\] invalid file: the empty diagram is read-only \(data-readonly\); an empty file is a new diagram, not an invalid one \(guide §13\.5\)/,
+    );
+    expect(failure).toMatch(
+      /\[document "blank", 1280 × 900\] invalid file: the status box shows "This file isn't a valid demo diagram right now\./,
+    );
+    expect(failure).not.toMatch(/\[document "empty", [^\]]*\] invalid file/);
+  });
+
+  test("emptyFile passes a plot that always counts once the empty diagram opens fitted to it", async ({
+    page,
+  }) => {
+    // Wardley's map: the plot is the content bounds, so Fit stays enabled and the first view fits it
+    const harness: ShellConformanceHarness<Page> = demoHarness("ide", { plot: true });
+    await expect(runCase("emptyFile", page, harness)).resolves.toBeUndefined();
+  });
+
+  test("emptyFile fails a plot that always counts when the empty diagram does not open fitted", async ({
+    page,
+  }) => {
+    const harness = emptySabotaged(
+      (key) => {
+        if (key) window.__demo!.connection.viewport.stepZoom(1);
+      },
+      "ide",
+      { plot: true },
+    );
+    expect(await failureOf("emptyFile", page, harness)).toMatch(
+      /\[document "empty", 1280 × 900\] zoom: Fit is enabled, so the content bounds hold a plot that always counts, but the empty diagram did not open fitted to it: a click on Fit moved the view from \d+% to \d+% \(guide §5\.9, §13\.5\)/,
+    );
+  });
+
+  test("emptyFile fails a web app without the empty-file hint after New diagram", async ({
+    page,
+  }) => {
+    // the four web apps before design system 1.23.0: only the start screen, no hint behind it
+    const harness = emptySabotaged((key) => {
+      if (key) document.querySelector(".cd-shell-hint")?.remove();
+    }, "web");
+    expect(await failureOf("emptyFile", page, harness)).toMatch(
+      /\[document "empty", 1280 × 900\] hint: no visible empty-file hint \(\.cd-shell-hint\) on the empty diagram; it says "Pick a tool from the palette to start\." in the middle of the free rectangle \(guide §8, §13\.5\)/,
+    );
+  });
+
+  test("emptyFile fails Insert example in the web app's hint", async ({ page }) => {
+    const harness = emptySabotaged((key) => {
+      if (!key) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "cd-shell-hint-action";
+      button.textContent = "Insert example";
+      document.querySelector(".cd-shell-hint")!.append(button);
+    }, "web");
+    expect(await failureOf("emptyFile", page, harness)).toMatch(
+      /\[document "empty", 1280 × 900\] hint: shows "Insert example" in the web app; there it has no "Insert example", the File group's "Show example" opens the example \(guide §8\)/,
+    );
+  });
+
+  test("appearance runs on every document: a dark hint fails on the empty one only", async ({
+    page,
+  }) => {
+    const harness = emptySabotaged(() => {
+      const style = document.createElement("style");
+      style.textContent = ".cd-shell-hint { color-scheme: dark; }";
+      document.head.append(style);
+    });
+    const failure = await failureOf("appearance", page, harness);
+    expect(failure).toMatch(
+      /- \[document "empty"\] \[requested dark\] hint: color-scheme is "dark"/,
+    );
+    expect(failure).toMatch(
+      /- \[document "blank"\] \[requested dark\] hint: color-scheme is "dark"/,
+    );
+    expect(failure).not.toMatch(/- \[requested [^\]]+\] hint:/);
   });
 
   test("legendStart fails a harness whose open keeps the document, and passes it from about:blank", async ({

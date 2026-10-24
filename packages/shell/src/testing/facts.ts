@@ -315,7 +315,7 @@ export interface AppearanceFacts {
   documentClasses: string[];
   /** Every element with `data-cd-theme` or `data-cd-kontrast`. */
   themed: ThemedElementFacts[];
-  /** Root, canvas, every visible island, the open dropdown and the visible tooltip. */
+  /** Root, canvas, every visible island, the visible empty-file hint, the open dropdown and the visible tooltip. */
   parts: ModeFacts[];
 }
 
@@ -347,6 +347,8 @@ export const appearanceProbe = ({
     if (tools.visible(island))
       parts.push(mode(island.getAttribute("data-chrome") ?? "island", island));
   }
+  const hint = rootElement.querySelector(".cd-shell-hint");
+  if (hint && tools.visible(hint)) parts.push(mode("hint", hint));
   for (const [name, role] of [
     ["dropdown", "menu"],
     ["tooltip", "tooltip"],

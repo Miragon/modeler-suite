@@ -14,12 +14,24 @@ import { waitForViewer } from "./support/viewer.js";
  * list, the drop zone and a clean teardown. The web app has neither a legend nor an inspector, and
  * no invalid-file state (the DSL reads every text, and a file that is no map leaves the map as it
  * was), so the harness declares them absent; any skip fails the suite.
+ * `documents` adds the empty map after "New diagram" on the start screen: fitted to its plot with
+ * the empty-file hint in the middle, gone with the first component (the `emptyFile` case), and the
+ * appearance case runs on it too.
  */
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
 
 /** The example with two lines the parser cannot take: two text rows in the problems list. */
 const MAP_WITH_FINDINGS = `${EXAMPLE_MAP}compnent Typo [0.2, 0.2]\nCup -> Nowhere\n`;
+
+/** The web host's empty document: the start screen of a fresh visit, then its "New diagram". */
+async function openNewDiagram(page: Page): Promise<void> {
+  await page.goto("about:blank");
+  await page.goto("/");
+  await waitForViewer(page);
+  await page.getByRole("button", { name: "New diagram" }).click();
+  await page.locator('[data-chrome="empty-state"]').waitFor({ state: "hidden" });
+}
 
 test.describe("web app: shell conformance", () => {
   test.describe.configure({ timeout: 90_000 });
@@ -29,11 +41,16 @@ test.describe("web app: shell conformance", () => {
       host: "web",
       themes: THEMES,
       // The kit emulates the system's colour scheme and contrast before every open.
-      async open(page, { size }) {
+      async open(page, { size, document: documentKey }) {
         await page.setViewportSize(size);
+        if (documentKey === "empty") {
+          await openNewDiagram(page);
+          return;
+        }
         await page.goto(`/#mz=${await encodeMapCompressed(EXAMPLE_MAP)}`);
         await waitForViewer(page);
       },
+      documents: ["empty"],
       async destroy(page) {
         await page.evaluate(() => window.__wardleyApp?.destroy());
       },

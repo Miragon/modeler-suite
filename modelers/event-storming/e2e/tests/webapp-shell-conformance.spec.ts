@@ -15,6 +15,9 @@ import { exportDSL, waitForViewer } from "./support/viewer.js";
  * legend nor an inspector, no invalid-file state (an import that fails leaves the board as it was)
  * and no problem that points at an element, so the harness declares them absent; any skip fails
  * the suite.
+ * `documents` adds the empty board after "New diagram" on the start screen: at 100 % with the
+ * empty-file hint in the middle, gone with the first sticky (the `emptyFile` case), and the
+ * appearance case runs on it too.
  */
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
@@ -28,6 +31,15 @@ const freshPages = new WeakSet<Page>();
 /** The board text when the label editor last opened: what a save or a share would carry. */
 const boardAtLabelEditorOpen = new WeakMap<Page, string>();
 
+/** The web host's empty document: the start screen of a fresh visit, then its "New diagram". */
+async function openNewDiagram(page: Page): Promise<void> {
+  await page.goto("about:blank");
+  await page.goto("/");
+  await waitForViewer(page);
+  await page.getByRole("button", { name: "New diagram" }).click();
+  await page.locator('[data-chrome="empty-state"]').waitFor({ state: "hidden" });
+}
+
 test.describe("web app: shell conformance", () => {
   test.describe.configure({ timeout: 60_000 });
 
@@ -36,7 +48,7 @@ test.describe("web app: shell conformance", () => {
       host: "web",
       themes: THEMES,
       // The kit emulates the system's colour scheme and contrast before every open.
-      async open(page, { size }) {
+      async open(page, { size, document: documentKey }) {
         if (!freshPages.has(page)) {
           freshPages.add(page);
           await page.addInitScript(() => {
@@ -48,9 +60,14 @@ test.describe("web app: shell conformance", () => {
           });
         }
         await page.setViewportSize(size);
+        if (documentKey === "empty") {
+          await openNewDiagram(page);
+          return;
+        }
         await page.goto(`/#mz=${await encodeMapCompressed(EXAMPLE_BOARD)}`);
         await waitForViewer(page);
       },
+      documents: ["empty"],
       async destroy(page) {
         await page.evaluate(() => window.__eventStormingApp?.destroy());
       },

@@ -140,6 +140,9 @@ const shell = mountShell(app, {
   // The rows come after the mount, which hands out the chrome tooltip they explain themselves in.
   legend: { render: () => undefined, open: readLegendOpen(), onToggle: writeLegendOpen },
   problems: { onSelectItem: (item) => selectElement(item.elementId) },
+  // Guide §8 (design system 1.23.0): an empty diagram after the start screen shows the empty-file
+  // hint, without "Insert example": the File group's "Show example" opens the example.
+  emptyHint: {},
   emptyState: {
     title: APP_NAME,
     text: "Start a new diagram, or explore the example.",

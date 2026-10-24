@@ -167,7 +167,8 @@ passed on the VSIX it uploads) is in the suite's
   (`e2e/tests/support/label-editor.ts`: a double-click on a shape, then typing); the IDE suite
   declares `canvasMenuAction` absent, since its menu has no File or Model action.
 - The web app mounts the same shell on its web host (`mountShell`, `host: 'web'`, themes
-  `['light']`): File/Export/Help menu, Share, legal line, toasts, start screen, drop zone; no
+  `['light']`): File/Export/Help menu, Share, legal line, toasts, start screen, the empty-file hint
+  after "New diagram" (without "Insert example"), drop zone; no
   problems list, since a document that validates imports without warnings. `index.html` is static `data-cd-theme="light"`; the Vite plugin puts `webHeadMarkup` in place
   of `<!-- miragon-mode -->`. It runs `createCollaborativeModeler` (canvas undo keys on), autosaves
   the canonical JSON in `localStorage` and writes a share link (`#mz=`, deflate-raw) only on Share;

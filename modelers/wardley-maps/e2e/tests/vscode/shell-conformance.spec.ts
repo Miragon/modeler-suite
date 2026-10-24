@@ -16,6 +16,9 @@ import { openShippedWebview, postedMessages } from "./support/webview.js";
  * VS Code requests (a light-only map stays light, high contrast passes) and a clean teardown.
  * Wardley maps have neither a legend nor an inspector, so the harness declares them absent and the
  * kit asserts they never show; any skip fails the suite.
+ * `documents` adds the map "New Empty Map" writes and a file of zero bytes: each opens fitted to
+ * its plot with the empty-file hint, which the first component takes away (the `emptyFile` case),
+ * and the appearance case runs on them too.
  */
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
@@ -28,11 +31,14 @@ test.describe("VS Code webview: shell conformance", () => {
       host: "ide",
       themes: WEBVIEW_THEMES,
       csp: { open: openShippedWebview },
-      async open(page, { size, requested }) {
+      async open(page, { size, requested, document: documentKey }) {
         await page.setViewportSize(size);
-        await page.goto(`/webview-test.html?${vsCodeStubSearch(requested)}`);
+        const search = new URLSearchParams(vsCodeStubSearch(requested));
+        if (documentKey) search.set("map", documentKey);
+        await page.goto(`/webview-test.html?${search.toString()}`);
         await page.waitForFunction(() => window.webviewReady === true);
       },
+      documents: ["empty", "blank"],
       async destroy(page) {
         await page.evaluate(() => {
           window.connection?.destroy();

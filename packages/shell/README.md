@@ -349,26 +349,28 @@ modeler passes `problems.onActivate` (an embedding host with a list of its own).
 ## The conformance kit
 
 Every modeler runs the kit in its own Playwright suite against its real webview or page. It checks
-the geometry of every island (±1px), that without a stored state the legend starts closed at
-390 × 844, 441 × 900 and 1280 × 900, ARIA and the keyboard models, that every chrome key acts exactly
-once and never reaches VS Code, that the canvas's own keys (Cmd/Ctrl+A) stay on the canvas, that a
+the geometry of every island (±1px), that without a stored state the legend starts closed at 390 ×
+844, 441 × 900 and 1280 × 900, ARIA and the keyboard models, that every chrome key acts exactly once
+and never reaches VS Code, that the canvas's own keys (Cmd/Ctrl+A) stay on the canvas, that a
 pointer click on the zoom panel, a palette tool or a File or Model menu action without a dialog
 hands the focus to the canvas while Enter and Space leave it on the zoom button and Enter on that
 menu entry returns it to the menu trigger, that nothing is ever half-dark (the painted canvas
-surround and the palette's colours included), that Enter on a creating palette entry adds one
-selected element, that the shell's zoom, fit and refit never commit an open label editor (contract
-L5) and leave it open with the typed text (L5 recommends it, the kit requires it), that an invalid
-file locks the canvas, that nothing moves under reduced motion (also VS Code's) and an explicit fit
-jumps, that under forced colours the islands, the dropdown and the modeler's dialogs keep their
-border and the pressed tool, the focus and the status box their marks, that what stays on the canvas
-(a toolbar, a prompt, the label editor) lies under the palette, that the IDE host's production
-bundle runs under the webview CSP without a violation, an error or a missing font, and that
-`destroy()` leaves nothing behind. Five more cases cover the web column (`webChrome`, `emptyState`,
-`toasts`, `problemsList`, `dropZone`); in the IDE and embedded hosts they assert that none of it
-shows. Every `aria-keyshortcuts` the kit reads must name keys, not characters: a `?` chip is
-`Shift+/ Shift+ß`, the keys of US and German, and no shortcut chip may show a character that needs
-AltGr or ⌥, sits on a dead key or is missing in one of them, such as `@` (guide §5.6, design system
-1.21.0).
+surround and the palette's colours included, on every document the harness lists), that Enter on a
+creating palette entry adds one selected element, that an empty document opens at 100 % (or fitted
+to a plot that always counts) with the empty-file hint in the middle of the free rectangle, which
+the first element takes away and deleting the last brings back, that the shell's zoom, fit and refit
+never commit an open label editor (contract L5) and leave it open with the typed text (L5 recommends
+it, the kit requires it), that an invalid file locks the canvas, that nothing moves under reduced
+motion (also VS Code's) and an explicit fit jumps, that under forced colours the islands, the
+dropdown and the modeler's dialogs keep their border and the pressed tool, the focus and the status
+box their marks, that what stays on the canvas (a toolbar, a prompt, the label editor) lies under
+the palette, that the IDE host's production bundle runs under the webview CSP without a violation,
+an error or a missing font, and that `destroy()` leaves nothing behind. Five more cases cover the
+web column (`webChrome`, `emptyState`, `toasts`, `problemsList`, `dropZone`); in the IDE and
+embedded hosts they assert that none of it shows. Every `aria-keyshortcuts` the kit reads must name
+keys, not characters: a `?` chip is `Shift+/ Shift+ß`, the keys of US and German, and no shortcut
+chip may show a character that needs AltGr or ⌥, sits on a dead key or is missing in one of them,
+such as `@` (guide §5.6, design system 1.21.0).
 
 For the `ide` host the suite serves a test page that puts a stand-in for VS Code around the
 modeler's webview code: VS Code's default webview styles, `<html>` as `renderWebviewHtml` writes it,
@@ -392,8 +394,11 @@ window.modeler = webview.modeler;
 window.connection = webview.connection;
 void webview.ready.then(() => (window.webviewReady = true)); // the first import settled
 
-// there is no extension host: post the document the way the extension would
-window.postMessage({ type: "init", text: EXAMPLE_BOARD }, "*");
+// there is no extension host: post the document the way the extension would; `?board=` picks one
+// of the harness's `documents` (the file "New Empty Board" writes, a file of zero bytes)
+const BOARDS: Record<string, string> = { empty: EMPTY_BOARD, blank: "", example: EXAMPLE_BOARD };
+const board = new URLSearchParams(location.search).get("board") ?? "example";
+window.postMessage({ type: "init", text: BOARDS[board] ?? EXAMPLE_BOARD }, "*");
 ```
 
 `ready`, `webviewReady` and the window globals belong to the modeler's test page (declared in a
@@ -415,9 +420,12 @@ test.describe("shell conformance", () => {
       themes: ["light"],
       absent: ["inspector"], // islands this modeler does not have: never visible, never skipped
       csp: { open: openShippedWebview }, // the production bundle under the webview CSP, see below
-      async open(page, { size, requested }) {
+      documents: ["empty", "blank"], // the empty file and one of zero bytes (emptyFile, appearance)
+      async open(page, { size, requested, document: documentKey }) {
         await page.setViewportSize(size);
-        await page.goto(`/webview-test.html?${vsCodeStubSearch(requested)}`);
+        const search = new URLSearchParams(vsCodeStubSearch(requested));
+        if (documentKey) search.set("board", documentKey);
+        await page.goto(`/webview-test.html?${search.toString()}`);
         await page.waitForFunction(() => window.webviewReady === true); // set by the test page
       },
       async destroy(page) {
@@ -496,8 +504,17 @@ registerShellConformance(
     host: "web",
     themes: ["light"],
     absent: ["inspector", "invalid"],
-    async open(page, { size }) {
+    documents: ["empty"], // the empty diagram after "New diagram" (emptyFile, appearance)
+    async open(page, { size, document: documentKey }) {
       await page.setViewportSize(size);
+      if (documentKey === "empty") {
+        // a fresh visit's start screen, then its "New diagram"
+        await page.goto("about:blank");
+        await page.goto("/");
+        await page.getByRole("button", { name: "New diagram" }).click();
+        await page.locator('[data-chrome="empty-state"]').waitFor({ state: "hidden" });
+        return;
+      }
       await page.goto("/?example");
       await page.waitForFunction(() => window.appReady === true);
     },
@@ -544,11 +561,11 @@ The harness opens the modeler with the appearance the kit requests, the way its 
 as on a first visit: `legendStart` fails an `open` that changes only the URL fragment, because the
 page keeps the legend's earlier start state (go to `about:blank` first). A stored legend state is
 outside the kit, because `open` has no way to pass one: the legend starts closed unless the host
-passes its stored `legend.open`, which the shell's unit tests cover. A skip names the harness
-field it misses (`{ hook: "legend", reason }`; `hook: "labelEditor"` without a `labelEditor`, or
-`absent: ["labelEditor"]` for a notation without labels on the canvas; `hook: "destroy"` without a
-`destroy`; `hook: "open"` when the opened document lacks what a case needs, such as a shape for
-`readOnly`); without `onSkip`
+passes its stored `legend.open`, which the shell's unit tests cover. A skip names the harness field
+it misses (`{ hook: "legend", reason }`; `hook: "labelEditor"` without a `labelEditor`, or `absent:
+["labelEditor"]` for a notation without labels on the canvas; `hook: "destroy"` without a `destroy`;
+`hook: "documents"` when `documents` lacks `"empty"`, or in the IDE host `"blank"`; `hook: "open"`
+when the opened document lacks what a case needs, such as a shape for `readOnly`); without `onSkip`
 the kit warns on the console. What each case asserts, and what the kit installs in the page, is
 listed in [API.md][api].
 
@@ -851,19 +868,21 @@ The demo page (`demo/`) is a small diagram-js modeler around the shell. Its quer
 the host (`host=ide|web|embedded`), the modes the modeler declares (`themes=light,dark`), what the
 host requests (`theme`, `kontrast=hoch`; embedded: the foreign page's own mode), the `ide` host's
 `colorTheme` setting and `reduceMotion`, and the state to start in (`legend=open`, `inspector`,
-`problems=2:1`, `status=danger`, `invalid`, `empty`, which opens at 100 %). In the `ide` host it runs
-inside the stub of `./testing/vscode-stub`, and keeps view and legend state through
-`acquireVsCodeApi()`. Its context pad has a Note entry, whose prompt covers the palette until a pan
-or zoom closes it, and its Help group opens a modal "Keyboard shortcuts…" dialog with a table per
-group, so the kit's `overlayLayers` and `forcedColors` cases meet both. The e2e suite's global setup
-also builds it as a production webview bundle (`e2e/demo-webview.ts`, esbuild into
+`problems=2:1`, `status=danger`, `invalid`, `empty`, which opens at 100 %), and `plot`: content
+bounds that always hold a fixed plot, as Wardley's do, so an empty diagram opens fitted to it. In
+the `ide` host it runs inside the stub of `./testing/vscode-stub`, and keeps view and legend state
+through `acquireVsCodeApi()`. Its context pad has a Note entry, whose prompt covers the palette
+until a pan or zoom closes it, and its Help group opens a modal "Keyboard shortcuts…" dialog with a
+table per group, so the kit's `overlayLayers` and `forcedColors` cases meet both. The e2e suite's
+global setup also builds it as a production webview bundle (`e2e/demo-webview.ts`, esbuild into
 `test-results/demo-webview`) for the kit's `csp` case; that page takes its parameters from
 `<div id="app" data-search="…">`.
 
 The web demo (`/web.html`) is the same modeler as a Miragon web app passes it to `mountShell`: the
 whole web column, the head markup of `webHeadMarkup` through the Vite config, and `window.__webDemo`
 for the harness. Its query parameters: `themes=light,dark`, `empty` (the start screen of a fresh
-visit), `legend` (`legend=open`), `inspector`, `problems` (the pill with its list) and `invalid`.
+visit, whose "New diagram" leaves the empty-file hint), `legend` (`legend=open`), `inspector`,
+`problems` (the pill with its list) and `invalid`.
 
 The e2e suite runs the conformance kit for the `ide`, `web` and `embedded` hosts with a light-only
 and a dark-capable modeler, switches VS Code themes and the `colorTheme` setting at runtime, checks
