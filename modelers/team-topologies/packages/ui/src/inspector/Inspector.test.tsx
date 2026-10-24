@@ -58,9 +58,12 @@ function fakeModeler() {
     },
   };
   const select = (...elements: unknown[]) => act(() => selection.select(elements));
+  /** A model change the canvas reports, e.g. once a command has run. */
+  const change = () => act(() => fire("elements.changed"));
   return {
     modeler: modeler as unknown as Modeler,
     select,
+    change,
     selection,
     canvas,
     ttModeling,
@@ -93,8 +96,15 @@ function typeInto(field: HTMLInputElement | HTMLTextAreaElement, value: string) 
   field.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function press(target: Element, key: string) {
-  target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+function press(target: Element, key: string, init: KeyboardEventInit = {}) {
+  target.dispatchEvent(
+    new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init }),
+  );
+}
+
+/** Past the microtasks in which the panel notices a removed control. */
+async function settle() {
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe("the inspector's content", () => {
@@ -198,6 +208,26 @@ describe("the inspector's content", () => {
     expect(fake.canvas.focus).toHaveBeenCalledTimes(1);
   });
 
+  it("leaves an Enter or Escape that ends an IME composition to the composition", () => {
+    const fake = fakeModeler();
+    act(() => root.render(<Host modeler={fake.modeler} />));
+    fake.select(team);
+    const name = host.querySelector<HTMLInputElement>('input[type="text"]');
+    if (!name) throw new Error("no name field");
+
+    act(() => name.focus());
+    act(() => typeInto(name, "Payments"));
+    act(() => press(name, "Enter", { isComposing: true }));
+    act(() => press(name, "Escape", { isComposing: true }));
+
+    expect(document.activeElement).toBe(name);
+    expect(name.value).toBe("Payments");
+    expect(fake.ttModeling.updateLabel).not.toHaveBeenCalled();
+    expect(fake.canvas.focus).not.toHaveBeenCalled();
+    expect(fake.selection.select).toHaveBeenCalledTimes(1);
+    expect(panel()).not.toBeNull();
+  });
+
   it("deletes a multi-selection together and hands focus to the canvas", () => {
     const fake = fakeModeler();
     act(() => root.render(<Host modeler={fake.modeler} />));
@@ -258,6 +288,51 @@ describe("the inspector's content", () => {
 
     expect(document.activeElement).toBe(document.body);
     expect(fake.canvas.restoreFocus).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives the canvas the focus that Reset colours or Detach had when they went away", async () => {
+    const fake = fakeModeler();
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    act(() => root.render(<Host modeler={fake.modeler} />));
+    const coloured: { fill?: string } & typeof team = { ...team, id: "team_b", fill: "#ffeeaa" };
+    const attached = { ...annotation, outgoing: [] as unknown[] };
+    attached.outgoing.push({ ttKind: "association", source: attached, target: team });
+
+    fake.select(coloured);
+    act(() => button("Reset colours")?.focus());
+    act(() => button("Reset colours")?.click());
+    delete coloured.fill;
+    fake.change();
+    await settle();
+    expect(button("Reset colours")).toBeUndefined();
+    expect(fake.canvas.focus).toHaveBeenCalledTimes(1);
+
+    fake.select(attached);
+    act(() => button("Detach")?.focus());
+    act(() => button("Detach")?.click());
+    attached.outgoing.length = 0;
+    fake.change();
+    await settle();
+    expect(button("Detach")).toBeUndefined();
+    expect(fake.canvas.focus).toHaveBeenCalledTimes(2);
+  });
+
+  it("leaves the focus alone when a control goes away after the focus left it", async () => {
+    const fake = fakeModeler();
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    act(() => root.render(<Host modeler={fake.modeler} />));
+    const coloured: { fill?: string } & typeof team = { ...team, id: "team_b", fill: "#ffeeaa" };
+
+    fake.select(coloured);
+    act(() => button("Reset colours")?.focus());
+    act(() => button("Reset colours")?.blur());
+    await settle();
+    delete coloured.fill;
+    fake.change();
+    await settle();
+
+    expect(button("Reset colours")).toBeUndefined();
+    expect(fake.canvas.focus).not.toHaveBeenCalled();
   });
 
   it("leaves the focus alone when this document doesn't have it", () => {

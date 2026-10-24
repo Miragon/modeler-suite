@@ -422,6 +422,48 @@ function useCanvasCatchesDroppedFocus(modeler: Modeler, contentKey: string | nul
   }, [modeler, contentKey]);
 }
 
+/**
+ * The same for a control that goes away while the element stays, such as "Reset colours" or
+ * "Detach" once they have acted. Chromium reports the removal of a focused element as a `focusout`
+ * while it is still connected and other engines report nothing, so the removal itself is what
+ * counts: a `focusout` forgets the control only if it is still there right after.
+ */
+function useCanvasCatchesFocusOfRemovedControls(
+  modeler: Modeler,
+  panelRef: RefObject<HTMLElement | null>,
+) {
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return undefined;
+    const ownerDocument = panel.ownerDocument;
+    let focused: Node | null = null;
+    const remember = (event: FocusEvent) => {
+      focused = event.target as Node | null;
+    };
+    const forget = (event: FocusEvent) => {
+      const left = event.target;
+      queueMicrotask(() => {
+        if (focused === left && focused?.isConnected) focused = null;
+      });
+    };
+    const observer = new MutationObserver(() => {
+      const lost = focused;
+      if (!lost || lost.isConnected) return;
+      focused = null;
+      if (ownerDocument.activeElement !== ownerDocument.body || !ownerDocument.hasFocus()) return;
+      modeler.get<Canvas>("canvas").focus();
+    });
+    panel.addEventListener("focusin", remember);
+    panel.addEventListener("focusout", forget);
+    observer.observe(panel, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      panel.removeEventListener("focusin", remember);
+      panel.removeEventListener("focusout", forget);
+    };
+  }, [modeler, panelRef]);
+}
+
 interface InspectorProps {
   /** The modeler whose selection the panel edits. */
   modeler: Modeler;
@@ -454,6 +496,7 @@ function useInspectorContent(
 
   useKeepSelectionVisible(modeler, shownArea, panelRef);
   useCanvasCatchesDroppedFocus(modeler, shownArea?.id ?? null);
+  useCanvasCatchesFocusOfRemovedControls(modeler, panelRef);
 
   const panelProps = { services, readOnly };
   let body: ReactNode | null = null;
@@ -471,7 +514,7 @@ function useInspectorContent(
 
   // Escape that a field didn't use (to undo its draft) closes the panel, like it does on the canvas.
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key !== "Escape" || event.defaultPrevented) return;
+    if (event.key !== "Escape" || event.defaultPrevented || event.nativeEvent.isComposing) return;
     event.preventDefault();
     services.closeAndFocusCanvas();
   };

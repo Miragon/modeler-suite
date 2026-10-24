@@ -53,7 +53,9 @@ composition. A click or drag with a pointer on a palette entry, and the context 
 delete, hand the focus to the canvas, so Delete and `Ctrl/Cmd+Z` act at once. Enter or Space leave
 it on the lasso, hand it to the canvas on the pad's delete, and on a creating palette entry open the
 label editor (see "Palette from the keyboard" below). Rename and "Add annotation" open the label
-editor too, which gives the focus back to the canvas when it closes. Zoom and fit keys belong to
+editor too, which gives the focus back to the canvas when it closes. diagram-js rebuilds the
+context pad whenever its element changes, for example on an undo: a focused entry then moves to the
+same entry of the new pad, and to the canvas when the pad closes. Zoom and fit keys belong to
 the host's chrome (guide §5.8: only Cmd/Ctrl + `+` `-` `0` and Shift+1, each acting exactly once),
 so the canvas binds none; the
 [`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell) chrome provides

@@ -37,6 +37,7 @@ export function CommitInput({
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing) return;
     if (event.key === "Escape" && draft !== value) {
       event.preventDefault();
       setDraft(value);

@@ -67,6 +67,18 @@ test.describe("VS Code webview", () => {
     await expect(shape(page, "team_checkout")).toHaveClass(/selected/);
   });
 
+  test("after Detach in the inspector the keys act on the canvas", async ({ page }) => {
+    await openWebview(page);
+    await selectOnCanvas(page, "ann_fraud_handover");
+    const inspector = page.locator('[data-chrome="inspector"]');
+    await inspector.getByRole("button", { name: "Detach" }).click();
+    await expect(inspector).toContainText("Not attached");
+
+    await page.keyboard.press("Delete");
+
+    await expect(shape(page, "ann_fraud_handover")).toHaveCount(0);
+  });
+
   test("an outside change keeps the view and the selection", async ({ page }) => {
     await openWebview(page);
     const fitted = await zoomReadout(page);

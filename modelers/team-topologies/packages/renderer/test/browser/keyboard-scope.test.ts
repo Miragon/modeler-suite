@@ -324,3 +324,63 @@ test("pad entries that open the label editor keep the focus there", async () => 
     modeler.destroy();
   }
 });
+
+test("a focused pad entry stays with its pad when diagram-js rebuilds or closes it", async () => {
+  const { modeler, container, svg } = mount();
+  const registry = modeler.get<{ get(id: string): unknown }>("elementRegistry");
+  const modeling = modeler.get<{
+    moveElements(elements: unknown[], delta: { x: number; y: number }): void;
+    removeElements(elements: unknown[]): void;
+  }>("modeling");
+  const commandStack = modeler.get<{ undo(): void }>("commandStack");
+  const readOnly = modeler.get<{ setReadOnly(readOnly: boolean): void }>("ttReadOnly");
+  try {
+    select(modeler, "team_a");
+    await settle();
+    padEntry(container, "edit-label").focus();
+
+    modeling.moveElements([registry.get("team_a")], { x: 30, y: 0 });
+    await settle();
+    expect(document.activeElement).toBe(padEntry(container, "edit-label"));
+    commandStack.undo();
+    await settle();
+    expect(document.activeElement).toBe(padEntry(container, "edit-label"));
+
+    readOnly.setReadOnly(true);
+    await settle();
+    expect(container.querySelector(".djs-context-pad")).toBeNull();
+    expect(document.activeElement).toBe(svg);
+    readOnly.setReadOnly(false);
+
+    select(modeler, "team_b");
+    await settle();
+    padEntry(container, "append-annotation").focus();
+    modeling.removeElements([registry.get("team_b")]);
+    await settle();
+    expect(document.activeElement).toBe(svg);
+  } finally {
+    modeler.destroy();
+  }
+});
+
+test("a rebuilt pad leaves the focus alone once it has moved on to the page", async () => {
+  const { modeler, container, text } = mount();
+  const registry = modeler.get<{ get(id: string): unknown }>("elementRegistry");
+  const modeling = modeler.get<{
+    moveElements(elements: unknown[], delta: { x: number; y: number }): void;
+  }>("modeling");
+  try {
+    select(modeler, "team_a");
+    await settle();
+    padEntry(container, "edit-label").focus();
+    await userEvent.click(text);
+    expect(document.activeElement).toBe(document.body);
+
+    modeling.moveElements([registry.get("team_a")], { x: 30, y: 0 });
+    await settle();
+
+    expect(document.activeElement).toBe(document.body);
+  } finally {
+    modeler.destroy();
+  }
+});

@@ -10,7 +10,9 @@
  * The canvas keys act only while the canvas has the focus. Entries that open the
  * label editor leave the focus to it; connect and delete hand it to the canvas,
  * which a pointer press would otherwise leave on the entry or, once the entry
- * goes, on `<body>`.
+ * goes, on `<body>`. diagram-js rebuilds the pad whenever its element changes,
+ * e.g. on an undo, and closes it when the element goes or the lock comes on: a
+ * focused entry then moves to the same entry of the new pad, or to the canvas.
  *
  * Every entry changes the diagram, so under the read-only lock there is no context pad at all.
  */
@@ -38,7 +40,7 @@ import {
 import type TtLabelEditing from "../label-editing/TtLabelEditing.js";
 import type TtModeling from "../modeling/TtModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type TtReadOnly } from "../read-only/index.js";
-import { handFocusToCanvas } from "../keyboard/canvasFocus.js";
+import { handFocusToCanvas, watchDroppedFocus } from "../keyboard/canvasFocus.js";
 import {
   ICON_LINK,
   ICON_MESSAGE_SQUARE_PLUS,
@@ -49,6 +51,7 @@ import {
 } from "../draw/icons.js";
 
 const ENTRY_SELECTOR = ".djs-context-pad .entry[data-action]";
+const PAD_PARENT_SELECTOR = ":scope > .djs-context-pad-parent";
 
 function cpHtml(icon: IconNode, title: string, focusable = true): string {
   return `<div class="entry tt-cp-entry" role="button" tabindex="${focusable ? 0 : -1}" aria-label="${title}">${iconMarkup(icon)}</div>`;
@@ -92,9 +95,15 @@ export default class TtContextPadProvider implements ContextPadProvider {
     eventBus.on(READ_ONLY_CHANGED_EVENT, (event: { readOnly?: boolean }) => {
       if (event.readOnly) contextPad.close();
     });
-    canvas
-      .getContainer()
-      .addEventListener("keydown", (keyboardEvent) => this.onEntryKeyDown(keyboardEvent));
+    const container = canvas.getContainer();
+    container.addEventListener("keydown", (keyboardEvent) => this.onEntryKeyDown(keyboardEvent));
+    const padParent = container.querySelector<HTMLElement>(PAD_PARENT_SELECTOR);
+    if (padParent) {
+      const stopWatching = watchDroppedFocus(padParent, (lost) =>
+        this.focusAfterPadChange(lost.closest(ENTRY_SELECTOR)?.getAttribute("data-action")),
+      );
+      eventBus.on("diagram.destroy", stopWatching);
+    }
   }
 
   getContextPadEntries(element: Element): ContextPadEntries {
@@ -114,7 +123,7 @@ export default class TtContextPadProvider implements ContextPadProvider {
           group: "edit",
           title: "Attach to element",
           html: cpHtml(ICON_LINK, "Attach to element", false),
-          action: { click: startConnect, dragstart: startConnect },
+          action: { click: startConnect },
         },
         delete: this.deleteEntry([element], "Delete"),
       };
@@ -150,6 +159,18 @@ export default class TtContextPadProvider implements ContextPadProvider {
     event.preventDefault();
     event.stopPropagation();
     this.contextPad.triggerEntry(action, "keyboard", event);
+  }
+
+  /** The entry with the same action in the rebuilt pad, or the canvas once the pad is gone. */
+  private focusAfterPadChange(action: string | null | undefined): void {
+    const container = this.canvas.getContainer();
+    const entry = action
+      ? container.querySelector<HTMLElement>(
+          `.djs-context-pad.open .entry[data-action="${CSS.escape(action)}"]`,
+        )
+      : null;
+    entry?.focus({ preventScroll: true });
+    if (container.ownerDocument.activeElement !== entry) this.canvas.focus();
   }
 
   private editEntry(element: TtElement): ContextPadEntry {
