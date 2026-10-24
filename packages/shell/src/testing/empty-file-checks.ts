@@ -4,6 +4,7 @@ import type { ReadOnlyStateFacts, ShapeFacts } from "./facts.js";
 import type { RelativeBox } from "./page-tools.js";
 import { GEOMETRY_TOLERANCE_PX, type Rectangle } from "./geometry.js";
 import type { EmptyDocument, ShellSkip } from "./harness.js";
+import { speaksEnglish } from "./web-checks.js";
 
 /** The reserved keys of `ShellConformanceHarness.documents`, in the order the case opens them. */
 export const EMPTY_DOCUMENTS: readonly EmptyDocument[] = ["empty", "blank"];
@@ -106,12 +107,16 @@ export function emptyViewProblems(
  * Guide §13.5 and, for the web app, §8 (design system 1.23.0): the empty-file hint stands in the
  * middle of the free rectangle, says "Pick a tool from the palette to start.", and in the web app
  * shows no "Insert example" (the File group has "Show example"); no start screen competes with it.
+ * A tool in another language (`lang`, `<html lang>`) says both in its own words (guide §2), so
+ * there the hint needs a line and outside the web app at most one button.
  */
 export function emptyHintProblems(
   hint: EmptyHintFacts,
   free: Rectangle,
   host: ShellHost,
+  lang: string,
 ): string[] {
+  const english = speaksEnglish(lang);
   const problems: string[] = [];
   const rule = host === "web" ? "guide §8, §13.5" : "guide §13.5";
   if (hint.startScreen) {
@@ -127,9 +132,13 @@ export function emptyHintProblems(
     );
     return problems;
   }
-  if (hint.text !== defaultMessages.emptyHint) {
+  if (english && hint.text !== defaultMessages.emptyHint) {
     problems.push(
       `hint: reads "${hint.text}", expected "${defaultMessages.emptyHint}" (guide §2, §13.5)`,
+    );
+  } else if (!english && !hint.text) {
+    problems.push(
+      `hint: its line (.cd-shell-hint-text) says nothing; it says "${defaultMessages.emptyHint}" in the tool's language (guide §2, §13.5)`,
     );
   }
   if (!hint.content) {
@@ -142,15 +151,23 @@ export function emptyHintProblems(
       );
     }
   }
-  const foreign =
-    host === "web"
-      ? hint.actions
-      : hint.actions.filter((action) => action !== defaultMessages.insertExample);
-  if (foreign.length > 0) {
+  const named = (actions: readonly string[]) => actions.map((action) => `"${action}"`).join(", ");
+  if (host === "web") {
+    if (hint.actions.length > 0) {
+      problems.push(
+        `hint: shows ${named(hint.actions)} in the web app; there it has no "${defaultMessages.insertExample}", the File group's "${defaultMessages.showExample}" opens the example (guide §8)`,
+      );
+    }
+  } else if (english) {
+    const foreign = hint.actions.filter((action) => action !== defaultMessages.insertExample);
+    if (foreign.length > 0) {
+      problems.push(
+        `hint: shows ${named(foreign)}; besides its line it holds only "${defaultMessages.insertExample}" (guide §13.5)`,
+      );
+    }
+  } else if (hint.actions.length > 1) {
     problems.push(
-      host === "web"
-        ? `hint: shows ${foreign.map((action) => `"${action}"`).join(", ")} in the web app; there it has no "${defaultMessages.insertExample}", the File group's "${defaultMessages.showExample}" opens the example (guide §8)`
-        : `hint: shows ${foreign.map((action) => `"${action}"`).join(", ")}; besides its line it holds only "${defaultMessages.insertExample}" (guide §13.5)`,
+      `hint: shows ${named(hint.actions)}; besides its line it holds at most one button, "${defaultMessages.insertExample}" in the tool's language (guide §2, §13.5)`,
     );
   }
   return problems;
@@ -230,20 +247,32 @@ export function firstElementProblems(facts: FirstElementFacts): string[] {
 export interface LastElementFacts {
   /** The element the case placed and then deleted. */
   id: string;
-  /** Delete removed it from the canvas. */
-  removed: boolean;
+  /**
+   * What took it off the canvas: Delete on the selected element, already the Escape that closed
+   * a label editor on it, or nothing.
+   */
+  removedBy: "Delete" | "Escape" | null;
   hint: EmptyHintFacts;
   free: Rectangle;
 }
 
 /** Guide §8 (design system 1.23.0) and §13.5: deleting the last element empties the diagram again, and the hint returns. */
-export function lastElementProblems(facts: LastElementFacts, host: ShellHost): string[] {
-  if (!facts.removed) {
+export function lastElementProblems(
+  facts: LastElementFacts,
+  host: ShellHost,
+  lang: string,
+): string[] {
+  if (facts.removedBy === "Escape") {
+    return [
+      `last element: Escape, pressed to close a label editor on the new "${facts.id}", removed it, so Delete on the last element and the hint's return after it were not verified`,
+    ];
+  }
+  if (facts.removedBy === null) {
     return [
       `last element: Delete on the selected "${facts.id}" kept it, so the hint's return on an emptied diagram was not verified`,
     ];
   }
-  return emptyHintProblems(facts.hint, facts.free, host).map(
+  return emptyHintProblems(facts.hint, facts.free, host, lang).map(
     (problem) => `after Delete removed the last element: ${problem}`,
   );
 }

@@ -746,7 +746,20 @@ fit does nothing.
   there, takes the hint away and moves nothing, and deleting it brings the hint back. The element
   is measured by its own bounds (diagram-js's `.djs-hit`, `width × height`), not by its visual: a
   Wardley component draws its name beside the circle. `appearance` runs on those documents too, with
-  the visible hint as one of its parts.
+  the visible hint as one of its parts. The hint's texts compare with English only where
+  `<html lang>` is English, as the web cases do, because guide §2 gives a German tool its own line
+  and "Beispiel einfügen".
+- Those empty documents open on a fresh canvas, which already stands at 100 %. In the web app every
+  new document opens like the first (guide §5.9), so the case also zooms the default document out a
+  step and chooses File > New diagram: the readout must show 100 % and the hint must stand in the
+  middle. A web app that skips `newDocument()` keeps the zoomed-out view; the shell's demo has a
+  saboteur for it.
+- The kit does not check which diagram point the 100 % keeps in the middle of the free rectangle.
+  A renderer's import may set a view of its own before `afterImport()` (Context Maps' contract view
+  after an import puts an empty map's origin top left, Event Storming centres its default frame),
+  so the point is the one the import left, which the page never shows. Comparing it with the point
+  of the document before fails both web apps without breaking §5.9. `viewport.test.ts` covers the
+  pivot on a stub canvas.
 
 ### Resize
 
@@ -1350,7 +1363,8 @@ stays possible (WCAG 1.4.4; both since design system 1.15.0, [corporate-identity
   the rest of the work chrome. `connectDiagramJs` syncs it after `import.done` and
   `elements.changed`; a page that opens a new document without an import (the web demo) sets it
   itself. The kit's `emptyFile` case opens the web host's `"empty"` document through the start
-  screen's "New diagram" and fails a hint that is missing or shows a button.
+  screen's "New diagram", then File > New diagram after a document, and fails a hint that is missing
+  or shows a button.
 
 ### Drop zone
 

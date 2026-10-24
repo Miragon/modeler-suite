@@ -1330,9 +1330,10 @@ const cleanupCase: ShellConformanceCase = {
 
 /**
  * The cases of every host: those of 0.1, extended for the web column, the focus hand-back of 0.2.2,
- * the legend's start state and the label editor of 0.4, reduced motion, forced colours and the
- * canvas's overlay layers, added after 0.5.0, and the production webview bundle under its CSP of 0.6
- * (which only the IDE host has).
+ * the legend's start state and the label editor of 0.4, the empty file on the harness's `documents`
+ * (with `appearance` on each of them), reduced motion, forced colours and the canvas's overlay
+ * layers, added after 0.5.0, and the production webview bundle under its CSP of 0.6 (which only the
+ * IDE host has).
  */
 export function createBaseCases(): ShellConformanceCase[] {
   return [

@@ -358,19 +358,20 @@ menu entry returns it to the menu trigger, that nothing is ever half-dark (the p
 surround and the palette's colours included, on every document the harness lists), that Enter on a
 creating palette entry adds one selected element, that an empty document opens at 100 % (or fitted
 to a plot that always counts) with the empty-file hint in the middle of the free rectangle, which
-the first element takes away and deleting the last brings back, that the shell's zoom, fit and refit
-never commit an open label editor (contract L5) and leave it open with the typed text (L5 recommends
-it, the kit requires it), that an invalid file locks the canvas, that nothing moves under reduced
-motion (also VS Code's) and an explicit fit jumps, that under forced colours the islands, the
-dropdown and the modeler's dialogs keep their border and the pressed tool, the focus and the status
-box their marks, that what stays on the canvas (a toolbar, a prompt, the label editor) lies under
-the palette, that the IDE host's production bundle runs under the webview CSP without a violation,
-an error or a missing font, and that `destroy()` leaves nothing behind. Five more cases cover the
-web column (`webChrome`, `emptyState`, `toasts`, `problemsList`, `dropZone`); in the IDE and
-embedded hosts they assert that none of it shows. Every `aria-keyshortcuts` the kit reads must name
-keys, not characters: a `?` chip is `Shift+/ Shift+ß`, the keys of US and German, and no shortcut
-chip may show a character that needs AltGr or ⌥, sits on a dead key or is missing in one of them,
-such as `@` (guide §5.6, design system 1.21.0).
+the first element takes away and deleting the last brings back (in the web app also after File > New
+diagram on a document), that the shell's zoom, fit and refit never commit an open label editor
+(contract L5) and leave it open with the typed text (L5 recommends it, the kit requires it), that an
+invalid file locks the canvas, that nothing moves under reduced motion (also VS Code's) and an
+explicit fit jumps, that under forced colours the islands, the dropdown and the modeler's dialogs
+keep their border and the pressed tool, the focus and the status box their marks, that what stays on
+the canvas (a toolbar, a prompt, the label editor) lies under the palette, that the IDE host's
+production bundle runs under the webview CSP without a violation, an error or a missing font, and
+that `destroy()` leaves nothing behind. Five more cases cover the web column (`webChrome`,
+`emptyState`, `toasts`, `problemsList`, `dropZone`); in the IDE and embedded hosts they assert that
+none of it shows. Every `aria-keyshortcuts` the kit reads must name keys, not characters: a `?` chip
+is `Shift+/ Shift+ß`, the keys of US and German, and no shortcut chip may show a character that
+needs AltGr or ⌥, sits on a dead key or is missing in one of them, such as `@` (guide §5.6, design
+system 1.21.0).
 
 For the `ide` host the suite serves a test page that puts a stand-in for VS Code around the
 modeler's webview code: VS Code's default webview styles, `<html>` as `renderWebviewHtml` writes it,

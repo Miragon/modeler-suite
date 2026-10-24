@@ -135,9 +135,10 @@ column and a clean `destroy`.
   reaches through `about:blank`, the app's `/` and the start screen's "New diagram". The kit's
   empty-file case expects 100 % (or a plot that always counts, fitted on open), the empty-file hint
   in the middle of the free rectangle (on the web without "Insert example"), no invalid-file state,
-  the hint gone with the first element and back once it is deleted; the appearance case runs on
-  those documents too. The template lets that case's skip pass until its modeler-shell pin reaches
-  that release, then feeds `documents`.
+  the hint gone with the first element and back once it is deleted, and on the web the same after
+  File > New diagram on a document; the appearance case runs on those documents too. The template
+  lets that case's skip pass until its modeler-shell pin reaches that release, then feeds
+  `documents`.
 - `labelEditor` (modeler-shell 0.4.0 or later): `open` double-clicks a node and types a new text on
   every call, `documentChanged` compares `modeler.exportText()` with the text at `open` (template:
   [`label-editor.ts`](../assets/template/e2e/tests/support/label-editor.ts)). The kit then zooms,

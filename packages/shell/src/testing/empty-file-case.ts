@@ -15,6 +15,7 @@ import {
   finish,
   firstCreatingEntry,
   openHarness,
+  openMenuByClick,
   pollUntil,
   shapes,
   sizeLabel,
@@ -39,9 +40,16 @@ import { paletteEntriesProbe, readOnlyStateProbe } from "./facts.js";
 import { DEFAULT_ROOT, freeRectangle, measureChrome, type Rectangle } from "./geometry.js";
 import type { ShellConformanceCase, ShellConformanceHarness } from "./harness.js";
 import type { PageLike } from "./page.js";
-import { findTarget, focusTarget, inPage, settle } from "./page-tools.js";
+import {
+  documentLangProbe,
+  findTarget,
+  focusTarget,
+  inPage,
+  menuItemProbe,
+  settle,
+} from "./page-tools.js";
 
-/** How long the view may take to hold still after the explicit fit's glide (guide §5.9). */
+/** How long the view may take to hold still after a zoom step or the explicit fit's glide (guide §5.9). */
 const REFIT_WAIT_MS = 1000;
 
 /** Room for a modeler that shows or hides the hint a frame or two after the change. */
@@ -75,6 +83,21 @@ async function viewFacts(page: PageLike, root: string, host: ShellHost): Promise
   return view;
 }
 
+/** A view that held still for one poll, or the last one read once `REFIT_WAIT_MS` passed. */
+async function stillView(page: PageLike, root: string, host: ShellHost): Promise<EmptyViewFacts> {
+  let previous: string | null | undefined;
+  return pollUntil(
+    page,
+    () => viewFacts(page, root, host),
+    (facts) => {
+      const still = facts.view === previous;
+      previous = facts.view;
+      return still;
+    },
+    REFIT_WAIT_MS,
+  );
+}
+
 /** A click on Fit, read after its glide once the view holds still or `REFIT_WAIT_MS` passed. */
 async function refit(
   page: PageLike,
@@ -86,17 +109,7 @@ async function refit(
   if (!fit) return opened;
   await page.mouse.click(fit.client.x, fit.client.y);
   await page.waitForTimeout(FIT_ANIMATION_MS + HOVER_MARGIN_MS);
-  let previous: string | null | undefined;
-  const refitted = await pollUntil(
-    page,
-    () => viewFacts(page, root, host),
-    (facts) => {
-      const still = facts.view === previous;
-      previous = facts.view;
-      return still;
-    },
-    REFIT_WAIT_MS,
-  );
+  const refitted = await stillView(page, root, host);
   await page.mouse.move(PARK.x, PARK.y);
   return refitted;
 }
@@ -110,6 +123,7 @@ async function firstAndLastElement(
   root: string,
   host: ShellHost,
   free: Rectangle,
+  lang: string,
 ): Promise<string[]> {
   const entry = firstCreatingEntry(await inPage(page, paletteEntriesProbe, { root }));
   // A notation whose palette only switches tools has nothing to place.
@@ -142,15 +156,19 @@ async function firstAndLastElement(
   });
   if (added.length !== 1) return problems;
   const id = added[0]!.id;
-  // The label editor a notation opens on its new element closes first; the element stays.
+  // The label editor a notation opens on its new element closes first.
   await closeByEscape(page);
   const current = (await shapes(page, root)).find((shape) => shape.id === id);
-  if (current) {
-    if (!current.selected) await page.mouse.click(current.client.x, current.client.y);
-    await focusTarget(page, root, "canvas");
-    await page.keyboard.press("Delete");
-    await settle(page);
+  if (!current) {
+    problems.push(
+      ...lastElementProblems({ id, removedBy: "Escape", hint: NO_HINT, free }, host, lang),
+    );
+    return problems;
   }
+  if (!current.selected) await page.mouse.click(current.client.x, current.client.y);
+  await focusTarget(page, root, "canvas");
+  await page.keyboard.press("Delete");
+  await settle(page);
   const removed = !(await shapes(page, root)).some((shape) => shape.id === id);
   const returned = await pollUntil(
     page,
@@ -159,7 +177,60 @@ async function firstAndLastElement(
     removed ? HINT_WAIT_MS : 0,
   );
   await page.mouse.move(PARK.x, PARK.y);
-  problems.push(...lastElementProblems({ id, removed, hint: returned, free }, host));
+  problems.push(
+    ...lastElementProblems(
+      { id, removedBy: removed ? "Delete" : null, hint: returned, free },
+      host,
+      lang,
+    ),
+  );
+  return problems;
+}
+
+/**
+ * Guide §5.9 and §8: in the web app every new document opens like the first, so File > New diagram
+ * after a document with content shows 100 % (or the plot fitted) and the empty-file hint. The
+ * document is zoomed out a step first, so the view is never already at 100 %: a web app that does
+ * not start the new diagram as a first open keeps that zoom. Nothing to check without a "New
+ * diagram" in the File group.
+ */
+async function newDiagramAfterDocument<P extends PageLike>(
+  page: P,
+  harness: ShellConformanceHarness<P>,
+  size: Size,
+  root: string,
+): Promise<string[]> {
+  const host = harness.host;
+  await openHarness(page, harness, { size, requested: LIGHT });
+  await page.mouse.move(PARK.x, PARK.y);
+  await settle(page);
+  const lang = await inPage(page, documentLangProbe, null);
+  const zoomOut = await findTarget(page, root, "zoom-out");
+  if (zoomOut) {
+    await page.mouse.click(zoomOut.client.x, zoomOut.client.y);
+    await page.mouse.move(PARK.x, PARK.y);
+    await stillView(page, root, host);
+  }
+  if (!(await openMenuByClick(page, root))) return [];
+  const item = await inPage(page, menuItemProbe, { root, menuId: "new-diagram" });
+  if (!item) {
+    await closeByEscape(page);
+    return [];
+  }
+  await page.mouse.click(item.x, item.y);
+  await settle(page);
+  const hint = await pollUntil(
+    page,
+    () => hintFacts(page, root),
+    (facts) => facts.visible,
+    HINT_WAIT_MS,
+  );
+  await page.mouse.move(PARK.x, PARK.y);
+  const opened = await stillView(page, root, host);
+  const free = freeRectangle(await measureChrome(page, root), host);
+  const problems = emptyHintProblems(hint, free, host, lang);
+  const refitted = opened.fitDisabled ? undefined : await refit(page, root, host, opened);
+  problems.push(...emptyViewProblems(opened, refitted));
   return problems;
 }
 
@@ -169,7 +240,8 @@ async function firstAndLastElement(
  * plot that always counts, without an invalid-file state, and the middle of the free rectangle
  * shows the empty-file hint, in the web app without "Insert example". At the first size the first
  * element, placed by Enter on the palette, takes the hint away without moving the view, and
- * deleting it brings the hint back.
+ * deleting it brings the hint back. In the web app File > New diagram after a document with
+ * content opens the same way.
  */
 export const emptyFileCase: ShellConformanceCase = {
   name: "emptyFile",
@@ -187,9 +259,12 @@ export const emptyFileCase: ShellConformanceCase = {
         await openHarness(page, harness, { size, requested: LIGHT, document });
         await page.mouse.move(PARK.x, PARK.y);
         await settle(page);
+        const lang = await inPage(page, documentLangProbe, null);
         const opened = await viewFacts(page, root, host);
         const free = freeRectangle(await measureChrome(page, root), host);
-        problems.push(...emptyHintProblems(await hintFacts(page, root), free, host).map(where));
+        problems.push(
+          ...emptyHintProblems(await hintFacts(page, root), free, host, lang).map(where),
+        );
         const refitted = opened.fitDisabled ? undefined : await refit(page, root, host, opened);
         problems.push(...emptyViewProblems(opened, refitted).map(where));
         if (index > 0) continue;
@@ -197,8 +272,14 @@ export const emptyFileCase: ShellConformanceCase = {
         await page.waitForTimeout(INVALID_STATUS_DELAY_MS);
         const state = await inPage(page, readOnlyStateProbe, { root });
         if (state) problems.push(...emptyNotInvalidProblems(state).map(where));
-        problems.push(...(await firstAndLastElement(page, root, host, free)).map(where));
+        problems.push(...(await firstAndLastElement(page, root, host, free, lang)).map(where));
       }
+    }
+    if (host === "web" && documents.includes("empty")) {
+      const [size] = emptyFileSizes(harness.sizes ?? DEFAULT_SIZES) as [Size];
+      const where = (problem: string) =>
+        `[File > New diagram after a document, ${sizeLabel(size)}] ${problem}`;
+      problems.push(...(await newDiagramAfterDocument(page, harness, size, root)).map(where));
     }
     return finish("emptyFile", host, problems, skipped);
   },

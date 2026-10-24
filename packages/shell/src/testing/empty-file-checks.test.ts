@@ -152,7 +152,7 @@ describe("emptyViewProblems", () => {
 
 describe("emptyHintProblems", () => {
   it("passes the hint in the middle of the free rectangle, with Insert example outside the web app", () => {
-    expect(emptyHintProblems(hint(), FREE, "ide")).toEqual([]);
+    expect(emptyHintProblems(hint(), FREE, "ide", "en")).toEqual([]);
     expect(
       emptyHintProblems(
         hint({
@@ -161,44 +161,93 @@ describe("emptyHintProblems", () => {
         }),
         FREE,
         "embedded",
+        "en",
       ),
     ).toEqual([]);
-    expect(emptyHintProblems(hint(), FREE, "web")).toEqual([]);
+    expect(emptyHintProblems(hint(), FREE, "web", "en")).toEqual([]);
   });
 
   it("allows a pixel off the middle and no more", () => {
     const content = { left: 511, top: 453, width: 260, height: 20 };
-    expect(emptyHintProblems(hint({ content }), FREE, "ide")).toEqual([]);
-    expect(emptyHintProblems(hint({ content: { ...content, top: 464 } }), FREE, "ide")).toEqual([
+    expect(emptyHintProblems(hint({ content }), FREE, "ide", "en")).toEqual([]);
+    expect(
+      emptyHintProblems(hint({ content: { ...content, top: 464 } }), FREE, "ide", "en"),
+    ).toEqual([
       "hint: its content is centred at (641, 474)px, expected the middle of the free rectangle at (640, 462)px (guide §5.9, §13.5)",
     ]);
   });
 
   it("fails a missing hint, naming the web app's rule there", () => {
     const missing = hint({ visible: false, text: "", content: null });
-    expect(emptyHintProblems(missing, FREE, "ide")).toEqual([
+    expect(emptyHintProblems(missing, FREE, "ide", "en")).toEqual([
       'hint: no visible empty-file hint (.cd-shell-hint) on the empty diagram; it says "Pick a tool from the palette to start." in the middle of the free rectangle (guide §13.5)',
     ]);
-    expect(emptyHintProblems(missing, FREE, "web")).toEqual([
+    expect(emptyHintProblems(missing, FREE, "web", "en")).toEqual([
       'hint: no visible empty-file hint (.cd-shell-hint) on the empty diagram; it says "Pick a tool from the palette to start." in the middle of the free rectangle (guide §8, §13.5)',
     ]);
   });
 
   it("fails another text and a hint that shows nothing", () => {
-    expect(emptyHintProblems(hint({ text: "Start here" }), FREE, "ide")).toEqual([
+    expect(emptyHintProblems(hint({ text: "Start here" }), FREE, "ide", "en")).toEqual([
       'hint: reads "Start here", expected "Pick a tool from the palette to start." (guide §2, §13.5)',
     ]);
-    expect(emptyHintProblems(hint({ content: null }), FREE, "ide")).toEqual([
+    expect(emptyHintProblems(hint({ content: null }), FREE, "ide", "en")).toEqual([
       "hint: .cd-shell-hint is visible but shows nothing (guide §13.5)",
     ]);
   });
 
   it("fails Insert example in the web app and any other button elsewhere", () => {
-    expect(emptyHintProblems(hint({ actions: ["Insert example"] }), FREE, "web")).toEqual([
+    expect(emptyHintProblems(hint({ actions: ["Insert example"] }), FREE, "web", "en")).toEqual([
       'hint: shows "Insert example" in the web app; there it has no "Insert example", the File group\'s "Show example" opens the example (guide §8)',
     ]);
-    expect(emptyHintProblems(hint({ actions: ["Insert example", "Tour"] }), FREE, "ide")).toEqual([
+    expect(
+      emptyHintProblems(hint({ actions: ["Insert example", "Tour"] }), FREE, "ide", "en"),
+    ).toEqual([
       'hint: shows "Tour"; besides its line it holds only "Insert example" (guide §13.5)',
+    ]);
+  });
+
+  it("compares the texts with English only in an English tool (guide §2)", () => {
+    // guide §2's German row: "Wähle ein Werkzeug aus der Palette. · Beispiel einfügen"
+    const german = hint({
+      text: "Wähle ein Werkzeug aus der Palette.",
+      actions: ["Beispiel einfügen"],
+      content: { left: 510, top: 428, width: 260, height: 68 },
+    });
+    expect(emptyHintProblems(german, FREE, "ide", "de")).toEqual([]);
+    expect(emptyHintProblems(german, FREE, "embedded", "de-AT")).toEqual([]);
+    expect(emptyHintProblems(german, FREE, "ide", "en")).toEqual([
+      'hint: reads "Wähle ein Werkzeug aus der Palette.", expected "Pick a tool from the palette to start." (guide §2, §13.5)',
+      'hint: shows "Beispiel einfügen"; besides its line it holds only "Insert example" (guide §13.5)',
+    ]);
+  });
+
+  it("still needs a line, at most one button and none in the web app in another language", () => {
+    expect(emptyHintProblems(hint({ text: "" }), FREE, "ide", "de")).toEqual([
+      'hint: its line (.cd-shell-hint-text) says nothing; it says "Pick a tool from the palette to start." in the tool\'s language (guide §2, §13.5)',
+    ]);
+    expect(
+      emptyHintProblems(
+        hint({
+          text: "Wähle ein Werkzeug aus der Palette.",
+          actions: ["Beispiel einfügen", "Tour"],
+        }),
+        FREE,
+        "ide",
+        "de",
+      ),
+    ).toEqual([
+      'hint: shows "Beispiel einfügen", "Tour"; besides its line it holds at most one button, "Insert example" in the tool\'s language (guide §2, §13.5)',
+    ]);
+    expect(
+      emptyHintProblems(
+        hint({ text: "Wähle ein Werkzeug aus der Palette.", actions: ["Beispiel einfügen"] }),
+        FREE,
+        "web",
+        "de",
+      ),
+    ).toEqual([
+      'hint: shows "Beispiel einfügen" in the web app; there it has no "Insert example", the File group\'s "Show example" opens the example (guide §8)',
     ]);
   });
 
@@ -208,12 +257,13 @@ describe("emptyHintProblems", () => {
         hint({ visible: false, content: null, text: "", startScreen: true }),
         FREE,
         "web",
+        "en",
       ),
     ).toEqual([
       "start screen: the card still shows on the empty diagram; once it is gone the middle shows the empty-file hint (guide §8)",
       'hint: no visible empty-file hint (.cd-shell-hint) on the empty diagram; it says "Pick a tool from the palette to start." in the middle of the free rectangle (guide §8, §13.5)',
     ]);
-    expect(emptyHintProblems(hint({ startScreen: true }), FREE, "ide")).toEqual([
+    expect(emptyHintProblems(hint({ startScreen: true }), FREE, "ide", "en")).toEqual([
       "start screen: a start screen card in the ide host; it shows the empty-file hint instead (guide §13.5)",
     ]);
   });
@@ -305,15 +355,25 @@ describe("firstElementProblems", () => {
 describe("lastElementProblems", () => {
   it("passes the hint back in the middle once the last element is gone", () => {
     expect(
-      lastElementProblems({ id: "box_1", removed: true, hint: hint(), free: FREE }, "web"),
+      lastElementProblems(
+        { id: "box_1", removedBy: "Delete", hint: hint(), free: FREE },
+        "web",
+        "en",
+      ),
     ).toEqual([]);
   });
 
   it("fails a hint that does not return", () => {
     expect(
       lastElementProblems(
-        { id: "box_1", removed: true, hint: hint({ visible: false, content: null }), free: FREE },
+        {
+          id: "box_1",
+          removedBy: "Delete",
+          hint: hint({ visible: false, content: null }),
+          free: FREE,
+        },
         "ide",
+        "en",
       ),
     ).toEqual([
       'after Delete removed the last element: hint: no visible empty-file hint (.cd-shell-hint) on the empty diagram; it says "Pick a tool from the palette to start." in the middle of the free rectangle (guide §13.5)',
@@ -322,9 +382,36 @@ describe("lastElementProblems", () => {
 
   it("fails when Delete keeps the element", () => {
     expect(
-      lastElementProblems({ id: "box_1", removed: false, hint: hint(), free: FREE }, "ide"),
+      lastElementProblems({ id: "box_1", removedBy: null, hint: hint(), free: FREE }, "ide", "en"),
     ).toEqual([
       'last element: Delete on the selected "box_1" kept it, so the hint\'s return on an emptied diagram was not verified',
     ]);
+  });
+
+  it("does not credit Delete when the Escape that closed the label editor removed the element", () => {
+    expect(
+      lastElementProblems(
+        { id: "box_1", removedBy: "Escape", hint: hint(), free: FREE },
+        "ide",
+        "en",
+      ),
+    ).toEqual([
+      'last element: Escape, pressed to close a label editor on the new "box_1", removed it, so Delete on the last element and the hint\'s return after it were not verified',
+    ]);
+  });
+
+  it("reads the returned hint in the tool's language", () => {
+    expect(
+      lastElementProblems(
+        {
+          id: "box_1",
+          removedBy: "Delete",
+          hint: hint({ text: "Wähle ein Werkzeug aus der Palette." }),
+          free: FREE,
+        },
+        "ide",
+        "de",
+      ),
+    ).toEqual([]);
   });
 });

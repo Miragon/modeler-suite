@@ -1131,6 +1131,18 @@ test.describe("saboteurs", () => {
     );
   });
 
+  test("emptyFile fails File > New diagram that keeps the document's zoom", async ({ page }) => {
+    // a web app that imports the new diagram without newDocument(), so it is no first open
+    const harness = emptySabotaged((key) => {
+      if (!key) window.__webDemo!.connection.viewport.newDocument = () => {};
+    }, "web");
+    const failure = await failureOf("emptyFile", page, harness);
+    expect(failure).toMatch(
+      /\[File > New diagram after a document, 1280 × 900\] zoom: the empty diagram opens at \d+%, expected 100 %: with nothing to fit \(Fit is aria-disabled\) it opens at 100 %, without a fit \(guide §5\.9, §13\.5\)/,
+    );
+    expect(failure).not.toMatch(/\[document "empty"/);
+  });
+
   test("appearance runs on every document: a dark hint fails on the empty one only", async ({
     page,
   }) => {
