@@ -50,9 +50,10 @@ on keys whose target is the canvas `<svg>` or inside it. Keys with nothing focus
 host chrome, on the palette, the context pad or the label editor and keys while a modal dialog is
 open pass, and so do keys a closer listener already handled (`defaultPrevented`) and keys of an IME
 composition. A click or drag with a pointer on a palette entry, and the context pad's attach and
-delete, hand the focus to the canvas, so Delete and `Ctrl/Cmd+Z` act at once; Enter or Space leave
-it on the entry, unless the entry goes away with its action. Rename and "Add annotation" open the
-label editor, which gives the focus back to the canvas when it closes. Zoom and fit keys belong to
+delete, hand the focus to the canvas, so Delete and `Ctrl/Cmd+Z` act at once. Enter or Space leave
+it on the lasso, hand it to the canvas on the pad's delete, and on a creating palette entry open the
+label editor (see "Palette from the keyboard" below). Rename and "Add annotation" open the label
+editor too, which gives the focus back to the canvas when it closes. Zoom and fit keys belong to
 the host's chrome (guide §5.8: only Cmd/Ctrl + `+` `-` `0` and Shift+1, each acting exactly once),
 so the canvas binds none; the
 [`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell) chrome provides

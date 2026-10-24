@@ -89,6 +89,14 @@ async function addTeamByKeyboard(page: Page): Promise<void> {
   await page.keyboard.press("Escape");
 }
 
+/** The renderer's read-only lock, which the web app itself never sets. */
+async function setReadOnly(page: Page, readOnly: boolean): Promise<void> {
+  await page.evaluate((locked) => {
+    const modeler = (window as unknown as { __ttModeler: { get<T>(name: string): T } }).__ttModeler;
+    modeler.get<{ setReadOnly(readOnly: boolean): void }>("ttReadOnly").setReadOnly(locked);
+  }, readOnly);
+}
+
 async function renameDiagram(page: Page, title: string): Promise<void> {
   await chooseMenuEntry(page, "diagram-title");
   await page.getByRole("textbox", { name: "Title" }).fill(title);
@@ -340,6 +348,24 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     await expect.poll(async () => (await exportDocument(page)).nodes.length).toBe(0);
   });
 
+  test("Cmd/Ctrl+Z on the focused canvas is the canvas's own, also where it declines", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await startBlankCanvas(page);
+    await addTeamByKeyboard(page);
+    expect((await exportDocument(page)).nodes).toHaveLength(1);
+
+    await setReadOnly(page, true);
+    await canvasSvg(page).focus();
+    await page.keyboard.press("ControlOrMeta+Z");
+    expect((await exportDocument(page)).nodes).toHaveLength(1);
+
+    await setReadOnly(page, false);
+    await page.keyboard.press("ControlOrMeta+Z");
+    await expect.poll(async () => (await exportDocument(page)).nodes.length).toBe(0);
+  });
+
   test("with nothing focused the canvas keys leave the diagram alone", async ({ page }) => {
     await gotoApp(page);
     await loadExample(page);
@@ -366,6 +392,22 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
 
     await page.keyboard.press("ControlOrMeta+Z");
     await expect(team).toHaveCount(1);
+  });
+
+  test("after a click on an annotation's attach entry, Escape and Delete act on the canvas", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    const annotation = page.locator('[data-element-id="ann_fraud_handover"]');
+    await annotation.click();
+    await page.locator('.djs-context-pad.open [data-action="connect"]').click();
+
+    await page.keyboard.press("Escape");
+    expect(await selectedIds(page)).toEqual(["ann_fraud_handover"]);
+    await page.keyboard.press("Delete");
+
+    await expect(annotation).toHaveCount(0);
   });
 
   test("Enter in the inspector's name field hands the keys back to the canvas", async ({
