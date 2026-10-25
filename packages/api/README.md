@@ -117,6 +117,29 @@ label into the shared document for every peer. RECOMMENDED: the interaction
 stays open with its typed input, so the user's commit afterwards writes what it
 would have written without the view change.
 
+**Keys stay on the canvas** (1.4, RECOMMENDED). A modeler acts on a key only
+while its canvas holds the focus: the key's target is the focusable element the
+modeler placed in the host to take its keys (diagram-js: the canvas `<svg>`,
+`tabindex="0"`) or lies inside it. Every other key is the page's:
+
+- a key aimed at the host's chrome or at a host editor (a button, a text input,
+  a select, a contenteditable, an EditContext or Monaco editor), whether it sits
+  beside the modeler's container, inside it, or next to the canvas in a host's
+  overlay;
+- a key whose target is `<body>`: nothing is focused after a load, after a
+  click on page text, and while the host hides the canvas (`display: none`) or
+  makes it `inert`.
+
+The modeler leaves such a key alone: no command, no change of the document or
+the selection, no `preventDefault()` and no `stopPropagation()`, in the capture
+phase too. A keydown without a string `key` (browser autofill dispatches one) is
+ignored without an error. Hosts embed modelers next to their own editors and
+toolbars: a key the canvas takes from there deletes the selection while the user
+types, undoes the last edit from a toolbar button or swallows Cmd/Ctrl+C in a
+text field. The modeler's own chrome (its palette, context pad, label editor)
+handles its keys as it sees fit, and a host that wants keyboard editing hands
+the canvas the focus (a click on it, Tab, `canvas.focus()`).
+
 ## Factory options
 
 `CollaborativeModelerOptions` (1.2) names the options a host has to feed a
@@ -206,7 +229,8 @@ registerConformance(
 host's client size and use `getBBox`, which jsdom lacks and a detached or 0×0
 element turns into NaN: mount into `attachedHost()` (a sized element appended
 to `document.body`) under vitest browser mode / Playwright (the modeler
-repos' `test:browser` project), not under the unit project.
+repos' `test:browser` project), not under the unit project. The keys case
+finds the canvas in the `attachedHost()` that `create()` mounted into.
 
 **Canonical texts are yours to vouch for.** L2 proves `exportText` is a
 fixpoint of the texts you provide. Obtain them by exporting a hand-authored
@@ -226,7 +250,12 @@ diagram-coordinates half. A modeler without `contentBounds` skips the
 content-bounds case; with it, a harness without `viewState` skips only its
 view half, and a modeler without `elements.bounds` only its covering half.
 Without `openInteraction` or `viewState` the L5 interaction case reports a
-skip; without `commitInteraction` only its commit halves do.
+skip; without `commitInteraction` only its commit halves do. The keys case
+reports a skip without a DOM and when `create()` mounted into no
+`attachedHost()` holding a focusable `<svg>` (or into two); after its other
+checks it also reports one when it cannot see a key act: a modeler without
+`elements`, a canvas that does not take the focus, or Delete and Backspace that
+leave the revealed element in place.
 
 **Every rejection is probed.** `invalidTexts` lists what MUST reject; the kit
 does not take `[]` on trust. The L7 probe case derives damaged forms from
@@ -266,10 +295,31 @@ same element and input, and `commitInteraction` must then write the same
 document as without the view change, so `openInteraction` types the same
 input on every call.
 
+**Keys stay on the canvas.** The keys case imports `canonicalTexts[0]`, runs
+`mutate` (undo history for Cmd/Ctrl+Z) and reveals the first listed element (a
+selection for Delete and the arrows). It then puts focusable host controls
+beside the modeler, inside the host element and next to the canvas `<svg>` (a
+button, a text input, a textarea, a select, a contenteditable, a focusable
+element in a `.monaco-editor` and, where the browser has EditContext, an
+EditContext editor) and aims every key the Miragon canvases bind at each of
+them, the focus on that control, and at `<body>`: with nothing focused, right
+after the canvas lost the focus, and while the host element's wrapper is
+`display: none` or `inert`. The keys are Backspace, Delete, the arrows, Enter,
+Escape, Space, Tab, the single-key tools (`a c e h l n p s u`), Shift+1, and
+`a c v x d z`, Shift+Z, `y`, `+`, `-` and `0` once with Ctrl and once with Meta.
+Each key must leave the export, the change events, the selection,
+`defaultPrevented` and its propagation to the window as they were; a keydown and
+a keyup without a key, on the focused canvas, on `<body>` and on a host button
+and input, must throw nothing. What it finds is one advisory; after the first
+key that changed something on a control it moves to the next, on a fresh
+document. Last, Delete (or Backspace) on the focused canvas must change the
+document, the revealed element removed: proof that the case's keys reach the
+modeler at all.
+
 **Recommendations are advisories.** Where the contract only RECOMMENDS
 (collision-free ids across peers, keep-and-reopen of an open interaction across
-an import, keep-open across a host's view change), the kit reports what it
-finds as an ADVISORY through `onAdvisory` (`console.warn` by default) and never
+an import, keep-open across a host's view change, keys that stay on the canvas),
+the kit reports what it finds as an ADVISORY through `onAdvisory` (`console.warn` by default) and never
 fails: a recommendation becomes a law, with a failing case, only in a major
 release. The collision check imports the same canonical text into two fresh
 instances, runs `mutate` once on each and advises when both allocate the same
@@ -317,7 +367,11 @@ for a harness) passes every case and advises nothing, one deliberately broken
 variant per historical drift AND per kit case fails exactly the case set that
 encodes the violated law (not every individual assertion has a saboteur;
 every case does), and one variant per recommendation fails nothing and
-advises exactly once.
+advises exactly once. That suite runs without a DOM, which proves the other
+cases need none; the keys case needs one, so a second suite
+([`test/keys.conformance.test.ts`](test/keys.conformance.test.ts), jsdom) mounts
+the reference into `attachedHost()`, runs every case on it, and holds the keys
+saboteurs.
 
 ## Versioning
 
@@ -369,6 +423,10 @@ Recommendations today, proposed as hard laws for the next major:
   `setViewState` (or a host's fit) the interaction is still open with its typed
   input, and the user's commit writes what it would have written without the
   view change (today: L5 RECOMMENDED, advisory in the L5 interaction case).
+- **Keys stay on the canvas:** a key acts only while the canvas holds the
+  focus; a key aimed at the host's controls and editors or at `<body>` is left
+  alone, and a keydown without a key throws nothing (today: RECOMMENDED since
+  1.4, advisory in the keys case).
 
 ## License
 

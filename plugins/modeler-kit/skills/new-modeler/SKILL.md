@@ -113,8 +113,9 @@ known version), and the new repository's Dependabot moves them on.
   edit, save, undo and VS Code's four default themes in a real VS Code
   ([shell](references/shell.md#the-vs-code-smoke-test)).
 - The renderer's `meta.apiVersion` is the pinned `MODELER_API_VERSION`, the factories accept the
-  1.2 options `freeArea`, `fitOnImport` and `undoRedoKeys`, and both mounts report
-  `contentBounds()` (1.3), which the apps and Design IQ fit to.
+  1.2 options `freeArea`, `fitOnImport` and `undoRedoKeys`, both mounts report
+  `contentBounds()` (1.3), which the apps and Design IQ fit to, and the canvas acts on a key only
+  while it holds the focus (1.4).
 - Neither app has chrome of its own: menu, palette skin, zoom, keys, problems, status, empty state
   and toasts come from the shell, and the menu content comes from the renderer.
 - brand-lint reports no hard finding with the template's `.miragon/brand.json`

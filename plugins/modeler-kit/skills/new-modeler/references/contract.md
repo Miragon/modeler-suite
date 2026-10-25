@@ -64,11 +64,32 @@ presence to these ids, so:
 - only elements with a stable id are listed (Event Storming lists stickies, not its drawings);
 - an external label reports as its element.
 
+## Keys
+
+Since 1.4 the contract RECOMMENDS that keys stay on the canvas: a key acts only while the canvas
+`<svg>` holds the focus (the key's target is the svg or lies inside it), which is where diagram-js
+15 binds its own keyboard. Every other key belongs to the page: a host's buttons and text fields, a
+Monaco or EditContext editor beside the canvas or in one of its overlays, and `<body>` with nothing
+focused, even while the host hides the canvas. A renderer that adds keys of its own:
+
+- binds them through diagram-js's `keyboard`, as the template's
+  [`KeyboardBindings.ts`](../assets/template/packages/renderer/src/keyboard/KeyboardBindings.ts)
+  does, or, listening on the document, acts only on a key whose target lies in the canvas `<svg>`;
+- skips a keydown without a string `key` (browser autofill sends one), one already
+  `defaultPrevented` and one of an IME composition (`isComposing`);
+- never prevents or stops a key it does not act on, in the capture phase too, so a host's text
+  field keeps Cmd/Ctrl+C and its buttons keep Enter and Space.
+
+With `<body>` no longer the canvas's, an action that leaves the focus nowhere (a pointer on a
+palette tool or on the context pad's delete) hands it to the canvas (`canvas.focus()`), so the next
+key acts; in the apps the shell does that for its chrome ([shell](shell.md)).
+
 ## The conformance kit
 
 `registerConformance` from `@miragon/modeler-api/conformance` turns every law into a test case.
 Run it in `npm run test:browser`: diagram-js needs a real layout engine, so mount into
-`attachedHost()` under Vitest browser mode, never jsdom (template:
+`attachedHost()` under Vitest browser mode, never jsdom; the keys case finds the canvas `<svg>` in
+that host (template:
 [`conformance.browser.test.ts`](../assets/template/packages/renderer/test/browser/conformance.browser.test.ts)).
 
 - Fill **every** hook of `ConformanceHarness`: `create`, `createReadonly`, `canonicalTexts` (two

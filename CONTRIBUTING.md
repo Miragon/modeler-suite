@@ -288,8 +288,10 @@ Adding a case to the contract's kit means adding a saboteur flaw to
 `packages/api/test/conformance.test.ts`: a case without a saboteur is a case CI cannot prove to
 bite. A legitimate implementation choice the kit must accept (the enriched view-state readback)
 gets a variant that must fail nothing. A RECOMMENDATION gets a variant that misses it, fails
-nothing and advises exactly once. The shell's development loop (demo, e2e, module layout) is in
-its [README](packages/shell/README.md#development).
+nothing and advises exactly once. That suite runs without a DOM; a case that needs one (the keys
+case) skips there and gets its saboteurs in `packages/api/test/keys.conformance.test.ts`, which
+mounts the reference into `attachedHost()` under jsdom and runs every case. The shell's development
+loop (demo, e2e, module layout) is in its [README](packages/shell/README.md#development).
 
 ## Claude Code plugins
 

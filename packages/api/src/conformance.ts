@@ -38,7 +38,9 @@ export interface ConformanceHarness {
    * engines compute viewboxes from the host's client size, so a detached
    * or 0×0 host yields NaN view state; they also need a real browser
    * (vitest browser mode / Playwright), jsdom has no getBBox. Keep
-   * `fitOnImport` at its default: the L5 cases check the modeler's own fit
+   * `fitOnImport` at its default: the L5 cases check the modeler's own fit.
+   * The keys case finds the canvas in the host `attachedHost()` made during
+   * this call: mount into one, or that case reports a skip
    */
   create(): Promise<CollaborativeModeler>;
   /** a fresh READ-ONLY instance (`meta.editable === false`) — the viewer
@@ -199,6 +201,18 @@ export interface ConformanceCase {
   run(harness: ConformanceHarness): Promise<CaseOutcome | void>;
 }
 
+interface AttachedHost {
+  /** counts every host attachedHost() made, so a case can tell the ones made during one `create()` */
+  serial: number;
+  host: HTMLElement;
+  wrapper: HTMLElement;
+}
+
+let nextHostSerial = 0;
+/** the hosts attachedHost() made that are still in the document: the keys case finds the canvas of
+ *  the modeler `create()` mounted there, and hides or disables the host the way a host page does */
+let attachedHosts: AttachedHost[] = [];
+
 /**
  * a host element of the given size, attached to the document — what
  * `create()` should mount into (browser only). The returned element sits
@@ -212,6 +226,8 @@ export function attachedHost(width = 800, height = 600): HTMLElement {
   host.style.cssText = "width:100%;height:100%";
   wrapper.append(host);
   document.body.append(wrapper);
+  attachedHosts = attachedHosts.filter((entry) => entry.wrapper.isConnected);
+  attachedHosts.push({ serial: nextHostSerial++, host, wrapper });
   return host;
 }
 
@@ -1716,6 +1732,10 @@ export function conformanceCases(): ConformanceCase[] {
       },
     },
     {
+      name: "keys (recommended): a key aimed at the host's controls and editors or at <body> is left alone, a keydown without a key throws nothing, a key on the focused canvas acts",
+      run: keysStayOnTheCanvas,
+    },
+    {
       name: "destroy is safe to call twice",
       async run(h) {
         const m = await h.create();
@@ -1745,6 +1765,462 @@ async function foreignRoundTrips(
     const second = exportOrFail(m, `${who}after re-importing its own export of foreign content`);
     if (second !== first)
       fail(`${who}foreign content did not survive a second import → export round-trip`);
+  }
+}
+
+/** where the keys case looks for the canvas: the focusable `<svg>` diagram-js places in the host */
+const CANVAS_SELECTOR = "svg[tabindex]";
+
+/** a key a canvas might bind, as a keyboard event carries it */
+interface KeyStroke {
+  key: string;
+  code: string;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  shiftKey?: boolean;
+}
+
+const NAMED_CODES: Record<string, string> = {
+  " ": "Space",
+  "+": "Equal",
+  "-": "Minus",
+  "!": "Digit1",
+};
+
+const codeOf = (key: string): string => {
+  if (/^[a-z]$/i.test(key)) return `Key${key.toUpperCase()}`;
+  if (/^\d$/.test(key)) return `Digit${key}`;
+  return NAMED_CODES[key] ?? key;
+};
+
+/**
+ * the keys the Miragon canvases bind: editing, nudging, Enter, Escape, Space and Tab, the single-key
+ * tools of diagram-js and the renderers, Shift+1 (fit), and every shortcut once with Ctrl and once
+ * with Meta, since a renderer may read either
+ */
+const KEY_STROKES: KeyStroke[] = [
+  ...[
+    "Backspace",
+    "Delete",
+    "ArrowLeft",
+    "ArrowRight",
+    "ArrowUp",
+    "ArrowDown",
+    "Enter",
+    "Escape",
+    " ",
+    "Tab",
+    "a",
+    "c",
+    "e",
+    "h",
+    "l",
+    "n",
+    "p",
+    "s",
+    "u",
+  ].map((key) => ({ key, code: codeOf(key) })),
+  { key: "!", code: codeOf("!"), shiftKey: true },
+  ...[
+    { key: "a" },
+    { key: "c" },
+    { key: "v" },
+    { key: "x" },
+    { key: "d" },
+    { key: "z" },
+    { key: "Z", shiftKey: true },
+    { key: "y" },
+    { key: "+" },
+    { key: "-" },
+    { key: "0" },
+  ].flatMap((stroke) => [
+    { ...stroke, code: codeOf(stroke.key), ctrlKey: true },
+    { ...stroke, code: codeOf(stroke.key), metaKey: true },
+  ]),
+];
+
+const describeStroke = (stroke: KeyStroke): string =>
+  [
+    stroke.ctrlKey ? "Ctrl" : "",
+    stroke.metaKey ? "Meta" : "",
+    stroke.shiftKey ? "Shift" : "",
+    stroke.key === " " ? "Space" : stroke.key === "!" ? "1" : stroke.key,
+  ]
+    .filter((part) => part !== "")
+    .join("+");
+
+/** where the keys case aims a key, and how the page gets there */
+interface KeyTarget {
+  /** names the target in the advisory */
+  what: string;
+  element: Element;
+  /** moves the focus the way the page does; returns what undoes it */
+  enter(): () => void;
+}
+
+type Focusable = Element & HTMLOrSVGElement;
+
+const focusOn = (element: Element): void => {
+  (element as Focusable).focus({ preventScroll: true });
+};
+
+/** the focus leaves whatever holds it and falls to <body> */
+const blurActive = (doc: Document): void => {
+  const active = doc.activeElement;
+  if (active !== null && active !== doc.body) (active as Focusable).blur();
+};
+
+const stayPut = (): void => undefined;
+
+/**
+ * focusable stand-ins for a host's chrome and editors, in a box appended to `parent`: a button, the
+ * text fields, a contenteditable, an editor inside a `.monaco-editor` and, where the browser has
+ * EditContext (Chromium), an element that types through one, as Monaco 0.55 does there
+ */
+function hostControls(parent: HTMLElement, where: string): { targets: KeyTarget[]; box: Element } {
+  const doc = parent.ownerDocument;
+  const button = doc.createElement("button");
+  button.type = "button";
+  button.textContent = "Host button";
+  const input = doc.createElement("input");
+  input.value = "host text";
+  const textarea = doc.createElement("textarea");
+  textarea.value = "host text";
+  const select = doc.createElement("select");
+  for (const label of ["one", "two"]) {
+    const option = doc.createElement("option");
+    option.textContent = label;
+    select.append(option);
+  }
+  const editable = doc.createElement("div");
+  editable.setAttribute("contenteditable", "true");
+  editable.textContent = "host text";
+  const monaco = doc.createElement("div");
+  monaco.className = "monaco-editor";
+  const monacoInput = doc.createElement("div");
+  monacoInput.className = "native-edit-context";
+  monacoInput.setAttribute("role", "textbox");
+  monacoInput.tabIndex = 0;
+  monaco.append(monacoInput);
+  const box = doc.createElement("div");
+  box.append(button, input, textarea, select, editable, monaco);
+  const controls: Array<[string, HTMLElement]> = [
+    ["a host <button>", button],
+    ["a host text <input>", input],
+    ["a host <textarea>", textarea],
+    ["a host <select>", select],
+    ["a host contenteditable", editable],
+    ["a focusable element in a host .monaco-editor", monacoInput],
+  ];
+  const EditContextClass = (globalThis as { EditContext?: new () => object }).EditContext;
+  if (typeof EditContextClass === "function") {
+    const editor = doc.createElement("div");
+    editor.tabIndex = 0;
+    Object.assign(editor, { editContext: new EditContextClass() });
+    box.append(editor);
+    controls.push(["a host EditContext editor", editor]);
+  }
+  parent.append(box);
+  const targets = controls.map(([what, element]) => ({
+    what: `${what} ${where}`,
+    element,
+    enter: () => {
+      focusOn(element);
+      return stayPut;
+    },
+  }));
+  return { targets, box };
+}
+
+/** <body> as a key's target: nothing focused, right after the canvas had the focus, and while the
+ *  host hides the modeler or makes it inert */
+function bodyTargets(doc: Document, canvas: Element, wrapper: HTMLElement): KeyTarget[] {
+  const body = doc.body;
+  const hideWith = (hide: () => () => void) => (): (() => void) => {
+    focusOn(canvas);
+    const show = hide();
+    // a browser moves the focus off a hidden or inert element only at its next rendering update
+    blurActive(doc);
+    return show;
+  };
+  return [
+    {
+      what: "<body> with nothing focused",
+      element: body,
+      enter: () => {
+        blurActive(doc);
+        return stayPut;
+      },
+    },
+    {
+      what: "<body> right after the canvas lost the focus",
+      element: body,
+      enter: () => {
+        focusOn(canvas);
+        blurActive(doc);
+        return stayPut;
+      },
+    },
+    {
+      what: "<body> while the host hides the modeler (display: none)",
+      element: body,
+      enter: hideWith(() => {
+        const display = wrapper.style.display;
+        wrapper.style.display = "none";
+        return () => {
+          wrapper.style.display = display;
+        };
+      }),
+    },
+    {
+      what: "<body> while the host makes the modeler inert",
+      element: body,
+      enter: hideWith(() => {
+        wrapper.setAttribute("inert", "");
+        return () => wrapper.removeAttribute("inert");
+      }),
+    },
+  ];
+}
+
+const listed = (parts: string[]): string =>
+  parts.length < 2 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+
+/** how many findings the advisory spells out; the rest it counts */
+const SHOWN_KEY_FINDINGS = 12;
+
+const selectionOf = (m: CollaborativeModeler): string =>
+  m.elements ? JSON.stringify([...m.elements.selection()].sort()) : "";
+
+/**
+ * the keys case: a modeler mounted into `attachedHost()` imports `canonicalTexts[0]`, gets undo
+ * history (`mutate`) and a selection (`elements.reveal`), and then sees every key of KEY_STROKES
+ * aimed at host controls beside its container and inside it, and at <body>. Each must leave the
+ * document, the change events, the selection, `defaultPrevented` and the propagation alone (an
+ * advisory otherwise, since 1.4 only RECOMMENDS it); a keydown without a key must throw nothing.
+ * Delete or Backspace on the focused canvas must then remove the revealed element: without that
+ * proof the case cannot tell a key the modeler leaves alone from one it never sees, and it reports
+ * a skip
+ */
+async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> {
+  if (typeof document === "undefined") {
+    return skip(
+      "no DOM — keys need a document to be aimed at (run the kit in a browser, the modeler mounted into attachedHost())",
+    );
+  }
+  const settle = h.settle ?? defaultSettle;
+  const text = h.canonicalTexts[0] ?? "";
+  const firstSerial = nextHostSerial;
+  const m = await h.create();
+  const cleanups: Array<() => void> = [];
+  try {
+    await importOrFail(m, text, "importText(canonicalTexts[0]) rejected");
+    const mounts = attachedHosts.filter(
+      (entry) => entry.serial >= firstSerial && entry.host.querySelector(CANVAS_SELECTOR) !== null,
+    );
+    const [mount] = mounts;
+    if (mount === undefined || mounts.length > 1) {
+      return skip(
+        mount === undefined
+          ? "create() mounted the modeler into no attachedHost() that holds a focusable <svg> (one with a tabindex, diagram-js's canvas) — the kit finds the canvas there; keys were not verified"
+          : `create() made ${mounts.length} attachedHost() elements that hold a focusable <svg> — the kit cannot tell which one is the modeler's canvas; keys were not verified`,
+      );
+    }
+    const { host, wrapper } = mount;
+    const canvas = host.querySelector(CANVAS_SELECTOR) ?? fail("the canvas left the host");
+    const doc = host.ownerDocument;
+    const view = doc.defaultView ?? window;
+
+    const propagated = new WeakSet<Event>();
+    const reachedWindow = (event: Event): void => {
+      propagated.add(event);
+    };
+    view.addEventListener("keydown", reachedWindow);
+    view.addEventListener("keyup", reachedWindow);
+    cleanups.push(() => {
+      view.removeEventListener("keydown", reachedWindow);
+      view.removeEventListener("keyup", reachedWindow);
+    });
+    let changes = 0;
+    cleanups.push(
+      m.onContentChanged(() => {
+        changes += 1;
+      }),
+    );
+    // only while the kit dispatches: an error the modeler throws from a key listener reaches no
+    // caller, so the window's error event is the one place to see it
+    const thrownBy = (dispatch: () => void): string[] => {
+      const thrown: string[] = [];
+      const onError = (event: ErrorEvent): void => {
+        thrown.push(String(event.error ?? event.message));
+        event.preventDefault();
+      };
+      view.addEventListener("error", onError);
+      try {
+        dispatch();
+      } finally {
+        view.removeEventListener("error", onError);
+      }
+      return thrown;
+    };
+    const press = (
+      target: Element,
+      stroke: KeyStroke,
+    ): { prevented: boolean; stopped: boolean; thrown: string[] } => {
+      const init = { ...stroke, bubbles: true, cancelable: true, composed: true };
+      const down = new view.KeyboardEvent("keydown", init);
+      const up = new view.KeyboardEvent("keyup", init);
+      const thrown = thrownBy(() => {
+        target.dispatchEvent(down);
+        target.dispatchEvent(up);
+      });
+      return {
+        prevented: down.defaultPrevented || up.defaultPrevented,
+        stopped: !propagated.has(down) || !propagated.has(up),
+        thrown,
+      };
+    };
+
+    let revealed: string | undefined;
+    const setUp = async (): Promise<void> => {
+      await importOrFail(m, text, "re-importing canonicalTexts[0] rejected");
+      // undo history and a selection: what Cmd/Ctrl+Z, Delete and the arrows act on
+      await h.mutate(m);
+      await settle();
+      revealed = m.elements?.list()[0]?.id;
+      if (revealed !== undefined) m.elements?.reveal(revealed);
+      await settle();
+    };
+    await setUp();
+
+    // beside the modeler, inside the element the host gave it, and next to the canvas in the
+    // element that holds it, where a host's overlays (diagram-js overlays) put their editors
+    const placements: Array<[HTMLElement, string]> = [
+      [doc.body, "beside the modeler"],
+      [host, "inside the modeler's container"],
+    ];
+    const canvasHolder = canvas.parentElement;
+    if (canvasHolder !== null && canvasHolder !== host) {
+      placements.push([canvasHolder, "next to the canvas <svg>"]);
+    }
+    const controls = placements.map(([parent, where]) => hostControls(parent, where));
+    for (const { box } of controls) cleanups.push(() => box.remove());
+    const outside = controls[0]?.targets ?? [];
+
+    const findings: string[] = [];
+    const targets = [
+      ...controls.flatMap((placed) => placed.targets),
+      ...bodyTargets(doc, canvas, wrapper),
+    ];
+    for (const target of targets) {
+      const leave = target.enter();
+      let dirty = false;
+      try {
+        const last = { doc: exportOrFail(m, `with the focus on ${target.what}`), changes };
+        for (const stroke of KEY_STROKES) {
+          const key = `${describeStroke(stroke)} on ${target.what}`;
+          const selection = selectionOf(m);
+          const { prevented, stopped, thrown } = press(target.element, stroke);
+          const changed = [
+            ...(changes !== last.changes ? ["fired onContentChanged"] : []),
+            ...(exportOrFail(m, `after ${key}`) !== last.doc ? ["changed the document"] : []),
+            ...(selectionOf(m) !== selection ? ["changed the selection"] : []),
+          ];
+          const effects = [
+            ...changed,
+            ...(prevented ? ["prevented it"] : []),
+            ...(stopped ? ["stopped its propagation"] : []),
+            ...thrown.map((error) => `threw ${error}`),
+          ];
+          if (effects.length > 0) findings.push(`${key} ${listed(effects)}`);
+          // the keys after it would be judged against a state it changed: one finding per target
+          // is enough, and a fresh document per key would take a non-conforming modeler too long
+          dirty = changed.length > 0;
+          if (dirty) break;
+        }
+        if (!dirty) {
+          await settle();
+          if (exportOrFail(m, `once the keys on ${target.what} settled`) !== last.doc) {
+            findings.push(`a key on ${target.what} changed the document once it settled`);
+            dirty = true;
+          } else if (changes !== last.changes) {
+            findings.push(`a key on ${target.what} fired onContentChanged once it settled`);
+            dirty = true;
+          }
+        }
+      } finally {
+        leave();
+      }
+      if (dirty) await setUp();
+    }
+
+    const keyless: Array<[string, Element, () => void]> = [
+      ["the focused canvas", canvas, () => focusOn(canvas)],
+      ["<body> with nothing focused", doc.body, () => blurActive(doc)],
+      ...outside
+        .slice(0, 2)
+        .map((target): [string, Element, () => void] => [
+          target.what,
+          target.element,
+          () => target.enter(),
+        ]),
+    ];
+    for (const [what, element, enter] of keyless) {
+      enter();
+      for (const type of ["keydown", "keyup"]) {
+        const thrown = thrownBy(() =>
+          element.dispatchEvent(new view.Event(type, { bubbles: true, cancelable: true })),
+        );
+        for (const error of thrown)
+          findings.push(`a ${type} without a key on ${what} threw ${error}`);
+      }
+    }
+
+    let unverified: string | undefined;
+    if (!m.elements) {
+      unverified =
+        "the modeler exposes no elements surface (optional) — that Delete on the focused canvas removes a revealed element was not verified, so the case cannot tell a key the modeler leaves alone from one it never sees";
+    } else {
+      await setUp();
+      focusOn(canvas);
+      if (revealed === undefined) {
+        unverified =
+          "elements.list() reports no element after importing canonicalTexts[0] and one mutate — that Delete on the focused canvas removes a revealed element was not verified, so the case cannot tell a key the modeler leaves alone from one it never sees";
+      } else if (doc.activeElement !== canvas) {
+        unverified =
+          "the canvas <svg> did not take the focus — that a key on the focused canvas acts was not verified, so the case cannot tell a key the modeler leaves alone from one it never sees";
+      } else {
+        const before = exportOrFail(m, `with '${revealed}' revealed`);
+        let acted = false;
+        for (const key of ["Delete", "Backspace"]) {
+          press(canvas, { key, code: key });
+          await settle();
+          acted = exportOrFail(m, `after ${key} on the focused canvas`) !== before;
+          if (acted) break;
+        }
+        if (!acted) {
+          unverified = `Delete and Backspace on the focused canvas, with '${revealed}' revealed (selected), left the document as it was — the case cannot tell a key the modeler leaves alone from one it never sees`;
+        }
+      }
+    }
+
+    const more =
+      findings.length > SHOWN_KEY_FINDINGS
+        ? `; and ${findings.length - SHOWN_KEY_FINDINGS} more`
+        : "";
+    return {
+      ...(unverified === undefined ? {} : { skipped: unverified }),
+      ...(findings.length === 0
+        ? {}
+        : {
+            advisories: [
+              `keys left the canvas: ${findings.slice(0, SHOWN_KEY_FINDINGS).join("; ")}${more} — RECOMMENDED: act on a key only while the canvas holds the focus (its target is the canvas or lies inside it), leave every other key alone (no command, no change of the document or the selection, no preventDefault, no stopPropagation) and ignore a keydown without a key`,
+            ],
+          }),
+    };
+  } finally {
+    for (const cleanup of cleanups) cleanup();
+    m.destroy();
   }
 }
 
