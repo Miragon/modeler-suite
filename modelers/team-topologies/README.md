@@ -15,7 +15,7 @@ and lossless, version-controllable files, as `modelers/team-topologies` of the
 
 **[Try the web app →](https://team-topologies.modeler.miragon.io)**
 
-![The Team Topologies editor](docs/screenshots/editor.png)
+![In the Team Topologies web app, the example opens and a new platform team "Data Platform" is added from the palette](docs/demo.gif)
 
 ## Notation
 
