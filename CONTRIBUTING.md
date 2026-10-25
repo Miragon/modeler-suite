@@ -368,3 +368,24 @@ tests and demo in `packages/shell/fixtures/tokens/`. To update, copy all three f
 follow the modeler's `CONTRIBUTING.md` (vendoring header, hashes in `theme.sync.test.ts`, `MIRAGON`
 in `palette.ts`) and run its `test` and `test:e2e`. Never edit or reformat them by hand; Prettier
 ignores them.
+
+## brand-lint
+
+[`.miragon/brand.json`](.miragon/brand.json) turns on brand-lint, the design system's linter from
+the `miragon-brand` plugin (Miragon/corporate-identity), for the whole suite. With the plugin
+installed, Claude Code runs it on every file it writes and hands each hard finding back to Claude.
+It needs `miragon-brand` 1.7.0 or later: older releases do not know the status colours the palettes
+use and report them. Update with `claude plugin marketplace update miragon` and
+`claude plugin update miragon-brand@miragon`. By hand, from the root, give it the repository's
+files: its own walk of `.` skips every dot folder and dot file (`.github`, `modelers/*/.claude`,
+the template's `.claude`, `.dependency-cruiser.cjs`), which the hook still checks.
+
+```sh
+node <miragon-brand plugin>/scripts/brand-lint.mjs $(git ls-files -co --exclude-standard)
+```
+
+Fix every hard finding, such as an em dash used as a connector or a colour outside the design
+tokens. An intended notation colour goes between `// brand-lint-disable` and `// brand-lint-enable`,
+under a comment that says why. Keep the one root file: the hook reads the nearest
+`.miragon/brand.json` and never merges, so a file under `modelers/` would replace the suite's rules
+for that modeler.

@@ -1,0 +1,19 @@
+{
+  "_comment": "Turns on brand-lint from the miragon-brand plugin for this repository: as the Claude Code hook on every file Claude writes and for a manual run from the root. The modeler is English (design guide section 2), so the German copy rules are off: du (A1), umlauts (A3), German passive (A4), German claim (A7) and gender forms (A11). C5 (one language per tool) stays on, as do em dashes as connectors (A2), spellings (A10), the anti-slop patterns (S*) and the palette, token and dark-mode rules. Ignored: CHANGELOGs, which release-please writes; the third-party notices, generated from the bundled licences; tests, the e2e suite and snapshots, whose data breaks rules on purpose; fixtures. brand-lint skips the vendored *.generated.* tokens and cd-canvas.css by itself.",
+  "ignorieren": [
+    "*CHANGELOG.md",
+    "*THIRD_PARTY_NOTICES.md",
+    "test/",
+    "*/test/*",
+    "*/test-smoke/*",
+    "*.test.ts",
+    "*.test.tsx",
+    "*.spec.ts",
+    "e2e/",
+    "*/e2e/*",
+    "*/__snapshots__/*",
+    "*-snapshots/*",
+    "*/fixtures/*"
+  ],
+  "aus": ["A1", "A3", "A4", "A7", "A11"]
+}

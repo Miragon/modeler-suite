@@ -50,12 +50,15 @@ export function noteMetrics(label: string): { lines: string[]; width: number; he
  * layer. Maps store note colours as hex, the accelerator needs 4.5:1 as text and the SVG export
  * must not change, so the notation keeps them as its own literals.
  */
+// Notation colours until the joint dark mode maps them onto the status roles (guide §3.6).
+// brand-lint-disable
 const NOTATION_STATUS = {
   success: "#0B7A55",
   warning: "#92610A",
   danger: "#C92A2A",
   info: "#2B50D4",
 } as const;
+// brand-lint-enable
 
 /**
  * Canvas colours — Miragon palette (blue = interactive/flow, green = accelerate/positive,
@@ -100,10 +103,13 @@ export const NOTE_COLORS = [
   { id: "amber", name: "Amber · watch", value: NOTATION_STATUS.warning },
   { id: "red", name: "Red · problem", value: NOTATION_STATUS.danger },
   { id: "blue", name: "Blue · info", value: NOTATION_STATUS.info },
+  // Maps store these as hex; guide §3.6 retires them with the joint dark mode.
+  // brand-lint-disable
   { id: "teal", name: "Teal", value: "#0E8181" },
   { id: "purple", name: "Purple · idea", value: "#6A3DB8" },
   { id: "pink", name: "Pink", value: "#C2185B" },
   { id: "slate", name: "Slate · neutral", value: "#4A4A4A" },
+  // brand-lint-enable
 ] as const;
 
 /**
@@ -112,6 +118,8 @@ export const NOTE_COLORS = [
  */
 export const ATTITUDE_COLORS: Record<string, { fill: string; stroke: string }> = {
   pioneers: { fill: "rgba(51,93,229,0.07)", stroke: MIRAGON.blau },
+  // The notation's warning as a tint, until the joint dark mode draws Settlers per guide §3.6.
+  // brand-lint-disable-next-line
   settlers: { fill: "rgba(146,97,10,0.10)", stroke: NOTATION_STATUS.warning },
   // Bright brand green only as the fill; the title and outline need the darker success value (AA).
   townplanners: { fill: "rgba(0,230,118,0.10)", stroke: NOTATION_STATUS.success },

@@ -164,6 +164,8 @@ function optionalColour(element, field, fail) {
     element[field] !== undefined &&
     !(typeof element[field] === "string" && HEX_COLOUR.test(element[field]))
   ) {
+    // An example of the form in the report, not a colour anything draws.
+    // brand-lint-disable-next-line
     fail(field, 'must be a hex colour such as "#ffd966" (3 or 6 digits, no colour names)');
   }
 }

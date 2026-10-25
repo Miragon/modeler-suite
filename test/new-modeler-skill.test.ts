@@ -21,6 +21,13 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
+import {
+  ENGLISH_MODELER_RULES_OFF,
+  ignoredByBrandLint,
+  lintedByBrandLint,
+  readBrandLintConfig,
+  writtenByToolsOrTestData,
+} from "./support/brand-lint";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PLUGIN = join(ROOT, "plugins/modeler-kit");
@@ -456,6 +463,29 @@ describe("the template's package.json files and workflows", () => {
     ].map((file) => [...readText(file).matchAll(HEADER)].map(([line]) => line));
     expect(headers[0]).toHaveLength(1);
     expect(headers[1]).toEqual(headers[0]);
+  });
+});
+
+describe("the template's brand-lint config", () => {
+  it("turns off exactly the German copy rules of an English modeler, as the suite does", () => {
+    const config = readBrandLintConfig(TEMPLATE);
+    expect([...config.aus].sort()).toEqual([...ENGLISH_MODELER_RULES_OFF].sort());
+    expect(config.aus).toEqual(readBrandLintConfig(ROOT).aus);
+  });
+
+  it("ignores what the suite's config ignores, without the suite's own paths", () => {
+    expect(readBrandLintConfig(TEMPLATE).ignorieren).toEqual(
+      readBrandLintConfig(ROOT).ignorieren.filter((pattern) => !pattern.startsWith("modelers/")),
+    );
+  });
+
+  it("ignores the template's tests, e2e suite and fixtures from its own root, and nothing else", () => {
+    const config = readBrandLintConfig(TEMPLATE);
+    const linted = templateFiles.map(fromTemplate).filter(lintedByBrandLint);
+    expect(
+      linted.filter((file) => ignoredByBrandLint(config, file) !== writtenByToolsOrTestData(file)),
+    ).toEqual([]);
+    expect(linted.filter((file) => file.startsWith("e2e/")).length).toBeGreaterThan(0);
   });
 });
 

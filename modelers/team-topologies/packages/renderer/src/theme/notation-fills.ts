@@ -8,8 +8,11 @@
 import type { InteractionMode } from "@miragon/team-topologies-schema-model";
 
 /** Each official interaction fill at its template opacity of 50 %, mixed over white. */
+// Notation colours outside the brand ramp, as the module comment says.
+// brand-lint-disable
 export const PREMIXED_INTERACTION_FILLS: Readonly<Record<InteractionMode, string>> = {
   collaboration: "#E3DFEF",
   "x-as-a-service": "#DADADA",
   facilitating: "#E4EFDF",
 };
+// brand-lint-enable

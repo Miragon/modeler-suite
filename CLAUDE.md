@@ -23,8 +23,9 @@ special to its notation (packages, DSL or file format, renderer architecture, te
 | `modelers/value-chain`            | Value Chain, `.vc` / `.vc.json`                                                                              | [CLAUDE.md](modelers/value-chain/CLAUDE.md)                      |
 | `plugins/modeler-kit`             | Claude plugin: the `new-modeler` skill and its template                                                      | [README](plugins/modeler-kit/README.md)                          |
 | `.claude-plugin/marketplace.json` | the suite's one Claude plugin marketplace (`modeler-suite`)                                                  |                                                                  |
+| `.miragon/brand.json`             | the suite's one brand-lint config (see [Design system](#design-system-mandatory))                            |                                                                  |
 | `tooling/`                        | the ESLint and dependency-cruiser presets every modeler's config calls                                       |                                                                  |
-| `test/`                           | repository-level checks: the modeler-kit drift test, every modeler's boundaries, Dependabot auto-merge       |                                                                  |
+| `test/`                           | repository-level checks: modeler-kit drift, modeler boundaries, Dependabot auto-merge, brand-lint config     |                                                                  |
 | `docs/`                           | [shell implementation notes](docs/shell/implementation-notes.md), [CI and releases](docs/ci-and-releases.md) |                                                                  |
 
 Each modeler folder holds `packages/` (its npm libraries), `apps/webapp`, `apps/vscode`, `e2e/`
@@ -173,6 +174,24 @@ Install once: `/plugin marketplace add Miragon/corporate-identity` then
   serializes only an element's optional `fill` / `stroke` override, never a notation colour. The
   design system covers everything else.
 - Each modeler's `CLAUDE.md` names its reference files and drift tests.
+- The root [`.miragon/brand.json`](.miragon/brand.json) turns on the plugin's brand-lint hook: after
+  every file Claude writes or edits, it reports each hard finding back to Claude, which fixes it
+  before going on. The hook needs Node and the `miragon-brand` plugin in 1.7.0 or later, installed
+  for your user as above (the repository adds no `.claude/settings.json`). Older releases do not
+  know the status colours the palettes use and report them; update with
+  `claude plugin marketplace update miragon` and `claude plugin update miragon-brand@miragon`. The
+  hook takes the nearest `.miragon/brand.json` and never merges, so the root file is the one config
+  of the suite: never add one under `modelers/` (the new-modeler template's copy is for the
+  repository it starts). The modelers are English, so A1, A3, A4, A7 and A11 are off (guide §2);
+  C5, A2 (no em dash as a connector), the anti-slop rules and the colour rules stay on. CHANGELOGs,
+  third-party notices, tests, e2e suites, snapshots and fixtures are ignored. An intended notation
+  colour sits between `// brand-lint-disable` and `// brand-lint-enable` (one line:
+  `// brand-lint-disable-next-line`), under a comment that says why. Check the suite from the root
+  with `node <miragon-brand plugin>/scripts/brand-lint.mjs $(git ls-files -co --exclude-standard)`:
+  the CLI's own walk of `.` skips every dot folder and dot file (`.github`, `modelers/*/.claude`,
+  the template's `.claude`, `.dependency-cruiser.cjs`), which the hook still checks.
+  `test/brand-lint-config.test.ts` pins the config. brand-lint reads no JSON and only the colours
+  of a `.ts` file, so strings there stay a review point.
 
 ## Claude Code plugins
 

@@ -96,7 +96,7 @@ known version), and the new repository's Dependabot moves them on.
    both through the contract factory; the shell's kit runs in `e2e` against both, and a smoke test
    opens the built extension in a real VS Code. See [shell](references/shell.md).
 4. **Design system.** Vendored tokens in a cascade layer, roles only, light until the joint
-   dark-mode release. See [design system](references/design-system.md).
+   dark-mode release, brand-lint on. See [design system](references/design-system.md).
 5. **Releases.** One release-please component per package, npm trusted publishing, VSIX to the
    Marketplace and Open VSX. See [releases](references/releases.md).
 6. **Design IQ.** What a renderer must hold for Design IQ to embed it. See
@@ -117,6 +117,8 @@ known version), and the new repository's Dependabot moves them on.
   `contentBounds()` (1.3), which the apps and Design IQ fit to.
 - Neither app has chrome of its own: menu, palette skin, zoom, keys, problems, status, empty state
   and toasts come from the shell, and the menu content comes from the renderer.
+- brand-lint reports no hard finding with the template's `.miragon/brand.json`
+  ([design system](references/design-system.md#brand-lint)).
 - A VSIX packages (`npx vsce package --no-dependencies`) and `npm publish --dry-run` packs every
   library with `dist` only.
 - `CLAUDE.md` describes the notation's packages, its DSL and anything the template did not have.
