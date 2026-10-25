@@ -49,6 +49,23 @@ function styleOf(page: Page, selector: string, properties: readonly string[], ps
   );
 }
 
+/**
+ * Resolves once `selector` and everything in it have finished their animations and transitions,
+ * however late a busy runner starts them. Mid-flight, a rise-in or a toast-in shifts its box by a
+ * fraction of a pixel, and Chromium rounds the edges of a shifted box to float precision: the start
+ * screen's buttons then measure 35.99997 or 36.00003 instead of 36, a toast's Close button 31.99994
+ * or 32.00006 instead of 32.
+ */
+function animationsDone(page: Page, selector: string): Promise<void> {
+  return page.evaluate(async (selector) => {
+    const element = document.querySelector(selector);
+    if (!element) throw new Error(`no ${selector}`);
+    await Promise.all(
+      element.getAnimations({ subtree: true }).map((animation) => animation.finished),
+    );
+  }, selector);
+}
+
 /** Dispatches a file drag (enter and over) on the page, as the conformance kit does. */
 function dragFiles(page: Page, count: number): Promise<void> {
   return page.evaluate((count) => {
@@ -92,7 +109,7 @@ test.describe("web chrome styles", () => {
     expect(rest.boxHeight).toBe(40);
 
     await page.locator(primary).hover();
-    await page.waitForTimeout(400);
+    await animationsDone(page, primary);
     const hovered = await styleOf(page, primary, properties);
     expect(hovered["background-color"]).toBe(
       await computed(page, "background-color", "var(--cd-blau-link)"),
@@ -136,7 +153,7 @@ test.describe("web chrome styles", () => {
       );
       const toast = `.cd-shell-toast[data-status="${status}"]`;
       await expect(page.locator(toast)).toBeVisible();
-      await page.waitForTimeout(400);
+      await animationsDone(page, toast);
       const colour = await computed(page, "background-color", `var(--cd-ui-${status})`);
       const bar = await styleOf(page, toast, ["width", "background-color"], "::before");
       expect(bar.width).toBe("4px");
@@ -175,7 +192,7 @@ test.describe("web chrome styles", () => {
       "border-top-left-radius",
     ];
     await dragFiles(page, 1);
-    await page.waitForTimeout(300);
+    await expect(page.locator(zone)).toHaveAttribute("data-state", "over");
     const over = await styleOf(page, zone, properties);
     expect(over["background-color"]).toBe(
       await computed(page, "background-color", "var(--cd-ui-hover)"),
@@ -196,7 +213,7 @@ test.describe("web chrome styles", () => {
     expect([chip["font-size"], chip["font-weight"]]).toEqual(["13px", "600"]);
 
     await dragFiles(page, 2);
-    await page.waitForTimeout(300);
+    await expect(page.locator(zone)).toHaveAttribute("data-state", "forbidden");
     const forbidden = await styleOf(page, zone, properties);
     expect(forbidden["background-color"]).toBe(
       await computed(page, "background-color", "var(--cd-ui-danger-flaeche)"),
@@ -213,6 +230,7 @@ test.describe("web chrome styles", () => {
   }) => {
     await openWeb(page, "?empty");
     const card = '[data-chrome="empty-state"]';
+    await animationsDone(page, card);
     const style = await styleOf(page, card, [
       "border-top-left-radius",
       "box-shadow",
@@ -322,7 +340,7 @@ test.describe("web chrome styles", () => {
     expect(bar.width).toBe("4px");
     expect(bar["background-color"]).toBe(await computed(page, "color", "CanvasText"));
     await dragFiles(page, 1);
-    await page.waitForTimeout(300);
+    await expect(page.locator('[data-chrome="drop-zone"]')).toHaveAttribute("data-state", "over");
     const zone = await styleOf(page, '[data-chrome="drop-zone"]', [
       "border-top-style",
       "border-top-width",
