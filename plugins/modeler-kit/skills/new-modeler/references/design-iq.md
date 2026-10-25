@@ -24,6 +24,11 @@ Design IQ is a change in Design IQ (a spec with `id`, `pkg`, `canvasClassName`,
   A renderer without it (1.2) still binds, but Design IQ then fits diagram-js's box of the
   elements, and whatever the notation draws beyond them ends up under the chrome or out of the
   frame.
+- **Keys stay on the canvas** (contract 1.4, RECOMMENDED; the kit advises otherwise). Design IQ
+  puts the canvas next to its own editors and toolbars, Monaco among them, so a key the canvas
+  takes from there costs the user what they typed: the renderer acts on a key only while its
+  canvas `<svg>` holds the focus, leaves `<body>` and every host control alone, and ignores a
+  keydown or keyup without a key, in the viewer mount too ([contract](contract.md#keys)).
 - **The notation id.** At bind time Design IQ checks `meta.notation` against the spec's
   `contractNotation` and `apiVersionsCompatible(meta.apiVersion, MODELER_API_VERSION)`. The
   contract id may differ from Design IQ's own id (`team-topologies` for `team-topology`), so pick it

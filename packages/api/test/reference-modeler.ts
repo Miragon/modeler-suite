@@ -5,15 +5,20 @@
  * unless the line names another one with a ` #id` suffix — the serializer
  * writes that suffix back whenever an element's id differs from its text (a
  * renamed element keeps its id). Element n sits in row n of the canvas; a
- * moved one carries its offset from there as an ` @x,y` suffix. It is the
+ * moved one carries its offset from there as an ` @x,y` suffix. Mounted with
+ * `attachTo`, it draws a focusable `<svg>` canvas in a container of its own,
+ * as diagram-js does; its keys (Delete and Backspace remove the selection,
+ * Cmd/Ctrl+Z undoes, Cmd/Ctrl+A selects all, Escape clears the selection)
+ * act only on a key aimed at the canvas. It is the
  * kit's reference subject, plus deliberately BROKEN variants: one per
  * real-world drift the contract exists to prevent AND one per case in the
- * kit, so the kit's own CI proves every case bites. Each variant must fail exactly its law's case set. Five
+ * kit, so the kit's own CI proves every case bites. Each variant must fail exactly its law's case set. Seven
  * variants are NOT flaws but legitimate implementation choices the kit must
  * accept (a diagram-js style enriched view-state readback, commands ignored
  * before the first import, an empty name that reads back absent, a content
  * box measured in float32, a content box around a plot drawn without
- * elements) — they must fail nothing. Three variants ignore a
+ * elements, canvas keys taken in the capture phase, a canvas that is a
+ * focusable `<div>`) — they must fail nothing. Sixteen variants ignore a
  * RECOMMENDATION — they must fail nothing and advise once.
  */
 import type {
@@ -171,6 +176,54 @@ export interface Flaws {
   /** NOT a flaw: contentBounds also holds what the notation always draws (Wardley's plot with its
    *  axes), so it is a box before the first import and on a document without elements */
   contentBoundsWithPlot?: boolean;
+  /** NOT a law violation, a missed recommendation: every key acts on the canvas wherever it is
+   *  aimed — a document-wide listener without a target check */
+  documentWideKeys?: boolean;
+  /** NOT a law violation, a missed recommendation: a key aimed at <body> counts as the canvas's, so
+   *  Backspace deletes the selection with nothing focused, even while the host hides the canvas */
+  bodyKeysAreCanvasKeys?: boolean;
+  /** NOT a law violation, a missed recommendation: a key aimed anywhere in the host element counts
+   *  as the canvas's, so an editor the host places in the modeler's container loses its keys */
+  hostKeysAreCanvasKeys?: boolean;
+  /** NOT a law violation, a missed recommendation: a key aimed anywhere in the modeler's own
+   *  container counts as the canvas's, so an editor in a host's overlay next to the canvas loses
+   *  its keys */
+  containerKeysAreCanvasKeys?: boolean;
+  /** NOT a law violation, a missed recommendation: only text fields (input, textarea, select,
+   *  contenteditable) keep their keys — a host button, an EditContext and a Monaco editor lose them */
+  onlyTextFieldsKeepKeys?: boolean;
+  /** NOT a law violation, a missed recommendation: Cmd/Ctrl+C, X and V are prevented wherever they
+   *  are aimed, so a host text field loses its native copy and paste, though nothing else happens */
+  preventsClipboardKeysEverywhere?: boolean;
+  /** NOT a law violation, a missed recommendation: a capture-phase listener stops every key aimed
+   *  outside the canvas, so the host's own listeners never see it */
+  stopsKeysOutsideCanvas?: boolean;
+  /** NOT a law violation, a missed recommendation: Escape clears the selection wherever it is aimed,
+   *  without preventing it */
+  escapeAnywhereClearsSelection?: boolean;
+  /** NOT a law violation, a missed recommendation: a keydown without a key (autofill) throws, the
+   *  key read before any guard */
+  keylessKeyThrows?: boolean;
+  /** NOT a flaw: the canvas takes its keys in the capture phase on the window, with the same target
+   *  check */
+  keysInCapturePhase?: boolean;
+  /** the canvas binds no key at all: the keys case cannot see a key act, so it reports a skip */
+  noCanvasKeys?: boolean;
+  /** NOT a flaw: the canvas is a focusable `<div>`, not an `<svg>`, so a harness names it with
+   *  `canvasElement` */
+  canvasIsDiv?: boolean;
+  /** NOT a law violation, a missed recommendation: the keys that move the canvas or zoom it
+   *  (Shift+Arrow, Cmd/Ctrl+Arrow, Cmd/Ctrl+=) are prevented wherever they are aimed, as a
+   *  document-wide diagram-js KeyboardMove would */
+  canvasMoveKeysAnywhere?: boolean;
+  /** NOT a law violation, a missed recommendation: Cmd/Ctrl+V aimed anywhere pastes a line a
+   *  macrotask later, so the key itself leaves the document as it was */
+  deferredPasteAnywhere?: boolean;
+  /** NOT a law violation, a missed recommendation: a keyup aimed outside the canvas is prevented */
+  preventsKeyupOutsideCanvas?: boolean;
+  /** NOT a law violation, a missed recommendation: the viewer (only) pans on an arrow aimed anywhere
+   *  and prevents it */
+  viewerTakesArrowsAnywhere?: boolean;
 }
 
 export interface ReferenceModeler extends CollaborativeModeler {
@@ -189,6 +242,8 @@ export interface ReferenceModeler extends CollaborativeModeler {
   commitLabel(): void;
   /** move an element by an offset, an undoable command */
   moveLine(elementId: string, dx: number, dy: number): void;
+  /** the focusable element `attachTo` drew to take the keys, while mounted */
+  canvasElement(): Element | undefined;
 }
 
 interface View {
@@ -400,6 +455,113 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     inner: { width: 100 },
     outer: { width: 800 },
   });
+  /** removes the elements with these ids in one undoable command */
+  const removeElements = (doomed: string[]): void => {
+    const reported = ids();
+    const before = entries;
+    entries = entries.filter((_entry, row) => !doomed.includes(reported[row] ?? ""));
+    if (entries.length === before.length) return;
+    const after = entries;
+    undoStack.push({
+      undo: () => {
+        entries = before;
+      },
+      redo: () => {
+        entries = after;
+      },
+    });
+    redoStack = [];
+    select([]);
+    emit();
+  };
+  /** what a key aimed at the canvas does */
+  const actOnCanvasKey = (event: KeyboardEvent): void => {
+    if (!editable || flaws.noCanvasKeys) return;
+    const shortcut = event.ctrlKey || event.metaKey;
+    const key = event.key.toLowerCase();
+    if (key === "delete" || key === "backspace") {
+      if (selection.length === 0) return;
+      event.preventDefault();
+      removeElements(selection);
+    } else if (shortcut && (key === "z" || key === "y")) {
+      event.preventDefault();
+      if (key === "z" && !event.shiftKey) modeler.undoCommand();
+      else modeler.redoCommand();
+    } else if (shortcut && key === "a") {
+      event.preventDefault();
+      select(ids());
+    } else if (key === "escape") {
+      select([]);
+    }
+  };
+  let mountedCanvas: Element | undefined;
+  let pastes = 0;
+  /** draws the focusable canvas into the host and binds its keys; returns the teardown */
+  const mountCanvas = (host: Element): (() => void) => {
+    const doc = host.ownerDocument;
+    const container = doc.createElement("div");
+    const canvas = flaws.canvasIsDiv
+      ? doc.createElement("div")
+      : doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+    canvas.setAttribute("tabindex", "0");
+    container.append(canvas);
+    host.append(container);
+    mountedCanvas = canvas;
+    const takesKey = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Node)) return false;
+      if (flaws.documentWideKeys || canvas.contains(target)) return true;
+      if (flaws.bodyKeysAreCanvasKeys && target === doc.body) return true;
+      if (flaws.hostKeysAreCanvasKeys && host.contains(target)) return true;
+      if (flaws.containerKeysAreCanvasKeys && container.contains(target)) return true;
+      return (
+        Boolean(flaws.onlyTextFieldsKeepKeys) &&
+        !(target instanceof Element && target.closest("input, textarea, select, [contenteditable]"))
+      );
+    };
+    const onKeydown = (event: Event): void => {
+      const keyEvent = event as KeyboardEvent;
+      if (flaws.keylessKeyThrows) keyEvent.key.toLowerCase();
+      if (typeof keyEvent.key !== "string" || event.defaultPrevented) return;
+      const shortcut = keyEvent.ctrlKey || keyEvent.metaKey;
+      const arrow = keyEvent.key.startsWith("Arrow");
+      if (flaws.viewerTakesArrowsAnywhere && !editable && arrow) event.preventDefault();
+      if (flaws.canvasMoveKeysAnywhere && (arrow ? shortcut || keyEvent.shiftKey : false)) {
+        event.preventDefault();
+      }
+      if (flaws.canvasMoveKeysAnywhere && shortcut && keyEvent.key === "=") event.preventDefault();
+      if (flaws.deferredPasteAnywhere && editable && shortcut && keyEvent.key === "v") {
+        pastes += 1;
+        const pasted = `pasted-${pastes}`;
+        setTimeout(() => modeler.addLine(pasted), 0);
+      }
+      if (takesKey(event.target)) {
+        actOnCanvasKey(keyEvent);
+        return;
+      }
+      const clipboardShortcut = shortcut && ["c", "x", "v"].includes(keyEvent.key.toLowerCase());
+      if (flaws.preventsClipboardKeysEverywhere && clipboardShortcut) event.preventDefault();
+      if (flaws.escapeAnywhereClearsSelection && keyEvent.key === "Escape") select([]);
+    };
+    const onKeyup = (event: Event): void => {
+      if (!takesKey(event.target)) event.preventDefault();
+    };
+    const stopOutsideCanvas = (event: Event): void => {
+      if (!takesKey(event.target)) event.stopPropagation();
+    };
+    const capture = Boolean(flaws.keysInCapturePhase);
+    const listener: EventTarget = capture ? (doc.defaultView ?? doc) : doc;
+    listener.addEventListener("keydown", onKeydown, capture);
+    if (flaws.preventsKeyupOutsideCanvas) doc.addEventListener("keyup", onKeyup);
+    if (flaws.stopsKeysOutsideCanvas) doc.addEventListener("keydown", stopOutsideCanvas, true);
+    return () => {
+      listener.removeEventListener("keydown", onKeydown, capture);
+      doc.removeEventListener("keyup", onKeyup);
+      doc.removeEventListener("keydown", stopOutsideCanvas, true);
+      container.remove();
+      mountedCanvas = undefined;
+    };
+  };
+  let unmountCanvas: (() => void) | undefined;
 
   const meta: ModelerMeta = {
     notation: "lines",
@@ -429,7 +591,10 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     meta,
     elements,
     contentBounds,
-    attachTo: () => undefined,
+    attachTo(host: Element): void {
+      unmountCanvas?.();
+      unmountCanvas = mountCanvas(host);
+    },
     async importText(text: string): Promise<ImportResult> {
       if (!editable && flaws.viewerImportThrows) throw new Error("No provider for commandStack");
       if (wedged) throw new Error("lines notation: parser wedged");
@@ -537,6 +702,8 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     destroy() {
       if (destroyed && flaws.destroyThrowsTwice) throw new Error("already destroyed");
       destroyed = true;
+      unmountCanvas?.();
+      unmountCanvas = undefined;
       labelEditor = undefined;
       listeners.clear();
       selectionListeners.clear();
@@ -615,6 +782,10 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     },
     openLabelEditor: () => (labelEditor ? { ...labelEditor } : undefined),
     commitLabel,
+    canvasElement(): Element | undefined {
+      return mountedCanvas;
+    },
+
     moveLine(elementId: string, dx: number, dy: number): void {
       if (!editable) throw new Error("a viewer accepts no commands");
       const before = entries;

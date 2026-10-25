@@ -200,6 +200,27 @@ export interface ElementsSurface {
  *
  *  View state is NEVER part of the document: `setViewState` fires no change
  *  events and `exportText` is independent of it.
+ *
+ *  KEYS STAY ON THE CANVAS (1.4, RECOMMENDED) — a modeler acts on a key only
+ *  while its CANVAS holds the focus: the key's target is the focusable
+ *  element the modeler placed in the host to take its keys (diagram-js: the
+ *  canvas `<svg>`, `tabindex="0"`) or lies inside it. Every other key is the
+ *  page's: one aimed at the host's chrome or at a host editor (a button, a
+ *  text input, a select, a contenteditable, an EditContext or Monaco
+ *  editor), beside the modeler's container, inside it or next to the canvas
+ *  in a host's overlay, and one whose target is `<body>` (nothing focused:
+ *  after a load, after a click on page text, while the host hides the canvas
+ *  or makes it inert). The modeler leaves such a key alone: no command, no
+ *  change of the document or the selection, no `preventDefault()` and no
+ *  `stopPropagation()`, in the capture phase too. A keydown or keyup
+ *  without a string `key` (browser autofill dispatches both) is ignored
+ *  without an error. The rule holds for the viewer mount too. Hosts embed
+ *  modelers next to their own editors and toolbars: a key the canvas takes
+ *  from there deletes the selection while the user types, undoes the last
+ *  edit from a toolbar button or swallows Cmd/Ctrl+C in a text field. The
+ *  modeler's own chrome (its palette, context pad, label editor) handles its
+ *  keys as it sees fit; a host that wants keyboard editing hands the canvas
+ *  the focus (a click on it, Tab, or `focus()` on the canvas element).
  */
 export interface CollaborativeModeler {
   readonly meta: ModelerMeta;
@@ -210,7 +231,9 @@ export interface CollaborativeModeler {
    *  Calls made between mounting and the first import (`exportText()`, a
    *  user command) return whatever the modeler defines, or throw (only
    *  `getViewState` never does, L5), but they never wedge the instance:
-   *  the first `importText` still behaves exactly as specified */
+   *  the first `importText` still behaves exactly as specified. RECOMMENDED
+   *  (1.4): the canvas placed here takes keys only while it holds the focus
+   *  (KEYS STAY ON THE CANVAS above) */
   attachTo(host: Element): void;
 
   /** parse + render `text` — SILENT per L1, the view fitted to the content
