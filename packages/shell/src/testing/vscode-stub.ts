@@ -8,6 +8,7 @@ import {
   type VsCodeLike,
   type WebviewPanelLike,
 } from "../vscode/extension/index.js";
+import { VSCODE_DEFAULT_STYLES, VSCODE_DEFAULT_STYLES_ID } from "./vscode-default-styles.js";
 
 /*
  * Runs in the page, in front of a modeler's webview bundle: a stand-in for the VS Code around it,
@@ -26,17 +27,6 @@ const BODY_CLASSES: Readonly<Record<ColorThemeKind, readonly string[]>> = {
 };
 const ALL_BODY_CLASSES = Object.values(BODY_CLASSES).flat();
 const REDUCE_MOTION_BODY_CLASS = "vscode-reduce-motion";
-
-/**
- * The rules of VS Code's default webview stylesheet the shell's own-document reset must beat
- * (implementation notes, "VS Code: host hygiene"), with deliberately foreign values so a leak shows.
- */
-const VSCODE_DEFAULT_STYLES = `@layer vscode-default {
-  body { margin: 0; padding: 0 20px; color: currentColor; font-family: serif; font-size: 17px; }
-  kbd { box-shadow: inset 0 -1px 0 currentColor; vertical-align: middle; padding: 1px 3px; border-radius: 3px; font-family: serif; }
-  code { font-family: serif; padding: 1px 3px; border-radius: 4px; }
-  a:focus, input:focus, select:focus, textarea:focus { outline: 1px solid -webkit-focus-ring-color; outline-offset: -1px; }
-}`;
 
 /** The default setting key the stub answers when `colorTheme` is given without one. */
 export const STUB_SETTING_KEY = "miragon.modeler.colorTheme";
@@ -84,6 +74,25 @@ export interface VsCodeWebviewStub {
   readonly posted: readonly unknown[];
   /** The webview state as the last `setState` left it. */
   state(): unknown;
+  /** Every `securitypolicyviolation` since the stub was installed. */
+  cspViolations(): readonly CspViolation[];
+  /**
+   * Uncaught errors (with their stack), unhandled rejections, resources that failed to load and
+   * `console.error` calls since the stub was installed, one entry each.
+   */
+  errors(): readonly string[];
+}
+
+/** A `securitypolicyviolation` the stub recorded. */
+export interface CspViolation {
+  /** `effectiveDirective`, such as `script-src-elem` or `style-src-attr`. */
+  directive: string;
+  /** `blockedURI`: the blocked URL, or `inline` or `eval`. */
+  blockedURI: string;
+  /** `sourceFile:lineNumber:columnNumber` of the code that caused it, empty where unknown. */
+  source: string;
+  /** The start of a blocked inline script or style (`sample`), empty otherwise. */
+  sample: string;
 }
 
 /** The page globals the stub sets. */
@@ -111,12 +120,84 @@ export function stubOptionsFromSearch(
   };
 }
 
+function describeValue(value: unknown): string {
+  if (value instanceof Error) return value.stack ?? `${value.name}: ${value.message}`;
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function describeErrorEvent(event: Event): string {
+  if (event instanceof ErrorEvent) {
+    const where = event.filename ? ` (${event.filename}:${event.lineno}:${event.colno})` : "";
+    return event.error instanceof Error
+      ? describeValue(event.error)
+      : `${event.message || "an error"}${where}`;
+  }
+  const target = event.target;
+  if (target instanceof Element) {
+    const url = target.getAttribute("src") ?? target.getAttribute("href") ?? "";
+    return `<${target.localName}> failed to load ${url}`.trim();
+  }
+  return `an error event of ${String(target)}`;
+}
+
+/** Records what goes wrong in the page from now on: CSP violations, errors, `console.error`. */
+function recordFailures(): { violations: CspViolation[]; errors: string[] } {
+  const violations: CspViolation[] = [];
+  const errors: string[] = [];
+  document.addEventListener("securitypolicyviolation", (event) => {
+    violations.push({
+      directive: event.effectiveDirective || event.violatedDirective,
+      blockedURI: event.blockedURI,
+      source: event.sourceFile
+        ? `${event.sourceFile}:${event.lineNumber}:${event.columnNumber}`
+        : "",
+      sample: event.sample,
+    });
+  });
+  // Capturing, so the failed load of a <script>, <link> or <img> (which does not bubble) counts too.
+  window.addEventListener("error", (event) => errors.push(describeErrorEvent(event)), true);
+  window.addEventListener("unhandledrejection", (event) =>
+    errors.push(`unhandled rejection: ${describeValue(event.reason)}`),
+  );
+  const consoleError = console.error.bind(console);
+  console.error = (...values: unknown[]) => {
+    errors.push(`console.error: ${values.map(describeValue).join(" ")}`);
+    consoleError(...values);
+  };
+  return { violations, errors };
+}
+
 /**
- * Stands in for VS Code around the page: its default stylesheet in `@layer vscode-default`, `<html>`
- * with the attributes `renderWebviewHtml` writes before the first paint, `<body>` with the host
- * page's theme (and reduce-motion) classes, `acquireVsCodeApi()`, and the real `connectThemeBridge`
- * running against a fake `vscode` namespace whose panel posts to this window. Call it before the
- * modeler's webview code runs; also exposed as `window.__modelerShellVsCodeStub`.
+ * Runs `apply` once `<body>` exists. A stub installed from `<head>`, as `openWebviewBundle` serves
+ * it, runs before the parser inserts `<body>`; the observer's callback then runs at the microtask
+ * checkpoint the parser performs before the first script of `<body>`, so the bundle sees the classes.
+ */
+function whenBody(apply: () => void): void {
+  if (document.body) {
+    apply();
+    return;
+  }
+  const observer = new MutationObserver(() => {
+    if (!document.body) return;
+    observer.disconnect();
+    apply();
+  });
+  observer.observe(document.documentElement, { childList: true });
+}
+
+/**
+ * Stands in for VS Code around the page: its default stylesheet in `@layer vscode-default` (unless
+ * the page already has `<style id="_defaultStyles">`), `<html>` with the attributes
+ * `renderWebviewHtml` writes before the first paint, `<body>` with the host page's theme (and
+ * reduce-motion) classes, `acquireVsCodeApi()`, and the real `connectThemeBridge` running against a
+ * fake `vscode` namespace whose panel posts to this window. From then on it records CSP violations
+ * and errors. Call it before the modeler's webview code runs, from `<head>` too, where it sets the
+ * body classes once the parser inserted `<body>`; also exposed as `window.__modelerShellVsCodeStub`.
  */
 export function installVsCodeWebviewStub(options: VsCodeWebviewStubOptions): VsCodeWebviewStub {
   const settingKey = options.settingKey ?? STUB_SETTING_KEY;
@@ -167,11 +248,15 @@ export function installVsCodeWebviewStub(options: VsCodeWebviewStubOptions): VsC
     onDidDispose: () => none,
   };
   const bridgeOptions = { themes: options.themes, settingKey };
+  const failures = recordFailures();
 
-  const defaults = document.createElement("style");
-  defaults.id = "_defaultStyles";
-  defaults.textContent = VSCODE_DEFAULT_STYLES;
-  document.head.prepend(defaults);
+  // A page under the webview CSP carries them already, written ahead of its policy as VS Code does.
+  if (!document.getElementById(VSCODE_DEFAULT_STYLES_ID)) {
+    const defaults = document.createElement("style");
+    defaults.id = VSCODE_DEFAULT_STYLES_ID;
+    defaults.textContent = VSCODE_DEFAULT_STYLES;
+    document.head.prepend(defaults);
+  }
 
   const html = new DOMParser().parseFromString(
     renderWebviewHtml({
@@ -192,8 +277,10 @@ export function installVsCodeWebviewStub(options: VsCodeWebviewStubOptions): VsC
     document.body.classList.remove(...ALL_BODY_CLASSES);
     document.body.classList.add(...BODY_CLASSES[next]);
   };
-  setBodyClasses(kind);
-  document.body.classList.toggle(REDUCE_MOTION_BODY_CLASS, options.reduceMotion === true);
+  whenBody(() => {
+    setBodyClasses(kind);
+    document.body.classList.toggle(REDUCE_MOTION_BODY_CLASS, options.reduceMotion === true);
+  });
   connectThemeBridge(vscode, panel, bridgeOptions);
 
   let state = options.state;
@@ -234,6 +321,8 @@ export function installVsCodeWebviewStub(options: VsCodeWebviewStubOptions): VsC
     pendingMessages: () => posted - delivered,
     posted: sent,
     state: () => state,
+    cspViolations: () => failures.violations,
+    errors: () => failures.errors,
   };
   scope.__modelerShellVsCodeStub = stub;
   return stub;

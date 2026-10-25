@@ -29,7 +29,8 @@ Extras: `npm run value-chain dev:webapp` (editor at http://localhost:5181),
   `webapp` (the web app, `E2E_PORT`, default 5181; it runs the `@miragon/modeler-shell`
   conformance kit on the web host and the app's own chrome handlers) and `vscode-webview` (the
   VS Code webview from source inside the shell's VS Code stub, `E2E_WEBVIEW_PORT`, default 5191;
-  it runs the kit on the IDE host and a CSP smoke test of the production bundle). One project:
+  it runs the kit on the IDE host, whose `csp` case walks the production bundle behind the webview
+  CSP). One project:
   `npm run value-chain test:e2e -- --project=vscode-webview`. Set both ports when another checkout
   already serves the defaults.
 

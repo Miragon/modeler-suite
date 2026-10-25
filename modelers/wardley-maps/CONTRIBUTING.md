@@ -39,8 +39,8 @@ The Playwright config has two projects, each with its own dev server started for
   interactions.
 - `vscode-webview`: the VS Code webview (`apps/vscode/src/webview/main.ts`) inside the VS Code
   stub of `@miragon/modeler-shell`, served by the test page in `e2e/webview/` (Vite on
-  `E2E_WEBVIEW_PORT`, default `5190`). It runs the shell's conformance kit, the webview's side of
-  the host protocol, and a smoke test of the production bundle behind the webview CSP.
+  `E2E_WEBVIEW_PORT`, default `5190`). It runs the shell's conformance kit, whose `csp` case walks
+  the production bundle behind the webview CSP, and the webview's side of the host protocol.
 
 Run one with `npm run wardley-maps test:e2e -- --project=vscode-webview`. When the default ports are
 taken (several worktrees at once), pick others:

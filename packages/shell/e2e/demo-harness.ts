@@ -3,6 +3,8 @@ import type { Page } from "@playwright/test";
 import type { Appearance, ShellHost, Theme } from "../src/index.js";
 import { vsCodeStubSearch, type ShellConformanceHarness, type ShowHooks } from "../src/testing.js";
 import { colorThemeKindOf } from "../src/testing-vscode-stub.js";
+import { openWebviewBundle } from "../src/testing-webview-bundle.js";
+import { DEMO_WEBVIEW_DIST, demoStubScript } from "./demo-webview.js";
 import { demoLabelEditor } from "./label-editor-hooks.js";
 
 /**
@@ -28,11 +30,16 @@ export interface DemoHarnessOptions {
 
 const LIGHT: Appearance = { theme: "light" };
 
+function escapeAttribute(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
 /**
  * The kit's harness for the demo page, as a modeler's e2e suite writes it for its webview: the
  * demo mounts legend and inspector slots, the show hooks open them through `window.__demo.shell`,
- * `invalid` puts the demo into its invalid-file state as a failed import would, and `labelEditor`
- * edits a box's label.
+ * `invalid` puts the demo into its invalid-file state as a failed import would, `labelEditor`
+ * edits a box's label, and in the IDE host `csp` opens the demo's production bundle
+ * (e2e/demo-webview.ts) under the webview CSP.
  */
 export function demoHarness(
   host: ShellHost,
@@ -74,6 +81,15 @@ export function demoHarness(
     },
   };
   for (const slot of without) delete show[slot];
+  const query = (requested: Appearance): URLSearchParams => {
+    const search = new URLSearchParams(vsCodeStubSearch(requested));
+    search.set("host", host);
+    search.set("themes", themes.join(","));
+    for (const slot of ["legend", "inspector"] as const) {
+      if (!without.includes(slot)) search.set(slot, "");
+    }
+    return search;
+  };
   return {
     host,
     themes,
@@ -84,14 +100,7 @@ export function demoHarness(
         width: size.width + frame.width,
         height: size.height + frame.height,
       });
-      const initial = switchAtRuntime ? LIGHT : requested;
-      const query = new URLSearchParams(vsCodeStubSearch(initial));
-      query.set("host", host);
-      query.set("themes", themes.join(","));
-      for (const slot of ["legend", "inspector"] as const) {
-        if (!without.includes(slot)) query.set(slot, "");
-      }
-      await page.goto(`/?${query.toString()}`);
+      await page.goto(`/?${query(switchAtRuntime ? LIGHT : requested).toString()}`);
       await page.waitForFunction(() => window.__demo?.ready === true);
       if (!switchAtRuntime) return;
       await page.evaluate(
@@ -111,6 +120,23 @@ export function demoHarness(
     labelEditor: demoLabelEditor((page) =>
       page.evaluate(() => window.__demo?.documentChanges() ?? 0),
     ),
+    csp:
+      host === "ide"
+        ? {
+            async open(page, { size, requested }) {
+              await page.setViewportSize(size);
+              await openWebviewBundle(page, {
+                dist: DEMO_WEBVIEW_DIST,
+                title: "@miragon/modeler-shell demo",
+                requested,
+                themes,
+                body: `<div id="app" data-search="${escapeAttribute(query(requested).toString())}"></div>`,
+                stubScript: demoStubScript(),
+              });
+              await page.waitForFunction(() => window.__demo?.ready === true);
+            },
+          }
+        : undefined,
     absent: without,
   };
 }

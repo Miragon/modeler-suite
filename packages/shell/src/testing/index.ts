@@ -3,6 +3,7 @@ export type { ChromeMeasurement, ExpectedBox, IslandBox } from "./geometry.js";
 export { GEOMETRY_TOLERANCE_PX, expectedChromeBoxes, measureChrome } from "./geometry.js";
 export type {
   AbsentFeature,
+  CspHooks,
   DropFixture,
   DropFixtures,
   LabelEditorHooks,

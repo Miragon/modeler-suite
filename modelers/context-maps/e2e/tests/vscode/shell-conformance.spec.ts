@@ -6,7 +6,7 @@ import {
 } from "@miragon/modeler-shell/testing";
 import { WEBVIEW_THEMES } from "../../../apps/vscode/src/themes.js";
 import { contextNameEditor } from "../support/label-editor.js";
-import { INVALID_MAP } from "./support/webview.js";
+import { INVALID_MAP, openShippedWebview } from "./support/webview.js";
 
 /**
  * The shell's conformance kit against the real VS Code webview (main.ts inside the VS Code stub):
@@ -30,6 +30,7 @@ test.describe("VS Code webview: shell conformance", () => {
     {
       host: "ide",
       themes: WEBVIEW_THEMES,
+      csp: { open: openShippedWebview },
       async open(page, { size, requested }) {
         await page.setViewportSize(size);
         await page.goto(`/webview-test.html?${vsCodeStubSearch(requested)}`);

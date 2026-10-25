@@ -1,6 +1,13 @@
+import { execFile } from "node:child_process";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import type { Page } from "@playwright/test";
 import type { Appearance } from "@miragon/modeler-shell";
-import { vsCodeStubSearch } from "@miragon/modeler-shell/testing";
+import { vsCodeStubSearch, type OpenContext } from "@miragon/modeler-shell/testing";
+import { openWebviewBundle } from "@miragon/modeler-shell/testing/webview-bundle";
+import { EXAMPLE_DOCUMENT } from "../../../../apps/vscode/src/examples.js";
+import { WEBVIEW_THEMES } from "../../../../apps/vscode/src/themes.js";
 
 export const LIGHT: Appearance = { theme: "light" };
 export const WIDE = { width: 1280, height: 900 } as const;
@@ -54,4 +61,36 @@ export async function postFromHost(page: Page, message: PostedMessage): Promise<
 
 export function countOf(messages: readonly PostedMessage[], type: string): number {
   return messages.filter((message) => message.type === type).length;
+}
+
+const appsVscode = fileURLToPath(new URL("../../../../apps/vscode", import.meta.url));
+let productionBuild: Promise<unknown> | undefined;
+
+/**
+ * The shipped webview as VS Code loads it, for the shell kit's `csp` case: apps/vscode built for
+ * production once per worker, its bundle behind renderWebviewHtml's document and CSP with the
+ * shell's VS Code stub, and the example handed over through `init` as the extension does.
+ */
+export async function openShippedWebview(
+  page: Page,
+  { size, requested }: OpenContext,
+): Promise<void> {
+  productionBuild ??= promisify(execFile)(
+    process.execPath,
+    ["esbuild.config.mjs", "--production"],
+    {
+      cwd: appsVscode,
+    },
+  );
+  await productionBuild;
+  await page.setViewportSize(size);
+  await openWebviewBundle(page, {
+    dist: join(appsVscode, "dist"),
+    title: "Value Chain Diagram",
+    requested,
+    themes: WEBVIEW_THEMES,
+  });
+  await waitForPosted(page, "ready");
+  await postFromHost(page, { type: "init", text: EXAMPLE_DOCUMENT });
+  await page.locator(".cd-shell-canvas .djs-shape").first().waitFor();
 }

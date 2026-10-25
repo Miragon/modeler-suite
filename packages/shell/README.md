@@ -361,12 +361,14 @@ L5) and leave it open with the typed text (L5 recommends it, the kit requires it
 file locks the canvas, that nothing moves under reduced motion (also VS Code's) and an explicit fit
 jumps, that under forced colours the islands, the dropdown and the modeler's dialogs keep their
 border and the pressed tool, the focus and the status box their marks, that what stays on the canvas
-(a toolbar, a prompt, the label editor) lies under the palette, and that `destroy()` leaves nothing
-behind. Five more cases cover the web column (`webChrome`, `emptyState`, `toasts`, `problemsList`,
-`dropZone`); in the IDE and embedded hosts they assert that none of it shows. Every
-`aria-keyshortcuts` the kit reads must name keys, not characters: a `?` chip is `Shift+/ Shift+ß`,
-the keys of US and German, and no shortcut chip may show a character that needs AltGr or ⌥, sits on
-a dead key or is missing in one of them, such as `@` (guide §5.6, design system 1.21.0).
+(a toolbar, a prompt, the label editor) lies under the palette, that the IDE host's production
+bundle runs under the webview CSP without a violation, an error or a missing font, and that
+`destroy()` leaves nothing behind. Five more cases cover the web column (`webChrome`, `emptyState`,
+`toasts`, `problemsList`, `dropZone`); in the IDE and embedded hosts they assert that none of it
+shows. Every `aria-keyshortcuts` the kit reads must name keys, not characters: a `?` chip is
+`Shift+/ Shift+ß`, the keys of US and German, and no shortcut chip may show a character that needs
+AltGr or ⌥, sits on a dead key or is missing in one of them, such as `@` (guide §5.6, design system
+1.21.0).
 
 For the `ide` host the suite serves a test page that puts a stand-in for VS Code around the
 modeler's webview code: VS Code's default webview styles, `<html>` as `renderWebviewHtml` writes it,
@@ -412,6 +414,7 @@ test.describe("shell conformance", () => {
       host: "ide",
       themes: ["light"],
       absent: ["inspector"], // islands this modeler does not have: never visible, never skipped
+      csp: { open: openShippedWebview }, // the production bundle under the webview CSP, see below
       async open(page, { size, requested }) {
         await page.setViewportSize(size);
         await page.goto(`/webview-test.html?${vsCodeStubSearch(requested)}`);
@@ -577,9 +580,53 @@ for (const conformanceCase of shellConformanceCases()) {
 }
 ```
 
-The test page runs the webview from source without a CSP. Add one smoke test of the production bundle
-behind the HTML and CSP of `renderWebviewHtml` that fails on any `securitypolicyviolation` (the recipe
-is in [API.md][api], `./vscode/extension`).
+The test page runs the webview from source without a CSP, so the kit's `csp` case (0.6) opens the
+bundle the extension ships. `openWebviewBundle` of `@miragon/modeler-shell/testing/webview-bundle`
+serves it on `https://webview.test` the way VS Code loads it: `renderWebviewHtml`'s document and
+CSP, and ahead of the policy, where VS Code writes its own API script, VS Code's default styles and
+the VS Code stub, which records every `securitypolicyviolation`, error and failed load from the
+first stylesheet on. The harness builds the bundle and hands it its document:
+
+```ts
+// e2e/tests/vscode/support/webview.ts
+import { openWebviewBundle } from "@miragon/modeler-shell/testing/webview-bundle";
+
+let productionBuild: Promise<unknown> | undefined;
+
+export async function openShippedWebview(page: Page, { size, requested }: OpenContext) {
+  productionBuild ??= promisify(execFile)(
+    process.execPath,
+    ["esbuild.config.mjs", "--production"],
+    {
+      cwd: APPS_VSCODE, // once per worker: the bundle as the packaged extension ships it
+    },
+  );
+  await productionBuild;
+  await page.setViewportSize(size);
+  await openWebviewBundle(page, {
+    dist: join(APPS_VSCODE, "dist"), // webview.js, webview.css, fonts/
+    title: "Event Storming Board", // what the extension passes renderWebviewHtml
+    requested,
+    themes: ["light"],
+  });
+  await page.waitForFunction(() =>
+    window.__modelerShellVsCodeStub?.posted.some(
+      (message) => (message as { type?: string }).type === "ready",
+    ),
+  );
+  await page.evaluate((text) => window.postMessage({ type: "init", text }, "*"), EXAMPLE_BOARD);
+  await page.locator(".cd-shell-canvas .djs-shape").first().waitFor();
+}
+```
+
+The case then walks what renders late (a tooltip, a shape's context pad and label editor, every
+enabled menu entry that is not destructive, zoom and Fit) and fails on any violation, uncaught
+error, unhandled rejection, failed load or `console.error`, on a policy other than
+`renderWebviewHtml`'s, on a Geist font that loads no face, comes from a `data:` URL or has a subset
+without `unicode-range`, and on any font face whose file failed to load. A palette or menu the walk
+cannot reach, or a menu without an entry it activated, fails it too. Pass `openWebviewBundle` the
+`body`, `styles` and `inlineStyles` the extension passes `renderWebviewHtml`, so the page runs under
+the policy the extension ships.
 
 ## Smoke tests in a real VS Code
 
@@ -808,7 +855,10 @@ host requests (`theme`, `kontrast=hoch`; embedded: the foreign page's own mode),
 inside the stub of `./testing/vscode-stub`, and keeps view and legend state through
 `acquireVsCodeApi()`. Its context pad has a Note entry, whose prompt covers the palette until a pan
 or zoom closes it, and its Help group opens a modal "Keyboard shortcuts…" dialog with a table per
-group, so the kit's `overlayLayers` and `forcedColors` cases meet both.
+group, so the kit's `overlayLayers` and `forcedColors` cases meet both. The e2e suite's global setup
+also builds it as a production webview bundle (`e2e/demo-webview.ts`, esbuild into
+`test-results/demo-webview`) for the kit's `csp` case; that page takes its parameters from
+`<div id="app" data-search="…">`.
 
 The web demo (`/web.html`) is the same modeler as a Miragon web app passes it to `mountShell`: the
 whole web column, the head markup of `webHeadMarkup` through the Vite config, and `window.__webDemo`
@@ -819,9 +869,9 @@ The e2e suite runs the conformance kit for the `ide`, `web` and `embedded` hosts
 and a dark-capable modeler, switches VS Code themes and the `colorTheme` setting at runtime, checks
 VS Code's reduce motion, the chrome's typography against VS Code's default styles and a hostile
 foreign page, the canvas slot's paint and focus ring, the web chrome's colours, radii and states
-(primary action, legal line, toasts, drop zone, empty state, high contrast and forced colours) and
-the web demo's own handlers, and proves with saboteurs that every case of the kit fails when its
-rule is broken.
+(primary action, legal line, toasts, drop zone, empty state, high contrast and forced colours),
+the web demo's own handlers and the demo's production bundle under the webview CSP, and proves with
+saboteurs that every case of the kit fails when its rule is broken.
 
 | Directory                               | Module                                                                                     |
 | --------------------------------------- | ------------------------------------------------------------------------------------------ |
@@ -831,7 +881,7 @@ rule is broken.
 | `src/dom/feedback`, `src/core/feedback` | toasts, problems popover, the web app's mode                                               |
 | `src/diagram-js`                        | `shellModule`, viewport, `connectDiagramJs`, palette skin                                  |
 | `src/vscode`                            | extension side (HTML, theme bridge) and webview side                                       |
-| `src/testing`                           | the conformance kit, the VS Code stub, the real-VS-Code smoke driver                       |
+| `src/testing`                           | the conformance kit, the VS Code stub, the webview bundle helper, the smoke driver         |
 | `src/*.ts`, `src/shell.css`             | the entry points                                                                           |
 | `test/`                                 | package boundaries, token drift, the unit tests' helpers                                   |
 | `demo/`, `e2e/`                         | the demo modeler and the e2e suite                                                         |

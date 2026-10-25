@@ -61,6 +61,7 @@ describe("shellConformanceCases", () => {
       "reducedMotion",
       "forcedColors",
       "overlayLayers",
+      "csp",
       "cleanup",
       "webChrome",
       "emptyState",
@@ -94,6 +95,7 @@ describe("registerShellConformance", () => {
       "shell conformance: reducedMotion",
       "shell conformance: forcedColors",
       "shell conformance: overlayLayers",
+      "shell conformance: csp",
       "shell conformance: cleanup",
       "shell conformance: webChrome",
       "shell conformance: emptyState",
@@ -191,6 +193,54 @@ describe("registerShellConformance", () => {
       requested: { theme: "light" },
     });
     expect(labelEditor.open).not.toHaveBeenCalled();
+  });
+
+  it("skips the csp case of the IDE host without harness.csp, before opening anything", async () => {
+    const onSkip = vi.fn();
+    const open = vi.fn(async () => {});
+    await register(harness({ open }), onSkip).get("shell conformance: csp")!({ page: emptyPage() });
+    expect(onSkip.mock.calls).toEqual([
+      [
+        "csp",
+        [
+          {
+            hook: "csp",
+            reason:
+              "harness.csp is undefined: the production webview bundle under renderWebviewHtml's CSP was not verified",
+          },
+        ],
+      ],
+    ]);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("passes the csp case in the web and embedded hosts, which have no webview CSP", async () => {
+    const onSkip = vi.fn();
+    const cspOpen = vi.fn(async () => {});
+    for (const host of ["web", "embedded"] as const) {
+      await register(harness({ host, csp: { open: cspOpen } }), onSkip).get(
+        "shell conformance: csp",
+      )!({ page: emptyPage() });
+    }
+    expect(onSkip).not.toHaveBeenCalled();
+    expect(cspOpen).not.toHaveBeenCalled();
+  });
+
+  it("opens the bundle through csp.open, never through open, and needs the shell root", async () => {
+    const open = vi.fn(async () => {});
+    const cspOpen = vi.fn(async () => {});
+    await expect(
+      register(harness({ open, csp: { open: cspOpen } })).get("shell conformance: csp")!({
+        page: emptyPage(),
+      }),
+    ).rejects.toThrow(
+      '@miragon/modeler-shell conformance: csp (ide host)\n- csp: no element matches the shell root selector ".cd-shell" once csp.open resolved; the bundle did not mount the shell',
+    );
+    expect(cspOpen).toHaveBeenCalledWith(expect.anything(), {
+      size: { width: 1280, height: 900 },
+      requested: { theme: "light" },
+    });
+    expect(open).not.toHaveBeenCalled();
   });
 
   it("does not report a hook the harness declares absent", async () => {

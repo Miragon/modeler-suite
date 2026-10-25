@@ -6,7 +6,7 @@ import {
 } from "@miragon/modeler-shell/testing";
 import { WEBVIEW_THEMES } from "../../../apps/vscode/src/themes.js";
 import { typeIntoLabelEditor } from "../support/labelEditor.js";
-import { postedMessages } from "./support/webview.js";
+import { openShippedWebview, postedMessages } from "./support/webview.js";
 
 /**
  * The modeler shell's conformance kit against the real VS Code webview (main.ts inside the VS
@@ -36,6 +36,7 @@ test.describe("VS Code webview: shell conformance", () => {
     {
       host: "ide",
       themes: WEBVIEW_THEMES,
+      csp: { open: openShippedWebview },
       async open(page, { size, requested }) {
         await page.setViewportSize(size);
         await page.goto(`/webview-test.html?${vsCodeStubSearch(requested)}`);

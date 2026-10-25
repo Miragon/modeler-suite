@@ -57,12 +57,17 @@ import { openShortcutsDialog } from "./demo-dialog.js";
  * - `invalid`: the invalid-file state (`__demo.setInvalid(true)`: read-only canvas at once, its
  *   marks and the status box after 800ms).
  *
+ * Built as a production webview bundle (e2e/demo-webview.ts), the page under the webview CSP has
+ * no query: the parameters come from `<div id="app" data-search="…">`, and the VS Code stub is
+ * the one `openWebviewBundle` runs ahead of the bundle.
+ *
  * `window.__demo.flaws` switches on one fault each for the kit's saboteur specs, at any time.
  */
-const params = new URLSearchParams(location.search);
+const search = document.getElementById("app")?.dataset.search ?? location.search;
+const params = new URLSearchParams(search);
 const host = (params.get("host") ?? "ide") as ShellHost;
 const themes = (params.get("themes") ?? "light").split(",") as Theme[];
-const stubOptions = stubOptionsFromSearch(location.search);
+const stubOptions = stubOptionsFromSearch(search);
 const requested: Appearance = stubOptions.requested;
 
 const calls: string[] = [];
@@ -110,7 +115,10 @@ const menu: MenuGroups = {
       id: "export-png",
       label: "Export as PNG",
       icon: "file-image",
-      onSelect: () => calls.push("export-png"),
+      onSelect: () => {
+        calls.push("export-png");
+        if (flaws.evalUnderCsp) probeEval();
+      },
     },
     {
       kind: "action",
@@ -130,10 +138,24 @@ const menu: MenuGroups = {
       onSelect: () => {
         calls.push("shortcuts");
         openShortcutsDialog(root);
+        if (flaws.throwFromDialog) {
+          window.setTimeout(() => {
+            throw new Error("demo: the shortcuts dialog failed to open");
+          });
+        }
       },
     },
   ],
 };
+
+/** zod 4's probe without `jitless`: `new Function` once, its refusal caught. */
+function probeEval(): void {
+  try {
+    new Function("return 1")();
+  } catch {
+    // the webview CSP refuses it and reports a securitypolicyviolation all the same
+  }
+}
 
 function hostElement(): HTMLElement {
   const app = document.getElementById("app");
@@ -154,7 +176,10 @@ function hostElement(): HTMLElement {
 
 const root = hostElement();
 const vscodeHost =
-  host === "ide" ? installVsCodeWebviewStub({ ...stubOptions, themes }) : undefined;
+  host === "ide"
+    ? ((window as StubWindow).__modelerShellVsCodeStub ??
+      installVsCodeWebviewStub({ ...stubOptions, themes }))
+    : undefined;
 const vscode = host === "ide" ? (window as StubWindow).acquireVsCodeApi?.() : undefined;
 const stored: ShellWebviewState = vscode ? readShellState(vscode) : {};
 if (host === "web") {
@@ -173,6 +198,8 @@ const flaws: DemoFlaws = {
   closeLabelOnViewChange: false,
   notePromptFollowsView: false,
   notePromptHidesWhileViewChanges: false,
+  evalUnderCsp: false,
+  throwFromDialog: false,
 };
 
 // the diagram first, so document keydown listeners of a modeler would precede the shell's

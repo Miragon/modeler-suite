@@ -11,15 +11,27 @@ export default defineConfig([
       testing: "src/testing.ts",
       "testing-vscode-stub": "src/testing-vscode-stub.ts",
       "testing-vscode-electron": "src/testing-vscode-electron.ts",
+      "testing-webview-bundle": "src/testing-webview-bundle.ts",
     },
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
-    // the CSS and command builds below run in parallel; cleaning their output here would race them
-    clean: ["**/*", "!shell.css", "!vscode-docker.js*"],
+    // openWebviewBundle finds the stub's script next to itself through import.meta.url, in CJS too
+    shims: true,
+    // the builds below run in parallel; cleaning their output here would race them
+    clean: ["**/*", "!shell.css", "!vscode-docker.js*", "!testing-vscode-stub-script.global.js*"],
   },
   {
     entry: { shell: "src/shell.css" },
+    clean: false,
+  },
+  {
+    // the VS Code stub as one classic script, which a page under the webview CSP loads by its nonce
+    entry: { "testing-vscode-stub-script": "src/testing-vscode-stub-script.ts" },
+    format: ["iife"],
+    platform: "browser",
+    target: "es2022",
+    sourcemap: true,
     clean: false,
   },
   {

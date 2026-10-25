@@ -98,6 +98,20 @@ export interface LabelEditorHooks<P extends PageLike = PageLike> {
 }
 
 /**
+ * How the `csp` case opens the modeler's production webview bundle (0.6): built as the extension
+ * ships it, behind `renderWebviewHtml`'s document and CSP, with the VS Code stub running before it.
+ * `openWebviewBundle` of `@miragon/modeler-shell/testing/webview-bundle` serves all of that.
+ */
+export interface CspHooks<P extends PageLike = PageLike> {
+  /**
+   * Load the bundle at `context.size` as VS Code would with `context.requested`, hand it its
+   * document the way the extension does (the example, through the `init` message) and resolve once
+   * the first import is done.
+   */
+  open(page: P, context: OpenContext): Promise<void>;
+}
+
+/**
  * What a harness can lack: a show hook, the web app's drop zone (`drop`), problems that point at
  * an element (`problemSelection`: the modeler's diagnostics only name lines, so no row selects), a
  * label editor (`labelEditor`: the notation has no labels to edit on the canvas), or a menu entry
@@ -133,6 +147,11 @@ export interface ShellConformanceHarness<P extends PageLike = PageLike> {
    */
   labelEditor?: LabelEditorHooks<P> | undefined;
   /**
+   * 0.6, `ide` only: the production webview bundle for the `csp` case; without it the case is
+   * skipped with `hook: "csp"`.
+   */
+  csp?: CspHooks<P> | undefined;
+  /**
    * The islands and states the modeler does not have. An absent hook is not reported as skipped,
    * and `geometry` and `aria` assert that its island is never visible. Listing a hook that `show`
    * also gives fails every case that uses it.
@@ -145,10 +164,10 @@ export interface ShellConformanceHarness<P extends PageLike = PageLike> {
 /** One part of a case the harness could not feed. */
 export interface ShellSkip {
   /**
-   * The harness field that would feed it: a show hook, `drop`, `labelEditor`, `destroy`, or `open`
-   * when the document it opens lacks what the case needs (a shape on the canvas).
+   * The harness field that would feed it: a show hook, `drop`, `labelEditor`, `csp`, `destroy`, or
+   * `open` when the document it opens lacks what the case needs (a shape on the canvas).
    */
-  hook: ShowHook | "drop" | "labelEditor" | "destroy" | "open";
+  hook: ShowHook | "drop" | "labelEditor" | "csp" | "destroy" | "open";
   reason: string;
 }
 
@@ -184,8 +203,10 @@ export interface ShellConformanceCase {
  * explicit fit jumps), `forcedColors` (under `forced-colors: active` islands, dropdown and the
  * modeler's dialogs keep their border, the pressed tool, the focus and the status box their marks),
  * `overlayLayers` (what stays on the canvas lies at `z-index` 100 or below, under the palette; only a
- * popup that closes on a pan or zoom covers it) and `cleanup` (after `destroy` no shell element,
- * class, attribute or key handling remains); then the web
+ * popup that closes on a pan or zoom covers it), `csp` (the IDE host's production bundle under
+ * `renderWebviewHtml`'s CSP: no violation, no error and the shell's fonts from files after a walk
+ * over tooltip, context pad, label editor, menu and zoom) and `cleanup` (after `destroy` no shell
+ * element, class, attribute or key handling remains); then the web
  * column's `webChrome`, `emptyState`, `toasts`, `problemsList` and `dropZone`, which assert in the
  * other hosts that nothing of them shows.
  */

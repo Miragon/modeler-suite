@@ -138,8 +138,7 @@ Shared toolchain deps (`typescript`, `vitest`, `tsup`, `vite`, `playwright`) are
 the suite's root `package.json` and hoisted to the workspaces; don't re-add them to workspace
 manifests. `vite` is additionally listed in the root `overrides` so transitive copies (vitest,
 plugins) resolve to the same version; keep the two entries identical. The vscode app pins its own `esbuild` (its
-bundler), separate from tsup's `esbuild` pinned via `overrides`. That is intentional, don't unify; `e2e`
-pins the same `esbuild` as the vscode app for its smoke test of the shipped webview bundle. The
+bundler), separate from the `esbuild` that tsup brings along. That is intentional, don't unify. The
 vscode app also pins `playwright-core` and `@vscode/test-electron`, the optional peers of the shell's
 VS Code smoke driver; keep `playwright-core` equal to the root `playwright`.
 

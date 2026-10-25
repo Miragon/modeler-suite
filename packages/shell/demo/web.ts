@@ -61,6 +61,8 @@ const flaws: DemoFlaws = {
   closeLabelOnViewChange: false,
   notePromptFollowsView: false,
   notePromptHidesWhileViewChanges: false,
+  evalUnderCsp: false,
+  throwFromDialog: false,
 };
 
 // The diagram first, so a modeler's document keydown listeners would precede the shell's.

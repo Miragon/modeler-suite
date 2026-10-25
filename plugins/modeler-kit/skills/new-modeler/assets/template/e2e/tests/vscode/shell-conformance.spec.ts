@@ -67,6 +67,9 @@ test.describe('VS Code webview: shell conformance', () => {
     test,
     {
       onSkip(caseName, skips) {
+        // The csp case needs openWebviewBundle of a modeler-shell release after 0.5.0; until the
+        // template moves to it, webview-bundle.spec.ts checks the bundle under the webview CSP.
+        if (caseName === 'csp') return;
         throw new Error(`shell conformance "${caseName}" skipped: ${describeSkips(skips)}`);
       },
     },

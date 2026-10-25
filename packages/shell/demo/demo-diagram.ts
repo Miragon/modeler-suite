@@ -67,6 +67,13 @@ export interface DemoFlaws {
    * §5.13).
    */
   notePromptHidesWhileViewChanges: boolean;
+  /**
+   * "Export as PNG" probes for eval with `new Function`, as zod 4 does without `jitless`, which
+   * the webview CSP refuses and reports (case `csp`).
+   */
+  evalUnderCsp: boolean;
+  /** "Keyboard shortcuts…" throws an uncaught error a moment after its click (case `csp`). */
+  throwFromDialog: boolean;
 }
 
 /** What the demo modeler reads from the page around it, at the moment it needs it. */

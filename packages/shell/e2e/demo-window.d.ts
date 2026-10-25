@@ -35,6 +35,10 @@ declare global {
         notePromptFollowsView: boolean;
         /** The note prompt hides while the view changes, back 300ms later (case `overlayLayers`). */
         notePromptHidesWhileViewChanges: boolean;
+        /** "Export as PNG" probes for eval, which the webview CSP refuses (case `csp`). */
+        evalUnderCsp: boolean;
+        /** "Keyboard shortcuts…" throws an uncaught error after its click (case `csp`). */
+        throwFromDialog: boolean;
       };
       /** Commands that changed the diagram so far, the demo's document changes (case `labelEditor`). */
       documentChanges(): number;

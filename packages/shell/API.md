@@ -45,6 +45,7 @@ consumer is the Event Storming modeler, in VS Code (0.1) and in its web app (0.2
 | `@miragon/modeler-shell/testing`                 | Playwright-driven shell conformance kit                                                               | runs in Node, drives a browser |
 | `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page                                                     | yes (in the test page)         |
 | `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code (0.3)                                        | runs in Node, drives VS Code   |
+| `@miragon/modeler-shell/testing/webview-bundle`  | the production webview bundle under the webview CSP, for the kit's `csp` case (0.6)                   | runs in Node, drives a browser |
 | `@miragon/modeler-shell/shell.css`               | every style of the shell                                                                              | —                              |
 
 All JavaScript entries ship as ESM and CJS with types (`typesVersions` covers `moduleResolution:
@@ -2048,42 +2049,11 @@ What the webview bundle needs under this CSP:
   `securitypolicyviolation`; under `jitless` zod skips the probe. A webview that bundles zod 4 runs
   `z.config({ jitless: true })` in a module it imports before any schema module (Event Storming:
   `import "./zod-jitless"`, the first line of `main.ts`).
-- **A smoke test of the production bundle.** A test page served by Vite runs the webview from source
-  without a CSP, so a loader or CSP mistake of the shipped bundle shows only behind the real HTML.
-  Build the bundle as shipped, serve it under a fake origin behind `renderWebviewHtml`, and fail on
-  any CSP violation, page error or missing font:
-
-  ```ts
-  const ORIGIN = "https://webview.test";
-  const NONCE = "c21va2V0ZXN0bm9uY2Uw"; // fixed, so the stub's script can carry it
-  await page.route(`${ORIGIN}/**`, async (route) => {
-    const { pathname } = new URL(route.request().url());
-    if (pathname === "/") {
-      const html = renderWebviewHtml({
-        cspSource: ORIGIN,
-        nonce: NONCE,
-        scriptUri: `${ORIGIN}/webview.js`,
-        styleUris: [`${ORIGIN}/webview.css`],
-        title: "Event Storming Board",
-        lang: "en",
-        appearance: { theme: "light" },
-        // runs before the webview: installs the VS Code stub and records every violation
-        body: `<div id="app"></div><script nonce="${NONCE}" src="${ORIGIN}/stub.js"></script>`,
-      });
-      return route.fulfill({ contentType: "text/html", body: html });
-    }
-    if (pathname === "/stub.js")
-      return route.fulfill({ contentType: "text/javascript", body: stubIife });
-    return route.fulfill({ path: join(dist, pathname) }); // webview.js, webview.css, fonts/
-  });
-  await page.goto(`${ORIGIN}/`);
-  // post the document's init message, wait for the first shape and open the menu, then:
-  expect(await page.evaluate(() => window.cspViolations)).toEqual([]);
-  ```
-
-  `stubIife` is the esbuild IIFE bundle of a small entry that adds a `securitypolicyviolation`
-  listener on `document` (pushing `violatedDirective` and `blockedURI` into `window.cspViolations`)
-  and then calls `installVsCodeWebviewStub(…)`.
+- **The kit's `csp` case.** A test page served by Vite runs the webview from source without a CSP,
+  so a loader or CSP mistake of the shipped bundle shows only behind the real HTML. The `csp` case
+  of `./testing` (0.6) builds on `openWebviewBundle` of `./testing/webview-bundle`: the harness's
+  `csp.open` builds the bundle as shipped and opens it behind `renderWebviewHtml`'s document and
+  CSP, and the case walks it and fails on any CSP violation, error or missing font.
 
 ## `./vscode/webview`
 
@@ -2212,6 +2182,12 @@ interface LabelEditorHooks<P extends PageLike = PageLike> {
   // whether the document changed since open last resolved (what the host would save or send)
   documentChanged(page: P): Promise<boolean>;
 }
+// 0.6: how the csp case opens the production webview bundle (openWebviewBundle of ./testing/webview-bundle)
+interface CspHooks<P extends PageLike = PageLike> {
+  // the bundle at context.size as VS Code would with context.requested, its document handed over the
+  // way the extension does (init); resolves once the first import is done
+  open(page: P, context: OpenContext): Promise<void>;
+}
 // "problemSelection": the modeler's problems never point at an element (only at lines), so no row selects
 // "labelEditor" (0.4): the notation has no labels to edit on the canvas
 // "canvasMenuAction" (0.4): no File or Model action without a dialog (an IDE host whose Model group holds toggles and dialogs)
@@ -2240,11 +2216,12 @@ interface ShellConformanceHarness<P extends PageLike = PageLike> {
   show?: ShowHooks<P>;
   drop?: DropFixtures; // 0.2, web: the files the dropZone case drops
   labelEditor?: LabelEditorHooks<P>; // 0.4: the label editor of the labelEditor case
+  csp?: CspHooks<P>; // 0.6, ide: the production webview bundle of the csp case
   absent?: readonly AbsentFeature[]; // islands, states, the drop zone and a label editor the modeler does not have
   sizes?: readonly Size[]; // default 1280 × 900, 720 × 700, 420 × 700
 }
 interface ShellSkip {
-  hook: ShowHook | "drop" | "labelEditor" | "destroy" | "open"; // the harness field that would feed the skipped part
+  hook: ShowHook | "drop" | "labelEditor" | "csp" | "destroy" | "open"; // the harness field that would feed the skipped part
   reason: string;
 }
 interface ShellCaseOutcome {
@@ -2378,18 +2355,25 @@ affected.
 | `forcedColors`  | §5.14, §12, under `forced-colors: active`: every visible `data-chrome` island but the legal line, the toast stack and the drop zone, and the open dropdown, draws a border on every side in CanvasText (the primary action, a button, in ButtonText); the status box's bar (`::before`) and the icon of every enabled tool are CanvasText; the pressed tool (`lasso-tool`, else the first tool, after a click) shows a 2px inset ring in Highlight, which needs `forced-color-adjust: none`; Tab from zoom out puts a solid ring of at least 2px in Highlight on the next control; each dialog entry of the menu outside the File group (whose Open… asks the browser for a file), clicked, that shows a dialog in the page (an open `<dialog>`, `role="dialog"` or `role="alertdialog"`; embedded: in the root) has its panel (the dialog, or the first element down its first children that draws a border) bordered in CanvasText, because the shell's rules do not reach a modeler's dialog; a menu that does not open again after a dialog, or no longer shows an entry, fails the case as not verified. Checked as opened, with the menu open and after each given island hook, each problem once. The system colours come from probe elements, so the case asserts what the CSS sets (WebKit matches the media query but forces nothing). Skips with `hook: "open"` without `page.emulateMedia`; with a hook per island neither given nor `absent`                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `overlayLayers` | §5.13, with the pointer parked: as opened, with the label editor open (`labelEditor.open`, then Escape), with one element selected per kind of context pad (a kind is shape or connection plus the pad's set of `data-action`s; of the shapes and connections a pointer reaches, it selects the first shape, the first connection and up to ten more spread evenly over the document), and after a click on each entry of those pads but one whose `data-action` names a delete or a removal, each action once for shapes and once for connections (Escape after each, `window.open` held meanwhile; an entry whose pad an earlier one closed is reached by a click on an empty spot of the canvas and one on the element, one whose element an earlier one replaced or changed on another element with the same pad, and an entry no element shows any more fails the case as not verified; a selected element counts as selected also where its handles cover it), every outermost stacking context below `.djs-container` but the palette whose `z-index` exceeds 100 and that shows something must close once Cmd/Ctrl+Plus (else Cmd/Ctrl+Minus) dispatched at the canvas changed the view, and stay closed while the case watches for 500ms after (diagram-js fires `canvas.viewbox.changed` up to 300ms late, so an overlay that only hides while the view changes fails as well), a step the case undoes afterwards. So a popup that closes on a pan or zoom (diagram-js's popup menu at 200, a colour picker) may cover the palette, and what stays (a toolbar, a prompt, the label editor) lies at 100 or below. A `z-index` inside another stacking context (diagram-js's transformed overlay container) is local to it and does not count. Skips with `hook: "open"` when the document shows no shape or connection a pointer reaches, with `hook: "labelEditor"` without the hooks (unless `absent` lists `"labelEditor"`) |
 
+**0.6, the production webview bundle under its CSP.** One case joins after `overlayLayers`
+(`createBaseCases`); it runs in the `ide` host and passes with nothing to verify in the others:
+
+| Case  | Checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `csp` | the bundle the extension ships, opened through `csp.open` (`openWebviewBundle`): the page carries exactly `renderWebviewHtml`'s policy for its origin (with any nonce, with or without `'unsafe-inline'` styles), so a `csp.open` cannot loosen it, and the VS Code stub that records; then a walk over what renders late: the tooltip of a palette entry, a shape a pointer reaches clicked and each entry of its context pad hovered, a double-click on it (the label editor) and Escape, every enabled menu entry that is not `data-danger` from a freshly opened menu (the exports, each dialog closed again by Escape, the toggles such as the Legend, each radio option not chosen yet), zoom in and Fit, and 500ms for what they started. Fails on every `securitypolicyviolation` (directive, blocked URI, source, with a hint for eval, inline styles and fonts), every uncaught error, unhandled rejection, failed resource load and `console.error` the stub recorded, and on a shell font (the first family of the root's text and mono stacks, Geist Variable and Geist Mono Variable) that loads no face for `13px` or whose `@font-face` takes its `src` from a `data:` URL or carries no `unicode-range` beside the family's other subsets (every page would fetch that file), and on every font face of the page whose load failed (`FontFace.status` `"error"`, such as a missing italic the canvas uses). Fails, too, when the walk finds no palette entry, no menu trigger or no `role="menu"` after clicking it, or activates no menu entry, since the bundle's tooltips, exports and dialogs would then go unverified. Skips with `hook: "csp"` without `csp` and with `hook: "open"` when the bundle shows no shape a pointer reaches |
+
 - **Skips.** A case the harness cannot feed reports what it skipped as `ShellSkip`s, one per missing
   harness field, through `onSkip` (default `console.warn`). A hook that is neither in `show` nor in
-  `absent` is skipped with `hook` set to its name, a missing `drop` or `labelEditor` with `hook` set
-  to that field, a missing `destroy` with `hook: "destroy"`, and a document that lacks what a case
-  needs (a shape a pointer reaches, for `readOnly` and `reducedMotion`; a shape or connection, for
-  `overlayLayers`; a File or Model action without a dialog, for `focusHandBack`) with
-  `hook: "open"`, as is a page without `emulateMedia` in `reducedMotion` and `forcedColors`.
-  `absent` lists what the modeler does not have (an island, the `invalid` state, the drop zone, a
-  label editor or a File or Model action without a dialog), which is then never reported, while
-  `geometry` and `aria` assert that the island never shows. Listing a hook in both `show` (or
-  `drop`, `labelEditor`) and `absent` fails every case that uses it. A suite that lists what it
-  lacks can fail on every remaining skip:
+  `absent` is skipped with `hook` set to its name, a missing `drop`, `labelEditor` or (in the `ide`
+  host) `csp` with `hook` set to that field, a missing `destroy` with `hook: "destroy"`, and a
+  document that lacks what a case needs (a shape a pointer reaches, for `readOnly`, `reducedMotion`
+  and `csp`; a shape or connection, for `overlayLayers`; a File or Model action without a dialog,
+  for `focusHandBack`) with `hook: "open"`, as is a page without `emulateMedia` in `reducedMotion`
+  and `forcedColors`. `absent` lists what the modeler does not have (an island, the `invalid` state,
+  the drop zone, a label editor or a File or Model action without a dialog), which is then never
+  reported, while `geometry` and `aria` assert that the island never shows. Listing a hook in both
+  `show` (or `drop`, `labelEditor`) and `absent` fails every case that uses it. A suite that lists
+  what it lacks can fail on every remaining skip:
   `onSkip(name, skips) { throw new Error(…) }`.
 - **`show.invalid`** makes the file invalid the way the host does (in a webview: a document update
   the parser rejects), not by calling `shell.setReadOnly` alone: the `readOnly` case also checks the
@@ -2461,6 +2445,14 @@ interface VsCodeWebviewStub {
   pendingMessages(): number; // posted by the bridge, not yet delivered
   readonly posted: readonly unknown[]; // what the webview posted
   state(): unknown;
+  cspViolations(): readonly CspViolation[]; // 0.6: every securitypolicyviolation since the install
+  errors(): readonly string[]; // 0.6: uncaught errors, rejections, failed loads, console.error calls
+}
+interface CspViolation {
+  directive: string; // effectiveDirective, such as "script-src-elem" or "style-src-attr"
+  blockedURI: string; // the blocked URL, or "inline" or "eval"
+  source: string; // "sourceFile:lineNumber:columnNumber", empty where unknown
+  sample: string; // the start of a blocked inline script or style, empty otherwise
 }
 type StubWindow = Window & {
   __modelerShellVsCodeStub?: VsCodeWebviewStub;
@@ -2473,11 +2465,17 @@ function installVsCodeWebviewStub(options: VsCodeWebviewStubOptions): VsCodeWebv
 ```
 
 Runs in a test page, before the modeler's webview code: VS Code's default webview stylesheet in
-`@layer vscode-default` (with foreign values, so a leak shows), `<html>` with the attributes
-`renderWebviewHtml` writes, `<body>` with the host page's theme and reduce-motion classes,
-`acquireVsCodeApi()` (once, as in VS Code) and the real `connectThemeBridge` against a fake `vscode`
-namespace whose panel posts to the window. The stub is also `window.__modelerShellVsCodeStub`, so a
-Playwright suite switches the color theme or the setting at runtime.
+`@layer vscode-default` (with foreign values, so a leak shows; a page that already has
+`<style id="_defaultStyles">`, as under `openWebviewBundle`, keeps its own), `<html>` with the
+attributes `renderWebviewHtml` writes, `<body>` with the host page's theme and reduce-motion
+classes, `acquireVsCodeApi()` (once, as in VS Code) and the real `connectThemeBridge` against a fake
+`vscode` namespace whose panel posts to the window. Since 0.6 it records from its install on every
+`securitypolicyviolation` (on `document`), every uncaught error and failed resource load (`error`
+on `window`, capturing), every unhandled rejection and every `console.error` call, which it still
+passes on. Installed from `<head>`, before the parser reached `<body>`, it sets the body classes
+once `<body>` exists, before the first script there runs. The stub is also
+`window.__modelerShellVsCodeStub`, so a Playwright suite switches the color theme or the setting at
+runtime and reads what it recorded.
 
 A modeler's e2e suite serves `e2e/webview/` as the root of a Vite server, with the test page
 `e2e/webview/webview-test.html` (`<div id="app">` and `<script type="module" src="./webview-test.ts">`)
@@ -2508,6 +2506,87 @@ The harness opens it with ``page.goto(`/webview-test.html?${vsCodeStubSearch(req
 for `window.webviewReady`. `ready`, `webviewReady` and the window globals are the modeler's, not the
 shell's: its webview module exports `ready`, resolved once the first `init` import settled, and the
 test page turns it into the flag (the Event Storming `main.ts` below exports it).
+
+### `./testing/webview-bundle` — the production bundle under the webview CSP (0.6)
+
+```ts
+const WEBVIEW_BUNDLE_ORIGIN = "https://webview.test"; // the page's origin and cspSource
+// Playwright's Page satisfies both
+interface WebviewBundleRoute {
+  request(): { url(): string };
+  fulfill(response: {
+    status?: number;
+    contentType?: string;
+    body?: string;
+    path?: string;
+  }): Promise<void>;
+}
+interface WebviewBundlePage {
+  route(url: string, handler: (route: WebviewBundleRoute) => Promise<void>): Promise<unknown>;
+  unroute(url: string): Promise<unknown>;
+  goto(url: string): Promise<unknown>;
+}
+interface WebviewBundleOptions extends VsCodeWebviewStubOptions {
+  dist: string; // the extension's production build (apps/vscode/dist)
+  title: string; // as the extension passes it to renderWebviewHtml
+  script?: string; // relative to dist; default "webview.js"
+  styles?: readonly string[]; // relative to dist, in load order; default ["webview.css"]
+  body?: string; // renderWebviewHtml's body; default '<div id="app"></div>'
+  inlineStyles?: boolean; // renderWebviewHtml's; default true
+  stubScript?: string; // the stub as a classic script; default the one this package ships
+}
+function openWebviewBundle(page: WebviewBundlePage, options: WebviewBundleOptions): Promise<void>;
+```
+
+Runs in Node, next to Playwright, and serves the bundle the way VS Code loads it:
+`renderWebviewHtml`'s document and CSP with `cspSource` `WEBVIEW_BUNDLE_ORIGIN`, the appearance the
+extension resolves from `requested`, `colorTheme` and `themes`, and prepended to `<head>` ahead of
+the policy VS Code's default styles and the VS Code stub of `./testing/vscode-stub`, its options in
+`data-options`. VS Code writes its default styles and its own API script there too, so the policy
+blocks neither, and the stub records from the page's first stylesheet on: a stylesheet of `styles`
+that is missing from `dist` counts as a failed load. Every other request to the origin gets the file
+of `dist` it names, a 404 outside `dist`. It replaces any earlier route on the origin and resolves
+once the page has loaded; the harness then hands the webview its document as the extension does:
+
+```ts
+// e2e/tests/vscode/support/webview.ts
+import { openWebviewBundle } from "@miragon/modeler-shell/testing/webview-bundle";
+
+const appsVscode = fileURLToPath(new URL("../../../../apps/vscode", import.meta.url));
+let productionBuild: Promise<unknown> | undefined;
+
+export async function openShippedWebview(page: Page, { size, requested }: OpenContext) {
+  // the bundle as the packaged extension ships it, built once per worker
+  productionBuild ??= promisify(execFile)(
+    process.execPath,
+    ["esbuild.config.mjs", "--production"],
+    {
+      cwd: appsVscode,
+    },
+  );
+  await productionBuild;
+  await page.setViewportSize(size);
+  await openWebviewBundle(page, {
+    dist: join(appsVscode, "dist"),
+    title: "Event Storming Board",
+    requested,
+    themes: WEBVIEW_THEMES,
+  });
+  await page.waitForFunction(() =>
+    window.__modelerShellVsCodeStub?.posted.some(
+      (message) => (message as { type?: string }).type === "ready", // the webview's handshake
+    ),
+  );
+  await page.evaluate((text) => window.postMessage({ type: "init", text }, "*"), EXAMPLE_BOARD);
+  await page.locator(".cd-shell-canvas .djs-shape").first().waitFor();
+}
+
+// the harness: csp: { open: openShippedWebview }
+```
+
+Pass what the extension passes `renderWebviewHtml` (`title`, `body`, `styles`, `inlineStyles`), so
+the page runs under the policy the extension ships. The stub's script is an IIFE in `dist` next to
+this entry; `stubScript` replaces it, as the shell's own e2e suite does with a build from source.
 
 ### `./testing/vscode-electron` — smoke tests in a real VS Code (0.3)
 
@@ -3482,10 +3561,7 @@ Later candidates unless noted:
 - the `appearance` surface of the modeler-api contract (a later 1.x minor) for embedded hosts and
   the `miragon.<modeler>.colorTheme` setting UI (the bridge already honours `settingKey`).
 - **Kit** (the cases for reduced motion, forced colours and the canvas's overlay layers joined it
-  after 0.5.0):
-  - a CSP helper: serve the production bundle under `renderWebviewHtml`'s CSP inside the VS Code
-    stub, record every `securitypolicyviolation` and fail on any (until then the recipe under
-    `./vscode/extension`);
+  after 0.5.0, the `csp` case in 0.6):
   - a harness field `documents?: readonly string[]` that hands `open` a document key (for example
     `["example", "style-dark", "empty"]`), so `appearance` runs per document; until then a modeler
     registers a second harness whose `open` loads the variant;

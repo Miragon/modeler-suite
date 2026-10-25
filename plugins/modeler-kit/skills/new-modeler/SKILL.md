@@ -106,7 +106,7 @@ known version), and the new repository's Dependabot moves them on.
 
 - CI is green, which `ci-ok` sums up: lint, format, depcruise, pin check, unit tests,
   `test:browser` with zero skips and zero advisories of the contract kit, `test:e2e` with both
-  shell kits and the CSP smoke test of the production webview bundle, the web app's
+  shell kits, the production webview bundle under the webview CSP included, the web app's
   `check:build`, and the VS Code smoke test on the newest stable VS Code and the `engines.vscode`
   floor.
 - `npm run test:vscode:docker` passes on the newest stable VS Code and the `engines.vscode` floor:

@@ -115,8 +115,8 @@ kit's harness, and the kit asserts that they never show.
 state, ARIA and keys, keys that never reach VS Code, focus hand-back, appearance (the kit requests
 dark, dark with high contrast and light with high contrast: a light-only modeler stays light, never
 half-dark), keyboard creation, the label editor across the shell's zoom, fit and refit, the
-read-only lock, reduced motion and forced colours, the canvas's overlay layers, the web column and
-a clean `destroy`.
+read-only lock, reduced motion and forced colours, the canvas's overlay layers, the production
+webview bundle under the webview CSP, the web column and a clean `destroy`.
 
 - `ide`: a Vite test page runs the webview's `main.ts` inside `installVsCodeWebviewStub` (with
   `stubOptionsFromSearch`), opened with `vsCodeStubSearch(requested)`; the page, not the bundle,
@@ -141,9 +141,18 @@ a clean `destroy`.
 - `absent` lists what the modeler lacks, and `onSkip` throws: every other skip is a gap. In VS Code
   a menu without a Model action (no File group there) adds `absent: ["canvasMenuAction"]`
   (modeler-shell 0.4.0 or later).
-- Add the smoke test of the production webview bundle behind `renderWebviewHtml` that fails on any
-  CSP violation (template:
-  [`webview-bundle.spec.ts`](../assets/template/e2e/tests/vscode/webview-bundle.spec.ts)).
+- `csp` (a modeler-shell release after 0.5.0, `ide` only): its `open` builds `apps/vscode` for
+  production once per worker (`node esbuild.config.mjs --production`), opens `dist` with
+  `openWebviewBundle` from `@miragon/modeler-shell/testing/webview-bundle` (the document and CSP of
+  `renderWebviewHtml` with what the extension passes it, the VS Code stub ahead of the policy) and
+  posts the example's `init` once the webview posted `ready`. The kit then walks the bundle (a
+  tooltip, a shape's context pad and label editor, every menu entry that is not destructive, zoom
+  and Fit) and fails on any CSP violation, uncaught error, failed load or console error, on a
+  policy other than `renderWebviewHtml`'s, on a Geist font that loads no face, comes from a `data:`
+  URL or has a subset without `unicode-range`, on any font face whose file failed to load, and on a
+  palette or menu the walk cannot reach. The case replaces the smoke test of the production bundle. The template keeps that test
+  ([`webview-bundle.spec.ts`](../assets/template/e2e/tests/vscode/webview-bundle.spec.ts)) and lets
+  the `csp` skip pass until its modeler-shell pin reaches that release, then moves to the case.
 - A unit test pins the shell's sizes (`SHELL`) against the vendored `shell` token group with
   `shellSizesFromTokens` and `SHELL_TOKENS`
   ([`tokens.sync.test.ts`](../assets/template/apps/vscode/test/tokens.sync.test.ts)).

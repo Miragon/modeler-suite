@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { vsCodeStubSearch } from "./harness.js";
 import {
@@ -10,6 +10,7 @@ import {
 } from "./vscode-stub.js";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   const html = document.documentElement;
   for (const name of [...html.getAttributeNames()]) html.removeAttribute(name);
   document.body.className = "";
@@ -40,6 +41,24 @@ describe("installVsCodeWebviewStub", () => {
       "@layer vscode-default",
     );
     expect((window as StubWindow).__modelerShellVsCodeStub?.kind).toBe(3);
+  });
+
+  it("installed from <head>, sets the body classes once the parser inserted <body>", async () => {
+    const body = document.body;
+    body.remove();
+    try {
+      installVsCodeWebviewStub({
+        requested: { theme: "dark" },
+        themes: ["light"],
+        reduceMotion: true,
+      });
+      expect(document.body).toBeNull();
+      document.documentElement.append(body);
+      await Promise.resolve();
+      expect([...document.body.classList]).toEqual(["vscode-dark", "vscode-reduce-motion"]);
+    } finally {
+      if (!body.isConnected) document.documentElement.append(body);
+    }
   });
 
   it("switches the color theme as VS Code does: body classes, then the bridge's message", async () => {
@@ -86,6 +105,77 @@ describe("installVsCodeWebviewStub", () => {
     api?.postMessage({ type: "showProblems" });
     expect(stub.state()).toEqual({ b: 2 });
     expect(stub.posted).toEqual([{ type: "showProblems" }]);
+  });
+
+  it("keeps the default styles a page under the webview CSP carries ahead of its policy", () => {
+    const carried = document.createElement("style");
+    carried.id = "_defaultStyles";
+    carried.textContent = "@layer vscode-default {}";
+    document.head.append(carried);
+    installVsCodeWebviewStub({ requested: { theme: "light" }, themes: ["light"] });
+    expect(document.head.querySelectorAll("#_defaultStyles")).toHaveLength(1);
+    expect(document.head.querySelector("#_defaultStyles")).toBe(carried);
+  });
+
+  it("records CSP violations, errors, rejections, failed loads and console.error from its install on", () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    window.dispatchEvent(new ErrorEvent("error", { message: "before the stub" }));
+    const stub = installVsCodeWebviewStub({ requested: { theme: "light" }, themes: ["light"] });
+
+    document.dispatchEvent(
+      Object.assign(new Event("securitypolicyviolation"), {
+        effectiveDirective: "script-src",
+        violatedDirective: "script-src",
+        blockedURI: "eval",
+        sourceFile: "https://webview.test/webview.js",
+        lineNumber: 2,
+        columnNumber: 31,
+        sample: "",
+      }),
+    );
+    document.dispatchEvent(
+      Object.assign(new Event("securitypolicyviolation"), {
+        effectiveDirective: "",
+        violatedDirective: "style-src-attr",
+        blockedURI: "inline",
+        sourceFile: "",
+        lineNumber: 0,
+        columnNumber: 0,
+        sample: "fill: red",
+      }),
+    );
+    window.dispatchEvent(
+      new ErrorEvent("error", { message: "boom", filename: "webview.js", lineno: 1, colno: 2 }),
+    );
+    const thrown = new Error("thrown");
+    window.dispatchEvent(new ErrorEvent("error", { message: "thrown", error: thrown }));
+    const image = document.createElement("img");
+    image.setAttribute("src", "https://webview.test/missing.png");
+    document.body.append(image);
+    image.dispatchEvent(new Event("error"));
+    image.remove();
+    window.dispatchEvent(
+      Object.assign(new Event("unhandledrejection"), { reason: "no fixture yet" }),
+    );
+    console.error("palette:", { entries: 0 });
+
+    expect(stub.cspViolations()).toEqual([
+      {
+        directive: "script-src",
+        blockedURI: "eval",
+        source: "https://webview.test/webview.js:2:31",
+        sample: "",
+      },
+      { directive: "style-src-attr", blockedURI: "inline", source: "", sample: "fill: red" },
+    ]);
+    expect(stub.errors()).toEqual([
+      "boom (webview.js:1:2)",
+      thrown.stack,
+      "<img> failed to load https://webview.test/missing.png",
+      "unhandled rejection: no fixture yet",
+      'console.error: palette: {"entries":0}',
+    ]);
+    expect(quiet).toHaveBeenCalledWith("palette:", { entries: 0 });
   });
 });
 

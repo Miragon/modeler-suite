@@ -95,6 +95,16 @@
         "default": "./dist/testing-vscode-electron.cjs"
       }
     },
+    "./testing/webview-bundle": {
+      "import": {
+        "types": "./dist/testing-webview-bundle.d.ts",
+        "default": "./dist/testing-webview-bundle.js"
+      },
+      "require": {
+        "types": "./dist/testing-webview-bundle.d.cts",
+        "default": "./dist/testing-webview-bundle.cjs"
+      }
+    },
     "./shell.css": "./dist/shell.css",
     "./package.json": "./package.json"
   },
@@ -123,6 +133,9 @@
       ],
       "testing/vscode-electron": [
         "./dist/testing-vscode-electron.d.ts"
+      ],
+      "testing/webview-bundle": [
+        "./dist/testing-webview-bundle.d.ts"
       ]
     }
   },
@@ -170,6 +183,7 @@
     "@types/vscode": "1.96.0",
     "@vscode/test-electron": "3.1.0",
     "diagram-js": "15.28.1",
+    "esbuild": "0.28.2",
     "happy-dom": "21.0.3",
     "playwright-core": "1.64.1",
     "vite": "8.3.4"

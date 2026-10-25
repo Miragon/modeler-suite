@@ -56,14 +56,18 @@ const OWN_SABOTEURS_ONLY: ReadonlySet<string> = new Set([
   "overlayLayers",
 ]);
 
-/** Runs every case; the failure (or skips) of each case that did not pass, by case name. */
+/**
+ * Runs every case; the failure (or skips) of each case that did not pass, by case name. Not `csp`:
+ * it opens the demo's production bundle through `csp.open`, which these sabotages never reach, so
+ * it would only add its walk to every run (the csp saboteurs run it alone).
+ */
 async function failures(
   page: Page,
   harness: ShellConformanceHarness<Page>,
   expected: ReadonlySet<string>,
 ): Promise<Map<string, string>> {
   const failed = new Map<string, string>();
-  for (const conformanceCase of allCases()) {
+  for (const conformanceCase of allCases().filter(({ name }) => name !== "csp")) {
     if (OWN_SABOTEURS_ONLY.has(conformanceCase.name) && !expected.has(conformanceCase.name))
       continue;
     try {
@@ -1795,5 +1799,125 @@ test.describe("saboteurs", () => {
       /\[prefers-reduced-motion\] motion: div\.demo-inner-panel sets a transition of 200ms on "opacity" as opened/,
     );
     expect(failure).not.toMatch(/demo-host-banner/);
+  });
+
+  test.describe("that break the production bundle under the webview CSP", () => {
+    /** The demo's harness with `sabotage` applied once `csp.open` loaded the production bundle. */
+    function bundleSabotaged(sabotage: () => void): ShellConformanceHarness<Page> {
+      const harness = demoHarness("ide");
+      return {
+        ...harness,
+        csp: {
+          async open(page, context) {
+            await harness.csp!.open(page, context);
+            await page.evaluate(sabotage);
+          },
+        },
+      };
+    }
+
+    test("csp fails an eval probe that an export entry runs", async ({ page }) => {
+      const harness = bundleSabotaged(() => {
+        window.__demo!.flaws.evalUnderCsp = true;
+      });
+      await expect(runCase("csp", page, harness)).rejects.toThrow(
+        /csp: script-src blocked eval at https:\/\/webview\.test\/webview\.js:\d+:\d+; the webview CSP blocks eval/,
+      );
+    });
+
+    test("csp fails an uncaught error that a dialog entry causes", async ({ page }) => {
+      const harness = bundleSabotaged(() => {
+        window.__demo!.flaws.throwFromDialog = true;
+      });
+      await expect(runCase("csp", page, harness)).rejects.toThrow(
+        /error: Error: demo: the shortcuts dialog failed to open\n {4}at /,
+      );
+    });
+
+    test("csp fails a shell font that loads no face", async ({ page }) => {
+      const harness = bundleSabotaged(() => {
+        for (const sheet of document.styleSheets) {
+          for (let index = sheet.cssRules.length - 1; index >= 0; index--) {
+            const rule = sheet.cssRules[index];
+            if (
+              rule instanceof CSSFontFaceRule &&
+              rule.style.getPropertyValue("font-family").includes("Geist Mono")
+            )
+              sheet.deleteRule(index);
+          }
+        }
+      });
+      await expect(runCase("csp", page, harness)).rejects.toThrow(
+        /fonts: "Geist Mono Variable" loaded no face; bundle its font files/,
+      );
+    });
+
+    test("csp fails a shell font inlined as a data: URL", async ({ page }) => {
+      const harness = bundleSabotaged(() => {
+        const sheet = [...document.styleSheets].find((candidate) => candidate.href !== null)!;
+        sheet.insertRule(
+          '@font-face { font-family: "Geist Variable"; src: url(data:font/woff2;base64,AAAA) format("woff2"); unicode-range: U+1F600; }',
+        );
+      });
+      await expect(runCase("csp", page, harness)).rejects.toThrow(
+        /fonts: "Geist Variable" comes from a data: URL/,
+      );
+    });
+
+    test("csp fails a font face the page needs whose file is not in the bundle", async ({
+      page,
+    }) => {
+      const harness = bundleSabotaged(() => {
+        const sheet = [...document.styleSheets].find((candidate) => candidate.href !== null)!;
+        sheet.insertRule(
+          '@font-face { font-family: "Geist Variable"; font-style: italic; src: url(fonts/geist-latin-wght-italic-missing.woff2) format("woff2"); }',
+        );
+        // Rendered, as the canvas renders an italic caption, so the page itself asks for the face.
+        const caption = document.createElement("span");
+        caption.textContent = "Inertia";
+        caption.style.fontFamily = '"Geist Variable"';
+        caption.style.fontStyle = "italic";
+        document.body.append(caption);
+      });
+      await expect(runCase("csp", page, harness)).rejects.toThrow(
+        /fonts: the face "Geist Variable" italic \S+ failed to load/,
+      );
+    });
+
+    test("csp fails a subset of a shell font that lost its unicode-range", async ({ page }) => {
+      const harness = bundleSabotaged(() => {
+        const sheet = [...document.styleSheets].find((candidate) => candidate.href !== null)!;
+        const index = [...sheet.cssRules].findIndex(
+          (rule) => rule instanceof CSSFontFaceRule && rule.cssText.includes("geist-cyrillic-wght"),
+        );
+        const rule = sheet.cssRules[index]!.cssText.replace(/unicode-range:[^;}]*;?/, "");
+        sheet.deleteRule(index);
+        sheet.insertRule(rule, index);
+      });
+      await expect(runCase("csp", page, harness)).rejects.toThrow(
+        /fonts: a face of "Geist Variable" has no unicode-range beside the family's other subsets/,
+      );
+    });
+
+    test("csp fails a bundle whose palette and menu the walk cannot reach", async ({ page }) => {
+      const harness = bundleSabotaged(() => {
+        const sheet = [...document.styleSheets].find((candidate) => candidate.href !== null)!;
+        sheet.insertRule(
+          '[data-chrome="palette"], [data-chrome="menu"] { visibility: hidden !important; }',
+          sheet.cssRules.length,
+        );
+      });
+      await expect(runCase("csp", page, harness)).rejects.toThrow(
+        /csp: no visible palette entry to hover[\s\S]*csp: no visible menu trigger to open/,
+      );
+    });
+
+    test("csp fails a csp.open that loads the page without the webview CSP", async ({ page }) => {
+      const harness = demoHarness("ide");
+      const failure = runCase("csp", page, { ...harness, csp: { open: harness.open } });
+      await expect(failure).rejects.toThrow(
+        /csp: the page csp\.open loaded has no Content-Security-Policy/,
+      );
+    });
   });
 });
