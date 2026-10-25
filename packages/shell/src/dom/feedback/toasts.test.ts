@@ -615,7 +615,42 @@ describe("toaster: focus handoff", () => {
     action?.click();
     expect(focusFallback).toHaveBeenCalledTimes(1);
   });
+
+  // WebKit and Firefox on macOS leave a clicked button unfocused: the click finds `<body>` focused.
+  it("hands the focus to the fallback after a pointer click on the action or Close, focused or not", () => {
+    const { toaster, stack, focusFallback } = setup();
+    const calls: string[] = [];
+    focusFallback.mockImplementation(() => calls.push("focus"));
+    toaster.show({
+      status: "info",
+      text: "Replaced",
+      action: { label: "Undo", onSelect: () => calls.push("undo") },
+    });
+    toaster.show(success("a"));
+    toaster.show(success("b"));
+    const [replaced, a, b] = cards(stack);
+    expect(document.activeElement).toBe(document.body);
+
+    pointerClick(replaced?.querySelector(".cd-shell-toast-action"));
+    expect(calls).toEqual(["focus", "undo"]);
+
+    // Not to the next toast's Close, as Enter on a focused Close does: a pointer user is done here.
+    closeButton(a).focus();
+    pointerClick(closeButton(a));
+    expect(focusFallback).toHaveBeenCalledTimes(2);
+    expect(document.activeElement).not.toBe(closeButton(b));
+
+    (document.activeElement as HTMLElement | null)?.blur();
+    pointerClick(closeButton(b));
+    expect(focusFallback).toHaveBeenCalledTimes(3);
+    expect(texts(stack)).toEqual([]);
+  });
 });
+
+/** A click as a mouse, pen or finger gives it (`detail` 1), without moving the focus. */
+function pointerClick(target: Element | null | undefined): void {
+  target?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+}
 
 describe("toaster: destroy", () => {
   it("clears every timer and removes the stack; later toasts are inert", () => {

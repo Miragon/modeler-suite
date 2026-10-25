@@ -604,6 +604,21 @@ so Delete, the arrows and Cmd/Ctrl+Z act at once; Enter and Space leave it on th
   keyboard moved it last, the script focus rings the whole canvas; a renderer that hands the focus
   back without the shell (Event Storming, Wardley Maps) therefore focuses the `<svg>` with
   `focusVisible: false`.
+- WebKit, and Firefox on macOS, give a clicked button no focus: its `mousedown` takes the focus off
+  whatever held it, and the `click` finds `<body>` focused. A hand-back must therefore not wait for
+  the clicked control to hold the focus. The zoom panel, the menu and the palette focus the canvas
+  after a pointer click anyway. The toasts and the start screen handed on only a focus they held,
+  so in WebKit the focus stayed on `<body>` after a click on a toast's "Undo" or Close and on the
+  start screen's "New diagram", "Show example" or "Open a file…". Now a pointer click on a toast's
+  action or Close calls the fallback (the canvas, on the start screen "New diagram") right away, also
+  past another toast, whose Close takes the focus only after Enter or Space. A pointer click on a
+  button of the card counts as the card's focus while nothing else has one, until the card shows or
+  hides again, so it reaches the canvas also when the card hides after the picked file has loaded.
+  The renderers' own palettes, context pads, popups and editors already focus the canvas directly
+  or through diagram-js' `restoreFocus`, which acts exactly when `<body>` has the focus. The shell's
+  e2e runs `web-pointer-focus.spec.ts` in a `webkit` project as well; on Linux, WebKit's ports may
+  focus a clicked button, so the unit tests, which click without moving the focus, are the guard
+  there.
 - Not handed back: the menu trigger, the pill and the primary action open something that takes the
   focus; the legend's close button returns it to the trigger; a problem row already focuses the
   canvas (see [Problems popover](#problems-popover)).

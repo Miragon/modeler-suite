@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   FakeResizeObserver,
+  canvasWithSvg,
   chrome,
   cleanup,
+  click,
   fakePalette,
   installFakes,
   keydown,
@@ -163,6 +165,52 @@ describe("web-column wiring (0.2)", () => {
     const legalLink = chrome(root, "legal").querySelector("a");
     legalLink?.focus();
     shell.setEmptyState(true);
+    expect(document.activeElement).toBe(legalLink);
+  });
+
+  // WebKit and Firefox on macOS leave a clicked button unfocused: the click finds `<body>` focused.
+  it("hands the focus to the canvas after a pointer click on the card, though no button took it", () => {
+    const { canvas, svg } = canvasWithSvg();
+    const calls: string[] = [];
+    const { shell, root } = mount({
+      host: "web",
+      ...webOptions(),
+      canvas,
+      emptyState: {
+        title: "Demo",
+        text: "Start.",
+        komet,
+        onNewDiagram: () => calls.push("new"),
+        onShowExample: () => calls.push("example"),
+      },
+    });
+    const card = chrome(root, "empty-state");
+    const blur = () => (document.activeElement as HTMLElement | SVGElement | null)?.blur();
+    for (const button of card.querySelectorAll(".cd-shell-button")) {
+      shell.setEmptyState(true);
+      blur();
+      click(button, 1);
+      expect(document.activeElement).toBe(svg);
+    }
+    expect(calls).toEqual(["new", "example"]);
+
+    // "Open a file…" keeps the card up until the modeler has loaded the file.
+    shell.setEmptyState(true);
+    blur();
+    click(card.querySelector(".cd-shell-empty-state-open")!, 1);
+    expect(shell.isEmptyStateShown()).toBe(true);
+    shell.setEmptyState(false);
+    expect(document.activeElement).toBe(svg);
+  });
+
+  it("leaves a focus that went elsewhere after the pointer click on the card where it is", () => {
+    const { canvas } = canvasWithSvg();
+    const { shell, root } = mount({ host: "web", ...webOptions(), canvas });
+    shell.setEmptyState(true);
+    click(chrome(root, "empty-state").querySelector(".cd-shell-empty-state-open")!, 1);
+    const legalLink = chrome(root, "legal").querySelector("a");
+    legalLink?.focus();
+    shell.setEmptyState(false);
     expect(document.activeElement).toBe(legalLink);
   });
 

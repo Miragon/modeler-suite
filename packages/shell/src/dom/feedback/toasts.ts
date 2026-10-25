@@ -9,7 +9,7 @@ import {
   type ToastRequest,
   type ToastSlot,
 } from "../../core/index.js";
-import { createElement } from "../element.js";
+import { createElement, isPointerClick } from "../element.js";
 import { iconElement } from "../icons.js";
 import type { ToastHandle } from "../types.js";
 
@@ -20,7 +20,10 @@ export interface ToasterContext {
   messages: ShellMessages;
   /** `cd-shell-toast-N`: the prefix of the ids the Close buttons' `aria-describedby` names. */
   idPrefix: string;
-  /** Where the focus goes when a closing toast held it and no other toast can take it. */
+  /**
+   * Where the focus goes after a pointer click on a toast's button, and when a closing toast held it
+   * and no other toast can take it.
+   */
   focusFallback(): void;
   /** A toast came or went: the widest card, and with it the stack's bottom, may have changed. */
   onChange?: (() => void) | undefined;
@@ -100,7 +103,7 @@ interface LiveToast {
  * instead of stacking a second; its action and lifetime become the new request's, so an "Undo"
  * always undoes the latest change. An action click closes the toast, then runs `onSelect`. A
  * closing toast that held the focus hands it to the next toast's Close button, else
- * `focusFallback()`.
+ * `focusFallback()`; a pointer click on its Close or action hands it to `focusFallback()`.
  */
 export function createToaster(context: ToasterContext): Toaster {
   const { ownerDocument, messages } = context;
@@ -287,14 +290,20 @@ export function createToaster(context: ToasterContext): Toaster {
     leaveTimers.add(fallback);
   }
 
-  function close(toast: LiveToast): void {
+  /**
+   * `byPointer`: a click with a pointer on Close or the action, which hands the focus on whether or
+   * not the button holds it. WebKit and Firefox on macOS do not focus a clicked button, so it would
+   * stay on `<body>`, where the canvas keys do not act (guide §5.8).
+   */
+  function close(toast: LiveToast, byPointer = false): void {
     const index = live.indexOf(toast);
     if (index < 0) return;
     live.splice(index, 1);
     stopTimer(toast);
     silence(toast.request);
-    const heldFocus = toast.element.contains(ownerDocument.activeElement);
-    if (heldFocus) {
+    if (byPointer) {
+      context.focusFallback();
+    } else if (toast.element.contains(ownerDocument.activeElement)) {
       const next = live[index] ?? live[index - 1];
       if (next) next.closeButton.focus({ preventScroll: true });
       else context.focusFallback();
@@ -314,8 +323,8 @@ export function createToaster(context: ToasterContext): Toaster {
         { type: "button", class: "cd-shell-toast-action cd-shell-button", "data-variant": "ghost" },
         action.label,
       );
-      button.addEventListener("click", () => {
-        close(toast);
+      button.addEventListener("click", (event) => {
+        close(toast, isPointerClick(event));
         action.onSelect();
       });
       toast.closeButton.before(button);
@@ -370,7 +379,7 @@ export function createToaster(context: ToasterContext): Toaster {
       timer: undefined,
     };
     setAction(toast, request.action);
-    closeButton.addEventListener("click", () => close(toast));
+    closeButton.addEventListener("click", (event) => close(toast, isPointerClick(event)));
     toastElement.addEventListener("mouseenter", () => setEngagement(toast, true, toast.focused));
     toastElement.addEventListener("mouseleave", () => setEngagement(toast, false, toast.focused));
     toastElement.addEventListener("focusin", () => setEngagement(toast, toast.hovered, true));

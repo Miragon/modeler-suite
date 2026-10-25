@@ -299,6 +299,22 @@ function renderShell(
         })
       : undefined;
   if (emptyState) ledger.defer(() => emptyState.destroy());
+  /**
+   * WebKit and Firefox on macOS do not focus a button on a pointer click, so a click on the card's
+   * "New diagram", "Show example" or "Open a file…" leaves the focus on `<body>`, not on the card
+   * that hands it to the canvas when it hides. Until the card shows or hides again, such a click
+   * counts as the card's focus while nothing else has taken it.
+   */
+  let cardClickedByPointer = false;
+  emptyState?.element.addEventListener(
+    "click",
+    (event) => {
+      if ((event.target as Element | null)?.closest?.("button")) {
+        cardClickedByPointer = isPointerClick(event);
+      }
+    },
+    true,
+  );
   const inspector = options.inspector
     ? createInspector(ownerDocument, options.inspector, (open) => {
         setState("data-inspector", open ? "open" : null);
@@ -519,7 +535,9 @@ function renderShell(
   function setEmptyStateShown(shown: boolean): void {
     if (ledger.isClosed || !emptyState || emptyState.isShown() === shown) return;
     const active = ownerDocument.activeElement;
-    const hadFocus = emptyState.element.contains(active);
+    const focusNowhere = active === null || active === ownerDocument.body;
+    const hadFocus = emptyState.element.contains(active) || (cardClickedByPointer && focusNowhere);
+    cardClickedByPointer = false;
     // The work chrome and the canvas are about to hide: a focus there would fall to <body>. The
     // legal line and the toasts stay.
     const workHadFocus =
