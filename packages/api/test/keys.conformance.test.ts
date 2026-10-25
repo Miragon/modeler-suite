@@ -7,7 +7,7 @@
  * reported as a skip. The cases run one after the other, because every mounted modeler listens to
  * the one document the keys case dispatches in.
  */
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
   attachedHost,
@@ -20,7 +20,7 @@ import type { CollaborativeModeler } from "../src/index.js";
 import { createReferenceModeler, type Flaws, type ReferenceModeler } from "./reference-modeler.js";
 import { CASE, harness, runCases } from "./support.js";
 
-/** the reference harness, every editing instance mounted into attachedHost() */
+/** the reference harness, the modeler and the viewer mounted into attachedHost() */
 function mounted(
   flaws: Flaws = {},
   overrides: Partial<ConformanceHarness> = {},
@@ -31,9 +31,22 @@ function mounted(
       m.attachTo(attachedHost());
       return m;
     },
+    createReadonly: async () => {
+      const viewer = createReferenceModeler(flaws, false);
+      viewer.attachTo(attachedHost());
+      return viewer;
+    },
     ...overrides,
   });
 }
+
+/** the canvas the reference drew, as a harness names it with canvasElement */
+const referenceCanvas = (m: CollaborativeModeler): Element | undefined =>
+  (m as ReferenceModeler).canvasElement();
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const keysCase = conformanceCases().find((c) => c.name === CASE.keys);
 
@@ -136,17 +149,17 @@ describe("variants that miss the recommendation fail nothing and advise exactly 
     const advice = await expectKeysAdvisory({ hostKeysAreCanvasKeys: true });
     expect(advice).toMatch(/Backspace on a host <button> inside the modeler's container fired/);
     expect(advice).toMatch(/a focusable element in a host \.monaco-editor inside the modeler's/);
-    expect(advice).toMatch(/Backspace on a host <button> next to the canvas <svg> fired/);
+    expect(advice).toMatch(/Backspace on a host <button> next to the canvas fired/);
     expect(findingsOf(advice)).not.toMatch(/beside the modeler|<body>/);
   });
 
   test("keys aimed anywhere in the modeler's own container taken as the canvas's → an advisory for a host's overlay editors next to the canvas", async () => {
     const advice = await expectKeysAdvisory({ containerKeysAreCanvasKeys: true });
     expect(advice).toMatch(
-      /^keys left the canvas: Backspace on a host <button> next to the canvas <svg> fired onContentChanged/,
+      /^keys left the canvas: Backspace on a host <button> next to the canvas fired onContentChanged/,
     );
     expect(advice).toMatch(
-      /a focusable element in a host \.monaco-editor next to the canvas <svg> fired/,
+      /a focusable element in a host \.monaco-editor next to the canvas fired/,
     );
     expect(findingsOf(advice)).not.toMatch(
       /beside the modeler|inside the modeler's container|<body>/,
@@ -184,6 +197,54 @@ describe("variants that miss the recommendation fail nothing and advise exactly 
     expect(findingsOf(advice)).not.toMatch(/document|fired|prevented|stopped/);
   });
 
+  test("the keys that move or zoom the canvas (Shift+Arrow, Cmd/Ctrl+Arrow, Cmd/Ctrl+=) prevented wherever they are aimed → an advisory that names them", async () => {
+    const advice = await expectKeysAdvisory({ canvasMoveKeysAnywhere: true });
+    expect(advice).toMatch(
+      /^keys left the canvas: Shift\+ArrowLeft on a host <button> beside the modeler prevented it;/,
+    );
+    expect(advice).toMatch(/; Ctrl\+= on a host <button> beside the modeler prevented it;/);
+    expect(advice).toMatch(/; Meta\+ArrowLeft on a host <button> beside the modeler prevented it;/);
+    expect(advice).toMatch(
+      /; Ctrl\+Shift\+ArrowLeft on a host <button> beside the modeler prevented/,
+    );
+    expect(findingsOf(advice)).not.toMatch(/changed|fired|stopped/);
+  });
+
+  test("Cmd/Ctrl+V aimed anywhere pasting a macrotask later → an advisory that names the change once the keys settled", async () => {
+    const advice = await expectKeysAdvisory({ deferredPasteAnywhere: true });
+    expect(advice).toMatch(
+      /^keys left the canvas: a key on a host <button> beside the modeler changed the document once it settled;/,
+    );
+    expect(findingsOf(advice)).not.toMatch(/prevented|stopped|threw|the viewer/);
+  });
+
+  test("a keyup prevented outside the canvas → an advisory that names the prevented key", async () => {
+    const advice = await expectKeysAdvisory({ preventsKeyupOutsideCanvas: true });
+    expect(advice).toMatch(
+      /^keys left the canvas: Backspace on a host <button> beside the modeler prevented it;/,
+    );
+    expect(findingsOf(advice)).not.toMatch(/changed|fired|stopped/);
+  });
+
+  test("a viewer that pans on an arrow aimed anywhere → an advisory for the viewer alone", async () => {
+    const advice = await expectKeysAdvisory({ viewerTakesArrowsAnywhere: true });
+    expect(advice).toMatch(
+      /^keys left the canvas: the viewer: ArrowLeft on a host <button> beside the modeler prevented it;/,
+    );
+    const findings = findingsOf(advice)
+      .replace(/^keys left the canvas: /, "")
+      .split("; ");
+    expect(findings.filter((finding) => !/^the viewer: |^and \d+ more$/.test(finding))).toEqual([]);
+  });
+
+  test("where the browser has EditContext, an EditContext editor is a host control too", async () => {
+    vi.stubGlobal("EditContext", class {});
+    const advice = await expectKeysAdvisory({ onlyTextFieldsKeepKeys: true });
+    expect(advice).toMatch(
+      /Backspace on a host EditContext editor beside the modeler fired onContentChanged/,
+    );
+  });
+
   test("a keydown without a key that throws → an advisory that names the error, on the canvas and on <body>", async () => {
     const advice = await expectKeysAdvisory({ keylessKeyThrows: true });
     expect(advice).toMatch(/a keydown without a key on the focused canvas threw TypeError/);
@@ -191,6 +252,88 @@ describe("variants that miss the recommendation fail nothing and advise exactly 
       /a keydown without a key on <body> with nothing focused threw TypeError/,
     );
     expect(findingsOf(advice)).not.toMatch(/changed|fired|prevented|stopped/);
+  });
+});
+
+describe("a harness that names the canvas with canvasElement", () => {
+  test("a canvas that is a focusable <div>, named by canvasElement → every case passes, nothing skips, nothing advises", async () => {
+    const outcomes = await runCases(
+      mounted({ canvasIsDiv: true }, { canvasElement: referenceCanvas }),
+      "sequential",
+    );
+    expect(outcomes.filter((r) => r.failed).map((r) => r.name)).toEqual([]);
+    expect(outcomes.filter((r) => r.outcome?.skipped !== undefined).map((r) => r.name)).toEqual([]);
+    expect(outcomes.flatMap((r) => r.outcome?.advisories ?? [])).toEqual([]);
+  });
+
+  test("the same canvas without canvasElement → a skip that points to canvasElement", async () => {
+    const outcome = await runKeysCase(mounted({ canvasIsDiv: true }));
+    expect(outcome?.skipped).toMatch(
+      /^create\(\) mounted the modeler into no attachedHost\(\) that holds a focusable <svg> .* name the canvas with canvasElement;/,
+    );
+  });
+
+  test("canvasElement tells the modeler's canvas from another one mounted at the same time", async () => {
+    const decoys: ReferenceModeler[] = [];
+    const besideADecoy = async (): Promise<ReferenceModeler> => {
+      const decoy = createReferenceModeler();
+      decoy.attachTo(attachedHost());
+      decoys.push(decoy);
+      const m = createReferenceModeler();
+      m.attachTo(attachedHost());
+      return m;
+    };
+    try {
+      const outcome = await runKeysCase(
+        mounted({}, { create: besideADecoy, canvasElement: referenceCanvas }),
+      );
+      expect(outcome).toEqual({});
+    } finally {
+      for (const decoy of decoys) decoy.destroy();
+    }
+  });
+
+  test("a canvasElement that names nothing → a skip", async () => {
+    const outcome = await runKeysCase(mounted({}, { canvasElement: () => null }));
+    expect(outcome?.skipped).toMatch(/^canvasElement\(\) names no canvas for the modeler;/);
+  });
+
+  test("a canvasElement that names an element outside every attachedHost() → a skip", async () => {
+    const stray = document.createElement("div");
+    stray.tabIndex = 0;
+    document.body.append(stray);
+    try {
+      const outcome = await runKeysCase(mounted({}, { canvasElement: () => stray }));
+      expect(outcome?.skipped).toMatch(
+        /^the canvas canvasElement\(\) names for the modeler lies in no attachedHost\(\)/,
+      );
+    } finally {
+      stray.remove();
+    }
+  });
+});
+
+describe("registerConformance", () => {
+  test("reports a case's advisories before its skip, so an onSkip that throws does not hide them", async () => {
+    const reported: string[] = [];
+    const registered = new Map<string, () => Promise<void>>();
+    registerConformance(
+      mounted({ noCanvasKeys: true, preventsClipboardKeysEverywhere: true }),
+      (name, fn) => registered.set(name, fn),
+      {
+        onSkip: (_name, reason) => {
+          reported.push("skip");
+          throw new Error(reason);
+        },
+        onAdvisory: () => {
+          reported.push("advisory");
+        },
+      },
+    );
+    const runKeys = registered.get(`conformance: ${CASE.keys}`);
+    if (!runKeys) throw new Error("registerConformance registered no keys case");
+    await expect(runKeys()).rejects.toThrow(/^Delete and Backspace on the focused canvas/);
+    expect(reported).toEqual(["advisory", "skip"]);
   });
 });
 
@@ -235,7 +378,16 @@ describe("whatever keeps the keys case from seeing a key act is reported as a sk
       return m;
     };
     const outcome = await runKeysCase(mounted({}, { create: unfocusable }));
-    expect(outcome?.skipped).toMatch(/^the canvas <svg> did not take the focus/);
+    expect(outcome?.skipped).toMatch(/^the canvas did not take the focus/);
+  });
+
+  test("a createReadonly() that mounts the viewer into no attachedHost() → a skip naming the viewer", async () => {
+    const unmountedViewer = async (): Promise<CollaborativeModeler> =>
+      createReferenceModeler({}, false);
+    const outcome = await runKeysCase(mounted({}, { createReadonly: unmountedViewer }));
+    expect(outcome?.skipped).toMatch(
+      /^createReadonly\(\) mounted the viewer into no attachedHost\(\) that holds a focusable <svg>/,
+    );
   });
 
   test("a create() that mounts into no attachedHost() → a skip naming attachedHost()", async () => {

@@ -7,6 +7,11 @@
  *   import { conformanceCases, registerConformance } from "@miragon/modeler-api/conformance";
  *   registerConformance(harness, test);            // node:test, vitest, jest — any (name, fn) runner
  *
+ * The runner must run the cases one after another, as node:test, vitest and
+ * jest do within a file unless told otherwise (no `test.concurrent`): the
+ * keys case moves the focus and dispatches keys in the one document every
+ * mounted instance listens to.
+ *
  * Cases throw plain Errors on violation, so the kit has no runner or
  * assertion-library dependency. A case that CANNOT (fully) run because the
  * harness left an optional field undefined resolves with `{ skipped }` and
@@ -40,13 +45,26 @@ export interface ConformanceHarness {
    * (vitest browser mode / Playwright), jsdom has no getBBox. Keep
    * `fitOnImport` at its default: the L5 cases check the modeler's own fit.
    * The keys case finds the canvas in the host `attachedHost()` made during
-   * this call: mount into one, or that case reports a skip
+   * this call (or takes the one `canvasElement` names): mount into one, or
+   * that case reports a skip
    */
   create(): Promise<CollaborativeModeler>;
   /** a fresh READ-ONLY instance (`meta.editable === false`) — the viewer
    *  mount hosts use on read-only surfaces; absent = the package ships no
-   *  viewer and the viewer case is reported as skipped */
+   *  viewer and the viewer case is reported as skipped. The keys case aims
+   *  its keys at the viewer too: mount it as `create()` does */
   createReadonly?(): Promise<CollaborativeModeler>;
+  /**
+   * the focusable element `modeler` (from `create()` or `createReadonly()`)
+   * placed in its host to take its keys: the keys case aims the keys that
+   * must act at it, and the host's controls it puts next to it and into the
+   * `attachedHost()` it lies in. `undefined` = the focusable `<svg>` (one
+   * with a `tabindex`, diagram-js's canvas) in the one `attachedHost()` the
+   * call mounted into. A modeler that takes its keys on another element (a
+   * `<div>`, a `<canvas>`) names it here; `null` or `undefined` returned, or
+   * an element outside every `attachedHost()`, is reported as a skip
+   */
+  canvasElement?(modeler: CollaborativeModeler): Element | null | undefined;
   /**
    * CANONICAL sample documents of the notation (>= 2, distinct, at least one
    * rendering an element, ideally several covering config/axis content too)
@@ -1732,7 +1750,7 @@ export function conformanceCases(): ConformanceCase[] {
       },
     },
     {
-      name: "keys (recommended): a key aimed at the host's controls and editors or at <body> is left alone, a keydown without a key throws nothing, a key on the focused canvas acts",
+      name: "keys (recommended): a key aimed at the host's controls and editors or at <body> is left alone, a keydown or keyup without a key throws nothing, a key on the focused canvas acts",
       run: keysStayOnTheCanvas,
     },
     {
@@ -1783,6 +1801,7 @@ interface KeyStroke {
 const NAMED_CODES: Record<string, string> = {
   " ": "Space",
   "+": "Equal",
+  "=": "Equal",
   "-": "Minus",
   "!": "Digit1",
 };
@@ -1793,19 +1812,19 @@ const codeOf = (key: string): string => {
   return NAMED_CODES[key] ?? key;
 };
 
+const ARROWS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+
 /**
- * the keys the Miragon canvases bind: editing, nudging, Enter, Escape, Space and Tab, the single-key
- * tools of diagram-js and the renderers, Shift+1 (fit), and every shortcut once with Ctrl and once
- * with Meta, since a renderer may read either
+ * the keys the Miragon canvases and diagram-js's keyboard bind: editing, nudging (Shift: a larger
+ * step), Enter, Escape, Space and Tab, the single-key tools of diagram-js and the renderers,
+ * Shift+1 (fit), and every shortcut (clipboard, undo, zoom, Ctrl/Meta+Arrow moving the canvas)
+ * once with Ctrl and once with Meta, since a renderer may read either
  */
 const KEY_STROKES: KeyStroke[] = [
   ...[
     "Backspace",
     "Delete",
-    "ArrowLeft",
-    "ArrowRight",
-    "ArrowUp",
-    "ArrowDown",
+    ...ARROWS,
     "Enter",
     "Escape",
     " ",
@@ -1820,6 +1839,7 @@ const KEY_STROKES: KeyStroke[] = [
     "s",
     "u",
   ].map((key) => ({ key, code: codeOf(key) })),
+  ...ARROWS.map((key) => ({ key, code: key, shiftKey: true })),
   { key: "!", code: codeOf("!"), shiftKey: true },
   ...[
     { key: "a" },
@@ -1831,8 +1851,10 @@ const KEY_STROKES: KeyStroke[] = [
     { key: "Z", shiftKey: true },
     { key: "y" },
     { key: "+" },
+    { key: "=" },
     { key: "-" },
     { key: "0" },
+    ...ARROWS.flatMap((key) => [{ key }, { key, shiftKey: true }]),
   ].flatMap((stroke) => [
     { ...stroke, code: codeOf(stroke.key), ctrlKey: true },
     { ...stroke, code: codeOf(stroke.key), metaKey: true },
@@ -1992,42 +2014,85 @@ const SHOWN_KEY_FINDINGS = 12;
 const selectionOf = (m: CollaborativeModeler): string =>
   m.elements ? JSON.stringify([...m.elements.selection()].sort()) : "";
 
+/** what the keys case aims its keys at: the editable modeler, then the viewer */
+type KeyedInstance = "modeler" | "viewer";
+
+/** the canvas an instance takes its keys on, and the attachedHost() it lies in */
+interface MountedCanvas {
+  canvas: Element;
+  host: HTMLElement;
+  wrapper: HTMLElement;
+}
+
 /**
- * the keys case: a modeler mounted into `attachedHost()` imports `canonicalTexts[0]`, gets undo
- * history (`mutate`) and a selection (`elements.reveal`), and then sees every key of KEY_STROKES
- * aimed at host controls beside its container and inside it, and at <body>. Each must leave the
- * document, the change events, the selection, `defaultPrevented` and the propagation alone (an
- * advisory otherwise, since 1.4 only RECOMMENDS it); a keydown without a key must throw nothing.
- * Delete or Backspace on the focused canvas must then remove the revealed element: without that
- * proof the case cannot tell a key the modeler leaves alone from one it never sees, and it reports
- * a skip
+ * the canvas of an instance made after `firstSerial`: the element `canvasElement` names, or else
+ * the focusable `<svg>` in the one attachedHost() made since; a string says why the kit cannot tell
  */
-async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> {
-  if (typeof document === "undefined") {
-    return skip(
-      "no DOM — keys need a document to be aimed at (run the kit in a browser, the modeler mounted into attachedHost())",
-    );
+function mountedCanvas(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  instance: KeyedInstance,
+  firstSerial: number,
+): MountedCanvas | string {
+  const live = attachedHosts.filter((entry) => entry.wrapper.isConnected);
+  if (h.canvasElement) {
+    const named = h.canvasElement(m);
+    if (!named)
+      return `canvasElement() names no canvas for the ${instance}; keys were not verified`;
+    const mount = live.find((entry) => entry.host.contains(named));
+    return mount === undefined
+      ? `the canvas canvasElement() names for the ${instance} lies in no attachedHost() — the kit puts host controls into that host and hides it; keys were not verified`
+      : { canvas: named, host: mount.host, wrapper: mount.wrapper };
   }
+  const made = instance === "modeler" ? "create()" : "createReadonly()";
+  const mounts = live.filter(
+    (entry) => entry.serial >= firstSerial && entry.host.querySelector(CANVAS_SELECTOR) !== null,
+  );
+  const [mount] = mounts;
+  const canvas = mount?.host.querySelector(CANVAS_SELECTOR);
+  if (mount && canvas && mounts.length === 1) {
+    return { canvas, host: mount.host, wrapper: mount.wrapper };
+  }
+  return mount === undefined
+    ? `${made} mounted the ${instance} into no attachedHost() that holds a focusable <svg> (one with a tabindex, diagram-js's canvas) — mount into one, or name the canvas with canvasElement; keys were not verified`
+    : `${made} made ${mounts.length} attachedHost() elements that hold a focusable <svg> — the kit cannot tell which one is the ${instance}'s canvas (run the cases one after another, or name the canvas with canvasElement); keys were not verified`;
+}
+
+/**
+ * one instance of the keys case: mounted into `attachedHost()`, it imports `canonicalTexts[0]`,
+ * gets undo history (`mutate`, the editable modeler only) and a selection (`elements.reveal`), and
+ * then sees every key of KEY_STROKES aimed at host controls beside its container, inside it and
+ * next to its canvas, and at <body>. Each must leave the document, the change events, the
+ * selection, `defaultPrevented` and the propagation alone; a keydown or keyup without a key must
+ * throw nothing. What it finds goes to `findings`, prefixed for the viewer. On the editable
+ * modeler, Delete or Backspace on the focused canvas must then remove the revealed element:
+ * without that proof the case cannot tell a key the modeler leaves alone from one it never sees.
+ * Returns why the keys were not (fully) verified, if they were not
+ */
+async function aimKeysAt(
+  h: ConformanceHarness,
+  instance: KeyedInstance,
+  create: () => Promise<CollaborativeModeler>,
+  findings: string[],
+): Promise<string | undefined> {
   const settle = h.settle ?? defaultSettle;
   const text = h.canonicalTexts[0] ?? "";
+  const editable = instance === "modeler";
+  const found = (finding: string): void => {
+    findings.push(editable ? finding : `the viewer: ${finding}`);
+  };
   const firstSerial = nextHostSerial;
-  const m = await h.create();
+  const m = await create();
   const cleanups: Array<() => void> = [];
   try {
-    await importOrFail(m, text, "importText(canonicalTexts[0]) rejected");
-    const mounts = attachedHosts.filter(
-      (entry) => entry.serial >= firstSerial && entry.host.querySelector(CANVAS_SELECTOR) !== null,
+    await importOrFail(
+      m,
+      text,
+      editable ? "importText(canonicalTexts[0]) rejected" : "the viewer rejected canonicalTexts[0]",
     );
-    const [mount] = mounts;
-    if (mount === undefined || mounts.length > 1) {
-      return skip(
-        mount === undefined
-          ? "create() mounted the modeler into no attachedHost() that holds a focusable <svg> (one with a tabindex, diagram-js's canvas) — the kit finds the canvas there; keys were not verified"
-          : `create() made ${mounts.length} attachedHost() elements that hold a focusable <svg> — the kit cannot tell which one is the modeler's canvas; keys were not verified`,
-      );
-    }
-    const { host, wrapper } = mount;
-    const canvas = host.querySelector(CANVAS_SELECTOR) ?? fail("the canvas left the host");
+    const mount = mountedCanvas(h, m, instance, firstSerial);
+    if (typeof mount === "string") return mount;
+    const { canvas, host, wrapper } = mount;
     const doc = host.ownerDocument;
     const view = doc.defaultView ?? window;
 
@@ -2085,7 +2150,7 @@ async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> 
     const setUp = async (): Promise<void> => {
       await importOrFail(m, text, "re-importing canonicalTexts[0] rejected");
       // undo history and a selection: what Cmd/Ctrl+Z, Delete and the arrows act on
-      await h.mutate(m);
+      if (editable) await h.mutate(m);
       await settle();
       revealed = m.elements?.list()[0]?.id;
       if (revealed !== undefined) m.elements?.reveal(revealed);
@@ -2101,13 +2166,12 @@ async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> 
     ];
     const canvasHolder = canvas.parentElement;
     if (canvasHolder !== null && canvasHolder !== host) {
-      placements.push([canvasHolder, "next to the canvas <svg>"]);
+      placements.push([canvasHolder, "next to the canvas"]);
     }
     const controls = placements.map(([parent, where]) => hostControls(parent, where));
     for (const { box } of controls) cleanups.push(() => box.remove());
     const outside = controls[0]?.targets ?? [];
 
-    const findings: string[] = [];
     const targets = [
       ...controls.flatMap((placed) => placed.targets),
       ...bodyTargets(doc, canvas, wrapper),
@@ -2132,7 +2196,7 @@ async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> 
             ...(stopped ? ["stopped its propagation"] : []),
             ...thrown.map((error) => `threw ${error}`),
           ];
-          if (effects.length > 0) findings.push(`${key} ${listed(effects)}`);
+          if (effects.length > 0) found(`${key} ${listed(effects)}`);
           // the keys after it would be judged against a state it changed: one finding per target
           // is enough, and a fresh document per key would take a non-conforming modeler too long
           dirty = changed.length > 0;
@@ -2141,10 +2205,10 @@ async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> 
         if (!dirty) {
           await settle();
           if (exportOrFail(m, `once the keys on ${target.what} settled`) !== last.doc) {
-            findings.push(`a key on ${target.what} changed the document once it settled`);
+            found(`a key on ${target.what} changed the document once it settled`);
             dirty = true;
           } else if (changes !== last.changes) {
-            findings.push(`a key on ${target.what} fired onContentChanged once it settled`);
+            found(`a key on ${target.what} fired onContentChanged once it settled`);
             dirty = true;
           }
         }
@@ -2171,57 +2235,72 @@ async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> 
         const thrown = thrownBy(() =>
           element.dispatchEvent(new view.Event(type, { bubbles: true, cancelable: true })),
         );
-        for (const error of thrown)
-          findings.push(`a ${type} without a key on ${what} threw ${error}`);
+        for (const error of thrown) found(`a ${type} without a key on ${what} threw ${error}`);
       }
     }
 
-    let unverified: string | undefined;
+    // a viewer edits nothing, so no key has to act on it
+    if (!editable) return undefined;
     if (!m.elements) {
-      unverified =
-        "the modeler exposes no elements surface (optional) — that Delete on the focused canvas removes a revealed element was not verified, so the case cannot tell a key the modeler leaves alone from one it never sees";
-    } else {
-      await setUp();
-      focusOn(canvas);
-      if (revealed === undefined) {
-        unverified =
-          "elements.list() reports no element after importing canonicalTexts[0] and one mutate — that Delete on the focused canvas removes a revealed element was not verified, so the case cannot tell a key the modeler leaves alone from one it never sees";
-      } else if (doc.activeElement !== canvas) {
-        unverified =
-          "the canvas <svg> did not take the focus — that a key on the focused canvas acts was not verified, so the case cannot tell a key the modeler leaves alone from one it never sees";
-      } else {
-        const before = exportOrFail(m, `with '${revealed}' revealed`);
-        let acted = false;
-        for (const key of ["Delete", "Backspace"]) {
-          press(canvas, { key, code: key });
-          await settle();
-          acted = exportOrFail(m, `after ${key} on the focused canvas`) !== before;
-          if (acted) break;
-        }
-        if (!acted) {
-          unverified = `Delete and Backspace on the focused canvas, with '${revealed}' revealed (selected), left the document as it was — the case cannot tell a key the modeler leaves alone from one it never sees`;
-        }
-      }
+      return "the modeler exposes no elements surface (optional) — that Delete on the focused canvas removes a revealed element was not verified, so the case cannot tell a key the modeler leaves alone from one it never sees";
     }
-
-    const more =
-      findings.length > SHOWN_KEY_FINDINGS
-        ? `; and ${findings.length - SHOWN_KEY_FINDINGS} more`
-        : "";
-    return {
-      ...(unverified === undefined ? {} : { skipped: unverified }),
-      ...(findings.length === 0
-        ? {}
-        : {
-            advisories: [
-              `keys left the canvas: ${findings.slice(0, SHOWN_KEY_FINDINGS).join("; ")}${more} — RECOMMENDED: act on a key only while the canvas holds the focus (its target is the canvas or lies inside it), leave every other key alone (no command, no change of the document or the selection, no preventDefault, no stopPropagation) and ignore a keydown without a key`,
-            ],
-          }),
-    };
+    await setUp();
+    focusOn(canvas);
+    if (revealed === undefined) {
+      return "elements.list() reports no element after importing canonicalTexts[0] and one mutate — that Delete on the focused canvas removes a revealed element was not verified, so the case cannot tell a key the modeler leaves alone from one it never sees";
+    }
+    if (doc.activeElement !== canvas) {
+      return "the canvas did not take the focus — that a key on the focused canvas acts was not verified, so the case cannot tell a key the modeler leaves alone from one it never sees";
+    }
+    const before = exportOrFail(m, `with '${revealed}' revealed`);
+    for (const key of ["Delete", "Backspace"]) {
+      press(canvas, { key, code: key });
+      await settle();
+      if (exportOrFail(m, `after ${key} on the focused canvas`) !== before) return undefined;
+    }
+    return `Delete and Backspace on the focused canvas, with '${revealed}' revealed (selected), left the document as it was — the case cannot tell a key the modeler leaves alone from one it never sees`;
   } finally {
     for (const cleanup of cleanups) cleanup();
     m.destroy();
   }
+}
+
+/**
+ * the keys case: the editable modeler and, when the harness has one, the viewer, each mounted into
+ * `attachedHost()`, see every key of KEY_STROKES aimed at host controls and at <body> (aimKeysAt).
+ * What they do with those keys is one advisory, since 1.4 only RECOMMENDS leaving them alone; what
+ * the case could not verify is one skip
+ */
+async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> {
+  if (typeof document === "undefined") {
+    return skip(
+      "no DOM — keys need a document to be aimed at (run the kit in a browser, the modeler mounted into attachedHost())",
+    );
+  }
+  const findings: string[] = [];
+  const unverified: string[] = [];
+  const modelerGap = await aimKeysAt(h, "modeler", () => h.create(), findings);
+  if (modelerGap !== undefined) unverified.push(modelerGap);
+  if (h.createReadonly) {
+    const createViewer = (): Promise<CollaborativeModeler> =>
+      h.createReadonly?.() ?? fail("createReadonly went away during the keys case");
+    const viewerGap = await aimKeysAt(h, "viewer", createViewer, findings);
+    if (viewerGap !== undefined) unverified.push(viewerGap);
+  }
+  const more =
+    findings.length > SHOWN_KEY_FINDINGS
+      ? `; and ${findings.length - SHOWN_KEY_FINDINGS} more`
+      : "";
+  return {
+    ...(unverified.length === 0 ? {} : { skipped: unverified.join("; ") }),
+    ...(findings.length === 0
+      ? {}
+      : {
+          advisories: [
+            `keys left the canvas: ${findings.slice(0, SHOWN_KEY_FINDINGS).join("; ")}${more} — RECOMMENDED: act on a key only while the canvas holds the focus (its target is the canvas or lies inside it), leave every other key alone (no command, no change of the document or the selection, no preventDefault, no stopPropagation) and ignore a keydown or keyup without a key`,
+          ],
+        }),
+  };
 }
 
 export interface RegisterOptions {
@@ -2234,7 +2313,14 @@ export interface RegisterOptions {
   onAdvisory?: (caseName: string, advice: string) => void;
 }
 
-/** bind every case to a (name, fn) test runner — node:test, vitest, jest */
+/**
+ * bind every case to a (name, fn) test runner — node:test, vitest, jest —
+ * that runs them one after another: the keys case moves the focus and
+ * dispatches keys in the one document every mounted instance listens to, so
+ * a case running beside it would see its keys or lose its focus. A case's
+ * advisories are reported before its skip, so an `onSkip` that throws does
+ * not hide them
+ */
 export function registerConformance(
   harness: ConformanceHarness,
   test: (name: string, fn: () => Promise<void>) => unknown,
@@ -2253,8 +2339,8 @@ export function registerConformance(
   for (const conformanceCase of conformanceCases()) {
     test(`conformance: ${conformanceCase.name}`, async () => {
       const outcome = await conformanceCase.run(harness);
-      if (outcome?.skipped) onSkip(conformanceCase.name, outcome.skipped);
       for (const advice of outcome?.advisories ?? []) onAdvisory(conformanceCase.name, advice);
+      if (outcome?.skipped) onSkip(conformanceCase.name, outcome.skipped);
     });
   }
 }

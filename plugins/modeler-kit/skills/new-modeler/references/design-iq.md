@@ -28,7 +28,7 @@ Design IQ is a change in Design IQ (a spec with `id`, `pkg`, `canvasClassName`,
   puts the canvas next to its own editors and toolbars, Monaco among them, so a key the canvas
   takes from there costs the user what they typed: the renderer acts on a key only while its
   canvas `<svg>` holds the focus, leaves `<body>` and every host control alone, and ignores a
-  keydown without a key ([contract](contract.md#keys)).
+  keydown or keyup without a key, in the viewer mount too ([contract](contract.md#keys)).
 - **The notation id.** At bind time Design IQ checks `meta.notation` against the spec's
   `contractNotation` and `apiVersionsCompatible(meta.apiVersion, MODELER_API_VERSION)`. The
   contract id may differ from Design IQ's own id (`team-topologies` for `team-topology`), so pick it

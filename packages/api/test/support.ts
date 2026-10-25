@@ -85,7 +85,7 @@ export const CASE = {
   l7Probes: "L7: every rejection of a derived probe leaves no trace",
   viewer:
     "viewer (when shipped): read-only, silent, canonical, fits, reveals, keeps foreign content, unshaken by a rejected import",
-  keys: "keys (recommended): a key aimed at the host's controls and editors or at <body> is left alone, a keydown without a key throws nothing, a key on the focused canvas acts",
+  keys: "keys (recommended): a key aimed at the host's controls and editors or at <body> is left alone, a keydown or keyup without a key throws nothing, a key on the focused canvas acts",
   destroy: "destroy is safe to call twice",
 };
 

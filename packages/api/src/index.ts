@@ -212,13 +212,15 @@ export interface ElementsSurface {
  *  after a load, after a click on page text, while the host hides the canvas
  *  or makes it inert). The modeler leaves such a key alone: no command, no
  *  change of the document or the selection, no `preventDefault()` and no
- *  `stopPropagation()`, in the capture phase too. A keydown without a string
- *  `key` (browser autofill dispatches one) is ignored without an error.
- *  Hosts embed modelers next to their own editors and toolbars: a key the
- *  canvas takes from there deletes the selection while the user types,
- *  undoes the last edit from a toolbar button or swallows Cmd/Ctrl+C in a
- *  text field. The modeler's own chrome (its palette, context pad, label
- *  editor) handles its keys as it sees fit.
+ *  `stopPropagation()`, in the capture phase too. A keydown or keyup
+ *  without a string `key` (browser autofill dispatches both) is ignored
+ *  without an error. The rule holds for the viewer mount too. Hosts embed
+ *  modelers next to their own editors and toolbars: a key the canvas takes
+ *  from there deletes the selection while the user types, undoes the last
+ *  edit from a toolbar button or swallows Cmd/Ctrl+C in a text field. The
+ *  modeler's own chrome (its palette, context pad, label editor) handles its
+ *  keys as it sees fit; a host that wants keyboard editing hands the canvas
+ *  the focus (a click on it, Tab, or `focus()` on the canvas element).
  */
 export interface CollaborativeModeler {
   readonly meta: ModelerMeta;

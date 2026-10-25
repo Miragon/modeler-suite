@@ -12,14 +12,14 @@
  * act only on a key aimed at the canvas. It is the
  * kit's reference subject, plus deliberately BROKEN variants: one per
  * real-world drift the contract exists to prevent AND one per case in the
- * kit, so the kit's own CI proves every case bites. Each variant must fail exactly its law's case set. Six
+ * kit, so the kit's own CI proves every case bites. Each variant must fail exactly its law's case set. Seven
  * variants are NOT flaws but legitimate implementation choices the kit must
  * accept (a diagram-js style enriched view-state readback, commands ignored
  * before the first import, an empty name that reads back absent, a content
  * box measured in float32, a content box around a plot drawn without
- * elements, canvas keys taken in the capture phase) — they must fail
- * nothing. Twelve variants ignore a RECOMMENDATION — they must fail nothing
- * and advise once.
+ * elements, canvas keys taken in the capture phase, a canvas that is a
+ * focusable `<div>`) — they must fail nothing. Sixteen variants ignore a
+ * RECOMMENDATION — they must fail nothing and advise once.
  */
 import type {
   CollaborativeModeler,
@@ -209,6 +209,21 @@ export interface Flaws {
   keysInCapturePhase?: boolean;
   /** the canvas binds no key at all: the keys case cannot see a key act, so it reports a skip */
   noCanvasKeys?: boolean;
+  /** NOT a flaw: the canvas is a focusable `<div>`, not an `<svg>`, so a harness names it with
+   *  `canvasElement` */
+  canvasIsDiv?: boolean;
+  /** NOT a law violation, a missed recommendation: the keys that move the canvas or zoom it
+   *  (Shift+Arrow, Cmd/Ctrl+Arrow, Cmd/Ctrl+=) are prevented wherever they are aimed, as a
+   *  document-wide diagram-js KeyboardMove would */
+  canvasMoveKeysAnywhere?: boolean;
+  /** NOT a law violation, a missed recommendation: Cmd/Ctrl+V aimed anywhere pastes a line a
+   *  macrotask later, so the key itself leaves the document as it was */
+  deferredPasteAnywhere?: boolean;
+  /** NOT a law violation, a missed recommendation: a keyup aimed outside the canvas is prevented */
+  preventsKeyupOutsideCanvas?: boolean;
+  /** NOT a law violation, a missed recommendation: the viewer (only) pans on an arrow aimed anywhere
+   *  and prevents it */
+  viewerTakesArrowsAnywhere?: boolean;
 }
 
 export interface ReferenceModeler extends CollaborativeModeler {
@@ -227,6 +242,8 @@ export interface ReferenceModeler extends CollaborativeModeler {
   commitLabel(): void;
   /** move an element by an offset, an undoable command */
   moveLine(elementId: string, dx: number, dy: number): void;
+  /** the focusable element `attachTo` drew to take the keys, while mounted */
+  canvasElement(): Element | undefined;
 }
 
 interface View {
@@ -477,17 +494,22 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
       select([]);
     }
   };
+  let mountedCanvas: Element | undefined;
+  let pastes = 0;
   /** draws the focusable canvas into the host and binds its keys; returns the teardown */
   const mountCanvas = (host: Element): (() => void) => {
     const doc = host.ownerDocument;
     const container = doc.createElement("div");
-    const svg = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("tabindex", "0");
-    container.append(svg);
+    const canvas = flaws.canvasIsDiv
+      ? doc.createElement("div")
+      : doc.createElementNS("http://www.w3.org/2000/svg", "svg");
+    canvas.setAttribute("tabindex", "0");
+    container.append(canvas);
     host.append(container);
+    mountedCanvas = canvas;
     const takesKey = (target: EventTarget | null): boolean => {
       if (!(target instanceof Node)) return false;
-      if (flaws.documentWideKeys || svg.contains(target)) return true;
+      if (flaws.documentWideKeys || canvas.contains(target)) return true;
       if (flaws.bodyKeysAreCanvasKeys && target === doc.body) return true;
       if (flaws.hostKeysAreCanvasKeys && host.contains(target)) return true;
       if (flaws.containerKeysAreCanvasKeys && container.contains(target)) return true;
@@ -500,15 +522,28 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
       const keyEvent = event as KeyboardEvent;
       if (flaws.keylessKeyThrows) keyEvent.key.toLowerCase();
       if (typeof keyEvent.key !== "string" || event.defaultPrevented) return;
+      const shortcut = keyEvent.ctrlKey || keyEvent.metaKey;
+      const arrow = keyEvent.key.startsWith("Arrow");
+      if (flaws.viewerTakesArrowsAnywhere && !editable && arrow) event.preventDefault();
+      if (flaws.canvasMoveKeysAnywhere && (arrow ? shortcut || keyEvent.shiftKey : false)) {
+        event.preventDefault();
+      }
+      if (flaws.canvasMoveKeysAnywhere && shortcut && keyEvent.key === "=") event.preventDefault();
+      if (flaws.deferredPasteAnywhere && editable && shortcut && keyEvent.key === "v") {
+        pastes += 1;
+        const pasted = `pasted-${pastes}`;
+        setTimeout(() => modeler.addLine(pasted), 0);
+      }
       if (takesKey(event.target)) {
         actOnCanvasKey(keyEvent);
         return;
       }
-      const clipboardShortcut =
-        (keyEvent.ctrlKey || keyEvent.metaKey) &&
-        ["c", "x", "v"].includes(keyEvent.key.toLowerCase());
+      const clipboardShortcut = shortcut && ["c", "x", "v"].includes(keyEvent.key.toLowerCase());
       if (flaws.preventsClipboardKeysEverywhere && clipboardShortcut) event.preventDefault();
       if (flaws.escapeAnywhereClearsSelection && keyEvent.key === "Escape") select([]);
+    };
+    const onKeyup = (event: Event): void => {
+      if (!takesKey(event.target)) event.preventDefault();
     };
     const stopOutsideCanvas = (event: Event): void => {
       if (!takesKey(event.target)) event.stopPropagation();
@@ -516,11 +551,14 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     const capture = Boolean(flaws.keysInCapturePhase);
     const listener: EventTarget = capture ? (doc.defaultView ?? doc) : doc;
     listener.addEventListener("keydown", onKeydown, capture);
+    if (flaws.preventsKeyupOutsideCanvas) doc.addEventListener("keyup", onKeyup);
     if (flaws.stopsKeysOutsideCanvas) doc.addEventListener("keydown", stopOutsideCanvas, true);
     return () => {
       listener.removeEventListener("keydown", onKeydown, capture);
+      doc.removeEventListener("keyup", onKeyup);
       doc.removeEventListener("keydown", stopOutsideCanvas, true);
       container.remove();
+      mountedCanvas = undefined;
     };
   };
   let unmountCanvas: (() => void) | undefined;
@@ -744,6 +782,10 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     },
     openLabelEditor: () => (labelEditor ? { ...labelEditor } : undefined),
     commitLabel,
+    canvasElement(): Element | undefined {
+      return mountedCanvas;
+    },
+
     moveLine(elementId: string, dx: number, dy: number): void {
       if (!editable) throw new Error("a viewer accepts no commands");
       const before = entries;
