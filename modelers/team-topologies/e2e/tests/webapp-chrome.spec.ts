@@ -453,6 +453,25 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     await expect.poll(async () => (await teamNode(page, "team_checkout"))?.fill).toBe("#ff0000");
   });
 
+  test("Cmd/Ctrl+Z that removes the focused Reset colours hands the focus to the canvas", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    await page.locator('[data-element-id="team_checkout"]').click();
+    await setTeamFill(page, "team_checkout", "#ff0000");
+    const reset = page
+      .locator('[data-chrome="inspector"]')
+      .getByRole("button", { name: "Reset colours" });
+    await reset.focus();
+
+    await page.keyboard.press("ControlOrMeta+Z");
+
+    await expect(reset).toHaveCount(0);
+    expect((await teamNode(page, "team_checkout"))?.fill).toBeUndefined();
+    await expect(canvasSvg(page)).toBeFocused();
+  });
+
   test("Cmd/Ctrl+Z after Detach in the inspector attaches the annotation again", async ({
     page,
   }) => {

@@ -21,9 +21,15 @@ function fakeModeler() {
       fire("selection.changed", { newSelection: current });
     }),
   };
+  const canvasElement = document.createElement("div");
+  canvasElement.tabIndex = -1;
+  canvasElement.dataset.fakeCanvas = "";
+  document.body.append(canvasElement);
   const canvas = {
-    focus: vi.fn(),
-    restoreFocus: vi.fn(),
+    focus: vi.fn(() => canvasElement.focus()),
+    restoreFocus: vi.fn(() => {
+      if (document.activeElement === document.body) canvasElement.focus();
+    }),
     getContainer: () => document.body,
     viewbox: () => ({ x: 0, y: 0, width: 1000, height: 800, scale: 1 }),
     getGraphics: () => undefined,
@@ -66,9 +72,14 @@ function fakeModeler() {
     change,
     selection,
     canvas,
+    canvasElement,
     ttModeling,
     modeling,
   };
+}
+
+function removeFakeCanvases() {
+  for (const element of document.querySelectorAll("[data-fake-canvas]")) element.remove();
 }
 
 const shape = { x: 0, y: 0, width: 120, height: 80, incoming: [], outgoing: [] };
@@ -82,6 +93,30 @@ const team = {
 const interaction = { ...shape, id: "interaction_a", ttKind: "interaction", mode: "collaboration" };
 const flow = { ...shape, id: "flow_a", ttKind: "flow" };
 const annotation = { ...shape, id: "annotation_a", ttKind: "annotation", ttLabel: "Why" };
+
+/**
+ * A control that goes away once what it acts on is gone, with the element it shows for and the
+ * model change that takes that away, as its own action or an undo would.
+ */
+function removableControl(name: "Reset colours" | "Detach") {
+  if (name === "Reset colours") {
+    const coloured: { fill?: string } & typeof team = { ...team, id: "team_b", fill: "#ffeeaa" };
+    return {
+      element: coloured,
+      takeAway: () => {
+        delete coloured.fill;
+      },
+    };
+  }
+  const attached = { ...annotation, outgoing: [] as unknown[] };
+  attached.outgoing.push({ ttKind: "association", source: attached, target: team });
+  return {
+    element: attached,
+    takeAway: () => {
+      attached.outgoing.length = 0;
+    },
+  };
+}
 
 /** The inspector in a host's panel that the host opens and closes on the content's request. */
 function Host({ modeler, readOnly }: { modeler: Modeler; readOnly?: boolean }) {
@@ -126,6 +161,7 @@ describe("the inspector's content", () => {
   afterEach(() => {
     act(() => root.unmount());
     host.remove();
+    removeFakeCanvases();
     vi.restoreAllMocks();
   });
 
@@ -254,7 +290,10 @@ describe("the inspector's content", () => {
     expect(fake.canvas.focus).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves an Enter or Escape that ends an IME composition to the composition", () => {
+  it.each([
+    ["while it composes", { isComposing: true }],
+    ["after compositionend, as Safari sends it", { isComposing: false, keyCode: 229 }],
+  ])("leaves an Enter or Escape that ends an IME composition to it, %s", (_when, composing) => {
     const fake = fakeModeler();
     act(() => root.render(<Host modeler={fake.modeler} />));
     fake.select(team);
@@ -263,8 +302,8 @@ describe("the inspector's content", () => {
 
     act(() => name.focus());
     act(() => typeInto(name, "Payments"));
-    act(() => press(name, "Enter", { isComposing: true }));
-    act(() => press(name, "Escape", { isComposing: true }));
+    act(() => press(name, "Enter", composing));
+    act(() => press(name, "Escape", composing));
 
     expect(document.activeElement).toBe(name);
     expect(name.value).toBe("Payments");
@@ -332,64 +371,85 @@ describe("the inspector's content", () => {
 
     fake.select();
 
-    expect(document.activeElement).toBe(document.body);
-    expect(fake.canvas.restoreFocus).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(fake.canvasElement);
   });
 
-  it("gives the canvas the focus that Reset colours or Detach had when they went away", async () => {
+  it.each([
+    ["Reset colours", "that focused it, as in Chromium", true],
+    ["Reset colours", "that left the focus where it was, as in Safari", false],
+    ["Detach", "that focused it, as in Chromium", true],
+    ["Detach", "that left the focus where it was, as in Safari", false],
+  ] as const)("%s hands the focus to the canvas after a click %s", async (name, _how, focuses) => {
     const fake = fakeModeler();
     vi.spyOn(document, "hasFocus").mockReturnValue(true);
     act(() => root.render(<Host modeler={fake.modeler} />));
-    const coloured: { fill?: string } & typeof team = { ...team, id: "team_b", fill: "#ffeeaa" };
-    const attached = { ...annotation, outgoing: [] as unknown[] };
-    attached.outgoing.push({ ttKind: "association", source: attached, target: team });
+    const { element, takeAway } = removableControl(name);
+    fake.select(element);
+    if (focuses) act(() => button(name)?.focus());
 
-    fake.select(coloured);
-    act(() => button("Reset colours")?.focus());
-    act(() => button("Reset colours")?.click());
-    delete coloured.fill;
+    act(() => button(name)?.click());
+    takeAway();
     fake.change();
     await settle();
-    expect(button("Reset colours")).toBeUndefined();
-    expect(fake.canvas.focus).toHaveBeenCalledTimes(1);
 
-    fake.select(attached);
-    act(() => button("Detach")?.focus());
-    act(() => button("Detach")?.click());
-    attached.outgoing.length = 0;
-    fake.change();
-    await settle();
-    expect(button("Detach")).toBeUndefined();
-    expect(fake.canvas.focus).toHaveBeenCalledTimes(2);
+    expect(button(name)).toBeUndefined();
+    expect(document.activeElement).toBe(fake.canvasElement);
   });
+
+  it.each(["Reset colours", "Detach"] as const)(
+    "gives the canvas the focus that %s had when an undo took it away",
+    async (name) => {
+      const fake = fakeModeler();
+      vi.spyOn(document, "hasFocus").mockReturnValue(true);
+      act(() => root.render(<Host modeler={fake.modeler} />));
+      const { element, takeAway } = removableControl(name);
+      fake.select(element);
+      act(() => button(name)?.focus());
+
+      takeAway();
+      fake.change();
+      await settle();
+
+      expect(button(name)).toBeUndefined();
+      expect(document.activeElement).toBe(fake.canvasElement);
+    },
+  );
 
   it("leaves the focus alone when a control goes away after the focus left it", async () => {
     const fake = fakeModeler();
     vi.spyOn(document, "hasFocus").mockReturnValue(true);
     act(() => root.render(<Host modeler={fake.modeler} />));
-    const coloured: { fill?: string } & typeof team = { ...team, id: "team_b", fill: "#ffeeaa" };
+    const { element, takeAway } = removableControl("Reset colours");
 
-    fake.select(coloured);
+    fake.select(element);
     act(() => button("Reset colours")?.focus());
     act(() => button("Reset colours")?.blur());
     await settle();
-    delete coloured.fill;
+    takeAway();
     fake.change();
     await settle();
 
     expect(button("Reset colours")).toBeUndefined();
-    expect(fake.canvas.focus).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(document.body);
   });
 
-  it("leaves the focus alone when this document doesn't have it", () => {
+  it("leaves the focus alone when this document doesn't have it", async () => {
     const fake = fakeModeler();
     vi.spyOn(document, "hasFocus").mockReturnValue(false);
     act(() => root.render(<Host modeler={fake.modeler} />));
-    fake.select(team);
+    const { element, takeAway } = removableControl("Reset colours");
+    fake.select(element);
+    act(() => button("Reset colours")?.focus());
 
+    takeAway();
+    fake.change();
+    await settle();
+    expect(document.activeElement).toBe(document.body);
+
+    act(() => host.querySelector("textarea")?.focus());
     fake.select();
-
-    expect(fake.canvas.restoreFocus).not.toHaveBeenCalled();
+    await settle();
+    expect(document.activeElement).toBe(document.body);
   });
 });
 
@@ -406,6 +466,7 @@ describe("InspectorSlotContent", () => {
   afterEach(() => {
     act(() => root.unmount());
     host.remove();
+    removeFakeCanvases();
   });
 
   it("opens the host's panel for a selection and closes it again", () => {

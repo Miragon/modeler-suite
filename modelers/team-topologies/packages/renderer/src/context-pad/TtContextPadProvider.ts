@@ -100,7 +100,7 @@ export default class TtContextPadProvider implements ContextPadProvider {
     const padParent = container.querySelector<HTMLElement>(PAD_PARENT_SELECTOR);
     if (padParent) {
       const stopWatching = watchDroppedFocus(padParent, (lost) =>
-        this.focusAfterPadChange(lost.closest(ENTRY_SELECTOR)?.getAttribute("data-action")),
+        this.focusSameEntryOrCanvas(lost.closest(ENTRY_SELECTOR)?.getAttribute("data-action")),
       );
       eventBus.on("diagram.destroy", stopWatching);
     }
@@ -161,8 +161,7 @@ export default class TtContextPadProvider implements ContextPadProvider {
     this.contextPad.triggerEntry(action, "keyboard", event);
   }
 
-  /** The entry with the same action in the rebuilt pad, or the canvas once the pad is gone. */
-  private focusAfterPadChange(action: string | null | undefined): void {
+  private focusSameEntryOrCanvas(action: string | null | undefined): void {
     const container = this.canvas.getContainer();
     const entry = action
       ? container.querySelector<HTMLElement>(

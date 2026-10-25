@@ -5,6 +5,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { isImeCompositionKey } from "./imeComposition";
 
 export interface CommitInputProps {
   value: string;
@@ -37,7 +38,7 @@ export function CommitInput({
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (event.nativeEvent.isComposing) return;
+    if (isImeCompositionKey(event.nativeEvent)) return;
     if (event.key === "Escape" && draft !== value) {
       event.preventDefault();
       setDraft(value);

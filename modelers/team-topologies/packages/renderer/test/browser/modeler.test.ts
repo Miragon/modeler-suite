@@ -596,6 +596,34 @@ test("Enter commits one undo step, Shift+Enter keeps a line break, Escape discar
   }
 });
 
+test("Enter and Escape that end an IME composition stay with it, also as Safari sends them", () => {
+  const { modeler, container } = mountModeler();
+  try {
+    modeler.importDocument(SAMPLE_DOCUMENT);
+    const { registry, labelEditing } = services(modeler);
+    const team = registry.get("team_checkout") as TtTeam;
+    const original = team.ttLabel;
+
+    labelEditing.activate(team);
+    const textarea = editor(container)!;
+    textarea.value = "Kaufabwicklung";
+    const whileComposing = { isComposing: true };
+    const afterCompositionEndInSafari = { isComposing: false, keyCode: 229 };
+    for (const composing of [whileComposing, afterCompositionEndInSafari]) {
+      for (const key of ["Enter", "Escape"]) {
+        textarea.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, ...composing }));
+      }
+    }
+
+    expect(editor(container)).toBe(textarea);
+    expect(document.activeElement).toBe(textarea);
+    expect(team.ttLabel).toBe(original);
+  } finally {
+    modeler.destroy();
+    container.remove();
+  }
+});
+
 test("a view change keeps the editor open with its text, on its element, without a commit", () => {
   const { modeler, container } = mountModeler();
   try {

@@ -46,6 +46,7 @@ import type { Element } from "diagram-js/lib/model/Types";
 import { getBBox } from "diagram-js/lib/util/Elements";
 import { CommitInput } from "../CommitInput";
 import { Icon } from "../Icon";
+import { isImeCompositionKey } from "../imeComposition";
 import { AnnotationIcon, FlowIcon, InteractionIcon, TeamIcon } from "../ShapeIcon";
 import { ColorField } from "./ColorField";
 import { useKeepSelectionVisible, type SelectionArea } from "./keepSelectionVisible";
@@ -76,8 +77,9 @@ function inspectorServices(modeler: Modeler): InspectorServices {
       canvas.focus();
     },
     /**
-     * After Enter in a single-line field, as after Enter in the label editor: the canvas keys act
-     * only while the canvas has the focus, and a field that only blurred would leave it on `<body>`.
+     * The canvas keys act only while the canvas has the focus. A single-line field that only blurred
+     * on Enter would leave it on `<body>`, and so would a button that removes itself once it has
+     * acted: Safari and Firefox on macOS do not focus a clicked button, so nothing else notices.
      */
     focusCanvas: () => canvas.focus(),
   };
@@ -201,7 +203,10 @@ function TeamInspector({ team, services, readOnly }: PanelProps & { team: TtTeam
             <button
               type="button"
               className="tt-btn tt-btn--ghost tt-btn--sm"
-              onClick={() => ttModeling.setColors(team, undefined, undefined)}
+              onClick={() => {
+                ttModeling.setColors(team, undefined, undefined);
+                focusCanvas();
+              }}
             >
               Reset colours
             </button>
@@ -326,7 +331,7 @@ function AnnotationInspector({
   services,
   readOnly,
 }: PanelProps & { annotation: TtAnnotation }) {
-  const { ttModeling, removeAndFocusCanvas, closeAndFocusCanvas } = services;
+  const { ttModeling, removeAndFocusCanvas, closeAndFocusCanvas, focusCanvas } = services;
   const target = attachedElement(annotation);
 
   return (
@@ -350,7 +355,10 @@ function AnnotationInspector({
             <button
               type="button"
               className="tt-btn tt-btn--ghost tt-btn--sm"
-              onClick={() => ttModeling.detachAnnotation(annotation)}
+              onClick={() => {
+                ttModeling.detachAnnotation(annotation);
+                focusCanvas();
+              }}
             >
               Detach
             </button>
@@ -423,10 +431,12 @@ function useCanvasCatchesDroppedFocus(modeler: Modeler, contentKey: string | nul
 }
 
 /**
- * The same for a control that goes away while the element stays, such as "Reset colours" or
- * "Detach" once they have acted. Chromium reports the removal of a focused element as a `focusout`
- * while it is still connected and other engines report nothing, so the removal itself is what
- * counts: a `focusout` forgets the control only if it is still there right after.
+ * The same for a focused control that goes away while the element stays, such as "Reset colours"
+ * or "Detach" when an undo or a change to the file takes away the colours or the attachment they
+ * act on; their own click hands the focus over itself. Chromium reports the removal of a focused
+ * element as a `focusout` while it is still connected and other engines report nothing, so the
+ * removal itself is what counts: a `focusout` forgets the control only if it is still there right
+ * after.
  */
 function useCanvasCatchesFocusOfRemovedControls(
   modeler: Modeler,
@@ -514,7 +524,8 @@ function useInspectorContent(
 
   // Escape that a field didn't use (to undo its draft) closes the panel, like it does on the canvas.
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key !== "Escape" || event.defaultPrevented || event.nativeEvent.isComposing) return;
+    const composing = isImeCompositionKey(event.nativeEvent);
+    if (event.key !== "Escape" || event.defaultPrevented || composing) return;
     event.preventDefault();
     services.closeAndFocusCanvas();
   };
