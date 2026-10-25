@@ -21,7 +21,23 @@ export interface OpenContext {
    * empty `localStorage` entry `miragon.darstellung`.
    */
   requested: Appearance;
+  /**
+   * After 0.5.0: the key of `ShellConformanceHarness.documents` to load; absent for the harness's
+   * default document, the one with content every other case acts on.
+   */
+  document?: string | undefined;
 }
+
+/**
+ * The keys of `ShellConformanceHarness.documents` the kit reserves (after 0.5.0) for documents
+ * without an element (guide §13.5: empty means no element, only whitespace, comments or a header
+ * such as the title):
+ * - `"empty"`: the empty diagram a user starts from. In an IDE host the file the extension's "New
+ *   Empty <Diagram>" command writes, in the web host the canvas after "New diagram" on the start
+ *   screen, embedded the host's new document.
+ * - `"blank"`: a file of zero bytes, as a user creates one outside the extension (IDE host).
+ */
+export type EmptyDocument = "empty" | "blank";
 
 /**
  * How the kit makes the optional islands visible (`geometry`, `aria`) and puts the modeler into its
@@ -159,15 +175,24 @@ export interface ShellConformanceHarness<P extends PageLike = PageLike> {
   absent?: readonly AbsentFeature[] | undefined;
   /** Container sizes of the geometry case; default wide 1280 × 900, narrow 720 × 700, very narrow 420 × 700. */
   sizes?: readonly Size[] | undefined;
+  /**
+   * After 0.5.0: the documents `open` loads besides its default one, by key
+   * (`OpenContext.document`). The `appearance` case runs on the default document and on each listed
+   * one. `emptyFile` runs on the keys of `EmptyDocument`; without `"empty"`, and in the IDE host
+   * without `"blank"`, it is skipped with `hook: "documents"`. Any other key names a document of the
+   * harness's own, such as one in a style the renderer paints differently.
+   */
+  documents?: readonly string[] | undefined;
 }
 
 /** One part of a case the harness could not feed. */
 export interface ShellSkip {
   /**
-   * The harness field that would feed it: a show hook, `drop`, `labelEditor`, `csp`, `destroy`, or
-   * `open` when the document it opens lacks what the case needs (a shape on the canvas).
+   * The harness field that would feed it: a show hook, `drop`, `labelEditor`, `csp`, `destroy`,
+   * `documents`, or `open` when the document it opens lacks what the case needs (a shape on the
+   * canvas).
    */
-  hook: ShowHook | "drop" | "labelEditor" | "csp" | "destroy" | "open";
+  hook: ShowHook | "drop" | "labelEditor" | "csp" | "destroy" | "documents" | "open";
   reason: string;
 }
 
@@ -194,6 +219,10 @@ export interface ShellConformanceCase {
  * action without a dialog leaves the focus on the canvas; Enter and Space on zoom in leave it on the
  * button, Enter on that menu entry returns it to the trigger), `create` (Enter on the first
  * creating palette entry places one selected element in the free rectangle and focuses the canvas),
+ * `emptyFile` (each empty document of `documents` opens at 100 %, or fitted to a plot that always
+ * counts, with the empty-file hint in the middle of the free rectangle and no invalid-file state;
+ * the first element takes the hint away without moving the view, deleting it brings the hint back;
+ * `appearance` runs on every document of `documents` too),
  * `labelEditor` (the shell's zoom, fit and refit never commit an open label editor, contract L5,
  * and leave it open with the typed text, which L5 recommends and the shell kit requires),
  * `readOnly` (the invalid-file lock of guide §13.5), `appearance` (dark requested from a light-only

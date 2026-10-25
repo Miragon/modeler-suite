@@ -737,9 +737,29 @@ fit does nothing.
   applied (`setState`) and the user has not moved the view, `afterImport()` zooms to 1 around the
   centre of the free rectangle. That write is the viewport's own, not a user move, so the first
   content still fits; later re-imports and `restore`s of the empty file keep the view. At 0 × 0 (a
-  tab hidden at the first import) the 100 % waits for the first real size. A kit check that an empty
-  document opens at 100 % with the hint is a later candidate (it needs a harness that opens more
-  than one document).
+  tab hidden at the first import) the 100 % waits for the first real size.
+- The kit's `emptyFile` case (after 0.5.0) checks this on the documents a harness lists in
+  `documents`: `"empty"`, the empty diagram a user starts from, and in the IDE host `"blank"`, a
+  file of zero bytes. With Fit `aria-disabled` the readout shows 100 %; with Fit enabled (Wardley, whose plot
+  always counts) a click on Fit leaves the view as it is. The hint stands in the middle of the free
+  rectangle, no invalid-file state shows, the first element placed by Enter on the palette lands
+  there, takes the hint away and moves nothing, and deleting it brings the hint back. The element
+  is measured by its own bounds (diagram-js's `.djs-hit`, `width × height`), not by its visual: a
+  Wardley component draws its name beside the circle. `appearance` runs on those documents too, with
+  the visible hint as one of its parts. The hint's texts compare with English only where
+  `<html lang>` is English, as the web cases do, because guide §2 gives a German tool its own line
+  and "Beispiel einfügen".
+- Those empty documents open on a fresh canvas, which already stands at 100 %. In the web app every
+  new document opens like the first (guide §5.9), so the case also zooms the default document out a
+  step and chooses File > New diagram: the readout must show 100 % and the hint must stand in the
+  middle. A web app that skips `newDocument()` keeps the zoomed-out view; the shell's demo has a
+  saboteur for it.
+- The kit does not check which diagram point the 100 % keeps in the middle of the free rectangle.
+  A renderer's import may set a view of its own before `afterImport()` (Context Maps' contract view
+  after an import puts an empty map's origin top left, Event Storming centres its default frame),
+  so the point is the one the import left, which the page never shows. Comparing it with the point
+  of the document before fails both web apps without breaking §5.9. `viewport.test.ts` covers the
+  pivot on a stub canvas.
 
 ### Resize
 
@@ -1334,6 +1354,17 @@ stays possible (WCAG 1.4.4; both since design system 1.15.0, [corporate-identity
   goes to "New diagram"; a focus on the legal line or a toast stays where it is.
 - The Komet is `draggable="false"`: in Chromium an image drag can carry a file and would open the
   drop zone over the card.
+- Once the card is gone and the diagram is empty, after "New diagram" and again after the last
+  element is deleted, the middle shows the empty-file hint of §13.5 without "Insert example": the
+  File group's "Show example" opens the example (guide §8, design system 1.23.0, decided by the
+  product owner on 2026-10-24, [corporate-identity#59][ci-59]). Before, guide §8 gave the web app
+  only the start screen, and only Wardley's web app passed `emptyHint`. A web app passes
+  `emptyHint: {}` unconditionally: while the card shows, the start screen's rule hides the hint with
+  the rest of the work chrome. `connectDiagramJs` syncs it after `import.done` and
+  `elements.changed`; a page that opens a new document without an import (the web demo) sets it
+  itself. The kit's `emptyFile` case opens the web host's `"empty"` document through the start
+  screen's "New diagram", then File > New diagram after a document, and fails a hint that is missing
+  or shows a button.
 
 ### Drop zone
 
@@ -2119,6 +2150,7 @@ To re-check on every diagram-js upgrade, because these notes rely on internals:
 [ci-36]: https://github.com/Miragon/corporate-identity/issues/36
 [ci-37]: https://github.com/Miragon/corporate-identity/issues/37
 [ci-54]: https://github.com/Miragon/corporate-identity/pull/54
+[ci-59]: https://github.com/Miragon/corporate-identity/pull/59
 [guide]: https://github.com/Miragon/corporate-identity/blob/main/plugins/miragon-brand/skills/modeler-tool-design/assets/modeler-design-system.md
 [guide-2]: https://github.com/Miragon/corporate-identity/blob/main/plugins/miragon-brand/skills/modeler-tool-design/assets/modeler-design-system.md#2-marken-grundlagen
 [guide-5]: https://github.com/Miragon/corporate-identity/blob/main/plugins/miragon-brand/skills/modeler-tool-design/assets/modeler-design-system.md#5-abst%C3%A4nde-layout-und-chrome

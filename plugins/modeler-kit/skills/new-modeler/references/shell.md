@@ -99,6 +99,9 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
   (end it with `setEmptyState(false)` on every other start), `dropZone` with extensions and MIME
   types, toasts. Replacing a document offers Undo in a toast instead of a confirmation, and a link
   pasted into the open tab (`hashchange`) replaces the diagram.
+- `emptyHint: {}`, without `onInsertExample`: once the start screen is gone, an empty diagram (after
+  "New diagram", or once the last element is deleted) shows the empty-file hint, and the File
+  group's "Show example" stands in for "Insert example" (guide §8 since design system 1.23.0).
 
 ## Optional islands
 
@@ -114,9 +117,10 @@ kit's harness, and the kit asserts that they never show.
 [`e2e/tests/`](../assets/template/e2e/tests/)): geometry at three sizes (±1 px), the legend's start
 state, ARIA and keys, keys that never reach VS Code, focus hand-back, appearance (the kit requests
 dark, dark with high contrast and light with high contrast: a light-only modeler stays light, never
-half-dark), keyboard creation, the label editor across the shell's zoom, fit and refit, the
-read-only lock, reduced motion and forced colours, the canvas's overlay layers, the production
-webview bundle under the webview CSP, the web column and a clean `destroy`.
+half-dark, also on each of the harness's documents), keyboard creation, the empty file, the label
+editor across the shell's zoom, fit and refit, the read-only lock, reduced motion and forced
+colours, the canvas's overlay layers, the production webview bundle under the webview CSP, the web
+column and a clean `destroy`.
 
 - `ide`: a Vite test page runs the webview's `main.ts` inside `installVsCodeWebviewStub` (with
   `stubOptionsFromSearch`), opened with `vsCodeStubSearch(requested)`; the page, not the bundle,
@@ -125,6 +129,16 @@ webview bundle under the webview CSP, the web column and a clean `destroy`.
   the page, so `open` waits for the diagram, not just for the app. With a legend, `open` goes to
   `about:blank` first: the kit's case for the legend's start state (modeler-shell 0.4.0 or later)
   opens at several sizes, each time as a first visit, and fails an `open` that keeps the page.
+- `documents` (a modeler-shell release after 0.5.0): the empty documents `open` loads by key, the
+  `document` of its context. In VS Code `["empty", "blank"]`, which the test page posts as the file
+  the "New Diagram" command writes and as a file of zero bytes; on the web `["empty"]`, which `open`
+  reaches through `about:blank`, the app's `/` and the start screen's "New diagram". The kit's
+  empty-file case expects 100 % (or a plot that always counts, fitted on open), the empty-file hint
+  in the middle of the free rectangle (on the web without "Insert example"), no invalid-file state,
+  the hint gone with the first element and back once it is deleted, and on the web the same after
+  File > New diagram on a document; the appearance case runs on those documents too. The template
+  lets that case's skip pass until its modeler-shell pin reaches that release, then feeds
+  `documents`.
 - `labelEditor` (modeler-shell 0.4.0 or later): `open` double-clicks a node and types a new text on
   every call, `documentChanged` compares `modeler.exportText()` with the text at `open` (template:
   [`label-editor.ts`](../assets/template/e2e/tests/support/label-editor.ts)). The kit then zooms,

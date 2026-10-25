@@ -15,13 +15,24 @@ import { MAP_WITH_FINDINGS } from "./support/maps.js";
  * problems list with rows that select their relationship, the drop zone and a clean teardown. The
  * web app has no inspector and no invalid-file state (it edits no text, and a file it cannot read
  * leaves the map as it was), so the harness declares both absent; any skip fails the suite. Every
- * case opens the example.
+ * case but `emptyFile` opens the example; `documents` adds the empty map after "New diagram" on
+ * the start screen, on which `emptyFile` checks 100 % and the empty-file hint in the middle, gone
+ * with the first context, and `appearance` runs as well.
  */
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
 
 /** Pages that start every visit without the browser's copy of a map or a legend state. */
 const freshPages = new WeakSet<Page>();
+
+/** The web host's empty document: the start screen of a fresh visit, then its "New diagram". */
+async function openNewDiagram(page: Page): Promise<void> {
+  await page.goto("about:blank");
+  await page.goto("/");
+  await waitForApp(page);
+  await page.getByRole("button", { name: "New diagram" }).click();
+  await page.locator('[data-chrome="empty-state"]').waitFor({ state: "hidden" });
+}
 
 test.describe("web app: shell conformance", () => {
   test.describe.configure({ timeout: 90_000 });
@@ -31,7 +42,7 @@ test.describe("web app: shell conformance", () => {
       host: "web",
       themes: THEMES,
       // A first visit to the example, with the system's appearance the kit emulated.
-      async open(page, { size }) {
+      async open(page, { size, document: documentKey }) {
         if (!freshPages.has(page)) {
           freshPages.add(page);
           await page.addInitScript(() => {
@@ -43,12 +54,17 @@ test.describe("web app: shell conformance", () => {
           });
         }
         await page.setViewportSize(size);
+        if (documentKey === "empty") {
+          await openNewDiagram(page);
+          return;
+        }
         // Going to the open page's link again changes at most its fragment, which keeps the page
         // and with it the legend's start state of the last size.
         await page.goto("about:blank");
         await page.goto(mapLink(SAMPLE_DOCUMENT));
         await waitForApp(page);
       },
+      documents: ["empty"],
       async destroy(page) {
         await page.evaluate(() => window.__contextMapsApp?.destroy());
       },

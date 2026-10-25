@@ -19,11 +19,11 @@ void webview.ready.then(() => {
 });
 
 const search = new URLSearchParams(location.search);
-const board = search.get("board");
+const BOARDS: Record<string, string> = { empty: EMPTY_BOARD, blank: "", example: EXAMPLE_BOARD };
 window.postMessage(
   {
     type: "init",
-    text: search.get("text") ?? (board === "empty" ? EMPTY_BOARD : EXAMPLE_BOARD),
+    text: search.get("text") ?? BOARDS[search.get("board") ?? "example"] ?? EXAMPLE_BOARD,
   },
   "*",
 );

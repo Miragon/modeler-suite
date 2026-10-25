@@ -381,6 +381,9 @@ export async function findTarget(
   return inPage(page, targetProbe, { root, selector: CHROME_TARGET_SELECTORS[target] });
 }
 
+/** The document's language, which decides whether names compare with the default messages. */
+export const documentLangProbe = (_: null): string => document.documentElement.lang;
+
 /** Viewport centre of the visible item `menuId` of the open menu, for `page.mouse`. */
 export const menuItemProbe = ({
   root,

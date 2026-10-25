@@ -57,7 +57,6 @@ import {
   type AppearanceFacts,
   type AriaFacts,
   type MenuFacts,
-  type PaletteEntryState,
   type ShapeFacts,
 } from "./facts.js";
 import {
@@ -111,6 +110,7 @@ import {
   webModeProblems,
 } from "./web-checks.js";
 import { cspCase } from "./csp-case.js";
+import { emptyFileCase } from "./empty-file-case.js";
 import { labelEditorCase } from "./label-editor-case.js";
 import { forcedColorsCase, reducedMotionCase } from "./media-cases.js";
 import { overlayLayersCase } from "./overlay-layers-case.js";
@@ -123,8 +123,10 @@ import {
   SHOWN_ISLANDS,
   assertHooksConsistent,
   closeByEscape,
+  enterOnEntry,
   fail,
   finish,
+  firstCreatingEntry,
   hover,
   menuEntries,
   missingHooks,
@@ -141,9 +143,6 @@ import { modeChangesProbe, watchModeProbe, webModeProbe, type WebModeFacts } fro
 
 /** How far the read-only case drags a shape (guide §13.5: no move). */
 const LOCKED_DRAG_PX = 40;
-
-/** Room for a modeler that places, selects or re-renders a frame or two after Enter. */
-const CREATE_WAIT_MS = 1000;
 
 /** Room after `INVALID_STATUS_DELAY_MS` for the read-only marks and the status box to show. */
 const READ_ONLY_WAIT_MS = 1000;
@@ -1069,9 +1068,16 @@ const appearanceCase: ShellConformanceCase = {
       });
     }
     let switched = false;
-    for (const requested of emulated ? REQUESTED_APPEARANCES : [LIGHT]) {
-      const at = `[requested ${appearanceLabel(requested)}]`;
-      await openHarness(page, harness, { size, requested });
+    const runs = [undefined, ...(harness.documents ?? [])].flatMap((document) =>
+      (emulated ? REQUESTED_APPEARANCES : [LIGHT]).map((requested) => ({ document, requested })),
+    );
+    for (const { document, requested } of runs) {
+      const at = `${document === undefined ? "" : `[document "${document}"] `}[requested ${appearanceLabel(requested)}]`;
+      await openHarness(page, harness, {
+        size,
+        requested,
+        ...(document === undefined ? {} : { document }),
+      });
       if (harness.host === "embedded") {
         // The foreign page itself in that mode: a themed page around the modeler (guide §13.3).
         await inPage(page, hostPageModeProbe, {
@@ -1114,43 +1120,6 @@ const appearanceCase: ShellConformanceCase = {
     return finish("appearance", harness.host, problems, skipped);
   },
 };
-
-/** Moves the palette's roving focus by keyboard to `action`; `false` when it cannot get there. */
-async function focusPaletteEntry(page: PageLike, root: string, action: string): Promise<boolean> {
-  const before = await inPage(page, paletteFocusProbe, { root });
-  if (!before || !before.entries.includes(action)) return false;
-  if (!(await focusTarget(page, root, "palette-tab-stop"))) return false;
-  await page.keyboard.press("Home");
-  for (let step = 0; step <= before.entries.length; step++) {
-    if ((await inPage(page, paletteFocusProbe, { root }))?.active === action) return true;
-    await page.keyboard.press("ArrowRight");
-  }
-  return false;
-}
-
-/** The first entry that creates something: outside the tools group and not a tool. */
-function firstCreatingEntry(entries: readonly PaletteEntryState[]): PaletteEntryState | undefined {
-  return entries.find((entry) => !isToolEntry(entry));
-}
-
-/** Enter on `entry`; the shapes once a new one appeared or `CREATE_WAIT_MS` passed. */
-async function enterOnEntry(
-  page: PageLike,
-  root: string,
-  entry: string,
-  before: readonly ShapeFacts[],
-): Promise<ShapeFacts[] | undefined> {
-  if (!(await focusPaletteEntry(page, root, entry))) return undefined;
-  await page.keyboard.press("Enter");
-  await settle(page);
-  const known = new Set(before.map((shape) => shape.id));
-  return pollUntil(
-    page,
-    () => shapes(page, root),
-    (after) => after.some((shape) => !known.has(shape.id)),
-    CREATE_WAIT_MS,
-  );
-}
 
 const createCase: ShellConformanceCase = {
   name: "create",
@@ -1361,9 +1330,10 @@ const cleanupCase: ShellConformanceCase = {
 
 /**
  * The cases of every host: those of 0.1, extended for the web column, the focus hand-back of 0.2.2,
- * the legend's start state and the label editor of 0.4, reduced motion, forced colours and the
- * canvas's overlay layers, added after 0.5.0, and the production webview bundle under its CSP of 0.6
- * (which only the IDE host has).
+ * the legend's start state and the label editor of 0.4, the empty file on the harness's `documents`
+ * (with `appearance` on each of them), reduced motion, forced colours and the canvas's overlay
+ * layers, added after 0.5.0, and the production webview bundle under its CSP of 0.6 (which only the
+ * IDE host has).
  */
 export function createBaseCases(): ShellConformanceCase[] {
   return [
@@ -1373,6 +1343,7 @@ export function createBaseCases(): ShellConformanceCase[] {
     keysCase,
     focusHandBackCase,
     createCase,
+    emptyFileCase,
     labelEditorCase,
     readOnlyCase,
     appearanceCase,

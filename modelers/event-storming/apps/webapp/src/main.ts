@@ -131,6 +131,9 @@ const shell = mountShell(app, {
     showKeyboardShortcuts: () => shortcutsDialog.open(),
   }),
   problems: { onSelectItem: (item) => selectElement(item.elementId) },
+  // Guide §8 (design system 1.23.0): an empty diagram after the start screen shows the empty-file
+  // hint, without "Insert example": the File group's "Show example" opens the example.
+  emptyHint: {},
   emptyState: {
     title: APP_NAME,
     text: "Start a new diagram, or explore the example.",

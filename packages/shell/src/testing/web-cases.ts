@@ -42,6 +42,7 @@ import type { PageLike } from "./page.js";
 import {
   afterPressProbe,
   clearKeysProbe,
+  documentLangProbe,
   findOverlay,
   findTarget,
   focusTarget,
@@ -128,9 +129,6 @@ const DROP_WAIT_MS = 2000;
 const START_SCREEN_TABS = 10;
 
 const TOAST_STATUSES: readonly ToastStatus[] = ["success", "info", "warning", "danger"];
-
-/** The document's language, which decides whether names compare with the default messages. */
-const documentLangProbe = (_: null): string => document.documentElement.lang;
 
 function sizeOf<P extends PageLike>(harness: ShellConformanceHarness<P>) {
   return (harness.sizes ?? DEFAULT_SIZES)[0] ?? DEFAULT_SIZES[0]!;

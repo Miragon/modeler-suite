@@ -24,7 +24,8 @@ const freshPages = new WeakSet<Page>();
 /**
  * The kit's harness for the web demo (`/web.html`), as a Miragon web app's e2e suite writes it:
  * the kit emulates the system's mode and contrast before `open`, `open` loads the page without a
- * stored choice, and the show hooks drive `window.__webDemo`.
+ * stored choice (the empty document: the start screen, then its "New diagram"), and the show hooks
+ * drive `window.__webDemo`.
  */
 export function webDemoHarness(options: WebDemoHarnessOptions = {}): ShellConformanceHarness<Page> {
   const themes = options.themes ?? ["light"];
@@ -59,7 +60,7 @@ export function webDemoHarness(options: WebDemoHarnessOptions = {}): ShellConfor
   return {
     host: "web",
     themes,
-    async open(page, { size }) {
+    async open(page, { size, document: documentKey }) {
       if (!freshPages.has(page)) {
         freshPages.add(page);
         await page.addInitScript(() => {
@@ -75,8 +76,15 @@ export function webDemoHarness(options: WebDemoHarnessOptions = {}): ShellConfor
       for (const slot of ["legend", "inspector"] as const) {
         if (!without.includes(slot)) query.set(slot, "");
       }
+      if (documentKey !== undefined && documentKey !== "empty") {
+        throw new Error(`web demo: no document "${documentKey}"`);
+      }
+      if (documentKey) query.set("empty", "");
       await page.goto(`/web.html?${query.toString()}`);
       await page.waitForFunction(() => window.__webDemo?.ready === true);
+      if (!documentKey) return;
+      await page.getByRole("button", { name: "New diagram" }).click();
+      await page.waitForFunction(() => window.__webDemo?.shell.isEmptyStateShown() === false);
     },
     async destroy(page) {
       await page.evaluate(() => window.__webDemo?.destroy());
@@ -87,5 +95,6 @@ export function webDemoHarness(options: WebDemoHarnessOptions = {}): ShellConfor
       page.evaluate(() => window.__webDemo?.documentChanges() ?? 0),
     ),
     absent: without,
+    documents: ["empty"],
   };
 }

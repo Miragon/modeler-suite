@@ -14,12 +14,24 @@ import { exportText, linkTo, waitForApp } from "./support/webapp.js";
  * inspector, no invalid-file state (a file that is no diagram is refused before the import and
  * leaves the canvas as it was) and no problems list (a document that validates imports without a
  * warning), so the harness declares them absent; any skip fails the suite.
+ * `documents` adds the empty diagram after "New diagram" on the start screen: at 100 % with the
+ * empty-file hint in the middle, gone with the first step (the `emptyFile` case), and the
+ * appearance case runs on it too.
  */
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
 
 /** Pages that start every visit without the autosaved diagram of an earlier one. */
 const freshPages = new WeakSet<Page>();
+
+/** The web host's empty document: the start screen of a fresh visit, then its "New diagram". */
+async function openNewDiagram(page: Page): Promise<void> {
+  await page.goto("about:blank");
+  await page.goto("/");
+  await waitForApp(page);
+  await page.getByRole("button", { name: "New diagram" }).click();
+  await page.locator('[data-chrome="empty-state"]').waitFor({ state: "hidden" });
+}
 
 test.describe("web app: shell conformance", () => {
   test.describe.configure({ timeout: 60_000 });
@@ -29,7 +41,7 @@ test.describe("web app: shell conformance", () => {
       host: "web",
       themes: THEMES,
       // The kit emulates the system's colour scheme and contrast before every open.
-      async open(page, { size }) {
+      async open(page, { size, document: documentKey }) {
         if (!freshPages.has(page)) {
           freshPages.add(page);
           await page.addInitScript(() => {
@@ -41,9 +53,14 @@ test.describe("web app: shell conformance", () => {
           });
         }
         await page.setViewportSize(size);
+        if (documentKey === "empty") {
+          await openNewDiagram(page);
+          return;
+        }
         await page.goto(await linkTo(EXAMPLE_DOCUMENT));
         await waitForApp(page);
       },
+      documents: ["empty"],
       async destroy(page) {
         await page.evaluate(() => window.__valueChainApp?.destroy());
       },

@@ -109,7 +109,9 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   inspector and the invalid-file state are absent). Both feed the `labelEditor` hooks
   ([`e2e/tests/support/label-editor.ts`](e2e/tests/support/label-editor.ts): a double-click on a
   context, typed text; a commit shows as a changed map in the web app and as an `edit` message in
-  the webview). Every case opens the example, and any skip fails the suite.
+  the webview). Every case but the empty-file case opens the example; that case and appearance open
+  the empty maps of `documents` (in the web app after "New diagram", in the webview also a file of
+  zero bytes), and any skip fails the suite.
 - **Real VS Code.** `npm run context-maps test:vscode` (Vitest project `vscode`, in
   [`apps/vscode/test-smoke/`](apps/vscode/test-smoke)) packs the extension as the release does
   (`vsce package --no-dependencies`), unpacks the VSIX outside the repository and runs the shell's

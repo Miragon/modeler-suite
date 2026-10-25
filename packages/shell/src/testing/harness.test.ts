@@ -55,6 +55,7 @@ describe("shellConformanceCases", () => {
       "keys",
       "focusHandBack",
       "create",
+      "emptyFile",
       "labelEditor",
       "readOnly",
       "appearance",
@@ -89,6 +90,7 @@ describe("registerShellConformance", () => {
       "shell conformance: keys",
       "shell conformance: focusHandBack",
       "shell conformance: create",
+      "shell conformance: emptyFile",
       "shell conformance: labelEditor",
       "shell conformance: readOnly",
       "shell conformance: appearance",
@@ -566,4 +568,88 @@ describe("registerShellConformance", () => {
     ).rejects.toThrow(/reducedMotion \(ide host\)\n- no element matches the shell root selector/);
     expect(open).toHaveBeenCalledTimes(1);
   });
+
+  it("skips the empty file without documents, before opening anything: the zero-byte file only in the IDE host", async () => {
+    const onSkip = vi.fn();
+    const open = vi.fn(async () => {});
+    for (const host of ["ide", "web", "embedded"] as const) {
+      await register(harness({ host, open }), onSkip).get("shell conformance: emptyFile")!({
+        page: emptyPage(),
+      });
+    }
+    expect(onSkip.mock.calls).toEqual([
+      [
+        "emptyFile",
+        [
+          {
+            hook: "documents",
+            reason:
+              'documents has no "empty": the empty diagram (100 %, the empty-file hint in the middle of the free rectangle, gone with the first element) was not verified',
+          },
+          {
+            hook: "documents",
+            reason:
+              'documents has no "blank": a file of zero bytes, an empty file and not an invalid one, was not verified',
+          },
+        ],
+      ],
+      ["emptyFile", [expect.objectContaining({ hook: "documents" })]],
+      ["emptyFile", [expect.objectContaining({ hook: "documents" })]],
+    ]);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("opens each empty document the harness lists at the first and the last size, light", async () => {
+    const open = vi.fn(async (_page: PageLike, _context: OpenContext) => {});
+    await expect(
+      register(harness({ open, documents: ["blank", "dark-style", "empty"] })).get(
+        "shell conformance: emptyFile",
+      )!({ page: emptyPage() }),
+    ).rejects.toThrow(
+      '@miragon/modeler-shell conformance: emptyFile (ide host)\n- no element matches the shell root selector ".cd-shell"',
+    );
+    expect(open).toHaveBeenCalledWith(expect.anything(), {
+      size: { width: 1280, height: 900 },
+      requested: { theme: "light" },
+      document: "empty",
+    });
+  });
+
+  it("runs the appearance case on the default document and on every listed one", async () => {
+    const open = vi.fn(async (_page: PageLike, _context: OpenContext) => {});
+    await expect(
+      register(harness({ open, documents: ["empty", "dark-style"] })).get(
+        "shell conformance: appearance",
+      )!({ page: emptyPage() }),
+    ).rejects.toThrow(/appearance \(ide host\)\n- \[requested dark\] no element matches/);
+    expect(
+      open.mock.calls.map(([, context]) => [context.document, appearanceOf(context.requested)]),
+    ).toEqual([
+      [undefined, "dark"],
+      [undefined, "dark hoch"],
+      [undefined, "light hoch"],
+      ["empty", "dark"],
+      ["empty", "dark hoch"],
+      ["empty", "light hoch"],
+      ["dark-style", "dark"],
+      ["dark-style", "dark hoch"],
+      ["dark-style", "light hoch"],
+    ]);
+    expect(open.mock.calls[0]![1]).not.toHaveProperty("document");
+  });
+
+  it("names the document of a failed appearance run", async () => {
+    const open = vi.fn(async () => {});
+    await expect(
+      register(harness({ open, documents: ["empty"] })).get("shell conformance: appearance")!({
+        page: emptyPage(),
+      }),
+    ).rejects.toThrow(
+      '- [document "empty"] [requested light + hoch] no element matches the shell root selector ".cd-shell"',
+    );
+  });
 });
+
+function appearanceOf(requested: OpenContext["requested"]): string {
+  return requested.kontrast ? `${requested.theme} ${requested.kontrast}` : requested.theme;
+}

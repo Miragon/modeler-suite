@@ -17,6 +17,9 @@ import { countOf, openShippedWebview, postedMessages } from "./support/webview.j
  * chains have neither a legend nor an inspector, so the harness declares them absent and the kit
  * asserts they never show. The menu has no File or Model action either (`canvasMenuAction`): VS Code
  * owns the file commands, and no document setting is edited from the menu. Any other skip fails.
+ * `documents` adds the diagram "New Empty Value Chain Diagram" writes and a file of zero bytes:
+ * each opens at 100 % with the empty-file hint, which the first step takes away (the `emptyFile`
+ * case), and the appearance case runs on them too.
  */
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
@@ -32,11 +35,14 @@ test.describe("VS Code webview: shell conformance", () => {
       host: "ide",
       themes: WEBVIEW_THEMES,
       csp: { open: openShippedWebview },
-      async open(page, { size, requested }) {
+      async open(page, { size, requested, document: documentKey }) {
         await page.setViewportSize(size);
-        await page.goto(`/webview-test.html?${vsCodeStubSearch(requested)}`);
+        const search = new URLSearchParams(vsCodeStubSearch(requested));
+        if (documentKey) search.set("diagram", documentKey);
+        await page.goto(`/webview-test.html?${search.toString()}`);
         await page.waitForFunction(() => window.webviewReady === true);
       },
+      documents: ["empty", "blank"],
       async destroy(page) {
         await page.evaluate(() => {
           window.connection?.destroy();

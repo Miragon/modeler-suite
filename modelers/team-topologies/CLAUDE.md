@@ -31,9 +31,10 @@ unlayered.
 
 **Chrome:** both apps run on [`@miragon/modeler-shell`](../../packages/shell/README.md):
 the VS Code webview on its IDE host, the web app on its web host. Shared: menu, palette skin, zoom
-panel and keys, fit, problems pill, status box, legend and inspector slots, `themes: ["light"]` until
-the shared dark mode (VS Code: theme bridge and empty-file hint; web: Share as primary action, legal
-line, toasts, problems list, start screen, drop zone and the head markup from `vite.config.ts`). The
+panel and keys, fit, problems pill, status box, empty-file hint, legend and inspector slots,
+`themes: ["light"]` until the shared dark mode (VS Code: theme bridge and the hint's "Insert
+example"; web: the hint after "New diagram" without it, Share as primary action, legal line,
+toasts, problems list, start screen, drop zone and the head markup from `vite.config.ts`). The
 renderer implements the canvas rules it asks for (keyboard creation, the `ttReadOnly` lock, no zoom
 keys, `undoRedoKeys: false` in VS Code) and the `@miragon/modeler-api` contract
 (`createCollaborativeModeler`, its conformance kit in `npm run team-topologies test:browser`). The

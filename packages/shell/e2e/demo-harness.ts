@@ -26,6 +26,8 @@ export interface DemoHarnessOptions {
    * mounts neither, the harness drops their show hooks and declares them `absent`.
    */
   without?: ReadonlyArray<"legend" | "inspector">;
+  /** Content bounds that always hold a fixed plot (the demo's `plot`), as Wardley's do. */
+  plot?: boolean;
 }
 
 const LIGHT: Appearance = { theme: "light" };
@@ -38,8 +40,9 @@ function escapeAttribute(value: string): string {
  * The kit's harness for the demo page, as a modeler's e2e suite writes it for its webview: the
  * demo mounts legend and inspector slots, the show hooks open them through `window.__demo.shell`,
  * `invalid` puts the demo into its invalid-file state as a failed import would, `labelEditor`
- * edits a box's label, and in the IDE host `csp` opens the demo's production bundle
- * (e2e/demo-webview.ts) under the webview CSP.
+ * edits a box's label, both empty documents open the demo without content (`empty`; the demo has
+ * no file of its own, so a file of zero bytes opens the same way), and in the IDE host `csp` opens
+ * the demo's production bundle (e2e/demo-webview.ts) under the webview CSP.
  */
 export function demoHarness(
   host: ShellHost,
@@ -48,6 +51,7 @@ export function demoHarness(
   const themes = options.themes ?? ["light"];
   const switchAtRuntime = options.switchAtRuntime === true && host === "ide";
   const without = options.without ?? [];
+  const documents = host === "ide" ? ["empty", "blank"] : ["empty"];
   const show: ShowHooks<Page> = {
     async problems(page) {
       await page.evaluate(() => window.__demo?.shell.setProblems({ count: 2, errors: 1 }));
@@ -88,19 +92,25 @@ export function demoHarness(
     for (const slot of ["legend", "inspector"] as const) {
       if (!without.includes(slot)) search.set(slot, "");
     }
+    if (options.plot) search.set("plot", "");
     return search;
   };
   return {
     host,
     themes,
-    async open(page, { size, requested }) {
+    async open(page, { size, requested, document: documentKey }) {
       // the embedded root sits inside a framed foreign page; grow the page so the container gets `size`
       const frame = host === "embedded" ? EMBEDDED_FRAME : { width: 0, height: 0 };
       await page.setViewportSize({
         width: size.width + frame.width,
         height: size.height + frame.height,
       });
-      await page.goto(`/?${query(switchAtRuntime ? LIGHT : requested).toString()}`);
+      const search = query(switchAtRuntime ? LIGHT : requested);
+      if (documentKey !== undefined) {
+        if (!documents.includes(documentKey)) throw new Error(`demo: no document "${documentKey}"`);
+        search.set("empty", "");
+      }
+      await page.goto(`/?${search.toString()}`);
       await page.waitForFunction(() => window.__demo?.ready === true);
       if (!switchAtRuntime) return;
       await page.evaluate(
@@ -138,5 +148,6 @@ export function demoHarness(
           }
         : undefined,
     absent: without,
+    documents,
   };
 }

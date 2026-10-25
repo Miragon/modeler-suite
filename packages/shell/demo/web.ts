@@ -93,6 +93,8 @@ function openDocument(fill: () => void): void {
   if (existing.length > 0) modeling.removeElements(existing);
   fill();
   connection.viewport.afterImport();
+  // No import fires here, so the hint learns of an empty new document from the page itself.
+  shell.setEmptyHint(shapes().length === 0);
   shell.setEmptyState(false);
   shell.setProblems({ count: 0, errors: 0 });
   shell.menu.refresh();
@@ -217,6 +219,9 @@ const shell: ShellHandle = mountShell(app, {
       }
     : {}),
   ...(params.has("inspector") ? { inspector: { label: "Properties" } } : {}),
+  // Guide §8 (design system 1.23.0): an empty diagram after the start screen shows the hint,
+  // without "Insert example", which the File group's "Show example" stands in for.
+  emptyHint: {},
   emptyState: {
     title: "Demo Modeler",
     text: "Start a new diagram, or explore the example.",

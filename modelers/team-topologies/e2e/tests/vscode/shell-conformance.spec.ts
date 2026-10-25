@@ -18,6 +18,9 @@ import { openShippedWebview, postedMessages } from "./support/webview.js";
  * inspector included). Absent is only a File or Model action without a dialog: the IDE host has no
  * File group, and the webview's Model group holds only the shell's Legend checkbox. Any other skip
  * fails the suite.
+ * `documents` adds the diagram "New Empty Diagram" writes and a file of zero bytes: each opens at
+ * 100 % with the empty-file hint, which the first team takes away (the `emptyFile` case), and the
+ * appearance case runs on them too.
  */
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
@@ -37,11 +40,14 @@ test.describe("VS Code webview: shell conformance", () => {
       host: "ide",
       themes: WEBVIEW_THEMES,
       csp: { open: openShippedWebview },
-      async open(page, { size, requested }) {
+      async open(page, { size, requested, document: documentKey }) {
         await page.setViewportSize(size);
-        await page.goto(`/webview-test.html?${vsCodeStubSearch(requested)}`);
+        const search = new URLSearchParams(vsCodeStubSearch(requested));
+        if (documentKey) search.set("doc", documentKey);
+        await page.goto(`/webview-test.html?${search.toString()}`);
         await page.waitForFunction(() => window.webviewReady === true);
       },
+      documents: ["empty", "blank"],
       async destroy(page) {
         await page.evaluate(() => {
           window.connection?.destroy();

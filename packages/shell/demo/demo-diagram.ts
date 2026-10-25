@@ -626,9 +626,23 @@ export function addSampleShapes(diagram: Diagram): void {
 /**
  * The demo's stand-in for a renderer's contract instance (`createCollaborativeModeler(…)`): the
  * `contentBounds()` of `@miragon/modeler-api` 1.3, which `connectDiagramJs` fits to by default.
+ * With `plot` they always hold that box, as Wardley's hold its plot, so even an empty diagram fits.
  */
-export function createDemoModeler(diagram: Diagram): CollaborativeModelerLike {
-  return { contentBounds: () => demoContentBounds(diagram) };
+export function createDemoModeler(diagram: Diagram, plot?: Bounds): CollaborativeModelerLike {
+  return {
+    contentBounds: () => {
+      const shapes = demoContentBounds(diagram);
+      if (!plot || !shapes) return plot ?? shapes;
+      const left = Math.min(plot.x, shapes.x);
+      const top = Math.min(plot.y, shapes.y);
+      return {
+        x: left,
+        y: top,
+        width: Math.max(plot.x + plot.width, shapes.x + shapes.width) - left,
+        height: Math.max(plot.y + plot.height, shapes.y + shapes.height) - top,
+      };
+    },
+  };
 }
 
 /** Bounds of every shape; `undefined` for an empty diagram. */

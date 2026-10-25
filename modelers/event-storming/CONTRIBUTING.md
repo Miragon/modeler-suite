@@ -54,7 +54,9 @@ Event Storming lacks `absent`
 (the legend and the inspector; in the web app also the invalid-file state and a problem row that
 selects an element, since its problems name lines, never elements; in the webview a menu action
 that hands the focus to the canvas, since its Model group holds only the Level radios and the Type
-captions checkbox), and any skip fails the suite. Next to the kit run the webview's protocol and
+captions checkbox), and any skip fails the suite. Both harnesses list `documents`: the empty board
+(in the web app after "New diagram"; in the webview also a file of zero bytes), on which the kit
+checks the empty file and runs appearance too. Next to the kit run the webview's protocol and
 chrome specs and the web app's own (`webapp-chrome.spec.ts`: share link, the fit to what the board
 draws, replace with undo, open, drop, exports, app keys, Delete after a click on + or a palette
 entry, Escape after Enter on the Draw entry, and Escape and Enter for the menu, the shortcuts dialog
