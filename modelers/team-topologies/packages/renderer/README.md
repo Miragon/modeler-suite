@@ -45,12 +45,25 @@ npm install @miragon/team-topologies-renderer @miragon/team-topologies-schema-mo
 | Esc                                  | Clear the selection                                                     |
 | Enter / Space on a context-pad entry | Run it (rename, add annotation, delete)                                 |
 
-The shortcuts act only while the page itself or the canvas has focus, never inside host chrome,
-form fields, the label editor or an open modal dialog, and never on a key a closer listener already
-handled (`defaultPrevented`). Zoom and fit keys belong to the host's chrome (guide §5.8: only
+The shortcuts act only while the canvas itself has the focus, as diagram-js 15's own keyboard
+does: on keys whose target is the canvas `<svg>` or inside it. Keys with nothing focused
+(`<body>`), on host chrome, on the palette, the context pad or the label editor and keys while a
+modal dialog is open pass, and so do keys a closer listener already handled (`defaultPrevented`)
+and keys of an IME composition. A click or drag with a pointer on a palette entry, and the
+context pad's attach and delete, hand the focus to the canvas, so Delete and `Ctrl/Cmd+Z` act
+at once. Enter or Space leave it on the lasso, hand it to the canvas on the pad's delete, and
+on a creating palette entry open the label editor (see "Palette from the keyboard" below).
+Rename and "Add annotation" open the label editor too, which gives the focus back to the
+canvas when it closes. diagram-js rebuilds the context pad whenever its element changes, for
+example on an undo: a focused entry then moves to the same entry of the new pad, and to the
+canvas when the pad closes. Zoom and fit keys belong to the host's chrome (guide §5.8: only
 Cmd/Ctrl + `+` `-` `0` and Shift+1, each acting exactly once), so the canvas binds none; the
 [`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell) chrome provides
 them together with the zoom panel.
+
+A host that hides the canvas without destroying the modeler makes its container `inert` or
+`display: none`, not only transparent: a hidden or inert canvas cannot hold the focus, so no key
+reaches it. There is no separate switch to pause the keyboard.
 
 **Palette from the keyboard.** A host chrome that makes the palette a toolbar (the modeler shell)
 triggers an entry with a click whose `detail` is 0. On a creating entry that click places the
@@ -306,7 +319,7 @@ viewer via `additionalModules`:
 | `ttPaletteModule`      | The lasso tool and the drag-to-create palette.                                         |
 | `ttContextPadModule`   | Per-element actions (rename, add/attach annotation, delete; delete a multi-selection). |
 | `ttLabelEditingModule` | Double-click in-place label editing.                                                   |
-| `ttKeyboardModule`     | Undo / redo / select all / delete / copy / paste / nudge / Esc shortcuts.              |
+| `ttKeyboardModule`     | Undo / redo / select all / delete / copy / paste / nudge / Esc on the focused canvas.  |
 | `ttReadOnlyModule`     | The edit lock for a document the canvas cannot save (`ttReadOnly`).                    |
 | `ttZOrderModule`       | Fixed stacking order (flow behind, teams, interactions, annotations on top).           |
 

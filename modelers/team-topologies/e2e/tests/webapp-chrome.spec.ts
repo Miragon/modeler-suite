@@ -89,6 +89,54 @@ async function addTeamByKeyboard(page: Page): Promise<void> {
   await page.keyboard.press("Escape");
 }
 
+/** The renderer's read-only lock, which the web app itself never sets. */
+async function setReadOnly(page: Page, readOnly: boolean): Promise<void> {
+  await page.evaluate((locked) => {
+    const modeler = (window as unknown as { __ttModeler: { get<T>(name: string): T } }).__ttModeler;
+    modeler.get<{ setReadOnly(readOnly: boolean): void }>("ttReadOnly").setReadOnly(locked);
+  }, readOnly);
+}
+
+interface ModelerHandle {
+  get<T>(name: string): T;
+}
+
+/** Gives a team its own fill, as the inspector's colour field does. */
+async function setTeamFill(page: Page, id: string, fill: string): Promise<void> {
+  await page.evaluate(
+    ({ id, fill }) => {
+      const modeler = (window as unknown as { __ttModeler: ModelerHandle }).__ttModeler;
+      const team = modeler.get<{ get(id: string): unknown }>("elementRegistry").get(id);
+      modeler
+        .get<{ setColors(element: unknown, fill?: string, stroke?: string): void }>("ttModeling")
+        .setColors(team, fill, undefined);
+    },
+    { id, fill },
+  );
+}
+
+/** Moves an element to the right, one undo step per call. */
+async function moveRight(page: Page, id: string, distance: number): Promise<void> {
+  await page.evaluate(
+    ({ id, distance }) => {
+      const modeler = (window as unknown as { __ttModeler: ModelerHandle }).__ttModeler;
+      const element = modeler.get<{ get(id: string): unknown }>("elementRegistry").get(id);
+      modeler
+        .get<{ moveElements(elements: unknown[], delta: { x: number; y: number }): void }>(
+          "modeling",
+        )
+        .moveElements([element], { x: distance, y: 0 });
+    },
+    { id, distance },
+  );
+}
+
+async function teamNode(page: Page, id: string) {
+  const { nodes } = await exportDocument(page);
+  return nodes.find((node) => node.id === id) as
+    (TtDoc["nodes"][number] & { fill?: string }) | undefined;
+}
+
 async function renameDiagram(page: Page, title: string): Promise<void> {
   await chooseMenuEntry(page, "diagram-title");
   await page.getByRole("textbox", { name: "Title" }).fill(title);
@@ -318,6 +366,149 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
 
     await page.keyboard.press("ControlOrMeta+Shift+Z");
     await expect.poll(async () => (await exportDocument(page)).nodes.length).toBe(1);
+  });
+
+  test("Cmd/Ctrl+Z on a focused palette or context-pad entry undoes the canvas", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await startBlankCanvas(page);
+    await addTeamByKeyboard(page);
+    await addTeamByKeyboard(page);
+    expect((await exportDocument(page)).nodes).toHaveLength(2);
+
+    await page.locator('.djs-palette [data-action="team.platform"]').focus();
+    await page.keyboard.press("ControlOrMeta+Z");
+    await expect.poll(async () => (await exportDocument(page)).nodes.length).toBe(1);
+
+    const [team] = (await exportDocument(page)).nodes;
+    await page.locator(`[data-element-id="${team!.id}"]`).click();
+    await page.locator('.djs-context-pad.open [data-action="edit-label"]').focus();
+    await page.keyboard.press("ControlOrMeta+Z");
+    await expect.poll(async () => (await exportDocument(page)).nodes.length).toBe(0);
+    await expect(canvasSvg(page)).toBeFocused();
+  });
+
+  test("Cmd/Ctrl+Z on the focused canvas is the canvas's own, also where it declines", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await startBlankCanvas(page);
+    await addTeamByKeyboard(page);
+    expect((await exportDocument(page)).nodes).toHaveLength(1);
+
+    await setReadOnly(page, true);
+    await canvasSvg(page).focus();
+    await page.keyboard.press("ControlOrMeta+Z");
+    expect((await exportDocument(page)).nodes).toHaveLength(1);
+
+    await setReadOnly(page, false);
+    await page.keyboard.press("ControlOrMeta+Z");
+    await expect.poll(async () => (await exportDocument(page)).nodes.length).toBe(0);
+  });
+
+  test("with nothing focused the canvas keys leave the diagram alone", async ({ page }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    await page.locator('[data-element-id="team_checkout"]').click();
+    expect(await selectedIds(page)).toEqual(["team_checkout"]);
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
+
+    for (const key of ["Delete", "Backspace", "ControlOrMeta+A", "Escape"]) {
+      await page.keyboard.press(key);
+    }
+
+    expect(await selectedIds(page)).toEqual(["team_checkout"]);
+    expect((await exportDocument(page)).nodes.map((node) => node.id)).toContain("team_checkout");
+  });
+
+  test("Cmd/Ctrl+Z after a click on the context pad's delete takes it back", async ({ page }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    const team = page.locator('[data-element-id="team_checkout"]');
+    await team.click();
+    await page.locator('.djs-context-pad.open [data-action="delete"]').click();
+    await expect(team).toHaveCount(0);
+
+    await page.keyboard.press("ControlOrMeta+Z");
+    await expect(team).toHaveCount(1);
+  });
+
+  test("Cmd/Ctrl+Z after Reset colours in the inspector takes the colours back", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    await page.locator('[data-element-id="team_checkout"]').click();
+    await setTeamFill(page, "team_checkout", "#ff0000");
+
+    await page
+      .locator('[data-chrome="inspector"]')
+      .getByRole("button", { name: "Reset colours" })
+      .click();
+    expect((await teamNode(page, "team_checkout"))?.fill).toBeUndefined();
+    await page.keyboard.press("ControlOrMeta+Z");
+
+    await expect.poll(async () => (await teamNode(page, "team_checkout"))?.fill).toBe("#ff0000");
+  });
+
+  test("Cmd/Ctrl+Z that removes the focused Reset colours hands the focus to the canvas", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    await page.locator('[data-element-id="team_checkout"]').click();
+    await setTeamFill(page, "team_checkout", "#ff0000");
+    const reset = page
+      .locator('[data-chrome="inspector"]')
+      .getByRole("button", { name: "Reset colours" });
+    await reset.focus();
+
+    await page.keyboard.press("ControlOrMeta+Z");
+
+    await expect(reset).toHaveCount(0);
+    expect((await teamNode(page, "team_checkout"))?.fill).toBeUndefined();
+    await expect(canvasSvg(page)).toBeFocused();
+  });
+
+  test("Cmd/Ctrl+Z after Detach in the inspector attaches the annotation again", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    const attachedTo = async () =>
+      (await exportDocument(page)).annotations.find(({ id }) => id === "ann_fraud_handover")
+        ?.attachedTo;
+    await page.locator('[data-element-id="ann_fraud_handover"]').click();
+
+    await page.locator('[data-chrome="inspector"]').getByRole("button", { name: "Detach" }).click();
+    expect(await attachedTo()).toBeUndefined();
+    await page.keyboard.press("ControlOrMeta+Z");
+
+    await expect.poll(attachedTo).toBe("int_checkout_fraud");
+  });
+
+  test("Cmd/Ctrl+Z keeps undoing from a context-pad entry while the pad is rebuilt", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    await page.locator('[data-element-id="team_checkout"]').click();
+    const start = (await teamNode(page, "team_checkout"))!.position.x;
+    await moveRight(page, "team_checkout", 30);
+    await moveRight(page, "team_checkout", 30);
+    const rename = page.locator('.djs-context-pad.open [data-action="edit-label"]');
+    await rename.focus();
+
+    await page.keyboard.press("ControlOrMeta+Z");
+    await expect
+      .poll(async () => (await teamNode(page, "team_checkout"))?.position.x)
+      .toBe(start + 30);
+    await expect(rename).toBeFocused();
+    await page.keyboard.press("ControlOrMeta+Z");
+
+    await expect.poll(async () => (await teamNode(page, "team_checkout"))?.position.x).toBe(start);
   });
 
   test("Open… reads a .tt file and replaces the diagram", async ({ page }) => {

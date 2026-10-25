@@ -7,6 +7,8 @@ const WEBAPP_URL = `http://localhost:${WEBAPP_PORT}`;
 const WEBVIEW_PORT = process.env.E2E_WEBVIEW_PORT ?? "5190";
 const WEBVIEW_URL = `http://localhost:${WEBVIEW_PORT}`;
 
+const FOCUS_HAND_BACK_SPEC = "focus-hand-back.spec.ts";
+
 /**
  * Two projects, one per host:
  *  - `webapp`: @miragon/team-topologies-webapp. Its dev server resolves @miragon/team-topologies-*
@@ -14,6 +16,12 @@ const WEBVIEW_URL = `http://localhost:${WEBVIEW_PORT}`;
  *    `cwd: '..'` runs the command from the repo root so the npm workspace resolves.
  *  - `vscode-webview`: the VS Code webview (apps/vscode/src/webview/main.ts) inside the modeler
  *    shell's VS Code stub, served by its own Vite test page (webview/), also from the sources.
+ *
+ * Both hosts run the focus hand-back cases in WebKit too (`webapp-webkit`, `vscode-webview-webkit`):
+ * Safari, and vscode.dev in Safari, do not focus a button on a click, so there a control has to
+ * hand the focus to the canvas without ever having held it. Playwright's WebKit on Linux, as in CI,
+ * probably focuses a clicked button like Chromium does, unlike Safari on macOS; there the guard is
+ * the inspector's unit cases that click a button without focusing it first.
  */
 export default defineConfig({
   testDir: "./tests",
@@ -39,6 +47,17 @@ export default defineConfig({
       name: "vscode-webview",
       testMatch: "**/vscode/**/*.spec.ts",
       use: { ...devices["Desktop Chrome"], baseURL: WEBVIEW_URL },
+    },
+    {
+      name: "webapp-webkit",
+      testMatch: `**/${FOCUS_HAND_BACK_SPEC}`,
+      testIgnore: "**/vscode/**",
+      use: { ...devices["Desktop Safari"], baseURL: WEBAPP_URL },
+    },
+    {
+      name: "vscode-webview-webkit",
+      testMatch: `**/vscode/${FOCUS_HAND_BACK_SPEC}`,
+      use: { ...devices["Desktop Safari"], baseURL: WEBVIEW_URL },
     },
   ],
   webServer: [

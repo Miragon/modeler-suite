@@ -74,6 +74,7 @@ interface SelectionLike {
   select(elements: unknown): void;
 }
 interface CanvasLike {
+  getContainer(): HTMLElement;
   scrollToElement(element: unknown): void;
 }
 /** Matches the static <title> in index.html. */
@@ -107,6 +108,7 @@ modeler.get("canvas");
 const registry = modeler.get<ElementRegistryLike>("elementRegistry");
 const selection = modeler.get<SelectionLike>("selection");
 const canvas = modeler.get<CanvasLike>("canvas");
+const canvasSvg = findCanvasSvg(canvas);
 
 /** Whether the browser keeps a diagram the autosave wrote over (see `autosave`). */
 let previousAvailable = hasPreviousDiagram();
@@ -627,10 +629,21 @@ function historyLetter(event: KeyboardEvent): string {
   return event.code === "KeyZ" ? "z" : event.code === "KeyY" ? "y" : "";
 }
 
+/** The `<svg>` diagram-js puts into its own container, inside the one the modeler was given. */
+function findCanvasSvg(diagramCanvas: CanvasLike): SVGSVGElement {
+  const svg = diagramCanvas.getContainer().querySelector<SVGSVGElement>(":scope > svg");
+  if (!svg) throw new Error("The canvas has no <svg>.");
+  return svg;
+}
+
+function isOnCanvas(target: Node): boolean {
+  return canvasSvg.contains(target);
+}
+
 /**
- * The canvas keyboard acts only while the canvas or the page has the focus. After a click on a
- * chrome control (zoom, Share, the inspector's buttons) the focus stays there, and undo should
- * still undo; after a replacement the canvas has nothing to undo, so the key takes the diagram back.
+ * The canvas keyboard acts only while the canvas itself has the focus. While a chrome control holds
+ * it (zoom, Share, the inspector's buttons, a palette or context-pad entry), undo should still
+ * undo; after a replacement the canvas has nothing to undo, so the key takes the diagram back.
  */
 function onHistoryKey(event: KeyboardEvent): void {
   if (event.isComposing || !isUndoRedoKey(event) || shell.isEmptyStateShown()) return;
@@ -641,7 +654,7 @@ function onHistoryKey(event: KeyboardEvent): void {
     !event.defaultPrevented &&
     target instanceof Node &&
     shell.root.contains(target) &&
-    !modeler.container.contains(target);
+    !isOnCanvas(target);
   if (onChrome) {
     event.preventDefault();
     if (event.repeat) return;

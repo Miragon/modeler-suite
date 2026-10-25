@@ -38,7 +38,8 @@ toasts, problems list, start screen, drop zone and the head markup from `vite.co
 renderer implements the canvas rules it asks for (keyboard creation, the `ttReadOnly` lock, no zoom
 keys, `undoRedoKeys: false` in VS Code) and the `@miragon/modeler-api` contract
 (`createCollaborativeModeler`, its conformance kit in `npm run team-topologies test:browser`). The
-shell's own conformance kit runs in both e2e projects, `webapp` and `vscode-webview`.
+shell's own conformance kit runs in the e2e projects `webapp` and `vscode-webview`; their WebKit
+twins `webapp-webkit` and `vscode-webview-webkit` run only the focus hand-back cases.
 
 **Notation colours:** the team-type and interaction-mode fills and strokes in
 [`packages/schema-model/src/notation.ts`](packages/schema-model/src/notation.ts) are the **official
@@ -101,7 +102,9 @@ by `dependency-cruiser`, the shell ban also by ESLint, so the pre-commit hook ca
   `npm run team-topologies dev:vscode`
 - `npm run team-topologies test`: Vitest (unit) · `npm run team-topologies test:browser`:
   renderer and the contract kit in Chromium · `npm run team-topologies test:e2e`: Playwright,
-  projects `webapp` and `vscode-webview` (ports `E2E_PORT`, `E2E_WEBVIEW_PORT`)
+  projects `webapp` and `vscode-webview` (ports `E2E_PORT`, `E2E_WEBVIEW_PORT`), and
+  `webapp-webkit` and `vscode-webview-webkit` with the focus hand-back cases in WebKit
+  (`npx playwright install chromium webkit` once)
 - `npm run team-topologies test:vscode`: the packed extension in a real VS Code (Vitest project
   `vscode`, `apps/vscode/test-smoke/`, the shell's `./testing/vscode-electron`): open, edit, save,
   undo and the four default themes, screenshots in `test-results/vscode-smoke/`. Opt-in: it opens a

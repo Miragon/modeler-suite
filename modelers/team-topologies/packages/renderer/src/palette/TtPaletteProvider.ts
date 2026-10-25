@@ -7,7 +7,9 @@
  * triggers an entry from the keyboard with a click whose `detail` is 0. Such a click on a creating
  * entry places the element in the centre of the free part of the canvas (guide §5.5), 24px further
  * diagonally while that spot is taken, selects it and opens its label editor: diagram-js's create
- * tool follows the pointer and never ends without one.
+ * tool follows the pointer and never ends without one. A click or drag with a pointer hands the
+ * focus to the canvas, with or without a chrome around the palette, so the canvas keys act on what
+ * the tool selects or places (guide §5.8).
  */
 
 import type Canvas from "diagram-js/lib/core/Canvas";
@@ -39,6 +41,7 @@ import {
   teamIconSvg,
 } from "../draw/palette-icons.js";
 import type { TtLabelEditing } from "../label-editing/index.js";
+import { handFocusToCanvas, isKeyboardClick } from "../keyboard/canvasFocus.js";
 import { isTtElement, type TtElement } from "../model/di-types.js";
 import type TtElementFactory from "../model/TtElementFactory.js";
 import type { TtReadOnly } from "../read-only/index.js";
@@ -71,11 +74,6 @@ export interface TtPaletteConfig {
 
 function entryHtml(icon: string, draggable = true): string {
   return `<div class="entry tt-palette-entry" draggable="${draggable}">${icon}</div>`;
-}
-
-/** A click the chrome synthesises for Enter or Space on a palette entry (no pointer, detail 0). */
-function isKeyboardClick(event: Event): boolean {
-  return event.type === "click" && (event as MouseEvent).detail === 0;
 }
 
 function centreOf(element: TtElement): Point {
@@ -136,7 +134,10 @@ export default class TtPaletteProvider implements PaletteProvider {
       title: "Select several elements",
       html: entryHtml(lassoIconSvg(), false),
       action: {
-        click: (event: Event) => this.lassoTool.activateSelection(event as MouseEvent),
+        click: (event: Event) => {
+          this.lassoTool.activateSelection(event as MouseEvent);
+          handFocusToCanvas(this.canvas, event);
+        },
       },
     };
 
@@ -182,8 +183,12 @@ export default class TtPaletteProvider implements PaletteProvider {
     newShape: () => Shape,
   ): PaletteEntry {
     const start = (event: Event) => {
-      if (isKeyboardClick(event)) this.placeInFreeRect(newShape());
-      else this.create.start(event as MouseEvent, newShape());
+      if (isKeyboardClick(event)) {
+        this.placeInFreeRect(newShape());
+        return;
+      }
+      this.create.start(event as MouseEvent, newShape());
+      this.canvas.focus();
     };
     return {
       group,

@@ -37,6 +37,15 @@ const EDITING_MARKER = "tt-label-editing";
 /** Narrow shapes (small interaction glyphs) still get an editor wide enough to type in. */
 const MIN_EDITOR_WIDTH = 96;
 
+/**
+ * Enter and Escape that confirm or cancel an IME candidate belong to the composition. `isComposing`
+ * alone misses Safari: it sends the confirming Enter after `compositionend`, with `isComposing`
+ * false and the `keyCode` 229 that every engine gives a key the IME took.
+ */
+function isImeCompositionKey(event: KeyboardEvent): boolean {
+  return event.isComposing || event.keyCode === 229;
+}
+
 function editorName(element: TtElement): string {
   if (isTtAnnotation(element)) return "Annotation text";
   if (isTtInteraction(element)) return "Interaction label";
@@ -209,7 +218,8 @@ export default class TtLabelEditing {
     };
     // Removing the focused editor would drop focus to the page; keep keyboard users on the canvas.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      if (isImeCompositionKey(e)) return;
+      if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         commit();
         this.canvas.focus();

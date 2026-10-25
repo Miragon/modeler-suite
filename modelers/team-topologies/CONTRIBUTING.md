@@ -40,15 +40,25 @@ directly on `:5181` and needs none of the above.
 
 ## Browser & e2e tests
 
-`npm run team-topologies test:browser` (Vitest browser mode, including the `@miragon/modeler-api`
-conformance kit) and `npm run team-topologies test:e2e` (Playwright, in `e2e/`) need a Chromium
-browser (`npx playwright install chromium`, once). The e2e suite has two projects: `webapp` (the
-web app's dev server, port `E2E_PORT`, default 5180, with the shell's conformance kit on its web
-host) and `vscode-webview` (the VS Code webview inside the modeler shell's VS Code stub, port
-`E2E_WEBVIEW_PORT`, default 5190, with the shell's conformance kit, whose `csp` case walks the
-production bundle behind the webview CSP); set both ports when several worktrees run the suite at
-once. Keep `playwright-core` and the e2e workspace's `@playwright/test` on the root `playwright`
-version.
+`npm run team-topologies test:browser` (Vitest browser mode) runs the renderer's integration tests
+and the `@miragon/modeler-api` conformance kit in Chromium. `npm run team-topologies test:e2e`
+(Playwright, in `e2e/`) has four projects:
+
+| Project                 | What                                                                    | Server, port                              |
+| ----------------------- | ----------------------------------------------------------------------- | ----------------------------------------- |
+| `webapp`                | the web app, with the shell's kit on the web host                       | `apps/webapp` dev server, `E2E_PORT` 5180 |
+| `vscode-webview`        | the VS Code webview in the shell's VS Code stub, with the shell's kit   | `e2e/webview/`, `E2E_WEBVIEW_PORT` 5190   |
+| `webapp-webkit`         | the web app in Safari's engine, only the focus hand-back cases          | the `webapp` server                       |
+| `vscode-webview-webkit` | the webview in Safari's engine (vscode.dev in Safari), only those cases | the `vscode-webview` server               |
+
+Run one project with `npm run team-topologies test:e2e -- --project=vscode-webview`; set both ports
+when several worktrees run the suite at once
+(`E2E_PORT=6301 E2E_WEBVIEW_PORT=6311 npm run team-topologies test:e2e`). In the `vscode-webview`
+project the kit's `csp` case walks the production bundle behind the webview CSP. The WebKit
+projects run only `focus-hand-back.spec.ts`: Safari does not focus a clicked button, so there every
+control has to hand the focus to the canvas without having held it. Locally, run
+`npx playwright install chromium webkit` once. Keep `playwright-core` and the e2e workspace's
+`@playwright/test` on the root `playwright` version.
 
 ### The extension in a real VS Code
 

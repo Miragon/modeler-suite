@@ -417,8 +417,17 @@ test("renders explicit line breaks and wraps annotation text left-aligned", () =
 
 // --- multi-selection (issue #91) ---------------------------------------------
 
-function press(key: string, init: KeyboardEventInit = {}): void {
-  document.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, ...init }));
+function canvasSvg(container: HTMLElement): SVGSVGElement {
+  return container.querySelector<SVGSVGElement>(".djs-container > svg")!;
+}
+
+/** A key on the focused canvas, the only place the canvas keys act. */
+function press(container: HTMLElement, key: string, init: KeyboardEventInit = {}): KeyboardEvent {
+  const svg = canvasSvg(container);
+  svg.focus();
+  const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
+  svg.dispatchEvent(event);
+  return event;
 }
 
 test("Ctrl/Cmd+A selects every element; a group move is one undo step", () => {
@@ -427,7 +436,7 @@ test("Ctrl/Cmd+A selects every element; a group move is one undo step", () => {
     modeler.importDocument(ANNOTATED_DOCUMENT);
     const { registry, selection, modeling, commandStack } = services(modeler);
 
-    press("a", { ctrlKey: true });
+    press(container, "a", { ctrlKey: true });
 
     const all = registry.filter((element) => Boolean((element as { parent?: unknown }).parent));
     expect(all).toHaveLength(14);
@@ -479,8 +488,8 @@ test("arrow keys nudge the selection (Shift for bigger steps)", () => {
     const start = { team: { x: team.x, y: team.y }, interaction: { x: interaction.x } };
     selection.select([team, interaction]);
 
-    press("ArrowRight");
-    press("ArrowDown", { shiftKey: true });
+    press(container, "ArrowRight");
+    press(container, "ArrowDown", { shiftKey: true });
 
     expect(team.x).toBe(start.team.x + 1);
     expect(team.y).toBe(start.team.y + 10);
@@ -580,6 +589,34 @@ test("Enter commits one undo step, Shift+Enter keeps a line break, Escape discar
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
     expect(editor(container)).toBeNull();
+    expect(team.ttLabel).toBe(original);
+  } finally {
+    modeler.destroy();
+    container.remove();
+  }
+});
+
+test("Enter and Escape that end an IME composition stay with it, also as Safari sends them", () => {
+  const { modeler, container } = mountModeler();
+  try {
+    modeler.importDocument(SAMPLE_DOCUMENT);
+    const { registry, labelEditing } = services(modeler);
+    const team = registry.get("team_checkout") as TtTeam;
+    const original = team.ttLabel;
+
+    labelEditing.activate(team);
+    const textarea = editor(container)!;
+    textarea.value = "Kaufabwicklung";
+    const whileComposing = { isComposing: true };
+    const afterCompositionEndInSafari = { isComposing: false, keyCode: 229 };
+    for (const composing of [whileComposing, afterCompositionEndInSafari]) {
+      for (const key of ["Enter", "Escape"]) {
+        textarea.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, ...composing }));
+      }
+    }
+
+    expect(editor(container)).toBe(textarea);
+    expect(document.activeElement).toBe(textarea);
     expect(team.ttLabel).toBe(original);
   } finally {
     modeler.destroy();
@@ -800,7 +837,7 @@ test("canvas shortcuts pause while a host dialog is open", () => {
     const { registry, selection } = services(modeler);
     selection.select(registry.get("team_checkout"));
 
-    press("Delete");
+    press(container, "Delete");
 
     expect(registry.get("team_checkout")).toBeDefined();
   } finally {
@@ -835,7 +872,7 @@ test("Escape clears the selection", () => {
     const { registry, selection } = services(modeler);
     selection.select([registry.get("team_checkout"), registry.get("team_platform")]);
 
-    press("Escape");
+    press(container, "Escape");
 
     expect(selection.get()).toHaveLength(0);
   } finally {
@@ -858,9 +895,7 @@ test("plain + and -, Shift+0 and Shift+1 are the host chrome's, not the canvas's
       [")", { shiftKey: true, code: "Digit0" }],
       ["!", { shiftKey: true, code: "Digit1" }],
     ] as const) {
-      const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
-      document.dispatchEvent(event);
-      expect(event.defaultPrevented, key).toBe(false);
+      expect(press(container, key, init).defaultPrevented, key).toBe(false);
     }
     expect(canvas.zoom()).toBeCloseTo(1);
   } finally {
@@ -880,14 +915,12 @@ test("undo keys reach the host when it owns the history (undoRedoKeys: false)", 
     const { registry, modeling } = services(modeler);
     modeling.moveElements([registry.get("team_checkout")], { x: 20, y: 0 });
 
-    for (const init of [
-      { key: "z", ctrlKey: true },
-      { key: "z", metaKey: true, shiftKey: true },
-      { key: "y", ctrlKey: true },
-    ]) {
-      const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
-      document.dispatchEvent(event);
-      expect(event.defaultPrevented).toBe(false);
+    for (const [key, init] of [
+      ["z", { ctrlKey: true }],
+      ["z", { metaKey: true, shiftKey: true }],
+      ["y", { ctrlKey: true }],
+    ] as const) {
+      expect(press(container, key, init).defaultPrevented).toBe(false);
     }
     expect(modeler.canUndo()).toBe(true);
   } finally {
@@ -902,10 +935,12 @@ test("a key a closer listener already handled is left alone", () => {
     modeler.importDocument(SAMPLE_DOCUMENT);
     const { registry, selection } = services(modeler);
     selection.select(registry.get("team_checkout"));
+    const svg = canvasSvg(container);
+    svg.focus();
     const event = new KeyboardEvent("keydown", { key: "Delete", bubbles: true, cancelable: true });
     event.preventDefault();
 
-    document.dispatchEvent(event);
+    svg.dispatchEvent(event);
 
     expect(registry.get("team_checkout")).toBeDefined();
   } finally {
@@ -920,14 +955,7 @@ test("Ctrl/Cmd with + is left to the browser's page zoom", () => {
     modeler.importDocument(SAMPLE_DOCUMENT);
     const { canvas } = services(modeler);
     canvas.zoom(1);
-    const event = new KeyboardEvent("keydown", {
-      key: "+",
-      ctrlKey: true,
-      bubbles: true,
-      cancelable: true,
-    });
-
-    document.dispatchEvent(event);
+    const event = press(container, "+", { ctrlKey: true });
 
     expect(canvas.zoom()).toBeCloseTo(1);
     expect(event.defaultPrevented).toBe(false);
@@ -1250,7 +1278,7 @@ test("the canvas is named, leaves its role to the host and rings only when reach
     expect(svg.getAttribute("role")).toBeNull();
     expect(svg.getAttribute("aria-label")).toBe("Team Topologies diagram");
 
-    press("Tab");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
     (svg as SVGSVGElement).focus();
     expect(svg.classList.contains("tt-canvas-keyboard-focus")).toBe(true);
 

@@ -42,6 +42,46 @@ test.describe("VS Code webview", () => {
     );
   });
 
+  test("with nothing focused Delete and Backspace leave the diagram and post no edit", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await selectOnCanvas(page, "team_fraud");
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+
+    await page.keyboard.press("Delete");
+    await page.keyboard.press("Backspace");
+
+    await expect(shape(page, "team_fraud")).toBeAttached();
+    expect((await postedMessages(page)).some((message) => message.type === "edit")).toBe(false);
+  });
+
+  for (const change of ["renames another team", "removes the team"] as const) {
+    test(`a focused context-pad entry hands the focus to the canvas when an outside change ${change}`, async ({
+      page,
+    }) => {
+      await openWebview(page);
+      await selectOnCanvas(page, "team_checkout");
+      await page.locator('.djs-context-pad.open [data-action="edit-label"]').focus();
+
+      const changed = JSON.parse(EXAMPLE_MAP) as { nodes: Array<{ id: string; label: string }> };
+      if (change === "removes the team") {
+        changed.nodes = changed.nodes.filter((node) => node.id !== "team_checkout");
+      } else {
+        changed.nodes.find((node) => node.id === "team_fraud")!.label = "Fraud Office";
+      }
+      await postFromHost(page, { type: "update", text: `${JSON.stringify(changed, null, 2)}\n` });
+      await expect(shape(page, "team_checkout")).toHaveCount(change === "removes the team" ? 0 : 1);
+      await expect(shape(page, "team_fraud")).toContainText(
+        change === "removes the team" ? "Fraud Detection" : "Fraud Office",
+      );
+
+      await expect(page.locator('.cd-shell-canvas svg[role="application"]')).toBeFocused();
+      await page.keyboard.press("ControlOrMeta+A");
+      await expect(shape(page, "team_platform")).toHaveClass(/selected/);
+    });
+  }
+
   test("an outside change keeps the view and the selection", async ({ page }) => {
     await openWebview(page);
     const fitted = await zoomReadout(page);
