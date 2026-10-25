@@ -73,6 +73,7 @@ import type CmModeling from "../modeling/CmModeling.js";
 import type CmLabelEditing from "../label-editing/CmLabelEditing.js";
 import type CmElementFactory from "../model/CmElementFactory.js";
 import { READ_ONLY_CHANGED_EVENT, type CmReadOnly } from "../read-only/index.js";
+import { escapeMarkup } from "../draw/markup.js";
 import { contextIconSvg, relationshipIconSvg, roleChipSvg } from "../draw/palette-icons.js";
 import { chromeIcon } from "../draw/lucide.js";
 import { handFocusToCanvas } from "../keyboard/canvasFocus.js";
@@ -91,14 +92,6 @@ const CUSTOMER_SUPPLIER_BLOCKERS: Partial<Record<UpstreamRole | DownstreamRole, 
   CF: "Conformist is not applicable in a customer-supplier relationship; a customer can negotiate.",
 };
 
-function escapeAttribute(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
 function padEntryHtml(
   icon: string,
   title: string,
@@ -106,7 +99,7 @@ function padEntryHtml(
 ): string {
   const draggable = options.draggable ? ` draggable="true"` : "";
   const danger = options.danger ? " cm-pad-entry--danger" : "";
-  const label = escapeAttribute(title);
+  const label = escapeMarkup(title);
   return `<div class="entry cm-pad-entry${danger}"${draggable} title="${label}" aria-label="${label}">${icon}</div>`;
 }
 
