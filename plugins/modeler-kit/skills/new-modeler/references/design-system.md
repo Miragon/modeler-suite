@@ -74,9 +74,11 @@ through. A DSL directive such as `style dark` round-trips but renders nothing.
 ## brand-lint
 
 The `miragon-brand` plugin brings brand-lint, a Claude Code hook that checks every file Claude
-writes or edits against the design system and blocks on a hard finding. It runs only in a
-repository with a `.miragon/brand.json`; the template ships
-[one](../assets/template/.miragon/brand.json) for an English modeler, as guide §2 asks:
+writes or edits against the design system and reports each hard finding back to Claude, which
+fixes it before going on. Use the plugin in 1.7.0 or later: older releases do not know the status
+colours of the tokens. The hook runs only in a repository with a `.miragon/brand.json`; the
+template ships [one](../assets/template/.miragon/brand.json) for an English modeler, as guide §2
+asks:
 
 - `"aus": ["A1", "A3", "A4", "A7", "A11"]` turns off the German copy rules (du, umlauts, German
   passive, the German claim, gender forms). C5 (one language per tool) stays on, and so do A2 (no
@@ -89,7 +91,14 @@ The hook takes the nearest `.miragon/brand.json` and never merges two, so a mode
 repository (the suite) keeps the one at that repository's root and adds none of its own. An
 intended notation colour that is no palette colour (a notation's own fills, strokes or note
 colours) goes between `// brand-lint-disable` and `// brand-lint-enable`, or after
-`// brand-lint-disable-next-line`, under a comment that says why. Run it by hand from the root with
-`node <miragon-brand plugin>/scripts/brand-lint.mjs . .claude`: the walk skips dot folders it is not
-given. brand-lint reads no JSON and only the colours of a TypeScript file, so the strings there (a
-diagnostic, a tooltip, the VS Code manifest) stay a review point.
+`// brand-lint-disable-next-line`, under a comment that says why. brand-lint reads no JSON and only
+the colours of a TypeScript file, so the strings there (a diagnostic, a tooltip, the VS Code
+manifest) stay a review point.
+
+Run brand-lint by hand from the root. Its own walk of `.` skips every dot folder and dot file
+(`.claude`, `.dependency-cruiser.cjs`), which the hook still checks, so give it the repository's
+files:
+
+```sh
+node <miragon-brand plugin>/scripts/brand-lint.mjs $(git ls-files -co --exclude-standard)
+```
