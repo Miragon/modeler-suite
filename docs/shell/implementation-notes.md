@@ -604,6 +604,25 @@ so Delete, the arrows and Cmd/Ctrl+Z act at once; Enter and Space leave it on th
   keyboard moved it last, the script focus rings the whole canvas; a renderer that hands the focus
   back without the shell (Event Storming, Wardley Maps) therefore focuses the `<svg>` with
   `focusVisible: false`.
+- WebKit, and Firefox on macOS, give a clicked button no focus: its `mousedown` takes the focus off
+  whatever held it, and the `click` finds `<body>` focused. A hand-back must therefore not wait for
+  the clicked control to hold the focus. The zoom panel, the menu and the palette focus the canvas
+  after a pointer click anyway. The toasts, the start screen, the empty-file hint and the legend
+  handed on only a focus they held, so in WebKit the focus stayed on `<body>` after a click on a
+  toast's "Undo" or Close, on the start screen's "New diagram", "Show example" or "Open a file…",
+  on the hint's "Insert example" and on the legend's Close. Now a pointer click on a toast's action
+  or Close calls the fallback (the canvas, on the start screen "New diagram") right away, also past
+  another toast, whose Close takes the focus only after Enter or Space; one on the legend's Close
+  hands it to the trigger. A pointer click on a button of the card or the hint counts as its focus
+  while nothing else has one, until it shows or hides again, so it reaches the canvas also when the
+  card hides after the picked file has loaded, or the hint once the inserted example has arrived
+  from the extension host. The renderers' own palettes, context pads, popups and editors already
+  focus the canvas directly or through diagram-js' `restoreFocus`, which acts exactly when `<body>`
+  has the focus.
+- The shell's `pointer-focus.spec.ts` clicks under that model in every engine: a capture
+  `mousedown` keeps the clicked button from taking the focus and blurs the element that held it.
+  Chromium and WebKit's Linux ports, which CI runs, would focus the button and pass without the
+  hand-back. The `webkit` project runs the spec in WebKit itself as well.
 - Not handed back: the menu trigger, the pill and the primary action open something that takes the
   focus; the legend's close button returns it to the trigger; a problem row already focuses the
   canvas (see [Problems popover](#problems-popover)).

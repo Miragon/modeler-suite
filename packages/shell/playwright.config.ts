@@ -13,7 +13,15 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${DEMO_PORT}`,
     trace: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    // On macOS, WebKit gives a clicked button no focus, as Firefox there does.
+    {
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+      testMatch: "pointer-focus.spec.ts",
+    },
+  ],
   webServer: {
     command: `vite --config demo/vite.config.ts --host 127.0.0.1 --port ${DEMO_PORT} --strictPort`,
     url: `http://127.0.0.1:${DEMO_PORT}`,

@@ -264,6 +264,34 @@ function renderShell(
     if (island.contains(ownerDocument.activeElement)) focusCanvasOrTrigger();
   }
 
+  /**
+   * Whether the island holds the focus as it shows or hides. WebKit and Firefox on macOS do not
+   * focus a button on a pointer click, so a click on the start screen's "New diagram", "Show
+   * example" or "Open a file…" or on the hint's "Insert example" leaves the focus on `<body>`, not
+   * in the island that hands it to the canvas when it hides, also once the modeler has loaded the
+   * file. Until the island shows or hides again, such a click counts as the island's focus while
+   * nothing else has taken it.
+   */
+  function islandFocusTracker(island: HTMLElement | undefined): () => boolean {
+    let clickedByPointer = false;
+    island?.addEventListener(
+      "click",
+      (event) => {
+        if ((event.target as Element | null)?.closest?.("button")) {
+          clickedByPointer = isPointerClick(event);
+        }
+      },
+      true,
+    );
+    return () => {
+      const active = ownerDocument.activeElement;
+      const focusNowhere = active === null || active === ownerDocument.body;
+      const held = (island?.contains(active) ?? false) || (clickedByPointer && focusNowhere);
+      clickedByPointer = false;
+      return held;
+    };
+  }
+
   let zoomTarget: ZoomTarget | null = null;
 
   /**
@@ -284,6 +312,7 @@ function renderShell(
     ? createEmptyHint(ownerDocument, messages, options.emptyHint)
     : undefined;
   if (hint) ledger.defer(() => hint.destroy());
+  const hintHadFocus = islandFocusTracker(hint?.element);
   const emptyState =
     web && options.emptyState
       ? createEmptyState({
@@ -299,6 +328,7 @@ function renderShell(
         })
       : undefined;
   if (emptyState) ledger.defer(() => emptyState.destroy());
+  const cardHadFocus = islandFocusTracker(emptyState?.element);
   const inspector = options.inspector
     ? createInspector(ownerDocument, options.inspector, (open) => {
         setState("data-inspector", open ? "open" : null);
@@ -519,7 +549,7 @@ function renderShell(
   function setEmptyStateShown(shown: boolean): void {
     if (ledger.isClosed || !emptyState || emptyState.isShown() === shown) return;
     const active = ownerDocument.activeElement;
-    const hadFocus = emptyState.element.contains(active);
+    const hadFocus = cardHadFocus();
     // The work chrome and the canvas are about to hide: a focus there would fall to <body>. The
     // legal line and the toasts stay.
     const workHadFocus =
@@ -742,7 +772,10 @@ function renderShell(
     },
     setEmptyHint(visible) {
       if (ledger.isClosed || !hint) return;
-      if (!visible && hint.isShown()) moveFocusOutOf(hint.element);
+      if (visible !== hint.isShown()) {
+        const hadFocus = hintHadFocus();
+        if (hadFocus && !visible) focusCanvasOrTrigger();
+      }
       hint.setShown(visible);
       placeHint();
     },

@@ -365,6 +365,36 @@ describe("mountShell: focus when an island hides (guide §5.14)", () => {
     expect(document.activeElement).toBe(svg);
   });
 
+  // WebKit and Firefox on macOS leave a clicked button unfocused: the click finds `<body>` focused.
+  it("moves the focus to the canvas when the hint hides after a pointer click on Insert example", () => {
+    const { canvas, svg } = canvasWithSvg();
+    const { shell, root } = mount({ canvas, emptyHint: { onInsertExample() {} } });
+    shell.setEmptyHint(true);
+    click(root.querySelector(".cd-shell-hint-action")!, 1);
+    expect(document.activeElement).toBe(document.body);
+    shell.setEmptyHint(false);
+    expect(document.activeElement).toBe(svg);
+  });
+
+  it("forgets the pointer click on Insert example once the hint has hidden or a focus moved on", () => {
+    const { canvas, svg } = canvasWithSvg();
+    const { shell, root } = mount({
+      canvas,
+      emptyHint: { onInsertExample() {} },
+      menu: fullOptions.menu,
+    });
+    shell.setEmptyHint(true);
+    click(root.querySelector(".cd-shell-hint-action")!, 1);
+    shell.menu.trigger.focus();
+    shell.setEmptyHint(false);
+    expect(document.activeElement).toBe(shell.menu.trigger);
+
+    shell.menu.trigger.blur();
+    shell.setEmptyHint(true);
+    shell.setEmptyHint(false);
+    expect(document.activeElement).not.toBe(svg);
+  });
+
   it("moves the focus from a closing inspector to the canvas, else to the menu trigger", () => {
     const { canvas, svg } = canvasWithSvg();
     const { shell } = mount({ canvas, inspector: { label: "Properties" } });

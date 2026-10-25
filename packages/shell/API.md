@@ -880,7 +880,10 @@ interface StatusMessage {
   each of these.
 - `setEmptyHint` shows or hides the hint; `connectDiagramJs` keeps it in sync with the diagram. When
   the hint (its "Insert example") or the closing inspector holds the focus, the focus moves to the
-  canvas `<svg>` (else the menu trigger) instead of falling to `<body>`.
+  canvas `<svg>` (else the menu trigger) instead of falling to `<body>`. A click with mouse, pen or
+  finger on "Insert example" counts as the hint's focus until it shows or hides again, unless
+  something else has taken the focus meanwhile: WebKit and Firefox on macOS give the clicked button
+  none.
 - `tooltip.attach` shows the chrome tooltip after `TOOLTIP_DELAY_MS` hover or at once on keyboard
   focus (`:focus-visible`, also on `aria-disabled` buttons); after a hover-hide a neighbour shows at
   once for the same delay. It hides on click (until the pointer leaves), Escape, leave, blur and menu
@@ -892,7 +895,8 @@ interface StatusMessage {
   stored `legend.open` opens it on mount, at any size; the user opens it from the Model group's
   Legend checkbox or through `legend.setOpen(true)`. The start state does not call `onToggle`.
   While it is open, the fit keeps room for it above 440px width. Its close button returns the focus
-  to the menu trigger.
+  to the menu trigger, also after a click with mouse, pen or finger in WebKit or Firefox on macOS,
+  which give the clicked button no focus.
 - `legendStartsOpen` is deprecated since 0.5: it returns `false` whatever it is given and keeps
   its optional parameters only so existing callers compile. Pass the stored state as `legend.open`
   and leave the default to the shell.
@@ -1565,7 +1569,9 @@ interface ToastHandle {
   the error's 5s), paused while hovered or focused and resumed with at least 1.5s left; a toast with
   an action never closes by itself. A closing toast that held the focus hands it to the next
   toast's Close button, else to the canvas; on the start screen to its "New diagram" (the canvas and
-  the menu trigger cannot take it there), never silently to `<body>`.
+  the menu trigger cannot take it there), never silently to `<body>`. A click with mouse, pen or
+  finger on the action or Close hands it to the canvas (or "New diagram") at once, whether or not
+  the button took the focus: WebKit and Firefox on macOS give a clicked button none.
 - **Bottom row**: the stack sits at `bottom: 12px` (§8) unless the centred column of its widest card
   comes closer than 8px horizontally to a visible zoom panel, legal line or pill; then it stands 8px
   above the highest of those (`toastStackBottom` with `cardWidth`, recomputed in the layout pass,
@@ -1609,7 +1615,10 @@ interface EmptyStateOptions {
   once the file has loaded. Guide §8 states the link, and the browser's chrome keys above, since
   design system 1.15.0 (Miragon/corporate-identity#37).
 - Either button hides the card (`setEmptyState(false)`), moves the focus to the canvas `<svg>` and
-  then runs its handler. `setEmptyState(true)` while the focus is in the work chrome or the canvas
+  then runs its handler, also after a pointer click in WebKit or Firefox on macOS, which give the
+  clicked button no focus. After a pointer click on "Open a file…" the canvas takes the focus when
+  the modeler ends the start screen, unless something else has taken it meanwhile.
+  `setEmptyState(true)` while the focus is in the work chrome or the canvas
   moves it to "New diagram"; a focus on the legal line or a toast stays. The Komet is not draggable
   (an image drag can carry a file and would open the drop zone). Any other start (Open…, a dropped
   file, a shared link, the first edit) is the modeler's to end with `setEmptyState(false)`; the card
