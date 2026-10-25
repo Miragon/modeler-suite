@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.14.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.13.2...team-topologies-v0.14.0) (2026-10-25)
+
+
+### Features
+
+* **shell:** check the production webview bundle under its CSP in the kit ([#156](https://github.com/Miragon/modeler-suite/issues/156)) ([a205a0b](https://github.com/Miragon/modeler-suite/commit/a205a0b9208fbed703b8e210320f847c8b9db607))
+* **shell:** run the kit per document and check that an empty file opens at 100 % with its hint ([#157](https://github.com/Miragon/modeler-suite/issues/157)) ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+* **shell:** treat EditContext and Monaco editors as text fields ([#137](https://github.com/Miragon/modeler-suite/issues/137)) ([ebacfca](https://github.com/Miragon/modeler-suite/commit/ebacfcacbadb6359d6acb2401486a6e9a8da5669))
+* **team-topologies:** export menu content, legend rows and dialogs from the renderer ([#128](https://github.com/Miragon/modeler-suite/issues/128)) ([116cdfe](https://github.com/Miragon/modeler-suite/commit/116cdfeba484b029bfc263c8cc4e63239cb6ceeb))
+
+
+### Bug Fixes
+
+* **context-maps:** show the empty-file hint on an empty map after the web app's start screen ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+* **event-storming:** show the empty-file hint on an empty board after the web app's start screen ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+* **plugin:** show the empty-file hint after "New diagram" in the new-modeler template's web app ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+* **shell:** name a shifted chip's keys for US and German in aria-keyshortcuts ([#154](https://github.com/Miragon/modeler-suite/issues/154)) ([fc2009e](https://github.com/Miragon/modeler-suite/commit/fc2009edad59315cddfa3b5c95c5b3dd05213dd1))
+* **team-topologies:** draw the interaction fills opaque and the palette tooltip in the guide's look ([#150](https://github.com/Miragon/modeler-suite/issues/150)) ([2308a20](https://github.com/Miragon/modeler-suite/commit/2308a20a2258e29412c064082d68c70435cc45f1))
+* **team-topologies:** drop the em dashes from the tt-format checker's report ([#152](https://github.com/Miragon/modeler-suite/issues/152)) ([6e56192](https://github.com/Miragon/modeler-suite/commit/6e56192f0669988cbc86f1ea17589f8997d08432))
+* **team-topologies:** frame label text past its shape in SVG and PNG exports ([#123](https://github.com/Miragon/modeler-suite/issues/123)) ([9cecff4](https://github.com/Miragon/modeler-suite/commit/9cecff41499ad3c77d910a203b000d2c6154768e))
+* **team-topologies:** show palette tooltips at their entry and keep the context pad in the free area ([#130](https://github.com/Miragon/modeler-suite/issues/130)) ([6718bc2](https://github.com/Miragon/modeler-suite/commit/6718bc24bb978e9b75a34c7fd1f32eed60aa6510))
+* **team-topologies:** show the empty-file hint on an empty diagram after the web app's start screen ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+* **team-topologies:** take canvas keys only from the focused canvas ([#141](https://github.com/Miragon/modeler-suite/issues/141)) ([24127e5](https://github.com/Miragon/modeler-suite/commit/24127e57fa6521f493ceb572698aaa98d69cbdf0))
+* **value-chain:** show the empty-file hint on an empty diagram after the web app's start screen ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @miragon/modeler-shell bumped from 0.5.0 to 0.6.0
+
 ## [0.13.2](https://github.com/Miragon/team-topologies-modeler/compare/v0.13.1...v0.13.2) (2026-10-24)
 
 

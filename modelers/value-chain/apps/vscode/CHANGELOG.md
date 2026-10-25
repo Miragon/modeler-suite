@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.2](https://github.com/Miragon/modeler-suite/compare/value-chain-vscode-v0.7.1...value-chain-vscode-v0.7.2) (2026-10-25)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.5.0 to 0.6.0
+    * @miragon/value-chain-renderer bumped from 0.7.1 to 0.7.2
+
 ## [0.7.1](https://github.com/Miragon/value-chain-modeler/compare/vscode-v0.7.0...vscode-v0.7.1) (2026-10-23)
 
 

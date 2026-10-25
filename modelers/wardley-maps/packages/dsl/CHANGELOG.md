@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/Miragon/modeler-suite/compare/wardley-dsl-v0.7.0...wardley-dsl-v0.7.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **wardley-maps:** write diagnostics, toasts and tooltips without em dashes ([#149](https://github.com/Miragon/modeler-suite/issues/149)) ([9ca9a2c](https://github.com/Miragon/modeler-suite/commit/9ca9a2c9671fa4039e3bae89d7e76289af7b8f17))
+
 ## [0.7.0](https://github.com/Miragon/wardley-maps-modeler/compare/dsl-v0.6.0...dsl-v0.7.0) (2026-10-20)
 
 

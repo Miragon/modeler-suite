@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.12.0](https://github.com/Miragon/modeler-suite/compare/wardley-webapp-v0.11.1...wardley-webapp-v0.12.0) (2026-10-25)
+
+
+### Features
+
+* **shell:** treat EditContext and Monaco editors as text fields ([#137](https://github.com/Miragon/modeler-suite/issues/137)) ([ebacfca](https://github.com/Miragon/modeler-suite/commit/ebacfcacbadb6359d6acb2401486a6e9a8da5669))
+
+
+### Bug Fixes
+
+* **wardley-maps:** write diagnostics, toasts and tooltips without em dashes ([#149](https://github.com/Miragon/modeler-suite/issues/149)) ([9ca9a2c](https://github.com/Miragon/modeler-suite/commit/9ca9a2c9671fa4039e3bae89d7e76289af7b8f17))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.5.0 to 0.6.0
+    * @miragon/wardley-dsl bumped from 0.7.0 to 0.7.1
+    * @miragon/wardley-renderer bumped from 0.10.0 to 0.11.0
+
 ## [0.11.1](https://github.com/Miragon/wardley-maps-modeler/compare/webapp-v0.11.0...webapp-v0.11.1) (2026-10-23)
 
 

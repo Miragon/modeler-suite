@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.9.1](https://github.com/Miragon/modeler-suite/compare/context-maps-vscode-v0.9.0...context-maps-vscode-v0.9.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **context-maps:** draw the canvas in the design guide's tokens, with a Lucide team glyph ([#142](https://github.com/Miragon/modeler-suite/issues/142)) ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** keep the description prompt under the palette ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** no em dashes in tooltips, validation messages, the sample title and the walkthrough ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** ship the licence of the Material star and hand with the extension and the web app ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** write a context's name black or white, whichever reads better on its fill ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/context-maps-cml bumped from 0.1.5 to 0.1.6
+    * @miragon/context-maps-renderer bumped from 0.6.0 to 0.6.1
+    * @miragon/context-maps-schema-model bumped from 0.4.0 to 0.4.1
+    * @miragon/modeler-shell bumped from 0.5.0 to 0.6.0
+
 ## [0.9.0](https://github.com/Miragon/context-maps-modeler/compare/vscode-v0.8.1...vscode-v0.9.0) (2026-10-23)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.1](https://github.com/Miragon/modeler-suite/compare/context-maps-schema-model-v0.4.0...context-maps-schema-model-v0.4.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **context-maps:** draw the canvas in the design guide's tokens, with a Lucide team glyph ([#142](https://github.com/Miragon/modeler-suite/issues/142)) ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** give every notation text 4.5:1 and every notation line 3:1 contrast ([#155](https://github.com/Miragon/modeler-suite/issues/155)) ([6b83c8c](https://github.com/Miragon/modeler-suite/commit/6b83c8cc2245a7ca956f295efed07653e93946bc))
+* **context-maps:** keep the description prompt under the palette ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** no em dashes in tooltips, validation messages, the sample title and the walkthrough ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** ship the licence of the Material star and hand with the extension and the web app ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** write a context's name black or white, whichever reads better on its fill ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+
 ## [0.4.0](https://github.com/Miragon/context-maps-modeler/compare/schema-model-v0.3.0...schema-model-v0.4.0) (2026-10-21)
 
 

@@ -80,7 +80,7 @@
     "@miragon/__NOTATION__-dsl": "0.0.0",
     "@miragon/__NOTATION__-renderer": "0.0.0",
     "@miragon/__NOTATION__-schema-model": "0.0.0",
-    "@miragon/modeler-shell": "0.5.0",
+    "@miragon/modeler-shell": "0.6.0",
     "diagram-js": "15.28.1",
     "didi": "12.0.0",
     "tiny-svg": "4.1.4",

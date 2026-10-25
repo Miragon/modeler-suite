@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/Miragon/modeler-suite/compare/modeler-api-v1.3.0...modeler-api-v1.4.0) (2026-10-25)
+
+
+### Features
+
+* **api:** recommend that keys stay on the canvas, with a conformance case ([#164](https://github.com/Miragon/modeler-suite/issues/164)) ([ab21edf](https://github.com/Miragon/modeler-suite/commit/ab21edf31e37020b67ddd851c6c10adb58d0ddee))
+
 ## [1.3.0](https://github.com/Miragon/modeler-api/compare/modeler-api-v1.2.0...modeler-api-v1.3.0) (2026-10-23)
 
 

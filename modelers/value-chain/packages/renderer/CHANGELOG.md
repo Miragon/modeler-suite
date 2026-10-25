@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.7.2](https://github.com/Miragon/modeler-suite/compare/value-chain-renderer-v0.7.1...value-chain-renderer-v0.7.2) (2026-10-25)
+
+
+### Bug Fixes
+
+* **value-chain:** fill shapes with palette and status colours, labels in black or white ([#134](https://github.com/Miragon/modeler-suite/issues/134)) ([8b521de](https://github.com/Miragon/modeler-suite/commit/8b521dea195d0e81a97ec4619329803cf76c9b89))
+* **value-chain:** include overflowing label text in contentBounds() and the SVG export ([#124](https://github.com/Miragon/modeler-suite/issues/124)) ([05fa444](https://github.com/Miragon/modeler-suite/commit/05fa444d5736d7466eebc5ae872760b5e70e8d72))
+* **value-chain:** leave handled keys alone and refocus the canvas after a palette or pad click ([#140](https://github.com/Miragon/modeler-suite/issues/140)) ([cdec359](https://github.com/Miragon/modeler-suite/commit/cdec359a21c867e7131a07957d164a2a783a756d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.3.0 to 1.4.0
+
 ## [0.7.1](https://github.com/Miragon/value-chain-modeler/compare/renderer-v0.7.0...renderer-v0.7.1) (2026-10-23)
 
 

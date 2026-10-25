@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/Miragon/modeler-suite/compare/event-storming-schema-model-v0.2.2...event-storming-schema-model-v0.2.3) (2026-10-25)
+
+
+### Bug Fixes
+
+* **event-storming:** drop the em dashes from the board validation messages ([#144](https://github.com/Miragon/modeler-suite/issues/144)) ([bbfa51b](https://github.com/Miragon/modeler-suite/commit/bbfa51bf896357370398bf2acf58f90676df1d52))
+
 ## [0.2.2](https://github.com/Miragon/event-storming-modeler/compare/schema-model-v0.2.1...schema-model-v0.2.2) (2026-10-22)
 
 
