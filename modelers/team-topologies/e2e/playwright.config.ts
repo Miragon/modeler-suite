@@ -19,7 +19,9 @@ const FOCUS_HAND_BACK_SPEC = "focus-hand-back.spec.ts";
  *
  * Both hosts run the focus hand-back cases in WebKit too (`webapp-webkit`, `vscode-webview-webkit`):
  * Safari, and vscode.dev in Safari, do not focus a button on a click, so there a control has to
- * hand the focus to the canvas without ever having held it.
+ * hand the focus to the canvas without ever having held it. Playwright's WebKit on Linux, as in CI,
+ * probably focuses a clicked button like Chromium does, unlike Safari on macOS; there the guard is
+ * the inspector's unit cases that click a button without focusing it first.
  */
 export default defineConfig({
   testDir: "./tests",
