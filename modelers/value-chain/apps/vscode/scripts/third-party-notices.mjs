@@ -3,9 +3,9 @@
 // Lucide icons the renderer and the shell inline. `node scripts/third-party-notices.mjs --check`
 // fails when the committed file is stale; the unit test runs that check.
 import * as esbuild from "esbuild";
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -123,13 +123,21 @@ function licenseText(directory) {
   return readFileSync(join(directory, file), "utf8").replace(/\r\n?/g, "\n").trim();
 }
 
+// The suite's own workspace packages (the contract, the shell) are Miragon's, under the same MIT
+// license as this extension, and every suite release bumps their version: with it in their heading,
+// each release pull request would find this file stale.
+function isSuiteWorkspacePackage(directory) {
+  return !realpathSync(directory).split(sep).includes("node_modules");
+}
+
 export async function noticesText() {
   const require = createRequire(import.meta.url);
   const sections = [];
   for (const [name, directory] of await bundledPackages()) {
     const manifest = require(join(directory, "package.json"));
+    const heading = isSuiteWorkspacePackage(directory) ? name : `${name} ${manifest.version}`;
     sections.push(
-      `## ${name} ${manifest.version} (${manifest.license})\n\n\`\`\`text\n${licenseText(directory)}\n\`\`\`\n`,
+      `## ${heading} (${manifest.license})\n\n\`\`\`text\n${licenseText(directory)}\n\`\`\`\n`,
     );
   }
   return [
