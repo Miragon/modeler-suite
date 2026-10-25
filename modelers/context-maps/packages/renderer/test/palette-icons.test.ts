@@ -14,7 +14,7 @@ import {
   subdomainIconSvg,
 } from "../src/draw/palette-icons.js";
 import { markFill } from "../src/draw/relationshipColours.js";
-import { NEUTRAL_STROKE } from "../src/draw/styles.js";
+import { NEUTRAL_FILL, NEUTRAL_STROKE } from "../src/draw/styles.js";
 
 /**
  * The glyphs are exported for host chrome (an inspector, say), so a host may hand them a value it
@@ -130,13 +130,23 @@ describe("palette icons: a value a host hands in stays a value", () => {
   });
 
   it.each([...HOSTILE_TEXTS, ...PROTOTYPE_KEYS])(
-    "an unknown subdomain type %j draws the unclassified glyphs",
+    "an unknown subdomain type %j draws the unclassified box and the neutral dotted circle",
     (type) => {
       const unknownType = type as SubdomainType;
       expectOnlyGlyphMarkup(contextIconSvg(unknownType));
       expectOnlyGlyphMarkup(subdomainIconSvg(unknownType));
       expect(contextIconSvg(unknownType)).toBe(contextIconSvg());
       expect(subdomainIconSvg(unknownType)).toBe(subdomainIconSvg("no-such-type" as SubdomainType));
+      for (const root of parsed(contextIconSvg(unknownType))) {
+        expect(root.querySelectorAll("*")).toHaveLength(1);
+        expect(root.querySelector("rect")?.getAttribute("fill")).toBe(NEUTRAL_FILL);
+        expect(root.querySelector("rect")?.getAttribute("stroke")).toBe(NEUTRAL_STROKE);
+      }
+      for (const root of parsed(subdomainIconSvg(unknownType))) {
+        expect(root.querySelectorAll("*")).toHaveLength(1);
+        expect(root.querySelector("circle")?.getAttribute("stroke")).toBe(NEUTRAL_STROKE);
+        expect(root.querySelector("circle")?.getAttribute("stroke-dasharray")).toBeTruthy();
+      }
     },
   );
 

@@ -199,8 +199,9 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
 - **Palette icon generators:** `contextIconSvg(type)`, `subdomainIconSvg(type, size)`,
   `roleChipSvg(role)`, `relationshipIconSvg(pattern, size)`: WYSIWYG SVG glyphs matching what the
   canvas draws, as markup for `innerHTML`. They take values read from an unvalidated document: an
-  unknown type draws the unclassified box, an unknown pattern the upstream-downstream line, a size
-  that is no positive number the default size, and a role becomes escaped text.
+  unknown type draws the unclassified box (`contextIconSvg`) or the neutral dotted circle
+  (`subdomainIconSvg`), an unknown pattern the upstream-downstream line, a size that is not a finite
+  positive number the default size, and a role becomes escaped text.
 - **Other:** `CmViewerOptions`, `ImportWarning`, `RootBusinessObject`, `ROOT_ID`, `saveSVG`.
 
 ## How it's built

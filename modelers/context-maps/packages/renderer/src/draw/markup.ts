@@ -19,7 +19,6 @@ const MARKUP_ENTITIES: Readonly<Record<string, string>> = {
   "'": "&#39;",
 };
 
-/** Text or an attribute value with every character that could end it written as an entity. */
 export function escapeMarkup(value: string): string {
   return value.replace(/[&<>"']/g, (character) => MARKUP_ENTITIES[character] ?? character);
 }
@@ -28,7 +27,10 @@ export function markupText(text: string): Markup {
   return escapeMarkup(String(text)) as Markup;
 }
 
-/** An element whose `undefined` attributes are left out. */
+/**
+ * Skips `undefined` attributes, so an optional value such as a solid line's dash writes no
+ * attribute rather than "undefined".
+ */
 export function markupElement(
   name: string,
   attributes: MarkupAttributes,

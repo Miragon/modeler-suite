@@ -2,9 +2,10 @@
  * Tiny inline-SVG glyphs for the palette / legend — the same shapes the canvas
  * draws (contexts coloured by subdomain, plus a relationship line). Returned as
  * HTML strings for diagram-js palette `html`. Hosts may pass values read from an
- * unvalidated document: an unknown type draws the unclassified box, an unknown
- * pattern the upstream-downstream line, a size that is no positive number the
- * default size, and a role stays text.
+ * unvalidated document: an unknown type draws the unclassified box
+ * (`contextIconSvg`) or the neutral dotted circle (`subdomainIconSvg`), an
+ * unknown pattern the upstream-downstream line, a size that is not a finite
+ * positive number the default size, and a role stays text.
  */
 
 import {
