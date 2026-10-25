@@ -72,6 +72,8 @@ export interface FlowSpec {
   minSize: Size;
 }
 
+// The official notation colours (Team-Shape-Templates, above): foreign notation, guide §10.6.
+// brand-lint-disable
 export const TEAM_TYPE_SPECS: Record<TeamType, TeamTypeSpec> = {
   "stream-aligned": {
     type: "stream-aligned",
@@ -187,6 +189,7 @@ export const FLOW_SPEC: FlowSpec = {
   defaultSize: { width: 520, height: 64 },
   minSize: { width: 160, height: 36 },
 };
+// brand-lint-enable
 
 /**
  * A text annotation — not part of the Team Topologies notation, so it carries

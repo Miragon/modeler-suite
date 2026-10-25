@@ -1,4 +1,4 @@
-# @miragon/modeler-shell 0.3 — public API
+# @miragon/modeler-shell 0.3: public API
 
 The shared, framework-free implementation of everything around a Miragon diagram-js modeler: menu
 button with dropdown, horizontal palette skin, chrome tooltip, zoom panel, zoom and fit keys, fit,
@@ -72,7 +72,7 @@ import "@miragon/modeler-shell/shell.css"; // last
 
 A bundle ships the fonts as files, not as data URLs (see `./vscode/extension`).
 
-## `./core` — DOM-free
+## `./core`: DOM-free
 
 Compiles without the DOM library (`tsconfig.core.json`), usable in the extension host and in workers.
 
@@ -333,8 +333,8 @@ function shortcutKeyKind(label: string): ShortcutKeyKind | undefined; // 0.6: ho
 function commandKeyLabel(key: string, platform: Platform, keyNames: { ctrl: string }): string; // "⌘O", "Ctrl+O"
 ```
 
-`matchChromeKey` (§5.8) — Cmd/Ctrl is `metaKey || ctrlKey` on every platform, nothing matches with
-`altKey` (AltGr):
+`matchChromeKey` (§5.8) reads Cmd/Ctrl as `metaKey || ctrlKey` on every platform and matches nothing
+with `altKey` (AltGr):
 
 | Chrome key     | Matches                                                                    |
 | -------------- | -------------------------------------------------------------------------- |
@@ -350,7 +350,7 @@ it. `stopPropagation` is only ever `true` in the `ide` host.
 | --------------------------------------------------------- | ----------- | -------------- | ----------------------- |
 | Escape (no modifier), menu open, not composing            | `closeMenu` | yes            | yes                     |
 | Escape, popover or dialog open, or menu open while IME    | —           | no             | yes                     |
-| zoom key or Shift+1 behind the web app's start screen     | —           | no             | — (web only)            |
+| zoom key or Shift+1 behind the web app's start screen     | —           | no             | n/a (web only)          |
 | zoom key, not composing, not in a text field, no modal    | the key     | yes            | yes                     |
 | zoom key while composing, in a text field or with a modal | —           | no             | yes                     |
 | Shift+1, not composing, not in a text field, no modal     | `fit`       | yes            | yes                     |
@@ -546,7 +546,7 @@ The web column's DOM-free parts are in `./core` as well, documented with their i
 `parseAppearanceChoice`, `documentMode`, `webModeScript` and `webHeadMarkup` (mode; they run in a
 Vite config or a build script), `problemSummary` (problems popover).
 
-## `.` — the chrome
+## `.`: the chrome
 
 Exports everything of `./core` plus:
 
@@ -2417,7 +2417,7 @@ affected.
   }
   ```
 
-### `./testing/vscode-stub` — the `ide` host without VS Code
+### `./testing/vscode-stub`: the `ide` host without VS Code
 
 ```ts
 type ColorThemeKind = 1 | 2 | 3 | 4;
@@ -2507,7 +2507,7 @@ for `window.webviewReady`. `ready`, `webviewReady` and the window globals are th
 shell's: its webview module exports `ready`, resolved once the first `init` import settled, and the
 test page turns it into the flag (the Event Storming `main.ts` below exports it).
 
-### `./testing/webview-bundle` — the production bundle under the webview CSP (0.6)
+### `./testing/webview-bundle`: the production bundle under the webview CSP (0.6)
 
 ```ts
 const WEBVIEW_BUNDLE_ORIGIN = "https://webview.test"; // the page's origin and cspSource
@@ -2588,7 +2588,7 @@ Pass what the extension passes `renderWebviewHtml` (`title`, `body`, `styles`, `
 the page runs under the policy the extension ships. The stub's script is an IIFE in `dist` next to
 this entry; `stubScript` replaces it, as the shell's own e2e suite does with a build from source.
 
-### `./testing/vscode-electron` — smoke tests in a real VS Code (0.3)
+### `./testing/vscode-electron`: smoke tests in a real VS Code (0.3)
 
 The stub above stands in for VS Code; this entry starts the real one. It downloads VS Code with
 `@vscode/test-electron`, starts it through Playwright's Electron support with the modeler's built

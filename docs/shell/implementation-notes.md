@@ -1,4 +1,4 @@
-# @miragon/modeler-shell — implementation notes
+# @miragon/modeler-shell: implementation notes
 
 `@miragon/modeler-shell` is the shared, framework-free implementation of everything around a
 Miragon diagram-js modeler: menu button, tool palette, tooltips, zoom panel, keys, fit, problems pill,

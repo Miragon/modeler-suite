@@ -63,6 +63,8 @@ export interface RelationshipPatternSpec {
  * two never drift. OHS and ACL sit just dark enough for white text at 4.5:1; the
  * renderer writes black or white on each role chip, whichever has more contrast.
  */
+// Foreign notation colours (guide §10.6), not brand colours; the renderer tests their contrast.
+// brand-lint-disable
 export const MARK_COLORS: Record<string, string> = {
   OHS: "#B0621C", // Open Host Service — warm brown/red
   PL: "#c99a2e", // Published Language — gold
@@ -73,6 +75,7 @@ export const MARK_COLORS: Record<string, string> = {
   S: "#17807f", // Supplier (upstream side) — teal
   C: "#5c6b7a", // Customer (downstream side) — slate
 };
+// brand-lint-enable
 
 export const UPSTREAM_MARK_COLOR = MARK_COLORS.U;
 export const DOWNSTREAM_MARK_COLOR = MARK_COLORS.D;
@@ -116,6 +119,8 @@ export const DOWNSTREAM_ROLE_SPECS: Record<DownstreamRole, { label: string; desc
     },
   };
 
+// Foreign notation colours (guide §10.6), not brand colours; the renderer tests their contrast.
+// brand-lint-disable
 export const SUBDOMAIN_TYPE_SPECS: Record<SubdomainType, SubdomainTypeSpec> = {
   core: {
     type: "core",
@@ -201,6 +206,7 @@ export const RELATIONSHIP_PATTERN_SPECS: Record<RelationshipPattern, Relationshi
     strokeWidth: 1.6,
   },
 };
+// brand-lint-enable
 
 /** Maps a stroke style to an SVG/CSS dash array (empty string = solid). */
 export function dashArray(style: StrokeStyle, strokeWidth = 2): string {
