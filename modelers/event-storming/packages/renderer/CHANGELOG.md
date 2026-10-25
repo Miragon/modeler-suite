@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.1](https://github.com/Miragon/modeler-suite/compare/event-storming-renderer-v0.5.0...event-storming-renderer-v0.5.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **event-storming:** darken the sticky and note borders to 3:1 on the canvas ground, each in its own hue ([d1bd6c3](https://github.com/Miragon/modeler-suite/commit/d1bd6c32730e0827319adfdb3e17e23452ec288c))
+* **event-storming:** deprecate MIRAGON.navy, which no part of the modeler draws ([d1bd6c3](https://github.com/Miragon/modeler-suite/commit/d1bd6c32730e0827319adfdb3e17e23452ec288c))
+* **event-storming:** draw the canvas in the design guide's greys and contrasts ([#143](https://github.com/Miragon/modeler-suite/issues/143)) ([d1bd6c3](https://github.com/Miragon/modeler-suite/commit/d1bd6c32730e0827319adfdb3e17e23452ec288c))
+* **event-storming:** take board keys only from the focused canvas ([#138](https://github.com/Miragon/modeler-suite/issues/138)) ([9d280a7](https://github.com/Miragon/modeler-suite/commit/9d280a721054d9ab009d764dd66ded911c8c20bf))
+* **event-storming:** write sticky text in black or white, whichever reads better on a fill the user sets ([d1bd6c3](https://github.com/Miragon/modeler-suite/commit/d1bd6c32730e0827319adfdb3e17e23452ec288c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/event-storming-dsl bumped from 0.3.1 to 0.3.2
+    * @miragon/event-storming-schema-model bumped from 0.2.2 to 0.2.3
+    * @miragon/modeler-api bumped from 1.3.0 to 1.4.0
+
 ## [0.5.0](https://github.com/Miragon/event-storming-modeler/compare/renderer-v0.4.1...renderer-v0.5.0) (2026-10-23)
 
 

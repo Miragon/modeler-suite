@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.6.1](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.6.0...context-maps-renderer-v0.6.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **context-maps:** build the palette glyphs from escaped values only ([#166](https://github.com/Miragon/modeler-suite/issues/166)) ([9362103](https://github.com/Miragon/modeler-suite/commit/93621034df4c1f81ee6b1bcf6df5bd68f1b43bcb))
+* **context-maps:** draw the canvas in the design guide's tokens, with a Lucide team glyph ([#142](https://github.com/Miragon/modeler-suite/issues/142)) ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** give every notation text 4.5:1 and every notation line 3:1 contrast ([#155](https://github.com/Miragon/modeler-suite/issues/155)) ([6b83c8c](https://github.com/Miragon/modeler-suite/commit/6b83c8cc2245a7ca956f295efed07653e93946bc))
+* **context-maps:** keep the description prompt under the palette ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** no em dashes in tooltips, validation messages, the sample title and the walkthrough ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** ship the licence of the Material star and hand with the extension and the web app ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+* **context-maps:** take canvas keys only from the focused canvas ([#133](https://github.com/Miragon/modeler-suite/issues/133)) ([f045f5a](https://github.com/Miragon/modeler-suite/commit/f045f5a6a38ec0659ee730059894e3059cb38c6f))
+* **context-maps:** write a context's name black or white, whichever reads better on its fill ([3ed7813](https://github.com/Miragon/modeler-suite/commit/3ed781315b92d44cd6385fa16d50beede2e30515))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/context-maps-schema-model bumped from 0.4.0 to 0.4.1
+    * @miragon/modeler-api bumped from 1.3.0 to 1.4.0
+
 ## [0.6.0](https://github.com/Miragon/context-maps-modeler/compare/renderer-v0.5.0...renderer-v0.6.0) (2026-10-23)
 
 

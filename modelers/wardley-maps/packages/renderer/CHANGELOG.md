@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.11.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.10.0...wardley-renderer-v0.11.0) (2026-10-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* **wardley-maps:** Wardley Maps' canvas acts on keys only while its `<svg>` has the focus. Cmd/Ctrl+Z, Cmd/Ctrl+Y and the single-key tools C, U, N, P, L and A no longer act from a focused host button, and no key acts while the page itself (`<body>`) has the focus, for example before the first click on the canvas or after a click on page text. A host that hides the canvas without destroying it makes it `inert`.
+
+### Bug Fixes
+
+* **wardley-maps:** deprecate MIRAGON.navy ([aa5f58f](https://github.com/Miragon/modeler-suite/commit/aa5f58f78bd4a357ea67a8b717e880630eaabf0c))
+* **wardley-maps:** draw the context pad with Lucide icons ([#147](https://github.com/Miragon/modeler-suite/issues/147)) ([aa5f58f](https://github.com/Miragon/modeler-suite/commit/aa5f58f78bd4a357ea67a8b717e880630eaabf0c))
+* **wardley-maps:** fill annotation markers with the plot white of every element ([aa5f58f](https://github.com/Miragon/modeler-suite/commit/aa5f58f78bd4a357ea67a8b717e880630eaabf0c))
+* **wardley-maps:** keep the caret in a link editor reopened by an import ([#121](https://github.com/Miragon/modeler-suite/issues/121)) ([5116b15](https://github.com/Miragon/modeler-suite/commit/5116b15738f23e8b6cec5d094e42d465710574bf))
+* **wardley-maps:** take canvas keys only from the focused canvas ([#136](https://github.com/Miragon/modeler-suite/issues/136)) ([209a412](https://github.com/Miragon/modeler-suite/commit/209a412378d3e82f94f3040ae43abe90a8b17a1d))
+* **wardley-maps:** write diagnostics, toasts and tooltips without em dashes ([#149](https://github.com/Miragon/modeler-suite/issues/149)) ([9ca9a2c](https://github.com/Miragon/modeler-suite/commit/9ca9a2c9671fa4039e3bae89d7e76289af7b8f17))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.3.0 to 1.4.0
+    * @miragon/wardley-dsl bumped from 0.7.0 to 0.7.1
+
 ## [0.10.0](https://github.com/Miragon/wardley-maps-modeler/compare/renderer-v0.9.1...renderer-v0.10.0) (2026-10-23)
 
 

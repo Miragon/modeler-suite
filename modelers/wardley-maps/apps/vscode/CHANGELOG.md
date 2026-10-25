@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.11.2](https://github.com/Miragon/modeler-suite/compare/wardley-vscode-v0.11.1...wardley-vscode-v0.11.2) (2026-10-25)
+
+
+### Bug Fixes
+
+* **wardley-maps:** deprecate MIRAGON.navy ([aa5f58f](https://github.com/Miragon/modeler-suite/commit/aa5f58f78bd4a357ea67a8b717e880630eaabf0c))
+* **wardley-maps:** draw the context pad with Lucide icons ([#147](https://github.com/Miragon/modeler-suite/issues/147)) ([aa5f58f](https://github.com/Miragon/modeler-suite/commit/aa5f58f78bd4a357ea67a8b717e880630eaabf0c))
+* **wardley-maps:** fill annotation markers with the plot white of every element ([aa5f58f](https://github.com/Miragon/modeler-suite/commit/aa5f58f78bd4a357ea67a8b717e880630eaabf0c))
+* **wardley-maps:** write diagnostics, toasts and tooltips without em dashes ([#149](https://github.com/Miragon/modeler-suite/issues/149)) ([9ca9a2c](https://github.com/Miragon/modeler-suite/commit/9ca9a2c9671fa4039e3bae89d7e76289af7b8f17))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.5.0 to 0.6.0
+    * @miragon/wardley-dsl bumped from 0.7.0 to 0.7.1
+    * @miragon/wardley-renderer bumped from 0.10.0 to 0.11.0
+
 ## [0.11.1](https://github.com/Miragon/wardley-maps-modeler/compare/vscode-v0.11.0...vscode-v0.11.1) (2026-10-23)
 
 

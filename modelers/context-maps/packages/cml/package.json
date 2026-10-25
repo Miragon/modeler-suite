@@ -1,6 +1,6 @@
 {
   "name": "@miragon/context-maps-cml",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Convert between the Context Mapper CML text format and the Context Maps model (import/export of the strategic-DDD context-mapping subset).",
   "license": "MIT",
   "repository": {
@@ -34,6 +34,6 @@
     "test": "npm --prefix ../.. run test"
   },
   "dependencies": {
-    "@miragon/context-maps-schema-model": "0.4.0"
+    "@miragon/context-maps-schema-model": "0.4.1"
   }
 }

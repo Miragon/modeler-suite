@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.6.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.5.0...modeler-shell-v0.6.0) (2026-10-25)
+
+
+### Features
+
+* **shell:** check reduced motion, forced colours and canvas overlay layers in the kit ([#146](https://github.com/Miragon/modeler-suite/issues/146)) ([26137c3](https://github.com/Miragon/modeler-suite/commit/26137c336ca2e9e0c26e0866a6dbb15499a6f456))
+* **shell:** check the production webview bundle under its CSP in the kit ([#156](https://github.com/Miragon/modeler-suite/issues/156)) ([a205a0b](https://github.com/Miragon/modeler-suite/commit/a205a0b9208fbed703b8e210320f847c8b9db607))
+* **shell:** report the webview's errors and fail fast when the smoke open fails ([#129](https://github.com/Miragon/modeler-suite/issues/129)) ([cdeab61](https://github.com/Miragon/modeler-suite/commit/cdeab612168cf9969cb53fd99858667961957ab7))
+* **shell:** run the kit per document and check that an empty file opens at 100 % with its hint ([#157](https://github.com/Miragon/modeler-suite/issues/157)) ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+* **shell:** treat EditContext and Monaco editors as text fields ([#137](https://github.com/Miragon/modeler-suite/issues/137)) ([ebacfca](https://github.com/Miragon/modeler-suite/commit/ebacfcacbadb6359d6acb2401486a6e9a8da5669))
+
+
+### Bug Fixes
+
+* **context-maps:** show the empty-file hint on an empty map after the web app's start screen ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+* **event-storming:** show the empty-file hint on an empty board after the web app's start screen ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+* **plugin:** read the new-modeler template's title line in linear time ([092350c](https://github.com/Miragon/modeler-suite/commit/092350c085eec0990932d8a33ff71a207d471b10))
+* **plugin:** show the empty-file hint after "New diagram" in the new-modeler template's web app ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+* **shell:** address the CodeQL alerts in the webview HTML, keymap and sizes ([#126](https://github.com/Miragon/modeler-suite/issues/126)) ([092350c](https://github.com/Miragon/modeler-suite/commit/092350c085eec0990932d8a33ff71a207d471b10))
+* **shell:** fit once more when an open legend settles after the first fit ([#131](https://github.com/Miragon/modeler-suite/issues/131)) ([586b623](https://github.com/Miragon/modeler-suite/commit/586b62302ad361959a33554e34f0d24cdff724ac))
+* **shell:** hand the focus on after a click on a toast, the start screen, the hint or the legend in WebKit ([#165](https://github.com/Miragon/modeler-suite/issues/165)) ([ee9ce11](https://github.com/Miragon/modeler-suite/commit/ee9ce113e89889e09aa1d2146b3f9e887011d10a))
+* **shell:** name a shifted chip's keys for US and German in aria-keyshortcuts ([#154](https://github.com/Miragon/modeler-suite/issues/154)) ([fc2009e](https://github.com/Miragon/modeler-suite/commit/fc2009edad59315cddfa3b5c95c5b3dd05213dd1))
+* **shell:** take the view off 100 % before the labelEditor case's Cmd/Ctrl+0 ([#127](https://github.com/Miragon/modeler-suite/issues/127)) ([66b9d9e](https://github.com/Miragon/modeler-suite/commit/66b9d9eb6fbc07f37ad8f50288e0d09d134a89fe))
+* **team-topologies:** show the empty-file hint on an empty diagram after the web app's start screen ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+* **value-chain:** show the empty-file hint on an empty diagram after the web app's start screen ([1fe2a53](https://github.com/Miragon/modeler-suite/commit/1fe2a53470f9401b7a29878a509511b8b77cdfe3))
+
 ## [0.5.0](https://github.com/Miragon/modeler-api/compare/modeler-shell-v0.4.1...modeler-shell-v0.5.0) (2026-10-23)
 
 
