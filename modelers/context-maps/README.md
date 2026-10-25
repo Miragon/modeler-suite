@@ -16,7 +16,7 @@ lossless, version-controllable files, all around the Context Maps notation, as
 
 **[Try the web app →](https://context-maps.modeler.miragon.io)**
 
-![The Context Maps editor](docs/screenshots/editor.png)
+![In the Context Maps web app, the example opens and the User Access context is dragged down while its relationship follows](docs/demo.gif)
 
 ![The Context Maps editor in VS Code](docs/screenshots/vscode-editor.png)
 

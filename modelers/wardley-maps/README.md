@@ -10,7 +10,7 @@ VS Code extension and a web app, all built on [diagram-js](https://github.com/bp
 
 **[Try the web app →](https://wardley-maps.modeler.miragon.io)**
 
-![The Wardley Maps editor](docs/screenshots/editor.png)
+![In the Wardley Maps web app, the example opens and the custom-built Kettle is dragged towards product, along evolution](docs/demo.gif)
 
 ## Install
 

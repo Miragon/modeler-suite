@@ -11,7 +11,7 @@ TypeScript library, a VS Code extension, and a web app, all built on
 
 **[Try the web app →](https://event-storming.modeler.miragon.io)**
 
-![The Event Storming editor](docs/screenshots/editor.png)
+![In the Event Storming web app, the example board opens and a new domain event "Payment captured" is placed and named](docs/demo.gif)
 
 ## Install
 

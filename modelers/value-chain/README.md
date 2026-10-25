@@ -10,7 +10,7 @@ renderer implements the collaborative-modeler contract
 ([`@miragon/modeler-api`](https://www.npmjs.com/package/@miragon/modeler-api)) for
 collaborative hosts.
 
-![Modeler](docs/screenshot.png)
+![In the Value Chain web app, the example opens and the Entwicklung support activity is dragged to the right while its link follows](docs/demo.gif)
 
 ## Notation
 
