@@ -857,12 +857,12 @@ instead.
 Run from the repository root (`-w packages/shell` for this package only):
 
 ```sh
-npm run build -w packages/shell       # tsup: ESM + CJS + d.ts, dist/shell.css
-npm run typecheck -w packages/shell   # src, core without the DOM library, demo
-npm test -w packages/shell            # Vitest: node (core, boundaries) and happy-dom projects
-npx playwright install chromium       # once
-npm run test:e2e -w packages/shell    # Playwright against demo/
-npm run demo -w packages/shell        # the demo page on http://localhost:5181
+npm run build -w packages/shell         # tsup: ESM + CJS + d.ts, dist/shell.css
+npm run typecheck -w packages/shell     # src, core without the DOM library, demo
+npm test -w packages/shell              # Vitest: node (core, boundaries) and happy-dom projects
+npx playwright install chromium webkit  # once; webkit for e2e/pointer-focus.spec.ts
+npm run test:e2e -w packages/shell      # Playwright against demo/
+npm run demo -w packages/shell          # the demo page on http://localhost:5181
 ```
 
 The demo page (`demo/`) is a small diagram-js modeler around the shell. Its query parameters choose
@@ -891,7 +891,10 @@ VS Code's reduce motion, the chrome's typography against VS Code's default style
 foreign page, the canvas slot's paint and focus ring, the web chrome's colours, radii and states
 (primary action, legal line, toasts, drop zone, empty state, high contrast and forced colours),
 the web demo's own handlers and the demo's production bundle under the webview CSP, and proves with
-saboteurs that every case of the kit fails when its rule is broken.
+saboteurs that every case of the kit fails when its rule is broken. Its projects are `chromium` and
+`webkit`, which runs only `pointer-focus.spec.ts`: where the focus goes after a click on the start
+screen, a toast, the empty-file hint or the legend under the click model of WebKit and Firefox on
+macOS, which give a clicked button no focus.
 
 | Directory                               | Module                                                                                     |
 | --------------------------------------- | ------------------------------------------------------------------------------------------ |

@@ -5,6 +5,7 @@ import {
   FakeResizeObserver,
   chrome,
   cleanup,
+  click,
   fakePalette,
   installFakes,
   mount,
@@ -198,6 +199,18 @@ describe("legend (guide §5.10)", () => {
     shell.legend?.toggle();
     shell.legend?.setOpen(true);
     expect(onToggle.mock.calls).toEqual([[false], [true]]);
+  });
+
+  // WebKit and Firefox on macOS leave a clicked button unfocused: the click finds `<body>` focused.
+  it("moves the focus to the trigger after a pointer click on its button, though the button took none", () => {
+    const { shell, root } = mount({
+      legend: { render() {}, open: true },
+      menu: { export: [{ kind: "action", id: "png", label: "Export as PNG", onSelect() {} }] },
+    });
+    expect(document.activeElement).toBe(document.body);
+    click(chrome(root, "legend").querySelector(".cd-shell-legend-close")!, 1);
+    expect(shell.legend?.isOpen()).toBe(false);
+    expect(document.activeElement).toBe(shell.menu.trigger);
   });
 });
 

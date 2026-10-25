@@ -23,7 +23,7 @@ Node `^22.22.2` or `>=24.15.0` and npm. From the repository root:
 ```sh
 npm ci                              # every workspace; also installs the pre-commit hook
 npm run build:shared                # @miragon/modeler-api and @miragon/modeler-shell
-npx playwright install chromium webkit  # once; WebKit only for Context Maps' and Team Topologies' e2e
+npx playwright install chromium webkit  # once; WebKit only for the e2e of the shell, Context Maps and Team Topologies
 ```
 
 The modelers link the workspace's `@miragon/modeler-api` and `@miragon/modeler-shell` and read
@@ -115,7 +115,8 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   hosts (`webapp-webkit`, `vscode-webview-webkit`). `-- --project=<name>` runs one project. A
   running server on a port is reused, so pick free ports when another checkout runs its suite:
   `E2E_PORT=6101 E2E_WEBVIEW_PORT=6111 npm run wardley-maps test:e2e`. `npm run test:e2e:shared`
-  runs the shell's own suite against its demo.
+  runs the shell's own suite against its demo, in Chromium and its pointer-focus cases in WebKit
+  too.
 - **VS Code smoke test:** `npm run <modeler> test:vscode` (the Vitest project `vscode`, never part
   of `npm test`) packs the extension as the release does (`vsce package --no-dependencies`, which
   runs `vscode:prepublish`, the production build), unpacks the VSIX outside the repository, so a

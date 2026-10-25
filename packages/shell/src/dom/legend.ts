@@ -1,5 +1,5 @@
 import type { ShellMessages } from "../core/index.js";
-import { createElement } from "./element.js";
+import { createElement, isPointerClick } from "./element.js";
 import { iconElement } from "./icons.js";
 import type { TooltipController } from "./tooltip.js";
 import type { LegendHandle, LegendOptions } from "./types.js";
@@ -17,7 +17,7 @@ export interface LegendContext {
   titleId: string;
   options: LegendOptions;
   onChange(open: boolean): void;
-  /** Where the focus goes when the close button hides the legend under it. */
+  /** Where the focus goes when the close button hides the legend under it or a pointer clicks it. */
   focusAfterClose(): void;
 }
 
@@ -59,21 +59,28 @@ export function createLegend(context: LegendContext): LegendController {
   let started = false;
   const detachTooltip = tooltip.attach(close, { label: messages.closeLegend });
 
-  function apply(next: boolean): boolean {
+  /**
+   * `byPointer`: a click with a pointer on the close button, which hands the focus on whether or not
+   * the legend holds it. WebKit and Firefox on macOS do not focus a clicked button, so it would stay
+   * on `<body>`.
+   */
+  function apply(next: boolean, byPointer = false): boolean {
     started = true;
     if (next === open) return false;
     open = next;
     element.hidden = !open;
-    if (!open && element.contains(ownerDocument.activeElement)) context.focusAfterClose();
+    if (!open && (byPointer || element.contains(ownerDocument.activeElement))) {
+      context.focusAfterClose();
+    }
     context.onChange(open);
     return true;
   }
 
-  function setOpen(next: boolean): void {
-    if (apply(next)) options.onToggle?.(next);
+  function setOpen(next: boolean, byPointer = false): void {
+    if (apply(next, byPointer)) options.onToggle?.(next);
   }
 
-  close.addEventListener("click", () => setOpen(false));
+  close.addEventListener("click", (event) => setOpen(false, isPointerClick(event)));
 
   return {
     element,

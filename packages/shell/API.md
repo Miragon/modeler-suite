@@ -880,7 +880,10 @@ interface StatusMessage {
   each of these.
 - `setEmptyHint` shows or hides the hint; `connectDiagramJs` keeps it in sync with the diagram. When
   the hint (its "Insert example") or the closing inspector holds the focus, the focus moves to the
-  canvas `<svg>` (else the menu trigger) instead of falling to `<body>`.
+  canvas `<svg>` (else the menu trigger) instead of falling to `<body>`. A click with mouse, pen or
+  finger on "Insert example" counts as the hint's focus until it shows or hides again, unless
+  something else has taken the focus meanwhile: WebKit and Firefox on macOS give the clicked button
+  none.
 - `tooltip.attach` shows the chrome tooltip after `TOOLTIP_DELAY_MS` hover or at once on keyboard
   focus (`:focus-visible`, also on `aria-disabled` buttons); after a hover-hide a neighbour shows at
   once for the same delay. It hides on click (until the pointer leaves), Escape, leave, blur and menu
@@ -892,7 +895,8 @@ interface StatusMessage {
   stored `legend.open` opens it on mount, at any size; the user opens it from the Model group's
   Legend checkbox or through `legend.setOpen(true)`. The start state does not call `onToggle`.
   While it is open, the fit keeps room for it above 440px width. Its close button returns the focus
-  to the menu trigger.
+  to the menu trigger, also after a click with mouse, pen or finger in WebKit or Firefox on macOS,
+  which give the clicked button no focus.
 - `legendStartsOpen` is deprecated since 0.5: it returns `false` whatever it is given and keeps
   its optional parameters only so existing callers compile. Pass the stored state as `legend.open`
   and leave the default to the shell.

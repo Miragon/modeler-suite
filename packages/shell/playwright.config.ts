@@ -19,7 +19,7 @@ export default defineConfig({
     {
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
-      testMatch: "web-pointer-focus.spec.ts",
+      testMatch: "pointer-focus.spec.ts",
     },
   ],
   webServer: {
