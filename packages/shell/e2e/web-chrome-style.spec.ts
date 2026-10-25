@@ -49,6 +49,22 @@ function styleOf(page: Page, selector: string, properties: readonly string[], ps
   );
 }
 
+/**
+ * Resolves once `selector` and everything in it have finished their animations. Mid-flight, the
+ * start screen's rise-in shifts the card by a fraction of a pixel, and Chromium rounds the edges of
+ * a shifted box to float precision: the card's buttons, whose edges lie on either side of 512px,
+ * then measure 35.99997 or 36.00003 instead of 36.
+ */
+function animationsDone(page: Page, selector: string): Promise<void> {
+  return page.evaluate(async (selector) => {
+    const element = document.querySelector(selector);
+    if (!element) throw new Error(`no ${selector}`);
+    await Promise.all(
+      element.getAnimations({ subtree: true }).map((animation) => animation.finished),
+    );
+  }, selector);
+}
+
 /** Dispatches a file drag (enter and over) on the page, as the conformance kit does. */
 function dragFiles(page: Page, count: number): Promise<void> {
   return page.evaluate((count) => {
@@ -213,6 +229,7 @@ test.describe("web chrome styles", () => {
   }) => {
     await openWeb(page, "?empty");
     const card = '[data-chrome="empty-state"]';
+    await animationsDone(page, card);
     const style = await styleOf(page, card, [
       "border-top-left-radius",
       "box-shadow",
