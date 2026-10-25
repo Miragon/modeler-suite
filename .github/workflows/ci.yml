@@ -89,13 +89,25 @@ jobs:
     # Browsers and their system libraries come with the image, so no run installs them.
     container:
       image: mcr.microsoft.com/playwright:v${{ needs.changes.outputs.playwright }}-noble
+    env:
+      SHARD: ${{ matrix.shard }}
+      # The describe in packages/shell/e2e/saboteurs.spec.ts whose saboteurs each run the whole kit,
+      # about a minute apiece. A shard is a contiguous slice of the test list, so sharded with the
+      # rest they all fell into one shard and filled its 20 minutes; sharded on their own, every
+      # shard runs a quarter of them.
+      KIT_SABOTEURS: that break one rule and fail only its case
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
       # The shell's conformance kit against its demo page (ide, web, embedded hosts) plus saboteurs.
-      - run: npm run test:e2e -w @miragon/modeler-shell -- --shard="$SHARD/4"
-        env:
-          SHARD: ${{ matrix.shard }}
+      - id: others
+        run: npm run test:e2e -w @miragon/modeler-shell -- --shard="$SHARD/4" --grep-invert="$KIT_SABOTEURS"
+      # Its own output folder: Playwright empties its output folder when it starts, which would
+      # delete the traces of the step above.
+      - if: success() || steps.others.outcome == 'failure'
+        run: >-
+          npm run test:e2e -w @miragon/modeler-shell -- --shard="$SHARD/4" --grep="$KIT_SABOTEURS"
+          --output=test-results/saboteurs
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

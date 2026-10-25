@@ -32,7 +32,9 @@ branch) and a base that cannot be fetched run everything; so does any path no ru
 - **Shared** (`shared-lint`, `shared-test`, `shared-e2e`): the type check of modeler-api,
   modeler-shell and the root tests; their unit tests plus `test:plugin` (the repository-level checks
   in `test/`: the modeler-kit and release-config drift tests, every modeler's boundaries and the
-  Dependabot auto-merge workflow), build and `publint`; the shell's Playwright suite.
+  Dependabot auto-merge workflow), build and `publint`; the shell's Playwright suite in four
+  shards, each of which runs a quarter of the other tests and then a quarter of the saboteurs that
+  run the whole kit (sharded together, those all fell into one shard).
 - **Per modeler**, a matrix over the modelers the change reaches, each job named
   `<modeler> / <check>`: `lint` (ESLint, type check, dependency-cruiser), `test` (build, unit tests),
   `test:browser` and `e2e` (in the Playwright image of the root's `playwright` pin), `build` (web app
