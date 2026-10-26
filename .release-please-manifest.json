@@ -23,5 +23,5 @@
   "modelers/value-chain/packages/renderer": "0.7.2",
   "modelers/value-chain/apps/vscode": "0.7.2",
   "modelers/value-chain/apps/webapp": "0.8.0",
-  "extensions/modeler-collection": "1.4.0"
+  "extensions/modeler-collection": "1.4.1"
 }

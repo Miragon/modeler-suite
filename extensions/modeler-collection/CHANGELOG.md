@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/Miragon/modeler-suite/compare/modeler-collection-v1.4.0...modeler-collection-v1.4.1) (2026-10-26)
+
+
+### Documentation
+
+* **modeler-collection:** point feedback to the modeler suite ([#176](https://github.com/Miragon/modeler-suite/issues/176)) ([9aead19](https://github.com/Miragon/modeler-suite/commit/9aead1987bf764e6b2d363da80965e49f43ee2c0)), closes [#172](https://github.com/Miragon/modeler-suite/issues/172)
+
 ## [1.4.0](https://github.com/Miragon/modeler-suite/compare/modeler-collection-v1.3.0...modeler-collection-v1.4.0) (2026-10-26)
 
 
