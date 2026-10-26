@@ -44,6 +44,10 @@ Every modeler is also installable on its own and ships on its **own release cycl
 This pack simply bundles the current family for convenience.
 Install only what you need, or take the set.
 
+## Feedback
+
+The pack is part of the [Miragon modeler suite](https://github.com/Miragon/modeler-suite/tree/main/extensions/modeler-collection). Report issues and ideas in its [issue tracker](https://github.com/Miragon/modeler-suite/issues).
+
 ---
 
 Made by [Miragon](https://www.miragon.io).
