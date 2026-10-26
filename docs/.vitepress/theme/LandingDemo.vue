@@ -45,7 +45,7 @@ onMounted(() => {
 .window {
   width: 100%;
   margin: 0;
-  border: 1px solid var(--cd-ui-kontur);
+  border: 1px solid var(--cd-ui-linie);
   border-radius: var(--cd-radius-md);
   background: var(--cd-ui-seite);
   overflow: hidden;
@@ -77,7 +77,7 @@ onMounted(() => {
 .dots i {
   width: 9px;
   height: 9px;
-  border: 1px solid var(--cd-ui-kontur);
+  border: 1px solid var(--cd-ui-linie);
   border-radius: 50%;
 }
 .canvas {
@@ -89,7 +89,8 @@ onMounted(() => {
   grid-area: 1 / 1;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: top left;
   transition: opacity 0.6s var(--cd-ease);
 }
 .canvas img.hidden {
