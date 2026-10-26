@@ -11,6 +11,10 @@ const activeModeler = computed(() => props.modelers[props.active]);
 // The clock of the page (HomeLanding.vue): the install tabs switch while it runs, Pause stops them.
 const moving = inject("landing-moving", ref(false));
 
+function toggleMoving() {
+  moving.value = !moving.value;
+}
+
 onMounted(() => {
   moving.value = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 });
@@ -24,7 +28,7 @@ onMounted(() => {
     <div class="titlebar">
       <span class="dots" aria-hidden="true"><i /><i /><i /></span>
       <span>{{ activeModeler.file }} · {{ activeModeler.name }}</span>
-      <button class="toggle" type="button" :aria-pressed="!moving" @click="moving = !moving">
+      <button class="toggle" type="button" :aria-pressed="!moving" @click="toggleMoving">
         {{ moving ? "Pause" : "Play" }}
       </button>
     </div>

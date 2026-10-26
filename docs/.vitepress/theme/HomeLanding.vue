@@ -72,14 +72,13 @@ const selected = ref(0);
 const copied = ref(false);
 
 // One clock per page (landingpage.md, Bewegung): the demo's Pause button stops it. Only the
-// modelers on the rail switch, every 6 s, until the visitor hovers, focuses or chooses one; the
+// modelers on the rail switch, every 6 s, and hold while the visitor hovers or focuses one; the
 // install tabs stand still.
 const moving = ref(false);
 provide("landing-moving", moving);
 const activeModeler = ref(0);
-const modelerChosen = ref(false);
 const railHeld = ref(false);
-const cycling = computed(() => moving.value && !modelerChosen.value && !railHeld.value);
+const cycling = computed(() => moving.value && !railHeld.value);
 let tick: ReturnType<typeof setInterval> | undefined;
 watch(cycling, (on) => {
   clearInterval(tick);
@@ -91,8 +90,7 @@ function showNextModeler() {
   activeModeler.value = (activeModeler.value + 1) % modelers.length;
 }
 
-function chooseModeler(index: number) {
-  modelerChosen.value = true;
+function showModeler(index: number) {
   activeModeler.value = index;
 }
 
@@ -204,8 +202,8 @@ async function copyInstall() {
             :key="modeler.name"
             class="step"
             :class="{ active: index === activeModeler }"
-            @mouseenter="chooseModeler(index)"
-            @focusin="chooseModeler(index)"
+            @mouseenter="showModeler(index)"
+            @focusin="showModeler(index)"
           >
             <div class="rail" />
             <h3>
