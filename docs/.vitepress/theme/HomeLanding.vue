@@ -365,12 +365,13 @@ h1 em {
 }
 .command {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   padding: 12px 12px 12px 16px;
 }
 .channels {
   display: grid;
+  align-items: center;
   flex: 1;
   min-width: 0;
 }
