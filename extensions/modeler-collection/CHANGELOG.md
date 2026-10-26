@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/Miragon/modeler-suite/compare/modeler-collection-v1.3.0...modeler-collection-v1.4.0) (2026-10-26)
+
+
+### Features
+
+* **modeler-collection:** move the extension pack into the suite ([#172](https://github.com/Miragon/modeler-suite/issues/172)) ([7366b22](https://github.com/Miragon/modeler-suite/commit/7366b22f8bc05738e56f43b293800ca6932d2b4a))
+
 ## [1.3.0](https://github.com/Miragon/vscode-modeler-collection/compare/v1.2.0...v1.3.0) (2026-09-18)
 
 
