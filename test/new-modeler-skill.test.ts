@@ -475,7 +475,9 @@ describe("the template's brand-lint config", () => {
 
   it("ignores what the suite's config ignores, without the suite's own paths", () => {
     expect(readBrandLintConfig(TEMPLATE).ignorieren).toEqual(
-      readBrandLintConfig(ROOT).ignorieren.filter((pattern) => !pattern.startsWith("modelers/")),
+      readBrandLintConfig(ROOT).ignorieren.filter(
+        (pattern) => !pattern.startsWith("modelers/") && !pattern.startsWith("docs/"),
+      ),
     );
   });
 
