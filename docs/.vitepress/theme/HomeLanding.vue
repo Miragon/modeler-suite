@@ -3,29 +3,11 @@ import { computed, nextTick, onBeforeUnmount, provide, ref, watch } from "vue";
 import { withBase } from "vitepress";
 import LandingDemo from "./LandingDemo.vue";
 
-const installs = [
-  {
-    name: "VS Code",
-    prompt: "$",
-    lines: ["code --install-extension miragon-gmbh.miragon-modeler-collection"],
-    note: "The Miragon Modeler Collection, with BPMN and Domain Storytelling. Each modeler also installs on its own, see its page.",
-  },
-  {
-    name: "Web app",
-    prompt: "$",
-    lines: ["open https://context-maps.modeler.miragon.io"],
-    note: "Every modeler has its own web app, linked on its page.",
-  },
-  {
-    name: "npm",
-    prompt: "$",
-    lines: ["npm install @miragon/context-maps-renderer"],
-    note: "One renderer package per modeler, named on its page.",
-  },
-];
 const modelers = [
   {
     name: "Wardley Maps",
+    npmPackage: "@miragon/wardley-renderer",
+    webApp: "https://wardley-maps.modeler.miragon.io",
     file: "tea.owm",
     shot: "/shots/wardley-maps/editor.png",
     link: "/modelers/wardley-maps",
@@ -34,6 +16,8 @@ const modelers = [
   },
   {
     name: "Event Storming",
+    npmPackage: "@miragon/event-storming-renderer",
+    webApp: "https://event-storming.modeler.miragon.io",
     file: "order-checkout.storm",
     shot: "/shots/event-storming/editor.png",
     link: "/modelers/event-storming",
@@ -42,6 +26,8 @@ const modelers = [
   },
   {
     name: "Team Topologies",
+    npmPackage: "@miragon/team-topologies-renderer",
+    webApp: "https://team-topologies.modeler.miragon.io",
     file: "sample.tt",
     shot: "/shots/team-topologies/editor.png",
     link: "/modelers/team-topologies",
@@ -50,6 +36,8 @@ const modelers = [
   },
   {
     name: "Context Maps",
+    npmPackage: "@miragon/context-maps-renderer",
+    webApp: "https://context-maps.modeler.miragon.io",
     file: "sample.cm",
     shot: "/shots/context-maps/editor.png",
     link: "/modelers/context-maps",
@@ -58,6 +46,8 @@ const modelers = [
   },
   {
     name: "Value Chain",
+    npmPackage: "@miragon/value-chain-renderer",
+    webApp: undefined,
     file: "porter.vc.json",
     shot: "/shots/value-chain/editor.png",
     link: "/modelers/value-chain",
@@ -86,6 +76,24 @@ watch(cycling, (on) => {
 });
 onBeforeUnmount(() => clearInterval(tick));
 
+const installs = computed(() => [
+  {
+    name: "VS Code",
+    lines: ["code --install-extension miragon-gmbh.miragon-modeler-collection"],
+    note: "The Miragon Modeler Collection, with BPMN and Domain Storytelling. Each modeler also installs on its own, see its page.",
+  },
+  {
+    name: "Web app",
+    lines: [],
+    note: "In the browser, no install and no account.",
+  },
+  {
+    name: "npm",
+    lines: [`npm install ${modelers[activeModeler.value].npmPackage}`],
+    note: `The renderer of ${modelers[activeModeler.value].name}. Every modeler has its own package.`,
+  },
+]);
+
 function showNextModeler() {
   activeModeler.value = (activeModeler.value + 1) % modelers.length;
 }
@@ -95,7 +103,7 @@ function showModeler(index: number) {
 }
 
 function step(offset: number) {
-  selected.value = (selected.value + offset + installs.length) % installs.length;
+  selected.value = (selected.value + offset + installs.value.length) % installs.value.length;
 }
 
 function choose(index: number) {
@@ -111,7 +119,7 @@ async function selectBy(offset: number) {
 }
 
 async function copyInstall() {
-  await navigator.clipboard.writeText(installs[selected.value].lines.join("\n"));
+  await navigator.clipboard.writeText(installs.value[selected.value].lines.join("\n"));
   copied.value = true;
   setTimeout(() => (copied.value = false), 1600);
 }
@@ -152,15 +160,36 @@ async function copyInstall() {
             </div>
             <div class="command" role="tabpanel">
               <div class="channels">
-                <pre
-                  v-for="(install, index) in installs"
-                  :key="install.name"
-                  :class="{ hidden: index !== selected }"
-                  :aria-hidden="index !== selected"
-                ><template v-for="line in install.lines" :key="line"><span class="prompt">{{ install.prompt }} </span>{{ line }}
+                <template v-for="(install, index) in installs" :key="install.name">
+                  <ul
+                    v-if="install.lines.length === 0"
+                    class="web-apps"
+                    :class="{ hidden: index !== selected }"
+                    :aria-hidden="index !== selected"
+                  >
+                    <li v-for="modeler in modelers" :key="modeler.name">
+                      <a v-if="modeler.webApp" :href="modeler.webApp" target="_blank" rel="noopener"
+                        >{{ modeler.name }} <span aria-hidden="true">↗</span></a
+                      >
+                      <a v-else :href="withBase(modeler.link)" class="from-source"
+                        >{{ modeler.name }} <span>from source</span></a
+                      >
+                    </li>
+                  </ul>
+                  <pre
+                    v-else
+                    :class="{ hidden: index !== selected }"
+                    :aria-hidden="index !== selected"
+                  ><template v-for="line in install.lines" :key="line"><span class="prompt">$ </span>{{ line }}
 </template></pre>
+                </template>
               </div>
-              <button class="copy" type="button" @click="copyInstall">
+              <button
+                v-if="installs[selected].lines.length > 0"
+                class="copy"
+                type="button"
+                @click="copyInstall"
+              >
                 {{ copied ? "Copied" : "Copy" }}
               </button>
             </div>
@@ -352,6 +381,34 @@ h1 em {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.web-apps {
+  grid-area: 1 / 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.web-apps a {
+  white-space: nowrap;
+  color: var(--cd-ui-link);
+  font-weight: 500;
+  text-decoration: none;
+}
+.web-apps a:hover {
+  text-decoration: underline;
+}
+.web-apps .from-source {
+  color: var(--cd-ui-text);
+}
+.web-apps .from-source span {
+  color: var(--cd-ui-text-leise);
+  font-weight: 400;
+}
+.web-apps.hidden,
 .command pre.hidden {
   visibility: hidden;
 }
