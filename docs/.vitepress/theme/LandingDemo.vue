@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { inject, onMounted, ref } from "vue";
+import { computed, inject, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
+
+const props = defineProps<{
+  modelers: { name: string; file: string; shot: string }[];
+  active: number;
+}>();
+const activeModeler = computed(() => props.modelers[props.active]);
 
 // The clock of the page (HomeLanding.vue): the install tabs switch while it runs, Pause stops them.
 const moving = inject("landing-moving", ref(false));
@@ -11,18 +17,25 @@ onMounted(() => {
 </script>
 
 <template>
-  <figure class="window" aria-label="The Context Maps modeler editing a context map in VS Code">
+  <figure
+    class="window"
+    :aria-label="`The ${activeModeler.name} modeler editing ${activeModeler.file}`"
+  >
     <div class="titlebar">
       <span class="dots" aria-hidden="true"><i /><i /><i /></span>
-      <span>shop.cm.json · Context Maps</span>
+      <span>{{ activeModeler.file }} · {{ activeModeler.name }}</span>
       <button class="toggle" type="button" :aria-pressed="!moving" @click="moving = !moving">
         {{ moving ? "Pause" : "Play" }}
       </button>
     </div>
     <div class="canvas" data-cd-theme="light">
       <img
-        :src="withBase('/shots/context-maps/vscode-editor.png')"
-        alt="Bounded contexts coloured by subdomain type, connected by relationship patterns, with the legend open"
+        v-for="(modeler, index) in modelers"
+        :key="modeler.name"
+        :class="{ hidden: index !== active }"
+        :src="withBase(modeler.shot)"
+        :alt="index === active ? `The ${modeler.name} modeler with its example` : ''"
+        :aria-hidden="index !== active"
       />
     </div>
   </figure>
@@ -68,11 +81,23 @@ onMounted(() => {
   border-radius: 50%;
 }
 .canvas {
+  display: grid;
+  aspect-ratio: 1.6;
   background: var(--cd-ui-seite);
 }
 .canvas img {
-  display: block;
+  grid-area: 1 / 1;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 0.6s var(--cd-ease);
+}
+.canvas img.hidden {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .canvas img {
+    transition: none;
+  }
 }
 </style>

@@ -15,30 +15,40 @@ const installs = [
 const modelers = [
   {
     name: "Wardley Maps",
+    file: "tea.owm",
+    shot: "/shots/wardley-maps/editor.png",
     link: "/modelers/wardley-maps",
     files: ".wmap .owm",
     effect: "Components on the value chain, evolved by drag.",
   },
   {
     name: "Event Storming",
+    file: "order-checkout.storm",
+    shot: "/shots/event-storming/editor.png",
     link: "/modelers/event-storming",
     files: ".storm",
     effect: "Stickies on a timeline, one per line of text.",
   },
   {
     name: "Team Topologies",
+    file: "sample.tt",
+    shot: "/shots/team-topologies/editor.png",
     link: "/modelers/team-topologies",
     files: ".tt .ttm.json",
     effect: "Four team types and three interaction modes.",
   },
   {
     name: "Context Maps",
+    file: "sample.cm",
+    shot: "/shots/context-maps/editor.png",
     link: "/modelers/context-maps",
     files: ".cm .cml",
     effect: "Bounded contexts and their relationship patterns.",
   },
   {
     name: "Value Chain",
+    file: "porter.vc.json",
+    shot: "/shots/value-chain/editor.png",
     link: "/modelers/value-chain",
     files: ".vc",
     effect: "Steps and the organizational units behind them.",
@@ -50,33 +60,42 @@ const stage = "raster";
 const selected = ref(0);
 const copied = ref(false);
 
-// One clock per page (landingpage.md, Bewegung): the demo starts it and its Pause button stops
-// everything. The tabs switch every 6 s until the visitor hovers, focuses or chooses one.
+// One clock per page (landingpage.md, Bewegung): the demo's Pause button stops it. Only the
+// modelers on the rail switch, every 6 s, until the visitor hovers, focuses or chooses one; the
+// install tabs stand still.
 const moving = ref(false);
 provide("landing-moving", moving);
-const chosen = ref(false);
-const held = ref(false);
-const cycling = computed(() => moving.value && !chosen.value && !held.value && installs.length > 1);
+const activeModeler = ref(0);
+const modelerChosen = ref(false);
+const railHeld = ref(false);
+const cycling = computed(() => moving.value && !modelerChosen.value && !railHeld.value);
 let tick: ReturnType<typeof setInterval> | undefined;
 watch(cycling, (on) => {
   clearInterval(tick);
-  if (on) tick = setInterval(() => step(1), 6000);
+  if (on) tick = setInterval(showNextModeler, 6000);
 });
 onBeforeUnmount(() => clearInterval(tick));
+
+function showNextModeler() {
+  activeModeler.value = (activeModeler.value + 1) % modelers.length;
+}
+
+function chooseModeler(index: number) {
+  modelerChosen.value = true;
+  activeModeler.value = index;
+}
 
 function step(offset: number) {
   selected.value = (selected.value + offset + installs.length) % installs.length;
 }
 
 function choose(index: number) {
-  chosen.value = true;
   selected.value = index;
 }
 
 // Arrow keys move the selection and the focus together (ARIA tabs pattern).
 const tabButtons = ref([] as HTMLButtonElement[]);
 async function selectBy(offset: number) {
-  chosen.value = true;
   step(offset);
   await nextTick();
   tabButtons.value[selected.value]?.focus();
@@ -101,14 +120,7 @@ async function copyInstall() {
             files, edited on a canvas in VS Code, in the browser or in your own app.
           </p>
 
-          <div
-            class="install"
-            :class="{ cycling }"
-            @mouseenter="held = true"
-            @mouseleave="held = false"
-            @focusin="held = true"
-            @focusout="held = false"
-          >
+          <div class="install">
             <div
               class="tabs"
               role="tablist"
@@ -150,15 +162,30 @@ async function copyInstall() {
         </div>
 
         <div class="stage" :class="stage" :data-cd-theme="stage === 'schwarz' ? 'dark' : undefined">
-          <LandingDemo />
+          <LandingDemo :modelers="modelers" :active="activeModeler" />
         </div>
       </div>
     </section>
 
     <section class="loop" aria-label="The modelers">
       <div class="frame">
-        <ol class="steps" :style="{ '--steps': modelers.length }">
-          <li v-for="modeler in modelers" :key="modeler.name" class="step">
+        <ol
+          class="steps"
+          :class="{ cycling }"
+          :style="{ '--steps': modelers.length }"
+          @mouseenter="railHeld = true"
+          @mouseleave="railHeld = false"
+          @focusin="railHeld = true"
+          @focusout="railHeld = false"
+        >
+          <li
+            v-for="(modeler, index) in modelers"
+            :key="modeler.name"
+            class="step"
+            :class="{ active: index === activeModeler }"
+            @mouseenter="chooseModeler(index)"
+            @focusin="chooseModeler(index)"
+          >
             <div class="rail" />
             <h3>
               <a :href="withBase(modeler.link)"
@@ -274,7 +301,8 @@ h1 em {
   transform-origin: left;
 }
 /* While the tabs switch on their own, the line under the active tab fills in the 6 s. */
-.cycling .tab[aria-selected="true"]::after {
+/* While the modelers switch on their own, the rail above the active one fills in the 6 s. */
+.cycling .step.active .rail::after {
   animation: fill 6s linear;
 }
 @keyframes fill {
@@ -387,7 +415,21 @@ h1 em {
   left: calc(-1 * var(--gutter));
   height: 2px;
   margin-top: -1px;
-  background: var(--cd-ui-icon-akzent);
+  background: var(--cd-ui-linie);
+}
+.step.active .rail::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--cd-ui-interaktion);
+  transform-origin: left;
+}
+.step.active h3 a {
+  color: var(--cd-ui-link);
 }
 .step h3 {
   margin: 2px 0 10px;
