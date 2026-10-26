@@ -741,6 +741,16 @@
           "jsonpath": "$.packages['modelers/value-chain/apps/webapp'].version"
         }
       ]
+    },
+    "extensions/modeler-collection": {
+      "component": "modeler-collection",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['extensions/modeler-collection'].version"
+        }
+      ]
     }
   }
 }

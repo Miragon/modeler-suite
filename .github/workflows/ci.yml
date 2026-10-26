@@ -75,6 +75,8 @@ jobs:
       - run: npm run build:shared
       # The published shape: exports map, dual types, files, which is what consumers resolve.
       - run: npm run publint
+      # The extension pack as the release packs it: a walkthrough media path that is gone fails here.
+      - run: npm run package -w extensions/modeler-collection
 
   shared-e2e:
     name: shared-e2e (${{ matrix.shard }}/4)
