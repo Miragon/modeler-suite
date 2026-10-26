@@ -1839,7 +1839,7 @@ Linux container on an Apple silicon Mac (`linux/arm64`).
 - **An extension that does not activate.** Its custom editor is never registered, so the webview
   never comes, and the workbench shows nothing but an empty tab with a progress bar. The cause is
   only in the extension host's log, `<user-data-dir>/logs/<session>/window1/exthost/exthost.log`:
-  "Activating extension <id> failed due to an error:" and the error as the next entry. While the
+  `Activating extension <id> failed due to an error:` and the error as the next entry. While the
   driver waits for the webview it reads that log every second, stops at such a line, and quotes it
   with the error's first line in the open failure; before, a run waited the full timeout and said
   only that no webview showed, and the log went with the temporary profile. The driver's first runs

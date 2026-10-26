@@ -24,6 +24,7 @@ packages/shell/fixtures/tokens/
 *.generated.css
 *.generated.json
 cd-canvas.css
+docs/.vitepress/miragon/
 
 # hand-authored, non-canonical inputs of value-chain's conformance kit: their layout is the point
 **/fixtures/*.loose.vc.json
