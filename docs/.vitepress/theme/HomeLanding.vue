@@ -305,6 +305,11 @@ h1 em {
 .cycling .step.active .rail::after {
   animation: fill 6s linear;
 }
+@keyframes fill-down {
+  from {
+    transform: scaleY(0);
+  }
+}
 @keyframes fill {
   from {
     transform: scaleX(0);
@@ -421,8 +426,8 @@ h1 em {
   content: "";
   position: absolute;
   top: 50%;
-  right: 0;
-  left: 0;
+  right: calc(-1 * var(--gutter));
+  left: calc(-1 * var(--gutter));
   height: 2px;
   margin-top: -1px;
   background: var(--cd-ui-interaktion);
@@ -531,6 +536,19 @@ h1 em {
 @media (max-width: 640px) {
   .landing {
     --gutter: 20px;
+  }
+  .step.active .rail::after {
+    top: 0;
+    right: auto;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    height: auto;
+    margin: 0 0 0 -1px;
+    transform-origin: top;
+  }
+  .cycling .step.active .rail::after {
+    animation-name: fill-down;
   }
   .pitch {
     padding: 44px var(--gutter) 40px;
