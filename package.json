@@ -10,7 +10,8 @@
     "modelers/*",
     "modelers/*/packages/*",
     "modelers/*/apps/*",
-    "modelers/*/e2e"
+    "modelers/*/e2e",
+    "extensions/*"
   ],
   "scripts": {
     "build": "npm run build:shared && npm run build:modelers && npm run build:apps",

@@ -90,7 +90,7 @@ classify() {
         *) echo "modeler $modeler" ;;
       esac
       ;;
-    plugins/* | test/* | .claude-plugin/*) echo shared ;;
+    plugins/* | test/* | extensions/* | .claude-plugin/*) echo shared ;;
     *) echo all ;;
   esac
 }
