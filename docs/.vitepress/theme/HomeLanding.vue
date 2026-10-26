@@ -7,10 +7,21 @@ const installs = [
   {
     name: "VS Code",
     prompt: "$",
-    lines: ["code --install-extension miragon-gmbh.context-maps-modeler"],
+    lines: ["code --install-extension miragon-gmbh.miragon-modeler-collection"],
+    note: "The Miragon Modeler Collection, with BPMN and Domain Storytelling. Each modeler also installs on its own, see its page.",
   },
-  { name: "Web app", prompt: "$", lines: ["open https://context-maps.modeler.miragon.io"] },
-  { name: "npm", prompt: "$", lines: ["npm install @miragon/context-maps-renderer"] },
+  {
+    name: "Web app",
+    prompt: "$",
+    lines: ["open https://context-maps.modeler.miragon.io"],
+    note: "Every modeler has its own web app, linked on its page.",
+  },
+  {
+    name: "npm",
+    prompt: "$",
+    lines: ["npm install @miragon/context-maps-renderer"],
+    note: "One renderer package per modeler, named on its page.",
+  },
 ];
 const modelers = [
   {
@@ -155,6 +166,16 @@ async function copyInstall() {
                 {{ copied ? "Copied" : "Copy" }}
               </button>
             </div>
+          </div>
+          <div class="install-notes">
+            <p
+              v-for="(install, index) in installs"
+              :key="install.name"
+              :class="{ hidden: index !== selected }"
+              :aria-hidden="index !== selected"
+            >
+              {{ install.note }}
+            </p>
           </div>
           <a class="start" :href="withBase(next.link)"
             >{{ next.text }} <span aria-hidden="true">→</span></a
@@ -353,6 +374,20 @@ h1 em {
   background: var(--cd-ui-hover);
 }
 
+.install-notes {
+  display: grid;
+  margin-top: 10px;
+}
+.install-notes p {
+  grid-area: 1 / 1;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cd-ui-text-leise);
+}
+.install-notes p.hidden {
+  visibility: hidden;
+}
 .start {
   align-self: flex-start;
   margin-top: 24px;
