@@ -5,3 +5,7 @@ test-results/
 playwright-report/
 *.vsix
 .claude/logs/
+
+# the docs site (docs/, its own npm project)
+docs/.vitepress/dist/
+docs/.vitepress/cache/
