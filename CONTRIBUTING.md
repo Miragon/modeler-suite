@@ -251,6 +251,14 @@ case that enforces what the contract text already states is not a stricter law (
 when it comes with a new optional harness field); a requirement the text does not state yet ships
 as a RECOMMENDATION whose case only advises, and becomes a law in the next major.
 
+Every new `@deprecated` gets an issue that names its target version, as #161 does: the release
+that removes it, or the package's first breaking release when the removal waits for another
+breaking change (wardley-dsl's `parseDecorators`, #183). The pull request that adds the deprecation
+files the issue, with the modeler's label (`modeler: <name>`) where there is one, and refers to it.
+A deprecation without a tracked removal outlives the minor it promises, as wave 4's cleanup (#170)
+showed: it removed aliases and exports that had stayed past their minor or that no issue tracked
+(#88, #92, #100, #107, #110, #161).
+
 The first release of a new package needs one manual step on npm: trusted publishing (OIDC) can only
 be bound to a package that already exists, so the release job's `npm publish` fails with E404 for a
 name npm has never seen. This is how `@miragon/modeler-api@1.0.0` was bootstrapped:
