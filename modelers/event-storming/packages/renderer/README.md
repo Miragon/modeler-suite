@@ -76,8 +76,12 @@ editor or popup (delete, connect, append, line style) and a picked colour hand t
 canvas, without the keyboard focus ring. Enter and Space on a tool entry (lasso, draw) leave the
 focus on the entry; on a creating entry they place the sticky in the middle of the free area and
 open its label editor. While a line is drawn, Enter and Escape end it only when aimed at the
-modeler's container (the canvas, the palette or the context pad), never at a text field or a control
-outside the container, and every point focuses the canvas. To keep the keys away from a canvas it
+canvas `<svg>` (or inside it) or at the Draw entry, which keeps the focus when Enter starts the tool
+there. Every other target keeps them, with no `preventDefault()` and no `stopPropagation()`: the
+other palette entries, the context pad, the label editor and a host's controls, inside the
+container or outside it. A click, Enter or Space on another palette entry first ends the drawing and
+keeps the open line, as Enter on the canvas does, so no second tool starts next to it. Every point
+focuses the canvas. To keep the keys away from a canvas it
 hides without destroying it, a host makes it `inert` (or `display: none`): the browser then moves
 the focus off the `<svg>` at its next rendering update. Cmd/Ctrl+A selects the whole board. An
 import erases the undo history without firing `commandStack.changed`, and fires
