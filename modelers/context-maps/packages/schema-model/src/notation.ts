@@ -79,11 +79,6 @@ export const MARK_COLORS: Record<string, string> = {
 
 export const UPSTREAM_MARK_COLOR = MARK_COLORS.U;
 export const DOWNSTREAM_MARK_COLOR = MARK_COLORS.D;
-/**
- * @deprecated White fails 4.5:1 on the PL and CF chips. The renderer picks black or white per
- * role chip, whichever has more contrast.
- */
-export const MARK_TEXT_COLOR = "#ffffff";
 
 /** The marker abbreviations shown in the legend, in reading order. */
 export const MARK_LEGEND: ReadonlyArray<{ token: string; label: string }> = [

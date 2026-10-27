@@ -30,6 +30,14 @@ import { CONTEXT_KEYS, DOCUMENT_KEYS, RELATIONSHIP_KEYS, foreignFields } from ".
  */
 export const MAX_COORDINATE = 1_000_000;
 
+/**
+ * Objects and arrays nested deeper than this make a document invalid; the document itself is the
+ * first level. The serializer, structured cloning and JSON tooling descend one call per level and
+ * overflow the stack a few thousand levels down, so the canvas would open such a file and fail to
+ * save it. The model's own fields need four levels; only the values of foreign keys go deeper.
+ */
+export const MAX_NESTING_DEPTH = 100;
+
 /** The id of the canvas's own root element, which holds the map's title. */
 export const DIAGRAM_ROOT_ID = "cm-root";
 
@@ -169,7 +177,7 @@ export function parseDocument(input: unknown): ParseResult {
   // repeat as a new error, one round later.
   const sections = sectionsInFileOrder(migrated);
   const issues = inDocumentOrder(
-    [...shapeIssues, ...repeatedIdIssues(migrated, sections)],
+    [...shapeIssues, ...repeatedIdIssues(migrated, sections), ...nestingIssues(migrated)],
     sections,
   );
   if (!result.success || issues.length > 0) return failure(issues);
@@ -236,6 +244,68 @@ function repeatedIdIssues(input: unknown, sections: readonly string[]): ParseIss
     });
   }
   return issues;
+}
+
+/**
+ * At most this many nesting issues per document. Each carries a path of {@link MAX_NESTING_DEPTH}
+ * keys, so one wide container beyond the limit would otherwise give millions of them and an error
+ * text longer than a string may be.
+ */
+const MAX_NESTING_ISSUES = 100;
+
+interface OpenContainer {
+  readonly container: object;
+  readonly keys: readonly string[] | undefined;
+  readonly size: number;
+  next: number;
+  readonly keyInParent: string | number | undefined;
+}
+
+/**
+ * Each object or array at the first level beyond {@link MAX_NESTING_DEPTH}, in document order, up
+ * to {@link MAX_NESTING_ISSUES}. Walked with an explicit stack, because the files it guards against
+ * are the ones that overflow a recursive walk. The stack holds only the containers the walk is
+ * inside of, never their entries, so a wide container costs no more memory than a narrow one.
+ */
+function nestingIssues(input: unknown): ParseIssue[] {
+  const issues: ParseIssue[] = [];
+  if (!isContainer(input)) return issues;
+  // A caller in JavaScript may put one container in several places, or inside itself: walking it
+  // again at a level no deeper than before finds nothing new, and would grow exponentially.
+  const deepestWalk = new WeakMap<object, number>();
+  const open: OpenContainer[] = [];
+  const enter = (container: object, keyInParent?: string | number): void => {
+    deepestWalk.set(container, open.length);
+    const keys = Array.isArray(container) ? undefined : Object.keys(container);
+    const size = keys?.length ?? (container as unknown[]).length;
+    open.push({ container, keys, size, next: 0, keyInParent });
+  };
+  enter(input);
+  while (open.length > 0 && issues.length < MAX_NESTING_ISSUES) {
+    const current = open[open.length - 1]!;
+    if (current.next === current.size) {
+      open.pop();
+      continue;
+    }
+    const index = current.next++;
+    const key = current.keys === undefined ? index : current.keys[index]!;
+    const entry: unknown = (current.container as Record<string | number, unknown>)[key];
+    if (!isContainer(entry)) continue;
+    if (open.length >= MAX_NESTING_DEPTH) {
+      issues.push({
+        path: [...open.flatMap(({ keyInParent }) => keyInParent ?? []), key],
+        message: `objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep`,
+      });
+      continue;
+    }
+    if ((deepestWalk.get(entry) ?? -1) >= open.length) continue;
+    enter(entry, key);
+  }
+  return issues;
+}
+
+function isContainer(value: unknown): value is object {
+  return typeof value === "object" && value !== null;
 }
 
 function idOf(entry: unknown): string | undefined {

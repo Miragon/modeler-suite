@@ -101,8 +101,7 @@ by stroke **and** colour, so diagrams survive colour-vision deficiency and greys
 The **integration roles** that decorate the ends of asymmetric relationships come from
 `UPSTREAM_ROLE_SPECS` (OHS = Open Host Service, PL = Published Language) and `DOWNSTREAM_ROLE_SPECS`
 (ACL = Anticorruption Layer, CF = Conformist), with per-marker colours in `MARK_COLORS`. The
-renderer writes black or white on each role chip, whichever has more contrast; `MARK_TEXT_COLOR`
-(white on every chip) is deprecated.
+renderer writes black or white on each role chip, whichever has more contrast.
 
 The values are tuned for contrast on the canvas: every text 4.5:1 on what it sits on, every box
 outline and relationship line 3:1 on the canvas ground. A document never stores them, only a
@@ -164,6 +163,7 @@ console.log(SAMPLE_DOCUMENT.title);
 | `serializeDocument()`, `canonicalize()`                                                       | Deterministic JSON serialization (sorted, rounded, fixed key order). |
 | `DOCUMENT_KEYS`, `CONTEXT_KEYS`, `RELATIONSHIP_KEYS`, `foreignFields()`                       | The keys this version knows; every other key is kept as it is.       |
 | `MAX_COORDINATE`                                                                              | The largest coordinate or size a document may hold (1,000,000 px).   |
+| `MAX_NESTING_DEPTH`                                                                           | How many levels of objects and arrays a document may nest (100).     |
 | `DIAGRAM_ROOT_ID`, `isReservedId()`, `reservedIdProblem()`                                    | The ids no context or relationship may take, and why.                |
 | `emptyDocument()`, `createBoundedContext()`, `createRelationship()`, `newId()`                | Factories with notation defaults + id generation.                    |
 | `SAMPLE_DOCUMENT`                                                                             | A complete example context map.                                      |
@@ -186,11 +186,15 @@ console.log(SAMPLE_DOCUMENT.title);
   beyond `MAX_COORDINATE` and a context or relationship id the canvas cannot draw: one it keeps for
   itself (`cm-root`, `__implicitroot…`), the name of a built-in object property (`constructor`,
   `toString`, `__proto__`, …; `isReservedId()` and `reservedIdProblem()` name both), and an id an
-  earlier context or relationship already uses. Each issue carries the path of the offending value
-  (`["contexts", 2, "id"]` for a repeated id: the repeat, not the first use). "Earlier" follows the
-  file, so a hand-written file that lists its relationships first gets the repeat on the copy it
-  writes second. Repeated ids are reported in the same round as every other issue, in document
-  order, so fixing the others never brings up a repeat as a new error.
+  earlier context or relationship already uses. So is a document whose objects and arrays nest more
+  than `MAX_NESTING_DEPTH` (100) levels deep, the document itself being the first, with an issue
+  at the first level too deep of each branch, the first 100 of them: the serializer overflows the
+  stack a few thousand levels down, so the canvas would open such a file and fail to save it. Each
+  issue carries the path of the offending value (`["contexts", 2, "id"]` for a repeated id: the
+  repeat, not the first use). "Earlier" follows the file, so a hand-written file that lists its
+  relationships first gets the repeat on the copy it writes second. Repeated ids and nesting are reported in the same round as
+  every other issue, in document order, so fixing the others never brings up one of them as a new
+  error.
 
 ## Development
 
