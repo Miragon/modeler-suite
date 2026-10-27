@@ -13,6 +13,7 @@ import {
   type ParseError,
 } from "jsonc-parser";
 import {
+  MAX_NESTING_DEPTH,
   parseDocument,
   type DocumentIssue,
   type TtDocument,
@@ -84,13 +85,69 @@ function pathLabel(path: (string | number)[]): string {
   );
 }
 
-function issueProblem(tree: Node, issue: DocumentIssue): DocumentProblem {
+function issueMessage(issue: DocumentIssue): string {
   const where = pathLabel(issue.path);
-  return {
+  return where ? `${where}: ${issue.message}` : issue.message;
+}
+
+function issueProblem(tree: Node, issue: DocumentIssue): DocumentProblem {
+  return { severity: "error", message: issueMessage(issue), ...located(tree, issue.path) };
+}
+
+/** The offset of the first bracket that opens a level beyond `limit`, outside strings. */
+function offsetBeyondNesting(text: string, limit: number): number | undefined {
+  let depth = 0;
+  let inString = false;
+  for (let offset = 0; offset < text.length; offset++) {
+    const char = text[offset];
+    if (inString) {
+      if (char === "\\") offset++;
+      else if (char === '"') inString = false;
+    } else if (char === '"') {
+      inString = true;
+    } else if (char === "{" || char === "[") {
+      if (++depth > limit) return offset;
+    } else if (char === "}" || char === "]") {
+      depth = Math.max(0, depth - 1);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * jsonc-parser's tree parser descends one call per level and overflows the stack a few thousand
+ * levels down, so a text nested deeper than this is read by JSON.parse alone.
+ */
+const TREE_PARSER_NESTING_LIMIT = 1_000;
+
+/** Where JSON.parse failed: V8 names the offset only in its message. */
+function jsonParseErrorOffset(reason: string, text: string): number {
+  const position = /at position (\d+)/.exec(reason)?.[1];
+  return position === undefined ? 0 : Math.min(Number(position), text.length);
+}
+
+/**
+ * A text too deep for the tree parser. Without a tree a path has no place in the text, and what
+ * makes such a text invalid is its nesting, which starts at the first bracket beyond the limit.
+ */
+function problemsWithoutTree(text: string): DocumentProblem[] {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    const offset = jsonParseErrorOffset(reason, text);
+    return [{ severity: "error", message: `Not valid JSON: ${reason}`, offset, length: 1 }];
+  }
+  const result = parseDocument(value);
+  if (result.ok) return [];
+  const offset = offsetBeyondNesting(text, MAX_NESTING_DEPTH) ?? 0;
+  return result.issues.map((issue) => ({
     severity: "error",
-    message: where ? `${where}: ${issue.message}` : issue.message,
-    ...located(tree, issue.path),
-  };
+    message: issueMessage(issue),
+    offset,
+    length: 1,
+  }));
 }
 
 /** Connectors the diagram drops on open, as the renderer's importer warns about them. */
@@ -118,6 +175,9 @@ function attachmentWarnings(document: TtDocument, tree: Node): DocumentProblem[]
 export function documentProblems(text: string): DocumentProblem[] {
   // A blank file is a new, empty diagram (the webview reads it the same way).
   if (text.trim() === "") return [];
+  if (offsetBeyondNesting(text, TREE_PARSER_NESTING_LIMIT) !== undefined) {
+    return problemsWithoutTree(text);
+  }
   const errors: ParseError[] = [];
   const tree = parseTree(text, errors, { disallowComments: true, allowTrailingComma: false });
   if (errors.length > 0) return errors.map(syntaxProblem);
