@@ -22,8 +22,10 @@ ready-made map to explore. From there you can open any `.wmap` or `.owm` file.
 
 Prefer commands? Run these from the Command Palette (`Cmd/Ctrl+Shift+P`, type _"Wardley"_):
 
-- **Wardley: New Map from Example**: pick a location, pre-filled with the Tea Shop example.
-- **Wardley: New Empty Map**: the same, but a blank map (also under **File > New File…**).
+- **Wardley: New Map from Example**: pick a location, pre-filled with the Tea Shop example (also
+  under **File > New File…** as **New Wardley Map from Example**).
+- **Wardley: New Empty Map**: the same, but a blank map (also under **File > New File…** as
+  **Wardley Map**).
 
 ## Reading a map
 

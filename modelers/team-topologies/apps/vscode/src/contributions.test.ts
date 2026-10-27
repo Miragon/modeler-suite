@@ -10,9 +10,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 interface Manifest {
   contributes: {
-    commands: Array<{ command: string; title: string; category: string }>;
+    commands: Array<{ command: string; title: string; shortTitle?: string; category: string }>;
     menus: Record<string, Array<{ command: string; when?: string; group?: string }>>;
-    walkthroughs: Array<{ steps: Array<{ id: string }> }>;
+    walkthroughs: Array<{ id: string; steps: Array<{ id: string; completionEvents: string[] }> }>;
     keybindings?: unknown;
   };
 }
@@ -43,8 +43,34 @@ describe("the extension's native contributions (guide §13.5)", () => {
     ).toEqual(["teamTopologies@1", "teamTopologies@2", "teamTopologies@3"]);
   });
 
-  it("binds no keys of its own and walks through new, source and the basics", () => {
+  it("offers a new empty diagram, one from the example and one as PNG in the New File menu", () => {
+    const shortTitles = new Map(commands.map(({ command, shortTitle }) => [command, shortTitle]));
+    expect(
+      (menus["file/newFile"] ?? []).map(({ command, group }) => [
+        command,
+        group,
+        shortTitles.get(command),
+      ]),
+    ).toEqual([
+      ["teamTopologies.newDiagram", "teamTopologies@1", "Team Topologies"],
+      [
+        "teamTopologies.newFromExample",
+        "teamTopologies@2",
+        "New Team Topologies Diagram from Example",
+      ],
+      ["teamTopologies.newPngDiagram", "teamTopologies@3", undefined],
+    ]);
+  });
+
+  it("binds no keys of its own and walks through new, example, source and the basics", () => {
     expect(manifest.contributes.keybindings).toBeUndefined();
-    expect(walkthroughs[0]?.steps.map(({ id }) => id)).toEqual(["create", "source", "learn"]);
+    expect(walkthroughs[0]?.id).toBe("getStarted");
+    const steps = walkthroughs[0]?.steps ?? [];
+    expect(steps.map(({ id }) => id)).toEqual(["new", "example", "source", "learn"]);
+    expect(steps.slice(0, 3).map(({ completionEvents }) => completionEvents)).toEqual([
+      ["onCommand:teamTopologies.newDiagram"],
+      ["onCommand:teamTopologies.newFromExample"],
+      ["onCommand:teamTopologies.openSource"],
+    ]);
   });
 });

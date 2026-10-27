@@ -98,7 +98,8 @@
       {
         "command": "teamTopologies.newFromExample",
         "title": "New Diagram from Example",
-        "category": "Team Topologies"
+        "category": "Team Topologies",
+        "shortTitle": "New Team Topologies Diagram from Example"
       },
       {
         "command": "teamTopologies.newPngDiagram",
@@ -137,11 +138,15 @@
       "file/newFile": [
         {
           "command": "teamTopologies.newDiagram",
-          "group": "teamTopologies"
+          "group": "teamTopologies@1"
+        },
+        {
+          "command": "teamTopologies.newFromExample",
+          "group": "teamTopologies@2"
         },
         {
           "command": "teamTopologies.newPngDiagram",
-          "group": "teamTopologies"
+          "group": "teamTopologies@3"
         }
       ],
       "editor/title": [
@@ -201,11 +206,22 @@
         "description": "Create and edit Team Topologies diagrams (the four team types, three interaction modes, and flow-of-change) directly in VS Code.",
         "steps": [
           {
-            "id": "create",
-            "title": "Create your first diagram",
-            "description": "Start from the bundled example or a blank canvas; it opens right in the visual editor.\n[Create diagram from example](command:teamTopologies.newFromExample)",
+            "id": "new",
+            "title": "Create a diagram",
+            "description": "Start from an empty diagram: a plain JSON .tt file that opens as a canvas.\n[Create empty diagram](command:teamTopologies.newDiagram)",
             "media": {
-              "markdown": "media/walkthrough/create.md"
+              "markdown": "media/walkthrough/new.md"
+            },
+            "completionEvents": [
+              "onCommand:teamTopologies.newDiagram"
+            ]
+          },
+          {
+            "id": "example",
+            "title": "Open the example",
+            "description": "See a finished diagram: an online shop with all four team types and the three interaction modes.\n[Create diagram from example](command:teamTopologies.newFromExample)",
+            "media": {
+              "markdown": "media/walkthrough/example.md"
             },
             "completionEvents": [
               "onCommand:teamTopologies.newFromExample"

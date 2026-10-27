@@ -18,9 +18,10 @@ const read = (path: string) => readFileSync(new URL(path, appRoot), "utf8");
 interface Manifest {
   activationEvents: string[];
   contributes: {
-    commands: Array<{ command: string; title: string }>;
+    commands: Array<{ command: string; title: string; shortTitle?: string }>;
     grammars: Array<{ language: string; scopeName: string; path: string }>;
-    menus: Record<string, Array<{ command: string; when?: string }>>;
+    menus: Record<string, Array<{ command: string; when?: string; group?: string }>>;
+    walkthroughs: Array<{ id: string; steps: Array<{ id: string; completionEvents: string[] }> }>;
   };
 }
 const manifest = JSON.parse(read("package.json")) as Manifest;
@@ -115,14 +116,30 @@ describe("the editor title menu (guide §13.5)", () => {
     });
   });
 
-  it("walks through creating a map, opening the source to the side and the basics", () => {
-    const walkthrough = (
-      manifest.contributes as unknown as {
-        walkthroughs: Array<{ steps: Array<{ id: string; completionEvents: string[] }> }>;
-      }
-    ).walkthroughs[0]!;
-    expect(walkthrough.steps.map((step) => step.id)).toEqual(["create", "source", "learn"]);
-    expect(walkthrough.steps[1]!.completionEvents).toEqual(["onCommand:wardley.showSource"]);
+  it("walks through new, example and source to the side, each completed by its command", () => {
+    const walkthrough = manifest.contributes.walkthroughs[0]!;
+    expect(walkthrough.id).toBe("getStarted");
+    expect(walkthrough.steps.map((step) => step.id)).toEqual(["new", "example", "source", "learn"]);
+    expect(walkthrough.steps.slice(0, 3).map((step) => step.completionEvents)).toEqual([
+      ["onCommand:wardley.newMap"],
+      ["onCommand:wardley.newMapFromExample"],
+      ["onCommand:wardley.showSource"],
+    ]);
+  });
+});
+
+describe("the New File menu (guide §13.5)", () => {
+  it("offers a new empty map, then a new map from the example", () => {
+    const shortTitles = new Map(
+      manifest.contributes.commands.map((command) => [command.command, command.shortTitle]),
+    );
+    const entries = manifest.contributes.menus["file/newFile"]!;
+    expect(
+      entries.map((entry) => [entry.command, entry.group, shortTitles.get(entry.command)]),
+    ).toEqual([
+      ["wardley.newMap", "wardley@1", "Wardley Map"],
+      ["wardley.newMapFromExample", "wardley@2", "New Wardley Map from Example"],
+    ]);
   });
 });
 
@@ -177,7 +194,12 @@ describe("templates", () => {
 
 describe("docs", () => {
   it("no longer promises that exported images reopen as maps", () => {
-    for (const file of ["README.md", "media/walkthrough/learn.md", "media/walkthrough/create.md"]) {
+    for (const file of [
+      "README.md",
+      "media/walkthrough/new.md",
+      "media/walkthrough/example.md",
+      "media/walkthrough/learn.md",
+    ]) {
       expect(read(file), file).not.toMatch(/embed/i);
     }
   });

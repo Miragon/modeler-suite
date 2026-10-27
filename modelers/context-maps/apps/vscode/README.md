@@ -23,8 +23,10 @@ ready-made diagram to explore. From there you can open any `.cm` or `.cm.json` f
 
 Prefer commands? Run these from the Command Palette (`Cmd/Ctrl+Shift+P`, type _"Context Maps"_):
 
-- **Context Maps: New Diagram from Example:** pick a location, pre-filled with the example context map.
-- **Context Maps: New Empty Diagram:** the same, but a blank diagram (also under **File > New File…**).
+- **Context Maps: New Diagram from Example:** pick a location, pre-filled with the example context
+  map (also under **File > New File…** as **New Context Maps Diagram from Example**).
+- **Context Maps: New Empty Diagram:** the same, but a blank diagram (also under
+  **File > New File…** as **Context Maps**).
 - **Context Maps: New Diagram from CML…:** turn a Context Mapper `.cml` file into a new `.cm` file.
 
 ## Reading a diagram
