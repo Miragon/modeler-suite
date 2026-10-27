@@ -9,8 +9,5 @@ export const eventStormingPaletteModule: ModuleDeclaration = {
   paletteTooltip: ["type", EventStormingPaletteTooltip],
 };
 
-export {
-  default as EventStormingPaletteProvider,
-  resolveFreeArea,
-} from "./EventStormingPaletteProvider.js";
+export { default as EventStormingPaletteProvider } from "./EventStormingPaletteProvider.js";
 export { default as EventStormingPaletteTooltip } from "./EventStormingPaletteTooltip.js";

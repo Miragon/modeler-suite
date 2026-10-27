@@ -56,10 +56,8 @@ freeform drawings on an unbounded canvas.
 chrome covers, or `{ center: () => ({ x, y }) }`, the free centre in diagram coordinates
 (`undefined` while there is none). `freeArea`, `fitOnImport` and `undoRedoKeys` are the names of
 the [`@miragon/modeler-api`](https://www.npmjs.com/package/@miragon/modeler-api) factory options
-(contract 1.2), the same for every Miragon renderer. `freeRectInsets: () => insets`, the earlier
-name of `freeArea: { insets }`, is deprecated: still accepted through 0.5.x and removed in 0.6.0;
-given both, `freeArea` wins. Pass `fitOnImport: false` when the host sets the view after every
-import itself.
+(contract 1.2), the same for every Miragon renderer. Pass `fitOnImport: false` when the host sets
+the view after every import itself.
 
 Pass `undoRedoKeys: false` when the host owns the history, as the VS Code extension does: the keys
 then reach the host untouched and the host undoes the document, while copy, paste, delete, the
@@ -170,8 +168,7 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
 - `diagram` is the wrapped `Modeler` or `NavigatedViewer`, for everything outside the contract.
   `createCollaborativeModeler` and `createCollaborativeViewer` accept the same options:
   `additionalModules`, `fitOnImport`, and for the modeler `undoRedoKeys` and `freeArea` (the
-  viewer ignores those two); the deprecated `freeRectInsets` still works through 0.5.x and goes
-  in 0.6.0.
+  viewer ignores those two).
 - After `destroy()`, `exportText()` returns the last state and `importText()` rejects.
 
 #### Migrating a host

@@ -40,18 +40,6 @@ export type { FreeArea };
 
 export interface EventStormingPaletteConfig {
   freeArea?: FreeArea | undefined;
-  /** @deprecated Pass `freeArea: { insets }` instead; accepted through 0.5.x, removed in 0.6.0. */
-  freeRectInsets?: (() => FreeRectInsets) | undefined;
-}
-
-/** The free area of the options: the modeler-api name first, then the deprecated one. */
-export function resolveFreeArea(options: {
-  freeArea?: FreeArea | undefined;
-  freeRectInsets?: (() => FreeRectInsets) | undefined;
-}): FreeArea | undefined {
-  if (options.freeArea) return options.freeArea;
-  const insets = options.freeRectInsets;
-  return insets ? { insets } : undefined;
 }
 
 /** Guide §5.5: a keyboard-created element lands this far down-right of one already centred there. */
@@ -278,7 +266,7 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
 
   /** The centre of what the chrome leaves free, in diagram coordinates. */
   private freeAreaCentre(canvas: Canvas): { x: number; y: number } {
-    const freeArea = this.config && resolveFreeArea(this.config);
+    const freeArea = this.config?.freeArea;
     const given = freeArea?.center?.();
     if (given) return { x: given.x, y: given.y };
     const viewbox = canvas.viewbox();
