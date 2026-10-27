@@ -102,3 +102,6 @@ files:
 ```sh
 node <miragon-brand plugin>/scripts/brand-lint.mjs $(git ls-files -co --exclude-standard)
 ```
+
+The template's [`CLAUDE.md`](../assets/template/CLAUDE.md#design-system-mandatory) gives Claude in
+the new repository the same notes.

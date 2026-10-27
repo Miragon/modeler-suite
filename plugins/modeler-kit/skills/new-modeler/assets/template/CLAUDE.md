@@ -63,3 +63,18 @@ All UI follows the Miragon product design system, the `miragon-brand:modeler-too
 `cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css` are vendored unchanged
 into `packages/renderer/src/theme/`; re-copy them to update, never edit them. The chrome is
 `@miragon/modeler-shell` in both apps; the renderer's stylesheet reads only `--cd-ui-*` roles.
+
+[`.miragon/brand.json`](.miragon/brand.json) turns on the plugin's brand-lint hook (`miragon-brand`
+1.7.0 or later): after every file Claude writes or edits, it reports each hard finding back to
+Claude, which fixes it before going on. The modeler is English, so A1, A3, A4, A7 and A11 are off
+(guide §2); C5, A2 (no em dash as a connector), the anti-slop rules and the colour rules stay on.
+CHANGELOGs, the third-party notices, tests, the e2e suite, snapshots and fixtures are ignored. An
+intended notation colour sits between `// brand-lint-disable` and `// brand-lint-enable` (one line:
+`// brand-lint-disable-next-line`), under a comment that says why. brand-lint reads no JSON and
+only the colours of a `.ts` file, so strings there stay a review point. The hook takes the nearest
+`.miragon/brand.json` and never merges two, so add none below the root. By hand, from the root (its
+own walk of `.` skips every dot folder and dot file, which the hook still checks):
+
+```sh
+node <miragon-brand plugin>/scripts/brand-lint.mjs $(git ls-files -co --exclude-standard)
+```

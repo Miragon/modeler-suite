@@ -18,6 +18,7 @@ import {
 import { devNull, tmpdir } from "node:os";
 import { basename, dirname, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getFileInfo as getPrettierFileInfo } from "prettier";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
@@ -530,6 +531,22 @@ describe("the template's placeholders", () => {
       mangled.some((form) => readText(file).includes(form)),
     );
     expect(hits.map(fromRoot)).toEqual([]);
+  });
+
+  it("stay out of the suite's pre-commit Prettier: the hook runs only the root lint-staged config, whose ignore file skips the template's Markdown", async () => {
+    const lintStagedRuns = readText(join(ROOT, ".husky/pre-commit"))
+      .split("\n")
+      .filter((line) => /^\s*npx lint-staged\b/.test(line));
+    expect(lintStagedRuns).toEqual(["npx lint-staged --config package.json"]);
+
+    const formattedByTheSuite: string[] = [];
+    for (const file of templateFiles.filter((path) => path.endsWith(".md"))) {
+      const { ignored } = await getPrettierFileInfo(file, {
+        ignorePath: join(ROOT, ".prettierignore"),
+      });
+      if (!ignored) formattedByTheSuite.push(fromRoot(file));
+    }
+    expect(formattedByTheSuite).toEqual([]);
   });
 
   it("are all filled by the script, which writes the whole template", () => {
