@@ -5,13 +5,23 @@ const WEBAPP_URL = `http://localhost:${WEBAPP_PORT}`;
 const WEBVIEW_PORT = process.env.E2E_WEBVIEW_PORT ?? "5190";
 const WEBVIEW_URL = `http://127.0.0.1:${WEBVIEW_PORT}`;
 
+const SHARE_SPEC = "webapp-share.spec.ts";
+const FOCUS_HAND_BACK_SPEC = "webapp-focus-hand-back.spec.ts";
+
 /**
- * Two projects, one per host:
+ * Three projects:
  *  - `webapp`: @miragon/wardley-webapp. Its dev server resolves @miragon/wardley-* via Vite source
  *    aliases (apps/webapp/vite.config.ts), so no package build is required. `cwd: '..'` runs the
  *    command from the repo root so the npm workspace resolves.
  *  - `vscode-webview`: the VS Code webview (apps/vscode/src/webview/main.ts) inside the shell's
  *    VS Code stub, served by its own Vite test page (webview/), also from the package sources.
+ *    VS Code's webviews are Chromium.
+ *  - `webapp-webkit`: the web app's Share and focus hand-back specs in Safari's engine, on the
+ *    `webapp` server. Share writes a ClipboardItem whose value is a promise inside the click,
+ *    because Safari drops the user activation at the first `await`; and Safari gives a clicked
+ *    button no focus, so a control has to hand the focus to the canvas without having held it.
+ *    The shell's conformance kit stays in Chromium: its tab-order checks need a Tab that reaches
+ *    buttons, which WebKit's does not by default.
  */
 export default defineConfig({
   testDir: "./tests",
@@ -34,6 +44,11 @@ export default defineConfig({
       name: "vscode-webview",
       testMatch: "**/vscode/**/*.spec.ts",
       use: { ...devices["Desktop Chrome"], baseURL: WEBVIEW_URL },
+    },
+    {
+      name: "webapp-webkit",
+      testMatch: [`**/${SHARE_SPEC}`, `**/${FOCUS_HAND_BACK_SPEC}`],
+      use: { ...devices["Desktop Safari"], baseURL: WEBAPP_URL },
     },
   ],
   webServer: [

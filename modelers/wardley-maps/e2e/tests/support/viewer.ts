@@ -131,6 +131,25 @@ async function diagramPoint(page: Page, x: number, y: number): Promise<Point> {
 }
 
 /**
+ * Absolute page coordinate of a map position (visibility and evolution from 0 to 1), for the
+ * current viewbox, so a spot stays on the same place of the map whatever the zoom.
+ */
+export async function mapPositionPoint(
+  page: Page,
+  position: { visibility: number; evolution: number },
+): Promise<Point> {
+  const diagram = await page.evaluate((coordinate) => {
+    const viewer = window.__wardleyViewer as unknown as {
+      get(name: "evolutionGrid"): {
+        toCanvas(value: { visibility: number; evolution: number }): Point;
+      };
+    };
+    return viewer.get("evolutionGrid").toCanvas(coordinate);
+  }, position);
+  return diagramPoint(page, diagram.x, diagram.y);
+}
+
+/**
  * The diagram-js graphics group for a model element. `data-element-id` is the live diagram-js id
  * (e.g. `shape_12` / `connection_19`) — for UI-created elements this is NOT the label, so callers
  * pass the id returned by `createComponentAt`/`exportMap`.

@@ -29,10 +29,12 @@ Vite directly on `:5180` and needs none of it.
 
 ## Browser & e2e tests
 
-`npm run wardley-maps test:browser` (Vitest browser mode) and `npm run wardley-maps test:e2e` (Playwright, in
-`e2e/`) need a Chromium browser (`npx playwright install chromium`, once).
+`npm run wardley-maps test:browser` (Vitest browser mode) needs a Chromium browser, and
+`npm run wardley-maps test:e2e` (Playwright, in `e2e/`) needs Chromium and WebKit
+(`npx playwright install chromium webkit`, once).
 
-The Playwright config has two projects, each with its own dev server started for the run:
+The Playwright config has three projects. The first two each start their own dev server for the
+run:
 
 - `webapp`: the demo web app (`apps/webapp`, Vite on `E2E_PORT`, default `5180`). It runs the
   shell's conformance kit on the web host, the app's handlers behind the chrome and the modelling
@@ -41,6 +43,15 @@ The Playwright config has two projects, each with its own dev server started for
   stub of `@miragon/modeler-shell`, served by the test page in `e2e/webview/` (Vite on
   `E2E_WEBVIEW_PORT`, default `5190`). It runs the shell's conformance kit, whose `csp` case walks
   the production bundle behind the webview CSP, and the webview's side of the host protocol.
+- `webapp-webkit`: the web app in Safari's engine, on the `webapp` server, with two specs only.
+  `webapp-share.spec.ts` checks that Share copies through the ClipboardItem whose value is a
+  promise (Safari drops the user activation at the first `await`) and confirms with the success
+  toast; it does not read the clipboard back. `webapp-focus-hand-back.spec.ts` checks that
+  Cmd/Ctrl+Z and C act on the canvas at once after a click on zoom in or zoom out, and after the
+  menu's dialog closes (the focus goes to the menu trigger) or Share is clicked as soon as a click
+  on the canvas has given it the focus back. Both run in `webapp` too. Safari gives a clicked
+  button no focus, while Chromium and Playwright's WebKit on Linux (as in CI) focus it, so the
+  focus spec takes the focus off a clicked button as Safari does (`tests/support/safari.ts`).
 
 Run one with `npm run wardley-maps test:e2e -- --project=vscode-webview`. When the default ports are
 taken (several worktrees at once), pick others:
