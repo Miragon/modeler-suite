@@ -6,6 +6,7 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 import type Create from "diagram-js/lib/features/create/Create";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
+import type Overlays from "diagram-js/lib/features/overlays/Overlays";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
 import { Modeler, restoreEditorState, setAsideEditorState } from "../../src/index.js";
@@ -512,6 +513,129 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
 
       expect(pressKey(entry, "Escape").defaultPrevented).toBe(true);
       expect(drawTool().isActive()).toBe(false);
+    });
+
+    function drawEntry(root: ParentNode): HTMLElement {
+      return root.querySelector<HTMLElement>('.djs-palette .entry[data-action="draw-tool"]')!;
+    }
+
+    /**
+     * Host chrome inside the diagram container: a target check against the whole container took
+     * its Enter and Escape.
+     */
+    function hostTargetInsideContainer(kind: "button" | "overlay" | "zoom"): HTMLElement {
+      const diagramContainer = service<Canvas>("canvas").getContainer();
+      if (kind === "button") {
+        const button = document.createElement("button");
+        button.textContent = "Share";
+        diagramContainer.appendChild(button);
+        return button;
+      }
+      if (kind === "overlay") {
+        const marker = document.createElement("div");
+        marker.tabIndex = 0;
+        marker.textContent = "2 comments";
+        const platform = findByLabel(service<ElementRegistry>("elementRegistry"), "Platform");
+        service<Overlays>("overlays").add(platform, {
+          position: { top: 0, left: 0 },
+          html: marker,
+        });
+        return marker;
+      }
+      const zoomPanel = document.createElement("div");
+      zoomPanel.className = "cd-shell-zoom";
+      zoomPanel.setAttribute("role", "group");
+      zoomPanel.setAttribute("aria-label", "Zoom");
+      const zoomIn = document.createElement("button");
+      zoomIn.setAttribute("aria-label", "Zoom in");
+      zoomPanel.appendChild(zoomIn);
+      diagramContainer.appendChild(zoomPanel);
+      return zoomIn;
+    }
+
+    it.each([
+      ["a host button inside the diagram container", "button"],
+      ["a focusable element in an overlay next to the canvas", "overlay"],
+      ["a zoom panel inside the diagram container", "zoom"],
+      ["<body>", "body"],
+    ] as const)("leaves Enter and Escape on %s to the page while drawing", (_name, kind) => {
+      drawTool().activate();
+      placePoint(300, 300);
+      placePoint(420, 360);
+      let target: HTMLElement;
+      if (kind === "body") {
+        target = document.body;
+        (document.activeElement as HTMLElement | null)?.blur();
+      } else {
+        target = hostTargetInsideContainer(kind);
+        target.focus();
+      }
+      expect(document.activeElement).toBe(target);
+      const reachedWindow: string[] = [];
+      const onWindowKeydown = (event: KeyboardEvent) => reachedWindow.push(event.key);
+      window.addEventListener("keydown", onWindowKeydown);
+      try {
+        expect(pressKey(target, "Enter").defaultPrevented).toBe(false);
+        expect(pressKey(target, "Escape").defaultPrevented).toBe(false);
+      } finally {
+        window.removeEventListener("keydown", onWindowKeydown);
+      }
+
+      expect(reachedWindow).toEqual(["Enter", "Escape"]);
+      expect(drawTool().isActive()).toBe(true);
+      expect(drawings()).toBe(0);
+      expect(pressOnCanvas("Enter").defaultPrevented).toBe(true);
+      expect(drawTool().isActive()).toBe(false);
+      expect(drawings()).toBe(1);
+    });
+
+    it.each([
+      ["the canvas <svg>", "Enter", "canvas"],
+      ["the canvas <svg>", "Escape", "canvas"],
+      ["a shape inside the canvas <svg>", "Enter", "shape"],
+      ["a shape inside the canvas <svg>", "Escape", "shape"],
+      ["the palette entry that starts the tool", "Enter", "entry"],
+      ["the palette entry that starts the tool", "Escape", "entry"],
+    ] as const)("ends the drawing with a key on %s (%s)", (_name, key, kind) => {
+      drawTool().activate();
+      placePoint(300, 300);
+      placePoint(420, 360);
+      const registry = service<ElementRegistry>("elementRegistry");
+      const entry = drawEntry(container);
+      const target: globalThis.Element = {
+        canvas: svg(),
+        shape: registry.getGraphics(findByLabel(registry, "Platform")),
+        entry,
+      }[kind];
+      if (kind === "entry") entry.focus();
+      else svg().focus();
+
+      expect(pressKey(target, key).defaultPrevented).toBe(true);
+      expect(drawTool().isActive()).toBe(false);
+      expect(drawings()).toBe(1);
+    });
+
+    it("leaves Enter and Escape on another modeler's draw entry to that modeler", async () => {
+      const otherContainer = addHostControl("div");
+      otherContainer.style.width = "640px";
+      otherContainer.style.height = "480px";
+      const other = new Modeler({ container: otherContainer });
+      try {
+        await other.importDSL(DSL);
+        drawTool().activate();
+        placePoint(300, 300);
+        placePoint(420, 360);
+        const otherEntry = drawEntry(otherContainer);
+        otherEntry.focus();
+
+        expect(pressKey(otherEntry, "Escape").defaultPrevented).toBe(false);
+        pressKey(otherEntry, "Enter");
+        expect(other.get<WardleyDrawTool>("wardleyDrawTool").isActive()).toBe(true);
+        expect(drawTool().isActive()).toBe(true);
+        expect(drawings()).toBe(0);
+      } finally {
+        other.destroy();
+      }
     });
   });
 
