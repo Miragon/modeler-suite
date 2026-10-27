@@ -108,7 +108,7 @@ test("without undo keys Cmd/Ctrl+Z goes on to the host, unprevented and unhandle
 
 test("Enter on a creating palette entry places a selected context in the free rectangle", () => {
   const insets = { top: 88, right: 24, bottom: 64, left: 24 };
-  const modeler = mountModeler({ freeRectInsets: () => insets });
+  const modeler = mountModeler({ freeArea: { insets: () => insets } });
   try {
     const entry = modeler.container.querySelector<HTMLElement>(
       '.djs-palette [data-action="context.core"]',

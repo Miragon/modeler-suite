@@ -86,11 +86,13 @@ new Modeler({
   `detail === 0`) places the new context in that centre, 24px further down and right while that
   spot is taken, selected and with its name editor open, and the fit after an import centres the
   content in what the insets leave. Without it, and for the fit when only `center` is given, the
-  renderer keeps room for its own palette.
+  renderer keeps room for its own palette. The viewer hands it unchanged to the palette as the
+  diagram config `cmPalette: { freeArea }` (`CmPaletteConfig`), the shape the other Miragon
+  renderers' palette configs have. The earlier option `freeRectInsets` and the palette config's
+  `freeRectInsets` and `freeRectCenter` are gone since 0.7.0: pass `freeArea: { insets }` or
+  `freeArea: { center }`.
 - `fitOnImport: false` leaves the view to a host whose chrome fits the content itself after every
   import, so the view changes once per import.
-- `freeRectInsets` (the insets function itself) is the deprecated name of `freeArea: { insets }`.
-  It is accepted through the 0.5 releases and ignored when `freeArea` is given.
 
 ### Shared methods (`Viewer` / `NavigatedViewer` / `Modeler`)
 
@@ -154,7 +156,7 @@ waypoints), `undefined` for an id `elements.list()` does not report. `contentBou
 diagram's `contentBounds()`, the box around all of them, `undefined` before the first import, for
 an empty map and after `destroy()`. Both factories take the contract's
 `CollaborativeModelerOptions` (`freeArea`, `fitOnImport`, `undoRedoKeys`, which the viewer ignores)
-next to `additionalModules` and the deprecated `freeRectInsets`. `modeler.diagram` is the wrapped
+next to `additionalModules`. `modeler.diagram` is the wrapped
 `Modeler` or `NavigatedViewer`. The contract's conformance kit runs in this package's browser
 tests, every case and every hook, without a skip or an advisory.
 

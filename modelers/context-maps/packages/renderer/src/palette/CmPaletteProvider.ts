@@ -20,8 +20,8 @@ import type {
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
 import type { Point } from "diagram-js/lib/util/Types";
+import type { FreeArea } from "@miragon/modeler-api";
 import { ALL_SUBDOMAIN_SPECS } from "@miragon/context-maps-schema-model";
-import type { FreeRectInsets } from "../CmBaseViewer.js";
 import { contextIconSvg } from "../draw/palette-icons.js";
 import { toolIcon } from "../draw/lucide.js";
 import type CmLabelEditing from "../label-editing/CmLabelEditing.js";
@@ -29,6 +29,7 @@ import type CmElementFactory from "../model/CmElementFactory.js";
 import { isCmContext, type CmContext } from "../model/di-types.js";
 import type { CmReadOnly } from "../read-only/index.js";
 import { handFocusToCanvas, isKeyboardClick } from "../keyboard/canvasFocus.js";
+import { freeAreaInsets } from "./freeArea.js";
 
 /** diagram-js highlights tools only inside the group named exactly `tools`. */
 const GROUP_TOOLS = "tools";
@@ -38,9 +39,13 @@ const GROUP_CONTEXTS = "cm-1-contexts";
 const KEYBOARD_CREATE_OFFSET = 24;
 
 export interface CmPaletteConfig {
-  freeRectInsets?: (() => FreeRectInsets) | undefined;
-  /** The free rectangle's centre in diagram coordinates, when the host knows it better. */
-  freeRectCenter?: (() => Point | undefined) | undefined;
+  /**
+   * The part of the canvas no chrome covers (`@miragon/modeler-api` 1.2), as the host passed it:
+   * its insets in px from the container's edges (the modeler shell's `shell.fitInsets()`) or its
+   * centre in diagram coordinates (the shell's `viewport.freeRectCenter()`). Without insets, the
+   * room the renderer's own palette needs.
+   */
+  freeArea?: FreeArea | undefined;
 }
 
 function entryHtml(icon: string, draggable: boolean): string {
@@ -129,8 +134,8 @@ export default class CmPaletteProvider implements PaletteProvider {
    */
   private placeInFreeRect(shape: CmContext): void {
     if (this.readOnly.isReadOnly()) return;
-    const named = this.config?.freeRectCenter?.();
-    const centre = named ? { x: named.x, y: named.y } : this.freeRectCentre();
+    const named = this.config?.freeArea?.center?.();
+    const centre = named ? { x: named.x, y: named.y } : this.freeAreaCentre();
     const taken = (point: Point): boolean =>
       this.elementRegistry
         .filter((element) => isCmContext(element))
@@ -156,9 +161,9 @@ export default class CmPaletteProvider implements PaletteProvider {
   }
 
   /** The centre of the container minus the host's chrome, in diagram coordinates. */
-  private freeRectCentre(): Point {
+  private freeAreaCentre(): Point {
     const viewbox = this.canvas.viewbox();
-    const insets = this.config?.freeRectInsets?.() ?? { top: 0, right: 0, bottom: 0, left: 0 };
+    const insets = freeAreaInsets(this.config?.freeArea);
     const freeWidth = Math.max(0, viewbox.outer.width - insets.left - insets.right);
     const freeHeight = Math.max(0, viewbox.outer.height - insets.top - insets.bottom);
     return {
