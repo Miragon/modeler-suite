@@ -9,6 +9,7 @@ import type { Shape } from "diagram-js/lib/model/Types";
 import type { FreeArea } from "@miragon/modeler-api";
 import type LassoTool from "diagram-js/lib/features/lasso-tool/LassoTool";
 import type EventStormingDrawTool from "../draw-tool/EventStormingDrawTool.js";
+import { DRAW_TOOL_PALETTE_ENTRY } from "../draw-tool/index.js";
 import type {
   PaletteEntries,
   PaletteEntry,
@@ -207,7 +208,7 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
       },
     };
 
-    entries["draw-tool"] = {
+    entries[DRAW_TOOL_PALETTE_ENTRY] = {
       group: "tools",
       title: "Draw",
       html: `<div class="entry event-storming-palette-entry">${PALETTE_ICONS.draw}</div>`,

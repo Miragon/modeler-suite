@@ -12,7 +12,7 @@ import type { Element, Shape } from "diagram-js/lib/model/Types";
 import { COLORS, DRAWING_INK } from "../draw/styles.js";
 import type EventStormingElementFactory from "../model/EventStormingElementFactory.js";
 import { READ_ONLY_CHANGED_EVENT } from "../read-only/index.js";
-import { focusCanvasWithoutRing, isTextField, isUnhandledKey } from "../keyboard/index.js";
+import { focusCanvasWithoutRing, isUnhandledKey, targetsCanvas } from "../keyboard/index.js";
 
 interface Point {
   x: number;
@@ -21,6 +21,9 @@ interface Point {
 
 /** Clicking this close (px, canvas coords) to the FIRST/LAST point finishes/closes. */
 const CLOSE_RADIUS = 12;
+
+/** The id of the palette entry that starts the tool, which diagram-js writes into `data-action`. */
+export const DRAW_TOOL_PALETTE_ENTRY = "draw-tool";
 
 /**
  * Excalidraw-style polyline tool: activate, click point by point (rubber-band preview).
@@ -147,18 +150,21 @@ export default class EventStormingDrawTool {
   }
 
   /**
-   * Enter and Escape belong to the tool only when aimed at the modeler: the canvas, or the palette
-   * entry Enter started it from. A host's fields and buttons, the zoom panel, an open menu or
-   * dialog and the label editor keep theirs.
+   * Enter and Escape belong to the tool only when aimed at the canvas `<svg>` or at the tool's own
+   * palette entry, which keeps the focus when Enter starts the tool there (guide §5.5). Every other
+   * target keeps them, inside the modeler's container too: a host's buttons and fields, a host's
+   * overlay next to the canvas, the zoom panel, the other palette entries, an open menu or dialog,
+   * the label editor and `<body>`.
    */
   private ownsKey(e: KeyboardEvent): boolean {
+    return isUnhandledKey(e) && (targetsCanvas(e, this.canvas) || this.targetsOwnPaletteEntry(e));
+  }
+
+  private targetsOwnPaletteEntry(e: KeyboardEvent): boolean {
     const target = e.target;
-    return (
-      isUnhandledKey(e) &&
-      target instanceof Node &&
-      this.outerContainer().contains(target) &&
-      !isTextField(target)
-    );
+    if (!(target instanceof Element)) return false;
+    const entry = target.closest(`.djs-palette [data-action="${DRAW_TOOL_PALETTE_ENTRY}"]`);
+    return entry !== null && this.canvas.getContainer().contains(entry);
   }
 
   private readonly onMouseDown = (e: MouseEvent): void => {

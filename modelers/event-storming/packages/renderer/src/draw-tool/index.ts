@@ -14,6 +14,9 @@ export const eventStormingDrawToolModule: ModuleDeclaration = {
   eventStormingDrawingHitProvider: ["type", EventStormingDrawingHitProvider],
 };
 
-export { default as EventStormingDrawTool } from "./EventStormingDrawTool.js";
+export {
+  default as EventStormingDrawTool,
+  DRAW_TOOL_PALETTE_ENTRY,
+} from "./EventStormingDrawTool.js";
 export { default as EventStormingDrawingHandles } from "./EventStormingDrawingHandles.js";
 export { default as EventStormingDrawingHitProvider } from "./EventStormingDrawingHitProvider.js";
