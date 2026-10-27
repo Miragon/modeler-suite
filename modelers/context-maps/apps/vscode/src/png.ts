@@ -52,7 +52,10 @@ function latin1(str: string): Uint8Array {
   return out;
 }
 
-/** Inserts a tEXt chunk (keyword\0text) before IEND. */
+/**
+ * Inserts a tEXt chunk (keyword\0text) before IEND. A tEXt chunk with the same keyword goes first:
+ * the reader takes the first one, so a second insert would otherwise keep reading the old text.
+ */
 export function pngInsertText(png: Uint8Array, keyword: string, text: string): Uint8Array {
   const data = new Uint8Array([...latin1(keyword), 0, ...latin1(text)]);
   const type = latin1("tEXt");
@@ -63,34 +66,83 @@ export function pngInsertText(png: Uint8Array, keyword: string, text: string): U
   chunk.set(data, 8);
   view.setUint32(8 + data.length, crc32(new Uint8Array([...type, ...data])));
 
-  const iendStart = findIend(png);
-  const out = new Uint8Array(png.length + chunk.length);
-  out.set(png.subarray(0, iendStart), 0);
+  const kept = withoutTextChunks(png, keyword);
+  const iendStart = findIend(kept);
+  const out = new Uint8Array(kept.length + chunk.length);
+  out.set(kept.subarray(0, iendStart), 0);
   out.set(chunk, iendStart);
-  out.set(png.subarray(iendStart), iendStart + chunk.length);
+  out.set(kept.subarray(iendStart), iendStart + chunk.length);
   return out;
 }
 
 /** Reads the text of the FIRST tEXt chunk with the given keyword (or null if none exists). */
 export function pngExtractText(png: Uint8Array, keyword: string): string | null {
-  const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
-  let off = 8; // skip the PNG signature
-  while (off + 8 <= png.length) {
-    const len = view.getUint32(off);
-    const type = String.fromCharCode(png[off + 4]!, png[off + 5]!, png[off + 6]!, png[off + 7]!);
-    const dataStart = off + 8;
-    if (type === "tEXt") {
-      const data = png.subarray(dataStart, dataStart + len);
-      const nul = data.indexOf(0);
-      if (nul >= 0) {
-        const key = String.fromCharCode(...data.subarray(0, nul));
-        if (key === keyword) return latin1Decode(data.subarray(nul + 1));
-      }
-    }
-    if (type === "IEND") break;
-    off = dataStart + len + 4; // + CRC
+  for (const chunk of chunksOf(png)) {
+    const textChunk = textChunkOf(png, chunk);
+    if (textChunk?.keyword === keyword) return latin1Decode(textChunk.text);
   }
   return null;
+}
+
+interface ChunkSpan {
+  readonly type: string;
+  /** Offset of the chunk's length field. */
+  readonly start: number;
+  readonly dataStart: number;
+  readonly dataEnd: number;
+  /** Offset right after the chunk's CRC. */
+  readonly end: number;
+}
+
+/** The chunks after the PNG signature, up to and including IEND. */
+function* chunksOf(png: Uint8Array): Generator<ChunkSpan> {
+  const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+  let start = 8;
+  while (start + 8 <= png.length) {
+    const length = view.getUint32(start);
+    const type = String.fromCharCode(
+      png[start + 4]!,
+      png[start + 5]!,
+      png[start + 6]!,
+      png[start + 7]!,
+    );
+    const dataStart = start + 8;
+    const dataEnd = Math.min(dataStart + length, png.length);
+    const end = Math.min(dataEnd + 4, png.length);
+    yield { type, start, dataStart, dataEnd, end };
+    if (type === "IEND") return;
+    start = end;
+  }
+}
+
+function textChunkOf(
+  png: Uint8Array,
+  chunk: ChunkSpan,
+): { keyword: string; text: Uint8Array } | undefined {
+  if (chunk.type !== "tEXt") return undefined;
+  const data = png.subarray(chunk.dataStart, chunk.dataEnd);
+  const separator = data.indexOf(0);
+  if (separator < 0) return undefined;
+  return { keyword: latin1Decode(data.subarray(0, separator)), text: data.subarray(separator + 1) };
+}
+
+function withoutTextChunks(png: Uint8Array, keyword: string): Uint8Array {
+  const kept: Uint8Array[] = [];
+  let copiedUpTo = 0;
+  for (const chunk of chunksOf(png)) {
+    if (textChunkOf(png, chunk)?.keyword !== keyword) continue;
+    kept.push(png.subarray(copiedUpTo, chunk.start));
+    copiedUpTo = chunk.end;
+  }
+  if (copiedUpTo === 0) return png;
+  kept.push(png.subarray(copiedUpTo));
+  const out = new Uint8Array(kept.reduce((length, part) => length + part.length, 0));
+  let written = 0;
+  for (const part of kept) {
+    out.set(part, written);
+    written += part.length;
+  }
+  return out;
 }
 
 /** Latin-1 bytes -> string (in chunks, so even large texts don't blow the call stack). */
@@ -106,13 +158,8 @@ function latin1Decode(bytes: Uint8Array): string {
 }
 
 function findIend(png: Uint8Array): number {
-  const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
-  let off = 8;
-  while (off + 8 <= png.length) {
-    const len = view.getUint32(off);
-    const type = String.fromCharCode(png[off + 4]!, png[off + 5]!, png[off + 6]!, png[off + 7]!);
-    if (type === "IEND") return off;
-    off += 12 + len;
+  for (const chunk of chunksOf(png)) {
+    if (chunk.type === "IEND") return chunk.start;
   }
   return png.length;
 }
