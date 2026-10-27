@@ -193,20 +193,27 @@ describe("parseDocument", () => {
 describe("nesting depth", () => {
   const tooDeep = `objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep`;
 
-  /** `levels` objects and arrays, `{ a: [{ a: [ … ] }] }`, nested without recursion. */
-  const nested = (levels: number): unknown => {
+  const alternatingObjectsAndArrays = (levels: number): unknown => {
     let value: unknown = 0;
     for (let level = levels - 1; level >= 0; level--) value = level % 2 ? [value] : { a: value };
     return value;
   };
 
-  /** The keys of the `levels` outermost containers of {@link nested}. */
-  const keysOf = (levels: number): Array<string | number> =>
+  const keysThroughOutermost = (levels: number): Array<string | number> =>
     Array.from({ length: levels }, (_, level) => (level % 2 ? 0 : "a"));
+
+  const arraysAround = (levels: number, innermost: unknown[]): unknown[] => {
+    let value = innermost;
+    for (let level = 0; level < levels; level++) value = [value];
+    return value;
+  };
 
   it(`loads and saves a document of ${MAX_NESTING_DEPTH} levels`, () => {
     // The document is the first level, the foreign key's value the second.
-    const result = parseDocument({ ...SAMPLE_DOCUMENT, "x-deep": nested(MAX_NESTING_DEPTH - 1) });
+    const result = parseDocument({
+      ...SAMPLE_DOCUMENT,
+      "x-deep": alternatingObjectsAndArrays(MAX_NESTING_DEPTH - 1),
+    });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const text = serializeDocumentText(result.document);
@@ -216,11 +223,14 @@ describe("nesting depth", () => {
   });
 
   it("rejects one level more, at the first level too deep", () => {
-    const result = parseDocument({ ...SAMPLE_DOCUMENT, "x-deep": nested(MAX_NESTING_DEPTH) });
+    const result = parseDocument({
+      ...SAMPLE_DOCUMENT,
+      "x-deep": alternatingObjectsAndArrays(MAX_NESTING_DEPTH),
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.issues).toEqual([
-        { path: ["x-deep", ...keysOf(MAX_NESTING_DEPTH - 1)], message: tooDeep },
+        { path: ["x-deep", ...keysThroughOutermost(MAX_NESTING_DEPTH - 1)], message: tooDeep },
       ]);
     }
   });
@@ -233,18 +243,22 @@ describe("nesting depth", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.issues).toEqual([
-        { path: ["x-deep", ...keysOf(MAX_NESTING_DEPTH - 1)], message: tooDeep },
+        { path: ["x-deep", ...keysThroughOutermost(MAX_NESTING_DEPTH - 1)], message: tooDeep },
       ]);
-      expect(result.error).toBe(`x-deep.${keysOf(MAX_NESTING_DEPTH - 1).join(".")}: ${tooDeep}`);
+      expect(result.error).toBe(
+        `x-deep.${keysThroughOutermost(MAX_NESTING_DEPTH - 1).join(".")}: ${tooDeep}`,
+      );
     }
   });
 
   it("reports each branch too deep in the same round as the other errors, in document order", () => {
     const doc = structuredClone(SAMPLE_DOCUMENT) as CmDocument & Record<string, unknown>;
     doc.contexts[0]!.position.x = Number.NaN;
-    Object.assign(doc.contexts[1]!, { "x-deep": nested(5_000) });
+    Object.assign(doc.contexts[1]!, { "x-deep": alternatingObjectsAndArrays(5_000) });
     doc.contexts[2]!.id = "ctx_auth";
-    Object.assign(doc.relationships[3]!, { "x-wide": [nested(5_000), "flat", nested(5_000)] });
+    Object.assign(doc.relationships[3]!, {
+      "x-wide": [alternatingObjectsAndArrays(5_000), "flat", alternatingObjectsAndArrays(5_000)],
+    });
     const result = parseDocument(doc);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -263,6 +277,40 @@ describe("nesting depth", () => {
           ({ path, message }) => message !== tooDeep || path.length === MAX_NESTING_DEPTH,
         ),
       ).toBe(true);
+    }
+  });
+
+  it("reports at most 100 containers too deep, the first ones in document order", () => {
+    // The foreign key's value is the second level, the 98 arrays around the wide one end at the
+    // 99th, so the wide array is the 100th level and each empty array in it one level too many.
+    const wide = Array.from({ length: 100_000 }, (): unknown[] => []);
+    const result = parseDocument({ ...SAMPLE_DOCUMENT, "x-wide": arraysAround(98, wide) });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toEqual(
+        Array.from({ length: 100 }, (_, index) => ({
+          path: ["x-wide", ...Array<number>(98).fill(0), index],
+          message: tooDeep,
+        })),
+      );
+    }
+  });
+
+  it("loads a wide container at the last level, whose numbers and strings nest no deeper", () => {
+    const wide: unknown[] = Array.from({ length: 1_000_000 }, (_, index) => index);
+    const text = serializeDocumentText(SAMPLE_DOCUMENT).replace(
+      /^\{/,
+      `{"x-wide":${JSON.stringify(arraysAround(98, [...wide, "last"]))},`,
+    );
+    expect(parseDocumentText(text).ok).toBe(true);
+
+    wide.push([]);
+    const result = parseDocument({ ...SAMPLE_DOCUMENT, "x-wide": arraysAround(98, wide) });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toEqual([
+        { path: ["x-wide", ...Array<number>(98).fill(0), 1_000_000], message: tooDeep },
+      ]);
     }
   });
 

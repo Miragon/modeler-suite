@@ -187,12 +187,12 @@ console.log(SAMPLE_DOCUMENT.title);
   itself (`cm-root`, `__implicitroot…`), the name of a built-in object property (`constructor`,
   `toString`, `__proto__`, …; `isReservedId()` and `reservedIdProblem()` name both), and an id an
   earlier context or relationship already uses. So is a document whose objects and arrays nest more
-  than `MAX_NESTING_DEPTH` (100) levels deep, the document itself being the first, with the issue
-  at the first level too deep: the serializer overflows the stack a few thousand levels down, so
-  the canvas would open such a file and fail to save it. Each issue carries the path of the
-  offending value (`["contexts", 2, "id"]` for a repeated id: the repeat, not the first use).
-  "Earlier" follows the file, so a hand-written file that lists its relationships first gets the
-  repeat on the copy it writes second. Repeated ids and nesting are reported in the same round as
+  than `MAX_NESTING_DEPTH` (100) levels deep, the document itself being the first, with an issue
+  at the first level too deep of each branch, the first 100 of them: the serializer overflows the
+  stack a few thousand levels down, so the canvas would open such a file and fail to save it. Each
+  issue carries the path of the offending value (`["contexts", 2, "id"]` for a repeated id: the
+  repeat, not the first use). "Earlier" follows the file, so a hand-written file that lists its
+  relationships first gets the repeat on the copy it writes second. Repeated ids and nesting are reported in the same round as
   every other issue, in document order, so fixing the others never brings up one of them as a new
   error.
 
