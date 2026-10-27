@@ -31,8 +31,6 @@ export interface VcPaletteConfig {
    * lands in the centre of the visible canvas.
    */
   freeArea?: FreeArea | undefined;
-  /** @deprecated Use `freeArea: { center }`. Given both, `freeArea` wins. */
-  freeRectCenter?: (() => Point | undefined) | undefined;
 }
 
 interface DirectEditingLike {
@@ -173,7 +171,7 @@ export default class VcPaletteProvider {
     const area = this.config?.freeArea;
     if (area?.center) return area.center();
     if (area?.insets) return this.centreWithin(area.insets());
-    return this.config?.freeRectCenter?.();
+    return undefined;
   }
 
   /** The centre of the container without `insets`, in diagram coordinates, as a fit centres. */

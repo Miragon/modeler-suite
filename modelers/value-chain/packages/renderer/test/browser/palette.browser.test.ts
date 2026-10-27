@@ -29,11 +29,11 @@ function keyboardClick(entry: Element): void {
 describe("palette", () => {
   let host: HTMLDivElement;
   let modeler: Modeler;
-  const freeRectCenter = { x: 400, y: 300 };
+  const freeAreaCenter = { x: 400, y: 300 };
 
   beforeEach(() => {
     host = createHost();
-    modeler = new Modeler({ container: host, freeRectCenter: () => freeRectCenter });
+    modeler = new Modeler({ container: host, freeArea: { center: () => freeAreaCenter } });
     modeler.importDocument(createEmptyDocument("Palette"));
   });
 
@@ -84,13 +84,13 @@ describe("palette", () => {
     expect(entries.filter((element) => element.hasAttribute("title"))).toEqual([]);
   });
 
-  it("creates a step at the free rectangle centre on Enter or Space, selected and in edit", () => {
+  it("creates a step at the free area's centre on Enter or Space, selected and in edit", () => {
     keyboardClick(entry("create.step"));
 
     const [created] = shapes();
     expect(created?.vcType).toBe("step");
-    expect(created!.x + created!.width / 2).toBe(freeRectCenter.x);
-    expect(created!.y + created!.height / 2).toBe(freeRectCenter.y);
+    expect(created!.x + created!.width / 2).toBe(freeAreaCenter.x);
+    expect(created!.y + created!.height / 2).toBe(freeAreaCenter.y);
     expect(modeler.get<Selection>("selection").get()).toEqual([created]);
     expect(host.querySelector(".djs-direct-editing-parent")).not.toBeNull();
   });
@@ -148,14 +148,6 @@ describe("palette free area", () => {
       size: modeler.get<Canvas>("canvas").getSize(),
     };
   }
-
-  it("places at the centre freeArea gives, over the deprecated freeRectCenter", () => {
-    const { centre } = placedCentre({
-      freeArea: { center: () => ({ x: 250, y: 150 }) },
-      freeRectCenter: () => ({ x: 400, y: 300 }),
-    });
-    expect(centre).toEqual([250, 150]);
-  });
 
   // An empty diagram opens at 100% with its origin top left: container pixels are diagram units.
   it("centres in the container without the insets freeArea gives", () => {

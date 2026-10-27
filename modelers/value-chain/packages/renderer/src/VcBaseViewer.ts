@@ -5,11 +5,7 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type { EventBusEventCallback } from "diagram-js/lib/core/EventBus";
-import {
-  validateDocument,
-  type Point,
-  type ValueChainDocument,
-} from "@miragon/value-chain-schema-model";
+import { validateDocument, type ValueChainDocument } from "@miragon/value-chain-schema-model";
 import type VcBounds from "./bounds/VcBounds.js";
 import type VcImporter from "./io/VcImporter.js";
 import type VcExporter from "./io/VcExporter.js";
@@ -33,11 +29,6 @@ export interface VcViewerOptions extends CollaborativeModelerOptions {
   height?: number | string;
   /** Concatenated to the end of the module list (extension point). */
   additionalModules?: ModuleDeclaration[];
-  /**
-   * @deprecated Use `freeArea: { center }`; accepted until the next minor release. Given both,
-   * `freeArea` wins.
-   */
-  freeRectCenter?: (() => Point | undefined) | undefined;
 }
 
 interface CommandStackLike {
@@ -184,10 +175,7 @@ export abstract class VcBaseViewer {
       this._diagram = new Diagram({
         canvas: { container: this._container },
         modules,
-        vcPalette: {
-          freeArea: this._options.freeArea,
-          freeRectCenter: this._options.freeRectCenter,
-        },
+        vcPalette: { freeArea: this._options.freeArea },
         vcKeyboard: { undoRedoKeys: this._options.undoRedoKeys ?? true },
         vcImport: { fitOnImport: this._options.fitOnImport ?? true },
       });

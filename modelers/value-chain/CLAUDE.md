@@ -86,10 +86,9 @@ and arrays nest at most 100 levels (`MAX_NESTING_DEPTH`, checked without recursi
   `fitOnImport: false`, which both apps pass because the shell's viewport fits), and keeps an open
   label edit across the import. A view change never commits a label edit: the text box follows
   the view (`canvas.viewbox.changed`), only Enter, blur, `element.mousedown` and `drag.init`
-  commit. The factories take the contract's `freeArea`/`fitOnImport`/`undoRedoKeys`;
-  `freeRectCenter` stays a deprecated alias of `freeArea: { center }` for one minor release. New
-  elements get random ids. `test/browser/conformance.browser.test.ts` runs the kit, where a skip
-  or an advisory fails.
+  commit. The factories take the contract's `freeArea`/`fitOnImport`/`undoRedoKeys`. New elements
+  get random ids. `test/browser/conformance.browser.test.ts` runs the kit, where a skip or an
+  advisory fails.
 - `read-only/VcReadOnly` is the edit lock of an invalid file; `diagram-menu/` holds the Export and
   Help entries and the shortcuts dialog both apps show, typed structurally (renderers never import
   the shell).
