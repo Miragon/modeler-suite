@@ -69,10 +69,8 @@ export default class TtViewport {
   ) {}
 
   /**
-   * Fit every element into view, zooming in no further than 100 %.
-   *
-   * @deprecated Host chrome fits the diagram (the modeler shell's viewport, with the insets of the
-   * chrome that is open and never above 100 %); kept for hosts without it.
+   * Fit every element into view, zooming in no further than 100 %: the fit of `importDocument`
+   * (the contract's `fitOnImport`), for hosts without chrome that fits the diagram itself.
    */
   fit(): void {
     const bounds = this.contentBounds();

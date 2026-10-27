@@ -17,9 +17,8 @@ import { saveSVG } from "./io/saveSvg.js";
 import type TtImporter from "./io/TtImporter.js";
 import type TtExporter from "./io/TtExporter.js";
 import type TtViewport from "./io/TtViewport.js";
-import { ROOT_ID, type ImportWarning, type RootBusinessObject } from "./io/types.js";
+import type { ImportWarning, RootBusinessObject } from "./io/types.js";
 import type TtLabelEditing from "./label-editing/TtLabelEditing.js";
-import type { Point } from "./palette/TtPaletteProvider.js";
 
 /**
  * Set on the canvas SVG while it holds focus that arrived by Tab. Mouse users never see a frame
@@ -47,11 +46,6 @@ export interface TtViewerOptions {
    * part; otherwise it keeps inside the container.
    */
   freeArea?: FreeArea | undefined;
-  /**
-   * @deprecated Since 0.12, the `@miragon/modeler-api` 1.2 name is `freeArea: { center }`; given
-   * both, `freeArea` wins. Accepted for one more minor release.
-   */
-  freeRectCenter?: (() => Point | undefined) | undefined;
 }
 
 export interface ImportOptions {
@@ -94,10 +88,7 @@ export abstract class TtBaseViewer {
         canvas: { container: this._container },
         modules,
         ttKeyboard: { undoRedoKeys: this._options.undoRedoKeys ?? true },
-        ttPalette: {
-          freeArea: this._options.freeArea,
-          freeRectCenter: this._options.freeRectCenter,
-        },
+        ttPalette: { freeArea: this._options.freeArea },
         ttContextPad: { freeArea: this._options.freeArea },
       });
       this._describeCanvas(this._diagram);
@@ -179,17 +170,6 @@ export abstract class TtBaseViewer {
     return { warnings };
   }
 
-  /**
-   * Fit the whole diagram into the viewport, keeping the strip under the floating palette free
-   * (88px at the top, 120px when the container is 760px wide or narrower).
-   *
-   * @deprecated Host chrome fits the diagram (the modeler shell's viewport, with the insets of the
-   * chrome that is open); kept for hosts without it.
-   */
-  fitToView(): void {
-    this._fit();
-  }
-
   private _fit(): void {
     const viewport = this._ensureDiagram().get<TtViewport>("ttViewport", false);
     if (viewport) viewport.fit();
@@ -217,25 +197,6 @@ export abstract class TtBaseViewer {
   /** Current canvas state as a canonical document. */
   exportDocument(): TtDocument {
     return this.get<TtExporter>("ttExporter").export();
-  }
-
-  /**
-   * Update diagram-level metadata (the title) on the root, outside the undo history.
-   *
-   * @deprecated Rename through `ttModeling.setTitle(title)`: one undo step that hosts see as a
-   * change like any other.
-   */
-  setMeta(partial: Partial<RootBusinessObject>): void {
-    const canvas = this.get<Canvas>("canvas");
-    let root: RootWithMeta | undefined;
-    try {
-      root = canvas.getRootElement() as RootWithMeta;
-    } catch {
-      return;
-    }
-    if (!root || root.id !== ROOT_ID) return;
-    const current = root.businessObject ?? { title: "Untitled team topology" };
-    root.businessObject = { ...current, ...partial };
   }
 
   /** Read diagram-level metadata (the title) from the root. */

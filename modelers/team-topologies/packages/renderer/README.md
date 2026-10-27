@@ -139,7 +139,6 @@ new Modeler({
   undoRedoKeys?: boolean,            // bind Cmd/Ctrl+Z, Shift+Z, Y (default true; false: the host owns the history)
   freeArea?: { insets: () => FreeAreaInsets } | { center: () => Point | undefined },
                                      // the canvas part no chrome covers; keyboard creation lands in its centre
-  freeRectCenter?: () => Point | undefined, // deprecated since 0.12: freeArea: { center }
 });
 ```
 
@@ -172,8 +171,6 @@ Options: the contract's `CollaborativeModelerOptions` (1.2) and `additionalModul
 - `fitOnImport` (default true): a fit of at most 100 % that keeps the palette's strip free after
   every import; a host whose chrome fits the diagram itself passes false.
 - `undoRedoKeys` (default true): false when the host owns the history (VS Code).
-- `freeRectCenter`: deprecated since 0.12, the old name of `freeArea: { center }`; given both,
-  `freeArea` wins. It goes in a later minor release.
 
 The viewer takes the same options and ignores `freeArea` and `undoRedoKeys`. `modeler.diagram` is
 the wrapped `Modeler`. `elements.bounds(id)` (contract 1.2) returns a team's, interaction's, flow's
@@ -188,18 +185,17 @@ estimated from the characters rather than measured. A host that fits the view it
 
 ### Shared methods (`Viewer` / `NavigatedViewer` / `Modeler`)
 
-| Method                             | Returns                         | Purpose                                                                                                                                |
-| ---------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `importDocument(doc, { fit? })`    | `{ warnings: ImportWarning[] }` | Replace canvas content, reset undo history; fit unless `fit: false`. Throws, before anything changes, for ids that would collide.      |
-| `fitToView()`                      | `void`                          | Deprecated: fit every element, keeping the strip under the palette free.                                                               |
-| `contentBounds()`                  | `ElementBounds \| undefined`    | The tight box around every element and its label text in diagram coordinates (contract 1.3), `undefined` without elements.             |
-| `exportDocument()`                 | `TtDocument`                    | Rebuild the canonical model from the live canvas.                                                                                      |
-| `saveSVG()`                        | `{ svg: string }`               | Self-contained SVG snapshot of the `contentBounds()` box, label text included, plus a 40px margin.                                     |
-| `setMeta(partial)` / `getMeta()`   | `void` / `RootBusinessObject`   | Read/write diagram-level metadata (`title`); `setMeta` is deprecated, rename with `get("ttModeling").setTitle(title)` (one undo step). |
-| `attachTo(el)` / `detach()`        | `void`                          | Move the canvas in/out of the DOM (keeps state).                                                                                       |
-| `clear()` / `destroy()`            | `void`                          | Empty the canvas / tear it down.                                                                                                       |
-| `on(event, cb)` / `off(event, cb)` | `void`                          | Subscribe to diagram-js events.                                                                                                        |
-| `get<T>(name)`                     | `T`                             | Resolve a diagram-js service (advanced).                                                                                               |
+| Method                             | Returns                         | Purpose                                                                                                                           |
+| ---------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `importDocument(doc, { fit? })`    | `{ warnings: ImportWarning[] }` | Replace canvas content, reset undo history; fit unless `fit: false`. Throws, before anything changes, for ids that would collide. |
+| `contentBounds()`                  | `ElementBounds \| undefined`    | The tight box around every element and its label text in diagram coordinates (contract 1.3), `undefined` without elements.        |
+| `exportDocument()`                 | `TtDocument`                    | Rebuild the canonical model from the live canvas.                                                                                 |
+| `saveSVG()`                        | `{ svg: string }`               | Self-contained SVG snapshot of the `contentBounds()` box, label text included, plus a 40px margin.                                |
+| `getMeta()`                        | `RootBusinessObject`            | Read diagram-level metadata (`title`); rename with `get("ttModeling").setTitle(title)` (one undo step).                           |
+| `attachTo(el)` / `detach()`        | `void`                          | Move the canvas in/out of the DOM (keeps state).                                                                                  |
+| `clear()` / `destroy()`            | `void`                          | Empty the canvas / tear it down.                                                                                                  |
+| `on(event, cb)` / `off(event, cb)` | `void`                          | Subscribe to diagram-js events.                                                                                                   |
+| `get<T>(name)`                     | `T`                             | Resolve a diagram-js service (advanced).                                                                                          |
 
 ### Modeler-only
 
@@ -283,10 +279,10 @@ const removeLegend = renderLegend(legendBody);
   `annotationIconSvg()`: WYSIWYG SVG glyphs matching what the canvas draws. The annotation glyph
   strokes in `currentColor`.
 - **Functional icons:** `iconMarkup(icon, { size?, strokeWidth?, className? })` returns inline SVG
-  markup (Lucide style: 24 × 24 grid, stroke 2.5, `currentColor`) for the bundled `ICON_*` Lucide
-  nodes of the canvas chrome (context pad, lasso). `ICON_MENU`, `ICON_PLUS`, `ICON_MINUS`,
-  `ICON_MAXIMIZE`, `ICON_DOWNLOAD` and `ICON_X` served host chrome and are deprecated: hosts take
-  their chrome and its icons from `@miragon/modeler-shell`.
+  markup (Lucide style: 24 × 24 grid, stroke 2.5, `currentColor`) for the bundled Lucide nodes of
+  the canvas chrome: `ICON_PENCIL`, `ICON_TRASH`, `ICON_LINK` and `ICON_MESSAGE_SQUARE_PLUS` (context
+  pad) and `ICON_SQUARE_DASHED_MOUSE_POINTER` (lasso). The icons of a host's chrome (menu, zoom,
+  close) come from `@miragon/modeler-shell`.
 - **Design tokens:** `MIRAGON` (the Miragon colours by name) and `CD_TOKENS` (the same values keyed
   by their `--cd-*` CSS name), for host code that paints outside CSS, e.g. a PNG background.
 - **Fonts in exports:** `geistFontFaceCss({ latin, latinExt })` builds the Geist `@font-face` rules
@@ -299,8 +295,8 @@ const removeLegend = renderLegend(legendBody);
   `DiagramTitle`, `LegendGroup`, `LegendRow`, …).
 - **Other:** `TtViewerOptions`, `ImportOptions`, `ImportWarning`, `RootBusinessObject`, `ROOT_ID`,
   `saveSVG`, `TtReadOnly` and `READ_ONLY_CHANGED_EVENT` (the lock, DI name `ttReadOnly`), and
-  `TtViewport` (DI name `ttViewport`: `contentBounds()` and the deprecated palette-aware fit behind
-  `fitToView()`).
+  `TtViewport` (DI name `ttViewport`: `contentBounds()` and the palette-aware fit of
+  `importDocument`).
 
 ## How it's built
 

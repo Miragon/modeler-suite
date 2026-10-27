@@ -89,28 +89,74 @@ export type ParseResult =
   { ok: true; document: TtDocument } | { ok: false; error: string; issues: DocumentIssue[] };
 
 /**
+ * Objects and arrays nested deeper than this make a document invalid, the document itself counting
+ * as the first level. The serializer, structured cloning and JSON tooling such as jsonc-parser
+ * descend one call per level and overflow the stack a few thousand levels down; a Team Topologies
+ * document needs four.
+ */
+export const MAX_NESTING_DEPTH = 100;
+
+/**
  * Validates and (if necessary) migrates unknown data into a {@link TtDocument}.
  * Returns a discriminated result rather than throwing so callers can show a
  * friendly message, or point at each offending value (`issues`).
  */
 export function parseDocument(input: unknown): ParseResult {
+  const tooDeep = nestingIssues(input);
+  if (tooDeep.length > 0) return refused(tooDeep);
   const { document: migrated, interactionFileIndexes } = migrate(input);
   const result = documentSchema.safeParse(migrated);
   if (!result.success) {
-    const issues = result.error.issues.map((issue) => ({
-      path: pathInFile(
-        issue.path.filter((key): key is string | number => typeof key !== "symbol"),
-        interactionFileIndexes,
-      ),
-      message: issue.message,
-    }));
-    return {
-      ok: false,
-      error: issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; "),
-      issues,
-    };
+    return refused(
+      result.error.issues.map((issue) => ({
+        path: pathInFile(
+          issue.path.filter((key): key is string | number => typeof key !== "symbol"),
+          interactionFileIndexes,
+        ),
+        message: issue.message,
+      })),
+    );
   }
   return { ok: true, document: result.data as TtDocument };
+}
+
+function refused(issues: DocumentIssue[]): ParseResult {
+  return {
+    ok: false,
+    error: issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; "),
+    issues,
+  };
+}
+
+/**
+ * Every object or array at the first level too deep, in document order; what lies below it is not
+ * visited. Walked with an explicit stack, because the documents it guards against are the ones that
+ * overflow a recursive walk.
+ */
+function nestingIssues(input: unknown): DocumentIssue[] {
+  const issues: DocumentIssue[] = [];
+  const pending: { value: unknown; path: (string | number)[] }[] = [{ value: input, path: [] }];
+  while (pending.length > 0) {
+    const { value, path } = pending.pop()!;
+    if (typeof value !== "object" || value === null) continue;
+    if (path.length >= MAX_NESTING_DEPTH) {
+      issues.push({
+        path,
+        message: `objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep`,
+      });
+      continue;
+    }
+    // Array.from visits the holes of a sparse array as undefined; map would keep them as holes.
+    const entries: [string | number, unknown][] = Array.isArray(value)
+      ? Array.from(value, (entry: unknown, index) => [index, entry])
+      : Object.entries(value);
+    for (const [key, entry] of entries.reverse()) {
+      if (typeof entry === "object" && entry !== null) {
+        pending.push({ value: entry, path: [...path, key] });
+      }
+    }
+  }
+  return issues;
 }
 
 /** The last document version that modelled interactions as edges without geometry. */

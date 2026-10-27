@@ -68,8 +68,6 @@ export interface TtPaletteConfig {
    * the visible canvas.
    */
   freeArea?: FreeArea | undefined;
-  /** @deprecated Pass `freeArea: { center }`; given both, `freeArea` wins. */
-  freeRectCenter?: (() => Point | undefined) | undefined;
 }
 
 function entryHtml(icon: string, draggable = true): string {
@@ -221,8 +219,7 @@ export default class TtPaletteProvider implements PaletteProvider {
   private freeAreaCentre(): Point | undefined {
     const freeArea = this.config?.freeArea;
     if (freeArea?.center) return freeArea.center();
-    if (freeArea?.insets) return centreInside(this.canvas, freeArea.insets());
-    return this.config?.freeRectCenter?.();
+    return freeArea?.insets ? centreInside(this.canvas, freeArea.insets()) : undefined;
   }
 
   private placeInFreeRect(shape: Shape): void {

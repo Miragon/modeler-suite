@@ -117,6 +117,43 @@ const isPlainObject = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
 
+// The modeler refuses deeper files, the document counting as the first level: its serializer and
+// JSON tools descend one call per level and overflow the stack a few thousand levels down.
+export const MAX_NESTING_DEPTH = 100;
+
+const pathLabel = (path) =>
+  path.reduce(
+    (label, key) =>
+      typeof key === "number" ? `${label}[${key}]` : label ? `${label}.${key}` : key,
+    "",
+  );
+
+// Every object or array at the first level too deep. Walked without recursion, because the files
+// it finds are the ones that overflow a recursive walk.
+function nestingErrors(document) {
+  const errors = [];
+  const pending = [{ value: document, path: [] }];
+  while (pending.length > 0) {
+    const { value, path } = pending.pop();
+    if (path.length >= MAX_NESTING_DEPTH) {
+      errors.push({
+        path: pathLabel(path),
+        message: `nested more than ${MAX_NESTING_DEPTH} levels deep; the modeler refuses the file`,
+      });
+      continue;
+    }
+    const entries = Array.isArray(value)
+      ? Array.from(value, (entry, index) => [index, entry])
+      : Object.entries(value);
+    for (const [key, entry] of entries.reverse()) {
+      if (entry !== null && typeof entry === "object") {
+        pending.push({ value: entry, path: [...path, key] });
+      }
+    }
+  }
+  return errors;
+}
+
 function validateElement(element, path, allowedKeys, validateFields, findings) {
   if (!isPlainObject(element)) {
     findings.errors.push({ path, message: "must be an object" });
@@ -643,6 +680,8 @@ export function checkDocument(input) {
     findings.errors.push({ path: "(root)", message: "the document must be a JSON object" });
     return { ...findings, readings };
   }
+  const tooDeep = nestingErrors(input);
+  if (tooDeep.length > 0) return { errors: tooDeep, warnings: [], readings };
   if (input.version !== DOCUMENT_VERSION) {
     findings.warnings.push({
       path: "version",

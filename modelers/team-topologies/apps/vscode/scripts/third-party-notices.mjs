@@ -38,8 +38,8 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 Of the icons Lucide's LICENSE lists as derived from the Feather project, these are inlined:
-\`check\`, \`circle-x\` (Feather's \`x-circle\`), \`download\`, \`link\`, \`maximize\`, \`minus\`,
-\`plus\`, \`trash\`, \`triangle-alert\` (Feather's \`alert-triangle\`) and \`x\`:
+\`check\`, \`circle-x\` (Feather's \`x-circle\`), \`link\`, \`maximize\`, \`minus\`, \`plus\`,
+\`trash\`, \`triangle-alert\` (Feather's \`alert-triangle\`) and \`x\`:
 
 The MIT License (MIT)
 

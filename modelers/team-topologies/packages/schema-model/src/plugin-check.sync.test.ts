@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { ANNOTATION_SPEC, FLOW_SPEC, INTERACTION_MODE_SPECS, TEAM_TYPE_SPECS } from "./notation";
 import { SAMPLE_DOCUMENT } from "./sample";
-import { parseDocument } from "./schema";
+import { MAX_NESTING_DEPTH, parseDocument } from "./schema";
 import { serializeDocument } from "./serialize";
 import { DOCUMENT_VERSION, INTERACTION_MODES, TEAM_TYPES } from "./types";
 import type { Size, TtDocument } from "./types";
@@ -31,6 +31,7 @@ interface Finding {
 
 interface CheckerModule {
   DOCUMENT_VERSION: number;
+  MAX_NESTING_DEPTH: number;
   TEAM_TYPES: Record<string, NotationEntry>;
   INTERACTION_MODES: Record<string, NotationEntry>;
   FLOW: NotationEntry;
@@ -213,6 +214,32 @@ describe("plugin checker ↔ schema-model", () => {
     document.interactions[0]!.label = "API";
     expect(parseDocument(document).ok).toBe(true);
     expect(checker.checkDocument(document).errors).toEqual([]);
+  });
+
+  it("refuses the nesting depth parseDocument refuses, at the same spot", () => {
+    const nestedArrays = (levels: number): unknown[] => {
+      let value: unknown[] = [];
+      for (let level = 1; level < levels; level += 1) value = [value];
+      return value;
+    };
+    const withVendorData = (levels: number) => ({
+      ...sampleCopy(),
+      "x-vendor": nestedArrays(levels),
+    });
+    expect(checker.MAX_NESTING_DEPTH).toBe(MAX_NESTING_DEPTH);
+
+    const atTheLimit = withVendorData(MAX_NESTING_DEPTH - 1);
+    expect(parseDocument(atTheLimit).ok).toBe(true);
+    expect(checker.checkDocument(atTheLimit).errors).toEqual([]);
+
+    const oneLevelTooDeep = withVendorData(MAX_NESTING_DEPTH);
+    const refused = parseDocument(oneLevelTooDeep);
+    if (refused.ok) throw new Error("expected the document to be refused");
+    const tooDeepPath = ["x-vendor", ...Array<number>(MAX_NESTING_DEPTH - 1).fill(0)];
+    expect(refused.issues.map(({ path }) => path)).toEqual([tooDeepPath]);
+    expect(checker.checkDocument(oneLevelTooDeep).errors.map(({ path }) => path)).toEqual([
+      `x-vendor${"[0]".repeat(MAX_NESTING_DEPTH - 1)}`,
+    ]);
   });
 });
 

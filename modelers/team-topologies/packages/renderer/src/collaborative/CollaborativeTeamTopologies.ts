@@ -28,7 +28,6 @@ import type Selection from "diagram-js/lib/features/selection/Selection";
 import { Modeler } from "../Modeler.js";
 import { NavigatedViewer } from "../NavigatedViewer.js";
 import { isTtElement, type TtElement } from "../model/di-types.js";
-import type { Point } from "../palette/TtPaletteProvider.js";
 
 /** Stable notation id in `meta.notation` of the collaborative-modeler contract. */
 export const TEAM_TOPOLOGIES_NOTATION = "team-topologies";
@@ -40,11 +39,6 @@ export const TEAM_TOPOLOGIES_NOTATION = "team-topologies";
 export interface CollaborativeTeamTopologiesOptions extends CollaborativeModelerOptions {
   /** Appended to the renderer's own modules (e.g. a host's chrome module). */
   additionalModules?: ModuleDeclaration[] | undefined;
-  /**
-   * @deprecated Since 0.12, the contract's name is `freeArea: { center }`; given both, `freeArea`
-   * wins. Accepted for one more minor release.
-   */
-  freeRectCenter?: (() => Point | undefined) | undefined;
 }
 
 /** The elements surface with the optional `bounds` of contract 1.2, which this renderer has. */
@@ -78,7 +72,6 @@ export function createCollaborativeModeler(
       ...diagramOptions(options),
       undoRedoKeys: options.undoRedoKeys ?? true,
       freeArea: options.freeArea,
-      freeRectCenter: options.freeRectCenter,
     }),
     true,
     options.fitOnImport ?? true,
