@@ -92,6 +92,21 @@ export async function menuEntry(page: Page, id: string): Promise<void> {
   await (await openMenu(page)).locator(`[data-menu-id="${id}"]`).click();
 }
 
+/**
+ * Closes a map dialog and waits for its close event: the dialog hands the focus back to the menu
+ * trigger there, in a task of its own that can run after a focus the test moves at once.
+ */
+export async function closeDialog(dialog: Locator, close: () => Promise<void>): Promise<void> {
+  type Watched = HTMLElement & { closed?: Promise<void> };
+  await dialog.evaluate((element: Watched) => {
+    element.closed = new Promise<void>((resolve) =>
+      element.addEventListener("close", () => resolve(), { once: true }),
+    );
+  });
+  await close();
+  await dialog.evaluate((element: Watched) => element.closed);
+}
+
 /** The shell's canvas slot: diagram-js's container. */
 export function canvasSlot(page: Page): Locator {
   return page.locator(".cd-shell-canvas");

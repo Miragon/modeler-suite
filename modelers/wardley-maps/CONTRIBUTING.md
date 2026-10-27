@@ -44,14 +44,17 @@ run:
   `E2E_WEBVIEW_PORT`, default `5190`). It runs the shell's conformance kit, whose `csp` case walks
   the production bundle behind the webview CSP, and the webview's side of the host protocol.
 - `webapp-webkit`: the web app in Safari's engine, on the `webapp` server, with two specs only.
-  `webapp-share.spec.ts` checks that Share copies through the ClipboardItem whose value is a
-  promise (Safari drops the user activation at the first `await`) and confirms with the success
-  toast; it does not read the clipboard back. `webapp-focus-hand-back.spec.ts` checks that
-  Cmd/Ctrl+Z and C act on the canvas at once after a click on zoom in or zoom out, and after the
-  menu's dialog closes (the focus goes to the menu trigger) or Share is clicked as soon as a click
-  on the canvas has given it the focus back. Both run in `webapp` too. Safari gives a clicked
-  button no focus, while Chromium and Playwright's WebKit on Linux (as in CI) focus it, so the
-  focus spec takes the focus off a clicked button as Safari does (`tests/support/safari.ts`).
+  `webapp-share.spec.ts` checks that Share calls `clipboard.write` while the click is dispatched,
+  with a ClipboardItem whose value is a promise (Safari drops the user activation at the first
+  `await`; Playwright's WebKit allows a write at any time, so the spec records the call), and
+  confirms with the success toast; it does not read the clipboard back.
+  `webapp-focus-hand-back.spec.ts` checks that Cmd/Ctrl+Z and C act on the canvas at once after a
+  click on zoom in or zoom out. After the menu's dialog closes it checks that the focus is on the
+  menu trigger, after a click on Share that it is off the canvas, and in both cases that the keys
+  act once a click on the canvas has given it the focus back. Both run in `webapp` too. Safari
+  gives a clicked button no focus, while Chromium and Playwright's WebKit on Linux (as in CI) focus
+  it, so the focus spec takes the focus off a clicked button as Safari does
+  (`tests/support/safari.ts`).
 
 Run one with `npm run wardley-maps test:e2e -- --project=vscode-webview`. When the default ports are
 taken (several worktrees at once), pick others:
