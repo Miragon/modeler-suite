@@ -148,8 +148,8 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   `build`, `test` and `refactor` release nothing. Never bump a version or edit a `CHANGELOG.md` by
   hand. Workflows, publishing (npm, VS Code Marketplace, Open VSX, the web apps) and how to add a
   package are in [docs/ci-and-releases.md](docs/ci-and-releases.md).
-- Every new `@deprecated` gets an issue that names its target version, filed by the pull request
-  that adds it ([CONTRIBUTING.md](CONTRIBUTING.md#releases)).
+- Every new `@deprecated` gets an issue that names its target version as a number, filed by the
+  pull request that adds it ([CONTRIBUTING.md](CONTRIBUTING.md#releases)).
 
 ## Design system (mandatory)
 
