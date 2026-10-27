@@ -304,8 +304,7 @@ describe("parseDocument: ids", () => {
 });
 
 describe("parseDocument: nesting depth", () => {
-  /** `levels` arrays, each but the innermost holding the next one. */
-  const nestedArrays = (levels: number): unknown[] => {
+  const arraysNestedLevelsDeep = (levels: number): unknown[] => {
     let value: unknown[] = [];
     for (let level = 1; level < levels; level += 1) value = [value];
     return value;
@@ -318,21 +317,24 @@ describe("parseDocument: nesting depth", () => {
   const zeros = (count: number): number[] => Array<number>(count).fill(0);
 
   it("accepts objects and arrays nested as deep as the limit, the document as the first level", () => {
-    const result = parseDocument(withVendorData(nestedArrays(MAX_NESTING_DEPTH - 1)));
+    const result = parseDocument(withVendorData(arraysNestedLevelsDeep(MAX_NESTING_DEPTH - 1)));
     expect(result.ok).toBe(true);
   });
 
   it("refuses one level more, with an issue at the first level too deep", () => {
-    const result = parseDocument(withVendorData(nestedArrays(MAX_NESTING_DEPTH)));
+    const result = parseDocument(withVendorData(arraysNestedLevelsDeep(MAX_NESTING_DEPTH)));
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.issues).toEqual([tooDeep(["x-vendor", ...zeros(MAX_NESTING_DEPTH - 1)])]);
   });
 
   it("counts the levels of an element's own fields and reports every branch in document order", () => {
-    const node = { ...SAMPLE_DOCUMENT.nodes[0], "x-owner": nestedArrays(MAX_NESTING_DEPTH - 2) };
+    const node = {
+      ...SAMPLE_DOCUMENT.nodes[0],
+      "x-owner": arraysNestedLevelsDeep(MAX_NESTING_DEPTH - 2),
+    };
     const result = parseDocument({
-      ...withVendorData(nestedArrays(MAX_NESTING_DEPTH)),
+      ...withVendorData(arraysNestedLevelsDeep(MAX_NESTING_DEPTH)),
       nodes: [node],
     });
     expect(result.ok).toBe(false);
@@ -344,7 +346,7 @@ describe("parseDocument: nesting depth", () => {
   });
 
   it("refuses a document nested far deeper than a recursive walk reaches", () => {
-    const result = parseDocument(withVendorData(nestedArrays(100_000)));
+    const result = parseDocument(withVendorData(arraysNestedLevelsDeep(100_000)));
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.issues).toHaveLength(1);

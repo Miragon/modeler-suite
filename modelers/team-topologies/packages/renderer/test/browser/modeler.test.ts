@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   Modeler,
+  Viewer,
   isTtAnnotation,
   isTtAssociation,
   isTtElement,
@@ -1025,6 +1026,28 @@ test("an import never zooms a small diagram past 100 %", () => {
     expect(canvas.zoom()).toBeCloseTo(1);
   } finally {
     modeler.destroy();
+    host.remove();
+  }
+});
+
+test("a viewer takes a new title by importing its document again, view unchanged", () => {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const viewer = new Viewer({ container: host, width: 1100, height: 900 });
+  try {
+    viewer.importDocument(SAMPLE_DOCUMENT);
+    const canvas = viewer.get<{ zoom(scale?: number): number }>("canvas");
+    canvas.zoom(0.5);
+
+    const before = viewer.exportDocument();
+
+    viewer.importDocument({ ...before, title: "Renamed" }, { fit: false });
+
+    expect(viewer.getMeta()?.title).toBe("Renamed");
+    expect(viewer.exportDocument()).toEqual({ ...before, title: "Renamed" });
+    expect(canvas.zoom()).toBeCloseTo(0.5);
+  } finally {
+    viewer.destroy();
     host.remove();
   }
 });

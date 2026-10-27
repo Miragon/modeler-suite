@@ -217,14 +217,14 @@ describe("plugin checker ↔ schema-model", () => {
   });
 
   it("refuses the nesting depth parseDocument refuses, at the same spot", () => {
-    const nestedArrays = (levels: number): unknown[] => {
+    const arraysNestedLevelsDeep = (levels: number): unknown[] => {
       let value: unknown[] = [];
       for (let level = 1; level < levels; level += 1) value = [value];
       return value;
     };
     const withVendorData = (levels: number) => ({
       ...sampleCopy(),
-      "x-vendor": nestedArrays(levels),
+      "x-vendor": arraysNestedLevelsDeep(levels),
     });
     expect(checker.MAX_NESTING_DEPTH).toBe(MAX_NESTING_DEPTH);
 

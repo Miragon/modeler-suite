@@ -191,7 +191,7 @@ estimated from the characters rather than measured. A host that fits the view it
 | `contentBounds()`                  | `ElementBounds \| undefined`    | The tight box around every element and its label text in diagram coordinates (contract 1.3), `undefined` without elements.        |
 | `exportDocument()`                 | `TtDocument`                    | Rebuild the canonical model from the live canvas.                                                                                 |
 | `saveSVG()`                        | `{ svg: string }`               | Self-contained SVG snapshot of the `contentBounds()` box, label text included, plus a 40px margin.                                |
-| `getMeta()`                        | `RootBusinessObject`            | Read diagram-level metadata (`title`); rename with `get("ttModeling").setTitle(title)` (one undo step).                           |
+| `getMeta()`                        | `RootBusinessObject`            | Read diagram-level metadata (`title`), the title of the imported document or the `Modeler`'s rename.                              |
 | `attachTo(el)` / `detach()`        | `void`                          | Move the canvas in/out of the DOM (keeps state).                                                                                  |
 | `clear()` / `destroy()`            | `void`                          | Empty the canvas / tear it down.                                                                                                  |
 | `on(event, cb)` / `off(event, cb)` | `void`                          | Subscribe to diagram-js events.                                                                                                   |
@@ -199,7 +199,10 @@ estimated from the characters rather than measured. A host that fits the view it
 
 ### Modeler-only
 
-`undo()`, `redo()`, `canUndo()`, `canRedo()`.
+`undo()`, `redo()`, `canUndo()`, `canRedo()`. Rename the diagram with
+`get("ttModeling").setTitle(title)` (one undo step). A `Viewer` or `NavigatedViewer` has no
+`ttModeling`: it shows the title of the document it imports, so it takes a new one with
+`importDocument({ ...exportDocument(), title }, { fit: false })`.
 
 ### Around the canvas
 
@@ -295,7 +298,7 @@ const removeLegend = renderLegend(legendBody);
   `DiagramTitle`, `LegendGroup`, `LegendRow`, …).
 - **Other:** `TtViewerOptions`, `ImportOptions`, `ImportWarning`, `RootBusinessObject`, `ROOT_ID`,
   `saveSVG`, `TtReadOnly` and `READ_ONLY_CHANGED_EVENT` (the lock, DI name `ttReadOnly`), and
-  `TtViewport` (DI name `ttViewport`: `contentBounds()` and the palette-aware fit of
+  `TtViewport` (DI name `ttViewport`, for `contentBounds()`; its `fit()` is the internal fit of
   `importDocument`).
 
 ## How it's built
