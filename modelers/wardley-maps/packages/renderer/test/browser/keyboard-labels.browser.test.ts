@@ -615,6 +615,37 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       expect(drawings()).toBe(1);
     });
 
+    it("leaves Enter and Escape on another entry of its own palette to the palette", () => {
+      drawTool().activate();
+      placePoint(300, 300);
+      placePoint(420, 360);
+      const lassoEntry = container.querySelector<HTMLElement>(
+        '.djs-palette .entry[data-action="lasso-tool"]',
+      )!;
+      lassoEntry.focus();
+      const reachedWindow: string[] = [];
+      const onWindowKeydown = (event: KeyboardEvent) => reachedWindow.push(event.key);
+      window.addEventListener("keydown", onWindowKeydown);
+      try {
+        expect(pressKey(lassoEntry, "Escape").defaultPrevented).toBe(false);
+        expect(drawTool().isActive()).toBe(true);
+        // The palette's own keyboard takes Enter and activates the entry it is aimed at.
+        expect(pressKey(lassoEntry, "Enter").defaultPrevented).toBe(true);
+      } finally {
+        window.removeEventListener("keydown", onWindowKeydown);
+      }
+
+      expect(reachedWindow).toEqual(["Escape"]);
+      const dragging = service<Dragging>("dragging");
+      expect((dragging.context() as { prefix?: string } | null)?.prefix).toBe("lasso.selection");
+      dragging.cancel(false);
+      expect(drawTool().isActive()).toBe(true);
+      expect(drawings()).toBe(0);
+      expect(pressOnCanvas("Enter").defaultPrevented).toBe(true);
+      expect(drawTool().isActive()).toBe(false);
+      expect(drawings()).toBe(1);
+    });
+
     it("leaves Enter and Escape on another modeler's draw entry to that modeler", async () => {
       const otherContainer = addHostControl("div");
       otherContainer.style.width = "640px";
