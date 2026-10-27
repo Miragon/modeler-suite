@@ -49,7 +49,7 @@ describe("import lifecycle", () => {
         container: host,
         width: 1600,
         height: 1000,
-        freeRectInsets: () => insets,
+        freeArea: { insets: () => insets },
       });
       await modeler.importDSL(MAP);
       const viewbox = modeler.get<Canvas>("canvas").viewbox();

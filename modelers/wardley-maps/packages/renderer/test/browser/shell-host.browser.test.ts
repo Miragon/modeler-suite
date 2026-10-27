@@ -36,7 +36,7 @@ function mount(
     width: options.width ?? 1024,
     height: options.height ?? 768,
     additionalModules: options.shell ? [shellStandIn] : [],
-    ...(options.insets ? { freeRectInsets: () => options.insets! } : {}),
+    ...(options.insets ? { freeArea: { insets: () => options.insets! } } : {}),
   });
   return modeler;
 }

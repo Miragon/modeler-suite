@@ -524,9 +524,9 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       expect(platform.x).toBeCloseTo(x, 1);
     });
 
-    it("leaves Cmd+Z/Shift+Z/Y to the host with keyboard.undoRedo false", async () => {
+    it("leaves Cmd+Z/Shift+Z/Y to the host with undoRedoKeys false", async () => {
       modeler.destroy();
-      modeler = new Modeler({ container, keyboard: { undoRedo: false } });
+      modeler = new Modeler({ container, undoRedoKeys: false });
       await modeler.importDSL(DSL);
       const platform = select("Platform");
       service<Modeling>("modeling").moveShape(platform, { x: 40, y: 0 });

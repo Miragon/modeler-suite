@@ -74,9 +74,6 @@ Options (the names of the `@miragon/modeler-api` 1.2 factory options):
 - `additionalModules` adds diagram-js modules; every Wardley feature module is exported for custom
   editors.
 
-`keyboard: { undoRedo }` and `freeRectInsets` still work for this minor release, as deprecated
-aliases of `undoRedoKeys` and `freeArea: { insets }`; given both, the aligned name wins.
-
 The `wardleyReadOnly` service (`modeler.get<WardleyReadOnly>('wardleyReadOnly').setReadOnly(true)`)
 locks the canvas while its host cannot save an edit, e.g. while the document is invalid: every edit
 rule is vetoed, an open editor, popup or drag ends without saving, the handles hide, and selection,
@@ -126,8 +123,8 @@ the margin), the box the pan constraint keeps in view. It follows every edit at 
 same across zoom and scroll. A map without elements still has its plot, so it is never `undefined`
 while the modeler lives (before the first import it is the default plot); tell an empty map by its
 elements. `diagram` is the wrapped `Modeler` or `NavigatedViewer` for host-specific wiring. Both
-factories take the options above (`additionalModules`, `freeArea`, `fitOnImport`, `undoRedoKeys`
-and the deprecated aliases); the viewer never edits and ignores the undo keys. Both pass the
+factories take the options above (`additionalModules`, `freeArea`, `fitOnImport` and
+`undoRedoKeys`); the viewer never edits and ignores the undo keys. Both pass the
 contract's conformance kit (1.3) without skips.
 
 ### Menu entries and dialogs for a host's chrome
@@ -219,7 +216,5 @@ from [Feather](https://feathericons.com):
 > DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-The other icons (the anchor, accelerator and deaccelerator glyphs of the canvas and the palette,
-and the `ICON_*` exports with `iconMarkup`, which are deprecated since the chrome's icons come from
-`@miragon/modeler-shell` and go in a later minor) are
-[Material Icons](https://fonts.google.com/icons) by Google, under the Apache License 2.0.
+The other icons (the anchor, accelerator and deaccelerator glyphs of the canvas and the palette)
+are [Material Icons](https://fonts.google.com/icons) by Google, under the Apache License 2.0.

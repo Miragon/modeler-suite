@@ -19,7 +19,6 @@ import { Modeler } from "../Modeler.js";
 import { NavigatedViewer } from "../NavigatedViewer.js";
 import type { WardleyViewerOptions } from "../WardleyBaseViewer.js";
 import { restoreEditorState, setAsideEditorState, type EditorState } from "../editor-state.js";
-import type { FreeRectInsets } from "../free-rect/index.js";
 import type { LivePreview } from "../live-preview/index.js";
 import { isWardleyShape, type WardleyShape } from "../model/di-types.js";
 import type { PanConstraint } from "../pan-constraint/index.js";
@@ -34,10 +33,6 @@ export const WARDLEY_NOTATION = "wardley";
 export interface CollaborativeWardleyOptions extends CollaborativeModelerOptions {
   /** Appended to the renderer's own modules (e.g. a host's chrome module). */
   additionalModules?: ModuleDeclaration[] | undefined;
-  /** @deprecated Since 0.9, for one minor release: use `undoRedoKeys`, which wins over it. */
-  keyboard?: { undoRedo?: boolean } | undefined;
-  /** @deprecated Since 0.9, for one minor release: use `freeArea: { insets }`, which wins over it. */
-  freeRectInsets?: (() => FreeRectInsets) | undefined;
 }
 
 /** The contract's element surface, with the optional `bounds` of contract 1.2 always present. */
@@ -88,7 +83,6 @@ export function createCollaborativeModeler(
     new Modeler({
       ...diagramOptions(options),
       undoRedoKeys: options.undoRedoKeys,
-      keyboard: options.keyboard,
     }),
     true,
   );
@@ -107,7 +101,6 @@ function diagramOptions(options: CollaborativeWardleyOptions): WardleyViewerOpti
     height: "100%",
     additionalModules: options.additionalModules ?? [],
     freeArea: options.freeArea,
-    freeRectInsets: options.freeRectInsets,
     fitOnImport: options.fitOnImport,
   };
 }

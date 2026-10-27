@@ -81,7 +81,7 @@ function plotCentreOnScreen(modeler: CollaborativeWardleyModeler): { x: number; 
   };
 }
 
-describe("the factory options of contract 1.2 and their deprecated aliases", () => {
+describe("the factory options of contract 1.2", () => {
   it("undoRedoKeys: false leaves Cmd/Ctrl+Z to the host", async () => {
     expect(undoByKey(await mount())).toEqual({ prevented: true, undone: true });
     expect(undoByKey(await mount({ undoRedoKeys: false }))).toEqual({
@@ -90,30 +90,11 @@ describe("the factory options of contract 1.2 and their deprecated aliases", () 
     });
   });
 
-  it("still takes keyboard: { undoRedo: false }, and the aligned name over it", async () => {
-    expect(undoByKey(await mount({ keyboard: { undoRedo: false } }))).toEqual({
-      prevented: false,
-      undone: false,
-    });
-    expect(undoByKey(await mount({ undoRedoKeys: true, keyboard: { undoRedo: false } }))).toEqual({
-      prevented: true,
-      undone: true,
-    });
-  });
-
-  it.each([
-    ["freeArea: { insets }", { freeArea: { insets: () => INSETS } }],
-    ["freeRectInsets", { freeRectInsets: () => INSETS }],
-    [
-      "freeArea over freeRectInsets",
-      {
-        freeArea: { insets: () => INSETS },
-        freeRectInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
-      },
-    ],
-  ] as const)("%s: the import fits the plot into the free rectangle", async (_name, options) => {
+  it("freeArea: { insets }: the import fits the plot into the free rectangle", async () => {
     for (const create of [createCollaborativeModeler, createCollaborativeViewer]) {
-      const centre = plotCentreOnScreen(await mount(options, create));
+      const centre = plotCentreOnScreen(
+        await mount({ freeArea: { insets: () => INSETS } }, create),
+      );
       expect(centre.x).toBeCloseTo(24 + (1600 - 348) / 2, 0);
       expect(centre.y).toBeCloseTo(88 + (1000 - 152) / 2, 0);
     }

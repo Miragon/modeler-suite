@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { ICON_EDIT, iconMarkup } from "../src/draw/icons.js";
 import { LUCIDE, chromeIcon, type LucideIconName } from "../src/draw/lucide.js";
 
 type IconNode = [tag: string, attributes: Record<string, string>];
@@ -43,19 +42,6 @@ function movePathStart(nodes: IconNode[], deltaX: number, deltaY: number): IconN
     },
   ]);
 }
-
-describe("icon markup", () => {
-  it("renders a known path unchanged", () => {
-    expect(iconMarkup(ICON_EDIT, 16)).toContain(`<path d="${ICON_EDIT}"/>`);
-  });
-
-  it("escapes a path that would break out of its attribute", () => {
-    const hostile = '"/><img src=x onerror=alert(1)><path d="';
-    const markup = iconMarkup(hostile);
-    expect(markup).not.toContain("<img");
-    expect(markup).toContain("&quot;/&gt;&lt;img");
-  });
-});
 
 describe("chrome icons", () => {
   it("draws every Lucide icon at 16px with stroke 2.5 in currentColor and no fill", () => {
