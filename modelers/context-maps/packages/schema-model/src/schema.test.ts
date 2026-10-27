@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_NESTING_DEPTH,
   isReservedId,
   parseDocument,
   parseDocumentText,
   reservedIdProblem,
   validateDocument,
 } from "./schema";
+import { serializeDocumentText } from "./serialize";
 import { SAMPLE_DOCUMENT } from "./sample";
 import { emptyDocument } from "./factory";
 import type { CmDocument, Relationship } from "./types";
@@ -184,6 +186,102 @@ describe("parseDocument", () => {
         "contexts.3.id",
       ]);
       expect(result.issues?.some((issue) => issue.message.startsWith("duplicate"))).toBe(false);
+    }
+  });
+});
+
+describe("nesting depth", () => {
+  const tooDeep = `objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep`;
+
+  /** `levels` objects and arrays, `{ a: [{ a: [ … ] }] }`, nested without recursion. */
+  const nested = (levels: number): unknown => {
+    let value: unknown = 0;
+    for (let level = levels - 1; level >= 0; level--) value = level % 2 ? [value] : { a: value };
+    return value;
+  };
+
+  /** The keys of the `levels` outermost containers of {@link nested}. */
+  const keysOf = (levels: number): Array<string | number> =>
+    Array.from({ length: levels }, (_, level) => (level % 2 ? 0 : "a"));
+
+  it(`loads and saves a document of ${MAX_NESTING_DEPTH} levels`, () => {
+    // The document is the first level, the foreign key's value the second.
+    const result = parseDocument({ ...SAMPLE_DOCUMENT, "x-deep": nested(MAX_NESTING_DEPTH - 1) });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const text = serializeDocumentText(result.document);
+    const reread = parseDocumentText(text);
+    expect(reread.ok).toBe(true);
+    if (reread.ok) expect(serializeDocumentText(reread.document)).toBe(text);
+  });
+
+  it("rejects one level more, at the first level too deep", () => {
+    const result = parseDocument({ ...SAMPLE_DOCUMENT, "x-deep": nested(MAX_NESTING_DEPTH) });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toEqual([
+        { path: ["x-deep", ...keysOf(MAX_NESTING_DEPTH - 1)], message: tooDeep },
+      ]);
+    }
+  });
+
+  it("reports the first level too deep of a file instead of overflowing the stack", () => {
+    const levels = 50_000;
+    const value = '{"a":['.repeat(levels / 2) + "0" + "]}".repeat(levels / 2);
+    const text = serializeDocumentText(SAMPLE_DOCUMENT).replace(/^\{/, `{"x-deep":${value},`);
+    const result = parseDocumentText(text);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues).toEqual([
+        { path: ["x-deep", ...keysOf(MAX_NESTING_DEPTH - 1)], message: tooDeep },
+      ]);
+      expect(result.error).toBe(`x-deep.${keysOf(MAX_NESTING_DEPTH - 1).join(".")}: ${tooDeep}`);
+    }
+  });
+
+  it("reports each branch too deep in the same round as the other errors, in document order", () => {
+    const doc = structuredClone(SAMPLE_DOCUMENT) as CmDocument & Record<string, unknown>;
+    doc.contexts[0]!.position.x = Number.NaN;
+    Object.assign(doc.contexts[1]!, { "x-deep": nested(5_000) });
+    doc.contexts[2]!.id = "ctx_auth";
+    Object.assign(doc.relationships[3]!, { "x-wide": [nested(5_000), "flat", nested(5_000)] });
+    const result = parseDocument(doc);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues?.map(({ path, message }) => [path.slice(0, 5), message])).toEqual([
+        [["contexts", 0, "position", "x"], "Invalid input: expected number, received NaN"],
+        [["contexts", 1, "x-deep", "a", 0], tooDeep],
+        [
+          ["contexts", 2, "id"],
+          'duplicate id "ctx_auth"; ids must be unique across contexts and relationships',
+        ],
+        [["relationships", 3, "x-wide", 0, "a"], tooDeep],
+        [["relationships", 3, "x-wide", 2, "a"], tooDeep],
+      ]);
+      expect(
+        result.issues?.every(
+          ({ path, message }) => message !== tooDeep || path.length === MAX_NESTING_DEPTH,
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("walks a container a caller shares or nests in itself without growing exponentially", () => {
+    let shared: unknown = 0;
+    for (let level = 0; level < 60; level++) shared = [shared, shared];
+    expect(parseDocument({ ...SAMPLE_DOCUMENT, "x-shared": shared }).ok).toBe(true);
+
+    const cycle: Record<string, unknown> = {};
+    cycle.left = cycle;
+    cycle.right = cycle;
+    const result = parseDocument({ ...SAMPLE_DOCUMENT, "x-cycle": cycle });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.issues?.[0]).toEqual({
+        path: ["x-cycle", ...Array<string>(MAX_NESTING_DEPTH - 1).fill("left")],
+        message: tooDeep,
+      });
+      expect(result.issues?.every(({ path }) => path.length === MAX_NESTING_DEPTH)).toBe(true);
     }
   });
 });

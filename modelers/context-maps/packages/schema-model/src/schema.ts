@@ -30,6 +30,14 @@ import { CONTEXT_KEYS, DOCUMENT_KEYS, RELATIONSHIP_KEYS, foreignFields } from ".
  */
 export const MAX_COORDINATE = 1_000_000;
 
+/**
+ * Objects and arrays nested deeper than this make a document invalid; the document itself is the
+ * first level. The serializer, structured cloning and JSON tooling descend one call per level and
+ * overflow the stack a few thousand levels down, so the canvas would open such a file and fail to
+ * save it. The model's own fields need four levels; only the values of foreign keys go deeper.
+ */
+export const MAX_NESTING_DEPTH = 100;
+
 /** The id of the canvas's own root element, which holds the map's title. */
 export const DIAGRAM_ROOT_ID = "cm-root";
 
@@ -169,7 +177,7 @@ export function parseDocument(input: unknown): ParseResult {
   // repeat as a new error, one round later.
   const sections = sectionsInFileOrder(migrated);
   const issues = inDocumentOrder(
-    [...shapeIssues, ...repeatedIdIssues(migrated, sections)],
+    [...shapeIssues, ...repeatedIdIssues(migrated, sections), ...nestingIssues(migrated)],
     sections,
   );
   if (!result.success || issues.length > 0) return failure(issues);
@@ -234,6 +242,40 @@ function repeatedIdIssues(input: unknown, sections: readonly string[]): ParseIss
       }
       seen.add(id);
     });
+  }
+  return issues;
+}
+
+/**
+ * Each object or array at the first level beyond {@link MAX_NESTING_DEPTH}, in document order.
+ * Walked with an explicit stack, because the files it guards against are the ones that overflow a
+ * recursive walk.
+ */
+function nestingIssues(input: unknown): ParseIssue[] {
+  const issues: ParseIssue[] = [];
+  // A caller in JavaScript may put one container in several places, or inside itself: walking it
+  // again at a level no deeper than before finds nothing new, and would grow exponentially.
+  const deepestWalk = new WeakMap<object, number>();
+  const pending: { value: unknown; path: (string | number)[] }[] = [{ value: input, path: [] }];
+  while (pending.length > 0) {
+    const { value, path } = pending.pop()!;
+    if (typeof value !== "object" || value === null) continue;
+    if (path.length >= MAX_NESTING_DEPTH) {
+      issues.push({
+        path,
+        message: `objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep`,
+      });
+      continue;
+    }
+    if ((deepestWalk.get(value) ?? -1) >= path.length) continue;
+    deepestWalk.set(value, path.length);
+    // Array.from visits the holes of a sparse array as undefined; map would keep them as holes.
+    const entries: [string | number, unknown][] = Array.isArray(value)
+      ? Array.from(value, (entry: unknown, index) => [index, entry])
+      : Object.entries(value);
+    for (const [key, entry] of entries.reverse()) {
+      pending.push({ value: entry, path: [...path, key] });
+    }
   }
   return issues;
 }
