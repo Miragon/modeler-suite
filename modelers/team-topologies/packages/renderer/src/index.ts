@@ -74,7 +74,15 @@ export type { GeistFontDataUrls } from "./io/index.js";
 export { MIRAGON, CD_TOKENS } from "./theme/index.js";
 
 // Functional icons as SVG markup (context pad, palette tools).
-export * from "./draw/icons.js";
+export {
+  ICON_LINK,
+  ICON_MESSAGE_SQUARE_PLUS,
+  ICON_PENCIL,
+  ICON_SQUARE_DASHED_MOUSE_POINTER,
+  ICON_TRASH,
+  iconMarkup,
+} from "./draw/icons.js";
+export type { IconMarkupOptions, IconNode } from "./draw/icons.js";
 
 // Palette glyphs — reusable for host chrome (e.g. the legend).
 export {

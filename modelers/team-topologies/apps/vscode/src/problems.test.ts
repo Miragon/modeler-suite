@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { serializeDocument, SAMPLE_DOCUMENT } from "@miragon/team-topologies-schema-model";
+import {
+  MAX_NESTING_DEPTH,
+  serializeDocument,
+  SAMPLE_DOCUMENT,
+} from "@miragon/team-topologies-schema-model";
 import { documentProblems } from "./problems";
 
 const sample = serializeDocument(SAMPLE_DOCUMENT);
@@ -96,5 +100,32 @@ describe("documentProblems", () => {
         length: '"nowhere"'.length,
       },
     ]);
+  });
+
+  const withVendorData = (data: string): string =>
+    sample.replace("{\n", `{\n  "x-vendor": ${data},\n`);
+  const arraysNestedLevelsDeep = (levels: number): string =>
+    "[".repeat(levels) + "]".repeat(levels);
+
+  it("points at the first level too deep, also in a file too deep for the tree parser", () => {
+    for (const levels of [MAX_NESTING_DEPTH + 100, 10_000, 100_000]) {
+      const deep = withVendorData(arraysNestedLevelsDeep(levels));
+      const problems = documentProblems(deep);
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toMatchObject({
+        severity: "error",
+        message: `x-vendor${"[0]".repeat(MAX_NESTING_DEPTH - 1)}: objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep`,
+        offset: at(deep, "[") + MAX_NESTING_DEPTH - 1,
+      });
+    }
+  });
+
+  it("points at the place where the JSON breaks in a file too deep for the tree parser", () => {
+    const levels = 10_000;
+    const broken = withVendorData(`${"[".repeat(levels)}1 2${"]".repeat(levels)}`);
+    const [problem, ...rest] = documentProblems(broken);
+    expect(rest).toEqual([]);
+    expect(problem).toMatchObject({ severity: "error", offset: at(broken, "1 2") + 2, length: 1 });
+    expect(problem!.message).toMatch(/^Not valid JSON: /);
   });
 });

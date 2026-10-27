@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ICON_MENU, ICON_X, iconMarkup, type IconNode } from "./icons.js";
+import * as renderer from "../index.js";
+import { ICON_PENCIL, ICON_X, iconMarkup, type IconNode } from "./icons.js";
 
 describe("iconMarkup", () => {
   it("renders a Lucide icon as decorative inline SVG", () => {
@@ -35,15 +36,31 @@ describe("iconMarkup", () => {
       size: number;
       strokeWidth: number;
     };
-    const markup = iconMarkup(ICON_MENU, options);
+    const markup = iconMarkup(ICON_PENCIL, options);
     expect(markup).toContain('width="16" height="16"');
     expect(markup).toContain('stroke-width="2.5"');
     expect(markup).not.toContain("onload");
   });
 
   it("keeps explicit sizes", () => {
-    expect(iconMarkup(ICON_MENU, { size: 24, strokeWidth: 2 })).toContain(
+    expect(iconMarkup(ICON_PENCIL, { size: 24, strokeWidth: 2 })).toContain(
       'width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"',
     );
+  });
+});
+
+describe("the package's icons", () => {
+  it("are the canvas icons only, without the dialogs' close icon or any host-chrome icon", () => {
+    expect(
+      Object.keys(renderer)
+        .filter((name) => name.startsWith("ICON_"))
+        .sort(),
+    ).toEqual([
+      "ICON_LINK",
+      "ICON_MESSAGE_SQUARE_PLUS",
+      "ICON_PENCIL",
+      "ICON_SQUARE_DASHED_MOUSE_POINTER",
+      "ICON_TRASH",
+    ]);
   });
 });

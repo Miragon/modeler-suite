@@ -153,7 +153,7 @@ console.log(SAMPLE_DOCUMENT.title);
 | `TeamType`, `InteractionMode`, `TEAM_TYPES`, `INTERACTION_MODES`                                                            | The notation's discriminator unions + their value lists.                                              |
 | `TEAM_TYPE_SPECS`, `INTERACTION_MODE_SPECS`, `FLOW_SPEC`, `ANNOTATION_SPEC`, `dashArray()`                                  | The visual notation spec (shapes, colours, strokes) as data.                                          |
 | `documentSchema`, `teamNodeSchema`, `interactionSchema`, `flowSchema`, `annotationSchema`                                   | Zod schemas for each shape.                                                                           |
-| `parseDocument()`, `ParseResult`, `DocumentIssue`                                                                           | Validate **and migrate** unknown input into a `TtDocument`; a failure lists each issue with its path. |
+| `parseDocument()`, `ParseResult`, `DocumentIssue`, `MAX_NESTING_DEPTH`                                                      | Validate **and migrate** unknown input into a `TtDocument`; a failure lists each issue with its path. |
 | `serializeDocument()`, `canonicalize()`                                                                                     | Deterministic JSON serialization (sorted, rounded, fixed key order).                                  |
 | `foreignFields()`, `withForeignFields()`, `DOCUMENT_FIELDS`, `TEAM_NODE_FIELDS`, …                                          | The fields a document carries beyond the known ones.                                                  |
 | `documentIdProblems()`, `DIAGRAM_ROOT_ID`, `associationId()`                                                                | The id rules (unique, not reserved).                                                                  |
@@ -170,7 +170,12 @@ console.log(SAMPLE_DOCUMENT.title);
   disk and ends with a line break; the compact form (`serializeDocument(doc, false)`) has none.
 - **Unknown fields:** fields a document carries that this package does not know (a vendor's
   `"x-vendor"` on the root or on an element) pass `parseDocument()` untouched and are written after
-  the known fields, sorted by name (nested keys too), so another tool's data survives a save.
+  the known fields, sorted by name (nested keys too), so another tool's data survives a save. Only
+  they can nest deeper than the four levels of the known fields, and objects and arrays nest at
+  most 100 levels deep (`MAX_NESTING_DEPTH`), the document itself counting as the first:
+  `parseDocument()` refuses a deeper document with an issue at each first level too deep, checked
+  without recursion, because the serializer and JSON tools overflow the stack a few thousand
+  levels down.
 - **Ids:** `parseDocument()` rejects a document whose ids would collide on the canvas: an id used
   twice, the diagram's own id `tt-root` (`DIAGRAM_ROOT_ID`), ids starting with `__implicitroot`,
   `assoc_<annotation id>` (`associationId()`), the id of that annotation's connector, and the names

@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   Modeler,
+  Viewer,
   isTtAnnotation,
   isTtAssociation,
   isTtElement,
@@ -11,6 +12,7 @@ import type {
   TtAssociation,
   TtElement,
   TtTeam,
+  TtViewport,
 } from "@miragon/team-topologies-renderer";
 import {
   SAMPLE_DOCUMENT,
@@ -643,7 +645,7 @@ test("a view change keeps the editor open with its text, on its element, without
       () => canvas.viewbox({ x: -300, y: -200, width: 450, height: 320 }),
       () => canvas.zoom(0.5, { x: 0, y: 0 }),
       () => canvas.scroll({ dx: 40, dy: -30 }),
-      () => modeler.fitToView(),
+      () => modeler.get<TtViewport>("ttViewport").fit(),
     ]) {
       changeView();
       const textarea = editor(container)!;
@@ -965,7 +967,7 @@ test("Ctrl/Cmd with + is left to the browser's page zoom", () => {
   }
 });
 
-// --- fit to view -------------------------------------------------------------
+// --- the fit of an import ----------------------------------------------------
 
 function fittedContentOnScreen(width: number, height: number): { top: number; bottom: number } {
   const host = document.createElement("div");
@@ -976,7 +978,7 @@ function fittedContentOnScreen(width: number, height: number): { top: number; bo
     const { canvas } = services(modeler);
     canvas.zoom(3);
 
-    modeler.fitToView();
+    modeler.importDocument(SAMPLE_DOCUMENT);
 
     const viewbox = (canvas as unknown as { viewbox(): { y: number; scale: number } }).viewbox();
     const boxes = [
@@ -997,32 +999,55 @@ function fittedContentOnScreen(width: number, height: number): { top: number; bo
   }
 }
 
-test("fitToView on a wide canvas keeps 88px under the palette free", () => {
+test("an import on a wide canvas keeps 88px under the palette free", () => {
   expect(fittedContentOnScreen(1100, 900).top).toBeCloseTo(88, 0);
 });
 
-test("fitToView on a narrow canvas centres the diagram below the 120px palette strip", () => {
+test("an import on a narrow canvas centres the diagram below the 120px palette strip", () => {
   const { top, bottom } = fittedContentOnScreen(700, 900);
   expect(top).toBeGreaterThanOrEqual(120 - 0.5);
   expect((top + bottom) / 2).toBeCloseTo((120 + (900 - 56)) / 2, 0);
 });
 
-test("fitToView never zooms a small diagram past 100 %", () => {
+test("an import never zooms a small diagram past 100 %", () => {
   const host = document.createElement("div");
   document.body.appendChild(host);
   const modeler = new Modeler({ container: host, width: 1100, height: 900 });
   try {
     const team = SAMPLE_DOCUMENT.nodes.find((node) => node.id === "team_fraud");
     if (!team) throw new Error("The sample has no team_fraud.");
-    modeler.importDocument({ ...emptyDocument(), nodes: [team] });
+    const smallDiagram = { ...emptyDocument(), nodes: [team] };
+    modeler.importDocument(smallDiagram);
     const { canvas } = services(modeler);
     canvas.zoom(0.25);
 
-    modeler.fitToView();
+    modeler.importDocument(smallDiagram);
 
     expect(canvas.zoom()).toBeCloseTo(1);
   } finally {
     modeler.destroy();
+    host.remove();
+  }
+});
+
+test("a viewer takes a new title by importing its document again, view unchanged", () => {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const viewer = new Viewer({ container: host, width: 1100, height: 900 });
+  try {
+    viewer.importDocument(SAMPLE_DOCUMENT);
+    const canvas = viewer.get<{ zoom(scale?: number): number }>("canvas");
+    canvas.zoom(0.5);
+
+    const before = viewer.exportDocument();
+
+    viewer.importDocument({ ...before, title: "Renamed" }, { fit: false });
+
+    expect(viewer.getMeta()?.title).toBe("Renamed");
+    expect(viewer.exportDocument()).toEqual({ ...before, title: "Renamed" });
+    expect(canvas.zoom()).toBeCloseTo(0.5);
+  } finally {
+    viewer.destroy();
     host.remove();
   }
 });
@@ -1143,16 +1168,6 @@ test("freeArea { insets } places a keyboard-created element in the centre of the
   expect(Math.abs(centre.y - expected.y)).toBeLessThanOrEqual(1);
   const wholeView = keyboardCreatedCentre({}).centre;
   expect(Math.abs(centre.x - wholeView.x)).toBeGreaterThan(1);
-});
-
-test("freeRectCenter stays accepted as the deprecated name of freeArea { center }", () => {
-  const free = { x: 300, y: 200 };
-  expect(keyboardCreatedCentre({ freeRectCenter: () => free }).centre).toEqual(free);
-  const aligned = { x: 160, y: 120 };
-  expect(
-    keyboardCreatedCentre({ freeRectCenter: () => free, freeArea: { center: () => aligned } })
-      .centre,
-  ).toEqual(aligned);
 });
 
 test("context-pad entries are named buttons that Enter activates", () => {
