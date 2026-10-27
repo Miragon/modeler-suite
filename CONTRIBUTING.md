@@ -165,10 +165,13 @@ configuration of its `.vscode/launch.json` from Run and Debug.
 `npm ci` installs one Husky hook for the whole repository (`.husky/pre-commit`). It runs
 lint-staged with the root config only (`npx lint-staged --config package.json`): ESLint `--fix` and
 Prettier on staged TypeScript under `modelers/` and `plugins/`, each file with its nearest
-`eslint.config.js`, and Prettier on everything else, all under the root `.prettierignore`. The
-new-modeler template's own `lint-staged` config is for the repository the template starts. Without
-`--config`, lint-staged would pick it for the template's files, and Prettier would then miss the
-root's ignore entry for the template's Markdown and turn `__DISPLAY_NAME__` into emphasis.
+`eslint.config.js`; Prettier alone on staged TypeScript under `packages/` and `test/` and on
+JavaScript, JSON, Markdown, YAML, CSS and HTML files anywhere; all under the root `.prettierignore`.
+Other files Prettier formats, such as the docs site's TypeScript and Vue or `.mts`, get no task
+here: `npm run format:check` in CI checks them. The new-modeler template's own `lint-staged` config
+is for the repository the template starts. Without `--config`, lint-staged would pick it for the
+template's files, and Prettier would then miss the root's ignore entry for the template's Markdown
+and turn `__DISPLAY_NAME__` into emphasis.
 
 The hook then runs `npm run lint` of every modeler with staged code or config, building the shared
 packages first on a fresh checkout, and the shared type check when `packages/` or `test/` change. It

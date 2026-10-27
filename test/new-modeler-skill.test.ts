@@ -18,6 +18,7 @@ import {
 import { devNull, tmpdir } from "node:os";
 import { basename, dirname, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ESLint } from "eslint";
 import { getFileInfo as getPrettierFileInfo } from "prettier";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
@@ -1449,6 +1450,22 @@ describe("the template's TypeScript", () => {
             : "";
         return `${where}${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`;
       }),
+    ).toEqual([]);
+  });
+
+  it("parses under its own ESLint config in one run with the modelers' files, as the suite's pre-commit hook lints them", async () => {
+    const modelerSources = readdirSync(join(ROOT, "modelers")).map((modeler) =>
+      join(ROOT, "modelers", modeler, "packages/schema-model/src/index.ts"),
+    );
+    const templateSources = templateFiles.filter((file) => file.endsWith(".ts"));
+    const results = await new ESLint({ cwd: ROOT, warnIgnored: false }).lintFiles([
+      ...modelerSources,
+      ...templateSources,
+    ]);
+    expect(
+      results
+        .filter((result) => result.fatalErrorCount > 0)
+        .map((result) => `${fromRoot(result.filePath)}: ${result.messages[0]?.message}`),
     ).toEqual([]);
   });
 });

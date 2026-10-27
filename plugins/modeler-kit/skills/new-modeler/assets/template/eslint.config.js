@@ -51,6 +51,7 @@ export default tseslint.config(
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  { languageOptions: { parserOptions: { tsconfigRootDir: import.meta.dirname } } },
   {
     files: ['**/*.ts'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
