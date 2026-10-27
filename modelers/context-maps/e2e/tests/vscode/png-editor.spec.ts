@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { parseDocumentText } from "@miragon/context-maps-schema-model";
 import { EXAMPLE_MAP } from "../../../apps/vscode/src/examples.js";
 import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/vscode/src/png.js";
-import { pngChunks, textChunksWith } from "../../../apps/vscode/test/pngChunks.js";
+import { pngChunks, textChunksWith, textWith } from "../../../apps/vscode/test/pngChunks.js";
 import {
   openWebview,
   postFromHost,
@@ -67,7 +67,9 @@ test.describe("VS Code webview: the .cm.png editor", () => {
     expect(chunks.every((chunk) => chunk.crcValid)).toBe(true);
     expect(chunks[0]!.type).toBe("IHDR");
     expect(chunks.at(-1)!.type).toBe("IEND");
-    expect(chunks.at(-2)!.type).toBe("tEXt");
+    const mapBeforeIend = textWith(chunks.at(-2)!, EMBED_KEYWORD);
+    expect(mapBeforeIend).toBeDefined();
+    expect(decodeDoc(mapBeforeIend!)).toBe(edit.text);
     expect(textChunksWith(png, EMBED_KEYWORD)).toHaveLength(1);
     const map = reopenedMap(png);
     expect(map).toBe(edit.text);

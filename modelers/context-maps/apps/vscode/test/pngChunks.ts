@@ -56,14 +56,18 @@ export function pngChunks(png: Uint8Array): PngChunk[] {
   return chunks;
 }
 
+/** The text of `chunk` when it is a tEXt chunk with `keyword`, otherwise undefined. */
+export function textWith(chunk: PngChunk, keyword: string): string | undefined {
+  const prefix = [...latin1Bytes(keyword), 0];
+  if (chunk.type !== "tEXt" || !prefix.every((byte, index) => chunk.data[index] === byte)) {
+    return undefined;
+  }
+  return latin1Text(chunk.data.subarray(prefix.length));
+}
+
 /** The text of every tEXt chunk with `keyword`, in file order. */
 export function textChunksWith(png: Uint8Array, keyword: string): string[] {
-  const prefix = [...latin1Bytes(keyword), 0];
-  return pngChunks(png)
-    .filter(
-      (chunk) => chunk.type === "tEXt" && prefix.every((byte, index) => chunk.data[index] === byte),
-    )
-    .map((chunk) => latin1Text(chunk.data.subarray(prefix.length)));
+  return pngChunks(png).flatMap((chunk) => textWith(chunk, keyword) ?? []);
 }
 
 function latin1Bytes(text: string): Uint8Array {

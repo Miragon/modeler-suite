@@ -53,8 +53,9 @@ function latin1(str: string): Uint8Array {
 }
 
 /**
- * Inserts a tEXt chunk (keyword\0text) before IEND. A tEXt chunk with the same keyword goes first:
- * the reader takes the first one, so a second insert would otherwise keep reading the old text.
+ * Inserts a tEXt chunk (keyword\0text) before IEND. Any tEXt chunk with the same keyword is
+ * removed first: the reader takes the first one, so a second insert would otherwise keep reading
+ * the old text.
  */
 export function pngInsertText(png: Uint8Array, keyword: string, text: string): Uint8Array {
   const data = new Uint8Array([...latin1(keyword), 0, ...latin1(text)]);
