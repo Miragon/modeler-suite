@@ -657,6 +657,48 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     await expect(drawEntry).toBeFocused();
   });
 
+  // Issue #180: Enter on another palette entry is that entry's, so it ends the drawing first and
+  // only one tool is on.
+  for (const [entryName, action, createdEvents] of [
+    ["the Lasso entry", "lasso-tool", 0],
+    ["a creating entry", "create.event", 1],
+  ] as const) {
+    test(`Enter on ${entryName} commits the open line and ends the draw tool`, async ({ page }) => {
+      await page.goto("/");
+      await waitForViewer(page);
+      await openExample(page);
+      const countOf = async (elementType: string) =>
+        (await exportBoard(page)).elements.filter((element) => element.elementType === elementType)
+          .length;
+      const drawingsBefore = await countOf("drawing");
+      const eventsBefore = await countOf("event");
+      const drawMode = page.locator(".event-storming-container.event-storming-draw-mode");
+      const palette = page.locator('[data-chrome="palette"]');
+      const drawEntry = palette.locator('[data-action="draw-tool"]');
+
+      await drawEntry.focus();
+      await page.keyboard.press("Enter");
+      await expect(drawMode).toHaveCount(1);
+      const canvas = (await page.locator(".cd-shell-canvas").boundingBox())!;
+      const y = canvas.y + canvas.height - 160;
+      await page.mouse.click(canvas.x + canvas.width / 2 - 60, y);
+      await page.mouse.click(canvas.x + canvas.width / 2 + 60, y - 40);
+
+      await palette.locator(`[data-action="${action}"]`).focus();
+      await page.keyboard.press("Enter");
+      await expect(drawMode).toHaveCount(0);
+      await expect(drawEntry).toHaveAttribute("aria-pressed", "false");
+      await expect.poll(() => countOf("drawing")).toBe(drawingsBefore + 1);
+      await expect.poll(() => countOf("event")).toBe(eventsBefore + createdEvents);
+      if (action === "lasso-tool") {
+        await expect(palette.locator('[data-action="lasso-tool"]')).toHaveAttribute(
+          "aria-pressed",
+          "true",
+        );
+      }
+    });
+  }
+
   // Issue #91: while a line is drawn, the chrome keeps its Escape and Enter, and the drawing
   // goes on; on the canvas, Enter still finishes it.
   test("while drawing, Escape closes the menu and the shortcuts dialog and Enter zooms", async ({

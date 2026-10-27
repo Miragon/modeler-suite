@@ -202,8 +202,8 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
       shortcut: "L",
       html: `<div class="entry event-storming-palette-entry">${PALETTE_ICONS.lasso}</div>`,
       action: {
-        click: this.focusingCanvas((event) =>
-          this.lassoTool.activateSelection(event as MouseEvent),
+        click: this.focusingCanvas(
+          this.endingDrawing((event) => this.lassoTool.activateSelection(event as MouseEvent)),
         ),
       },
     };
@@ -221,11 +221,13 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
     const allowed = LEVEL_STICKY_KINDS[this.eventStormingModeling.getLevel()];
     for (const spec of SPECS) {
       if (spec.type !== "note" && !allowed.includes(spec.type)) continue;
-      const start = this.focusingCanvas((event) => {
-        const shape = this.factory.createNew(spec.type, spec.label);
-        if (isKeyboardClick(event) && this.placeInFreeRect(shape)) return;
-        this.create.start(event, shape);
-      });
+      const start = this.focusingCanvas(
+        this.endingDrawing((event) => {
+          const shape = this.factory.createNew(spec.type, spec.label);
+          if (isKeyboardClick(event) && this.placeInFreeRect(shape)) return;
+          this.create.start(event, shape);
+        }),
+      );
       entries[`create.${spec.key}`] = {
         group: spec.group,
         title: spec.title,
@@ -235,6 +237,18 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
       };
     }
     return entries;
+  }
+
+  /**
+   * The draw tool does not watch the other tools, so without this a click, Enter or Space on
+   * another entry would start it next to an open drawing. The open line is kept, as Enter on the
+   * canvas keeps it.
+   */
+  private endingDrawing(action: (event: Event) => void): (event: Event) => void {
+    return (event) => {
+      if (this.drawTool.isActive()) this.drawTool.finish();
+      action(event);
+    };
   }
 
   /**
