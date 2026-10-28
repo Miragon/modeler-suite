@@ -28,7 +28,7 @@ import {
   type WardleyShapeType,
 } from "../model/di-types.js";
 
-/** Diagram config `wardleyKeyboard` (Modeler option `keyboard`). */
+/** Diagram config `wardleyKeyboard` (viewer option `undoRedoKeys`). */
 export interface WardleyKeyboardConfig {
   /**
    * Handle Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z and Cmd/Ctrl+Y on the canvas (default true). Hosts that own

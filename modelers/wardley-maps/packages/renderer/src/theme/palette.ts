@@ -47,13 +47,6 @@ export const MIRAGON = {
   kontur: "#8F8A8A",
   /** Secondary text (≥ 4.5:1 on white and on paper). */
   textLeise: "#6B6666",
-  /**
-   * Dark base: the CI hero / nav-glass colour (rgb 8,10,32). The canvas never draws it.
-   * @deprecated The design system has no navy surface (guide §3.1: dark blue only inside the
-   * gradient); this key goes in a later minor.
-   */
-  // brand-lint-disable-next-line
-  navy: "#080A20",
   /** Signature brand gradient — hero, large surfaces, brand moments. Use verbatim. */
   gradientBrand: "linear-gradient(120deg, #335DE5 30%, #00E676)",
 } as const;

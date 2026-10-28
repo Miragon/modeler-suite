@@ -33,7 +33,7 @@ import {
 } from "./map-resize/MapProjection.js";
 import type WardleyModeling from "./modeling/WardleyModeling.js";
 import type { FreeArea } from "@miragon/modeler-api";
-import type { FreeRectConfig, FreeRectInsets } from "./free-rect/index.js";
+import type { FreeRectConfig } from "./free-rect/index.js";
 import { COMMAND_START_EVENTS, PUT_BACK_PRIORITY, type LivePreview } from "./live-preview/index.js";
 import { applyConfigUpdate, type MapConfigUpdate } from "./modeling/cmd/UpdateConfigHandler.js";
 
@@ -63,22 +63,16 @@ export interface WardleyViewerOptions {
    * `false` leaves them to the host (e.g. VS Code, which owns the document's undo stack).
    */
   undoRedoKeys?: boolean | undefined;
-  /** @deprecated Since 0.9, for one minor release: use `undoRedoKeys`, which wins over it. */
-  keyboard?: { undoRedo?: boolean } | undefined;
-  /** @deprecated Since 0.9, for one minor release: use `freeArea: { insets }`, which wins over it. */
-  freeRectInsets?: (() => FreeRectInsets) | undefined;
 }
 
-/** The diagram config the viewer options stand for, the aligned names over their aliases. */
+/** The diagram config the viewer options stand for. */
 function diagramConfig(options: WardleyViewerOptions): Record<string, unknown> {
-  const undoRedo = options.undoRedoKeys ?? options.keyboard?.undoRedo;
+  const undoRedo = options.undoRedoKeys;
   const freeArea: FreeRectConfig | undefined = options.freeArea
     ? options.freeArea.insets
       ? { insets: options.freeArea.insets }
       : { center: options.freeArea.center }
-    : options.freeRectInsets
-      ? { insets: options.freeRectInsets }
-      : undefined;
+    : undefined;
   return {
     ...(undoRedo === undefined ? {} : { wardleyKeyboard: { undoRedo } }),
     ...(freeArea ? { wardleyFreeRect: freeArea } : {}),

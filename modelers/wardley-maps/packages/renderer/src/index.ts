@@ -152,24 +152,3 @@ export type {
   WardleyConnectionType,
 } from "./model/di-types.js";
 export type { ImportWarning, RootBusinessObject } from "./io/index.js";
-
-// Icons (Material Icons, Apache-2.0), deprecated: the chrome's icons come from the modeler shell.
-export {
-  iconMarkup,
-  ICON_UNDO,
-  ICON_REDO,
-  ICON_DATA_OBJECT,
-  ICON_CODE,
-  ICON_DOWNLOAD,
-  ICON_ASPECT_RATIO,
-  ICON_EDIT,
-  ICON_PERSON,
-  ICON_SHARE,
-  ICON_DELETE,
-  ICON_FOLDER_OPEN,
-  ICON_IMAGE,
-  ICON_NEW,
-  ICON_MENU,
-  ICON_VISIBILITY,
-  ICON_ADD,
-} from "./draw/deprecated-icons.js";
