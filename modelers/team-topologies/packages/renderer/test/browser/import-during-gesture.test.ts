@@ -374,6 +374,72 @@ describe("an import while a gesture runs cancels the gesture", () => {
   });
 });
 
+/**
+ * A host that echoes every change back through its store (a CRDT observer that does not filter its
+ * own origin) imports inside `onContentChanged`, while the drop that made the change still runs.
+ */
+function reimportOnFirstChange(current: Session): () => Promise<unknown> | undefined {
+  let reimport: Promise<unknown> | undefined;
+  current.modeler.onContentChanged(() => {
+    reimport ??= current.modeler.importText(current.modeler.exportText());
+  });
+  return () => reimport;
+}
+
+/** The drop applied once and the re-import inside it left the drag finished and the canvas usable. */
+async function expectTheDropKept(
+  current: Session,
+  reimport: Promise<unknown> | undefined,
+  before: string,
+): Promise<void> {
+  const { modeler, diagram, container } = current;
+  await expect(reimport).resolves.toBeDefined();
+  expect(current.errors).toEqual([]);
+  expect(current.changes()).toBe(1);
+  const dropped = modeler.exportText();
+  expect(dropped).not.toBe(before);
+  expect(diagram.get<Dragging>("dragging").context()).toBeFalsy();
+  expect(previewOf(container)).toBeNull();
+  expectNoReplacedElementSelected(diagram);
+  diagram
+    .get<Modeling>("modeling")
+    .moveElements([shape(diagram, "team_discovery")], { x: 10, y: 0 });
+  expect(current.changes()).toBe(2);
+  expect(modeler.exportText()).not.toBe(dropped);
+}
+
+describe("an import from inside the change listener of a drop", () => {
+  test("keeps the move the drop applied", async () => {
+    const current = await session();
+    const { modeler, diagram, pointer } = current;
+    const reimport = reimportOnFirstChange(current);
+    const before = modeler.exportText();
+    const start = middle(shape(diagram, "team_checkout"));
+    pointer.press(pointer.graphics("team_checkout"), start);
+    pointer.enter();
+    pointer.moveTo({ x: start.x + 20, y: start.y + 10 });
+    pointer.moveTo({ x: start.x + 60, y: start.y + 30 });
+    pointer.releaseAt({ x: start.x + 60, y: start.y + 30 });
+
+    await expectTheDropKept(current, reimport(), before);
+  });
+
+  test("keeps the element a palette create dropped", async () => {
+    const current = await session();
+    const { modeler, container, pointer } = current;
+    const reimport = reimportOnFirstChange(current);
+    const before = modeler.exportText();
+    pointer.clickOn(paletteEntry(container, "team.platform"));
+    pointer.enter();
+    const drop = { x: 1120, y: 120 };
+    pointer.moveTo({ x: drop.x - 40, y: drop.y });
+    pointer.moveTo(drop);
+    pointer.releaseAt(drop);
+
+    await expectTheDropKept(current, reimport(), before);
+  });
+});
+
 describe("an import while a palette tool only waits for its press", () => {
   test("leaves the lasso tool armed, and its next drag selects the imported elements", async () => {
     const current = await session();

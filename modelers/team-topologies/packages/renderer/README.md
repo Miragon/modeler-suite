@@ -165,7 +165,8 @@ An import (`importText`, or `importDocument` of the wrapped diagram) that arrive
 drags, such as a peer's text in a live sync, ends the gesture first, as Escape does: a move,
 resize, connect, lasso or palette create, also one whose pointer is still on the palette, applies
 nothing to the replaced elements and fires no change. An armed lasso tool that waits for its press
-stays armed.
+stays armed. An import from the change listener of a drop (a host that echoes its own change back)
+leaves that drop to finish, with its change applied.
 
 Options: the contract's `CollaborativeModelerOptions` (1.2) and `additionalModules`:
 

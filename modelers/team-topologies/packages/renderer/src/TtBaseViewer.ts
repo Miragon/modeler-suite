@@ -34,17 +34,26 @@ const CANVAS_KEYBOARD_FOCUS_CLASS = "tt-canvas-keyboard-focus";
  */
 const ARMED_TOOL_PREFIXES: ReadonlySet<string> = new Set(["lasso.selection"]);
 
+/** Ahead of every other listener of a drop, so that the command it runs finds the drop marked. */
+const DROP_MARK_PRIORITY = 100_000;
+
+type DragContext = { prefix: string } | null;
+
 /**
  * Ends a running gesture (move, resize, connect, lasso, palette create) the way Escape does. The
  * gesture holds the elements an import is about to replace, and diagram-js keeps it running across
  * the import: its release would apply to removed elements and throw half-way. The selection is not
  * restored, since it holds those elements too.
+ *
+ * A drop that runs (`dropping`) is left to finish: its command has applied, and a host that imports
+ * from that command's change listener would otherwise cancel the drag inside diagram-js's own end of
+ * it, which then cleans up a drag that is gone and throws.
  */
-function cancelGesture(diagram: Diagram): void {
+function cancelGesture(diagram: Diagram, dropping: DragContext): void {
   const dragging = diagram.get<Dragging | null>("dragging", false);
-  if (!dragging) return;
-  const gesture = dragging.context() as { prefix: string } | null;
-  if (gesture && !ARMED_TOOL_PREFIXES.has(gesture.prefix)) dragging.cancel(false);
+  const gesture = dragging?.context() as DragContext | undefined;
+  if (!dragging || !gesture || gesture === dropping) return;
+  if (!ARMED_TOOL_PREFIXES.has(gesture.prefix)) dragging.cancel(false);
 }
 
 export interface TtViewerOptions {
@@ -88,6 +97,8 @@ export abstract class TtBaseViewer {
   private _diagram: Diagram | undefined;
   private readonly _container: HTMLElement;
   private readonly _options: TtViewerOptions;
+  /** The drag whose drop runs now, from its end until its cleanup. */
+  private _dropping: DragContext = null;
 
   constructor(options: TtViewerOptions = {}) {
     this._options = options;
@@ -113,8 +124,21 @@ export abstract class TtBaseViewer {
         ttContextPad: { freeArea: this._options.freeArea },
       });
       this._describeCanvas(this._diagram);
+      this._markDrops(this._diagram);
     }
     return this._diagram;
+  }
+
+  private _markDrops(diagram: Diagram): void {
+    const dragging = diagram.get<Dragging | null>("dragging", false);
+    if (!dragging) return;
+    const eventBus = diagram.get<EventBus>("eventBus");
+    eventBus.on("drag.end", DROP_MARK_PRIORITY, () => {
+      this._dropping = dragging.context() as DragContext;
+    });
+    eventBus.on("drag.cleanup", DROP_MARK_PRIORITY, () => {
+      this._dropping = null;
+    });
   }
 
   /**
@@ -166,7 +190,8 @@ export abstract class TtBaseViewer {
    * into view. Clears the undo history without a change event: its commands point at the replaced
    * elements and would bring them back, and an import is no edit. A gesture that runs (a move,
    * resize, connect, lasso or palette create) ends first, as on Escape, so its release applies
-   * nothing; an armed lasso tool stays armed.
+   * nothing; an armed lasso tool stays armed. An import from the change listener of a drop leaves
+   * that drop to finish, with its change applied.
    *
    * Throws, before anything changes, for a document whose ids would collide on the canvas (see
    * `documentIdProblems`), so a rejected document leaves the previous one in place.
@@ -184,7 +209,7 @@ export abstract class TtBaseViewer {
     const labelEditing = diagram.get<TtLabelEditing>("ttLabelEditing", false);
     eventBus.fire("import.parse.start", { document: doc });
     labelEditing?.suspend();
-    cancelGesture(diagram);
+    cancelGesture(diagram, this._dropping);
     diagram.get<CommandStack>("commandStack", false)?.clear(false);
     importer.clear();
     const warnings = importer.import(doc);
