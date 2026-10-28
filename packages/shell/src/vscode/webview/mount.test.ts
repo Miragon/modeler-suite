@@ -31,6 +31,7 @@ function fakeShell(root: HTMLElement, options: ShellOptions): ShellHandle {
     setEmptyState: vi.fn(),
     isEmptyStateShown: vi.fn(() => false),
     toast: vi.fn(() => ({ dismiss: () => undefined })),
+    showShortcutsDialog: vi.fn(() => ({ isOpen: () => true, close: () => undefined })),
     destroy: vi.fn(),
   };
 }
@@ -143,7 +144,10 @@ describe("mountVsCodeShell", () => {
     shell.setReadOnly(true, { delayMs: 800 });
     const palette = { element: root, entryTooltip: () => null, setReadOnly: () => undefined };
     shell.registerPalette(palette);
+    const groups = [{ title: "Edit", rows: [{ action: "Undo", keys: ["⌘Z"] }] }];
+    expect(shell.showShortcutsDialog(groups).isOpen()).toBe(true);
 
+    expect(inner.showShortcutsDialog).toHaveBeenCalledWith(groups);
     expect(inner.setZoomTarget).toHaveBeenCalledWith(null);
     expect(inner.setProblems).toHaveBeenCalledWith({ count: 2, errors: 1 });
     expect(inner.setStatus).toHaveBeenCalledWith(status, { delayMs: 800 });

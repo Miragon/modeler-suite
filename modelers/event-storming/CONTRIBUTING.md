@@ -49,7 +49,8 @@ The first two run `@miragon/modeler-shell`'s conformance kit: `vscode-webview` o
 (geometry, the legend's start state, ARIA, keys, the focus hand-back after a pointer click on
 chrome, keyboard creation, a sticky's label editor that the shell's zoom, fit and refit leave open
 and uncommitted, the read-only lock of an invalid file, appearance, reduced motion, forced colours,
-the canvas's overlay layers, the production bundle behind the webview CSP, cleanup), `webapp` on
+the canvas's overlay layers, the shell's shortcuts dialog with the board's own groups, the
+production bundle behind the webview CSP, cleanup), `webapp` on
 the `web` host (the same but the production bundle, plus the focus after a File action, primary
 action, legal line, start screen, toasts, problems list and drop zone). The harnesses declare what
 Event Storming lacks `absent`

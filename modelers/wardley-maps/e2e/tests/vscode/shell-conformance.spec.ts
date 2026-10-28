@@ -6,6 +6,7 @@ import {
 } from "@miragon/modeler-shell/testing";
 import { WEBVIEW_THEMES } from "../../../apps/vscode/src/themes.js";
 import { kettleLabelEditor } from "../support/label-editor.js";
+import { mapShortcutsDialog } from "../support/shortcuts-dialog.js";
 import { openShippedWebview, postedMessages } from "./support/webview.js";
 
 /**
@@ -86,6 +87,7 @@ test.describe("VS Code webview: shell conformance", () => {
       labelEditor: kettleLabelEditor(async (page) =>
         JSON.stringify((await postedMessages(page)).filter((message) => message.type === "edit")),
       ),
+      shortcutsDialog: mapShortcutsDialog("webview"),
     },
     test,
     {

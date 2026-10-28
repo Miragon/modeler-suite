@@ -63,6 +63,7 @@ function withDestroyHook(shell: ShellHandle, beforeDestroy: () => void): ShellHa
     setEmptyState: (shown) => shell.setEmptyState(shown),
     isEmptyStateShown: () => shell.isEmptyStateShown(),
     toast: (request) => shell.toast(request),
+    showShortcutsDialog: (groups) => shell.showShortcutsDialog(groups),
     destroy() {
       beforeDestroy();
       shell.destroy();

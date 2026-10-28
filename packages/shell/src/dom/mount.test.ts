@@ -484,3 +484,116 @@ describe("mountShell: focus after a pointer click (guide §5.8)", () => {
     expect(document.activeElement).toBe(svg);
   });
 });
+
+describe("shell.showShortcutsDialog (guide §5.4, §8)", () => {
+  const EDIT = { title: "Edit", rows: [{ action: "Undo", keys: ["⌘Z"] }] };
+
+  function dialogIn(root: HTMLElement): HTMLDialogElement | null {
+    return root.querySelector<HTMLDialogElement>("dialog.cd-shell-dialog.cd-shell-shortcuts");
+  }
+
+  function rowsOf(root: HTMLElement): HTMLTableRowElement[] {
+    return [...(dialogIn(root)?.querySelectorAll("tr") ?? [])];
+  }
+
+  it("opens in the root with the chrome's keys in a View group first, then the modeler's", () => {
+    const { shell, root } = mount();
+    const dialog = shell.showShortcutsDialog([EDIT]);
+
+    const element = dialogIn(root);
+    expect(dialog.isOpen()).toBe(true);
+    expect(element?.open).toBe(true);
+    expect(element?.querySelector(".cd-shell-dialog-title")?.textContent).toBe(
+      "Keyboard shortcuts",
+    );
+    const headings = [...(element?.querySelectorAll("h3") ?? [])];
+    expect(headings.map((heading) => heading.textContent)).toEqual(["View", "Edit"]);
+    expect(
+      rowsOf(root).map((row) => [
+        row.getAttribute("data-chrome-key"),
+        row.querySelector("th")?.textContent,
+        row.querySelector("kbd")?.textContent,
+      ]),
+    ).toEqual([
+      ["zoomIn", "Zoom in", "⌘+"],
+      ["zoomOut", "Zoom out", "⌘−"],
+      ["zoomToActual", "Zoom to 100%", "⌘0"],
+      ["fit", "Fit to view", "⇧1"],
+      [null, "Undo", "⌘Z"],
+    ]);
+  });
+
+  it("names the chrome's rows in the shell's messages and platform", () => {
+    const { shell, root } = mount({
+      platform: "other",
+      lang: "de",
+      messages: {
+        zoomIn: "Vergrößern",
+        shortcutsTitle: "Tastenkürzel",
+        shortcutsView: "Ansicht",
+        keyNames: { ctrl: "Strg" },
+      },
+    });
+    shell.showShortcutsDialog([{ title: "Ansicht", rows: [{ action: "Raster", keys: ["G"] }] }]);
+    expect(dialogIn(root)?.querySelector(".cd-shell-dialog-title")?.textContent).toBe(
+      "Tastenkürzel",
+    );
+    const rows = rowsOf(root);
+    expect(rows[0]?.textContent).toBe("VergrößernStrg+Plus");
+    expect(rows.at(-1)?.textContent).toBe("RasterG");
+  });
+
+  it("closes the menu first and returns the focus to the trigger on close", () => {
+    const { shell, root } = mount(fullOptions);
+    shell.menu.open();
+    expect(shell.menu.isOpen()).toBe(true);
+
+    const dialog = shell.showShortcutsDialog([EDIT]);
+    expect(shell.menu.isOpen()).toBe(false);
+
+    dialog.close();
+    expect(dialogIn(root)).toBeNull();
+    expect(document.activeElement).toBe(shell.menu.trigger);
+  });
+
+  it("hands the focus to the canvas when the element that had it is gone", () => {
+    const { canvas, svg } = canvasWithSvg();
+    const { shell } = mount({ canvas });
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+    const dialog = shell.showShortcutsDialog([EDIT]);
+    opener.remove();
+
+    dialog.close();
+
+    expect(document.activeElement).toBe(svg);
+  });
+
+  it("returns the open dialog while it is open, and a new one after it closed", () => {
+    const { shell, root } = mount();
+    const first = shell.showShortcutsDialog([EDIT]);
+    expect(shell.showShortcutsDialog([])).toBe(first);
+    expect(root.querySelectorAll("dialog")).toHaveLength(1);
+
+    first.close();
+    const second = shell.showShortcutsDialog([]);
+    expect(second).not.toBe(first);
+    expect(second.isOpen()).toBe(true);
+  });
+
+  it("is removed by destroy without moving the focus, and opens nothing afterwards", () => {
+    const { canvas, svg } = canvasWithSvg();
+    const { shell, root } = mount({ canvas });
+    const dialog = shell.showShortcutsDialog([EDIT]);
+    root.querySelector<HTMLButtonElement>(".cd-shell-dialog-close")?.focus();
+
+    shell.destroy();
+
+    expect(dialog.isOpen()).toBe(false);
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(document.activeElement).not.toBe(svg);
+    expect(shell.showShortcutsDialog([EDIT]).isOpen()).toBe(false);
+    expect(document.querySelector("dialog")).toBeNull();
+  });
+});

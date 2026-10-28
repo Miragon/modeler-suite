@@ -166,6 +166,11 @@ column and a clean `destroy`.
   palette on `canvas.viewbox.changing` for good, without showing it again once the view settles;
   give each dialog its own forced-colours border (`CanvasText`), and an element outside the shell
   root its own reduced-motion rule.
+- `shortcutsDialog` (modeler-shell 0.7.0 or later): its `show` calls `shell.showShortcutsDialog`
+  with the modeler's own shortcut groups, built by the renderer's shortcut table for the page's
+  `shell.platform` and `shell.lang`, or with the kit's fixture where the page cannot build them. The
+  kit checks the dialog of guide §8, the chrome's keys at the top of the View group and the focus.
+  The template lets that case's skip pass until its modeler-shell pin reaches 0.7.0.
 - `absent` lists what the modeler lacks, and `onSkip` throws: every other skip is a gap. In VS Code
   a menu without a Model action (no File group there) adds `absent: ["canvasMenuAction"]`
   (modeler-shell 0.4.0 or later).

@@ -86,6 +86,17 @@ export interface ShellMessages {
    * joined by `Intl.ListFormat` (disjunction) in `lang`: ".storm, .json, or .txt".
    */
   cannotOpenFile(name: string, accepted: string): string;
+
+  // ---- Keyboard shortcuts dialog (0.7): guide §5.4, §8 ----
+
+  /** Title of the "Keyboard shortcuts…" dialog of the Help group. */
+  shortcutsTitle: string;
+  /** The dialog's View group, which the shell fills with the chrome's zoom and fit keys. */
+  shortcutsView: string;
+  /** Title of a modeler's Edit group, so every modeler names it alike. */
+  shortcutsEdit: string;
+  /** Title of a modeler's group of the notation's tools. */
+  shortcutsTools: string;
 }
 
 /** Every key optional; an `undefined` value keeps the default (a conditional override). */
@@ -143,6 +154,10 @@ export const defaultMessages: ShellMessages = {
   dropHint: "Or drop a file here",
   openFileLink: "Open a file…",
   cannotOpenFile: (name, accepted) => `Couldn't open “${name}”. Drop a ${accepted} file.`,
+  shortcutsTitle: "Keyboard shortcuts",
+  shortcutsView: "View",
+  shortcutsEdit: "Edit",
+  shortcutsTools: "Tools",
 };
 
 /** `defaultMessages` with `overrides` applied (`keyNames` merged key by key). */

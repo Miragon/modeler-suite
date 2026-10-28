@@ -4,6 +4,7 @@
  */
 @import "./dom/shell-dom.css";
 @import "./dom/buttons.css";
+@import "./dom/dialog.css";
 @import "./dom/web/web.css";
 @import "./dom/feedback/feedback.css";
 @import "./diagram-js/palette.css";

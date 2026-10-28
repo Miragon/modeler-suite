@@ -94,6 +94,15 @@ export function webDemoHarness(options: WebDemoHarnessOptions = {}): ShellConfor
     labelEditor: demoLabelEditor((page) =>
       page.evaluate(() => window.__webDemo?.documentChanges() ?? 0),
     ),
+    // The demo has no shortcut groups of its own: the kit's fixture stands in for them.
+    shortcutsDialog: {
+      async show(page, fixture) {
+        await page.evaluate(
+          (groups) => window.__webDemo?.shell.showShortcutsDialog(groups),
+          fixture,
+        );
+      },
+    },
     absent: without,
     documents: ["empty"],
   };

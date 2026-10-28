@@ -15,6 +15,7 @@ export type {
   ShellConformanceHarness,
   ShellConformanceTest,
   ShellSkip,
+  ShortcutsDialogHooks,
   ShowHook,
   ShowHooks,
   ToastFixture,
