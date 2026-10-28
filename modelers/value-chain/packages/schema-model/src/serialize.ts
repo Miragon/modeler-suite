@@ -71,7 +71,8 @@ export function validateDocument(data: unknown): ValueChainDocument {
 
 /**
  * Every finding that keeps `data` from loading, with its location; empty for a valid document.
- * The same checks as `loadDocument`, for editors that point at the broken spot.
+ * The same checks as `loadDocument`, for editors that point at the broken spot. Of the `__proto__`
+ * keys and the containers nested too deep, it reports the first 100 in document order.
  */
 export function documentIssues(data: unknown): DocumentIssue[] {
   const structural = structureIssues(data);
@@ -155,34 +156,80 @@ function invariantIssues(document: ValueChainDocument): DocumentIssue[] {
 }
 
 /**
- * `__proto__` keys and containers nested too deep, in document order. Walked with an explicit
- * stack, because the files it guards against are the ones that overflow a recursive walk.
+ * At most this many structure findings per document. A nesting finding carries a path of
+ * {@link MAX_NESTING_DEPTH} keys, so one wide container beyond the limit would otherwise give
+ * millions of them, more than the heap holds.
+ */
+const MAX_STRUCTURE_ISSUES = 100;
+
+interface OpenContainer {
+  readonly container: object;
+  readonly keys: readonly string[] | undefined;
+  readonly size: number;
+  next: number;
+  readonly keyInParent: string | number | undefined;
+}
+
+/**
+ * `__proto__` keys and the containers at the first level beyond {@link MAX_NESTING_DEPTH}, in
+ * document order, up to {@link MAX_STRUCTURE_ISSUES}. Walked with an explicit stack, because the
+ * files it guards against are the ones that overflow a recursive walk. The stack holds only the
+ * containers the walk is inside of, never their entries, so a wide container costs no more memory
+ * than a narrow one.
  */
 function structureIssues(data: unknown): DocumentIssue[] {
   const issues: DocumentIssue[] = [];
-  const pending: { value: unknown; path: (string | number)[] }[] = [{ value: data, path: [] }];
-  while (pending.length > 0) {
-    const { value, path } = pending.pop()!;
-    if (path.at(-1) === FORBIDDEN_KEY) {
-      issues.push({ message: `The key "${FORBIDDEN_KEY}" is not allowed.`, path });
-    } else if (typeof value === "object" && value !== null) {
-      if (path.length >= MAX_NESTING_DEPTH) {
-        issues.push({
-          message: `Objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep.`,
-          path,
-        });
-        continue;
-      }
-      // Array.from visits the holes of a sparse array as undefined; map would keep them as holes.
-      const entries: [string | number, unknown][] = Array.isArray(value)
-        ? Array.from(value, (entry: unknown, index) => [index, entry])
-        : Object.entries(value);
-      for (const [key, entry] of entries.reverse()) {
-        pending.push({ value: entry, path: [...path, key] });
-      }
+  if (!isContainer(data)) {
+    return issues;
+  }
+  // A caller in JavaScript may put one container in several places, or inside itself: walking it
+  // again at a level no deeper than before finds nothing new, and would grow exponentially.
+  const deepestWalk = new WeakMap<object, number>();
+  const open: OpenContainer[] = [];
+  const enter = (container: object, keyInParent?: string | number): void => {
+    deepestWalk.set(container, open.length);
+    const keys = Array.isArray(container) ? undefined : Object.keys(container);
+    const size = keys?.length ?? (container as unknown[]).length;
+    open.push({ container, keys, size, next: 0, keyInParent });
+  };
+  const pathTo = (key: string | number): (string | number)[] => [
+    ...open.flatMap(({ keyInParent }) => keyInParent ?? []),
+    key,
+  ];
+  enter(data);
+  while (open.length > 0 && issues.length < MAX_STRUCTURE_ISSUES) {
+    const current = open[open.length - 1]!;
+    if (current.next === current.size) {
+      open.pop();
+      continue;
     }
+    const index = current.next++;
+    const key = current.keys === undefined ? index : current.keys[index]!;
+    if (key === FORBIDDEN_KEY) {
+      issues.push({ message: `The key "${FORBIDDEN_KEY}" is not allowed.`, path: pathTo(key) });
+      continue;
+    }
+    const entry: unknown = (current.container as Record<string | number, unknown>)[key];
+    if (!isContainer(entry)) {
+      continue;
+    }
+    if (open.length >= MAX_NESTING_DEPTH) {
+      issues.push({
+        message: `Objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep.`,
+        path: pathTo(key),
+      });
+      continue;
+    }
+    if ((deepestWalk.get(entry) ?? -1) >= open.length) {
+      continue;
+    }
+    enter(entry, key);
   }
   return issues;
+}
+
+function isContainer(value: unknown): value is object {
+  return typeof value === "object" && value !== null;
 }
 
 function messageOf(error: unknown): string {

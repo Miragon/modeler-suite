@@ -418,4 +418,70 @@ describe("nesting depth", () => {
     ]);
     expect(() => validateDocument(tooDeep)).toThrow(/nest at most/);
   });
+
+  const tooDeepMessage = `Objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep.`;
+
+  const arraysAround = (levels: number, innermost: unknown[]): unknown[] => {
+    let value = innermost;
+    for (let level = 0; level < levels; level++) {
+      value = [value];
+    }
+    return value;
+  };
+
+  it("reports at most 100 containers too deep, the first ones in document order", () => {
+    // The extension's value is the second level, the 98 arrays around the wide one end at the
+    // 99th, so the wide array is the 100th level and each empty array in it one level too many.
+    const wide = Array.from({ length: 100_000 }, (): unknown[] => []);
+    const tooWide = { ...doc, "x-wide": arraysAround(98, wide) };
+    expect(documentIssues(tooWide)).toEqual(
+      Array.from({ length: 100 }, (_, index) => ({
+        message: tooDeepMessage,
+        path: ["x-wide", ...Array<number>(98).fill(0), index],
+      })),
+    );
+    expect(() => validateDocument(tooWide)).toThrow(/nest at most/);
+  });
+
+  it("counts __proto__ keys and containers too deep against the same limit", () => {
+    const protos = Array.from({ length: 60 }, () => JSON.parse('{ "__proto__": 0 }') as unknown);
+    const wide = Array.from({ length: 60 }, (): unknown[] => []);
+    const issues = documentIssues({ ...doc, "x-protos": protos, "x-wide": arraysAround(98, wide) });
+    expect(issues.map(({ path }) => path)).toEqual([
+      ...Array.from({ length: 60 }, (_, index) => ["x-protos", index, "__proto__"]),
+      ...Array.from({ length: 40 }, (_, index) => ["x-wide", ...Array<number>(98).fill(0), index]),
+    ]);
+  });
+
+  it("loads a wide container at the last level, whose numbers and strings nest no deeper", () => {
+    const wide: unknown[] = [...Array(1_000_000).keys()];
+    const text = JSON.stringify({ ...doc, "x-wide": arraysAround(98, [...wide, "last"]) });
+    expect(() => parseDocumentJSON(text)).not.toThrow();
+
+    wide.push([]);
+    expect(documentIssues({ ...doc, "x-wide": arraysAround(98, wide) })).toEqual([
+      { message: tooDeepMessage, path: ["x-wide", ...Array<number>(98).fill(0), 1_000_000] },
+    ]);
+  }, 30_000);
+
+  it("walks a container a caller shares or nests in itself without growing exponentially", () => {
+    let shared: unknown = 0;
+    for (let level = 0; level < 60; level++) {
+      shared = [shared, shared];
+    }
+    const sharing = { ...doc, "x-shared": shared };
+    expect(documentIssues(sharing)).toEqual([]);
+    expect(() => validateDocument(sharing)).not.toThrow();
+
+    const cycle: Record<string, unknown> = {};
+    cycle.left = cycle;
+    cycle.right = cycle;
+    const cyclic = { ...doc, "x-cycle": cycle };
+    const keysToLimit = Array<string>(MAX_NESTING_DEPTH - 2).fill("left");
+    expect(documentIssues(cyclic)).toEqual([
+      { message: tooDeepMessage, path: ["x-cycle", ...keysToLimit, "left"] },
+      { message: tooDeepMessage, path: ["x-cycle", ...keysToLimit, "right"] },
+    ]);
+    expect(() => validateDocument(cyclic)).toThrow(/nest at most/);
+  });
 });

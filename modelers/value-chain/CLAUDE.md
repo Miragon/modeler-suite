@@ -46,8 +46,10 @@ Unknown keys on the document, `meta`, elements and connections survive load, eve
 and serialization (vendor extensions); `bounds` and waypoints reject unknown keys, `vc-root` is a
 reserved id (so are `__implicitroot…` and the names of `Object.prototype` members, which the
 diagram-js element registry cannot hold), coordinates and sizes stay within ±1e9, and objects
-and arrays nest at most 100 levels (`MAX_NESTING_DEPTH`, checked without recursion).
-`documentIssues` reports every finding with its JSON path (the VS Code Problems view).
+and arrays nest at most 100 levels (`MAX_NESTING_DEPTH`, checked without recursion, on a stack of
+the open containers only, with a `WeakMap` guard against shared and self-containing objects).
+`documentIssues` reports every finding with its JSON path (the VS Code Problems view); of the
+`__proto__` keys and the containers nested too deep, the first 100 in document order.
 
 ## Renderer architecture (mirrors wardley-renderer)
 
