@@ -5,11 +5,16 @@ import {
   renderWebviewHtml,
   revealFileLabel,
 } from '@miragon/modeler-shell/vscode/extension';
+import { DIAGRAM_VIEW_TYPE, registerSideBySideCommands } from './commands.js';
 import { DIAGNOSTIC_SOURCE, documentDiagnostics } from './diagnostics.js';
 import { DocumentWriter } from './DocumentWriter.js';
 import { withExampleInserted } from './examples.js';
 import type { ExportFormat, HostToWebview, WebviewToHost } from './protocol.js';
 import { WEBVIEW_THEMES } from './themes.js';
+
+interface OpenDiagram {
+  readonly uri: vscode.Uri;
+}
 
 /**
  * The custom text editor: the document stays the source of truth, so VS Code owns dirty state,
@@ -17,7 +22,7 @@ import { WEBVIEW_THEMES } from './themes.js';
  * writes every canvas edit back as one minimal WorkspaceEdit.
  */
 export class EditorProvider implements vscode.CustomTextEditorProvider {
-  static readonly viewType = '__NOTATION__.editor';
+  static readonly viewType = DIAGRAM_VIEW_TYPE;
 
   static register(context: vscode.ExtensionContext): vscode.Disposable {
     const provider = new EditorProvider(context);
@@ -28,12 +33,33 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
         supportsMultipleEditorsPerDocument: false,
       }),
       provider.diagnostics,
+      ...registerSideBySideCommands(() => provider.activeDocumentUri()),
     );
   }
 
   private readonly diagnostics = vscode.languages.createDiagnosticCollection(DIAGNOSTIC_SOURCE);
+  /** The open diagrams, the one focused last first. */
+  private readonly openDiagrams: OpenDiagram[] = [];
 
   private constructor(private readonly context: vscode.ExtensionContext) {}
+
+  /**
+   * The document of the focused diagram, else of the open diagram focused last: a link in the
+   * walkthrough takes the focus from the diagram it means.
+   */
+  activeDocumentUri(): vscode.Uri | undefined {
+    return this.openDiagrams[0]?.uri;
+  }
+
+  private forget(diagram: OpenDiagram): void {
+    const index = this.openDiagrams.indexOf(diagram);
+    if (index !== -1) this.openDiagrams.splice(index, 1);
+  }
+
+  private bringToFront(diagram: OpenDiagram): void {
+    this.forget(diagram);
+    this.openDiagrams.unshift(diagram);
+  }
 
   async resolveCustomTextEditor(
     document: vscode.TextDocument,
@@ -57,6 +83,10 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
     // Disposes itself with the panel; never into context.subscriptions (one per opened editor).
     connectThemeBridge(vscode, panel, { themes: WEBVIEW_THEMES });
 
+    const diagram: OpenDiagram = { uri: document.uri };
+    if (panel.active) this.openDiagrams.unshift(diagram);
+    else this.openDiagrams.push(diagram);
+
     const writer = new DocumentWriter(document);
     const post = (message: HostToWebview) => void webview.postMessage(message);
     const refreshDiagnostics = () => {
@@ -67,6 +97,9 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
     };
 
     const subscriptions = [
+      panel.onDidChangeViewState(() => {
+        if (panel.active) this.bringToFront(diagram);
+      }),
       vscode.workspace.onDidChangeTextDocument((event) => {
         if (event.document.uri.toString() !== document.uri.toString()) return;
         if (event.contentChanges.length === 0) return;
@@ -100,6 +133,7 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
     panel.onDidDispose(() => {
       for (const subscription of subscriptions) subscription.dispose();
       this.diagnostics.delete(document.uri);
+      this.forget(diagram);
     });
   }
 }

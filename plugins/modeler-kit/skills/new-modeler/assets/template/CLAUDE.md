@@ -46,6 +46,8 @@ Build the packages before the tests: workspace dependencies resolve to `dist`.
 
 - Conventional Commits (`feat`, `fix`, `refactor`, `chore`, `docs`, …), signed; the PR title is the
   squash commit release-please reads.
+- Every new `@deprecated` gets an issue that names its target version as a number, filed by the
+  pull request that adds it ([`CONTRIBUTING.md`](CONTRIBUTING.md#commits-and-releases)).
 - Exact pins everywhere, internal `@miragon/__NOTATION__-*` deps included; the only ranges are the
   consumer-shared peers (`zod`, `diagram-js`, `didi`, `tiny-svg`), each mirrored by an exact
   devDependency. See [`.claude/rules/package-json-fixed-versions.md`](.claude/rules/package-json-fixed-versions.md).

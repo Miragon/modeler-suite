@@ -55,6 +55,11 @@ commit touches its directory: `feat` a minor, `fix` a patch, a breaking change a
 `chore`, `ci`, `docs`, `test` and `refactor` release nothing. A Dependabot bump of
 `@miragon/modeler-shell` lands as `fix(deps): adopt modeler-shell x.y`, so it is released.
 
+Every new `@deprecated` gets an issue that names its target version as a number: the release that
+removes it, or the package's first breaking release when the removal waits for another breaking
+change. "The next minor" is no target. The pull request that adds the deprecation files the issue
+and refers to it. A deprecation without a tracked removal outlives the minor it promises.
+
 Merging the release PR publishes the `packages/*` libraries to npm (OIDC trusted publishing,
 environment `npm`) and the extension to the VS Code Marketplace and Open VSX (environment
 `vscode-marketplace`, secrets `VSCE_PUBLISH`, `OVSX_PUBLISH`).

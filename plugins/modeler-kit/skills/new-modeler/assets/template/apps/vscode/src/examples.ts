@@ -1,7 +1,7 @@
 /** What a new diagram starts with: valid, and empty apart from its title. */
 export const EMPTY_DIAGRAM = 'title New diagram\n';
 
-/** What "Insert example" of the empty-file hint appends. */
+/** What "New Diagram from Example" writes and "Insert example" of the empty-file hint appends. */
 export const EXAMPLE_DIAGRAM = `title Order fulfilment
 node order "Place order" [40, 40]
 node pay "Take payment" [280, 40]
