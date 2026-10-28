@@ -75,7 +75,10 @@ container as in bpmn-js; the feature modules (`vcDrawModule`, `vcRulesModule`, `
   undo history silently (no `commandStack.changed`), and fits the view: the content centred at the
   largest zoom that shows all of it, never above 100 % (`fitOnImport: false` leaves the view to a
   host that fits itself). A label being typed is taken down without committing and reopened
-  afterwards on the element with the same id.
+  afterwards on the element with the same id. A gesture still running (move, resize, connect,
+  lasso, or a create from the palette or the context pad, also while its pointer is still on the
+  palette) ends first, as Escape ends it, so its release changes nothing; a tool the palette armed
+  is put down the same way.
 - A label being typed stays open across every view change, a host's fit or restore as much as a
   wheel zoom, and moves along with its element; only Enter, leaving the text box or a click or drag
   on the canvas commits it.

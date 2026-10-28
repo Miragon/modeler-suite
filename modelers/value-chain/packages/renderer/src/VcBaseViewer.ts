@@ -39,6 +39,10 @@ interface PopupMenuLike {
   close(): void;
 }
 
+interface DraggingLike {
+  cancel(restore?: boolean): void;
+}
+
 /**
  * DI bootstrap and lifecycle shared by Viewer/NavigatedViewer/Modeler. The diagram is
  * created lazily on first access; `_getModules()` is a method (not a class field) to
@@ -81,7 +85,10 @@ export abstract class VcBaseViewer {
    * Replaces the current diagram contents and erases the undo history, silently: no
    * `commandStack.changed`, since an import is no edit a host should save. The document is
    * validated before the canvas is touched, so a rejected one leaves no trace; an open label edit
-   * is taken down without committing and reopened afterwards when its element is still there.
+   * is taken down without committing and reopened afterwards when its element is still there. A
+   * running gesture (move, resize, connect, lasso, a create from the palette or the context pad,
+   * also one still inside the drag threshold) ends first, as Escape ends it: its release applies
+   * nothing. A tool the palette armed (lasso, hand, space, connect) is put down the same way.
    */
   importDocument(document: ValueChainDocument): ImportWarning[] {
     const valid = validateDocument(document);
@@ -89,6 +96,9 @@ export abstract class VcBaseViewer {
     const previous = this._currentDocument();
     labelEditing?.suspend();
     this.getOptional<PopupMenuLike>("popupMenu")?.close();
+    // A gesture holds the shapes the import removes; dropped afterwards, it would run its command
+    // on them and throw half-way. No selection comes back: it could only point at those shapes.
+    this.getOptional<DraggingLike>("dragging")?.cancel(false);
     let warnings: ImportWarning[];
     try {
       warnings = this._render(valid);
