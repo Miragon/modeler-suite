@@ -37,7 +37,7 @@ interface ConnectInitEvent {
 export default class VcGestures {
   static $inject = ["eventBus", "dragging", "toolManager", "elementRegistry"];
 
-  private dropping = false;
+  private dropping: DragContext | null = null;
 
   constructor(
     eventBus: EventBus,
@@ -46,10 +46,10 @@ export default class VcGestures {
     elementRegistry: ElementRegistry,
   ) {
     eventBus.on("drag.end", FIRST, () => {
-      this.dropping = true;
+      this.dropping = dragging.context() as DragContext | null;
     });
     eventBus.on(["drag.ended", "drag.canceled"], FIRST, () => {
-      this.dropping = false;
+      this.dropping = null;
     });
     // The connect tool the palette armed starts its connect from the shape it was pressed on, once
     // the pointer leaves that shape: an import may have removed the shape by then, also one that
@@ -68,12 +68,13 @@ export default class VcGestures {
    * import removes. A palette tool that only waits for its next press stays armed. A drop that is
    * being applied right now, a host importing from its change listener, is left to finish: its
    * command has run, the import replaces its result, and a cancel would pull the drag out from
-   * under diagram-js.
+   * under diagram-js. The drop is told apart by its drag, not by a flag: a listener that throws
+   * during the drop's cleanup keeps diagram-js from announcing its end, and a flag left set would
+   * stop every later import from ending a gesture.
    */
   cancel(): void {
-    if (this.dropping) return;
     const gesture = this.dragging.context() as DragContext | null;
-    if (!gesture || ARMED_TOOL_PREFIXES.has(gesture.prefix)) return;
+    if (!gesture || gesture === this.dropping || ARMED_TOOL_PREFIXES.has(gesture.prefix)) return;
     this.dragging.cancel(false);
   }
 }

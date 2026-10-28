@@ -80,10 +80,12 @@ container as in bpmn-js; the feature modules (`vcDrawModule`, `vcRulesModule`, `
   also while its pointer is still on the palette, and a press of the armed connect tool whose
   pointer has not left its shape yet) ends first, as Escape ends it, so its release changes
   nothing. A palette tool that only waits for its next press (lasso, hand, space, connect) stays
-  armed and highlighted, and its next press works on the imported diagram. A drop already being
-  applied, when a host imports from its change listener, finishes first and the import replaces
-  its result. The `Modeler` does this with `vcGestureModule`; a custom setup adds it to get the
-  same.
+  armed and highlighted, and its next press works on the imported diagram. The one exception is
+  a press of the connect tool before the pointer has entered a shape the import drew under it:
+  it starts no connect and puts the tool down. A drop already being applied, when a host imports
+  from its change listener, finishes first and the import replaces its result. `clear` ends a
+  running gesture the same way. The `Modeler` does this with `vcGestureModule`; a custom setup
+  adds it to get the same.
 - A label being typed stays open across every view change, a host's fit or restore as much as a
   wheel zoom, and moves along with its element; only Enter, leaving the text box or a click or drag
   on the canvas commits it.

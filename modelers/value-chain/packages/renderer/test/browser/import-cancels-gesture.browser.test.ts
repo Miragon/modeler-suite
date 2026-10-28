@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import { parseDocumentJSON, serializeDocument } from "@miragon/value-chain-schema-model";
@@ -371,6 +372,44 @@ describe("an import while a gesture runs cancels the gesture first", () => {
     expect(entry.classList.contains("highlighted-entry")).toBe(true);
   });
 
+  it("a lasso that the armed lasso tool started", async () => {
+    const { entry, at } = paletteEntry("lasso-tool");
+    entry.dispatchEvent(pointer("click", at, { detail: 1 }));
+    const start = { x: 20, y: 60 };
+    hover(canvasSvg(), start);
+    press(canvasSvg(), start);
+    moveTo({ x: 300, y: 160 });
+    expect(dragPrefix()).toBe("lasso");
+
+    await importPeerEditMidGesture();
+    moveTo({ x: 640, y: 160 });
+    release({ x: 640, y: 160 });
+
+    expectNothingApplied();
+    expect(entry.classList.contains("highlighted-entry")).toBe(false);
+    expect(service<Selection>("selection").get()).toEqual([]);
+  });
+
+  it("a connect that the armed connect tool started, once the pointer left its shape", async () => {
+    const { entry, at } = paletteEntry("global-connect-tool");
+    entry.dispatchEvent(pointer("click", at, { detail: 1 }));
+    const start = centreOf("step-stock");
+    hover(graphics(shape("step-stock")), start);
+    press(graphics(shape("step-stock")), start);
+    graphics(shape("step-stock")).dispatchEvent(pointer("mouseout", start));
+    const target = centreOf("step-delivery");
+    hover(graphics(shape("step-delivery")), target);
+    expect(dragPrefix()).toBe("connect");
+
+    await importPeerEditMidGesture();
+    hover(graphics(shape("step-delivery")), target);
+    release(target);
+
+    expectNothingApplied();
+    expect(entry.classList.contains("highlighted-entry")).toBe(false);
+    expectNextEditSaves();
+  });
+
   describe("a palette tool that only waits for its next press stays armed", () => {
     const freeSpot = { x: 500, y: 450 };
 
@@ -560,5 +599,58 @@ describe("an import while a gesture runs cancels the gesture first", () => {
     expect(errors).toEqual([]);
     expect(changes).toBe(1);
     expect(shape("step-credit").x).toBe(300);
+  });
+
+  it("a drop that ended in a failing cleanup listener does not keep a later import from ending a gesture", async () => {
+    const eventBus = service<EventBus>("eventBus");
+    const failingCleanup = (): never => {
+      throw new Error("cleanup failed");
+    };
+    eventBus.on("shape.move.cleanup", failingCleanup);
+    const start = centreOf("step-credit");
+    press(graphics(shape("step-credit")), start);
+    moveTo({ x: start.x + 40, y: start.y });
+    expect(() =>
+      service<Dragging>("dragging").end(pointer("mouseup", { x: start.x + 40, y: start.y })),
+    ).toThrow("cleanup failed");
+    eventBus.off("shape.move.cleanup", failingCleanup);
+    errors = [];
+    changes = 0;
+
+    press(graphics(shape("step-credit")), start);
+    moveTo({ x: start.x + 40, y: start.y });
+    await importPeerEditMidGesture();
+    release({ x: start.x + 40, y: start.y });
+
+    expectNothingApplied();
+    expectNextEditSaves();
+  });
+
+  it("clearing the diagram ends the gesture as well, and the release changes nothing", () => {
+    const start = centreOf("step-credit");
+    press(graphics(shape("step-credit")), start);
+    moveTo({ x: start.x + 20, y: start.y });
+    moveTo({ x: start.x + 40, y: start.y });
+    expect(gestureRuns()).toBe(true);
+
+    editor().diagram.clear();
+    changes = 0;
+    expect(gestureRuns()).toBe(false);
+    moveTo({ x: start.x + 60, y: start.y });
+    release({ x: start.x + 60, y: start.y });
+
+    expect(errors).toEqual([]);
+    expect(changes).toBe(0);
+    expect(editor().diagram.exportDocument().elements).toEqual([]);
+  });
+
+  it("clearing the diagram leaves an armed palette tool armed", () => {
+    const { entry, at } = paletteEntry("lasso-tool");
+    entry.dispatchEvent(pointer("click", at, { detail: 1 }));
+
+    editor().diagram.clear();
+
+    expect(dragPrefix()).toBe("lasso.selection");
+    expect(entry.classList.contains("highlighted-entry")).toBe(true);
   });
 });
