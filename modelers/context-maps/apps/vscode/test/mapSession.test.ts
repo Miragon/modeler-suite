@@ -11,6 +11,7 @@ import {
   EventEmitter,
   MockDiagnosticCollection,
   Range,
+  Uri,
   vscodeMock,
   workspace,
   WorkspaceEdit,
@@ -96,6 +97,40 @@ describe("MapSession", () => {
     expect(diagnostic!.message).toMatch(/^not valid JSON: Bad control character in string literal/);
     expect(diagnostic!.range.start).toEqual({ line: titleLine, character: closingQuote + 1 });
     expect(posted.at(-1)).toEqual({ type: "update", text: document.getText() });
+    session.dispose();
+  });
+
+  it("tells the user when an exported PNG's labels fell back to the system font", async () => {
+    const document = vscodeMock.openDocument("/shop.cm", serializeDocumentText(SAMPLE_DOCUMENT));
+    const diagnostics = new MockDiagnosticCollection("context-maps");
+    const { panel, send } = webviewPanel();
+    const session = new MapSession(document as never, panel as never, diagnostics as never);
+    vscodeMock.answerSaveDialog(Uri.file("/shop.png"));
+
+    send({ type: "export", format: "png", data: "iVBORw0KGgo=", fontFallback: true });
+    await vi.waitFor(() => expect(vscodeMock.notifications()).toHaveLength(1));
+
+    expect(vscodeMock.notifications()[0]).toMatchObject({
+      level: "warning",
+      message: "Exported shop.png in a system font. Geist couldn't be embedded.",
+    });
+    session.dispose();
+  });
+
+  it("confirms an exported PNG as before when Geist was embedded", async () => {
+    const document = vscodeMock.openDocument("/shop.cm", serializeDocumentText(SAMPLE_DOCUMENT));
+    const diagnostics = new MockDiagnosticCollection("context-maps");
+    const { panel, send } = webviewPanel();
+    const session = new MapSession(document as never, panel as never, diagnostics as never);
+    vscodeMock.answerSaveDialog(Uri.file("/shop.png"));
+
+    send({ type: "export", format: "png", data: "iVBORw0KGgo=", fontFallback: false });
+    await vi.waitFor(() => expect(vscodeMock.notifications()).toHaveLength(1));
+
+    expect(vscodeMock.notifications()[0]).toMatchObject({
+      level: "info",
+      message: "Exported shop.png.",
+    });
     session.dispose();
   });
 });

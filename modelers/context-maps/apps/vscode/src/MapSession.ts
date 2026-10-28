@@ -80,7 +80,7 @@ export class MapSession implements vscode.Disposable {
         });
         break;
       case "export":
-        await exportToFile(this.document.uri, message.format, message.data);
+        await exportToFile(this.document.uri, message.format, message.data, message.fontFallback);
         break;
       case "showProblems":
         void vscode.commands.executeCommand("workbench.actions.view.problems");

@@ -103,12 +103,36 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   to the renderer's `contentBounds()`: the webview passes its contract instance, the web app its
   `Modeler`; neither computes bounds of its own. The renderer **never imports the shell** (ESLint
   and dependency-cruiser enforce it); it hands the chrome structurally typed parts: `contextMapMenu`,
-  `createShortcutsDialog`, `createTitleDialog`, `renderLegend`, the `cmReadOnly` canvas lock,
+  `contextMapShortcuts` (the groups of the "Keyboard shortcuts…" dialog as data),
+  `createTitleDialog`, `renderLegend`, the `cmReadOnly` canvas lock,
   keyboard creation in the free area (`freeArea: { insets }`, handed unchanged to the palette as
   `cmPalette: { freeArea }`), `fitOnImport` and `undoRedoKeys: false` for hosts that own the
   history. `cmLegendModule` (closed at first on every canvas size; a host's `setOpen()` restores a
   stored state) and the renderer's own palette rules stay for hosts that embed the renderer without
   the shell. The DOM-free packages take only types from `@miragon/modeler-api`.
+- **Shortcuts dialog and PNG export.** Both apps open the shell's dialog:
+  `shell.showShortcutsDialog(contextMapShortcuts(shell, options))`, the web app with
+  `{ fileKeys: true }` (Cmd/Ctrl+O and S). The shell puts its zoom and fit keys at the top of the
+  View group and drops the renderer's own View rows for them. The renderer's
+  `createShortcutsDialog` (with `ShortcutsDialog`, `ShortcutsDialogChrome` and the `.cm-shortcuts*`
+  rules) is deprecated for hosts without the shell and goes in 0.9.0
+  ([#261](https://github.com/Miragon/modeler-suite/issues/261)); `createTitleDialog` stays.
+  Both apps rasterise the renderer's `saveSVG()` with `svgToPng` of
+  `@miragon/modeler-shell/export`: 2×, on `MIRAGON.grau` (guide §10.7, `hell['--cd-ui-grund']`;
+  `theme.sync.test.ts` pins it), Geist inside the image. The web app lets the shell read the page's
+  Geist faces. The webview can't fetch its font files (the CSP has no `connect-src`), so
+  `webview/io.ts` passes the five Geist subsets as `data:` URLs: esbuild inlines the `?dataurl`
+  imports with the plugin in `esbuild.config.mjs`, the webview test page's Vite config
+  (`e2e/webview/vite.config.ts`) with `?inline`, and `test/webviewBundle.test.ts` counts the five in
+  the shipped bundle. When Geist can't be embedded the PNG still comes out, in the system font: the
+  web app shows a warning toast, the webview sets `fontFallback` on its `export` and `pngResponse`
+  messages and the host shows a warning notification (after the export, or after the save of a
+  `.cm.png`). The webview's faces are data: URLs, so no request can be blocked to provoke the
+  fallback there: the e2e cases break the page's `XMLSerializer` after `saveSVG`
+  (`failFontEmbeddingOfNextExport`), and `webviewIo.test.ts` and `cmPngEditorProvider.test.ts` pin
+  the flag and the notices. A rejection shows the app's own text, never the rejection's message (guide §2). The
+  `.cm.png` editor's image goes through the same `svgToEmbeddedPng`, which inserts the map's tEXt
+  chunk into the shell's PNG as before (`png.ts`).
 - **Kit.** `e2e/` runs the shell's conformance kit against the real webview in the shell's VS Code
   stub (project `vscode-webview`, served from `e2e/webview/`; the inspector and `canvasMenuAction`
   are absent: VS Code's own File menu opens and saves, and the Model group holds only the "Map

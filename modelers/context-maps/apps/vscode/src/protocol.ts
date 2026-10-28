@@ -43,10 +43,16 @@ export type WebviewToHost =
   | { type: "ready" }
   /** Graphical change -> apply to the document as a WorkspaceEdit. */
   | { type: "edit"; text: string }
-  /** An export (SVG/JSON/CML = text, PNG = Base64) -> save dialog + write file. */
-  | { type: "export"; format: ExportFormat; data: string }
-  /** Reply to `requestPng`: Base64 PNG (`data`) OR `error`. `id` correlates with the request. */
-  | { type: "pngResponse"; id: number; data?: string; error?: string }
+  /**
+   * An export (SVG/JSON/CML = text, PNG = Base64) -> save dialog + write file. `fontFallback`: the
+   * PNG's labels are in the system font because Geist could not be embedded; the host tells the user.
+   */
+  | { type: "export"; format: ExportFormat; data: string; fontFallback?: boolean }
+  /**
+   * Reply to `requestPng`: Base64 PNG (`data`) OR `error`. `id` correlates with the request.
+   * `fontFallback` as for `export`.
+   */
+  | { type: "pngResponse"; id: number; data?: string; error?: string; fontFallback?: boolean }
   | { type: "error"; message: string }
   /** The problems pill was activated -> open the Problems view. */
   | { type: "showProblems" }

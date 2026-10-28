@@ -9,11 +9,16 @@ import {
 const DIALOG_CLASS = "cm-shortcuts";
 const TITLE_ID = "cm-shortcuts-title";
 
-/** What the dialog needs of the chrome around the map; a `@miragon/modeler-shell` handle fits. */
+/**
+ * What the dialog needs of the chrome around the map; a `@miragon/modeler-shell` handle fits.
+ *
+ * @deprecated With `createShortcutsDialog`; removal due in 0.9.0 (issue 261 of Miragon/modeler-suite).
+ */
 export interface ShortcutsDialogChrome extends ShortcutsChrome, DialogChrome {
   readonly messages: ShortcutsChrome["messages"] & DialogChrome["messages"];
 }
 
+/** @deprecated With `createShortcutsDialog`; removal due in 0.9.0 (issue 261 of Miragon/modeler-suite). */
 export type ShortcutsDialog = ChromeDialog;
 
 function shortcutTable(group: ShortcutGroup, index: number): HTMLElement {
@@ -39,6 +44,10 @@ function shortcutTable(group: ShortcutGroup, index: number): HTMLElement {
 /**
  * The "Keyboard shortcuts…" dialog of the Help group (guide §5.4, §8): one table per group, the
  * keys as chips like the chrome tooltip's.
+ *
+ * @deprecated Show `contextMapShortcuts(chrome, options)` with `shell.showShortcutsDialog(groups)`
+ * of `@miragon/modeler-shell` (0.7), or with its standalone `showShortcutsDialog(groups, { container })`
+ * in a host without a mounted shell. Removal due in 0.9.0 (issue 261 of Miragon/modeler-suite).
  */
 export function createShortcutsDialog(
   chrome: ShortcutsDialogChrome,

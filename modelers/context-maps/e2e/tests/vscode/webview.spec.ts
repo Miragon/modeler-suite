@@ -1,7 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { EMPTY_MAP, EXAMPLE_MAP } from "../../../apps/vscode/src/examples.js";
+import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/vscode/src/png.js";
+import { PNG_GROUND, pngFacts, rasterisedSvgs, recordRasterisedSvgs } from "../support/png.js";
 import {
   INVALID_MAP,
+  failFontEmbeddingOfNextExport,
   openWebview,
   postFromHost,
   postedMessages,
@@ -312,16 +315,107 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(exports.cml).toContain("ContextMap");
   });
 
-  test("the keyboard shortcuts dialog opens from Help and closes on Escape", async ({ page }) => {
+  test("the PNG export lies on the light ground with Geist inside and keeps the embedded map", async ({
+    page,
+  }) => {
+    expect(PNG_GROUND).toBe("#f9f7f7");
+    await openWebview(page);
+    await recordRasterisedSvgs(page);
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+
+    const exported = await waitForPosted(page, "export");
+    expect(exported.format).toBe("png");
+    expect(exported.fontFallback).toBe(false);
+    const png = new Uint8Array(Buffer.from(exported.data as string, "base64"));
+    expect((await pngFacts(page, png)).corners).toEqual([
+      PNG_GROUND,
+      PNG_GROUND,
+      PNG_GROUND,
+      PNG_GROUND,
+    ]);
+    expect(decodeDoc(pngExtractText(png, EMBED_KEYWORD)!)).toBe(EXAMPLE_MAP);
+    const [drawn] = await rasterisedSvgs(page);
+    expect(drawn).toContain("@font-face");
+    expect(drawn).toContain("Geist Variable");
+    expect(drawn).toMatch(/url\("data:font\/woff2;base64,/);
+  });
+
+  test("a PNG whose Geist could not be embedded still exports and tells the host", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await failFontEmbeddingOfNextExport(page);
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+
+    const exported = await waitForPosted(page, "export");
+    expect(exported.format).toBe("png");
+    expect(exported.fontFallback).toBe(true);
+    const png = new Uint8Array(Buffer.from(exported.data as string, "base64"));
+    expect((await pngFacts(page, png)).corners).toEqual([
+      PNG_GROUND,
+      PNG_GROUND,
+      PNG_GROUND,
+      PNG_GROUND,
+    ]);
+    expect(decodeDoc(pngExtractText(png, EMBED_KEYWORD)!)).toBe(EXAMPLE_MAP);
+  });
+
+  test("a picture the browser cannot draw reaches the host as the app's own text", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      window.modeler!.diagram.saveSVG = () => ({ svg: "this is no SVG" });
+    });
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+
+    const error = await waitForPosted(page, "error");
+    expect(error.message).toBe("Couldn't export the map as PNG. Try again, or export it as SVG.");
+    expect((await postedMessages(page)).filter((message) => message.type === "export")).toEqual([]);
+  });
+
+  test("the keyboard shortcuts dialog is the shell's, opens from Help and closes on Escape", async ({
+    page,
+  }) => {
     await openWebview(page);
     await page.locator('[data-chrome="menu"]').click();
     await page.getByRole("menuitem", { name: "Keyboard shortcuts…" }).click();
     const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator("h4")).toHaveText(["View", "Edit", "Tools"]);
+    await expect(dialog).toHaveClass(/cd-shell-dialog/);
+    await expect(page.locator("dialog.cm-shortcuts")).toHaveCount(0);
+    await expect(dialog.locator("h3")).toHaveText(["View", "Edit", "Tools"]);
+    await expect(dialog.locator("[data-chrome-key]")).toHaveCount(4);
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
+  });
+
+  test("the shortcuts dialog opens from the keyboard and keeps the focus inside", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    const trigger = page.locator('[data-chrome="menu"]');
+    await trigger.focus();
+
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+
+    const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+    await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
+    for (let tab = 0; tab < 4; tab++) {
+      await page.keyboard.press("Tab");
+      expect(await page.evaluate(() => document.activeElement?.closest("dialog") !== null)).toBe(
+        true,
+      );
+    }
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
   });
 
   test("Map title… renames the map in one edit and returns the focus to the menu", async ({

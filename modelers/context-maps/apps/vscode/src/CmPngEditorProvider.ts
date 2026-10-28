@@ -4,7 +4,7 @@ import { PNG_VIEW_TYPE, type ActivePanels } from "./commands.js";
 import { setWebviewHtml } from "./CmEditorProvider.js";
 import { toDiagnostics } from "./diagnostics.js";
 import { EMPTY_MAP, withExampleInserted } from "./examples.js";
-import { exportToFile } from "./exportImage.js";
+import { exportToFile, fontFallbackText } from "./exportImage.js";
 import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "./png.js";
 import { mapProblems, problemCounts } from "./problems.js";
 import type { HostToWebview, WebviewToHost } from "./protocol.js";
@@ -53,9 +53,14 @@ interface PanelBinding {
   nextId: number;
 }
 
+interface RenderedPng {
+  readonly base64: string;
+  readonly fontFallback: boolean;
+}
+
 interface PendingPng {
   /** Resolve/reject clean up internally (timer, cancellation subscription, map entry). */
-  resolve: (data: string) => void;
+  resolve: (rendered: RenderedPng) => void;
   reject: (err: Error) => void;
 }
 
@@ -168,7 +173,7 @@ export class CmPngEditorProvider implements vscode.CustomEditorProvider<CmPngDoc
           break;
         }
         case "export":
-          await exportToFile(document.uri, msg.format, msg.data);
+          await exportToFile(document.uri, msg.format, msg.data, msg.fontFallback);
           break;
         case "pngResponse":
           this.resolvePng(binding, msg);
@@ -262,8 +267,9 @@ export class CmPngEditorProvider implements vscode.CustomEditorProvider<CmPngDoc
     document: CmPngDocument,
     cancellation: vscode.CancellationToken,
   ): Promise<void> {
-    await this.writePng(document, document.uri, cancellation);
+    const fontFallback = await this.writePng(document, document.uri, cancellation);
     document.isNew = false;
+    if (fontFallback) warnFontFallback(document.uri);
   }
 
   public async saveCustomDocumentAs(
@@ -271,7 +277,7 @@ export class CmPngEditorProvider implements vscode.CustomEditorProvider<CmPngDoc
     destination: vscode.Uri,
     cancellation: vscode.CancellationToken,
   ): Promise<void> {
-    await this.writePng(document, destination, cancellation);
+    if (await this.writePng(document, destination, cancellation)) warnFontFallback(destination);
   }
 
   public async backupCustomDocument(
@@ -306,14 +312,16 @@ export class CmPngEditorProvider implements vscode.CustomEditorProvider<CmPngDoc
     await this.bindings.get(document)?.webview.postMessage({ type: "update", text });
   }
 
+  /** Writes the webview's PNG to `target`; true when its labels are in the system font. */
   private async writePng(
     document: CmPngDocument,
     target: vscode.Uri,
     cancellation: vscode.CancellationToken,
-  ): Promise<void> {
-    const base64 = await this.requestPng(document, cancellation);
-    if (cancellation.isCancellationRequested) return;
+  ): Promise<boolean> {
+    const { base64, fontFallback } = await this.requestPng(document, cancellation);
+    if (cancellation.isCancellationRequested) return false;
     await vscode.workspace.fs.writeFile(target, new Uint8Array(Buffer.from(base64, "base64")));
+    return fontFallback;
   }
 
   // -------------------------------------------------------------------------
@@ -323,7 +331,7 @@ export class CmPngEditorProvider implements vscode.CustomEditorProvider<CmPngDoc
   private requestPng(
     document: CmPngDocument,
     cancellation: vscode.CancellationToken,
-  ): Promise<string> {
+  ): Promise<RenderedPng> {
     const binding = this.bindings.get(document);
     if (!binding) {
       return Promise.reject(
@@ -334,7 +342,7 @@ export class CmPngEditorProvider implements vscode.CustomEditorProvider<CmPngDoc
       return Promise.reject(new vscode.CancellationError());
     }
     const id = binding.nextId++;
-    return new Promise<string>((resolve, reject) => {
+    return new Promise<RenderedPng>((resolve, reject) => {
       const cleanup = (): void => {
         binding.pending.delete(id);
         clearTimeout(timer);
@@ -351,9 +359,9 @@ export class CmPngEditorProvider implements vscode.CustomEditorProvider<CmPngDoc
         reject(new vscode.CancellationError());
       });
       binding.pending.set(id, {
-        resolve: (data) => {
+        resolve: (rendered) => {
           cleanup();
-          resolve(data);
+          resolve(rendered);
         },
         reject: (err) => {
           cleanup();
@@ -371,9 +379,16 @@ export class CmPngEditorProvider implements vscode.CustomEditorProvider<CmPngDoc
     const pending = binding.pending.get(msg.id);
     if (!pending) return; // unknown/too-late id (timeout/cancellation/dispose already cleaned up)
     if (msg.error) pending.reject(new Error(msg.error));
-    else if (typeof msg.data === "string" && msg.data.length > 0) pending.resolve(msg.data);
-    else pending.reject(new Error("The PNG render returned no data."));
+    else if (typeof msg.data === "string" && msg.data.length > 0) {
+      pending.resolve({ base64: msg.data, fontFallback: msg.fontFallback === true });
+    } else pending.reject(new Error("The PNG render returned no data."));
   }
+}
+
+/** The save went through, so the notice names the file; the console reaches no user (guide §9). */
+function warnFontFallback(target: vscode.Uri): void {
+  const fileName = target.path.slice(target.path.lastIndexOf("/") + 1);
+  void vscode.window.showWarningMessage(fontFallbackText(`Saved ${fileName}`));
 }
 
 /**

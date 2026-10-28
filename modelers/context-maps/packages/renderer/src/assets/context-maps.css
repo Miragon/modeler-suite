@@ -774,6 +774,8 @@
 .cm-title-dialog {
   width: min(440px, 100cqw - 32px);
 }
+/* The .cm-shortcuts* rules belong to the deprecated createShortcutsDialog, which the apps no longer
+   open (the shell draws that dialog). They stay for hosts without the shell and go with it in 0.9.0. */
 .cm-shortcuts-body {
   gap: 16px;
 }

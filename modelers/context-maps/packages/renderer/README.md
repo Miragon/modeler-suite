@@ -14,7 +14,7 @@ required. Mount it into any `<div>`; the web app and the VS Code extension both 
 exact package. It implements the collaborative-modeler contract of
 [`@miragon/modeler-api`](https://www.npmjs.com/package/@miragon/modeler-api), and it hands a chrome
 such as [`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell) its legend,
-menu entries and shortcuts dialog without importing it.
+menu entries and shortcut groups without importing it.
 
 ## Install
 
@@ -177,11 +177,15 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
   the `cmLegend` service's `setOpen(open)` restores a state the host stored.
 - `contextMapMenu({ exports, showKeyboardShortcuts, editTitle })` builds the Model group's "Map
   title…" (with `editTitle`), the Export group (PNG, SVG, JSON, CML; an export's `shortcut` shows as
-  its chip) and the Help group's "Keyboard shortcuts…". `createShortcutsDialog(chrome, { fileKeys })`
-  is that dialog, with a File group (Open… and Export as JSON on Cmd/Ctrl+O and S) for a web app
-  that binds those keys; `createTitleDialog(chrome, { title, setTitle })` renames the map in a
-  modal dialog with one field, Cancel and Apply. Both dialogs live in the chrome's root and go with
-  `destroy()`.
+  its chip) and the Help group's "Keyboard shortcuts…". `contextMapShortcuts(chrome, { fileKeys })`
+  returns that dialog's groups as data, with a File group (Open… and Export as JSON on Cmd/Ctrl+O
+  and S) for a web app that binds those keys; show them with `shell.showShortcutsDialog(groups)`
+  of `@miragon/modeler-shell` (0.7), or in a host without a mounted shell with the standalone
+  `showShortcutsDialog(groups, options)` of the same package. The renderer's own copy of that
+  dialog, `createShortcutsDialog(chrome, options)`, is **deprecated** and goes in 0.9.0
+  ([#261](https://github.com/Miragon/modeler-suite/issues/261)).
+  `createTitleDialog(chrome, { title, setTitle })` renames the map in a modal dialog with one
+  field, Cancel and Apply; it lives in the chrome's root and goes with `destroy()`.
 - While a drag runs on the canvas, the chrome's legend island (`[data-chrome="legend"]`) lets the
   pointer through, so a connect drag released on a context behind it still connects.
 - `cmReadOnly` (part of the `Modeler`) locks every edit while a host cannot take edits from the
@@ -255,8 +259,9 @@ A role badge is one filled chip named by its text; the frame around the badges i
 
 The package reads and writes the canonical `CmDocument` (JSON) and exports a standalone **SVG**.
 PNG export and the embedded-scene round-trip (storing the document inside the exported image) live in
-the [web app](../../apps/webapp) and the [VS Code extension](../../apps/vscode), which add the canvas
-rasterisation those formats need.
+the [web app](../../apps/webapp) and the [VS Code extension](../../apps/vscode). They rasterise the
+SVG with `svgToPng` of `@miragon/modeler-shell/export` (2×, Geist inside the image, on the ground
+`MIRAGON.grau` of guide §10.7), and the extension adds the embedded scene.
 
 ## Development
 

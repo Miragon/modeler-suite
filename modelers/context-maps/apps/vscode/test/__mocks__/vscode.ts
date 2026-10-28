@@ -189,11 +189,15 @@ export const workspace = {
     readFile(): Promise<Uint8Array> {
       return Promise.resolve(new Uint8Array());
     },
+    createDirectory(): Promise<void> {
+      return Promise.resolve();
+    },
   },
 };
 
 const registeredCommands = new Map<string, (...args: unknown[]) => unknown>();
 const executedCommands: unknown[][] = [];
+const customEditorProviders = new Map<string, unknown>();
 const notifications: Array<{ level: string; message: string; items: string[] }> = [];
 let saveDialogAnswer: Uri | undefined;
 let notificationAnswer: string | undefined;
@@ -210,7 +214,7 @@ export const window = {
   },
   showWarningMessage(message: string, ...items: string[]): Promise<string | undefined> {
     notifications.push({ level: "warning", message, items });
-    return Promise.resolve(undefined);
+    return Promise.resolve(notificationAnswer);
   },
   showErrorMessage(message: string, ...items: string[]): Promise<string | undefined> {
     notifications.push({ level: "error", message, items });
@@ -222,8 +226,9 @@ export const window = {
   showOpenDialog(): Promise<Uri[] | undefined> {
     return Promise.resolve(undefined);
   },
-  registerCustomEditorProvider(): Disposable {
-    return new Disposable(() => undefined);
+  registerCustomEditorProvider(viewType: string, provider: unknown): Disposable {
+    customEditorProviders.set(viewType, provider);
+    return new Disposable(() => customEditorProviders.delete(viewType));
   },
 };
 
@@ -258,6 +263,10 @@ export const vscodeMock = {
   registeredCommandIds(): string[] {
     return [...registeredCommands.keys()];
   },
+  /** The provider `registerCustomEditorProvider` was given for `viewType`. */
+  customEditorProvider(viewType: string): unknown {
+    return customEditorProviders.get(viewType);
+  },
   /** Runs a registered command the way the Command Palette or a walkthrough link does. */
   runCommand(command: string, ...args: unknown[]): unknown {
     const callback = registeredCommands.get(command);
@@ -280,6 +289,7 @@ export const vscodeMock = {
     documents.clear();
     appliedEdits.length = 0;
     registeredCommands.clear();
+    customEditorProviders.clear();
     executedCommands.length = 0;
     notifications.length = 0;
     workspace.fs.written.length = 0;
