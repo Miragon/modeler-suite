@@ -6,7 +6,8 @@ const WEBVIEW_PORT = process.env.E2E_WEBVIEW_PORT ?? '5190';
 /**
  * One project per host: `webapp` (the web app on the `web` host) and `vscode-webview` (the VS Code
  * webview inside the shell's VS Code stub, the `ide` host). Both dev servers resolve the workspace
- * packages from source, so no build is needed. Other ports: E2E_PORT, E2E_WEBVIEW_PORT.
+ * packages from source, so no build is needed; the shell kit's `csp` case builds apps/vscode for
+ * production itself. Other ports: E2E_PORT, E2E_WEBVIEW_PORT.
  */
 export default defineConfig({
   testDir: './tests',

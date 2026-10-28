@@ -8,9 +8,12 @@ import { labelEditorHooks } from './support/label-editor.js';
 /**
  * The shell's conformance kit against the real web app (the `web` host): geometry at three
  * sizes, ARIA and keys, keyboard creation from the palette, the label editor across the shell's
- * zoom, fit and refit, the light-only mode under any system setting, the start screen, toasts, the
- * problems list, the drop zone and a clean teardown. The harness declares what the app does not
- * have; every other skip fails the suite.
+ * zoom, fit and refit, the light-only mode under any system setting, reduced motion, forced
+ * colours, the canvas's overlay layers, the start screen, toasts, the problems list, the drop zone
+ * and a clean teardown. `documents` adds the empty diagram after "New diagram" on the start screen:
+ * at 100 % with the empty-file hint in the middle, gone with the first element (the `emptyFile`
+ * case), and the appearance case runs on it too. The harness declares what the app does not have;
+ * every other skip fails the suite.
  */
 const describeSkips = (skips: readonly ShellSkip[]) =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join('; ');
@@ -24,6 +27,15 @@ const showsDiagram = (page: Page) =>
       document.querySelector('.djs-shape') !== null,
   );
 
+/** The web host's empty document: the start screen of a fresh visit, then its "New diagram". */
+async function openNewDiagram(page: Page): Promise<void> {
+  await page.goto('about:blank');
+  await page.goto('/');
+  await page.waitForFunction(() => window.app?.shell.isEmptyStateShown() === true);
+  await page.getByRole('button', { name: 'New diagram' }).click();
+  await page.locator('[data-chrome="empty-state"]').waitFor({ state: 'hidden' });
+}
+
 test.describe('web app: shell conformance', () => {
   test.describe.configure({ timeout: 60_000 });
 
@@ -31,11 +43,16 @@ test.describe('web app: shell conformance', () => {
     {
       host: 'web',
       themes: THEMES,
-      async open(page, { size }) {
+      async open(page, { size, document: documentKey }) {
         await page.setViewportSize(size);
+        if (documentKey === 'empty') {
+          await openNewDiagram(page);
+          return;
+        }
         await page.goto(`/${linkHash(EXAMPLE)}`);
         await showsDiagram(page);
       },
+      documents: ['empty'],
       async destroy(page) {
         await page.evaluate(() => window.app?.destroy());
       },
@@ -84,9 +101,6 @@ test.describe('web app: shell conformance', () => {
     test,
     {
       onSkip(caseName, skips) {
-        // The emptyFile case needs harness.documents of a modeler-shell release after 0.5.0; the
-        // template feeds it once its pin reaches that release.
-        if (caseName === 'emptyFile') return;
         // The shortcutsDialog case needs shell.showShortcutsDialog of modeler-shell 0.7.0; the
         // template feeds it once its pin reaches that release.
         if (caseName === 'shortcutsDialog') return;
