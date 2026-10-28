@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import {
+  createScanner,
   findNodeAtLocation,
   parseTree,
   printParseErrorCode,
@@ -39,21 +40,23 @@ function locate(tree: Node, path: readonly (string | number)[]): Node {
   return tree;
 }
 
-/** The offset of the first bracket that opens a level beyond `limit`, outside strings. */
+/**
+ * The offset of the first bracket that opens a level beyond `limit`. Read with jsonc-parser's own
+ * scanner, so strings and comments end where its tree parser ends them (a string at a line break),
+ * and a bracket closes only a level of its own kind, because the tree parser skips any other and
+ * keeps nesting: the depth found here is never below the depth the tree parser descends to.
+ */
 function offsetBeyondNesting(text: string, limit: number): number | undefined {
-  let depth = 0;
-  let inString = false;
-  for (let offset = 0; offset < text.length; offset++) {
-    const char = text[offset];
-    if (inString) {
-      if (char === "\\") offset++;
-      else if (char === '"') inString = false;
-    } else if (char === '"') {
-      inString = true;
-    } else if (char === "{" || char === "[") {
-      if (++depth > limit) return offset;
-    } else if (char === "}" || char === "]") {
-      depth = Math.max(0, depth - 1);
+  const scanner = createScanner(text, true);
+  const closingBrackets: string[] = [];
+  for (scanner.scan(); scanner.getTokenOffset() < text.length; scanner.scan()) {
+    const offset = scanner.getTokenOffset();
+    const firstCharacter = text[offset];
+    if (firstCharacter === "{" || firstCharacter === "[") {
+      closingBrackets.push(firstCharacter === "{" ? "}" : "]");
+      if (closingBrackets.length > limit) return offset;
+    } else if (firstCharacter === closingBrackets.at(-1)) {
+      closingBrackets.pop();
     }
   }
   return undefined;
