@@ -17,7 +17,6 @@ import {
   createEmptyDocument,
   parseDocumentJSON,
   serializeDocument,
-  type Point,
   type ValueChainDocument,
 } from "@miragon/value-chain-schema-model";
 import { Modeler } from "../Modeler.js";
@@ -39,11 +38,6 @@ export const BLANK_DOCUMENT_NAME = "New value chain";
 export interface CollaborativeValueChainOptions extends CollaborativeModelerOptions {
   /** Appended to the renderer's own modules (e.g. a host's chrome module). */
   additionalModules?: ModuleDeclaration[] | undefined;
-  /**
-   * @deprecated Use `freeArea: { center }`; accepted until the next minor release. Given both,
-   * `freeArea` wins.
-   */
-  freeRectCenter?: (() => Point | undefined) | undefined;
 }
 
 /** The contract surface plus the wrapped diagram for host-specific wiring. */
@@ -75,7 +69,6 @@ export function createCollaborativeModeler(
       ...diagramOptions(options),
       undoRedoKeys: options.undoRedoKeys ?? true,
       freeArea: options.freeArea,
-      freeRectCenter: options.freeRectCenter,
     }),
     true,
   );

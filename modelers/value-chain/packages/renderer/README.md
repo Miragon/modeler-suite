@@ -87,8 +87,6 @@ container as in bpmn-js; the feature modules (`vcDrawModule`, `vcRulesModule`, `
   (px from the container's edges) or `{ center: () => Point | undefined }` (diagram coordinates).
   Enter or Space on a creating palette entry places the element in its centre (default: the centre
   of the visible canvas), selected, with the canvas focused and its label editor open.
-  `freeRectCenter` is the deprecated name of `freeArea: { center }`, accepted until the next minor
-  release; given both, `freeArea` wins.
 - `undoRedoKeys: false` leaves Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z and Ctrl+Y unbound and unprevented, for
   a host that owns the history (the VS Code document).
 
@@ -143,9 +141,8 @@ every label, also where a long label runs past a small shape, in diagram coordin
 while the diagram is empty): what a host that fits the view itself fits to, as
 `connectDiagramJs(shell, diagram, { modeler, isEmpty })` of `@miragon/modeler-shell` does, and what
 the SVG export frames. The renderer measures each label once per content change, so zoom and
-scroll leave the box alone. Both take
-the contract's factory options `freeArea`, `fitOnImport` and `undoRedoKeys` (the viewer ignores
-the two that need editing) and the deprecated `freeRectCenter`. The browser test suite runs the
+scroll leave the box alone. Both take the contract's factory options `freeArea`, `fitOnImport` and
+`undoRedoKeys` (the viewer ignores the two that need editing). The browser test suite runs the
 contract's conformance kit on every law, with no case skipped and no advisory. `diagram` is the
 wrapped `Modeler` or `NavigatedViewer` for host wiring.
 
