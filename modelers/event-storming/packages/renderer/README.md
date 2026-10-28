@@ -186,11 +186,15 @@ const menu = boardMenu({
 `boardMenu` puts "Aggregates…" at the end of the Model group while `hasAggregates()` holds, also
 on a read-only canvas, so a host builds the menu again after every import and command
 (`shell.menu.setGroups(boardMenu(actions))`). A name in the dialog closes it, then selects its
-stickies and brings them into the part of the view the chrome leaves free (`freeArea.insets`):
-scrolled when they fit at the current zoom, else zoomed out until they do, never in. The focus
-goes to the canvas. Selecting runs no command, so neither the undo history nor the board changes.
-The open dialog follows every import and command, the focus staying on the name that had it.
-`reveal(elementIds)` selects and shows stickies the same way without the dialog.
+stickies and brings them into the part of the view the chrome leaves free (`freeArea.insets` as
+the host gives them, the shell's fit insets with their margins; without a host the fit's side
+margin of 24px on every edge): scrolled when they fit at the current zoom, else zoomed out until
+they do, never in. The focus goes to the canvas, and the second click of a double click, which
+would land on the canvas once the dialog closed, is absorbed. Selecting runs no command, so
+neither the undo history nor the board changes. The open dialog follows every import and
+command, the focus staying on the name that had it, or on the sentence that the board has no
+aggregates once the last one went. `reveal(elementIds)` selects and shows stickies the same way
+without the dialog.
 
 ### Collaborative hosts
 

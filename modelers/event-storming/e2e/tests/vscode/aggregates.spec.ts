@@ -100,6 +100,20 @@ test.describe("VS Code webview: commands and events grouped by aggregate", () =>
     expect(await edits(page)).toEqual([]);
   });
 
+  test("a double click on a name keeps the selection it made, without an edit", async ({
+    page,
+  }) => {
+    await openWebview(page, { text: AGGREGATES_BOARD });
+    await openAggregates(page);
+
+    await aggregatesName(page, "Order").dblclick();
+
+    await expect(aggregatesDialog(page)).toHaveCount(0);
+    await expect.poll(() => selectedIds(page)).toEqual(["agg_order_1", "agg_order_2"]);
+    await expect(page.locator(".event-storming-label-input")).toHaveCount(0);
+    expect(await edits(page)).toEqual([]);
+  });
+
   test("Enter on a name selects it and hands the focus to the canvas", async ({ page }) => {
     await openWebview(page, { text: AGGREGATES_BOARD });
     await openAggregates(page);
@@ -144,5 +158,21 @@ test.describe("VS Code webview: commands and events grouped by aggregate", () =>
 
     await expect(aggregatesDialog(page).getByRole("rowheader")).toHaveText(["Order", "Invoice"]);
     await expect(aggregatesDialog(page)).toBeVisible();
+  });
+
+  test("an update that takes the last aggregate keeps the focus in the open dialog", async ({
+    page,
+  }) => {
+    await openWebview(page, { text: AGGREGATES_BOARD });
+    await openAggregates(page);
+    await page.keyboard.press("Tab");
+    await expect(aggregatesName(page, "Place Order")).toBeFocused();
+
+    await postFromHost(page, { type: "update", text: PLAIN_BOARD });
+
+    const empty = aggregatesDialog(page).getByText("The board has no aggregates.");
+    await expect(empty).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(aggregatesDialog(page).getByRole("button", { name: "Close" })).toBeFocused();
   });
 });

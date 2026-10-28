@@ -166,6 +166,22 @@ test.describe("webapp: commands and events grouped by aggregate", () => {
     expect(await stickyInView(page, "evt_paid")).toBe(true);
   });
 
+  test("a double click on a name keeps the selection it made and opens no label editor", async ({
+    page,
+  }) => {
+    await openBoard(page, AGGREGATES_BOARD);
+    const board = await exportDSL(page);
+    await openAggregates(page);
+
+    await aggregatesName(page, "Order").dblclick();
+
+    await expect(aggregatesDialog(page)).toHaveCount(0);
+    await expect.poll(() => selectedIds(page)).toEqual(["agg_order_1", "agg_order_2"]);
+    await expect(page.locator(".event-storming-label-input")).toHaveCount(0);
+    expect(await canUndo(page)).toBe(false);
+    expect(await exportDSL(page)).toBe(board);
+  });
+
   test("by keyboard: the dialog opens on Close, Tab reaches the names, Escape returns to the menu, Enter selects", async ({
     page,
   }) => {

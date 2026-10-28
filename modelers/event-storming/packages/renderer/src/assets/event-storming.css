@@ -487,21 +487,26 @@
 /* "Aggregates…" (aggregates/table.ts, issue #116): the table in the body of the shell's dialog
    (guide §8), 13px like every table there, a row group per aggregate whose header cell spans its
    lines, the groups apart by 1px --cd-ui-linie as the shortcuts dialog's rows (§5.4). Every name
-   is a ghost button (§8) as dense as a context-pad entry (28px); its focus ring lies inside on the
-   hover fill, since the body scrolls (§8, §5.14). The rules set what a host page's element styles
-   (table, th, ul, button) would change, as the shell's dialog rules do; the shell's dialog keeps
-   its own high-contrast, forced-colours and reduced-motion rules for the rest. */
+   is a ghost button of a dialog (§5.2: 36px) with the entry padding of the menu and the label
+   suggestions (8px 12px); its focus ring lies inside on the hover fill, since the body scrolls
+   (§8, §5.14). The hint is the table's caption, in the table's 13px. The rules set what a host
+   page's element styles (table, caption, th, ul, button) would change, as the shell's dialog rules
+   do; the shell's dialog keeps its own high-contrast, forced-colours and reduced-motion rules for
+   the rest. */
 .event-storming-aggregates .event-storming-aggregates-hint {
-  margin: 0 0 8px;
-  padding: 0;
+  caption-side: top;
+  margin: 0;
+  padding: 0 0 8px;
   color: var(--cd-ui-text-leise);
   font-family: inherit;
   font-size: 13px;
   font-weight: 400;
   line-height: 1.5;
+  text-align: start;
 }
 
-/* Alone in the body once the board lost its last aggregate: body text (guide §8). */
+/* Alone in the body once the board lost its last aggregate: body text (guide §8). It takes the
+   focus when a name had it, so the focus stays in the dialog; its ring fits in the body's padding. */
 .event-storming-aggregates .event-storming-aggregates-empty {
   margin: 0;
   padding: 0;
@@ -510,6 +515,15 @@
   font-size: 16px;
   font-weight: 400;
   line-height: 1.6;
+}
+
+.event-storming-aggregates .event-storming-aggregates-empty:focus {
+  outline: none;
+}
+
+.event-storming-aggregates .event-storming-aggregates-empty:focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
 }
 
 .event-storming-aggregates .event-storming-aggregates-table {
@@ -587,10 +601,10 @@
 .event-storming-aggregates .event-storming-aggregates-entry {
   box-sizing: border-box;
   display: inline-block;
-  max-width: calc(100% + 8px);
-  min-height: 28px;
-  margin: 0 0 0 -8px;
-  padding: 4px 8px;
+  max-width: calc(100% + 12px);
+  min-height: 36px;
+  margin: 0 0 0 -12px;
+  padding: 8px 12px;
   color: var(--cd-ui-text);
   font: inherit;
   letter-spacing: normal;
@@ -628,8 +642,14 @@
   outline-offset: -3px;
 }
 
+.event-storming-aggregates:is([data-cd-kontrast="hoch"] *)
+  .event-storming-aggregates-empty:focus-visible {
+  outline-width: 3px;
+}
+
 @media (forced-colors: active) {
-  .event-storming-aggregates .event-storming-aggregates-entry:focus-visible {
+  .event-storming-aggregates
+    :is(.event-storming-aggregates-entry, .event-storming-aggregates-empty):focus-visible {
     outline-color: Highlight;
   }
 }

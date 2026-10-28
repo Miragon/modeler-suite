@@ -4,6 +4,7 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type Selection from "diagram-js/lib/features/selection/Selection";
+import { getBBox } from "diagram-js/lib/util/Elements";
 import {
   AGGREGATES_DIALOG_CLASS,
   AGGREGATES_DIALOG_TITLE,
@@ -115,11 +116,15 @@ const entry = (name: string): HTMLButtonElement => {
 };
 const canvasSvg = () => container!.querySelector<SVGSVGElement>("svg[tabindex]");
 
-/** Where a sticky stands on the screen, against the container's box minus the chrome's insets. */
+/**
+ * Where a sticky stands on the screen, against the container's box minus the chrome's insets: its
+ * shape's box (the hit rectangle), without the selection outline around it.
+ */
 function onScreen(diagram: Modeler, id: string, insets = { top: 0, right: 0, bottom: 0, left: 0 }) {
   const box = diagram
     .get<ElementRegistry>("elementRegistry")
     .getGraphics(id)
+    .querySelector(".djs-hit")!
     .getBoundingClientRect();
   const frame = container!.getBoundingClientRect();
   return (
@@ -213,9 +218,35 @@ describe("the board's aggregates on the canvas (issue #116, real browser DOM)", 
       "Payment",
       "",
     ]);
-    expect(shown.querySelector(".event-storming-aggregates-hint")?.textContent).toBe(
-      "Choose a name to select its stickies on the board.",
-    );
+    expect(table.caption?.className).toBe("event-storming-aggregates-hint");
+    expect(table.caption?.textContent).toBe("Choose a name to select its stickies on the board.");
+  });
+
+  it("names every cell's column and aggregate, the commands left of the aggregate too", async () => {
+    const diagram = await mount();
+    aggregatesOf(diagram).showDialog(dialogChrome(container!));
+
+    const table = dialog()!.querySelector("table")!;
+    const headersOf = (cell: Element) =>
+      (cell.getAttribute("headers") ?? "")
+        .split(" ")
+        .map((id) => document.getElementById(id)?.textContent);
+    const [commandsHeading, aggregateHeading, eventsHeading] = [
+      ...table.querySelectorAll("thead th"),
+    ];
+    expect(aggregateHeading!.id).not.toBe("");
+    const [order, payment] = [...table.tBodies];
+    for (const row of order!.rows) {
+      const commandCell = row.querySelector("td.event-storming-aggregates-commands")!;
+      const eventsCell = row.querySelector("td.event-storming-aggregates-events")!;
+      expect(headersOf(commandCell)).toEqual(["Commands", "Order"]);
+      expect(headersOf(eventsCell)).toEqual(["Events", "Order"]);
+      expect(commandCell.getAttribute("headers")).toContain(commandsHeading!.id);
+      expect(eventsCell.getAttribute("headers")).toContain(eventsHeading!.id);
+    }
+    expect(headersOf(payment!.querySelector("td")!)).toEqual(["Commands", "Payment"]);
+    const ids = [...dialog()!.querySelectorAll("[id]")].map((element) => element.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("opens one dialog at a time", async () => {
@@ -229,14 +260,20 @@ describe("the board's aggregates on the canvas (issue #116, real browser DOM)", 
     expect(chrome.opened).toBe(1);
   });
 
-  it("draws the table in 13px with names as 28px ghost buttons in the text role", async () => {
+  it("draws the table and its caption in 13px with names as 36px ghost buttons in the text role", async () => {
     const diagram = await mount();
     aggregatesOf(diagram).showDialog(dialogChrome(container!));
 
     const table = getComputedStyle(dialog()!.querySelector("table")!);
     expect([table.fontSize, table.borderCollapse]).toEqual(["13px", "collapse"]);
+    expect(getComputedStyle(dialog()!.querySelector("caption")!).fontSize).toBe("13px");
     const button = getComputedStyle(entry("Place Order"));
-    expect(button.minHeight).toBe("28px");
+    expect([button.minHeight, button.paddingTop, button.paddingLeft]).toEqual([
+      "36px",
+      "8px",
+      "12px",
+    ]);
+    expect(entry("Place Order").getBoundingClientRect().height).toBeGreaterThanOrEqual(36);
     expect(button.backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(getComputedStyle(entry("Order")).fontWeight).toBe("600");
     const heading = getComputedStyle(dialog()!.querySelector("thead th")!);
@@ -257,6 +294,23 @@ describe("the board's aggregates on the canvas (issue #116, real browser DOM)", 
     expect(commandStack.canUndo()).toBe(false);
     expect(diagram.exportDSL()).toBe(text);
     expect(document.activeElement).toBe(canvasSvg());
+  });
+
+  it("a double click on a name keeps the selection it made and opens no label editor", async () => {
+    const diagram = await mount();
+    const text = diagram.exportDSL();
+    aggregatesOf(diagram).showDialog(dialogChrome(container!));
+
+    await userEvent.dblClick(entry("Order"));
+
+    expect(dialog()).toBeNull();
+    expect(selectedIds(diagram)).toEqual(["agg_order_1", "agg_order_2"]);
+    expect(container!.querySelector(".event-storming-label-input")).toBeNull();
+    expect(diagram.exportDSL()).toBe(text);
+
+    const shipOrder = diagram.get<ElementRegistry>("elementRegistry").getGraphics("cmd_ship");
+    await userEvent.click(shipOrder.querySelector(".djs-hit")!);
+    expect(selectedIds(diagram)).toEqual(["cmd_ship"]);
   });
 
   it("Enter on a name does the same and hands the focus to the canvas", async () => {
@@ -323,6 +377,58 @@ describe("the board's aggregates on the canvas (issue #116, real browser DOM)", 
     expect(canvas.zoom()).toBeCloseTo(0.3, 5);
   });
 
+  it("fits into the host's free rectangle as it is, its insets already holding the fit margins", async () => {
+    const diagram = await mount({ insets: INSETS });
+    const canvas = diagram.get<Canvas>("canvas");
+    canvas.zoom(1);
+    const registry = diagram.get<ElementRegistry>("elementRegistry");
+    const box = getBBox(
+      ["cmd_place", "agg_payment"].map((id) => registry.get(id) as EventStormingShape),
+    );
+
+    aggregatesOf(diagram).reveal(["cmd_place", "agg_payment"]);
+
+    const freeWidth = 1280 - INSETS.left - INSETS.right;
+    const freeHeight = 720 - INSETS.top - INSETS.bottom;
+    expect(canvas.zoom()).toBeCloseTo(Math.min(freeWidth / box.width, freeHeight / box.height), 2);
+  });
+
+  it("scrolls a sticky up to the edge of the free rectangle, also where an inset is 0", async () => {
+    const diagram = await mount({ insets: { top: 64, right: 0, bottom: 0, left: 0 } });
+    const canvas = diagram.get<Canvas>("canvas");
+    canvas.viewbox({ x: 5000, y: 0, width: 1280, height: 720 });
+
+    aggregatesOf(diagram).reveal(["cmd_place"]);
+
+    const hit = diagram
+      .get<ElementRegistry>("elementRegistry")
+      .getGraphics("cmd_place")
+      .querySelector(".djs-hit")!
+      .getBoundingClientRect();
+    expect(canvas.zoom()).toBeCloseTo(1, 5);
+    expect(hit.left - container!.getBoundingClientRect().left).toBeCloseTo(0, 0);
+  });
+
+  it("keeps the fit's side margin on every edge when no host gives insets", async () => {
+    const diagram = await mount();
+    const canvas = diagram.get<Canvas>("canvas");
+    canvas.zoom(1);
+    const registry = diagram.get<ElementRegistry>("elementRegistry");
+    const box = getBBox(
+      ["cmd_place", "agg_payment"].map((id) => registry.get(id) as EventStormingShape),
+    );
+
+    aggregatesOf(diagram).reveal(["cmd_place", "agg_payment"]);
+
+    expect(canvas.zoom()).toBeCloseTo(
+      Math.min((1280 - 48) / box.width, (720 - 48) / box.height),
+      2,
+    );
+    const margin = { top: 24, right: 24, bottom: 24, left: 24 };
+    expect(onScreen(diagram, "cmd_place", margin)).toBe(true);
+    expect(onScreen(diagram, "agg_payment", margin)).toBe(true);
+  });
+
   it("leaves out ids that are not on the canvas", async () => {
     const diagram = await mount();
 
@@ -353,6 +459,47 @@ describe("the board's aggregates on the canvas (issue #116, real browser DOM)", 
     expect(document.activeElement).toBe(entry("Stock"));
   });
 
+  it("keeps the focus on the same line's event when one event follows two commands", async () => {
+    const diagram = await mount({
+      board: [
+        "title Shared event",
+        "command Place Order [150, 200] (id cmd_place)",
+        "command Book Order [150, 400] (id cmd_book)",
+        "aggregate Order [350, 300] (id agg_order)",
+        "event Order Placed [550, 300] (id evt_placed)",
+        "aggregate ? [350, 700] (id agg_open_1)",
+        "aggregate ? [550, 700] (id agg_open_2)",
+        "command Wait [150, 700] (id cmd_wait)",
+        "",
+        "#cmd_place -> #agg_order",
+        "#cmd_book -> #agg_order",
+        "#agg_order -> #evt_placed",
+        "#cmd_wait -> #agg_open_2",
+      ].join("\n"),
+    });
+    aggregatesOf(diagram).showDialog(dialogChrome(container!));
+    const named = (name: string) =>
+      [
+        ...(dialog()?.querySelectorAll<HTMLButtonElement>(".event-storming-aggregates-entry") ??
+          []),
+      ].filter((button) => button.textContent === name);
+    const wait = diagram.get<ElementRegistry>("elementRegistry").get("cmd_wait");
+    const renameWait = (label: string) =>
+      diagram
+        .get<EventStormingModeling>("eventStormingModeling")
+        .updateLabels([{ element: wait as EventStormingShape, label }]);
+
+    expect(named("Order Placed")).toHaveLength(2);
+    named("Order Placed")[1]!.focus();
+    renameWait("Wait longer");
+    expect(document.activeElement).toBe(named("Order Placed")[1]);
+
+    expect(named("?")).toHaveLength(2);
+    named("?")[1]!.focus();
+    renameWait("Wait");
+    expect(document.activeElement).toBe(named("?")[1]);
+  });
+
   it("says so in body text when the board under the open dialog loses its last aggregate", async () => {
     const diagram = await mount();
     aggregatesOf(diagram).showDialog(dialogChrome(container!));
@@ -366,6 +513,19 @@ describe("the board's aggregates on the canvas (issue #116, real browser DOM)", 
       "16px",
       "25.6px",
     ]);
+  });
+
+  it("keeps the focus in the dialog, on that sentence, when a name had it", async () => {
+    const diagram = await mount();
+    aggregatesOf(diagram).showDialog(dialogChrome(container!));
+    entry("Ship Order").focus();
+
+    await diagram.importDSL("title Plain\ncommand Place Order [100, 100]");
+
+    const empty = dialog()!.querySelector<HTMLElement>(".event-storming-aggregates-empty")!;
+    expect(document.activeElement).toBe(empty);
+    expect(dialog()!.contains(document.activeElement)).toBe(true);
+    expect(empty.tabIndex).toBe(-1);
   });
 
   it("closes with the diagram", async () => {

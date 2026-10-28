@@ -270,9 +270,10 @@ describe("theme.sync — MIRAGON mirrors the vendored design-system tokens", () 
     expect(MIRAGON.info).toBe(tokens.fest["--cd-info"]);
   });
 
-  it("CHROME_SPACING is the shell group's edge and gap", () => {
+  it("CHROME_SPACING is the shell group's edge, gap and side fit margin", () => {
     expect(`${CHROME_SPACING.rand}px`).toBe(tokens.shell["--cd-shell-rand"]);
     expect(`${CHROME_SPACING.luecke}px`).toBe(tokens.shell["--cd-shell-luecke"]);
+    expect(`${CHROME_SPACING.einpassenSeite}px`).toBe(tokens.shell["--cd-shell-einpassen-seite"]);
   });
 });
 

@@ -1,4 +1,4 @@
-import type { AggregateTableEntry, AggregateTableRow } from "./rows.js";
+import type { AggregateTableEntry, AggregateTableLine, AggregateTableRow } from "./rows.js";
 
 /*
  * The table of the "Aggregates…" dialog (guide §8: tables 13px), drawn into a dialog body such as
@@ -21,6 +21,9 @@ export interface AggregateTableOptions {
 /** Which name a button shows, so a redraw can give the focus back to the same name. */
 const entryKeys = new WeakMap<Element, string>();
 
+/** Keeps the header ids of every table drawn unique in the document. */
+let drawnTables = 0;
+
 function element<K extends keyof HTMLElementTagNameMap>(
   ownerDocument: Document,
   tag: K,
@@ -33,67 +36,92 @@ function element<K extends keyof HTMLElementTagNameMap>(
   return created;
 }
 
+interface RowGroupContext {
+  readonly ownerDocument: Document;
+  readonly options: AggregateTableOptions;
+  /** The aggregate's label and how many rows with that label came before, such as unnamed ones. */
+  readonly rowKey: string;
+  readonly commandsHeaderId: string;
+  readonly eventsHeaderId: string;
+  readonly aggregateHeaderId: string;
+}
+
 function entryButton(
-  ownerDocument: Document,
-  aggregate: AggregateTableEntry,
+  context: RowGroupContext,
   entry: AggregateTableEntry,
-  options: AggregateTableOptions,
+  line: AggregateTableLine | undefined,
 ): HTMLButtonElement {
-  const button = element(ownerDocument, "button", "event-storming-aggregates-entry", entry.label);
+  const button = element(
+    context.ownerDocument,
+    "button",
+    "event-storming-aggregates-entry",
+    entry.label,
+  );
   button.type = "button";
   button.dataset["entryKind"] = entry.kind;
-  entryKeys.set(button, [aggregate.label, entry.kind, entry.label].join("\u0000"));
-  button.addEventListener("click", (event) => options.onSelect(entry, event));
+  // An event stands on the line of every command that leads to it, so its line is part of its key.
+  const lineKey = entry.kind === "event" ? (line?.command?.label ?? "") : "";
+  entryKeys.set(button, [context.rowKey, entry.kind, lineKey, entry.label].join("\u0000"));
+  button.addEventListener("click", (event) => context.options.onSelect(entry, event));
   return button;
 }
 
-function rowGroup(
-  ownerDocument: Document,
-  table: HTMLTableElement,
-  row: AggregateTableRow,
-  options: AggregateTableOptions,
-): void {
+/*
+ * The aggregate's header cell stands between the commands and the events, and the HTML table model
+ * gives a row group header only to the cells from its own column on: each data cell names its
+ * column and its aggregate in `headers`, so the commands are announced with their aggregate too.
+ */
+function dataCell(
+  context: RowGroupContext,
+  className: string,
+  columnHeaderId: string,
+): HTMLTableCellElement {
+  const cell = element(context.ownerDocument, "td", `event-storming-aggregates-cell ${className}`);
+  cell.headers = `${columnHeaderId} ${context.aggregateHeaderId}`;
+  return cell;
+}
+
+function rowGroup(table: HTMLTableElement, row: AggregateTableRow, context: RowGroupContext): void {
   const group = table.createTBody();
   group.className = "event-storming-aggregates-group";
   row.lines.forEach((line, index) => {
     const tableRow = group.insertRow();
-    const commandCell = element(
-      ownerDocument,
-      "td",
-      "event-storming-aggregates-cell event-storming-aggregates-commands",
+    const commandCell = dataCell(
+      context,
+      "event-storming-aggregates-commands",
+      context.commandsHeaderId,
     );
-    if (line.command) {
-      commandCell.append(entryButton(ownerDocument, row.aggregate, line.command, options));
-    }
+    if (line.command) commandCell.append(entryButton(context, line.command, line));
     tableRow.append(commandCell);
     if (index === 0) {
       const aggregateCell = element(
-        ownerDocument,
+        context.ownerDocument,
         "th",
         "event-storming-aggregates-cell event-storming-aggregates-aggregate",
-        entryButton(ownerDocument, row.aggregate, row.aggregate, options),
+        entryButton(context, row.aggregate, undefined),
       );
+      aggregateCell.id = context.aggregateHeaderId;
       aggregateCell.scope = "rowgroup";
       aggregateCell.rowSpan = row.lines.length;
       tableRow.append(aggregateCell);
     }
-    const eventsCell = element(
-      ownerDocument,
-      "td",
-      "event-storming-aggregates-cell event-storming-aggregates-events",
+    const eventsCell = dataCell(
+      context,
+      "event-storming-aggregates-events",
+      context.eventsHeaderId,
     );
     if (line.events.length > 0) {
       eventsCell.append(
         element(
-          ownerDocument,
+          context.ownerDocument,
           "ul",
           "event-storming-aggregates-list",
           ...line.events.map((event) =>
             element(
-              ownerDocument,
+              context.ownerDocument,
               "li",
               "event-storming-aggregates-item",
-              entryButton(ownerDocument, row.aggregate, event, options),
+              entryButton(context, event, line),
             ),
           ),
         ),
@@ -105,8 +133,9 @@ function rowGroup(
 
 /**
  * Fills `body` with the rows, replacing what it held. Called again on an open dialog (the board
- * changed under it), it gives the focus back to the name that had it, else to the first name, so
- * the focus stays among the names while the board has one.
+ * changed under it), it gives the focus back to the name that had it, else to the first name; once
+ * the board has no aggregate left, to the sentence that says so, so the focus stays in the dialog
+ * and a screen reader reads the change.
  */
 export function renderAggregateTable(
   body: HTMLElement,
@@ -119,19 +148,43 @@ export function renderAggregateTable(
   const focusedKey = active ? entryKeys.get(active) : undefined;
 
   if (rows.length === 0) {
-    body.replaceChildren(element(ownerDocument, "p", "event-storming-aggregates-empty", EMPTY));
+    const empty = element(ownerDocument, "p", "event-storming-aggregates-empty", EMPTY);
+    body.replaceChildren(empty);
+    if (hadFocus) {
+      empty.tabIndex = -1;
+      empty.focus({ preventScroll: true });
+    }
     return;
   }
+
+  drawnTables += 1;
+  const idPrefix = `event-storming-aggregates-${drawnTables}`;
   const table = element(ownerDocument, "table", "event-storming-aggregates-table");
   table.setAttribute("aria-label", AGGREGATES_TABLE_LABEL);
+  table.createCaption().replaceChildren(HINT);
+  table.caption!.className = "event-storming-aggregates-hint";
   const head = table.createTHead().insertRow();
-  for (const title of COLUMN_TITLES) {
+  const [commandsHeaderId, , eventsHeaderId] = COLUMN_TITLES.map((title, column) => {
     const heading = element(ownerDocument, "th", "event-storming-aggregates-heading", title);
+    heading.id = `${idPrefix}-column-${column}`;
     heading.scope = "col";
     head.append(heading);
-  }
-  for (const row of rows) rowGroup(ownerDocument, table, row, options);
-  body.replaceChildren(element(ownerDocument, "p", "event-storming-aggregates-hint", HINT), table);
+    return heading.id;
+  });
+  const rowsBefore = new Map<string, number>();
+  rows.forEach((row, rowIndex) => {
+    const occurrence = rowsBefore.get(row.aggregate.label) ?? 0;
+    rowsBefore.set(row.aggregate.label, occurrence + 1);
+    rowGroup(table, row, {
+      ownerDocument,
+      options,
+      rowKey: `${row.aggregate.label}\u0000${occurrence}`,
+      commandsHeaderId: commandsHeaderId!,
+      eventsHeaderId: eventsHeaderId!,
+      aggregateHeaderId: `${idPrefix}-row-${rowIndex}`,
+    });
+  });
+  body.replaceChildren(table);
 
   if (!hadFocus) return;
   const buttons = [...body.querySelectorAll<HTMLButtonElement>(".event-storming-aggregates-entry")];

@@ -17,6 +17,7 @@ import {
   type EventStormingShape,
 } from "../model/di-types.js";
 import type { EventStormingPaletteConfig } from "../palette/EventStormingPaletteProvider.js";
+import { CHROME_SPACING } from "../theme/palette.js";
 import { aggregateTableRows, type AggregateTableEntry, type AggregateTableRow } from "./rows.js";
 import { renderAggregateTable } from "./table.js";
 
@@ -51,10 +52,36 @@ export interface AggregatesDialogChrome {
   openDialog(options: AggregatesDialogOptions): AggregatesDialog;
 }
 
-/** What a reveal keeps free inside the chrome's insets: the fit's margin at the sides (guide §5.9). */
-const REVEAL_MARGIN = 24;
+/*
+ * A host's insets are its fit insets, the free rectangle of guide §5.9 with its margins. Without a
+ * host the reveal keeps the fit's side margin on every edge, so a sticky never ends on the edge.
+ */
+const NO_HOST_INSETS = {
+  top: CHROME_SPACING.einpassenSeite,
+  right: CHROME_SPACING.einpassenSeite,
+  bottom: CHROME_SPACING.einpassenSeite,
+  left: CHROME_SPACING.einpassenSeite,
+};
 
-const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
+const GESTURE_EVENTS = ["mousedown", "mouseup", "click", "dblclick"] as const;
+
+/**
+ * Absorbs the rest of a multi-click whose first click chose a name. The modal dialog is gone by
+ * then, so the second click would land on what lies under the pointer: on the board it would clear
+ * the selection the name just made, on a sticky select it and open its label editor. The guard
+ * ends with the first press of a new gesture (`detail` 1).
+ */
+function absorbGestureTail(ownerDocument: Document): void {
+  const absorb = (event: MouseEvent): void => {
+    if (event.detail <= 1) {
+      for (const type of GESTURE_EVENTS) ownerDocument.removeEventListener(type, absorb, true);
+      return;
+    }
+    event.stopImmediatePropagation();
+    event.preventDefault();
+  };
+  for (const type of GESTURE_EVENTS) ownerDocument.addEventListener(type, absorb, true);
+}
 
 const CLOSED: AggregatesDialog = { isOpen: () => false, close: () => undefined };
 
@@ -188,31 +215,37 @@ export default class EventStormingAggregates {
   private select(entry: AggregateTableEntry, event: MouseEvent): void {
     this.open?.dialog.close();
     this.reveal(entry.elementIds);
-    if (event.detail === 0) this.canvas.focus();
-    else focusCanvasWithoutRing(this.canvas);
+    if (event.detail === 0) {
+      this.canvas.focus();
+      return;
+    }
+    absorbGestureTail(this.canvas.getContainer().ownerDocument);
+    focusCanvasWithoutRing(this.canvas);
   }
 
   private bringIntoView(shapes: readonly EventStormingShape[]): void {
-    const insets = this.config?.freeArea?.insets?.() ?? NO_INSETS;
-    const padding = {
-      top: insets.top + REVEAL_MARGIN,
-      right: insets.right + REVEAL_MARGIN,
-      bottom: insets.bottom + REVEAL_MARGIN,
-      left: insets.left + REVEAL_MARGIN,
-    };
-    const { outer, scale } = this.canvas.viewbox();
-    const freeWidth = outer.width - padding.left - padding.right;
-    const freeHeight = outer.height - padding.top - padding.bottom;
+    const insets = this.config?.freeArea?.insets?.() ?? NO_HOST_INSETS;
+    const viewbox = this.canvas.viewbox();
+    const { outer, scale } = viewbox;
+    const freeWidth = outer.width - insets.left - insets.right;
+    const freeHeight = outer.height - insets.top - insets.bottom;
     if (freeWidth <= 0 || freeHeight <= 0) return;
     const box = getBBox([...shapes]);
     if (box.width * scale <= freeWidth && box.height * scale <= freeHeight) {
-      this.canvas.scrollToElement([...shapes], padding);
+      // diagram-js's scrollToElement would replace an inset of 0 by its own 100px padding.
+      const left = viewbox.x + insets.left / scale;
+      const top = viewbox.y + insets.top / scale;
+      const right = left + freeWidth / scale;
+      const bottom = top + freeHeight / scale;
+      const dx = Math.max(0, box.x + box.width - right) || Math.min(0, box.x - left);
+      const dy = Math.max(0, box.y + box.height - bottom) || Math.min(0, box.y - top);
+      if (dx !== 0 || dy !== 0) this.canvas.scroll({ dx: -dx * scale, dy: -dy * scale });
       return;
     }
     const zoom = Math.min(freeWidth / box.width, freeHeight / box.height);
     this.canvas.viewbox({
-      x: box.x + box.width / 2 - (padding.left + freeWidth / 2) / zoom,
-      y: box.y + box.height / 2 - (padding.top + freeHeight / 2) / zoom,
+      x: box.x + box.width / 2 - (insets.left + freeWidth / 2) / zoom,
+      y: box.y + box.height / 2 - (insets.top + freeHeight / 2) / zoom,
       width: outer.width / zoom,
       height: outer.height / zoom,
     });
