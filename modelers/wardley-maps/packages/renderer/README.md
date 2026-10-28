@@ -47,7 +47,7 @@ Swap `NavigatedViewer` for `Modeler` to get the editable map (palette, context p
 | `undo()` / `redo()` / `canUndo()` / `canRedo()`                            | `Modeler` only: the canvas command stack.                                                                                                           |
 | `commitPendingEdits()`                                                     | `Modeler` only: saves an open inline editor, e.g. before a save shortcut.                                                                           |
 | `on(event, callback)` / `off(event, callback)`                             | diagram-js events, see below.                                                                                                                       |
-| `svgToPng(svg, { scale, transparent })` / `blobToBase64`                   | Rasterizes an exported SVG (default 2×, paper background).                                                                                          |
+| `svgToPng(svg, { scale, transparent })` (deprecated) / `blobToBase64`      | Deprecated, see below: rasterizes an exported SVG (default 2×, paper background). `blobToBase64` encodes a Blob.                                    |
 | `setAsideEditorState(modeler)` / `restoreEditorState(…)`                   | Keeps the selection and an open inline editor across a re-import of an externally changed map.                                                      |
 
 `setEvolutionLabels` turns an empty stage into its default label and `->` into `→`, so the labels
@@ -144,14 +144,40 @@ groups of [`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/mode
 `createMapSizePopover(chrome, modeler)` and `createAxisLabelsPopover(chrome, modeler)` build the two
 popovers (a live preview, one undo step when done), `createTitleDialog(chrome, modeler)` the "Map
 title…" dialog (one undo step on Apply, nothing for an unchanged title),
-`createShortcutsDialog(chrome, options)` the "Keyboard shortcuts…" dialog and
-`mapShortcuts(chrome, options)` its table. A web app that binds Cmd/Ctrl+O, Cmd/Ctrl+S, Cmd/Ctrl+V
-on the canvas and `?` itself passes `{ fileKeys: true, shortcutsKey: '?' }`, so the dialog lists
-them too, and `mapMenu({ …, shortcutsKey: '?' })` shows the key's chip on "Keyboard shortcuts…".
+`mapShortcuts(chrome, options)` the groups of its "Keyboard shortcuts…" dialog as data. A web app
+that binds Cmd/Ctrl+O, Cmd/Ctrl+S, Cmd/Ctrl+V on the canvas and `?` itself passes
+`{ fileKeys: true, shortcutsKey: '?' }`, so the dialog lists them too, and
+`mapMenu({ …, shortcutsKey: '?' })` shows the key's chip on "Keyboard shortcuts…". The shell opens
+the dialog: `shell.showShortcutsDialog(mapShortcuts(shell, options))`, or, in a host without a
+mounted shell, `showShortcutsDialog(mapShortcuts(chrome, options), { container })` of
+`@miragon/modeler-shell`.
 `createMapDialog(chrome, parts)` is the modal dialog all of them share (guide §8: header with Close,
 scrolling body, footer), for a host's own dialogs in the same look; `dialogButton(label, variant)`
 gives its buttons. `chrome` is the shell handle or anything of the same shape; the renderer never
 imports the shell itself.
+
+### Deprecated: `createShortcutsDialog` and `svgToPng`
+
+Both are deprecated since 0.14.0 and removed in 0.15.0
+([#258](https://github.com/Miragon/modeler-suite/issues/258)); the web app and the VS Code webview
+of this repository no longer use them.
+
+- `createShortcutsDialog(chrome, options)` (with `ShortcutsDialog` and `ShortcutsDialogChrome`) is
+  replaced by the shell's dialog, which takes the groups of `mapShortcuts` and fills the View group
+  with the chrome's zoom and fit keys (see above).
+- `svgToPng(svg, { scale, transparent })` (with `SvgToPngOptions`) is replaced by `svgToPng` of
+  `@miragon/modeler-shell/export`, which embeds Geist, loads the SVG as a data: URL and fills the
+  background the caller names. A map has a plot, so its PNG lies on `--cd-ui-plot` (guide §10.7), not
+  on the paper this one fills:
+
+  ```ts
+  import { COLORS } from "@miragon/wardley-renderer";
+  import { svgToPng } from "@miragon/modeler-shell/export";
+
+  const { svg } = await modeler.saveSVG();
+  const png = await svgToPng(svg, { background: COLORS.plotBackground }); // 2×
+  const forSlides = await svgToPng(svg, { background: "transparent", scale: 4 });
+  ```
 
 ## Events
 

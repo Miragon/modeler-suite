@@ -32,6 +32,10 @@ const EXPORT_KINDS: Readonly<Record<ExportFormat, ExportKind>> = {
   },
 };
 
+export function fontFallbackText(fileName: string): string {
+  return `Exported ${fileName} in a system font. Geist couldn't be embedded.`;
+}
+
 /**
  * Image export to disk via a save dialog. Exports are pictures: they carry no map source, the
  * `.wmap`/`.owm` file stays the editable original. The outcome is a host notification (guide
@@ -41,6 +45,7 @@ export async function exportImageToFile(
   sourceUri: vscode.Uri | undefined,
   format: ExportFormat,
   data: string,
+  fontFallback = false,
 ): Promise<void> {
   const kind = EXPORT_KINDS[format];
   const options: vscode.SaveDialogOptions = {
@@ -67,7 +72,10 @@ export async function exportImageToFile(
   }
 
   const reveal = revealFileLabel(process.platform);
-  if ((await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal)) === reveal) {
+  const answer = fontFallback
+    ? await vscode.window.showWarningMessage(fontFallbackText(fileName), reveal)
+    : await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal);
+  if (answer === reveal) {
     void vscode.commands.executeCommand("revealFileInOS", target);
   }
 }

@@ -8,6 +8,7 @@
 // host only pulls in the DOM-free DSL (diagnostics); @miragon/modeler-shell comes from node_modules
 // in both.
 import * as esbuild from "esbuild";
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
@@ -26,6 +27,30 @@ const alias = {
   "@miragon/wardley-transforms": r("packages/transforms/src/index.ts"),
 };
 
+/**
+ * `import url from "file?dataurl"` inlines that one file as a data: URL, while every other import of
+ * the same file type keeps its loader. The PNG export needs Geist inline: an SVG drawn as an image
+ * can't load the webview's font files.
+ * @type {import('esbuild').Plugin}
+ */
+const dataUrlImports = {
+  name: "dataurl-imports",
+  setup(build) {
+    build.onResolve({ filter: /\?dataurl$/ }, async (args) => {
+      const resolved = await build.resolve(args.path.slice(0, -"?dataurl".length), {
+        kind: args.kind,
+        resolveDir: args.resolveDir,
+      });
+      if (resolved.errors.length > 0) return { errors: resolved.errors };
+      return { path: resolved.path, namespace: "dataurl" };
+    });
+    build.onLoad({ filter: /.*/, namespace: "dataurl" }, async (args) => ({
+      contents: await readFile(args.path),
+      loader: "dataurl",
+    }));
+  },
+};
+
 /** @type {import('esbuild').BuildOptions} */
 const common = {
   bundle: true,
@@ -35,7 +60,7 @@ const common = {
 };
 
 /** @type {import('esbuild').BuildOptions} */
-const host = {
+export const host = {
   ...common,
   entryPoints: [resolve(here, "src/extension.ts")],
   outfile: resolve(here, "dist/extension.cjs"),
@@ -49,7 +74,7 @@ const host = {
 };
 
 /** @type {import('esbuild').BuildOptions} */
-const web = {
+export const web = {
   ...common,
   entryPoints: [resolve(here, "src/webview/main.ts")],
   outfile: resolve(here, "dist/webview.js"),
@@ -62,13 +87,17 @@ const web = {
   // renderWebviewHtml allows fonts from cspSource, and dist/ is the webview's resource root.
   loader: { ".woff2": "file", ".woff": "file", ".ttf": "file" },
   assetNames: "fonts/[name]-[hash]",
+  plugins: [dataUrlImports],
 };
 
-if (watch) {
-  const ctxs = await Promise.all([esbuild.context(host), esbuild.context(web)]);
-  await Promise.all(ctxs.map((c) => c.watch()));
-  console.log("[wardley-vscode] watching …");
-} else {
-  await Promise.all([esbuild.build(host), esbuild.build(web)]);
-  console.log("[wardley-vscode] build done");
+// The options are also read by scripts/third-party-notices.mjs; only a direct run builds.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  if (watch) {
+    const ctxs = await Promise.all([esbuild.context(host), esbuild.context(web)]);
+    await Promise.all(ctxs.map((c) => c.watch()));
+    console.log("[wardley-vscode] watching …");
+  } else {
+    await Promise.all([esbuild.build(host), esbuild.build(web)]);
+    console.log("[wardley-vscode] build done");
+  }
 }

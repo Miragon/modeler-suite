@@ -48,8 +48,11 @@ export type WebviewToHost =
   | { type: "ready" }
   /** Graphical change -> apply to the document as a WorkspaceEdit. */
   | { type: "edit"; text: string }
-  /** Trigger an image export (SVG = text, PNG = Base64). */
-  | { type: "export"; format: ExportFormat; data: string }
+  /**
+   * Trigger an image export (SVG = text, PNG = Base64). `fontFallback` tells that a PNG was drawn
+   * in the system font because Geist could not be embedded: the host says so once the file is saved.
+   */
+  | { type: "export"; format: ExportFormat; data: string; fontFallback?: boolean }
   /** The problems pill was activated -> open the Problems view. */
   | { type: "showProblems" }
   /** "Insert example" of the empty-file hint -> append the example as one document edit. */

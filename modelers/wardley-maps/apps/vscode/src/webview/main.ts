@@ -11,14 +11,12 @@ import {
   createAxisLabelsPopover,
   createCollaborativeModeler,
   createMapSizePopover,
-  createShortcutsDialog,
   isWardleyShape,
   mapMenu,
-  svgToPng,
+  mapShortcuts,
   type CollaborativeWardleyModeler,
   type LabelDeduplicatedEvent,
   type Modeler,
-  type SvgToPngOptions,
   type WardleyReadOnly,
 } from "@miragon/wardley-renderer";
 import { patchDSL } from "@miragon/wardley-dsl";
@@ -31,6 +29,7 @@ import {
   shellModule,
   type DiagramJsConnection,
 } from "@miragon/modeler-shell/diagram-js";
+import { svgToPng } from "@miragon/modeler-shell/export";
 import {
   mountVsCodeShell,
   persistView,
@@ -38,12 +37,13 @@ import {
 } from "@miragon/modeler-shell/vscode/webview";
 import {
   isWebviewCommand,
-  type ExportFormat,
   type HostToWebview,
   type WebviewCommand,
   type WebviewToHost,
 } from "../protocol.js";
 import { WEBVIEW_THEMES } from "../themes.js";
+import { GEIST_FACES } from "./geist-faces.js";
+import { PNG_EXPORT_FAILED, pngExportOptions, type PngFormat } from "./png-export.js";
 
 interface VsCodeApi {
   postMessage(message: WebviewToHost): void;
@@ -93,17 +93,15 @@ const shell: ShellHandle = mountVsCodeShell(app, {
       svg: { onSelect: () => void exportSvg() },
       transparentPng: { onSelect: () => void exportPngTransparent() },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    showKeyboardShortcuts: () => shell.showShortcutsDialog(mapShortcuts(shell)),
   }),
   problems: { onActivate: () => post({ type: "showProblems" }) },
   emptyHint: { onInsertExample: () => post({ type: "insertExample" }) },
 });
 // The modeler's own content in the shell root; it goes with the diagram.
-const shortcutsDialog = createShortcutsDialog(shell);
 const mapSizePopover = createMapSizePopover(shell, modeler);
 const axisLabelsPopover = createAxisLabelsPopover(shell, modeler);
 modeler.on("diagram.destroy", () => {
-  shortcutsDialog.destroy();
   mapSizePopover.destroy();
   axisLabelsPopover.destroy();
 });
@@ -244,19 +242,31 @@ async function exportSvg(): Promise<void> {
   }
 }
 
-async function exportRaster(format: ExportFormat, options: SvgToPngOptions): Promise<void> {
+async function exportRaster(format: PngFormat): Promise<void> {
   try {
     const { svg } = await modeler.saveSVG();
-    post({ type: "export", format, data: await blobToBase64(await svgToPng(svg, options)) });
+    let fontFallback = false;
+    const png = await svgToPng(
+      svg,
+      pngExportOptions(format, GEIST_FACES, () => {
+        fontFallback = true;
+      }),
+    );
+    post({
+      type: "export",
+      format,
+      data: await blobToBase64(png),
+      ...(fontFallback ? { fontFallback } : {}),
+    });
   } catch (error) {
-    post({ type: "error", message: `Could not export the map as PNG: ${messageOf(error)}` });
+    console.error("Wardley PNG export failed", error);
+    post({ type: "error", message: PNG_EXPORT_FAILED });
   }
 }
 
-const exportPng = (): Promise<void> => exportRaster("png", {});
-/** Four times the size, without the paper (slides, documents), as in the web app. */
-const exportPngTransparent = (): Promise<void> =>
-  exportRaster("png-transparent", { scale: 4, transparent: true });
+const exportPng = (): Promise<void> => exportRaster("png");
+/** Four times the size, without the plot's background (slides, documents), as in the web app. */
+const exportPngTransparent = (): Promise<void> => exportRaster("png-transparent");
 
 // ---------------------------------------------------------------------------
 // Messages from the extension host

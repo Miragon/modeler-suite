@@ -1,5 +1,6 @@
 import { COLORS } from "../draw/styles.js";
 
+/** @deprecated Since 0.14.0, removed in 0.15.0 (#258), with `svgToPng`. */
 export interface SvgToPngOptions {
   /**
    * Pixel density factor relative to the SVG's own size (default 2). Lowered automatically where
@@ -23,6 +24,11 @@ const MAX_CANVAS_AREA = 2 ** 27;
 /**
  * Rasterizes a standalone SVG (e.g. from `saveSVG()`) into a PNG picture. Browser-only: needs
  * `Image`, `<canvas>` and object URLs. The PNG carries no embedded map source.
+ *
+ * @deprecated Since 0.14.0, removed in 0.15.0 (#258). Use `svgToPng` of
+ * `@miragon/modeler-shell/export`: it embeds Geist, loads a data: URL (a blob: URL is refused under
+ * some content security policies) and fills the background the caller names, `--cd-ui-plot` for a
+ * map (guide §10.7), where this one fills `COLORS.paper`.
  */
 export async function svgToPng(svg: string, options: SvgToPngOptions = {}): Promise<Blob> {
   const scale = options.scale ?? 2;

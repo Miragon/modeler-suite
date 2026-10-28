@@ -51,6 +51,23 @@ host ([`apps/webapp/src/main.ts`](apps/webapp/src/main.ts)); the shell's conform
 against both, in the `vscode-webview` Playwright project (`e2e/tests/vscode/`) and in the `webapp`
 project (`e2e/tests/webapp-shell-conformance.spec.ts`).
 
+Both apps hand the shell the dialogs and the PNG: Help › Keyboard shortcuts… opens
+`shell.showShortcutsDialog(mapShortcuts(shell, …))` (the renderer's groups as data; the shell adds
+the chrome's zoom keys), and the PNG exports go through `svgToPng` of `@miragon/modeler-shell/export`
+on `COLORS.plotBackground`, the `--cd-ui-plot` role a notation with a plot lies on (guide §10.7,
+pinned by `theme.sync.test.ts`; the 4× variant is `"transparent"`). The web app lets the shell read
+Geist from its stylesheets and shows a warning toast when the labels fell back to the system font;
+the webview's CSP and stylesheet keep its font files out of reach, so
+[`geist-faces.ts`](apps/vscode/src/webview/geist-faces.ts) imports every subset (upright and
+italic) with `?dataurl`, which the `dataurl-imports` plugin of
+[`esbuild.config.mjs`](apps/vscode/esbuild.config.mjs) (also read by
+`scripts/third-party-notices.mjs`) and of the e2e page's
+[`vite.config.ts`](e2e/webview/vite.config.ts) inline, and a fallback reaches the host as
+`fontFallback` on the `export` message, which then warns instead of confirming. Both apps show their
+own text when a PNG fails (guide §2), never the rasteriser's message. The renderer's
+`createShortcutsDialog` and `svgToPng` stay exported for designIQ, deprecated since 0.14.0 and
+removed in 0.15.0 ([#258](https://github.com/Miragon/modeler-suite/issues/258)); no app uses them.
+
 ## Commands
 
 - `npm run wardley-maps build`: all packages; the unit tests resolve the workspace packages from
