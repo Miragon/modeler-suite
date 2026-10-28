@@ -32,6 +32,12 @@ release), every API name the skill mentions against the packages' exports, every
 and marketplace manifests, and a type check of the template's TypeScript against the current
 sources.
 
+A second one
+([`test/new-modeler-node-range.test.ts`](https://github.com/Miragon/modeler-suite/blob/main/test/new-modeler-node-range.test.ts))
+keeps the template on the suite's Node range: its `engines`, the floor its CI installs, and every
+third-party pin, whose own `engines.node` must accept both floors of the range. A pin may stay
+behind the version the suite installs, but never run ahead of it.
+
 The plugin has no `version`, neither in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json)
 nor in its marketplace entry ([`.claude-plugin/marketplace.json`](https://github.com/Miragon/modeler-suite/blob/main/.claude-plugin/marketplace.json)),
 and the drift test keeps it that way. Claude Code then versions it by the commit of this

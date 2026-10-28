@@ -380,6 +380,18 @@ the scope `plugin` (`feat(plugin): …`, `fix(plugin): …`).
   its `engines.vscode` lookup, taken from the workflow files, with bash, `jq` and git against sample
   results and sample diffs (non-ASCII, quoted and moved paths included). `yaml` is a root
   devDependency for reading the workflows and the skills' frontmatter.
+- **The template's Node range** has a drift test of its own (`test/new-modeler-node-range.test.ts`,
+  also in `npm run test:plugin`). It fails when an `engines.node` of the template differs from the
+  suite's root range, when the template's setup action installs a Node other than the floor the
+  suite's setup action picks, when the template's README.md and CLAUDE.md stop naming the range,
+  the floor CI runs and Portless's Node 24, and when a third-party pin of the template rejects a
+  floor of the range (22.22.2 or 24.15.0) in its own `engines.node`. That range is read from the
+  copy this workspace installs: the pinned version, or the closest newer one once the suite has
+  moved past it, so a Dependabot update of the suite passes while the template still pins the
+  older version. A template pin ahead of every version the suite installs fails: the suite takes
+  a version first, or in the same pull request, and the template follows. Two exceptions are
+  listed in the test with their reasons: `ovsx` (the suite runs it through `npx`, so it is not
+  installed here) and `portless` (it needs Node 24 and runs only `dev:webapp`).
 - **The template itself** builds and passes both conformance kits once instantiated: run the script
   into an empty directory outside this repository, copy the design-system files in (see the
   skill), then `npm install` and the template's checks. `claude plugin validate .` checks the
