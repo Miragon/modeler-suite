@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.12.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.11.0...wardley-renderer-v0.12.0) (2026-10-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **wardley-maps:** The viewers and both collaborative factories of the Wardley renderer no longer take the `freeRectInsets` option, deprecated since 0.9.0. Pass `freeArea: { insets }` instead, the option name of contract 1.2.
+* **wardley-maps:** The viewers and both collaborative factories of the Wardley renderer no longer take the `keyboard: { undoRedo }` option, deprecated since 0.9.0. Pass `undoRedoKeys` instead.
+* **wardley-maps:** The Wardley renderer no longer exports the 16 Material `ICON_*` chrome icons and `iconMarkup`, deprecated since 0.8.0. Take a host's chrome icons from the modeler shell instead: `ICONS` with its `iconMarkup` and `iconElement` (Lucide).
+* **wardley-maps:** `MIRAGON` of the Wardley renderer no longer has the key `navy`, deprecated since 0.11.0. The design system has no navy surface (guide §3.1), so there is no replacement colour: draw dark surfaces from the design system's `--cd-ui-*` roles instead.
+
+### Features
+
+* **wardley-maps:** remove the deprecated keyboard undoRedo option of the renderer ([ecd79e7](https://github.com/Miragon/modeler-suite/commit/ecd79e750232d36163611590de600b39346be5f6))
+* **wardley-maps:** remove the deprecated Material icon exports of the renderer ([ecd79e7](https://github.com/Miragon/modeler-suite/commit/ecd79e750232d36163611590de600b39346be5f6))
+* **wardley-maps:** remove the deprecated MIRAGON.navy of the renderer ([ecd79e7](https://github.com/Miragon/modeler-suite/commit/ecd79e750232d36163611590de600b39346be5f6))
+* **wardley-maps:** remove the deprecated renderer options, ICON_* exports and MIRAGON.navy ([#187](https://github.com/Miragon/modeler-suite/issues/187)) ([ecd79e7](https://github.com/Miragon/modeler-suite/commit/ecd79e750232d36163611590de600b39346be5f6))
+
+
+### Bug Fixes
+
+* **wardley-maps:** leave Enter and Escape on the host's controls while a draw tool is armed ([#188](https://github.com/Miragon/modeler-suite/issues/188)) ([f392f0c](https://github.com/Miragon/modeler-suite/commit/f392f0c5ea6ed4d29efce469a90599c00a79c7c6))
+
 ## [0.11.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.10.0...wardley-renderer-v0.11.0) (2026-10-25)
 
 

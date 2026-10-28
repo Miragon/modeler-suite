@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.6.0](https://github.com/Miragon/modeler-suite/compare/event-storming-renderer-v0.5.1...event-storming-renderer-v0.6.0) (2026-10-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **event-storming:** the renderer no longer accepts the deprecated `freeRectInsets` option of `Modeler` and the viewers, of `createCollaborativeModeler` / `createCollaborativeViewer` and of the palette config; pass `freeArea: { insets }`, the `@miragon/modeler-api` factory option, instead.
+* **event-storming:** `MIRAGON.navy` is removed from the renderer's `MIRAGON` palette; the design system has no navy surface and nothing in the modeler draws it, so read colours from the design system's `--cd-*` tokens or the remaining `MIRAGON` keys instead.
+* **event-storming:** the renderer no longer exports `iconMarkup` and the 16 Material Icons paths (`ICON_PERSON`, `ICON_EDIT`, `ICON_DELETE`, `ICON_UNDO`, `ICON_REDO`, `ICON_DATA_OBJECT`, `ICON_CODE`, `ICON_DOWNLOAD`, `ICON_SHARE`, `ICON_FOLDER_OPEN`, `ICON_IMAGE`, `ICON_NEW`, `ICON_MENU`, `ICON_ADD`, `ICON_FIT`, `ICON_EYE`); take chrome icons from `@miragon/modeler-shell` instead (its Lucide `iconMarkup` and icon names).
+
+### Features
+
+* **event-storming:** remove freeRectInsets, MIRAGON.navy and the Material ICON_* exports ([#186](https://github.com/Miragon/modeler-suite/issues/186)) ([69efb47](https://github.com/Miragon/modeler-suite/commit/69efb47eadf4416826d4093ce747c0d4bc6dfc16))
+* **event-storming:** remove MIRAGON.navy from the renderer's theme palette ([69efb47](https://github.com/Miragon/modeler-suite/commit/69efb47eadf4416826d4093ce747c0d4bc6dfc16))
+* **event-storming:** remove the Material ICON_* and iconMarkup exports ([69efb47](https://github.com/Miragon/modeler-suite/commit/69efb47eadf4416826d4093ce747c0d4bc6dfc16))
+
+
+### Bug Fixes
+
+* **event-storming:** leave Enter and Escape on the host's controls while a draw tool is armed ([#189](https://github.com/Miragon/modeler-suite/issues/189)) ([a5f49af](https://github.com/Miragon/modeler-suite/commit/a5f49afdde8f944333279f7a58f9fca5d1447e47))
+
 ## [0.5.1](https://github.com/Miragon/modeler-suite/compare/event-storming-renderer-v0.5.0...event-storming-renderer-v0.5.1) (2026-10-25)
 
 

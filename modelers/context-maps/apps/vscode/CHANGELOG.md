@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.10.0](https://github.com/Miragon/modeler-suite/compare/context-maps-vscode-v0.9.1...context-maps-vscode-v0.10.0) (2026-10-28)
+
+
+### Features
+
+* add New … from Example to the New File menu of every extension ([#196](https://github.com/Miragon/modeler-suite/issues/196)) ([e1d5541](https://github.com/Miragon/modeler-suite/commit/e1d55415fbab56ce8e669406efab7a6ef677563d))
+
+
+### Bug Fixes
+
+* **context-maps:** replace the map chunk of a .cm.png instead of adding a second one ([#192](https://github.com/Miragon/modeler-suite/issues/192)) ([efca56c](https://github.com/Miragon/modeler-suite/commit/efca56cdd2f3076e773beef3ce337f1175de68b1))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/context-maps-cml bumped from 0.1.6 to 0.1.7
+    * @miragon/context-maps-renderer bumped from 0.6.1 to 0.7.0
+    * @miragon/context-maps-schema-model bumped from 0.4.1 to 0.5.0
+
 ## [0.9.1](https://github.com/Miragon/modeler-suite/compare/context-maps-vscode-v0.9.0...context-maps-vscode-v0.9.1) (2026-10-25)
 
 

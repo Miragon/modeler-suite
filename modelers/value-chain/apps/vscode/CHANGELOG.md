@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/Miragon/modeler-suite/compare/value-chain-vscode-v0.7.2...value-chain-vscode-v0.8.0) (2026-10-28)
+
+
+### Features
+
+* add New … from Example to the New File menu of every extension ([#196](https://github.com/Miragon/modeler-suite/issues/196)) ([e1d5541](https://github.com/Miragon/modeler-suite/commit/e1d55415fbab56ce8e669406efab7a6ef677563d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/value-chain-renderer bumped from 0.7.2 to 0.8.0
+
 ## [0.7.2](https://github.com/Miragon/modeler-suite/compare/value-chain-vscode-v0.7.1...value-chain-vscode-v0.7.2) (2026-10-25)
 
 

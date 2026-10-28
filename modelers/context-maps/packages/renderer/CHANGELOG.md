@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.6.1...context-maps-renderer-v0.7.0) (2026-10-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **context-maps:** CmPaletteConfig, the diagram config cmPalette, has freeArea (the host's FreeArea of @miragon/modeler-api, as given) instead of freeRectInsets and freeRectCenter; read config.cmPalette.freeArea.insets() or config.cmPalette.freeArea.center() instead. Without insets, keyboard creation keeps the room of the renderer's own palette, also in a diagram composed from cmPaletteModule without a cmPalette config.
+* **context-maps:** Modeler, Viewer, NavigatedViewer, createCollaborativeModeler and createCollaborativeViewer no longer take freeRectInsets; pass freeArea: { insets } instead.
+
+### Features
+
+* **context-maps:** remove the deprecated freeRectInsets option ([dab5b03](https://github.com/Miragon/modeler-suite/commit/dab5b03ac2571baa9d0fcaa4cc85f30d8c033cb3))
+* **context-maps:** rename the palette config's freeRectInsets and freeRectCenter to freeArea ([#185](https://github.com/Miragon/modeler-suite/issues/185)) ([dab5b03](https://github.com/Miragon/modeler-suite/commit/dab5b03ac2571baa9d0fcaa4cc85f30d8c033cb3))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/context-maps-schema-model bumped from 0.4.1 to 0.5.0
+
 ## [0.6.1](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.6.0...context-maps-renderer-v0.6.1) (2026-10-25)
 
 

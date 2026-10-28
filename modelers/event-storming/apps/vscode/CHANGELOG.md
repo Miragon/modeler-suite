@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/Miragon/modeler-suite/compare/event-storming-vscode-v0.6.2...event-storming-vscode-v0.7.0) (2026-10-28)
+
+
+### Features
+
+* add New … from Example to the New File menu of every extension ([#196](https://github.com/Miragon/modeler-suite/issues/196)) ([e1d5541](https://github.com/Miragon/modeler-suite/commit/e1d55415fbab56ce8e669406efab7a6ef677563d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/event-storming-renderer bumped from 0.5.1 to 0.6.0
+
 ## [0.6.2](https://github.com/Miragon/modeler-suite/compare/event-storming-vscode-v0.6.1...event-storming-vscode-v0.6.2) (2026-10-25)
 
 

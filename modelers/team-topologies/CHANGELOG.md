@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.15.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.14.0...team-topologies-v0.15.0) (2026-10-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **team-topologies:** TtViewerOptions, CollaborativeTeamTopologiesOptions and TtPaletteConfig no longer take freeRectCenter, deprecated since 0.12; pass freeArea: { center } instead, which already won when a host passed both.
+* **team-topologies:** the renderer no longer exports ICON_MENU, ICON_PLUS, ICON_MINUS, ICON_MAXIMIZE, ICON_DOWNLOAD and ICON_X; take the icons of a host's chrome from @miragon/modeler-shell (its ICONS and iconMarkup have menu, plus, minus, maximize and x) and Lucide's download from lucide-static. The canvas icons and iconMarkup stay.
+* **team-topologies:** Viewer, NavigatedViewer and Modeler no longer have fitToView(); importDocument fits the diagram unless it gets fit: false, a host on the modeler shell fits through the shell's viewport, and any other host fits on demand with get("canvas").zoom("fit-viewport"), which keeps the undo history that a second import resets but leaves no strip free under the palette.
+* **team-topologies:** Viewer, NavigatedViewer and Modeler no longer have setMeta(); a Modeler renames the diagram with get("ttModeling").setTitle(title), one undo step, and a Viewer or NavigatedViewer, which has no ttModeling, takes a new title with importDocument({ ...exportDocument(), title }, { fit: false }); getMeta() still reads the title.
+* **team-topologies:** parseDocument refuses a document whose objects and arrays nest more than 100 levels deep (MAX_NESTING_DEPTH, the document counting as the first level), with an issue at the first level too deep; keep the data of unknown fields shallower than that.
+
+### Features
+
+* add New … from Example to the New File menu of every extension ([#196](https://github.com/Miragon/modeler-suite/issues/196)) ([e1d5541](https://github.com/Miragon/modeler-suite/commit/e1d55415fbab56ce8e669406efab7a6ef677563d))
+* **team-topologies:** remove fitToView from the viewers ([8207974](https://github.com/Miragon/modeler-suite/commit/82079743e93801d17567881bc2926c14133fa64e))
+* **team-topologies:** remove setMeta from the viewers ([8207974](https://github.com/Miragon/modeler-suite/commit/82079743e93801d17567881bc2926c14133fa64e))
+* **team-topologies:** remove the deprecated palette field, host-chrome icons, fitToView and setMeta, and limit document depth ([#194](https://github.com/Miragon/modeler-suite/issues/194)) ([8207974](https://github.com/Miragon/modeler-suite/commit/82079743e93801d17567881bc2926c14133fa64e))
+* **team-topologies:** stop exporting the host-chrome icons from the renderer ([8207974](https://github.com/Miragon/modeler-suite/commit/82079743e93801d17567881bc2926c14133fa64e))
+
+
+### Bug Fixes
+
+* **team-topologies:** refuse documents nested more than 100 levels deep ([8207974](https://github.com/Miragon/modeler-suite/commit/82079743e93801d17567881bc2926c14133fa64e))
+* **team-topologies:** report files too deep for the JSON tree parser in the Problems view ([8207974](https://github.com/Miragon/modeler-suite/commit/82079743e93801d17567881bc2926c14133fa64e))
+
 ## [0.14.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.13.2...team-topologies-v0.14.0) (2026-10-25)
 
 
