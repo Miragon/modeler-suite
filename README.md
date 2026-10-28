@@ -41,10 +41,11 @@ its modeler's README.
 | [`@miragon/modeler-shell`](packages/shell) | `packages/shell` | the shared chrome around diagram-js modelers (menu, palette skin, zoom panel, keys, fit, VS Code plumbing), its conformance kit and a smoke-test driver for a real VS Code (also in a Linux container), 0 runtime dependencies, [API](packages/shell/API.md) |
 
 Every renderer implements the contract and runs its conformance kit; both apps of every modeler
-mount the shell and run the shell's conformance kit. The contract's laws, the conformance kit and
-its versioning are documented in the [package README](packages/api/README.md). The plan for the
-shell, the contract roadmap and the rollout across the modelers live in
-[#4](https://github.com/Miragon/modeler-suite/issues/4).
+mount the shell and run the shell's conformance kit. The contract's laws, the conformance kit, its
+versioning and its roadmap are documented in the [package README](packages/api/README.md). The plan
+for the shell and the rollout across the modelers started in
+[#4](https://github.com/Miragon/modeler-suite/issues/4) and continue in
+[#170](https://github.com/Miragon/modeler-suite/issues/170).
 
 - [Shell implementation notes](docs/shell/implementation-notes.md): how
   `@miragon/modeler-shell` implements the chrome anatomy and the IDE-host

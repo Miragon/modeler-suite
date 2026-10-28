@@ -10,7 +10,7 @@
  * This suite runs without a DOM, which proves every other case needs none;
  * the keys case needs one and runs in keys.conformance.test.ts (jsdom).
  */
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, expectTypeOf, test, vi } from "vitest";
 
 import pkg from "../package.json" with { type: "json" };
 import {
@@ -21,10 +21,14 @@ import {
 } from "../src/conformance.js";
 import * as root from "../src/index.js";
 import {
+  type AppearanceRequest,
+  type AppearanceSurface,
+  type AppearanceTheme,
   type CollaborativeModeler,
   type CollaborativeModelerOptions,
   type DiagramPoint,
   type FreeAreaInsets,
+  type InteractionSurface,
   MODELER_API_VERSION,
 } from "../src/index.js";
 import { createReferenceModeler, type Flaws, type ReferenceModeler } from "./reference-modeler.js";
@@ -654,5 +658,68 @@ describe("the aligned factory options (a type the renderers implement — tsc ch
       o.freeArea ? ("insets" in o.freeArea ? "insets" : "center") : "none",
     );
     expect(forms).toEqual(["none", "insets", "center", "insets"]);
+  });
+});
+
+describe("the optional 1.5 surfaces (types the renderers implement, checked by tsc)", () => {
+  test("interaction reports a held gesture to its listeners and stops after the unsubscribe", () => {
+    const listeners = new Set<(active: boolean) => void>();
+    let held = false;
+    const interaction: InteractionSurface = {
+      active: () => held,
+      onChange: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    const reported: boolean[] = [];
+    const unsubscribe = interaction.onChange((active) => reported.push(active));
+    const holdGesture = (active: boolean): void => {
+      held = active;
+      for (const listener of listeners) listener(active);
+    };
+
+    holdGesture(true);
+    holdGesture(false);
+    unsubscribe();
+    holdGesture(true);
+
+    expect(reported).toEqual([true, false]);
+    expect(interaction.active()).toBe(true);
+  });
+
+  test("appearance takes light or dark with a contrast, and a host only reads its themes", () => {
+    const requests: AppearanceRequest[] = [];
+    const appearance: AppearanceSurface = {
+      themes: ["light"],
+      set: (request) => {
+        requests.push(request);
+      },
+    };
+    const modelers: Array<Pick<CollaborativeModeler, "interaction" | "appearance">> = [
+      {},
+      { appearance },
+    ];
+
+    appearance.set({ theme: "dark" });
+    appearance.set({ theme: "dark", contrast: "high" });
+    appearance.set({ theme: "light", contrast: "normal" });
+    // @ts-expect-error the contract spells high contrast "high"; "hoch" is the guide's attribute value
+    appearance.set({ theme: "light", contrast: "hoch" });
+    // @ts-expect-error a modeler draws light or dark; following the system is the host's decision
+    appearance.set({ theme: "system" });
+
+    expectTypeOf<AppearanceSurface["themes"]>().toEqualTypeOf<readonly AppearanceTheme[]>();
+    expect(requests.map((request) => request.theme)).toEqual([
+      "dark",
+      "dark",
+      "light",
+      "light",
+      "system",
+    ]);
+    expect(modelers.map((modeler) => modeler.appearance?.themes ?? ["light"])).toEqual([
+      ["light"],
+      ["light"],
+    ]);
   });
 });
