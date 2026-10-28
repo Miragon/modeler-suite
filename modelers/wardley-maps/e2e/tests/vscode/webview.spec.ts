@@ -1,8 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ICONS, type ShellIconName } from "@miragon/modeler-shell";
-import { EMPTY_MAP, withExampleInserted } from "../../../apps/vscode/src/examples.js";
+import { EMPTY_MAP, EXAMPLE_MAP, withExampleInserted } from "../../../apps/vscode/src/examples.js";
 import { FIT_TOLERANCE, LONG_NAME_DRAWING, LONG_NAME_MAP, overhang } from "../support/fit.js";
 import { PAPER_BACKGROUND, PLOT_BACKGROUND, cornerPixel } from "../support/png.js";
+import { recordSvgImages, recordedSvgImages } from "../support/svg-images.js";
+import { embeddedGeistFaces, geistFace, type GeistStyle } from "./support/geist.js";
 import {
   WIDE,
   openShippedWebview,
@@ -26,6 +28,26 @@ async function openMenu(page: Page): Promise<Locator> {
   await expect(dropdown).toBeVisible();
   return dropdown;
 }
+
+/**
+ * The example with a label for each Geist subset besides latin: Russian, Tatar (ә is Cyrillic
+ * Extended), Vietnamese (ữ) and Polish (Ł is Latin Extended).
+ */
+const TEA_IN_EVERY_GEIST_SUBSET = `${EXAMPLE_MAP}component Чай [0.2, 0.2]
+component Чәй [0.2, 0.35]
+component Trà sữa [0.3, 0.2]
+component Herbata z Łodzi [0.3, 0.45]
+`;
+
+/** The order of the webview's Geist stylesheets, upright before italic, latin last in each. */
+const GEIST_SUBSETS_IN_STYLESHEET_ORDER = [
+  "cyrillic-ext",
+  "cyrillic",
+  "vietnamese",
+  "latin-ext",
+  "latin",
+];
+const GEIST_STYLES: readonly GeistStyle[] = ["normal", "italic"];
 
 function countOf(messages: readonly PostedMessage[], type: string): number {
   return messages.filter((message) => message.type === type).length;
@@ -348,6 +370,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
   test("the PNG lies on the plot role of the tokens (§10.7), the 4x variant on nothing", async ({
     page,
   }) => {
+    await recordSvgImages(page);
     await openWebview(page);
     await postFromHost(page, { type: "command", name: "exportPng" });
     await postFromHost(page, { type: "command", name: "exportPngTransparent" });
@@ -363,9 +386,20 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(corner).not.toEqual(PAPER_BACKGROUND);
     expect((await cornerPixel(page, pngOf("png-transparent")))[3]).toBe(0);
     for (const message of exported) expect(message).not.toHaveProperty("fontFallback");
+
+    // The labels are Latin, the axis captions italic: both PNGs need Geist's latin subset in both
+    // styles, each from its own file.
+    const drawn = await recordedSvgImages(page);
+    expect(drawn).toHaveLength(2);
+    for (const svg of drawn) {
+      expect(embeddedGeistFaces(svg)).toEqual([
+        geistFace("latin", "normal"),
+        geistFace("latin", "italic"),
+      ]);
+    }
   });
 
-  test("the shipped bundle draws the PNG under the webview's CSP, with its Geist inline", async ({
+  test("the shipped bundle draws the PNG under the webview's CSP, with every Geist subset inline", async ({
     page,
   }) => {
     test.setTimeout(90_000);
@@ -373,7 +407,10 @@ test.describe("VS Code webview: protocol and chrome", () => {
     page.on("console", (message) => {
       if (/Content Security Policy|violates/i.test(message.text())) blocked.push(message.text());
     });
+    await recordSvgImages(page);
     await openShippedWebview(page, { size: WIDE, requested: { theme: "light" } });
+    await postFromHost(page, { type: "update", text: TEA_IN_EVERY_GEIST_SUBSET });
+    await expect(page.locator(".cd-shell-canvas text", { hasText: "Чәй" }).first()).toBeVisible();
 
     await postFromHost(page, { type: "command", name: "exportPng" });
 
@@ -384,6 +421,14 @@ test.describe("VS Code webview: protocol and chrome", () => {
       PLOT_BACKGROUND,
     );
     expect(blocked).toEqual([]);
+
+    const drawn = await recordedSvgImages(page);
+    expect(drawn).toHaveLength(1);
+    expect(embeddedGeistFaces(drawn[0]!)).toEqual(
+      GEIST_STYLES.flatMap((style) =>
+        GEIST_SUBSETS_IN_STYLESHEET_ORDER.map((subset) => geistFace(subset, style)),
+      ),
+    );
   });
 
   test("a PNG that can't be drawn posts the app's own text, never the rasteriser's", async ({
