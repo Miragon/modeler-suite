@@ -1297,6 +1297,38 @@ describe("focusHandBackProblems", () => {
   });
 });
 
+describe("focusHandBackProblems for the primary action (guide §5.7)", () => {
+  const onCanvas = { focused: "svg", canvas: true, control: false };
+  const onButton = {
+    focused: 'button.cd-shell-primary[data-chrome="primary"]',
+    canvas: false,
+    control: true,
+  };
+  const control = 'the primary action "Share"';
+
+  it("accepts the canvas after a pointer click and the button after Enter or Space", () => {
+    expect(
+      focusHandBackProblems([
+        { control, by: "pointer", focus: onCanvas, primaryAction: true },
+        { control, by: "Enter", focus: onButton, primaryAction: true },
+        { control, by: "Space", focus: onButton, primaryAction: true },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("reports a click that keeps the focus on the button, and a key that moves it", () => {
+    expect(
+      focusHandBackProblems([
+        { control, by: "pointer", focus: onButton, primaryAction: true },
+        { control, by: "Enter", focus: onCanvas, primaryAction: true },
+      ]),
+    ).toEqual([
+      'focus: after a click on the primary action "Share" the focus is on button.cd-shell-primary[data-chrome="primary"], expected the canvas <svg>, so its keys act at once (guide §5.7, §5.8)',
+      'focus: after Enter on the primary action "Share" the focus is on svg, expected it to stay on the primary action "Share", so the next press acts again (guide §5.7, §5.8)',
+    ]);
+  });
+});
+
 describe("isCanvasMenuAction", () => {
   const entry = (overrides: Partial<MenuEntryFacts>): MenuEntryFacts => ({
     name: "New diagram",

@@ -238,7 +238,13 @@ function renderShell(
 
   const primary =
     web && options.primary
-      ? createPrimaryAction({ ownerDocument, messages, tooltip, options: options.primary })
+      ? createPrimaryAction({
+          ownerDocument,
+          messages,
+          tooltip,
+          options: options.primary,
+          focusCanvas,
+        })
       : undefined;
   if (primary) ledger.defer(() => primary.destroy());
 

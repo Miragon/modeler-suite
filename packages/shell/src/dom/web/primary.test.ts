@@ -19,11 +19,13 @@ function setup(options: Partial<PrimaryActionOptions> = {}) {
   document.body.append(root);
   const tooltip = createTooltip({ root, layer, id: "tooltip" });
   const onSelect = vi.fn();
+  const focusCanvas = vi.fn();
   const primary = createPrimaryAction({
     ownerDocument: document,
     messages: defaultMessages,
     tooltip,
     options: { onSelect, ...options },
+    focusCanvas,
   });
   root.prepend(primary.element);
   const label = primary.element.querySelector<HTMLElement>(".cd-shell-primary-label")!;
@@ -32,7 +34,7 @@ function setup(options: Partial<PrimaryActionOptions> = {}) {
     configurable: true,
     get: () => (label.hidden ? 40 : LABELLED_WIDTH),
   });
-  return { primary, tooltip, label, onSelect };
+  return { primary, tooltip, label, onSelect, focusCanvas };
 }
 
 function hover(element: HTMLElement): void {
@@ -67,6 +69,30 @@ describe("primary action (guide §5.7)", () => {
     const { primary, onSelect } = setup();
     primary.element.click();
     expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands the focus to the canvas before onSelect runs after a pointer click (guide §5.7)", () => {
+    const calls: string[] = [];
+    const { primary, onSelect, focusCanvas } = setup();
+    focusCanvas.mockImplementation(() => calls.push("focus"));
+    onSelect.mockImplementation(() => calls.push("select"));
+    primary.element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    expect(calls).toEqual(["focus", "select"]);
+  });
+
+  it("leaves the focus on the button after Enter or Space, which click with detail 0", () => {
+    const { primary, onSelect, focusCanvas } = setup();
+    primary.element.click();
+    primary.element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 0 }));
+    expect(onSelect).toHaveBeenCalledTimes(2);
+    expect(focusCanvas).not.toHaveBeenCalled();
+  });
+
+  it("hands the focus back after a pointer click while disabled too, which runs nothing", () => {
+    const { primary, onSelect, focusCanvas } = setup({ disabled: () => true });
+    primary.element.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    expect(focusCanvas).toHaveBeenCalledTimes(1);
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
   it("collapses to its icon and keeps the aria-label (guide §5.15)", () => {

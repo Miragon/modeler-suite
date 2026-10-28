@@ -82,9 +82,9 @@ navigator.platform`), never `process.platform`, which names the remote machine u
 
 ## Focus
 
-- A pointer click (`event.detail >= 1`) on the zoom panel, a palette entry or a File/Model menu
-  action hands the focus to the canvas (`canvas.focus()`), so Delete and the arrows act at once.
-  Enter and Space leave it on the control.
+- A pointer click (`event.detail >= 1`) on the zoom panel, a palette entry, a File/Model menu
+  action or Share hands the focus to the canvas (`canvas.focus()`), so Delete and the arrows act at
+  once. Enter and Space leave it on the control.
 - WebKit and Firefox on macOS do not focus a clicked button: never wait for the clicked control to
   hold the focus before handing it on.
 - When an island hides while it holds the focus, move the focus first, or it falls to `<body>`.

@@ -15,12 +15,11 @@ import {
 
 /**
  * The canvas keys act only while the canvas `<svg>` has the focus. Under Safari's click model
- * (support/safari.ts) a click on zoom in or zoom out hands the focus to the canvas (guide §5.8), so
- * Cmd/Ctrl+Z and C act at once. A dialog of the menu returns the focus to the menu trigger (§5.4)
- * and Share, the primary action, keeps the focus handling of a button (the shell's API.md, "Focus
- * after a pointer click"), so for them the spec checks where the focus went and that the keys act
- * once a click on the canvas has given it the focus back. Every project clicks that way;
- * `webapp-webkit` runs this spec in WebKit itself.
+ * (support/safari.ts) a click on zoom in, zoom out or Share hands the focus to the canvas (guide
+ * §5.8, §5.7), so Cmd/Ctrl+Z and C act at once; Enter on Share leaves it on the button. A dialog of
+ * the menu returns the focus to the menu trigger (§5.4), so for it the spec checks where the focus
+ * went and that the keys act once a click on the canvas has given it the focus back. Every project
+ * clicks that way; `webapp-webkit` runs this spec in WebKit itself.
  */
 
 /** An empty spot of the Porter example, right of its organizational unit, in diagram coordinates. */
@@ -81,12 +80,10 @@ const HAND_BACK_CASES: readonly HandBackCase[] = [
     },
   },
   {
-    name: "a click on Share (the focus off the canvas) and a click on the canvas",
+    name: "a click on Share",
     async run(page) {
       await page.locator('[data-chrome="primary"]').click();
       await expect(toast(page, "Link copied")).toBeVisible();
-      await expect(canvas(page)).not.toBeFocused();
-      await clickEmptySpot(page);
     },
   },
 ];
@@ -96,6 +93,15 @@ test.beforeEach(async ({ page, context, browserName }) => {
   await allowClipboardWrite(context, browserName);
   await openApp(page);
   await openExample(page);
+});
+
+test("Enter on Share leaves the focus on the button", async ({ page }) => {
+  const share = page.locator('[data-chrome="primary"]');
+  await share.focus();
+  await page.keyboard.press("Enter");
+  await expect(toast(page, "Link copied")).toBeVisible();
+  await expect(share).toBeFocused();
+  await expect(canvas(page)).not.toBeFocused();
 });
 
 for (const handBack of HAND_BACK_CASES) {

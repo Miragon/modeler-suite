@@ -843,10 +843,44 @@ async function menuActionSteps(
 }
 
 /**
- * Guide §5.8: a pointer click on each zoom control, on a palette tool and on a File or Model action
- * without a dialog leaves the focus on the canvas `<svg>`; Enter and Space on zoom in leave it on the
- * button, Enter on the menu entry returns it to the trigger (§5.4). Each zoom control gets the focus
- * by script first, so a click that keeps it shows as "stays on the control" in every engine.
+ * The web app's primary action, when it shows one: a pointer click hands the focus to the canvas,
+ * Enter and Space leave it on the button (guide §5.7). It gets the focus by script first, so a click
+ * that keeps it shows as "stays on the control" in every engine. Its handler is the modeler's own,
+ * so the kit runs it last: a toast it raises changes nothing the other steps measure.
+ */
+async function primaryActionSteps(
+  page: PageLike,
+  root: string,
+): Promise<{ steps: FocusHandBackStep[]; problems: string[] }> {
+  const primary = await findTarget(page, root, "primary");
+  if (!primary) return { steps: [], problems: [] };
+  const control = `the primary action "${primary.label}"`;
+  const selector = CHROME_TARGET_SELECTORS.primary;
+  const steps: FocusHandBackStep[] = [];
+  const problems: string[] = [];
+  const focusAfter = () => inPage(page, focusPlaceProbe, { root, selector });
+  if (await focusTarget(page, root, "primary")) {
+    await page.mouse.click(primary.client.x, primary.client.y);
+    await settle(page);
+    steps.push({ control, by: "pointer", focus: await focusAfter(), primaryAction: true });
+  } else {
+    problems.push(`focus: ${control} is not visible or cannot take the focus`);
+  }
+  for (const key of ["Enter", "Space"] as const) {
+    if (!(await focusTarget(page, root, "primary"))) break;
+    await page.keyboard.press(key);
+    await settle(page);
+    steps.push({ control, by: key, focus: await focusAfter(), primaryAction: true });
+  }
+  return { steps, problems };
+}
+
+/**
+ * Guide §5.8: a pointer click on each zoom control, on a palette tool, on a File or Model action
+ * without a dialog and, in the web host, on the primary action leaves the focus on the canvas
+ * `<svg>`; Enter and Space on zoom in and on the primary action leave it on the button, Enter on the
+ * menu entry returns it to the trigger (§5.4). Each zoom control gets the focus by script first, so
+ * a click that keeps it shows as "stays on the control" in every engine.
  */
 const focusHandBackCase: ShellConformanceCase = {
   name: "focusHandBack",
@@ -913,6 +947,11 @@ const focusHandBackCase: ShellConformanceCase = {
         reason:
           'the menu has no File or Model action without a dialog: the focus after a click on a menu entry was not verified (absent: ["canvasMenuAction"] for a modeler without one)',
       });
+    }
+    if (harness.host === "web") {
+      const primary = await primaryActionSteps(page, root);
+      steps.push(...primary.steps);
+      problems.push(...primary.problems);
     }
     await page.mouse.move(PARK.x, PARK.y);
     problems.push(...focusHandBackProblems(steps));

@@ -999,14 +999,16 @@ interface StatusMessage {
   while `canFit()` is false.
 - Focus after a pointer click (0.2.2, guide §5.8 since design system 1.14.0): a click with mouse,
   pen or finger (`detail` ≥ 1) on a zoom button (also one at its limit), on a palette entry (also a
-  `dragstart` from it, also a vetoed one) or on an `action` entry of the File or Model group hands
-  the focus to the canvas through the zoom target's `focus()`, so the canvas's keys (Delete, the
-  arrows, undo) act at once. Open… and Import… are such actions unless `FileMenuAction.dialog` is
-  set: the browser's file picker is no dialog in the modeler, and the file picked there shows on the
-  canvas. Enter and Space (`detail` 0, the palette's synthetic click included) leave the focus on
-  the control. Export and Help actions, `dialog` entries, the menu trigger, the pill and the primary
-  action keep their focus handling. A zoom target without `focus` (a host without the diagram-js
-  adapter) leaves the focus where the click put it; a menu action then returns it to the trigger.
+  `dragstart` from it, also a vetoed one), on an `action` entry of the File or Model group or, in
+  the web host, on the primary action (guide §5.7 since design system 1.27.0, also while it is
+  `aria-disabled`) hands the focus to the canvas through the zoom target's `focus()`, so the
+  canvas's keys (Delete, the arrows, undo) act at once. Open… and Import… are such actions unless
+  `FileMenuAction.dialog` is set: the browser's file picker is no dialog in the modeler, and the
+  file picked there shows on the canvas. Enter and Space (`detail` 0, the palette's synthetic click
+  included) leave the focus on the control. Export and Help actions, `dialog` entries, the menu
+  trigger and the pill keep their focus handling. A zoom target without `focus` (a host without the
+  diagram-js adapter) leaves the focus where the click put it; a menu action then returns it to the
+  trigger.
 - `fitInsets()` is `fitInsets(layout)` of `./core` for what is open and measured right now (palette
   row, pill, legend width, side inspector or measured sheet top).
 - `registerPalette` is the adapter's API (`connectDiagramJs` calls it, possibly from inside
@@ -1406,7 +1408,16 @@ function decideTopRow(input: TopRowInput): TopRow;
   The labelled width is measured afresh while the label shows (a late web font counts) and, while
   collapsed, in one synchronous layout with the label that is never painted.
 - `disabled()` maps to `aria-disabled` (read on mount and on `primary.refresh()`); a click on a
-  disabled primary action does nothing.
+  disabled primary action runs no `onSelect` (a pointer click still hands the focus to the
+  canvas, see Focus).
+- **Focus** (guide §5.7, §5.8 since design system 1.27.0): a pointer click (`detail` ≥ 1) hands the
+  focus to the canvas through the zoom target's `focus()` before `onSelect` runs, like the zoom
+  panel and the File and Model actions, so the canvas's keys (Delete, the arrows, undo) act at once
+  and a dialog that `onSelect` opens gives the focus back to the canvas. This holds in Safari too,
+  where the click finds `<body>` focused. Enter and Space (`detail` 0) leave the focus on the
+  button. In shell 0.7.0 and before the button kept the focus a browser gave it after a click: on
+  the button in Chromium and Firefox on Windows and Linux, on `<body>` in Safari. A host that
+  relied on that, or on `onSelect` reading `document.activeElement`, now finds the canvas.
 - One primary action in 0.2; the further actions "links daneben mit 8px Lücke" (§5.7) are a later
   candidate. Hidden on the start screen, never locked by `setReadOnly`.
 
@@ -2656,9 +2667,9 @@ hosts it applies to it asserts that nothing of it shows and passes.
 **0.2.2, the focus hand-back.** One case joins after `keys` (`createBaseCases`) and runs in every
 host:
 
-| Case            | Checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `focusHandBack` | §5.8: each zoom control (zoom in, zoom out, the readout, Fit) focused by script, then clicked with the pointer, and a palette tool (`lasso-tool`, else the first enabled tool, Escape afterwards) clicked: the focus is on the canvas `<svg>` (`.djs-container > svg`) or inside it; Enter and then Space on the focused zoom in: the focus stays on the button. Every visible zoom control is required. Since 0.4, §5.4: the first File or Model `menuitem` that opens no dialog (no `aria-haspopup="dialog"`, not `aria-disabled`, not `data-danger`) clicked with the pointer: the focus is on the canvas; focused in the open menu and activated with Enter: the focus is on the menu trigger. Without such an entry it skips with `hook: "open"`, unless `absent` lists `"canvasMenuAction"` |
+| Case            | Checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `focusHandBack` | §5.8: each zoom control (zoom in, zoom out, the readout, Fit) focused by script, then clicked with the pointer, and a palette tool (`lasso-tool`, else the first enabled tool, Escape afterwards) clicked: the focus is on the canvas `<svg>` (`.djs-container > svg`) or inside it; Enter and then Space on the focused zoom in: the focus stays on the button. Every visible zoom control is required. Since the release after 0.7.0 (guide §5.7 since design system 1.27.0), in the web host: the primary action focused by script, then clicked with the pointer: the focus is on the canvas; Enter and then Space on it: the focus stays on the button. Without a visible primary action the step is left out. Since 0.4, §5.4: the first File or Model `menuitem` that opens no dialog (no `aria-haspopup="dialog"`, not `aria-disabled`, not `data-danger`) clicked with the pointer: the focus is on the canvas; focused in the open menu and activated with Enter: the focus is on the menu trigger. Without such an entry it skips with `hook: "open"`, unless `absent` lists `"canvasMenuAction"` |
 
 **0.4, the label editor over the shell's view changes** (after 0.5.0: Cmd/Ctrl+Plus once more
 when the view stands at exactly 100 %). One case joins after `create` (`createBaseCases`) and runs

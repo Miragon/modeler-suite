@@ -1,5 +1,5 @@
 import { SHELL, type PrimaryWidths, type ShellMessages } from "../../core/index.js";
-import { createElement, toggleAttribute } from "../element.js";
+import { createElement, isPointerClick, toggleAttribute } from "../element.js";
 import { iconElement } from "../icons.js";
 import type { TooltipController } from "../tooltip.js";
 import type { PrimaryActionHandle, PrimaryActionOptions } from "../types.js";
@@ -9,6 +9,8 @@ export interface PrimaryActionContext {
   messages: ShellMessages;
   tooltip: TooltipController;
   options: PrimaryActionOptions;
+  /** After a pointer click on the button: hands the focus to the canvas (guide §5.7, §5.8). */
+  focusCanvas(): void;
 }
 
 export interface PrimaryActionController extends PrimaryActionHandle {
@@ -33,7 +35,7 @@ const COLLAPSED_ATTRIBUTE = "data-collapsed";
  * label (no `aria-describedby`, it repeats the name). `disabled()` → `aria-disabled`, no action.
  */
 export function createPrimaryAction(context: PrimaryActionContext): PrimaryActionController {
-  const { ownerDocument, messages, tooltip, options } = context;
+  const { ownerDocument, messages, tooltip, options, focusCanvas } = context;
   const label = options.label ?? messages.share;
   const labelElement = createElement(
     ownerDocument,
@@ -88,6 +90,9 @@ export function createPrimaryAction(context: PrimaryActionContext): PrimaryActio
   }
 
   const onClick = (event: MouseEvent): void => {
+    // Before onSelect, so a dialog it opens gives the focus back to the canvas. Enter and Space
+    // (detail 0) keep the keyboard user on the button.
+    if (isPointerClick(event)) focusCanvas();
     if (disabled) {
       event.preventDefault();
       return;
