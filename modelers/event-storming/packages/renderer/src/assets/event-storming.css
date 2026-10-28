@@ -484,6 +484,156 @@
   }
 }
 
+/* "Aggregates…" (aggregates/table.ts, issue #116): the table in the body of the shell's dialog
+   (guide §8), 13px like every table there, a row group per aggregate whose header cell spans its
+   lines, the groups apart by 1px --cd-ui-linie as the shortcuts dialog's rows (§5.4). Every name
+   is a ghost button (§8) as dense as a context-pad entry (28px); its focus ring lies inside on the
+   hover fill, since the body scrolls (§8, §5.14). The rules set what a host page's element styles
+   (table, th, ul, button) would change, as the shell's dialog rules do; the shell's dialog keeps
+   its own high-contrast, forced-colours and reduced-motion rules for the rest. */
+.event-storming-aggregates .event-storming-aggregates-hint {
+  margin: 0 0 8px;
+  padding: 0;
+  color: var(--cd-ui-text-leise);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Alone in the body once the board lost its last aggregate: body text (guide §8). */
+.event-storming-aggregates .event-storming-aggregates-empty {
+  margin: 0;
+  padding: 0;
+  color: var(--cd-ui-text);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.event-storming-aggregates .event-storming-aggregates-table {
+  width: 100%;
+  margin: 0;
+  table-layout: fixed;
+  color: var(--cd-ui-text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  background: transparent;
+  border: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.event-storming-aggregates .event-storming-aggregates-heading,
+.event-storming-aggregates .event-storming-aggregates-cell {
+  padding: 2px 12px 2px 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: normal;
+  text-align: start;
+  text-transform: none;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  background: transparent;
+  border: 0;
+}
+
+.event-storming-aggregates .event-storming-aggregates-heading {
+  padding-bottom: 4px;
+  color: var(--cd-ui-text-leise);
+  font-weight: 600;
+  border-bottom: 1px solid var(--cd-ui-linie);
+}
+
+.event-storming-aggregates .event-storming-aggregates-heading:last-child,
+.event-storming-aggregates .event-storming-aggregates-events {
+  padding-right: 0;
+}
+
+.event-storming-aggregates .event-storming-aggregates-aggregate {
+  font-weight: 600;
+}
+
+.event-storming-aggregates .event-storming-aggregates-group > tr:first-child > * {
+  padding-top: 6px;
+}
+
+.event-storming-aggregates .event-storming-aggregates-group > tr:last-child > * {
+  padding-bottom: 6px;
+}
+
+.event-storming-aggregates
+  .event-storming-aggregates-group
+  + .event-storming-aggregates-group
+  > tr:first-child
+  > * {
+  border-top: 1px solid var(--cd-ui-linie);
+}
+
+.event-storming-aggregates .event-storming-aggregates-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event-storming-aggregates .event-storming-aggregates-item {
+  margin: 0;
+  padding: 0;
+}
+
+.event-storming-aggregates .event-storming-aggregates-entry {
+  box-sizing: border-box;
+  display: inline-block;
+  max-width: calc(100% + 8px);
+  min-height: 28px;
+  margin: 0 0 0 -8px;
+  padding: 4px 8px;
+  color: var(--cd-ui-text);
+  font: inherit;
+  letter-spacing: normal;
+  text-align: start;
+  text-transform: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  background: transparent;
+  border: 0;
+  border-radius: var(--cd-radius-sm);
+  box-shadow: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color var(--cd-motion-fast) var(--cd-ease);
+}
+
+.event-storming-aggregates .event-storming-aggregates-entry:hover {
+  background: var(--cd-ui-hover);
+}
+
+.event-storming-aggregates .event-storming-aggregates-entry:focus {
+  outline: none;
+}
+
+.event-storming-aggregates .event-storming-aggregates-entry:focus-visible {
+  background: var(--cd-ui-hover);
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: -2px;
+}
+
+.event-storming-aggregates:is([data-cd-kontrast="hoch"] *)
+  .event-storming-aggregates-entry:focus-visible {
+  outline-width: 3px;
+  outline-offset: -3px;
+}
+
+@media (forced-colors: active) {
+  .event-storming-aggregates .event-storming-aggregates-entry:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
 /* The deprecated createShortcutsDialog's "Keyboard shortcuts…" dialog (board-menu/ShortcutsDialog.ts,
    guide §5.4, §8), which the apps no longer open: the shell draws that dialog now. These rules go
    with it in 0.9.0 (issue #262). A modal <dialog> in the chrome's root; every colour is a

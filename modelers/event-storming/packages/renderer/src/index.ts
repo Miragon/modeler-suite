@@ -44,6 +44,33 @@ export {
   EventStormingSpellingVariants,
   SPELLING_VARIANT_OVERLAY,
 } from "./vocabulary/index.js";
+/* The board's aggregates with their commands and events (issue #116): the grouping of the schema
+   model, the dialog's rows as data, the table, and the service behind "Aggregates…". */
+export {
+  groupByAggregate,
+  type AggregateGroup,
+  type CommandEventPair,
+  type NamedStickies,
+} from "@miragon/event-storming-schema-model";
+export {
+  eventStormingAggregatesModule,
+  EventStormingAggregates,
+  AGGREGATES_DIALOG_CLASS,
+  AGGREGATES_DIALOG_TITLE,
+  AGGREGATES_TABLE_LABEL,
+  aggregateTableRows,
+  renderAggregateTable,
+} from "./aggregates/index.js";
+export type {
+  AggregateEntryKind,
+  AggregateTableEntry,
+  AggregateTableLine,
+  AggregateTableOptions,
+  AggregateTableRow,
+  AggregatesDialog,
+  AggregatesDialogChrome,
+  AggregatesDialogOptions,
+} from "./aggregates/index.js";
 export { eventStormingRulesModule, EventStormingRules } from "./rules/index.js";
 export { elementSnappingModule } from "./snapping/index.js";
 export { eventStormingPaletteModule } from "./palette/index.js";
@@ -78,6 +105,7 @@ export {
   createShortcutsDialog,
 } from "./board-menu/index.js";
 export type {
+  BoardAggregates,
   BoardExport,
   BoardExports,
   BoardLevels,

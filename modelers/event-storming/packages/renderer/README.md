@@ -158,6 +158,40 @@ carries them and no host's problems list them, and they hide under the read-only
 them (`unify(shape)`); `eventStormingModeling.updateLabels(changes)` renames several stickies in
 one command.
 
+### Aggregates
+
+`eventStormingAggregates` (in the `NavigatedViewer` and the `Modeler`) reads the board's aggregates
+from the canvas through `groupByAggregate` of the schema model, which the package re-exports:
+every aggregate once, however often the timeline repeats it, with the commands whose arrows lead
+into it and the domain events its arrows lead to. `rows()` gives them as the rows of a table,
+one per aggregate, each line a command and the events it leads to (`aggregateTableRows`), and
+`renderAggregateTable(body, rows, { onSelect })` draws that table into a dialog body.
+`showDialog({ container, openDialog })` opens it in a dialog of guide §8, the shell's
+`openShellDialog` passed in structurally, so the renderer never imports the shell:
+
+```ts
+import { openShellDialog } from "@miragon/modeler-shell";
+
+const aggregates = modeler.get("eventStormingAggregates");
+const menu = boardMenu({
+  // …
+  aggregates: {
+    hasAggregates: () => aggregates.hasAggregates(),
+    showAggregates: () =>
+      aggregates.showDialog({ container: shell.root, openDialog: openShellDialog }),
+  },
+});
+```
+
+`boardMenu` puts "Aggregates…" at the end of the Model group while `hasAggregates()` holds, also
+on a read-only canvas, so a host builds the menu again after every import and command
+(`shell.menu.setGroups(boardMenu(actions))`). A name in the dialog closes it, then selects its
+stickies and brings them into the part of the view the chrome leaves free (`freeArea.insets`):
+scrolled when they fit at the current zoom, else zoomed out until they do, never in. The focus
+goes to the canvas. Selecting runs no command, so neither the undo history nor the board changes.
+The open dialog follows every import and command, the focus staying on the name that had it.
+`reveal(elementIds)` selects and shows stickies the same way without the dialog.
+
 ### Collaborative hosts
 
 The package implements the collaborative-modeler contract 1.3 of

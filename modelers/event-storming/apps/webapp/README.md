@@ -9,7 +9,9 @@ and `.txt` files, and the VS Code extension's exports (PNG, SVG, the transparent
 `.storm`. A PNG draws its labels in Geist; if Geist can't be embedded, the PNG is still saved, in a
 system font, and a warning toast says so. Replacing a board offers it back ("Board replaced · Undo",
 or `Ctrl/Cmd+Z`), the tab names the board, and import findings are listed under the problems pill in
-plain words. The demo app for the `@miragon/event-storming-*` packages.
+plain words. While the board has an aggregate, "Aggregates…" in the menu lists each aggregate
+once, with the commands that lead into it and the events that follow, and a name selects its
+stickies on the board. The demo app for the `@miragon/event-storming-*` packages.
 
 **[Live demo](https://event-storming.modeler.miragon.io)**
 

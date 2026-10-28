@@ -73,6 +73,12 @@ faces, a PNG without Geist is saved with a warning (the web app's toast, the web
 hosts run the vocabulary specs (`webapp-vocabulary.spec.ts`,
 `vscode/vocabulary.spec.ts`): the label editor's suggestions with their keys, mouse and layer, the
 spelling-variant dots and "Unify spelling" as one undo step, in VS Code one edit of the document.
+Both run the aggregates specs (`webapp-aggregates.spec.ts`, `vscode/aggregates.spec.ts`):
+"Aggregates…" only while the board has an aggregate, the shell's dialog with a row group per
+aggregate, a name by click or Enter that closes it, selects and reveals its stickies and hands the
+focus to the canvas without an undo step or a change of the board (in VS Code no edit, also on the
+read-only canvas of an invalid file), Escape back to the menu trigger, the focus ring in high
+contrast and forced colours, and an update from the host that redraws the open dialog.
 
 `webapp-webkit` runs two specs only, which run in `webapp` too. `webapp-share.spec.ts` checks that
 Share calls `clipboard.write` while the click is dispatched, with a ClipboardItem whose value is a
@@ -169,14 +175,14 @@ conformance kit). Never edit or reformat them by hand.
 
 ## Monorepo map & the DOM boundary (P1)
 
-| Package                                | Purpose                                                         | DOM      |
-| -------------------------------------- | --------------------------------------------------------------- | -------- |
-| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, JSON serialization, vocabulary | DOM-free |
-| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                 | DOM-free |
-| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms       | DOM-free |
-| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export           | DOM      |
-| `apps/webapp`                          | Vite demo editor                                                | DOM      |
-| `apps/vscode`                          | VS Code custom editor for `.storm`                              | DOM      |
+| Package                                | Purpose                                                                     | DOM      |
+| -------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, JSON serialization, vocabulary, aggregates | DOM-free |
+| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                             | DOM-free |
+| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms                   | DOM-free |
+| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export                       | DOM      |
+| `apps/webapp`                          | Vite demo editor                                                            | DOM      |
+| `apps/vscode`                          | VS Code custom editor for `.storm`                                          | DOM      |
 
 **P1, the DOM boundary:** the DOM-free packages (`schema-model`, `dsl`, `transforms`) must **never**
 import `diagram-js`/DOM libraries (`tiny-svg`, `min-dom`) or use the DOM (`window`/`document`). This

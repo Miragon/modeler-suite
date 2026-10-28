@@ -6,12 +6,14 @@ import {
   boardShortcuts,
   createCollaborativeModeler,
   type BoardLevels,
+  type BoardMenuActions,
   type CollaborativeEventStormingModeler,
+  type EventStormingAggregates,
   type EventStormingReadOnly,
   type TypeCaptions,
 } from "@miragon/event-storming-renderer";
 import "@miragon/modeler-shell/shell.css";
-import type { ShellHandle } from "@miragon/modeler-shell";
+import { openShellDialog, type ShellHandle } from "@miragon/modeler-shell";
 import { INVALID_STATUS_DELAY_MS } from "@miragon/modeler-shell/core";
 import {
   connectDiagramJs,
@@ -71,28 +73,38 @@ const selection = modeler.get<SelectionLike>("selection");
 const typeCaptions = modeler.get<TypeCaptions>("eventStormingViewOptions");
 const levels = modeler.get<BoardLevels>("eventStormingModeling");
 const canvasLock = modeler.get<EventStormingReadOnly>("eventStormingReadOnly");
+const aggregates = modeler.get<EventStormingAggregates>("eventStormingAggregates");
 if (readTypeCaptionsVisible(vscode) === false) typeCaptions.setTypeCaptionsVisible(false);
 
 const app = document.getElementById("app");
 if (!app) throw new Error("The webview HTML has no #app root.");
 
+// "Aggregates…" shows only while the board has an aggregate: refreshMenu builds the menu again.
+const menuActions: BoardMenuActions = {
+  levels,
+  typeCaptions,
+  onTypeCaptionsToggled: (visible) => writeTypeCaptionsVisible(vscode, visible),
+  aggregates: {
+    hasAggregates: () => aggregates.hasAggregates(),
+    showAggregates: () => {
+      aggregates.showDialog({ container: shell.root, openDialog: openShellDialog });
+    },
+  },
+  // The web app's Export group without its .storm export: here the file already is the .storm.
+  exports: {
+    png: { onSelect: () => void exportPng() },
+    svg: { onSelect: () => void exportSvg() },
+    transparentPng: { onSelect: () => void exportPng(true) },
+    json: { onSelect: () => exportJson() },
+  },
+  showKeyboardShortcuts: () => shell.showShortcutsDialog(boardShortcuts(shell)),
+};
+
 const shell = mountVsCodeShell(app, {
   themes: WEBVIEW_THEMES,
   canvas: modeler.container,
   messages: { canvas: BOARD_NAME },
-  menu: boardMenu({
-    levels,
-    typeCaptions,
-    onTypeCaptionsToggled: (visible) => writeTypeCaptionsVisible(vscode, visible),
-    // The web app's Export group without its .storm export: here the file already is the .storm.
-    exports: {
-      png: { onSelect: () => void exportPng() },
-      svg: { onSelect: () => void exportSvg() },
-      transparentPng: { onSelect: () => void exportPng(true) },
-      json: { onSelect: () => exportJson() },
-    },
-    showKeyboardShortcuts: () => shell.showShortcutsDialog(boardShortcuts(shell)),
-  }),
+  menu: boardMenu(menuActions),
   problems: { onActivate: () => post({ type: "showProblems" }) },
   emptyHint: { onInsertExample: () => post({ type: "insertExample" }) },
 });
@@ -171,7 +183,7 @@ async function importText(text: string): Promise<void> {
     else if (first && storedShellState.view) viewport.setState(storedShellState.view);
     reselect(selected);
     viewport.afterImport();
-    shell.menu.refresh();
+    refreshMenu();
   } catch {
     showInvalidBoard();
   } finally {
@@ -200,8 +212,13 @@ function pushEdit(): void {
   post({ type: "edit", text });
 }
 
+/** The level is undoable, and "Aggregates…" comes and goes with the board's aggregates. */
+function refreshMenu(): void {
+  shell.menu.setGroups(boardMenu(menuActions));
+}
+
 collaborative.onContentChanged(pushEdit);
-modeler.on("commandStack.changed", () => shell.menu.refresh());
+modeler.on("commandStack.changed", () => refreshMenu());
 
 // ---------------------------------------------------------------------------
 // Export (the webview serializes and, via the shell, rasterizes; the host shows the save dialog)

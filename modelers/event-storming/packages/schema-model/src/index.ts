@@ -50,6 +50,17 @@ export type {
   VocabularyTerm,
 } from "./vocabulary.js";
 
+// Aggregates: the commands and events of each aggregate, read from the arrows, by normalised name
+export { groupByAggregate } from "./aggregates.js";
+export type {
+  PlacedSticky,
+  ArrowEnds,
+  AggregateBoard,
+  NamedStickies,
+  CommandEventPair,
+  AggregateGroup,
+} from "./aggregates.js";
+
 export {
   validateBoard,
   loadBoard,

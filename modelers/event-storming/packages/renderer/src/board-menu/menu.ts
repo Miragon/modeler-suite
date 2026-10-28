@@ -82,11 +82,24 @@ export interface BoardExports {
   readonly storm?: BoardExport | undefined;
 }
 
+/** The board's aggregates (`eventStormingAggregates`), behind "Aggregates…" in the Model group. */
+export interface BoardAggregates {
+  /** Read when `boardMenu` runs: the entry is there only while the board has an aggregate. */
+  hasAggregates(): boolean;
+  /** Opens the dialog, e.g. `eventStormingAggregates.showDialog({ container, openDialog })`. */
+  showAggregates(): void;
+}
+
 export interface BoardMenuActions {
   readonly levels: BoardLevels;
   readonly typeCaptions: TypeCaptions;
   /** Every toggle of the type captions, so the host can remember the choice. */
   onTypeCaptionsToggled?(visible: boolean): void;
+  /**
+   * "Aggregates…" (issue #116). The menu shows it only while the board has an aggregate, so a
+   * host builds the menu again after every import and command (the shell's `menu.setGroups`).
+   */
+  readonly aggregates?: BoardAggregates | undefined;
   readonly exports: BoardExports;
   showKeyboardShortcuts(): void;
 }
@@ -139,6 +152,20 @@ function exportEntries(exports: BoardExports): BoardMenuAction[] {
   return entries;
 }
 
+function aggregatesEntries(aggregates: BoardAggregates | undefined): BoardMenuDialog[] {
+  if (!aggregates?.hasAggregates()) return [];
+  return [
+    {
+      kind: "dialog",
+      id: "aggregates",
+      label: "Aggregates…",
+      // It reads the board and selects stickies, which a read-only canvas allows (guide §13.5).
+      keepEnabledWhenReadOnly: true,
+      onSelect: () => aggregates.showAggregates(),
+    },
+  ];
+}
+
 /** The menu groups of the board (guide §5.4): Model, Export with PNG first, Help. */
 export function boardMenu(actions: BoardMenuActions): BoardMenu {
   return {
@@ -165,6 +192,7 @@ export function boardMenu(actions: BoardMenuActions): BoardMenu {
           actions.onTypeCaptionsToggled?.(visible);
         },
       },
+      ...aggregatesEntries(actions.aggregates),
     ],
     export: exportEntries(actions.exports),
     help: [

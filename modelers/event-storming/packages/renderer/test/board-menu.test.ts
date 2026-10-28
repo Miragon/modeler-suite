@@ -4,6 +4,7 @@ import {
   boardMenu,
   type BoardMenuActions,
   type BoardMenuCheckbox,
+  type BoardMenuDialog,
   type BoardMenuEntry,
   type BoardMenuRadioGroup,
 } from "../src/board-menu/index.js";
@@ -124,5 +125,37 @@ describe("boardMenu", () => {
       expect(exportAction.onSelect).toHaveBeenCalledOnce();
     }
     expect(state.showKeyboardShortcuts).toHaveBeenCalledOnce();
+  });
+
+  it('ends the Model group with "Aggregates…" while the board has an aggregate (issue #116)', () => {
+    const showAggregates = vi.fn();
+    const menu = boardMenu({
+      ...actions(),
+      aggregates: { hasAggregates: () => true, showAggregates },
+    });
+
+    expect(ids(menu.model)).toEqual(["level", "type-captions", "aggregates"]);
+    const entry = menu.model[2] as BoardMenuDialog;
+    expect(entry).toMatchObject({
+      kind: "dialog",
+      label: "Aggregates…",
+      keepEnabledWhenReadOnly: true,
+    });
+    expect(entry).not.toHaveProperty("icon");
+    entry.onSelect();
+    expect(showAggregates).toHaveBeenCalledOnce();
+  });
+
+  it('leaves "Aggregates…" out while the board has no aggregate, and without the action', () => {
+    const showAggregates = vi.fn();
+
+    expect(
+      ids(
+        boardMenu({ ...actions(), aggregates: { hasAggregates: () => false, showAggregates } })
+          .model,
+      ),
+    ).toEqual(["level", "type-captions"]);
+    expect(ids(boardMenu(actions()).model)).toEqual(["level", "type-captions"]);
+    expect(showAggregates).not.toHaveBeenCalled();
   });
 });

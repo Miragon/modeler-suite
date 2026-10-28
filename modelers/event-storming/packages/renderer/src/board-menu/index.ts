@@ -1,5 +1,6 @@
 export { boardMenu, BOARD_LEVELS, STORM_EXPORT_LABEL } from "./menu.js";
 export type {
+  BoardAggregates,
   BoardExport,
   BoardExports,
   BoardLevels,

@@ -182,6 +182,7 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
       "|",
       "level",
       "type-captions",
+      "aggregates",
       "|",
       "export-png",
       "export-svg",
