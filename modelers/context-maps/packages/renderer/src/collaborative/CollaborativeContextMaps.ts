@@ -94,7 +94,6 @@ function collaborative(
   // Only the editor runs gestures: the viewer has no dragging, its pan runs outside of it.
   const gestures = editable ? diagram.get<CmGestureCancel>("cmGestureCancel") : undefined;
   const contentListeners = new Set<() => void>();
-  const interactionListeners = new Set<(active: boolean) => void>();
   let destroyed = false;
   let lastExport = "";
 
@@ -111,17 +110,18 @@ function collaborative(
       for (const listener of [...contentListeners]) listener();
     });
   }
-  // The diagram's teardown cancels a running drag: its listeners hear nothing after destroy().
-  gestures?.onActiveChange((active) => {
-    if (destroyed) return;
-    for (const listener of [...interactionListeners]) listener(active);
-  });
-
   const interaction: InteractionSurface = {
     active: () => !destroyed && (gestures?.isActive() ?? false),
     onChange(callback) {
-      interactionListeners.add(callback);
-      return () => interactionListeners.delete(callback);
+      if (!gestures || destroyed) return () => undefined;
+      // Each listener on its own, so one that throws keeps no other from hearing the change. The
+      // diagram's teardown cancels a running drag: its listeners hear nothing after destroy().
+      const unsubscribe = gestures.onActiveChange((active) => {
+        if (!destroyed) callback(active);
+      });
+      return () => {
+        unsubscribe();
+      };
     },
   };
 
@@ -214,7 +214,6 @@ function collaborative(
       }
       destroyed = true;
       contentListeners.clear();
-      interactionListeners.clear();
       diagram.destroy();
     },
   };

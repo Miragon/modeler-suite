@@ -181,7 +181,9 @@ The optional surfaces of contract 1.5 are on both mounts:
 - `interaction.active()` is true from a gesture's start (the first move past the drag threshold,
   or at once for a create the palette or the context pad started) until its drop or cancel, and
   `interaction.onChange(callback)` reports each change once. A palette tool that only waits for
-  its next press and a pan of the canvas are no gesture; the viewer never reports one.
+  its next press and a pan of the canvas are no gesture; the viewer never reports one. An error a
+  listener throws surfaces on its own, as an uncaught error after the call: the drag still ends,
+  the other listeners still hear the change, and the next `importText` still runs.
 - `appearance.themes` is `CONTEXT_MAPS_THEMES`, `["light"]` until the Miragon modelers switch to
   dark together, the same array on every instance and on the viewer. `appearance.set(request)`
   draws the canvas light whatever theme is asked for, with high contrast for

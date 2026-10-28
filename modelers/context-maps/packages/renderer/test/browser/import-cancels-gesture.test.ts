@@ -742,6 +742,57 @@ describe("an import from the interaction listener when Escape ends a gesture", (
   });
 });
 
+describe("an interaction listener of the host that throws when the gesture ends", () => {
+  const failure = new Error("the host's listener failed");
+
+  async function settlesSoon(promise: Promise<unknown>): Promise<"settled" | "pending"> {
+    return Promise.race([
+      promise.then(() => "settled" as const),
+      nextTasks(5).then(() => "pending" as const),
+    ]);
+  }
+
+  function throwOnEnd(stage: Stage): boolean[] {
+    stage.modeler.interaction.onChange((active) => {
+      if (!active) throw failure;
+    });
+    const heardAfter: boolean[] = [];
+    stage.modeler.interaction.onChange((active) => heardAfter.push(active));
+    return heardAfter;
+  }
+
+  test("after a drop leaves the next import to run, and the next listener hears the end", async () => {
+    const running = await stage();
+    const heardAfter = throwOnEnd(running);
+
+    MOVE.release(running, MOVE.begin(running));
+    MOVE.expectApplied(running);
+
+    expect(await settlesSoon(running.modeler.importText(AFTER))).toBe("settled");
+    expect(running.modeler.exportText()).toBe(AFTER);
+    expect(delivered(running)).toEqual([true, false]);
+    expect(heardAfter).toEqual([true, false]);
+    expect(running.errors).toEqual([failure]);
+  });
+
+  test("while an import cancels the gesture leaves that import to apply", async () => {
+    const running = await stage();
+    const heardAfter = throwOnEnd(running);
+    const pointerAt = MOVE.begin(running);
+
+    await running.modeler.importText(AFTER);
+    MOVE.release(running, pointerAt);
+
+    expect(running.changes()).toBe(0);
+    expect(running.modeler.exportText()).toBe(AFTER);
+    expect(delivered(running)).toEqual([true, false]);
+    expect(heardAfter).toEqual([true, false]);
+    expect(running.errors).toEqual([failure]);
+    expect(await settlesSoon(running.modeler.importText(BEFORE))).toBe("settled");
+    expect(running.modeler.exportText()).toBe(BEFORE);
+  });
+});
+
 describe("clear() during a running drag", () => {
   test("cancels the drag first, so its release applies nothing", async () => {
     const running = await stage();

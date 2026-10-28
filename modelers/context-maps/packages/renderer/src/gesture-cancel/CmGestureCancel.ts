@@ -31,6 +31,21 @@ function isArmedTool(gesture: Gesture): boolean {
   return ARMED_TOOL_PREFIXES.has(gesture.prefix);
 }
 
+/**
+ * A listener runs inside diagram-js's drag or inside an import's cancel: an error it throws would
+ * abort that half-way, leave every import waiting for an end that never settles and keep the next
+ * listener from hearing the change, so it surfaces on its own instead.
+ */
+function deliver(listener: ActiveListener, active: boolean): void {
+  try {
+    listener(active);
+  } catch (error) {
+    queueMicrotask(() => {
+      throw error;
+    });
+  }
+}
+
 function endingOf(gesture: Gesture): Ending {
   let finish = (): void => undefined;
   const ended = new Promise<void>((resolve) => {
@@ -70,9 +85,9 @@ export default class CmGestureCancel {
     // `drag.canceled` included: the microtask comes after the event that ended it.
     eventBus.on("drag.cleanup", FIRST, () => {
       this.startEnding();
-      this.setActive(false);
       const ending = this.ending;
       if (ending) queueMicrotask(() => this.finishEnding(ending));
+      this.setActive(false);
     });
   }
 
@@ -136,7 +151,7 @@ export default class CmGestureCancel {
   private setActive(active: boolean): void {
     if (this.active === active) return;
     this.active = active;
-    for (const listener of [...this.activeListeners]) listener(active);
+    for (const listener of [...this.activeListeners]) deliver(listener, active);
   }
 
   private runningGesture(): Gesture | null {
