@@ -35,6 +35,7 @@ const START_TITLE = "Team Topologies Modeler";
 const SAMPLE_TITLE = sampleDocument().title;
 const AUTOSAVE_KEY = "tt-modeler:document:v1";
 const PREVIOUS_KEY = `${AUTOSAVE_KEY}:previous`;
+const FONT_FILES = /\.woff2(\?|$)/;
 
 function fileInput(page: Page) {
   return page.locator('body > input[type="file"]');
@@ -689,6 +690,35 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     const png = await readDownload(page, () => chooseMenuEntry(page, "export-png"));
     expect(await pngPixel(page, png.base64)).toBe(PNG_BACKGROUND);
     expect(await pngPixel(page, png.base64, 1, 1)).toBe(PNG_BACKGROUND);
+  });
+
+  test("the PNG still downloads when Geist cannot be embedded, and says so in a warning", async ({
+    page,
+  }) => {
+    await gotoApp(page);
+    await loadExample(page);
+
+    await page.route(FONT_FILES, (route) => route.abort());
+    const inSystemFont = await readDownload(page, () => chooseMenuEntry(page, "export-png"));
+    await expect(
+      toast(page, "PNG exported in a system font. Geist couldn't be embedded."),
+    ).toHaveAttribute("data-status", "warning");
+    expect(inSystemFont.name).toBe("online-shop-team-topology.png");
+    expect(await pngPixel(page, inSystemFont.base64)).toBe(PNG_BACKGROUND);
+
+    // The shell keeps a font file it has read, not one it failed to read: Geist is fetched now.
+    await page.unroute(FONT_FILES);
+    const fontRequests: string[] = [];
+    await page.route(FONT_FILES, (route) => {
+      fontRequests.push(route.request().url());
+      return route.continue();
+    });
+    const inGeist = await readDownload(page, () => chooseMenuEntry(page, "export-png"));
+    await expect(
+      page.locator('.cd-shell-toast[data-status="success"]').filter({ hasText: "PNG exported" }),
+    ).toBeVisible();
+    expect(fontRequests.length).toBeGreaterThan(0);
+    expect(inGeist.base64).not.toBe(inSystemFont.base64);
   });
 
   test("import warnings go to the pill and its list, whose rows select their annotation", async ({

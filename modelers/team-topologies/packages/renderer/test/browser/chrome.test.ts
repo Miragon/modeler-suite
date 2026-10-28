@@ -17,7 +17,8 @@ import { SAMPLE_DOCUMENT } from "@miragon/team-topologies-schema-model";
 
 /*
  * What a host's chrome shows around the canvas, from the renderer alone (designIQ mounts no modeler
- * shell): the menu entries, the shortcuts and title dialogs, styled by the renderer's stylesheet.
+ * shell): the menu entries, the shortcut groups and the title dialog, styled by the renderer's
+ * stylesheet.
  */
 
 const cleanups: Array<() => void | Promise<void>> = [];

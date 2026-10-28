@@ -257,6 +257,71 @@ test.describe("VS Code webview", () => {
     expect(String(response.data).startsWith("iVBORw0KGgo")).toBe(true);
   });
 
+  test("a PNG without Geist is still posted, flagged so the host warns, except as a backup", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      const serialize = XMLSerializer.prototype.serializeToString;
+      XMLSerializer.prototype.serializeToString = function (node: Node) {
+        if (node instanceof Document) throw new Error("Geist cannot be embedded, on purpose.");
+        return serialize.call(this, node);
+      };
+    });
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+    await page.waitForFunction(() =>
+      window.__modelerShellVsCodeStub!.posted.some(
+        (message) => (message as { format?: string }).format === "png",
+      ),
+    );
+    const exported = (await postedMessages(page)).find((message) => message.format === "png")!;
+    expect(exported.fontFallback).toBe(true);
+    expect(await pngPixel(page, String(exported.data))).toBe(PNG_BACKGROUND);
+
+    await postFromHost(page, { type: "requestPng", id: 4, includeDraft: true });
+    await postFromHost(page, { type: "requestPng", id: 5, includeDraft: false });
+    await expect
+      .poll(async () => (await postedMessages(page)).filter((m) => m.type === "pngResponse").length)
+      .toBe(2);
+    const responses = (await postedMessages(page)).filter((m) => m.type === "pngResponse");
+    expect(responses.find((response) => response.id === 4)).toMatchObject({ fontFallback: true });
+    expect(responses.find((response) => response.id === 5)?.fontFallback).toBeUndefined();
+    expect(responses.every((response) => response.error === undefined)).toBe(true);
+  });
+
+  test("a PNG the browser cannot draw is reported in the app's own words", async ({ page }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      HTMLCanvasElement.prototype.toBlob = (callback: BlobCallback) => callback(null);
+    });
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+    const failed = await waitForPosted(page, "error");
+    expect(failed.message).toBe("Couldn't export the PNG. Try again, or export as SVG.");
+
+    await postFromHost(page, { type: "requestPng", id: 6, includeDraft: true });
+    const response = await waitForPosted(page, "pngResponse");
+    expect(response).toMatchObject({
+      id: 6,
+      error: "Couldn't render the PNG. Try saving again.",
+    });
+    expect(response.data).toBeUndefined();
+  });
+
+  test("an SVG that cannot be created is reported in the app's own words", async ({ page }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      (window.modeler!.diagram as { saveSVG: () => unknown }).saveSVG = () => {
+        throw new Error("the diagram could not be drawn, on purpose");
+      };
+    });
+
+    await postFromHost(page, { type: "command", name: "exportSvg" });
+    const failed = await waitForPosted(page, "error");
+    expect(failed.message).toBe("Couldn't export the SVG. Try again, or export as PNG.");
+  });
+
   test("Keyboard shortcuts… opens a modal dialog that hands the focus back", async ({ page }) => {
     await openWebview(page);
     const trigger = page.locator('[data-chrome="menu"]');

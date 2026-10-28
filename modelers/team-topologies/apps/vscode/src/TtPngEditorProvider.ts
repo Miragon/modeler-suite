@@ -55,9 +55,15 @@ interface PanelBinding {
   problemsShown: boolean;
 }
 
+/** The webview's PNG as Base64; `fontFallback`: its labels are in the system sans. */
+interface RenderedPng {
+  readonly base64: string;
+  readonly fontFallback: boolean;
+}
+
 interface PendingPng {
   /** Resolve/reject clean up internally (timer, cancellation subscription, map entry). */
-  resolve: (data: string) => void;
+  resolve: (png: RenderedPng) => void;
   reject: (err: Error) => void;
 }
 
@@ -260,8 +266,11 @@ export class TtPngEditorProvider implements vscode.CustomEditorProvider<TtPngDoc
     document: TtPngDocument,
     cancellation: vscode.CancellationToken,
   ): Promise<void> {
-    await this.writePng(document, document.uri, cancellation, { includeDraft: true });
+    const fontFallback = await this.writePng(document, document.uri, cancellation, {
+      includeDraft: true,
+    });
     document.isNew = false;
+    if (fontFallback) warnFontFallback();
   }
 
   public async saveCustomDocumentAs(
@@ -269,7 +278,10 @@ export class TtPngEditorProvider implements vscode.CustomEditorProvider<TtPngDoc
     destination: vscode.Uri,
     cancellation: vscode.CancellationToken,
   ): Promise<void> {
-    await this.writePng(document, destination, cancellation, { includeDraft: true });
+    const fontFallback = await this.writePng(document, destination, cancellation, {
+      includeDraft: true,
+    });
+    if (fontFallback) warnFontFallback();
   }
 
   public async backupCustomDocument(
@@ -305,15 +317,17 @@ export class TtPngEditorProvider implements vscode.CustomEditorProvider<TtPngDoc
     await this.bindings.get(document)?.webview.postMessage({ type: "update", text });
   }
 
+  /** Writes the webview's PNG to `target`; true when its labels are in the system sans. */
   private async writePng(
     document: TtPngDocument,
     target: vscode.Uri,
     cancellation: vscode.CancellationToken,
     { includeDraft }: { includeDraft: boolean },
-  ): Promise<void> {
-    const base64 = await this.requestPng(document, cancellation, includeDraft);
-    if (cancellation.isCancellationRequested) return;
+  ): Promise<boolean> {
+    const { base64, fontFallback } = await this.requestPng(document, cancellation, includeDraft);
+    if (cancellation.isCancellationRequested) return false;
     await vscode.workspace.fs.writeFile(target, new Uint8Array(Buffer.from(base64, "base64")));
+    return fontFallback;
   }
 
   // -------------------------------------------------------------------------
@@ -324,7 +338,7 @@ export class TtPngEditorProvider implements vscode.CustomEditorProvider<TtPngDoc
     document: TtPngDocument,
     cancellation: vscode.CancellationToken,
     includeDraft: boolean,
-  ): Promise<string> {
+  ): Promise<RenderedPng> {
     const binding = this.bindings.get(document);
     if (!binding) {
       return Promise.reject(
@@ -335,7 +349,7 @@ export class TtPngEditorProvider implements vscode.CustomEditorProvider<TtPngDoc
       return Promise.reject(new vscode.CancellationError());
     }
     const id = binding.nextId++;
-    return new Promise<string>((resolve, reject) => {
+    return new Promise<RenderedPng>((resolve, reject) => {
       const cleanup = (): void => {
         binding.pending.delete(id);
         clearTimeout(timer);
@@ -352,9 +366,9 @@ export class TtPngEditorProvider implements vscode.CustomEditorProvider<TtPngDoc
         reject(new vscode.CancellationError());
       });
       binding.pending.set(id, {
-        resolve: (data) => {
+        resolve: (png) => {
           cleanup();
-          resolve(data);
+          resolve(png);
         },
         reject: (err) => {
           cleanup();
@@ -371,11 +385,16 @@ export class TtPngEditorProvider implements vscode.CustomEditorProvider<TtPngDoc
   ): void {
     const pending = binding.pending.get(msg.id);
     if (!pending) return; // unknown/too-late id (timeout/cancellation/dispose already cleaned up)
-    if (msg.fontFallback) void vscode.window.showWarningMessage(FONT_FALLBACK_SAVED);
     if (msg.error) pending.reject(new Error(msg.error));
-    else if (typeof msg.data === "string" && msg.data.length > 0) pending.resolve(msg.data);
-    else pending.reject(new Error("The PNG render returned no data."));
+    else if (typeof msg.data === "string" && msg.data.length > 0) {
+      pending.resolve({ base64: msg.data, fontFallback: msg.fontFallback === true });
+    } else pending.reject(new Error("The PNG render returned no data."));
   }
+}
+
+/** The file is written when this runs, so "Saved" is true; the console reaches no user (guide §9). */
+function warnFontFallback(): void {
+  void vscode.window.showWarningMessage(FONT_FALLBACK_SAVED);
 }
 
 /**

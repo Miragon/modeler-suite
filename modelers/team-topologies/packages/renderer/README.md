@@ -213,8 +213,9 @@ estimated from the characters rather than measured. A host that fits the view it
 ### Around the canvas
 
 What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-shell` handle fits,
-and so does a host's own chrome with the same fields). The renderer's stylesheet styles all of it,
-so a host without the shell needs nothing else:
+and so does a host's own chrome with the same fields). The renderer's stylesheet styles the menu,
+the title dialog and the legend, so a host without the shell needs nothing else for them; the
+shortcuts dialog is the shell's (below):
 
 - `diagramMenu({ exports, showKeyboardShortcuts, editTitle, shortcutsKey })` builds the menu groups
   of guide §5.4, in the shape the shell's `menu` option takes: Model with "Diagram title…" (only
@@ -249,8 +250,9 @@ so a host without the shell needs nothing else:
 
 For the Export entries, a host takes `modeler.saveSVG()`: the SVG as it is (transparent: nothing is
 drawn behind the diagram), or rasterised to a PNG. An SVG drawn as an image cannot reach the page's
-fonts, and a PNG needs a background (guide §10.7: `hell['--cd-ui-grund']` of the vendored
-`cd-tokens.generated.json`, `#F9F7F7`, since this notation has no plot). `svgToPng` of
+fonts, and a PNG needs a background (guide §10.7: `hell['--cd-ui-grund']` of the design system's
+`cd-tokens.generated.json`, `#F9F7F7`, since this notation has no plot; the `miragon-brand` skill
+ships it, and the renderer's `MIRAGON.grau` is the same colour). `svgToPng` of
 `@miragon/modeler-shell/export` does both (see [Typeface](#quick-start)).
 
 ```ts
@@ -262,11 +264,13 @@ import {
   type TtModeling,
 } from "@miragon/team-topologies-renderer";
 import { svgToPng } from "@miragon/modeler-shell/export";
-// The renderer's vendored design tokens: src/theme/cd-tokens.generated.json.
+// The host's copy of the design system's tokens (shipped with the `miragon-brand` skill).
 import tokens from "./cd-tokens.generated.json";
 
-// `chrome` is a modeler-shell handle or { root, menu: { trigger }, platform, lang, messages }.
-const title = createTitleDialog(chrome, {
+// `shell` is a mounted modeler-shell handle. A host without one passes its own chrome, { root,
+// menu: { trigger }, platform, lang, messages }, to the title dialog and opens the shortcuts with
+// the standalone `showShortcutsDialog(groups, { container })` of `@miragon/modeler-shell`.
+const title = createTitleDialog(shell, {
   title: () => modeler.getMeta()?.title ?? "",
   setTitle: (next) => modeler.get<TtModeling>("ttModeling").setTitle(next),
 });

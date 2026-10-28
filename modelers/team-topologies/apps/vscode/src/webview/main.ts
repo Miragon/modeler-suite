@@ -291,19 +291,13 @@ async function respondPng(id: number, includeDraft: boolean): Promise<void> {
 // Export (the webview rasterizes/serializes; the host shows the save dialog)
 // ---------------------------------------------------------------------------
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function exportSvg(): void {
   try {
     const { svg } = modeler.saveSVG();
     post({ type: "export", format: "svg", data: embedSvg(svg, collaborative.exportText()) });
   } catch (error) {
-    post({
-      type: "error",
-      message: `Couldn't export the SVG (${messageOf(error)}). Try again, or export as PNG.`,
-    });
+    console.error("Team Topologies SVG export failed", error);
+    post({ type: "error", message: "Couldn't export the SVG. Try again, or export as PNG." });
   }
 }
 
