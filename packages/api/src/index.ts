@@ -147,16 +147,23 @@ export interface ElementsSurface {
  *     input and reopen the interaction on the element with the same id when
  *     that element is still there after the import — a remote re-import
  *     should not cost the user what they were typing.
- *     RECOMMENDED (1.5): a GESTURE running when an import starts (a move,
- *     resize, connect or lasso drag, a palette create, also while its
- *     preview is off the canvas; see `InteractionSurface`) is cancelled
- *     first, the way Escape cancels it. No change event comes from it and no
- *     exception, the pointer's release after the import included; nothing is
- *     applied to an element the import removed, and the export is the
- *     imported document. diagram-js does not end a drag on `diagram.clear()`:
- *     the drop then throws on a removed shape and loses the move (or leaves
- *     the command stack stuck), so a renderer calls `dragging.cancel()`
- *     before the import clears the canvas.
+ *     RECOMMENDED (1.5): a GESTURE (a drag or a placement the modeler runs
+ *     for the pointer, also while its preview is off the canvas; defined on
+ *     `InteractionSurface`) that runs when an import replaces the document
+ *     is cancelled first, the way Escape cancels it, and so is a press that
+ *     has not reached the drag threshold yet. No change event comes from it
+ *     and no exception, the pointer's release after the import included;
+ *     nothing is applied to an element the import removed, and the export
+ *     is the imported document. The cancel belongs to an import that is
+ *     accepted: it comes after the text passed the modeler's checks, before
+ *     the canvas is cleared, so a rejected import (L7, which hosts meet on
+ *     every sync of half-typed peer text) leaves a running gesture, and
+ *     `interaction.active()`, as they were. diagram-js does not end a drag
+ *     on `diagram.clear()`: the drop then throws on a removed shape and
+ *     loses the move (or leaves the command stack stuck), so a renderer
+ *     calls `dragging.cancel(false)` before the import clears the canvas
+ *     (`false`: no restore of the drag's previous selection, whose shapes
+ *     the import replaces).
  *  L2 CANONICAL FIXPOINT — `exportText` is deterministic, and for any text t:
  *     with c = exportText() after importText(t), importText(c) followed by
  *     exportText() returns c byte-for-byte. Canonicalization is idempotent;
@@ -250,7 +257,8 @@ export interface CollaborativeModeler {
    *  per L5; resolves when rendered, REJECTS when nothing was imported (L7).
    *  This holds for the first import too, whatever was called before it — a
    *  host may export or route a command before its first document arrives.
-   *  RECOMMENDED (1.5): a gesture the user holds is cancelled first (L1) */
+   *  RECOMMENDED (1.5): an accepted import first cancels a gesture the user
+   *  holds; a rejected one leaves it running (L1) */
   importText(text: string): Promise<ImportResult>;
 
   /** the canonical serialization of the current document (L2, L6) */
@@ -313,25 +321,30 @@ export interface CollaborativeModeler {
  * sending a synthetic Escape. Hosts feature-detect it
  * (`modeler.interaction !== undefined`).
  *
- * A gesture runs from the moment a press on the canvas moves past the drag
- * threshold (a move, resize, connect, bendpoint, lasso or space-tool drag),
- * or the user picks a palette entry that creates an element, until its drop
- * (the release, or the click that places the new element) or its cancel
- * (Escape, or an import: L1). A palette create whose preview is still off
- * the canvas, the pointer over the palette, runs too. No gesture: a palette
- * tool that only waits for its next press (an armed hand, lasso, space or
- * global-connect tool; the press that starts its drag starts the gesture),
- * an open label editor or popup (L1 keeps it across an import, and a host
- * that waited for it would hold every remote change while the user types),
- * and keys. A drag that only pans the view MAY count (diagram-js's hand tool
- * runs on the same dragging service), so a host relies on neither reading.
- * A viewer has no editing gesture: one that exposes the surface reports
- * false, a pan aside.
+ * A GESTURE is a drag or a placement the modeler runs for the pointer. It
+ * starts when a press on the canvas moves past the drag threshold (a move,
+ * resize, connect, bendpoint, lasso or space-tool drag), or when an entry of
+ * the modeler's own chrome (the palette, the context pad), clicked or
+ * dragged, starts a preview that follows the pointer (a create, an append, a
+ * connect, a placement such as Wardley's evolve). It runs until its drop
+ * (the release, or the click that places what the preview shows) or its
+ * cancel (Escape, or an import: L1). A preview still off the canvas, the
+ * pointer over the palette, runs too. No gesture: a press that has not
+ * reached the drag threshold yet, a palette tool that only waits for its
+ * next press (an armed hand, lasso, space or global-connect tool; the press
+ * that starts its drag starts the gesture), an open label editor or popup
+ * (L1 keeps it across an import, and a host that waited for it would hold
+ * every remote change while the user types), and keys. A drag that only pans
+ * the view MAY count (diagram-js's hand tool runs on the same dragging
+ * service), so a host relies on neither reading. A viewer has no editing
+ * gesture: one that exposes the surface reports false, a pan aside.
  *
  * A host that defers re-imports while `active()` is true applies the newest
  * remote state once `onChange` reports false. It may still import during a
  * gesture (after a timeout of its own, or for a file the user opens): the
- * RECOMMENDED cancel of L1 then ends the gesture.
+ * RECOMMENDED cancel of L1 then ends the gesture, and that import replaces
+ * the remote state the host deferred. The contract defines no imports that
+ * overlap, so a host starts each import once the one before has settled.
  */
 export interface InteractionSurface {
   /** true from a gesture's start until its drop or cancel, false otherwise:
@@ -345,9 +358,10 @@ export interface InteractionSurface {
    * the listener `active()` already returns that value. It runs
    * synchronously where the gesture ends, which can be inside `importText`
    * (the cancel of L1) or inside a pointer event handler, so a host that
-   * imports in response schedules the import (a microtask or later) instead
-   * of calling `importText` from the listener. Returns the unsubscribe;
-   * nothing is called after `destroy()`
+   * imports in response never calls `importText` from the listener: it
+   * queues the import behind any import still pending, which a microtask
+   * alone does not do. Returns the unsubscribe; nothing is called after
+   * `destroy()`
    */
   onChange(cb: (active: boolean) => void): () => void;
 }
@@ -372,7 +386,13 @@ export interface AppearanceRequest {
  * host's request for one (Miragon guide §13.3, row "Eingebettet", and
  * §13.5). Hosts feature-detect it (`modeler.appearance !== undefined`). A
  * modeler without it draws light only: a host treats it as
- * `themes: ["light"]`, keeps it light and requests nothing.
+ * `themes: ["light"]` and requests nothing. Such a modeler takes its mode
+ * from the page around it (a renderer on the Miragon design tokens resolves
+ * its roles at the nearest `data-cd-theme` above it), so a host whose page
+ * can be dark keeps it light itself: it writes `data-cd-theme="light"`, and
+ * `data-cd-kontrast="hoch"` for high contrast, on the element it passes to
+ * `attachTo` (guide §13.3: in a foreign page the attributes sit on the
+ * modeler's container).
  *
  * The host decides in one place (guide §13.5): it requests only a theme
  * `themes` lists (`themes[0]` when the one it wants is missing; the modeler
@@ -414,12 +434,12 @@ export interface AppearanceSurface {
    * Callable as soon as the factory returns, before `attachTo` and before
    * the first import (the first frame then shows the requested appearance),
    * and at any time until `destroy()`. It applies before it returns, without
-   * a re-import or a re-render of the document, and holds across every later
-   * import until the next `set`. Until the first `set` the modeler draws as
-   * it does without the surface. How it draws a theme is its own: a renderer
-   * on the Miragon design tokens writes `data-cd-theme` and, for high
-   * contrast, `data-cd-kontrast="hoch"` on the root element of what it
-   * draws, so the token CSS resolves its roles there and not from the page
+   * a re-import, and holds across every later import until the next `set`.
+   * Until the first `set` the modeler draws as it does without the surface.
+   * How it draws a theme is its own: a renderer on the Miragon design tokens
+   * writes `data-cd-theme` and, for high contrast, `data-cd-kontrast="hoch"`
+   * on the root element of what it draws, so the token CSS resolves its
+   * roles there and not from the page
    */
   set(appearance: AppearanceRequest): void;
 }
