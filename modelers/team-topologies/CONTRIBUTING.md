@@ -72,11 +72,14 @@ unpacks it, checks that the package holds every file the webview loads (bundle, 
 starts the newest stable VS Code with it on a throwaway profile (or the version in
 `VSCODE_VERSION`: `stable`, `insiders` or a number like `1.96.0`), opens a small diagram
 ([`checkout.tt`](apps/vscode/test-smoke/checkout.tt)) in the custom editor and waits until the
-canvas shows it with the stylesheet applied, creates a team from the palette by keyboard, saves
-(once the tab is clean and the file on disk holds still, it must pass the Problems view's check),
-undoes (the canvas and, saved again, the file return to the fixture) and switches through VS Code's
-four default themes, with a screenshot each in `test-results/vscode-smoke/` (gitignored). It is not
-part of `npm test`: it needs a display and the VS Code download.
+canvas shows it with the stylesheet applied, creates a team from the palette by keyboard, types its
+name into the inspector and saves right after typing (the save has to commit the field's draft),
+presses `Ctrl/Cmd+Z` in the field (it takes back the typing there and leaves the saved file alone),
+creates a second team, saves (once the tab is clean and the file on disk holds still, it must pass
+the Problems view's check and hold the typed name), undoes the three edits from the canvas (the
+canvas and, saved again, the file return to the fixture) and switches through VS Code's four
+default themes, with a screenshot each in `test-results/vscode-smoke/` (gitignored). It is not part
+of `npm test`: it needs a display and the VS Code download.
 
 ```bash
 npm run team-topologies test:vscode:docker                                 # in Docker, no window: the local way
