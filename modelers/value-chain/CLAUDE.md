@@ -103,12 +103,16 @@ missing at its other places; the verdict stays the same).
   a drop is being applied (a host's change listener) wait until it has ended (#248,
   `vcGestures.afterDrop`: a queue in call order, flushed in a microtask after `drag.ended` or
   `drag.canceled`, also when a throwing cleanup listener keeps diagram-js from firing either), so
-  no listener of the drop, diagram-js's `SelectionBehavior` or the label editor an append opens,
-  meets a replaced diagram; the direct `importDocument` cannot wait, it returns its warnings
-  (`test/browser/import-during-drop.browser.test.ts`). The 1.5 surfaces: `interaction` is
+  no listener of the drop, diagram-js's `SelectionBehavior` or the label editor a dragged append
+  opens, meets a replaced diagram; the direct `importDocument` cannot wait, it returns its warnings
+  (`test/browser/import-during-drop.browser.test.ts`). Only a drop waits: a click append, a
+  keyboard create and a label commit at a press are no drop, and an import from their change
+  listener still runs inside them (#285). The 1.5 surfaces: `interaction` is
   `vcGestures.isActive()` (set on the first `drag.move` of an activated drag that is no armed tool
-  and no pan, cleared on `drag.ended`/`drag.canceled`, `GESTURE_CHANGED_EVENT`; the viewer, which
-  has no `vcGestures`, reports false; `interaction.browser.test.ts`); `appearance` (`appearance/`)
+  and no pan, cleared on `drag.ended`/`drag.canceled`, `GESTURE_CHANGED_EVENT`; the delivery skips
+  a listener once the modeler is destroyed or the listener unsubscribed, and a `drag.move` whose
+  listener ended the drag stops there; the viewer, which has no `vcGestures`, reports false;
+  `interaction.browser.test.ts`); `appearance` (`appearance/`)
   reports `VALUE_CHAIN_THEMES` (`["light"]`, `appearance/themes.ts`, no runtime import, which
   both apps, the e2e suites, the smoke test and the extension host's theme bridge read) and writes
   `data-cd-theme="light"` and `data-cd-kontrast="hoch"` on `diagram.container`; the container sets
@@ -196,7 +200,8 @@ passed on the VSIX it uploads) is in the suite's
 - Contributor notes for this modeler in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - The VS Code webview mounts `@miragon/modeler-shell` (`mountVsCodeShell`, IDE host, themes
   `VALUE_CHAIN_THEMES` of the renderer); the extension host renders its HTML with
-  `renderWebviewHtml` and runs the theme bridge, both on the same list. Undo belongs to the document (`undoRedoKeys: false`); an invalid file locks the canvas
+  `renderWebviewHtml` and runs the theme bridge, both on the same list. Undo belongs to the
+  document (`undoRedoKeys: false`); an invalid file locks the canvas
   (`vcReadOnly` + `shell.setReadOnly`). `apps/vscode/THIRD_PARTY_NOTICES.md` is generated
   (`npm run notices -w modelers/value-chain/apps/vscode`) and checked by a unit test.
 - Both apps export the PNG through `svgToPng` of `@miragon/modeler-shell/export` with
@@ -215,10 +220,11 @@ passed on the VSIX it uploads) is in the suite's
   (`e2e/tests/support/label-editor.ts`: a double-click on a shape, then typing); the IDE suite
   declares `canvasMenuAction` absent, since its menu has no File or Model action.
 - The web app mounts the same shell on its web host (`mountShell`, `host: 'web'`, themes
-  `VALUE_CHAIN_THEMES`, also in `vite.config.ts`'s head markup): File/Export/Help menu, Share, legal line, toasts, start screen, the empty-file hint
-  after "New diagram" (without "Insert example"), drop zone; no
-  problems list, since a document that validates imports without warnings. `index.html` is static `data-cd-theme="light"`; the Vite plugin puts `webHeadMarkup` in place
-  of `<!-- miragon-mode -->`. It runs `createCollaborativeModeler` (canvas undo keys on), autosaves
+  `VALUE_CHAIN_THEMES`, also in `vite.config.ts`'s head markup): File/Export/Help menu, Share,
+  legal line, toasts, start screen, the empty-file hint after "New diagram" (without "Insert
+  example"), drop zone; no problems list, since a document that validates imports without
+  warnings. `index.html` is static `data-cd-theme="light"`; the Vite plugin puts `webHeadMarkup`
+  in place of `<!-- miragon-mode -->`. It runs `createCollaborativeModeler` (canvas undo keys on), autosaves
   the canonical JSON in `localStorage` and writes a share link (`#mz=`, deflate-raw) only on Share;
   the address bar keeps it only while it holds the diagram on the canvas. Replacing a diagram
   offers Undo instead of `confirm()`. `window.__valueChainApp` (shell, modeler, connection,

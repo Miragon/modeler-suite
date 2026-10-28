@@ -168,14 +168,17 @@ wrapped `Modeler` or `NavigatedViewer` for host wiring.
   is being applied, typically from `onContentChanged`, it waits until the drop has ended
   (`drag.ended` or `drag.canceled`) and then imports; its promise settles after that import, and
   imports that wait run in the order they came, later ones behind them. So no listener of the drop,
-  diagram-js's own selection or the label editor an append opens, meets a replaced diagram. A text
-  that does not parse rejects at once and leaves the gesture running.
+  diagram-js's own selection or the label editor a dragged append opens, meets a replaced diagram.
+  A text that does not parse rejects at once and leaves the gesture running. Only a drop is waited
+  for: an append by a click on the context pad and a create by Enter or Space on the palette are no
+  drop, and an import from their change listener still runs inside them (#285).
 - `interaction` (contract 1.5): `active()` is true from the start of a gesture until its drop or
   cancel: a move, resize, connect, bendpoint, lasso or space drag, and a create or append from the
   palette or the context pad, also while its preview is off the canvas. A press inside the drag
   threshold, a palette tool that only waits for its next press and a pan (the hand tool, Space held,
   Ctrl/Cmd and a press) are none. `onChange` reports each change once, also the cancel inside
-  `importText`, and nothing after `destroy()`; a listener that throws is reported with
+  `importText`, and nothing after `destroy()`, also when a listener destroys the modeler or
+  unsubscribes another one during the same delivery; a listener that throws is reported with
   `reportError` and does not end the gesture. The viewer always reports false.
 - `appearance` (contract 1.5, guide §13.3): `themes` is `VALUE_CHAIN_THEMES`, `["light"]`, the one
   list the web app, the VS Code webview and its theme bridge read too. `set({ theme, contrast })`

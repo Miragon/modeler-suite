@@ -340,6 +340,36 @@ describe("interaction: the listener", () => {
     expect(calls).toEqual([true, false]);
   });
 
+  it("that destroys the modeler leaves the later listeners uncalled and the drag ended", () => {
+    const later: boolean[] = [];
+    editor().interaction.onChange(() => editor().destroy());
+    editor().interaction.onChange((value) => later.push(value));
+    const start = pointer.centreOf("step-credit");
+    const end = { x: start.x + 60, y: start.y };
+    const furtherMove = pointer.event("mousemove", end);
+    const release = pointer.event("mouseup", end);
+    pointer.press(pointer.graphics("step-credit"), start);
+    pointer.moveTo({ x: start.x + 40, y: start.y });
+    document.dispatchEvent(furtherMove);
+    document.dispatchEvent(release);
+
+    expect(calls).toEqual([true]);
+    expect(later).toEqual([]);
+    expect(editor().interaction.active()).toBe(false);
+  });
+
+  it("unsubscribed by an earlier listener is not called in the same delivery", () => {
+    const later: boolean[] = [];
+    let unsubscribeLater = (): void => undefined;
+    editor().interaction.onChange(() => unsubscribeLater());
+    unsubscribeLater = editor().interaction.onChange((value) => later.push(value));
+
+    startGesture(editor(), "move").drop();
+
+    expect(later).toEqual([]);
+    expect(calls).toEqual([true, false]);
+  });
+
   it("is not called once the modeler is destroyed, also not for the gesture it ends", () => {
     startGesture(editor(), "move");
     expect(calls).toEqual([true]);

@@ -71,8 +71,15 @@ export default class VcGestures {
     private readonly canvas: Canvas,
   ) {
     // diagram-js fires the first move of a drag right after the drag has started, and only then:
-    // a start that a listener refuses never shows as a gesture.
-    eventBus.on("drag.move", FIRST, () => this.noteDrag());
+    // a start that a listener refuses never shows as a gesture. A host that destroys the modeler
+    // from its interaction listener ends the drag there, and diagram-js would go on moving it on a
+    // torn-down canvas.
+    eventBus.on("drag.move", FIRST, () => {
+      const drag = this.context();
+      this.noteDrag();
+      if (this.context() === drag) return undefined;
+      return false;
+    });
     eventBus.on("drag.end", FIRST, () => {
       this.dropping = this.context();
     });
@@ -122,8 +129,10 @@ export default class VcGestures {
 
   /**
    * Runs `work` at once, or after the drop being applied right now has ended, so that nothing the
-   * drop still runs (its own listeners, the label editor an append opens) meets a replaced
-   * diagram. Work held back runs in the order it came, and later work waits behind it.
+   * drop still runs (its own listeners, the label editor a dragged append opens) meets a replaced
+   * diagram. Work held back runs in the order it came, and later work waits behind it. Only a drop
+   * is held back: a click append or a keyboard create is no drop, and work arriving from its change
+   * runs at once (#285).
    */
   afterDrop(work: () => void): void {
     if (this.afterDropQueue.length === 0 && !this.isDropping()) {

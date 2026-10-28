@@ -135,9 +135,11 @@ function collaborative(
   }
 
   // A host's listener runs inside the drag's pointer handler: diagram-js ends a drag on an error in
-  // its own events, and a throwing host must not cost the user the gesture.
+  // its own events, and a throwing host must not cost the user the gesture. An earlier listener may
+  // destroy the modeler or unsubscribe a later one during the same delivery.
   eventBus.on(GESTURE_CHANGED_EVENT, (event: { active: boolean }) => {
     for (const listener of [...interactionListeners]) {
+      if (destroyed || !interactionListeners.has(listener)) continue;
       try {
         listener(event.active);
       } catch (error) {

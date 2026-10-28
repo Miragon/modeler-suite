@@ -18,7 +18,7 @@ import { CanvasPointer, FREE_SPOT } from "./support/pointer.js";
  * the change is still being applied. The import waits until the drop has ended (`drag.ended` or
  * `drag.canceled`) and then runs, its promise settling after it, so no listener of the drop meets
  * a replaced diagram: diagram-js's own selection on `shape.move.end` threw on a removed shape, and
- * the label editor an append opens would open on a shape the import had replaced.
+ * the label editor a dragged append opens would open on a shape the import had replaced.
  */
 
 /** The document without one element and the connections that touch it. */
