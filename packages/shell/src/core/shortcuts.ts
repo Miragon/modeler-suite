@@ -41,7 +41,7 @@ export interface ShortcutChrome {
   >;
 }
 
-/** The zoom panel's order: zoom in, zoom out, 100 %, fit (guide §5.8). */
+/** The order of guide §5.8's key table: zoom in, zoom out, 100 %, fit. */
 const CHROME_KEYS: readonly ChromeKey[] = ["zoomIn", "zoomOut", "zoomToActual", "fit"];
 
 function chromeAction(key: ChromeKey, chrome: ShortcutChrome): string {

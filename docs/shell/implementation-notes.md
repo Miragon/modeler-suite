@@ -95,14 +95,24 @@ navigator.platform`), never `process.platform`, which names the remote machine u
 
 - The shell's dialog is a native `<dialog>` opened with `showModal()`: the browser puts it in the
   top layer, makes the page behind it inert and closes it on Escape (`cancel`). The top layer's
-  containing block is the window, so the dialog sizes itself with `100%` of the window, not with the
-  root's `cqw`/`cqh`: an embedded modeler's dialog covers the whole page with its backdrop anyway.
+  containing block is the window, so `100%` would size the dialog by the window. Its sizes refer to
+  the modeler's container instead (guide §5.1, also for §8), so it uses `cqw`/`cqh`: container
+  units follow the DOM, not the containing block, and resolve against the shell root even in the
+  top layer (Chromium and WebKit alike), and against the window where no size container is around
+  the dialog. It is still centred in the window, and its backdrop covers the whole page.
 - `showModal()` keeps Tab inside the page, not inside the dialog: after the last Tab stop the
-  browser moves on to its own UI, and in a VS Code webview to the workbench. A `keydown` listener on
-  the document wraps Tab and Shift+Tab at the dialog's ends and brings a focus that left back in.
+  browser moves on to its own UI, and in a VS Code webview to the workbench. WebKit's Shift+Tab
+  also skips Close (buttons are no Tab stops there by default) and lands on the `<dialog>` itself.
+  So a `keydown` listener on the document moves the focus between the dialog's stops itself, in DOM
+  order with a named radio group as one stop, wraps at the ends and brings a focus that left back
+  in. It leaves a Tab alone while the focus sits in another open dialog (one opened above it), and
+  calls `preventDefault` only when its stop took the focus: a dialog behind a newer modal one is
+  inert.
 - Chromium (and Firefox) make a scrolling element without focusable children a Tab stop of its own,
-  WebKit does not. The wrap would skip such a stop it does not know, so the body gets an explicit
-  `tabindex="0"` while it overflows (a `ResizeObserver`), and every engine scrolls it by keyboard.
+  WebKit does not. The listener would skip such a stop it does not know, so the body gets an
+  explicit `tabindex="0"` while it overflows (a `ResizeObserver`), and every engine scrolls it by
+  keyboard. When it stops overflowing while it holds the focus, the dialog moves the focus on to
+  the next stop, which the browser would drop to `<body>`.
 - A click on `::backdrop` targets the `<dialog>` itself, and so does one on its 1px border: the
   dialog closes only for a press and a release both outside its box.
 - The dialog is built on open and removed on close, so a closed one leaves nothing in the DOM and

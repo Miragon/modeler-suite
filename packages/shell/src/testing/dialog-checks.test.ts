@@ -78,6 +78,7 @@ function facts(): ShellDialogFacts {
       description: "dialog.cd-shell-dialog.cd-shell-shortcuts",
       modal: true,
       viewport: { width: 1280, height: 900 },
+      container: { width: 1280, height: 900 },
       box: { left: 360, top: 150, width: 560, height: 600 },
       name: { text: "Keyboard shortcuts", tag: "h2" },
       title: { fontSize: "21px", fontWeight: "600" },
@@ -179,7 +180,7 @@ describe("shortcutsDialogProblems (guide §5.4, §5.6, §8)", () => {
       expect.stringMatching(/radius 16px, expected --cd-radius-md/),
       expect.stringMatching(/shadow none, expected --cd-shadow-3/),
       expect.stringMatching(
-        /600px wide in a 1280px window, expected min\(560px, 100% - 32px\) = 560px/,
+        /600px wide in a 1280px wide shell root, expected min\(560px, 100% - 32px\) of the modeler's container = 560px/,
       ),
     ]);
   });
@@ -189,7 +190,26 @@ describe("shortcutsDialogProblems (guide §5.4, §5.6, §8)", () => {
       dialog.box = { left: 360, top: 0, width: 560, height: 900 };
     });
     expect(shortcutsDialogProblems(changed, NORMAL)).toEqual([
-      expect.stringMatching(/900px high in a 900px window, expected at most 100% - 32px/),
+      expect.stringMatching(/900px high in a 900px high shell root, expected at most 100% - 32px/),
+    ]);
+  });
+
+  it("sizes the dialog by the modeler's container, not the window, and centres it in the window", () => {
+    const embedded = withDialog((dialog) => {
+      dialog.container = { width: 480, height: 400 };
+      dialog.box = { left: 416, top: 266, width: 448, height: 368 };
+    });
+    expect(shortcutsDialogProblems(embedded, NORMAL)).toEqual([]);
+
+    const byWindow = withDialog((dialog) => {
+      dialog.container = { width: 480, height: 400 };
+      dialog.box = { left: 360, top: 100, width: 560, height: 700 };
+    });
+    expect(shortcutsDialogProblems(byWindow, NORMAL)).toEqual([
+      expect.stringMatching(
+        /560px wide in a 480px wide shell root, .* = 448px \(guide §5\.1, §8\)/,
+      ),
+      expect.stringMatching(/700px high in a 400px high shell root/),
     ]);
   });
 
@@ -286,7 +306,7 @@ describe("viewRowProblems (guide §5.4, §5.8)", () => {
     ]);
   });
 
-  it("fails the chrome's rows out of the zoom panel's order or below a modeler row", () => {
+  it("fails the chrome's rows out of the key table's order or below a modeler row", () => {
     const changed = dialog();
     const rows = viewGroup().rows;
     changed.groups[0] = {

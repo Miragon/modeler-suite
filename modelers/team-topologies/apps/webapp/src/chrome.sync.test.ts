@@ -22,9 +22,10 @@ import {
  * The renderer builds the diagram's menu entries, shortcut tables and legend without importing the
  * shell (only the apps mount it), so it mirrors the shell's types and its key labels. These tests
  * pin the mirror: the File rows use the chips the shell writes, and menu, dialogs and legend take
- * what the shell hands them. The View rows are the shell's: `shell.showShortcutsDialog` shows the
- * chrome's own rows for them, pinned to the tooltips in the shell and checked in every modeler by
- * the kit's `shortcutsDialog` case.
+ * what the shell hands them. The pin of the View rows against the tooltips moved into the shell:
+ * `shell.showShortcutsDialog` shows the chrome's own rows for them, pinned in the shell and checked
+ * in every modeler by the kit's `shortcutsDialog` case. Until both apps open that dialog (#45), the
+ * renderer's own dialog still shows its View rows, which its browser test pins by their values.
  */
 
 const GERMAN = resolveMessages({

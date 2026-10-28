@@ -550,10 +550,10 @@ function withChromeShortcuts(
 function isChromeShortcutRow(row: ShownShortcutRow): row is ChromeShortcutRow;
 ```
 
-- `chromeShortcutRows`: the zoom panel's keys in its order, zoom in, zoom out, 100 %, fit, each
-  named and chipped as its tooltip shows it (`"Zoom in"` with `⌘+`, `"Zoom to 100%"` with `⌘0`,
-  elsewhere `Ctrl+Plus` and `Ctrl+0` in the key names of the messages; the percentage through
-  `formatPercent(1, lang)`, English for a language tag `Intl` rejects).
+- `chromeShortcutRows`: the zoom panel's keys in the order of guide §5.8's key table, zoom in, zoom
+  out, 100 %, fit, each named and chipped as its tooltip shows it (`"Zoom in"` with `⌘+`,
+  `"Zoom to 100%"` with `⌘0`, elsewhere `Ctrl+Plus` and `Ctrl+0` in the key names of the messages;
+  the percentage through `formatPercent(1, lang)`, English for a language tag `Intl` rejects).
 - `withChromeShortcuts`: `groups` in their order, without empty ones, the chrome's rows at the top
   of the View group (the group titled `messages.shortcutsView`), or a View group of its own first
   when `groups` has none. A row of the given View group whose action is a chrome row's action (the
@@ -781,7 +781,7 @@ function showShortcutsDialog(
   options: ShortcutsDialogOptions,
 ): ShellDialog;
 interface ShortcutsDialogOptions {
-  container: HTMLElement; // where the <dialog> lives: its mode, contrast and language
+  container: HTMLElement; // where the <dialog> lives: its mode, contrast, language, size container
   messages?: ShellMessageOverrides; // shortcutsTitle and close; default English
   lang?: string; // `lang` on the <dialog>, for a container whose language is not the tool's
   focusFallback?: () => void; // see ShellDialogOptions
@@ -823,23 +823,30 @@ interface ShellDialog {
   keys and Shift+1 rest while it is open (§5.8), and in the IDE host Escape is still kept from VS
   Code. It is built on open and removed on close, so a closed dialog leaves nothing in the DOM.
 - **Panel and backdrop** (§8): the `<dialog>` is the panel, `--cd-ui-flaeche-hoch` with 1px
-  `--cd-ui-linie`, radius `md`, `shadow-3`, `width: min(560px, 100% - 32px)` and
-  `max-height: calc(100% - 32px)` of the window, centred, its body scrolling; header (padding
-  `16px 16px 8px 24px`, title 21px/600) with Close as a 32 × 32 ghost icon button (Lucide `x` 16px,
-  `aria-label` "Close"); body padding `8px 24px 24px`; backdrop
+  `--cd-ui-linie`, radius `md`, `shadow-3`, `width: min(560px, 100cqw - 32px)` and
+  `max-height: calc(100cqh - 32px)`, its body scrolling. The sizes refer to the modeler's container
+  (§5.1, also for §8): `cqw` and `cqh` resolve against the shell root even in the top layer, and
+  against the window where no size container is around the `<dialog>` (an embedding host without a
+  mounted shell). The top layer centres it in the window, and its backdrop covers the page; header
+  (padding `16px 16px 8px 24px`, title 21px/600) with Close as a 32 × 32 ghost icon button (Lucide
+  `x` 16px, `aria-label` "Close"); body padding `8px 24px 24px`; backdrop
   `background: var(--cd-ui-backdrop); backdrop-filter: blur(3px) grayscale(1)` in both modes. Every
-  rule sets what a foreign page's element styles (`h2`, `table`, `th`, `button`, `kbd`) would change.
+  rule sets what a foreign page's element styles (`h2`, `table`, `th`, `button`, `kbd`) would
+  change.
 - **High contrast** (`[data-cd-kontrast="hoch"]` on an ancestor, §6, §5.14): no shadow, border
   `--cd-ui-kontur`, focus ring 3px. **Forced colours** (`@media (forced-colors: active)`): border
   `CanvasText`, focus ring `Highlight`. **Reduced motion**, the OS's or VS Code's: no hover fade.
-- **Focus** (§8, §12): `showModal()` puts it on the first Tab stop (Close). Tab and Shift+Tab wrap
-  inside the dialog; in a VS Code webview the browser's Tab would otherwise leave for the workbench.
-  A body that scrolls is a Tab stop itself (`tabindex="0"` while it overflows), so the keyboard
-  scrolls it in every engine. Escape, Close and a click on the backdrop (a press and a release both
-  outside the panel) close it, and the focus returns to the element that had it before: the menu
-  trigger after the Help entry. When that element is gone, hidden or inert, `focusFallback` runs; on
-  the handle it is the shell's own (the canvas, else the trigger, on the start screen its "New
-  diagram").
+- **Focus** (§8, §12): `showModal()` puts it on the first Tab stop (Close). Tab and Shift+Tab move
+  between the dialog's stops in DOM order (a named radio group is one stop) and wrap at its ends,
+  the same in every engine; in a VS Code webview the browser's Tab would otherwise leave for the
+  workbench, and WebKit's Shift+Tab would skip Close. While the focus sits in another dialog opened
+  above it (a host's own modal one, a second shell dialog), that dialog's Tab is left alone. A body
+  that scrolls is a Tab stop itself (`tabindex="0"` while it overflows), so the keyboard scrolls it
+  in every engine; when it stops scrolling while it holds the focus, the focus moves on to the next
+  stop. Escape, Close and a click on the backdrop (a press and a release both outside the panel)
+  close it, and the focus returns to the element that had it before: the menu trigger after the Help
+  entry. When that element is gone, hidden or inert, `focusFallback` runs; on the handle it is the
+  shell's own (the canvas, else the trigger, on the start screen its "New diagram").
 - **Read-only:** the shortcuts dialog stays usable on a read-only canvas (§13.5).
 - **Teardown:** `shell.destroy()` removes the dialog `showShortcutsDialog` opened without moving the
   focus. A dialog of `openShellDialog` and of the standalone `showShortcutsDialog` is the host's:
@@ -847,7 +854,7 @@ interface ShellDialog {
 
 The kit's `shortcutsDialog` case checks all of this in every modeler (see `./testing`).
 
-#### A modeler's own dialogs
+#### Modeler dialogs
 
 A dialog the modeler still renders itself (a renderer's `createShortcutsDialog`, "Map title…",
 "Map size…") meets §8 on its own until it moves onto `cd-shell-dialog`:
@@ -2542,9 +2549,9 @@ affected.
 host. It opens the dialog only through `shortcutsDialog.show`, so it checks the shell's dialog with
 the modeler's own groups before the modeler's Help entry moves onto it:
 
-| Case              | Checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shortcutsDialog` | guide §5.4, §5.6, §5.8, §8, §12, at the first of `sizes`: the zoom panel's four tooltips read by hover; the menu trigger focused, then `shortcutsDialog.show(page, fixture)`: exactly one open `dialog.cd-shell-dialog`, modal (`:modal`, the top layer), named by its title (21px/600), the focus inside; panel `--cd-ui-flaeche-hoch`, 1px `--cd-ui-linie` on every side, radius `--cd-radius-md`, `--cd-shadow-3`, `min(560px, 100% - 32px)` wide, at most `100% - 32px` high, centred; backdrop `--cd-ui-backdrop` with `blur(3px) grayscale(1)`; header padding `16px 16px 8px 24px`, body `8px 24px 24px`; Close a 32 × 32 ghost button with a name and a 16px icon; every group a heading and a table labelled by it, every row a `<th scope="row">` and at least one chip, every chip the tooltip's (Geist Mono 13px/400, `--cd-ui-text-leise` on `--cd-ui-grund`, 1px `--cd-ui-linie`, `--cd-radius-sm`, padding `1px 6px`, no shadow); the rows of `data-chrome-key` zoom in, zoom out, 100 %, fit, in this order at the top of one group, each saying what its tooltip says, and no other row with a chrome row's action. Then Tab and Shift+Tab, each one more time than the dialog has Tab stops, never leave it; the focus ring there solid 2px in `--cd-ui-fokus`; Control+Equal leaves the zoom unchanged; Escape, a click on Close and a click on the backdrop above the panel each close it (reopened in between) and return the focus to the menu trigger. Opened again under high contrast (`data-cd-kontrast="hoch"` as the host requests it, embedded on the page's `<html>`): no shadow, every border `--cd-ui-kontur`, a 3px ring after Tab. Opened under `forced-colors: active`: the border CanvasText, the ring after Tab in Highlight. A page without `emulateMedia` skips the forced colours with `hook: "open"` |
+| Case              | Checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shortcutsDialog` | guide §5.4, §5.6, §5.8, §8, §12, at the first of `sizes`: the zoom panel's four tooltips read by hover; the menu trigger focused, then `shortcutsDialog.show(page, fixture)`: exactly one open `dialog.cd-shell-dialog`, modal (`:modal`, the top layer), named by its title (21px/600), the focus inside; panel `--cd-ui-flaeche-hoch`, 1px `--cd-ui-linie` on every side, radius `--cd-radius-md`, `--cd-shadow-3`, `min(560px, 100% - 32px)` wide and at most `100% - 32px` high of the shell root's content box (§5.1), centred in the window; backdrop `--cd-ui-backdrop` with `blur(3px) grayscale(1)`; header padding `16px 16px 8px 24px`, body `8px 24px 24px`; Close a 32 × 32 ghost button with a name and a 16px icon; every group a heading and a table labelled by it, every row a `<th scope="row">` and at least one chip, every chip the tooltip's (Geist Mono 13px/400, `--cd-ui-text-leise` on `--cd-ui-grund`, 1px `--cd-ui-linie`, `--cd-radius-sm`, padding `1px 6px`, no shadow); the rows of `data-chrome-key` zoom in, zoom out, 100 %, fit, in this order at the top of one group, each saying what its tooltip says, and no other row with a chrome row's action. Then Tab and Shift+Tab, each one more time than the dialog has Tab stops, never leave it; the focus ring there solid 2px in `--cd-ui-fokus`; Control+Equal leaves the zoom unchanged; Escape, a click on Close and a click on the backdrop above the panel each close it (reopened in between) and return the focus to the menu trigger. Opened again under high contrast (`data-cd-kontrast="hoch"` as the host requests it, embedded on the page's `<html>`): no shadow, every border `--cd-ui-kontur`, a 3px ring after Tab. Opened under `forced-colors: active`: the border CanvasText, the ring after Tab in Highlight. A page without `emulateMedia` skips the forced colours with `hook: "open"` |
 
 **After 0.5.0, documents and the empty file.** `documents` lists further documents `open` loads by
 key (`OpenContext.document`): the reserved keys of `EmptyDocument` and any of the harness's own (a
@@ -3236,11 +3243,13 @@ diagram-js's rule on the icon or on the stale `highlighted-entry` does not leak 
 previews keep their own colours (§5.5). Private helper properties are named `--modeler-shell-*`.
 
 It is assembled from `dom/shell-dom.css` (0.1 chrome), `dom/buttons.css` (0.2: the buttons of the
-web chrome, the one place with fixed palette tokens, see [Buttons](#buttons)), `dom/web/web.css`
-(0.2: primary action, legal line, empty state, drop zone, raised zoom row) and
-`dom/feedback/feedback.css` (0.2: toasts and the problems popover; they render in a foreign page too,
-so they reset the page's element rules like the 0.1 islands), then `diagram-js/palette.css`. A test
-pins that `shell.css` imports every stylesheet of `src`.
+web chrome, the one place with fixed palette tokens, see [Buttons](#buttons)), `dom/dialog.css`
+(0.7: the dialog of guide §8 and the shortcut tables; it needs no `.cd-shell` around it, so it also
+styles a dialog opened without a mounted shell), `dom/web/web.css` (0.2: primary action, legal line,
+empty state, drop zone, raised zoom row) and `dom/feedback/feedback.css` (0.2: toasts and the
+problems popover; they render in a foreign page too, so they reset the page's element rules like the
+0.1 islands), then `diagram-js/palette.css`. A test pins that `shell.css` imports every stylesheet
+of `src`.
 
 The shell bundles no font: the modeler loads Geist and Geist Mono (`@fontsource-variable/geist`,
 `@fontsource-variable/geist-mono`), as the stylesheet order above shows, as font files (see
@@ -3745,7 +3754,7 @@ Later candidates unless noted:
   undo toast does not fit (`min(440px, 100% - 32px)` wide, the focus first on "Cancel"), a
   modeler's form dialogs ("Map title…", "Map size…") and the popovers of §5.4 (no backdrop, at the
   dropdown's place, `role="dialog"` without `aria-modal`). Until each moves there, a modeler meets
-  the rules of [A modeler's own dialogs](#a-modelers-own-dialogs) itself.
+  the rules of [Modeler dialogs](#modeler-dialogs) itself.
 - **Placement helper** for palette keyboard creation: the 24px diagonal steps when the centre of the
   free rectangle is taken (§5.5), next to `Viewport.freeRectCenter()`.
 - the `appearance` surface of the modeler-api contract (a later 1.x minor) for embedded hosts and

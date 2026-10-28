@@ -72,17 +72,17 @@ expect(Object.keys(vendoredTokens.shell)).toEqual(
 );
 ```
 
-| Entry                                            | For                                                         |
-| ------------------------------------------------ | ----------------------------------------------------------- |
-| `@miragon/modeler-shell`                         | `mountShell`, icons, and everything of `./core`             |
-| `@miragon/modeler-shell/core`                    | DOM-free: fit math, keymap, zoom readout, appearance, sizes |
-| `@miragon/modeler-shell/diagram-js`              | `shellModule`, the viewport, `connectDiagramJs`             |
-| `@miragon/modeler-shell/vscode/extension`        | webview HTML with CSP and nonce, theme bridge               |
-| `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state       |
-| `@miragon/modeler-shell/testing`                 | the Playwright-driven shell conformance kit                 |
-| `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page           |
-| `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code    |
-| `@miragon/modeler-shell/shell.css`               | every style of the shell                                    |
+| Entry                                            | For                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------ |
+| `@miragon/modeler-shell`                         | `mountShell`, the dialogs, icons, and everything of `./core` |
+| `@miragon/modeler-shell/core`                    | DOM-free: fit math, keymap, zoom readout, appearance, sizes  |
+| `@miragon/modeler-shell/diagram-js`              | `shellModule`, the viewport, `connectDiagramJs`              |
+| `@miragon/modeler-shell/vscode/extension`        | webview HTML with CSP and nonce, theme bridge                |
+| `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state        |
+| `@miragon/modeler-shell/testing`                 | the Playwright-driven shell conformance kit                  |
+| `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page            |
+| `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code     |
+| `@miragon/modeler-shell/shell.css`               | every style of the shell                                     |
 
 TypeScript: every entry resolves under `moduleResolution` `node16`, `bundler` and `node10`, and
 every optional input field accepts `undefined`, so a modeler compiling with
@@ -465,6 +465,13 @@ test.describe("shell conformance", () => {
           return (await page.evaluate(() => window.modeler.exportText())) !== exportedAtOpen;
         },
       },
+      shortcutsDialog: {
+        // the Help entry's groups (build the renderer's for window.shell.platform and .lang), or
+        // the kit's fixture where the page cannot build them
+        async show(page, fixture) {
+          await page.evaluate((groups) => window.shell.showShortcutsDialog(groups), fixture);
+        },
+      },
       show: {
         async legend(page) {
           await page.evaluate(() => window.shell.legend?.setOpen(true));
@@ -566,6 +573,11 @@ registerShellConformance(
       accepted: { name: "board.json", type: "application/json", text: EXAMPLE_JSON },
       rejected: { name: "notes.md", type: "", text: "# Notes" },
     },
+    shortcutsDialog: {
+      async show(page) {
+        /* window.app.shell.showShortcutsDialog(the Help entry's groups, with its File keys) */
+      },
+    },
   },
   test,
   { onSkip: failOnSkips },
@@ -579,7 +591,8 @@ page keeps the legend's earlier start state (go to `about:blank` first). A store
 outside the kit, because `open` has no way to pass one: the legend starts closed unless the host
 passes its stored `legend.open`, which the shell's unit tests cover. A skip names the harness field
 it misses (`{ hook: "legend", reason }`; `hook: "labelEditor"` without a `labelEditor`, or `absent:
-["labelEditor"]` for a notation without labels on the canvas; `hook: "destroy"` without a `destroy`;
+["labelEditor"]` for a notation without labels on the canvas; `hook: "shortcutsDialog"` without a
+`shortcutsDialog`, which no `absent` excuses; `hook: "destroy"` without a `destroy`;
 `hook: "documents"` when `documents` lacks `"empty"`, or in the IDE host `"blank"`; `hook: "open"`
 when the opened document lacks what a case needs, such as a shape for `readOnly`); without `onSkip`
 the kit warns on the console. What each case asserts, and what the kit installs in the page, is
@@ -914,7 +927,7 @@ macOS, which give a clicked button no focus.
 | Directory                               | Module                                                                                     |
 | --------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `src/core`                              | DOM-free: fit math, keymap, zoom readout, appearance, sizes, texts                         |
-| `src/dom`                               | `mountShell`: menu, zoom panel, tooltip, pill, status, slots, keys                         |
+| `src/dom`                               | `mountShell`: menu, zoom panel, tooltip, pill, status, slots, keys; the dialogs (0.7)      |
 | `src/dom/web`, `src/core/web-chrome`    | web column: primary action, legal line, File and Appearance groups, empty state, drop zone |
 | `src/dom/feedback`, `src/core/feedback` | toasts, problems popover, the web app's mode                                               |
 | `src/diagram-js`                        | `shellModule`, viewport, `connectDiagramJs`, palette skin                                  |

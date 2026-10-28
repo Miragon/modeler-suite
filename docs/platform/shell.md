@@ -1,6 +1,6 @@
 # Modeler shell
 
-`@miragon/modeler-shell` is the chrome every modeler shares: menu, palette skin, zoom panel, problems, legend and inspector slots, the plumbing to a VS Code webview and the web-app chrome. One implementation for every modeler and every host, so the chrome looks and behaves the same everywhere. It has no runtime dependencies.
+`@miragon/modeler-shell` is the chrome every modeler shares: menu, palette skin, zoom panel, problems, legend and inspector slots, the plumbing to a VS Code webview, the web-app chrome, and the modal dialog with the "Keyboard shortcuts…" dialog on it, which also opens without a mounted shell. One implementation for every modeler and every host, so the chrome looks and behaves the same everywhere. It has no runtime dependencies.
 
 ```sh
 npm i --save-exact @miragon/modeler-shell

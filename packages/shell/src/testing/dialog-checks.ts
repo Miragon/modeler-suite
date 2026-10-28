@@ -13,7 +13,7 @@ export interface ChromeTooltip {
   shortcut: string;
 }
 
-/** The zoom panel's order, the order of the View group's chrome rows (guide §5.8). */
+/** The order of guide §5.8's key table, the order of the View group's chrome rows. */
 export const CHROME_ROW_ORDER: readonly ChromeKey[] = ["zoomIn", "zoomOut", "zoomToActual", "fit"];
 
 const SIDES = ["top", "right", "bottom", "left"] as const;
@@ -34,7 +34,7 @@ function lookProblems(
   highContrast: boolean,
 ): string[] {
   const problems: string[] = [];
-  const { roles, viewport, box } = dialog;
+  const { roles, viewport, container, box } = dialog;
   const at = `shortcuts dialog (${dialog.description})`;
   if (!dialog.modal) {
     problems.push(
@@ -76,15 +76,15 @@ function lookProblems(
         : `${at}: shadow ${dialog.boxShadow}, expected --cd-shadow-3 (${roles.shadow3}) (guide §8)`,
     );
   }
-  const width = Math.min(560, viewport.width - 32);
+  const width = Math.min(560, container.width - 32);
   if (!within(box.width, width)) {
     problems.push(
-      `${at}: ${box.width}px wide in a ${viewport.width}px window, expected min(560px, 100% - 32px) = ${width}px (guide §8)`,
+      `${at}: ${box.width}px wide in a ${container.width}px wide shell root, expected min(560px, 100% - 32px) of the modeler's container = ${width}px (guide §5.1, §8)`,
     );
   }
-  if (box.height > viewport.height - 32 + 1) {
+  if (box.height > container.height - 32 + 1) {
     problems.push(
-      `${at}: ${box.height}px high in a ${viewport.height}px window, expected at most 100% - 32px, the body scrolling (guide §8)`,
+      `${at}: ${box.height}px high in a ${container.height}px high shell root, expected at most 100% - 32px of the modeler's container, the body scrolling (guide §5.1, §8)`,
     );
   }
   if (!within(box.left, (viewport.width - box.width) / 2)) {
@@ -183,8 +183,8 @@ function tableProblems(dialog: NonNullable<ShellDialogFacts["dialog"]>): string[
 }
 
 /**
- * Guide §5.4 and §5.8: the View group holds the chrome's zoom and fit keys first, in the zoom
- * panel's order and as its tooltips name and chip them, each once in the whole dialog.
+ * Guide §5.4 and §5.8: the View group holds the chrome's zoom and fit keys first, in the order of
+ * §5.8's key table and as their tooltips name and chip them, each once in the whole dialog.
  */
 export function viewRowProblems(
   dialog: NonNullable<ShellDialogFacts["dialog"]>,

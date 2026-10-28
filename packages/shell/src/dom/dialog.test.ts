@@ -156,7 +156,7 @@ describe("openShellDialog (guide §8)", () => {
     expect(document.activeElement).toBe(close);
   });
 
-  it("makes a scrolling body a Tab stop and wraps between Close and the body", () => {
+  it("makes a scrolling body a Tab stop and moves between Close and the body itself", () => {
     const { element } = setup({ render: scrollingBody });
     const close = closeButton(element);
     const body = element.querySelector<HTMLElement>(".cd-shell-dialog-body")!;
@@ -167,9 +167,65 @@ describe("openShellDialog (guide §8)", () => {
     expect(document.activeElement).toBe(close);
     expect(keydown(close, { key: "Tab", shiftKey: true }).defaultPrevented).toBe(true);
     expect(document.activeElement).toBe(body);
-    // Between the two the browser moves on by itself.
+    // WebKit's own Shift+Tab would skip Close and land on the <dialog>.
+    expect(keydown(body, { key: "Tab", shiftKey: true }).defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(close);
+    expect(keydown(close, { key: "Tab" }).defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(body);
+  });
+
+  it("walks the stops of its content in DOM order, a radio group as one stop", () => {
+    const { element } = setup({
+      render(body) {
+        body.innerHTML = `
+          <input id="title">
+          <input type="radio" name="size" id="small"><input type="radio" name="size" id="large" checked>
+          <button id="hidden" hidden>Hidden</button>
+          <button id="apply">Apply</button>`;
+      },
+    });
+    const close = closeButton(element);
+    const walk = (key: Partial<KeyboardEventInit>) => {
+      const seen: string[] = [];
+      for (let press = 0; press < 4; press++) {
+        keydown(document.activeElement!, { key: "Tab", ...key });
+        seen.push(document.activeElement!.id || document.activeElement!.className);
+      }
+      return seen;
+    };
     close.focus();
-    expect(keydown(close, { key: "Tab" }).defaultPrevented).toBe(false);
+
+    expect(walk({})).toEqual(["title", "large", "apply", "cd-shell-dialog-close"]);
+    expect(walk({ shiftKey: true })).toEqual(["apply", "large", "title", "cd-shell-dialog-close"]);
+  });
+
+  it("leaves the Tab of a dialog opened above it to that dialog", () => {
+    const below = setup();
+    const above = setup({ render: scrollingBody });
+    const aboveClose = closeButton(above.element);
+    const aboveBody = above.element.querySelector<HTMLElement>(".cd-shell-dialog-body")!;
+    aboveClose.focus();
+
+    expect(keydown(aboveClose, { key: "Tab" }).defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(aboveBody);
+    expect(keydown(aboveBody, { key: "Tab", shiftKey: true }).defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(aboveClose);
+    expect(below.element.contains(document.activeElement)).toBe(false);
+  });
+
+  it("leaves the Tab of a host's own modal dialog above it to the browser", () => {
+    setup();
+    const host = document.createElement("dialog");
+    host.innerHTML = '<input id="first"><input id="second">';
+    document.body.append(host);
+    host.showModal();
+    const first = host.querySelector<HTMLInputElement>("#first")!;
+    first.focus();
+
+    expect(keydown(first, { key: "Tab" }).defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(first);
+    host.close();
+    host.remove();
   });
 
   it("leaves a Tab alone that the dialog's content handled itself", () => {
@@ -189,6 +245,18 @@ describe("openShellDialog (guide §8)", () => {
     Object.defineProperty(body, "scrollHeight", { configurable: true, value: 300 });
     FakeResizeObserver.resize(body);
     expect(body.hasAttribute("tabindex")).toBe(false);
+  });
+
+  it("keeps the focus inside when the focused body stops scrolling", () => {
+    const { element } = setup({ render: scrollingBody });
+    const body = element.querySelector<HTMLElement>(".cd-shell-dialog-body")!;
+    body.focus();
+
+    Object.defineProperty(body, "scrollHeight", { configurable: true, value: 300 });
+    FakeResizeObserver.resize(body);
+
+    expect(body.hasAttribute("tabindex")).toBe(false);
+    expect(document.activeElement).toBe(closeButton(element));
   });
 
   it("brings a focus that left the dialog back on Tab", () => {

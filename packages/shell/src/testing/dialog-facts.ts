@@ -94,6 +94,11 @@ export interface ShellDialogFacts {
     /** Opened with `showModal()`: in the top layer, the page behind it inert. */
     modal: boolean;
     viewport: Size;
+    /**
+     * The content box of the modeler's container, the shell root, which the dialog's sizes refer
+     * to (guide §5.1); the window without a root.
+     */
+    container: Size;
     /** The dialog's box in viewport coordinates. */
     box: { left: number; top: number; width: number; height: number };
     /** The text of what `aria-labelledby` names, and that element's tag. */
@@ -189,6 +194,20 @@ export const shellDialogProbe = ({
     shadow3: resolve("box-shadow", "var(--cd-shadow-3)", (s) => s.boxShadow),
   };
 
+  const rootStyle = rootElement ? getComputedStyle(rootElement) : null;
+  const container =
+    rootElement && rootStyle
+      ? {
+          width:
+            rootElement.clientWidth -
+            parseFloat(rootStyle.paddingLeft) -
+            parseFloat(rootStyle.paddingRight),
+          height:
+            rootElement.clientHeight -
+            parseFloat(rootStyle.paddingTop) -
+            parseFloat(rootStyle.paddingBottom),
+        }
+      : { width: window.innerWidth, height: window.innerHeight };
   const style = getComputedStyle(first);
   const backdrop = getComputedStyle(first, "::backdrop");
   const box = first.getBoundingClientRect();
@@ -257,6 +276,7 @@ export const shellDialogProbe = ({
       description: tools.describe(first),
       modal,
       viewport: { width: window.innerWidth, height: window.innerHeight },
+      container,
       box: { left: box.left, top: box.top, width: box.width, height: box.height },
       name: nameElement ? { text: text(nameElement), tag: nameElement.localName } : null,
       title: titleElement

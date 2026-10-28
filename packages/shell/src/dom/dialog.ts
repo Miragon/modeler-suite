@@ -5,8 +5,9 @@ import { iconElement } from "./icons.js";
 export interface ShellDialogOptions {
   /**
    * Where the `<dialog>` lives: the shell root, or an element of an embedding host, so the dialog
-   * takes its mode (`data-cd-theme`), contrast and language. It shows in the top layer whatever its
-   * place.
+   * takes its mode (`data-cd-theme`), contrast and language, and its sizes refer to the size
+   * container around it (the shell root; the window without one, guide §5.1). It shows in the top
+   * layer, centred in the window, whatever its place.
    */
   container: HTMLElement;
   /** The title (21px/600) and the dialog's accessible name. */
@@ -72,11 +73,59 @@ function isShown(element: HTMLElement): boolean {
   );
 }
 
+/** A named radio group is one Tab stop, as in the browser: its checked radio, else its first. */
+function isRadioGroupStop(element: HTMLElement, candidates: readonly HTMLElement[]): boolean {
+  if (!(element instanceof HTMLInputElement) || element.type !== "radio" || element.name === "") {
+    return true;
+  }
+  const group = candidates.filter(
+    (other): other is HTMLInputElement =>
+      other instanceof HTMLInputElement &&
+      other.type === "radio" &&
+      other.name === element.name &&
+      other.form === element.form,
+  );
+  return (group.find((radio) => radio.checked) ?? group[0]) === element;
+}
+
 /** The dialog's Tab stops in DOM order (no positive `tabindex` in the chrome, guide §5.14). */
 function tabStops(dialog: HTMLDialogElement): HTMLElement[] {
-  return [...dialog.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR)].filter(
+  const candidates = [...dialog.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR)].filter(
     (element) => element.tabIndex >= 0 && !element.matches(":disabled") && isShown(element),
   );
+  return candidates.filter((element) => isRadioGroupStop(element, candidates));
+}
+
+/**
+ * The stop after (`forward`) or before `from` in DOM order, wrapping at the dialog's ends; from
+ * outside the dialog or from the `<dialog>` itself the first or the last stop.
+ */
+function adjacentStop(
+  dialog: HTMLDialogElement,
+  stops: readonly HTMLElement[],
+  from: Element | null,
+  forward: boolean,
+): HTMLElement | undefined {
+  const inside = from !== null && from !== dialog && dialog.contains(from);
+  if (inside && forward) {
+    const next = stops.find(
+      (stop) => from.compareDocumentPosition(stop) & Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    if (next) return next;
+  }
+  if (inside && !forward) {
+    for (let index = stops.length - 1; index >= 0; index--) {
+      const stop = stops[index]!;
+      if (from.compareDocumentPosition(stop) & Node.DOCUMENT_POSITION_PRECEDING) return stop;
+    }
+  }
+  return forward ? stops[0] : stops.at(-1);
+}
+
+/** The focus sits in another open dialog, one opened above this one: its Tab is its own. */
+function focusInOtherDialog(dialog: HTMLDialogElement, active: Element | null): boolean {
+  const owner = active?.closest("dialog") ?? null;
+  return owner !== null && owner !== dialog && owner.open && !dialog.contains(owner);
 }
 
 function canTakeFocus(element: HTMLElement | SVGElement): boolean {
@@ -149,32 +198,36 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
   function updateScrollStop(): void {
     const scrolls = body.scrollHeight > body.clientHeight + 1;
     if (scrolls === body.hasAttribute("tabindex")) return;
-    if (scrolls) body.setAttribute("tabindex", "0");
-    else body.removeAttribute("tabindex");
+    if (scrolls) {
+      body.setAttribute("tabindex", "0");
+      return;
+    }
+    const bodyHadFocus = ownerDocument.activeElement === body;
+    body.removeAttribute("tabindex");
+    // The browser would drop the focus of an element that is no Tab stop any more to <body>.
+    if (bodyHadFocus) adjacentStop(dialog, tabStops(dialog), body, true)?.focus();
   }
   const resizeObserver = ResizeObserverClass
     ? new ResizeObserverClass(() => updateScrollStop())
     : undefined;
 
+  /**
+   * Moves the focus between the dialog's stops itself: the browser's Tab would leave the dialog at
+   * its ends, and WebKit's Shift+Tab skips Close and lands on the `<dialog>`.
+   */
   function onTab(event: KeyboardEvent): void {
     if (event.key !== "Tab" || event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.defaultPrevented || !dialog.open) return;
-    const stops = tabStops(dialog);
-    const first = stops[0];
-    const last = stops.at(-1);
-    if (!first || !last) {
+    const active = ownerDocument.activeElement;
+    if (focusInOtherDialog(dialog, active)) return;
+    const target = adjacentStop(dialog, tabStops(dialog), active, !event.shiftKey);
+    if (!target) {
       event.preventDefault();
       return;
     }
-    const active = ownerDocument.activeElement;
-    const inside = active !== dialog && dialog.contains(active);
-    if (event.shiftKey && (!inside || active === first)) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && (!inside || active === last)) {
-      event.preventDefault();
-      first.focus();
-    }
+    target.focus();
+    // Behind a newer modal dialog this one is inert and takes no focus: the browser's Tab goes on.
+    if (ownerDocument.activeElement === target) event.preventDefault();
   }
 
   let pressedOnBackdrop = false;
