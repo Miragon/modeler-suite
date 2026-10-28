@@ -18,7 +18,7 @@ const CANVAS_GROUND = vendoredTokens.hell["--cd-ui-grund"];
 /**
  * The official Team-Shape-Templates strokes below 3:1 on the canvas ground. They stay as they are
  * for fidelity to the templates, an accepted exception (decided 2026-10-24 in #94) that the design
- * guide records for foreign notation in §10.6 from the release after 1.20.1. Their colours are
+ * guide records for foreign notation in §10.6 since release 1.22.0. Their colours are
  * pinned too, so recolouring one of them fails like any new stroke below 3:1.
  */
 const OFFICIAL_STROKES_BELOW_NON_TEXT_CONTRAST: Record<string, string> = {

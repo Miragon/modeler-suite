@@ -17,7 +17,7 @@ All UI/visual work follows the Miragon product design system (the
 **`miragon-brand:modeler-tool-design`** skill; see the suite's
 [`CLAUDE.md`](../../CLAUDE.md#design-system-mandatory)). Here:
 
-The design system **1.20.1** is **vendored** from that skill, byte-identical:
+The design system **1.27.0** is **vendored** from that skill, byte-identical:
 [`packages/renderer/src/theme/cd-tokens.generated.css`](packages/renderer/src/theme/cd-tokens.generated.css),
 `cd-tokens.generated.json` and `cd-canvas.css`. Do **not** fork or reformat them; re-copy all three
 from the skill to update and update their hashes in the drift test
@@ -46,8 +46,8 @@ twins `webapp-webkit` and `vscode-webview-webkit` run only the focus hand-back c
 notation** (Team-Shape-Templates) and stay as they are, for fidelity to the official templates. A
 document never carries them: it serializes only an element's optional `fill` / `stroke` override.
 The official strokes below the guide's 3:1 for non-text elements on the canvas ground are an
-accepted exception (decided 2026-10-24 in #94). The guide records it in §10.6 from the release after
-1.20.1; the vendored 1.20.1 does not contain it yet. It also covers the notation's own icons, which
+accepted exception (decided 2026-10-24 in #94). The guide records it in §10.6 since release
+1.22.0. It also covers the notation's own icons, which
 draw the same strokes on the chrome's surfaces in the palette and the legend.
 [`packages/renderer/src/draw/notation-contrast.test.ts`](packages/renderer/src/draw/notation-contrast.test.ts)
 checks every notation colour pair (label text at least 4.5:1 on its fill, structural strokes at
