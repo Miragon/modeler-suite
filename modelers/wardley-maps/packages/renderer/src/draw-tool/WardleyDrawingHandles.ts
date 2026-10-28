@@ -30,6 +30,7 @@ export default class WardleyDrawingHandles {
   private shape: WardleyShape | null = null;
   private group: SVGElement | null = null;
   private dragPreview: SVGElement | null = null;
+  private pointDrag: { shape: WardleyShape; unbind: () => void } | null = null;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -49,7 +50,15 @@ export default class WardleyDrawingHandles {
     eventBus.on("element.changed", (event: { element?: unknown }) => {
       if (this.shape && event.element === this.shape) this.render();
     });
-    eventBus.on(["diagram.clear", "diagram.destroy"], () => this.attach(null));
+    // An import, a delete or an undo removes the drawing mid-drag: the release must not commit
+    // onto the removed shape.
+    eventBus.on("shape.remove", (event: { element?: unknown }) => {
+      if (this.pointDrag?.shape === event.element) this.endPointDrag();
+    });
+    eventBus.on(["diagram.clear", "diagram.destroy"], () => {
+      this.endPointDrag();
+      this.attach(null);
+    });
   }
 
   private attach(shape: WardleyShape | null): void {
@@ -91,6 +100,7 @@ export default class WardleyDrawingHandles {
     // The prevented default keeps the browser from focusing the canvas, whose keys act only while
     // it has the focus.
     focusCanvasWithoutRing(this.canvas);
+    this.endPointDrag();
     const shape = this.shape;
     const points = this.absolutePoints();
 
@@ -99,14 +109,32 @@ export default class WardleyDrawingHandles {
       this.renderDragPreview(points, !!shape.closed);
     };
     const onUp = (ev: MouseEvent): void => {
-      document.removeEventListener("mousemove", onMove, true);
-      document.removeEventListener("mouseup", onUp, true);
       points[index] = this.toCanvasPoint(ev);
-      this.clearDragPreview();
+      this.endPointDrag();
       this.commit(shape, points);
     };
     document.addEventListener("mousemove", onMove, true);
     document.addEventListener("mouseup", onUp, true);
+    this.pointDrag = {
+      shape,
+      unbind: () => {
+        document.removeEventListener("mousemove", onMove, true);
+        document.removeEventListener("mouseup", onUp, true);
+      },
+    };
+  }
+
+  /**
+   * Ends a running point drag without committing it. The point drag is this renderer's own gesture,
+   * outside diagram-js dragging, so the import's drag cancel does not reach it: the removal of its
+   * drawing ends it.
+   */
+  private endPointDrag(): void {
+    const drag = this.pointDrag;
+    if (!drag) return;
+    this.pointDrag = null;
+    drag.unbind();
+    this.clearDragPreview();
   }
 
   /** New bbox + relative points + normalized anchor — ONE undoable updateProperties command. */

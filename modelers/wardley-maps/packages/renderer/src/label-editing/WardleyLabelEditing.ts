@@ -1,4 +1,5 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type ContextPad from "diagram-js/lib/features/context-pad/ContextPad";
 import type Selection from "diagram-js/lib/features/selection/Selection";
@@ -155,7 +156,14 @@ interface LabelGeometry {
  * (Enter = save). Escape always discards.
  */
 export default class WardleyLabelEditing {
-  static $inject = ["eventBus", "canvas", "wardleyModeling", "wardleyElementFactory", "injector"];
+  static $inject = [
+    "eventBus",
+    "canvas",
+    "elementRegistry",
+    "wardleyModeling",
+    "wardleyElementFactory",
+    "injector",
+  ];
 
   private active: ActiveEdit | null = null;
   private relayoutPending = false;
@@ -166,6 +174,7 @@ export default class WardleyLabelEditing {
   constructor(
     private readonly eventBus: EventBus,
     private readonly canvas: Canvas,
+    private readonly elementRegistry: ElementRegistry,
     private readonly modeling: WardleyModeling,
     private readonly factory: WardleyElementFactory,
     injector: Injector,
@@ -202,9 +211,15 @@ export default class WardleyLabelEditing {
     eventBus.on("diagram.destroy", () => this.cancel());
   }
 
-  /** Opens the in-place name editor for `element` (no-op for regions and drawings). */
+  /**
+   * Opens the in-place name editor for `element` (no-op for regions and drawings, and for an
+   * element an import has replaced).
+   */
   activate(element: WardleyShape, options: ActivateOptions = {}): void {
     if (!isWardleyShape(element) || NOT_EDITABLE.has(element.wardleyType) || this.locked()) return;
+    // A host that re-imports from the change listener of a create has replaced the new shape before
+    // the caller opens the editor, and a name typed into it would commit onto the removed shape.
+    if (this.elementRegistry.get(element.id) !== element) return;
     this.active?.commit("outside");
 
     const container = this.canvas.getContainer();
