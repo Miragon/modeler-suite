@@ -43,8 +43,8 @@ const { svg } = modeler.saveSVG(); // standalone SVG
 The stylesheet is required. It loads, in this order, the design-system tokens
 (`cd-tokens.generated.css`, in a cascade layer, so a host page's own `--cd-*` tokens win),
 diagram-js' own CSS and `cd-canvas.css`, which maps diagram-js' chrome onto the `--cd-ui-*` roles;
-then it styles the canvas surround, the context pad, the label editor and the shortcuts dialog on
-those roles only. The three design-system files are vendored unchanged from the
+then it styles the canvas surround, the context pad and the label editor (and the deprecated
+shortcuts dialog) on those roles only. The three design-system files are vendored unchanged from the
 `miragon-brand:modeler-tool-design` skill (design system 1.27.0) into `src/theme/`. The diagram
 itself is drawn with SVG presentation values in the light roles of those tokens, so SVG and PNG
 exports stay light in every mode.
@@ -160,11 +160,21 @@ wrapped `Modeler` or `NavigatedViewer` for host wiring.
 
 What both apps show around the diagram, typed structurally like `@miragon/modeler-shell` (the
 renderer never imports the shell): `diagramMenu()` (Export as PNG, then SVG, optionally JSON; Help
-with "Keyboard shortcuts…"), `createShortcutsDialog(shell)` (a modal `<dialog>` in the chrome's
-root, with the high-contrast and forced-colours rules of the design system; `{ fileKeys: true }`
-adds the web app's File keys, Cmd/Ctrl+O and Cmd/Ctrl+S), `svgToPng()` and
-`blobToBase64()` for the PNG export, and `vcBounds.isEmpty()`, a cheap emptiness test for the
-shell's empty-file hint.
+with "Keyboard shortcuts…"), `diagramShortcuts(shell)` (the shortcut groups as data, for
+`shell.showShortcutsDialog(groups)` of the shell; `{ fileKeys: true }` adds the web app's File
+keys, Cmd/Ctrl+O and Cmd/Ctrl+S), `blobToBase64()` for handing a PNG to an extension host, and
+`vcBounds.isEmpty()`, a cheap emptiness test for the shell's empty-file hint.
+
+The PNG export is the shell's: `svgToPng(svg, { background: COLORS.surround })` of
+`@miragon/modeler-shell/export` embeds Geist and fills the background that guide §10.7 names for
+a notation without a plot (`COLORS.surround`, `#F9F7F7`).
+
+**Deprecated in 0.9.0, removed in 0.10.0
+([#257](https://github.com/Miragon/modeler-suite/issues/257)):** `createShortcutsDialog()` (with
+`ShortcutsDialog` and `ShortcutsDialogChrome`) and this package's `svgToPng()`. The dialog is
+`shell.showShortcutsDialog(diagramShortcuts(shell, options))`, or the shell's standalone
+`showShortcutsDialog` in a host without a mounted shell; the renderer's own PNG helper embeds no
+Geist, fills white and loads a `blob:` URL.
 
 ## Notation
 

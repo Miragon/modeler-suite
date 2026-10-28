@@ -22,7 +22,7 @@ dirty state, save, Git, diff, and undo all work like for any text file.
   the lasso, hand, space and connect tools; Enter on Step or Organizational unit in the palette
   places one in the middle of the canvas. **Keyboard shortcuts…** in the menu lists every key.
 - **Export**: PNG and SVG from the menu or the Command Palette (**Value Chain: Export as PNG**,
-  **Export as SVG**), always light.
+  **Export as SVG**), always light. The PNG sets its labels in Geist, on the light canvas ground.
 - **Side by side**: **Open Source to the Side** in the editor title of the diagram, **Open Diagram
   to the Side** in the title of the JSON.
 - **Empty files**: a new, empty diagram opens at 100 % with **Insert example**.

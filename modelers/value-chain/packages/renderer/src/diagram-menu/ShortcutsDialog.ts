@@ -9,7 +9,11 @@ import {
 const DIALOG_CLASS = "vc-shortcuts";
 const TITLE_ID = "vc-shortcuts-title";
 
-/** What the dialog needs of the chrome around the diagram; a `@miragon/modeler-shell` handle fits. */
+/**
+ * What the dialog needs of the chrome around the diagram; a `@miragon/modeler-shell` handle fits.
+ *
+ * @deprecated Deprecated in 0.9.0, removed in 0.10.0 (#257) with `createShortcutsDialog`.
+ */
 export interface ShortcutsDialogChrome extends ShortcutsChrome {
   /** Where the dialog lives (the shell root), so it shares the chrome's mode and fonts. */
   readonly root: HTMLElement;
@@ -18,6 +22,9 @@ export interface ShortcutsDialogChrome extends ShortcutsChrome {
   readonly menu: { readonly trigger: HTMLElement };
 }
 
+/**
+ * @deprecated Deprecated in 0.9.0, removed in 0.10.0 (#257) with `createShortcutsDialog`.
+ */
 export interface ShortcutsDialog {
   open(): void;
   isOpen(): boolean;
@@ -83,6 +90,11 @@ function dialogContent(
  * inside the chrome's root: the browser keeps the focus inside it, closes it on Escape and puts it
  * in the top layer. Built on the first open and kept (closed) afterwards; the host calls
  * `destroy()` with the diagram's teardown, since the chrome removes only what it added itself.
+ *
+ * @deprecated Deprecated in 0.9.0, removed in 0.10.0 (#257). The shell owns this dialog (top
+ * layer, focus trap and return, centred over the modeler): open it with
+ * `shell.showShortcutsDialog(diagramShortcuts(shell, options))`, or with the standalone
+ * `showShortcutsDialog` of `@miragon/modeler-shell` in a host without a mounted shell.
  */
 export function createShortcutsDialog(
   chrome: ShortcutsDialogChrome,

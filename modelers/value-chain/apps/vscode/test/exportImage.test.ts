@@ -48,6 +48,46 @@ describe("VcEditorProvider — export", () => {
     expect(executeCommand).toHaveBeenCalledWith("revealFileInOS", target);
   });
 
+  it("warns instead of confirming when the PNG's labels fell back to the system font", async () => {
+    vi.spyOn(window, "showSaveDialog").mockResolvedValue(target);
+    const reveal = revealFileLabel(process.platform);
+    const showWarningMessage = vi.spyOn(window, "showWarningMessage").mockResolvedValue(reveal);
+    const showInformationMessage = vi.spyOn(window, "showInformationMessage");
+    const executeCommand = vi.spyOn(commands, "executeCommand");
+    const writeFile = vi.spyOn(workspace.fs, "writeFile");
+    const h = await openDiagram(fakeDocument("/chains/checkout.vc.json", DOC_A));
+
+    await h.receive({
+      type: "export",
+      format: "png",
+      data: Buffer.from("png!").toString("base64"),
+      fontFallback: true,
+    });
+
+    expect(Buffer.from(writeFile.mock.calls[0]![1]).toString()).toBe("png!");
+    expect(showWarningMessage).toHaveBeenCalledWith(
+      "Exported checkout.png in a system font. Geist couldn't be embedded.",
+      reveal,
+    );
+    expect(showInformationMessage).not.toHaveBeenCalled();
+    expect(executeCommand).toHaveBeenCalledWith("revealFileInOS", target);
+  });
+
+  it("confirms a PNG whose labels are in Geist without a warning", async () => {
+    vi.spyOn(window, "showSaveDialog").mockResolvedValue(target);
+    const showWarningMessage = vi.spyOn(window, "showWarningMessage");
+    const showInformationMessage = vi.spyOn(window, "showInformationMessage");
+    const h = await openDiagram(fakeDocument("/chains/checkout.vc.json", DOC_A));
+
+    await h.receive({ type: "export", format: "png", data: "", fontFallback: false });
+
+    expect(showInformationMessage).toHaveBeenCalledWith(
+      "Exported checkout.png.",
+      revealFileLabel(process.platform),
+    );
+    expect(showWarningMessage).not.toHaveBeenCalled();
+  });
+
   it("reports a failed write as an error notification, not as a success", async () => {
     vi.spyOn(window, "showSaveDialog").mockResolvedValue(target);
     vi.spyOn(workspace.fs, "writeFile").mockRejectedValue(new Error("disk full"));
@@ -75,8 +115,13 @@ describe("VcEditorProvider — export", () => {
     const showErrorMessage = vi.spyOn(window, "showErrorMessage");
     const h = await openDiagram(fakeDocument("/chains/checkout.vc.json", DOC_A));
 
-    await h.receive({ type: "error", message: "Could not export the diagram as PNG: boom" });
+    await h.receive({
+      type: "error",
+      message: "Couldn't export the diagram as PNG. Try again, or export it as SVG.",
+    });
 
-    expect(showErrorMessage).toHaveBeenCalledWith("Could not export the diagram as PNG: boom");
+    expect(showErrorMessage).toHaveBeenCalledWith(
+      "Couldn't export the diagram as PNG. Try again, or export it as SVG.",
+    );
   });
 });

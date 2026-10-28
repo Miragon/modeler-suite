@@ -34,8 +34,11 @@ export type WebviewToHost =
   | { type: "ready" }
   /** Graphical change -> apply to the document as a WorkspaceEdit. */
   | { type: "edit"; text: string }
-  /** Trigger an image export (SVG = text, PNG = Base64). */
-  | { type: "export"; format: "svg" | "png"; data: string }
+  /**
+   * Trigger an image export (SVG = text, PNG = Base64). `fontFallback`: the PNG's labels are in the
+   * system font, since Geist could not be embedded; the host says so in its notification.
+   */
+  | { type: "export"; format: "svg" | "png"; data: string; fontFallback?: boolean }
   | { type: "error"; message: string }
   /** The problems pill was activated -> open the Problems view. */
   | { type: "showProblems" }

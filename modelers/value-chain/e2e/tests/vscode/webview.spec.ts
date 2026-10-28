@@ -2,8 +2,12 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ICONS, type ShellIconName } from "@miragon/modeler-shell";
 import { fitViewbox, sameView } from "@miragon/modeler-shell/core";
 import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "../../../apps/vscode/src/examples.js";
+import { PNG_GROUND, pixelOf } from "../support/png.js";
 import {
+  LIGHT,
+  WIDE,
   countOf,
+  openShippedWebview,
   openWebview,
   postFromHost,
   postedMessages,
@@ -391,19 +395,93 @@ test.describe("VS Code webview: protocol and chrome", () => {
       .toBe(true);
   });
 
-  test("the keyboard shortcuts dialog opens from Help and closes on Escape", async ({ page }) => {
+  test("the keyboard shortcuts dialog is the shell's: it opens from Help and closes on Escape", async ({
+    page,
+  }) => {
     await openWebview(page);
     const dropdown = await openMenu(page);
     await dropdown.locator('[data-menu-id="keyboard-shortcuts"]').click();
 
     const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator("h4")).toHaveText(["View", "Edit", "Tools"]);
-    await expect(dialog.getByRole("row", { name: /Fit to view/ })).toBeVisible();
+    await expect(dialog).toHaveClass(/cd-shell-dialog/);
+    await expect(dialog.locator("h3.cd-shell-shortcuts-title")).toHaveText([
+      "View",
+      "Edit",
+      "Tools",
+    ]);
+    await expect(dialog.locator("table").first().locator("th")).toHaveText([
+      "Zoom in",
+      "Zoom out",
+      "Zoom to 100%",
+      "Fit to view",
+      "Move the canvas",
+    ]);
+    await expect(dialog.locator("tr[data-chrome-key]")).toHaveCount(4);
 
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
+  });
+
+  test("the keyboard shortcuts dialog opens from the keyboard and Close hands the focus back", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await page.locator('[data-chrome="menu"]').focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+
+    const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
+
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
+  });
+
+  test("the PNG export lies on the canvas ground, #F9F7F7, with no font fallback (guide §10.7)", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await postFromHost(page, { type: "command", name: "exportPng" });
+
+    const exported = await waitForPosted(page, "export");
+    expect(exported).toMatchObject({ format: "png" });
+    expect(exported).not.toHaveProperty("fontFallback");
+    const png = Buffer.from(exported["data"] as string, "base64");
+    expect(await pixelOf(page, png)).toEqual(PNG_GROUND);
+  });
+
+  test("the shipped bundle exports a PNG under its content security policy", async ({ page }) => {
+    test.setTimeout(90_000);
+    await openShippedWebview(page, { size: WIDE, requested: LIGHT });
+    await postFromHost(page, { type: "command", name: "exportPng" });
+
+    const exported = await waitForPosted(page, "export");
+    expect(exported).not.toHaveProperty("fontFallback");
+    const png = Buffer.from(exported["data"] as string, "base64");
+    expect(await pixelOf(page, png)).toEqual(PNG_GROUND);
+    expect(await page.evaluate(() => window.__modelerShellVsCodeStub!.cspViolations())).toEqual([]);
+    expect(await page.evaluate(() => window.__modelerShellVsCodeStub!.errors())).toEqual([]);
+  });
+
+  test("a PNG the browser cannot draw is reported with the app's own text, not the error's", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      HTMLCanvasElement.prototype.toBlob = (callback) => callback(null);
+    });
+    await postFromHost(page, { type: "command", name: "exportPng" });
+
+    const error = await waitForPosted(page, "error");
+    expect(error["message"]).toBe(
+      "Couldn't export the diagram as PNG. Try again, or export it as SVG.",
+    );
+    expect(countOf(await postedMessages(page), "export")).toBe(0);
   });
 
   test("the shortcuts dialog draws its high-contrast edge under VS Code high contrast", async ({
@@ -417,7 +495,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
     await page.keyboard.press("End");
     await page.keyboard.press("Enter");
 
-    const dialog = page.locator("dialog.vc-shortcuts");
+    const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(dialog).toBeVisible();
     const painted = await dialog.evaluate((element) => {
       const style = getComputedStyle(element);

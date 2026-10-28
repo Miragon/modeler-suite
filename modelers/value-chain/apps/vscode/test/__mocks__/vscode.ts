@@ -245,6 +245,9 @@ export const window = {
   showInformationMessage(_message: string, ..._items: string[]): Promise<string | undefined> {
     return Promise.resolve(undefined);
   },
+  showWarningMessage(_message: string, ..._items: string[]): Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  },
   showErrorMessage(_message: string, ..._items: string[]): Promise<string | undefined> {
     return Promise.resolve(undefined);
   },

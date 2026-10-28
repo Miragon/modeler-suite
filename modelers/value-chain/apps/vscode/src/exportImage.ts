@@ -5,12 +5,14 @@ type ImageFormat = "svg" | "png";
 
 /**
  * Image export (SVG/PNG) to disk via a save dialog. The outcome is a host notification (guide
- * §13.5): the file name with the platform's reveal action, or the error.
+ * §13.5): the file name with the platform's reveal action, or the error. A PNG whose labels fell
+ * back to the system font is saved all the same and reported as a warning.
  */
 export async function exportImageToFile(
   sourceUri: vscode.Uri | undefined,
   format: ImageFormat,
   data: string,
+  fontFallback = false,
 ): Promise<void> {
   const options: vscode.SaveDialogOptions = {
     title: format === "svg" ? "Export as SVG" : "Export as PNG",
@@ -35,9 +37,13 @@ export async function exportImageToFile(
   }
 
   const reveal = revealFileLabel(process.platform);
-  if ((await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal)) === reveal) {
-    void vscode.commands.executeCommand("revealFileInOS", target);
-  }
+  const chosen = fontFallback
+    ? await vscode.window.showWarningMessage(
+        `Exported ${fileName} in a system font. Geist couldn't be embedded.`,
+        reveal,
+      )
+    : await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal);
+  if (chosen === reveal) void vscode.commands.executeCommand("revealFileInOS", target);
 }
 
 /** `<name>.<format>` next to the source file (if no file: in the first workspace folder). */

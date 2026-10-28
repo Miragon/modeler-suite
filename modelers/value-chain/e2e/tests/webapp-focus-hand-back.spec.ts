@@ -2,7 +2,6 @@ import { expect, test, type Page } from "@playwright/test";
 import { allowClipboardWrite, clickButtonsLikeSafari } from "./support/safari.js";
 import {
   canvasSlot,
-  closeDialog,
   diagramPoint,
   exportDocument,
   exportText,
@@ -72,9 +71,9 @@ const HAND_BACK_CASES: readonly HandBackCase[] = [
     name: "the menu's dialog closes (the focus on the menu trigger) and a click on the canvas",
     async run(page) {
       await (await openMenu(page)).locator('[data-menu-id="keyboard-shortcuts"]').click();
-      const dialog = page.locator("dialog.vc-shortcuts");
+      const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
       await expect(dialog).toBeVisible();
-      await closeDialog(dialog, () => dialog.getByRole("button", { name: "Close" }).click());
+      await dialog.getByRole("button", { name: "Close" }).click();
       await expect(dialog).toBeHidden();
       await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
       await clickEmptySpot(page);

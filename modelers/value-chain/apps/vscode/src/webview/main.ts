@@ -4,11 +4,11 @@ import "@fontsource-variable/geist-mono/wght.css";
 // The renderer's stylesheet brings the vendored tokens and diagram-js.css; the shell's comes last.
 import {
   BLANK_DOCUMENT_NAME,
+  COLORS,
   blobToBase64,
   createCollaborativeModeler,
-  createShortcutsDialog,
   diagramMenu,
-  svgToPng,
+  diagramShortcuts,
   type CollaborativeValueChainModeler,
   type VcBounds,
   type VcReadOnly,
@@ -26,6 +26,7 @@ import {
   shellModule,
   type DiagramJsConnection,
 } from "@miragon/modeler-shell/diagram-js";
+import { svgToPng } from "@miragon/modeler-shell/export";
 import {
   mountVsCodeShell,
   persistView,
@@ -33,6 +34,7 @@ import {
 } from "@miragon/modeler-shell/vscode/webview";
 import type { HostToWebview, WebviewCommand, WebviewToHost } from "../protocol.js";
 import { WEBVIEW_THEMES } from "../themes.js";
+import { GEIST_FACES } from "./geist.js";
 
 interface VsCodeApi {
   postMessage(message: WebviewToHost): void;
@@ -87,14 +89,11 @@ const shell = mountVsCodeShell(app, {
       png: { onSelect: () => void exportPng() },
       svg: { onSelect: () => void exportSvg() },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    showKeyboardShortcuts: () => void shell.showShortcutsDialog(diagramShortcuts(shell)),
   }),
   problems: { onActivate: () => post({ type: "showProblems" }) },
   emptyHint: { onInsertExample: () => post({ type: "insertExample" }) },
 });
-// The modeler's own dialog in the shell root; it goes with the diagram.
-const shortcutsDialog = createShortcutsDialog(shell);
-modeler.on("diagram.destroy", () => shortcutsDialog.destroy());
 
 const diagramConnection = connectDiagramJs(shell, modeler, {
   modeler: collaborative,
@@ -240,11 +239,28 @@ function exportSvg(): void {
 }
 
 async function exportPng(): Promise<void> {
+  let fontFallback = false;
   try {
     const { svg } = withoutSelection(() => modeler.saveSVG());
-    post({ type: "export", format: "png", data: await blobToBase64(await svgToPng(svg)) });
+    const png = await svgToPng(svg, {
+      background: COLORS.surround,
+      fonts: GEIST_FACES,
+      onFontFallback: () => {
+        fontFallback = true;
+      },
+    });
+    post({
+      type: "export",
+      format: "png",
+      data: await blobToBase64(png),
+      ...(fontFallback ? { fontFallback } : {}),
+    });
   } catch (error) {
-    post({ type: "error", message: `Could not export the diagram as PNG: ${messageOf(error)}` });
+    console.error("Value chain PNG export failed", error);
+    post({
+      type: "error",
+      message: "Couldn't export the diagram as PNG. Try again, or export it as SVG.",
+    });
   }
 }
 
