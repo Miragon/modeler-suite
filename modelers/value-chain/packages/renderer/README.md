@@ -83,6 +83,9 @@ container as in bpmn-js; the feature modules (`vcDrawModule`, `vcRulesModule`, `
   import, and the hand tool is still armed when it ends. When the import fits the view, the pan
   goes on from the fitted view. A palette tool that only waits for its next press (lasso, hand,
   space, connect) stays armed and highlighted, and its next press works on the imported diagram.
+  A pan or an armed tool that ends after the import brings back the selection from before it
+  started, as it does without an import: the shapes the import drew under the same ids, without
+  the ones it removed.
   The one exception is a press of the connect tool before the pointer has entered a shape the
   import drew under it: it starts no connect and puts the tool down. A drop already being applied,
   when a host imports from its change listener, finishes first and the import replaces its result.

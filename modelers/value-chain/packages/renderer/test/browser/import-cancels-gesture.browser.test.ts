@@ -34,6 +34,18 @@ function withElementMoved(text: string, id: string, dx: number): string {
   });
 }
 
+/** A peer's deletion of an element and the connections that end at it, in canonical form. */
+function withElementRemoved(text: string, id: string): string {
+  const document = parseDocumentJSON(text);
+  return serializeDocument({
+    ...document,
+    elements: document.elements.filter((element) => element.id !== id),
+    connections: document.connections.filter(
+      (connection) => connection.source !== id && connection.target !== id,
+    ),
+  });
+}
+
 const PEER_EDIT = withElementMoved(ORDER_TO_CASH, "step-invoice", 40);
 
 let modeler: CollaborativeValueChainModeler | undefined;
@@ -151,6 +163,17 @@ function gestureRuns(): boolean {
 function dragPrefix(): string | undefined {
   const context = service<Dragging>("dragging").context() as { prefix: string } | null;
   return context?.prefix;
+}
+
+function selectedIds(): string[] {
+  return service<Selection>("selection")
+    .get()
+    .map((element) => element.id);
+}
+
+/** Selected as the element the canvas now shows under that id, not one an import removed. */
+function selectsShapeOnTheCanvas(id: string): boolean {
+  return service<Selection>("selection").isSelected(shape(id));
 }
 
 function connects(source: string, target: string): boolean {
@@ -415,6 +438,22 @@ describe("an import while a gesture runs cancels the gesture first", () => {
       ["global-connect-tool", "global-connect"],
     ])("the %s, also before the pointer moved", async (action, prefix) => {
       await importWhileArmed(arm(action), prefix);
+    });
+
+    it("the hand tool, armed while a shape was selected, which brings it back on Escape", async () => {
+      service<Selection>("selection").select(shape("step-credit"));
+      const entry = arm("hand-tool");
+      hover(canvasSvg(), freeSpot);
+      expect(selectedIds()).toEqual([]);
+      await importWhileArmed(entry, "hand");
+
+      document.dispatchEvent(
+        new KeyboardEvent("keyup", { key: "Escape", bubbles: true, cancelable: true }),
+      );
+
+      expect(gestureRuns()).toBe(false);
+      expect(selectedIds()).toEqual(["step-credit"]);
+      expect(selectsShapeOnTheCanvas("step-credit")).toBe(true);
     });
 
     it("the lasso tool, which then selects the shapes the import drew", async () => {
@@ -709,12 +748,6 @@ describe("a pan is no gesture: an import leaves it running", () => {
     return pan?.payload.previousSelection?.map((element) => element.id) ?? [];
   }
 
-  function selectedIds(): string[] {
-    return service<Selection>("selection")
-      .get()
-      .map((element) => element.id);
-  }
-
   it("a pan with the palette's hand tool continues, and the tool pans again after it", async () => {
     armHandTool();
     const start = client(START);
@@ -786,39 +819,86 @@ describe("a pan is no gesture: an import leaves it running", () => {
       service<Selection>("selection").select(shape("step-credit"));
     });
 
-    it("with Space held brings back no selection of the shapes the import replaced", async () => {
+    function panWithSpaceHeld(): void {
       canvasSvg().focus();
       const start = client(START);
       pointerOnCanvas(start);
       spaceKey("keydown");
       panTo(offset(start, 30));
       panTo(offset(start, 60));
-      expect(selectionTheRunningPanHolds()).toEqual(["step-credit"]);
-      expect(selectedIds()).toEqual([]);
+    }
 
-      await editor().importText(PEER_EDIT);
-      spaceKey("keyup");
-
-      expect(gestureRuns()).toBe(false);
-      expect(selectedIds()).toEqual([]);
-      expectNothingApplied();
-    });
-
-    it("with Ctrl or Cmd and a press brings back no selection of the shapes the import replaced", async () => {
+    function panWithPrimaryModifier(): ClientPoint {
       const start = client(START);
       pointerOnCanvas(start);
       pressWithPrimaryModifier(start);
       panTo(offset(start, 30));
       panTo(offset(start, 60));
+      return offset(start, 60);
+    }
+
+    it("with Space held brings the selection back onto the shapes the import drew", async () => {
+      panWithSpaceHeld();
       expect(selectionTheRunningPanHolds()).toEqual(["step-credit"]);
       expect(selectedIds()).toEqual([]);
 
       await editor().importText(PEER_EDIT);
-      releaseAt(offset(start, 60));
+      expect(dragPrefix()).toBe("hand.move");
+      spaceKey("keyup");
+
+      expect(gestureRuns()).toBe(false);
+      expect(selectedIds()).toEqual(["step-credit"]);
+      expect(selectsShapeOnTheCanvas("step-credit")).toBe(true);
+      expectNothingApplied();
+    });
+
+    it("with Ctrl or Cmd and a press brings the selection back onto the shapes the import drew", async () => {
+      const end = panWithPrimaryModifier();
+      expect(selectionTheRunningPanHolds()).toEqual(["step-credit"]);
+      expect(selectedIds()).toEqual([]);
+
+      await editor().importText(PEER_EDIT);
+      expect(dragPrefix()).toBe("hand.move");
+      releaseAt(end);
+
+      expect(gestureRuns()).toBe(false);
+      expect(selectedIds()).toEqual(["step-credit"]);
+      expect(selectsShapeOnTheCanvas("step-credit")).toBe(true);
+      expectNothingApplied();
+    });
+
+    it("with Space held brings nothing back when the import removed the selected shape", async () => {
+      const withoutCredit = withElementRemoved(ORDER_TO_CASH, "step-credit");
+      panWithSpaceHeld();
+
+      await editor().importText(withoutCredit);
+      expect(dragPrefix()).toBe("hand.move");
+      expect(selectionTheRunningPanHolds()).toEqual([]);
+      spaceKey("keyup");
 
       expect(gestureRuns()).toBe(false);
       expect(selectedIds()).toEqual([]);
-      expectNothingApplied();
+      expect(errors).toEqual([]);
+      expect(changes).toBe(0);
+      expect(editor().exportText()).toBe(withoutCredit);
+    });
+
+    it("with Ctrl or Cmd and a press brings back only the selected shapes the import kept", async () => {
+      service<Selection>("selection").select(shape("step-stock"), true);
+      const withoutCredit = withElementRemoved(ORDER_TO_CASH, "step-credit");
+      const end = panWithPrimaryModifier();
+      expect(selectionTheRunningPanHolds()).toEqual(["step-credit", "step-stock"]);
+
+      await editor().importText(withoutCredit);
+      expect(dragPrefix()).toBe("hand.move");
+      releaseAt(end);
+
+      expect(gestureRuns()).toBe(false);
+      expect(selectedIds()).toEqual(["step-stock"]);
+      expect(selectsShapeOnTheCanvas("step-stock")).toBe(true);
+      expect(errors).toEqual([]);
+      expect(changes).toBe(0);
+      expect(editor().exportText()).toBe(withoutCredit);
     });
   });
 
