@@ -3,16 +3,38 @@ description: Install Node and restore dependencies with a clean, lockfile-pinned
 
 inputs:
   node-version:
-    description: Node.js version (defaults to the engines floor so CI verifies the declared minimum).
+    description: >-
+      Node.js version. Empty picks the floor of engines.node in package.json, so CI verifies the
+      declared minimum.
     required: false
-    default: 22.13.0
+    default: ''
 
 runs:
   using: composite
   steps:
+    # Before setup-node, so it reads the manifest with whichever Node the runner or the job's
+    # container brings.
+    - id: node
+      shell: bash
+      env:
+        NODE_VERSION: ${{ inputs.node-version }}
+      run: |
+        set -euo pipefail
+        if [[ -n "$NODE_VERSION" ]]; then
+          echo "version=$NODE_VERSION" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        version=$(node -p "(require('./package.json').engines?.node ?? '').match(/\d+\.\d+\.\d+/)?.[0] ?? ''")
+        if [[ -z "$version" ]]; then
+          echo "::error::No engines.node floor in package.json"
+          exit 1
+        fi
+        echo "Node $version, the engines floor"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+
     - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
-        node-version: ${{ inputs.node-version }}
+        node-version: ${{ steps.node.outputs.version }}
         cache: npm
 
     - run: npm ci

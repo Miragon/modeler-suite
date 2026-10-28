@@ -22,6 +22,8 @@ ESLint (`npm run lint`) and dependency-cruiser (`npm run depcruise`).
 
 ## Commands
 
+Node `^22.22.2 || >=24.15.0` (`engines`; CI runs the floor, Node 22.22.2), npm.
+
 - `npm run build` (packages) · `npm run build:webapp` (then `npm run check:build -w apps/webapp`) ·
   `npm run build:vscode`
 - `npm test` · `npm run test:browser` (the `@miragon/modeler-api` conformance kit) ·
@@ -33,6 +35,10 @@ ESLint (`npm run lint`) and dependency-cruiser (`npm run depcruise`).
   `npm run test:vscode-smoke` is the same without Docker and without the build, for CI under
   `xvfb-run -a`; on a desktop its VS Code window takes the focus.
 - `npm run lint` (ESLint + every tsconfig) · `npm run format` · `npm run depcruise`
+- `npm run dev:webapp` (also `npm run dev`): the web app through Portless at a named `.localhost`
+  URL; Portless needs Node 24.15.0 or later. `npm run dev:webapp:plain` serves plain Vite on
+  `127.0.0.1:5180` (`PORT` overrides it) on Node 22 as well. `npm run dev:vscode` watches the
+  extension's bundles.
 
 Build the packages before the tests: workspace dependencies resolve to `dist`.
 
@@ -40,6 +46,8 @@ Build the packages before the tests: workspace dependencies resolve to `dist`.
 
 - Conventional Commits (`feat`, `fix`, `refactor`, `chore`, `docs`, …), signed; the PR title is the
   squash commit release-please reads.
+- Every new `@deprecated` gets an issue that names its target version as a number, filed by the
+  pull request that adds it ([`CONTRIBUTING.md`](CONTRIBUTING.md#commits-and-releases)).
 - Exact pins everywhere, internal `@miragon/__NOTATION__-*` deps included; the only ranges are the
   consumer-shared peers (`zod`, `diagram-js`, `didi`, `tiny-svg`), each mirrored by an exact
   devDependency. See [`.claude/rules/package-json-fixed-versions.md`](.claude/rules/package-json-fixed-versions.md).

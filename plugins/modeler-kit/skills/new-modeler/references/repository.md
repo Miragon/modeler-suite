@@ -32,8 +32,8 @@ config, `apps/vscode`, `e2e`), `lint` (ESLint, then `typecheck`), `format`, `for
 Code, see [shell](shell.md#the-vs-code-smoke-test)), `test:vscode` (builds, then
 `test:vscode-smoke`), `test:vscode:docker` (`test:vscode` in a Linux container, no window on the
 host), `depcruise`, `dev:webapp`
-(Portless; `dev:webapp:plain` for plain Vite on 5180), `dev:vscode`. The Husky pre-commit hook
-runs lint-staged and `npm run lint` only.
+(Portless, which needs Node 24.15.0 or later; `dev:webapp:plain` for plain Vite on 5180, on Node 22
+as well), `dev:vscode`. The Husky pre-commit hook runs lint-staged and `npm run lint` only.
 
 ## The DOM boundary
 
@@ -68,6 +68,10 @@ violating import fails two jobs:
   exact `dependency` of both apps and a `devDependency` of `e2e`.
 - The rule is written down for agents in
   [`.claude/rules/package-json-fixed-versions.md`](../assets/template/.claude/rules/package-json-fixed-versions.md).
+- The root `engines` is the suite's Node range `^22.22.2 || >=24.15.0`. Pin tool versions whose own
+  `engines` accept both floors, 22.22.2 and 24.15.0; otherwise `npm ci` warns (EBADENGINE) and the
+  tool runs outside its supported range. Portless is the one exception: it needs Node 24 and runs
+  only `dev:webapp`.
 
 ## TypeScript
 
@@ -86,8 +90,10 @@ on the major `typescript-eslint` accepts (Dependabot ignores the next major).
 `npx playwright install --with-deps chromium` in a plain runner works as well),
 `pin-check`, `dependency-review`, `vscode-smoke` (the reusable
 [`vscode-smoke.yml`](../assets/template/.github/workflows/vscode-smoke.yml)) and `ci-ok`. A
-shared setup action installs the Node version of `engines` and runs `npm ci`. Every `uses:` is
-pinned to a commit SHA with the tag as a comment.
+shared [setup action](../assets/template/.github/actions/setup/action.yml) installs the floor of
+`engines` (Node 22.22.2), so CI verifies the declared minimum, unless a job passes `node-version`
+(the publish jobs pass 24), and runs `npm ci`. Every `uses:` is pinned to a commit SHA with the
+tag as a comment.
 
 ### The merge gate
 

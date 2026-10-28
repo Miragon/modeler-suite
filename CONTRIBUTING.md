@@ -23,7 +23,7 @@ Node `^22.22.2` or `>=24.15.0` and npm. From the repository root:
 ```sh
 npm ci                              # every workspace; also installs the pre-commit hook
 npm run build:shared                # @miragon/modeler-api and @miragon/modeler-shell
-npx playwright install chromium webkit  # once; WebKit only for the e2e of the shell, Wardley Maps, Context Maps and Team Topologies
+npx playwright install chromium webkit  # once; WebKit only for the e2e of the shell, Wardley Maps, Event Storming, Context Maps and Team Topologies
 ```
 
 The modelers link the workspace's `@miragon/modeler-api` and `@miragon/modeler-shell` and read
@@ -112,8 +112,8 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   its own dev server built from source: the web app (`webapp`; `chromium` and `webkit` in Context
   Maps) and the VS Code webview inside the shell's VS Code stub (`vscode-webview`), both held to the
   shell's conformance kit. Team Topologies also runs its focus hand-back cases in WebKit on both
-  hosts (`webapp-webkit`, `vscode-webview-webkit`), Wardley Maps its web app's Share and focus
-  hand-back specs (`webapp-webkit`). `-- --project=<name>` runs one project. A
+  hosts (`webapp-webkit`, `vscode-webview-webkit`), Wardley Maps and Event Storming their web
+  app's Share and focus hand-back specs (`webapp-webkit`). `-- --project=<name>` runs one project. A
   running server on a port is reused, so pick free ports when another checkout runs its suite:
   `E2E_PORT=6101 E2E_WEBVIEW_PORT=6111 npm run wardley-maps test:e2e`. `npm run test:e2e:shared`
   runs the shell's own suite against its demo, in Chromium and its pointer-focus cases in WebKit
@@ -352,7 +352,15 @@ the scope `plugin` (`feat(plugin): …`, `fix(plugin): …`).
 - **Pins.** The template's `@miragon/modeler-api` and `@miragon/modeler-shell` pins follow the
   releases: the shared packages' `extra-files` in the release configuration name the template's
   `package.json` fields they rewrite (root-relative paths, leading `/`). A new pin in the template
-  needs a new entry there.
+  needs a new entry there. Its third-party pins and actions move with Dependabot: the suite's npm
+  and github-actions entries in `.github/dependabot.yml` list the template's folder and its
+  `.github` folders, so a group pull request (npm minor and patch, every GitHub Actions update)
+  updates the suite and the template together, and an npm major comes as one pull request per
+  folder. The template has no lockfile, so Dependabot bumps the exact pins of its `package.json`
+  files, and it never touches the `@miragon/*` pins. Nor can it run npm's peer-dependency check
+  there (the placeholder names are not valid package names), so it may move a template pin that
+  the suite holds back. The template's Node-range drift test then fails, because that pin runs
+  ahead of every version the suite installs.
 - **The drift test** (`test/new-modeler-skill.test.ts`, `npm run test:plugin`, part of `npm test`)
   fails when the template's platform pins differ from the workspace versions or lack their
   `extra-files` entry, when the template pins anything loosely, when a placeholder is undocumented
@@ -364,7 +372,10 @@ the scope `plugin` (`feat(plugin): …`, `fix(plugin): …`).
   member that option does not have, and when the template's TypeScript, its build configs included,
   does not type-check against the packages' current sources (only the two configs that import
   tooling this workspace does not install are left to the template's own lint). `zod` is a root
-  devDependency for that last check only (the template's schema model uses it).
+  devDependency for that last check only (the template's schema model uses it). The test also fails
+  when the suite's Dependabot entries miss the template's folder or one of its workflow or
+  composite-action folders, and when `.github/CODEOWNERS` names no owner to review a folder of the
+  github-actions entry.
 - **The VS Code smoke step** (`apps/vscode/test-smoke/` in the template) runs on the shell's
   `./testing/vscode-electron` entry (released in modeler-shell 0.3.0). The drift test type-checks it
   with the rest of the template and fails when it imports the driver from elsewhere, when
@@ -380,6 +391,18 @@ the scope `plugin` (`feat(plugin): …`, `fix(plugin): …`).
   its `engines.vscode` lookup, taken from the workflow files, with bash, `jq` and git against sample
   results and sample diffs (non-ASCII, quoted and moved paths included). `yaml` is a root
   devDependency for reading the workflows and the skills' frontmatter.
+- **The template's Node range** has a drift test of its own (`test/new-modeler-node-range.test.ts`,
+  also in `npm run test:plugin`). It fails when an `engines.node` of the template differs from the
+  suite's root range, when the template's setup action installs a Node other than the floor the
+  suite's setup action picks, when the template's README.md and CLAUDE.md stop naming the range,
+  the floor CI runs and Portless's Node 24, and when a third-party pin of the template rejects a
+  floor of the range (22.22.2 or 24.15.0) in its own `engines.node`. That range is read from the
+  copy this workspace installs: the pinned version, or the closest newer one once the suite has
+  moved past it, so a Dependabot update of the suite passes while the template still pins the
+  older version. A template pin ahead of every version the suite installs fails: the suite takes
+  a version first, or in the same pull request, and the template follows. Two exceptions are
+  listed in the test with their reasons: `ovsx` (the suite runs it through `npx`, so it is not
+  installed here) and `portless` (it needs Node 24 and runs only `dev:webapp`).
 - **The template itself** builds and passes both conformance kits once instantiated: run the script
   into an empty directory outside this repository, copy the design-system files in (see the
   skill), then `npm install` and the template's checks. `claude plugin validate .` checks the

@@ -32,22 +32,25 @@ runs Vite directly on `:5180` and needs none of it.
 ## Browser & e2e tests
 
 `npm run event-storming test:browser` (Vitest browser mode, incl. the `@miragon/modeler-api`
-conformance kit for the collaborative modeler and viewer) and `npm run event-storming test:e2e`
-(Playwright, in `e2e/`) need a Chromium browser (`npx playwright install chromium`, once).
+conformance kit for the collaborative modeler and viewer) needs a Chromium browser, and
+`npm run event-storming test:e2e` (Playwright, in `e2e/`) needs Chromium and WebKit
+(`npx playwright install chromium webkit`, once).
 
-`npm run event-storming test:e2e` runs two Playwright projects, each with its own Vite dev server
-built from the package sources (no build needed):
+`npm run event-storming test:e2e` runs three Playwright projects. The first two each start their
+own Vite dev server, built from the package sources (no build needed):
 
 | Project          | Serves                                                               | Port (env)                |
 | ---------------- | -------------------------------------------------------------------- | ------------------------- |
 | `webapp`         | the web app (`e2e/tests/*.spec.ts`)                                  | 5180 (`E2E_PORT`)         |
 | `vscode-webview` | the VS Code webview inside the shell's VS Code stub (`e2e/webview/`) | 5190 (`E2E_WEBVIEW_PORT`) |
+| `webapp-webkit`  | the web app in Safari's engine, on the `webapp` server               | 5180 (`E2E_PORT`)         |
 
-Both projects run `@miragon/modeler-shell`'s conformance kit: `vscode-webview` on the `ide` host
+The first two run `@miragon/modeler-shell`'s conformance kit: `vscode-webview` on the `ide` host
 (geometry, the legend's start state, ARIA, keys, the focus hand-back after a pointer click on
 chrome, keyboard creation, a sticky's label editor that the shell's zoom, fit and refit leave open
 and uncommitted, the read-only lock of an invalid file, appearance, reduced motion, forced colours,
-the canvas's overlay layers, the production bundle behind the webview CSP, cleanup), `webapp` on
+the canvas's overlay layers, the shell's shortcuts dialog with the board's own groups, the
+production bundle behind the webview CSP, cleanup), `webapp` on
 the `web` host (the same but the production bundle, plus the focus after a File action, primary
 action, legal line, start screen, toasts, problems list and drop zone). The harnesses declare what
 Event Storming lacks `absent`
@@ -64,6 +67,18 @@ drawing, and Escape and Enter for the menu, the shortcuts dialog and the zoom pa
 drawn). Both hosts run the vocabulary specs (`webapp-vocabulary.spec.ts`,
 `vscode/vocabulary.spec.ts`): the label editor's suggestions with their keys, mouse and layer, the
 spelling-variant dots and "Unify spelling" as one undo step, in VS Code one edit of the document.
+
+`webapp-webkit` runs two specs only, which run in `webapp` too. `webapp-share.spec.ts` checks that
+Share calls `clipboard.write` while the click is dispatched, with a ClipboardItem whose value is a
+promise (Safari drops the user activation at the first `await`; Playwright's WebKit allows a write
+at any time, so the spec records the call), and confirms with the success toast; it does not read
+the clipboard back. `webapp-focus-hand-back.spec.ts` checks that Cmd/Ctrl+Z and C act on the
+canvas at once after a click on zoom in or zoom out. After the shortcuts dialog closes it checks
+that the focus is on the menu trigger, after a click on Share that it is off the canvas, and in
+both cases that the keys act once a click on the canvas has given it the focus back. Safari gives
+a clicked button no focus, while Chromium and Playwright's WebKit on Linux (as in CI) focus it, so
+the focus spec takes the focus off a clicked button as Safari does (`e2e/tests/support/safari.ts`).
+
 Run one project with
 `npm run event-storming test:e2e -- --project=vscode-webview`. Locally an already running server
 on a port is reused, so pick free ports

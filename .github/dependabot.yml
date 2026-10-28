@@ -1,9 +1,16 @@
 version: 2
 updates:
   # npm (every workspace resolves from the root lockfile): minor and patch arrive grouped, every
-  # major lands as its own PR so a breaking change gets its own review.
+  # major lands as its own PR so a breaking change gets its own review. The new-modeler template has
+  # no lockfile, so Dependabot bumps the exact pins of its package.json files. It shares this entry
+  # so that a group PR moves the suite and the template together; a major comes per directory.
+  # Dependabot cannot run npm's peer-dependency check in the template (its placeholder names are not
+  # valid package names), so it may move a template pin the suite holds back: the template's
+  # Node-range drift test fails a pin that runs ahead of every version the suite installs.
   - package-ecosystem: "npm"
-    directory: "/"
+    directories:
+      - "/"
+      - "/plugins/modeler-kit/skills/new-modeler/assets/template"
     schedule:
       interval: "weekly"
     rebase-strategy: "disabled"
@@ -19,7 +26,8 @@ updates:
       semver-major-days: 14
     ignore:
       # The suite's own packages are workspaces, linked and released by release-please; a
-      # registry copy of them is never an update.
+      # registry copy of them is never an update. The template's pins of them move with
+      # release-please's extra-files.
       - dependency-name: "@miragon/*"
       # @types/vscode must stay <= every extension's engines.vscode (^1.96.0) or `vsce package` fails.
       - dependency-name: "@types/vscode"
@@ -48,11 +56,15 @@ updates:
 
   # github-actions: majors are mechanical (runner and Node bumps), and every `uses:` is SHA-pinned
   # and CI-gated, so grouping all update types stays low-risk. The composite action under
-  # .github/actions pins actions of its own.
+  # .github/actions pins actions of its own, and so do the new-modeler template's workflows and
+  # composite action. Only "/" stands for its .github/workflows: any other directory is read for
+  # the YAML files in it, so the template's are listed one by one and move in the suite's PR.
   - package-ecosystem: "github-actions"
     directories:
       - "/"
       - "/.github/actions/*"
+      - "/plugins/modeler-kit/skills/new-modeler/assets/template/.github/workflows"
+      - "/plugins/modeler-kit/skills/new-modeler/assets/template/.github/actions/*"
     schedule:
       interval: "monthly"
     rebase-strategy: "disabled"

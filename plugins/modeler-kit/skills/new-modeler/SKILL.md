@@ -81,7 +81,9 @@ known version), and the new repository's Dependabot moves them on.
    [releases](references/releases.md#first-release-of-a-package).
 6. Replace the toy notation, test by test: the grammar in `packages/dsl`, the model in
    `packages/schema-model`, shapes and tools in `packages/renderer`, the fixtures of the
-   conformance test, the examples of both apps.
+   conformance test, the examples of both apps, and the extension's walkthrough
+   (`apps/vscode/media/walkthrough/`, its step texts in `apps/vscode/package.json`), which
+   describes the example and the notation.
 
 ## Build it in this order
 
@@ -118,6 +120,10 @@ known version), and the new repository's Dependabot moves them on.
   while it holds the focus (1.4).
 - Neither app has chrome of its own: menu, palette skin, zoom, keys, problems, status, empty state
   and toasts come from the shell, and the menu content comes from the renderer.
+- The extension creates a diagram natively (guide §13.5): "New Empty Diagram" and "New Diagram
+  from Example" as commands, in File › New File… and in the walkthrough, whose steps are New,
+  Example and Source to the side; "Open Source to the Side" and "Open Diagram to the Side" in the
+  editor titles ([shell](references/shell.md#the-ide-host-vs-code)).
 - brand-lint reports no hard finding with the template's `.miragon/brand.json`
   ([design system](references/design-system.md#brand-lint)).
 - A VSIX packages (`npx vsce package --no-dependencies`) and `npm publish --dry-run` packs every

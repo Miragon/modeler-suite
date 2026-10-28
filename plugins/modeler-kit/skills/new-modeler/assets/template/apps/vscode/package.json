@@ -53,19 +53,116 @@
     "commands": [
       {
         "command": "__NOTATION__.newDiagram",
-        "title": "New Diagram",
+        "title": "New Empty Diagram",
         "category": "__DISPLAY_NAME__",
         "shortTitle": "__DISPLAY_NAME__ Diagram"
+      },
+      {
+        "command": "__NOTATION__.newDiagramFromExample",
+        "title": "New Diagram from Example",
+        "category": "__DISPLAY_NAME__",
+        "shortTitle": "New __DISPLAY_NAME__ Diagram from Example"
+      },
+      {
+        "command": "__NOTATION__.openSource",
+        "title": "Open Source to the Side",
+        "category": "__DISPLAY_NAME__",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "__NOTATION__.openDiagram",
+        "title": "Open Diagram to the Side",
+        "category": "__DISPLAY_NAME__",
+        "icon": "$(open-preview)"
       }
     ],
     "menus": {
       "file/newFile": [
         {
           "command": "__NOTATION__.newDiagram",
-          "group": "__NOTATION__"
+          "group": "__NOTATION__@1"
+        },
+        {
+          "command": "__NOTATION__.newDiagramFromExample",
+          "group": "__NOTATION__@2"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "__NOTATION__.openSource",
+          "when": "activeCustomEditorId == __NOTATION__.editor",
+          "group": "navigation"
+        },
+        {
+          "command": "__NOTATION__.openDiagram",
+          "when": "editorLangId == __NOTATION__",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "__NOTATION__.openSource",
+          "when": "activeCustomEditorId == __NOTATION__.editor"
+        },
+        {
+          "command": "__NOTATION__.openDiagram",
+          "when": "editorLangId == __NOTATION__"
         }
       ]
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "getStarted",
+        "title": "Get Started with the __DISPLAY_NAME__ Modeler",
+        "description": "View and edit __DISPLAY_NAME__ diagrams in VS Code as plain-text .__EXT__ files: the file stays the source of truth, and the canvas shows and edits it.",
+        "steps": [
+          {
+            "id": "new",
+            "title": "Create a diagram",
+            "description": "Start from an empty diagram: a plain-text .__EXT__ file that opens as a canvas.\n[Create empty diagram](command:__NOTATION__.newDiagram)",
+            "media": {
+              "markdown": "media/walkthrough/new.md"
+            },
+            "completionEvents": [
+              "onCommand:__NOTATION__.newDiagram"
+            ]
+          },
+          {
+            "id": "example",
+            "title": "Open the example",
+            "description": "See a finished diagram: an order fulfilment in four steps.\n[Create diagram from example](command:__NOTATION__.newDiagramFromExample)",
+            "media": {
+              "markdown": "media/walkthrough/example.md"
+            },
+            "completionEvents": [
+              "onCommand:__NOTATION__.newDiagramFromExample"
+            ]
+          },
+          {
+            "id": "source",
+            "title": "Open the source to the side",
+            "description": "The text is the diagram: edit it beside the canvas and watch both stay in sync.\n[Open Source to the Side](command:__NOTATION__.openSource)",
+            "media": {
+              "markdown": "media/walkthrough/source.md"
+            },
+            "completionEvents": [
+              "onCommand:__NOTATION__.openSource"
+            ]
+          },
+          {
+            "id": "learn",
+            "title": "Learn the basics",
+            "description": "Add nodes from the palette, move and rename them, then export the diagram as PNG or SVG.",
+            "media": {
+              "markdown": "media/walkthrough/learn.md"
+            },
+            "completionEvents": [
+              "onStepSelected"
+            ]
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "build": "node esbuild.config.mjs",

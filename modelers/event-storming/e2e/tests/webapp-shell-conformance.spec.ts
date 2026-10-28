@@ -4,6 +4,7 @@ import { EXAMPLE_BOARD } from "../../apps/webapp/src/example.js";
 import { encodeMapCompressed } from "../../apps/webapp/src/share.js";
 import { THEMES } from "../../apps/webapp/src/themes.js";
 import { typeIntoStickyLabel } from "./support/shell-kit.js";
+import { boardShortcutsDialog } from "./support/shortcuts-dialog.js";
 import { exportDSL, waitForViewer } from "./support/viewer.js";
 
 /**
@@ -126,6 +127,8 @@ test.describe("web app: shell conformance", () => {
         accepted: { name: "board.storm", type: "", text: EXAMPLE_BOARD },
         rejected: { name: "map.png", type: "image/png", text: "x" },
       },
+      // The groups of the web app's Help entry, with its File keys (apps/webapp/src/main.ts).
+      shortcutsDialog: boardShortcutsDialog("webapp", { fileKeys: true }),
     },
     test,
     {

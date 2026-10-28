@@ -43,6 +43,17 @@ describe("documentProblems", () => {
     expect(withoutLabel[label!.offset]).toBe("{");
   });
 
+  it("names every key of a path into the known fields", () => {
+    const textX = sample.replace(/"x": (\d+)/, '"x": "$1"');
+    const [problem, ...rest] = documentProblems(textX);
+    expect(rest).toEqual([]);
+    expect(problem).toMatchObject({
+      severity: "error",
+      message: "nodes[0].position.x: Invalid input: expected number, received string",
+      offset: at(textX, '"x": "') + '"x": '.length,
+    });
+  });
+
   it("calls colliding ids errors", () => {
     const duplicate = sample.replace('"id": "team_fraud"', '"id": "team_checkout"');
     expect(documentProblems(duplicate).map((problem) => problem.severity)).toEqual(["error"]);
@@ -107,6 +118,8 @@ describe("documentProblems", () => {
   const arraysNestedLevelsDeep = (levels: number): string =>
     "[".repeat(levels) + "]".repeat(levels);
 
+  const tooDeep = `objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep`;
+
   it("points at the first level too deep, also in a file too deep for the tree parser", () => {
     for (const levels of [MAX_NESTING_DEPTH + 100, 10_000, 100_000]) {
       const deep = withVendorData(arraysNestedLevelsDeep(levels));
@@ -114,9 +127,73 @@ describe("documentProblems", () => {
       expect(problems).toHaveLength(1);
       expect(problems[0]).toMatchObject({
         severity: "error",
-        message: `x-vendor${"[0]".repeat(MAX_NESTING_DEPTH - 1)}: objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep`,
+        message: `x-vendor[0][0][0]…: ${tooDeep}`,
         offset: at(deep, "[") + MAX_NESTING_DEPTH - 1,
       });
+    }
+  });
+
+  it("names the field a branch too deep starts at, not each of its 100 keys", () => {
+    const deepOwnField = sample.replace(
+      '"id": "team_checkout",',
+      `"id": "team_checkout", "x-owner": ${arraysNestedLevelsDeep(MAX_NESTING_DEPTH)},`,
+    );
+    const [problem, ...rest] = documentProblems(deepOwnField);
+    expect(rest).toEqual([]);
+    expect(problem).toMatchObject({
+      message: `nodes[0].x-owner[0]…: ${tooDeep}`,
+      offset: at(deepOwnField, "[[") + MAX_NESTING_DEPTH - 3,
+    });
+  });
+
+  it("reports the first 100 containers too deep, each at its own bracket", () => {
+    const wide = Array.from({ length: 1_000 }, () => "[]").join(", ");
+    const tooDeepAtTheLast = withVendorData(
+      `${"[".repeat(MAX_NESTING_DEPTH - 1)}${wide}${"]".repeat(MAX_NESTING_DEPTH - 1)}`,
+    );
+    const problems = documentProblems(tooDeepAtTheLast);
+    const firstEmptyArray = at(tooDeepAtTheLast, "[]");
+    expect(problems).toEqual(
+      Array.from({ length: 100 }, (_, index) => ({
+        severity: "error",
+        message: `x-vendor[0][0][0]…: ${tooDeep}`,
+        offset: firstEmptyArray + index * "[], ".length,
+        length: "[]".length,
+      })),
+    );
+  });
+
+  it("lists each problem once in a file too deep for the tree parser, all at one bracket", () => {
+    const threeTooDeep = `${"[".repeat(MAX_NESTING_DEPTH - 1)}[], [], []${"]".repeat(MAX_NESTING_DEPTH - 1)}`;
+    const deep = sample.replace(
+      "{\n",
+      `{\n  "x-vendor": ${threeTooDeep},\n  "x-other": ${arraysNestedLevelsDeep(10_000)},\n`,
+    );
+    const firstLevelTooDeep = at(deep, "[]");
+    expect(documentProblems(deep)).toEqual(
+      ["x-vendor[0][0][0]…", "x-other[0][0][0]…"].map((label) => ({
+        severity: "error",
+        message: `${label}: ${tooDeep}`,
+        offset: firstLevelTooDeep,
+        length: 1,
+      })),
+    );
+  });
+
+  it("reads no text deeper than the tree parser's limit with the tree parser", () => {
+    const levels = 10_000;
+    const deepAfter = (prefix: string, opening: string): string =>
+      `${prefix}${opening.repeat(levels)}${"]".repeat(levels)}`;
+    for (const text of [
+      deepAfter('// "\n', "["),
+      deepAfter('/* " */', "["),
+      deepAfter('["no closing quote\n', "["),
+      deepAfter("", "[},"),
+    ]) {
+      const [problem, ...rest] = documentProblems(text);
+      expect(rest).toEqual([]);
+      expect(problem).toMatchObject({ severity: "error" });
+      expect(problem!.message).toMatch(/^Not valid JSON: /);
     }
   });
 

@@ -147,6 +147,23 @@ export interface ElementsSurface {
  *     input and reopen the interaction on the element with the same id when
  *     that element is still there after the import — a remote re-import
  *     should not cost the user what they were typing.
+ *     RECOMMENDED (1.5): a GESTURE (a drag or a placement the modeler runs
+ *     for the pointer, also while its preview is off the canvas; defined on
+ *     `InteractionSurface`) that runs when an import replaces the document
+ *     is cancelled first, the way Escape cancels it, and so is a press that
+ *     has not reached the drag threshold yet. No change event comes from it
+ *     and no exception, the pointer's release after the import included;
+ *     nothing is applied to an element the import removed, and the export
+ *     is the imported document. The cancel belongs to an import that is
+ *     accepted: it comes after the text passed the modeler's checks, before
+ *     the canvas is cleared, so a rejected import (L7, which hosts meet on
+ *     every sync of half-typed peer text) leaves a running gesture, and
+ *     `interaction.active()`, as they were. diagram-js does not end a drag
+ *     on `diagram.clear()`: the drop then throws on a removed shape and
+ *     loses the move (or leaves the command stack stuck), so a renderer
+ *     calls `dragging.cancel(false)` before the import clears the canvas
+ *     (`false`: no restore of the drag's previous selection, whose shapes
+ *     the import replaces).
  *  L2 CANONICAL FIXPOINT — `exportText` is deterministic, and for any text t:
  *     with c = exportText() after importText(t), importText(c) followed by
  *     exportText() returns c byte-for-byte. Canonicalization is idempotent;
@@ -239,7 +256,9 @@ export interface CollaborativeModeler {
   /** parse + render `text` — SILENT per L1, the view fitted to the content
    *  per L5; resolves when rendered, REJECTS when nothing was imported (L7).
    *  This holds for the first import too, whatever was called before it — a
-   *  host may export or route a command before its first document arrives */
+   *  host may export or route a command before its first document arrives.
+   *  RECOMMENDED (1.5): an accepted import first cancels a gesture the user
+   *  holds; a rejected one leaves it running (L1) */
   importText(text: string): Promise<ImportResult>;
 
   /** the canonical serialization of the current document (L2, L6) */
@@ -281,9 +300,148 @@ export interface CollaborativeModeler {
 
   readonly elements?: ElementsSurface;
 
+  /** optional (1.5): whether the user holds a gesture on the canvas, so a
+   *  host defers a remote re-import until it ends (`InteractionSurface`) */
+  readonly interaction?: InteractionSurface;
+
+  /** optional (1.5): the themes the modeler can draw and the host's request
+   *  for one (`AppearanceSurface`) */
+  readonly appearance?: AppearanceSurface;
+
   /** tear down DOM + listeners; further calls on the instance are undefined
    *  behavior, but a second destroy() must not throw */
   destroy(): void;
+}
+
+/**
+ * Optional interaction surface (1.5): whether the user holds a GESTURE on
+ * the canvas right now. A host with a live sync defers a remote re-import
+ * while one runs, instead of reading the engine's DOM (diagram-js's
+ * `djs-drag-active`, `djs-dragger` and `djs-cursor-grabbing` classes) and
+ * sending a synthetic Escape. Hosts feature-detect it
+ * (`modeler.interaction !== undefined`).
+ *
+ * A GESTURE is a drag or a placement the modeler runs for the pointer. It
+ * starts when a press on the canvas moves past the drag threshold (a move,
+ * resize, connect, bendpoint, lasso or space-tool drag), or when an entry of
+ * the modeler's own chrome (the palette, the context pad), clicked or
+ * dragged, starts a preview that follows the pointer (a create, an append, a
+ * connect, a placement such as Wardley's evolve). It runs until its drop
+ * (the release, or the click that places what the preview shows) or its
+ * cancel (Escape, or an import: L1). A preview still off the canvas, the
+ * pointer over the palette, runs too. No gesture: a press that has not
+ * reached the drag threshold yet, a palette tool that only waits for its
+ * next press (an armed hand, lasso, space or global-connect tool; the press
+ * that starts its drag starts the gesture), an open label editor or popup
+ * (L1 keeps it across an import, and a host that waited for it would hold
+ * every remote change while the user types), and keys. A drag that only pans
+ * the view MAY count (diagram-js's hand tool runs on the same dragging
+ * service), so a host relies on neither reading. A viewer has no editing
+ * gesture: one that exposes the surface reports false, a pan aside.
+ *
+ * A host that defers re-imports while `active()` is true applies the newest
+ * remote state once `onChange` reports false. It may still import during a
+ * gesture (after a timeout of its own, or for a file the user opens): the
+ * RECOMMENDED cancel of L1 then ends the gesture, and that import replaces
+ * the remote state the host deferred. The contract defines no imports that
+ * overlap, so a host starts each import once the one before has settled.
+ */
+export interface InteractionSurface {
+  /** true from a gesture's start until its drop or cancel, false otherwise:
+   *  at rest, before the first import and while a palette tool is only
+   *  armed. Synchronous; never throws */
+  active(): boolean;
+  /**
+   * called with the new value each time `active()` changes: once with true
+   * when a gesture starts and once with false when it ends, never twice in a
+   * row with the same value, and never for a tool that is only armed. Inside
+   * the listener `active()` already returns that value. It runs
+   * synchronously where the gesture ends, which can be inside `importText`
+   * (the cancel of L1) or inside a pointer event handler, so a host that
+   * imports in response never calls `importText` from the listener: it
+   * queues the import behind any import still pending, which a microtask
+   * alone does not do. Returns the unsubscribe; nothing is called after
+   * `destroy()`
+   */
+  onChange(cb: (active: boolean) => void): () => void;
+}
+
+/** a theme a modeler can draw: a value of the Miragon guide's
+ *  `data-cd-theme` (§13.3); "system" is the host's to resolve, never a theme */
+export type AppearanceTheme = "light" | "dark";
+
+/** the contrast a host requests: "high" is the Miragon guide's
+ *  `data-cd-kontrast="hoch"` (§13.3) */
+export type AppearanceContrast = "normal" | "high";
+
+/** what a host requests through `AppearanceSurface.set` */
+export interface AppearanceRequest {
+  theme: AppearanceTheme;
+  /** default "normal" */
+  contrast?: AppearanceContrast | undefined;
+}
+
+/**
+ * Optional appearance surface (1.5): the themes the modeler can draw and the
+ * host's request for one (Miragon guide §13.3, row "Eingebettet", and
+ * §13.5). Hosts feature-detect it (`modeler.appearance !== undefined`). A
+ * modeler without it draws light only: a host treats it as
+ * `themes: ["light"]` and requests nothing. Such a modeler takes its mode
+ * from the page around it (a renderer on the Miragon design tokens resolves
+ * its roles at the nearest `data-cd-theme` above it), so a host whose page
+ * can be dark keeps it light itself: it writes `data-cd-theme="light"`, and
+ * `data-cd-kontrast="hoch"` for high contrast, on the element it passes to
+ * `attachTo` (guide §13.3: in a foreign page the attributes sit on the
+ * modeler's container).
+ *
+ * The host decides in one place (guide §13.5): it requests only a theme
+ * `themes` lists (`themes[0]` when the one it wants is missing; the modeler
+ * shell's `resolveAppearance(requested, themes)` decides this) and draws its
+ * own chrome around the canvas in the theme the modeler draws, so no surface
+ * is half dark.
+ *
+ * The appearance is view state, never document: `set` fires no
+ * `onContentChanged` (L3), leaves `exportText()` byte-identical and every
+ * image export the modeler offers too (exports are always light, guide
+ * §10.7), and leaves the undo history, the view state and the selection as
+ * they were. Like a host's view change (L5) it never commits an interaction
+ * in progress; RECOMMENDED: the interaction stays open with its typed input.
+ */
+export interface AppearanceSurface {
+  /**
+   * the themes the modeler can draw, the one it falls back to first:
+   * non-empty, without duplicates. Fixed before the modeler runs (guide
+   * §13.5): readable as soon as the factory returns, before `attachTo`, so a
+   * host paints its first frame in the right mode, and the same on every
+   * read, on every instance of the package and on its viewer. A light-only
+   * modeler reports `["light"]`. The Miragon modelers list "light" first and
+   * move to `["light", "dark"]` in one release, never one of them alone
+   * (guide §13.5)
+   */
+  readonly themes: readonly AppearanceTheme[];
+  /**
+   * the host's request: the modeler draws `theme` when `themes` lists it and
+   * `themes[0]` otherwise, so a light-only modeler stays light when dark is
+   * requested, whatever mode the page around it shows. The contrast always
+   * applies: "high" draws the modeler's high-contrast form in the theme it
+   * draws (a light-only modeler under a dark high-contrast host: light with
+   * high contrast), "normal" or none draws normal contrast. Each call
+   * replaces the previous request whole, so a request without `contrast`
+   * ends high contrast. A theme or contrast the modeler does not know (from
+   * an untyped host) counts as an unlisted theme or as normal contrast;
+   * `set` never throws.
+   *
+   * Callable as soon as the factory returns, before `attachTo` and before
+   * the first import (the first frame then shows the requested appearance),
+   * and at any time until `destroy()`. It applies before it returns, without
+   * a re-import, and holds across every later import until the next `set`.
+   * Until the first `set` the modeler draws as it does without the surface.
+   * How it draws a theme is its own: a renderer on the Miragon design tokens
+   * writes `data-cd-theme` and, for high contrast, `data-cd-kontrast="hoch"`
+   * on the root element of what it draws, so the token CSS resolves its
+   * roles there and not from the page
+   */
+  set(appearance: AppearanceRequest): void;
 }
 
 /** px the host's chrome covers along the edges of the modeler's container */
@@ -342,13 +500,13 @@ export type FreeArea =
  * Each renderer adopts them in its own release, as part of its move to 1.2:
  * `meta.apiVersion` follows the pinned package and no kit case checks the
  * options, so the version alone does not tell a host they are honoured.
- * Until a renderer ships them, a host passes the renderer's own names, or
- * both. Those names then stay accepted as DEPRECATED aliases for one minor
- * release of that renderer, then go: `freeRectInsets` (Wardley, Event
- * Storming, Context Maps) is `freeArea: { insets }`, `freeRectCenter` (Team
- * Topologies, Value Chain) is `freeArea: { center }`, and Wardley's
- * `keyboard: { undoRedo }` is `undoRedoKeys`. Given both, the aligned name
- * wins.
+ * Every Miragon renderer takes these names and no others: the renderers'
+ * own earlier names (`freeRectInsets`, `freeRectCenter` and Wardley's
+ * `keyboard: { undoRedo }`) are gone since wardley-renderer 0.12.0,
+ * event-storming-renderer 0.6.0, team-topologies-renderer 0.15.0,
+ * context-maps-renderer 0.7.0 and value-chain-renderer 0.8.0. A host that
+ * still passes one gets the option's default (TypeScript rejects the name
+ * in an object literal).
  */
 export interface CollaborativeModelerOptions {
   /** where the host's chrome leaves the canvas free; default: the whole container */

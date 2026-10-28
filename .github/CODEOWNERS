@@ -12,5 +12,7 @@ package.json                @emaarco @dominikhorn93
 package-lock.json           @emaarco @dominikhorn93
 /modelers/context-maps/**/package.json  @daanda97 @dominikhorn93
 
-# Workflows, composite actions and their scripts (Dependabot `github-actions` updates)
+# Workflows, composite actions and their scripts (Dependabot `github-actions` updates), the
+# new-modeler template's included
 /.github/                   @emaarco @dominikhorn93
+/plugins/modeler-kit/skills/new-modeler/assets/template/.github/  @emaarco @dominikhorn93

@@ -59,7 +59,8 @@ the bottom left, the same in every Miragon modeler.
   Shift+drag lasso or Shift+click, then move, copy or delete them together.
 - **Undo is VS Code's.** Every change on the canvas is one edit of the file, so `Ctrl/Cmd+Z` and
   `Ctrl/Cmd+Shift+Z` undo and redo it in the file's history, from the canvas and the text editor
-  alike; the canvas keeps its view and selection.
+  alike; the canvas keeps its view and selection. In an inspector field they undo and redo your
+  typing in that field and leave the file alone.
 - **Inspector** (right, a bottom sheet in narrow panes): select an element to edit its properties
   without touching the JSON. Change a team's type, name, description and fill or outline colour, an
   interaction's mode and label, the flow-of-change label, or an annotation's text, and detach an

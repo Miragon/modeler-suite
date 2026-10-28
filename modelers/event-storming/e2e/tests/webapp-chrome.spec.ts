@@ -8,6 +8,7 @@ import {
   geistDrawsAnnotations,
 } from "./support/shell-kit.js";
 import {
+  closeDialog,
   exportBoard,
   exportDSL,
   openExample,
@@ -735,18 +736,8 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     await (await openMenu(page)).locator('[data-menu-id="keyboard-shortcuts"]').click();
     const dialog = page.locator(".cd-shell dialog.event-storming-shortcuts");
     await expect(dialog).toBeVisible();
-    // The dialog hands the focus to the menu trigger in its `close` event, a task of its own.
-    await dialog.evaluate((element) => {
-      const closed = new Promise((resolve) =>
-        element.addEventListener("close", () => setTimeout(resolve), { once: true }),
-      );
-      Object.assign(window, { shortcutsDialogClosed: closed });
-    });
-    await page.keyboard.press("Escape");
+    await closeDialog(dialog, () => page.keyboard.press("Escape"));
     await expect(dialog).toBeHidden();
-    await page.evaluate(
-      () => (window as unknown as { shortcutsDialogClosed: unknown }).shortcutsDialogClosed,
-    );
     await expect(drawMode).toHaveCount(1);
     expect(await drawings()).toBe(before);
 

@@ -78,8 +78,10 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   conformance kit runs in `npm run context-maps test:browser`
   ([`conformance.browser.test.ts`](packages/renderer/test/browser/conformance.browser.test.ts)) with
   every hook filled; a skip or an advisory fails it. Imports are silent (the history goes without an
-  event), reject without a trace (ids, coordinates, newer versions checked first) and keep unknown
-  keys. A host's view change (`setViewState`, a fit) never commits an open editor,
+  event), reject without a trace and keep unknown keys. They reject a newer version (checked
+  first), reserved and repeated ids, coordinates and sizes beyond `MAX_COORDINATE`, and objects
+  and arrays nested more than `MAX_NESTING_DEPTH` (100) levels deep, the document being the first
+  level. A host's view change (`setViewState`, a fit) never commits an open editor,
   `elements.bounds(id)` gives an element's live box and `contentBounds()` (also on every
   `CmBaseViewer`) the tight box around what the canvas draws: the contexts, wider where a team row
   or a type's name runs past one (`draw/contextLayout.ts` holds the geometry for the renderer and

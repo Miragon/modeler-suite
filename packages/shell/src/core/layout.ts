@@ -38,18 +38,6 @@ export function decidePaletteRow(input: PaletteRowInput): PaletteRow {
   return "top";
 }
 
-/**
- * Without a stored state the legend starts closed in every container (guide §5.10, product decision
- * of 2026-10-24); a stored `legend.open` still wins, and the user opens it from the Model group's
- * Legend checkbox.
- *
- * @deprecated Since 0.5 always `false`, whatever the container; the arguments are ignored. Pass the
- * stored state as `legend.open` and leave the default to the shell.
- */
-export function legendStartsOpen(_containerHeight?: number, _containerWidth?: number): boolean {
-  return false;
-}
-
 export interface TooltipPlacementInput {
   /** The hovered or focused control, relative to the shell root (horizontal centre). */
   anchor: Bounds;

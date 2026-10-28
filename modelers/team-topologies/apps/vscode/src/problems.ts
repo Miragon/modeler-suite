@@ -6,6 +6,7 @@
  */
 
 import {
+  createScanner,
   findNodeAtLocation,
   parseTree,
   printParseErrorCode,
@@ -77,12 +78,21 @@ function located(tree: Node, path: (string | number)[]): { offset: number; lengt
   return { offset: 0, length: 1 };
 }
 
+/**
+ * The keys a label names. A path into the known fields has at most four; only the nesting limit's
+ * issue has more, a hundred, and its first four still name the field its branch starts at, while
+ * the problem's place in the text points at the level too deep.
+ */
+const LABELLED_KEYS = 4;
+
 function pathLabel(path: (string | number)[]): string {
-  return path.reduce<string>(
-    (label, key) =>
-      typeof key === "number" ? `${label}[${key}]` : label ? `${label}.${key}` : key,
-    "",
-  );
+  const label = path
+    .slice(0, LABELLED_KEYS)
+    .reduce<string>(
+      (text, key) => (typeof key === "number" ? `${text}[${key}]` : text ? `${text}.${key}` : key),
+      "",
+    );
+  return path.length > LABELLED_KEYS ? `${label}…` : label;
 }
 
 function issueMessage(issue: DocumentIssue): string {
@@ -94,21 +104,23 @@ function issueProblem(tree: Node, issue: DocumentIssue): DocumentProblem {
   return { severity: "error", message: issueMessage(issue), ...located(tree, issue.path) };
 }
 
-/** The offset of the first bracket that opens a level beyond `limit`, outside strings. */
+/**
+ * The offset of the first bracket that opens a level beyond `limit`. Read with jsonc-parser's own
+ * scanner, so strings and comments end where its tree parser ends them (a string at a line break),
+ * and a bracket closes only a level of its own kind, because the tree parser skips any other and
+ * keeps nesting: the depth found here is never below the depth the tree parser descends to.
+ */
 function offsetBeyondNesting(text: string, limit: number): number | undefined {
-  let depth = 0;
-  let inString = false;
-  for (let offset = 0; offset < text.length; offset++) {
-    const char = text[offset];
-    if (inString) {
-      if (char === "\\") offset++;
-      else if (char === '"') inString = false;
-    } else if (char === '"') {
-      inString = true;
-    } else if (char === "{" || char === "[") {
-      if (++depth > limit) return offset;
-    } else if (char === "}" || char === "]") {
-      depth = Math.max(0, depth - 1);
+  const scanner = createScanner(text, true);
+  const closingBrackets: string[] = [];
+  for (scanner.scan(); scanner.getTokenOffset() < text.length; scanner.scan()) {
+    const offset = scanner.getTokenOffset();
+    const firstCharacter = text[offset];
+    if (firstCharacter === "{" || firstCharacter === "[") {
+      closingBrackets.push(firstCharacter === "{" ? "}" : "]");
+      if (closingBrackets.length > limit) return offset;
+    } else if (firstCharacter === closingBrackets[closingBrackets.length - 1]) {
+      closingBrackets.pop();
     }
   }
   return undefined;
@@ -129,6 +141,8 @@ function jsonParseErrorOffset(reason: string, text: string): number {
 /**
  * A text too deep for the tree parser. Without a tree a path has no place in the text, and what
  * makes such a text invalid is its nesting, which starts at the first bracket beyond the limit.
+ * Every problem points at that bracket, and the labels of one branch read alike, so each message
+ * is listed once rather than once per container.
  */
 function problemsWithoutTree(text: string): DocumentProblem[] {
   let value: unknown;
@@ -142,12 +156,8 @@ function problemsWithoutTree(text: string): DocumentProblem[] {
   const result = parseDocument(value);
   if (result.ok) return [];
   const offset = offsetBeyondNesting(text, MAX_NESTING_DEPTH) ?? 0;
-  return result.issues.map((issue) => ({
-    severity: "error",
-    message: issueMessage(issue),
-    offset,
-    length: 1,
-  }));
+  const messages = new Set(result.issues.map(issueMessage));
+  return [...messages].map((message) => ({ severity: "error", message, offset, length: 1 }));
 }
 
 /** Connectors the diagram drops on open, as the renderer's importer warns about them. */

@@ -7,16 +7,19 @@ import {
   legalLineHeight,
   resolveMessages,
   toastStackBottom,
+  withChromeShortcuts,
   zoomRowRaised,
   type BottomObstacle,
   type FitLayout,
   type Insets,
   type PaletteRow,
+  type ShortcutGroup,
   type Size,
   type Theme,
   type ToastRequest,
   type ZoomTarget,
 } from "../core/index.js";
+import type { OwnedShellDialog, ShellDialog } from "./dialog.js";
 import { boxRelativeTo, createElement, isPointerClick } from "./element.js";
 import { connectWebAppearance } from "./feedback/appearance.js";
 import { createProblemsPopover, type ProblemsPopover } from "./feedback/problems-popover.js";
@@ -28,6 +31,7 @@ import { Ledger } from "./ledger.js";
 import { createLegend } from "./legend.js";
 import { createMenu, type MenuGroupName } from "./menu.js";
 import { createProblemsPill } from "./problems.js";
+import { openShortcutsDialog } from "./shortcuts-dialog.js";
 import { createStatusBox } from "./status.js";
 import { createTooltip } from "./tooltip.js";
 import type {
@@ -70,6 +74,9 @@ const LEGAL_HEIGHT_PROPERTY = "--modeler-shell-legal-height";
 
 /** What `toast()` returns where no toast shows (the IDE host, after `destroy`). */
 const INERT_TOAST: ToastHandle = Object.freeze({ dismiss() {} });
+
+/** What `showShortcutsDialog()` returns after `destroy`. */
+const CLOSED_DIALOG: ShellDialog = Object.freeze({ isOpen: () => false, close() {} });
 
 /** The element's box relative to the root while it is rendered and visible, else `undefined`. */
 function visibleBoxIn(element: HTMLElement | undefined, root: HTMLElement) {
@@ -714,6 +721,30 @@ function renderShell(
     },
   };
 
+  let shortcutsDialog: { owned: OwnedShellDialog; handle: ShellDialog } | undefined;
+  // Registered after the mount's elements, so it runs before their removal; it moves no focus.
+  ledger.defer(() => shortcutsDialog?.owned.discard());
+
+  function showShortcutsDialog(groups: readonly ShortcutGroup[]): ShellDialog {
+    if (ledger.isClosed) return CLOSED_DIALOG;
+    if (shortcutsDialog?.owned.isOpen()) return shortcutsDialog.handle;
+    if (menu.isOpen()) {
+      const active = ownerDocument.activeElement;
+      menu.close({ restoreFocus: active === menu.trigger || menu.dropdown.contains(active) });
+    }
+    tooltip.hide();
+    const owned = openShortcutsDialog(
+      withChromeShortcuts(groups, { platform, lang, messages }),
+      messages,
+      { container: root, focusFallback: focusCanvasOrTrigger },
+    );
+    shortcutsDialog = {
+      owned,
+      handle: { isOpen: () => owned.isOpen(), close: () => owned.close() },
+    };
+    return shortcutsDialog.handle;
+  }
+
   return {
     root,
     canvas,
@@ -801,6 +832,7 @@ function renderShell(
     setEmptyState: setEmptyStateShown,
     isEmptyStateShown: () => emptyState?.isShown() ?? false,
     toast: showToast,
+    showShortcutsDialog,
     destroy() {
       ledger.close();
     },

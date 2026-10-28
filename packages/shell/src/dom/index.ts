@@ -38,5 +38,10 @@ export type {
 export type { MenuGroupName } from "./menu.js";
 export { mountShell } from "./mount.js";
 
+export type { ShellDialog, ShellDialogOptions } from "./dialog.js";
+export { openShellDialog } from "./dialog.js";
+export type { ShortcutsDialogOptions } from "./shortcuts-dialog.js";
+export { showShortcutsDialog } from "./shortcuts-dialog.js";
+
 export type { IconNode, IconOptions, ShellIconName } from "./icons.js";
 export { ICONS, PALETTE_TOOL_ICON, iconElement, iconMarkup } from "./icons.js";

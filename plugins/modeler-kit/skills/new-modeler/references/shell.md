@@ -87,6 +87,20 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
   under the CSP's `font-src`, zod's `config({ jitless: true })` imported before any schema, the
   Lucide legal comment kept. Exports go to the host, which shows the save dialog and a
   notification with `revealFileLabel`, not a toast.
+- Native contributions (guide §13.5): "New Empty Diagram" and "New Diagram from Example" are
+  commands that ask for a location in the save dialog and write a real file (a custom text editor
+  is most robust on a file URI). Both are in File › New File…, which shows a command's short title,
+  such as "Capability Map Diagram" and "New Capability Map Diagram from Example", in the order of
+  the group suffixes @1 and @2 (without them VS Code sorts a group by title). The walkthrough (id
+  getStarted) has the steps New, Example and Source to the side, each completed by its command,
+  then Learn. "Open Source to the Side" and "Open Diagram to the Side" sit in the navigation group
+  of the editor title with a Codicon, and in the Command Palette only while a diagram or its text
+  has the focus. Called without a resource (the Command Palette, the walkthrough's link), "Open
+  Source to the Side" opens the source of the open diagram focused last, since a click on the link
+  moves the focus away from the diagram. There is no keybindings contribution. A unit test pins
+  all of it (template:
+  [`contributions.test.ts`](../assets/template/apps/vscode/test/contributions.test.ts), media in
+  [`media/walkthrough/`](../assets/template/apps/vscode/media/walkthrough/)).
 
 ## The web host
 
@@ -131,13 +145,13 @@ column and a clean `destroy`.
   opens at several sizes, each time as a first visit, and fails an `open` that keeps the page.
 - `documents` (a modeler-shell release after 0.5.0): the empty documents `open` loads by key, the
   `document` of its context. In VS Code `["empty", "blank"]`, which the test page posts as the file
-  the "New Diagram" command writes and as a file of zero bytes; on the web `["empty"]`, which `open`
-  reaches through `about:blank`, the app's `/` and the start screen's "New diagram". The kit's
-  empty-file case expects 100 % (or a plot that always counts, fitted on open), the empty-file hint
-  in the middle of the free rectangle (on the web without "Insert example"), no invalid-file state,
-  the hint gone with the first element and back once it is deleted, and on the web the same after
-  File > New diagram on a document; the appearance case runs on those documents too. The template
-  lets that case's skip pass until its modeler-shell pin reaches that release, then feeds
+  the "New Empty Diagram" command writes and as a file of zero bytes; on the web `["empty"]`, which
+  `open` reaches through `about:blank`, the app's `/` and the start screen's "New diagram". The
+  kit's empty-file case expects 100 % (or a plot that always counts, fitted on open), the empty-file
+  hint in the middle of the free rectangle (on the web without "Insert example"), no invalid-file
+  state, the hint gone with the first element and back once it is deleted, and on the web the same
+  after File > New diagram on a document; the appearance case runs on those documents too. The
+  template lets that case's skip pass until its modeler-shell pin reaches that release, then feeds
   `documents`.
 - `labelEditor` (modeler-shell 0.4.0 or later): `open` double-clicks a node and types a new text on
   every call, `documentChanged` compares `modeler.exportText()` with the text at `open` (template:
@@ -152,6 +166,11 @@ column and a clean `destroy`.
   palette on `canvas.viewbox.changing` for good, without showing it again once the view settles;
   give each dialog its own forced-colours border (`CanvasText`), and an element outside the shell
   root its own reduced-motion rule.
+- `shortcutsDialog` (modeler-shell 0.7.0 or later): its `show` calls `shell.showShortcutsDialog`
+  with the modeler's own shortcut groups, built by the renderer's shortcut table for the page's
+  `shell.platform` and `shell.lang`, or with the kit's fixture where the page cannot build them. The
+  kit checks the dialog of guide §8, the chrome's keys at the top of the View group and the focus.
+  The template lets that case's skip pass until its modeler-shell pin reaches 0.7.0.
 - `absent` lists what the modeler lacks, and `onSkip` throws: every other skip is a gap. In VS Code
   a menu without a Model action (no File group there) adds `absent: ["canvasMenuAction"]`
   (modeler-shell 0.4.0 or later).

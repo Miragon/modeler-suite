@@ -5,6 +5,7 @@ import { THEMES } from "../../apps/webapp/src/themes.js";
 import { mapLink, waitForApp } from "./support/app.js";
 import { contextNameEditor } from "./support/label-editor.js";
 import { MAP_WITH_FINDINGS } from "./support/maps.js";
+import { contextMapShortcutsDialog } from "./support/shortcuts-dialog.js";
 
 /**
  * The shell's conformance kit against the real web app (the web host of guide §5.2): geometry at
@@ -118,6 +119,8 @@ test.describe("web app: shell conformance", () => {
         },
         rejected: { name: "map.png", type: "image/png", text: "x" },
       },
+      // The groups of the web app's Help entry, with its File keys (apps/webapp/src/main.ts).
+      shortcutsDialog: contextMapShortcutsDialog("webapp", { fileKeys: true }),
     },
     test,
     {

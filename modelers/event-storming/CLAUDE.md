@@ -48,10 +48,12 @@ so a violating import fails `npm run event-storming lint` and `npm run event-sto
   `apps/webapp/vite.config.ts`, through `apps/webapp/tsconfig.config.json`) ·
   `npm run event-storming lint` (ESLint + typecheck)
 - `npm run event-storming test:browser`: Vitest in Chromium (renderer integration, the
-  `@miragon/modeler-api` conformance kit) · `npm run event-storming test:e2e`: Playwright, two
-  projects: `webapp` (the web app, incl. the shell conformance kit on the `web` host) and
-  `vscode-webview` (the webview inside the shell's VS Code stub, incl. the kit on the `ide` host);
-  one project with `npm run event-storming test:e2e -- --project=vscode-webview`, other ports via
+  `@miragon/modeler-api` conformance kit) · `npm run event-storming test:e2e`: Playwright, three
+  projects: `webapp` (the web app, incl. the shell conformance kit on the `web` host),
+  `vscode-webview` (the webview inside the shell's VS Code stub, incl. the kit on the `ide` host)
+  and `webapp-webkit` (the web app's Share and focus hand-back specs in WebKit;
+  `npx playwright install chromium webkit` once); one project with
+  `npm run event-storming test:e2e -- --project=vscode-webview`, other ports via
   `E2E_PORT` / `E2E_WEBVIEW_PORT` (default 5180 / 5190)
 - `npm run event-storming test:vscode:docker`: the VS Code smoke test below in a Linux container
   under `xvfb-run -a` (the shell's `modeler-shell-vscode-docker`): the way to run it locally, since
@@ -122,8 +124,12 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   `text-rendering: geometricPrecision` so that the drawn text does not change with the zoom either),
   or `undefined` while the board has no element. An annotated board is imported only once the
   annotation font has loaded, imports staying in call order, so every fit on import measures it in
-  that font. A view change (`setViewState`, a host's fit, scroll, zoom) never commits an open label
-  editor: it stays open and follows its element (contract L5).
+  that font. An import first ends a running drag without applying it (`cancelGesture` in
+  `EventStormingBaseViewer`, when called and again after the font wait; `clear()` too):
+  `dragging.cancel(false)` as Escape does, and the drawing handles' point drag, which also ends on
+  `shape.remove`, so no release lands on a removed shape; the palette's armed lasso tool
+  (`lasso.selection`) stays armed. A view change (`setViewState`, a host's fit, scroll, zoom) never
+  commits an open label editor: it stays open and follows its element (contract L5).
 - Contributor notes for this modeler in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Design system (mandatory)

@@ -6,6 +6,7 @@ import {
 } from "@miragon/modeler-shell/testing";
 import { WEBVIEW_THEMES } from "../../../apps/vscode/src/themes.js";
 import { typeIntoLabelEditor } from "../support/labelEditor.js";
+import { diagramShortcutsDialog } from "../support/shortcuts-dialog.js";
 import { openShippedWebview, postedMessages } from "./support/webview.js";
 
 /**
@@ -112,6 +113,7 @@ test.describe("VS Code webview: shell conformance", () => {
           return (await sentEdits(page)) > (editsAtOpen.get(page) ?? 0);
         },
       },
+      shortcutsDialog: diagramShortcutsDialog("webview"),
     },
     test,
     {

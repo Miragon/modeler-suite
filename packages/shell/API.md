@@ -1,11 +1,13 @@
-# @miragon/modeler-shell 0.3: public API
+# @miragon/modeler-shell 0.7: public API
 
 The shared, framework-free implementation of everything around a Miragon diagram-js modeler: menu
 button with dropdown, horizontal palette skin, chrome tooltip, zoom panel, zoom and fit keys, fit,
 problems pill, status box, empty-file hint, legend and inspector slots, the plumbing to a VS Code
 webview, and (0.2) the web-app chrome: primary action, legal line, File and Appearance groups,
-problems popover, toasts, empty-state card, drop zone and the web app's mode, and (0.3) a driver
-that smoke-tests a modeler's extension in a real VS Code, since 0.3.1 also in a Linux container. Planned in
+problems popover, toasts, empty-state card, drop zone and the web app's mode, (0.3) a driver
+that smoke-tests a modeler's extension in a real VS Code, since 0.3.1 also in a Linux container,
+and (0.7) the modal dialog of guide §8 with the "Keyboard shortcuts…" dialog on it, also for a host
+without a mounted shell (see [Dialogs](#dialogs-07)). Planned in
 [Miragon/modeler-suite#4](https://github.com/Miragon/modeler-suite/issues/4) (Phase 4); the first
 consumer is the Event Storming modeler, in VS Code (0.1) and in its web app (0.2, see
 [Usage: Event Storming in the web app](#usage-event-storming-in-the-web-app)).
@@ -35,18 +37,18 @@ consumer is the Event Storming modeler, in VS Code (0.1) and in its web app (0.2
 
 ## Entry points
 
-| Entry                                            | For                                                                                                   | Needs a DOM                    |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `@miragon/modeler-shell`                         | the chrome (`mountShell`, web chrome included), icons, plus all of `./core`                           | yes (at call time)             |
-| `@miragon/modeler-shell/core`                    | fit math, keymap, zoom readout, appearance, sizes, messages, the web host's decisions and head script | no                             |
-| `@miragon/modeler-shell/diagram-js`              | `shellModule`, viewport, `connectDiagramJs`                                                           | yes                            |
-| `@miragon/modeler-shell/vscode/extension`        | webview HTML, nonce, theme bridge (extension host)                                                    | no                             |
-| `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state                                                 | yes                            |
-| `@miragon/modeler-shell/testing`                 | Playwright-driven shell conformance kit                                                               | runs in Node, drives a browser |
-| `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page                                                     | yes (in the test page)         |
-| `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code (0.3)                                        | runs in Node, drives VS Code   |
-| `@miragon/modeler-shell/testing/webview-bundle`  | the production webview bundle under the webview CSP, for the kit's `csp` case (0.6)                   | runs in Node, drives a browser |
-| `@miragon/modeler-shell/shell.css`               | every style of the shell                                                                              | —                              |
+| Entry                                            | For                                                                                                                    | Needs a DOM                    |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `@miragon/modeler-shell`                         | the chrome (`mountShell`, web chrome included), the dialogs (0.7), icons, plus all of `./core`                         | yes (at call time)             |
+| `@miragon/modeler-shell/core`                    | fit math, keymap, zoom readout, appearance, sizes, messages, shortcut groups, the web host's decisions and head script | no                             |
+| `@miragon/modeler-shell/diagram-js`              | `shellModule`, viewport, `connectDiagramJs`                                                                            | yes                            |
+| `@miragon/modeler-shell/vscode/extension`        | webview HTML, nonce, theme bridge (extension host)                                                                     | no                             |
+| `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state                                                                  | yes                            |
+| `@miragon/modeler-shell/testing`                 | Playwright-driven shell conformance kit                                                                                | runs in Node, drives a browser |
+| `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page                                                                      | yes (in the test page)         |
+| `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code (0.3)                                                         | runs in Node, drives VS Code   |
+| `@miragon/modeler-shell/testing/webview-bundle`  | the production webview bundle under the webview CSP, for the kit's `csp` case (0.6)                                    | runs in Node, drives a browser |
+| `@miragon/modeler-shell/shell.css`               | every style of the shell                                                                                               | —                              |
 
 All JavaScript entries ship as ESM and CJS with types (`typesVersions` covers `moduleResolution:
 node10`); importing any of them has no side effects. The package has one command (`bin`),
@@ -483,7 +485,7 @@ interface ShellMessages {
   appearanceDark: string; // "Dark"
   problemsTitle: string; // "Problems": title of the problems popover
   problemSeverity(severity: ProblemSeverity): string; // "Error", "Warning": a popover row's icon, for screen readers
-  close: string; // "Close": a toast's Close button
+  close: string; // "Close": the Close button of a toast and of a dialog
   dropFile: string; // "Drop file here"
   dropForbidden(reason: DropForbiddenReason): string;
   // "Drop one file at a time", "This modeler can't open this file type", "Close the dialog to drop a file"
@@ -491,6 +493,11 @@ interface ShellMessages {
   openFileLink: string; // "Open a file…": the start screen's link to the File group's Open…
   cannotOpenFile(name: string, accepted: string): string;
   // "Couldn't open “map.png”. Drop a .storm, .json, or .txt file." (accepted: Intl.ListFormat disjunction)
+  // 0.7, the "Keyboard shortcuts…" dialog (guide §5.4, §8)
+  shortcutsTitle: string; // "Keyboard shortcuts": the dialog's title
+  shortcutsView: string; // "View": the group the shell fills with the chrome's keys
+  shortcutsEdit: string; // "Edit": for a modeler's own group, so every modeler names it alike
+  shortcutsTools: string; // "Tools": the notation's tools
 }
 // every key optional; an undefined value keeps the default
 type ShellMessageOverrides = {
@@ -503,6 +510,56 @@ function resolveMessages(overrides?: ShellMessageOverrides): ShellMessages;
 A localized modeler overrides the whole table (guide §2: one language per tool) and passes `lang`.
 "Impressum" and "Datenschutz" are not in the table: they stay German with `lang="de"` in every tool
 language (§2).
+
+### Shortcut groups (0.7)
+
+The data of the "Keyboard shortcuts…" dialog (guide §5.4): one table per group, the action on the
+left, its keys as chips on the right. A renderer builds its groups without importing the shell; the
+types are structural, so its own `{ title, rows: [{ action, keys }] }` is a `ShortcutGroup`.
+
+```ts
+interface ShortcutRow {
+  readonly action: string; // "Select all", Sentence case
+  readonly keys: readonly string[]; // alternatives, one chip each: ["Del", "Backspace"]
+}
+interface ShortcutGroup {
+  readonly title: string;
+  readonly rows: readonly ShortcutRow[];
+}
+interface ChromeShortcutRow extends ShortcutRow {
+  readonly chromeKey: ChromeKey; // a row of the chrome's own keys
+}
+type ShownShortcutRow = ShortcutRow | ChromeShortcutRow;
+interface ShownShortcutGroup {
+  readonly title: string;
+  readonly rows: readonly ShownShortcutRow[];
+}
+interface ShortcutChrome {
+  readonly platform: Platform;
+  readonly lang: string;
+  readonly messages: Pick<
+    ShellMessages,
+    "zoomIn" | "zoomOut" | "zoomToActual" | "fit" | "keyNames" | "shortcutsView"
+  >; // a ShellHandle fits
+}
+function chromeShortcutRows(chrome: ShortcutChrome): ChromeShortcutRow[];
+function withChromeShortcuts(
+  groups: readonly ShortcutGroup[],
+  chrome: ShortcutChrome,
+): ShownShortcutGroup[];
+function isChromeShortcutRow(row: ShownShortcutRow): row is ChromeShortcutRow;
+```
+
+- `chromeShortcutRows`: the zoom panel's keys in the order of guide §5.8's key table, zoom in, zoom
+  out, 100 %, fit, each named and chipped as its tooltip shows it (`"Zoom in"` with `⌘+`,
+  `"Zoom to 100%"` with `⌘0`, elsewhere `Ctrl+Plus` and `Ctrl+0` in the key names of the messages;
+  the percentage through `formatPercent(1, lang)`, English for a language tag `Intl` rejects).
+- `withChromeShortcuts`: `groups` in their order, without empty ones, the chrome's rows at the top
+  of the View group (the group titled `messages.shortcutsView`), or a View group of its own first
+  when `groups` has none. A row of the given View group whose action is a chrome row's action (the
+  same text, as a renderer's own View rows are) is left out: the chrome's row stands for it. The
+  given groups stay unchanged. `shell.showShortcutsDialog` runs it; a host without a mounted shell
+  that binds the same keys itself runs it before `showShortcutsDialog`.
 
 ### Layout decisions
 
@@ -517,8 +574,6 @@ interface PaletteRowInput {
   primaryLeft?: number;
 }
 function decidePaletteRow(input: PaletteRowInput): PaletteRow;
-/** @deprecated 0.5: always false, the arguments are ignored */
-function legendStartsOpen(containerHeight?: number, containerWidth?: number): boolean;
 interface TooltipPlacementInput {
   anchor: Bounds;
   island: Bounds;
@@ -675,8 +730,9 @@ interface MenuRadioOption {
 - `action` and `dialog`: the menu closes, focus returns to the trigger, then `onSelect` runs (a host
   dialog then hands focus back to a visible control). After a pointer click on an `action` of the
   File or Model group the focus goes to the canvas instead (0.2.2, §5.8), since those change what
-  the canvas shows. `dialog` adds `aria-haspopup="dialog"`; its label ends with "…" (U+2026), and in
-  0.2 the modeler renders the dialog itself (see [Modeler dialogs](#modeler-dialogs)).
+  the canvas shows. `dialog` adds `aria-haspopup="dialog"`; its label ends with "…" (U+2026). Its
+  `onSelect` opens the shell's dialog (0.7, "Keyboard shortcuts…" through
+  `shell.showShortcutsDialog`) or one the modeler renders itself (see [Dialogs](#dialogs-07)).
 - `checkbox` and `radio` toggle and keep the menu open. State is read through `checked()`, `value()`
   and `disabled()` whenever the menu opens and on `menu.refresh()`.
 - Icons only from the common set and only where the guide gives one; the icon column stays 16px wide
@@ -705,31 +761,111 @@ interface MenuRadioOption {
   stopping the event, so it still acts on its target. So does the window losing the focus (a click
   into the VS Code workbench or another iframe).
 
-### Modeler dialogs
+### Dialogs (0.7)
 
-0.3 has no dialog component (a later candidate, see [Out of scope for 0.3](#out-of-scope-for-03)), so
-a modeler renders its dialogs, the "Keyboard shortcuts…" dialog of the Help group (§5.4) first among
-them, and meets §8 on its own:
+The dialog of guide §8 (`cd-shell-dialog`) and, on it, the "Keyboard shortcuts…" dialog of the Help
+group (§5.4). Both also open without a mounted shell, in an embedding host's own page (designIQ):
+they need only `shell.css` after the tokens. The §9 confirmation of a destructive action, the
+popovers of §5.4 and a modeler's form dialogs ("Map title…", "Map size…") are later candidates on the
+same dialog (see [Out of scope for 0.7](#out-of-scope-for-07)).
+
+```ts
+// on the handle (see Handle)
+showShortcutsDialog(groups: readonly ShortcutGroup[]): ShellDialog;
+
+// without a mounted shell
+function showShortcutsDialog(
+  groups: readonly ShortcutGroup[],
+  options: ShortcutsDialogOptions,
+): ShellDialog;
+interface ShortcutsDialogOptions {
+  container: HTMLElement; // where the <dialog> lives: its mode, contrast, language, size container
+  messages?: ShellMessageOverrides; // shortcutsTitle and close; default English
+  lang?: string; // `lang` on the <dialog>, for a container whose language is not the tool's
+  focusFallback?: () => void; // see ShellDialogOptions
+}
+
+function openShellDialog(options: ShellDialogOptions): ShellDialog;
+interface ShellDialogOptions {
+  container: HTMLElement;
+  title: string; // 21px/600, the dialog's accessible name (aria-labelledby)
+  render(body: HTMLElement): void; // once, before it opens: text 16px/1.6, tables and forms 13px
+  closeLabel?: string; // aria-label of Close; default "Close"
+  className?: string; // next to cd-shell-dialog, for the dialog's own rules
+  lang?: string;
+  onClose?(): void; // after it closed and left the DOM, before the focus goes back
+  focusFallback?(): void; // the focus target when the element that had it is gone, hidden or inert
+}
+interface ShellDialog {
+  isOpen(): boolean;
+  close(): void; // as Escape, Close and the backdrop do; a second call does nothing
+}
+```
+
+- **Data, not a renderer's dialog.** `shell.showShortcutsDialog(groups)` takes a modeler's groups as
+  data (a renderer's `boardShortcuts(shell)`, `mapShortcuts(shell, { fileKeys: true })`, …; the types
+  are structural, so a renderer never imports the shell) and runs `withChromeShortcuts` (see
+  [Shortcut groups](#shortcut-groups-07)): the chrome's zoom and fit keys come first in the View
+  group, named and chipped as their tooltips show them, and a renderer's own View rows for them are
+  left out. The menu closes first, the tooltip hides; while the dialog is open a second call returns
+  it unchanged. The standalone `showShortcutsDialog` shows `groups` as they are (empty ones left
+  out): a host without the shell's chrome has no chrome keys to add, and one that binds them itself
+  passes `withChromeShortcuts(groups, …)`.
+- **Tables** (§5.4): one `<section>` per group, its title an `h3` (13px/600 `--cd-ui-text-leise`),
+  the `<table>` labelled by it; per row the action as `<th scope="row">` on the left and every key
+  as a chip on the right, the tooltip's `kbd.cd-shell-kbd` (§5.6), rows separated by 1px
+  `--cd-ui-linie`. A row of the chrome's keys carries `data-chrome-key` (`zoomIn`, `zoomOut`,
+  `zoomToActual`, `fit`).
+- **Top layer** (§5.13, §8): a native `<dialog>` opened with `showModal()`, so it lies above every
+  island and the page behind it is inert, and the shell's keys count it as a modal dialog: the zoom
+  keys and Shift+1 rest while it is open (§5.8), and in the IDE host Escape is still kept from VS
+  Code. It is built on open and removed on close, so a closed dialog leaves nothing in the DOM.
+- **Panel and backdrop** (§8): the `<dialog>` is the panel, `--cd-ui-flaeche-hoch` with 1px
+  `--cd-ui-linie`, radius `md`, `shadow-3`, `width: min(560px, 100cqw - 32px)` and
+  `max-height: calc(100cqh - 32px)`, its body scrolling. The sizes refer to the modeler's container
+  (§5.1, also for §8): `cqw` and `cqh` resolve against the shell root even in the top layer, and
+  against the window where no size container is around the `<dialog>` (an embedding host without a
+  mounted shell). The top layer centres it in the window, and its backdrop covers the page; header
+  (padding `16px 16px 8px 24px`, title 21px/600) with Close as a 32 × 32 ghost icon button (Lucide
+  `x` 16px, `aria-label` "Close"); body padding `8px 24px 24px`; backdrop
+  `background: var(--cd-ui-backdrop); backdrop-filter: blur(3px) grayscale(1)` in both modes. Every
+  rule sets what a foreign page's element styles (`h2`, `table`, `th`, `button`, `kbd`) would
+  change.
+- **High contrast** (`[data-cd-kontrast="hoch"]` on an ancestor, §6, §5.14): no shadow, border
+  `--cd-ui-kontur`, focus ring 3px. **Forced colours** (`@media (forced-colors: active)`): border
+  `CanvasText`, focus ring `Highlight`. **Reduced motion**, the OS's or VS Code's: no hover fade.
+- **Focus** (§8, §12): `showModal()` puts it on the first Tab stop (Close). Tab and Shift+Tab move
+  between the dialog's stops in DOM order (a named radio group is one stop) and wrap at its ends,
+  the same in every engine; in a VS Code webview the browser's Tab would otherwise leave for the
+  workbench, and WebKit's Shift+Tab would skip Close. While the focus sits in another dialog opened
+  above it (a host's own modal one, a second shell dialog), that dialog's Tab is left alone. A body
+  that scrolls is a Tab stop itself (`tabindex="0"` while it overflows), so the keyboard scrolls it
+  in every engine; when it stops scrolling while it holds the focus, the focus moves on to the next
+  stop. Escape, Close and a click on the backdrop (a press and a release both outside the panel)
+  close it, and the focus returns to the element that had it before: the menu trigger after the Help
+  entry. When that element is gone, hidden or inert, `focusFallback` runs; on the handle it is the
+  shell's own (the canvas, else the trigger, on the start screen its "New diagram").
+- **Read-only:** the shortcuts dialog stays usable on a read-only canvas (§13.5).
+- **Teardown:** `shell.destroy()` removes the dialog `showShortcutsDialog` opened without moving the
+  focus. A dialog of `openShellDialog` and of the standalone `showShortcutsDialog` is the host's:
+  `close()` it in the host's teardown.
+
+The kit's `shortcutsDialog` case checks all of this in every modeler (see `./testing`).
+
+#### Modeler dialogs
+
+A dialog the modeler still renders itself (a renderer's `createShortcutsDialog`, "Map title…",
+"Map size…") meets §8 on its own until it moves onto `cd-shell-dialog`:
 
 - **Layer.** `z-index: var(--cd-shell-ebene-dialog)` (50) applies only to a dialog outside the top
   layer, inside `shell.root`. A `<dialog>` opened with `showModal()` or an element of the popover API
   lies in the browser's top layer above everything, whatever its `z-index`. The shell's keys count it
   either way: any shown `<dialog>`, `[role="dialog"]` or `[role="alertdialog"]` in the document
   (embedded: in the root) is open, and a modal one blocks the zoom keys.
-- **Panel and backdrop** (§8): panel `--cd-ui-flaeche-hoch` with 1px `--cd-ui-linie`, radius `md`,
-  `shadow-3`, `width: min(560px, 100cqw - 32px)`, `max-height: calc(100cqh - 32px)` with a scrolling
-  body; header (padding `16px 16px 8px 24px`, title 21px/600) with Close as a 32 × 32 ghost icon
-  button (Lucide `x` 16px, `aria-label` "Close"); backdrop
-  `background: var(--cd-ui-backdrop); backdrop-filter: blur(3px) grayscale(1)` in both modes. The
-  shortcut chips look like the tooltip's (§5.6).
-- **High contrast** (`[data-cd-kontrast="hoch"]`, §6, §5.14): no shadow, border `--cd-ui-kontur`,
-  focus ring 3px.
-- **Forced colours** (`@media (forced-colors: active)`): border `CanvasText`, focus ring `Highlight`.
-  The shell's own high-contrast and forced-colours rules match only `cd-shell-*` classes, so they
-  do not reach a modeler's dialog.
-- **Focus** (§8): it moves into the dialog and stays there, Escape and a click on the backdrop close
-  it, and it returns to the control that opened it (the menu trigger after a menu entry).
-- **Read-only:** the shortcuts dialog stays usable on a read-only canvas (§13.5).
+- **Look:** panel, backdrop, header, Close, chips, high contrast and forced colours as above. The
+  shell's high-contrast and forced-colours rules match only `cd-shell-*` classes, so they do not
+  reach a modeler's dialog; the kit's `forcedColors` case checks its border in `CanvasText`.
+- **Focus, read-only:** as above.
 - **Teardown:** the dialog is the modeler's content in `shell.root`, removed by the modeler (see
   `destroy()` below).
 
@@ -781,6 +917,7 @@ interface ShellHandle {
   setEmptyState(shown: boolean): void; // 0.2, web host with `emptyState`
   isEmptyStateShown(): boolean;
   toast(request: ToastRequest): ToastHandle; // 0.2, web and embedded; inert in the ide host
+  showShortcutsDialog(groups: readonly ShortcutGroup[]): ShellDialog; // 0.7, see Dialogs
   destroy(): void;
 }
 interface MenuHandle {
@@ -897,20 +1034,24 @@ interface StatusMessage {
   While it is open, the fit keeps room for it above 440px width. Its close button returns the focus
   to the menu trigger, also after a click with mouse, pen or finger in WebKit or Firefox on macOS,
   which give the clicked button no focus.
-- `legendStartsOpen` is deprecated since 0.5: it returns `false` whatever it is given and keeps
-  its optional parameters only so existing callers compile. Pass the stored state as `legend.open`
-  and leave the default to the shell.
+- 0.7 removed `legendStartsOpen`. Deprecated since 0.5, it returned `false` whatever it was given.
+  The shell decides the start state alone: a host passes its stored state as `legend.open`
+  (nothing on a first visit) and stores each change from `onToggle`.
 - `destroy()` removes every element, class, attribute, listener, observer and timer the shell added
   and restores what was there before the mount: a passed `canvas` stays where it is, without
   `cd-shell-canvas`, and a `cd-shell-document` class or a `lang` the page already had stays (the
   class `renderWebviewHtml` writes on `<html>` included). A second call and every later handle call
   are no-ops. A mount that throws (a modeler's `legend.render`) undoes the same before the error
-  propagates. Content a modeler adds to `shell.root` (a dialog, a popover) is the modeler's: it
-  removes it in its own teardown, before or with `shell.destroy()`, for example on `diagram.destroy`,
-  because the shell removes only what it added.
+  propagates. The shortcuts dialog of `showShortcutsDialog` is the shell's and goes with it, without
+  moving the focus; after `destroy()` the method opens nothing and returns a closed dialog. Content a
+  modeler adds to `shell.root` (a dialog of its own, a popover) is the modeler's: it removes it in its
+  own teardown, before or with `shell.destroy()`, for example on `diagram.destroy`, because the shell
+  removes only what it added.
 - Element ids (`cd-shell-menu-N`, `cd-shell-tooltip-N`, `cd-shell-legend-title-N`) count on one
   page-global counter (`Symbol.for("@miragon/modeler-shell.mounts")`), so two modelers that each
-  bundle the shell never share an id on one foreign page.
+  bundle the shell never share an id on one foreign page. The dialogs' title and group ids
+  (`cd-shell-dialog-title-N`, `cd-shell-shortcuts-group-N`) count on one of their own
+  (`Symbol.for("@miragon/modeler-shell.dialogs")`), with or without a mounted shell.
 
 ### Icons
 
@@ -1037,12 +1178,15 @@ own around the canvas (no `tabindex` on `.djs-container`). Islands that are not 
 | `cd-shell-toasts`, `cd-shell-toast`, `cd-shell-toast-dot`, `cd-shell-toast-text`, `cd-shell-toast-action`, `cd-shell-toast-close`                                                                                                                                      | toasts (0.2)                                |
 | `cd-shell-live`, `cd-shell-live-region` (`data-live="polite"` / `"assertive"`)                                                                                                                                                                                         | the toasts' live regions (0.2)              |
 | `cd-shell-problems-popover`, `cd-shell-problems-popover-title`, `cd-shell-problems-list`, `cd-shell-problem`, `cd-shell-problem-icon`, `cd-shell-problem-message`, `cd-shell-problem-location`                                                                         | problems popover (0.2)                      |
+| `cd-shell-dialog`, `cd-shell-dialog-header`, `cd-shell-dialog-title`, `cd-shell-dialog-close`, `cd-shell-dialog-body`                                                                                                                                                  | dialog (0.7)                                |
+| `cd-shell-shortcuts`, `cd-shell-shortcuts-group`, `cd-shell-shortcuts-title`, `cd-shell-shortcuts-table`, `cd-shell-shortcuts-action`, `cd-shell-shortcuts-keys`                                                                                                       | keyboard shortcuts dialog (0.7)             |
 
 Internal attributes: `data-severity` on pill and status box, `data-danger` on a dangerous menu
 entry, `data-menu-id` on entries and radio groups (the shell's Legend entry is `data-menu-id="legend"`,
 so a modeler does not use the id `legend`), `data-menu-group` (`file`, `model`, `export`, `appearance`,
 `help`) on entries and radio groups, which the kit's `readOnly` case reads, `data-menu-value` on radio options,
-`data-zoom` on the zoom buttons.
+`data-zoom` on the zoom buttons, `data-chrome-key` on a shortcuts dialog's row of the chrome's keys,
+which the kit's `shortcutsDialog` case reads.
 
 Modelers style only their own content (legend rows, inspector fields); every other class is
 internal to the shell CSS and may change in a minor release.
@@ -1083,7 +1227,8 @@ context pad and label editor at 100); islands `--cd-shell-ebene-inseln` (20, the
 empty-state card included), inspector 25, menu trigger and primary action 30, layer 40 (dropdown,
 tooltip, problems popover, drop zone), modeler dialogs 50, toasts 60 (in the web host a manual
 popover in the top layer, see [Toasts](#toasts-8-9)). The 50 holds only outside the top layer; a `showModal()`
-`<dialog>` or a popover-API element lies above everything (see [Modeler dialogs](#modeler-dialogs)).
+`<dialog>` or a popover-API element lies above everything, the shell's own dialog (0.7) included
+(see [Dialogs](#dialogs-07)).
 
 Inside the canvas slot, persistent overlays a modeler adds (element toolbars, its own context pad,
 the label editor) stay at `z-index` 100 or below, under the palette at 110. Transient popups the user
@@ -2202,6 +2347,12 @@ interface CspHooks<P extends PageLike = PageLike> {
   // way the extension does (init); resolves once the first import is done
   open(page: P, context: OpenContext): Promise<void>;
 }
+// 0.7: how the shortcutsDialog case opens the shell's "Keyboard shortcuts…" dialog
+interface ShortcutsDialogHooks<P extends PageLike = PageLike> {
+  // shell.showShortcutsDialog(groups) with the focus where the kit left it (the menu trigger): the
+  // modeler's own groups, those its Help entry shows, or fixture where the page cannot build them
+  show(page: P, fixture: readonly ShortcutGroup[]): Promise<void>;
+}
 // "problemSelection": the modeler's problems never point at an element (only at lines), so no row selects
 // "labelEditor" (0.4): the notation has no labels to edit on the canvas
 // "canvasMenuAction" (0.4): no File or Model action without a dialog (an IDE host whose Model group holds toggles and dialogs)
@@ -2236,12 +2387,22 @@ interface ShellConformanceHarness<P extends PageLike = PageLike> {
   drop?: DropFixtures; // 0.2, web: the files the dropZone case drops
   labelEditor?: LabelEditorHooks<P>; // 0.4: the label editor of the labelEditor case
   csp?: CspHooks<P>; // 0.6, ide: the production webview bundle of the csp case
+  shortcutsDialog?: ShortcutsDialogHooks<P>; // 0.7: the shortcutsDialog case; every modeler has one, so never absent
   absent?: readonly AbsentFeature[]; // islands, states, the drop zone and a label editor the modeler does not have
   sizes?: readonly Size[]; // default 1280 × 900, 720 × 700, 420 × 700
   documents?: readonly string[]; // after 0.5.0: documents open loads by key besides its default one
 }
 interface ShellSkip {
-  hook: ShowHook | "drop" | "labelEditor" | "csp" | "destroy" | "documents" | "open"; // the harness field that would feed the skipped part
+  // the harness field that would feed the skipped part
+  hook:
+    | ShowHook
+    | "drop"
+    | "labelEditor"
+    | "csp"
+    | "shortcutsDialog"
+    | "destroy"
+    | "documents"
+    | "open";
   reason: string;
 }
 interface ShellCaseOutcome {
@@ -2382,6 +2543,14 @@ affected.
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `csp` | the bundle the extension ships, opened through `csp.open` (`openWebviewBundle`): the page carries exactly `renderWebviewHtml`'s policy for its origin (with any nonce, with or without `'unsafe-inline'` styles), so a `csp.open` cannot loosen it, and the VS Code stub that records; then a walk over what renders late: the tooltip of a palette entry, a shape a pointer reaches clicked and each entry of its context pad hovered, a double-click on it (the label editor) and Escape, every enabled menu entry that is not `data-danger` from a freshly opened menu (the exports, each dialog closed again by Escape, the toggles such as the Legend, each radio option not chosen yet), zoom in and Fit, and 500ms for what they started. Fails on every `securitypolicyviolation` (directive, blocked URI, source, with a hint for eval, inline styles and fonts), every uncaught error, unhandled rejection, failed resource load and `console.error` the stub recorded, and on a shell font (the first family of the root's text and mono stacks, Geist Variable and Geist Mono Variable) that loads no face for `13px` or whose `@font-face` takes its `src` from a `data:` URL or carries no `unicode-range` beside the family's other subsets (every page would fetch that file), and on every font face of the page whose load failed (`FontFace.status` `"error"`, such as a missing italic the canvas uses). Fails, too, when the walk finds no palette entry, no menu trigger or no `role="menu"` after clicking it, or activates no menu entry, since the bundle's tooltips, exports and dialogs would then go unverified. Skips with `hook: "csp"` without `csp` and with `hook: "open"` when the bundle shows no shape a pointer reaches |
 
+**0.7, the shell's dialog.** One case joins between `overlayLayers` and `csp` and runs in every
+host. It opens the dialog only through `shortcutsDialog.show`, so it checks the shell's dialog with
+the modeler's own groups before the modeler's Help entry moves onto it:
+
+| Case              | Checks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shortcutsDialog` | guide §5.4, §5.6, §5.8, §8, §12, at the first of `sizes`: the zoom panel's four tooltips read by hover; the menu trigger focused, then `shortcutsDialog.show(page, fixture)`: exactly one open `dialog.cd-shell-dialog`, modal (`:modal`, the top layer), named by its title (21px/600), the focus inside; panel `--cd-ui-flaeche-hoch`, 1px `--cd-ui-linie` on every side, radius `--cd-radius-md`, `--cd-shadow-3`, `min(560px, 100% - 32px)` wide and at most `100% - 32px` high of the shell root's content box (§5.1), centred in the window; backdrop `--cd-ui-backdrop` with `blur(3px) grayscale(1)`; header padding `16px 16px 8px 24px`, body `8px 24px 24px`; Close a 32 × 32 ghost button with a name and a 16px icon; every group a heading and a table labelled by it, every row a `<th scope="row">` and at least one chip, every chip the tooltip's (Geist Mono 13px/400, `--cd-ui-text-leise` on `--cd-ui-grund`, 1px `--cd-ui-linie`, `--cd-radius-sm`, padding `1px 6px`, no shadow); the rows of `data-chrome-key` zoom in, zoom out, 100 %, fit, in this order at the top of one group, each saying what its tooltip says, and no other row with a chrome row's action. Then Tab and Shift+Tab, each one more time than the dialog has Tab stops, never leave it; the focus ring there solid 2px in `--cd-ui-fokus`; Control+Equal leaves the zoom unchanged; Escape, a click on Close and a click on the backdrop above the panel each close it (reopened in between) and return the focus to the menu trigger. Opened again under high contrast (`data-cd-kontrast="hoch"` as the host requests it, embedded on the page's `<html>`): no shadow, every border `--cd-ui-kontur`, a 3px ring after Tab. Opened under `forced-colors: active`: the border CanvasText, the ring after Tab in Highlight. A page without `emulateMedia` skips the forced colours with `hook: "open"` |
+
 **After 0.5.0, documents and the empty file.** `documents` lists further documents `open` loads by
 key (`OpenContext.document`): the reserved keys of `EmptyDocument` and any of the harness's own (a
 document in a style the renderer paints differently, say). `appearance` runs on each of them. The
@@ -2395,8 +2564,9 @@ they need content to act on. One case joins after `create` and runs in every hos
 
 - **Skips.** A case the harness cannot feed reports what it skipped as `ShellSkip`s, one per missing
   harness field, through `onSkip` (default `console.warn`). A hook that is neither in `show` nor in
-  `absent` is skipped with `hook` set to its name, a missing `drop`, `labelEditor` or (in the `ide`
-  host) `csp` with `hook` set to that field, a missing `destroy` with `hook: "destroy"`, a missing
+  `absent` is skipped with `hook` set to its name, a missing `drop`, `labelEditor`, `shortcutsDialog`
+  or (in the `ide` host) `csp` with `hook` set to that field, a missing `destroy` with
+  `hook: "destroy"`, a missing
   reserved key of `documents` with `hook: "documents"`, and a document that lacks what a case needs
   (a shape a pointer reaches, for `readOnly`, `reducedMotion` and `csp`; a shape or connection, for
   `overlayLayers`; a File or Model action without a dialog, for `focusHandBack`) with `hook: "open"`,
@@ -3071,11 +3241,13 @@ diagram-js's rule on the icon or on the stale `highlighted-entry` does not leak 
 previews keep their own colours (§5.5). Private helper properties are named `--modeler-shell-*`.
 
 It is assembled from `dom/shell-dom.css` (0.1 chrome), `dom/buttons.css` (0.2: the buttons of the
-web chrome, the one place with fixed palette tokens, see [Buttons](#buttons)), `dom/web/web.css`
-(0.2: primary action, legal line, empty state, drop zone, raised zoom row) and
-`dom/feedback/feedback.css` (0.2: toasts and the problems popover; they render in a foreign page too,
-so they reset the page's element rules like the 0.1 islands), then `diagram-js/palette.css`. A test
-pins that `shell.css` imports every stylesheet of `src`.
+web chrome, the one place with fixed palette tokens, see [Buttons](#buttons)), `dom/dialog.css`
+(0.7: the dialog of guide §8 and the shortcut tables; it needs no `.cd-shell` around it, so it also
+styles a dialog opened without a mounted shell), `dom/web/web.css` (0.2: primary action, legal line,
+empty state, drop zone, raised zoom row) and `dom/feedback/feedback.css` (0.2: toasts and the
+problems popover; they render in a foreign page too, so they reset the page's element rules like the
+0.1 islands), then `diagram-js/palette.css`. A test pins that `shell.css` imports every stylesheet
+of `src`.
 
 The shell bundles no font: the modeler loads Geist and Geist Mono (`@fontsource-variable/geist`,
 `@fontsource-variable/geist-mono`), as the stylesheet order above shows, as font files (see
@@ -3154,12 +3326,12 @@ import "@fontsource-variable/geist/wght.css";
 import "@fontsource-variable/geist-mono/wght.css";
 // the renderer's stylesheet brings diagram-js.css and the tokens, so they are not imported again
 import {
+  boardShortcuts,
   createCollaborativeModeler,
   type BoardBounds,
   type EventStormingReadOnly,
   type EventStormingViewOptions,
 } from "@miragon/event-storming-renderer";
-import "./style.css"; // the modeler's own content: the "Keyboard shortcuts…" dialog
 import "@miragon/modeler-shell/shell.css";
 import { INVALID_STATUS_DELAY_MS } from "@miragon/modeler-shell";
 import { connectDiagramJs, shellModule } from "@miragon/modeler-shell/diagram-js";
@@ -3168,7 +3340,6 @@ import {
   persistView,
   readShellState,
 } from "@miragon/modeler-shell/vscode/webview";
-import { createShortcutsDialog } from "./shortcutsDialog";
 
 const vscode = acquireVsCodeApi();
 const stored = readShellState(vscode);
@@ -3182,8 +3353,8 @@ const collaborative = createCollaborativeModeler({
   undoRedoKeys: false,
   // where Enter or Space on a creating palette entry places the element (§5.5): the renderer takes
   // the fit insets and computes the centre of the free rectangle itself, the same point as
-  // viewport.freeRectCenter(); a renderer may take that function instead
-  freeRectInsets: () => shell.fitInsets(),
+  // viewport.freeRectCenter(); a renderer may take that point instead (freeArea: { center })
+  freeArea: { insets: () => shell.fitInsets() },
 });
 const modeler = collaborative.diagram;
 modeler.get("canvas");
@@ -3245,16 +3416,14 @@ const shell = mountVsCodeShell(document.getElementById("app")!, {
         id: "keyboard-shortcuts",
         label: "Keyboard shortcuts…",
         icon: "keyboard",
-        onSelect: () => shortcutsDialog.open(),
+        // the board's groups as data; the shell adds the chrome's keys and goes with destroy()
+        onSelect: () => shell.showShortcutsDialog(boardShortcuts(shell)),
       },
     ],
   },
   problems: { onActivate: () => vscode.postMessage({ type: "showProblems" }) },
   emptyHint: { onInsertExample: () => vscode.postMessage({ type: "insertExample" }) },
 });
-// The modeler's own dialog in shell.root (see Modeler dialogs); it goes with the diagram.
-const shortcutsDialog = createShortcutsDialog(shell);
-modeler.on("diagram.destroy", () => shortcutsDialog.destroy());
 
 // 3. Viewport, palette, keys and the empty-file hint. Cheap tests only: canFit() is cached, but
 //    exportMap() validates the whole board.
@@ -3327,7 +3496,7 @@ What the Event Storming renderer changes for the shell (the kit's `aria`, `keys`
 - palette entries carry `title` and `shortcut` separately (`title: "Domain event", shortcut: "E"`),
   not `"Domain event — E"`;
 - Enter or Space on a creating entry (a click with `detail === 0`) creates the sticky at the
-  centre of the free rectangle (from `freeRectInsets`, the point `viewport.freeRectCenter()`
+  centre of the free rectangle (from `freeArea: { insets }`, the point `viewport.freeRectCenter()`
   returns), 24px further diagonally while that spot is taken, selects it, focuses the canvas and
   opens the label editor;
 - no `tabindex` on `canvas.getContainer()` (an extra, unnamed tab stop before the palette); its
@@ -3377,7 +3546,7 @@ import "@miragon/modeler-shell/shell.css"; // last
 import {
   Modeler,
   boardMenu,
-  createShortcutsDialog,
+  boardShortcuts,
   importWarningText,
   type ImportWarning,
 } from "@miragon/event-storming-renderer";
@@ -3398,7 +3567,7 @@ const modeler = new Modeler({
   width: "100%",
   height: "100%",
   additionalModules: [shellModule],
-  freeRectInsets: () => shell.fitInsets(), // keyboard creation lands in the free rectangle
+  freeArea: { insets: () => shell.fitInsets() }, // keyboard creation lands in the free rectangle
 });
 modeler.get("canvas");
 const platform = detectPlatform(navigator);
@@ -3438,7 +3607,9 @@ const shell = mountShell(document.getElementById("app")!, {
       json: { onSelect: () => exportBoardText("json") },
       storm: { onSelect: () => exportBoardText("storm"), shortcut: saveKey },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    // the board's groups with the web app's File keys; the shell adds the chrome's keys
+    showKeyboardShortcuts: () =>
+      shell.showShortcutsDialog(boardShortcuts(shell, { fileKeys: true })),
   }),
   problems: { onSelectItem: (item) => selectElement(item.elementId) },
   emptyState: {
@@ -3454,7 +3625,6 @@ const shell = mountShell(document.getElementById("app")!, {
     onDrop: ([file]) => file && void openBoardFile(file),
   },
 });
-const shortcutsDialog = createShortcutsDialog(shell, { fileKeys: true });
 
 // 3. Viewport, palette, keys.
 const { viewport } = connectDiagramJs(shell, modeler, {
@@ -3561,7 +3731,7 @@ Storming board." and keeps the board. `pickFile` opens the hidden file input wit
 element order (the importer stacks overlapping stickies by it). The web app's own `style.css`,
 `toast.ts` and the hand-written menu, zoom, fit and legal markup go away.
 
-## Out of scope for 0.3
+## Out of scope for 0.7
 
 Later candidates unless noted:
 
@@ -3577,16 +3747,12 @@ Later candidates unless noted:
   loading state (§9 "Laden": spinner or skeleton during asynchronous work), share-link helpers
   (each modeler keeps its own hash encoding), the legend's state across sessions (a modeler persists
   it from `legend.onToggle` in `localStorage`, §5.10).
-- **Dialog component and the shared shortcuts dialog** (§5.4, §8; also the confirmation of §9
-  "Destruktiv" where an undo toast does not fit): an exported `cd-shell-dialog`
-  class (panel, header with Close, body, backdrop with `grayscale(1)`, the high-contrast and
-  forced-colours rules, the top layer through `showModal()`, focus trap and focus return), and on
-  it `shell.showShortcutsDialog(groups: ShortcutGroup[])` with one table per group and the chips of
-  the tooltip's `kbd`. The shell fills the View group itself from the chrome keys. New
-  `ShellMessages`: `shortcutsTitle` ("Keyboard shortcuts") and the group names
-  "View", "Edit" and "Tools". Popovers (§5.4) follow on the same class. Until then a modeler meets
-  the rules of [Modeler dialogs](#modeler-dialogs) itself; one component lets every modeler migrate
-  once.
+- **More on the dialog of 0.7** (see [Dialogs](#dialogs-07)): a footer with the buttons of §8
+  (36px, the secondary action left of the primary), the confirmation of §9 "Destruktiv" where an
+  undo toast does not fit (`min(440px, 100% - 32px)` wide, the focus first on "Cancel"), a
+  modeler's form dialogs ("Map title…", "Map size…") and the popovers of §5.4 (no backdrop, at the
+  dropdown's place, `role="dialog"` without `aria-modal`). Until each moves there, a modeler meets
+  the rules of [Modeler dialogs](#modeler-dialogs) itself.
 - **Placement helper** for palette keyboard creation: the 24px diagonal steps when the centre of the
   free rectangle is taken (§5.5), next to `Viewport.freeRectCenter()`.
 - the `appearance` surface of the modeler-api contract (a later 1.x minor) for embedded hosts and
