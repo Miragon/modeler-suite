@@ -126,9 +126,10 @@ export default class WardleyDrawingHandles {
 
   /**
    * Ends a running point drag without committing it. The point drag is this renderer's own gesture,
-   * outside diagram-js dragging, so the import's gesture cancel ends it here.
+   * outside diagram-js dragging, so the import's drag cancel does not reach it: the removal of its
+   * drawing ends it.
    */
-  endPointDrag(): void {
+  private endPointDrag(): void {
     const drag = this.pointDrag;
     if (!drag) return;
     this.pointDrag = null;

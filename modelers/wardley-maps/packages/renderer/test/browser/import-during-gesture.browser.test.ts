@@ -301,6 +301,76 @@ describe("an import from inside the change listener of a drop", () => {
   });
 });
 
+const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** The three ways to create a component without a pointer, each opening the name editor at once. */
+const KEYBOARD_CREATES: ReadonlyArray<readonly [string, (current: Session) => Promise<void>]> = [
+  [
+    "the palette entry with Enter",
+    async ({ container }) => {
+      const entry = paletteEntry(container, "create.component");
+      entry.focus();
+      entry.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      );
+    },
+  ],
+  [
+    "the quick-create key C",
+    async ({ container }) => {
+      const svg = container.querySelector<SVGSVGElement>(":scope > svg")!;
+      svg.focus();
+      svg.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "c", bubbles: true, cancelable: true }),
+      );
+    },
+  ],
+  [
+    "the context pad's append entry with Enter",
+    async ({ diagram, container }) => {
+      diagram
+        .get<Selection>("selection")
+        .select(shapeNamed(diagram, "Kettle") as unknown as DiagramElement);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const entry = container.querySelector<HTMLElement>(
+        '.djs-context-pad.open .entry[data-action="append"]',
+      );
+      if (!entry) throw new Error("the context pad has no append entry");
+      entry.focus();
+      entry.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      );
+    },
+  ],
+];
+
+describe("an import from inside the change listener of a create without a pointer", () => {
+  test.each(KEYBOARD_CREATES)(
+    "opens no name editor on the element %s replaced",
+    async (_, create) => {
+      const current = await session();
+      const { modeler, diagram, container } = current;
+      const reimport = reimportOnFirstChange(current);
+      const before = current.initial.split("\n").filter((line) => line.startsWith("component "));
+
+      await create(current);
+
+      await expect(reimport()).resolves.toBeDefined();
+      await nextTask();
+      expect(current.errors).toEqual([]);
+      expect(current.changes()).toBe(1);
+      const created = modeler
+        .exportText()
+        .split("\n")
+        .filter((line) => line.startsWith("component "));
+      expect(created).toHaveLength(before.length + 1);
+      expect(container.querySelector(".wardley-label-input")).toBeNull();
+      expectNoReplacedElementSelected(diagram);
+      expectTheNextEditReported(current, 1);
+    },
+  );
+});
+
 describe("an import while the user drags a point of a drawing", () => {
   test("ends the point drag: the release changes no drawing", async () => {
     const current = await session();

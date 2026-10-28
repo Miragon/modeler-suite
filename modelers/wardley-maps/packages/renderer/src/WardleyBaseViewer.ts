@@ -32,7 +32,6 @@ import {
   type ProjectionSnapshot,
 } from "./map-resize/MapProjection.js";
 import type WardleyModeling from "./modeling/WardleyModeling.js";
-import type WardleyDrawingHandles from "./draw-tool/WardleyDrawingHandles.js";
 import type { FreeArea } from "@miragon/modeler-api";
 import type { FreeRectConfig } from "./free-rect/index.js";
 import { COMMAND_START_EVENTS, PUT_BACK_PRIORITY, type LivePreview } from "./live-preview/index.js";
@@ -140,19 +139,19 @@ const DROP_MARK_PRIORITY = 100_000;
 type DragContext = { prefix: string } | null;
 
 /**
- * Ends a running gesture (a move, resize, connect, lasso, evolve or plot-resize drag, a create
- * from the palette or the context pad, a drawing's point drag) the way Escape does. The gesture
- * holds the elements an import is about to replace, and diagram-js keeps it running across the
- * import: released after it, its command would fail half-way and leave the command stack stuck, so
- * no later edit would fire `commandStack.changed` again. The selection is not restored, since it
- * holds those elements too.
+ * Ends a running diagram-js drag (a move, resize, connect, lasso, evolve or plot-resize drag, a
+ * create from the palette or the context pad) the way Escape does. The gesture holds the elements an
+ * import is about to replace, and diagram-js keeps it running across the import: released after it,
+ * its command would fail half-way and leave the command stack stuck, so no later edit would fire
+ * `commandStack.changed` again. The selection is not restored, since it holds those elements too.
+ * A drawing's point drag is no diagram-js drag: it ends by itself when the import removes its
+ * drawing.
  *
  * A drop that runs (`dropping`) is left to finish: its command has applied, and a host that imports
  * from that command's change listener would otherwise cancel the drag inside diagram-js's own end
  * of it, which then cleans up a drag that is gone and throws.
  */
 function cancelGesture(diagram: Diagram, dropping: DragContext): void {
-  diagram.get<WardleyDrawingHandles | null>("wardleyDrawingHandles", false)?.endPointDrag();
   const dragging = diagram.get<Dragging | null>("dragging", false);
   const gesture = dragging?.context() as DragContext | undefined;
   if (!dragging || !gesture || gesture === dropping) return;

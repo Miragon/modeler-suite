@@ -39,10 +39,11 @@ import fails `npm run wardley-maps lint` and `npm run wardley-maps depcruise`.
 [`packages/renderer/src/collaborative/`](packages/renderer/src/collaborative/)); its conformance kit
 runs in the browser tests
 ([`conformance.browser.test.ts`](packages/renderer/test/browser/conformance.browser.test.ts)), and a
-skipped case fails the run. An import cancels a running gesture first, as Escape does
-(`cancelGesture` in `WardleyBaseViewer`: `dragging.cancel(false)` and the drawing handles' point
-drag, which also ends on `shape.remove`); the armed lasso (`lasso.selection`) stays armed, and a drop
-the host imports over from its change listener is left to finish (pinned by
+skipped case fails the run. An import cancels a running diagram-js drag first, as Escape does
+(`cancelGesture` in `WardleyBaseViewer`); a drawing's point drag is the renderer's own and ends when
+its drawing is removed (`shape.remove` in `WardleyDrawingHandles`). The armed lasso
+(`lasso.selection`) stays armed, a drop the host imports over from its change listener is left to
+finish, and the name editor of a create opens only on a shape the import has not replaced (pinned by
 [`import-during-gesture.browser.test.ts`](packages/renderer/test/browser/import-during-gesture.browser.test.ts)).
 The VS Code webview mounts `@miragon/modeler-shell`
 ([`apps/vscode/src/webview/main.ts`](apps/vscode/src/webview/main.ts)), the web app mounts its web
