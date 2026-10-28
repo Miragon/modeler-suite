@@ -14,11 +14,7 @@ import type { Bounds } from "./board-bounds/BoardBounds.js";
 import type EventStormingLabelEditing from "./label-editing/EventStormingLabelEditing.js";
 import { ROOT_ID, type ImportWarning } from "./io/types.js";
 import { linkLabelFontLoading } from "./draw/extent.js";
-import {
-  resolveFreeArea,
-  type FreeArea,
-  type FreeRectInsets,
-} from "./palette/EventStormingPaletteProvider.js";
+import type { FreeArea } from "./palette/EventStormingPaletteProvider.js";
 
 export interface EventStormingViewerOptions {
   /** Host element. If missing, a detached <div> is created (can be attached later via attachTo). */
@@ -39,11 +35,6 @@ export interface EventStormingViewerOptions {
    * the centre of the container. The modeler-api name.
    */
   freeArea?: FreeArea | undefined;
-  /**
-   * @deprecated Pass `freeArea: { insets }` instead. Accepted through renderer 0.5.x and removed
-   * in 0.6.0; `freeArea` wins when both are given.
-   */
-  freeRectInsets?: (() => FreeRectInsets) | undefined;
   /**
    * Fit the board into the view after every import (default true). A host whose chrome fits the
    * content itself (the modeler shell's viewport, into the free area) passes false and sets the
@@ -110,7 +101,7 @@ export abstract class EventStormingBaseViewer {
         canvas: { container: this._container },
         modules,
         eventStormingKeyboard: { undoRedoKeys: this._options.undoRedoKeys ?? true },
-        eventStormingPalette: { freeArea: resolveFreeArea(this._options) },
+        eventStormingPalette: { freeArea: this._options.freeArea },
         eventStormingImporter: { fitOnImport: this._options.fitOnImport ?? true },
       });
     }

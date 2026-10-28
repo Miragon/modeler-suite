@@ -164,7 +164,6 @@ describe("EventStormingPaletteProvider: Enter or Space on a creating entry (guid
 
   function keyboardHarness(
     freeArea: EventStormingPaletteConfig["freeArea"] = { insets: () => CHROME_INSETS },
-    config: EventStormingPaletteConfig = { freeArea },
   ) {
     const eventBus = new EventBus();
     const placed: Array<{ id: string; x: number; y: number; width: number; height: number }> = [];
@@ -209,7 +208,7 @@ describe("EventStormingPaletteProvider: Enter or Space on a creating entry (guid
       selection as never,
       elementRegistry as never,
       labelEditing as never,
-      config,
+      { freeArea },
     );
     const click = (detail: number) =>
       (provider.getPaletteEntries()["create.event"]!.action as { click(event: Event): void }).click(
@@ -253,12 +252,6 @@ describe("EventStormingPaletteProvider: Enter or Space on a creating entry (guid
     click(0);
     // The whole 1000 x 800 container at scale 2 from (100, 50).
     expect(modeling.createShape.mock.calls[0]![1]).toEqual({ x: 350, y: 250 });
-  });
-
-  it("still reads the deprecated freeRectInsets of the palette config", () => {
-    const { click, modeling } = keyboardHarness(undefined, { freeRectInsets: () => CHROME_INSETS });
-    click(0);
-    expect(modeling.createShape.mock.calls[0]![1]).toEqual({ x: 350, y: 256 });
   });
 
   it("keeps the pointer create for a real click", () => {

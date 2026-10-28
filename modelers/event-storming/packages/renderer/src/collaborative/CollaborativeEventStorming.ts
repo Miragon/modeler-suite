@@ -18,8 +18,6 @@ import { NavigatedViewer } from "../NavigatedViewer.js";
 import { importWarningText } from "../io/index.js";
 import type { EventStormingViewerOptions } from "../EventStormingBaseViewer.js";
 import { isSticky, type EventStormingShape } from "../model/di-types.js";
-import type { FreeRectInsets } from "../palette/EventStormingPaletteProvider.js";
-import { resolveFreeArea } from "../palette/index.js";
 
 /** Stable notation id in `meta.notation` of the collaborative-modeler contract. */
 export const EVENT_STORMING_NOTATION = "event-storming";
@@ -32,11 +30,6 @@ export const EVENT_STORMING_NOTATION = "event-storming";
 export interface CollaborativeEventStormingOptions extends CollaborativeModelerOptions {
   /** Appended to the renderer's own modules (e.g. a host's chrome module). */
   additionalModules?: ModuleDeclaration[] | undefined;
-  /**
-   * @deprecated Pass `freeArea: { insets }` instead. Accepted through renderer 0.5.x and removed
-   * in 0.6.0; `freeArea` wins when both are given.
-   */
-  freeRectInsets?: (() => FreeRectInsets) | undefined;
 }
 
 /** The elements surface with `bounds`, which every Event Storming mount answers. */
@@ -76,7 +69,7 @@ export function createCollaborativeModeler(
     new Modeler({
       ...diagramOptions(options),
       undoRedoKeys: options.undoRedoKeys ?? true,
-      freeArea: resolveFreeArea(options),
+      freeArea: options.freeArea,
     }),
     true,
   );

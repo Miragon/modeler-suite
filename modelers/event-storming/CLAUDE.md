@@ -177,8 +177,8 @@ renderer's own palette rules apply only to `.djs-palette:not([data-chrome='palet
 shell-skinned palette wears the shell's look alone. **Renderers never import the shell**: only
 the apps (and `e2e/`) do; `packages/*` reaching `@miragon/modeler-shell` fails ESLint and
 dependency-cruiser. Both pass the shell's fit insets as `freeArea: { insets }` (the modeler-api
-factory option, for keyboard creation from the palette; `freeRectInsets` is its deprecated
-alias) and connect with `connectDiagramJs(shell, diagram, { modeler, isEmpty })`, so the shell
+factory option, for keyboard creation from the palette) and connect with
+`connectDiagramJs(shell, diagram, { modeler, isEmpty })`, so the shell
 fits to the renderer's `contentBounds()` (the webview passes its contract instance, the web app
 its `Modeler`); the webview runs on `createCollaborativeModeler` (the tested contract path) and toggles
 the renderer's `eventStormingReadOnly` lock together with `shell.setReadOnly`, the web app keeps

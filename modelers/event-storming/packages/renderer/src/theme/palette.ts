@@ -49,14 +49,6 @@ export const MIRAGON = {
   warning: "#FFB000",
   danger: "#CD1839",
   info: "#335DE5",
-  /**
-   * Dark base of the CI hero (rgb 8,10,32). No token of the design system, and nothing in the
-   * modeler draws it (guide §10.7 drops the navy board).
-   *
-   * @deprecated Kept only for consumers that read it; this key goes in a later minor.
-   */
-  // brand-lint-disable-next-line
-  navy: "#080A20",
   /** Signature brand gradient — hero, large surfaces, brand moments. Use verbatim. */
   gradientBrand: "linear-gradient(120deg, #335DE5 30%, #00E676)",
 } as const;

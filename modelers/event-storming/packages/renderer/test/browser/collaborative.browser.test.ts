@@ -620,27 +620,17 @@ describe("the modeler-api factory options", () => {
     expect(keyboardCreateCentre(modeler)).toEqual({ x: 300, y: 200 });
   });
 
-  it("freeArea: { insets } and the deprecated freeRectInsets place it alike, freeArea first", async () => {
+  it("freeArea: { insets } places a keyboard-created sticky in the centre of the free rectangle", async () => {
     const insets = () => ({ top: 200, right: 0, bottom: 0, left: 300 });
-    const ignored = () => ({ top: 0, right: 300, bottom: 200, left: 0 });
-    const centres = [];
-    for (const options of [
-      { freeArea: { insets } },
-      { freeRectInsets: insets },
-      { freeArea: { insets }, freeRectInsets: ignored },
-    ]) {
-      const modeler = mount(createCollaborativeModeler(options));
-      await modeler.importText("title Empty\n");
-      centres.push(keyboardCreateCentre(modeler));
-    }
-    expect(centres[1]).toEqual(centres[0]);
-    expect(centres[2]).toEqual(centres[0]);
+    const inset = mount(createCollaborativeModeler({ freeArea: { insets } }));
+    await inset.importText("title Empty\n");
+    const insetCentre = keyboardCreateCentre(inset);
     const plain = mount(createCollaborativeModeler());
     await plain.importText("title Empty\n");
     const centre = keyboardCreateCentre(plain);
     const scale = plain.diagram.get<Canvas>("canvas").zoom();
-    expect(centres[0]!.x - centre.x).toBeCloseTo(150 / scale, 5);
-    expect(centres[0]!.y - centre.y).toBeCloseTo(100 / scale, 5);
+    expect(insetCentre.x - centre.x).toBeCloseTo(150 / scale, 5);
+    expect(insetCentre.y - centre.y).toBeCloseTo(100 / scale, 5);
   });
 });
 

@@ -114,24 +114,3 @@ export type {
 } from "./model/di-types.js";
 export type { ImportWarning, RootBusinessObject } from "./io/index.js";
 export { importWarningText } from "./io/index.js";
-
-// Icons (Material Icons, Apache-2.0), deprecated: the chrome's icons come from the modeler shell.
-export {
-  iconMarkup,
-  ICON_UNDO,
-  ICON_REDO,
-  ICON_DATA_OBJECT,
-  ICON_CODE,
-  ICON_DOWNLOAD,
-  ICON_EDIT,
-  ICON_PERSON,
-  ICON_SHARE,
-  ICON_DELETE,
-  ICON_FOLDER_OPEN,
-  ICON_IMAGE,
-  ICON_NEW,
-  ICON_MENU,
-  ICON_EYE,
-  ICON_FIT,
-  ICON_ADD,
-} from "./draw/icons.js";
