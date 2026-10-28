@@ -3,6 +3,7 @@ import type { ModuleDeclaration } from "didi";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
 import { assertDrawable, type EventStormingBoard } from "@miragon/event-storming-schema-model";
 import { parseDSLWithDiagnostics, serializeDSL } from "@miragon/event-storming-dsl";
@@ -12,6 +13,7 @@ import type EventStormingExporter from "./io/EventStormingExporter.js";
 import type BoardBounds from "./board-bounds/BoardBounds.js";
 import type { Bounds } from "./board-bounds/BoardBounds.js";
 import type EventStormingLabelEditing from "./label-editing/EventStormingLabelEditing.js";
+import type EventStormingDrawingHandles from "./draw-tool/EventStormingDrawingHandles.js";
 import { ROOT_ID, type ImportWarning } from "./io/types.js";
 import { linkLabelFontLoading } from "./draw/extent.js";
 import type { FreeArea } from "./palette/EventStormingPaletteProvider.js";
@@ -55,6 +57,31 @@ function assertNoEngineIds(board: EventStormingBoard): void {
       throw new Error(`Element id "${id}" is reserved for the board itself.`);
     }
   }
+}
+
+/**
+ * Dragging contexts of a palette tool that only waits for its next press: they hold no element of
+ * the board, so an import leaves the tool armed.
+ */
+const ARMED_TOOLS: ReadonlySet<string> = new Set(["lasso.selection"]);
+
+/**
+ * Ends a running gesture (move, resize, connect, lasso, a create from the palette or a paste, the
+ * point drag of a drawing) without applying it, before an import or a clear replaces the shapes it
+ * holds. diagram-js keeps a drag running across `diagram.clear`, and its release would then apply
+ * a command to a removed shape: moveShape throws, a create adds a sticky to the new board. Ended
+ * here and not on the shapes' removal, since an annotated import waits for its font first and a
+ * release during that wait would still commit. Not restoring the selection: it holds shapes the
+ * import removes.
+ */
+function cancelGesture(diagram: Diagram): void {
+  diagram
+    .get<EventStormingDrawingHandles | null>("eventStormingDrawingHandles", false)
+    ?.endPointDrag();
+  const dragging = diagram.get<Dragging | null>("dragging", false);
+  const gesture = dragging?.context() as { prefix: string } | null | undefined;
+  if (!dragging || !gesture || ARMED_TOOLS.has(gesture.prefix)) return;
+  dragging.cancel(false);
 }
 
 function annotationTexts(board: EventStormingBoard): string[] {
@@ -132,11 +159,14 @@ export abstract class EventStormingBaseViewer {
     // A board straight from code skips loadBoard; its import would stop at the first shape the SVG
     // transforms cannot hold, after the previous board was cleared.
     assertDrawable(board);
+    cancelGesture(diagram);
     const turn = this._importTurn(board);
     if (turn) {
       await turn;
       if (this._waitingImport === turn) this._waitingImport = undefined;
       if (this._diagram !== diagram) throw new Error("The viewer was destroyed during the import.");
+      // A gesture the user started while the import waited for its font.
+      cancelGesture(diagram);
     }
     const labelEditing = diagram.get<EventStormingLabelEditing>("eventStormingLabelEditing", false);
     labelEditing?.suspend();
@@ -230,7 +260,9 @@ export abstract class EventStormingBaseViewer {
   }
 
   clear(): void {
-    this._ensureDiagram().clear();
+    const diagram = this._ensureDiagram();
+    cancelGesture(diagram);
+    diagram.clear();
   }
 
   destroy(): void {
