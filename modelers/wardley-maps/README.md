@@ -151,7 +151,6 @@ files only show Geist where the font is available to the program that renders th
 | Accelerator / deaccelerator                         |  ✅   |   ✅   |  ✅   |
 | Pioneers / settlers / town planners `[v1,m1,v2,m2]` |  ✅   |   ✅   |  ✅   |
 | Note (multi-line, colour)                           |  ✅   |   ✅   |  ✅   |
-| Line breaks in names (written as `\n`)              |  ✅   |   ✅   |  ✅   |
 | Annotation (incl. multi-position)                   |  ✅   |   ✅   |  ✅   |
 | Submap + `url` definitions / `url(...)` references  |  ✅   |   ✅   |  ✅   |
 | Comments `//` and `/* */` (kept via passthrough)    |  n/a  |  n/a   |  ✅   |

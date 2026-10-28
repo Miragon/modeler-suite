@@ -174,6 +174,25 @@ describe("a line break in a name that another line refers to", () => {
     expect(serializeDSL(map)).toBe(text);
   });
 
+  it("keeps the line breaks of an evolve line's new label", () => {
+    const text = [
+      "title T",
+      "component Payment\\nGateway [0.6, 0.4]",
+      "evolve Payment\\nGateway->Payment\\nHub 0.8 (buy)",
+      "",
+    ].join("\n");
+    const { map, diagnostics } = parseDSLWithDiagnostics(text);
+    expect(diagnostics).toEqual([]);
+    const gateway = map.elements[0];
+    expect(gateway?.elementType === "component" && gateway.movement).toEqual({
+      targetEvolution: 0.8,
+      newLabel: "Payment\nHub",
+      method: "buy",
+    });
+    expect(serializeDSL(map)).toBe(text);
+    expectFixedPoint(text);
+  });
+
   it("binds a legacy sourcing line to the component with that name", () => {
     const text = "title T\ncomponent Payment\\nGateway [0.6, 0.4]\nbuy Payment\\nGateway\n";
     const { map, diagnostics } = parseDSLWithDiagnostics(text);

@@ -391,6 +391,8 @@ Sets `movement` on the component `<Name>`: `targetEvolution`, optional `newLabel
   unknown names give `evolve: component "<Name>" not found`, and the line is kept. When the name
   ends in a method group or `inertia` that belongs elsewhere (`evolve Tea (buy) 0.8`), a hint
   follows: `…; for component "Tea", write "(buy)" after the target`.
+- A literal `\n` in either name is a line break (`evolve Payment\nGateway->Payment\nHub 0.8`), as in
+  any name.
 - A second `evolve` for the same component replaces the first, with
   `Repeated evolve for "X": replaces the one on line N`. No check that the target lies to the
   right of the current maturity.
@@ -560,8 +562,8 @@ nothing on save. It matters for maps edited in the graphical editor.
 | `+` before `>`, `<` or `'` in a name                                              | `＋` (U+FF0B)                                                     |
 | a leading `{` in a name                                                           | `｛` (U+FF5B)                                                     |
 | `//` (not right after `:`) and `/*` in any name or text, outside a flow value     | `∕∕`, `∕*` (U+2215)                                               |
-| a line break in a name, note text or annotation text                              | `\n`                                                              |
-| a line break in any other text (title, axis labels, link annotation, evolve name) | a space                                                           |
+| a line break in a name, note text, annotation text or an `evolve` new name        | `\n`                                                              |
+| a line break in any other text (title, axis labels, link annotation)              | a space                                                           |
 | empty name                                                                        | `User` (anchor), `Component`, `Accelerator`, `Submap`, `Pipeline` |
 | a name already used by an earlier anchor, component, child, accelerator or submap | `Name 2`, `Name 3`, … (`Name 2 2` if taken)                       |
 | leading / trailing spaces in a name                                               | trimmed                                                           |

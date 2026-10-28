@@ -351,7 +351,7 @@ function elementLine(el: MapElement, name: string): string {
 
 function evolveLine(el: ComponentElement, name: string): string {
   const mv = el.movement!;
-  const label = mv.newLabel ? `${name}->${writtenText(mv.newLabel)}` : name;
+  const label = mv.newLabel ? `${name}->${writtenNoteText(mv.newLabel)}` : name;
   const method = mv.method ? ` (${mv.method})` : "";
   return `evolve ${label} ${r(mv.targetEvolution)}${method}${offsetSuffix(mv.labelOffset)}`;
 }

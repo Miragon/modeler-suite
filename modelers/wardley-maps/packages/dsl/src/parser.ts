@@ -1336,7 +1336,7 @@ class MapReader {
       this.evolveLinesById.set(component.id, evolveLines);
       const movement = compact({
         targetEvolution: ev.target,
-        newLabel: ev.newLabel && this.readText(ev.newLabel, ev.lineNo, ev.text),
+        newLabel: ev.newLabel && this.readText(readLineBreaks(ev.newLabel), ev.lineNo, ev.text),
         method: ev.method,
         labelOffset: ev.labelOffset,
       }) as Movement;

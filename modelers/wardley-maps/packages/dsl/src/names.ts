@@ -61,7 +61,6 @@ export function lineBreaksAsWritten(text: string): string {
   return text.replace(/\r?\n/g, "\\n");
 }
 
-/** The inverse of `lineBreaksAsWritten`: a literal `\n` is a line break. */
 export function readLineBreaks(text: string): string {
   return text.replace(/\\n/g, "\n");
 }

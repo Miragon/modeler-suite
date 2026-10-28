@@ -26,8 +26,9 @@ const text = serializeDSL(map); // back to OWM text, losslessly
 
 ### Line breaks in names
 
-The text is one statement per line, so a line break in a name, in a note's text or in an
-annotation's text is written as a literal `\n`, and read back as a line break:
+The text is one statement per line, so a line break in a name, in a note's text, in an
+annotation's text or in the new name of an `evolve` line is written as a literal `\n`, and read
+back as a line break:
 
 ```ts
 const map = parseDSL(`title Portal
