@@ -162,8 +162,10 @@ these steps; a theme that still fails names the theme requested and the one VS C
 `packages/renderer/src/theme/cd-tokens.generated.css`, `cd-tokens.generated.json` and
 `cd-canvas.css` are vendored unchanged from the `miragon-brand:modeler-tool-design` skill
 (`assets/`). To update them, copy all three again, put the vendoring header back as the first line
-of the two CSS files (the JSON gets none), and run `npm run event-storming test` (`theme.sync` in
-the renderer, `tokens.sync` in apps/vscode against the shell's sizes) and
+of the two CSS files (the JSON gets none), update the release and its sha256 values in
+`packages/renderer/test/theme.sync.test.ts` (the CSS files hashed without the header), and run
+`npm run event-storming test` (`theme.sync` in the renderer, `tokens.sync` in apps/vscode against
+the shell's sizes) and
 `npm run test:e2e -w modelers/event-storming/e2e -- --project=vscode-webview` (the shell
 conformance kit). Never edit or reformat them by hand.
 

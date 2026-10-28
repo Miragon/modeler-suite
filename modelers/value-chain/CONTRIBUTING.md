@@ -105,7 +105,8 @@ requested and the one VS Code shows.
 `packages/renderer/src/theme/` vendors `cd-tokens.generated.css`, `cd-tokens.generated.json` and
 `cd-canvas.css` from the `miragon-brand:modeler-tool-design` skill (Miragon/corporate-identity)
 unchanged. To update, copy the three files again, put the vendoring header (with the new design
-system version) back on top of the two CSS files, and adjust `theme.sync.test.ts`; never edit
+system version) back on top of the two CSS files, and update the release and its sha256 values in
+`theme.sync.test.ts` (the CSS files hashed without the header); never edit
 their values. When a dependency of the VS Code extension changes, run
 `npm run notices -w modelers/value-chain/apps/vscode` and commit `THIRD_PARTY_NOTICES.md`.
 

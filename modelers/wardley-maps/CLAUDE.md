@@ -166,12 +166,13 @@ skill; see the suite's [`CLAUDE.md`](../../CLAUDE.md#design-system-mandatory)). 
 
 The skill's design-system files are vendored **verbatim** (guide 1.27.0) into
 [`packages/renderer/src/theme/`](packages/renderer/src/theme/): `cd-tokens.generated.css`,
-`cd-tokens.generated.json` and `cd-canvas.css`; do not fork hex values or edit them; re-copy from
-the skill to update. Reference implementation in this modeler: tokens
+`cd-tokens.generated.json` and `cd-canvas.css`; do not fork hex values or edit them; to update,
+re-copy all three from the skill and put the new release's sha256 values into the drift test.
+Reference implementation in this modeler: tokens
 [`packages/renderer/src/theme/palette.ts`](packages/renderer/src/theme/palette.ts) · drift test
-[`packages/renderer/test/theme.sync.test.ts`](packages/renderer/test/theme.sync.test.ts) (also: the
-in-canvas chrome uses only `--cd-ui-*`/`--cd-shell-*` roles, no colour literals, overlays at most
-z-index 100) · canvas colours [`packages/renderer/src/draw/styles.ts`](packages/renderer/src/draw/styles.ts)
+[`packages/renderer/test/theme.sync.test.ts`](packages/renderer/test/theme.sync.test.ts) (the three
+files byte-identical to the release; also: the in-canvas chrome uses only
+`--cd-ui-*`/`--cd-shell-*` roles, no colour literals, overlays at most z-index 100) · canvas colours [`packages/renderer/src/draw/styles.ts`](packages/renderer/src/draw/styles.ts)
 · context-pad icons [`packages/renderer/src/draw/lucide.ts`](packages/renderer/src/draw/lucide.ts)
 (lucide-static 1.59.0, plus the derived `chevrons-right-x`), pinned by
 [`packages/renderer/test/icons.test.ts`](packages/renderer/test/icons.test.ts) to
