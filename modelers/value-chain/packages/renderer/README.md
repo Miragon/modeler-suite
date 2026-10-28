@@ -76,12 +76,14 @@ container as in bpmn-js; the feature modules (`vcDrawModule`, `vcRulesModule`, `
   largest zoom that shows all of it, never above 100 % (`fitOnImport: false` leaves the view to a
   host that fits itself). A label being typed is taken down without committing and reopened
   afterwards on the element with the same id. A gesture still running (move, resize, connect,
-  lasso, or a create from the palette or the context pad, also while its pointer is still on the
-  palette, and a press of the armed connect tool whose pointer has not left its shape yet) ends
-  first, as Escape ends it, so its release changes nothing; a tool the palette armed is put down
-  the same way, its palette entry no longer highlighted. A drop already being applied, when a host
-  imports from its change listener, finishes first and the import replaces its result. The
-  `Modeler` does this with `vcGestureModule`; a custom setup adds it to get the same.
+  lasso, making space, a pan with the hand tool, or a create from the palette or the context pad,
+  also while its pointer is still on the palette, and a press of the armed connect tool whose
+  pointer has not left its shape yet) ends first, as Escape ends it, so its release changes
+  nothing. A palette tool that only waits for its next press (lasso, hand, space, connect) stays
+  armed and highlighted, and its next press works on the imported diagram. A drop already being
+  applied, when a host imports from its change listener, finishes first and the import replaces
+  its result. The `Modeler` does this with `vcGestureModule`; a custom setup adds it to get the
+  same.
 - A label being typed stays open across every view change, a host's fit or restore as much as a
   wheel zoom, and moves along with its element; only Enter, leaving the text box or a click or drag
   on the canvas commits it.

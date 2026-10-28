@@ -7,6 +7,24 @@ import type { Element } from "diagram-js/lib/model/Types";
 /** Ahead of every other listener of the same event. */
 const FIRST = 100_000;
 
+/**
+ * The drags of the palette's tools (lasso, hand, space, connect) while they only wait for the next
+ * press: no gesture yet. They hold no element of the diagram, so an import leaves the tool armed,
+ * and the user's next press still uses it.
+ */
+const ARMED_TOOL_PREFIXES: ReadonlySet<string> = new Set([
+  "lasso.selection",
+  "hand",
+  "spaceTool.selection",
+  "global-connect",
+]);
+
+const GLOBAL_CONNECT_TOOL = "global-connect";
+
+interface DragContext {
+  prefix: string;
+}
+
 interface ConnectInitEvent {
   context: { start: Element };
 }
@@ -24,7 +42,7 @@ export default class VcGestures {
   constructor(
     eventBus: EventBus,
     private readonly dragging: Dragging,
-    private readonly toolManager: ToolManager,
+    toolManager: ToolManager,
     elementRegistry: ElementRegistry,
   ) {
     eventBus.on("drag.end", FIRST, () => {
@@ -33,25 +51,29 @@ export default class VcGestures {
     eventBus.on(["drag.ended", "drag.canceled"], FIRST, () => {
       this.dropping = false;
     });
-    // The connect tool the palette armed starts its connect only when the pointer leaves the shape
-    // it was pressed on, after the tool's own drag has ended: an import in between removed that
-    // shape. Refused at init, the connect ends before it shows anything.
+    // The connect tool the palette armed starts its connect from the shape it was pressed on, once
+    // the pointer leaves that shape: an import may have removed the shape by then, also one that
+    // came while the armed tool rested on it. Refused at init, the connect ends before it shows
+    // anything; it then never ends or cancels, so the tool, which waits for that, is put down here.
     eventBus.on("connect.init", FIRST, (event: ConnectInitEvent) => {
       const { start } = event.context;
-      return elementRegistry.get(start.id) === start ? undefined : false;
+      if (elementRegistry.get(start.id) === start) return undefined;
+      if (toolManager.isActive(GLOBAL_CONNECT_TOOL)) toolManager.setActive(null);
+      return false;
     });
   }
 
   /**
    * Ends a running gesture the way Escape does, without bringing back a selection of the shapes the
-   * import removes, and puts down a tool the palette armed, highlight included, also one whose
-   * pointer has not moved yet (Escape leaves that one highlighted). A drop that is being applied
-   * right now, a host importing from its change listener, is left to finish: its command has run,
-   * the import replaces its result, and a cancel would pull the drag out from under diagram-js.
+   * import removes. A palette tool that only waits for its next press stays armed. A drop that is
+   * being applied right now, a host importing from its change listener, is left to finish: its
+   * command has run, the import replaces its result, and a cancel would pull the drag out from
+   * under diagram-js.
    */
   cancel(): void {
     if (this.dropping) return;
+    const gesture = this.dragging.context() as DragContext | null;
+    if (!gesture || ARMED_TOOL_PREFIXES.has(gesture.prefix)) return;
     this.dragging.cancel(false);
-    this.toolManager.setActive(null);
   }
 }

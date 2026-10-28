@@ -86,12 +86,12 @@ export abstract class VcBaseViewer {
    * `commandStack.changed`, since an import is no edit a host should save. The document is
    * validated before the canvas is touched, so a rejected one leaves no trace; an open label edit
    * is taken down without committing and reopened afterwards when its element is still there. A
-   * running gesture (move, resize, connect, lasso, a create from the palette or the context pad,
-   * also one still inside the drag threshold, and a press of the armed connect tool whose pointer
-   * has not left its shape yet) ends first, as Escape ends it: its release applies nothing. A tool
-   * the palette armed (lasso, hand, space, connect) is put down the same way, its palette entry no
-   * longer highlighted. A drop already being applied (a host importing from its change listener)
-   * finishes, and the import replaces its result (`vcGestures`).
+   * running gesture (move, resize, connect, lasso, making space, a pan with the hand tool, a create
+   * from the palette or the context pad, also one still inside the drag threshold, and a press of
+   * the armed connect tool whose pointer has not left its shape yet) ends first, as Escape ends it:
+   * its release applies nothing. A palette tool that only waits for its next press (lasso, hand,
+   * space, connect) stays armed. A drop already being applied (a host importing from its change
+   * listener) finishes, and the import replaces its result (`vcGestures`).
    */
   importDocument(document: ValueChainDocument): ImportWarning[] {
     const valid = validateDocument(document);

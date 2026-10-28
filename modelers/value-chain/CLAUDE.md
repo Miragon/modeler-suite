@@ -84,13 +84,14 @@ and arrays nest at most 100 levels (`MAX_NESTING_DEPTH`, checked without recursi
   the shape, never on the live SVG, so the box holds at every zoom);
   `importDocument` validates first, erases the history silently (`clear(false)`), fits (unless
   `fitOnImport: false`, which both apps pass because the shell's viewport fits), keeps an open
-  label edit across the import, and ends a running gesture or armed tool first, as Escape does
-  (`gesture/VcGestures`: `dragging.cancel(false)` and `toolManager.setActive(null)`; a connect
-  that the armed tool starts from a removed shape is refused at `connect.init`; a drop being
-  applied when a host imports from its change listener finishes first;
-  `test/browser/import-cancels-gesture.browser.test.ts`). A view change never commits a label
-  edit: the text box follows the view (`canvas.viewbox.changed`), only Enter, blur,
-  `element.mousedown` and `drag.init` commit. The factories take the contract's
+  label edit across the import, and ends a running gesture first, as Escape does
+  (`gesture/VcGestures`: `dragging.cancel(false)`; a palette tool that only waits for its next
+  press, `lasso.selection`, `hand`, `spaceTool.selection` or `global-connect`, stays armed; a
+  connect that the connect tool starts from a removed shape is refused at `connect.init`, which
+  also puts the tool down; a drop being applied when a host imports from its change listener
+  finishes first; `test/browser/import-cancels-gesture.browser.test.ts`). A view change never
+  commits a label edit: the text box follows the view (`canvas.viewbox.changed`), only Enter,
+  blur, `element.mousedown` and `drag.init` commit. The factories take the contract's
   `freeArea`/`fitOnImport`/`undoRedoKeys`. New elements get random ids.
   `test/browser/conformance.browser.test.ts` runs the kit, where a skip or an advisory fails.
 - `read-only/VcReadOnly` is the edit lock of an invalid file; `diagram-menu/` holds the Export and

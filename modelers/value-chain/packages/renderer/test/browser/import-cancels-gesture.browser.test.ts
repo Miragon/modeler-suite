@@ -146,6 +146,18 @@ function gestureRuns(): boolean {
   return service<Dragging>("dragging").context() !== null;
 }
 
+/** The prefix of the running drag: an armed palette tool waits for its next press in one too. */
+function dragPrefix(): string | undefined {
+  const context = service<Dragging>("dragging").context() as { prefix: string } | null;
+  return context?.prefix;
+}
+
+function connects(source: string, target: string): boolean {
+  return parseDocumentJSON(editor().exportText()).connections.some(
+    (connection) => connection.source === source && connection.target === target,
+  );
+}
+
 /** The peer's text arrives while the gesture runs: the gesture ends there, as Escape ends it. */
 async function importPeerEditMidGesture(): Promise<void> {
   expect(gestureRuns()).toBe(true);
@@ -299,34 +311,41 @@ describe("an import while a gesture runs cancels the gesture first", () => {
     });
   });
 
-  it("a connect tool the palette armed, over a shape the import removes", async () => {
-    const { entry, at } = paletteEntry("global-connect-tool");
+  it("making space with the palette's space tool", async () => {
+    const { entry, at } = paletteEntry("space-tool");
     entry.dispatchEvent(pointer("click", at, { detail: 1 }));
-    hover(graphics(shape("step-stock")), centreOf("step-stock"));
-    expect(entry.classList.contains("highlighted-entry")).toBe(true);
+    const start = { x: 410, y: 40 };
+    hover(canvasSvg(), start);
+    press(canvasSvg(), start);
+    moveTo({ x: start.x + 30, y: start.y });
+    moveTo({ x: start.x + 60, y: start.y });
 
     await importPeerEditMidGesture();
+    moveTo({ x: start.x + 90, y: start.y });
+    release({ x: start.x + 90, y: start.y });
 
-    expect(entry.classList.contains("highlighted-entry")).toBe(false);
     expectNothingApplied();
+    expectNextEditSaves();
   });
 
-  it.each(["lasso-tool", "hand-tool", "space-tool", "global-connect-tool"])(
-    "a %s the palette armed, before the pointer moved, is put down with its palette entry",
-    async (action) => {
-      const { entry, at } = paletteEntry(action);
-      entry.dispatchEvent(pointer("click", at, { detail: 1 }));
-      expect(entry.classList.contains("highlighted-entry")).toBe(true);
+  it("panning with the palette's hand tool", async () => {
+    const { entry, at } = paletteEntry("hand-tool");
+    entry.dispatchEvent(pointer("click", at, { detail: 1 }));
+    const start = { x: 500, y: 450 };
+    hover(canvasSvg(), start);
+    press(canvasSvg(), start);
+    moveTo({ x: start.x + 30, y: start.y });
+    moveTo({ x: start.x + 60, y: start.y });
+    expect(dragPrefix()).toBe("hand.move");
 
-      await importPeerEditMidGesture();
+    await importPeerEditMidGesture();
+    const viewbox = service<Canvas>("canvas").viewbox().x;
+    moveTo({ x: start.x + 90, y: start.y });
+    release({ x: start.x + 90, y: start.y });
 
-      expect(entry.classList.contains("highlighted-entry")).toBe(false);
-      expectNothingApplied();
-      entry.dispatchEvent(pointer("click", at, { detail: 1 }));
-      expect(gestureRuns()).toBe(true);
-      expect(entry.classList.contains("highlighted-entry")).toBe(true);
-    },
-  );
+    expect(service<Canvas>("canvas").viewbox().x).toBe(viewbox);
+    expectNothingApplied();
+  });
 
   it("a press of the armed connect tool on a shape, before the pointer leaves that shape", async () => {
     const { entry, at } = paletteEntry("global-connect-tool");
@@ -338,15 +357,135 @@ describe("an import while a gesture runs cancels the gesture first", () => {
     expect(gestureRuns()).toBe(false);
 
     await editor().importText(PEER_EDIT);
-    expect(entry.classList.contains("highlighted-entry")).toBe(false);
     graphics(shape("step-stock")).dispatchEvent(pointer("mouseout", start));
     const target = centreOf("step-delivery");
     hover(graphics(shape("step-delivery")), target);
     release(target);
 
     expect(gestureRuns()).toBe(false);
+    expect(entry.classList.contains("highlighted-entry")).toBe(false);
     expectNothingApplied();
     expectNextEditSaves();
+    entry.dispatchEvent(pointer("click", at, { detail: 1 }));
+    expect(dragPrefix()).toBe("global-connect");
+    expect(entry.classList.contains("highlighted-entry")).toBe(true);
+  });
+
+  describe("a palette tool that only waits for its next press stays armed", () => {
+    const freeSpot = { x: 500, y: 450 };
+
+    function arm(action: string): Element {
+      const { entry, at } = paletteEntry(action);
+      entry.dispatchEvent(pointer("click", at, { detail: 1 }));
+      return entry;
+    }
+
+    async function importWhileArmed(entry: Element, prefix: string): Promise<void> {
+      expect(dragPrefix()).toBe(prefix);
+      await editor().importText(PEER_EDIT);
+      expect(dragPrefix()).toBe(prefix);
+      expect(entry.classList.contains("highlighted-entry")).toBe(true);
+      expectNothingApplied();
+    }
+
+    it.each([
+      ["lasso-tool", "lasso.selection"],
+      ["hand-tool", "hand"],
+      ["space-tool", "spaceTool.selection"],
+      ["global-connect-tool", "global-connect"],
+    ])("the %s, also before the pointer moved", async (action, prefix) => {
+      await importWhileArmed(arm(action), prefix);
+    });
+
+    it("the lasso tool, which then selects the shapes the import drew", async () => {
+      const entry = arm("lasso-tool");
+      hover(canvasSvg(), freeSpot);
+      await importWhileArmed(entry, "lasso.selection");
+
+      press(canvasSvg(), { x: 20, y: 60 });
+      moveTo({ x: 300, y: 160 });
+      moveTo({ x: 410, y: 160 });
+      release({ x: 410, y: 160 });
+
+      const selected = service<Selection>("selection").get();
+      expect(selected).toContain(shape("step-order"));
+      expect(selected).toContain(shape("step-credit"));
+      expect(selected).not.toContain(shape("step-delivery"));
+      expect(errors).toEqual([]);
+      expect(changes).toBe(0);
+    });
+
+    it("the hand tool, which then pans the view", async () => {
+      const entry = arm("hand-tool");
+      hover(canvasSvg(), freeSpot);
+      await importWhileArmed(entry, "hand");
+      const before = service<Canvas>("canvas").viewbox().x;
+
+      press(canvasSvg(), freeSpot);
+      moveTo({ x: freeSpot.x + 50, y: freeSpot.y });
+      moveTo({ x: freeSpot.x + 100, y: freeSpot.y });
+      release({ x: freeSpot.x + 100, y: freeSpot.y });
+
+      expect(service<Canvas>("canvas").viewbox().x).toBeLessThan(before);
+      expect(errors).toEqual([]);
+      expect(changes).toBe(0);
+    });
+
+    it("the space tool, which then makes space among the shapes the import drew", async () => {
+      const entry = arm("space-tool");
+      hover(canvasSvg(), freeSpot);
+      await importWhileArmed(entry, "spaceTool.selection");
+
+      const start = { x: 410, y: 40 };
+      press(canvasSvg(), start);
+      moveTo({ x: start.x + 30, y: start.y });
+      moveTo({ x: start.x + 60, y: start.y });
+      release({ x: start.x + 60, y: start.y });
+
+      const moved = shape("step-delivery").x - 420;
+      expect(moved).toBeGreaterThan(0);
+      expect(shape("step-invoice").x).toBe(640 + moved);
+      expect(shape("step-credit").x).toBe(240);
+      expect(errors).toEqual([]);
+      expect(changes).toBe(1);
+    });
+
+    it("the connect tool, resting on a shape the import replaces, which then connects the shapes the import drew", async () => {
+      const entry = arm("global-connect-tool");
+      const start = centreOf("step-stock");
+      hover(graphics(shape("step-stock")), start);
+      await importWhileArmed(entry, "global-connect");
+
+      hover(graphics(shape("step-stock")), start);
+      press(graphics(shape("step-stock")), start);
+      graphics(shape("step-stock")).dispatchEvent(pointer("mouseout", start));
+      const target = centreOf("step-delivery");
+      hover(graphics(shape("step-delivery")), target);
+      release(target);
+
+      expect(errors).toEqual([]);
+      expect(changes).toBe(1);
+      expect(connects("step-stock", "step-delivery")).toBe(true);
+      expect(entry.classList.contains("highlighted-entry")).toBe(false);
+    });
+
+    it("the connect tool, pressed before the pointer entered the shape the import drew under it, connects nothing", async () => {
+      const entry = arm("global-connect-tool");
+      const start = centreOf("step-stock");
+      hover(graphics(shape("step-stock")), start);
+      await importWhileArmed(entry, "global-connect");
+
+      press(graphics(shape("step-stock")), start);
+      graphics(shape("step-stock")).dispatchEvent(pointer("mouseout", start));
+      const target = centreOf("step-delivery");
+      hover(graphics(shape("step-delivery")), target);
+      release(target);
+
+      expect(gestureRuns()).toBe(false);
+      expect(entry.classList.contains("highlighted-entry")).toBe(false);
+      expectNothingApplied();
+      expectNextEditSaves();
+    });
   });
 
   describe("a host that imports from its change listener, while the drop applies", () => {
