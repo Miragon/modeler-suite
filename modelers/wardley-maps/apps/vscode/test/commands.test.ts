@@ -75,6 +75,19 @@ describe("Open Source to the Side without a resource", () => {
     expect(openedBeside()).toEqual([[first.uri, "default", ViewColumn.Beside]]);
   });
 
+  it("opens the map that took the focus when it opened, not an earlier one", async () => {
+    const provider = newProvider();
+    const a = await openMap(provider, fakeDocument("/a.wmap", "title A\n"));
+    const second = fakeDocument("/b.wmap", "title B\n");
+    const b = await openMap(provider, second);
+    a.setActive(false);
+    b.setActive(false);
+
+    await commands.executeCommand(SHOW_SOURCE_COMMAND);
+
+    expect(openedBeside()).toEqual([[second.uri, "default", ViewColumn.Beside]]);
+  });
+
   it("puts a map opened in the background behind the ones focused before", async () => {
     const provider = newProvider();
     const focused = fakeDocument("/a.wmap", "title A\n");

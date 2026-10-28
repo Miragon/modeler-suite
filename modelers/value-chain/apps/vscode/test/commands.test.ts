@@ -156,6 +156,21 @@ describe("text and diagram side by side", () => {
     ]);
   });
 
+  it("opens the diagram that took the focus when it opened, not an earlier one", async () => {
+    const provider = newProvider();
+    const a = await openDiagram(fakeDocument("/a.vc.json", DOC_A), {}, provider);
+    const second = fakeDocument("/b.vc.json", DOC_B);
+    const b = await openDiagram(second, {}, provider);
+    a.setViewState({ active: false });
+    b.setViewState({ active: false });
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", second.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
   it("puts a diagram opened in the background behind the ones focused before", async () => {
     const provider = newProvider();
     const focused = fakeDocument("/a.vc.json", DOC_A);

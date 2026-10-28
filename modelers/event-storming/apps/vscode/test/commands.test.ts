@@ -153,6 +153,21 @@ describe("text and board side by side", () => {
     ]);
   });
 
+  it("opens the board that took the focus when it opened, not an earlier one", async () => {
+    const provider = newProvider();
+    const a = await openBoard(fakeDocument("/a.storm", "title A\n"), {}, provider);
+    const second = fakeDocument("/b.storm", "title B\n");
+    const b = await openBoard(second, {}, provider);
+    a.setViewState({ active: false });
+    b.setViewState({ active: false });
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", second.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
   it("puts a board opened in the background behind the ones focused before", async () => {
     const provider = newProvider();
     const focused = fakeDocument("/a.storm", "title A\n");

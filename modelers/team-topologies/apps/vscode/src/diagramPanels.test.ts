@@ -156,6 +156,18 @@ describe("Open Source to the Side without a resource", () => {
     expect(openedBeside()).toEqual([["vscode.openWith", host.Uri.file("/a.tt"), "default", -2]]);
   });
 
+  it("opens the diagram that took the focus when it opened, not an earlier one", async () => {
+    const diagrams = registerCommands();
+    const a = diagrams.open("/a.tt");
+    const b = diagrams.open("/b.tt");
+    a.setActive(false);
+    b.setActive(false);
+
+    await host.run(OPEN_SOURCE_COMMAND);
+
+    expect(openedBeside()).toEqual([["vscode.openWith", host.Uri.file("/b.tt"), "default", -2]]);
+  });
+
   it("puts a diagram opened in the background behind the ones focused before", async () => {
     const diagrams = registerCommands();
     const a = diagrams.open("/a.tt");
