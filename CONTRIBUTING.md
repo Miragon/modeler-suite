@@ -141,7 +141,11 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   npm run wardley-maps test:vscode:docker                                 # the newest stable VS Code
   npm run wardley-maps test:vscode:docker -- --env VSCODE_VERSION=1.96.0  # the engines.vscode floor
   npm run wardley-maps test:vscode:docker -- --env VSCODE_SMOKE_KEEP=1    # VS Code's logs in vscode-logs/
+  npm run wardley-maps test:vscode:docker -- --env VSCODE_SMOKE_OPT_IN=keys  # the opt-in steps, as CI runs them
   ```
+
+  CI's smoke sets `VSCODE_SMOKE_OPT_IN=keys`: the driver's opt-in steps (now the zoom and selection
+  keys) run for every modeler without a change to its test, until they become the default.
 
   `test:vscode:docker` is the shell's `modeler-shell-vscode-docker`. It mounts the repository (the
   nearest directory with a `package-lock.json`, so the whole suite) read-only, copies it into a

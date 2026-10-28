@@ -130,6 +130,35 @@ export function vsCodeEnvironment(
 }
 
 /**
+ * The steps a run takes only when asked to (0.7): new ones start here and become the default once
+ * every modeler passes them in CI.
+ */
+export const VSCODE_SMOKE_OPT_IN_STEPS = ["keys"] as const;
+
+export type VsCodeSmokeOptInStep = (typeof VSCODE_SMOKE_OPT_IN_STEPS)[number];
+
+/**
+ * The opt-in steps that `VSCODE_SMOKE_OPT_IN` names, separated by commas or spaces (`keys`). A CI
+ * workflow opts every modeler's smoke in at once this way, without a change to the modelers' tests.
+ * Throws for a name that is no opt-in step, so a typo cannot turn a step off unnoticed.
+ */
+export function vsCodeSmokeOptIn(
+  environment: Readonly<Record<string, string | undefined>>,
+): ReadonlySet<VsCodeSmokeOptInStep> {
+  const names = (environment.VSCODE_SMOKE_OPT_IN ?? "").split(/[\s,]+/).filter(Boolean);
+  const known: readonly string[] = VSCODE_SMOKE_OPT_IN_STEPS;
+  const unknown = names.filter((name) => !known.includes(name));
+  if (unknown.length > 0) {
+    const which = unknown.length === 1 ? "which is no opt-in step" : "which are no opt-in steps";
+    throw new Error(
+      `runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names ${unknown.map((name) => `"${name}"`).join(", ")}, ` +
+        `${which} (${VSCODE_SMOKE_OPT_IN_STEPS.join(", ")})`,
+    );
+  }
+  return new Set(names as VsCodeSmokeOptInStep[]);
+}
+
+/**
  * Where VS Code's downloads go without a `cachePath`: the OS's cache directory, as Playwright keeps
  * its browsers. Outside every repository, so no `eslint .`, Prettier or Git walks the unpacked VS Code
  * (about 0.9 GB per version), it survives `npm ci`, and every modeler on the machine shares it.

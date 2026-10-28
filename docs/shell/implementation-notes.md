@@ -186,6 +186,8 @@ The extension owns file, document, history and mode; the webview shows canvas an
 - **Key interception.** VS Code forwards every `keydown` that reaches the webview's `window`, whether
   prevented or not. So the webview stops every key it handled on `document` (zoom keys, Escape with an
   open menu, keys the canvas already prevented such as Cmd+C or Cmd+A) and lets the rest through.
+  The smoke driver's keys step checks it in a real VS Code for the zoom keys, Shift+1, Cmd/Ctrl+A
+  and Cmd/Ctrl+C (see below).
 - **Theme bridge.** The extension writes `data-cd-theme`/`data-cd-kontrast` into the HTML and posts
   changes; re-send when a hidden panel becomes visible. The body classes are only a fallback when
   no extension speaks, and `vscode-high-contrast-light` must be checked before
@@ -221,6 +223,21 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
   migration does not overwrite the file.
 - **Failures with a cause.** The driver quotes an activation error from the extension host's log and
   the webview's own uncaught errors, instead of waiting for the timeout.
+- **Key interception (opt-in, 0.7).** The keys step records every `keydown` of the webview with
+  three listeners: on `window` in the capture phase (the key arrived), on `document`, added after
+  the shell's and the modeler's, so `defaultPrevented` says whether something handled it, and on
+  `window` in the bubble phase (VS Code would see it). A zoom key on `window` is a failure even
+  when it was handled. VS Code zooms its window through `webFrame.setZoomLevel` in the workbench,
+  so the level is read in Electron's main process (`webContents.getZoomLevel()` through
+  `electronApp.evaluate`), with the workbench's `devicePixelRatio` as a second reading, after
+  every key: VS Code's own zoom reset is Ctrl+numpad 0, so one reading at the end could miss a
+  zoom a later key took back. A first Shift+1 sets the fit the last one must restore: an
+  inspector or a legend opened since the fixture's first fit changes the fit insets. Where the
+  readout already shows a key's target (a fixture that fits at 100 %), the driver zooms in first,
+  or that key would prove nothing. The clipboard is only
+  read, never written, so a local run on macOS leaves the user's clipboard alone. CI opts every
+  modeler in with `VSCODE_SMOKE_OPT_IN=keys`; a change to the five smoke tests would make
+  release-please release every extension and Team Topologies for a test change.
 - **Docker.** `modeler-shell-vscode-docker` runs the same test in a Linux container under
   `xvfb-run`, so no window takes the focus on a Mac. The repository is copied without `node_modules`
   and installed with `npm ci` inside; VS Code and npm caches are shared volumes.

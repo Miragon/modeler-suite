@@ -17,10 +17,12 @@ export type {
   ExtensionManifest,
   PlatformKeys,
   UserSettingsOptions,
+  VsCodeSmokeOptInStep,
   VsCodeSmokePaths,
 } from "./launch.js";
 export {
   DEFAULT_WINDOW_SIZE,
+  VSCODE_SMOKE_OPT_IN_STEPS,
   customEditorViewType,
   defaultVsCodeCachePath,
   extensionIdOf,
@@ -29,10 +31,12 @@ export {
   resolveExtensionMain,
   vsCodeEnvironment,
   vsCodeLaunchArgs,
+  vsCodeSmokeOptIn,
   vsCodeUserSettings,
 } from "./launch.js";
 export type {
   ChromePresence,
+  VsCodeSmokeKeysResult,
   VsCodeSmokeResult,
   VsCodeSmokeStep,
   VsCodeSmokeThemeResult,

@@ -754,6 +754,14 @@ logs holds.
 A theme switch VS Code does not pick up is retried within the run (0.4.1): the driver writes the
 setting again, then switches through another theme and back, before the theme fails with the theme
 requested and the one VS Code shows. A modeler needs no retry of its own for a missed theme switch.
+Opted in with `keys: true`, or with `VSCODE_SMOKE_OPT_IN=keys` in the environment of the test (0.7),
+a run ends with the keys step: with the focus on the canvas it presses every zoom key of guide §5.8
+(the Shift and numpad variants included) and Shift+1, then Cmd/Ctrl+A and C. The readout has to
+follow each key, no key the webview handled may reach the webview's `window` (where VS Code would
+run its own binding, such as the window zoom), VS Code's window zoom level has to stay as it was,
+Cmd/Ctrl+0 must not move VS Code's focus to the side bar, select all has to select canvas elements
+and no text, and the copy has to leave the clipboard alone. New steps start opt-in and become the
+default once every modeler passes them in CI.
 Keep the smoke test out of the unit tests' project: it needs a display and the built extension. Add
 the screenshot directory to `.gitignore`.
 

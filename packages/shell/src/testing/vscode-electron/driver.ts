@@ -6,6 +6,7 @@ import type { ProgressReport, ProgressReporter } from "@vscode/test-electron";
 import type { ElectronApplication, FrameLocator, Page } from "playwright-core";
 import type { Appearance, ChromeIsland, Size, Theme } from "../../core/index.js";
 import { resolveInSharedCache } from "./cache.js";
+import { checkKeys, type KeysSession } from "./keys.js";
 import {
   DEFAULT_WINDOW_SIZE,
   customEditorViewType,
@@ -16,6 +17,7 @@ import {
   resolveExtensionMain,
   vsCodeEnvironment,
   vsCodeLaunchArgs,
+  vsCodeSmokeOptIn,
   vsCodeUserSettings,
   type ExtensionManifest,
   type PlatformKeys,
@@ -24,6 +26,7 @@ import {
 import { extensionActivationFailures } from "./logs.js";
 import {
   SmokeFailures,
+  describeKeys,
   missingChrome,
   sameAppearance,
   screenshotFileName,
@@ -53,17 +56,26 @@ import {
   type WebviewErrorWatch,
   type WebviewOwner,
 } from "./webview-errors.js";
+import { delay, pollUntil as pollEvery } from "./wait.js";
 import {
   activeEditorDirtyProbe,
   activeTextEditorProbe,
   blurProbe,
   canvasFactsProbe,
   chromeProbe,
+  devicePixelRatioProbe,
+  focusCanvasProbe,
   focusCreatingEntryProbe,
+  installKeyRecorderProbe,
+  selectedElementsProbe,
   settleProbe,
+  takeKeyRecordsProbe,
+  textSelectionProbe,
   webviewThemeProbe,
   workbenchClassesProbe,
+  workbenchFocusProbe,
   workbenchWebviewsProbe,
+  zoomReadoutProbe,
   type CanvasFacts,
   type WebviewThemeFacts,
 } from "./webview.js";
@@ -132,6 +144,12 @@ export interface VsCodeSmokeOptions {
   log?: ((line: string) => void) | undefined;
   /** Keeps the throwaway profile, workspace and VS Code logs, and logs where they are. */
   keepTemporaryFiles?: boolean | undefined;
+  /**
+   * Runs the keys step (0.7): the zoom keys, Shift+1, Cmd/Ctrl+A and C on the canvas, with VS Code's
+   * window zoom, focus and clipboard checked. Opt-in while it is new; without the option,
+   * `VSCODE_SMOKE_OPT_IN=keys` in the environment turns it on.
+   */
+  keys?: boolean | undefined;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -143,6 +161,10 @@ const LOG_READ_INTERVAL_MS = 1_000;
 const SAVE_SETTLE_MS = 1_000;
 /** How long the menu, or the canvas's first shape, may still take after the extension's webview threw. */
 const UNCAUGHT_ERROR_GRACE_MS = 3_000;
+/** How long a key may take until the canvas shows what it did, at most `timeoutMs`. */
+const KEY_EFFECT_TIMEOUT_MS = 5_000;
+/** VS Code acts on a key the webview forwards through two `postMessage` hops. */
+const KEY_GRACE_MS = 300;
 const DEFAULT_CHROME: readonly ChromeIsland[] = ["menu", "palette", "zoom"];
 /** Names the screenshot of a webview that never showed, next to the theme screenshots. */
 const OPEN_FAILURE: VsCodeColorTheme = { id: "open-failure", name: "", kind: 1 };
@@ -201,21 +223,12 @@ async function exists(path: string): Promise<boolean> {
   );
 }
 
-const delay = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
-
-/** Reads until `done` holds or `timeoutMs` passed, and returns the last value either way. */
-async function pollUntil<T>(
+function pollUntil<T>(
   read: () => Promise<T>,
   done: (value: T) => boolean,
   timeoutMs: number,
 ): Promise<{ value: T; met: boolean }> {
-  const deadline = performance.now() + timeoutMs;
-  for (;;) {
-    const value = await read();
-    if (done(value)) return { value, met: true };
-    if (performance.now() >= deadline) return { value, met: false };
-    await delay(POLL_INTERVAL_MS);
-  }
+  return pollEvery(read, done, timeoutMs, POLL_INTERVAL_MS);
 }
 
 function sameCanvas(a: CanvasFacts, b: CanvasFacts): boolean {
@@ -296,9 +309,10 @@ async function closeApplication(app: ElectronApplication): Promise<void> {
 /**
  * Starts a real VS Code with the modeler's built extension, opens `fixture` in its custom editor,
  * and checks the shell's chrome, an edit through the canvas, save, undo, and the theme bridge under
- * every color theme, with a screenshot per theme. A failed check never throws: it is in `failures`.
- * Throws for unusable options (no manifest, no matching custom editor, an unbuilt extension, a file
- * name with a path) and when the optional peers are missing.
+ * every color theme, with a screenshot per theme; opted in, also the zoom and selection keys. A
+ * failed check never throws: it is in `failures`. Throws for unusable options (no manifest, no
+ * matching custom editor, an unbuilt extension, a file name with a path, an unknown step in
+ * `VSCODE_SMOKE_OPT_IN`) and when the optional peers are missing.
  */
 export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCodeSmokeResult> {
   const started = performance.now();
@@ -307,6 +321,7 @@ export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCod
   const islands = options.chrome ?? DEFAULT_CHROME;
   const themes = options.themes ?? ["light"];
   const colorThemes = options.colorThemes ?? VSCODE_COLOR_THEMES;
+  const keys = options.keys ?? vsCodeSmokeOptIn(process.env).has("keys");
   const { fileName } = options.fixture;
   if (!isPlainFileName(fileName)) {
     throw new Error(`runVsCodeSmoke: the fixture needs a plain file name, not "${fileName}"`);
@@ -421,6 +436,7 @@ export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCod
         islands,
         themes,
         colorThemes,
+        keys,
         timeoutMs,
         name: options.name ?? manifest.name ?? "modeler",
         paths: {
@@ -461,6 +477,8 @@ interface SessionRun {
   islands: readonly ChromeIsland[];
   themes: readonly Theme[];
   colorThemes: readonly VsCodeColorTheme[];
+  /** Whether the keys step runs. */
+  keys: boolean;
   timeoutMs: number;
   name: string;
   paths: VsCodeSmokePaths;
@@ -643,6 +661,62 @@ async function runSession(run: SessionRun): Promise<void> {
       );
     }
   });
+
+  const app = run.launched.app;
+  if (run.keys && app) {
+    // After the themes, so the zoom and the selection it leaves are in no screenshot.
+    await step("keys", async () => {
+      const checked = await checkKeys(keysSession(context, app), {
+        effectTimeoutMs: Math.min(KEY_EFFECT_TIMEOUT_MS, timeoutMs),
+        graceMs: KEY_GRACE_MS,
+        intervalMs: POLL_INTERVAL_MS,
+      });
+      result.keys = checked.result;
+      for (const failure of checked.failures) failures.add("keys", failure);
+      log(`keys: ${describeKeys(checked.result)}`);
+    });
+  }
+}
+
+/** What the keys step reads of Electron's main-process module; Electron's own types are no peer. */
+interface ElectronMain {
+  BrowserWindow: {
+    getAllWindows(): { id: number; webContents: { getZoomLevel(): number } }[];
+  };
+  clipboard: { availableFormats(): string[]; readText(): string };
+}
+
+/** The keys step's reads and presses in the running VS Code (see `checkKeys`). */
+function keysSession(context: VsCodeSmokeContext, app: ElectronApplication): KeysSession {
+  const html = context.webview.locator("html");
+  return {
+    keys: context.keys,
+    press: (chord) => context.page.keyboard.press(chord),
+    focusCanvas: async () => {
+      await html.evaluate(installKeyRecorderProbe);
+      return html.evaluate(focusCanvasProbe);
+    },
+    readout: () => html.evaluate(zoomReadoutProbe),
+    takeKeyRecords: () => html.evaluate(takeKeyRecordsProbe),
+    selectedElements: () => html.evaluate(selectedElementsProbe),
+    textSelection: () => html.evaluate(textSelectionProbe),
+    workbenchFocus: () => context.page.evaluate(workbenchFocusProbe),
+    windowZoom: async () => ({
+      // VS Code zooms its window with webFrame.setZoomLevel, which the sandboxed workbench page
+      // cannot read back; the main process can, and the page's pixel ratio follows the zoom.
+      levels: await app.evaluate(({ BrowserWindow }: ElectronMain) =>
+        BrowserWindow.getAllWindows()
+          .sort((first, second) => first.id - second.id)
+          .map((window) => window.webContents.getZoomLevel()),
+      ),
+      devicePixelRatio: await context.page.evaluate(devicePixelRatioProbe),
+    }),
+    clipboard: () =>
+      app.evaluate(({ clipboard }: ElectronMain) => ({
+        formats: clipboard.availableFormats(),
+        text: clipboard.readText(),
+      })),
+  };
 }
 
 /** `missing`: after `timeoutMs` or a failed activation; `threw`: the extension's webview threw. */
