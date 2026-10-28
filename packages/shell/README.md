@@ -73,18 +73,18 @@ expect(Object.keys(vendoredTokens.shell)).toEqual(
 );
 ```
 
-| Entry                                            | For                                                          |
-| ------------------------------------------------ | ------------------------------------------------------------ |
-| `@miragon/modeler-shell`                         | `mountShell`, the dialogs, icons, and everything of `./core` |
-| `@miragon/modeler-shell/core`                    | DOM-free: fit math, keymap, zoom readout, appearance, sizes  |
-| `@miragon/modeler-shell/diagram-js`              | `shellModule`, the viewport, `connectDiagramJs`              |
-| `@miragon/modeler-shell/vscode/extension`        | webview HTML with CSP and nonce, theme bridge                |
-| `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state        |
-| `@miragon/modeler-shell/export`                  | the PNG export: `svgToPng`, its labels in Geist              |
-| `@miragon/modeler-shell/testing`                 | the Playwright-driven shell conformance kit                  |
-| `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page            |
-| `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code     |
-| `@miragon/modeler-shell/shell.css`               | every style of the shell                                     |
+| Entry                                            | For                                                                                 |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `@miragon/modeler-shell`                         | `mountShell`, the dialogs, icons, and everything of `./core`                        |
+| `@miragon/modeler-shell/core`                    | DOM-free: fit math, keymap, zoom readout, appearance, sizes                         |
+| `@miragon/modeler-shell/diagram-js`              | `shellModule`, the viewport, `connectDiagramJs`                                     |
+| `@miragon/modeler-shell/vscode/extension`        | webview HTML with CSP and nonce, theme bridge, the document plumbing (0.8)          |
+| `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state, document sync (0.8)          |
+| `@miragon/modeler-shell/export`                  | the PNG export: `svgToPng`, its labels in Geist                                     |
+| `@miragon/modeler-shell/testing`                 | the Playwright-driven shell conformance kit                                         |
+| `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page and, since 0.8, for its documents |
+| `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code                            |
+| `@miragon/modeler-shell/shell.css`               | every style of the shell                                                            |
 
 TypeScript: every entry resolves under `moduleResolution` `node16`, `bundler` and `node10`, and
 every optional input field accepts `undefined`, so a modeler compiling with
@@ -92,41 +92,42 @@ every optional input field accepts `undefined`, so a modeler compiling with
 
 ## Usage in a VS Code webview
 
-Extension host:
+Extension host (0.8; Wardley Maps' `apps/vscode/src/mapEditor.ts` is the first adopter):
 
 ```ts
 import * as vscode from "vscode";
-import {
-  connectThemeBridge,
-  currentAppearance,
-  renderWebviewHtml,
-} from "@miragon/modeler-shell/vscode/extension";
+import { registerModelerEditor } from "@miragon/modeler-shell/vscode/extension";
 
-const THEMES = ["light"] as const; // until the shared dark-mode release of the modelers
-
-// activate(): a hidden tab keeps document, view and selection
-vscode.window.registerCustomEditorProvider(viewType, provider, {
-  webviewOptions: { retainContextWhenHidden: true },
+// activate(): the custom text editor, its HTML, theme bridge, document sync and problems pill
+const editors = registerModelerEditor(vscode, context, {
+  viewType: "wardley.mapEditor", // contributes.customEditors
+  title: "Wardley Map",
+  themes: ["light"], // until the shared dark-mode release of the modelers
+  insertExample: withExampleInserted, // the empty-file hint's "Insert example", one undo step
+  diagnostics: {
+    // the notation finds its own problems, fills its DiagnosticCollection and counts them
+    refresh: (document: vscode.TextDocument) => ({ count: refresh(document), errors: 0 }),
+  },
+  onMessage: (message, editor) => {
+    if (message.type === "export") return exportToFile(editor.document.uri, message);
+  },
 });
-
-// resolveCustomTextEditor():
-const dist = vscode.Uri.joinPath(extensionUri, "dist");
-webview.options = { enableScripts: true, localResourceRoots: [dist] }; // script, CSS and font files
-const asset = (file: string) => webview.asWebviewUri(vscode.Uri.joinPath(dist, file)).toString();
-webview.html = renderWebviewHtml({
-  cspSource: webview.cspSource,
-  scriptUri: asset("webview.js"),
-  styleUris: [asset("webview.css")],
-  title: "Event Storming Board",
-  lang: "en",
-  appearance: currentAppearance(vscode, { themes: THEMES }), // on <html> before the first paint
-});
-connectThemeBridge(vscode, webviewPanel, { themes: THEMES }); // disposes itself with the panel
+context.subscriptions.push(editors);
+// Command Palette: editors.runCommand("fitView") posts to the focused editor;
+// editors.revealActiveDocument() shows the one focused last (Open Source to the Side)
 ```
 
-The bridge's disposable is only for ending it before the panel closes; never push it into
-`context.subscriptions`, which would keep one dead bridge per opened editor until the extension
-deactivates.
+`registerModelerEditor` registers the custom editor with `retainContextWhenHidden` (a hidden tab
+keeps document, view and selection), writes `renderWebviewHtml`'s document around `dist/webview.js`
+and `dist/webview.css` (script, stylesheet and font files; `dist` is the only resource root) and
+connects the theme bridge to each panel. It answers `ready` with the text, writes every `edit` of
+the canvas as one minimal line edit, so each canvas change is one undo step of the document and a
+side-by-side text editor keeps its cursor, and posts every other change (typing, Git, undo) as an
+`update`. Its own edits come back as echoes it does not post. The parts are exported on their own
+as well (`createDocumentWriter`, `minimalLineEdit`, `renderWebviewHtml`, `connectThemeBridge`), for
+an editor the plumbing does not cover, such as a PNG editor. A bridge's disposable is only for ending
+it before the panel closes; never push it into `context.subscriptions`, which would keep one dead
+bridge per opened editor until the extension deactivates.
 
 Bundle the fonts as files next to the webview bundle, not as data URLs: with esbuild
 `loader: { ".woff2": "file", ".woff": "file" }` and `assetNames: "fonts/[name]-[hash]"` the browser
@@ -143,10 +144,12 @@ Webview:
 import { INVALID_STATUS_DELAY_MS } from "@miragon/modeler-shell";
 import { connectDiagramJs, shellModule } from "@miragon/modeler-shell/diagram-js";
 import {
+  connectDocumentSync,
   mountVsCodeShell,
   persistView,
   readShellState,
   writeShellState,
+  type DocumentImportContext,
 } from "@miragon/modeler-shell/vscode/webview";
 
 const vscode = acquireVsCodeApi();
@@ -171,8 +174,8 @@ const shell = mountVsCodeShell(document.getElementById("app")!, {
     open: stored.legendOpen,
     onToggle: (open) => writeShellState(vscode, { legendOpen: open }),
   },
-  problems: { onActivate: () => vscode.postMessage({ type: "showProblems" }) },
-  emptyHint: { onInsertExample: () => vscode.postMessage({ type: "insertExample" }) },
+  problems: { onActivate: () => sync.showProblems() },
+  emptyHint: { onInsertExample: () => sync.insertExample() },
 });
 const connection = connectDiagramJs(shell, modeler, {
   // the tight bounds of the content, no padding: the shell's fit insets are the only margin
@@ -182,7 +185,9 @@ const connection = connectDiagramJs(shell, modeler, {
 const { viewport } = connection;
 persistView(vscode, viewport); // writes the view once it rested, not on every frame
 
-async function importText(text: string, first: boolean): Promise<void> {
+// The sync runs one import at a time; true when the canvas shows the text, false when it refused it.
+async function importText(text: string, { first, reconciledText }: DocumentImportContext) {
+  if (!first && sameText(text, reconciledText)) return true; // only formatting differs (a save)
   const keep = first ? undefined : viewport.getViewbox();
   try {
     await modeler.importDSL(text);
@@ -192,6 +197,7 @@ async function importText(text: string, first: boolean): Promise<void> {
     if (keep) viewport.restore(keep);
     else if (first && stored.view) viewport.setState(stored.view);
     viewport.afterImport(); // first content fits, an empty file shows 100 %, the hint follows by itself
+    return true;
   } catch {
     // locked at once, visible after 800ms without a valid import (no flicker while typing)
     lockCanvas(true); // the modeler's own lock: context pad, move, resize, delete, paste, label editor
@@ -200,22 +206,24 @@ async function importText(text: string, first: boolean): Promise<void> {
       { severity: "danger", text: shell.messages.invalidFile("Event Storming board") },
       { delayMs: INVALID_STATUS_DELAY_MS },
     );
+    return false;
   }
 }
 
-// Imports strictly one after another; `ready` resolves once the first one settled.
-let imports = Promise.resolve();
-let firstImportSettled = () => {};
-const ready = new Promise<void>((resolve) => (firstImportSettled = resolve));
-window.addEventListener("message", ({ data }) => {
-  if (data?.type === "init")
-    imports = imports.then(() => importText(data.text, true)).then(firstImportSettled);
-  if (data?.type === "update") imports = imports.then(() => importText(data.text, false));
+// Posts `ready` and answers init, update, problems and commands; connect it last.
+const sync = connectDocumentSync({
+  api: vscode,
+  importText,
+  exportText: () => modeler.exportDSL(), // Wardley patches its text instead, keeping comments
+  canWrite: () => !shell.isReadOnly(), // the canvas shows the last valid text: never write it
+  onProblems: (counts) => shell.setProblems(counts),
+  commands: { fitView: () => viewport.fit() /* , exports */ },
 });
-vscode.postMessage({ type: "ready" });
+// an edit only when the text differs; a contract modeler hands it to onContentChanged instead
+modeler.on("commandStack.changed", sync.pushEdit);
 
 // For the e2e test page below; the bundle publishes nothing on window.
-export const webview = { shell, modeler, connection, ready };
+export const webview = { shell, modeler, connection, ready: sync.ready };
 ```
 
 The content bounds come from `contentBounds`, or, since 0.4, from the renderer's contract
@@ -250,8 +258,9 @@ guide §8 and removes it with `shell.destroy()`. A host without a mounted shell 
 opens the same dialog with `showShortcutsDialog(groups, { container })`. Content the modeler adds
 to `shell.root` itself (a dialog of its own) is the modeler's: it removes it in its own teardown,
 for example on `diagram.destroy`, since `shell.destroy()` removes only what the shell added. The complete Event
-Storming example, including the export notification, is in [API.md][api]. Document sync, undo through
-the document and diagnostics stay in the modeler for now.
+Storming example, including the export notification, is in [API.md][api]. Since 0.8 the document
+sync, the undo through the document and the problems pill are the shell's (`registerModelerEditor`
+and `connectDocumentSync`); the modeler keeps its diagnostics and the export's save dialog.
 
 ## Usage in a web app
 

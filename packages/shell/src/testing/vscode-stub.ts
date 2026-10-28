@@ -52,6 +52,11 @@ export interface VsCodeWebviewStubOptions {
   reduceMotion?: boolean | undefined;
   /** What `getState()` of the stubbed `acquireVsCodeApi()` returns at first. */
   state?: unknown;
+  /**
+   * The extension's side (0.8): receives every message the webview posts, in a later task as from
+   * VS Code, such as `receive` of a panel of `createVsCodeHostStub`.
+   */
+  onPostMessage?: ((message: unknown) => void) | undefined;
 }
 
 /** The stubbed `acquireVsCodeApi()`. */
@@ -296,6 +301,8 @@ export function installVsCodeWebviewStub(options: VsCodeWebviewStubOptions): VsC
       },
       postMessage(message) {
         sent.push(message);
+        const { onPostMessage } = options;
+        if (onPostMessage) setTimeout(() => onPostMessage(message), 0);
       },
     };
   };

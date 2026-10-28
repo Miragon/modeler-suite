@@ -1,5 +1,7 @@
 import type * as vscode from "vscode";
-import { Disposable, type Range, Uri, type WorkspaceEdit } from "./__mocks__/vscode";
+import { Disposable, type Range, Uri, type WorkspaceEdit, vscodeMock } from "./__mocks__/vscode";
+import type { WardleyDiagnostics } from "../src/diagnostics.js";
+import { registerMapEditor, type MapEditors } from "../src/mapEditor.js";
 import type { HostToWebview, WebviewToHost } from "../src/protocol.js";
 
 /** A TextDocument stand-in with real line semantics (lineCount/lineAt) and a settable text. */
@@ -136,5 +138,20 @@ export function fakeWebviewPanel({ active = true }: { active?: boolean } = {}): 
 export const fakeContext = {
   extensionUri: Uri.parse("file:/ext"),
 } as unknown as vscode.ExtensionContext;
+
+export interface MapEditorUnderTest {
+  editors: MapEditors;
+  /** The provider the editor registered, which VS Code calls to open a map. */
+  provider: vscode.CustomTextEditorProvider;
+}
+
+/** Registers the map editor as `activate` does. */
+export function registerMapEditorForTest(diagnostics?: WardleyDiagnostics): MapEditorUnderTest {
+  const editors = registerMapEditor(fakeContext, diagnostics);
+  return {
+    editors,
+    provider: vscodeMock.lastRegisteredProvider<vscode.CustomTextEditorProvider>(),
+  };
+}
 
 export const fakeToken = {} as vscode.CancellationToken;

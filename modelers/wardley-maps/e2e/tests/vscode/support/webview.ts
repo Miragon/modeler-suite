@@ -8,17 +8,25 @@ import type { Appearance, ShellHandle } from "@miragon/modeler-shell";
 import type { DiagramJsConnection } from "@miragon/modeler-shell/diagram-js";
 import { vsCodeStubSearch, type OpenContext } from "@miragon/modeler-shell/testing";
 import { openWebviewBundle } from "@miragon/modeler-shell/testing/webview-bundle";
-import type { VsCodeWebviewStub } from "@miragon/modeler-shell/testing/vscode-stub";
+import type {
+  StubTextDocument,
+  StubWebviewPanel,
+  VsCodeHostStub,
+  VsCodeWebviewStub,
+} from "@miragon/modeler-shell/testing/vscode-stub";
 import { EXAMPLE_MAP } from "../../../../apps/vscode/src/examples.js";
 import { WARDLEY_THEMES } from "../../../../packages/renderer/src/appearance/index.js";
 
 /*
  * The webview test page (e2e/webview/webview-test.html) runs apps/vscode/src/webview/main.ts inside
- * the shell's VS Code stub and publishes the webview's parts on window for the tests.
+ * the shell's VS Code stub and publishes the webview's parts on window for the tests. With `host`
+ * it runs the extension's document plumbing in the page too, against the shell's host stub.
  */
 declare global {
   interface Window {
     __modelerShellVsCodeStub?: VsCodeWebviewStub;
+    /** With `host`: the stand-in for VS Code, the map's document and the editor's panel. */
+    vscodeHost?: { host: VsCodeHostStub; document: StubTextDocument; panel: StubWebviewPanel };
     /** True once the first `init` import has settled, valid or not. */
     webviewReady?: boolean;
     shell?: ShellHandle;
@@ -34,6 +42,8 @@ export interface OpenOptions {
   size?: { width: number; height: number };
   requested?: Appearance;
   map?: "example" | "empty";
+  /** Run the extension's document plumbing in the page, so a test edits a real document. */
+  host?: boolean;
 }
 
 /** Opens the webview as VS Code would and resolves once the first `init` import has settled. */
@@ -41,6 +51,7 @@ export async function openWebview(page: Page, options: OpenOptions = {}): Promis
   await page.setViewportSize(options.size ?? WIDE);
   const search = new URLSearchParams(vsCodeStubSearch(options.requested ?? LIGHT));
   if (options.map === "empty") search.set("map", "empty");
+  if (options.host) search.set("host", "");
   await page.goto(`/webview-test.html?${search.toString()}`);
   await page.waitForFunction(() => window.webviewReady === true);
 }

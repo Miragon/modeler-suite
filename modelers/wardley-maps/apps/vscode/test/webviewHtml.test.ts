@@ -1,12 +1,17 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ColorThemeKind, vscodeMock } from "./__mocks__/vscode";
-import { WardleyEditorProvider } from "../src/WardleyEditorProvider.js";
-import { asTextDocument, fakeContext, fakeDocument, fakeToken, fakeWebviewPanel } from "./fakes.js";
+import {
+  asTextDocument,
+  fakeDocument,
+  fakeToken,
+  fakeWebviewPanel,
+  registerMapEditorForTest,
+} from "./fakes.js";
 
 beforeEach(() => vscodeMock.reset());
 
 async function open() {
-  const { provider } = WardleyEditorProvider.register(fakeContext);
+  const { provider } = registerMapEditorForTest();
   const panel = fakeWebviewPanel();
   await provider.resolveCustomTextEditor(
     asTextDocument(fakeDocument("/a.wmap", "title A\n")),

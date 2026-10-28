@@ -64,6 +64,15 @@ host ([`apps/webapp/src/main.ts`](apps/webapp/src/main.ts)); the shell's conform
 against both, in the `vscode-webview` Playwright project (`e2e/tests/vscode/`) and in the `webapp`
 project (`e2e/tests/webapp-shell-conformance.spec.ts`).
 
+The extension's document plumbing is the shell's too: [`mapEditor.ts`](apps/vscode/src/mapEditor.ts)
+registers the custom editor with `registerModelerEditor` of `@miragon/modeler-shell/vscode/extension`
+(sync, echo suppression, minimal line edits, undo through the document, "Insert example", the
+problems pill), handing it `withExampleInserted`, the parser's warnings of `WardleyDiagnostics` and
+the export; the webview's half is `connectDocumentSync`, whose `exportText` patches the OWM text with
+`patchDSL`, so comments and statement order survive a canvas edit. The options that need no
+`vscode` live in [`mapEditorOptions.ts`](apps/vscode/src/mapEditorOptions.ts), which the e2e page
+also registers against the shell's host stub (`?host`, `e2e/tests/vscode/document-sync.spec.ts`).
+
 Both apps hand the shell the shortcuts dialog and the PNG: Help › Keyboard shortcuts… opens
 `shell.showShortcutsDialog(mapShortcuts(shell, …))` (the renderer's groups as data; the shell adds
 the chrome's zoom keys), and the PNG exports go through `svgToPng` of `@miragon/modeler-shell/export`

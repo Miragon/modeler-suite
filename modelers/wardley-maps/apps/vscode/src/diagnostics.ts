@@ -42,11 +42,7 @@ export function wardleyDiagnostics(document: vscode.TextDocument): vscode.Diagno
 export class WardleyDiagnostics implements vscode.Disposable {
   private readonly collection: vscode.DiagnosticCollection;
   private readonly pending = new Map<string, ReturnType<typeof setTimeout>>();
-  private readonly changeEmitter = new vscode.EventEmitter<{ uri: vscode.Uri; count: number }>();
   private readonly subscriptions: vscode.Disposable[] = [];
-
-  /** Fires after a document's problems were recomputed. */
-  readonly onDidChange = this.changeEmitter.event;
 
   constructor() {
     this.collection = vscode.languages.createDiagnosticCollection("wardley");
@@ -58,12 +54,13 @@ export class WardleyDiagnostics implements vscode.Disposable {
     for (const document of vscode.workspace.textDocuments) this.refresh(document);
   }
 
-  refresh(document: vscode.TextDocument): void {
-    if (!isWardleyDocument(document)) return;
+  /** Checks `document` now and returns how many problems it has (0 for a document it skips). */
+  refresh(document: vscode.TextDocument): number {
+    if (!isWardleyDocument(document)) return 0;
     this.cancelPending(document.uri);
     const diagnostics = wardleyDiagnostics(document);
     this.collection.set(document.uri, diagnostics);
-    this.changeEmitter.fire({ uri: document.uri, count: diagnostics.length });
+    return diagnostics.length;
   }
 
   /** Typing fires a change per keystroke; parse once the user pauses. */
@@ -89,7 +86,6 @@ export class WardleyDiagnostics implements vscode.Disposable {
     for (const timer of this.pending.values()) clearTimeout(timer);
     this.pending.clear();
     for (const subscription of this.subscriptions) subscription.dispose();
-    this.changeEmitter.dispose();
     this.collection.dispose();
   }
 

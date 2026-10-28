@@ -1,4 +1,4 @@
-# @miragon/modeler-shell 0.7: public API
+# @miragon/modeler-shell 0.8: public API
 
 The shared, framework-free implementation of everything around a Miragon diagram-js modeler: menu
 button with dropdown, horizontal palette skin, chrome tooltip, zoom panel, zoom and fit keys, fit,
@@ -8,7 +8,10 @@ problems popover, toasts, empty-state card, drop zone and the web app's mode, (0
 that smoke-tests a modeler's extension in a real VS Code, since 0.3.1 also in a Linux container,
 and (0.7) the modal dialog of guide §8 with the "Keyboard shortcuts…" dialog on it, also for a host
 without a mounted shell (see [Dialogs](#dialogs-07)), and the PNG export of `./export` (see
-[`./export`](#export-png-export-07)). Planned in
+[`./export`](#export-png-export-07)), and (0.8) the document plumbing of a VS Code custom text
+editor: two-way sync, minimal line edits, undo through the document and the problems pill (see
+[The document plumbing](#the-document-plumbing-08) and
+[`connectDocumentSync`](#the-document-sync-08)). Planned in
 [Miragon/modeler-suite#4](https://github.com/Miragon/modeler-suite/issues/4) (Phase 4); the first
 consumer is the Event Storming modeler, in VS Code (0.1) and in its web app (0.2, see
 [Usage: Event Storming in the web app](#usage-event-storming-in-the-web-app)).
@@ -43,11 +46,11 @@ consumer is the Event Storming modeler, in VS Code (0.1) and in its web app (0.2
 | `@miragon/modeler-shell`                         | the chrome (`mountShell`, web chrome included), the dialogs (0.7), icons, plus all of `./core`                         | yes (at call time)             |
 | `@miragon/modeler-shell/core`                    | fit math, keymap, zoom readout, appearance, sizes, messages, shortcut groups, the web host's decisions and head script | no                             |
 | `@miragon/modeler-shell/diagram-js`              | `shellModule`, viewport, `connectDiagramJs`                                                                            | yes                            |
-| `@miragon/modeler-shell/vscode/extension`        | webview HTML, nonce, theme bridge (extension host)                                                                     | no                             |
-| `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state                                                                  | yes                            |
+| `@miragon/modeler-shell/vscode/extension`        | webview HTML, nonce, theme bridge, the document plumbing (0.8) (extension host)                                        | no                             |
+| `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state, the document sync (0.8)                                         | yes                            |
 | `@miragon/modeler-shell/export`                  | the PNG export: `svgToPng` with Geist inside the SVG (0.7)                                                             | yes (at call time)             |
 | `@miragon/modeler-shell/testing`                 | Playwright-driven shell conformance kit                                                                                | runs in Node, drives a browser |
-| `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page                                                                      | yes (in the test page)         |
+| `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page and (0.8) for the extension host's documents                         | yes (in the test page)         |
 | `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code (0.3)                                                         | runs in Node, drives VS Code   |
 | `@miragon/modeler-shell/testing/webview-bundle`  | the production webview bundle under the webview CSP, for the kit's `csp` case (0.6)                                    | runs in Node, drives a browser |
 | `@miragon/modeler-shell/shell.css`               | every style of the shell                                                                                               | —                              |
@@ -660,7 +663,7 @@ draws a theme its `themes` does not list as `themes[0]`, so the root of a light-
 the mode its canvas draws whatever the host requests. A host that requests high contrast shows it on
 its page as well (`data-cd-kontrast="hoch"` on the nearest mode carrier above the root), where the
 root takes it from. For a modeler whose `themes` lists `"dark"` the root does not follow the
-request yet (see [Out of scope for 0.7](#out-of-scope-for-07)). In the `ide` host the
+request yet (see [Out of scope for 0.8](#out-of-scope-for-08)). In the `ide` host the
 host writes the mode on `<html>` and `themes` is not read; in the `web` host the page's head script
 writes it before the first paint and `themes` decides whether the shell renders the Appearance
 group (see [Mode](#mode-133)). An empty `themes` throws before anything is mounted.
@@ -774,7 +777,7 @@ The dialog of guide §8 (`cd-shell-dialog`) and, on it, the "Keyboard shortcuts�
 group (§5.4). Both also open without a mounted shell, in an embedding host's own page (designIQ):
 they need only `shell.css` after the tokens. The §9 confirmation of a destructive action, the
 popovers of §5.4 and a modeler's form dialogs ("Map title…", "Map size…") are later candidates on the
-same dialog (see [Out of scope for 0.7](#out-of-scope-for-07)).
+same dialog (see [Out of scope for 0.8](#out-of-scope-for-08)).
 
 ```ts
 // on the handle (see Handle)
@@ -2253,6 +2256,262 @@ What the webview bundle needs under this CSP:
   `csp.open` builds the bundle as shipped and opens it behind `renderWebviewHtml`'s document and
   CSP, and the case walks it and fails on any CSP violation, error or missing font.
 
+### The document plumbing (0.8)
+
+```ts
+// The parts of vscode it uses, typed structurally like VsCodeLike: the real namespace, a real
+// TextDocument, its change event, a WorkspaceEdit and a WebviewPanel are assignable (type test).
+interface UriLike {
+  readonly scheme: string;
+  readonly path: string;
+  toString(): string;
+}
+interface PositionLike {
+  readonly line: number;
+  readonly character: number;
+}
+interface RangeLike {
+  readonly start: PositionLike;
+  readonly end: PositionLike;
+}
+interface TextDocumentLike {
+  readonly uri: UriLike;
+  readonly lineCount: number;
+  lineAt(line: number): { readonly text: string };
+  getText(): string;
+}
+interface TextDocumentChangeEventLike {
+  readonly document: TextDocumentLike;
+  readonly contentChanges: readonly unknown[]; // empty for a save
+}
+interface WorkspaceEditLike {
+  replace(uri: UriLike, range: RangeLike, newText: string): void;
+}
+interface WebviewLike {
+  options: { readonly enableScripts?: boolean; readonly localResourceRoots?: readonly UriLike[] };
+  html: string;
+  readonly cspSource: string;
+  asWebviewUri(localResource: UriLike): UriLike;
+  postMessage(message: unknown): PromiseLike<boolean>;
+  onDidReceiveMessage(listener: (message: unknown) => unknown): DisposableLike;
+}
+interface EditorWebviewPanelLike extends WebviewPanelLike {
+  readonly webview: WebviewLike;
+  readonly active: boolean;
+  reveal(viewColumn?: number, preserveFocus?: boolean): void;
+}
+interface CustomTextEditorProviderLike {
+  resolveCustomTextEditor(
+    document: TextDocumentLike,
+    webviewPanel: EditorWebviewPanelLike,
+    token: unknown,
+  ): void | PromiseLike<void>;
+}
+interface CustomEditorRegistrationOptions {
+  readonly webviewOptions?: { readonly retainContextWhenHidden?: boolean };
+  readonly supportsMultipleEditorsPerDocument?: boolean;
+}
+interface VsCodeEditorLike extends VsCodeLike {
+  readonly window: VsCodeLike["window"] & {
+    registerCustomEditorProvider(
+      viewType: string,
+      provider: CustomTextEditorProviderLike,
+      options?: CustomEditorRegistrationOptions,
+    ): DisposableLike;
+    showInformationMessage(message: string): PromiseLike<unknown>;
+    showErrorMessage(message: string): PromiseLike<unknown>;
+  };
+  readonly workspace: VsCodeLike["workspace"] & {
+    onDidChangeTextDocument(
+      listener: (event: TextDocumentChangeEventLike) => unknown,
+    ): DisposableLike;
+    applyEdit(edit: WorkspaceEditLike): PromiseLike<boolean>;
+  };
+  readonly commands: { executeCommand(command: string, ...rest: unknown[]): PromiseLike<unknown> };
+  readonly Uri: { joinPath(base: UriLike, ...pathSegments: string[]): UriLike };
+  readonly Range: new (sl: number, sc: number, el: number, ec: number) => RangeLike;
+  readonly WorkspaceEdit: new () => WorkspaceEditLike;
+}
+
+interface ModelerEditorOptions<
+  Document extends TextDocumentLike = TextDocumentLike,
+  Message extends TypedMessage = TypedMessage,
+> {
+  viewType: string; // contributes.customEditors[].viewType
+  title: string; // the webview's <title>
+  themes: readonly Theme[];
+  settingKey?: string; // miragon.<modeler>.colorTheme, from the dark-mode release on
+  lang?: string; // default "en"
+  bundleDirectory?: string; // default "dist", the only local resource root
+  script?: string; // default "webview.js"
+  styles?: readonly string[]; // default ["webview.css"]
+  inlineStyles?: boolean; // default true, as renderWebviewHtml
+  insertExample?: (documentText: string) => string | undefined;
+  diagnostics?: ModelerEditorDiagnostics<Document>;
+  onMessage?: (message: Message, editor: ModelerEditor<Document>) => unknown;
+  onDidOpen?: (editor: ModelerEditor<Document>) => DisposableLike | void;
+}
+interface ModelerEditorDiagnostics<Document extends TextDocumentLike = TextDocumentLike> {
+  refresh(document: Document): ProblemCounts;
+  clear?(document: Document): void;
+}
+interface ModelerEditor<Document extends TextDocumentLike = TextDocumentLike> {
+  readonly document: Document;
+  readonly panel: EditorWebviewPanelLike;
+  post(message: unknown): PromiseLike<boolean>;
+  written(): Promise<void>; // every edit queued so far has landed or was refused
+}
+interface ModelerEditorRegistration<
+  Document extends TextDocumentLike = TextDocumentLike,
+> extends DisposableLike {
+  revealActiveDocument(): Document["uri"] | undefined;
+  runCommand(name: string, uri?: UriLike): boolean;
+  dispose(): void;
+}
+function registerModelerEditor<Document, Message>(
+  vscode: VsCodeEditorLike,
+  context: { readonly extensionUri: UriLike },
+  options: ModelerEditorOptions<Document, Message>,
+): ModelerEditorRegistration<Document>;
+
+// The parts, for an editor the plumbing does not cover (a PNG editor's own document):
+interface LineEdit {
+  start: PositionLike;
+  end: PositionLike;
+  text: string; // line breaks as \n
+}
+function splitLines(text: string): string[];
+function minimalLineEdit(oldLines: readonly string[], newText: string): LineEdit | undefined;
+type VsCodeDocumentEditLike = Pick<VsCodeEditorLike, "Range" | "WorkspaceEdit"> & {
+  readonly workspace: Pick<VsCodeEditorLike["workspace"], "applyEdit">;
+};
+interface DocumentWriteOptions {
+  suppressEcho: boolean;
+}
+interface DocumentWriter {
+  write(
+    nextText: (currentText: string) => string | undefined,
+    options: DocumentWriteOptions,
+  ): Promise<boolean>;
+  consumeEcho(): boolean;
+  readonly pending: number;
+  settled(): Promise<void>;
+}
+function createDocumentWriter(
+  vscode: VsCodeDocumentEditLike,
+  document: TextDocumentLike,
+): DocumentWriter;
+
+// The protocol, shared with ./vscode/webview:
+interface ProblemCounts {
+  count: number;
+  errors: number;
+}
+type DocumentHostMessage =
+  | { type: "init"; text: string }
+  | { type: "update"; text: string }
+  | { type: "problems"; count: number; errors: number }
+  | { type: "command"; name: string };
+type DocumentWebviewMessage =
+  | { type: "ready" }
+  | { type: "edit"; text: string }
+  | { type: "insertExample" }
+  | { type: "showProblems" }
+  | { type: "info"; message: string }
+  | { type: "error"; message: string };
+interface TypedMessage {
+  readonly type: string;
+  readonly [key: string]: unknown;
+}
+function isTypedMessage(value: unknown): value is TypedMessage;
+```
+
+`registerModelerEditor` is the extension host's half of a custom text editor whose document stays
+the source of truth (guide §13.5): VS Code keeps dirty state, saving, Git, diff and the undo
+history, and the webview shows the canvas in the shell. The webview's half is
+[`connectDocumentSync`](#the-document-sync-08). Wardley Maps uses it since 0.8
+(`apps/vscode/src/mapEditor.ts`); the other modelers follow, one pull request each
+([#46](https://github.com/Miragon/modeler-suite/issues/46)).
+
+- **The editor.** It registers `viewType` with `retainContextWhenHidden` and one editor per
+  document. Per editor it writes `renderWebviewHtml`'s document around
+  `{bundleDirectory}/{script}` and `{styles}` (`currentAppearance` before the first paint;
+  `bundleDirectory` is the only local resource root), connects the theme bridge to the panel and
+  disposes everything with the panel.
+- **`ready`** is answered with `init` and the document's text, then, with `diagnostics`, with the
+  pill's `problems`. A reloaded webview sends `ready` again and gets both again.
+- **`edit`** is written as one minimal line edit (`minimalLineEdit` of the document's lines and the
+  text): the lines both share at the start and the end stay untouched, so a side-by-side text editor
+  keeps its cursor and scroll position, and each canvas change is one undo step of the document.
+  The edits run one at a time, each diffed against the document as the one before left it, since VS
+  Code applies an edit later than the extension asks and a range from before would point at the
+  wrong lines. Inserted line breaks are `\n`; VS Code writes them as the document's line break. When
+  VS Code refuses an edit (a read-only file, a rejected `applyEdit`) and no newer one is queued, the
+  webview gets the document's text as an `update`, since its canvas shows the change already.
+- **Changes of the document** are read from `onDidChangeTextDocument`: those of other documents and
+  those without content changes (a save, a dirty-state change) are ignored. `diagnostics.refresh`
+  runs after every change, the canvas's own included (an edit on the canvas can add or remove a
+  finding). The echo of an own edit, the document's text compared with the written one without its
+  line breaks (a set, so edits in quick succession are all recognised), posts nothing; every other
+  change (typing, Git, undo and redo, "Insert example") posts `update` with the document's text.
+- **The pill.** `diagnostics.refresh(document)` finds the problems, keeps them where the Problems
+  view reads them (the modeler's `DiagnosticCollection`) and returns the counts; it runs when an
+  editor opens, on `ready` and after every change. The webview gets `problems` from its `ready` on,
+  then only when the count or the number of errors changed. `clear` runs when the editor closes, for
+  a modeler that keeps problems only while its editor is open. Without `diagnostics` no `problems`
+  message is posted. `showProblems` runs `workbench.actions.view.problems`.
+- **"Insert example"** writes `insertExample(document text)` as one edit, which the webview imports
+  as an `update` and fits (guide §13.5: one undo step, what the file holds stays). `undefined`
+  leaves the document alone; without `insertExample` the message is ignored.
+- **`info` and `error`** become `showInformationMessage` and `showErrorMessage`: the webview posts
+  them only for actions the user triggered (guide §13.5), never for an import.
+- **The modeler's own messages** (an export, Team Topologies' `flushed`) go to `onMessage` with their
+  editor: `editor.post` answers, `editor.written()` waits until the edits queued before have landed
+  (a save that waits for a flushed field). `onDidOpen` runs per editor, and what it returns is
+  disposed with the editor: a save participant (`onWillSaveTextDocument`), or the tracker an
+  extension shares with a PNG editor. `Message` types `onMessage`; nothing checks it at runtime.
+- **The focused editor.** `runCommand(name)` posts `{ type: "command", name }` to the focused editor,
+  never to one focused earlier, and `runCommand(name, uri)` to the editor of that document; both
+  return `false` without one. `revealActiveDocument()` returns the document of the editor focused
+  last (a walkthrough link or the Command Palette takes the focus from the editor it means) and
+  forgets a closed one; an editor that lost the focus is shown again and takes it
+  (`panel.reveal(undefined, false)`), so Open Source to the Side opens the text beside the editor,
+  not beside the walkthrough. It knows no tab VS Code restored after a reload and has not resolved
+  yet: the modeler looks for that one in `vscode.window.tabGroups` itself. `dispose()` unregisters
+  the view type.
+- **`Document`** is the type of the documents VS Code hands the editor: TypeScript infers
+  `vscode.TextDocument` from `diagnostics.refresh`'s parameter or takes it as the first type
+  argument, and `revealActiveDocument()` returns `vscode.Uri` then.
+- **The parts.** `createDocumentWriter(vscode, document)` is the writer behind `edit` and "Insert
+  example": `write` resolves to `false` when VS Code refused the edit and to `true` otherwise, also
+  for nothing to write (`undefined`, the same text, line breaks only); `consumeEcho()` is true once
+  per own write whose text the document now holds; `pending` counts the queued writes. The message
+  types are the ones the five modelers used before 0.8, so their test pages and protocols keep
+  working; a modeler's protocol extends `DocumentHostMessage` and `DocumentWebviewMessage` with its
+  own messages.
+- **The modeler keeps** its diagnostics, the export and its save dialog with the notification
+  (`revealFileLabel`), its commands and walkthrough, and any binary custom editor (Team Topologies'
+  and Context Maps' PNG editors).
+
+```ts
+// apps/vscode/src/mapEditor.ts (Wardley Maps)
+export function registerMapEditor(
+  context: vscode.ExtensionContext,
+  diagnostics: WardleyDiagnostics,
+) {
+  return registerModelerEditor<vscode.TextDocument, WebviewToHost>(vscode, context, {
+    viewType: "wardley.mapEditor",
+    title: "Wardley Map",
+    themes: WARDLEY_THEMES,
+    insertExample: withExampleInserted,
+    // the parser's findings are warnings: the map stays editable, so no errors
+    diagnostics: { refresh: (document) => ({ count: diagnostics.refresh(document), errors: 0 }) },
+    onMessage: (message, editor) =>
+      message.type === "export" ? exportImageToFile(editor.document.uri, message) : undefined,
+  });
+}
+```
+
 ## `./vscode/webview`
 
 ```ts
@@ -2330,6 +2589,77 @@ function persistView(
   is written from `legend.onToggle` (see the usage below).
 - The custom editor is registered with `webviewOptions: { retainContextWhenHidden: true }`: a hidden
   tab keeps document, view and selection, reports a 0 × 0 container and neither fits nor measures.
+
+### The document sync (0.8)
+
+```ts
+interface DocumentSyncApi {
+  postMessage(message: unknown): void;
+}
+interface DocumentImportContext {
+  first: boolean; // the init text
+  reconciledText: string; // the text the canvas showed last, "" before the first import
+}
+interface DocumentSyncOptions {
+  api: DocumentSyncApi; // acquireVsCodeApi()
+  importText(text: string, context: DocumentImportContext): Promise<boolean>;
+  exportText(reconciledText: string): string;
+  canWrite?: () => boolean; // default always
+  onProblems?: (counts: ProblemCounts) => void;
+  commands?: Readonly<Record<string, () => unknown>>;
+  onMessage?: (message: TypedMessage) => void;
+}
+interface DocumentSync {
+  readonly pushEdit: () => void;
+  readonly ready: Promise<void>; // the first init text was imported or refused
+  readonly imported: () => Promise<void>; // every import queued so far has settled
+  readonly showProblems: () => void;
+  readonly insertExample: () => void;
+  readonly post: (message: DocumentWebviewMessage | TypedMessage) => void;
+  readonly disconnect: () => void;
+}
+function connectDocumentSync(options: DocumentSyncOptions): DocumentSync;
+// re-exported from the shared protocol: DocumentHostMessage, DocumentWebviewMessage, ProblemCounts,
+// TypedMessage, isTypedMessage
+```
+
+The webview's half of [`registerModelerEditor`](#the-document-plumbing-08). It listens on `window`
+and posts `ready` at once, so a modeler connects it last, once `importText` can run (the extension's
+`init` arrives in a later task).
+
+- **Imports** run strictly one after another, in the order the texts arrived (two quick undos must
+  not import concurrently and finish in the wrong order). `importText` is the modeler's: it imports
+  the text, or leaves the canvas alone when it shows that document already (only formatting
+  differs, such as a final newline a save added: compare with `reconciledText`), and resolves to
+  `false` when the canvas refused the text, which the modeler then shows as invalid and read-only.
+  An accepted text becomes `reconciledText`; a refused one leaves it, so the next update is
+  imported again. An `importText` that throws counts as refused and is logged
+  (`@miragon/modeler-shell: import failed`). `ready` resolves once the first `init` settled.
+- **`pushEdit`**, for every change on the canvas (`onContentChanged` of the contract): nothing
+  before the first import, which the canvas does not show yet, nor while `canWrite()` is `false`
+  (the canvas shows the last valid text, and an edit would overwrite the text the user is fixing).
+  Otherwise it posts `exportText(reconciledText)` as an `edit` when it differs from
+  `reconciledText`, which it then becomes. `exportText` writes the document as the canvas shows it,
+  from the text it showed last: Wardley patches its OWM text there, keeping comments and order.
+- **The extension's other messages:** `problems` with non-negative integer counts goes to
+  `onProblems` (`shell.setProblems`), `command` runs an own entry of `commands` (never one inherited
+  from `Object.prototype`), and every other typed message but the shell's appearance goes to
+  `onMessage`.
+- `showProblems` and `insertExample` post the pill's and the empty-file hint's messages; the members
+  of `DocumentSync` are plain functions, so `collaborative.onContentChanged(sync.pushEdit)` works.
+
+```ts
+// apps/vscode/src/webview/main.ts (Wardley Maps), at its end
+const sync = connectDocumentSync({
+  api: vscode,
+  importText, // keeps viewbox, selection and an open label editor; false shows the file invalid
+  exportText: (reconciledText) => patchDSL(reconciledText, modeler.exportMap(), { previous }),
+  canWrite: () => !shell.isReadOnly(),
+  onProblems: (counts) => shell.setProblems(counts),
+  commands: COMMANDS, // fitView and the exports
+});
+collaborative.onContentChanged(sync.pushEdit);
+```
 
 ## `./export`: PNG export (0.7)
 
@@ -2877,6 +3207,95 @@ The harness opens it with ``page.goto(`/webview-test.html?${vsCodeStubSearch(req
 for `window.webviewReady`. `ready`, `webviewReady` and the window globals are the modeler's, not the
 shell's: its webview module exports `ready`, resolved once the first `init` import settled, and the
 test page turns it into the flag (the Event Storming `main.ts` below exports it).
+
+#### The extension host's documents (0.8)
+
+```ts
+interface VsCodeWebviewStubOptions {
+  // … as above, and:
+  onPostMessage?: (message: unknown) => void; // what the webview posts, in a later task
+}
+
+type EndOfLine = "\n" | "\r\n";
+interface StubTextDocument extends TextDocumentLike {
+  readonly uri: UriLike;
+  readonly eol: EndOfLine;
+  readOnly: boolean; // VS Code refuses every edit
+}
+interface StubTextEdit {
+  readonly uri: UriLike;
+  readonly range: RangeLike;
+  readonly text: string;
+}
+interface StubWebviewPanel extends EditorWebviewPanelLike {
+  readonly webview: WebviewLike;
+  readonly posted: readonly unknown[]; // what the extension posted
+  receive(message: unknown): Promise<void>; // the webview posts; settles with the listeners
+  readonly revealed: readonly {
+    readonly viewColumn: number | undefined;
+    readonly preserveFocus: boolean;
+  }[]; // every reveal the extension called
+  setActive(active: boolean): void;
+  setVisible(visible: boolean): void;
+  dispose(): void;
+}
+interface OpenCustomEditorOptions {
+  active?: boolean; // default true
+  deliver?: (message: unknown) => void; // where the extension's messages go besides posted
+}
+interface VsCodeHostStub {
+  readonly vscode: VsCodeEditorLike;
+  readonly extensionUri: UriLike;
+  openTextDocument(path: string, text: string, options?: { eol?: EndOfLine }): StubTextDocument;
+  openCustomEditor(
+    viewType: string,
+    document: StubTextDocument,
+    options?: OpenCustomEditorOptions,
+  ): Promise<StubWebviewPanel>;
+  replaceText(document: StubTextDocument, text: string): void; // the text editor, Git
+  undo(document: StubTextDocument): boolean;
+  redo(document: StubTextDocument): boolean;
+  save(document: StubTextDocument): void; // a change event without content changes
+  holdEdits(): () => void; // applyEdit waits until the returned function runs
+  readonly appliedEdits: readonly StubTextEdit[];
+  readonly executedCommands: ReadonlyArray<{ command: string; args: readonly unknown[] }>;
+  readonly notifications: ReadonlyArray<{ severity: "info" | "error"; message: string }>;
+  setColorThemeKind(kind: number): void;
+}
+function createVsCodeHostStub(): VsCodeHostStub;
+```
+
+`createVsCodeHostStub` stands in for the extension host's `vscode` as `registerModelerEditor` uses
+it, DOM-free, so it runs in a unit test and in a webview test page alike. Its documents have VS
+Code's line semantics: a document keeps the line break its text uses first (or `eol`) and writes
+every inserted `\n` as it; every applied edit and every `replaceText` is one undo step, `redo`
+follows `undo`; each change fires one change event with one content change, `save` one without. A
+read-only document refuses edits, `applyEdit` rejects an edit built with another `WorkspaceEdit`,
+and `holdEdits` keeps edits back as VS Code applies them later than the extension asks.
+`openCustomEditor` calls the provider registered last for the view type with a new panel, whose
+`receive` delivers a message of the webview and settles once the listeners' promises did.
+
+A webview test page runs both halves with it: the extension's half first, its panel delivering to
+the window, then the webview stub with `onPostMessage` delivering to the panel, then the webview:
+
+```ts
+// e2e/webview/webview-test.ts (Wardley Maps, with ?host)
+const host = createVsCodeHostStub();
+registerModelerEditor(host.vscode, { extensionUri: host.extensionUri }, MAP_EDITOR_OPTIONS);
+const document = host.openTextDocument("/tea-shop.wmap", EXAMPLE_MAP);
+const panel = await host.openCustomEditor("wardley.mapEditor", document, {
+  deliver: (message) => window.postMessage(message, "*"),
+});
+installVsCodeWebviewStub({
+  ...stubOptionsFromSearch(location.search),
+  themes: ["light"],
+  onPostMessage: (message) => void panel.receive(message),
+});
+await import("../../apps/vscode/src/webview/main.js"); // posts ready, gets init from the host
+```
+
+A test then moves an element and reads the document (`document.getText()`, `host.appliedEdits`),
+or changes the document (`host.replaceText`, `host.undo`) and reads the canvas.
 
 ### `./testing/webview-bundle`: the production bundle under the webview CSP (0.6)
 
@@ -3988,17 +4407,15 @@ Storming board." and keeps the board. `pickFile` opens the hidden file input wit
 element order (the importer stacks overlapping stickies by it). The web app's own `style.css`,
 `toast.ts` and the hand-written menu, zoom, fit and legal markup go away.
 
-## Out of scope for 0.7
+## Out of scope for 0.8
 
 Later candidates unless noted:
 
-- **VS Code document plumbing**: two-way sync with echo suppression, minimal `WorkspaceEdit`s,
-  undo/redo through the document's history, "Insert example" as one edit, diagnostics to the
-  Problems view (the pill only means something with a `DiagnosticCollection`), shared webview→host
-  messages for the pill ("Show in Problems view") and "Insert example" with their host handlers,
-  export save dialog. The modelers keep their own code; the shell keeps diagram-js's
-  `KeyboardBindings` off undo/redo in the IDE host, stops undo/redo keys in text fields and stops
-  keys the canvas handled.
+- **More of the VS Code document plumbing** (0.8 has the sync, the minimal edits, the undo through
+  the document, "Insert example" and the pill; Wardley Maps uses it, the other four modelers follow
+  one by one, [#46](https://github.com/Miragon/modeler-suite/issues/46)): the export's save dialog
+  and notification, the "New … from Example" command, and binary custom editors such as Team
+  Topologies' and Context Maps' PNG editors. The modelers keep their own code for these.
 - An ES-module webview bundle (`renderWebviewHtml` writes a classic script; a `scriptType` option).
 - **More of the web column**: further top-right actions left of the primary action (§5.7), the
   loading state (§9 "Laden": spinner or skeleton during asynchronous work), share-link helpers

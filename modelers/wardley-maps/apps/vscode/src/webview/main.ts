@@ -30,16 +30,13 @@ import {
   type DiagramJsConnection,
 } from "@miragon/modeler-shell/diagram-js";
 import {
+  connectDocumentSync,
   mountVsCodeShell,
   persistView,
   readShellState,
+  type DocumentImportContext,
 } from "@miragon/modeler-shell/vscode/webview";
-import {
-  isWebviewCommand,
-  type HostToWebview,
-  type WebviewCommand,
-  type WebviewToHost,
-} from "../protocol.js";
+import type { WebviewCommand, WebviewToHost } from "../protocol.js";
 import { GEIST_FACES } from "./geist-faces.js";
 import { PNG_EXPORT_FAILED, pngExportMessage, type PngFormat } from "./png-export.js";
 
@@ -118,11 +115,9 @@ persistView(vscode, viewport);
 // Two-way sync with the document
 // ---------------------------------------------------------------------------
 
-let lastText = ""; // text last reconciled with the host
-// The modeler's map lastText was written from: the modeler keeps the ids of its last import while
-// a re-read of lastText derives them from the current names, so this pairs the two.
+// The modeler's map the reconciled text was written from: the modeler keeps the ids of its last
+// import while a re-read of the text derives them from the current names, so this pairs the two.
 let lastMap: WardleyMap | undefined;
-let initialized = false;
 
 function post(message: WebviewToHost): void {
   vscode.postMessage(message);
@@ -156,18 +151,21 @@ function showInvalidMap(): void {
  * that describes the map the canvas already shows (only whitespace/EOL differ, e.g.
  * `insertFinalNewline` on save) is not re-imported at all.
  */
-async function importText(text: string): Promise<void> {
-  const first = !initialized;
-  if (!first && (sameMapText(text, lastText) || sameMapText(text, collaborative.exportText()))) {
-    lastText = text;
+async function importText(
+  text: string,
+  { first, reconciledText }: DocumentImportContext,
+): Promise<boolean> {
+  if (
+    !first &&
+    (sameMapText(text, reconciledText) || sameMapText(text, collaborative.exportText()))
+  ) {
     showValidMap();
-    return;
+    return true;
   }
   const keep = first ? undefined : viewport.getViewbox();
   const wasEmpty = isEmpty();
   try {
     await collaborative.importText(text);
-    lastText = text;
     lastMap = modeler.exportMap();
     showValidMap();
     if (keep) viewport.restore(keep);
@@ -179,40 +177,24 @@ async function importText(text: string): Promise<void> {
       viewport.fit({ animate: false });
     }
     shell.menu.refresh();
+    return true;
   } catch {
     showInvalidMap();
-  } finally {
-    initialized = true;
+    return false;
   }
 }
 
-// Strictly serialized: init/update arrive as un-awaited messages, and two quick updates (several
-// undos) must not import concurrently and finish in the wrong order.
-let importChain: Promise<void> = Promise.resolve();
-function enqueueImport(text: string): Promise<void> {
-  importChain = importChain
-    .then(() => importText(text))
-    .catch((error: unknown) => console.error("Wardley map import failed", error));
-  return importChain;
-}
-
 /**
- * Graphical change -> write it into the last known text, keeping comments, blank lines, statement
- * order and number formatting of everything the change did not touch.
+ * The map written into the text it was last reconciled with, keeping comments, blank lines,
+ * statement order and number formatting of everything the change did not touch.
  */
-function pushEdit(): void {
-  // Before the first import the canvas does not show the document yet; read-only: it shows the
-  // last valid map. Either way an edit would overwrite text the canvas never saw.
-  if (!initialized || shell.isReadOnly()) return;
+function exportText(reconciledText: string): string {
   const map = modeler.exportMap();
-  const text = patchDSL(lastText, map, lastMap ? { previous: lastMap } : {});
+  const text = patchDSL(reconciledText, map, lastMap ? { previous: lastMap } : {});
   lastMap = map;
-  if (text === lastText) return;
-  lastText = text;
-  post({ type: "edit", text });
+  return text;
 }
 
-collaborative.onContentChanged(pushEdit);
 // The menu reads the map (size, labels): refresh after every change, undo and redo included.
 modeler.on("commandStack.changed", () => shell.menu.refresh());
 modeler.on("wardley.label.deduplicated", (event: LabelDeduplicatedEvent) => {
@@ -254,7 +236,7 @@ const exportPng = (): Promise<void> => exportRaster("png");
 const exportPngTransparent = (): Promise<void> => exportRaster("png-transparent");
 
 // ---------------------------------------------------------------------------
-// Messages from the extension host
+// The extension host: init, updates, problems and commands in; ready and edits out
 // ---------------------------------------------------------------------------
 
 const COMMANDS: Readonly<Record<WebviewCommand, () => void>> = {
@@ -264,41 +246,17 @@ const COMMANDS: Readonly<Record<WebviewCommand, () => void>> = {
   exportPngTransparent: () => void exportPngTransparent(),
 };
 
-function isHostMessage(data: unknown): data is HostToWebview {
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    typeof (data as { type?: unknown }).type === "string"
-  );
-}
-
-let firstImportSettled: () => void = () => undefined;
-const ready = new Promise<void>((resolve) => (firstImportSettled = resolve));
-
-window.addEventListener("message", (event: MessageEvent<unknown>) => {
-  if (!isHostMessage(event.data)) return;
-  const message = event.data;
-  switch (message.type) {
-    case "init":
-      void enqueueImport(message.text).then(firstImportSettled);
-      break;
-    case "update":
-      void enqueueImport(message.text);
-      break;
-    case "problems":
-      shell.setProblems({ count: message.count, errors: message.errors });
-      break;
-    case "command":
-      // Checked against COMMANDS itself, so a name such as "constructor" never reaches
-      // Object.prototype even if the protocol's list and COMMANDS drift apart.
-      if (isWebviewCommand(message.name) && Object.hasOwn(COMMANDS, message.name)) {
-        COMMANDS[message.name]();
-      }
-      break;
-  }
+// Before the first import the canvas does not show the document yet; read-only, it shows the last
+// valid map. Either way an edit would overwrite text the canvas never saw, so the sync writes none.
+const sync = connectDocumentSync({
+  api: vscode,
+  importText,
+  exportText,
+  canWrite: () => !shell.isReadOnly(),
+  onProblems: (counts) => shell.setProblems(counts),
+  commands: COMMANDS,
 });
-
-post({ type: "ready" });
+collaborative.onContentChanged(sync.pushEdit);
 
 /** For test pages: the mounted parts, and `ready` once the first `init` import settled. */
 export const webview: {
@@ -306,4 +264,4 @@ export const webview: {
   modeler: CollaborativeWardleyModeler;
   connection: DiagramJsConnection;
   ready: Promise<void>;
-} = { shell, modeler: collaborative, connection, ready };
+} = { shell, modeler: collaborative, connection, ready: sync.ready };

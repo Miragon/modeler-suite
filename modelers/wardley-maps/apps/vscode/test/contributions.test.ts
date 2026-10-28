@@ -2,15 +2,21 @@ import { beforeEach, describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { parseDSL, patchDSL, serializeDSL } from "@miragon/wardley-dsl";
 import { commands, vscodeMock, Uri, ViewColumn, window } from "./__mocks__/vscode";
-import { WardleyEditorProvider } from "../src/WardleyEditorProvider.js";
+import { MAP_VIEW_TYPE } from "../src/mapEditor.js";
 import {
   registerEditorCommands,
   SHOW_DIAGRAM_COMMAND,
   SHOW_SOURCE_COMMAND,
 } from "../src/commands.js";
-import { isWebviewCommand, WEBVIEW_COMMANDS } from "../src/protocol.js";
+import { WEBVIEW_COMMANDS } from "../src/protocol.js";
 import { EMPTY_MAP, EXAMPLE_MAP } from "../src/examples.js";
-import { asTextDocument, fakeContext, fakeDocument, fakeToken, fakeWebviewPanel } from "./fakes.js";
+import {
+  asTextDocument,
+  fakeDocument,
+  fakeToken,
+  fakeWebviewPanel,
+  registerMapEditorForTest,
+} from "./fakes.js";
 
 const appRoot = new URL("../", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, appRoot), "utf8");
@@ -28,22 +34,13 @@ const manifest = JSON.parse(read("package.json")) as Manifest;
 
 beforeEach(() => vscodeMock.reset());
 
-describe("protocol", () => {
-  it("recognises exactly the webview commands", () => {
-    for (const name of Object.keys(WEBVIEW_COMMANDS)) expect(isWebviewCommand(name)).toBe(true);
-    expect(isWebviewCommand("toString")).toBe(false);
-    expect(isWebviewCommand("deleteEverything")).toBe(false);
-    expect(isWebviewCommand(42)).toBe(false);
-  });
-});
-
 describe("commands", () => {
   async function openDiagram(path: string) {
-    const { provider } = WardleyEditorProvider.register(fakeContext);
+    const { editors, provider } = registerMapEditorForTest();
     const panel = fakeWebviewPanel();
     const doc = fakeDocument(path, "title A\n");
     await provider.resolveCustomTextEditor(asTextDocument(doc), panel.panel, fakeToken);
-    registerEditorCommands(provider);
+    registerEditorCommands(editors);
     return { provider, panel, doc };
   }
 
@@ -86,7 +83,7 @@ describe("commands", () => {
     const openWith = vscodeMock.executedCommands().filter((c) => c.command === "vscode.openWith");
     expect(openWith.map((c) => [String(c.args[0]), c.args[1], c.args[2]])).toEqual([
       [doc.uri.toString(), "default", ViewColumn.Beside],
-      ["file:/b.owm", WardleyEditorProvider.viewType, ViewColumn.Beside],
+      ["file:/b.owm", MAP_VIEW_TYPE, ViewColumn.Beside],
     ]);
   });
 });

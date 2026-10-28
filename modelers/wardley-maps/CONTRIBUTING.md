@@ -42,7 +42,11 @@ run:
 - `vscode-webview`: the VS Code webview (`apps/vscode/src/webview/main.ts`) inside the VS Code
   stub of `@miragon/modeler-shell`, served by the test page in `e2e/webview/` (Vite on
   `E2E_WEBVIEW_PORT`, default `5190`). It runs the shell's conformance kit, whose `csp` case walks
-  the production bundle behind the webview CSP, and the webview's side of the host protocol.
+  the production bundle behind the webview CSP, and the webview's side of the host protocol. With
+  `?host` the page runs the extension's document plumbing too (`registerModelerEditor` with
+  `MAP_EDITOR_OPTIONS`) against the shell's stand-in for VS Code's documents, so
+  `document-sync.spec.ts` moves a component and reads the document, and changes or undoes the
+  document and reads the canvas.
 - `webapp-webkit`: the web app in Safari's engine, on the `webapp` server, with two specs only.
   `webapp-share.spec.ts` checks that Share calls `clipboard.write` while the click is dispatched,
   with a ClipboardItem whose value is a promise (Safari drops the user activation at the first
