@@ -59,8 +59,10 @@ project (`e2e/tests/webapp-shell-conformance.spec.ts`).
   plain Vite on `:5180`. · `npm run wardley-maps dev:vscode`
 - `npm run wardley-maps test`: Vitest · `npm run wardley-maps test:browser`: Vitest browser mode ·
   `npm run wardley-maps typecheck` · `npm run wardley-maps lint` (ESLint + typecheck)
-- `npm run wardley-maps test:e2e`: Playwright, two projects: `webapp` and `vscode-webview` (ports
-  `E2E_PORT`, default 5180, and `E2E_WEBVIEW_PORT`, default 5190)
+- `npm run wardley-maps test:e2e`: Playwright, projects `webapp` and `vscode-webview` (ports
+  `E2E_PORT`, default 5180, and `E2E_WEBVIEW_PORT`, default 5190), and `webapp-webkit` with the
+  web app's Share and focus hand-back specs in WebKit (`npx playwright install chromium webkit`
+  once)
 - `npm run wardley-maps test:vscode`: the `vscode` Vitest project
   ([`apps/vscode/test/smoke/`](apps/vscode/test/smoke/)): packs the extension like the release
   (`vsce package`, so `vscode:prepublish`), unpacks the VSIX outside the repo and runs

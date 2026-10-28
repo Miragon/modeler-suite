@@ -5,6 +5,7 @@ import { encodeMapCompressed } from "../../apps/webapp/src/share.js";
 import { FIT_TOLERANCE, LONG_NAME_DRAWING, LONG_NAME_MAP, overhang } from "./support/fit.js";
 import {
   canvasSlot,
+  closeDialog,
   createComponentAt,
   exportDSL,
   exportMap,
@@ -92,21 +93,6 @@ function fileInput(page: Page) {
 
 function textDialog(page: Page, mode: "dsl" | "json" | "share") {
   return page.locator(`dialog.text-dialog-${mode}`);
-}
-
-/**
- * Closes a map dialog and waits for its close event: the dialog hands the focus back to the menu
- * trigger there, in a task of its own that can run after a focus the test moves at once.
- */
-async function closeDialog(dialog: Locator, close: () => Promise<void>): Promise<void> {
-  type Watched = HTMLElement & { closed?: Promise<void> };
-  await dialog.evaluate((element: Watched) => {
-    element.closed = new Promise<void>((resolve) =>
-      element.addEventListener("close", () => resolve(), { once: true }),
-    );
-  });
-  await close();
-  await dialog.evaluate((element: Watched) => element.closed);
 }
 
 async function menuLayout(page: Page): Promise<Array<string | null>> {

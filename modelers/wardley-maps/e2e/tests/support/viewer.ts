@@ -92,6 +92,21 @@ export async function menuEntry(page: Page, id: string): Promise<void> {
   await (await openMenu(page)).locator(`[data-menu-id="${id}"]`).click();
 }
 
+/**
+ * Closes a map dialog and waits for its close event: the dialog hands the focus back to the menu
+ * trigger there, in a task of its own that can run after a focus the test moves at once.
+ */
+export async function closeDialog(dialog: Locator, close: () => Promise<void>): Promise<void> {
+  type Watched = HTMLElement & { closed?: Promise<void> };
+  await dialog.evaluate((element: Watched) => {
+    element.closed = new Promise<void>((resolve) =>
+      element.addEventListener("close", () => resolve(), { once: true }),
+    );
+  });
+  await close();
+  await dialog.evaluate((element: Watched) => element.closed);
+}
+
 /** The shell's canvas slot: diagram-js's container. */
 export function canvasSlot(page: Page): Locator {
   return page.locator(".cd-shell-canvas");
@@ -128,6 +143,25 @@ async function diagramPoint(page: Page, x: number, y: number): Promise<Point> {
     x: box.x + (x - viewbox.x) * viewbox.scale,
     y: box.y + (y - viewbox.y) * viewbox.scale,
   };
+}
+
+/**
+ * Absolute page coordinate of a map position (visibility and evolution from 0 to 1), for the
+ * current viewbox, so a spot stays on the same place of the map whatever the zoom.
+ */
+export async function mapPositionPoint(
+  page: Page,
+  position: { visibility: number; evolution: number },
+): Promise<Point> {
+  const diagram = await page.evaluate((coordinate) => {
+    const viewer = window.__wardleyViewer as unknown as {
+      get(name: "evolutionGrid"): {
+        toCanvas(value: { visibility: number; evolution: number }): Point;
+      };
+    };
+    return viewer.get("evolutionGrid").toCanvas(coordinate);
+  }, position);
+  return diagramPoint(page, diagram.x, diagram.y);
 }
 
 /**
