@@ -2,7 +2,7 @@ import {
   installVsCodeWebviewStub,
   stubOptionsFromSearch,
 } from '@miragon/modeler-shell/testing/vscode-stub';
-import { EXAMPLE_DIAGRAM } from '../../apps/vscode/src/examples.js';
+import { EMPTY_DIAGRAM, EXAMPLE_DIAGRAM } from '../../apps/vscode/src/examples.js';
 import { WEBVIEW_THEMES } from '../../apps/vscode/src/themes.js';
 
 // The stub stands in for VS Code (default styles, <html> as renderWebviewHtml writes it, the
@@ -19,5 +19,13 @@ void webview.ready.then(() => {
   window.webviewReady = true;
 });
 
-// There is no extension host: post the document the way the extension would.
-window.postMessage({ type: 'init', text: EXAMPLE_DIAGRAM }, '*');
+// There is no extension host: post the document the way the extension would. `?doc=empty` is
+// EMPTY_DIAGRAM, the file the "New Empty Diagram" command writes, `?doc=blank` a file of zero
+// bytes.
+const DOCUMENTS: Record<string, string> = {
+  example: EXAMPLE_DIAGRAM,
+  empty: EMPTY_DIAGRAM,
+  blank: '',
+};
+const documentKey = new URLSearchParams(location.search).get('doc') ?? 'example';
+window.postMessage({ type: 'init', text: DOCUMENTS[documentKey] ?? EXAMPLE_DIAGRAM }, '*');

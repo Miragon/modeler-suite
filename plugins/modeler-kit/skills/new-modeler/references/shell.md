@@ -137,29 +137,30 @@ colours, the canvas's overlay layers, the production webview bundle under the we
 column and a clean `destroy`.
 
 - `ide`: a Vite test page runs the webview's `main.ts` inside `installVsCodeWebviewStub` (with
-  `stubOptionsFromSearch`), opened with `vsCodeStubSearch(requested)`; the page, not the bundle,
-  publishes the handles on `window`. `show.invalid` posts an update the renderer rejects.
+  `stubOptionsFromSearch`), opened with `vsCodeStubSearch(requested)` and a `doc` key for the
+  document it posts in `init`; the page, not the bundle, publishes the handles on `window`.
+  `show.invalid` posts an update the renderer rejects.
 - `web`: the app's own page with its link format. A navigation that only changes the fragment keeps
   the page, so `open` waits for the diagram, not just for the app. With a legend, `open` goes to
   `about:blank` first: the kit's case for the legend's start state (modeler-shell 0.4.0 or later)
   opens at several sizes, each time as a first visit, and fails an `open` that keeps the page.
-- `documents` (a modeler-shell release after 0.5.0): the empty documents `open` loads by key, the
+- `documents` (modeler-shell 0.6.0 or later): the empty documents `open` loads by key, the
   `document` of its context. In VS Code `["empty", "blank"]`, which the test page posts as the file
-  the "New Empty Diagram" command writes and as a file of zero bytes; on the web `["empty"]`, which
-  `open` reaches through `about:blank`, the app's `/` and the start screen's "New diagram". The
-  kit's empty-file case expects 100 % (or a plot that always counts, fitted on open), the empty-file
-  hint in the middle of the free rectangle (on the web without "Insert example"), no invalid-file
-  state, the hint gone with the first element and back once it is deleted, and on the web the same
-  after File > New diagram on a document; the appearance case runs on those documents too. The
-  template lets that case's skip pass until its modeler-shell pin reaches that release, then feeds
-  `documents`.
+  the "New Empty Diagram" command writes (`?doc=empty`) and as a file of zero bytes
+  (`?doc=blank`); on the web `["empty"]`, which `open` reaches through `about:blank`, the app's `/`
+  and the start screen's "New diagram". The kit's empty-file case expects 100 % (or a plot that
+  always counts, fitted on open), the empty-file hint in the middle of the free rectangle (on the
+  web without "Insert example"), no invalid-file state, the hint gone with the first element and
+  back once it is deleted, and on the web the same after File > New diagram on a document; the
+  appearance case runs on those documents too. Without them the case skips with
+  `hook: "documents"`, and `onSkip` fails the run.
 - `labelEditor` (modeler-shell 0.4.0 or later): `open` double-clicks a node and types a new text on
   every call, `documentChanged` compares `modeler.exportText()` with the text at `open` (template:
   [`label-editor.ts`](../assets/template/e2e/tests/support/label-editor.ts)). The kit then zooms,
   fits and resizes through the shell and expects no commit (L5) and the typed text still in the
   editor (L5 recommends it, the shell kit requires it), so the label editor stays open across a view
   change, follows its element and commits only on the user's gestures.
-- Reduced motion, forced colours and the overlay layers (a modeler-shell release after 0.5.0) need no
+- Reduced motion, forced colours and the overlay layers (modeler-shell 0.6.0 or later) need no
   harness field: the kit emulates both media features itself and clicks every context-pad entry of
   each kind of shape and connection but a deleting one. So keep what stays on the canvas (a
   toolbar, a prompt, the label editor) at `z-index` 100 or below and close a popup above the
@@ -174,18 +175,19 @@ column and a clean `destroy`.
 - `absent` lists what the modeler lacks, and `onSkip` throws: every other skip is a gap. In VS Code
   a menu without a Model action (no File group there) adds `absent: ["canvasMenuAction"]`
   (modeler-shell 0.4.0 or later).
-- `csp` (a modeler-shell release after 0.5.0, `ide` only): its `open` builds `apps/vscode` for
-  production once per worker (`node esbuild.config.mjs --production`), opens `dist` with
-  `openWebviewBundle` from `@miragon/modeler-shell/testing/webview-bundle` (the document and CSP of
+- `csp` (modeler-shell 0.6.0 or later, `ide` only): its `open` builds `apps/vscode` for production
+  once per worker (`node esbuild.config.mjs --production`), opens `dist` with `openWebviewBundle`
+  from `@miragon/modeler-shell/testing/webview-bundle` (the document and CSP of
   `renderWebviewHtml` with what the extension passes it, the VS Code stub ahead of the policy) and
-  posts the example's `init` once the webview posted `ready`. The kit then walks the bundle (a
-  tooltip, a shape's context pad and label editor, every menu entry that is not destructive, zoom
-  and Fit) and fails on any CSP violation, uncaught error, failed load or console error, on a
-  policy other than `renderWebviewHtml`'s, on a Geist font that loads no face, comes from a `data:`
-  URL or has a subset without `unicode-range`, on any font face whose file failed to load, and on a
-  palette or menu the walk cannot reach. The case replaces the smoke test of the production bundle. The template keeps that test
-  ([`webview-bundle.spec.ts`](../assets/template/e2e/tests/vscode/webview-bundle.spec.ts)) and lets
-  the `csp` skip pass until its modeler-shell pin reaches that release, then moves to the case.
+  posts the example's `init` once the webview posted `ready` (template:
+  [`shell-conformance.spec.ts`](../assets/template/e2e/tests/vscode/shell-conformance.spec.ts)).
+  The kit then walks the bundle (a tooltip, a shape's context pad and label editor, every menu
+  entry that is not destructive, zoom and Fit) and fails on any CSP violation, uncaught error,
+  failed load or console error, on a policy other than `renderWebviewHtml`'s, on a Geist font that
+  loads no face, comes from a `data:` URL or has a subset without `unicode-range`, on any font face
+  whose file failed to load, and on a palette or menu the walk cannot reach. The case replaces a
+  spec of its own for the production bundle under the CSP: a modeler that has one deletes it with
+  the upgrade to 0.6.0.
 - A unit test pins the shell's sizes (`SHELL`) against the vendored `shell` token group with
   `shellSizesFromTokens` and `SHELL_TOKENS`
   ([`tokens.sync.test.ts`](../assets/template/apps/vscode/test/tokens.sync.test.ts)).
