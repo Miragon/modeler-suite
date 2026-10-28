@@ -44,6 +44,7 @@ consumer is the Event Storming modeler, in VS Code (0.1) and in its web app (0.2
 | `@miragon/modeler-shell/diagram-js`              | `shellModule`, viewport, `connectDiagramJs`                                                                            | yes                            |
 | `@miragon/modeler-shell/vscode/extension`        | webview HTML, nonce, theme bridge (extension host)                                                                     | no                             |
 | `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state                                                                  | yes                            |
+| `@miragon/modeler-shell/export`                  | the PNG export: `svgToPng` with Geist inside the SVG (0.7)                                                             | yes (at call time)             |
 | `@miragon/modeler-shell/testing`                 | Playwright-driven shell conformance kit                                                                                | runs in Node, drives a browser |
 | `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page                                                                      | yes (in the test page)         |
 | `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code (0.3)                                                         | runs in Node, drives VS Code   |
@@ -2290,6 +2291,118 @@ function persistView(
   is written from `legend.onToggle` (see the usage below).
 - The custom editor is registered with `webviewOptions: { retainContextWhenHidden: true }`: a hidden
   tab keeps document, view and selection, reports a 0 × 0 container and neither fits nor measures.
+
+## `./export`: PNG export (0.7)
+
+```ts
+interface GeistFace {
+  readonly src: string; // a data: URL, or a URL the page may fetch
+  readonly unicodeRange?: string | undefined; // none: every character
+  readonly weight?: string | undefined; // default "100 900"
+  readonly style?: string | undefined; // default "normal"
+}
+interface PngExportOptions {
+  readonly background: string; // a CSS colour, or "transparent"
+  readonly scale?: number | undefined; // default 2
+  readonly fonts?: readonly GeistFace[] | undefined; // default pageGeistFaces()
+}
+function svgToPng(svg: string, options: PngExportOptions): Promise<Blob>;
+function embedGeist(svg: string, faces?: readonly GeistFace[]): Promise<string>; // default pageGeistFaces()
+function pageGeistFaces(): GeistFace[];
+const GEIST_UNICODE_RANGES: Record<
+  "cyrillicExt" | "cyrillic" | "vietnamese" | "latinExt" | "latin",
+  string
+>; // of @fontsource-variable/geist 5.3.0, in its order
+```
+
+"Export as PNG" and "Export as PNG (4×, transparent)" (§10.7) for every modeler and every host: a
+renderer's standalone SVG (`saveSVG()`) becomes a PNG `Blob`, its labels in Geist. DOM at call time
+(`Image`, `<canvas>`, `DOMParser`, `CSS.supports`, `fetch` for faces given by URL); importing the
+entry has no side effects. The SVG download stays as it is, without fonts: it shows Geist where the
+font is installed and the system sans elsewhere, which §4 accepts.
+
+**Background.** The caller names it, from its vendored `cd-tokens.generated.json` (`hell`); the shell
+names no colour of its own:
+
+| Export                                                                    | `background`                | Light value |
+| ------------------------------------------------------------------------- | --------------------------- | ----------- |
+| Export as PNG, Wardley Maps (a notation with a plot)                      | `hell['--cd-ui-plot']`      | `#FFFFFF`   |
+| Export as PNG, Event Storming, Team Topologies, Context Maps, Value Chain | `hell['--cd-ui-grund']`     | `#F9F7F7`   |
+| Export as PNG (4×, transparent), every modeler                            | `"transparent"`, `scale: 4` | none        |
+
+A `background` that is no CSS colour is a `RangeError` (a canvas would keep its black fill style).
+What the SVG paints itself lies on top: a sheet across the whole picture hides the background.
+
+**Size.** The PNG is the root `<svg>`'s `width` and `height` in pixels, else its `viewBox`, else
+1000 × 700, times `scale` (default 2, §10.7; 4 for the transparent variant; a scale that is no
+positive finite number is a `RangeError`). Where that passes 32,767 pixels per side or 2^27 in all,
+the scale goes down in proportion, so a huge diagram still exports at a lower density. A browser
+that refuses the canvas (no 2D context or no blob, as iOS Safari above 2^24 pixels) gets it once more
+at 2^24 pixels in all; refused again, the promise rejects.
+
+**Geist.** An SVG drawn as an image is a document of its own: the page's `@font-face` rules do not
+reach it and it loads nothing from outside, so without help its labels come out in the system sans.
+`svgToPng` (through `embedGeist`) puts into the SVG, ahead of the drawing:
+
+- a `<defs><style>` with one `@font-face` of 'Geist Variable' per face whose `unicode-range` holds a
+  character of the SVG's text (`<text>`, `<foreignObject>`), in the order given, the file inline as
+  a `data:` URL, `font-display: swap` (a face still loading shows its text in the system sans, where
+  `block` left labels out);
+- a hidden `<g>` with one `<text>` per face, set in a character that face draws and no face declared
+  after it does (of overlapping faces, the last declared draws a character), taken from the text,
+  else from the face's own range. An SVG image counts as loaded before a subset that only a later
+  character needs has loaded (designIQ saw the Ł of "Kettle from Łódź" in the system sans in
+  headless Chromium); the hidden texts make every subset load first.
+
+It loads the result through a `data:` URL, never a `blob:` URL: the MCP Apps default CSP for a widget
+(`img-src 'self' data:`) refuses `blob:` images, while the `data:` fonts inside the SVG image load
+under a strict `font-src` (designIQ checked Chromium and WebKit). It waits for `load` and then for
+`image.decode()`, since `load` can fire before an embedded font is ready. A face whose file cannot be
+read leaves the PNG in the system sans with a `console.warn` (a PNG in the system sans beats no PNG);
+an SVG that does not parse or that the browser cannot draw rejects.
+
+**Where the faces come from.** Left out, `fonts` is `pageGeistFaces()`: every `@font-face` of
+'Geist Variable' in the page's stylesheets (also inside `@media`, `@supports`, `@layer` and
+`@import`; a cross-origin sheet is skipped), in their order, each `src` resolved against its sheet,
+a face declared twice once. Every file is fetched once per page and kept as a `data:` URL; a failed
+read is tried again on the next export. A web app that loads `@fontsource-variable/geist/wght.css`
+passes nothing. `fonts: []` embeds nothing.
+
+A VS Code webview cannot fetch its own font files: `renderWebviewHtml`'s CSP has no `connect-src`
+(`default-src 'none'`), and its stylesheet keeps the fonts as files (see `./vscode/extension`). The
+webview passes `fonts` as `data:` URLs in its script instead, with the ranges of
+`GEIST_UNICODE_RANGES`, in fontsource's order, latin last. esbuild inlines just these imports with a
+small plugin that loads `?dataurl` imports with its `dataurl` loader, as Team Topologies'
+`apps/vscode/esbuild.config.mjs` does:
+
+```ts
+// web app
+import tokens from "./theme/cd-tokens.generated.json";
+import { svgToPng } from "@miragon/modeler-shell/export";
+
+const { svg } = await modeler.saveSVG();
+const png = await svgToPng(svg, { background: tokens.hell["--cd-ui-grund"] }); // Wardley Maps: --cd-ui-plot
+const forSlides = await svgToPng(svg, { background: "transparent", scale: 4 });
+```
+
+```ts
+// VS Code webview
+import latin from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?dataurl";
+import latinExt from "@fontsource-variable/geist/files/geist-latin-ext-wght-normal.woff2?dataurl";
+import { GEIST_UNICODE_RANGES, svgToPng, type GeistFace } from "@miragon/modeler-shell/export";
+
+const GEIST: GeistFace[] = [
+  { src: latinExt, unicodeRange: GEIST_UNICODE_RANGES.latinExt },
+  { src: latin, unicodeRange: GEIST_UNICODE_RANGES.latin },
+];
+const png = await svgToPng(svg, { background: tokens.hell["--cd-ui-grund"], fonts: GEIST });
+```
+
+`embedGeist(svg, faces)` is the first half on its own, for a host with a rasteriser of its own: it
+returns the SVG unchanged when no face draws a character of its text and rejects when the SVG does
+not parse or a file cannot be read. The tests (`npm run test:browser:shared`) measure a label in the
+PNG against the page's own drawing in Geist and in Geist Mono, the fallback the test SVG brings, in
+Chromium and WebKit.
 
 ## `./testing`
 

@@ -3,9 +3,9 @@
 The shared, framework-free chrome around Miragon diagram-js modelers: the menu button with its
 dropdown, the horizontal palette skin, the chrome tooltip, the zoom panel with its keys and fit, the
 problems pill, the status box, the empty-file hint, legend and inspector slots, the plumbing to a
-VS Code webview, and the web-app chrome (primary action, legal line, File and Appearance groups,
-problems list, toasts, empty-state card, drop zone, the web app's mode), and the modal dialog with
-the "Keyboard shortcuts…" dialog on it, which also opens without a mounted shell. One implementation for every modeler and every host (VS Code webview, web app,
+VS Code webview, the web-app chrome (primary action, legal line, File and Appearance groups,
+problems list, toasts, empty-state card, drop zone, the web app's mode), the modal dialog with the
+"Keyboard shortcuts…" dialog on it, which also opens without a mounted shell, and the PNG export. One implementation for every modeler and every host (VS Code webview, web app,
 embedded in a foreign page), so the chrome looks and behaves the same everywhere.
 
 - **Look and behaviour** follow the Miragon design system, guide
@@ -79,6 +79,7 @@ expect(Object.keys(vendoredTokens.shell)).toEqual(
 | `@miragon/modeler-shell/diagram-js`              | `shellModule`, the viewport, `connectDiagramJs`              |
 | `@miragon/modeler-shell/vscode/extension`        | webview HTML with CSP and nonce, theme bridge                |
 | `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state        |
+| `@miragon/modeler-shell/export`                  | the PNG export: `svgToPng`, its labels in Geist              |
 | `@miragon/modeler-shell/testing`                 | the Playwright-driven shell conformance kit                  |
 | `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page            |
 | `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code     |

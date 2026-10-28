@@ -8,6 +8,7 @@ export default defineConfig([
       "diagram-js": "src/diagram-js.ts",
       "vscode-extension": "src/vscode-extension.ts",
       "vscode-webview": "src/vscode-webview.ts",
+      export: "src/export.ts",
       testing: "src/testing.ts",
       "testing-vscode-stub": "src/testing-vscode-stub.ts",
       "testing-vscode-electron": "src/testing-vscode-electron.ts",

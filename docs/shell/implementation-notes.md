@@ -199,6 +199,28 @@ The extension owns file, document, history and mode; the webview shows canvas an
   through `vscode.setState` under `modelerShell`, written 250 ms after the view rests; a stored view
   wins over the first fit.
 
+## PNG export
+
+`svgToPng` of `./export` draws a renderer's standalone SVG on a canvas (guide §10.7: 2×, the
+notation's light background, no grid).
+
+- **An SVG image is a document of its own.** The page's `@font-face` rules do not reach it and it
+  loads nothing from outside, so Geist goes into the SVG with its files as `data:` URLs, only the
+  subsets the text uses.
+- **One hidden text per subset.** An SVG image counts as loaded before a subset that only a later
+  character needs has loaded (designIQ, headless Chromium: the Ł of "Kettle from Łódź" in the system
+  sans). A hidden text up front, in a character only that subset draws, loads every subset first.
+  `font-display: swap`, since `block` lost every label once.
+- **`data:`, not `blob:`.** A widget's CSP (MCP Apps: `img-src 'self' data:`) refuses `blob:`
+  images. Then `image.decode()` after `load`, which can fire before an embedded font is ready.
+- **VS Code cannot fetch its fonts.** The webview CSP has no `connect-src`, so the webview passes its
+  Geist files to `svgToPng` as `data:` URLs from its script; the stylesheet keeps them as files.
+- **Measure against a far fallback.** The tests compare a label's ink width in the PNG with the
+  page's own drawing in Geist and in a fallback. On Linux the system sans and monospace came within
+  a few pixels of Geist for some labels, and the canvas and an SVG image round glyph positions
+  differently, so the test SVG brings Geist Mono as its fallback and the PNG has to be far nearer
+  Geist than Geist Mono.
+
 ## VS Code: smoke tests in a real VS Code
 
 The stub in `./testing/vscode-stub` reproduces VS Code's webview; `./testing/vscode-electron` checks

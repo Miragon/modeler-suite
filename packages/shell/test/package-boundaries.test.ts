@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const packageDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDir = join(packageDir, "src");
-const modules = ["core", "dom", "diagram-js", "vscode", "testing"] as const;
+const modules = ["core", "dom", "diagram-js", "vscode", "export", "testing"] as const;
 
 function filesUnder(directory: string, extension: string): string[] {
   return readdirSync(directory).flatMap((name) => {
