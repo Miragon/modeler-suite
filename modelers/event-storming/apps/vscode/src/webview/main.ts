@@ -51,6 +51,8 @@ interface SelectionLike {
 
 const BOARD_NAME = "Event Storming board";
 const PNG_EXPORT_FAILED = "Couldn't export the board as PNG. Try again, or export it as SVG.";
+const SVG_EXPORT_FAILED = "Couldn't export the board as SVG. Try again.";
+const JSON_EXPORT_FAILED = "Couldn't export the board as JSON. Try again.";
 
 const vscode = acquireVsCodeApi();
 const storedShellState = readShellState(vscode);
@@ -207,10 +209,6 @@ modeler.on("commandStack.changed", () => shell.menu.refresh());
 // Export (the webview serializes and, via the shell, rasterizes; the host shows the save dialog)
 // ---------------------------------------------------------------------------
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /** The picture shows the board, not the current selection outlines. */
 async function withoutSelection<T>(task: () => Promise<T>): Promise<T> {
   const ids = selectedIds();
@@ -227,7 +225,8 @@ async function exportSvg(): Promise<void> {
     const { svg } = await withoutSelection(() => modeler.saveSVG());
     post({ type: "export", format: "svg", data: svg });
   } catch (error) {
-    post({ type: "error", message: `Could not export the board as SVG: ${messageOf(error)}` });
+    console.error("[event-storming-export]", error);
+    post({ type: "error", message: SVG_EXPORT_FAILED });
   }
 }
 
@@ -253,7 +252,8 @@ function exportJson(): void {
   try {
     post({ type: "export", format: "json", data: JSON.stringify(modeler.exportMap(), null, 2) });
   } catch (error) {
-    post({ type: "error", message: `Could not export the board as JSON: ${messageOf(error)}` });
+    console.error("[event-storming-export]", error);
+    post({ type: "error", message: JSON_EXPORT_FAILED });
   }
 }
 

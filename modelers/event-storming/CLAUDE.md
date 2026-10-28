@@ -216,10 +216,11 @@ inlines (the e2e webview page has the same plugin in its Vite config, and
 `scripts/third-party-notices.mjs` builds from the config's `host` and `web` options). A fallback
 travels to the extension host as `fontFallback` on the `export` message, and the host warns in a
 notification after it saved the file. A rejection shows the app's own words ("Couldn't export the
-board as PNG. Try again, or export it as SVG."), never the shell's `error.message`. The
-VSIX ships `apps/vscode/THIRD_PARTY_NOTICES.md`, generated from the bundles
-(`npm run notices -w modelers/event-storming/apps/vscode`; a unit test fails when it is stale); the
-web bundle keeps the shell's Lucide/Feather legal comment.
+board as PNG. Try again, or export it as SVG."), never the shell's `error.message`; the webview's
+SVG and JSON exports do the same ("Couldn't export the board as SVG. Try again.") and log the
+error to the console. The VSIX ships `apps/vscode/THIRD_PARTY_NOTICES.md`, generated from the
+bundles (`npm run notices -w modelers/event-storming/apps/vscode`; a unit test fails when it is
+stale); the web bundle keeps the shell's Lucide/Feather legal comment.
 
 Reference implementation in this modeler: tokens
 [`packages/renderer/src/theme/palette.ts`](packages/renderer/src/theme/palette.ts) · canvas
