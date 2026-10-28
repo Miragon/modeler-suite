@@ -17,17 +17,21 @@ defaults:
   run:
     shell: bash
 
-# No run is cancelled: a label added while a smoke runs starts another run of this workflow, which
-# must not stop the first.
-concurrency:
-  group: template-vscode-smoke-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: false
-
 jobs:
   # No name: one with the matrix in it shows on a pull request without the label, where the job is
-  # skipped, as the unexpanded expression.
+  # skipped, as the unexpanded expression. A labeled event lists every label of the pull request, so
+  # the job checks which one was added: another label would smoke the same commit again.
   template-vscode-smoke:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'template-vscode-smoke')
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (contains(github.event.pull_request.labels.*.name, 'template-vscode-smoke') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'template-vscode-smoke'))
+    # On the job, not the workflow: a run whose job is skipped then never joins the group, where it
+    # would push out the pending smoke of a newer push. A smoke in progress is never stopped; a
+    # pending one gives way to a newer one. One group per leg, so the two legs run side by side.
+    concurrency:
+      group: template-vscode-smoke-${{ github.event.pull_request.number || github.run_id }}-${{ matrix.vscode }}
+      cancel-in-progress: false
     # Pinned rather than ubuntu-latest: VS Code needs the image's X server and GTK libraries, and a
     # label migration should not break this job unnoticed.
     runs-on: ubuntu-24.04
@@ -77,11 +81,15 @@ jobs:
 
       # VS Code needs an X server; -a picks a free display number. The runner is thrown away anyway,
       # so the run keeps VS Code's profile in RUNNER_TEMP, for its logs when it fails.
+      # VSCODE_SMOKE_OPT_IN runs the driver's opt-in steps, as vscode-smoke.yml does for every
+      # modeler: a new modeler gets them as its default with the shell, and this is the one run that
+      # shows the template passing them before then.
       - run: xvfb-run -a npm run test:vscode
         working-directory: ${{ steps.instance.outputs.directory }}
         env:
           VSCODE_VERSION: ${{ steps.vscode.outputs.version }}
           VSCODE_SMOKE_KEEP: "1"
+          VSCODE_SMOKE_OPT_IN: keys
           TMPDIR: ${{ runner.temp }}
 
       - if: always()
