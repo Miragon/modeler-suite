@@ -9,7 +9,13 @@ import {
 const DIALOG_CLASS = "event-storming-shortcuts";
 const TITLE_ID = "event-storming-shortcuts-title";
 
-/** What the dialog needs of the chrome around the board; a `@miragon/modeler-shell` handle fits. */
+/**
+ * What the dialog needs of the chrome around the board; a `@miragon/modeler-shell` handle fits.
+ *
+ * @deprecated With `createShortcutsDialog`; removal due in 0.9.0
+ * ([#262](https://github.com/Miragon/modeler-suite/issues/262)). `boardShortcuts` takes
+ * `ShortcutsChrome`, which a shell handle fits as well.
+ */
 export interface ShortcutsDialogChrome extends ShortcutsChrome {
   /** Where the dialog lives (the shell root), so it shares the chrome's mode and fonts. */
   readonly root: HTMLElement;
@@ -18,6 +24,10 @@ export interface ShortcutsDialogChrome extends ShortcutsChrome {
   readonly menu: { readonly trigger: HTMLElement };
 }
 
+/**
+ * @deprecated With `createShortcutsDialog`; removal due in 0.9.0
+ * ([#262](https://github.com/Miragon/modeler-suite/issues/262)).
+ */
 export interface ShortcutsDialog {
   open(): void;
   isOpen(): boolean;
@@ -83,6 +93,12 @@ function dialogContent(
  * inside the chrome's root: the browser keeps the focus inside it and closes it on Escape. Built on
  * the first open and kept (closed) afterwards; `destroy()` removes it, the host calls it with the
  * diagram's teardown, since the chrome removes only what it added itself.
+ *
+ * @deprecated Use the shared dialog of `@miragon/modeler-shell` (0.7.0 or later):
+ * `shell.showShortcutsDialog(boardShortcuts(shell, options))` on a mounted shell, or the
+ * standalone `showShortcutsDialog(boardShortcuts(chrome, options), { container })` without one.
+ * Both draw the dialog of guide §8 once for every modeler. Removal due in 0.9.0
+ * ([#262](https://github.com/Miragon/modeler-suite/issues/262)).
  */
 export function createShortcutsDialog(
   chrome: ShortcutsDialogChrome,

@@ -7,6 +7,7 @@ import { readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs"
 import { createRequire } from "node:module";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { host, web } from "../esbuild.config.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const app = resolve(here, "..");
@@ -61,42 +62,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 `;
 
-const sources = (path) => resolve(root, path);
-const alias = {
-  "@miragon/event-storming-renderer": sources("packages/renderer/src/index.ts"),
-  "@miragon/event-storming-schema-model": sources("packages/schema-model/src/index.ts"),
-  "@miragon/event-storming-dsl": sources("packages/dsl/src/index.ts"),
-  "@miragon/event-storming-transforms": sources("packages/transforms/src/index.ts"),
-};
-
 /** The npm packages with at least one byte in the production bundles, by package directory. */
 async function bundledPackages() {
-  const builds = [
-    {
-      entryPoints: [join(app, "src/extension.ts")],
-      platform: "node",
-      format: "cjs",
-      external: ["vscode"],
-    },
-    {
-      entryPoints: [join(app, "src/webview/main.ts")],
-      platform: "browser",
-      format: "iife",
-      loader: { ".woff2": "file", ".woff": "file", ".ttf": "file" },
-    },
-  ];
   const directories = new Map();
-  for (const options of builds) {
+  for (const options of [host, web]) {
     const result = await esbuild.build({
       ...options,
-      bundle: true,
       minify: true,
+      sourcemap: false,
       write: false,
       metafile: true,
       logLevel: "silent",
       absWorkingDir: root,
-      outdir: join(app, "dist"),
-      alias,
     });
     for (const out of Object.values(result.metafile.outputs)) {
       for (const [input, info] of Object.entries(out.inputs)) {

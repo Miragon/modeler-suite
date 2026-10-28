@@ -64,7 +64,13 @@ chrome specs and the web app's own (`webapp-chrome.spec.ts`: share link, the fit
 draws, replace with undo, open, drop, exports, app keys, Delete after a click on + or a palette
 entry, Escape after Enter on the Draw entry, Enter on the Lasso entry or a creating entry ending a
 drawing, and Escape and Enter for the menu, the shortcuts dialog and the zoom panel while a line is
-drawn). Both hosts run the vocabulary specs (`webapp-vocabulary.spec.ts`,
+drawn). Both hosts also check the two apps' own wiring of the shell's dialog and PNG export: the
+Help entry opens the shell's shortcuts dialog from the menu and by keyboard and the focus returns
+to the menu trigger; an exported PNG has the corner pixel of guide §10.7 (#F9F7F7, transparent for
+the 4× variant, which has twice the pixels), the SVG the browser drew carries Geist as `data:`
+faces, a PNG without Geist is saved with a warning (the web app's toast, the webview's
+`fontFallback` flag) and a PNG the browser cannot draw is refused in the app's own words. Both
+hosts run the vocabulary specs (`webapp-vocabulary.spec.ts`,
 `vscode/vocabulary.spec.ts`): the label editor's suggestions with their keys, mouse and layer, the
 spelling-variant dots and "Unify spelling" as one undo step, in VS Code one edit of the document.
 

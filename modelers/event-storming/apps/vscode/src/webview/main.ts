@@ -3,8 +3,8 @@ import "@fontsource-variable/geist/wght.css";
 import "@fontsource-variable/geist-mono/wght.css";
 import {
   boardMenu,
+  boardShortcuts,
   createCollaborativeModeler,
-  createShortcutsDialog,
   type BoardLevels,
   type CollaborativeEventStormingModeler,
   type EventStormingReadOnly,
@@ -25,7 +25,7 @@ import {
 } from "@miragon/modeler-shell/vscode/webview";
 import type { HostToWebview, WebviewCommand, WebviewToHost } from "../protocol.js";
 import { WEBVIEW_THEMES } from "../themes.js";
-import { blobToBase64, svgToPng } from "./io.js";
+import { boardToPng } from "./io.js";
 import { readTypeCaptionsVisible, writeTypeCaptionsVisible } from "./state.js";
 
 interface VsCodeApi {
@@ -50,6 +50,7 @@ interface SelectionLike {
 }
 
 const BOARD_NAME = "Event Storming board";
+const PNG_EXPORT_FAILED = "Couldn't export the board as PNG. Try again, or export it as SVG.";
 
 const vscode = acquireVsCodeApi();
 const storedShellState = readShellState(vscode);
@@ -87,16 +88,14 @@ const shell = mountVsCodeShell(app, {
     exports: {
       png: { onSelect: () => void exportPng() },
       svg: { onSelect: () => void exportSvg() },
-      transparentPng: { onSelect: () => void exportPngTransparent() },
+      transparentPng: { onSelect: () => void exportPng(true) },
       json: { onSelect: () => exportJson() },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    showKeyboardShortcuts: () => shell.showShortcutsDialog(boardShortcuts(shell)),
   }),
   problems: { onActivate: () => post({ type: "showProblems" }) },
   emptyHint: { onInsertExample: () => post({ type: "insertExample" }) },
 });
-const shortcutsDialog = createShortcutsDialog(shell);
-modeler.on("diagram.destroy", () => shortcutsDialog.destroy());
 
 // A cheap test only: the shell asks on every content change, and exportMap() validates the board.
 const isEmpty = (): boolean =>
@@ -232,23 +231,20 @@ async function exportSvg(): Promise<void> {
   }
 }
 
-async function exportPng(): Promise<void> {
+/** Four times the size and without the paper for `transparent` (slides, documents), as in the web app. */
+async function exportPng(transparent = false): Promise<void> {
   try {
     const { svg } = await withoutSelection(() => modeler.saveSVG());
-    post({ type: "export", format: "png", data: await blobToBase64(await svgToPng(svg)) });
+    const png = await boardToPng(svg, transparent);
+    post({
+      type: "export",
+      format: transparent ? "png-transparent" : "png",
+      data: png.data,
+      ...(png.fontFallback ? { fontFallback: true } : {}),
+    });
   } catch (error) {
-    post({ type: "error", message: `Could not export the board as PNG: ${messageOf(error)}` });
-  }
-}
-
-/** Four times the size, without the paper (slides, documents), as in the web app. */
-async function exportPngTransparent(): Promise<void> {
-  try {
-    const { svg } = await withoutSelection(() => modeler.saveSVG());
-    const png = await svgToPng(svg, 4, true);
-    post({ type: "export", format: "png-transparent", data: await blobToBase64(png) });
-  } catch (error) {
-    post({ type: "error", message: `Could not export the board as PNG: ${messageOf(error)}` });
+    console.error("[event-storming-export]", error);
+    post({ type: "error", message: PNG_EXPORT_FAILED });
   }
 }
 
@@ -269,7 +265,7 @@ const COMMANDS: Readonly<Record<WebviewCommand, () => void>> = {
   fitView: () => viewport.fit(),
   exportPng: () => void exportPng(),
   exportSvg: () => void exportSvg(),
-  exportPngTransparent: () => void exportPngTransparent(),
+  exportPngTransparent: () => void exportPng(true),
   exportJson: () => exportJson(),
 };
 

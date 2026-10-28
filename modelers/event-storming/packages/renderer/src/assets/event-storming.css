@@ -484,9 +484,10 @@
   }
 }
 
-/* The "Keyboard shortcuts…" dialog (board-menu/ShortcutsDialog.ts, guide §5.4, §8): a modal
-   <dialog> in the chrome's root, the same in the web app and the VS Code webview. Every colour is
-   a --cd-ui-* role, so it follows the mode with the chrome; the key chips are the <kbd> chips the
+/* The deprecated createShortcutsDialog's "Keyboard shortcuts…" dialog (board-menu/ShortcutsDialog.ts,
+   guide §5.4, §8), which the apps no longer open: the shell draws that dialog now. These rules go
+   with it in 0.9.0 (issue #262). A modal <dialog> in the chrome's root; every colour is a
+   --cd-ui-* role, so it follows the mode with the chrome; the key chips are the <kbd> chips the
    chrome's stylesheet draws in its own document (guide §5.6). */
 .event-storming-shortcuts {
   box-sizing: border-box;

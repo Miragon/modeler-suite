@@ -5,6 +5,7 @@
  */
 import { loadBoard, type EventStormingBoard } from "@miragon/event-storming-schema-model";
 import { COLORS, type ImportWarning, type Modeler } from "@miragon/event-storming-renderer";
+import { svgToPng } from "@miragon/modeler-shell/export";
 
 // ---------------------------------------------------------------------------
 // Open
@@ -47,62 +48,31 @@ export async function openFile(file: File, viewer: Modeler): Promise<ImportWarni
 }
 
 // ---------------------------------------------------------------------------
-// PNG export (rasterize)
+// PNG export
 // ---------------------------------------------------------------------------
 
-export interface PngOptions {
-  /** Rasterization factor (default 2x). */
-  readonly scale?: number;
-  /** Export without a background fill (for slides/docs). */
-  readonly transparent?: boolean;
+/** Guide §10.7: the ground of "Export as PNG" is `hell['--cd-ui-grund']`; a unit test pins it. */
+export const PNG_BACKGROUND = COLORS.paper;
+
+export interface BoardPng {
+  readonly blob: Blob;
+  /** The labels came out in the system font because Geist could not be embedded. */
+  readonly fontFallback: boolean;
 }
 
-/** Rasterizes the SVG to a PNG picture. */
-export async function svgToPng(svg: string, options: PngOptions = {}): Promise<Blob> {
-  const { width, height } = svgSize(svg);
-  const png = await rasterize(svg, width, height, options.scale ?? 2, options.transparent ?? false);
-  return new Blob([png as BlobPart], { type: "image/png" });
-}
-
-function svgSize(svg: string): { width: number; height: number } {
-  const w = /width="(\d+(?:\.\d+)?)"/.exec(svg);
-  const h = /height="(\d+(?:\.\d+)?)"/.exec(svg);
-  return { width: w ? Number(w[1]) : 1000, height: h ? Number(h[1]) : 700 };
-}
-
-async function rasterize(
-  svg: string,
-  width: number,
-  height: number,
-  scale: number,
-  transparent: boolean,
-): Promise<Uint8Array> {
-  const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
-  try {
-    const img = new Image();
-    img.width = width;
-    img.height = height;
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error("Could not render the SVG."));
-      img.src = url;
-    });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(width * scale);
-    canvas.height = Math.round(height * scale);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas 2D context not available.");
-    if (!transparent) {
-      ctx.fillStyle = COLORS.paper;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-    if (!blob) throw new Error("PNG generation failed.");
-    return new Uint8Array(await blob.arrayBuffer());
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+/**
+ * "Export as PNG" (2×, on the paper) or, `transparent`, "Export as PNG (4×, transparent)". The
+ * page's own Geist faces go into the picture, since an SVG drawn as an image cannot use them.
+ */
+export async function boardToPng(svg: string, transparent = false): Promise<BoardPng> {
+  let fontFallback = false;
+  const blob = await svgToPng(svg, {
+    ...(transparent ? { background: "transparent", scale: 4 } : { background: PNG_BACKGROUND }),
+    onFontFallback: () => {
+      fontFallback = true;
+    },
+  });
+  return { blob, fontFallback };
 }
 
 // ---------------------------------------------------------------------------

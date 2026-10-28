@@ -52,7 +52,9 @@ yellow), **Aggregate** (yellow), **Policy** (purple), **Read Model** (green), **
   open beside the board keeps its cursor.
 - **Menu** (top left): the workshop **Level** and **Type captions** (the caption on each sticky),
   **Export as PNG**, **Export as SVG**, **Export as PNG (4×, transparent)** (for slides) and
-  **Export as JSON**, the same exports as the web app, and **Keyboard shortcuts…**.
+  **Export as JSON**, the same exports as the web app, and **Keyboard shortcuts…**. A PNG draws
+  its labels in Geist; if Geist can't be embedded, the PNG is still saved, in a system font, and a
+  warning says so.
 - **Zoom** (bottom right): zoom out, the current zoom (click for 100%), zoom in and fit. With the
   board focused, `Ctrl/Cmd` + `+`, `-` and `0` zoom the canvas (not the window), `Shift+1` fits.
 - **Problems.** Lines the parser cannot fully use (an arrow to a missing sticky, an unreadable

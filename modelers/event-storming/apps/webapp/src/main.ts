@@ -1,14 +1,14 @@
 // Geist and Geist Mono (Miragon's typefaces, SIL OFL), self-hosted: no font CDN (offline, GDPR).
 import "@fontsource-variable/geist/wght.css";
 import "@fontsource-variable/geist-mono/wght.css";
-// The renderer's stylesheet brings the vendored tokens, diagram-js.css, the canvas mapping and the
-// shortcuts dialog; the chrome's stylesheet comes last.
+// The renderer's stylesheet brings the vendored tokens, diagram-js.css and the canvas mapping; the
+// chrome's stylesheet, with its dialog, comes last.
 import "@miragon/event-storming-renderer/assets/event-storming.css";
 import "@miragon/modeler-shell/shell.css";
 import {
   Modeler,
   boardMenu,
-  createShortcutsDialog,
+  boardShortcuts,
   importWarningText,
   type BoardLevels,
   type ImportWarning,
@@ -31,12 +31,12 @@ import { copyTextWhenReady } from "./clipboard.js";
 import { EXAMPLE_BOARD } from "./example.js";
 import { boardFileName, type DownloadKind } from "./file-names.js";
 import {
+  boardToPng,
   downloadBlob,
   downloadText,
   importBoardFile,
   openFile,
   readBoardFile,
-  svgToPng,
 } from "./io.js";
 import { openErrorText } from "./open-error.js";
 import { readTypeCaptionsVisible, writeTypeCaptionsVisible } from "./preferences.js";
@@ -95,7 +95,7 @@ const typeCaptions = modeler.get<TypeCaptions>("eventStormingViewOptions");
 if (readTypeCaptionsVisible() === false) typeCaptions.setTypeCaptionsVisible(false);
 Object.assign(globalThis as Record<string, unknown>, {
   __eventStormingViewer: modeler,
-  __eventStormingIo: { openFile, svgToPng },
+  __eventStormingIo: { openFile, boardToPng },
 });
 
 const platform = detectPlatform(navigator);
@@ -128,7 +128,8 @@ const shell = mountShell(app, {
       json: { onSelect: () => exportBoardText("json") },
       storm: { onSelect: () => exportBoardText("storm"), shortcut: saveKey },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    showKeyboardShortcuts: () =>
+      shell.showShortcutsDialog(boardShortcuts(shell, { fileKeys: true })),
   }),
   problems: { onSelectItem: (item) => selectElement(item.elementId) },
   // Guide §8 (design system 1.23.0): an empty diagram after the start screen shows the empty-file
@@ -150,8 +151,6 @@ const shell = mountShell(app, {
     },
   },
 });
-const shortcutsDialog = createShortcutsDialog(shell, { fileKeys: true });
-modeler.on("diagram.destroy", () => shortcutsDialog.destroy());
 
 // 3. Viewport, palette skin, keys. A cheap test only: the chrome asks on every content change.
 const isEmpty = (): boolean =>
@@ -365,16 +364,27 @@ function announceExport(fileName: string): void {
   shell.toast({ status: "success", text: `Exported ${fileName}.` });
 }
 
+/** The file is saved, but Geist could not go into the picture: the labels are in a system font. */
+function warnAboutSystemFont(fileName: string): void {
+  shell.toast({
+    status: "warning",
+    text: `Exported ${fileName} in a system font. Geist couldn't be embedded.`,
+  });
+}
+
 async function exportPicture(kind: Extract<DownloadKind, "png" | "png-transparent" | "svg">) {
   const fileName = boardFileName(boardTitle(), kind);
   try {
     const { svg } = await withoutSelection(() => modeler.saveSVG());
-    if (kind === "svg") downloadText(svg, fileName, "image/svg+xml");
-    else {
-      const options = kind === "png" ? {} : { scale: 4, transparent: true };
-      downloadBlob(await svgToPng(svg, options), fileName);
+    if (kind === "svg") {
+      downloadText(svg, fileName, "image/svg+xml");
+      announceExport(fileName);
+    } else {
+      const png = await boardToPng(svg, kind === "png-transparent");
+      downloadBlob(png.blob, fileName);
+      if (png.fontFallback) warnAboutSystemFont(fileName);
+      else announceExport(fileName);
     }
-    announceExport(fileName);
   } catch (error) {
     console.error("[event-storming-export]", error);
     shell.toast({

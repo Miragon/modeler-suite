@@ -91,18 +91,22 @@ export async function openMenu(page: Page): Promise<Locator> {
 }
 
 /**
- * Closes a board dialog and waits for its close event: the dialog hands the focus back to the menu
- * trigger there, in a task of its own that can run after a focus the test moves at once.
+ * Closes a dialog and waits for its close event: the dialog hands the focus back to the menu
+ * trigger there, in a task of its own that can run after a focus the test moves at once. The
+ * shell removes the dialog once it closed, so the wait goes through a handle, which a locator
+ * would lose with the element.
  */
 export async function closeDialog(dialog: Locator, close: () => Promise<void>): Promise<void> {
   type Watched = HTMLElement & { closed?: Promise<void> };
-  await dialog.evaluate((element: Watched) => {
-    element.closed = new Promise<void>((resolve) =>
-      element.addEventListener("close", () => resolve(), { once: true }),
+  const element = await dialog.elementHandle();
+  if (!element) throw new Error("the dialog to close is not in the document");
+  await element.evaluate((watched: Watched) => {
+    watched.closed = new Promise<void>((resolve) =>
+      watched.addEventListener("close", () => resolve(), { once: true }),
     );
   });
   await close();
-  await dialog.evaluate((element: Watched) => element.closed);
+  await element.evaluate((watched: Watched) => watched.closed);
 }
 
 export function exportBoard(page: Page): Promise<EventStormingBoardExport> {
