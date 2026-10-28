@@ -468,11 +468,19 @@ describe("the template's package.json files and workflows", () => {
   });
 });
 
+interface DependabotGroup {
+  "applies-to"?: string;
+  "group-by"?: string;
+  patterns?: string[];
+  "update-types"?: string[];
+}
+
 interface DependabotUpdate {
   "package-ecosystem": string;
   directory?: string;
   directories?: string[];
   ignore?: { "dependency-name": string; "update-types"?: string[] }[];
+  groups?: Record<string, DependabotGroup>;
 }
 
 const dependabotUpdates = (
@@ -505,6 +513,24 @@ describe("the suite's Dependabot config keeps the template's third-party pins cu
       expect.arrayContaining(["/", templateDirectory]),
     ]);
     expect(entries[0]?.ignore).toContainEqual({ "dependency-name": "@miragon/*" });
+  });
+
+  it("moves each npm major through the suite and the template in one pull request per dependency", () => {
+    const [entry] = entriesFor("npm", templateDirectory);
+    const versionGroups = Object.values(entry?.groups ?? {}).filter(
+      (group) => (group["applies-to"] ?? "version-updates") === "version-updates",
+    );
+    const majorGroups = versionGroups.filter((group) =>
+      (group["update-types"] ?? ["major"]).includes("major"),
+    );
+    expect(majorGroups).toEqual([
+      {
+        "applies-to": "version-updates",
+        "group-by": "dependency-name",
+        patterns: ["*"],
+        "update-types": ["major"],
+      },
+    ]);
   });
 
   it("reaches every package.json of the template through its workspaces", () => {
