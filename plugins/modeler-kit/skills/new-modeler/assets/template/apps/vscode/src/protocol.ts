@@ -16,8 +16,8 @@ export type HostToWebview =
 export type WebviewToHost =
   | { type: 'ready' }
   | { type: 'edit'; text: string }
-  /** SVG as text, PNG in Base64; `inSystemFont` when Geist could not be embedded in the PNG. */
-  | { type: 'export'; format: ExportFormat; data: string; inSystemFont?: boolean }
+  /** SVG as text, PNG in Base64; `fontFallback` when Geist could not be embedded in the PNG. */
+  | { type: 'export'; format: ExportFormat; data: string; fontFallback?: true }
   | { type: 'error'; message: string }
   /** The problems pill: open the Problems view. */
   | { type: 'showProblems' }

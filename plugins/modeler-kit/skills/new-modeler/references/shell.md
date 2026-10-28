@@ -51,7 +51,9 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
   passes `fonts` as `data:` URLs with `GEIST_UNICODE_RANGES` (template: `?dataurl` imports, which an
   esbuild plugin and, in the e2e test page, a Vite plugin inline). Both apps pass `onFontFallback`
   and warn once the PNG is saved, since the console reaches no user: a toast in the web app, a
-  warning notification in VS Code.
+  warning notification in VS Code (the webview's `export` message carries a font-fallback flag).
+  The template's `png-export` specs check both ways: the SVG the page draws holds the Geist faces,
+  and a failed embedding reaches the toast and the message.
   Help: "Keyboard shortcuts…" opens the shell's dialog (modeler-shell 0.7.0 or later). The renderer
   builds the groups as plain data, typed structurally so it never imports the shell, and the app
   hands them to `shell.showShortcutsDialog(groups)`: the shell draws the dialog of guide §8 (top

@@ -119,7 +119,7 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
             await writer.write(withExampleInserted, { suppressEcho: false });
             break;
           case 'export':
-            await exportToFile(document.uri, message.format, message.data, message.inSystemFont);
+            await exportToFile(document.uri, message.format, message.data, message.fontFallback);
             break;
           case 'showProblems':
             void vscode.commands.executeCommand('workbench.actions.view.problems');
@@ -143,7 +143,7 @@ async function exportToFile(
   source: vscode.Uri,
   format: ExportFormat,
   data: string,
-  inSystemFont = false,
+  fontFallback = false,
 ): Promise<void> {
   const base = source.path.replace(/\.[^./]+$/, '');
   const target = await vscode.window.showSaveDialog({
@@ -155,7 +155,7 @@ async function exportToFile(
   await vscode.workspace.fs.writeFile(target, bytes);
   const reveal = revealFileLabel(process.platform);
   const exported = `Exported ${vscode.workspace.asRelativePath(target)}.`;
-  const choice = inSystemFont
+  const choice = fontFallback
     ? await vscode.window.showWarningMessage(
         `${exported} Geist couldn't be embedded, so its labels are in a system font.`,
         reveal,

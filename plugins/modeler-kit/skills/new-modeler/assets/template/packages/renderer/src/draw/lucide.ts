@@ -28,11 +28,13 @@ export interface LucideIconOptions {
   strokeWidth: number;
 }
 
-/** Guide §11: chrome icons 16px at stroke 2.5, palette tools 20px at stroke 2. */
-export const CHROME_ICON: LucideIconOptions = { size: 16, strokeWidth: 2.5 };
+/** Guide §11: palette tools 20px at stroke 2; the shell draws the chrome's icons. */
 export const PALETTE_TOOL_ICON: LucideIconOptions = { size: 20, strokeWidth: 2 };
 
-export function lucideIcon(name: LucideIconName, options: LucideIconOptions = CHROME_ICON): string {
+export function lucideIcon(
+  name: LucideIconName,
+  options: LucideIconOptions = PALETTE_TOOL_ICON,
+): string {
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${options.size}" height="${options.size}" ` +
     `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${options.strokeWidth}" ` +

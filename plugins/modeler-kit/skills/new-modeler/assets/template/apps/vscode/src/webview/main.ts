@@ -160,19 +160,19 @@ async function exportPicture(format: 'png' | 'svg'): Promise<void> {
       post({ type: 'export', format, data: svg });
       return;
     }
-    let inSystemFont = false;
+    let fontFallback = false;
     const png = await svgToPng(svg, {
       background: COLORS.paper,
       fonts: GEIST,
       onFontFallback: () => {
-        inSystemFont = true;
+        fontFallback = true;
       },
     });
     post({
       type: 'export',
       format,
       data: await blobToBase64(png),
-      ...(inSystemFont ? { inSystemFont } : {}),
+      ...(fontFallback ? { fontFallback } : {}),
     });
   } catch (error) {
     post({ type: 'error', message: `Could not export the diagram: ${String(error)}` });

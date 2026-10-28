@@ -43,14 +43,17 @@ Design IQ is a change in Design IQ (a spec with `id`, `pkg`, `canvasClassName`,
   live inside that host, and no rule may target `html`, `body` or the attach host itself. The
   package exports the sheet separately (`./assets/<notation>.css`), so a host loads it once.
 - **Host wiring through `diagram`.** Design IQ reads the wrapped diagram structurally (`get`, `on`,
-  `off`) for its menu (the renderer's menu content and shortcuts dialog, given a chrome with
-  `root`, `platform`, `lang`, `messages` and `showShortcutsDialog`, which a host without a mounted
-  shell answers with the shell's own `showShortcutsDialog`), titles and a legend, so keep those
-  builders in the renderer, typed structurally, never behind the shell. Its fit runs on the diagram as well: it
-  writes the canvas's viewbox, counts a viewbox change it did not write as the user's move, and
-  re-fits a view the user has not moved once an import is done. Only the box it fits to comes from
-  the contract (`contentBounds()`, above), so a box only a service inside the diagram knows never
-  reaches it. diagram-js fires no import events of its own, so the renderer fires them around every
+  `off`) for its menu (the renderer's menu content and shortcuts dialog), titles and a legend, so
+  keep those builders in the renderer, typed structurally, never behind the shell. The shortcuts
+  dialog needs a chrome with `root`, `platform`, `lang`, `messages` and
+  `showShortcutsDialog(groups)`; a host without a mounted shell answers that with the shell's
+  standalone `showShortcutsDialog(groups, { container })`. Design IQ's chrome has `root`,
+  `platform`, `lang`, `messages` and `menu.trigger` but no `showShortcutsDialog` yet, so a renderer
+  started from the template cannot open its dialog there until Design IQ moves to the standalone
+  one. Its fit runs on the diagram as well: it writes the canvas's viewbox, counts a viewbox change
+  it did not write as the user's move, and re-fits a view the user has not moved once an import is
+  done. Only the box it fits to comes from the contract (`contentBounds()`, above), so a box only a
+  service inside the diagram knows never reaches it. diagram-js fires no import events of its own, so the renderer fires them around every
   import, a peer's change re-imported through `importText` included: `import.render.start` (or
   `import.parse.start`) before the import touches the canvas, and `import.done` once it is drawn,
   as the template's [`Importer.ts`](../assets/template/packages/renderer/src/io/Importer.ts) and

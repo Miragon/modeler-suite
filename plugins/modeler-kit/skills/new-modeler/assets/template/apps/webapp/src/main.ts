@@ -148,7 +148,7 @@ function download(
   content: Blob | string,
   type: string,
   extension: string,
-  inSystemFont = false,
+  fontFallback = false,
 ): void {
   const url = URL.createObjectURL(
     content instanceof Blob ? content : new Blob([content], { type }),
@@ -159,7 +159,7 @@ function download(
   });
   link.click();
   URL.revokeObjectURL(url);
-  if (inSystemFont) {
+  if (fontFallback) {
     shell.toast({
       status: 'warning',
       text: `Exported ${fileName(extension)} in a system font. Geist couldn't be embedded.`,
@@ -174,14 +174,14 @@ async function exportPicture(kind: 'png' | 'svg'): Promise<void> {
       download(svg, 'image/svg+xml', 'svg');
       return;
     }
-    let inSystemFont = false;
+    let fontFallback = false;
     const png = await svgToPng(svg, {
       background: COLORS.paper,
       onFontFallback: () => {
-        inSystemFont = true;
+        fontFallback = true;
       },
     });
-    download(png, 'image/png', 'png', inSystemFont);
+    download(png, 'image/png', 'png', fontFallback);
   } catch {
     shell.toast({
       status: 'danger',
