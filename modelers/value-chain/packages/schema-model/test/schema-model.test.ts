@@ -158,6 +158,17 @@ describe("serializeDocument", () => {
       expectWrittenAtEachPlace({ ...doc, "x-chain": chain });
     });
 
+    it("refuses a chain that holds each level twice before it exhausts the memory", () => {
+      let chain: unknown = { leaf: 1 };
+      for (let level = 0; level < 40; level++) {
+        chain = { left: chain, right: chain };
+      }
+      const sharing = validateDocument({ ...doc, "x-chain": chain });
+      expect(() => serializeDocument(sharing)).toThrow(
+        "Cannot serialize a document with more than 1000000 objects and arrays",
+      );
+    });
+
     it("still refuses an object or an array that contains itself", () => {
       const message = "Cannot serialize a cyclic document.";
       const cyclicObject: Record<string, unknown> = { name: "loop" };
