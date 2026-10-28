@@ -119,7 +119,7 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
             await writer.write(withExampleInserted, { suppressEcho: false });
             break;
           case 'export':
-            await exportToFile(document.uri, message.format, message.data);
+            await exportToFile(document.uri, message.format, message.data, message.inSystemFont);
             break;
           case 'showProblems':
             void vscode.commands.executeCommand('workbench.actions.view.problems');
@@ -139,7 +139,12 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
 }
 
 /** Save dialog next to the document, then a notification instead of a toast (guide §13.5). */
-async function exportToFile(source: vscode.Uri, format: ExportFormat, data: string): Promise<void> {
+async function exportToFile(
+  source: vscode.Uri,
+  format: ExportFormat,
+  data: string,
+  inSystemFont = false,
+): Promise<void> {
   const base = source.path.replace(/\.[^./]+$/, '');
   const target = await vscode.window.showSaveDialog({
     defaultUri: source.with({ path: `${base}.${format}` }),
@@ -149,9 +154,12 @@ async function exportToFile(source: vscode.Uri, format: ExportFormat, data: stri
   const bytes = format === 'png' ? Buffer.from(data, 'base64') : new TextEncoder().encode(data);
   await vscode.workspace.fs.writeFile(target, bytes);
   const reveal = revealFileLabel(process.platform);
-  const choice = await vscode.window.showInformationMessage(
-    `Exported ${vscode.workspace.asRelativePath(target)}.`,
-    reveal,
-  );
+  const exported = `Exported ${vscode.workspace.asRelativePath(target)}.`;
+  const choice = inSystemFont
+    ? await vscode.window.showWarningMessage(
+        `${exported} Geist couldn't be embedded, so its labels are in a system font.`,
+        reveal,
+      )
+    : await vscode.window.showInformationMessage(exported, reveal);
   if (choice === reveal) void vscode.commands.executeCommand('revealFileInOS', target);
 }

@@ -4,16 +4,18 @@ import { EXAMPLE } from '../../apps/webapp/src/example.js';
 import { linkHash } from '../../apps/webapp/src/link.js';
 import { THEMES } from '../../apps/webapp/src/themes.js';
 import { labelEditorHooks } from './support/label-editor.js';
+import { shortcutsDialogHooks } from './support/shortcuts-dialog.js';
 
 /**
  * The shell's conformance kit against the real web app (the `web` host): geometry at three
  * sizes, ARIA and keys, keyboard creation from the palette, the label editor across the shell's
  * zoom, fit and refit, the light-only mode under any system setting, reduced motion, forced
- * colours, the canvas's overlay layers, the start screen, toasts, the problems list, the drop zone
- * and a clean teardown. `documents` adds the empty diagram after "New diagram" on the start screen:
- * at 100 % with the empty-file hint in the middle, gone with the first element (the `emptyFile`
- * case), and the appearance case runs on it too. The harness declares what the app does not have;
- * every other skip fails the suite.
+ * colours, the canvas's overlay layers, the shell's shortcuts dialog with the renderer's groups,
+ * the start screen, toasts, the problems list, the drop zone and a clean teardown. `documents`
+ * adds the empty diagram after "New diagram" on the start screen: at 100 % with the empty-file
+ * hint in the middle, gone with the first element (the `emptyFile` case), and the appearance case
+ * runs on it too. The harness declares what the app does not have; every other skip fails the
+ * suite.
  */
 const describeSkips = (skips: readonly ShellSkip[]) =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join('; ');
@@ -92,6 +94,7 @@ test.describe('web app: shell conformance', () => {
       labelEditor: labelEditorHooks((page) =>
         page.evaluate(() => window.app!.modeler.exportText()),
       ),
+      shortcutsDialog: shortcutsDialogHooks('webapp'),
       drop: {
         // A .__EXT__ file has no MIME type the browser knows; a picture is refused while dragged.
         accepted: { name: 'diagram.__EXT__', type: '', text: EXAMPLE },
@@ -101,9 +104,6 @@ test.describe('web app: shell conformance', () => {
     test,
     {
       onSkip(caseName, skips) {
-        // The shortcutsDialog case needs shell.showShortcutsDialog of modeler-shell 0.7.0; the
-        // template feeds it once its pin reaches that release.
-        if (caseName === 'shortcutsDialog') return;
         throw new Error(`shell conformance "${caseName}" skipped: ${describeSkips(skips)}`);
       },
     },

@@ -118,8 +118,11 @@ known version), and the new repository's Dependabot moves them on.
   1.2 options `freeArea`, `fitOnImport` and `undoRedoKeys`, both mounts report
   `contentBounds()` (1.3), which the apps and Design IQ fit to, and the canvas acts on a key only
   while it holds the focus (1.4).
-- Neither app has chrome of its own: menu, palette skin, zoom, keys, problems, status, empty state
-  and toasts come from the shell, and the menu content comes from the renderer.
+- Neither app has chrome of its own: menu, palette skin, zoom, keys, problems, status, empty state,
+  toasts and the shortcuts dialog come from the shell, and the menu content and the shortcut rows
+  come from the renderer.
+- The PNG export is the shell's `svgToPng` (`@miragon/modeler-shell/export`): Geist inside the
+  picture and the background of guide §10.7, in both apps, with no rasteriser of their own.
 - The extension creates a diagram natively (guide §13.5): "New Empty Diagram" and "New Diagram
   from Example" as commands, in File › New File… and in the walkthrough, whose steps are New,
   Example and Source to the side; "Open Source to the Side" and "Open Diagram to the Side" in the

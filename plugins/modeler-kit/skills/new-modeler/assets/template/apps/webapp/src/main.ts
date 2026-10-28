@@ -7,14 +7,15 @@ import '@fontsource-variable/geist-mono/wght.css';
 import '@miragon/__NOTATION__-renderer/assets/__NOTATION__.css';
 import '@miragon/modeler-shell/shell.css';
 import {
+  COLORS,
   SHORTCUTS_KEY,
   createCollaborativeModeler,
   createShortcutsDialog,
   diagramMenu,
-  svgToPng,
 } from '@miragon/__NOTATION__-renderer';
 import { mountShell, problemSummary } from '@miragon/modeler-shell';
 import { connectDiagramJs, shellModule } from '@miragon/modeler-shell/diagram-js';
+import { svgToPng } from '@miragon/modeler-shell/export';
 import { EXAMPLE } from './example.js';
 import { linkHash, linkedText } from './link.js';
 import { THEMES } from './themes.js';
@@ -143,7 +144,12 @@ function fileName(extension: string): string {
   return `${APP_NAME.toLowerCase().replace(/\s+/g, '-')}.${extension}`;
 }
 
-function download(content: Blob | string, type: string, extension: string): void {
+function download(
+  content: Blob | string,
+  type: string,
+  extension: string,
+  inSystemFont = false,
+): void {
   const url = URL.createObjectURL(
     content instanceof Blob ? content : new Blob([content], { type }),
   );
@@ -153,14 +159,29 @@ function download(content: Blob | string, type: string, extension: string): void
   });
   link.click();
   URL.revokeObjectURL(url);
-  shell.toast({ status: 'success', text: `Exported ${fileName(extension)}.` });
+  if (inSystemFont) {
+    shell.toast({
+      status: 'warning',
+      text: `Exported ${fileName(extension)} in a system font. Geist couldn't be embedded.`,
+    });
+  } else shell.toast({ status: 'success', text: `Exported ${fileName(extension)}.` });
 }
 
 async function exportPicture(kind: 'png' | 'svg'): Promise<void> {
   try {
     const { svg } = diagram.saveSVG();
-    if (kind === 'svg') download(svg, 'image/svg+xml', 'svg');
-    else download(await svgToPng(svg), 'image/png', 'png');
+    if (kind === 'svg') {
+      download(svg, 'image/svg+xml', 'svg');
+      return;
+    }
+    let inSystemFont = false;
+    const png = await svgToPng(svg, {
+      background: COLORS.paper,
+      onFontFallback: () => {
+        inSystemFont = true;
+      },
+    });
+    download(png, 'image/png', 'png', inSystemFont);
   } catch {
     shell.toast({
       status: 'danger',

@@ -17,14 +17,7 @@ export {
   type CollaborativeOptions,
   type DiagramElementsSurface,
 } from './collaborative/index.js';
-export {
-  ContentBounds,
-  ROOT_ID,
-  saveSVG,
-  svgToPng,
-  type Bounds,
-  type PngOptions,
-} from './io/index.js';
+export { ContentBounds, ROOT_ID, saveSVG, type Bounds } from './io/index.js';
 export { LabelEditing, type OpenLabelEdit } from './label-editing/index.js';
 export { ReadOnly, READ_ONLY_CHANGED_EVENT } from './read-only/index.js';
 export { NodeFactory, isNodeShape, type NodeShape } from './model/index.js';

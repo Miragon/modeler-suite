@@ -21,4 +21,5 @@ export type {
   ShortcutsDialog,
   ShortcutsDialogChrome,
   ShortcutsDialogOptions,
+  ShownShortcutsDialog,
 } from './ShortcutsDialog.js';

@@ -44,8 +44,9 @@ Design IQ is a change in Design IQ (a spec with `id`, `pkg`, `canvasClassName`,
   package exports the sheet separately (`./assets/<notation>.css`), so a host loads it once.
 - **Host wiring through `diagram`.** Design IQ reads the wrapped diagram structurally (`get`, `on`,
   `off`) for its menu (the renderer's menu content and shortcuts dialog, given a chrome with
-  `root`, `messages` and `menu.trigger`), titles and a legend, so keep those builders in the
-  renderer, typed structurally, never behind the shell. Its fit runs on the diagram as well: it
+  `root`, `platform`, `lang`, `messages` and `showShortcutsDialog`, which a host without a mounted
+  shell answers with the shell's own `showShortcutsDialog`), titles and a legend, so keep those
+  builders in the renderer, typed structurally, never behind the shell. Its fit runs on the diagram as well: it
   writes the canvas's viewbox, counts a viewbox change it did not write as the user's move, and
   re-fits a view the user has not moved once an import is done. Only the box it fits to comes from
   the contract (`contentBounds()`, above), so a box only a service inside the diagram knows never
