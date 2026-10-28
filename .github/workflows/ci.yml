@@ -21,7 +21,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which modelers and whether the shared packages a change reaches (.github/scripts/ci-paths.sh).
+  # Which modelers, whether the shared packages and whether the new-modeler template a change reaches
+  # (.github/scripts/ci-paths.sh).
   # A path filter on the trigger is no way out: ci-ok has to report on every run.
   changes:
     runs-on: ubuntu-latest

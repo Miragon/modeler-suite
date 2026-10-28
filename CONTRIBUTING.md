@@ -440,11 +440,19 @@ the scope `plugin` (`feat(plugin): …`, `fix(plugin): …`).
   a version first, or in the same pull request, and the template follows. Two exceptions are
   listed in the test with their reasons: `ovsx` (the suite runs it through `npx`, so it is not
   installed here) and `portless` (it needs Node 24 and runs only `dev:webapp`).
-- **The template itself** builds and passes both conformance kits once instantiated: run the script
-  into an empty directory outside this repository, copy the design-system files in (see the
-  skill), then `npm install` and the template's checks. `claude plugin validate .` checks the
-  manifests against Claude Code itself; it passes with one warning, modeler-kit's missing
-  `version`, which is intended (so not `--strict` on the marketplace, which fails on any warning).
+- **The template itself** builds and passes both conformance kits once instantiated, and CI checks
+  it: the `template` job packs `packages/api` and `packages/shell` from the branch, creates a
+  modeler from the template with the skill's script, copies the design-system files in, installs the
+  packs instead of the registry's pins and runs that modeler's `lint`, `depcruise`, `build`, `test`,
+  `test:browser`, `test:e2e`, both app builds and the VSIX packaging. It runs when the template, the
+  kit, `packages/`, the root files or the CI change. To reproduce it, run `npm run build:shared`,
+  then `node .github/scripts/template-instance.mjs <empty folder>` and the checks in that folder
+  (`npx playwright install chromium` once). A plain copy with `npm install` takes the registry's
+  pins and so tests the last release, not your change. The label `template-vscode-smoke` adds the VS
+  Code smoke of that modeler to a pull request; see
+  [docs/ci-and-releases.md](docs/ci-and-releases.md). `claude plugin validate .` checks the
+  manifests against Claude Code itself; it passes with one warning, modeler-kit's missing `version`,
+  which is intended (so not `--strict` on the marketplace, which fails on any warning).
 
 ## Design tokens
 
