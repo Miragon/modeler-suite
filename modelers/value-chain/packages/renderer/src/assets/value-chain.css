@@ -143,7 +143,9 @@
 
 /* The "Keyboard shortcuts…" dialog (diagram-menu/ShortcutsDialog.ts, guide §5.4, §8): a modal
    <dialog> in the chrome's root, the same in every host, in the top layer once open. The key
-   chips are the <kbd> chips the chrome draws in its own document (guide §5.6). */
+   chips are the <kbd> chips the chrome draws in its own document (guide §5.6). Deprecated with
+   createShortcutsDialog: the shell's dialog replaces it, and these rules go with it in 0.10.0
+   (#257). */
 .vc-shortcuts {
   box-sizing: border-box;
   width: min(560px, 100cqw - 32px);

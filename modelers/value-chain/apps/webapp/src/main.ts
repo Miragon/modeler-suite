@@ -7,10 +7,10 @@ import "@miragon/value-chain-renderer/assets/value-chain.css";
 import "@miragon/modeler-shell/shell.css";
 import {
   BLANK_DOCUMENT_NAME,
+  COLORS,
   createCollaborativeModeler,
-  createShortcutsDialog,
   diagramMenu,
-  svgToPng,
+  diagramShortcuts,
   type VcBounds,
 } from "@miragon/value-chain-renderer";
 import {
@@ -28,6 +28,7 @@ import {
   type ToastHandle,
 } from "@miragon/modeler-shell";
 import { connectDiagramJs, shellModule } from "@miragon/modeler-shell/diagram-js";
+import { svgToPng } from "@miragon/modeler-shell/export";
 import { copyTextWhenReady } from "./clipboard.js";
 import { EXAMPLE_DOCUMENT } from "./example.js";
 import { diagramFileName, downloadBlob, downloadText, isDefaultName } from "./files.js";
@@ -101,7 +102,8 @@ const shell = mountShell(app, {
       svg: { onSelect: () => exportSvg() },
       json: { onSelect: () => exportJson(), shortcut: saveKey },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    showKeyboardShortcuts: () =>
+      void shell.showShortcutsDialog(diagramShortcuts(shell, { fileKeys: true })),
   }),
   // Guide §8 (design system 1.23.0): an empty diagram after the start screen shows the empty-file
   // hint, without "Insert example": the File group's "Show example" opens the example.
@@ -121,9 +123,6 @@ const shell = mountShell(app, {
     },
   },
 });
-// The modeler's own dialog in the shell root; it goes with the diagram.
-const shortcutsDialog = createShortcutsDialog(shell, { fileKeys: true });
-modeler.on("diagram.destroy", () => shortcutsDialog.destroy());
 
 // 3. Viewport, palette skin, keys. Cheap tests only: the shell asks on every content change.
 const connection = connectDiagramJs(shell, modeler, {
@@ -376,17 +375,32 @@ function announceExport(fileName: string): void {
 
 async function exportPng(): Promise<void> {
   const fileName = diagramFileName(documentName(), "png");
+  let labelsInSystemFont = false;
   try {
     const { svg } = withoutSelection(() => modeler.saveSVG());
-    downloadBlob(await svgToPng(svg), fileName);
-    announceExport(fileName);
+    const png = await svgToPng(svg, {
+      background: COLORS.surround,
+      onFontFallback: () => {
+        labelsInSystemFont = true;
+      },
+    });
+    downloadBlob(png, fileName);
   } catch (error) {
     console.error("[value-chain-export]", error);
     shell.toast({
       status: "danger",
       text: "Couldn't export the diagram as PNG. Try again, or export it as SVG.",
     });
+    return;
   }
+  if (labelsInSystemFont) {
+    shell.toast({
+      status: "warning",
+      text: `Exported ${fileName} in a system font. Geist couldn't be embedded.`,
+    });
+    return;
+  }
+  announceExport(fileName);
 }
 
 function exportSvg(): void {

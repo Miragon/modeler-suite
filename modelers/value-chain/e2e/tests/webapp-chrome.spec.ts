@@ -14,6 +14,7 @@ import {
   toast,
 } from "./support/webapp.js";
 import { codeEditors, pressIn } from "./support/code-editors.js";
+import { PNG_GROUND, downloadBytes, pixelOf } from "./support/png.js";
 
 /**
  * The web app's side of the shell's web chrome: what it hands the shell (menu groups, primary
@@ -187,14 +188,17 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     await expect(dropdown.getByRole("menuitem", { name: /undo|redo/i })).toHaveCount(0);
   });
 
-  test("the shortcuts dialog lists the File keys first", async ({ page }) => {
+  test("the Help entry opens the shell's shortcuts dialog: the File keys first, the zoom keys once", async ({
+    page,
+  }) => {
     await openApp(page);
     await openExample(page);
     await (await openMenu(page)).locator('[data-menu-id="keyboard-shortcuts"]').click();
 
-    const dialog = page.locator("dialog.vc-shortcuts");
+    const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator(".vc-shortcuts-group-title")).toHaveText([
+    await expect(dialog).toHaveClass(/cd-shell-dialog/);
+    await expect(dialog.locator("h3.cd-shell-shortcuts-title")).toHaveText([
       "File",
       "View",
       "Edit",
@@ -204,7 +208,34 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
       "Open…",
       "Export as JSON",
     ]);
+    await expect(dialog.locator("table").nth(1).locator("th")).toHaveText([
+      "Zoom in",
+      "Zoom out",
+      "Zoom to 100%",
+      "Fit to view",
+      "Move the canvas",
+    ]);
+    await expect(dialog.locator("tr[data-chrome-key]")).toHaveCount(4);
     await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
+  });
+
+  test("the shortcuts dialog opens from the keyboard and hands the focus back to the menu", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await openExample(page);
+    await page.locator('[data-chrome="menu"]').focus();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+
+    const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
+
+    await dialog.getByRole("button", { name: "Close" }).press("Enter");
     await expect(dialog).toBeHidden();
     await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
   });
@@ -527,6 +558,56 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
       expect((await download).suggestedFilename()).toBe(fileName);
       await expect(toast(page, `Exported ${fileName}.`)).toHaveAttribute("data-status", "success");
     }
+  });
+
+  test("the PNG export lies on the canvas ground, #F9F7F7 (guide §10.7)", async ({ page }) => {
+    await openApp(page);
+    await openExample(page);
+
+    const download = page.waitForEvent("download");
+    await (await openMenu(page)).locator('[data-menu-id="export-png"]').click();
+    const png = await downloadBytes(download);
+
+    expect(await pixelOf(page, png)).toEqual(PNG_GROUND);
+    await expect(toast(page, "Exported porter-value-chain.png.")).toHaveAttribute(
+      "data-status",
+      "success",
+    );
+  });
+
+  test("a PNG whose Geist files cannot be read is saved in the system font and says so", async ({
+    page,
+  }) => {
+    await page.route("**/*.woff2", (route) => route.abort());
+    await openApp(page);
+    await openExample(page);
+
+    const download = page.waitForEvent("download");
+    await (await openMenu(page)).locator('[data-menu-id="export-png"]').click();
+    const png = await downloadBytes(download);
+
+    expect(await pixelOf(page, png)).toEqual(PNG_GROUND);
+    await expect(
+      toast(page, "Exported porter-value-chain.png in a system font. Geist couldn't be embedded."),
+    ).toHaveAttribute("data-status", "warning");
+    await expect(toast(page, "Exported porter-value-chain.png.")).toHaveCount(0);
+  });
+
+  test("a PNG the browser cannot draw shows the app's own text, not the error's", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await openExample(page);
+    await page.evaluate(() => {
+      HTMLCanvasElement.prototype.toBlob = (callback) => callback(null);
+    });
+
+    await (await openMenu(page)).locator('[data-menu-id="export-png"]').click();
+
+    await expect(
+      toast(page, "Couldn't export the diagram as PNG. Try again, or export it as SVG."),
+    ).toHaveAttribute("data-status", "danger");
+    await expect(page.locator('[data-chrome="toasts"] .cd-shell-toast')).toHaveCount(1);
   });
 
   test("the JSON export holds the document and opens again as the same diagram", async ({

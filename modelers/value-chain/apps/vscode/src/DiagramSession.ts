@@ -82,7 +82,12 @@ export class DiagramSession implements vscode.Disposable {
         await this.writer.write(withExampleInserted, { suppressEcho: false });
         break;
       case "export":
-        await exportImageToFile(this.document.uri, message.format, message.data);
+        await exportImageToFile(
+          this.document.uri,
+          message.format,
+          message.data,
+          message.fontFallback === true,
+        );
         break;
       case "showProblems":
         void vscode.commands.executeCommand("workbench.actions.view.problems");

@@ -3,6 +3,11 @@ import { COLORS } from "../draw/styles.js";
 /**
  * Rasterizes an exported SVG (`saveSVG`) to a PNG at `scale` × its size, on the diagram's white
  * fill, so a PNG looks like the SVG in every viewer and stays light in every mode.
+ *
+ * @deprecated Deprecated in 0.9.0, removed in 0.10.0 (#257). It embeds no Geist, fills
+ * `COLORS.fill` where guide §10.7 asks for `COLORS.surround` and loads a `blob:` URL, which a
+ * strict content security policy refuses. Use `svgToPng(svg, { background: COLORS.surround })` of
+ * `@miragon/modeler-shell/export`.
  */
 export async function svgToPng(svg: string, scale = 2): Promise<Blob> {
   const { width, height } = svgSize(svg);

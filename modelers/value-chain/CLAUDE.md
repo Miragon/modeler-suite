@@ -100,8 +100,12 @@ missing at its other places; the verdict stays the same).
   `freeArea`/`fitOnImport`/`undoRedoKeys`. New elements get random ids.
   `test/browser/conformance.browser.test.ts` runs the kit, where a skip or an advisory fails.
 - `read-only/VcReadOnly` is the edit lock of an invalid file; `diagram-menu/` holds the Export and
-  Help entries and the shortcuts dialog both apps show, typed structurally (renderers never import
-  the shell).
+  Help entries and the shortcut groups (`diagramShortcuts`) both apps hand the shell, typed
+  structurally (renderers never import the shell). Both apps open the dialog with
+  `shell.showShortcutsDialog(diagramShortcuts(shell, …))`; the renderer's own
+  `createShortcutsDialog` and `svgToPng` are `@deprecated` since 0.9.0 and go in 0.10.0
+  ([#257](https://github.com/Miragon/modeler-suite/issues/257)), with the `.vc-shortcuts*` rules of
+  `value-chain.css` that only that dialog uses.
 - Mutations funnel through `vcModeling.updateProperties` (one undoable command handler).
 - `modeling/VcLayouter` + `CroppingConnectionDocking` crop connections at the chevron
   contour (via the renderer's `getShapePath`).
@@ -174,6 +178,16 @@ passed on the VSIX it uploads) is in the suite's
   bridge. Undo belongs to the document (`undoRedoKeys: false`); an invalid file locks the canvas
   (`vcReadOnly` + `shell.setReadOnly`). `apps/vscode/THIRD_PARTY_NOTICES.md` is generated
   (`npm run notices -w modelers/value-chain/apps/vscode`) and checked by a unit test.
+- Both apps export the PNG through `svgToPng` of `@miragon/modeler-shell/export` with
+  `background: COLORS.surround` (guide §10.7, `#F9F7F7`) and `onFontFallback`: the web app then
+  toasts a warning ("Exported … in a system font. Geist couldn't be embedded.") instead of the
+  success toast, the webview posts `fontFallback: true` with the export and the extension host
+  shows the same sentence as a warning notification. A rejection shows the app's own sentence
+  ("Couldn't export the diagram as PNG. Try again, or export it as SVG."), never `error.message`.
+  The web app lets the shell read the page's Geist faces; the webview cannot fetch its font files
+  (no `connect-src`), so `webview/geist.ts` hands the shell all five Geist subsets as
+  `data:` URLs, which the `?dataurl` esbuild plugin of `esbuild.config.mjs` (and the Vite plugin
+  of `e2e/webview/vite.config.ts`) inlines. The e2e suites read the corner pixel of the PNG.
 - Both apps connect the shell with `connectDiagramJs(shell, diagram, { modeler, isEmpty })`: the
   shell fits to the contract instance's `contentBounds()`, `isEmpty` is the cheap
   `vcBounds.isEmpty()`. Both shell-conformance suites feed the kit's `labelEditor` hooks
