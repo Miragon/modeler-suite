@@ -6,7 +6,9 @@
  *  - Host -> webview: `problems` with the diagnostics summary for the problems pill.
  *  - Host -> webview: `command` when a Command Palette command targets the focused diagram.
  *  - Webview -> host: `edit` after every graphical change (serialized JSON) -> WorkspaceEdit.
- *  - Webview -> host: `export` (SVG text or Base64 PNG) -> save dialog + write file.
+ *  - Webview -> host: `export` (SVG text or Base64 PNG) -> save dialog + write file. A PNG whose
+ *    labels came out in the system sans because Geist could not be embedded says so
+ *    (`fontFallback`), and the host's notification becomes a warning.
  *  - Webview -> host: `showProblems` (the pill) and `insertExample` (the empty-file hint).
  *  - Host -> webview: `flush` (with a correlation `id`) right before the text document is saved.
  *    The webview commits a field still being typed in (an `edit`), then answers `flushed`, so the
@@ -15,7 +17,8 @@
  * Only for the PNG editor (`*.tt.png`/`*.ttm.png`, binary CustomDocument file):
  *  - Host -> webview: `requestPng` (with a correlation `id`) when the host needs the fully
  *    rasterized PNG (raster + embedded JSON) for saving/backup — rasterization only works in the browser.
- *  - Webview -> host: `pngResponse` (`id` + Base64 PNG OR `error`).
+ *  - Webview -> host: `pngResponse` (`id` + Base64 PNG OR `error`). A save (not a backup) whose
+ *    labels fell back to the system sans says so with `fontFallback`.
  *
  * Echo protection: the host suppresses re-import when a document change exactly matches the JSON
  * last sent by the webview (otherwise every own change would reset the canvas). The webview, in
@@ -48,9 +51,9 @@ export type WebviewToHost =
   /** Graphical change -> apply to the document as a WorkspaceEdit. */
   | { type: "edit"; text: string }
   /** Trigger an image export (SVG = text, PNG = Base64). */
-  | { type: "export"; format: "svg" | "png"; data: string }
+  | { type: "export"; format: "svg" | "png"; data: string; fontFallback?: true }
   /** Reply to `requestPng`: Base64 PNG (`data`) OR `error`. `id` correlates with the request. */
-  | { type: "pngResponse"; id: number; data?: string; error?: string }
+  | { type: "pngResponse"; id: number; data?: string; error?: string; fontFallback?: true }
   /** Reply to `flush`: every `edit` it caused was posted before this. */
   | { type: "flushed"; id: number }
   | { type: "error"; message: string }

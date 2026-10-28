@@ -14,7 +14,7 @@ import {
   diagramShortcuts,
   renderLegend,
   type DiagramMenu,
-  type ShortcutsDialogChrome,
+  type ShortcutsChrome,
   type TitleDialogChrome,
 } from "@miragon/team-topologies-renderer";
 
@@ -22,10 +22,9 @@ import {
  * The renderer builds the diagram's menu entries, shortcut tables and legend without importing the
  * shell (only the apps mount it), so it mirrors the shell's types and its key labels. These tests
  * pin the mirror: the File rows use the chips the shell writes, and menu, dialogs and legend take
- * what the shell hands them. The pin of the View rows against the tooltips moved into the shell:
- * `shell.showShortcutsDialog` shows the chrome's own rows for them, pinned in the shell and checked
- * in every modeler by the kit's `shortcutsDialog` case. Until both apps open that dialog (#45), the
- * renderer's own dialog still shows its View rows, which its browser test pins by their values.
+ * what the shell hands them. The pin of the View rows against the tooltips lives in the shell:
+ * `shell.showShortcutsDialog` shows the chrome's own rows for them and leaves out the renderer's,
+ * checked in every modeler by the kit's `shortcutsDialog` case.
  */
 
 const GERMAN = resolveMessages({
@@ -64,7 +63,7 @@ describe("the renderer's chrome content against @miragon/modeler-shell", () => {
     expect(groups.map((group) => group.title)).toEqual(["File", "View", "Edit", "Tools"]);
   });
 
-  it("hands the shell a menu, a legend renderer, and takes a shell handle as dialog chrome", () => {
+  it("hands the shell a menu and a legend renderer, and takes a shell handle as chrome", () => {
     const menu: DiagramMenu = diagramMenu({
       editTitle: () => undefined,
       exports: { png: { onSelect: () => undefined }, svg: { onSelect: () => undefined } },
@@ -73,7 +72,7 @@ describe("the renderer's chrome content against @miragon/modeler-shell", () => {
     });
     const groups: MenuGroups = menu;
     const render: LegendOptions["render"] = renderLegend;
-    const shortcutsChrome = (shell: ShellHandle): ShortcutsDialogChrome => shell;
+    const shortcutsChrome = (shell: ShellHandle): ShortcutsChrome => shell;
     const titleChrome = (shell: ShellHandle): TitleDialogChrome => shell;
 
     expect(groups.model?.map((entry) => entry.id)).toEqual(["diagram-title"]);

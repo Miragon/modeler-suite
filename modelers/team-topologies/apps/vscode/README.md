@@ -71,7 +71,8 @@ the bottom left, the same in every Miragon modeler.
   starts hidden, and each editor remembers your choice.
 - **Menu** (top-left, the icon button): the legend, **Export as PNG** and **Export as SVG**, and
   **Keyboard shortcuts…**. The exports and **Fit to View** are also commands in the Command Palette
-  and in the editor title's **…** menu.
+  and in the editor title's **…** menu. The SVG is transparent; the PNG is drawn at 2× on the
+  `#F9F7F7` canvas ground with the diagram embedded in it (see below).
 - **Zoom panel** (bottom-right): zoom out, the current level (click for 100 %), zoom in, and fit to
   view. `Ctrl/Cmd` with `+`, `-` and `0` zoom the diagram while it has the focus (not the VS Code
   window), and `Shift+1` fits it.

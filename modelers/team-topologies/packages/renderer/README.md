@@ -122,9 +122,8 @@ modeler.redo();
 > **Typeface.** The canvas labels are drawn in the Miragon typeface **Geist**. The library does not
 > ship the font; self-host it in the host app (e.g. `@fontsource-variable/geist`) so the on-screen
 > canvas and exported SVG render in Geist. Without it, text falls back to a system sans. An SVG drawn
-> as an image (to rasterise a PNG) can't use the page's fonts, so embed them first:
-> `embedSvgStyles(svg, geistFontFaceCss({ latin, latinExt }))`, with the two latin Geist WOFF2 files
-> as `data:` URLs.
+> as an image (to rasterise a PNG) can't use the page's fonts: `svgToPng` of
+> `@miragon/modeler-shell/export` embeds the Geist subsets the text needs before it rasterises.
 
 ## API
 
@@ -227,13 +226,17 @@ so a host without the shell needs nothing else:
   Cancel and Apply. Enter applies the trimmed title, Escape and Cancel keep the old one, an
   unchanged title writes nothing and a blank one cannot be applied. Pass
   `setTitle: (title) => modeler.get("ttModeling").setTitle(title)` for one undo step.
-- `createShortcutsDialog(chrome, { fileKeys })` is the "Keyboard shortcuts…" dialog, one table per
-  group (`diagramShortcuts(chrome, options)` returns them as data); `fileKeys` adds a File group
-  (Open… on Cmd/Ctrl+O, Export as JSON on Cmd/Ctrl+S) and the `?` key for a web app that binds
-  them. Its View rows read the chrome's own zoom and fit texts and key names.
-- Both dialogs are native modal `<dialog>`s in `chrome.root` (the shell root), closed by Escape, the
-  Close button or a press on the backdrop; the focus goes back to the control that opened them, else
-  to `chrome.menu.trigger`. They are built on the first `open()`; call `destroy()` with the
+- `diagramShortcuts(chrome, { fileKeys })` returns the "Keyboard shortcuts…" dialog's content as
+  data, one group per table (View, Edit, Tools); `fileKeys` adds a File group (Open… on Cmd/Ctrl+O,
+  Export as JSON on Cmd/Ctrl+S) and the `?` key for a web app that binds them. The shell shows it:
+  `shell.showShortcutsDialog(diagramShortcuts(shell, options))`, with its own zoom and fit rows at
+  the top of the View group (the renderer's View rows for them are left out), or the standalone
+  `showShortcutsDialog(groups, { container })` of `@miragon/modeler-shell` in a host without a
+  mounted shell. `createShortcutsDialog(chrome, options)` is the renderer's own dialog for the same
+  groups, deprecated since 0.16.0 and removed in 0.17.0.
+- The title dialog is a native modal `<dialog>` in `chrome.root` (the shell root), closed by Escape,
+  the Close button or a press on the backdrop; the focus goes back to the control that opened it,
+  else to `chrome.menu.trigger`. It is built on the first `open()`; call `destroy()` with the
   diagram's teardown.
 - `renderLegend(body)` renders the notation legend into a chrome's legend card (the shell's
   `legend.render`): team types, interaction modes and the other elements, each with the palette's
@@ -244,37 +247,42 @@ so a host without the shell needs nothing else:
   `legendGroups()` is the same content as DOM-free data (`preview` is SVG markup) for a host that
   draws the legend itself.
 
-For the Export entries, a host takes `modeler.saveSVG()`: the SVG as it is, or rasterised to a PNG.
-An SVG drawn as an image cannot reach the page's fonts, so embed Geist before rasterising:
-`embedSvgStyles(svg, geistFontFaceCss({ latin, latinExt }))` (see [Typeface](#quick-start)).
+For the Export entries, a host takes `modeler.saveSVG()`: the SVG as it is (transparent: nothing is
+drawn behind the diagram), or rasterised to a PNG. An SVG drawn as an image cannot reach the page's
+fonts, and a PNG needs a background (guide §10.7: `hell['--cd-ui-grund']` of the vendored
+`cd-tokens.generated.json`, `#F9F7F7`, since this notation has no plot). `svgToPng` of
+`@miragon/modeler-shell/export` does both (see [Typeface](#quick-start)).
 
 ```ts
 import {
-  createShortcutsDialog,
   createTitleDialog,
   diagramMenu,
-  embedSvgStyles,
-  geistFontFaceCss,
+  diagramShortcuts,
   renderLegend,
   type TtModeling,
 } from "@miragon/team-topologies-renderer";
+import { svgToPng } from "@miragon/modeler-shell/export";
+// The renderer's vendored design tokens: src/theme/cd-tokens.generated.json.
+import tokens from "./cd-tokens.generated.json";
 
 // `chrome` is a modeler-shell handle or { root, menu: { trigger }, platform, lang, messages }.
 const title = createTitleDialog(chrome, {
   title: () => modeler.getMeta()?.title ?? "",
   setTitle: (next) => modeler.get<TtModeling>("ttModeling").setTitle(next),
 });
-const shortcuts = createShortcutsDialog(chrome);
-// The two latin Geist WOFF2 files as data: URLs, from the host's own copy of the font.
-const fontCss = geistFontFaceCss({ latin, latinExt });
 const menu = diagramMenu({
   editTitle: () => title.open(),
   exports: {
-    // savePng and saveSvg are the host's: rasterise and download, or hand the file on.
-    png: { onSelect: () => savePng(embedSvgStyles(modeler.saveSVG().svg, fontCss)) },
+    // savePng and saveSvg are the host's: download the file, or hand it on.
+    png: {
+      onSelect: async () =>
+        savePng(
+          await svgToPng(modeler.saveSVG().svg, { background: tokens.hell["--cd-ui-grund"] }),
+        ),
+    },
     svg: { onSelect: () => saveSvg(modeler.saveSVG().svg) },
   },
-  showKeyboardShortcuts: () => shortcuts.open(),
+  showKeyboardShortcuts: () => shell.showShortcutsDialog(diagramShortcuts(shell)),
 });
 const removeLegend = renderLegend(legendBody);
 ```
@@ -294,15 +302,17 @@ const removeLegend = renderLegend(legendBody);
   pad) and `ICON_SQUARE_DASHED_MOUSE_POINTER` (lasso). The icons of a host's chrome (menu, zoom,
   close) come from `@miragon/modeler-shell`.
 - **Design tokens:** `MIRAGON` (the Miragon colours by name) and `CD_TOKENS` (the same values keyed
-  by their `--cd-*` CSS name), for host code that paints outside CSS, e.g. a PNG background.
-- **Fonts in exports:** `geistFontFaceCss({ latin, latinExt })` builds the Geist `@font-face` rules
-  from two `data:` URLs (`GEIST_UNICODE_RANGES` holds their subsets), and `embedSvgStyles(svg, css)`
-  puts CSS at the top of a `saveSVG()` result, so a rasterised PNG keeps the canvas typeface.
+  by their `--cd-*` CSS name), for host code that paints outside CSS.
+- **Fonts in exports (deprecated since 0.16.0, removed in 0.17.0):** `geistFontFaceCss`,
+  `embedSvgStyles` and `GEIST_UNICODE_RANGES` embedded two Geist subsets into a `saveSVG()` result
+  before a host rasterised it. `svgToPng` of `@miragon/modeler-shell/export` embeds the subsets the
+  text needs, and `embedGeist(svg, faces)` from the same entry is that half on its own.
 - **Chrome content** ([Around the canvas](#around-the-canvas)): `diagramMenu`, `diagramShortcuts`,
-  `createShortcutsDialog`, `createTitleDialog`, `renderLegend`, `legendGroups`,
-  `JSON_EXPORT_LABEL`, `SHORTCUTS_DIALOG_KEY`, and their structural types (`DiagramMenu`,
-  `DiagramMenuActions`, `DiagramExports`, `ShortcutsDialogChrome`, `TitleDialogChrome`,
-  `DiagramTitle`, `LegendGroup`, `LegendRow`, …).
+  `createTitleDialog`, `renderLegend`, `legendGroups`, `JSON_EXPORT_LABEL`,
+  `SHORTCUTS_DIALOG_KEY`, and their structural types (`DiagramMenu`, `DiagramMenuActions`,
+  `DiagramExports`, `ShortcutsChrome`, `TitleDialogChrome`, `DiagramTitle`, `LegendGroup`,
+  `LegendRow`, …). `createShortcutsDialog`, `ShortcutsDialog` and `ShortcutsDialogChrome` are
+  deprecated since 0.16.0 and removed in 0.17.0.
 - **Other:** `TtViewerOptions`, `ImportOptions`, `ImportWarning`, `RootBusinessObject`, `ROOT_ID`,
   `saveSVG`, `TtReadOnly` and `READ_ONLY_CHANGED_EVENT` (the lock, DI name `ttReadOnly`), and
   `TtViewport` (DI name `ttViewport`, for `contentBounds()`; its `fit()` is the internal fit of
@@ -345,11 +355,11 @@ separate blue outline). On a dark custom fill, team and interaction labels switc
 ## Import / export
 
 The package reads and writes the canonical `TtDocument` (JSON) and exports a standalone **SVG**. The
-export leaves out selection, hover and resize chrome and puts a white sheet behind the diagram, so
-it looks the same wherever it is opened.
-PNG export and the embedded-scene round-trip (storing the document inside the exported image) live in
-the [web app](../../apps/webapp) and the [VS Code extension](../../apps/vscode), which add the canvas
-rasterisation those formats need.
+export leaves out selection, hover and resize chrome and draws nothing behind the diagram, so the
+SVG is transparent like the other notations'. The PNG export fills the background of guide §10.7
+itself, and the embedded-scene round-trip (storing the document inside the exported image) lives in
+the [web app](../../apps/webapp) and the [VS Code extension](../../apps/vscode), which rasterise
+through the shell's `svgToPng` for it.
 
 ## Development
 

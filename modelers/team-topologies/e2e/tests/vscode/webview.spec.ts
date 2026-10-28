@@ -9,6 +9,7 @@ import {
   waitForPosted,
   zoomReadout,
 } from "./support/webview.js";
+import { PNG_BACKGROUND, TRANSPARENT, pngPixel, svgPixel } from "../support/png.js";
 
 /*
  * The VS Code webview on the modeler shell, driven the way the extension host drives it: document
@@ -227,6 +228,27 @@ test.describe("VS Code webview", () => {
     await expect.poll(zoom).toBeLessThan(zoomedIn);
   });
 
+  test("the SVG export is transparent and the PNG export fills the guide's background", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await postFromHost(page, { type: "command", name: "exportSvg" });
+    const svg = await waitForPosted(page, "export");
+    expect(svg).toMatchObject({ format: "svg" });
+    expect(String(svg.data)).not.toContain("tt-export-paper");
+    expect(await svgPixel(page, String(svg.data))).toBe(TRANSPARENT);
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+    await page.waitForFunction(() =>
+      window.__modelerShellVsCodeStub!.posted.some(
+        (message) => (message as { format?: string }).format === "png",
+      ),
+    );
+    const png = (await postedMessages(page)).find((message) => message.format === "png")!;
+    expect(png.fontFallback).toBeUndefined();
+    expect(await pngPixel(page, String(png.data))).toBe(PNG_BACKGROUND);
+  });
+
   test("a PNG save gets the rendered PNG with the document inside", async ({ page }) => {
     await openWebview(page);
     await postFromHost(page, { type: "requestPng", id: 3, includeDraft: true });
@@ -243,8 +265,20 @@ test.describe("VS Code webview", () => {
 
     const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("table", { name: "View" })).toBeVisible();
+    await expect(dialog).toHaveClass(/\bcd-shell-dialog\b/);
+    await expect(page.locator("dialog.tt-dialog")).toHaveCount(0);
+    expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(true);
+    await expect(dialog.getByRole("heading", { level: 3 })).toHaveText(["View", "Edit", "Tools"]);
+    // The shell's own zoom rows stand for the renderer's: each action once.
+    await expect(dialog.getByRole("table", { name: "View" }).getByRole("row")).toHaveCount(4);
     await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    await page.getByRole("menuitem", { name: "Keyboard shortcuts…" }).click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();
     await expect(trigger).toBeFocused();
   });

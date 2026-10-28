@@ -31,7 +31,8 @@ unlayered.
 
 **Chrome:** both apps run on [`@miragon/modeler-shell`](../../packages/shell/README.md):
 the VS Code webview on its IDE host, the web app on its web host. Shared: menu, palette skin, zoom
-panel and keys, fit, problems pill, status box, empty-file hint, legend and inspector slots,
+panel and keys, fit, problems pill, status box, empty-file hint, legend and inspector slots, the
+Keyboard shortcuts dialog, the PNG export,
 `themes: ["light"]` until the shared dark mode (VS Code: theme bridge and the hint's "Insert
 example"; web: the hint after "New diagram" without it, Share as primary action, legal line,
 toasts, problems list, start screen, drop zone and the head markup from `vite.config.ts`). The
@@ -77,9 +78,23 @@ fails `npm run team-topologies lint` and `npm run team-topologies depcruise`.
 
 What the modeler puts into a host's chrome, apart from the inspector, is the renderer's, so every
 host gets it from npm (designIQ as well as the two apps): `diagramMenu` (Model, Export, Help),
-`renderLegend` / `legendGroups`, `createShortcutsDialog` and `createTitleDialog`, typed structurally
-like the shell (README "Around the canvas") and styled by `team-topologies.css`.
-`apps/webapp/src/chrome.sync.test.ts` pins that mirror to the shell's key labels and types.
+`diagramShortcuts` (the groups the shell's shortcuts dialog shows), `renderLegend` / `legendGroups`
+and `createTitleDialog`, typed structurally like the shell (README "Around the canvas") and styled
+by `team-topologies.css`. `apps/webapp/src/chrome.sync.test.ts` pins that mirror to the shell's key
+labels and types.
+
+The Keyboard shortcuts dialog and the PNG export are the shell's, in both apps:
+`shell.showShortcutsDialog(diagramShortcuts(shell, options))` (its View group starts with the
+chrome's own zoom rows and leaves out the renderer's) and `svgToPng` of
+`@miragon/modeler-shell/export` on the background of guide §10.7, `hell['--cd-ui-grund']` of the
+vendored tokens (no plot). The web app reads the Geist faces from its stylesheet; the webview
+passes all five as `data:` URLs through its `?dataurl` esbuild plugin (the CSP has no
+`connect-src`), also for the `.tt.png` editor, which adds its diagram chunk to the shell's PNG.
+`onFontFallback` becomes a warning toast in the web app and a warning notification in VS Code
+(`fontFallback` on the `export` and `pngResponse` messages). The renderer's `saveSVG` draws no
+sheet behind the diagram, so an SVG is transparent and only the PNG fills a background.
+`createShortcutsDialog` and the Geist helpers (`geistFontFaceCss`, `embedSvgStyles`,
+`GEIST_UNICODE_RANGES`) are deprecated since 0.16.0 and removed in 0.17.0 (#259, #260).
 
 The `ui` package is consumed from source only (no build, not published). It holds the inspector
 (React, mounted into the shell's inspector slot) and `makeRoomForLegend`, ships its styles as

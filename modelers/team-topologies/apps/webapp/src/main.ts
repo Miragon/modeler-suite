@@ -11,9 +11,9 @@ import "@miragon/modeler-shell/shell.css";
 import {
   Modeler,
   SHORTCUTS_DIALOG_KEY,
-  createShortcutsDialog,
   createTitleDialog,
   diagramMenu,
+  diagramShortcuts,
   isTtElement,
   renderLegend,
   type ImportWarning,
@@ -166,13 +166,11 @@ const shell: ShellHandle = mountShell(app, {
 if (!shell.inspector) throw new Error("The shell mounted no inspector slot.");
 const inspector = mountInspector(shell.inspector, modeler);
 // The modeler's own content in the shell root goes with the diagram (the shell removes only its own).
-const shortcutsDialog = createShortcutsDialog(shell, { fileKeys: true });
 const titleDialog = createTitleDialog(shell, {
   title: () => diagramTitle(),
   setTitle: (title) => modeler.get<TtModeling>("ttModeling").setTitle(title),
 });
 modeler.on("diagram.destroy", () => {
-  shortcutsDialog.destroy();
   titleDialog.destroy();
   inspector.destroy();
 });
@@ -190,7 +188,7 @@ function menuGroups(): MenuGroups {
       svg: { onSelect: () => void exportImage("svg") },
       json: { onSelect: () => exportJsonFile(), shortcut: saveKey },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    showKeyboardShortcuts: () => showShortcuts(),
     shortcutsKey: SHORTCUTS_DIALOG_KEY,
   });
   if (!previousAvailable) return groups;
@@ -593,9 +591,18 @@ async function exportImage(format: "png" | "svg"): Promise<void> {
   const progressTimer = setTimeout(() => {
     progress = shell.toast({ status: "info", text: "Exporting PNG…", durationMs: 60_000 });
   }, PROGRESS_TOAST_DELAY_MS);
+  let fontFallback = false;
   try {
-    await downloadPng(modeler.saveSVG().svg, diagramTitle());
-    shell.toast({ status: "success", text: "PNG exported" });
+    await downloadPng(modeler.saveSVG().svg, diagramTitle(), {
+      onFontFallback: () => {
+        fontFallback = true;
+      },
+    });
+    shell.toast(
+      fontFallback
+        ? { status: "warning", text: "PNG exported in a system font. Geist couldn't be embedded." }
+        : { status: "success", text: "PNG exported" },
+    );
   } catch (error) {
     console.error("[tt-modeler] PNG export failed:", error);
     shell.toast({
@@ -690,12 +697,17 @@ function onFileKey(event: KeyboardEvent): void {
   if (field?.isConnected) field.focus({ preventScroll: true });
 }
 
+/** The shell's dialog with the diagram's groups and the File keys this app binds. */
+function showShortcuts(): void {
+  shell.showShortcutsDialog(diagramShortcuts(shell, { fileKeys: true }));
+}
+
 function onShortcutsKey(event: KeyboardEvent): void {
   if (event.key !== SHORTCUTS_DIALOG_KEY || event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.defaultPrevented || event.isComposing || isTextField(event.target)) return;
   if (inPopup(event.target) || modalOpen()) return;
   event.preventDefault();
-  shortcutsDialog.open();
+  showShortcuts();
 }
 
 function onAppKey(event: KeyboardEvent): void {

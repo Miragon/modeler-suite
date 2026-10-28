@@ -351,7 +351,8 @@
    Content for the host's chrome: the legend rows (renderLegend) and the "Keyboard shortcuts…"
    and "Diagram title…" dialogs (createShortcutsDialog, createTitleDialog). Where they sit is the
    host's: the modeler shell's legend card and root, or a host's own panel. Styled here, so a
-   host without the shell gets them complete.
+   host without the shell gets them complete. The shell's own shortcuts dialog replaces
+   createShortcutsDialog, whose .tt-shortcuts__* rules go with it in 0.17.0.
    ========================================================================== */
 
 /* --- Legend rows (the host renders the card around them) ------------------- */

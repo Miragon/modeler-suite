@@ -3,16 +3,28 @@
  * so exported images can later be reopened as a Team Topologies diagram (idea from Excalidraw).
  *
  * The pure byte/encoding helpers live DOM-free in ../png.ts (also used by the extension host).
- * Only what the browser needs remains here (rasterization via canvas, Blob/FileReader).
+ * The rasterization is the shell's `svgToPng`; only the Blob/FileReader plumbing remains here.
  */
 
-import { MIRAGON, embedSvgStyles, geistFontFaceCss } from "@miragon/team-topologies-renderer";
-import geistLatin from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?dataurl";
-import geistLatinExt from "@fontsource-variable/geist/files/geist-latin-ext-wght-normal.woff2?dataurl";
+import { GEIST_UNICODE_RANGES, svgToPng, type GeistFace } from "@miragon/modeler-shell/export";
+import cyrillicExt from "@fontsource-variable/geist/files/geist-cyrillic-ext-wght-normal.woff2?dataurl";
+import cyrillic from "@fontsource-variable/geist/files/geist-cyrillic-wght-normal.woff2?dataurl";
+import vietnamese from "@fontsource-variable/geist/files/geist-vietnamese-wght-normal.woff2?dataurl";
+import latinExt from "@fontsource-variable/geist/files/geist-latin-ext-wght-normal.woff2?dataurl";
+import latin from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?dataurl";
+import tokens from "../../../../packages/renderer/src/theme/cd-tokens.generated.json";
 import { EMBED_KEYWORD, encodeDoc, pngInsertText } from "../png.js";
 
-/** An SVG drawn as an image can't reach the webview's font files, so Geist travels inline. */
-const GEIST_FONT_CSS = geistFontFaceCss({ latin: geistLatin, latinExt: geistLatinExt });
+/** The webview's CSP has no `connect-src`, so the faces travel inline instead of being fetched. */
+const GEIST_FACES: readonly GeistFace[] = [
+  { src: cyrillicExt, unicodeRange: GEIST_UNICODE_RANGES.cyrillicExt },
+  { src: cyrillic, unicodeRange: GEIST_UNICODE_RANGES.cyrillic },
+  { src: vietnamese, unicodeRange: GEIST_UNICODE_RANGES.vietnamese },
+  { src: latinExt, unicodeRange: GEIST_UNICODE_RANGES.latinExt },
+  { src: latin, unicodeRange: GEIST_UNICODE_RANGES.latin },
+];
+
+const PNG_BACKGROUND = tokens.hell["--cd-ui-grund"];
 
 const SVG_ATTR = "data-tt-document";
 
@@ -20,52 +32,27 @@ export function embedSvg(svg: string, doc: string): string {
   return svg.replace(/<svg\b/, `<svg ${SVG_ATTR}="${encodeDoc(doc)}"`);
 }
 
-export async function svgToEmbeddedPng(svg: string, doc: string, scale = 2): Promise<Blob> {
-  const { width, height } = svgSize(svg);
-  const png = await rasterize(svg, width, height, scale);
-  const withScene = pngInsertText(png, EMBED_KEYWORD, encodeDoc(doc));
-  return new Blob([withScene as BlobPart], { type: "image/png" });
+export interface EmbeddedPngOptions {
+  /** Called when Geist could not be embedded and the labels came out in the system sans. */
+  onFontFallback(reason: unknown): void;
 }
 
-function svgSize(svg: string): { width: number; height: number } {
-  const w = /width="(\d+(?:\.\d+)?)"/.exec(svg);
-  const h = /height="(\d+(?:\.\d+)?)"/.exec(svg);
-  return { width: w ? Number(w[1]) : 1000, height: h ? Number(h[1]) : 700 };
-}
-
-async function rasterize(
+export async function svgToEmbeddedPng(
   svg: string,
-  width: number,
-  height: number,
-  scale: number,
-): Promise<Uint8Array> {
-  const withFont = embedSvgStyles(svg, GEIST_FONT_CSS);
-  const url = URL.createObjectURL(new Blob([withFont], { type: "image/svg+xml" }));
-  try {
-    const img = new Image();
-    img.width = width;
-    img.height = height;
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error("Could not render the SVG."));
-      img.src = url;
-    });
-    // load can fire before the embedded font is ready; decode() waits for it.
-    await img.decode().catch(() => undefined);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(width * scale);
-    canvas.height = Math.round(height * scale);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas 2D context not available.");
-    ctx.fillStyle = MIRAGON.weiss;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-    if (!blob) throw new Error("PNG generation failed.");
-    return new Uint8Array(await blob.arrayBuffer());
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+  doc: string,
+  options: EmbeddedPngOptions,
+): Promise<Blob> {
+  const png = await svgToPng(svg, {
+    background: PNG_BACKGROUND,
+    fonts: GEIST_FACES,
+    onFontFallback: options.onFontFallback,
+  });
+  const withScene = pngInsertText(
+    new Uint8Array(await png.arrayBuffer()),
+    EMBED_KEYWORD,
+    encodeDoc(doc),
+  );
+  return new Blob([withScene as BlobPart], { type: "image/png" });
 }
 
 /** Blob -> Base64 (without the data-URL prefix) for transport to the host. */

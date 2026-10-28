@@ -90,9 +90,9 @@ shell's inspector slot:
   line, toasts, the problems list, the legend card, the inspector slot, the start screen and the
   drop zone; `connectDiagramJs` binds the zoom panel, the keys and the fit. What the diagram puts
   into that chrome comes from the renderer, as for any other host: `diagramMenu` (Model, Export,
-  Help), `renderLegend`, `createShortcutsDialog` and `createTitleDialog`; the inspector
-  (`mountInspector`) from the private [`@miragon/team-topologies-ui`](../../packages/ui) package,
-  shared with the VS Code webview.
+  Help), `diagramShortcuts` (the groups of the shell's `showShortcutsDialog`), `renderLegend` and
+  `createTitleDialog`; the inspector (`mountInspector`) from the private
+  [`@miragon/team-topologies-ui`](../../packages/ui) package, shared with the VS Code webview.
 - **Mode:** light only until the joint dark-mode release. `index.html` writes
   `data-cd-theme="light"`, and the Vite config puts the shell's `webHeadMarkup` (theme colour, the
   high-contrast line) in place of `<!-- miragon-mode -->`.
@@ -101,8 +101,11 @@ shell's inspector slot:
   diagrams skip the hash and rely on `localStorage`. The autosave (`tt-modeler:document:v1`) moves a
   stored diagram of another document to `tt-modeler:document:v1:previous` before it writes over it,
   the slot 0.10's "Restore previous diagram" used, so its copies stay reachable.
-- **Export:** JSON is the canonical `.ttm.json` text, SVG via `modeler.saveSVG()`, PNG by rasterising
-  that SVG on a canvas with Geist embedded. Downloads are named after the diagram's title.
+- **Export:** JSON is the canonical `.ttm.json` text, SVG via `modeler.saveSVG()` (transparent), PNG
+  by rasterising that SVG with the shell's `svgToPng` (`@miragon/modeler-shell/export`): Geist
+  embedded from the page's own font faces, 2×, on the background of guide §10.7 (`#F9F7F7`, the
+  tokens' `--cd-ui-grund`). Where Geist cannot be embedded the PNG still downloads in the system
+  font and a warning toast says so. Downloads are named after the diagram's title.
 
 The renderer, schema-model and ui packages are aliased to their **TypeScript source** in
 `vite.config.ts`, so there is no separate library build step: `npm run team-topologies dev:webapp` and the Netlify

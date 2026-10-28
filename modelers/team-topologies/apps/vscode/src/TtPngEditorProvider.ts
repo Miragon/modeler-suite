@@ -3,7 +3,7 @@ import { PNG_VIEW_TYPE } from "./commands.js";
 import { documentDiagnostics, problemCounts } from "./diagnostics.js";
 import type { DiagramPanels } from "./diagramPanels.js";
 import { EMPTY_MAP, withExampleInserted } from "./examples.js";
-import { exportImageToFile } from "./exportImage.js";
+import { FONT_FALLBACK_SAVED, exportImageToFile } from "./exportImage.js";
 import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "./png.js";
 import type { HostToWebview, WebviewToHost } from "./protocol.js";
 
@@ -169,7 +169,9 @@ export class TtPngEditorProvider implements vscode.CustomEditorProvider<TtPngDoc
           void vscode.commands.executeCommand("workbench.actions.view.problems");
           break;
         case "export":
-          await exportImageToFile(document.uri, msg.format, msg.data);
+          await exportImageToFile(document.uri, msg.format, msg.data, {
+            fontFallback: msg.fontFallback === true,
+          });
           break;
         case "pngResponse":
           this.resolvePng(binding, msg);
@@ -369,6 +371,7 @@ export class TtPngEditorProvider implements vscode.CustomEditorProvider<TtPngDoc
   ): void {
     const pending = binding.pending.get(msg.id);
     if (!pending) return; // unknown/too-late id (timeout/cancellation/dispose already cleaned up)
+    if (msg.fontFallback) void vscode.window.showWarningMessage(FONT_FALLBACK_SAVED);
     if (msg.error) pending.reject(new Error(msg.error));
     else if (typeof msg.data === "string" && msg.data.length > 0) pending.resolve(msg.data);
     else pending.reject(new Error("The PNG render returned no data."));

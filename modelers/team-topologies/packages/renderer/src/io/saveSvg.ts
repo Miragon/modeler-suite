@@ -3,13 +3,12 @@
  * framing the content bounds the fit shows, label text included, independent of
  * the current zoom / scroll.
  * Interaction chrome (selection outlines, resize handles, hover state) is left
- * out, and a white sheet sits behind the diagram, so an export always looks the
- * same as the light canvas, whatever was selected and wherever it is viewed.
+ * out. Nothing sits behind the diagram, so the SVG is transparent and a PNG takes the
+ * background of its own export (guide §10.7).
  */
 
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
-import { MIRAGON } from "../theme/palette.js";
 import { diagramContentBounds, type ContentBounds } from "./TtViewport.js";
 
 const MARGIN = 40;
@@ -57,15 +56,6 @@ export function saveSVG(canvas: Canvas, elementRegistry: ElementRegistry): { svg
   // Neutralise pan/zoom: let the viewBox (above) drive the geometry.
   const viewport = clone.querySelector<SVGGElement>(".viewport");
   if (viewport) viewport.removeAttribute("transform");
-
-  const sheet = clone.ownerDocument.createElementNS(SVG_NAMESPACE, "rect");
-  sheet.setAttribute("class", "tt-export-paper");
-  sheet.setAttribute("x", String(x));
-  sheet.setAttribute("y", String(y));
-  sheet.setAttribute("width", String(width));
-  sheet.setAttribute("height", String(height));
-  sheet.setAttribute("fill", MIRAGON.weiss);
-  clone.insertBefore(sheet, clone.firstChild);
 
   const svg = new XMLSerializer().serializeToString(clone);
   return { svg: '<?xml version="1.0" encoding="utf-8"?>\n' + svg };
