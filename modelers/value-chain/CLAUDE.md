@@ -80,7 +80,7 @@ missing at its other places; the verdict stays the same).
   (layered), `diagram-js.css`, `cd-canvas.css`, then styles only on `--cd-ui-*` roles;
   `test/theme.sync.test.ts` guards both, `apps/vscode/test/tokens.sync.test.ts` pins the shell's
   sizes to the vendored `shell` tokens. In-canvas overlays stay at `z-index` 100 or below.
-- `collaborative/` implements the `@miragon/modeler-api` 1.3 contract
+- `collaborative/` implements the `@miragon/modeler-api` 1.5 contract
   (`createCollaborativeModeler`/`createCollaborativeViewer`, `elements.bounds` included, and
   `contentBounds()`, `vcBounds.contentBounds(0)`: tight, `undefined` while empty, which the apps'
   `connectDiagramJs(…, { modeler, isEmpty })` fits to and the SVG export frames; it includes label
@@ -97,9 +97,25 @@ missing at its other places; the verdict stays the same).
   armed; both bring back the selection they hold when they end, which `import.render.done` maps
   onto the imported elements by id (diagram-js's `Selection` refuses the removed ones); a connect
   that the connect tool starts from a removed shape is refused at `connect.init`, which also puts
-  the tool down; a drop being applied when a host imports from its change listener finishes
-  first, told apart by its drag context, not a flag; `clear()` treats all of them the same way;
-  `test/browser/import-cancels-gesture.browser.test.ts`). A view change never
+  the tool down; a drop being applied is never cancelled, told apart by its drag context, not a
+  flag; `clear()` treats all of them the same way;
+  `test/browser/import-cancels-gesture.browser.test.ts`). `importText` and `clear()` called while
+  a drop is being applied (a host's change listener) wait until it has ended (#248,
+  `vcGestures.afterDrop`: a queue in call order, flushed in a microtask after `drag.ended` or
+  `drag.canceled`, also when a throwing cleanup listener keeps diagram-js from firing either), so
+  no listener of the drop, diagram-js's `SelectionBehavior` or the label editor an append opens,
+  meets a replaced diagram; the direct `importDocument` cannot wait, it returns its warnings
+  (`test/browser/import-during-drop.browser.test.ts`). The 1.5 surfaces: `interaction` is
+  `vcGestures.isActive()` (set on the first `drag.move` of an activated drag that is no armed tool
+  and no pan, cleared on `drag.ended`/`drag.canceled`, `GESTURE_CHANGED_EVENT`; the viewer, which
+  has no `vcGestures`, reports false; `interaction.browser.test.ts`); `appearance` (`appearance/`)
+  reports `VALUE_CHAIN_THEMES` (`["light"]`, `appearance/themes.ts`, no runtime import, which
+  both apps, the e2e suites, the smoke test and the extension host's theme bridge read) and writes
+  `data-cd-theme="light"` and `data-cd-kontrast="hoch"` on `diagram.container`; the container sets
+  `color` from `--cd-ui-text` and its high-contrast rules key on the nearest carrier, so the
+  computed colours equal light on a dark page (`appearance.browser.test.ts`).
+  `test/browser/support/pointer.ts` holds the pointer helpers and the planned 1.5 harness fields
+  (`startGesture`, `armTool`, `exportImage`). A view change never
   commits a label edit: the text box follows the view (`canvas.viewbox.changed`), only Enter,
   blur, `element.mousedown` and `drag.init` commit. The factories take the contract's
   `freeArea`/`fitOnImport`/`undoRedoKeys`. New elements get random ids.
@@ -179,8 +195,8 @@ passed on the VSIX it uploads) is in the suite's
   [`.claude/skills/value-chain-modeling/`](.claude/skills/value-chain-modeling/).
 - Contributor notes for this modeler in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - The VS Code webview mounts `@miragon/modeler-shell` (`mountVsCodeShell`, IDE host, themes
-  `['light']`); the extension host renders its HTML with `renderWebviewHtml` and runs the theme
-  bridge. Undo belongs to the document (`undoRedoKeys: false`); an invalid file locks the canvas
+  `VALUE_CHAIN_THEMES` of the renderer); the extension host renders its HTML with
+  `renderWebviewHtml` and runs the theme bridge, both on the same list. Undo belongs to the document (`undoRedoKeys: false`); an invalid file locks the canvas
   (`vcReadOnly` + `shell.setReadOnly`). `apps/vscode/THIRD_PARTY_NOTICES.md` is generated
   (`npm run notices -w modelers/value-chain/apps/vscode`) and checked by a unit test.
 - Both apps export the PNG through `svgToPng` of `@miragon/modeler-shell/export` with
@@ -199,7 +215,7 @@ passed on the VSIX it uploads) is in the suite's
   (`e2e/tests/support/label-editor.ts`: a double-click on a shape, then typing); the IDE suite
   declares `canvasMenuAction` absent, since its menu has no File or Model action.
 - The web app mounts the same shell on its web host (`mountShell`, `host: 'web'`, themes
-  `['light']`): File/Export/Help menu, Share, legal line, toasts, start screen, the empty-file hint
+  `VALUE_CHAIN_THEMES`, also in `vite.config.ts`'s head markup): File/Export/Help menu, Share, legal line, toasts, start screen, the empty-file hint
   after "New diagram" (without "Insert example"), drop zone; no
   problems list, since a document that validates imports without warnings. `index.html` is static `data-cd-theme="light"`; the Vite plugin puts `webHeadMarkup` in place
   of `<!-- miragon-mode -->`. It runs `createCollaborativeModeler` (canvas undo keys on), autosaves

@@ -46,6 +46,7 @@ export {
   type CollaborativeValueChainModeler,
   type CollaborativeValueChainOptions,
 } from "./collaborative/index.js";
+export { VALUE_CHAIN_THEMES } from "./appearance/index.js";
 export type { ImportWarning, RootBusinessObject } from "./io/index.js";
 export {
   vcModelingModule,
@@ -81,7 +82,7 @@ export { vcReadOnlyModule, VcReadOnly, READ_ONLY_CHANGED_EVENT } from "./read-on
 export { vcOrderingModule, VcOrderingProvider } from "./ordering/index.js";
 export { vcCopyPasteModule, VcCopyPasteBehavior } from "./copy-paste/index.js";
 export { vcResizeModule, VcResizeBehavior } from "./resize/index.js";
-export { vcGestureModule, VcGestures } from "./gesture/index.js";
+export { vcGestureModule, VcGestures, GESTURE_CHANGED_EVENT } from "./gesture/index.js";
 export { ICONS } from "./draw/icons.js";
 export {
   JSON_EXPORT_LABEL,

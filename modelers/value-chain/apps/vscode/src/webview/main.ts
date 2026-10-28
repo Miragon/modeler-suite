@@ -5,6 +5,7 @@ import "@fontsource-variable/geist-mono/wght.css";
 import {
   BLANK_DOCUMENT_NAME,
   COLORS,
+  VALUE_CHAIN_THEMES,
   blobToBase64,
   createCollaborativeModeler,
   diagramMenu,
@@ -33,7 +34,6 @@ import {
   readShellState,
 } from "@miragon/modeler-shell/vscode/webview";
 import type { HostToWebview, WebviewCommand, WebviewToHost } from "../protocol.js";
-import { WEBVIEW_THEMES } from "../themes.js";
 import { GEIST_FACES } from "./geist.js";
 
 interface VsCodeApi {
@@ -81,7 +81,7 @@ const app = document.getElementById("app");
 if (!app) throw new Error("The webview HTML has no #app root.");
 
 const shell = mountVsCodeShell(app, {
-  themes: WEBVIEW_THEMES,
+  themes: VALUE_CHAIN_THEMES,
   canvas: modeler.container,
   messages: { canvas: "Value chain diagram" },
   menu: diagramMenu({

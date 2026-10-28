@@ -9,4 +9,4 @@ export const vcGestureModule: ModuleDeclaration = {
   vcGestures: ["type", VcGestures],
 };
 
-export { default as VcGestures } from "./VcGestures.js";
+export { default as VcGestures, GESTURE_CHANGED_EVENT } from "./VcGestures.js";

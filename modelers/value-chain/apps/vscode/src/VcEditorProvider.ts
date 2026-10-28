@@ -13,7 +13,7 @@ import {
 import { DiagramSession } from "./DiagramSession.js";
 import { DIAGNOSTIC_COLLECTION_NAME } from "./diagnostics.js";
 import type { HostToWebview, WebviewCommand } from "./protocol.js";
-import { WEBVIEW_THEMES } from "./themes.js";
+import { VALUE_CHAIN_THEMES } from "../../../packages/renderer/src/appearance/themes.js";
 
 interface OpenDiagram {
   readonly uri: vscode.Uri;
@@ -107,12 +107,12 @@ export class VcEditorProvider implements vscode.CustomTextEditorProvider {
       styleUris: [asset("webview.css")],
       title: "Value Chain Diagram",
       lang: "en",
-      appearance: currentAppearance(vscode, { themes: WEBVIEW_THEMES }),
+      appearance: currentAppearance(vscode, { themes: VALUE_CHAIN_THEMES }),
       body: '<div id="app"></div>',
     });
 
     const session = new DiagramSession(document, webviewPanel, this.diagnostics);
-    const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: WEBVIEW_THEMES });
+    const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: VALUE_CHAIN_THEMES });
     const diagram: OpenDiagram = { uri: document.uri, panel: webviewPanel };
     if (webviewPanel.active) {
       this.activePanel = webviewPanel;

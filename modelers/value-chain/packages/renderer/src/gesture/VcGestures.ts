@@ -7,6 +7,9 @@ import type { ElementLike } from "diagram-js/lib/core/Types";
 import type { Element } from "diagram-js/lib/model/Types";
 import { toPoint } from "diagram-js/lib/util/Event";
 
+/** Fired with `{ active }` each time a gesture starts or ends (`VcGestures.isActive()`). */
+export const GESTURE_CHANGED_EVENT = "valueChain.gesture.changed";
+
 /** Ahead of every other listener of the same event. */
 const FIRST = 100_000;
 
@@ -46,27 +49,45 @@ interface ConnectInitEvent {
 }
 
 /**
- * Ends the user's gesture before an import replaces the shapes it works on. diagram-js keeps a drag
- * running across `diagram.clear`, and its drop would apply a command to removed shapes and throw
- * half-way. A pan and an armed palette tool are no gesture and run on.
+ * The user's gestures on the canvas: whether one runs (contract 1.5 `interaction`), ending it
+ * before an import replaces the shapes it works on, and holding back what replaces the diagram
+ * while a drop is being applied. diagram-js keeps a drag running across `diagram.clear`, and its
+ * drop would apply a command to removed shapes and throw half-way. A pan and an armed palette tool
+ * are no gesture and run on.
  */
 export default class VcGestures {
   static $inject = ["eventBus", "dragging", "toolManager", "elementRegistry", "canvas"];
 
   private dropping: DragContext | null = null;
+  private gesture: DragContext | null = null;
+  private readonly afterDropQueue: (() => void)[] = [];
+  private flushQueued = false;
 
   constructor(
-    eventBus: EventBus,
+    private readonly eventBus: EventBus,
     private readonly dragging: Dragging,
     toolManager: ToolManager,
     private readonly elementRegistry: ElementRegistry,
     private readonly canvas: Canvas,
   ) {
+    // diagram-js fires the first move of a drag right after the drag has started, and only then:
+    // a start that a listener refuses never shows as a gesture.
+    eventBus.on("drag.move", FIRST, () => this.noteDrag());
     eventBus.on("drag.end", FIRST, () => {
-      this.dropping = dragging.context() as DragContext | null;
+      this.dropping = this.context();
     });
     eventBus.on(["drag.ended", "drag.canceled"], FIRST, () => {
       this.dropping = null;
+      this.endGesture();
+      if (this.afterDropQueue.length > 0) this.queueFlush();
+    });
+    // A listener that throws during the cleanup keeps diagram-js from announcing the end of the
+    // drag, which is gone all the same.
+    eventBus.on("drag.cleanup", FIRST, () => {
+      const cleaned = this.context();
+      queueMicrotask(() => {
+        if (this.gesture === cleaned && this.context() !== cleaned) this.endGesture();
+      });
     });
     // The connect tool the palette armed starts its connect from the shape it was pressed on, once
     // the pointer leaves that shape: an import may have removed the shape by then, also one that
@@ -85,19 +106,89 @@ export default class VcGestures {
   }
 
   /**
+   * Whether the user holds a gesture: from the start of a drag that works on the diagram (a move,
+   * resize, connect, bendpoint, lasso or space drag, a create or append from the palette or the
+   * context pad, also while its preview is off the canvas) until its drop or cancel. A press inside
+   * the drag threshold, an armed palette tool and a pan are none.
+   */
+  isActive(): boolean {
+    return this.gesture !== null;
+  }
+
+  /** Whether a drop is being applied right now: between its release and the end of its drag. */
+  isDropping(): boolean {
+    return this.dropping !== null && this.context() === this.dropping;
+  }
+
+  /**
+   * Runs `work` at once, or after the drop being applied right now has ended, so that nothing the
+   * drop still runs (its own listeners, the label editor an append opens) meets a replaced
+   * diagram. Work held back runs in the order it came, and later work waits behind it.
+   */
+  afterDrop(work: () => void): void {
+    if (this.afterDropQueue.length === 0 && !this.isDropping()) {
+      work();
+      return;
+    }
+    this.afterDropQueue.push(work);
+    this.queueFlush();
+  }
+
+  /**
    * Ends a running gesture the way Escape does, without bringing back a selection of the shapes the
    * import removes. A palette tool that only waits for its next press stays armed, and a pan keeps
-   * running where the user's pointer takes it. A drop that is being applied right now, a host
-   * importing from its change listener, is left to finish: its command has run, the import
-   * replaces its result, and a cancel would pull the drag out from under diagram-js. The drop is
-   * told apart by its drag, not by a flag: a listener that throws during the drop's cleanup keeps
-   * diagram-js from announcing its end, and a flag left set would stop every later import from
-   * ending a gesture.
+   * running where the user's pointer takes it. A drop that is being applied right now is left to
+   * finish: a cancel would pull the drag out from under diagram-js. The drop is told apart by its
+   * drag, not by a flag: a listener that throws during the drop's cleanup keeps diagram-js from
+   * announcing its end, and a flag left set would stop every later import from ending a gesture.
    */
   cancel(): void {
-    const gesture = this.dragging.context() as DragContext | null;
+    const gesture = this.context();
     if (!gesture || gesture === this.dropping || NO_GESTURE_PREFIXES.has(gesture.prefix)) return;
     this.dragging.cancel(false);
+  }
+
+  private context(): DragContext | null {
+    return this.dragging.context() as DragContext | null;
+  }
+
+  private noteDrag(): void {
+    const drag = this.context();
+    if (drag === this.gesture) return;
+    this.endGesture();
+    if (!drag?.active || NO_GESTURE_PREFIXES.has(drag.prefix)) return;
+    this.gesture = drag;
+    this.eventBus.fire(GESTURE_CHANGED_EVENT, { active: true });
+  }
+
+  private endGesture(): void {
+    if (!this.gesture) return;
+    this.gesture = null;
+    this.eventBus.fire(GESTURE_CHANGED_EVENT, { active: false });
+  }
+
+  /**
+   * A drop runs synchronously inside the release, so a microtask queued during it runs once the
+   * drop, its end and the tool it re-arms are through.
+   */
+  private queueFlush(): void {
+    if (this.flushQueued) return;
+    this.flushQueued = true;
+    queueMicrotask(() => {
+      this.flushQueued = false;
+      this.flushAfterDrop();
+    });
+  }
+
+  private flushAfterDrop(): void {
+    while (this.afterDropQueue.length > 0 && !this.isDropping()) {
+      const work = this.afterDropQueue.shift();
+      try {
+        work?.();
+      } catch (error) {
+        reportError(error);
+      }
+    }
   }
 
   /**
@@ -106,7 +197,7 @@ export default class VcGestures {
    * point that now lies under the pointer (diagram-js keeps that point in the drag's context).
    */
   private anchorPanToView(): void {
-    const pan = this.dragging.context() as DragContext | null;
+    const pan = this.context();
     if (pan?.prefix !== PAN_PREFIX) return;
     const lastMove = pan.active ? pan.payload.originalEvent : undefined;
     const pointer: Point = (lastMove && toPoint(lastMove)) || pan.globalStart;

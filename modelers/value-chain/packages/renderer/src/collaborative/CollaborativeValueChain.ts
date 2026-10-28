@@ -1,11 +1,13 @@
 import {
   MODELER_API_VERSION,
+  type AppearanceSurface,
   type CollaborativeModeler,
   type CollaborativeModelerOptions,
   type ElementBounds,
   type ElementInfo,
   type ElementsSurface,
   type ImportResult,
+  type InteractionSurface,
   type ModelerMeta,
 } from "@miragon/modeler-api";
 import type { ModuleDeclaration } from "didi";
@@ -22,7 +24,9 @@ import {
 import { Modeler } from "../Modeler.js";
 import { NavigatedViewer } from "../NavigatedViewer.js";
 import type { VcViewerOptions } from "../VcBaseViewer.js";
+import { createAppearance } from "../appearance/index.js";
 import type VcBounds from "../bounds/VcBounds.js";
+import { GESTURE_CHANGED_EVENT, type VcGestures } from "../gesture/index.js";
 import { isVcShape, type VcShape } from "../model/di-types.js";
 
 /** Stable notation id in `meta.notation` of the collaborative-modeler contract. */
@@ -50,6 +54,13 @@ export interface CollaborativeValueChainModeler extends CollaborativeModeler {
    * measured once per content change, so zoom and scroll leave the box alone.
    */
   contentBounds(): ElementBounds | undefined;
+  /**
+   * Whether the user holds a gesture (`VcGestures.isActive()`); always false on the viewer, which
+   * has none. A pan with the hand tool, with Space held or with Ctrl/Cmd and a press is no gesture.
+   */
+  readonly interaction: InteractionSurface;
+  /** `themes` is `VALUE_CHAIN_THEMES`; `set` writes the mode on `diagram.container`. */
+  readonly appearance: AppearanceSurface;
   readonly diagram: Modeler | NavigatedViewer;
 }
 
@@ -104,7 +115,9 @@ function collaborative(
   const elementRegistry = diagram.get<ElementRegistry>("elementRegistry");
   const selection = diagram.get<Selection>("selection");
   const vcBounds = diagram.get<VcBounds>("vcBounds");
+  const gestures = diagram.getOptional<VcGestures>("vcGestures");
   const contentListeners = new Set<() => void>();
+  const interactionListeners = new Set<(active: boolean) => void>();
   let destroyed = false;
   let lastExport = "";
 
@@ -120,6 +133,28 @@ function collaborative(
       for (const listener of [...contentListeners]) listener();
     });
   }
+
+  // A host's listener runs inside the drag's pointer handler: diagram-js ends a drag on an error in
+  // its own events, and a throwing host must not cost the user the gesture.
+  eventBus.on(GESTURE_CHANGED_EVENT, (event: { active: boolean }) => {
+    for (const listener of [...interactionListeners]) {
+      try {
+        listener(event.active);
+      } catch (error) {
+        reportError(error);
+      }
+    }
+  });
+
+  const interaction: InteractionSurface = {
+    active: () => !destroyed && (gestures?.isActive() ?? false),
+    onChange(callback) {
+      if (destroyed) return () => undefined;
+      const listener = (active: boolean): void => callback(active);
+      interactionListeners.add(listener);
+      return () => interactionListeners.delete(listener);
+    },
+  };
 
   const elements: CollaborativeValueChainModeler["elements"] = {
     list: () =>
@@ -151,19 +186,39 @@ function collaborative(
   return {
     meta,
     elements,
+    interaction,
+    appearance: createAppearance(diagram.container, () => destroyed),
     diagram,
     attachTo(host) {
       host.appendChild(diagram.container);
       canvas.resized();
     },
     importText(text): Promise<ImportResult> {
-      if (destroyed) return Promise.reject(new Error("The modeler was destroyed."));
+      if (destroyed) return Promise.reject(destroyedError());
+      let document: ValueChainDocument;
       try {
-        const warnings = diagram.importDocument(documentOf(text));
-        return Promise.resolve({ warnings: warnings.map((warning) => warning.message) });
+        document = documentOf(text);
       } catch (error) {
-        return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+        return Promise.reject(asError(error));
       }
+      // A host that imports from its change listener does so while the drop that made the change
+      // is still being applied, and the drop's later listeners would meet the replaced diagram.
+      return new Promise<ImportResult>((resolve, reject) => {
+        const importNow = (): void => {
+          if (destroyed) {
+            reject(destroyedError());
+            return;
+          }
+          try {
+            const warnings = diagram.importDocument(document);
+            resolve({ warnings: warnings.map((warning) => warning.message) });
+          } catch (error) {
+            reject(asError(error));
+          }
+        };
+        if (gestures) gestures.afterDrop(importNow);
+        else importNow();
+      });
     },
     exportText() {
       // Asking a destroyed diagram would build a new one on the detached container.
@@ -202,9 +257,18 @@ function collaborative(
       }
       destroyed = true;
       contentListeners.clear();
+      interactionListeners.clear();
       diagram.destroy();
     },
   };
+}
+
+function destroyedError(): Error {
+  return new Error("The modeler was destroyed.");
+}
+
+function asError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
 }
 
 function shapeIds(selected: readonly unknown[]): string[] {

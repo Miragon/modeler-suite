@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
 import { webHeadMarkup } from "@miragon/modeler-shell/core";
 import { defineConfig, type Plugin } from "vite";
+import { VALUE_CHAIN_THEMES } from "../../packages/renderer/src/appearance/themes.ts";
 import tokens from "../../packages/renderer/src/theme/cd-tokens.generated.json" with { type: "json" };
-import { THEMES } from "./src/themes.ts";
 
 // The webapp bundles the @miragon/value-chain-* packages straight from SOURCE (like the
 // tsconfig paths). This keeps the build self-contained: no prior lib build / no dist CSS
@@ -12,8 +12,9 @@ const r = (p: string): string => resolve(import.meta.dirname, p);
 /**
  * The web app's mode before the first paint (guide §13.3): a light-only diagram writes
  * `data-cd-theme="light"` statically in index.html, one theme-color and the contrast line of the
- * guide's script. With the joint dark-mode release THEMES gains "dark" and the same call writes
- * the whole script with both theme-colors (index.html then says `data-cd-theme="system"`).
+ * guide's script. With the joint dark-mode release the renderer's VALUE_CHAIN_THEMES gains "dark"
+ * and the same call writes the whole script with both theme-colors (index.html then says
+ * `data-cd-theme="system"`).
  */
 const modeMarkup = (): Plugin => ({
   name: "miragon-mode",
@@ -21,7 +22,7 @@ const modeMarkup = (): Plugin => ({
     html.replace(
       "<!-- miragon-mode -->",
       webHeadMarkup({
-        themes: THEMES,
+        themes: VALUE_CHAIN_THEMES,
         themeColors: { light: tokens.fest["--cd-blau"], dark: tokens.dunkel["--cd-ui-grund"] },
       }),
     ),

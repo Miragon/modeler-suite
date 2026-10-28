@@ -1,7 +1,7 @@
 import { test, type Page } from "@playwright/test";
 import { registerShellConformance, type ShellSkip } from "@miragon/modeler-shell/testing";
 import { EXAMPLE_DOCUMENT } from "../../apps/webapp/src/example.js";
-import { THEMES } from "../../apps/webapp/src/themes.js";
+import { VALUE_CHAIN_THEMES } from "../../packages/renderer/src/appearance/themes.js";
 import { labelEditorHooks } from "./support/label-editor.js";
 import { diagramShortcutsDialog } from "./support/shortcuts-dialog.js";
 import { exportText, linkTo, waitForApp } from "./support/webapp.js";
@@ -40,7 +40,7 @@ test.describe("web app: shell conformance", () => {
   registerShellConformance<Page>(
     {
       host: "web",
-      themes: THEMES,
+      themes: VALUE_CHAIN_THEMES,
       // The kit emulates the system's colour scheme and contrast before every open.
       async open(page, { size, document: documentKey }) {
         if (!freshPages.has(page)) {
