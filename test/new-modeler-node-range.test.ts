@@ -1,8 +1,11 @@
 /**
  * Drift guard of the new-modeler template's Node version: the template declares the suite's range,
  * its CI installs the floor of that range, and every package it pins accepts the floor. A pinned
- * package's own range is read from the copy of exactly that version this workspace installs, so a
- * template pin that runs ahead of the suite fails here instead of in a new modeler's `npm ci`.
+ * package's own range is read from the copy of that version this workspace installs or, once the
+ * suite has moved past it, from the closest newer copy: an `engines` floor rises from release to
+ * release, so what the newer copy accepts the pinned one accepts too, and an update of the suite
+ * never waits for the template. A template pin that runs ahead of every installed copy cannot be
+ * read and fails here instead of in a new modeler's `npm ci`: the suite takes a version first.
  */
 import { spawnSync } from "node:child_process";
 import {
@@ -106,8 +109,16 @@ function installedCopies(name: string): Manifest[] {
     .map(readManifest);
 }
 
-const installedPin = (pin: Pin): Manifest | undefined =>
-  installedCopies(pin.name).find((copy) => copy.version === pin.version);
+/** The installed copy whose `engines` stand for a pin: that version, else the closest newer one. */
+function copyReadFor(pin: Pin): Manifest | undefined {
+  const copies = installedCopies(pin.name);
+  return (
+    copies.find((copy) => copy.version === pin.version) ??
+    copies
+      .filter((copy) => semver.gt(copy.version, pin.version))
+      .sort((a, b) => semver.compare(a.version, b.version))[0]
+  );
+}
 
 /** Runs an action's `bash` step with only `env` set; returns its exit code, log and outputs. */
 function runStep(script: string, env: Record<string, string>, cwd: string) {
@@ -216,35 +227,36 @@ describe("the template's setup action", () => {
 });
 
 describe("the packages the template pins", () => {
-  it("are installed in this workspace at the pinned version, so their own range can be read", () => {
-    const unread = pins.filter((pin) => !installedPin(pin));
-    const installedVersions = (pin: Pin) =>
-      installedCopies(pin.name)
-        .map((copy) => copy.version)
-        .join(", ") || "none";
+  it("never run ahead of the versions this workspace installs, so their own range can be read", () => {
+    const unread = pins.filter((pin) => !copyReadFor(pin));
+    const whyUnread = (pin: Pin) => {
+      const versions = installedCopies(pin.name).map((copy) => copy.version);
+      return versions.length === 0
+        ? `${pin.name}@${pin.version} is not installed here`
+        : `${pin.name}@${pin.version} runs ahead of the suite (installed here: ${versions.join(", ")})`;
+    };
     expect(
       unread.map((pin) => pin.name),
-      unread
-        .map((pin) => `${pin.name}@${pin.version} (installed here: ${installedVersions(pin)})`)
-        .join("; "),
+      unread.map(whyUnread).join("; "),
     ).toEqual([...NOT_INSTALLED_HERE.keys()]);
   });
 
   it("accept the floor of each alternative of the range", () => {
     const rejections = pins.flatMap((pin) => {
-      const range = installedPin(pin)?.engines?.node;
-      return range === undefined
+      const copy = copyReadFor(pin);
+      const range = copy?.engines?.node;
+      return copy === undefined || range === undefined
         ? []
         : FLOORS.filter((floor) => !semver.satisfies(floor, range)).map((floor) => ({
             pin,
-            range,
+            source: copy.version === pin.version ? range : `${range}, read from ${copy.version}`,
             floor,
           }));
     });
     expect(
       rejections.map(({ pin, floor }) => `${pin.name} rejects Node ${floor}`),
       rejections
-        .map(({ pin, range, floor }) => `${pin.name}@${pin.version} (${range}) rejects ${floor}`)
+        .map(({ pin, source, floor }) => `${pin.name}@${pin.version} (${source}) rejects ${floor}`)
         .join("; "),
     ).toEqual(
       [...NEEDS_NODE_24.keys()].flatMap((name) =>
