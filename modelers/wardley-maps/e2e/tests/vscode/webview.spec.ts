@@ -444,7 +444,7 @@ test.describe("VS Code webview: canvas", () => {
     expect(countOf(await postedMessages(page), "edit")).toBe(1);
     expect(await shapeCount(page)).toBe(1);
     await expect(page.locator(".cd-shell-canvas .djs-shape.selected")).toHaveCount(1);
-    const field = page.locator("input.wardley-label-input");
+    const field = page.locator("textarea.wardley-label-input");
     await expect(field).toBeFocused();
 
     await field.fill("Kettle");
@@ -510,7 +510,7 @@ test.describe("VS Code webview: canvas", () => {
     const shapes = await shapeCount(page);
     await page.keyboard.press("Delete");
     await water.dblclick();
-    await expect(page.locator("input.wardley-label-input")).toHaveCount(0);
+    await expect(page.locator("textarea.wardley-label-input")).toHaveCount(0);
     expect(await shapeCount(page)).toBe(shapes);
     expect(countOf(await postedMessages(page), "edit")).toBe(0);
 

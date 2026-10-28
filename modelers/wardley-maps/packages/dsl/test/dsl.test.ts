@@ -1427,13 +1427,14 @@ describe("names and texts the serializer escapes", () => {
     expect(once).toContain("A +'http://x'> B");
   });
 
-  it("writes a line break in a name or text as a space and keeps the note escape", () => {
+  it("writes a line break in a name, a note or an annotation as a literal \\n and in other texts as a space", () => {
     const once = serializeDSL(editedMap("first\nsecond"));
-    expect(once).toContain("component first second [0.8, 0.3]");
+    expect(once).toContain("component first\\nsecond [0.8, 0.3]");
     expect(once).toContain("note first\\nsecond [0.4, 0.4]");
-    expect(once).toContain("annotation 1 [0.3, 0.3] first second");
+    expect(once).toContain("annotation 1 [0.3, 0.3] first\\nsecond");
+    expect(once).toContain("pipeline first\\nsecond [0.2, 0.8]");
     expect(once).toContain("title first second");
-    expect(once).toContain("User -> first second; first second");
+    expect(once).toContain("User -> first\\nsecond; first second");
     expectFixedPoint(once);
   });
 

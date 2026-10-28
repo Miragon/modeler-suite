@@ -320,3 +320,20 @@ export async function renameShape(page: Page, id: string, newLabel: string): Pro
   await input.press("Enter");
   await expect(input).toBeHidden();
 }
+
+/** Opens a shape's name editor and types `lines` into it, one per line, without saving. */
+export async function typeNameLines(
+  page: Page,
+  id: string,
+  lines: readonly [string, ...string[]],
+): Promise<Locator> {
+  await shapeHit(page, id).dblclick();
+  const field = page.locator("textarea.wardley-label-input");
+  await expect(field).toBeFocused();
+  await field.fill(lines[0]);
+  for (const line of lines.slice(1)) {
+    await field.press("Shift+Enter");
+    await field.pressSequentially(line);
+  }
+  return field;
+}

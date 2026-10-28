@@ -171,6 +171,25 @@ change:
 - a leading `{` becomes `｛`;
 - a name already taken becomes `Name 2`, `Name 3`.
 
+A literal `\n` in a name is a line break, as in a note: the Modeler stores `Customer\nPortal` as
+"Customer", a line break and "Portal", draws the two lines, and writes the break back as `\n`.
+Leading and trailing breaks are dropped like other leading and trailing whitespace. Links, `evolve`
+lines, pipeline blocks and legacy method lines refer to the name with its `\n`
+(`Customer\nPortal -> Payments`), and uniqueness compares names with their breaks: `Customer\nPortal`
+and `Customer Portal` are two names. A real backslash followed by `n` (`C:\new`) cannot be told
+apart, so it reads as a line break as well; keep it out of names. Other OWM tools may show the `\n`
+as text.
+
+```owm
+title Names with line breaks
+anchor Customer\nPortal [0.95, 0.5]
+component Payment\nGateway [0.6, 0.4]
+component Ledger [0.3, 0.7]
+evolve Payment\nGateway 0.7
+Customer\nPortal -> Payment\nGateway
+Payment\nGateway -> Ledger
+```
+
 The **suffix** after the tuple is split into tokens, in any order: `(color …)`, `(y …)`,
 `label [dx, dy]`, `url(…)`, other `( … )` groups and words. Each statement keeps the tokens it
 supports, listed below. Of a single-valued suffix (colour, label offset, url, method, height,
@@ -267,6 +286,7 @@ annotation <n> [[vis, mat], [vis, mat], …] (color …) <text>
   hint.
 - Positions are clamped with a diagnostic. Without coordinates the line is kept with
   `Annotation has no position: not drawn; add [visibility, maturity]`.
+- A literal `\n` in the text is a line break, as in a note.
 - The Modeler draws a numbered marker at the **first** position with the text beside it; further
   positions are kept in the file.
 
@@ -540,14 +560,15 @@ nothing on save. It matters for maps edited in the graphical editor.
 | `+` before `>`, `<` or `'` in a name                                              | `＋` (U+FF0B)                                                     |
 | a leading `{` in a name                                                           | `｛` (U+FF5B)                                                     |
 | `//` (not right after `:`) and `/*` in any name or text, outside a flow value     | `∕∕`, `∕*` (U+2215)                                               |
-| a line break in a name or text                                                    | a space                                                           |
-| a line break in note text                                                         | `\n`                                                              |
+| a line break in a name, note text or annotation text                              | `\n`                                                              |
+| a line break in any other text (title, axis labels, link annotation, evolve name) | a space                                                           |
 | empty name                                                                        | `User` (anchor), `Component`, `Accelerator`, `Submap`, `Pipeline` |
 | a name already used by an earlier anchor, component, child, accelerator or submap | `Name 2`, `Name 3`, … (`Name 2 2` if taken)                       |
 | leading / trailing spaces in a name                                               | trimmed                                                           |
 
 "Any name or text" covers the title, evolution and y-axis labels, note and annotation text, link
-annotations and `evolve` new names. Some text is **not** escaped, and the next parse reads it
+annotations and `evolve` new names. A name keeps its line breaks (as `\n`), so the escapes apply to
+each of its lines. Some text is **not** escaped, and the next parse reads it
 differently:
 
 - `;` in a name: links to that element break;

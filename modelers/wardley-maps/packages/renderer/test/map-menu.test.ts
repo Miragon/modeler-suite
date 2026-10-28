@@ -168,6 +168,36 @@ describe("mapShortcuts", () => {
     expect(mapShortcuts(localized, { fileKeys: true })[0]!.rows[0]!.action).toBe("Öffnen …");
   });
 
+  it("lists the key that breaks the line in a name, next to the key that saves a note", () => {
+    const edit = (platform: "mac" | "other") =>
+      mapShortcuts(chrome(platform))[1]!.rows.map((row) => [row.action, ...row.keys]);
+    expect(edit("mac")).toEqual(
+      expect.arrayContaining([
+        ["Break the line in a name", "⇧↵"],
+        ["Save a note while editing", "⌘↵"],
+      ]),
+    );
+    expect(edit("other")).toEqual(
+      expect.arrayContaining([
+        ["Break the line in a name", "Shift+Enter"],
+        ["Save a note while editing", "Ctrl+Enter"],
+      ]),
+    );
+  });
+
+  it("names the break key as the chrome's key table does in another language", () => {
+    const german = {
+      ...chrome("other"),
+      messages: {
+        ...chrome("other").messages,
+        keyNames: { ctrl: "Strg", shift: "Umschalt", plus: "Plus", minus: "Minus" },
+      },
+    };
+    expect(
+      mapShortcuts(german)[1]!.rows.find((row) => row.action.startsWith("Break"))?.keys,
+    ).toEqual(["Umschalt+Enter"]);
+  });
+
   it("lists the single-key tools the canvas binds", () => {
     const tools = mapShortcuts(chrome("other"))[2]!.rows;
     const single = Object.fromEntries(

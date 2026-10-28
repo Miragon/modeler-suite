@@ -66,6 +66,8 @@ const VOCABULARY = {
     "A +> B",
     "A +'",
     "Url",
+    "Customer\\nPortal",
+    "Hot\\n{Water}",
   ],
   tuples: [
     "[0.5, 0.5]",

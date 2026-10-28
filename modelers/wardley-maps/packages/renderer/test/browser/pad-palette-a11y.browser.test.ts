@@ -305,7 +305,7 @@ describe("context pad", () => {
     const edit = padEntry(pad, "edit-label")!;
     edit.focus();
     pressKey(edit, "Enter");
-    const input = target.container.querySelector<HTMLInputElement>(".wardley-label-input");
+    const input = target.container.querySelector<HTMLTextAreaElement>(".wardley-label-input");
     expect(input?.value).toBe("Kettle");
     input!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
 

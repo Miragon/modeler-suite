@@ -51,8 +51,8 @@ Together they show _what_ you depend on and _how mature_ each piece is.
   diagram's bottom-left corner shows how many there are and opens the view. The text has syntax
   highlighting, and `Ctrl/Cmd+/` toggles `//` comments.
 - **Full modeler:** the tool palette at the top and the context pad on a selected element (append,
-  connect, evolve, settings, color, delete). Double-click an element to rename it; placing a new
-  one opens its name field right away. `Enter` on a palette entry places the element in the middle
+  connect, evolve, settings, color, delete). Double-click an element to rename it (`Shift+Enter`
+  breaks the line in a name); placing a new one opens its name field right away. `Enter` on a palette entry places the element in the middle
   of the visible map. Drag a component left or right to evolve it, drag its label to move just the
   label (`Alt`+double-click puts it back).
 - **Map size:** drag the plot's right or bottom edge or its corner to resize it (`Shift` keeps the

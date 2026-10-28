@@ -52,24 +52,39 @@ export function writtenText(text: string): string {
   return escapeCommentMarkers(text.replace(/\r?\n/g, " "));
 }
 
-/** Note texts keep their line breaks as a literal `\n`. */
+/**
+ * Notes, annotations and names keep their line breaks as a literal `\n`, so the line-based DSL
+ * stays one line per statement. A real backslash followed by "n" cannot be told apart: it reads
+ * back as a line break.
+ */
+export function lineBreaksAsWritten(text: string): string {
+  return text.replace(/\r?\n/g, "\\n");
+}
+
+/** The inverse of `lineBreaksAsWritten`: a literal `\n` is a line break. */
+export function readLineBreaks(text: string): string {
+  return text.replace(/\\n/g, "\n");
+}
+
+/** Note and annotation texts keep their line breaks as a literal `\n`. */
 export function writtenNoteText(text: string): string {
-  return escapeCommentMarkers(text).replace(/\r?\n/g, "\\n");
+  return lineBreaksAsWritten(escapeCommentMarkers(text));
 }
 
 /**
  * A name is written where a link line reads its names, so nothing in it may read as link syntax:
  * `->` becomes `→`, a `+` that would start a flow operator (`+>`, `+<`, `+'`) becomes `＋`, and a
- * leading `{` (which would open a pipeline block) becomes `｛`. An empty name gets the type's default.
+ * leading `{` (which would open a pipeline block) becomes `｛`. Line breaks inside the name are
+ * written as a literal `\n`; leading and trailing ones are dropped. An empty name gets the type's
+ * default.
  */
 export function writtenName(label: string, elementType: string): string {
   const name = label
-    .replace(/\r?\n/g, " ")
     .replace(/->/g, "→")
     .replace(/\+(?=['<>])/g, FULLWIDTH_PLUS)
     .trim()
     .replace(/^\{/, FULLWIDTH_LEFT_BRACE);
-  return escapeCommentMarkers(name) || defaultName(elementType);
+  return escapeCommentMarkers(lineBreaksAsWritten(name)) || defaultName(elementType);
 }
 
 /** Hands out names that are unique within the DSL: a repeated name gets a suffix (`Name 2`). */

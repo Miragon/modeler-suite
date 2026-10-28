@@ -62,7 +62,7 @@ Press `?` in the web app for the same list, with the keys of your platform.
 | Nudge selection                 | Arrow keys (`Shift` = coarse)                                                                                                                                                                   |
 | Undo / redo                     | `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z` or `Ctrl/Cmd+Y`                                                                                                                                               |
 | Zoom                            | `Ctrl/Cmd` + `+` / `-` / `0` (100 %), `Shift+1` fits; the zoom panel bottom-right                                                                                                               |
-| Edit label / note               | Double-click (notes: `Cmd/Ctrl+Enter` saves)                                                                                                                                                    |
+| Edit label / note               | Double-click: `Enter` saves, `Shift+Enter` breaks the line in a name (notes: `Enter` breaks, `Cmd/Ctrl+Enter` saves)                                                                            |
 | Move a label                    | Drag the label; `Alt` + double-click puts it back                                                                                                                                               |
 | Edit link annotation/flow value | Double-click the connection (or pencil in the pad)                                                                                                                                              |
 | Evolve                          | Drag from the context pad; drag the red target circle                                                                                                                                           |
@@ -151,6 +151,7 @@ files only show Geist where the font is available to the program that renders th
 | Accelerator / deaccelerator                         |  ✅   |   ✅   |  ✅   |
 | Pioneers / settlers / town planners `[v1,m1,v2,m2]` |  ✅   |   ✅   |  ✅   |
 | Note (multi-line, colour)                           |  ✅   |   ✅   |  ✅   |
+| Line breaks in names (written as `\n`)              |  ✅   |   ✅   |  ✅   |
 | Annotation (incl. multi-position)                   |  ✅   |   ✅   |  ✅   |
 | Submap + `url` definitions / `url(...)` references  |  ✅   |   ✅   |  ✅   |
 | Comments `//` and `/* */` (kept via passthrough)    |  n/a  |  n/a   |  ✅   |

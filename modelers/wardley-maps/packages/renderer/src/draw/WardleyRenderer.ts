@@ -17,12 +17,17 @@ import {
 } from "./styles.js";
 import { drawIcon, ICON_FAST_FORWARD, ICON_FAST_REWIND, ICON_PERSON } from "./icons.js";
 import {
+  LABEL_LINE_HEIGHT,
   LABEL_METHOD_LINE_SHIFT,
   anchorLabelPlacement,
   componentLabelPlacement,
+  firstLineBaseline,
+  lastLineBaseline,
   movementDeltaX as movementDeltaXOf,
   movementLabelPlacement,
+  nameLines,
   type LabelPlacement,
+  type LineGrowth,
 } from "./label-layout.js";
 import {
   isWardleyConnection,
@@ -247,20 +252,33 @@ export default class WardleyRenderer extends BaseRenderer {
     );
     // Target label (evolve Old->New) or the component's name — canonically red at the target circle.
     const placement = movementLabelPlacement(mv.labelOffset, movementDeltaX);
+    const targetName = mv.newLabel ?? shape.wardleyLabel;
     svgAppend(
       group,
-      label(mv.newLabel ?? shape.wardleyLabel, cx + placement.x, cy + placement.y, {
-        "font-weight": "500",
-        fill: COLORS.movement,
-        "text-anchor": placement.anchor,
-        class: `wardley-movement-label ${LABEL_HANDLE_CLASS}`,
-        [LABEL_ROLE_ATTRIBUTE]: "movement",
-      }),
+      label(
+        targetName,
+        cx + placement.x,
+        cy + placement.y,
+        {
+          "font-weight": "500",
+          fill: COLORS.movement,
+          "text-anchor": placement.anchor,
+          class: `wardley-movement-label ${LABEL_HANDLE_CLASS}`,
+          [LABEL_ROLE_ATTRIBUTE]: "movement",
+        },
+        true,
+        "centered",
+      ),
     );
     if (mv.method) {
+      const lastLineY = lastLineBaseline(
+        cy + placement.y,
+        nameLines(targetName).length,
+        "centered",
+      );
       svgAppend(
         group,
-        label(mv.method, cx + placement.x, cy + placement.y + LABEL_METHOD_LINE_SHIFT, {
+        label(mv.method, cx + placement.x, lastLineY + LABEL_METHOD_LINE_SHIFT, {
           "font-size": 10.5,
           fill: COLORS.movement,
           "text-anchor": placement.anchor,
@@ -277,13 +295,20 @@ export default class WardleyRenderer extends BaseRenderer {
     const placement = anchorLabelPlacement(shape);
     svgAppend(
       visuals,
-      label(shape.wardleyLabel, cx + placement.x, cy + placement.y, {
-        "text-anchor": placement.anchor,
-        "font-weight": "700",
-        class: `${NAME_LABEL_CLASS} ${LABEL_HANDLE_CLASS}`,
-        [LABEL_ROLE_ATTRIBUTE]: "name",
-        ...(shape.color ? { fill: shape.color } : {}),
-      }),
+      label(
+        shape.wardleyLabel,
+        cx + placement.x,
+        cy + placement.y,
+        {
+          "text-anchor": placement.anchor,
+          "font-weight": "700",
+          class: `${NAME_LABEL_CLASS} ${LABEL_HANDLE_CLASS}`,
+          [LABEL_ROLE_ATTRIBUTE]: "name",
+          ...(shape.color ? { fill: shape.color } : {}),
+        },
+        true,
+        "up",
+      ),
     );
     return icon;
   }
@@ -328,11 +353,18 @@ export default class WardleyRenderer extends BaseRenderer {
       );
       svgAppend(
         visuals,
-        label(shape.wardleyLabel, width / 2 + half + 6, -4, {
-          "font-weight": "500",
-          class: NAME_LABEL_CLASS,
-          ...(tint ? { fill: tint } : {}),
-        }),
+        label(
+          shape.wardleyLabel,
+          width / 2 + half + 6,
+          -4,
+          {
+            "font-weight": "500",
+            class: NAME_LABEL_CLASS,
+            ...(tint ? { fill: tint } : {}),
+          },
+          true,
+          "up",
+        ),
       );
     }
     return box;
@@ -422,7 +454,14 @@ export default class WardleyRenderer extends BaseRenderer {
     if (shape.wardleyLabel) {
       svgAppend(
         visuals,
-        label(shape.wardleyLabel, cx + 15, cy + 4, { "font-size": 12, fill: COLORS.noteText }),
+        label(
+          shape.wardleyLabel,
+          cx + 15,
+          cy + 4,
+          { "font-size": 12, fill: COLORS.noteText, class: NAME_LABEL_CLASS },
+          true,
+          "centered",
+        ),
       );
     }
     return marker;
@@ -444,7 +483,14 @@ export default class WardleyRenderer extends BaseRenderer {
     if (shape.wardleyLabel) {
       svgAppend(
         visuals,
-        label(shape.wardleyLabel, cx + 15, cy + 5, { "font-size": 12, class: NAME_LABEL_CLASS }),
+        label(
+          shape.wardleyLabel,
+          cx + 15,
+          cy + 5,
+          { "font-size": 12, class: NAME_LABEL_CLASS },
+          true,
+          "centered",
+        ),
       );
     }
     return sym;
@@ -481,11 +527,18 @@ export default class WardleyRenderer extends BaseRenderer {
     );
     svgAppend(
       visuals,
-      label(shape.wardleyLabel, cx + r + 6, cy - 6, {
-        "font-weight": "500",
-        class: NAME_LABEL_CLASS,
-        ...(shape.color ? { fill: shape.color } : {}),
-      }),
+      label(
+        shape.wardleyLabel,
+        cx + r + 6,
+        cy - 6,
+        {
+          "font-weight": "500",
+          class: NAME_LABEL_CLASS,
+          ...(shape.color ? { fill: shape.color } : {}),
+        },
+        true,
+        "centered",
+      ),
     );
     return outer;
   }
@@ -549,19 +602,27 @@ function drawComponentLabel(
   const ly = cy + placement.y;
   svgAppend(
     visuals,
-    label(shape.wardleyLabel, lx, ly, {
-      "font-weight": "500",
-      "text-anchor": placement.anchor,
-      class: `${NAME_LABEL_CLASS} ${LABEL_HANDLE_CLASS}`,
-      [LABEL_ROLE_ATTRIBUTE]: "name",
-      ...(shape.color ? { fill: shape.color } : {}),
-    }),
+    label(
+      shape.wardleyLabel,
+      lx,
+      ly,
+      {
+        "font-weight": "500",
+        "text-anchor": placement.anchor,
+        class: `${NAME_LABEL_CLASS} ${LABEL_HANDLE_CLASS}`,
+        [LABEL_ROLE_ATTRIBUTE]: "name",
+        ...(shape.color ? { fill: shape.color } : {}),
+      },
+      true,
+      "centered",
+    ),
   );
   const method = shape.decorators?.method;
   if (method) {
+    const lastLineY = lastLineBaseline(ly, nameLines(shape.wardleyLabel).length, "centered");
     svgAppend(
       visuals,
-      label(method, lx, ly + LABEL_METHOD_LINE_SHIFT, {
+      label(method, lx, lastLineY + LABEL_METHOD_LINE_SHIFT, {
         "font-size": 10.5,
         "text-anchor": placement.anchor,
         fill: COLORS.axisText,
@@ -580,9 +641,20 @@ function line(x1: number, y1: number, x2: number, y2: number, attrs: Attrs): SVG
 
 /**
  * Text label with a paper halo (paint-order: stroke) for legibility over lines/bands.
- * `halo=false` disables the halo (e.g. for annotation numbers on a filled marker).
+ * `halo=false` disables the halo (e.g. for annotation numbers on a filled marker). With `growth`
+ * the content is a name whose line breaks make lines of their own (one `<tspan>` each, so it
+ * stays a single text for dragging and editing); `y` is the baseline of a name of one line.
  */
-function label(content: string, x: number, y: number, attrs: Attrs = {}, halo = true): SVGElement {
+function label(
+  content: string,
+  x: number,
+  y: number,
+  attrs: Attrs = {},
+  halo = true,
+  growth?: LineGrowth,
+): SVGElement {
+  const lines = growth ? nameLines(content) : [content];
+  const firstLineY = growth ? firstLineBaseline(y, lines.length, growth) : y;
   const haloAttrs: Attrs = halo
     ? {
         stroke: COLORS.paper,
@@ -593,14 +665,22 @@ function label(content: string, x: number, y: number, attrs: Attrs = {}, halo = 
     : {};
   const el = svgAttr(svgCreate("text"), {
     x,
-    y,
+    y: firstLineY,
     "font-family": FONT.family,
     "font-size": FONT.label,
     fill: COLORS.ink,
     ...haloAttrs,
     ...attrs,
   });
-  el.textContent = content;
+  if (lines.length === 1) {
+    el.textContent = lines[0]!;
+    return el;
+  }
+  lines.forEach((line, index) => {
+    const row = svgAttr(svgCreate("tspan"), { x, y: firstLineY + index * LABEL_LINE_HEIGHT });
+    row.textContent = line;
+    svgAppend(el, row);
+  });
   return el;
 }
 
