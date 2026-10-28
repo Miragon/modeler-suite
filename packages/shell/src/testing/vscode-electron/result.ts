@@ -11,6 +11,7 @@ export const VSCODE_SMOKE_STEPS = [
   "undo",
   "themes",
   "keys",
+  "history",
   "close",
 ] as const;
 
@@ -51,6 +52,22 @@ export interface VsCodeSmokeKeysResult {
   selected: number;
 }
 
+/** The zoom in percent and how many elements were selected, read at one moment of the history step. */
+export interface VsCodeSmokeHistoryView {
+  zoom: number;
+  selected: number;
+}
+
+/** What the history step saw (0.8). */
+export interface VsCodeSmokeHistoryResult {
+  /** The view and selection the redo began with, after the step zoomed and selected all. */
+  before?: VsCodeSmokeHistoryView | undefined;
+  /** Once the redo brought the edit back; missing when it did not. */
+  afterRedo?: VsCodeSmokeHistoryView | undefined;
+  /** Once the undo took the edit back again; missing when it did not. */
+  afterUndo?: VsCodeSmokeHistoryView | undefined;
+}
+
 export interface VsCodeSmokeResult {
   /** No failure. */
   ok: boolean;
@@ -71,6 +88,8 @@ export interface VsCodeSmokeResult {
   themes: VsCodeSmokeThemeResult[];
   /** The keys step's observations; missing when the step did not run. */
   keys?: VsCodeSmokeKeysResult | undefined;
+  /** The history step's observations; missing when the step did not run. */
+  history?: VsCodeSmokeHistoryResult | undefined;
   timings: VsCodeSmokeTimings;
 }
 
@@ -131,6 +150,16 @@ export function describeKeys(keys: VsCodeSmokeKeysResult): string {
   );
 }
 
+/** One line of what the history step saw: zoom and selection before the redo, after it and after the undo. */
+export function describeHistory(history: VsCodeSmokeHistoryResult): string {
+  const view = (entry: VsCodeSmokeHistoryView | undefined) =>
+    entry ? `${entry.zoom}% with ${entry.selected} selected` : "?";
+  return (
+    `view ${view(history.before)}, after the redo ${view(history.afterRedo)}, ` +
+    `after the undo ${view(history.afterUndo)}`
+  );
+}
+
 /** A few lines for the test log: version, timings, every theme and the failures. */
 export function formatVsCodeSmoke(result: VsCodeSmokeResult): string {
   const head = [
@@ -152,12 +181,14 @@ export function formatVsCodeSmoke(result: VsCodeSmokeResult): string {
       (entry.screenshot ? `, ${entry.screenshot}` : ""),
   );
   const keys = result.keys ? [`  keys: ${describeKeys(result.keys)}`] : [];
+  const history = result.history ? [`  history: ${describeHistory(result.history)}`] : [];
   const failures = result.failures.map((failure) => `  - ${failure}`);
   return [
     head,
     timings,
     ...themes,
     ...keys,
+    ...history,
     ...(failures.length > 0 ? ["failures:", ...failures] : []),
   ].join("\n");
 }

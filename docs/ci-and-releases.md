@@ -67,9 +67,10 @@ path no rule names.
   modeler: the packaged extension in a real VS Code under `xvfb`, on the newest stable release and on
   the oldest that `engines.vscode` accepts. The workflow decides itself whether the change can reach
   that VSIX (`ci-paths.sh vscode-smoke <modeler>`); when it cannot, a job that succeeds stands in, so
-  the smoke always reports. It sets `VSCODE_SMOKE_OPT_IN=keys`, so every modeler also runs the
-  driver's opt-in steps (the zoom and selection keys) until they become its default; the smoke the
-  release runs on the VSIX it publishes leaves them out.
+  the smoke always reports. It sets `VSCODE_SMOKE_OPT_IN=keys,history`, so every modeler also runs
+  the driver's opt-in steps (the zoom and selection keys, and the view and selection across a redo
+  and an undo) until they become its default; the smoke the release runs on the VSIX it publishes
+  leaves them out.
 
 ### `ci-ok`
 

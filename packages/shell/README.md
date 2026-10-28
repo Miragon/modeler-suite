@@ -753,7 +753,7 @@ edit: async ({ webview, page }) => {
 ```
 
 The result says what happened (`ok`, `failures`, `saved`, `undone`, `themes` with the observed
-appearance and the screenshot, `keys` when that step ran, `timings` per step); `runVsCodeSmoke`
+appearance and the screenshot, `keys` and `history` when those steps ran, `timings` per step); `runVsCodeSmoke`
 never throws for a failed check, only for options it cannot run with. An extension that fails to
 activate in VS Code (a module its bundle cannot load, a throw in `activate`) fails the open step at
 once, with VS Code's own error from its extension host log; `keepTemporaryFiles: true` keeps the profile with all of VS Code's logs.
@@ -770,7 +770,13 @@ a run ends with the keys step: with the focus on the canvas it presses every zoo
 follow each key, no key the webview handled may reach the webview's `window` (where VS Code would
 run its own binding, such as the window zoom), VS Code's window zoom level has to stay as it was,
 Cmd/Ctrl+0 must not move VS Code's focus to the side bar, select all has to select more canvas
-elements than were selected before and no text, and the copy has to leave the clipboard alone. New
+elements than were selected before and no text, and the copy has to leave the clipboard alone.
+Opted in with `history: true`, or with `VSCODE_SMOKE_OPT_IN=history` (0.8; a list takes commas
+or spaces, `keys,history`), a run ends with the history step: it zooms the canvas away from the fit,
+selects every element, redoes the edit and undoes it again, and after each of the two the view
+(zoom and translation) and the selection have to be what they were, the element the history
+takes away or brings back aside. The document is VS Code's, so the webview imports every text a
+redo or an undo brings; this is where a modeler that refits or loses the selection shows. New
 steps start opt-in and become the default once every modeler passes them in CI.
 Keep the smoke test out of the unit tests' project: it needs a display and the built extension. Add
 the screenshot directory to `.gitignore`.

@@ -229,3 +229,33 @@ export const workbenchFocusProbe = (): WorkbenchFocus => {
 };
 
 export const devicePixelRatioProbe = (): number => window.devicePixelRatio;
+
+/** The canvas's view and selection, which an undo and a redo have to leave as they are. */
+export interface ViewFacts {
+  /** diagram-js's zoom, the scale of the viewport's matrix. */
+  scale: number;
+  /** The viewport's translation in pixels; with the scale it is the viewbox of a container of the same size. */
+  translateX: number;
+  translateY: number;
+  /** `data-element-id` of every element the canvas draws, sorted. */
+  elements: string[];
+  /** The ids of the selected ones, sorted. */
+  selected: string[];
+}
+
+export const viewFactsProbe = (): ViewFacts => {
+  const viewport = document.querySelector<SVGGraphicsElement>(".djs-container > svg > .viewport");
+  const matrix = viewport?.transform.baseVal.consolidate()?.matrix;
+  const idsOf = (selector: string): string[] =>
+    [...document.querySelectorAll(selector)]
+      .map((element) => element.getAttribute("data-element-id") ?? "")
+      .filter((id) => id !== "")
+      .sort();
+  return {
+    scale: matrix?.a ?? 1,
+    translateX: matrix?.e ?? 0,
+    translateY: matrix?.f ?? 0,
+    elements: idsOf(".djs-element"),
+    selected: idsOf(".djs-element.selected"),
+  };
+};

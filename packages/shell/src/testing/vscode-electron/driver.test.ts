@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -12,7 +12,9 @@ import {
   type InstallContent,
 } from "../../../test/support/test-electron.js";
 import { runVsCodeSmoke, type VsCodeSmokeOptions } from "./driver.js";
+import { platformKeys } from "./launch.js";
 import {
+  activeEditorDirtyProbe,
   activeTextEditorProbe,
   blurProbe,
   canvasFactsProbe,
@@ -20,7 +22,10 @@ import {
   focusCanvasProbe,
   installKeyRecorderProbe,
   settleProbe,
+  viewFactsProbe,
   workbenchWebviewsProbe,
+  type CanvasFacts,
+  type ViewFacts,
 } from "./webview.js";
 
 const peers = vi.hoisted(() => ({
@@ -145,6 +150,16 @@ interface FakeVsCodeOptions {
   textEditorCheckFails?: string | undefined;
   /** What VS Code writes into its extension host log at start. */
   extensionHostLog?: string | undefined;
+  /** A document that is edited, saved, undone and redone; the canvas, the view and the keys follow it. */
+  editing?: FakeEditing | undefined;
+}
+
+/** The part of a VS Code window that a document with a history drives. */
+interface FakeEditing {
+  press(chord: string, file: string): void;
+  dirty(): boolean;
+  canvas(): CanvasFacts;
+  view(): ViewFacts;
 }
 
 /**
@@ -174,6 +189,11 @@ function fakeVsCode(options: FakeVsCodeOptions) {
         throw new Error("locator.evaluate: Target page, context or browser has been closed");
       const shown = options.document;
       if (!shown) throw new Error("the fake webview has no document");
+      if (options.editing) {
+        if (probe === canvasFactsProbe) return options.editing.canvas();
+        if (probe === viewFactsProbe) return options.editing.view();
+        if (probe === focusCanvasProbe) return true;
+      }
       if (probe === canvasFactsProbe) {
         return {
           shapes: shown.shapes,
@@ -192,7 +212,9 @@ function fakeVsCode(options: FakeVsCodeOptions) {
       );
     },
   };
+  let workspaceFile = "";
   Object.assign(window, {
+    keyboard: { press: async (chord: string) => options.editing?.press(chord, workspaceFile) },
     setDefaultTimeout: () => undefined,
     waitForSelector: async () => report("launch"),
     locator: () => webview,
@@ -202,6 +224,7 @@ function fakeVsCode(options: FakeVsCodeOptions) {
         if (options.textEditorCheckFails) throw new Error(options.textEditorCheckFails);
         return false;
       }
+      if (probe === activeEditorDirtyProbe) return options.editing?.dirty() ?? false;
       return undefined;
     },
     screenshot: async ({ path }: { path: string }) => writeFile(path, ""),
@@ -225,6 +248,7 @@ function fakeVsCode(options: FakeVsCodeOptions) {
   };
   peers.download = fakeTestElectron().download;
   peers.launch = async ({ args }) => {
+    workspaceFile = args.at(-1)!;
     if (options.extensionHostLog !== undefined) {
       const userDataDir = args.find((arg) => arg.startsWith("--user-data-dir="))!.split("=")[1]!;
       const logs = join(userDataDir, "logs", "20261024T100000", "window1", "exthost");
@@ -551,7 +575,187 @@ describe("runVsCodeSmoke, keys", () => {
     vi.stubEnv("VSCODE_SMOKE_OPT_IN", "key");
 
     await expect(smokeUpToKeys()).rejects.toThrow(
-      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "key", which is no opt-in step (keys)',
+      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "key", which is no opt-in step (keys, history)',
     );
   });
+});
+
+interface FakeDocumentOptions {
+  /** The redo key changes nothing. */
+  redoDoesNothing?: boolean | undefined;
+  /** The undo key changes nothing. */
+  undoDoesNothing?: boolean | undefined;
+  /** An import after the undo or the redo drops the selection, as a modeler that restores none would. */
+  dropsSelection?: boolean | undefined;
+}
+
+/**
+ * A document with the history VS Code keeps for it: the fixture's text, the edited text the edit
+ * made, the file on disk the save writes, and a canvas that draws one more shape for the edited
+ * text. The view keeps its zoom through the imports an undo and a redo cause, and the selection
+ * keeps what the canvas still draws.
+ */
+function fakeDocument(original: string, options: FakeDocumentOptions = {}) {
+  const keys = platformKeys(process.platform);
+  const edited = `${original} edited`;
+  let text = original;
+  let onDisk = original;
+  let scale = 0.62;
+  let selected: string[] = [];
+  const drawn = () => (text === edited ? ["a", "b", "c", "d"] : ["a", "b", "c"]);
+  const importText = (next: string) => {
+    text = next;
+    const kept = new Set(drawn());
+    selected = options.dropsSelection ? [] : selected.filter((id) => kept.has(id));
+  };
+  const editing: FakeEditing = {
+    press(chord, file) {
+      if (chord === keys.save) {
+        onDisk = text;
+        writeFileSync(file, text);
+      } else if (chord === keys.undo && !options.undoDoesNothing) importText(original);
+      else if (chord === keys.redo && !options.redoDoesNothing) importText(edited);
+      else if (chord === `${keys.modifier}+Equal`) scale *= 1.35;
+      else if (chord === `${keys.modifier}+KeyA`) selected = drawn();
+    },
+    dirty: () => text !== onDisk,
+    canvas: () => ({
+      shapes: drawn().length,
+      connections: 0,
+      positions: drawn().map((_, index) => `${index * 100},0`),
+    }),
+    view: () => ({
+      scale,
+      translateX: 12,
+      translateY: -8,
+      elements: drawn(),
+      selected: [...selected],
+    }),
+  };
+  return {
+    keys,
+    editing,
+    edit: async () => importText(edited),
+    diskText: (file: string) => readFileSync(file, "utf8"),
+  };
+}
+
+describe("runVsCodeSmoke, history", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  async function smokeEditing(
+    document: ReturnType<typeof fakeDocument>,
+    overrides: Partial<VsCodeSmokeOptions> = {},
+    lines: string[] = [],
+  ) {
+    fakeVsCode({ menu: true, document: { shapes: 3 }, editing: document.editing });
+    return runVsCodeSmoke(
+      await smokeOptions({
+        edit: document.edit,
+        colorThemes: [],
+        timeoutMs: 2_000,
+        log: (line) => lines.push(line),
+        ...overrides,
+      }),
+    );
+  }
+
+  it(
+    "redoes and undoes the edit after the keys, and checks the zoomed view and the selection",
+    { timeout: 30_000 },
+    async () => {
+      const document = fakeDocument("board");
+      const lines: string[] = [];
+
+      const result = await smokeEditing(document, { history: true }, lines);
+
+      expect(result.failures).toEqual([]);
+      expect(result.undone).toBe(true);
+      expect(result.history).toEqual({
+        before: { zoom: 84, selected: 3 },
+        afterRedo: { zoom: 84, selected: 3 },
+        afterUndo: { zoom: 84, selected: 3 },
+      });
+      expect(lines).toContain(
+        "history: view 84% with 3 selected, after the redo 84% with 3 selected, after the undo 84% with 3 selected",
+      );
+      expect(Object.keys(result.timings)).toEqual([
+        "resolve",
+        "launch",
+        "open",
+        "edit",
+        "save",
+        "undo",
+        "themes",
+        "history",
+        "close",
+        "total",
+      ]);
+      expect(document.editing.dirty()).toBe(false);
+    },
+  );
+
+  it(
+    "runs it for VSCODE_SMOKE_OPT_IN=history, unless the modeler passes history: false",
+    { timeout: 30_000 },
+    async () => {
+      vi.stubEnv("VSCODE_SMOKE_OPT_IN", "history");
+
+      const optedIn = await smokeEditing(fakeDocument("board"));
+      expect(optedIn.history?.afterUndo).toEqual({ zoom: 84, selected: 3 });
+
+      const optedOut = await smokeEditing(fakeDocument("board"), { history: false });
+      expect(optedOut.history).toBeUndefined();
+      expect(optedOut.timings.history).toBeUndefined();
+    },
+  );
+
+  it("skips it by default", { timeout: 30_000 }, async () => {
+    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "");
+
+    const result = await smokeEditing(fakeDocument("board"));
+
+    expect(result.failures).toEqual([]);
+    expect(result.history).toBeUndefined();
+    expect(result.timings.history).toBeUndefined();
+  });
+
+  it("fails the history step with a redo that changes nothing", { timeout: 30_000 }, async () => {
+    const document = fakeDocument("board", { redoDoesNothing: true });
+
+    const result = await smokeEditing(document, { history: true });
+
+    expect(result.failures).toEqual([
+      `history: ${document.keys.redo} did not bring the edit back: the canvas shows 3 shapes and 0 connections, after the edit 4 shapes and 0 connections`,
+    ]);
+    expect(result.history?.afterRedo).toBeUndefined();
+  });
+
+  it("names an import that drops the selection", { timeout: 30_000 }, async () => {
+    const document = fakeDocument("board", { dropsSelection: true });
+
+    const result = await smokeEditing(document, { history: true });
+
+    expect(result.failures).toEqual([
+      `history: ${document.keys.redo} dropped the selection of a, b, c, which are still on the canvas`,
+    ]);
+  });
+
+  it(
+    "is skipped, and says so, when the undo step did not bring the canvas back",
+    { timeout: 30_000 },
+    async () => {
+      const document = fakeDocument("board", { undoDoesNothing: true });
+      const lines: string[] = [];
+
+      const result = await smokeEditing(document, { history: true, timeoutMs: 1_000 }, lines);
+
+      expect(result.failures.length).toBeGreaterThan(0);
+      expect(result.failures.every((failure) => failure.startsWith("undo: "))).toBe(true);
+      expect(result.history).toBeUndefined();
+      expect(lines).toContain("history: skipped, the undo step did not bring the canvas back");
+    },
+  );
 });

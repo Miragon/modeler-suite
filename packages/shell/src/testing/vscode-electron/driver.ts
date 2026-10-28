@@ -12,6 +12,8 @@ import {
   type Theme,
 } from "../../core/index.js";
 import { resolveInSharedCache } from "./cache.js";
+import { describeCanvas, sameCanvas } from "./canvas-facts.js";
+import { checkHistory, type HistorySession } from "./history.js";
 import { checkKeys, type KeysSession } from "./keys.js";
 import {
   DEFAULT_WINDOW_SIZE,
@@ -32,6 +34,7 @@ import {
 import { extensionActivationFailures } from "./logs.js";
 import {
   SmokeFailures,
+  describeHistory,
   describeKeys,
   missingChrome,
   sameAppearance,
@@ -77,6 +80,7 @@ import {
   settleProbe,
   takeKeyRecordsProbe,
   textSelectionProbe,
+  viewFactsProbe,
   webviewThemeProbe,
   workbenchClassesProbe,
   workbenchFocusProbe,
@@ -156,6 +160,12 @@ export interface VsCodeSmokeOptions {
    * `VSCODE_SMOKE_OPT_IN=keys` in the environment turns it on.
    */
   keys?: boolean | undefined;
+  /**
+   * Runs the history step (0.8): after the keys, the redo of the edit and the undo that takes it back
+   * again leave the zoomed view and the selection of every element alone. Opt-in while it is new;
+   * without the option, `VSCODE_SMOKE_OPT_IN=history` in the environment turns it on.
+   */
+  history?: boolean | undefined;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -171,6 +181,8 @@ const UNCAUGHT_ERROR_GRACE_MS = 3_000;
 const KEY_EFFECT_TIMEOUT_MS = 5_000;
 /** VS Code acts on a key the webview forwards through two `postMessage` hops. */
 const KEY_GRACE_MS = 300;
+/** A late refit or restore after an import moves the view within this time. */
+const VIEW_SETTLE_MS = 500;
 const DEFAULT_CHROME: readonly ChromeIsland[] = ["menu", "palette", "zoom"];
 /** Names the screenshot of a webview that never showed, next to the theme screenshots. */
 const OPEN_FAILURE: VsCodeColorTheme = { id: "open-failure", name: "", kind: 1 };
@@ -235,18 +247,6 @@ function pollUntil<T>(
   timeoutMs: number,
 ): Promise<{ value: T; met: boolean }> {
   return pollEvery(read, done, timeoutMs, POLL_INTERVAL_MS);
-}
-
-function sameCanvas(a: CanvasFacts, b: CanvasFacts): boolean {
-  return (
-    a.shapes === b.shapes &&
-    a.connections === b.connections &&
-    a.positions.join(";") === b.positions.join(";")
-  );
-}
-
-function describeCanvas(facts: CanvasFacts): string {
-  return `${facts.shapes} shapes and ${facts.connections} connections`;
 }
 
 function appearanceOf(facts: WebviewThemeFacts): Appearance | undefined {
@@ -315,10 +315,11 @@ async function closeApplication(app: ElectronApplication): Promise<void> {
 /**
  * Starts a real VS Code with the modeler's built extension, opens `fixture` in its custom editor,
  * and checks the shell's chrome, an edit through the canvas, save, undo, and the theme bridge under
- * every color theme, with a screenshot per theme; opted in, also the zoom and selection keys. A
- * failed check never throws: it is in `failures`. Throws for unusable options (no manifest, no
- * matching custom editor, an unbuilt extension, a file name with a path, an unknown step in
- * `VSCODE_SMOKE_OPT_IN`) and when the optional peers are missing.
+ * every color theme, with a screenshot per theme; opted in, also the zoom and selection keys and the
+ * view and selection across a redo and an undo. A failed check never throws: it is in `failures`.
+ * Throws for unusable options (no manifest, no matching custom editor, an unbuilt extension, a file
+ * name with a path, an unknown step in `VSCODE_SMOKE_OPT_IN`) and when the optional peers are
+ * missing.
  */
 export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCodeSmokeResult> {
   const started = performance.now();
@@ -328,6 +329,7 @@ export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCod
   const themes = options.themes ?? ["light"];
   const colorThemes = options.colorThemes ?? VSCODE_COLOR_THEMES;
   const keys = options.keys ?? vsCodeSmokeOptIn(process.env).has("keys");
+  const history = options.history ?? vsCodeSmokeOptIn(process.env).has("history");
   const { fileName } = options.fixture;
   if (!isPlainFileName(fileName)) {
     throw new Error(`runVsCodeSmoke: the fixture needs a plain file name, not "${fileName}"`);
@@ -443,6 +445,7 @@ export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCod
         themes,
         colorThemes,
         keys,
+        history,
         timeoutMs,
         name: options.name ?? manifest.name ?? "modeler",
         paths: {
@@ -484,6 +487,7 @@ interface SessionRun {
   themes: readonly Theme[];
   colorThemes: readonly VsCodeColorTheme[];
   keys: boolean;
+  history: boolean;
   timeoutMs: number;
   name: string;
   paths: VsCodeSmokePaths;
@@ -612,8 +616,11 @@ async function runSession(run: SessionRun): Promise<void> {
       return true;
     }));
 
+  // What the history step's redo has to bring back, read before the undo takes it away.
+  let editedCanvas: CanvasFacts | undefined;
   if (saved) {
     await step("undo", async () => {
+      if (run.history) editedCanvas = await canvasFacts();
       for (let index = 0; index < (options.undoSteps ?? 1); index++) {
         await context.page.keyboard.press(context.keys.undo);
       }
@@ -682,6 +689,41 @@ async function runSession(run: SessionRun): Promise<void> {
       log(`keys: ${describeKeys(checked.result)}`);
     });
   }
+
+  if (run.history && result.undone && editedCanvas) {
+    const edited = editedCanvas;
+    // Last, so the zoom and the selection it leaves are in no screenshot, and after the keys, which
+    // leave nothing in the document that would end the redo history.
+    await step("history", async () => {
+      const checked = await checkHistory(historySession(context), {
+        edited,
+        original: before,
+        steps: options.undoSteps ?? 1,
+        canvasTimeoutMs: timeoutMs,
+        effectTimeoutMs: Math.min(KEY_EFFECT_TIMEOUT_MS, timeoutMs),
+        graceMs: VIEW_SETTLE_MS,
+        intervalMs: POLL_INTERVAL_MS,
+      });
+      result.history = checked.result;
+      for (const failure of checked.failures) failures.add("history", failure);
+      log(`history: ${describeHistory(checked.result)}`);
+    });
+  } else if (run.history) {
+    log("history: skipped, the undo step did not bring the canvas back");
+  }
+}
+
+/** The history step's reads and presses in the running VS Code (see `checkHistory`). */
+function historySession(context: VsCodeSmokeContext): HistorySession {
+  const html = context.webview.locator("html");
+  return {
+    keys: context.keys,
+    press: (chord) => context.page.keyboard.press(chord),
+    focusCanvas: () => html.evaluate(focusCanvasProbe),
+    canvas: () => html.evaluate(canvasFactsProbe),
+    view: () => html.evaluate(viewFactsProbe),
+    dirty: () => context.page.evaluate(activeEditorDirtyProbe),
+  };
 }
 
 /** What the keys step reads of Electron's main-process module; Electron's own types are no peer. */

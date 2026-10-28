@@ -38,6 +38,7 @@ describe("VSCODE_SMOKE_STEPS", () => {
       "undo",
       "themes",
       "keys",
+      "history",
       "close",
     ]);
   });
@@ -171,6 +172,23 @@ describe("formatVsCodeSmoke", () => {
       "themes 0.4 s · keys 3.2 s · total 8.2 s",
       "  ok     Default Light Modern: light (expected light), 0.4 s, /shots/wardley-light.png",
       "  keys: zoom 62% → 100% → 135% → ?, window zoom level 0 → 0, select all selected 7",
+    ]);
+  });
+
+  it("adds a line for the history step: the view and the selection before the redo, after it and after the undo", () => {
+    const text = formatVsCodeSmoke(
+      result({
+        history: {
+          before: { zoom: 84, selected: 7 },
+          afterRedo: { zoom: 84, selected: 7 },
+        },
+        timings: { keys: 3_210, history: 2_400, total: 8_200 },
+      }),
+    );
+    expect(text.split("\n").slice(1)).toEqual([
+      "keys 3.2 s · history 2.4 s · total 8.2 s",
+      "  ok     Default Light Modern: light (expected light), 0.4 s, /shots/wardley-light.png",
+      "  history: view 84% with 7 selected, after the redo 84% with 7 selected, after the undo ?",
     ]);
   });
 

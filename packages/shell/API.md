@@ -3018,6 +3018,7 @@ interface VsCodeSmokeOptions {
   log?: (line: string) => void; // progress; default silent
   keepTemporaryFiles?: boolean; // keep profile, workspace and VS Code's logs, and log where
   keys?: boolean; // 0.7: the keys step; default: whether VSCODE_SMOKE_OPT_IN names "keys"
+  history?: boolean; // 0.8: the history step; default: whether VSCODE_SMOKE_OPT_IN names "history"
 }
 function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCodeSmokeResult>;
 function createFromPalette(context: VsCodeSmokeContext): Promise<void>;
@@ -3042,10 +3043,11 @@ const VSCODE_SMOKE_STEPS: readonly [
   "undo",
   "themes",
   "keys", // 0.7, opt-in
+  "history", // 0.8, opt-in
   "close",
 ];
-// 0.7: the steps a run takes only when asked to, until every modeler passes them in CI
-const VSCODE_SMOKE_OPT_IN_STEPS: readonly ["keys"];
+// the steps a run takes only when asked to (keys since 0.7, history since 0.8), until every modeler passes them in CI
+const VSCODE_SMOKE_OPT_IN_STEPS: readonly ["keys", "history"];
 type VsCodeSmokeOptInStep = (typeof VSCODE_SMOKE_OPT_IN_STEPS)[number];
 // the steps VSCODE_SMOKE_OPT_IN names, separated by commas or spaces; throws for an unknown name
 function vsCodeSmokeOptIn(
@@ -3070,6 +3072,15 @@ interface VsCodeSmokeKeysResult {
   windowZoomLevels: { before: number[]; after: number[] }; // webContents.getZoomLevel() of every window
   selected: number; // the canvas elements Cmd/Ctrl+A selected
 }
+interface VsCodeSmokeHistoryView {
+  zoom: number; // percent
+  selected: number; // the canvas elements selected
+}
+interface VsCodeSmokeHistoryResult {
+  before?: VsCodeSmokeHistoryView; // when the redo began, after the step zoomed and selected all
+  afterRedo?: VsCodeSmokeHistoryView; // missing when the redo did not bring the edit back
+  afterUndo?: VsCodeSmokeHistoryView; // missing when the undo did not take it away again
+}
 interface VsCodeSmokeResult {
   ok: boolean; // failures is empty
   failures: string[]; // "save: Meta+s wrote nothing to disk", one per broken expectation
@@ -3082,6 +3093,7 @@ interface VsCodeSmokeResult {
   undone: boolean; // undo brought the canvas back and, saved again, the fixture's exact text
   themes: VsCodeSmokeThemeResult[];
   keys?: VsCodeSmokeKeysResult; // 0.7: missing when the keys step did not run
+  history?: VsCodeSmokeHistoryResult; // 0.8: missing when the history step did not run
   timings: VsCodeSmokeTimings;
 }
 function formatVsCodeSmoke(result: VsCodeSmokeResult): string; // a few lines for the test log
@@ -3270,9 +3282,32 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
    Control+Shift+Minus reached the webview's window, where VS Code runs its own binding for it" or
    "keys: Control+Digit0 moved VS Code's focus to the side bar". A modeler whose chrome has no zoom
    panel cannot take the step.
-9. **close**: `app.close()`; a VS Code that has not quit after 10 s (a modal dialog) is killed. The
-   temporary directory goes, unless `keepTemporaryFiles`, also when Ctrl+C ends the test process
-   in the middle of a run.
+9. **history** (0.8, opt-in): runs with `history: true`, or without the option when the test
+   process's environment has `VSCODE_SMOKE_OPT_IN=history` (CI's smoke workflow sets
+   `keys,history`; a list takes commas or spaces). Needs the undo step to have brought the canvas
+   back, else the log says it was skipped. The host owns the document's history (guide §13.5): the
+   key reaches VS Code, VS Code changes the text, the webview imports it, and what the user zoomed
+   and selected has to survive that import. The step runs last, after the keys, so the zoom and the
+   selection it leaves are in no screenshot. It focuses the canvas `<svg>` and presses
+   Cmd/Ctrl+= (Cmd/Ctrl+- where the canvas cannot zoom in further), so the view is not the fit a
+   refit would restore, then Cmd/Ctrl+A. It reads the view (the viewport's scale and translation,
+   which with the container's size are the viewbox) and `data-element-id` of every drawn and every
+   selected element, then presses the platform's redo key `undoSteps` times (Cmd+Shift+Z on
+   macOS, Ctrl+Y elsewhere): the canvas has to show the edit again, as read before the undo (each
+   shape within two pixels, since the saved text rounds positions), and the view has to be what it was,
+   within three decimals of the zoom and a pixel of the translation, held for 0.5 s after it
+   matched, so that a refit after the import counts. Every element that was selected and is still
+   drawn has to be selected, and nothing may be selected that was not (the element the redo
+   brings back is not). Then the undo key `undoSteps` times: the canvas has to show what it
+   showed before the edit, and the view and the selection are checked against the redo's. A
+   document that VS Code still calls changed afterwards is saved, so that closing VS Code does not
+   wait on a prompt. `result.history` holds the zoom in percent and the number of selected
+   elements before the redo, after it and after the undo. Its failures read like "history:
+   Control+y moved the view: zoom 84% at 12, -8 before, zoom 62% at 0, 0 after" or "history:
+   Control+z dropped the selection of cmp_tea, cmp_milk, which are still on the canvas".
+10. **close**: `app.close()`; a VS Code that has not quit after 10 s (a modal dialog) is killed. The
+    temporary directory goes, unless `keepTemporaryFiles`, also when Ctrl+C ends the test process
+    in the middle of a run.
 
 `runVsCodeSmoke` never throws for a failed check: everything broken is in `failures`, prefixed with
 its step. It throws for options it cannot run with (no `package.json`, no custom editor for the
@@ -3982,9 +4017,8 @@ Later candidates unless noted:
 - The `miragon.<modeler>.colorTheme` setting UI (the bridge already honours `settingKey`).
 - **VS Code smoke driver** (`./testing/vscode-electron`): keeping a local run on macOS in the
   background (no focus change; the Docker command is the way until then), a reused `node_modules`
-  between Docker runs; viewbox and selection kept across the
-  undo, redo, `workbench.reduceMotion`, Developer: Reload Window with the stored view, a hidden tab,
-  VS Code for the Web; and a fixture extension in this repository, so the shell's own CI runs the
+  between Docker runs; `workbench.reduceMotion`, Developer: Reload Window with the stored view, a
+  hidden tab, VS Code for the Web; and a fixture extension in this repository, so the shell's own CI runs the
   driver (until then it is validated against the modelers' extensions).
 - IntelliJ/JCEF hosts, Electron, Tauri, Theia.
 - Canvas theming (`cd-canvas.css`, `cd-c-*` classes), light-only export, the token files themselves.
