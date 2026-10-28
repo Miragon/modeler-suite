@@ -14,14 +14,29 @@ function textOf(text: string, problem: { start: number; end: number }): string {
   return text.slice(problem.start, problem.end);
 }
 
-function withDeepForeignKey(text: string, levels: number, after = ""): string {
-  const value = `${'[{"a":'.repeat(levels / 2)}0${"}]".repeat(levels / 2)}`;
-  return text.replace('"version": 1', `"x-deep": ${value},${after}\n  "version": 1`);
+const title = `"title": ${JSON.stringify(SAMPLE_DOCUMENT.title)}`;
+
+function deepValue(levels: number): string {
+  return `${'[{"a":'.repeat(levels / 2)}0${"}]".repeat(levels / 2)}`;
 }
 
-function bracketsOfTheForeignKeyBefore(text: string, offset: number): number {
-  const value = text.indexOf('"x-deep": ') + '"x-deep": '.length;
-  return text.slice(value, offset).replaceAll(/[^[{]/g, "").length;
+/**
+ * The part of {@link deepValue} from its first container beyond the limit: the document is the
+ * first level and the value the second, so the value's bracket number MAX_NESTING_DEPTH opens
+ * it, an object in an array.
+ */
+function beyondTheLimit(levels: number): string {
+  const pairs = (levels - MAX_NESTING_DEPTH) / 2;
+  return `{"a":${'[{"a":'.repeat(pairs)}0${"}]".repeat(pairs)}}`;
+}
+
+function withForeignKeys(text: string, values: Record<string, string>, after = ""): string {
+  const members = Object.entries(values).map(([key, value]) => `"${key}": ${value},`);
+  return text.replace('"version": 1', `${members.join("\n  ")}${after}\n  "version": 1`);
+}
+
+function withDeepForeignKey(text: string, levels: number, after = ""): string {
+  return withForeignKeys(text, { "x-deep": deepValue(levels) }, after);
 }
 
 describe("mapProblems", () => {
@@ -118,7 +133,7 @@ describe("mapProblems", () => {
     expect(problems[0]!.start).toBe(copy);
   });
 
-  it("starts the nesting issue at the first bracket beyond the limit, also in a text too deep for the tree parser", () => {
+  it("marks the first container beyond the limit, also in a text too deep for the tree parser", () => {
     for (const levels of [MAX_NESTING_DEPTH + 50, farBeyondTheTreeParser]) {
       const text = withDeepForeignKey(sample, levels);
       const problems = mapProblems(text);
@@ -127,16 +142,78 @@ describe("mapProblems", () => {
       const [problem] = problems;
       expect(problem!.message.startsWith("x-deep.0.a.0.a.")).toBe(true);
       expect(problem!.message.endsWith(`: ${tooDeep}`)).toBe(true);
-      // The document is the first level, so the foreign key's value opens the second and its
-      // bracket number MAX_NESTING_DEPTH opens the first level beyond the limit.
-      expect(bracketsOfTheForeignKeyBefore(text, problem!.start)).toBe(MAX_NESTING_DEPTH - 1);
-      expect(text[problem!.start]).toBe("{");
+      expect(textOf(text, problem!)).toBe(beyondTheLimit(levels));
     }
-    const [deepest] = mapProblems(withDeepForeignKey(sample, farBeyondTheTreeParser));
-    expect(deepest!.end).toBe(deepest!.start + 1);
   });
 
-  it("reports a JSON error of a text too deep for the tree parser where JSON.parse found it", () => {
+  it("marks an object member beyond the limit from its key, with or without the tree", () => {
+    const starts = [MAX_NESTING_DEPTH + 50, farBeyondTheTreeParser].map((levels) => {
+      const objects = `${'{"a":'.repeat(levels)}0${"}".repeat(levels)}`;
+      const text = withForeignKeys(sample, { "x-deep": objects });
+      const [problem, ...rest] = mapProblems(text);
+      expect(rest).toEqual([]);
+      const beyond = levels - MAX_NESTING_DEPTH + 1;
+      expect(textOf(text, problem!)).toBe(`"a":${'{"a":'.repeat(beyond)}0${"}".repeat(beyond)}`);
+      return problem!.start;
+    });
+    expect(starts[1]).toBe(starts[0]);
+  });
+
+  it("marks each nesting issue of a text too deep for the tree parser at its own container", () => {
+    const inside = "[".repeat(MAX_NESTING_DEPTH - 1);
+    const escapedB = "x-\\u0062";
+    const text = withForeignKeys(sample, {
+      "x-a": deepValue(farBeyondTheTreeParser),
+      "x-note": JSON.stringify('a "]}" b \\'),
+      [escapedB]: deepValue(farBeyondTheTreeParser),
+      "x-wide": `${inside}[], {}, [0]${"]".repeat(inside.length)}`,
+    });
+    const problems = mapProblems(text);
+    expect(problems.map(({ message }) => message.split(".")[0])).toEqual([
+      "x-a",
+      "x-b",
+      "x-wide",
+      "x-wide",
+      "x-wide",
+    ]);
+    expect(problems.map((problem) => textOf(text, problem))).toEqual([
+      beyondTheLimit(farBeyondTheTreeParser),
+      beyondTheLimit(farBeyondTheTreeParser),
+      "[]",
+      "{}",
+      "[0]",
+    ]);
+    const [a, b, wide] = problems.map(({ start }) => start);
+    expect(a).toBeGreaterThan(text.indexOf('"x-a"'));
+    expect(a).toBeLessThan(text.indexOf('"x-note"'));
+    expect(b).toBeGreaterThan(text.indexOf(`"${escapedB}"`));
+    expect(b).toBeLessThan(text.indexOf('"x-wide"'));
+    expect(wide).toBeGreaterThan(text.indexOf('"x-wide"'));
+  });
+
+  it("marks the other structural errors of a text too deep for the tree parser where a tree would", () => {
+    const newer = withDeepForeignKey(sample, farBeyondTheTreeParser).replace(
+      '"version": 1',
+      '"version": 2',
+    );
+    const [version, ...rest] = mapProblems(newer);
+    expect(rest).toEqual([]);
+    expect(version!.message).toMatch(/^version: 2 is newer than this modeler reads/);
+    expect(textOf(newer, version!)).toBe('"version": 2');
+
+    const text = withDeepForeignKey(
+      sample.replace('"x": 340', '"x": "left"'),
+      farBeyondTheTreeParser,
+    );
+    const problems = mapProblems(text);
+    expect(problems.map(({ message }) => message.split(".")[0])).toEqual(["x-deep", "contexts"]);
+    expect(problems.map((problem) => textOf(text, problem))).toEqual([
+      beyondTheLimit(farBeyondTheTreeParser),
+      '"x": "left"',
+    ]);
+  });
+
+  it("reports a JSON error of a text too deep for the tree parser where V8 names its position", () => {
     const broken = withDeepForeignKey(
       sample.replace('"x": 340', '"x" 340'),
       farBeyondTheTreeParser,
@@ -150,16 +227,56 @@ describe("mapProblems", () => {
     }
   });
 
-  it("puts the other findings of a text too deep for the tree parser at the start of the file", () => {
-    const newer = withDeepForeignKey(sample, farBeyondTheTreeParser).replace(
-      '"version": 1',
-      '"version": 2',
-    );
-    const [version, ...rest] = mapProblems(newer);
+  it("reports a JSON error of a text too deep for the tree parser at the start of the file when V8 names no position", () => {
+    const text = withDeepForeignKey(sample.replace('"x": 340', '"x": '), farBeyondTheTreeParser);
+    const [problem, ...rest] = mapProblems(text);
     expect(rest).toEqual([]);
-    expect(version!.message).toMatch(/^version: 2 is newer than this modeler reads/);
-    expect(textOf(newer, version!)).toBe("{");
+    expect(problem!.message).toMatch(/^not valid JSON: Unexpected token/);
+    expect(textOf(text, problem!)).toBe("{");
+  });
 
+  it("reads no text deeper than the tree parser's limit with the tree parser", () => {
+    const levels = 10_000;
+    const deepAfter = (prefix: string, opening: string): string =>
+      `${prefix}${opening.repeat(levels)}${"]".repeat(levels)}`;
+    for (const text of [
+      deepAfter('// "\n', "["),
+      deepAfter('/* " */', "["),
+      deepAfter('["no closing quote\n', "["),
+      deepAfter("", "[},"),
+    ]) {
+      const [problem, ...rest] = mapProblems(text);
+      expect(rest).toEqual([]);
+      expect(problem).toMatchObject({ severity: "error" });
+      expect(problem!.message).toMatch(/^not valid JSON: /);
+    }
+  });
+
+  it("finds a JSON error behind a comment, a string cut short or a stray bracket in a deep text", () => {
+    const deepAfterTitle = sample.replace(
+      title,
+      `${title},\n  "x-deep": ${deepValue(farBeyondTheTreeParser)}`,
+    );
+    const cutShort = deepAfterTitle.replace(title, title.slice(0, -1));
+    const [string, ...afterString] = mapProblems(cutShort);
+    expect(afterString).toEqual([]);
+    expect(string!.message).toMatch(/^not valid JSON: Bad control character in string literal/);
+    expect(string!.start).toBe(cutShort.indexOf("\n", cutShort.indexOf(title.slice(0, -1))));
+
+    const commented = deepAfterTitle.replace('"x-deep"', '// a "quote\n  "x-deep"');
+    const [comment, ...afterComment] = mapProblems(commented);
+    expect(afterComment).toEqual([]);
+    expect(comment!.message).toMatch(/^not valid JSON: /);
+    expect(textOf(commented, comment!)).toBe("/");
+
+    const unmatched = `{"a": ${"[},".repeat(farBeyondTheTreeParser)}]}`;
+    const [bracket, ...afterBracket] = mapProblems(unmatched);
+    expect(afterBracket).toEqual([]);
+    expect(bracket!.message).toMatch(/^not valid JSON: Unexpected token/);
+    expect(bracket!.start).toBe(0);
+  });
+
+  it("puts a semantic finding of a text too deep for the tree parser at the start of the file", () => {
     const withWarning = sample.replace(
       '"pattern": "customer-supplier",\n      "upstreamRoles": [\n        "PL"\n      ],',
       '"pattern": "customer-supplier",\n      "downstreamRoles": [\n        "ACL"\n      ],',
