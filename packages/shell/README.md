@@ -947,9 +947,9 @@ foreign page, the canvas slot's paint and focus ring, the web chrome's colours, 
 the web demo's own handlers and the demo's production bundle under the webview CSP, and proves with
 saboteurs that every case of the kit fails when its rule is broken. Its projects are `chromium` and
 `webkit`, which runs only `pointer-focus.spec.ts` and `dialog-centre.spec.ts`: where the focus goes
-after a click on the start screen, a toast, the empty-file hint or the legend under the click model
-of WebKit and Firefox on macOS, which give a clicked button no focus, and where the dialog sits on
-a host page, which rests on the top layer, container units and `translate` that each engine
+after a click on the start screen, a toast, the empty-file hint, Share or the legend under the click
+model of WebKit and Firefox on macOS, which give a clicked button no focus, and where the dialog
+sits on a host page, which rests on the top layer, container units and `translate` that each engine
 implements itself.
 
 | Directory                               | Module                                                                                     |
