@@ -65,6 +65,51 @@ export async function openMenu(page: Page): Promise<Locator> {
   return dropdown;
 }
 
+/**
+ * Closes a dialog and waits for its close event: the dialog hands the focus back to the menu
+ * trigger there, in a task of its own that can run after a focus the test moves at once.
+ */
+export async function closeDialog(dialog: Locator, close: () => Promise<void>): Promise<void> {
+  type Watched = HTMLElement & { closed?: Promise<void> };
+  await dialog.evaluate((element: Watched) => {
+    element.closed = new Promise<void>((resolve) =>
+      element.addEventListener("close", () => resolve(), { once: true }),
+    );
+  });
+  await close();
+  await dialog.evaluate((element: Watched) => element.closed);
+}
+
+export interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** The shell's canvas slot: diagram-js's container. */
+export function canvasSlot(page: Page): Locator {
+  return page.locator(".cd-shell-canvas");
+}
+
+/**
+ * Absolute page coordinate of a point in diagram coordinates, for the current viewbox, so a spot
+ * stays on the same place of the diagram whatever the zoom.
+ */
+export async function diagramPoint(page: Page, point: Point): Promise<Point> {
+  const box = await canvasSlot(page).boundingBox();
+  if (!box) throw new Error("the canvas slot has no bounding box");
+  const viewbox = await page.evaluate(() =>
+    window
+      .__valueChainApp!.modeler.diagram.get<{
+        viewbox(): { x: number; y: number; scale: number };
+      }>("canvas")
+      .viewbox(),
+  );
+  return {
+    x: box.x + (point.x - viewbox.x) * viewbox.scale,
+    y: box.y + (point.y - viewbox.y) * viewbox.scale,
+  };
+}
+
 /** "Show example" on the start screen of a fresh visit. */
 export async function openExample(page: Page): Promise<void> {
   await startScreen(page).getByRole("button", { name: "Show example" }).click();
