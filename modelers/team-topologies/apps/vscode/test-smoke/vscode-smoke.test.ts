@@ -8,6 +8,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import {
+  createFromPalette,
   formatVsCodeSmoke,
   runVsCodeSmoke,
   VSCODE_COLOR_THEMES,
@@ -103,6 +104,89 @@ async function showsStyledDiagram({ webview, timeoutMs }: VsCodeSmokeContext): P
   }
 }
 
+const typedTeamName = "Payments";
+/** Long enough for a draft the save missed (the flush gives up after 1 s) to reach the document. */
+const DOCUMENT_SETTLE_MS = 1_500;
+/**
+ * Escape that finds no draft closes the inspector, so a field still missing then is the save's
+ * fault: waiting the page's default timeout would only delay that message.
+ */
+const NAME_FIELD_AFTER_ESCAPE_MS = 2_000;
+
+const activeEditorIsDirty = (): boolean =>
+  document.querySelector(".tabs-container .tab.active.dirty") !== null;
+
+async function waitForEditorDirty(
+  { page, timeoutMs }: VsCodeSmokeContext,
+  dirty: boolean,
+  failure: string,
+): Promise<void> {
+  const deadline = performance.now() + timeoutMs;
+  while ((await page.evaluate(activeEditorIsDirty)) !== dirty) {
+    if (performance.now() > deadline) throw new Error(failure);
+    await sleep(100);
+  }
+}
+
+/**
+ * The inspector part, before the change the driver saves and undoes. The Name field commits only on
+ * blur or Enter, so Cmd/Ctrl+S right after typing saves the name only when the save commits the
+ * field's draft first. Cmd/Ctrl+Z in the field undoes the typing there and never reaches the
+ * document's history (the shell keeps the field's native undo, guide §13.5). The driver's undo step
+ * cannot cover that: its save leaves the focus in the field. So the hook presses both keys itself
+ * and ends with a second team from the palette, which leaves the focus on the canvas.
+ */
+async function typeInInspectorThenCreateTeam(context: VsCodeSmokeContext): Promise<void> {
+  const { page, keys } = context;
+  await createFromPalette(context);
+  await waitForEditorDirty(context, true, "the team from the palette never reached the document");
+  const name = context.webview.locator('[data-chrome="inspector"]').getByLabel("Name");
+  const nameBeforeTyping = await name.inputValue();
+  await name.selectText();
+  await name.pressSequentially(typedTeamName);
+
+  await page.keyboard.press(keys.save);
+  await waitForEditorDirty(
+    context,
+    false,
+    `${keys.save} right after typing in the inspector left the editor dirty`,
+  );
+
+  await page.keyboard.press(keys.undo);
+  await sleep(DOCUMENT_SETTLE_MS);
+  const fieldAfterUndo = await name.inputValue();
+  if (fieldAfterUndo !== nameBeforeTyping) {
+    throw new Error(
+      `${keys.undo} in the inspector's Name field left "${fieldAfterUndo}" in it, ` +
+        `not "${nameBeforeTyping}" from before the typing`,
+    );
+  }
+  if (await page.evaluate(activeEditorIsDirty)) {
+    throw new Error(
+      `the editor turned dirty after the save: a draft the save missed or ${keys.undo} in the ` +
+        "inspector's Name field changed the document",
+    );
+  }
+
+  await name.press("Escape");
+  const committedName = await name
+    .inputValue({ timeout: NAME_FIELD_AFTER_ESCAPE_MS })
+    .catch(async (error: unknown) => {
+      if ((await name.count()) > 0) throw error;
+      throw new Error(
+        `${keys.save} did not commit the typed name: Escape found no draft in the Name field ` +
+          "and closed the inspector",
+      );
+    });
+  if (committedName !== typedTeamName) {
+    throw new Error(
+      `${keys.save} did not commit the typed name: Escape restores "${committedName}"`,
+    );
+  }
+
+  await createFromPalette(context);
+}
+
 // The first run downloads VS Code (about 320 to 360 MB) into the OS's cache directory.
 it(
   "opens, edits, saves, undoes and themes a diagram in a real VS Code",
@@ -128,6 +212,9 @@ it(
         fixture: { fileName: "checkout.tt", text: fixtureText },
         parse: parseTeamTopology,
         ready: showsStyledDiagram,
+        edit: typeInInspectorThenCreateTeam,
+        // the first team, its name and the second team: three edits of the document
+        undoSteps: 3,
         themes: WEBVIEW_THEMES,
         name: "team-topologies",
         screenshotDir,
@@ -142,7 +229,12 @@ it(
         expect(result.vscodeVersion).toBe(requestedVsCodeVersion);
       }
       const saved = result.saved?.parsed as TtDocument | undefined;
-      expect(saved?.nodes).toHaveLength(fixture.nodes.length + 1);
+      expect(saved?.nodes).toHaveLength(fixture.nodes.length + 2);
+      const fixtureTeams = new Set(fixture.nodes.map(({ id }) => id));
+      const newLabels = saved?.nodes
+        .filter(({ id }) => !fixtureTeams.has(id))
+        .map(({ label }) => label);
+      expect(newLabels?.filter((label) => label === typedTeamName)).toHaveLength(1);
       expect(result.undone).toBe(true);
       expect(result.themes.map(({ theme, ok }) => [theme.id, ok])).toEqual(
         VSCODE_COLOR_THEMES.map(({ id }) => [id, true]),
