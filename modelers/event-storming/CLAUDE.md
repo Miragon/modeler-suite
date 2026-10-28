@@ -48,10 +48,12 @@ so a violating import fails `npm run event-storming lint` and `npm run event-sto
   `apps/webapp/vite.config.ts`, through `apps/webapp/tsconfig.config.json`) ·
   `npm run event-storming lint` (ESLint + typecheck)
 - `npm run event-storming test:browser`: Vitest in Chromium (renderer integration, the
-  `@miragon/modeler-api` conformance kit) · `npm run event-storming test:e2e`: Playwright, two
-  projects: `webapp` (the web app, incl. the shell conformance kit on the `web` host) and
-  `vscode-webview` (the webview inside the shell's VS Code stub, incl. the kit on the `ide` host);
-  one project with `npm run event-storming test:e2e -- --project=vscode-webview`, other ports via
+  `@miragon/modeler-api` conformance kit) · `npm run event-storming test:e2e`: Playwright, three
+  projects: `webapp` (the web app, incl. the shell conformance kit on the `web` host),
+  `vscode-webview` (the webview inside the shell's VS Code stub, incl. the kit on the `ide` host)
+  and `webapp-webkit` (the web app's Share and focus hand-back specs in WebKit;
+  `npx playwright install chromium webkit` once); one project with
+  `npm run event-storming test:e2e -- --project=vscode-webview`, other ports via
   `E2E_PORT` / `E2E_WEBVIEW_PORT` (default 5180 / 5190)
 - `npm run event-storming test:vscode:docker`: the VS Code smoke test below in a Linux container
   under `xvfb-run -a` (the shell's `modeler-shell-vscode-docker`): the way to run it locally, since

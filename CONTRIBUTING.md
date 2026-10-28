@@ -23,7 +23,7 @@ Node `^22.22.2` or `>=24.15.0` and npm. From the repository root:
 ```sh
 npm ci                              # every workspace; also installs the pre-commit hook
 npm run build:shared                # @miragon/modeler-api and @miragon/modeler-shell
-npx playwright install chromium webkit  # once; WebKit only for the e2e of the shell, Wardley Maps, Context Maps and Team Topologies
+npx playwright install chromium webkit  # once; WebKit only for the e2e of the shell, Wardley Maps, Event Storming, Context Maps and Team Topologies
 ```
 
 The modelers link the workspace's `@miragon/modeler-api` and `@miragon/modeler-shell` and read
@@ -112,8 +112,8 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   its own dev server built from source: the web app (`webapp`; `chromium` and `webkit` in Context
   Maps) and the VS Code webview inside the shell's VS Code stub (`vscode-webview`), both held to the
   shell's conformance kit. Team Topologies also runs its focus hand-back cases in WebKit on both
-  hosts (`webapp-webkit`, `vscode-webview-webkit`), Wardley Maps its web app's Share and focus
-  hand-back specs (`webapp-webkit`). `-- --project=<name>` runs one project. A
+  hosts (`webapp-webkit`, `vscode-webview-webkit`), Wardley Maps and Event Storming their web
+  app's Share and focus hand-back specs (`webapp-webkit`). `-- --project=<name>` runs one project. A
   running server on a port is reused, so pick free ports when another checkout runs its suite:
   `E2E_PORT=6101 E2E_WEBVIEW_PORT=6111 npm run wardley-maps test:e2e`. `npm run test:e2e:shared`
   runs the shell's own suite against its demo, in Chromium and its pointer-focus cases in WebKit
