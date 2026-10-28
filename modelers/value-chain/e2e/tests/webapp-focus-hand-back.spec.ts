@@ -74,7 +74,11 @@ const HAND_BACK_CASES: readonly HandBackCase[] = [
       const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
       await expect(dialog).toBeVisible();
       await dialog.getByRole("button", { name: "Close" }).click();
-      await expect(dialog).toBeHidden();
+      // The dialog is hidden and the focus is on the trigger at once, but the shell removes the
+      // dialog and restores the focus again on the close event, which can follow a click on the
+      // canvas and take the focus from it. A role locator ignores a hidden dialog, so match the
+      // element.
+      await expect(page.locator("dialog.cd-shell-dialog")).toHaveCount(0);
       await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
       await clickEmptySpot(page);
     },

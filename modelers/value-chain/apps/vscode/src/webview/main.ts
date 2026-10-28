@@ -214,10 +214,6 @@ collaborative.onContentChanged(pushEdit);
 // Export (the webview rasterizes/serializes; the host shows the save dialog)
 // ---------------------------------------------------------------------------
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /** The picture shows the diagram, not the current selection. */
 function withoutSelection<T>(task: () => T): T {
   const ids = selectedIds();
@@ -234,7 +230,8 @@ function exportSvg(): void {
     const { svg } = withoutSelection(() => modeler.saveSVG());
     post({ type: "export", format: "svg", data: svg });
   } catch (error) {
-    post({ type: "error", message: `Could not export the diagram as SVG: ${messageOf(error)}` });
+    console.error("Value chain SVG export failed", error);
+    post({ type: "error", message: "Couldn't export the diagram as SVG. Try again." });
   }
 }
 

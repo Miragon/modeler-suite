@@ -185,7 +185,7 @@ passed on the VSIX it uploads) is in the suite's
   shows the same sentence as a warning notification. A rejection shows the app's own sentence
   ("Couldn't export the diagram as PNG. Try again, or export it as SVG."), never `error.message`.
   The web app lets the shell read the page's Geist faces; the webview cannot fetch its font files
-  (no `connect-src`), so `webview/geist.ts` hands the shell the latin and latin-ext subsets as
+  (no `connect-src`), so `webview/geist.ts` hands the shell all five Geist subsets as
   `data:` URLs, which the `?dataurl` esbuild plugin of `esbuild.config.mjs` (and the Vite plugin
   of `e2e/webview/vite.config.ts`) inlines. The e2e suites read the corner pixel of the PNG.
 - Both apps connect the shell with `connectDiagramJs(shell, diagram, { modeler, isEmpty })`: the
