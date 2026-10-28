@@ -17,6 +17,7 @@ import { cmKeyboardModule } from "./keyboard/index.js";
 import { cmValidationModule } from "./validation/index.js";
 import { cmZOrderModule } from "./zorder/index.js";
 import { cmReadOnlyModule } from "./read-only/index.js";
+import { cmGestureCancelModule } from "./gesture-cancel/index.js";
 
 /**
  * Full Context Maps editor: palette/create, move, connect with rules,
@@ -44,6 +45,7 @@ export class Modeler extends NavigatedViewer {
       cmKeyboardModule,
       cmValidationModule,
       cmZOrderModule,
+      cmGestureCancelModule,
     ];
   }
 

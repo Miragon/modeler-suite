@@ -73,6 +73,7 @@ import type CmModeling from "../modeling/CmModeling.js";
 import type CmLabelEditing from "../label-editing/CmLabelEditing.js";
 import type CmElementFactory from "../model/CmElementFactory.js";
 import { READ_ONLY_CHANGED_EVENT, type CmReadOnly } from "../read-only/index.js";
+import type { CmGestureCancel } from "../gesture-cancel/index.js";
 import { escapeMarkup } from "../draw/markup.js";
 import { contextIconSvg, relationshipIconSvg, roleChipSvg } from "../draw/palette-icons.js";
 import { chromeIcon } from "../draw/lucide.js";
@@ -139,6 +140,7 @@ export default class CmContextPadProvider implements ContextPadProvider {
     "canvas",
     "scheduler",
     "cmReadOnly",
+    "cmGestureCancel",
   ];
 
   /** The last pad-opened menu, so a roles toggle can re-open it in place. */
@@ -161,6 +163,7 @@ export default class CmContextPadProvider implements ContextPadProvider {
     private readonly canvas: Canvas,
     private readonly scheduler: Scheduler,
     private readonly readOnly: Pick<CmReadOnly, "isReadOnly">,
+    private readonly gestureCancel: Pick<CmGestureCancel, "isCancellingForImport">,
   ) {
     // Injecting Connect instantiates it so its connect.* drag handlers exist
     // (same reason as CmConnectHandles — the module does not eagerly init it).
@@ -372,8 +375,10 @@ export default class CmContextPadProvider implements ContextPadProvider {
         setTimeout(disarm, 400);
       });
     }
-    // The drag lifecycle clears the selection; the user is still "at" the source.
+    // The drag lifecycle clears the selection; the user is still "at" the source, unless an import
+    // cancelled the connect and is about to remove it.
     this.eventBus.once("connect.cleanup", 250, () => {
+      if (this.gestureCancel.isCancellingForImport()) return;
       if (this.selection.get().length === 0) this.selection.select(source);
     });
   }

@@ -18,6 +18,7 @@ import type { CmDocument } from "@miragon/context-maps-schema-model";
 import { saveSVG } from "./io/saveSvg.js";
 import type CmImporter from "./io/CmImporter.js";
 import type CmExporter from "./io/CmExporter.js";
+import type CmGestureCancel from "./gesture-cancel/CmGestureCancel.js";
 import type CmLabelEditing from "./label-editing/CmLabelEditing.js";
 import type CmModeling from "./modeling/CmModeling.js";
 import type CmReadOnly from "./read-only/CmReadOnly.js";
@@ -135,12 +136,15 @@ export abstract class CmBaseViewer {
    * Load a document into the canvas (replaces existing content). Silent: the previous document's
    * undo history goes without a `commandStack.changed`, so a host that saves on every change does
    * not write the import back. Throws before anything changes when the document cannot be drawn.
+   * A gesture that runs ends first, as on Escape, and an armed palette tool stays armed
+   * (`CmGestureCancel`).
    */
   importDocument(doc: CmDocument): { warnings: ImportWarning[] } {
     const diagram = this._ensureDiagram();
     const eventBus = diagram.get<EventBus>("eventBus");
     const importer = diagram.get<CmImporter>("cmImporter");
     importer.assertImportable(doc);
+    this._optional<CmGestureCancel>("cmGestureCancel")?.cancelForImport();
     const labelEditing = this._optional<CmLabelEditing>("cmLabelEditing");
     // An edit in progress belongs to an element the import is about to replace: a commit after it
     // (Enter, blur) would land on a removed shape.

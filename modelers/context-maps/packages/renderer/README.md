@@ -116,7 +116,13 @@ An import is **silent**: the previous document's undo history goes without a
 name of a built-in object property as an id throws before anything is removed. It is **lossless**:
 keys the model does not know and relationships whose ends are not on the map come back on export. A
 label edit open during an import is taken down and reopened on the element with the same id, with
-the typed text.
+the typed text. A gesture that runs during an import (a move, a connect, a lasso, a create from the
+palette or the context pad, also while its preview is still off the canvas) is cancelled first, as
+Escape cancels it, and so is a press that has not reached the drag threshold yet: the release
+changes nothing and selects nothing. A palette tool that only waits for its next press is no
+gesture: the lasso tool armed in the palette stays armed, and the drag its next press starts is a
+gesture. A drop whose change the host imports over at once, from its change listener, has
+applied and is not cancelled.
 
 `contentBounds()` is the tight box around what the canvas draws of the map in diagram coordinates,
 without a margin: the contexts, wider where a team row or a subdomain type's name runs past a
