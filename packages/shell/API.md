@@ -7,7 +7,8 @@ webview, and (0.2) the web-app chrome: primary action, legal line, File and Appe
 problems popover, toasts, empty-state card, drop zone and the web app's mode, (0.3) a driver
 that smoke-tests a modeler's extension in a real VS Code, since 0.3.1 also in a Linux container,
 and (0.7) the modal dialog of guide §8 with the "Keyboard shortcuts…" dialog on it, also for a host
-without a mounted shell (see [Dialogs](#dialogs-07)). Planned in
+without a mounted shell (see [Dialogs](#dialogs-07)), and the PNG export of `./export` (see
+[`./export`](#export-png-export-07)). Planned in
 [Miragon/modeler-suite#4](https://github.com/Miragon/modeler-suite/issues/4) (Phase 4); the first
 consumer is the Event Storming modeler, in VS Code (0.1) and in its web app (0.2, see
 [Usage: Event Storming in the web app](#usage-event-storming-in-the-web-app)).

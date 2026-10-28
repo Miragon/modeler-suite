@@ -5,8 +5,9 @@ dropdown, the horizontal palette skin, the chrome tooltip, the zoom panel with i
 problems pill, the status box, the empty-file hint, legend and inspector slots, the plumbing to a
 VS Code webview, the web-app chrome (primary action, legal line, File and Appearance groups,
 problems list, toasts, empty-state card, drop zone, the web app's mode), the modal dialog with the
-"Keyboard shortcuts…" dialog on it, which also opens without a mounted shell, and the PNG export. One implementation for every modeler and every host (VS Code webview, web app,
-embedded in a foreign page), so the chrome looks and behaves the same everywhere.
+"Keyboard shortcuts…" dialog on it, which also opens without a mounted shell, and the PNG export. One
+implementation for every modeler and every host (VS Code webview, web app, embedded in a foreign
+page), so the chrome looks and behaves the same everywhere.
 
 - **Look and behaviour** follow the Miragon design system, guide
   [`modeler-design-system.md`][guide] §5, §6, §8, §9, §11, §12 and §13.3 to §13.5 (skill
