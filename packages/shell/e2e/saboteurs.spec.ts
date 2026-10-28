@@ -55,6 +55,7 @@ const OWN_SABOTEURS_ONLY: ReadonlySet<string> = new Set([
   "forcedColors",
   "overlayLayers",
   "emptyFile",
+  "shortcutsDialog",
 ]);
 
 /**
@@ -2112,6 +2113,100 @@ test.describe("saboteurs", () => {
       await expect(failure).rejects.toThrow(
         /csp: the page csp\.open loaded has no Content-Security-Policy/,
       );
+    });
+  });
+
+  test.describe("that break the shell's shortcuts dialog", () => {
+    /** The demo's harness whose `shortcutsDialog.show` applies `sabotage` to the dialog it opened. */
+    function dialogSabotaged(
+      sabotage: () => void,
+      host: "ide" | "web" | "embedded" = "ide",
+    ): ShellConformanceHarness<Page> {
+      const harness = host === "web" ? webDemoHarness() : demoHarness(host);
+      return {
+        ...harness,
+        sizes: WIDE_ONLY,
+        documents: undefined,
+        shortcutsDialog: {
+          async show(page, fixture) {
+            await harness.shortcutsDialog!.show(page, fixture);
+            await page.evaluate(sabotage);
+          },
+        },
+      };
+    }
+
+    test("shortcutsDialog fails a backdrop that does not grey what lies under it", async ({
+      page,
+    }) => {
+      const harness = dialogSabotaged(() => {
+        const style = document.createElement("style");
+        style.textContent =
+          ".cd-shell-dialog::backdrop { -webkit-backdrop-filter: blur(3px) !important; backdrop-filter: blur(3px) !important; }";
+        document.head.append(style);
+      }, "web");
+      await expect(runCase("shortcutsDialog", page, harness)).rejects.toThrow(
+        /the backdrop filters "blur\(3px\)", expected blur\(3px\) grayscale\(1\) in both modes/,
+      );
+    });
+
+    test("shortcutsDialog fails a View row that does not say what its tooltip says", async ({
+      page,
+    }) => {
+      const harness = dialogSabotaged(() => {
+        const chip = document.querySelector('.cd-shell-dialog tr[data-chrome-key="fit"] kbd');
+        if (chip) chip.textContent = "F1";
+      });
+      await expect(runCase("shortcutsDialog", page, harness)).rejects.toThrow(
+        /the View row of fit says "Fit to view" with "F1", but its tooltip says "Fit to view" with "(⇧1|Shift\+1)"/,
+      );
+    });
+
+    test("shortcutsDialog fails a dialog that lets Tab take the focus out", async ({ page }) => {
+      const harness = dialogSabotaged(() => {
+        document.addEventListener(
+          "keydown",
+          (event) => {
+            if (event.key === "Tab") event.stopImmediatePropagation();
+          },
+          true,
+        );
+      }, "embedded");
+      await expect(runCase("shortcutsDialog", page, harness)).rejects.toThrow(
+        /shortcuts dialog: after (Shift\+)?Tab × \d the focus is on .*, outside the dialog; a modal dialog keeps it/,
+      );
+    });
+
+    test("shortcutsDialog fails a dialog that drops the focus when it closes", async ({ page }) => {
+      const harness = dialogSabotaged(() => {
+        document.querySelector(".cd-shell-dialog")?.addEventListener("close", () => {
+          window.setTimeout(() => (document.activeElement as HTMLElement | null)?.blur(), 0);
+        });
+      });
+      await expect(runCase("shortcutsDialog", page, harness)).rejects.toThrow(
+        /after Escape the focus is on <body>, expected back on the menu trigger/,
+      );
+    });
+
+    test("shortcutsDialog fails a dialog that keeps its shadow in high contrast", async ({
+      page,
+    }) => {
+      const harness = dialogSabotaged(() => {
+        const style = document.createElement("style");
+        style.textContent = ".cd-shell-dialog { box-shadow: var(--cd-shadow-3) !important; }";
+        document.head.append(style);
+      });
+      await expect(runCase("shortcutsDialog", page, harness)).rejects.toThrow(
+        /\[high contrast\] shortcuts dialog \(dialog\.cd-shell-dialog\.cd-shell-shortcuts\): shadow .* in high contrast, expected none/,
+      );
+    });
+
+    test("shortcutsDialog is skipped without its hook", async ({ page }) => {
+      const outcome = await runCase("shortcutsDialog", page, {
+        ...demoHarness("ide"),
+        shortcutsDialog: undefined,
+      });
+      expect(outcome?.skipped?.map((skip) => skip.hook)).toEqual(["shortcutsDialog"]);
     });
   });
 });

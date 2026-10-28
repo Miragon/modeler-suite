@@ -130,6 +130,12 @@ export function demoHarness(
     labelEditor: demoLabelEditor((page) =>
       page.evaluate(() => window.__demo?.documentChanges() ?? 0),
     ),
+    // The demo has no shortcut groups of its own: the kit's fixture stands in for them.
+    shortcutsDialog: {
+      async show(page, fixture) {
+        await page.evaluate((groups) => window.__demo?.shell.showShortcutsDialog(groups), fixture);
+      },
+    },
     csp:
       host === "ide"
         ? {

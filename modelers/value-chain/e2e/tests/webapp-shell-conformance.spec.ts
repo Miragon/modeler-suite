@@ -3,6 +3,7 @@ import { registerShellConformance, type ShellSkip } from "@miragon/modeler-shell
 import { EXAMPLE_DOCUMENT } from "../../apps/webapp/src/example.js";
 import { THEMES } from "../../apps/webapp/src/themes.js";
 import { labelEditorHooks } from "./support/label-editor.js";
+import { diagramShortcutsDialog } from "./support/shortcuts-dialog.js";
 import { exportText, linkTo, waitForApp } from "./support/webapp.js";
 
 /**
@@ -104,6 +105,8 @@ test.describe("web app: shell conformance", () => {
         // A picture is refused already while it is dragged and, dropped all the same, opens nothing.
         rejected: { name: "map.png", type: "image/png", text: "x" },
       },
+      // The groups of the web app's Help entry, with its File keys (apps/webapp/src/main.ts).
+      shortcutsDialog: diagramShortcutsDialog("webapp", { fileKeys: true }),
     },
     test,
     {

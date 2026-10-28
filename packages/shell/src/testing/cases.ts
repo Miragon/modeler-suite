@@ -110,6 +110,7 @@ import {
   webModeProblems,
 } from "./web-checks.js";
 import { cspCase } from "./csp-case.js";
+import { shortcutsDialogCase } from "./dialog-case.js";
 import { emptyFileCase } from "./empty-file-case.js";
 import { labelEditorCase } from "./label-editor-case.js";
 import { forcedColorsCase, reducedMotionCase } from "./media-cases.js";
@@ -1332,8 +1333,8 @@ const cleanupCase: ShellConformanceCase = {
  * The cases of every host: those of 0.1, extended for the web column, the focus hand-back of 0.2.2,
  * the legend's start state and the label editor of 0.4, the empty file on the harness's `documents`
  * (with `appearance` on each of them), reduced motion, forced colours and the canvas's overlay
- * layers, added after 0.5.0, and the production webview bundle under its CSP of 0.6 (which only the
- * IDE host has).
+ * layers, added after 0.5.0, the production webview bundle under its CSP of 0.6 (which only the
+ * IDE host has) and the shell's shortcuts dialog of 0.7.
  */
 export function createBaseCases(): ShellConformanceCase[] {
   return [
@@ -1350,6 +1351,7 @@ export function createBaseCases(): ShellConformanceCase[] {
     reducedMotionCase,
     forcedColorsCase,
     overlayLayersCase,
+    shortcutsDialogCase,
     cspCase,
     cleanupCase,
   ];

@@ -2,15 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   commandKeyLabel,
   defaultMessages,
-  formatPercent,
   resolveMessages,
-  shortcutLabel,
-  type ChromeKey,
   type LegendOptions,
   type MenuGroups,
   type Platform,
   type ShellHandle,
-  type ShellMessages,
+  type ShortcutGroup,
 } from "@miragon/modeler-shell";
 import {
   diagramMenu,
@@ -24,30 +21,16 @@ import {
 /*
  * The renderer builds the diagram's menu entries, shortcut tables and legend without importing the
  * shell (only the apps mount it), so it mirrors the shell's types and its key labels. These tests
- * pin the mirror: the View rows of the shortcuts dialog say what the zoom panel's tooltips say, the
- * File rows use the chips the shell writes, and menu, dialogs and legend take what the shell hands
- * them.
+ * pin the mirror: the File rows use the chips the shell writes, and menu, dialogs and legend take
+ * what the shell hands them. The View rows are the shell's: `shell.showShortcutsDialog` shows the
+ * chrome's own rows for them, pinned to the tooltips in the shell and checked in every modeler by
+ * the kit's `shortcutsDialog` case.
  */
 
-const VIEW_KEYS: readonly ChromeKey[] = ["zoomIn", "zoomOut", "zoomToActual", "fit"];
-
 const GERMAN = resolveMessages({
-  zoomIn: "Vergrößern",
-  zoomOut: "Verkleinern",
-  zoomToActual: (percent) => `Auf ${percent}`,
-  fit: "Einpassen",
   openFile: "Öffnen…",
   keyNames: { ctrl: "Strg", shift: "Umschalt" },
 });
-
-function viewActions(messages: ShellMessages, lang: string): string[] {
-  return [
-    messages.zoomIn,
-    messages.zoomOut,
-    messages.zoomToActual(formatPercent(1, lang)),
-    messages.fit,
-  ];
-}
 
 describe("the renderer's chrome content against @miragon/modeler-shell", () => {
   for (const [lang, messages] of [
@@ -55,19 +38,6 @@ describe("the renderer's chrome content against @miragon/modeler-shell", () => {
     ["de", GERMAN],
   ] as const) {
     for (const platform of ["mac", "other"] as const satisfies readonly Platform[]) {
-      it(`the View rows equal the chrome tooltips (${lang}, ${platform})`, () => {
-        const view = diagramShortcuts({ platform, lang, messages }).find(
-          (group) => group.title === "View",
-        );
-
-        expect(view?.rows).toEqual(
-          viewActions(messages, lang).map((action, index) => ({
-            action,
-            keys: [shortcutLabel(VIEW_KEYS[index]!, platform, messages.keyNames)],
-          })),
-        );
-      });
-
       it(`the File rows name the shell's Open… and write its key chips (${lang}, ${platform})`, () => {
         const [file] = diagramShortcuts({ platform, lang, messages }, { fileKeys: true });
 
@@ -85,9 +55,12 @@ describe("the renderer's chrome content against @miragon/modeler-shell", () => {
     }
   }
 
-  it("falls back to English for a language tag the shell falls back on", () => {
-    const [view] = diagramShortcuts({ platform: "mac", lang: "", messages: defaultMessages });
-    expect(view?.rows[2]?.action).toBe(defaultMessages.zoomToActual(formatPercent(1, "")));
+  it("hands the shell its shortcut groups as data for showShortcutsDialog", () => {
+    const groups: readonly ShortcutGroup[] = diagramShortcuts(
+      { platform: "mac", lang: "en", messages: defaultMessages },
+      { fileKeys: true },
+    );
+    expect(groups.map((group) => group.title)).toEqual(["File", "View", "Edit", "Tools"]);
   });
 
   it("hands the shell a menu, a legend renderer, and takes a shell handle as dialog chrome", () => {

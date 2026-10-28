@@ -83,6 +83,16 @@ export {
 export type { ShellMessageOverrides, ShellMessages } from "./messages.js";
 export { defaultMessages, resolveMessages } from "./messages.js";
 
+export type {
+  ChromeShortcutRow,
+  ShortcutChrome,
+  ShortcutGroup,
+  ShortcutRow,
+  ShownShortcutGroup,
+  ShownShortcutRow,
+} from "./shortcuts.js";
+export { chromeShortcutRows, isChromeShortcutRow, withChromeShortcuts } from "./shortcuts.js";
+
 export type { PaletteRowInput, TooltipPlacementInput } from "./layout.js";
 export {
   INVALID_STATUS_DELAY_MS,

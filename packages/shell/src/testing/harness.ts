@@ -2,6 +2,7 @@ import type {
   Appearance,
   ColorThemeSetting,
   ShellHost,
+  ShortcutGroup,
   Size,
   Theme,
   ToastStatus,
@@ -128,6 +129,19 @@ export interface CspHooks<P extends PageLike = PageLike> {
 }
 
 /**
+ * How the `shortcutsDialog` case opens the shell's "Keyboard shortcuts…" dialog (0.7).
+ */
+export interface ShortcutsDialogHooks<P extends PageLike = PageLike> {
+  /**
+   * Calls `shell.showShortcutsDialog(groups)` in the page, with the focus where the kit left it (on
+   * the menu trigger, as the Help entry leaves it): `groups` are the modeler's own shortcut groups,
+   * those its Help entry shows, or `fixture` where the page cannot build them. The case checks only
+   * what holds for any groups. Resolve once the call returned.
+   */
+  show(page: P, fixture: readonly ShortcutGroup[]): Promise<void>;
+}
+
+/**
  * What a harness can lack: a show hook, the web app's drop zone (`drop`), problems that point at
  * an element (`problemSelection`: the modeler's diagnostics only name lines, so no row selects), a
  * label editor (`labelEditor`: the notation has no labels to edit on the canvas), or a menu entry
@@ -168,6 +182,12 @@ export interface ShellConformanceHarness<P extends PageLike = PageLike> {
    */
   csp?: CspHooks<P> | undefined;
   /**
+   * 0.7: the shell's "Keyboard shortcuts…" dialog for the `shortcutsDialog` case; without it the
+   * case is skipped with `hook: "shortcutsDialog"`. Every modeler has the dialog (guide §5.4), so
+   * it cannot be declared absent.
+   */
+  shortcutsDialog?: ShortcutsDialogHooks<P> | undefined;
+  /**
    * The islands and states the modeler does not have. An absent hook is not reported as skipped,
    * and `geometry` and `aria` assert that its island is never visible. Listing a hook that `show`
    * also gives fails every case that uses it.
@@ -188,11 +208,19 @@ export interface ShellConformanceHarness<P extends PageLike = PageLike> {
 /** One part of a case the harness could not feed. */
 export interface ShellSkip {
   /**
-   * The harness field that would feed it: a show hook, `drop`, `labelEditor`, `csp`, `destroy`,
-   * `documents`, or `open` when the document it opens lacks what the case needs (a shape on the
-   * canvas).
+   * The harness field that would feed it: a show hook, `drop`, `labelEditor`, `csp`,
+   * `shortcutsDialog`, `destroy`, `documents`, or `open` when the document it opens lacks what the
+   * case needs (a shape on the canvas).
    */
-  hook: ShowHook | "drop" | "labelEditor" | "csp" | "destroy" | "documents" | "open";
+  hook:
+    | ShowHook
+    | "drop"
+    | "labelEditor"
+    | "csp"
+    | "shortcutsDialog"
+    | "destroy"
+    | "documents"
+    | "open";
   reason: string;
 }
 
@@ -232,7 +260,11 @@ export interface ShellConformanceCase {
  * explicit fit jumps), `forcedColors` (under `forced-colors: active` islands, dropdown and the
  * modeler's dialogs keep their border, the pressed tool, the focus and the status box their marks),
  * `overlayLayers` (what stays on the canvas lies at `z-index` 100 or below, under the palette; only a
- * popup that closes on a pan or zoom covers it), `csp` (the IDE host's production bundle under
+ * popup that closes on a pan or zoom covers it), `shortcutsDialog` (0.7: `shell.showShortcutsDialog`
+ * through the harness's hook is the modal dialog of guide §8 in normal and high contrast and under
+ * forced colours, its View group starts with the chrome's keys as their tooltips show them, the
+ * focus stays inside, the zoom keys rest, and Escape, Close and the backdrop close it and return the
+ * focus to the menu trigger), `csp` (the IDE host's production bundle under
  * `renderWebviewHtml`'s CSP: no violation, no error and the shell's fonts from files after a walk
  * over tooltip, context pad, label editor, menu and zoom) and `cleanup` (after `destroy` no shell
  * element, class, attribute or key handling remains); then the web

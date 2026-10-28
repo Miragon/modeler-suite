@@ -71,6 +71,15 @@ describe("defaultMessages (guide §2)", () => {
       "Couldn't open “map.png”. Drop a .storm or .json file.",
     );
   });
+
+  it("names the shortcuts dialog and its groups as guide §5.4 does", () => {
+    expect(defaultMessages.shortcutsTitle).toBe("Keyboard shortcuts");
+    expect([
+      defaultMessages.shortcutsView,
+      defaultMessages.shortcutsEdit,
+      defaultMessages.shortcutsTools,
+    ]).toEqual(["View", "Edit", "Tools"]);
+  });
 });
 
 describe("resolveMessages", () => {
@@ -160,6 +169,10 @@ describe("resolveMessages", () => {
       opensInNewTab: "Öffnet in einem neuen Tab",
       cannotOpenFile: (name, accepted) =>
         `„${name}“ konnte nicht geöffnet werden. Lege eine ${accepted}-Datei ab.`,
+      shortcutsTitle: "Tastenkürzel",
+      shortcutsView: "Ansicht",
+      shortcutsEdit: "Bearbeiten",
+      shortcutsTools: "Werkzeuge",
     };
     expect(resolveMessages(german)).toEqual(german);
   });

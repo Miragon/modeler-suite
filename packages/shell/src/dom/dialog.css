@@ -1,0 +1,233 @@
+/*
+ * The shell's dialog (guide §8) and its "Keyboard shortcuts…" tables (§5.4): a native modal
+ * <dialog> in the top layer. It also opens without a mounted shell, in an embedding host's own
+ * page, so its rules need no .cd-shell around them and set every property a foreign page's element
+ * styles (h2, table, th, button, kbd, dialog::backdrop) would otherwise change. Colours only from
+ * var(--cd-ui-*).
+ */
+
+.cd-shell-dialog {
+  --modeler-shell-font:
+    "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --modeler-shell-font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
+  box-sizing: border-box;
+  width: min(560px, 100% - 32px);
+  max-width: none;
+  height: fit-content;
+  max-height: calc(100% - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  color: var(--cd-ui-text);
+  font: 400 13px/1.5 var(--modeler-shell-font);
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-align: start;
+  text-transform: none;
+  text-indent: 0;
+  text-shadow: none;
+  background: var(--cd-ui-flaeche-hoch);
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-md);
+  box-shadow: var(--cd-shadow-3);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Only while open: the UA's display: none keeps a closed dialog out of the page. */
+.cd-shell-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Black over the page in both modes, the colours under it greyed so no blue turns navy (guide §8). */
+.cd-shell-dialog::backdrop {
+  background: var(--cd-ui-backdrop);
+  -webkit-backdrop-filter: blur(3px) grayscale(1);
+  backdrop-filter: blur(3px) grayscale(1);
+}
+
+.cd-shell-dialog-header {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  padding: 16px 16px 8px 24px;
+}
+
+.cd-shell-dialog-title {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  color: var(--cd-ui-text);
+  font: 600 21px/1.3 var(--modeler-shell-font);
+  letter-spacing: normal;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
+.cd-shell-dialog-close {
+  box-sizing: border-box;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  color: var(--cd-ui-text);
+  background: transparent;
+  border: 0;
+  border-radius: var(--cd-radius-sm);
+  box-shadow: none;
+  cursor: pointer;
+  transition:
+    background-color var(--cd-motion-fast) var(--cd-ease),
+    color var(--cd-motion-fast) var(--cd-ease);
+}
+
+.cd-shell-dialog-close:hover {
+  color: var(--cd-ui-interaktion);
+  background: var(--cd-ui-hover);
+}
+
+.cd-shell-dialog-close svg {
+  display: block;
+  flex: none;
+}
+
+.cd-shell-dialog-body {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 8px 24px 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  font-size: 16px;
+  line-height: 1.6;
+  scrollbar-color: var(--cd-ui-kontur) transparent;
+}
+
+/* ---- Focus (guide §8): 2px ring with 2px offset; inside the scrolling body ------------------ */
+
+.cd-shell-dialog :is(.cd-shell-dialog-close, .cd-shell-dialog-body):focus {
+  outline: none;
+}
+
+.cd-shell-dialog .cd-shell-dialog-close:focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+
+.cd-shell-dialog .cd-shell-dialog-body:focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: -2px;
+}
+
+/* ---- Keyboard shortcuts (guide §5.4): a table per group, the keys as the tooltip's chips ----- */
+
+.cd-shell-shortcuts-group {
+  margin: 0;
+  padding: 0;
+}
+
+.cd-shell-shortcuts-group + .cd-shell-shortcuts-group {
+  margin-top: 16px;
+}
+
+.cd-shell-shortcuts-title {
+  margin: 0 0 4px;
+  padding: 0;
+  color: var(--cd-ui-text-leise);
+  font: 600 13px/1.5 var(--modeler-shell-font);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.cd-shell-shortcuts-table {
+  width: 100%;
+  margin: 0;
+  color: var(--cd-ui-text);
+  font: 400 13px/1.5 var(--modeler-shell-font);
+  background: transparent;
+  border: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.cd-shell-shortcuts-action,
+.cd-shell-shortcuts-keys {
+  color: inherit;
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  vertical-align: baseline;
+  background: transparent;
+  border: 0;
+}
+
+.cd-shell-shortcuts-action {
+  padding: 6px 16px 6px 0;
+  text-align: start;
+}
+
+.cd-shell-shortcuts-keys {
+  padding: 6px 0;
+  text-align: end;
+}
+
+.cd-shell-shortcuts-table tr + tr > :is(.cd-shell-shortcuts-action, .cd-shell-shortcuts-keys) {
+  border-top: 1px solid var(--cd-ui-linie);
+}
+
+/* The chip is the tooltip's (.cd-shell-kbd); in a cell it keeps apart from its neighbours. */
+.cd-shell-shortcuts-keys .cd-shell-kbd {
+  display: inline-block;
+  margin: 2px 0 2px 6px;
+  white-space: nowrap;
+}
+
+/* ---- High contrast (guide §5.3, §6): no shadow, contour border, 3px focus ------------------- */
+
+.cd-shell-dialog:is([data-cd-kontrast="hoch"] *) {
+  border-color: var(--cd-ui-kontur);
+  box-shadow: none;
+}
+
+.cd-shell-dialog:is([data-cd-kontrast="hoch"] *)
+  :is(.cd-shell-dialog-close, .cd-shell-dialog-body):focus-visible {
+  outline-width: 3px;
+}
+
+.cd-shell-dialog:is([data-cd-kontrast="hoch"] *) .cd-shell-dialog-body:focus-visible {
+  outline-offset: -3px;
+}
+
+/* ---- Forced colours (guide §5.14): the system's colours, so nothing disappears -------------- */
+
+@media (forced-colors: active) {
+  .cd-shell-dialog {
+    border-color: CanvasText;
+  }
+
+  .cd-shell-dialog :is(.cd-shell-dialog-close, .cd-shell-dialog-body):focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+/* ---- Motion (guide §7): no hover fade under reduced motion, the OS's or VS Code's ----------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .cd-shell-dialog,
+  .cd-shell-dialog * {
+    transition-duration: 0.001ms !important;
+  }
+}
+
+html.cd-shell-reduce-motion .cd-shell-dialog,
+html.cd-shell-reduce-motion .cd-shell-dialog * {
+  transition-duration: 0.001ms !important;
+}

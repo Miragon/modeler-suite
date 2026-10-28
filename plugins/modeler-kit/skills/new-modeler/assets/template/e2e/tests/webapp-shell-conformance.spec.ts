@@ -87,6 +87,9 @@ test.describe('web app: shell conformance', () => {
         // The emptyFile case needs harness.documents of a modeler-shell release after 0.5.0; the
         // template feeds it once its pin reaches that release.
         if (caseName === 'emptyFile') return;
+        // The shortcutsDialog case needs shell.showShortcutsDialog of modeler-shell 0.7.0; the
+        // template feeds it once its pin reaches that release.
+        if (caseName === 'shortcutsDialog') return;
         throw new Error(`shell conformance "${caseName}" skipped: ${describeSkips(skips)}`);
       },
     },

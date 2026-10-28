@@ -4,7 +4,8 @@ The shared, framework-free chrome around Miragon diagram-js modelers: the menu b
 dropdown, the horizontal palette skin, the chrome tooltip, the zoom panel with its keys and fit, the
 problems pill, the status box, the empty-file hint, legend and inspector slots, the plumbing to a
 VS Code webview, and the web-app chrome (primary action, legal line, File and Appearance groups,
-problems list, toasts, empty-state card, drop zone, the web app's mode). One implementation for every modeler and every host (VS Code webview, web app,
+problems list, toasts, empty-state card, drop zone, the web app's mode), and the modal dialog with
+the "Keyboard shortcuts…" dialog on it, which also opens without a mounted shell. One implementation for every modeler and every host (VS Code webview, web app,
 embedded in a foreign page), so the chrome looks and behaves the same everywhere.
 
 - **Look and behaviour** follow the Miragon design system, guide
@@ -161,7 +162,7 @@ const shell = mountVsCodeShell(document.getElementById("app")!, {
   menu: {
     model: [/* Level; Type captions with keepEnabledWhenReadOnly, a view toggle */],
     export: [/* Export as PNG, SVG */],
-    help: [/* Keyboard shortcuts… (the modeler's own dialog) */],
+    help: [/* Keyboard shortcuts…: shell.showShortcutsDialog(the renderer's shortcut groups) */],
   },
   legend: {
     render: renderLegend,
@@ -235,9 +236,13 @@ puts no `tabindex` on it.
 `shell.setReadOnly(true)` locks the palette (all but Lasso and Hand) and the Model entries of the
 menu. View toggles stay usable: the shell's Legend checkbox and the legend's close button, and every
 entry with `keepEnabledWhenReadOnly` (guide §13.5 since design system 1.13.0). The canvas itself is the modeler's to lock: no context pad, move,
-resize, delete, paste or label editor. Content the modeler adds to `shell.root` (a "Keyboard
-shortcuts…" dialog) is the modeler's too: it removes it in its own teardown, for example on
-`diagram.destroy`, since `shell.destroy()` removes only what the shell added. The complete Event
+resize, delete, paste or label editor. The Help group's "Keyboard shortcuts…" opens
+`shell.showShortcutsDialog(groups)` (0.7): the modeler hands its shortcut groups as data, the
+shell puts the chrome's zoom and fit keys at the top of the View group, shows the modal dialog of
+guide §8 and removes it with `shell.destroy()`. A host without a mounted shell (an embedding page)
+opens the same dialog with `showShortcutsDialog(groups, { container })`. Content the modeler adds
+to `shell.root` itself (a dialog of its own) is the modeler's: it removes it in its own teardown,
+for example on `diagram.destroy`, since `shell.destroy()` removes only what the shell added. The complete Event
 Storming example, including the export notification, is in [API.md][api]. Document sync, undo through
 the document and diagnostics stay in the modeler for now.
 
@@ -346,6 +351,12 @@ it. The page's element styles (`button { text-transform: uppercase }`) do not re
 Toasts show at the bottom centre of the modeler, and the pill opens the problems list unless the
 modeler passes `problems.onActivate` (an embedding host with a list of its own).
 
+A page that embeds a modeler without mounting the shell still opens its "Keyboard shortcuts…"
+dialog from the shell (0.7): `showShortcutsDialog(groups, { container })` with the renderer's
+shortcut groups, `container` an element inside the page's themed area (its mode, contrast and
+language), and `shell.css` loaded after the tokens. `openShellDialog` opens the same dialog of
+guide §8 with a body of the host's own. Both are the host's to `close()` in its teardown.
+
 ## The conformance kit
 
 Every modeler runs the kit in its own Playwright suite against its real webview or page. It checks
@@ -364,7 +375,11 @@ diagram on a document), that the shell's zoom, fit and refit never commit an ope
 invalid file locks the canvas, that nothing moves under reduced motion (also VS Code's) and an
 explicit fit jumps, that under forced colours the islands, the dropdown and the modeler's dialogs
 keep their border and the pressed tool, the focus and the status box their marks, that what stays on
-the canvas (a toolbar, a prompt, the label editor) lies under the palette, that the IDE host's
+the canvas (a toolbar, a prompt, the label editor) lies under the palette, that the shell's shortcuts
+dialog, opened through the harness's `shortcutsDialog` hook with the modeler's own groups, is the
+modal dialog of guide §8 in normal and high contrast and under forced colours, starts its View
+group with the chrome's keys as their tooltips show them, keeps the focus and hands it back to the
+menu trigger, that the IDE host's
 production bundle runs under the webview CSP without a violation, an error or a missing font, and
 that `destroy()` leaves nothing behind. Five more cases cover the web column (`webChrome`,
 `emptyState`, `toasts`, `problemsList`, `dropZone`); in the IDE and embedded hosts they assert that

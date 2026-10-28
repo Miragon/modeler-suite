@@ -6,11 +6,13 @@ import type {
   ShellHost,
   ShellMessageOverrides,
   ShellMessages,
+  ShortcutGroup,
   Theme,
   ThemeColors,
   ToastRequest,
   ZoomTarget,
 } from "../core/index.js";
+import type { ShellDialog } from "./dialog.js";
 import type { ShellIconName } from "./icons.js";
 
 export interface ShellOptions {
@@ -252,6 +254,16 @@ export interface ShellHandle {
    * notification (§13.5).
    */
   toast(request: ToastRequest): ToastHandle;
+  /**
+   * Opens the "Keyboard shortcuts…" dialog of the Help group (guide §5.4, §8) in the root: one
+   * table per group in the given order, the chrome's zoom and fit keys at the top of the View group
+   * (`messages.shortcutsView`, first when `groups` has none), each named and chipped as its tooltip
+   * shows it. A modeler row of the View group that names a chrome action is left out. The menu
+   * closes first; the focus returns to the element that had it (the menu trigger after the Help
+   * entry), else to the canvas. While it is open a second call returns it unchanged; `destroy()`
+   * removes it. Usable on a read-only canvas (guide §13.5).
+   */
+  showShortcutsDialog(groups: readonly ShortcutGroup[]): ShellDialog;
   /** Removes every element, attribute, listener, observer and timer the shell added. Idempotent. */
   destroy(): void;
 }

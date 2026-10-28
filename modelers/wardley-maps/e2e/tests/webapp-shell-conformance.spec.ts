@@ -4,6 +4,7 @@ import { EXAMPLE_MAP } from "../../apps/webapp/src/example.js";
 import { encodeMapCompressed } from "../../apps/webapp/src/share.js";
 import { THEMES } from "../../apps/webapp/src/themes.js";
 import { kettleLabelEditor } from "./support/label-editor.js";
+import { mapShortcutsDialog } from "./support/shortcuts-dialog.js";
 import { waitForViewer } from "./support/viewer.js";
 
 /**
@@ -100,6 +101,8 @@ test.describe("web app: shell conformance", () => {
       labelEditor: kettleLabelEditor((page) =>
         page.evaluate(() => window.__wardleyViewer.exportDSL()),
       ),
+      // The groups of the web app's Help entry: its File keys and "?" (apps/webapp/src/main.ts).
+      shortcutsDialog: mapShortcutsDialog("webapp", { fileKeys: true, shortcutsKey: "?" }),
     },
     test,
     {

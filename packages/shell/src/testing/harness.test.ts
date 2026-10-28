@@ -62,6 +62,7 @@ describe("shellConformanceCases", () => {
       "reducedMotion",
       "forcedColors",
       "overlayLayers",
+      "shortcutsDialog",
       "csp",
       "cleanup",
       "webChrome",
@@ -97,6 +98,7 @@ describe("registerShellConformance", () => {
       "shell conformance: reducedMotion",
       "shell conformance: forcedColors",
       "shell conformance: overlayLayers",
+      "shell conformance: shortcutsDialog",
       "shell conformance: csp",
       "shell conformance: cleanup",
       "shell conformance: webChrome",
@@ -151,6 +153,27 @@ describe("registerShellConformance", () => {
             hook: "labelEditor",
             reason:
               "harness.labelEditor is undefined: that the shell's zoom, fit and refit never commit or close an open label editor was not verified",
+          },
+        ],
+      ],
+    ]);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("skips the shortcuts dialog case without harness.shortcutsDialog, before opening anything", async () => {
+    const onSkip = vi.fn();
+    const open = vi.fn(async () => {});
+    await register(harness({ open }), onSkip).get("shell conformance: shortcutsDialog")!({
+      page: emptyPage(),
+    });
+    expect(onSkip.mock.calls).toEqual([
+      [
+        "shortcutsDialog",
+        [
+          {
+            hook: "shortcutsDialog",
+            reason:
+              "harness.shortcutsDialog is undefined: the shell's dialog and its keyboard shortcuts were not verified",
           },
         ],
       ],
