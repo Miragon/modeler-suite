@@ -15,7 +15,7 @@ function providerHarness(level: BoardLevel = "design") {
     { start: vi.fn() } as never,
     factory as never,
     { activateSelection: vi.fn() } as never,
-    { toggle: vi.fn() } as never,
+    { toggle: vi.fn(), isActive: () => false } as never,
     { getLevel: () => level } as never,
     eventBus,
   );
@@ -200,7 +200,7 @@ describe("EventStormingPaletteProvider: Enter or Space on a creating entry (guid
       create as never,
       factory as never,
       { activateSelection: vi.fn() } as never,
-      { toggle: vi.fn() } as never,
+      { toggle: vi.fn(), isActive: () => false } as never,
       { getLevel: () => "design" } as never,
       eventBus,
       canvas as never,
@@ -263,11 +263,19 @@ describe("EventStormingPaletteProvider: Enter or Space on a creating entry (guid
 });
 
 describe("EventStormingPaletteProvider: focus after a pointer activation (guide §5.8)", () => {
-  function focusHarness() {
+  function focusHarness({ drawing = false } = {}) {
     const calls: string[] = [];
     const record = (name: string) => vi.fn(() => void calls.push(name));
     const lassoTool = { activateSelection: record("lasso") };
-    const drawTool = { toggle: record("draw") };
+    let lineOpen = drawing;
+    const drawTool = {
+      toggle: record("draw"),
+      isActive: () => lineOpen,
+      finish: vi.fn(() => {
+        lineOpen = false;
+        calls.push("finish");
+      }),
+    };
     const create = { start: record("create") };
     const svg = { focus: record("focus") };
     const canvas = {
@@ -293,6 +301,24 @@ describe("EventStormingPaletteProvider: focus after a pointer activation (guide 
     };
     return { trigger, calls, svg };
   }
+
+  // Issue #180: the draw tool watches no other tool, and Enter on another entry is that entry's.
+  it.each([
+    ["Enter on the Lasso entry", "lasso-tool", "click", 0, ["finish", "lasso"]],
+    ["a click on the Lasso entry", "lasso-tool", "click", 1, ["finish", "lasso", "focus"]],
+    ["Enter on a creating entry", "create.event", "click", 0, ["finish", "create"]],
+    ["a drag from a creating entry", "create.event", "dragstart", 0, ["finish", "create", "focus"]],
+  ] as const)("commits an open line before %s runs", (_name, action, type, detail, expected) => {
+    const { trigger, calls } = focusHarness({ drawing: true });
+    trigger(action, type, detail);
+    expect(calls).toEqual(expected);
+  });
+
+  it("leaves an open line to the Draw entry, which toggles the tool", () => {
+    const { trigger, calls } = focusHarness({ drawing: true });
+    trigger("draw-tool", "click", 0);
+    expect(calls).toEqual(["draw"]);
+  });
 
   // Without a shell around the canvas nothing else moves the focus there, and the board's keys
   // act only on the focused canvas: Delete after a lasso selection would do nothing.

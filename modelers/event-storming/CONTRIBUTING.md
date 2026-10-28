@@ -59,8 +59,9 @@ captions checkbox), and any skip fails the suite. Both harnesses list `documents
 checks the empty file and runs appearance too. Next to the kit run the webview's protocol and
 chrome specs and the web app's own (`webapp-chrome.spec.ts`: share link, the fit to what the board
 draws, replace with undo, open, drop, exports, app keys, Delete after a click on + or a palette
-entry, Escape after Enter on the Draw entry, and Escape and Enter for the menu, the shortcuts dialog
-and the zoom panel while a line is drawn). Run one project with
+entry, Escape after Enter on the Draw entry, Enter on the Lasso entry or a creating entry ending a
+drawing, and Escape and Enter for the menu, the shortcuts dialog and the zoom panel while a line is
+drawn). Run one project with
 `npm run event-storming test:e2e -- --project=vscode-webview`. Locally an already running server
 on a port is reused, so pick free ports
 (`E2E_PORT=5387 E2E_WEBVIEW_PORT=5397 npm run event-storming test:e2e`) when another app occupies
