@@ -107,6 +107,11 @@ async function showsStyledDiagram({ webview, timeoutMs }: VsCodeSmokeContext): P
 const typedTeamName = "Payments";
 /** Long enough for a draft the save missed (the flush gives up after 1 s) to reach the document. */
 const DOCUMENT_SETTLE_MS = 1_500;
+/**
+ * Escape that finds no draft closes the inspector, so a field still missing then is the save's
+ * fault: waiting the page's default timeout would only delay that message.
+ */
+const NAME_FIELD_AFTER_ESCAPE_MS = 2_000;
 
 const activeEditorIsDirty = (): boolean =>
   document.querySelector(".tabs-container .tab.active.dirty") !== null;
@@ -164,7 +169,15 @@ async function typeInInspectorThenCreateTeam(context: VsCodeSmokeContext): Promi
   }
 
   await name.press("Escape");
-  const committedName = await name.inputValue();
+  const committedName = await name
+    .inputValue({ timeout: NAME_FIELD_AFTER_ESCAPE_MS })
+    .catch(async (error: unknown) => {
+      if ((await name.count()) > 0) throw error;
+      throw new Error(
+        `${keys.save} did not commit the typed name: Escape found no draft in the Name field ` +
+          "and closed the inspector",
+      );
+    });
   if (committedName !== typedTeamName) {
     throw new Error(
       `${keys.save} did not commit the typed name: Escape restores "${committedName}"`,
