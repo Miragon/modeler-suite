@@ -97,7 +97,10 @@ fires no `commandStack.changed`. A diagram-js drag ends as Escape ends it, the d
 point (which Escape leaves running) without its commit. `clear()` ends a running drag too. The
 palette's lasso tool, armed but not yet pressed, stays armed. A drop whose change the host imports
 over at once, from its change listener (or clears the board there), has applied and is not
-cancelled: it ends as a drop, and the board shows what the host imported.
+cancelled: it ends as a drop, and the board shows what the host imported. The exception is an
+import that removes the moved sticky while something was selected before the drag: diagram-js's
+selection behaviour then throws, and the drag ends as cancelled
+([#248](https://github.com/Miragon/modeler-suite/issues/248)).
 
 `contentBounds()` gives the tight box around what the board draws (`{ x, y, width, height }` in
 board coordinates, which zoom and scroll leave alone): every sticky, note and drawing, a hotspot
