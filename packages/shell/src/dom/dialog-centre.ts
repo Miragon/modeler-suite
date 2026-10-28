@@ -43,10 +43,38 @@ function clipByOverflow(shown: Edges, element: Element, style: CSSStyleDeclarati
   };
 }
 
+const CONTAINING_BLOCK_PROPERTIES = [
+  "transform",
+  "translate",
+  "rotate",
+  "scale",
+  "perspective",
+  "filter",
+  "backdrop-filter",
+];
+
+function isSet(value: string): boolean {
+  return value !== "" && value !== "none";
+}
+
+/** Whether `style` makes its element the containing block of a descendant positioned `position`. */
+function containsPositioned(style: CSSStyleDeclaration, position: "absolute" | "fixed"): boolean {
+  const positioned =
+    position === "absolute" && isSet(style.position) && style.position !== "static";
+  return (
+    positioned ||
+    CONTAINING_BLOCK_PROPERTIES.some((property) => isSet(style.getPropertyValue(property))) ||
+    /\b(layout|paint|strict|content)\b/.test(style.contain) ||
+    /\b(transform|perspective|filter)\b/.test(style.willChange)
+  );
+}
+
 /**
- * The part of `container` that shows: inside the window and inside every element around it that
- * clips its overflow (a scrolling side panel), up to a fixed one, which nothing around it scrolls.
- * `<body>` and `<html>` hand their overflow to the window. `null` when nothing of it shows.
+ * The part of `container` that shows: inside the window and inside every element that clips its
+ * overflow and has the container in its containing-block chain (a scrolling side panel). An
+ * absolutely positioned container escapes the clip of an unpositioned element around it, a fixed
+ * one the clip of everything but a transformed element. `<body>` and `<html>` hand their overflow
+ * to the window. `null` when nothing of it shows.
  */
 function shownPart(container: HTMLElement, windowSize: Size): Edges | null {
   const ownerDocument = container.ownerDocument;
@@ -58,19 +86,36 @@ function shownPart(container: HTMLElement, windowSize: Size): Edges | null {
     right: Math.min(own.right, windowSize.width),
     bottom: Math.min(own.bottom, windowSize.height),
   };
-  let element: Element | null = container;
-  while (
-    view &&
-    element &&
-    element !== ownerDocument.body &&
-    element !== ownerDocument.documentElement
-  ) {
-    const style = view.getComputedStyle(element);
-    if (element !== container) shown = clipByOverflow(shown, element, style);
-    if (style.position === "fixed") break;
-    element = element.parentElement;
+  const isRoot = (element: Element) =>
+    element === ownerDocument.body || element === ownerDocument.documentElement;
+  let element: Element = container;
+  while (view) {
+    const { position } = view.getComputedStyle(element);
+    let around = element.parentElement;
+    if (position === "absolute" || position === "fixed") {
+      while (
+        around &&
+        !isRoot(around) &&
+        !containsPositioned(view.getComputedStyle(around), position)
+      ) {
+        around = around.parentElement;
+      }
+    }
+    if (!around || isRoot(around)) break;
+    shown = clipByOverflow(shown, around, view.getComputedStyle(around));
+    element = around;
   }
   return shown.right > shown.left && shown.bottom > shown.top ? shown : null;
+}
+
+/**
+ * CSS `zoom` on the host's page scales the dialog's `translate` like its box, while the rects are
+ * in window pixels: the rendered width over the laid-out one, to two decimals so rounding is no zoom.
+ */
+function zoomOf(dialog: HTMLElement, renderedWidth: number): number {
+  const laidOutWidth = dialog.offsetWidth;
+  const zoom = laidOutWidth > 0 ? Math.round((renderedWidth / laidOutWidth) * 100) / 100 : 1;
+  return zoom > 0 ? zoom : 1;
 }
 
 /**
@@ -80,8 +125,9 @@ function shownPart(container: HTMLElement, windowSize: Size): Edges | null {
  * embedding host (a widget, a side panel) can lie far from the modeler. The shift is a
  * `translate`, so the dialog's size never depends on its place, and its backdrop stays on the
  * whole window. It follows the container while the dialog is open: a resize of the container, the
- * dialog or the window, and a scroll of the page or of an element around the container. Returns
- * the function that stops following.
+ * dialog or the window, a change of the page's height (content inserted above the container), and
+ * a scroll of the page or of an element around the container. Returns the function that stops
+ * following.
  */
 export function centreOverContainer(dialog: HTMLDialogElement, container: HTMLElement): () => void {
   const ownerDocument = dialog.ownerDocument;
@@ -95,8 +141,9 @@ export function centreOverContainer(dialog: HTMLDialogElement, container: HTMLEl
       shown !== null &&
       shown.right - shown.left + ROUNDING_PX >= width + 2 * BAND_PX &&
       shown.bottom - shown.top + ROUNDING_PX >= height + 2 * BAND_PX;
-    const x = fits ? Math.round((shown.left + shown.right - windowSize.width) / 2) : 0;
-    const y = fits ? Math.round((shown.top + shown.bottom - windowSize.height) / 2) : 0;
+    const zoom = zoomOf(dialog, width);
+    const x = fits ? Math.round((shown.left + shown.right - windowSize.width) / 2 / zoom) : 0;
+    const y = fits ? Math.round((shown.top + shown.bottom - windowSize.height) / 2 / zoom) : 0;
     if (x === 0 && y === 0) {
       dialog.style.removeProperty("translate");
       return;
@@ -118,6 +165,7 @@ export function centreOverContainer(dialog: HTMLDialogElement, container: HTMLEl
   view?.addEventListener("resize", place);
   resizeObserver?.observe(container);
   resizeObserver?.observe(dialog);
+  resizeObserver?.observe(ownerDocument.documentElement);
   place();
 
   return () => {

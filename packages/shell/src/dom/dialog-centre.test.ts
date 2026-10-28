@@ -139,6 +139,105 @@ describe("centreOverContainer (guide §5.1, §8)", () => {
     expect(translateOf(dialog)).toBe("-90px -20px");
   });
 
+  it("scales the shift back where CSS zoom on the page has scaled the dialog's translate", () => {
+    const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
+    Object.defineProperty(dialog, "offsetWidth", { configurable: true, value: 448 });
+
+    centreOverContainer(dialog, element);
+
+    // The dialog is 560px wide on screen and was laid out 448px wide: zoom 1.25.
+    expect(translateOf(dialog)).toBe("-72px -16px");
+  });
+
+  it("takes a dialog laid out a pixel narrower than it is rendered for no zoom", () => {
+    const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
+    Object.defineProperty(dialog, "offsetWidth", { configurable: true, value: 559 });
+
+    centreOverContainer(dialog, element);
+
+    expect(translateOf(dialog)).toBe("-90px -20px");
+  });
+
+  describe("which elements around the container clip it", () => {
+    const CLIPPED = { left: 100, top: 80, width: 900, height: 500 };
+
+    function clippingAround(
+      container: HTMLElement,
+      style: Partial<CSSStyleDeclaration>,
+    ): HTMLElement {
+      const clipper = document.createElement("section");
+      Object.assign(clipper.style, { overflowX: "hidden", overflowY: "hidden", ...style });
+      document.body.append(clipper);
+      clipper.append(container);
+      setBox(clipper, CLIPPED);
+      Object.defineProperty(clipper, "clientWidth", { configurable: true, value: CLIPPED.width });
+      Object.defineProperty(clipper, "clientHeight", { configurable: true, value: CLIPPED.height });
+      return clipper;
+    }
+
+    const container = { left: 100, top: 80, width: 900, height: 700 };
+    const UNCLIPPED = "-90px -20px";
+    const CLIPPED_BY_PANEL = "-90px -120px";
+
+    it("clips a container in the flow at the element around it", () => {
+      const { element, dialog } = setup(container);
+      clippingAround(element, {});
+
+      centreOverContainer(dialog, element);
+
+      expect(translateOf(dialog)).toBe(CLIPPED_BY_PANEL);
+    });
+
+    it("lets an absolutely positioned container escape an unpositioned element around it", () => {
+      const { element, dialog } = setup(container);
+      element.style.position = "absolute";
+      clippingAround(element, {});
+
+      centreOverContainer(dialog, element);
+
+      expect(translateOf(dialog)).toBe(UNCLIPPED);
+    });
+
+    it("clips an absolutely positioned container at the element that positions it", () => {
+      const { element, dialog } = setup(container);
+      element.style.position = "absolute";
+      clippingAround(element, { position: "relative" });
+
+      centreOverContainer(dialog, element);
+
+      expect(translateOf(dialog)).toBe(CLIPPED_BY_PANEL);
+    });
+
+    it("follows the chain on to the element that clips the one that positions the container", () => {
+      const { element, dialog } = setup(container);
+      element.style.position = "absolute";
+      const positioning = document.createElement("div");
+      positioning.style.position = "relative";
+      document.body.append(positioning);
+      positioning.append(element);
+      setBox(positioning, container);
+      clippingAround(positioning, {});
+
+      centreOverContainer(dialog, element);
+
+      expect(translateOf(dialog)).toBe(CLIPPED_BY_PANEL);
+    });
+
+    it("lets a fixed container escape every element around it but a transformed one", () => {
+      const escaping = setup(container);
+      escaping.element.style.position = "fixed";
+      clippingAround(escaping.element, { position: "relative" });
+      centreOverContainer(escaping.dialog, escaping.element);
+      expect(translateOf(escaping.dialog)).toBe(UNCLIPPED);
+
+      const held = setup(container);
+      held.element.style.position = "fixed";
+      clippingAround(held.element, { transform: "translateZ(0)" });
+      centreOverContainer(held.dialog, held.element);
+      expect(translateOf(held.dialog)).toBe(CLIPPED_BY_PANEL);
+    });
+  });
+
   describe("while it is open", () => {
     it("follows a resize of the container and of the dialog", () => {
       const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
@@ -151,6 +250,16 @@ describe("centreOverContainer (guide §5.1, §8)", () => {
       setBox(dialog, { left: 0, top: 0, width: 560, height: 700 });
       FakeResizeObserver.resize(dialog);
       expect(translateOf(dialog)).toBe("");
+    });
+
+    it("follows a change of the page's height, as when content lands above the container", () => {
+      const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
+      centreOverContainer(dialog, element);
+
+      setBox(element, { left: 100, top: 140, width: 900, height: 700 });
+      FakeResizeObserver.resize(document.documentElement);
+
+      expect(translateOf(dialog)).toBe("-90px 40px");
     });
 
     it("follows a resize of the window", () => {

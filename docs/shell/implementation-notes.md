@@ -99,19 +99,28 @@ navigator.platform`), never `process.platform`, which names the remote machine u
   the modeler's container instead (guide §5.1, also for §8), so it uses `cqw`/`cqh`: container
   units follow the DOM, not the containing block, and resolve against the shell root even in the
   top layer (Chromium and WebKit alike), and against the window where no size container is around
-  the dialog.
+  the dialog. A container taller or wider than the window (an embedded modeler in a long page)
+  would size the dialog past the window, with its header and Close out of reach, so `width` and
+  `max-height` also take `100% - 32px`, which for a fixed element is the window (checked in
+  Chromium and WebKit): the same 16px of backdrop as around a dialog in a small container.
 - The top layer centres the dialog in the window, which in an embedding host (a designIQ widget, a
   side panel) can lie far from the diagram. So `dialog-centre.ts` shifts it with an inline
   `translate` over the part of its container that shows, as long as it fits there with 16px around
   it (guide §5.1, §8), and leaves it in the window's centre otherwise. A `translate` moves the
   box and nothing else: the size stays as `cqw` and `cqh` made it, and the `::backdrop`, a
   separate box of the top layer, still covers the whole window. The container's visible part is its
-  rect inside the window and inside every ancestor that clips its overflow (a scrolling side panel),
-  up to a fixed one; `<body>` and `<html>` hand their overflow to the window. It is measured again
-  on a resize (of the container through a `ResizeObserver`, of the dialog, of the window) and on a
-  scroll heard in the capture phase on the document, which a scroll does not otherwise reach. A move
-  that is neither is not noticed: nothing reports it, and the page behind a modal dialog is inert,
-  so only the host's own code can cause one.
+  rect inside the window and inside every ancestor that clips its overflow and has the container
+  in its containing-block chain (a scrolling side panel): an overflow clip applies to a descendant
+  through its containing block, so an absolutely positioned container escapes an unpositioned
+  ancestor and a fixed one every ancestor but a transformed one (or one with `filter`,
+  `perspective`, `contain`, `will-change` of these); `<body>` and `<html>` hand their overflow to
+  the window. It is measured again on a resize (of the container and of the page's `<html>`
+  through a `ResizeObserver`, of the dialog, of the window) and on a scroll heard in the capture
+  phase on the document, which a scroll does not otherwise reach. A move that is none of these is
+  not noticed: nothing reports it, and the page behind a modal dialog is inert, so only the host's
+  own code can cause one without changing the page's size. The shift is divided by the page's CSS
+  `zoom` (the dialog's rendered width over its laid-out one), because a `translate` is scaled by
+  it like the box while the rects are in window pixels.
 - The dialog sets `position: fixed; inset: 0; margin: auto; translate: none` itself, because
   the centring (the UA's, then the shift) assumes them and a foreign page's `dialog { ... }` rule
   could otherwise change them.

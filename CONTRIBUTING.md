@@ -119,7 +119,7 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   project. A running server on a port is reused, so pick free ports when another checkout runs its
   suite: `E2E_PORT=6101 E2E_WEBVIEW_PORT=6111 npm run wardley-maps test:e2e`.
   `npm run test:e2e:shared` runs the shell's own suite against its demo, in Chromium and its
-  pointer-focus cases in WebKit too.
+  pointer-focus and dialog-centre cases in WebKit too.
 - **VS Code smoke test:** `npm run <modeler> test:vscode` (the Vitest project `vscode`, never part
   of `npm test`) packs the extension as the release does (`vsce package --no-dependencies`, which
   runs `vscode:prepublish`, the production build), unpacks the VSIX outside the repository, so a

@@ -181,7 +181,7 @@ describe("shortcutsDialogProblems (guide §5.4, §5.6, §8)", () => {
       expect.stringMatching(/radius 16px, expected --cd-radius-md/),
       expect.stringMatching(/shadow none, expected --cd-shadow-3/),
       expect.stringMatching(
-        /600px wide in a 1280px wide shell root, expected min\(560px, 100% - 32px\) of the modeler's container = 560px/,
+        /600px wide in a 1280px wide shell root and a 1280px wide window, expected 560px: min\(560px, 100% - 32px\) of the modeler's container/,
       ),
     ]);
   });
@@ -191,7 +191,9 @@ describe("shortcutsDialogProblems (guide §5.4, §5.6, §8)", () => {
       dialog.box = { left: 360, top: 0, width: 560, height: 900 };
     });
     expect(shortcutsDialogProblems(changed, NORMAL)).toEqual([
-      expect.stringMatching(/900px high in a 900px high shell root, expected at most 100% - 32px/),
+      expect.stringMatching(
+        /900px high in a 900px high shell root and a 900px high window, expected at most 868px: 100% - 32px/,
+      ),
     ]);
   });
 
@@ -210,9 +212,38 @@ describe("shortcutsDialogProblems (guide §5.4, §5.6, §8)", () => {
     });
     expect(shortcutsDialogProblems(byWindow, NORMAL)).toEqual([
       expect.stringMatching(
-        /560px wide in a 480px wide shell root, .* = 448px \(guide §5\.1, §8\)/,
+        /560px wide in a 480px wide shell root and a 1280px wide window, expected 448px: .* \(guide §5\.1, §8\)/,
       ),
       expect.stringMatching(/700px high in a 400px high shell root/),
+    ]);
+  });
+
+  it("caps the dialog by the window where the container is larger than the window", () => {
+    const tallContainer = (box: { height: number; top: number }) =>
+      withDialog((dialog) => {
+        dialog.viewport = { width: 1280, height: 700 };
+        dialog.container = { width: 800, height: 1600 };
+        dialog.shown = { left: 100, top: 100, right: 900, bottom: 700 };
+        dialog.box = { left: 360, width: 560, ...box };
+      });
+
+    expect(shortcutsDialogProblems(tallContainer({ top: 16, height: 668 }), NORMAL)).toEqual([]);
+    expect(shortcutsDialogProblems(tallContainer({ top: -379, height: 1458 }), NORMAL)).toEqual([
+      expect.stringMatching(
+        /1458px high in a 1600px high shell root and a 700px high window, expected at most 668px/,
+      ),
+    ]);
+
+    const wide = withDialog((dialog) => {
+      dialog.viewport = { width: 400, height: 900 };
+      dialog.container = { width: 800, height: 900 };
+      dialog.shown = { left: 0, top: 0, right: 400, bottom: 900 };
+      dialog.box = { left: -80, top: 250, width: 560, height: 400 };
+    });
+    expect(shortcutsDialogProblems(wide, NORMAL)).toEqual([
+      expect.stringMatching(
+        /560px wide in a 800px wide shell root and a 400px wide window, expected 368px/,
+      ),
     ]);
   });
 

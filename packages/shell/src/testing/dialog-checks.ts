@@ -59,7 +59,7 @@ function lookProblems(
   highContrast: boolean,
 ): string[] {
   const problems: string[] = [];
-  const { roles, container, box } = dialog;
+  const { roles, container, box, viewport } = dialog;
   const at = `shortcuts dialog (${dialog.description})`;
   if (!dialog.modal) {
     problems.push(
@@ -101,15 +101,16 @@ function lookProblems(
         : `${at}: shadow ${dialog.boxShadow}, expected --cd-shadow-3 (${roles.shadow3}) (guide §8)`,
     );
   }
-  const width = Math.min(560, container.width - 32);
+  const width = Math.min(560, container.width - 2 * BAND, viewport.width - 2 * BAND);
   if (!within(box.width, width)) {
     problems.push(
-      `${at}: ${box.width}px wide in a ${container.width}px wide shell root, expected min(560px, 100% - 32px) of the modeler's container = ${width}px (guide §5.1, §8)`,
+      `${at}: ${box.width}px wide in a ${container.width}px wide shell root and a ${viewport.width}px wide window, expected ${width}px: min(560px, 100% - 32px) of the modeler's container, and never more than 100% - 32px of the window (guide §5.1, §8)`,
     );
   }
-  if (box.height > container.height - 32 + 1) {
+  const maxHeight = Math.min(container.height, viewport.height) - 2 * BAND;
+  if (box.height > maxHeight + 1) {
     problems.push(
-      `${at}: ${box.height}px high in a ${container.height}px high shell root, expected at most 100% - 32px of the modeler's container, the body scrolling (guide §5.1, §8)`,
+      `${at}: ${box.height}px high in a ${container.height}px high shell root and a ${viewport.height}px high window, expected at most ${maxHeight}px: 100% - 32px of the modeler's container and of the window, the body scrolling (guide §5.1, §8)`,
     );
   }
   problems.push(...centreProblems(dialog, at));

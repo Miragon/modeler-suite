@@ -64,6 +64,17 @@ async function expectCentre(page: Page, centre: { x: number; y: number }): Promi
 
 const WINDOW_CENTRE = { x: WINDOW.width / 2, y: WINDOW.height / 2 };
 
+/** Puts an element with `overflow: hidden` and the given position around #modeler, which stays absolute. */
+function wrapModeler(page: Page, position: "static" | "relative"): Promise<void> {
+  return page.evaluate((position) => {
+    const modeler = document.getElementById("modeler")!;
+    const wrapper = document.createElement("div");
+    Object.assign(wrapper.style, { position, overflow: "hidden", width: "300px", height: "200px" });
+    modeler.replaceWith(wrapper);
+    wrapper.append(modeler);
+  }, position);
+}
+
 test.describe("the shell's dialog in an embedding host without a mounted shell", () => {
   test("centres over the modeler's container, not over the window", async ({ page }) => {
     await openHost(page);
@@ -83,6 +94,23 @@ test.describe("the shell's dialog in an embedding host without a mounted shell",
 
     await page.mouse.click(10, 880);
 
+    await expect(page.locator("dialog.cd-shell-dialog")).toHaveCount(0);
+  });
+
+  test("judges a click against the shifted panel: the window's centre is backdrop where the panel left it", async ({
+    page,
+  }) => {
+    await openHost(page);
+    await place(page, { left: 300, top: 120, width: 800, height: 600 });
+    await openDialog(page);
+    await expectCentre(page, { x: 700, y: 420 });
+    // The panel spans x 420 to 980; in the window's centre it would span 360 to 920.
+    expect((await dialogBox(page)).left).toBeCloseTo(420, 0);
+
+    await page.mouse.click(950, 420);
+    await expect(page.locator("dialog.cd-shell-dialog")).toHaveCount(1);
+
+    await page.mouse.click(390, 420);
     await expect(page.locator("dialog.cd-shell-dialog")).toHaveCount(0);
   });
 
@@ -146,6 +174,30 @@ test.describe("the shell's dialog in an embedding host without a mounted shell",
     await expectCentre(page, { x: 700, y: 380 });
   });
 
+  test("follows content that lands above the container and moves it down the page", async ({
+    page,
+  }) => {
+    await openHost(page);
+    await page.locator("#modeler").evaluate((element) => {
+      Object.assign(element.style, {
+        position: "static",
+        margin: "120px 0 0 300px",
+        width: "800px",
+        height: "600px",
+      });
+    });
+    await openDialog(page);
+    await expectCentre(page, { x: 700, y: 420 });
+
+    await page.evaluate(() => {
+      const banner = document.createElement("div");
+      banner.style.height = "100px";
+      document.querySelector(".host-page")!.prepend(banner);
+    });
+
+    await expectCentre(page, { x: 700, y: 520 });
+  });
+
   test("centres over the part that a scrolling panel around the container shows", async ({
     page,
   }) => {
@@ -191,6 +243,59 @@ test.describe("the shell's dialog in an embedding host without a mounted shell",
     await expectCentre(page, WINDOW_CENTRE);
   });
 
+  test("is not clipped by an unpositioned element around a container that is absolutely positioned", async ({
+    page,
+  }) => {
+    await openHost(page);
+    await wrapModeler(page, "static");
+    await place(page, { left: 300, top: 120, width: 800, height: 600 });
+
+    await openDialog(page);
+
+    await expectCentre(page, { x: 700, y: 420 });
+  });
+
+  test("is clipped by the element around the container that positions it", async ({ page }) => {
+    await openHost(page);
+    await wrapModeler(page, "relative");
+    await place(page, { left: 300, top: 120, width: 800, height: 600 });
+
+    await openDialog(page);
+
+    await expectCentre(page, WINDOW_CENTRE);
+  });
+
+  test("never outgrows the window, whatever the container is: its Close stays reachable", async ({
+    page,
+  }) => {
+    await openHost(page);
+    await place(page, { left: 100, top: 100, width: 800, height: 2000 }, { containerType: "size" });
+    await openDialog(page);
+    await page.locator(".cd-shell-dialog-body").evaluate((element) => {
+      element.style.height = "1800px";
+      const content = document.createElement("div");
+      content.style.height = "1800px";
+      element.append(content);
+    });
+
+    await expect
+      .poll(async () => {
+        const { top, height } = await dialogBox(page);
+        return { top, bottom: top + height };
+      })
+      .toEqual({ top: 16, bottom: WINDOW.height - 16 });
+    const close = await page.locator(".cd-shell-dialog-close").boundingBox();
+    expect(close!.y).toBeGreaterThanOrEqual(16);
+    expect(
+      await page
+        .locator(".cd-shell-dialog-body")
+        .evaluate((element) => element.scrollHeight > element.clientHeight),
+    ).toBe(true);
+
+    await page.setViewportSize({ width: 400, height: WINDOW.height });
+    await expect.poll(async () => (await dialogBox(page)).width).toBe(400 - 2 * 16);
+  });
+
   test("keeps the focus inside and gives it back where it was, shifted or not", async ({
     page,
   }) => {
@@ -211,5 +316,29 @@ test.describe("the shell's dialog in an embedding host without a mounted shell",
 
     await expect(page.locator("dialog.cd-shell-dialog")).toHaveCount(0);
     await expect(page.locator("#open")).toBeFocused();
+  });
+
+  test("centres over a container in a page that zooms with CSS", async ({ page }) => {
+    await openHost(page);
+    await page.addStyleTag({ content: "html { zoom: 1.25; }" });
+    await place(page, { left: 200, top: 100, width: 800, height: 500 });
+
+    await openDialog(page);
+
+    // The container's rect on the screen: x 250 to 1250, y 125 to 750.
+    await expectCentre(page, { x: 750, y: 437.5 });
+  });
+
+  test("holds against a foreign page that styles every dialog", async ({ page }) => {
+    await openHost(page);
+    await page.addStyleTag({
+      content: "dialog { position: absolute; inset: auto; margin: 0; translate: 40px 40px; }",
+    });
+    await place(page, { left: 300, top: 120, width: 800, height: 600 });
+    await openDialog(page);
+    await expectCentre(page, { x: 700, y: 420 });
+
+    await place(page, { left: 300, top: 120, width: 400, height: 300 });
+    await expectCentre(page, WINDOW_CENTRE);
   });
 });

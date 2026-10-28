@@ -316,13 +316,19 @@ describe("openShellDialog centres over its container (guide §5.1, §8)", () => 
     expect(element.style.getPropertyValue("translate")).toBe("");
   });
 
-  it("closes on a click on the backdrop around the shifted panel", () => {
+  it("judges a click against the shifted panel, not against the window's centre", () => {
     const { element, dialog } = openIn({ left: 100, top: 80, width: 900, height: 700 });
+    // Shifted 90px to the left of the window's centre: x 270 to 830, where the window's would be 360 to 920.
     setBox(element, { left: 270, top: 230, width: 560, height: 400 });
+    const press = (clientX: number) => {
+      pointer(element, "pointerdown", { clientX, clientY: 400 });
+      element.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX, clientY: 400 }));
+    };
 
-    pointer(element, "pointerdown", { clientX: 1100, clientY: 400 });
-    element.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 1100, clientY: 400 }));
+    press(300);
+    expect(dialog.isOpen()).toBe(true);
 
+    press(870);
     expect(dialog.isOpen()).toBe(false);
   });
 

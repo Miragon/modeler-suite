@@ -104,8 +104,8 @@ export interface ShellDialogFacts {
     box: { left: number; top: number; width: number; height: number };
     /**
      * The part of the element the dialog lives in (the shell root of a mounted shell) that shows,
-     * in viewport coordinates: its box inside the window and inside every element around it that
-     * clips its overflow, up to a fixed one; `null` when nothing of it shows.
+     * in viewport coordinates: its box inside the window and inside every element that clips its
+     * overflow and has it in its containing-block chain; `null` when nothing of it shows.
      */
     shown: { left: number; top: number; right: number; bottom: number } | null;
     /** The text of what `aria-labelledby` names, and that element's tag. */
@@ -229,26 +229,51 @@ export const shellDialogProbe = ({
       right: Math.min(own.right, viewport.width),
       bottom: Math.min(own.bottom, viewport.height),
     };
-    for (
-      let element: Element | null = home;
-      element && element !== document.body && element !== document.documentElement;
-      element = element.parentElement
-    ) {
-      const around = getComputedStyle(element);
-      const clipX = around.overflowX !== "visible";
-      const clipY = around.overflowY !== "visible";
-      if (element !== home && (clipX || clipY)) {
-        const rect = element.getBoundingClientRect();
-        const left = rect.left + element.clientLeft;
-        const top = rect.top + element.clientTop;
+    const isRoot = (element: Element) =>
+      element === document.body || element === document.documentElement;
+    const isSet = (value: string) => value !== "" && value !== "none";
+    const containsPositioned = (around: CSSStyleDeclaration, position: string) =>
+      (position === "absolute" && around.position !== "static") ||
+      [
+        "transform",
+        "translate",
+        "rotate",
+        "scale",
+        "perspective",
+        "filter",
+        "backdrop-filter",
+      ].some((property) => isSet(around.getPropertyValue(property))) ||
+      /\b(layout|paint|strict|content)\b/.test(around.contain) ||
+      /\b(transform|perspective|filter)\b/.test(around.willChange);
+    let element: Element = home;
+    for (;;) {
+      const { position } = getComputedStyle(element);
+      let around = element.parentElement;
+      if (position === "absolute" || position === "fixed") {
+        while (
+          around &&
+          !isRoot(around) &&
+          !containsPositioned(getComputedStyle(around), position)
+        ) {
+          around = around.parentElement;
+        }
+      }
+      if (!around || isRoot(around)) break;
+      const aroundStyle = getComputedStyle(around);
+      const clipX = aroundStyle.overflowX !== "visible";
+      const clipY = aroundStyle.overflowY !== "visible";
+      if (clipX || clipY) {
+        const rect = around.getBoundingClientRect();
+        const left = rect.left + around.clientLeft;
+        const top = rect.top + around.clientTop;
         shown = {
           left: clipX ? Math.max(shown.left, left) : shown.left,
           top: clipY ? Math.max(shown.top, top) : shown.top,
-          right: clipX ? Math.min(shown.right, left + element.clientWidth) : shown.right,
-          bottom: clipY ? Math.min(shown.bottom, top + element.clientHeight) : shown.bottom,
+          right: clipX ? Math.min(shown.right, left + around.clientWidth) : shown.right,
+          bottom: clipY ? Math.min(shown.bottom, top + around.clientHeight) : shown.bottom,
         };
       }
-      if (around.position === "fixed") break;
+      element = around;
     }
     if (shown.right <= shown.left || shown.bottom <= shown.top) shown = null;
   }
