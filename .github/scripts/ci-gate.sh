@@ -30,6 +30,7 @@ done < <(awk '/^jobs:/ { in_jobs = 1; next } /^[^ #]/ { in_jobs = 0 } in_jobs &&
 
 changes=$(jq -r '.changes.result // "missing"' <<< "$NEEDS")
 shared=$(jq -r '.changes.outputs.shared // ""' <<< "$NEEDS")
+template=$(jq -r '.changes.outputs.template // ""' <<< "$NEEDS")
 modelers=$(jq -r '.changes.outputs.modelers // ""' <<< "$NEEDS")
 
 # Why a job may be skipped on this run; empty when a skip of it is a failure. The path-gated jobs
@@ -44,6 +45,11 @@ skip_reason() {
     shared-lint | shared-test | shared-test-browser | shared-e2e)
       if [[ "$changes" == success && "$shared" == false ]]; then
         echo "no path the shared packages depend on changed"
+      fi
+      ;;
+    template)
+      if [[ "$changes" == success && "$template" == false ]]; then
+        echo "no path the new-modeler template depends on changed"
       fi
       ;;
     modeler-lint | modeler-test | modeler-test-browser | modeler-e2e | modeler-build)

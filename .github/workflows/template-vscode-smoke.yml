@@ -1,0 +1,101 @@
+name: Template VS Code smoke
+
+# The packaged extension of a modeler created from the new-modeler template (the `template` job of
+# ci.yml makes the same one) in a real VS Code under xvfb, on the newest stable release and on the
+# oldest that its engines.vscode accepts. It costs a VS Code download per version, so it is opt-in:
+# label a pull request `template-vscode-smoke`, or start it by hand on a branch. It is no part of
+# ci-ok. Nothing else runs the template's own smoke before a repository exists.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+# No run is cancelled: a label added while a smoke runs starts another run of this workflow, which
+# must not stop the first.
+concurrency:
+  group: template-vscode-smoke-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  # No name: one with the matrix in it shows on a pull request without the label, where the job is
+  # skipped, as the unexpanded expression.
+  template-vscode-smoke:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'template-vscode-smoke')
+    # Pinned rather than ubuntu-latest: VS Code needs the image's X server and GTK libraries, and a
+    # label migration should not break this job unnoticed.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        vscode: [stable, minimum]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: npm run build:shared
+      - id: instance
+        run: |
+          node .github/scripts/template-instance.mjs "$INSTANCE"
+          echo "directory=$INSTANCE" >> "$GITHUB_OUTPUT"
+        env:
+          INSTANCE: ${{ runner.temp }}/capability-map-modeler
+
+      # The cache key needs the version before the test resolves it; the test then runs exactly it.
+      # The minimum comes from engines.vscode of the instance, so raising the template's floor moves
+      # the smoke along. The stable list is the one the driver checks a version against
+      # (released=true), so a build still rolling out is never picked.
+      - id: vscode
+        name: Resolve the VS Code version and its cache folder
+        working-directory: ${{ steps.instance.outputs.directory }}
+        env:
+          CHANNEL: ${{ matrix.vscode }}
+        run: |
+          if [[ "$CHANNEL" == minimum ]]; then
+            version=$(node -p "require('./apps/vscode/package.json').engines.vscode.match(/\d+\.\d+\.\d+/)?.[0]")
+          else
+            version=$(curl -fsSL --retry 3 'https://update.code.visualstudio.com/api/releases/stable?released=true' | jq -r '.[0]')
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::No VS Code version for $CHANNEL: '$version'"
+            exit 1
+          fi
+          echo "VS Code $CHANNEL: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "cache=${XDG_CACHE_HOME:-$HOME/.cache}/miragon-modeler-shell/vscode-test" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.vscode.outputs.cache }}
+          key: vscode-${{ runner.os }}-${{ runner.arch }}-${{ steps.vscode.outputs.version }}
+
+      # VS Code needs an X server; -a picks a free display number. The runner is thrown away anyway,
+      # so the run keeps VS Code's profile in RUNNER_TEMP, for its logs when it fails.
+      - run: xvfb-run -a npm run test:vscode
+        working-directory: ${{ steps.instance.outputs.directory }}
+        env:
+          VSCODE_VERSION: ${{ steps.vscode.outputs.version }}
+          VSCODE_SMOKE_KEEP: "1"
+          TMPDIR: ${{ runner.temp }}
+
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: template-vscode-smoke-${{ matrix.vscode }}
+          path: ${{ steps.instance.outputs.directory }}/test-results/vscode-smoke/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: template-vscode-smoke-logs-${{ matrix.vscode }}
+          path: ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
+          if-no-files-found: ignore
+          retention-days: 7

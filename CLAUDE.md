@@ -224,6 +224,10 @@ Install once: `/plugin marketplace add Miragon/corporate-identity` then
   `npm run team-topologies test` (the `tt-format` checker against the schema model).
   `claude plugin validate .` checks the marketplace; its one warning, modeler-kit's missing
   `version`, is intended.
+- CI creates a modeler from the `new-modeler` template on the packed shared packages and runs its
+  lint, tests, kits and builds (job `template`, `.github/scripts/template-instance.mjs`, see
+  [docs/ci-and-releases.md](docs/ci-and-releases.md)); run the script locally to reproduce it. A
+  breaking change to the contract or the shell that the template does not follow fails that job.
 
 ## Code style
 

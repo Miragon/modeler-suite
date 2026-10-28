@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The path decisions of CI, so a change runs the jobs it can break and no more:
-#   ci-paths.sh affected               which modelers and whether the shared packages a change reaches
+#   ci-paths.sh affected               which modelers, whether the shared packages and whether the
+#                                      new-modeler template a change reaches
 #   ci-paths.sh vscode-smoke <modeler> whether the change can reach that modeler's packaged extension
 #   ci-paths.sh modelers               every modeler (for the weekly smoke)
 # Each writes key=value lines to $GITHUB_OUTPUT. The event comes from EVENT_NAME and the base commit
@@ -95,8 +96,19 @@ classify() {
   esac
 }
 
+# The template job creates a modeler from plugins/modeler-kit on the packed shared packages and
+# borrows a renderer's design-system files (.github/scripts/template-instance.mjs). The paths of the
+# `all` class (packages/, the root, .github/) reach it through `everything` in affected.
+reaches_template() {
+  case "$1" in
+    plugins/modeler-kit/*) ;;
+    modelers/event-storming/packages/renderer/src/theme/*) ;;
+    *) return 1 ;;
+  esac
+}
+
 affected() {
-  local changed reach path everything=false shared=false modelers="" all
+  local changed reach path everything=false shared=false template=false modelers="" all
   all=$(all_modelers)
   changed=$(mktemp)
   if ! changed_paths "$changed"; then
@@ -105,6 +117,7 @@ affected() {
     while IFS= read -r -d '' path; do
       reach=$(classify "$path")
       echo "$path: $reach"
+      if reaches_template "$path"; then template=true; fi
       case "$reach" in
         all) everything=true ;;
         shared) shared=true ;;
@@ -114,11 +127,13 @@ affected() {
   fi
   if [[ "$everything" == true ]]; then
     shared=true
+    template=true
     modelers=$all
   fi
   modelers=$(printf '%s' "$modelers" | sort -u | sed '/^$/d')
-  echo "Shared jobs: $shared. Modelers: $(printf '%s' "${modelers:-none}" | tr '\n' ' ')"
+  echo "Shared jobs: $shared. Template job: $template. Modelers: $(printf '%s' "${modelers:-none}" | tr '\n' ' ')"
   output shared "$shared"
+  output template "$template"
   output modelers "$(lines_to_json "$modelers")"
   output all-modelers "$(lines_to_json "$all")"
 }

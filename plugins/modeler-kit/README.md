@@ -38,6 +38,16 @@ keeps the template on the suite's Node range: its `engines`, the floor its CI in
 third-party pin, whose own `engines.node` must accept both floors of the range. A pin may stay
 behind the version the suite installs, but never run ahead of it.
 
+A CI job of the suite (`template` in
+[`ci.yml`](https://github.com/Miragon/modeler-suite/blob/main/.github/workflows/ci.yml), see
+[CI and releases](https://github.com/Miragon/modeler-suite/blob/main/docs/ci-and-releases.md))
+goes further: it creates a modeler from the template with the script of this skill, installs the
+shared packages from `npm pack` of the branch instead of the registry, and runs the new modeler's
+lint, tests, both conformance kits, both builds and the VSIX packaging. It runs whenever this
+plugin, the shared packages or the CI itself change, a release pull request included, so a kit case
+the template's harness fails shows up there and not when the next modeler starts. The label
+`template-vscode-smoke` adds the VS Code smoke of that modeler to a pull request.
+
 The plugin has no `version`, neither in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json)
 nor in its marketplace entry ([`.claude-plugin/marketplace.json`](https://github.com/Miragon/modeler-suite/blob/main/.claude-plugin/marketplace.json)),
 and the drift test keeps it that way. Claude Code then versions it by the commit of this
