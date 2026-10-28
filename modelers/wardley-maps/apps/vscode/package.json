@@ -85,7 +85,8 @@
       {
         "command": "wardley.newMapFromExample",
         "title": "New Map from Example",
-        "category": "Wardley"
+        "category": "Wardley",
+        "shortTitle": "New Wardley Map from Example"
       },
       {
         "command": "wardley.showSource",
@@ -124,7 +125,11 @@
       "file/newFile": [
         {
           "command": "wardley.newMap",
-          "group": "wardley"
+          "group": "wardley@1"
+        },
+        {
+          "command": "wardley.newMapFromExample",
+          "group": "wardley@2"
         }
       ],
       "editor/title": [
@@ -193,15 +198,25 @@
         "description": "Wardley Maps chart the components of a business by user value and evolution, so you can see your landscape and reason about strategy. This extension lets you create and edit them in VS Code as plain-text .wmap / .owm files.",
         "steps": [
           {
-            "id": "create",
-            "title": "Create your first map",
-            "description": "Open a ready-made example map, or start from a blank canvas.\n[Create map from example](command:wardley.newMapFromExample)",
+            "id": "new",
+            "title": "Create a map",
+            "description": "Start from an empty map: a plain-text .wmap file that opens as a canvas.\n[Create empty map](command:wardley.newMap)",
             "media": {
-              "markdown": "media/walkthrough/create.md"
+              "markdown": "media/walkthrough/new.md"
             },
             "completionEvents": [
-              "onCommand:wardley.newMapFromExample",
               "onCommand:wardley.newMap"
+            ]
+          },
+          {
+            "id": "example",
+            "title": "Open the example",
+            "description": "See a finished map: a tea shop, from the cup of tea its customers want down to the power its kettle runs on.\n[Create map from example](command:wardley.newMapFromExample)",
+            "media": {
+              "markdown": "media/walkthrough/example.md"
+            },
+            "completionEvents": [
+              "onCommand:wardley.newMapFromExample"
             ]
           },
           {

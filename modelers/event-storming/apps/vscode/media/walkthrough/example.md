@@ -5,4 +5,7 @@ as a new file. It is a design-level board of a checkout flow: an actor issues a 
 aggregate handles it, a domain event follows, a policy reacts, and a read model, an external
 system and a hotspot complete the picture.
 
+You can also run **Event Storming: New Board from Example** from the Command Palette, or choose
+**File › New File… › New Event Storming Board from Example**.
+
 Every sticky colour has a meaning; **Learn the basics** explains them.

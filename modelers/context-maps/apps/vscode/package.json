@@ -95,7 +95,8 @@
       {
         "command": "contextMaps.newFromExample",
         "title": "New Diagram from Example",
-        "category": "Context Maps"
+        "category": "Context Maps",
+        "shortTitle": "New Context Maps Diagram from Example"
       },
       {
         "command": "contextMaps.newPngDiagram",
@@ -149,11 +150,15 @@
       "file/newFile": [
         {
           "command": "contextMaps.newDiagram",
-          "group": "contextMaps"
+          "group": "contextMaps@1"
+        },
+        {
+          "command": "contextMaps.newFromExample",
+          "group": "contextMaps@2"
         },
         {
           "command": "contextMaps.newPngDiagram",
-          "group": "contextMaps"
+          "group": "contextMaps@3"
         }
       ],
       "editor/title": [

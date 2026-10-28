@@ -35,8 +35,9 @@ High Contrast themes get the high-contrast chrome.
 
 ## Getting started
 
-1. Run the command **Value Chain: New Empty Value Chain Diagram** (or
-   **… from Example**) and pick a location, or open the walkthrough **Get Started with Value
+1. Run **Value Chain: New Empty Value Chain Diagram** or **Value Chain: New Value Chain Diagram
+   from Example** and pick a location (also under **File > New File…** as **Value Chain Diagram**
+   and **New Value Chain Diagram from Example**), or open the walkthrough **Get Started with Value
    Chains**.
 2. Model away: the file saves like any other. To see the raw JSON, use **Open Source to the
    Side** in the editor title.

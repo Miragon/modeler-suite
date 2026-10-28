@@ -5,6 +5,7 @@ import { OPEN_BOARD_COMMAND, OPEN_SOURCE_COMMAND, WEBVIEW_COMMANDS } from "../sr
 interface CommandContribution {
   command: string;
   title: string;
+  shortTitle?: string;
   category?: string;
   icon?: string;
 }
@@ -19,7 +20,7 @@ const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.
     commands: CommandContribution[];
     menus: Record<string, MenuContribution[]>;
     keybindings?: unknown;
-    walkthroughs: Array<{ steps: Array<{ id: string; completionEvents: string[] }> }>;
+    walkthroughs: Array<{ id: string; steps: Array<{ id: string; completionEvents: string[] }> }>;
   };
 };
 const { contributes } = manifest;
@@ -96,7 +97,28 @@ describe("package.json contributions", () => {
     });
   });
 
+  it("offers a new empty board, then a new board from the example, in the New File menu", () => {
+    const shortTitles = new Map(
+      contributes.commands.map((command) => [command.command, command.shortTitle]),
+    );
+    expect(
+      (contributes.menus["file/newFile"] ?? []).map((entry) => [
+        entry.command,
+        entry.group,
+        shortTitles.get(entry.command),
+      ]),
+    ).toEqual([
+      ["eventStorming.newBoard", "eventStorming@1", "Event Storming Board"],
+      [
+        "eventStorming.newBoardFromExample",
+        "eventStorming@2",
+        "New Event Storming Board from Example",
+      ],
+    ]);
+  });
+
   it("walks through new, example and source to the side, each completed by its command", () => {
+    expect(contributes.walkthroughs[0]!.id).toBe("getStarted");
     const steps = contributes.walkthroughs[0]!.steps;
     expect(steps.map((step) => step.id).slice(0, 3)).toEqual(["new", "example", "source"]);
     expect(steps.slice(0, 3).map((step) => step.completionEvents)).toEqual([

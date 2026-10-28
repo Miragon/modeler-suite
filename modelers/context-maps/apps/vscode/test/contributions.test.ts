@@ -6,9 +6,9 @@ import { vscodeMock } from "./__mocks__/vscode.js";
 
 interface Manifest {
   contributes: {
-    commands: Array<{ command: string; title: string; category: string }>;
+    commands: Array<{ command: string; title: string; shortTitle?: string; category: string }>;
     menus: Record<string, Array<{ command: string; when?: string; group?: string }>>;
-    walkthroughs: Array<{ steps: Array<{ id: string; completionEvents: string[] }> }>;
+    walkthroughs: Array<{ id: string; steps: Array<{ id: string; completionEvents: string[] }> }>;
     keybindings?: unknown;
   };
 }
@@ -55,12 +55,31 @@ describe("the extension's contributions (guide §13.5)", () => {
     ).toEqual(["contextMaps.openSource", "contextMaps.openDiagram"]);
   });
 
+  it("offers a new empty diagram, one from the example and one as PNG in the New File menu", () => {
+    const shortTitles = new Map(
+      manifest.contributes.commands.map((command) => [command.command, command.shortTitle]),
+    );
+    expect(
+      manifest.contributes.menus["file/newFile"]!.map((entry) => [
+        entry.command,
+        entry.group,
+        shortTitles.get(entry.command),
+      ]),
+    ).toEqual([
+      ["contextMaps.newDiagram", "contextMaps@1", "Context Maps"],
+      ["contextMaps.newFromExample", "contextMaps@2", "New Context Maps Diagram from Example"],
+      ["contextMaps.newPngDiagram", "contextMaps@3", undefined],
+    ]);
+  });
+
   it("walks through New, Example and Source, and binds no keys of its own", () => {
-    expect(manifest.contributes.walkthroughs[0]!.steps.map((step) => step.id)).toEqual([
-      "new",
-      "example",
-      "source",
-      "learn",
+    const walkthrough = manifest.contributes.walkthroughs[0]!;
+    expect(walkthrough.id).toBe("getStarted");
+    expect(walkthrough.steps.map((step) => step.id)).toEqual(["new", "example", "source", "learn"]);
+    expect(walkthrough.steps.slice(0, 3).map((step) => step.completionEvents)).toEqual([
+      ["onCommand:contextMaps.newDiagram"],
+      ["onCommand:contextMaps.newFromExample"],
+      ["onCommand:contextMaps.openSource"],
     ]);
     expect(manifest.contributes.keybindings).toBeUndefined();
   });

@@ -21,8 +21,10 @@ ready-made diagram to explore. From there you can open any `.tt` or `.ttm.json` 
 
 Prefer commands? Run these from the Command Palette (`Cmd/Ctrl+Shift+P`, type _"Team Topologies"_):
 
-- **Team Topologies: New Diagram from Example**: pick a location, pre-filled with the example topology.
-- **Team Topologies: New Empty Diagram**: same, but a blank diagram (also under **File > New File…**).
+- **Team Topologies: New Diagram from Example**: pick a location, pre-filled with the example
+  topology (also under **File > New File…** as **New Team Topologies Diagram from Example**).
+- **Team Topologies: New Empty Diagram**: same, but a blank diagram (also under
+  **File > New File…** as **Team Topologies**).
 
 ## Reading a diagram
 

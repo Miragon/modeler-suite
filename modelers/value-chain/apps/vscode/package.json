@@ -118,7 +118,11 @@
       "file/newFile": [
         {
           "command": "valueChain.newDiagram",
-          "group": "valueChain"
+          "group": "valueChain@1"
+        },
+        {
+          "command": "valueChain.newDiagramFromExample",
+          "group": "valueChain@2"
         }
       ],
       "editor/title": [

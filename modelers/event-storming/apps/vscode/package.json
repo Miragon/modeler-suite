@@ -72,7 +72,8 @@
       {
         "command": "eventStorming.newBoardFromExample",
         "title": "New Board from Example",
-        "category": "Event Storming"
+        "category": "Event Storming",
+        "shortTitle": "New Event Storming Board from Example"
       },
       {
         "command": "eventStorming.openSource",
@@ -116,7 +117,11 @@
       "file/newFile": [
         {
           "command": "eventStorming.newBoard",
-          "group": "eventStorming"
+          "group": "eventStorming@1"
+        },
+        {
+          "command": "eventStorming.newBoardFromExample",
+          "group": "eventStorming@2"
         }
       ],
       "editor/title": [

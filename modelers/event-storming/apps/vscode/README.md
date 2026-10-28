@@ -24,8 +24,9 @@ button and you have a ready-made board to explore. From there you can open any `
 Prefer commands? Run these from the Command Palette (`Cmd/Ctrl+Shift+P`, type _"Event Storming"_):
 
 - **Event Storming: New Board from Example**: pick a location, pre-filled with the order-checkout
-  example.
-- **Event Storming: New Empty Board**: the same, but a blank board (also under **File > New File…**).
+  example (also under **File > New File…** as **New Event Storming Board from Example**).
+- **Event Storming: New Empty Board**: the same, but a blank board (also under
+  **File > New File…** as **Event Storming Board**).
 
 ## Reading a board
 
