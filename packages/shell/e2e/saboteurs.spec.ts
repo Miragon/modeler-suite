@@ -377,6 +377,35 @@ test.describe("saboteurs", () => {
       ]);
     });
 
+    test("focusHandBack fails when a click on Share keeps the focus on the button", async ({
+      page,
+    }) => {
+      // shell 0.7.0 and before: Share handled the focus like a plain button (guide §5.7 since 1.27.0)
+      const harness = webSabotaged(() => {
+        document.addEventListener("click", (event) => {
+          const primary = (event.target as Element | null)?.closest?.('[data-chrome="primary"]');
+          if (primary instanceof HTMLElement && (event as MouseEvent).detail > 0) primary.focus();
+        });
+      });
+      await expectOnlyCaseFails(page, harness, "focusHandBack", [
+        /focus: after a click on the primary action "Share" the focus is on button\S*\[data-chrome="primary"\]\S*, expected the canvas <svg>, so its keys act at once \(guide §5\.7, §5\.8\)/,
+      ]);
+    });
+
+    test("focusHandBack fails when Enter on Share moves the focus to the canvas", async ({
+      page,
+    }) => {
+      const harness = webSabotaged(() => {
+        document.addEventListener("click", (event) => {
+          const primary = (event.target as Element | null)?.closest?.('[data-chrome="primary"]');
+          if (primary) document.querySelector<SVGElement>(".djs-container > svg")?.focus();
+        });
+      });
+      await expectOnlyCaseFails(page, harness, "focusHandBack", [
+        /focus: after Enter on the primary action "Share" the focus is on svg\S*, expected it to stay on the primary action "Share", so the next press acts again \(guide §5\.7, §5\.8\)/,
+      ]);
+    });
+
     test("readOnly fails when the lock leaves the canvas editable", async ({ page }) => {
       const harness = sabotaged(() => {
         window.__demo!.flaws.canvasUnlocked = true;

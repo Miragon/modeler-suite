@@ -7,6 +7,7 @@ import {
   cleanup,
   click,
   fakePalette,
+  focusingZoomTarget,
   installFakes,
   keydown,
   mount,
@@ -212,6 +213,40 @@ describe("web-column wiring (0.2)", () => {
     legalLink?.focus();
     shell.setEmptyState(false);
     expect(document.activeElement).toBe(legalLink);
+  });
+
+  it("hands the focus to the canvas after a pointer click on Share, though no button took it (guide §5.7)", () => {
+    const { canvas, svg } = canvasWithSvg();
+    const calls: string[] = [];
+    const { shell, root } = mount({
+      host: "web",
+      ...webOptions(),
+      canvas,
+      primary: { onSelect: () => calls.push(String(document.activeElement === svg)) },
+    });
+    shell.setZoomTarget(focusingZoomTarget(svg));
+    const primary = chrome(root, "primary");
+    primary.focus();
+    click(primary, 1);
+    expect(document.activeElement).toBe(svg);
+    expect(calls).toEqual(["true"]);
+
+    (document.activeElement as SVGElement).blur();
+    click(primary, 1);
+    expect(document.activeElement).toBe(svg);
+  });
+
+  it("leaves the focus on Share after Enter or Space, and where the click put it without a zoom target", () => {
+    const { canvas, svg } = canvasWithSvg();
+    const { shell, root } = mount({ host: "web", ...webOptions(), canvas });
+    const primary = chrome(root, "primary");
+    primary.focus();
+    click(primary, 1);
+    expect(document.activeElement).toBe(primary);
+
+    shell.setZoomTarget(focusingZoomTarget(svg));
+    click(primary, 0);
+    expect(document.activeElement).toBe(primary);
   });
 
   it("keeps the focus off <body> when the last problem goes while the list holds it", () => {

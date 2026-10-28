@@ -3,10 +3,11 @@ import { expect, test, type Page } from "@playwright/test";
 /*
  * Guide §5.8 under the click model of WebKit and Firefox on macOS: a clicked button takes no focus,
  * so the focus is on `<body>` when its click runs. The start screen, the toasts and the empty-file
- * hint still hand it to the canvas, where Delete and Cmd/Ctrl+Z act; the legend's Close to the menu
- * trigger. Every project clicks that way, also Chromium and WebKit on Linux, which would focus the
- * button: a capture `mousedown` keeps the button from taking the focus and takes it off the element
- * that held it, as WebKit does on macOS. The `webkit` project runs this spec in WebKit itself.
+ * hint still hand it to the canvas, where Delete and Cmd/Ctrl+Z act, and so does Share (§5.7); the
+ * legend's Close to the menu trigger. Every project clicks that way, also Chromium and WebKit on
+ * Linux, which would focus the button: a capture `mousedown` keeps the button from taking the focus
+ * and takes it off the element that held it, as WebKit does on macOS. The `webkit` project runs
+ * this spec in WebKit itself.
  */
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -66,6 +67,26 @@ test("a click on a toast's action or Close hands the focus to the canvas, so Del
     await page.keyboard.press("ControlOrMeta+Z");
     await expect(shapes(page)).toHaveCount(count);
   }
+});
+
+test("a click on Share hands the focus to the canvas, so Delete acts; Enter leaves it on the button", async ({
+  page,
+}) => {
+  await openWeb(page);
+  const count = await shapes(page).count();
+  const share = page.locator('[data-chrome="primary"]');
+
+  await shapes(page).first().click();
+  await share.click();
+  await expect(canvas(page)).toBeFocused();
+  await page.keyboard.press("Delete");
+  await expect(shapes(page)).toHaveCount(count - 1);
+  await page.keyboard.press("ControlOrMeta+Z");
+  await expect(shapes(page)).toHaveCount(count);
+
+  await share.focus();
+  await page.keyboard.press("Enter");
+  await expect(share).toBeFocused();
 });
 
 test("a click on the legend's Close hands the focus to the menu trigger", async ({ page }) => {

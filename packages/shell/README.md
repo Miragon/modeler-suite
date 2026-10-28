@@ -375,14 +375,14 @@ Every modeler runs the kit in its own Playwright suite against its real webview 
 the geometry of every island (±1px), that without a stored state the legend starts closed at 390 ×
 844, 441 × 900 and 1280 × 900, ARIA and the keyboard models, that every chrome key acts exactly once
 and never reaches VS Code, that the canvas's own keys (Cmd/Ctrl+A) stay on the canvas, that a
-pointer click on the zoom panel, a palette tool or a File or Model menu action without a dialog
-hands the focus to the canvas while Enter and Space leave it on the zoom button and Enter on that
-menu entry returns it to the menu trigger, that nothing is ever half-dark (the painted canvas
-surround and the palette's colours included, on every document the harness lists), that Enter on a
-creating palette entry adds one selected element, that an empty document opens at 100 % (or fitted
-to a plot that always counts) with the empty-file hint in the middle of the free rectangle, which
-the first element takes away and deleting the last brings back (in the web app also after File > New
-diagram on a document), that the shell's zoom, fit and refit never commit an open label editor
+pointer click on the zoom panel, a palette tool, a File or Model menu action without a dialog or,
+in the web app, Share hands the focus to the canvas while Enter and Space leave it on the zoom
+button or on Share and Enter on that menu entry returns it to the menu trigger, that nothing is
+ever half-dark (the painted canvas surround and the palette's colours included, on every document
+the harness lists), that Enter on a creating palette entry adds one selected element, that an empty
+document opens at 100 % (or fitted to a plot that always counts) with the empty-file hint in the
+middle of the free rectangle, which the first element takes away and deleting the last brings back
+(in the web app also after File > New diagram on a document), that the shell's zoom, fit and refit never commit an open label editor
 (contract L5) and leave it open with the typed text (L5 recommends it, the kit requires it), that an
 invalid file locks the canvas, that nothing moves under reduced motion (also VS Code's) and an
 explicit fit jumps, that under forced colours the islands, the dropdown and the modeler's dialogs

@@ -314,6 +314,8 @@ export interface FocusHandBackStep {
   focus: FocusPlaceFacts;
   /** A menu entry: Enter and Space return the focus to the menu trigger (guide §5.4). */
   menuEntry?: boolean;
+  /** The web app's primary action (guide §5.7): Enter and Space leave the focus on the button. */
+  primaryAction?: boolean;
 }
 
 /**
@@ -322,19 +324,20 @@ export interface FocusHandBackStep {
  * so a keyboard user can press again, and for a menu entry it returns to the trigger (§5.4).
  */
 export function focusHandBackProblems(steps: readonly FocusHandBackStep[]): string[] {
-  return steps.flatMap(({ control, by, focus, menuEntry }) => {
+  return steps.flatMap(({ control, by, focus, menuEntry, primaryAction }) => {
+    const guide = `${menuEntry ? "§5.4, " : ""}${primaryAction ? "§5.7, " : ""}§5.8`;
     if (by === "pointer") {
       return focus.canvas
         ? []
         : [
-            `focus: after a click on ${control} the focus is on ${focus.focused}, expected the canvas <svg>, so its keys act at once (guide ${menuEntry ? "§5.4, " : ""}§5.8)`,
+            `focus: after a click on ${control} the focus is on ${focus.focused}, expected the canvas <svg>, so its keys act at once (guide ${guide})`,
           ];
     }
     if (focus.control) return [];
     return [
       menuEntry
         ? `focus: after ${by} on ${control} the focus is on ${focus.focused}, expected the menu trigger, where the keyboard left the menu (guide §5.4)`
-        : `focus: after ${by} on ${control} the focus is on ${focus.focused}, expected it to stay on ${control}, so the next press acts again (guide §5.8)`,
+        : `focus: after ${by} on ${control} the focus is on ${focus.focused}, expected it to stay on ${control}, so the next press acts again (guide ${guide})`,
     ];
   });
 }

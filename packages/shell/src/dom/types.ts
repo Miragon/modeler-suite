@@ -360,6 +360,10 @@ export interface PrimaryActionOptions {
   label?: string | undefined;
   /** Default `"share-2"`. */
   icon?: ShellIconName | undefined;
+  /**
+   * After a pointer click the canvas has the focus already (guide §5.7); Enter and Space leave it on
+   * the button.
+   */
   onSelect(): void;
   /** Read on mount and on `primary.refresh()`; disabled stays focusable (`aria-disabled`). */
   disabled?: (() => boolean) | undefined;
