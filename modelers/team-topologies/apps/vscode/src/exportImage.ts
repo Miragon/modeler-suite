@@ -3,16 +3,21 @@ import { revealFileLabel } from "@miragon/modeler-shell/vscode/extension";
 
 type ImageFormat = "svg" | "png";
 
+/** The warning of a PNG whose labels came out in the system sans (the webview says so). */
+export const FONT_FALLBACK_SAVED = "Saved the PNG in a system font. Geist couldn't be embedded.";
+
 /**
  * Image export (SVG/PNG) to disk via a save dialog — the scene (native JSON document) is embedded in
  * the file, so exported images can later be reopened as a diagram. Shared by the text and PNG editor
  * (hence generic over the source URI rather than a document type). The outcome is a host
- * notification (guide §13.5): the file name with a reveal action named like VS Code's, or the error.
+ * notification (guide §13.5): the file name with a reveal action named like VS Code's, as a warning
+ * when the PNG's labels fell back to the system sans, or the error.
  */
 export async function exportImageToFile(
   sourceUri: vscode.Uri | undefined,
   format: ImageFormat,
   data: string,
+  { fontFallback = false }: { fontFallback?: boolean } = {},
 ): Promise<void> {
   const options: vscode.SaveDialogOptions = {
     title: format === "svg" ? "Export as SVG" : "Export as PNG",
@@ -37,7 +42,13 @@ export async function exportImageToFile(
   }
 
   const reveal = revealFileLabel(process.platform);
-  if ((await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal)) === reveal) {
+  const chosen = fontFallback
+    ? await vscode.window.showWarningMessage(
+        `Exported ${fileName} in a system font. Geist couldn't be embedded.`,
+        reveal,
+      )
+    : await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal);
+  if (chosen === reveal) {
     void vscode.commands.executeCommand("revealFileInOS", target);
   }
 }

@@ -6,8 +6,8 @@ import "@fontsource-variable/geist-mono/wght.css";
 // legend and dialogs, the ui package the inspector's; the shell's stylesheet comes last.
 import {
   createCollaborativeModeler,
-  createShortcutsDialog,
   diagramMenu,
+  diagramShortcuts,
   isTtElement,
   parseDocumentText,
   renderLegend,
@@ -92,7 +92,7 @@ const shell: ShellHandle = mountVsCodeShell(app, {
       png: { onSelect: () => void exportPng() },
       svg: { onSelect: () => exportSvg() },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    showKeyboardShortcuts: () => shell.showShortcutsDialog(diagramShortcuts(shell)),
   }),
   legend: {
     render: renderLegend,
@@ -109,12 +109,7 @@ const shell: ShellHandle = mountVsCodeShell(app, {
 });
 if (!shell.inspector) throw new Error("The shell mounted no inspector slot.");
 const inspector = mountInspector(shell.inspector, modeler);
-// The modeler's own content in the shell root goes with the diagram (the shell removes only its own).
-const shortcutsDialog = createShortcutsDialog(shell);
-modeler.on("diagram.destroy", () => {
-  shortcutsDialog.destroy();
-  inspector.destroy();
-});
+modeler.on("diagram.destroy", () => inspector.destroy());
 
 // A cheap test only: the shell asks on every content change. The shell fits to the content bounds
 // the renderer reports (contract 1.3), tight, so its fit insets are the only margin (§5.9).
@@ -268,14 +263,27 @@ async function respondFlush(id: number): Promise<void> {
  * currently running init/update doesn't rasterize a half-imported state into the PNG.
  */
 async function respondPng(id: number, includeDraft: boolean): Promise<void> {
+  let fontFallback = false;
   try {
     await importChain;
     if (includeDraft) commitPanelDraft();
     const { svg } = modeler.saveSVG();
-    const blob = await svgToEmbeddedPng(svg, collaborative.exportText());
-    post({ type: "pngResponse", id, data: await blobToBase64(blob) });
+    const blob = await svgToEmbeddedPng(svg, collaborative.exportText(), {
+      onFontFallback: () => {
+        fontFallback = true;
+      },
+    });
+    const data = await blobToBase64(blob);
+    // A backup runs on its own timer, and a warning belongs to an action the user started.
+    post({
+      type: "pngResponse",
+      id,
+      data,
+      ...(includeDraft && fontFallback ? { fontFallback: true as const } : {}),
+    });
   } catch (error) {
-    post({ type: "pngResponse", id, error: messageOf(error) });
+    console.error("Team Topologies PNG render failed", error);
+    post({ type: "pngResponse", id, error: "Couldn't render the PNG. Try saving again." });
   }
 }
 
@@ -283,32 +291,34 @@ async function respondPng(id: number, includeDraft: boolean): Promise<void> {
 // Export (the webview rasterizes/serializes; the host shows the save dialog)
 // ---------------------------------------------------------------------------
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function exportSvg(): void {
   try {
     const { svg } = modeler.saveSVG();
     post({ type: "export", format: "svg", data: embedSvg(svg, collaborative.exportText()) });
   } catch (error) {
-    post({
-      type: "error",
-      message: `Couldn't export the SVG (${messageOf(error)}). Try again, or export as PNG.`,
-    });
+    console.error("Team Topologies SVG export failed", error);
+    post({ type: "error", message: "Couldn't export the SVG. Try again, or export as PNG." });
   }
 }
 
 async function exportPng(): Promise<void> {
+  let fontFallback = false;
   try {
     const { svg } = modeler.saveSVG();
-    const blob = await svgToEmbeddedPng(svg, collaborative.exportText());
-    post({ type: "export", format: "png", data: await blobToBase64(blob) });
-  } catch (error) {
-    post({
-      type: "error",
-      message: `Couldn't export the PNG (${messageOf(error)}). Try again, or export as SVG.`,
+    const blob = await svgToEmbeddedPng(svg, collaborative.exportText(), {
+      onFontFallback: () => {
+        fontFallback = true;
+      },
     });
+    post({
+      type: "export",
+      format: "png",
+      data: await blobToBase64(blob),
+      ...(fontFallback ? { fontFallback: true as const } : {}),
+    });
+  } catch (error) {
+    console.error("Team Topologies PNG export failed", error);
+    post({ type: "error", message: "Couldn't export the PNG. Try again, or export as SVG." });
   }
 }
 

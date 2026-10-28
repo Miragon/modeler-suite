@@ -742,18 +742,32 @@ test.each([
   }
 });
 
-test("the exported SVG sits on a white sheet covering its viewBox", () => {
+async function cornerPixel(svg: string): Promise<number[]> {
+  const image = new Image();
+  const loaded = new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("the browser could not draw the SVG"));
+  });
+  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  await loaded;
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d")!;
+  context.drawImage(image, 0, 0);
+  return [...context.getImageData(0, 0, 1, 1).data];
+}
+
+test("the exported SVG has no sheet behind the diagram, so it is transparent", async () => {
   const { modeler, container } = mountModeler();
   try {
     modeler.importDocument(SAMPLE_DOCUMENT);
-    const exported = new DOMParser().parseFromString(modeler.saveSVG().svg, "image/svg+xml");
-    const root = exported.documentElement;
-    const sheet = root.firstElementChild!;
+    const { svg } = modeler.saveSVG();
+    const root = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
 
-    expect(sheet.getAttribute("class")).toBe("tt-export-paper");
-    expect(sheet.getAttribute("fill")?.toUpperCase()).toBe("#FFFFFF");
-    const box = ["x", "y", "width", "height"].map((name) => sheet.getAttribute(name)).join(" ");
-    expect(box).toBe(root.getAttribute("viewBox"));
+    expect(svg).not.toContain("tt-export-paper");
+    expect(root.querySelector(":scope > rect")).toBeNull();
+    expect(await cornerPixel(svg)).toEqual([0, 0, 0, 0]);
   } finally {
     modeler.destroy();
     container.remove();

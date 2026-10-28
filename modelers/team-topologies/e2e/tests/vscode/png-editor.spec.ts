@@ -11,8 +11,10 @@ import {
   openWebview,
   postFromHost,
   postedMessages,
+  waitForPosted,
   type PostedMessage,
 } from "./support/webview.js";
+import { PNG_BACKGROUND, pngPixel } from "../support/png.js";
 
 /**
  * The webview as the `.tt.png` editor drives it (TtPngEditorProvider): to save, the host posts
@@ -88,6 +90,19 @@ test.describe("VS Code webview: the .tt.png editor", () => {
     }, Buffer.from(png).toString("base64"));
     expect(size.width).toBeGreaterThan(0);
     expect(size.height).toBeGreaterThan(0);
+  });
+
+  test("a save draws the diagram on the guide's background and reports no font fallback", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await postFromHost(page, { type: "requestPng", id: 7, includeDraft: true });
+
+    const response = await waitForPosted(page, "pngResponse");
+
+    expect(response.error).toBeUndefined();
+    expect(response.fontFallback).toBeUndefined();
+    expect(await pngPixel(page, String(response.data))).toBe(PNG_BACKGROUND);
   });
 
   test("each save embeds the diagram the host holds: as opened, edited and after the host's undo", async ({

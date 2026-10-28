@@ -66,7 +66,8 @@ export type {
 } from "./model/di-types.js";
 export type { ImportWarning, RootBusinessObject } from "./io/index.js";
 
-// Geist inside exported SVGs, so a rasterised PNG keeps the canvas typeface.
+// Geist inside exported SVGs, so a rasterised PNG keeps the canvas typeface. Deprecated since 0.16.0
+// and removed in 0.17.0: the shell's svgToPng embeds it.
 export { GEIST_UNICODE_RANGES, embedSvgStyles, geistFontFaceCss } from "./io/index.js";
 export type { GeistFontDataUrls } from "./io/index.js";
 
@@ -93,7 +94,7 @@ export {
 } from "./draw/palette-icons.js";
 
 // What a host's chrome shows around the canvas, typed structurally (a modeler-shell handle fits):
-// the menu entries, the shortcuts and title dialogs and the legend rows.
+// the menu entries, the shortcut groups, the title dialog and the legend rows.
 export {
   JSON_EXPORT_LABEL,
   SHORTCUTS_DIALOG_KEY,

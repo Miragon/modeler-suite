@@ -89,7 +89,7 @@ packages/
   renderer/      @miragon/team-topologies-renderer     — diagram-js bootstrap: viewer/modeler, renderer, palette,
                                             context-pad, label editing, import/export, CSS, and what
                                             a host's chrome shows (menu entries, legend rows,
-                                            shortcuts and title dialogs).
+                                            shortcut groups and the title dialog).
   ui/            @miragon/team-topologies-ui           — private: the React inspector for the chrome's
                                             inspector slot, shared by the webapp and the VS Code
                                             webview.

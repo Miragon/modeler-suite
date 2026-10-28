@@ -149,7 +149,9 @@ export class TtEditorProvider implements vscode.CustomTextEditorProvider {
           pendingFlushes.get(msg.id)?.();
           break;
         case "export":
-          await exportImageToFile(document.uri, msg.format, msg.data);
+          await exportImageToFile(document.uri, msg.format, msg.data, {
+            fontFallback: msg.fontFallback === true,
+          });
           break;
         case "showProblems":
           void vscode.commands.executeCommand("workbench.actions.view.problems");

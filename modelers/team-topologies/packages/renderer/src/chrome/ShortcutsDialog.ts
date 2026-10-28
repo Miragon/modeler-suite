@@ -9,11 +9,17 @@ import {
 const DIALOG_CLASS = "tt-shortcuts";
 const TITLE_ID = "tt-shortcuts-title";
 
-/** What the dialog needs of the chrome around the diagram; a `@miragon/modeler-shell` handle fits. */
+/**
+ * What the dialog needs of the chrome around the diagram; a `@miragon/modeler-shell` handle fits.
+ *
+ * @deprecated Since 0.16.0, removed in 0.17.0 (#259) with `createShortcutsDialog`. Type the chrome
+ * as `ShortcutsChrome` and hand the shell's `showShortcutsDialog` the groups of `diagramShortcuts`.
+ */
 export interface ShortcutsDialogChrome extends ShortcutsChrome, DialogChrome {
   readonly messages: ShortcutsChrome["messages"] & DialogChrome["messages"];
 }
 
+/** @deprecated Since 0.16.0, removed in 0.17.0 (#259) with `createShortcutsDialog`. */
 export type ShortcutsDialog = ChromeDialog;
 
 function shortcutTable(group: ShortcutGroup, index: number): HTMLElement {
@@ -39,6 +45,10 @@ function shortcutTable(group: ShortcutGroup, index: number): HTMLElement {
 /**
  * The "Keyboard shortcuts…" dialog of the Help group (guide §5.4, §8): one table per group, the
  * action on the left and its keys as the chrome tooltip's chips on the right.
+ *
+ * @deprecated Since 0.16.0, removed in 0.17.0 (#259). `@miragon/modeler-shell` owns the dialog:
+ * `shell.showShortcutsDialog(diagramShortcuts(shell, options))`, or its standalone
+ * `showShortcutsDialog` in a host without a mounted shell.
  */
 export function createShortcutsDialog(
   chrome: ShortcutsDialogChrome,

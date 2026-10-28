@@ -54,7 +54,7 @@ describe("label text on the notation", () => {
   );
 
   // Interactions are drawn opaque, their fill premixed over white (guide §10.6), so their labels
-  // sit on that fill whatever lies below: the ground, an exported SVG's white page or a team.
+  // sit on that fill whatever lies below: the ground or a team.
   it.each(ALL_INTERACTION_SPECS.map((spec) => [spec.mode, spec] as const))(
     "reaches 4.5:1 on the %s interaction's premixed fill",
     (_mode, spec) => {

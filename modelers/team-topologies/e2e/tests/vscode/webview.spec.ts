@@ -9,6 +9,7 @@ import {
   waitForPosted,
   zoomReadout,
 } from "./support/webview.js";
+import { PNG_BACKGROUND, TRANSPARENT, pngPixel, svgPixel } from "../support/png.js";
 
 /*
  * The VS Code webview on the modeler shell, driven the way the extension host drives it: document
@@ -227,12 +228,98 @@ test.describe("VS Code webview", () => {
     await expect.poll(zoom).toBeLessThan(zoomedIn);
   });
 
+  test("the SVG export is transparent and the PNG export fills the guide's background", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await postFromHost(page, { type: "command", name: "exportSvg" });
+    const svg = await waitForPosted(page, "export");
+    expect(svg).toMatchObject({ format: "svg" });
+    expect(String(svg.data)).not.toContain("tt-export-paper");
+    expect(await svgPixel(page, String(svg.data))).toBe(TRANSPARENT);
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+    await page.waitForFunction(() =>
+      window.__modelerShellVsCodeStub!.posted.some(
+        (message) => (message as { format?: string }).format === "png",
+      ),
+    );
+    const png = (await postedMessages(page)).find((message) => message.format === "png")!;
+    expect(png.fontFallback).toBeUndefined();
+    expect(await pngPixel(page, String(png.data))).toBe(PNG_BACKGROUND);
+  });
+
   test("a PNG save gets the rendered PNG with the document inside", async ({ page }) => {
     await openWebview(page);
     await postFromHost(page, { type: "requestPng", id: 3, includeDraft: true });
     const response = await waitForPosted(page, "pngResponse");
     expect(response).toMatchObject({ id: 3 });
     expect(String(response.data).startsWith("iVBORw0KGgo")).toBe(true);
+  });
+
+  test("a PNG without Geist is still posted, flagged so the host warns, except as a backup", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      const serialize = XMLSerializer.prototype.serializeToString;
+      XMLSerializer.prototype.serializeToString = function (node: Node) {
+        if (node instanceof Document) throw new Error("Geist cannot be embedded, on purpose.");
+        return serialize.call(this, node);
+      };
+    });
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+    await page.waitForFunction(() =>
+      window.__modelerShellVsCodeStub!.posted.some(
+        (message) => (message as { format?: string }).format === "png",
+      ),
+    );
+    const exported = (await postedMessages(page)).find((message) => message.format === "png")!;
+    expect(exported.fontFallback).toBe(true);
+    expect(await pngPixel(page, String(exported.data))).toBe(PNG_BACKGROUND);
+
+    await postFromHost(page, { type: "requestPng", id: 4, includeDraft: true });
+    await postFromHost(page, { type: "requestPng", id: 5, includeDraft: false });
+    await expect
+      .poll(async () => (await postedMessages(page)).filter((m) => m.type === "pngResponse").length)
+      .toBe(2);
+    const responses = (await postedMessages(page)).filter((m) => m.type === "pngResponse");
+    expect(responses.find((response) => response.id === 4)).toMatchObject({ fontFallback: true });
+    expect(responses.find((response) => response.id === 5)?.fontFallback).toBeUndefined();
+    expect(responses.every((response) => response.error === undefined)).toBe(true);
+  });
+
+  test("a PNG the browser cannot draw is reported in the app's own words", async ({ page }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      HTMLCanvasElement.prototype.toBlob = (callback: BlobCallback) => callback(null);
+    });
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+    const failed = await waitForPosted(page, "error");
+    expect(failed.message).toBe("Couldn't export the PNG. Try again, or export as SVG.");
+
+    await postFromHost(page, { type: "requestPng", id: 6, includeDraft: true });
+    const response = await waitForPosted(page, "pngResponse");
+    expect(response).toMatchObject({
+      id: 6,
+      error: "Couldn't render the PNG. Try saving again.",
+    });
+    expect(response.data).toBeUndefined();
+  });
+
+  test("an SVG that cannot be created is reported in the app's own words", async ({ page }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      (window.modeler!.diagram as { saveSVG: () => unknown }).saveSVG = () => {
+        throw new Error("the diagram could not be drawn, on purpose");
+      };
+    });
+
+    await postFromHost(page, { type: "command", name: "exportSvg" });
+    const failed = await waitForPosted(page, "error");
+    expect(failed.message).toBe("Couldn't export the SVG. Try again, or export as PNG.");
   });
 
   test("Keyboard shortcuts… opens a modal dialog that hands the focus back", async ({ page }) => {
@@ -243,8 +330,20 @@ test.describe("VS Code webview", () => {
 
     const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("table", { name: "View" })).toBeVisible();
+    await expect(dialog).toHaveClass(/\bcd-shell-dialog\b/);
+    await expect(page.locator("dialog.tt-dialog")).toHaveCount(0);
+    expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(true);
+    await expect(dialog.getByRole("heading", { level: 3 })).toHaveText(["View", "Edit", "Tools"]);
+    // The shell's own zoom rows stand for the renderer's: each action once.
+    await expect(dialog.getByRole("table", { name: "View" }).getByRole("row")).toHaveCount(4);
     await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    await page.getByRole("menuitem", { name: "Keyboard shortcuts…" }).click();
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();
     await expect(trigger).toBeFocused();
   });
