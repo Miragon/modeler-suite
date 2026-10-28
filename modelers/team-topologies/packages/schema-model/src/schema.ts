@@ -147,8 +147,8 @@ interface OpenContainer {
  * Each object or array at the first level beyond {@link MAX_NESTING_DEPTH}, in document order, up
  * to {@link MAX_NESTING_ISSUES}; what lies below it is not visited. Walked with an explicit stack,
  * because the documents it guards against are the ones that overflow a recursive walk. The stack
- * holds only the containers the walk is inside of, never their entries, so a wide container costs
- * no more memory than a narrow one.
+ * holds only the containers the walk is inside of and a path is built only for an issue, so the
+ * walk's memory grows with the number of containers, not with their number times their depth.
  */
 function nestingIssues(input: unknown): DocumentIssue[] {
   const issues: DocumentIssue[] = [];

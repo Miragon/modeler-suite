@@ -136,8 +136,8 @@ const isContainer = (value) => value !== null && typeof value === "object";
 
 // Every object or array at the first level too deep, in document order, up to MAX_NESTING_ERRORS.
 // Walked without recursion, because the files it finds are the ones that overflow a recursive
-// walk, and with a stack of only the containers the walk is inside of, so a wide array costs no
-// more memory than a narrow one.
+// walk, and with a stack of only the containers the walk is inside of, so its memory grows with
+// the number of containers, not with their number times their depth.
 function nestingErrors(document) {
   const errors = [];
   // A caller may put one container in several places, or inside itself: walking it again at a

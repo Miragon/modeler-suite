@@ -141,6 +141,8 @@ function jsonParseErrorOffset(reason: string, text: string): number {
 /**
  * A text too deep for the tree parser. Without a tree a path has no place in the text, and what
  * makes such a text invalid is its nesting, which starts at the first bracket beyond the limit.
+ * Every problem points at that bracket, and the labels of one branch read alike, so each message
+ * is listed once rather than once per container.
  */
 function problemsWithoutTree(text: string): DocumentProblem[] {
   let value: unknown;
@@ -154,12 +156,8 @@ function problemsWithoutTree(text: string): DocumentProblem[] {
   const result = parseDocument(value);
   if (result.ok) return [];
   const offset = offsetBeyondNesting(text, MAX_NESTING_DEPTH) ?? 0;
-  return result.issues.map((issue) => ({
-    severity: "error",
-    message: issueMessage(issue),
-    offset,
-    length: 1,
-  }));
+  const messages = new Set(result.issues.map(issueMessage));
+  return [...messages].map((message) => ({ severity: "error", message, offset, length: 1 }));
 }
 
 /** Connectors the diagram drops on open, as the renderer's importer warns about them. */

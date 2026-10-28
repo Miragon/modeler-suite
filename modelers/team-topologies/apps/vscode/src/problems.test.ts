@@ -43,6 +43,17 @@ describe("documentProblems", () => {
     expect(withoutLabel[label!.offset]).toBe("{");
   });
 
+  it("names every key of a path into the known fields", () => {
+    const textX = sample.replace(/"x": (\d+)/, '"x": "$1"');
+    const [problem, ...rest] = documentProblems(textX);
+    expect(rest).toEqual([]);
+    expect(problem).toMatchObject({
+      severity: "error",
+      message: "nodes[0].position.x: Invalid input: expected number, received string",
+      offset: at(textX, '"x": "') + '"x": '.length,
+    });
+  });
+
   it("calls colliding ids errors", () => {
     const duplicate = sample.replace('"id": "team_fraud"', '"id": "team_checkout"');
     expect(documentProblems(duplicate).map((problem) => problem.severity)).toEqual(["error"]);
@@ -148,6 +159,23 @@ describe("documentProblems", () => {
         message: `x-vendor[0][0][0]…: ${tooDeep}`,
         offset: firstEmptyArray + index * "[], ".length,
         length: "[]".length,
+      })),
+    );
+  });
+
+  it("lists each problem once in a file too deep for the tree parser, all at one bracket", () => {
+    const threeTooDeep = `${"[".repeat(MAX_NESTING_DEPTH - 1)}[], [], []${"]".repeat(MAX_NESTING_DEPTH - 1)}`;
+    const deep = sample.replace(
+      "{\n",
+      `{\n  "x-vendor": ${threeTooDeep},\n  "x-other": ${arraysNestedLevelsDeep(10_000)},\n`,
+    );
+    const firstLevelTooDeep = at(deep, "[]");
+    expect(documentProblems(deep)).toEqual(
+      ["x-vendor[0][0][0]…", "x-other[0][0][0]…"].map((label) => ({
+        severity: "error",
+        message: `${label}: ${tooDeep}`,
+        offset: firstLevelTooDeep,
+        length: 1,
       })),
     );
   });
