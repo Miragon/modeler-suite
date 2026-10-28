@@ -47,8 +47,9 @@ export async function exportToFile(
   try {
     await vscode.workspace.fs.writeFile(target, bytes);
   } catch (error) {
+    console.error(`Couldn't write ${fileName}`, error);
     void vscode.window.showErrorMessage(
-      `Could not export ${fileName}: ${error instanceof Error ? error.message : String(error)}`,
+      `Couldn't export ${fileName}. Try again, or choose another folder.`,
     );
     return;
   }

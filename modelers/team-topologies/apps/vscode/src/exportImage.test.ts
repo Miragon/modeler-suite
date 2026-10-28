@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 const REVEAL = "Reveal in File Explorer";
@@ -88,6 +88,10 @@ beforeEach(() => {
   host.state.saveTarget = host.Uri.file("/out/shop.png");
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("exportImageToFile", () => {
   it("writes the PNG's bytes and tells the file name with a reveal action", async () => {
     await exportImageToFile(source, "png", PNG_BASE64);
@@ -121,14 +125,20 @@ describe("exportImageToFile", () => {
     expect(host.executed).toEqual([["revealFileInOS", host.state.saveTarget]]);
   });
 
-  it("shows only the error, no success or warning, when the file cannot be written", async () => {
+  it("shows only the error, in its own words, when the file cannot be written", async () => {
     host.state.writeError = new Error("disk full");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     await exportImageToFile(source, "png", PNG_BASE64, { fontFallback: true });
 
     expect(host.notices).toEqual([
-      { level: "error", text: "Couldn't export shop.png: disk full", actions: [] },
+      {
+        level: "error",
+        text: "Couldn't export shop.png. Try again, or choose another folder.",
+        actions: [],
+      },
     ]);
+    expect(consoleError).toHaveBeenCalledWith("Couldn't write shop.png", host.state.writeError);
   });
 
   it("writes nothing and says nothing when the save dialog is dismissed", async () => {

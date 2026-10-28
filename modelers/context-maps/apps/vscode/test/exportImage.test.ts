@@ -1,9 +1,11 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { revealFileLabel } from "@miragon/modeler-shell/vscode/extension";
 import { exportToFile } from "../src/exportImage.js";
 import { Uri, vscodeMock, workspace } from "./__mocks__/vscode.js";
 
 beforeEach(() => vscodeMock.reset());
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("exportToFile", () => {
   it("writes the file and offers the platform's reveal action", async () => {
@@ -32,6 +34,22 @@ describe("exportToFile", () => {
       },
     ]);
     expect(vscodeMock.executedCommands()).toEqual([["revealFileInOS", target]]);
+  });
+
+  it("reports a failed write in its own words, logs the cause and shows no success", async () => {
+    const cause = new Error("disk full");
+    vscodeMock.answerSaveDialog(Uri.file("/maps/shop.png"));
+    vi.spyOn(workspace.fs, "writeFile").mockRejectedValue(cause);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await exportToFile(Uri.file("/maps/shop.cm") as never, "png", "iVBORw0KGgo=", true);
+    expect(vscodeMock.notifications()).toEqual([
+      {
+        level: "error",
+        message: "Couldn't export shop.png. Try again, or choose another folder.",
+        items: [],
+      },
+    ]);
+    expect(consoleError).toHaveBeenCalledWith("Couldn't write shop.png", cause);
   });
 
   it("decodes a PNG from Base64 and writes nothing when the dialog is cancelled", async () => {
