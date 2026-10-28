@@ -3,8 +3,10 @@ updates:
   # npm (every workspace resolves from the root lockfile): minor and patch arrive grouped, every
   # major lands as its own PR so a breaking change gets its own review. The new-modeler template has
   # no lockfile, so Dependabot bumps the exact pins of its package.json files. It shares this entry
-  # so that one group PR moves the suite and the template: the template takes a version only
-  # together with the suite, whose CI builds and tests the modelers on it.
+  # so that a group PR moves the suite and the template together; a major comes per directory.
+  # Dependabot cannot run npm's peer-dependency check in the template (its placeholder names are not
+  # valid package names), so it may move a template pin the suite holds back: the template's
+  # Node-range drift test fails a pin that runs ahead of every version the suite installs.
   - package-ecosystem: "npm"
     directories:
       - "/"

@@ -542,6 +542,26 @@ describe("the suite's Dependabot config keeps the template's third-party pins cu
       ),
     ).toEqual([]);
   });
+
+  it("asks the code owners to review every github-actions update, the template's included", () => {
+    const ownedDirectories = readText(join(ROOT, ".github/CODEOWNERS"))
+      .split("\n")
+      .map((line) => line.replace(/#.*/, "").trim().split(/\s+/))
+      .filter(
+        ([pattern, ...owners]) =>
+          pattern?.startsWith("/") && pattern.endsWith("/") && owners.length > 0,
+      )
+      .map(([pattern]) => pattern!);
+    const [actionsEntry] = dependabotUpdates.filter(
+      (update) => update["package-ecosystem"] === "github-actions",
+    );
+    const unowned = dependabotDirectories(actionsEntry!)
+      .map((pattern) =>
+        pattern === "/" ? "/.github/workflows/" : pattern.split("*")[0]!.replace(/\/?$/, "/"),
+      )
+      .filter((directory) => !ownedDirectories.some((owned) => directory.startsWith(owned)));
+    expect(unowned).toEqual([]);
+  });
 });
 
 describe("the template's brand-lint config", () => {
