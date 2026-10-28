@@ -107,6 +107,51 @@ describe("documentProblems", () => {
     expect(at(overridden, width!.offset)).toMatch(/^0,/);
   });
 
+  const levelsBeyondTheTreeParser = 10_000;
+  const deepAfter = (prefix: string, opening: string): string =>
+    `${prefix}${opening.repeat(levelsBeyondTheTreeParser)}${"]".repeat(levelsBeyondTheTreeParser)}`;
+
+  it.each([
+    ["a quote in a line comment", deepAfter('// "\n', "[")],
+    ["a quote in a block comment", deepAfter('/* " */', "[")],
+    ["a string a line break cuts short", deepAfter('["no closing quote\n', "[")],
+    ["a closing brace inside an array", deepAfter("", "[},")],
+  ])("reads no text deeper than the tree parser's limit with it, behind %s", (_, text) => {
+    const [problem, ...rest] = documentProblems(text);
+    expect(rest).toEqual([]);
+    expect(problem!.message).toMatch(/^Invalid JSON: /);
+  });
+
+  it("finds a JSON error behind a comment, a string cut short or a stray bracket in a deep text", () => {
+    const levels = 50_000;
+    const name = '"name": "Porter Value Chain"';
+    const deep = EXAMPLE_DOCUMENT.replace(
+      name,
+      `${name},\n    "x-deep": ${'[{"a":'.repeat(levels)}0${"}]".repeat(levels)}`,
+    );
+    expect(documentProblems(deep).map(({ message }) => message)).toEqual([
+      `Objects and arrays may nest at most ${MAX_NESTING_DEPTH} levels deep.`,
+    ]);
+
+    const cutShort = deep.replace(name, name.slice(0, -1));
+    const [string, ...afterString] = documentProblems(cutShort);
+    expect(afterString).toEqual([]);
+    expect(string!.message).toMatch(/^Invalid JSON: Bad control character in string literal/);
+    expect(string!.offset).toBe(cutShort.indexOf("\n", cutShort.indexOf(name.slice(0, -1))));
+
+    const commented = deep.replace('"x-deep"', '// a "quote\n    "x-deep"');
+    const [comment, ...afterComment] = documentProblems(commented);
+    expect(afterComment).toEqual([]);
+    expect(comment!.message).toMatch(/^Invalid JSON: /);
+    expect(at(commented, comment!.offset)).toMatch(/^\/\/ a "quote/);
+
+    const unmatched = `{"x-deep": ${"[},".repeat(levels)}]}`;
+    const [bracket, ...afterBracket] = documentProblems(unmatched);
+    expect(afterBracket).toEqual([]);
+    expect(bracket!.message).toMatch(/^Invalid JSON: Unexpected token/);
+    expect(bracket!.offset).toBe(0);
+  });
+
   it("reads brackets inside strings as text when it measures the nesting", () => {
     const text = EXAMPLE_DOCUMENT.replace(
       '"schemaVersion": 1',
