@@ -1,11 +1,15 @@
+import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import type { Element } from "diagram-js/lib/model/Types";
+import { toPoint } from "diagram-js/lib/util/Event";
 
 /** Ahead of every other listener of the same event. */
 const FIRST = 100_000;
+
+const PAN_PREFIX = "hand.move";
 
 /**
  * The drags that are no gesture, since they hold no element of the diagram: the palette's tools
@@ -16,15 +20,24 @@ const FIRST = 100_000;
 const NO_GESTURE_PREFIXES: ReadonlySet<string> = new Set([
   "lasso.selection",
   "hand",
-  "hand.move",
+  PAN_PREFIX,
   "spaceTool.selection",
   "global-connect",
 ]);
 
 const GLOBAL_CONNECT_TOOL = "global-connect";
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 interface DragContext {
   prefix: string;
+  active: boolean;
+  globalStart: Point;
+  localStart: Point;
+  payload: { originalEvent?: Event };
 }
 
 interface ConnectInitEvent {
@@ -37,7 +50,7 @@ interface ConnectInitEvent {
  * half-way. A pan and an armed palette tool are no gesture and run on.
  */
 export default class VcGestures {
-  static $inject = ["eventBus", "dragging", "toolManager", "elementRegistry"];
+  static $inject = ["eventBus", "dragging", "toolManager", "elementRegistry", "canvas"];
 
   private dropping: DragContext | null = null;
 
@@ -46,6 +59,7 @@ export default class VcGestures {
     private readonly dragging: Dragging,
     toolManager: ToolManager,
     elementRegistry: ElementRegistry,
+    private readonly canvas: Canvas,
   ) {
     eventBus.on("drag.end", FIRST, () => {
       this.dropping = dragging.context() as DragContext | null;
@@ -63,6 +77,7 @@ export default class VcGestures {
       if (toolManager.isActive(GLOBAL_CONNECT_TOOL)) toolManager.setActive(null);
       return false;
     });
+    eventBus.on("import.render.done", () => this.anchorPanToView());
   }
 
   /**
@@ -79,5 +94,23 @@ export default class VcGestures {
     const gesture = this.dragging.context() as DragContext | null;
     if (!gesture || gesture === this.dropping || NO_GESTURE_PREFIXES.has(gesture.prefix)) return;
     this.dragging.cancel(false);
+  }
+
+  /**
+   * A pan keeps the diagram point it started on under the pointer, so its next move would put the
+   * view from before an import back, undoing the import's fit. It starts again from the diagram
+   * point that now lies under the pointer (diagram-js keeps that point in the drag's context).
+   */
+  private anchorPanToView(): void {
+    const pan = this.dragging.context() as DragContext | null;
+    if (pan?.prefix !== PAN_PREFIX) return;
+    const lastMove = pan.active ? pan.payload.originalEvent : undefined;
+    const pointer: Point = (lastMove && toPoint(lastMove)) || pan.globalStart;
+    const viewbox = this.canvas.viewbox();
+    const container = this.canvas.getContainer().getBoundingClientRect();
+    pan.localStart = {
+      x: viewbox.x + (pointer.x - container.left) / viewbox.scale,
+      y: viewbox.y + (pointer.y - container.top) / viewbox.scale,
+    };
   }
 }

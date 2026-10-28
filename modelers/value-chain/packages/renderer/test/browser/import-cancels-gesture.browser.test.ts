@@ -329,156 +329,6 @@ describe("an import while a gesture runs cancels the gesture first", () => {
     expectNextEditSaves();
   });
 
-  describe("a pan is no gesture: an import leaves it running", () => {
-    interface ClientPoint {
-      clientX: number;
-      clientY: number;
-    }
-
-    function panTo(point: ClientPoint): void {
-      document.dispatchEvent(
-        new MouseEvent("mousemove", { bubbles: true, cancelable: true, ...point }),
-      );
-    }
-
-    function panDistance(): number {
-      return service<Canvas>("canvas").viewbox().x;
-    }
-
-    function offset(point: ClientPoint, dx: number): ClientPoint {
-      return { clientX: point.clientX + dx, clientY: point.clientY };
-    }
-
-    function armHandTool(): Element {
-      const { entry, at } = paletteEntry("hand-tool");
-      entry.dispatchEvent(pointer("click", at, { detail: 1 }));
-      return entry;
-    }
-
-    function pressForPan(start: ClientPoint): void {
-      canvasSvg().dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0, ...start }),
-      );
-    }
-
-    function pointerOnCanvas(start: ClientPoint): void {
-      canvasSvg().dispatchEvent(
-        new MouseEvent("mouseover", { bubbles: true, cancelable: true, ...start }),
-      );
-      canvasSvg().dispatchEvent(
-        new MouseEvent("mousemove", { bubbles: true, cancelable: true, ...start }),
-      );
-    }
-
-    function releaseAt(point: ClientPoint): void {
-      document.dispatchEvent(
-        new MouseEvent("mouseup", { bubbles: true, cancelable: true, button: 0, ...point }),
-      );
-    }
-
-    function spaceKey(type: "keydown" | "keyup"): void {
-      canvasSvg().dispatchEvent(
-        new KeyboardEvent(type, { key: " ", code: "Space", bubbles: true, cancelable: true }),
-      );
-    }
-
-    it("a pan with the palette's hand tool continues, and the tool pans again after it", async () => {
-      armHandTool();
-      const start = client({ x: 500, y: 450 });
-      pointerOnCanvas(start);
-      pressForPan(start);
-      panTo(offset(start, 30));
-      panTo(offset(start, 60));
-      expect(dragPrefix()).toBe("hand.move");
-
-      await editor().importText(PEER_EDIT);
-      expect(dragPrefix()).toBe("hand.move");
-      const beforeFirstPan = panDistance();
-      panTo(offset(start, 90));
-      expect(panDistance()).toBeLessThan(beforeFirstPan);
-      releaseAt(offset(start, 90));
-      expect(dragPrefix()).toBe("hand");
-
-      const beforeSecondPan = panDistance();
-      pressForPan(start);
-      panTo(offset(start, 30));
-      panTo(offset(start, 60));
-      expect(dragPrefix()).toBe("hand.move");
-      expect(panDistance()).toBeLessThan(beforeSecondPan);
-      releaseAt(offset(start, 60));
-      expectNothingApplied();
-    });
-
-    it("a pan with Space held continues, and ends with the key", async () => {
-      canvasSvg().focus();
-      const start = client({ x: 500, y: 450 });
-      pointerOnCanvas(start);
-      spaceKey("keydown");
-      panTo(offset(start, 30));
-      panTo(offset(start, 60));
-      expect(dragPrefix()).toBe("hand.move");
-
-      await editor().importText(PEER_EDIT);
-      expect(dragPrefix()).toBe("hand.move");
-      const before = panDistance();
-      panTo(offset(start, 90));
-      expect(panDistance()).toBeLessThan(before);
-      spaceKey("keyup");
-
-      expect(gestureRuns()).toBe(false);
-      expectNothingApplied();
-    });
-
-    it("a pan leaves no selection of the shapes the import replaced behind when it ends", async () => {
-      service<Selection>("selection").select(shape("step-credit"));
-      armHandTool();
-      const start = client({ x: 500, y: 450 });
-      pointerOnCanvas(start);
-      pressForPan(start);
-      panTo(offset(start, 30));
-      panTo(offset(start, 60));
-      expect(service<Selection>("selection").get()).toEqual([]);
-
-      await editor().importText(PEER_EDIT);
-      releaseAt(offset(start, 60));
-
-      expect(service<Selection>("selection").get()).toEqual([]);
-      expectNothingApplied();
-    });
-
-    it("clearing the diagram leaves it running as well", () => {
-      armHandTool();
-      const start = client({ x: 500, y: 450 });
-      pointerOnCanvas(start);
-      pressForPan(start);
-      panTo(offset(start, 30));
-      panTo(offset(start, 60));
-
-      editor().diagram.clear();
-      expect(dragPrefix()).toBe("hand.move");
-      const before = panDistance();
-      panTo(offset(start, 90));
-      expect(panDistance()).toBeLessThan(before);
-      releaseAt(offset(start, 90));
-
-      expect(dragPrefix()).toBe("hand");
-    });
-
-    it("while a move drag next to it is still cancelled", async () => {
-      const start = centreOf("step-credit");
-      press(graphics(shape("step-credit")), start);
-      moveTo({ x: start.x + 20, y: start.y });
-      moveTo({ x: start.x + 40, y: start.y });
-      expect(dragPrefix()).toBe("shape.move");
-
-      await importPeerEditMidGesture();
-      release({ x: start.x + 60, y: start.y });
-
-      expectNothingApplied();
-      expect(shape("step-credit").x).toBe(240);
-    });
-  });
-
   it("a press of the armed connect tool on a shape, before the pointer leaves that shape", async () => {
     const { entry, at } = paletteEntry("global-connect-tool");
     entry.dispatchEvent(pointer("click", at, { detail: 1 }));
@@ -783,5 +633,277 @@ describe("an import while a gesture runs cancels the gesture first", () => {
 
     expect(dragPrefix()).toBe("lasso.selection");
     expect(entry.classList.contains("highlighted-entry")).toBe(true);
+  });
+});
+
+describe("a pan is no gesture: an import leaves it running", () => {
+  interface ClientPoint {
+    clientX: number;
+    clientY: number;
+  }
+
+  const START = { x: 500, y: 450 };
+
+  function panTo(point: ClientPoint): void {
+    document.dispatchEvent(
+      new MouseEvent("mousemove", { bubbles: true, cancelable: true, ...point }),
+    );
+  }
+
+  function viewboxX(): number {
+    return service<Canvas>("canvas").viewbox().x;
+  }
+
+  function offset(point: ClientPoint, dx: number): ClientPoint {
+    return { clientX: point.clientX + dx, clientY: point.clientY };
+  }
+
+  function armHandTool(): Element {
+    const { entry, at } = paletteEntry("hand-tool");
+    entry.dispatchEvent(pointer("click", at, { detail: 1 }));
+    return entry;
+  }
+
+  function pressForPan(start: ClientPoint, init: MouseEventInit = {}): void {
+    canvasSvg().dispatchEvent(
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        ...start,
+        ...init,
+      }),
+    );
+  }
+
+  function pressWithPrimaryModifier(start: ClientPoint): void {
+    pressForPan(start, { ctrlKey: true, metaKey: true });
+  }
+
+  function pointerOnCanvas(start: ClientPoint): void {
+    canvasSvg().dispatchEvent(
+      new MouseEvent("mouseover", { bubbles: true, cancelable: true, ...start }),
+    );
+    canvasSvg().dispatchEvent(
+      new MouseEvent("mousemove", { bubbles: true, cancelable: true, ...start }),
+    );
+  }
+
+  function releaseAt(point: ClientPoint): void {
+    document.dispatchEvent(
+      new MouseEvent("mouseup", { bubbles: true, cancelable: true, button: 0, ...point }),
+    );
+  }
+
+  function spaceKey(type: "keydown" | "keyup"): void {
+    canvasSvg().dispatchEvent(
+      new KeyboardEvent(type, { key: " ", code: "Space", bubbles: true, cancelable: true }),
+    );
+  }
+
+  /** What the running pan brings back to the selection when it ends. */
+  function selectionTheRunningPanHolds(): string[] {
+    const pan = service<Dragging>("dragging").context() as {
+      payload: { previousSelection?: Array<{ id: string }> };
+    } | null;
+    return pan?.payload.previousSelection?.map((element) => element.id) ?? [];
+  }
+
+  function selectedIds(): string[] {
+    return service<Selection>("selection")
+      .get()
+      .map((element) => element.id);
+  }
+
+  it("a pan with the palette's hand tool continues, and the tool pans again after it", async () => {
+    armHandTool();
+    const start = client(START);
+    pointerOnCanvas(start);
+    pressForPan(start);
+    panTo(offset(start, 30));
+    panTo(offset(start, 60));
+    expect(dragPrefix()).toBe("hand.move");
+
+    await editor().importText(PEER_EDIT);
+    expect(dragPrefix()).toBe("hand.move");
+    const beforeFirstPan = viewboxX();
+    panTo(offset(start, 90));
+    expect(viewboxX()).toBeLessThan(beforeFirstPan);
+    releaseAt(offset(start, 90));
+    expect(dragPrefix()).toBe("hand");
+
+    const beforeSecondPan = viewboxX();
+    pressForPan(start);
+    panTo(offset(start, 30));
+    panTo(offset(start, 60));
+    expect(dragPrefix()).toBe("hand.move");
+    expect(viewboxX()).toBeLessThan(beforeSecondPan);
+    releaseAt(offset(start, 60));
+    expectNothingApplied();
+  });
+
+  it("a pan with Space held continues, and ends with the key", async () => {
+    canvasSvg().focus();
+    const start = client(START);
+    pointerOnCanvas(start);
+    spaceKey("keydown");
+    panTo(offset(start, 30));
+    panTo(offset(start, 60));
+    expect(dragPrefix()).toBe("hand.move");
+
+    await editor().importText(PEER_EDIT);
+    expect(dragPrefix()).toBe("hand.move");
+    const before = viewboxX();
+    panTo(offset(start, 90));
+    expect(viewboxX()).toBeLessThan(before);
+    spaceKey("keyup");
+
+    expect(gestureRuns()).toBe(false);
+    expectNothingApplied();
+  });
+
+  it("a pan with Ctrl or Cmd and a press continues, and ends with the release", async () => {
+    const start = client(START);
+    pointerOnCanvas(start);
+    pressWithPrimaryModifier(start);
+    panTo(offset(start, 30));
+    panTo(offset(start, 60));
+    expect(dragPrefix()).toBe("hand.move");
+
+    await editor().importText(PEER_EDIT);
+    expect(dragPrefix()).toBe("hand.move");
+    const before = viewboxX();
+    panTo(offset(start, 90));
+    expect(viewboxX()).toBeLessThan(before);
+    releaseAt(offset(start, 90));
+
+    expect(gestureRuns()).toBe(false);
+    expectNothingApplied();
+  });
+
+  describe("a pan that holds the selection from before it started", () => {
+    beforeEach(() => {
+      service<Selection>("selection").select(shape("step-credit"));
+    });
+
+    it("with Space held brings back no selection of the shapes the import replaced", async () => {
+      canvasSvg().focus();
+      const start = client(START);
+      pointerOnCanvas(start);
+      spaceKey("keydown");
+      panTo(offset(start, 30));
+      panTo(offset(start, 60));
+      expect(selectionTheRunningPanHolds()).toEqual(["step-credit"]);
+      expect(selectedIds()).toEqual([]);
+
+      await editor().importText(PEER_EDIT);
+      spaceKey("keyup");
+
+      expect(gestureRuns()).toBe(false);
+      expect(selectedIds()).toEqual([]);
+      expectNothingApplied();
+    });
+
+    it("with Ctrl or Cmd and a press brings back no selection of the shapes the import replaced", async () => {
+      const start = client(START);
+      pointerOnCanvas(start);
+      pressWithPrimaryModifier(start);
+      panTo(offset(start, 30));
+      panTo(offset(start, 60));
+      expect(selectionTheRunningPanHolds()).toEqual(["step-credit"]);
+      expect(selectedIds()).toEqual([]);
+
+      await editor().importText(PEER_EDIT);
+      releaseAt(offset(start, 60));
+
+      expect(gestureRuns()).toBe(false);
+      expect(selectedIds()).toEqual([]);
+      expectNothingApplied();
+    });
+  });
+
+  it("clearing the diagram leaves it running as well", () => {
+    armHandTool();
+    const start = client(START);
+    pointerOnCanvas(start);
+    pressForPan(start);
+    panTo(offset(start, 30));
+    panTo(offset(start, 60));
+
+    editor().diagram.clear();
+    expect(dragPrefix()).toBe("hand.move");
+    const before = viewboxX();
+    panTo(offset(start, 90));
+    expect(viewboxX()).toBeLessThan(before);
+    releaseAt(offset(start, 90));
+
+    expect(dragPrefix()).toBe("hand");
+  });
+
+  it("a move drag next to a pan is still cancelled", async () => {
+    const start = centreOf("step-credit");
+    press(graphics(shape("step-credit")), start);
+    moveTo({ x: start.x + 20, y: start.y });
+    moveTo({ x: start.x + 40, y: start.y });
+    expect(dragPrefix()).toBe("shape.move");
+
+    await importPeerEditMidGesture();
+    release({ x: start.x + 60, y: start.y });
+
+    expectNothingApplied();
+    expect(shape("step-credit").x).toBe(240);
+  });
+
+  describe("an import that fits the view", () => {
+    beforeEach(async () => {
+      modeler?.destroy();
+      modeler = createCollaborativeModeler();
+      modeler.attachTo(attachedHost(1000, 700));
+      await modeler.importText(ORDER_TO_CASH);
+      modeler.onContentChanged(() => (changes += 1));
+      service<Canvas>("canvas").scroll({ dx: -200, dy: 0 });
+    });
+
+    it("moves a running pan on from the fitted view, not back to the view before the import", async () => {
+      armHandTool();
+      const start = client(START);
+      pointerOnCanvas(start);
+      pressForPan(start);
+      panTo(offset(start, 30));
+      panTo(offset(start, 60));
+      expect(dragPrefix()).toBe("hand.move");
+      const viewBeforeImport = viewboxX();
+
+      await editor().importText(PEER_EDIT);
+      const fittedView = viewboxX();
+      expect(Math.abs(fittedView - viewBeforeImport)).toBeGreaterThan(50);
+      expect(dragPrefix()).toBe("hand.move");
+
+      panTo(offset(start, 61));
+      expect(viewboxX()).toBeCloseTo(fittedView - 1, 0);
+      panTo(offset(start, 91));
+      expect(viewboxX()).toBeCloseTo(fittedView - 31, 0);
+      releaseAt(offset(start, 91));
+      expect(dragPrefix()).toBe("hand");
+    });
+
+    it("moves a pan that has not left its press yet on from the fitted view", async () => {
+      armHandTool();
+      const start = client(START);
+      pointerOnCanvas(start);
+      pressForPan(start);
+      expect(dragPrefix()).toBe("hand.move");
+      const viewBeforeImport = viewboxX();
+
+      await editor().importText(PEER_EDIT);
+      const fittedView = viewboxX();
+      expect(Math.abs(fittedView - viewBeforeImport)).toBeGreaterThan(50);
+      expect(dragPrefix()).toBe("hand.move");
+
+      panTo(offset(start, 60));
+      expect(viewboxX()).toBeCloseTo(fittedView - 60, 0);
+      releaseAt(offset(start, 60));
+      expect(dragPrefix()).toBe("hand");
+    });
   });
 });
