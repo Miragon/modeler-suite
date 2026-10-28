@@ -4,6 +4,7 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
@@ -447,6 +448,123 @@ describe("an import while the user drags a point of a drawing", () => {
 
     expectNothingApplied(modeler, changes, REMOTE_ANNOTATED);
     expectEditsToCount(modeler, changes);
+  });
+});
+
+/**
+ * A host that echoes every change back through its store (a CRDT observer that does not filter its
+ * own origin) imports inside `onContentChanged`, while the drop that made the change still runs.
+ */
+function reimportOnFirstChange(
+  modeler: CollaborativeEventStormingModeler,
+): () => Promise<unknown> | undefined {
+  let reimport: Promise<unknown> | undefined;
+  modeler.onContentChanged(() => {
+    reimport ??= modeler.importText(modeler.exportText());
+  });
+  return () => reimport;
+}
+
+function dragEndingsOf(modeler: CollaborativeEventStormingModeler) {
+  const endings = { ended: 0, canceled: 0 };
+  const eventBus = service<EventBus>(modeler, "eventBus");
+  eventBus.on("drag.ended", () => (endings.ended += 1));
+  eventBus.on("drag.canceled", () => (endings.canceled += 1));
+  return endings;
+}
+
+/** The drop applied once, ended as a drop, and the re-import inside it left the canvas usable. */
+async function expectTheDropKept(
+  modeler: CollaborativeEventStormingModeler,
+  changes: () => number,
+  endings: { ended: number; canceled: number },
+  reimport: Promise<unknown> | undefined,
+  before: string,
+): Promise<void> {
+  await expect(reimport).resolves.toBeDefined();
+  expect(uncaught).toEqual([]);
+  expect(changes()).toBe(1);
+  expect(endings).toEqual({ ended: 1, canceled: 0 });
+  const dropped = modeler.exportText();
+  expect(dropped).not.toBe(before);
+  expect(service<Dragging>(modeler, "dragging").context()).toBeFalsy();
+  const container = service<Canvas>(modeler, "canvas").getContainer();
+  expect(container.querySelector(".djs-drag-group, .djs-dragger")).toBe(null);
+  const registry = service<ElementRegistry>(modeler, "elementRegistry");
+  for (const selected of service<Selection>(modeler, "selection").get() as Element[]) {
+    expect(registry.get(selected.id)).toBe(selected);
+  }
+  service<Modeling>(modeler, "modeling").moveElements(
+    [sticky(modeler, "policy_reserve_stock") as Shape],
+    { x: 20, y: 0 },
+  );
+  expect(changes()).toBe(2);
+  expect(modeler.exportText()).not.toBe(dropped);
+}
+
+describe("an import from inside the change listener of a drop", () => {
+  it("keeps the move the drop applied", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const changes = changesOf(modeler);
+    const endings = dragEndingsOf(modeler);
+    const reimport = reimportOnFirstChange(modeler);
+    const event = sticky(modeler, "event_order_placed");
+    const start = centre(event);
+
+    pointer.press(pointer.graphicsOf(event), start);
+    pointer.moveTo(offset(start, 20, 10));
+    pointer.moveTo(offset(start, 60, 40));
+    pointer.release(offset(start, 60, 40));
+
+    await expectTheDropKept(modeler, changes, endings, reimport(), BOARD);
+    expect(centre(sticky(modeler, "event_order_placed"))).toEqual(offset(start, 60, 40));
+  });
+
+  it("keeps the sticky a palette create dropped", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const changes = changesOf(modeler);
+    const endings = dragEndingsOf(modeler);
+    const reimport = reimportOnFirstChange(modeler);
+    const free = { x: 500, y: 360 };
+    const entry = modeler.diagram.container.querySelector<HTMLElement>(
+      '.djs-palette [data-action="create.event"]',
+    )!;
+
+    pointer.click(entry, free);
+    pointer.moveTo(offset(free, -40, -20));
+    pointer.moveTo(free);
+    pointer.press(pointer.svg, free);
+    pointer.release(free);
+
+    await expectTheDropKept(modeler, changes, endings, reimport(), BOARD);
+    expect(
+      service<ElementRegistry>(modeler, "elementRegistry").filter(
+        (element) => isEventStormingShape(element) && element.eventStormingType === "event",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("lets the drop end when the listener clears the board", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const changes = changesOf(modeler);
+    const endings = dragEndingsOf(modeler);
+    modeler.onContentChanged(() => modeler.diagram.clear());
+    const event = sticky(modeler, "event_order_placed");
+    const start = centre(event);
+
+    pointer.press(pointer.graphicsOf(event), start);
+    pointer.moveTo(offset(start, 20, 10));
+    pointer.moveTo(offset(start, 60, 40));
+    pointer.release(offset(start, 60, 40));
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(1);
+    expect(endings).toEqual({ ended: 1, canceled: 0 });
+    expect(service<Dragging>(modeler, "dragging").context()).toBeFalsy();
+    expect(modeler.exportText()).not.toContain("Order Placed");
   });
 });
 

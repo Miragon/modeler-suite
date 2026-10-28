@@ -65,6 +65,11 @@ function assertNoEngineIds(board: EventStormingBoard): void {
  */
 const ARMED_TOOLS: ReadonlySet<string> = new Set(["lasso.selection"]);
 
+/** Ahead of every other listener of a drop, so that the command it runs finds the drop marked. */
+const DROP_MARK_PRIORITY = 100_000;
+
+type DragContext = { prefix: string } | null;
+
 /**
  * Ends a running gesture (move, resize, connect, lasso, a create from the palette or a paste, the
  * point drag of a drawing) without applying it, before an import or a clear replaces the shapes it
@@ -73,14 +78,18 @@ const ARMED_TOOLS: ReadonlySet<string> = new Set(["lasso.selection"]);
  * here and not on the shapes' removal, since an annotated import waits for its font first and a
  * release during that wait would still commit. Not restoring the selection: it holds shapes the
  * import removes.
+ *
+ * A drop that runs (`dropping`) is left to finish: its command has applied, and a host that imports
+ * from that command's change listener would otherwise cancel the drag inside diagram-js's own end of
+ * it, which then cleans up a drag that is gone and throws.
  */
-function cancelGesture(diagram: Diagram): void {
+function cancelGesture(diagram: Diagram, dropping: DragContext): void {
   diagram
     .get<EventStormingDrawingHandles | null>("eventStormingDrawingHandles", false)
     ?.endPointDrag();
   const dragging = diagram.get<Dragging | null>("dragging", false);
-  const gesture = dragging?.context() as { prefix: string } | null | undefined;
-  if (!dragging || !gesture || ARMED_TOOLS.has(gesture.prefix)) return;
+  const gesture = dragging?.context() as DragContext | undefined;
+  if (!dragging || !gesture || gesture === dropping || ARMED_TOOLS.has(gesture.prefix)) return;
   dragging.cancel(false);
 }
 
@@ -107,6 +116,8 @@ export abstract class EventStormingBaseViewer {
   private readonly _options: EventStormingViewerOptions;
   /** The last import still waiting for its turn; a later one queues behind it. */
   private _waitingImport: Promise<unknown> | undefined;
+  /** The drag whose drop runs now, from its end until it has ended. */
+  private _dropping: DragContext = null;
 
   constructor(options: EventStormingViewerOptions = {}) {
     this._options = options;
@@ -131,8 +142,21 @@ export abstract class EventStormingBaseViewer {
         eventStormingPalette: { freeArea: this._options.freeArea },
         eventStormingImporter: { fitOnImport: this._options.fitOnImport ?? true },
       });
+      this._markDrops(this._diagram);
     }
     return this._diagram;
+  }
+
+  private _markDrops(diagram: Diagram): void {
+    const dragging = diagram.get<Dragging | null>("dragging", false);
+    if (!dragging) return;
+    const eventBus = diagram.get<EventBus>("eventBus");
+    eventBus.on("drag.end", DROP_MARK_PRIORITY, () => {
+      this._dropping = dragging.context() as DragContext;
+    });
+    eventBus.on("drag.ended", DROP_MARK_PRIORITY, () => {
+      this._dropping = null;
+    });
   }
 
   get<T>(name: string): T {
@@ -159,14 +183,14 @@ export abstract class EventStormingBaseViewer {
     // A board straight from code skips loadBoard; its import would stop at the first shape the SVG
     // transforms cannot hold, after the previous board was cleared.
     assertDrawable(board);
-    cancelGesture(diagram);
+    cancelGesture(diagram, this._dropping);
     const turn = this._importTurn(board);
     if (turn) {
       await turn;
       if (this._waitingImport === turn) this._waitingImport = undefined;
       if (this._diagram !== diagram) throw new Error("The viewer was destroyed during the import.");
       // A gesture the user started while the import waited for its font.
-      cancelGesture(diagram);
+      cancelGesture(diagram, this._dropping);
     }
     const labelEditing = diagram.get<EventStormingLabelEditing>("eventStormingLabelEditing", false);
     labelEditing?.suspend();
@@ -261,7 +285,7 @@ export abstract class EventStormingBaseViewer {
 
   clear(): void {
     const diagram = this._ensureDiagram();
-    cancelGesture(diagram);
+    cancelGesture(diagram, this._dropping);
     diagram.clear();
   }
 
