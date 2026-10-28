@@ -10,6 +10,7 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type { Root } from "diagram-js/lib/model/Types";
 import type { ElementBounds, FreeArea } from "@miragon/modeler-api";
 import { documentIdProblems, type TtDocument } from "@miragon/team-topologies-schema-model";
@@ -25,6 +26,26 @@ import type TtLabelEditing from "./label-editing/TtLabelEditing.js";
  * around the whole viewport, which a plain `:focus-visible` ring would show after any shortcut.
  */
 const CANVAS_KEYBOARD_FOCUS_CLASS = "tt-canvas-keyboard-focus";
+
+/**
+ * The drag of a palette tool that only waits for its next press: no gesture yet. It holds no
+ * element, so an import leaves it armed, and the user's next press still draws a lasso instead of
+ * moving the element under the pointer.
+ */
+const ARMED_TOOL_PREFIXES: ReadonlySet<string> = new Set(["lasso.selection"]);
+
+/**
+ * Ends a running gesture (move, resize, connect, lasso, palette create) the way Escape does. The
+ * gesture holds the elements an import is about to replace, and diagram-js keeps it running across
+ * the import: its release would apply to removed elements and throw half-way. The selection is not
+ * restored, since it holds those elements too.
+ */
+function cancelGesture(diagram: Diagram): void {
+  const dragging = diagram.get<Dragging | null>("dragging", false);
+  if (!dragging) return;
+  const gesture = dragging.context() as { prefix: string } | null;
+  if (gesture && !ARMED_TOOL_PREFIXES.has(gesture.prefix)) dragging.cancel(false);
+}
 
 export interface TtViewerOptions {
   /** Host element. When absent, a detached <div> is created (attach later). */
@@ -143,7 +164,9 @@ export abstract class TtBaseViewer {
   /**
    * Load a document into the canvas (replaces existing content) and, unless `fit: false`, fit it
    * into view. Clears the undo history without a change event: its commands point at the replaced
-   * elements and would bring them back, and an import is no edit.
+   * elements and would bring them back, and an import is no edit. A gesture that runs (a move,
+   * resize, connect, lasso or palette create) ends first, as on Escape, so its release applies
+   * nothing; an armed lasso tool stays armed.
    *
    * Throws, before anything changes, for a document whose ids would collide on the canvas (see
    * `documentIdProblems`), so a rejected document leaves the previous one in place.
@@ -161,6 +184,7 @@ export abstract class TtBaseViewer {
     const labelEditing = diagram.get<TtLabelEditing>("ttLabelEditing", false);
     eventBus.fire("import.parse.start", { document: doc });
     labelEditing?.suspend();
+    cancelGesture(diagram);
     diagram.get<CommandStack>("commandStack", false)?.clear(false);
     importer.clear();
     const warnings = importer.import(doc);
