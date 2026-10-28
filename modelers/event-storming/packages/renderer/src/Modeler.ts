@@ -29,6 +29,7 @@ import { eventStormingDrawToolModule } from "./draw-tool/index.js";
 import { eventStormingResizeModule } from "./resize/index.js";
 import { eventStormingReadOnlyModule } from "./read-only/index.js";
 import { eventStormingVocabularyModule } from "./vocabulary/index.js";
+import { eventStormingGestureModule } from "./gesture/index.js";
 
 /**
  * Full Event Storming editor: palette/create, free move with sticky-center snapping, connect
@@ -49,6 +50,7 @@ export class Modeler extends NavigatedViewer {
       PaletteModule,
       OutlineModule,
       PopupMenuModule,
+      eventStormingGestureModule,
       eventStormingReadOnlyModule,
       eventStormingModelingModule,
       eventStormingAttachModule,

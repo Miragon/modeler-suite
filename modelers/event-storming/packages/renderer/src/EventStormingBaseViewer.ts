@@ -17,6 +17,11 @@ import type EventStormingDrawingHandles from "./draw-tool/EventStormingDrawingHa
 import { ROOT_ID, type ImportWarning } from "./io/types.js";
 import { linkLabelFontLoading } from "./draw/extent.js";
 import type { FreeArea } from "./palette/EventStormingPaletteProvider.js";
+import {
+  ARMED_TOOL_PREFIXES,
+  type DragContext,
+  type EventStormingGestures,
+} from "./gesture/index.js";
 
 export interface EventStormingViewerOptions {
   /** Host element. If missing, a detached <div> is created (can be attached later via attachTo). */
@@ -60,58 +65,39 @@ function assertNoEngineIds(board: EventStormingBoard): void {
 }
 
 /**
- * Dragging contexts of a palette tool that only waits for its next press: they hold no element of
- * the board, so an import leaves the tool armed.
- */
-const ARMED_TOOLS: ReadonlySet<string> = new Set(["lasso.selection"]);
-
-/** Ahead of every other listener of a drag's init or drop, so that what they run finds it marked. */
-const MARK_PRIORITY = 100_000;
-
-/** Behind every other listener of a drag's init, so that it sees every end they asked for. */
-const INIT_VETO_PRIORITY = -100_000;
-
-type DragContext = { prefix: string } | null;
-
-/** The drags that an import or a clear must not cancel at once. */
-interface DragMarks {
-  /** The drag whose drop runs now, from its end until it has ended. */
-  dropping: DragContext;
-  /** The drag diagram-js initializes now, while the listeners of its `drag.init` run. */
-  starting: DragContext;
-  /** Whether an import or a clear asked to end the starting drag. */
-  startCanceled: boolean;
-}
-
-/**
  * Ends a running gesture (move, resize, connect, lasso, a create from the palette or a paste, the
  * point drag of a drawing) without applying it, before an import or a clear replaces the shapes it
  * holds. diagram-js keeps a drag running across `diagram.clear`, and its release would then apply
  * a command to a removed shape: moveShape throws, a create adds a sticky to the new board. Ended
  * here and not on the shapes' removal, since an annotated import waits for its font first and a
  * release during that wait would still commit. Not restoring the selection: it holds shapes the
- * import removes.
+ * import removes. A palette tool that only waits for its next press stays armed.
  *
- * A drop that runs (`dropping`) is left to finish: its command has applied, and a host that imports
- * from that command's change listener would otherwise cancel the drag inside diagram-js's own end of
- * it, which then cleans up a drag that is gone and throws.
+ * A drop that runs is left to finish: its command has applied, and a `clear()` from that command's
+ * change listener would otherwise cancel the drag inside diagram-js's own end of it, which then
+ * cleans up a drag that is gone and throws. An import does not get here during a drop: it waits
+ * for the drop's end first.
  *
- * A drag diagram-js still initializes (`starting`) is refused at the end of its `drag.init`
- * instead: an open label editor commits there, so a host that imports from that commit's change
- * listener gets here inside the init, and diagram-js activates the drag right after it (a resize, a
- * create or an append at once), which throws once the drag is gone.
+ * A drag diagram-js still initializes is refused at the end of its `drag.init` instead: an open
+ * label editor commits there, so a host that imports from that commit's change listener gets here
+ * inside the init, and diagram-js activates the drag right after it (a resize, a create or an
+ * append at once), which throws once the drag is gone.
  */
-function cancelGesture(diagram: Diagram, drags: DragMarks): void {
+function cancelGesture(diagram: Diagram): void {
   diagram
     .get<EventStormingDrawingHandles | null>("eventStormingDrawingHandles", false)
     ?.endPointDrag();
   const dragging = diagram.get<Dragging | null>("dragging", false);
-  const gesture = dragging?.context() as DragContext | undefined;
-  if (!dragging || !gesture || gesture === drags.dropping || ARMED_TOOLS.has(gesture.prefix)) {
-    return;
-  }
-  if (gesture === drags.starting) drags.startCanceled = true;
+  const gesture = dragging?.context() as DragContext | null | undefined;
+  if (!dragging || !gesture || ARMED_TOOL_PREFIXES.has(gesture.prefix)) return;
+  const gestures = gesturesOf(diagram);
+  if (gestures?.isDropping(gesture)) return;
+  if (gestures?.isStarting(gesture)) gestures.refuseStart();
   else dragging.cancel(false);
+}
+
+function gesturesOf(diagram: Diagram): EventStormingGestures | null {
+  return diagram.get<EventStormingGestures | null>("eventStormingGestures", false);
 }
 
 function annotationTexts(board: EventStormingBoard): string[] {
@@ -137,7 +123,6 @@ export abstract class EventStormingBaseViewer {
   private readonly _options: EventStormingViewerOptions;
   /** The last import still waiting for its turn; a later one queues behind it. */
   private _waitingImport: Promise<unknown> | undefined;
-  private readonly _drags: DragMarks = { dropping: null, starting: null, startCanceled: false };
 
   constructor(options: EventStormingViewerOptions = {}) {
     this._options = options;
@@ -162,34 +147,8 @@ export abstract class EventStormingBaseViewer {
         eventStormingPalette: { freeArea: this._options.freeArea },
         eventStormingImporter: { fitOnImport: this._options.fitOnImport ?? true },
       });
-      this._markDrags(this._diagram);
     }
     return this._diagram;
-  }
-
-  private _markDrags(diagram: Diagram): void {
-    const dragging = diagram.get<Dragging | null>("dragging", false);
-    if (!dragging) return;
-    const eventBus = diagram.get<EventBus>("eventBus");
-    const drags = this._drags;
-    eventBus.on("drag.init", MARK_PRIORITY, () => {
-      drags.starting = dragging.context() as DragContext;
-      drags.startCanceled = false;
-    });
-    // Refused here, diagram-js ends the drag before it activates, so nothing of it runs on the
-    // shapes the import removed.
-    eventBus.on("drag.init", INIT_VETO_PRIORITY, () => {
-      const refused = drags.startCanceled && dragging.context() === drags.starting;
-      drags.starting = null;
-      drags.startCanceled = false;
-      return refused ? false : undefined;
-    });
-    eventBus.on("drag.end", MARK_PRIORITY, () => {
-      drags.dropping = dragging.context() as DragContext;
-    });
-    eventBus.on("drag.ended", MARK_PRIORITY, () => {
-      drags.dropping = null;
-    });
   }
 
   get<T>(name: string): T {
@@ -207,6 +166,9 @@ export abstract class EventStormingBaseViewer {
   /**
    * Load a board into the canvas (replaces existing content). Resolves once the board stands
    * fitted on its final content box: an annotated board waits for its annotations' font first.
+   * Called while a drop runs (a host that imports from the change listener of the drop's command),
+   * it waits until the drop and the step it scheduled (the kind chooser after an append) have run,
+   * so none of them finds its shapes replaced.
    */
   async importMap(board: EventStormingBoard): Promise<{ warnings: ImportWarning[] }> {
     const diagram = this._ensureDiagram();
@@ -216,15 +178,25 @@ export abstract class EventStormingBaseViewer {
     // A board straight from code skips loadBoard; its import would stop at the first shape the SVG
     // transforms cannot hold, after the previous board was cleared.
     assertDrawable(board);
-    cancelGesture(diagram, this._drags);
-    const turn = this._importTurn(board);
+    cancelGesture(diagram);
+    const turn = this._importTurn(board, gesturesOf(diagram)?.dropEnded());
+    let waited = false;
     if (turn) {
       await turn;
+      waited = true;
       if (this._waitingImport === turn) this._waitingImport = undefined;
-      if (this._diagram !== diagram) throw new Error("The viewer was destroyed during the import.");
-      // A gesture the user started while the import waited for its font.
-      cancelGesture(diagram, this._drags);
+      this._assertNotDestroyed(diagram);
     }
+    // A drop the user finished while the import waited for its turn.
+    let drop = gesturesOf(diagram)?.dropEnded();
+    while (drop) {
+      await drop;
+      waited = true;
+      this._assertNotDestroyed(diagram);
+      drop = gesturesOf(diagram)?.dropEnded();
+    }
+    // A gesture the user started while the import waited.
+    if (waited) cancelGesture(diagram);
     const labelEditing = diagram.get<EventStormingLabelEditing>("eventStormingLabelEditing", false);
     labelEditing?.suspend();
     diagram.get<PopupMenu>("popupMenu", false)?.close();
@@ -240,16 +212,25 @@ export abstract class EventStormingBaseViewer {
     return { warnings };
   }
 
+  private _assertNotDestroyed(diagram: Diagram): void {
+    if (this._diagram !== diagram) throw new Error("The viewer was destroyed during the import.");
+  }
+
   /**
    * What an import waits for, `undefined` when it can run at once. The fit on import (the
    * importer's and every host's after it) frames the annotations as measured, so they are measured
    * in their own font, not in the fallback a board opened before it loaded would get; imports
    * still run in call order, the waiting one before a later one that would not have to wait.
    */
-  private _importTurn(board: EventStormingBoard): Promise<unknown> | undefined {
-    const waits = [this._waitingImport, linkLabelFontLoading(annotationTexts(board))].filter(
-      (wait) => wait !== undefined,
-    );
+  private _importTurn(
+    board: EventStormingBoard,
+    dropEnded: Promise<void> | undefined,
+  ): Promise<unknown> | undefined {
+    const waits = [
+      this._waitingImport,
+      dropEnded,
+      linkLabelFontLoading(annotationTexts(board)),
+    ].filter((wait) => wait !== undefined);
     if (waits.length === 0) return undefined;
     const turn = Promise.all(waits);
     this._waitingImport = turn;
@@ -318,7 +299,7 @@ export abstract class EventStormingBaseViewer {
 
   clear(): void {
     const diagram = this._ensureDiagram();
-    cancelGesture(diagram, this._drags);
+    cancelGesture(diagram);
     diagram.clear();
   }
 

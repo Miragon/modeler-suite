@@ -9,11 +9,14 @@
 @import "../theme/cd-canvas.css";
 
 /* The DSL's `style dark` directive is kept for the round-trip but never rendered (guide §10.7):
-   the mode comes from the page alone, so there is no navy board under light chrome. */
+   the mode comes from the page, or from the host's appearance request on this container
+   (contract 1.5), so there is no navy board under light chrome. The text colour is the role's,
+   not the one inherited from a page in another mode. */
 .event-storming-container {
   position: relative;
   width: 100%;
   height: 100%;
+  color: var(--cd-ui-text);
   background-color: var(--cd-ui-grund);
   background-image: radial-gradient(var(--cd-ui-linie) 1px, transparent 1px);
   background-size: 22px 22px;
@@ -454,16 +457,24 @@
   -webkit-user-select: none;
 }
 
-/* High contrast drops every shadow (guide §5.3); forced colours keep the island edges visible. */
-:root[data-cd-kontrast="hoch"] .djs-palette:not([data-chrome="palette"]),
-:root[data-cd-kontrast="hoch"] .djs-hover-tooltip,
-:root[data-cd-kontrast="hoch"] .event-storming-container .djs-context-pad.open,
-:root[data-cd-kontrast="hoch"] .event-storming-container .event-storming-label-input,
-:root[data-cd-kontrast="hoch"] .event-storming-container .event-storming-note-toolbar,
-:root[data-cd-kontrast="hoch"] .event-storming-container .event-storming-color-picker,
-:root[data-cd-kontrast="hoch"] .event-storming-container .event-storming-label-suggestions,
-:root[data-cd-kontrast="hoch"] .event-storming-container .event-storming-spelling-tooltip {
-  box-shadow: none;
+/* High contrast drops every shadow (guide §5.3); forced colours keep the island edges visible.
+   High contrast is the nearest mode carrier's (guide §13.3): the page's, or the container's once
+   a host asked for an appearance (contract 1.5), so normal contrast requested on a high-contrast
+   page keeps the shadows. */
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  :scope .djs-palette:not([data-chrome="palette"]),
+  :scope .djs-hover-tooltip,
+  :is(:scope.event-storming-container, :scope .event-storming-container)
+    :is(
+      .djs-context-pad.open,
+      .event-storming-label-input,
+      .event-storming-note-toolbar,
+      .event-storming-color-picker,
+      .event-storming-label-suggestions,
+      .event-storming-spelling-tooltip
+    ) {
+    box-shadow: none;
+  }
 }
 @media (forced-colors: active) {
   .event-storming-container .djs-context-pad.open,

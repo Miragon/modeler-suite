@@ -13,7 +13,8 @@ import {
 } from "./commands.js";
 import { DIAGNOSTIC_COLLECTION_NAME } from "./diagnostics.js";
 import type { HostToWebview, WebviewCommand } from "./protocol.js";
-import { WEBVIEW_THEMES } from "./themes.js";
+// The renderer's DOM-free module, not its entry: the extension host bundle runs in Node.
+import { EVENT_STORMING_THEMES } from "../../../packages/renderer/src/theme/themes.js";
 
 interface OpenBoard {
   readonly uri: vscode.Uri;
@@ -106,12 +107,12 @@ export class EventStormingEditorProvider implements vscode.CustomTextEditorProvi
       styleUris: [asset("webview.css")],
       title: "Event Storming Board",
       lang: "en",
-      appearance: currentAppearance(vscode, { themes: WEBVIEW_THEMES }),
+      appearance: currentAppearance(vscode, { themes: EVENT_STORMING_THEMES }),
       body: '<div id="app"></div>',
     });
 
     const session = new BoardSession(document, webviewPanel, this.diagnostics);
-    const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: WEBVIEW_THEMES });
+    const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: EVENT_STORMING_THEMES });
     const board: OpenBoard = { uri: document.uri, panel: webviewPanel };
     if (webviewPanel.active) {
       this.activePanel = webviewPanel;

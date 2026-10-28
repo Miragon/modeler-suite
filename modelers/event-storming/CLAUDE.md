@@ -109,7 +109,7 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   `/plugin install event-storming-modeler@modeler-suite`; the skill files are readable directly
   under `plugins/event-storming-modeler/skills/` either way. The plugin's `version` lives in its
   `plugin.json` only.
-- The renderer implements the collaborative-modeler contract 1.3
+- The renderer implements the collaborative-modeler contract 1.5
   [`@miragon/modeler-api`](../../packages/api/README.md)
   (`createCollaborativeModeler` / `createCollaborativeViewer`, notation `event-storming`, in
   [`packages/renderer/src/collaborative/`](packages/renderer/src/collaborative/)); its conformance
@@ -131,18 +131,31 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   `EventStormingBaseViewer`, when called and again after the font wait; `clear()` too):
   `dragging.cancel(false)` as Escape does, and the drawing handles' point drag, which also ends on
   `shape.remove`, so no release lands on a removed shape; the palette's armed lasso tool
-  (`lasso.selection`) stays armed. A drag whose `drag.init` still runs (an open label editor
-  commits there, and a host may import from that commit's change listener) is refused at the end
-  of that `drag.init` instead of cancelled: diagram-js activates a resize, create or append right
-  after its init, which throws on a drag cancelled inside it. A drop that runs (marked from
-  `drag.end` until `drag.ended`) is never cancelled: a host that imports or clears from the change
-  listener of its command would otherwise cancel the drag inside diagram-js's own end of it, which
-  then throws. That drop ends as a drop unless the import or the clear removes the moved shape (a
-  clear always does) while something was selected before the drag: diagram-js's
-  `SelectionBehavior` then throws, and the drag ends as `drag.canceled`
-  ([#248](https://github.com/Miragon/modeler-suite/issues/248)). A view change (`setViewState`, a
-  host's fit, scroll, zoom) never commits an open label editor: it stays open and follows its
-  element (contract L5).
+  (`lasso.selection`) stays armed, and a pan (diagram-js's `MoveCanvas`, outside the dragging
+  service) keeps running. `eventStormingGestures`
+  ([`packages/renderer/src/gesture/`](packages/renderer/src/gesture/)) knows the gesture, the
+  drag that starts and the drop. A drag whose `drag.init` still runs (an open label editor commits
+  there, and a host may import from that commit's change listener) is refused at the end of that
+  `drag.init` instead of cancelled (`refuseStart`): diagram-js activates a resize, create or append
+  right after its init, which throws on a drag cancelled inside it. A drop runs from `drag.end`
+  until `drag.ended` or `drag.canceled` (a drawing's point drop while its command applies) and
+  while a step it scheduled holds it (`holdDrop`: the append's kind chooser or label editor). An
+  import called during a drop waits for its end (`dropEnded()`), so no listener of the drop, also
+  diagram-js's `SelectionBehavior`, sees a replaced board
+  ([#248](https://github.com/Miragon/modeler-suite/issues/248)); a `clear()` there does not wait,
+  and its drop is never cancelled (diagram-js would throw inside its own end of the drag): it ends
+  as a drop unless something was selected before the drag, since the clear removes the moved
+  shape, and `SelectionBehavior` then throws and the drag ends as `drag.canceled`. The kind
+  chooser an import closes reopens on the sticky with the same id while it is still blank. The
+  contract's optional `interaction` reads the same service (true from diagram-js's first drag move
+  or a point drag's first move until the end; an armed tool, a pan and a line the draw tool holds
+  point by point are none, #243), and `appearance` lists `EVENT_STORMING_THEMES` (`["light"]`, in
+  [`packages/renderer/src/theme/themes.ts`](packages/renderer/src/theme/themes.ts), the one
+  constant both apps and the VS Code theme bridge read) and writes `data-cd-theme="light"` and
+  `data-cd-kontrast="hoch"` on the `.event-storming-container`; the renderer's high-contrast rules
+  follow the nearest mode carrier (`@scope`), so a request holds on a page in another mode. A view
+  change (`setViewState`, a host's fit, scroll, zoom) never commits an open label editor: it stays
+  open and follows its element (contract L5).
 - Contributor notes for this modeler in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Design system (mandatory)

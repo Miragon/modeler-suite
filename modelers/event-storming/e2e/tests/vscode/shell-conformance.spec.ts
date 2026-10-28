@@ -4,7 +4,7 @@ import {
   vsCodeStubSearch,
   type ShellSkip,
 } from "@miragon/modeler-shell/testing";
-import { WEBVIEW_THEMES } from "../../../apps/vscode/src/themes.js";
+import { EVENT_STORMING_THEMES } from "../../../packages/renderer/src/theme/themes.js";
 import { typeIntoStickyLabel } from "../support/shell-kit.js";
 import { boardShortcutsDialog } from "../support/shortcuts-dialog.js";
 import { openShippedWebview, postedMessages } from "./support/webview.js";
@@ -36,7 +36,7 @@ test.describe("VS Code webview: shell conformance", () => {
   registerShellConformance<Page>(
     {
       host: "ide",
-      themes: WEBVIEW_THEMES,
+      themes: EVENT_STORMING_THEMES,
       csp: { open: openShippedWebview },
       async open(page, { size, requested, document: documentKey }) {
         await page.setViewportSize(size);

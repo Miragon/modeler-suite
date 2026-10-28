@@ -1,14 +1,17 @@
 import {
   MODELER_API_VERSION,
+  type AppearanceSurface,
+  type AppearanceTheme,
   type CollaborativeModeler,
   type CollaborativeModelerOptions,
   type ElementBounds,
   type ElementInfo,
   type ElementsSurface,
   type ImportResult,
+  type InteractionSurface,
   type ModelerMeta,
 } from "@miragon/modeler-api";
-import type { ModuleDeclaration } from "didi";
+import type { Injector, ModuleDeclaration } from "didi";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
@@ -18,6 +21,8 @@ import { NavigatedViewer } from "../NavigatedViewer.js";
 import { importWarningText } from "../io/index.js";
 import type { EventStormingViewerOptions } from "../EventStormingBaseViewer.js";
 import { isSticky, type EventStormingShape } from "../model/di-types.js";
+import type { EventStormingGestures } from "../gesture/index.js";
+import { EVENT_STORMING_THEMES } from "../theme/index.js";
 
 /** Stable notation id in `meta.notation` of the collaborative-modeler contract. */
 export const EVENT_STORMING_NOTATION = "event-storming";
@@ -44,6 +49,19 @@ export interface CollaborativeEventStormingModeler extends CollaborativeModeler 
    */
   contentBounds(): ElementBounds | undefined;
   readonly elements: EventStormingElementsSurface;
+  /**
+   * Whether the user holds a gesture on the board (contract 1.5): a move, resize, connect or lasso
+   * drag, a create or an append from its first preview on (also while it is still over the
+   * palette), a paste, and a drawing's point drag. An armed palette tool and a pan are none. On the
+   * viewer always false.
+   */
+  readonly interaction: InteractionSurface;
+  /**
+   * The modes the board draws (`EVENT_STORMING_THEMES`) and the host's request for one (contract
+   * 1.5): written as `data-cd-theme` and `data-cd-kontrast="hoch"` on the renderer's container,
+   * view state only.
+   */
+  readonly appearance: AppearanceSurface;
   readonly diagram: Modeler | NavigatedViewer;
 }
 
@@ -101,7 +119,11 @@ function collaborative(
   const canvas = diagram.get<Canvas>("canvas");
   const elementRegistry = diagram.get<ElementRegistry>("elementRegistry");
   const selection = diagram.get<Selection>("selection");
+  const gestures = diagram
+    .get<Injector>("injector")
+    .get<EventStormingGestures | null>("eventStormingGestures", false);
   const contentListeners = new Set<() => void>();
+  const interactionListeners = new Set<(active: boolean) => void>();
   let importsRunning = 0;
   let destroyed = false;
   let lastExport = "";
@@ -148,9 +170,38 @@ function collaborative(
     },
   };
 
+  gestures?.onChange((active) => {
+    if (destroyed) return;
+    for (const listener of [...interactionListeners]) listener(active);
+  });
+
+  const interaction: InteractionSurface = {
+    active: () => !destroyed && (gestures?.isActive() ?? false),
+    onChange(callback) {
+      interactionListeners.add(callback);
+      return () => {
+        interactionListeners.delete(callback);
+      };
+    },
+  };
+
+  const appearance: AppearanceSurface = {
+    themes: EVENT_STORMING_THEMES,
+    set(request) {
+      if (destroyed) return;
+      const { theme, highContrast } = requestedAppearance(request);
+      const container = diagram.container;
+      container.setAttribute("data-cd-theme", theme);
+      if (highContrast) container.setAttribute("data-cd-kontrast", "hoch");
+      else container.removeAttribute("data-cd-kontrast");
+    },
+  };
+
   return {
     meta,
     elements,
+    interaction,
+    appearance,
     diagram,
     attachTo(host) {
       diagram.attachTo(host);
@@ -201,8 +252,24 @@ function collaborative(
       }
       destroyed = true;
       contentListeners.clear();
+      interactionListeners.clear();
       diagram.destroy();
     },
+  };
+}
+
+/**
+ * The theme the board draws for a request: the requested one when the board can draw it, else the
+ * first it can. An untyped host may send anything, so nothing here throws.
+ */
+function requestedAppearance(request: unknown): { theme: AppearanceTheme; highContrast: boolean } {
+  const fields = typeof request === "object" && request !== null ? request : {};
+  const theme = "theme" in fields ? fields.theme : undefined;
+  const contrast = "contrast" in fields ? fields.contrast : undefined;
+  const listed = EVENT_STORMING_THEMES.find((drawable) => drawable === theme);
+  return {
+    theme: listed ?? EVENT_STORMING_THEMES[0] ?? "light",
+    highContrast: contrast === "high",
   };
 }
 
