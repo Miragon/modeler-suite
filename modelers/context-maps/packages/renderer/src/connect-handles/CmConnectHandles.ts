@@ -76,7 +76,7 @@ export default class CmConnectHandles {
     private readonly dragging: Dragging,
     private readonly readOnly: Pick<CmReadOnly, "isReadOnly">,
     private readonly canvas: Canvas,
-    private readonly gestureCancel: Pick<CmGestureCancel, "isCancellingForImport">,
+    private readonly gestureCancel: Pick<CmGestureCancel, "isCancellingForClear">,
   ) {
     // Not used to start the drag, but injecting Connect instantiates it so its
     // connect.* event handlers (hover/end → modeling.connect) are registered —
@@ -133,9 +133,9 @@ export default class CmConnectHandles {
         // Keep the source context marked after the drag: the drag lifecycle
         // clears the selection, but the user is still "at" this context. Low
         // priority so this runs after the stock cleanup listeners. Not when an
-        // import cancelled the connect: it is about to remove the context.
+        // import or a clear cancelled the connect: it is about to remove the context.
         this.eventBus.once("connect.cleanup", 250, () => {
-          if (this.gestureCancel.isCancellingForImport()) return;
+          if (this.gestureCancel.isCancellingForClear()) return;
           if (this.selection.get().length === 0) this.selection.select(element);
         });
       });

@@ -137,14 +137,15 @@ export abstract class CmBaseViewer {
    * undo history goes without a `commandStack.changed`, so a host that saves on every change does
    * not write the import back. Throws before anything changes when the document cannot be drawn.
    * A gesture that runs ends first, as on Escape, and an armed palette tool stays armed
-   * (`CmGestureCancel`).
+   * (`CmGestureCancel`). A drop that runs is left to finish; the contract's `importText` waits for
+   * its end, this synchronous import does not.
    */
   importDocument(doc: CmDocument): { warnings: ImportWarning[] } {
     const diagram = this._ensureDiagram();
     const eventBus = diagram.get<EventBus>("eventBus");
     const importer = diagram.get<CmImporter>("cmImporter");
     importer.assertImportable(doc);
-    this._optional<CmGestureCancel>("cmGestureCancel")?.cancelForImport();
+    this._optional<CmGestureCancel>("cmGestureCancel")?.cancelForClear();
     const labelEditing = this._optional<CmLabelEditing>("cmLabelEditing");
     // An edit in progress belongs to an element the import is about to replace: a commit after it
     // (Enter, blur) would land on a removed shape.
@@ -269,8 +270,14 @@ export abstract class CmBaseViewer {
     this._container.remove();
   }
 
+  /**
+   * Empty the canvas. A gesture that runs ends first, as on Escape: diagram-js keeps a drag across
+   * `diagram.clear()`, and its release would apply a command to removed elements.
+   */
   clear(): void {
-    this._ensureDiagram().clear();
+    const diagram = this._ensureDiagram();
+    this._optional<CmGestureCancel>("cmGestureCancel")?.cancelForClear();
+    diagram.clear();
   }
 
   destroy(): void {

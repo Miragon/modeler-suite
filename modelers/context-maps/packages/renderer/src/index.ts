@@ -93,3 +93,5 @@ export {
 
 // Miragon brand palette — single source for every non-notation colour (see theme/palette.ts).
 export { MIRAGON, CD_TOKENS } from "./theme/index.js";
+// The modes the map can be drawn in: the contract's appearance.themes, read by both apps.
+export { CONTEXT_MAPS_THEMES } from "./theme/index.js";

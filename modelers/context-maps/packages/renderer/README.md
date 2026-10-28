@@ -106,7 +106,7 @@ new Modeler({
 | `contentBounds()`                  | `ElementBounds` or `undefined`  | The content's box for a host's fit (see below).   |
 | `setMeta(partial)` / `getMeta()`   | `void` / `RootBusinessObject`   | Rename the map (an undoable command) / read it.   |
 | `attachTo(el)` / `detach()`        | `void`                          | Move the canvas in/out of the DOM (keeps state).  |
-| `clear()` / `destroy()`            | `void`                          | Empty the canvas / tear it down.                  |
+| `clear()` / `destroy()`            | `void`                          | Empty the canvas (a gesture ends) / tear it down. |
 | `on(event, cb)` / `off(event, cb)` | `void`                          | Subscribe to diagram-js events.                   |
 | `get<T>(name)`                     | `T`                             | Resolve a diagram-js service (advanced).          |
 
@@ -121,8 +121,10 @@ palette or the context pad, also while its preview is still off the canvas) is c
 Escape cancels it, and so is a press that has not reached the drag threshold yet: the release
 changes nothing and selects nothing. A palette tool that only waits for its next press is no
 gesture: the lasso tool armed in the palette stays armed, and the drag its next press starts is a
-gesture. A drop whose change the host imports over at once, from its change listener, has
-applied and is not cancelled.
+gesture. Neither is a pan of the canvas: it runs on across the import. `clear()` ends a gesture the
+same way. A drop whose change the host imports over at once, from its change listener, has
+applied and is not cancelled: this synchronous `importDocument` replaces the map at once, while the
+collaborative modeler's `importText` waits for the drop to end (see below).
 
 `contentBounds()` is the tight box around what the canvas draws of the map in diagram coordinates,
 without a margin: the contexts, wider where a team row or a subdomain type's name runs past a
@@ -153,7 +155,7 @@ modeler.onContentChanged(() => save(modeler.exportText()));
 ```
 
 `createCollaborativeModeler` and `createCollaborativeViewer` implement the `CollaborativeModeler`
-contract of `@miragon/modeler-api` 1.3 (`meta.notation` is `"context-maps"`): the canonical JSON text
+contract of `@miragon/modeler-api` 1.5 (`meta.notation` is `"context-maps"`): the canonical JSON text
 as the text lane, `onContentChanged` for every user-visible change (element commands, the title,
 undo, redo) and never for an import or a view change, the viewbox as view state, and the `elements`
 surface over the context and relationship ids (their labels as names). `elements.bounds(id)` reads
@@ -165,6 +167,29 @@ an empty map and after `destroy()`. Both factories take the contract's
 next to `additionalModules`. `modeler.diagram` is the wrapped
 `Modeler` or `NavigatedViewer`. The contract's conformance kit runs in this package's browser
 tests, every case and every hook, without a skip or an advisory.
+
+`importText` called while a drop runs (a host that echoes its own change back from
+`onContentChanged`) waits until the drop has ended, every listener of the release included, and
+then imports; its promise settles after that import, and imports called during the same drop run
+in the order they were called. So no listener of the drop works on a replaced map: diagram-js
+selects the moved context after a move, and the subdomain-type menu of an append opens on the
+context with the same id once the echo has replaced it. An import called while Escape cancels a
+gesture (from `interaction.onChange`) waits for the cancel the same way.
+
+The optional surfaces of contract 1.5 are on both mounts:
+
+- `interaction.active()` is true from a gesture's start (the first move past the drag threshold,
+  or at once for a create the palette or the context pad started) until its drop or cancel, and
+  `interaction.onChange(callback)` reports each change once. A palette tool that only waits for
+  its next press and a pan of the canvas are no gesture; the viewer never reports one.
+- `appearance.themes` is `CONTEXT_MAPS_THEMES`, `["light"]` until the Miragon modelers switch to
+  dark together, the same array on every instance and on the viewer. `appearance.set(request)`
+  draws the canvas light whatever theme is asked for, with high contrast for
+  `contrast: "high"`: it writes `data-cd-theme` and `data-cd-kontrast="hoch"` on the diagram's
+  container, so the token roles resolve there and not in the host's page. It works before
+  `attachTo` and before the first import, holds across imports, fires no change event, and leaves
+  the text, the SVG export, the view, the selection, the history and an open label edit as they
+  were.
 
 ## Around the canvas
 
@@ -214,6 +239,8 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
   unknown type draws the unclassified box (`contextIconSvg`) or the neutral dotted circle
   (`subdomainIconSvg`), an unknown pattern the upstream-downstream line, a size that is not a finite
   positive number the default size, and a role becomes escaped text.
+- **Themes:** `CONTEXT_MAPS_THEMES`, the modes the map can be drawn in (`["light"]`), for a host's
+  chrome and the contract's `appearance.themes`.
 - **Other:** `CmViewerOptions`, `ImportWarning`, `RootBusinessObject`, `ROOT_ID`, `saveSVG`.
 
 ## How it's built

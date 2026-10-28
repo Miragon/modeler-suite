@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test } from "vitest";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
+import type ContextPad from "diagram-js/lib/features/context-pad/ContextPad";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
@@ -36,6 +38,17 @@ const BEFORE = contextMapWithA({ x: 100, y: 100 });
 /** What a peer sent while the user's gesture runs: context A moved, the rest as before. */
 const AFTER = contextMapWithA({ x: 100, y: 380 });
 
+/** BEFORE without context B and its relationship: a peer deleted it. */
+const BEFORE_WITHOUT_B = (() => {
+  const parsed = parseDocumentText(BEFORE);
+  if (!parsed.ok) throw new Error(parsed.error);
+  return serializeDocumentText({
+    ...parsed.document,
+    contexts: parsed.document.contexts.filter((context) => context.id !== "b"),
+    relationships: [],
+  });
+})();
+
 /** Free canvas between B and C, in diagram coordinates. */
 const FREE_SPOT = { x: 550, y: 295 };
 
@@ -50,6 +63,8 @@ interface Stage {
   modeler: CollaborativeContextMapsModeler;
   changes(): number;
   errors: unknown[];
+  /** Every value `interaction.onChange` delivered, with what `active()` said inside the listener. */
+  interactions: Array<{ delivered: boolean; activeInside: boolean }>;
 }
 
 const teardowns: Array<() => void> = [];
@@ -65,6 +80,10 @@ async function stage(additionalModules: ModuleDeclaration[] = []): Promise<Stage
   await modeler.importText(BEFORE);
   let changes = 0;
   modeler.onContentChanged(() => (changes += 1));
+  const interactions: Stage["interactions"] = [];
+  modeler.interaction.onChange((delivered) =>
+    interactions.push({ delivered, activeInside: modeler.interaction.active() }),
+  );
   const errors: unknown[] = [];
   const collectError = (event: ErrorEvent) => errors.push(event.error ?? event.message);
   window.addEventListener("error", collectError);
@@ -73,7 +92,21 @@ async function stage(additionalModules: ModuleDeclaration[] = []): Promise<Stage
     modeler.destroy();
     host.parentElement?.remove();
   });
-  return { modeler, changes: () => changes, errors };
+  return { modeler, changes: () => changes, errors, interactions };
+}
+
+function delivered(stage: Stage): boolean[] {
+  for (const { delivered, activeInside } of stage.interactions) {
+    expect(activeInside).toBe(delivered);
+  }
+  return stage.interactions.map((interaction) => interaction.delivered);
+}
+
+/** Lets the tasks run that the canvas deferred (the pad's position, the type menu). */
+async function nextTasks(count = 3): Promise<void> {
+  for (let task = 0; task < count; task += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
 }
 
 function service<T>(stage: Stage, name: string): T {
@@ -359,6 +392,31 @@ describe.each(GESTURES)("$name", (gesture) => {
     gesture.expectApplied(running);
   });
 
+  test("is an interaction from its start until its drop", async () => {
+    const running = await stage(gesture.modules);
+    expect(running.modeler.interaction.active()).toBe(false);
+
+    const pointerAt = gesture.begin(running);
+    expect(running.modeler.interaction.active()).toBe(true);
+    expect(delivered(running)).toEqual([true]);
+
+    gesture.release(running, pointerAt);
+    expect(running.modeler.interaction.active()).toBe(false);
+    expect(delivered(running)).toEqual([true, false]);
+    expect(running.errors).toEqual([]);
+  });
+
+  test("is an interaction until Escape cancels it", async () => {
+    const running = await stage(gesture.modules);
+    gesture.begin(running);
+    expect(running.modeler.interaction.active()).toBe(true);
+
+    document.dispatchEvent(new KeyboardEvent("keyup", { key: "Escape", bubbles: true }));
+    expect(running.modeler.interaction.active()).toBe(false);
+    expect(delivered(running)).toEqual([true, false]);
+    expect(running.changes()).toBe(0);
+  });
+
   test("is cancelled by an import that arrives while it runs, as Escape cancels it", async () => {
     const running = await stage(gesture.modules);
     const pointerAt = gesture.begin(running);
@@ -369,7 +427,10 @@ describe.each(GESTURES)("$name", (gesture) => {
 
     const selections: string[][] = [];
     const stopRecording = running.modeler.elements.onSelection((ids) => selections.push(ids));
-    await running.modeler.importText(AFTER);
+    const imported = running.modeler.importText(AFTER);
+    expect(running.modeler.interaction.active()).toBe(false);
+    expect(delivered(running)).toEqual([true, false]);
+    await imported;
     stopRecording();
     expect(selections.flat()).toEqual([]);
     expect(dragging(running).context()).toBeFalsy();
@@ -389,22 +450,27 @@ describe.each(GESTURES)("$name", (gesture) => {
   // The lasso changes no content, so no host imports from its drop.
   if (gesture === LASSO) return;
 
-  test("applies its drop when the host imports from its change listener", async () => {
+  test("applies its drop, then the import the host makes from its change listener", async () => {
     const running = await stage(gesture.modules);
-    let imports = 0;
+    const imports: Array<Promise<unknown>> = [];
     running.modeler.onContentChanged(() => {
-      if (imports > 0) return;
-      imports += 1;
-      void running.modeler.importText(AFTER);
+      if (imports.length === 0) imports.push(running.modeler.importText(AFTER));
     });
 
     gesture.release(running, gesture.begin(running));
+    expect(imports).toHaveLength(1);
+    // The drop's own listeners finish on the map the drop changed; the import waits for them.
+    gesture.expectApplied(running);
+    await imports[0];
 
     expect(running.errors).toEqual([]);
-    expect(imports).toBe(1);
     expect(running.changes()).toBe(1);
     expect(running.modeler.exportText()).toBe(AFTER);
     expect(dragging(running).context()).toBeFalsy();
+    expect(delivered(running)).toEqual([true, false]);
+    await nextTasks();
+    expect(document.querySelector(".djs-popup")).toBeNull();
+    expect(running.errors).toEqual([]);
     service<Modeling>(running, "modeling").moveElements([shape(running, "c")], { x: 30, y: 0 });
     expect(running.changes()).toBe(2);
   });
@@ -419,6 +485,8 @@ describe("a press on context B that has not reached the drag threshold", () => {
     expect(dragging(running).context()?.prefix).toBe("shape.move");
     expect(dragging(running).context()?.active).toBeFalsy();
 
+    expect(running.modeler.interaction.active()).toBe(false);
+
     await running.modeler.importText(AFTER);
     expect(dragging(running).context()).toBeFalsy();
     hoverCanvasAt(running, shifted(start, 40, 20));
@@ -429,6 +497,7 @@ describe("a press on context B that has not reached the drag threshold", () => {
     expect(running.modeler.exportText()).toBe(AFTER);
     expect(dragging(running).context()).toBeFalsy();
     expect(container(running).querySelector(GESTURE_PREVIEW)).toBeNull();
+    expect(delivered(running)).toEqual([]);
     service<Modeling>(running, "modeling").moveElements([shape(running, "c")], { x: 30, y: 0 });
     expect(running.changes()).toBe(1);
   });
@@ -440,10 +509,13 @@ describe("an import the renderer rejects leaves the running gesture alone", () =
     const pointerAt = MOVE.begin(running);
 
     await expect(running.modeler.importText("{ no context map")).rejects.toThrow();
+    expect(running.modeler.interaction.active()).toBe(true);
+    expect(delivered(running)).toEqual([true]);
     MOVE.release(running, pointerAt);
 
     expect(running.errors).toEqual([]);
     MOVE.expectApplied(running);
+    expect(delivered(running)).toEqual([true, false]);
   });
 
   test("a document the canvas cannot draw: two contexts share an id", async () => {
@@ -484,14 +556,19 @@ describe("the lasso tool armed in the palette", () => {
     if (onCanvasFirst) hoverCanvasAt(running, clientPoint(running, FREE_SPOT));
     expect(dragging(running).context()?.prefix).toBe("lasso.selection");
 
+    expect(running.modeler.interaction.active()).toBe(false);
+
     await running.modeler.importText(AFTER);
 
     expect(dragging(running).context()?.prefix).toBe("lasso.selection");
     expect(lassoEntry(running).classList.contains("highlighted-entry")).toBe(true);
+    expect(running.modeler.interaction.active()).toBe(false);
+    expect(delivered(running)).toEqual([]);
 
     const start = clientPoint(running, LASSO_FROM);
     hoverCanvasAt(running, start);
     pointer(svg(running), "mousedown", start);
+    expect(running.modeler.interaction.active()).toBe(true);
     const end = clientPoint(running, LASSO_TO);
     pointer(document, "mousemove", end);
     pointer(document, "mouseup", end);
@@ -500,6 +577,7 @@ describe("the lasso tool armed in the palette", () => {
     expect(running.changes()).toBe(0);
     expect(selectedIds(running)).toEqual(["b", "c"]);
     expect(running.modeler.exportText()).toBe(AFTER);
+    expect(delivered(running)).toEqual([true, false]);
   });
 
   test("its press starts a lasso drag, which an import cancels", async () => {
@@ -524,5 +602,171 @@ describe("the lasso tool armed in the palette", () => {
     expect(selectedIds(running)).toEqual([]);
     expect(lassoEntry(running).classList.contains("highlighted-entry")).toBe(false);
     expect(running.modeler.exportText()).toBe(AFTER);
+  });
+});
+
+describe("a pan of the canvas, dragged on its empty ground", () => {
+  test("is no interaction, and an import leaves it running", async () => {
+    const running = await stage();
+    const canvas = service<Canvas>(running, "canvas");
+    canvas.focus();
+    const start = clientPoint(running, FREE_SPOT);
+    pointer(svg(running), "mousedown", start);
+    pointer(document, "mousemove", shifted(start, 40, 0));
+    const panned = canvas.viewbox();
+    expect(running.modeler.interaction.active()).toBe(false);
+
+    await running.modeler.importText(AFTER);
+    const fitted = canvas.viewbox();
+    expect(fitted.x).not.toBe(panned.x);
+    pointer(document, "mousemove", shifted(start, 70, 0));
+    expect(canvas.viewbox().x).toBeCloseTo(fitted.x - 30 / fitted.scale, 3);
+    pointer(document, "mouseup", shifted(start, 70, 0));
+
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(0);
+    expect(running.modeler.exportText()).toBe(AFTER);
+    expect(delivered(running)).toEqual([]);
+  });
+});
+
+describe("an import from the change listener of a drop waits until the drop has ended", () => {
+  function dragEndings(stage: Stage): string[] {
+    const endings: string[] = [];
+    const eventBus = service<EventBus>(stage, "eventBus");
+    eventBus.on("drag.ended", () => endings.push("ended"));
+    eventBus.on("drag.canceled", () => endings.push("canceled"));
+    return endings;
+  }
+
+  test("a map without the context the drop moved, with another one selected before the drag", async () => {
+    const running = await stage();
+    const endings = dragEndings(running);
+    let reimport: Promise<unknown> | undefined;
+    running.modeler.onContentChanged(() => {
+      reimport ??= running.modeler.importText(BEFORE_WITHOUT_B);
+    });
+    running.modeler.elements.reveal("a");
+
+    MOVE.release(running, MOVE.begin(running));
+    expect(reimport).toBeDefined();
+    await reimport;
+
+    expect(running.errors).toEqual([]);
+    expect(endings).toEqual(["ended"]);
+    expect(running.changes()).toBe(1);
+    expect(running.modeler.exportText()).toBe(BEFORE_WITHOUT_B);
+    expect(selectedIds(running)).toEqual([]);
+    service<Modeling>(running, "modeling").moveElements([shape(running, "c")], { x: 30, y: 0 });
+    expect(running.changes()).toBe(2);
+  });
+
+  test("its promise settles after the import, in the order the host called it", async () => {
+    const running = await stage();
+    const settled: string[] = [];
+    running.modeler.onContentChanged(() => {
+      if (settled.length > 0) return;
+      void running.modeler.importText(BEFORE_WITHOUT_B).then(() => settled.push("first"));
+      void running.modeler.importText(AFTER).then(() => settled.push("second"));
+      settled.push("called");
+    });
+
+    MOVE.release(running, MOVE.begin(running));
+    expect(settled).toEqual(["called"]);
+    MOVE.expectApplied(running);
+    await nextTasks(1);
+
+    expect(settled).toEqual(["called", "first", "second"]);
+    expect(running.modeler.exportText()).toBe(AFTER);
+    expect(running.errors).toEqual([]);
+  });
+
+  test("an echo of an append dropped from the context pad keeps its subdomain-type menu", async () => {
+    const running = await stage();
+    let echo: Promise<unknown> | undefined;
+    running.modeler.onContentChanged(() => {
+      echo ??= running.modeler.importText(running.modeler.exportText());
+    });
+    const entry = contextPadEntry(running, "b", "append-context");
+    const start = centreOfBox(entry);
+    dragStart(entry, start);
+    const onCanvas = clientPoint(running, FREE_SPOT);
+    hoverCanvasAt(running, onCanvas);
+    pointer(document, "mousemove", shifted(onCanvas, 10, 0));
+    pointer(document, "mouseup", shifted(onCanvas, 10, 0));
+    const appendedText = running.modeler.exportText();
+    await echo;
+    await nextTasks();
+
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(1);
+    expect(running.modeler.exportText()).toBe(appendedText);
+    const appended = exported(running).contexts.find(
+      (context) => !["a", "b", "c"].includes(context.id),
+    );
+    if (!appended) throw new Error("the append added no context");
+    expect(selectedIds(running)).toEqual([appended.id]);
+    expect(service<ContextPad>(running, "contextPad").isOpen(shape(running, appended.id))).toBe(
+      true,
+    );
+    const menu = document.querySelector(".djs-popup");
+    expect(menu?.querySelector(".djs-popup-title")?.textContent).toBe("Subdomain type");
+
+    menu!
+      .querySelector('[data-id="type-core"]')!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+    expect(running.changes()).toBe(2);
+    expect(exported(running).contexts.find((context) => context.id === appended.id)).toMatchObject({
+      subdomainType: "core",
+    });
+  });
+});
+
+describe("an import from the interaction listener when Escape ends a gesture", () => {
+  test("waits until the cancel has ended", async () => {
+    const running = await stage();
+    let reimport: Promise<unknown> | undefined;
+    running.modeler.interaction.onChange((active) => {
+      if (!active) reimport ??= running.modeler.importText(AFTER);
+    });
+    MOVE.begin(running);
+
+    document.dispatchEvent(new KeyboardEvent("keyup", { key: "Escape", bubbles: true }));
+    expect(reimport).toBeDefined();
+    await reimport;
+
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(0);
+    expect(running.modeler.exportText()).toBe(AFTER);
+    expect(dragging(running).context()).toBeFalsy();
+  });
+});
+
+describe("clear() during a running drag", () => {
+  test("cancels the drag first, so its release applies nothing", async () => {
+    const running = await stage();
+    const pointerAt = MOVE.begin(running);
+
+    running.modeler.diagram.clear();
+    expect(dragging(running).context()).toBeFalsy();
+    expect(delivered(running)).toEqual([true, false]);
+    MOVE.release(running, pointerAt);
+
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(0);
+    await running.modeler.importText(AFTER);
+    service<Modeling>(running, "modeling").moveElements([shape(running, "c")], { x: 30, y: 0 });
+    expect(running.changes()).toBe(1);
+  });
+
+  test("leaves the lasso tool armed in the palette", async () => {
+    const running = await stage();
+    const entry = paletteEntry(running, "lasso-tool");
+    pointer(entry, "click", centreOfBox(entry), { detail: 1 });
+
+    running.modeler.diagram.clear();
+
+    expect(dragging(running).context()?.prefix).toBe("lasso.selection");
+    expect(running.errors).toEqual([]);
   });
 });
