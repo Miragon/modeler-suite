@@ -864,7 +864,7 @@ async function primaryActionSteps(
     await settle(page);
     steps.push({ control, by: "pointer", focus: await focusAfter(), primaryAction: true });
   } else {
-    problems.push(`focus: no visible ${control} that takes the focus`);
+    problems.push(`focus: ${control} is not visible or cannot take the focus`);
   }
   for (const key of ["Enter", "Space"] as const) {
     if (!(await focusTarget(page, root, "primary"))) break;

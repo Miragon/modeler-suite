@@ -62,7 +62,8 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
   `undoRedoKeys`, and its single-letter tools act only on the focused canvas.
 - **Focus.** Since shell 0.2.2 a pointer click on the zoom panel, a palette entry or a File or
   Model action hands the focus to the canvas through diagram-js 15's `canvas.focus()`; Enter and
-  Space leave it on the control.
+  Space leave it on the control. Since the release after 0.7.0 (guide §5.7) the web host's primary
+  action (Share) does the same.
 - **An SVG export** takes the canvas container's own `<svg>` child (the palette's icons are
   `<svg>`s too) and strips `tabindex`, `role` and `aria-label` from its copy.
 

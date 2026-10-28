@@ -49,9 +49,9 @@ run:
   `await`; Playwright's WebKit allows a write at any time, so the spec records the call), and
   confirms with the success toast; it does not read the clipboard back.
   `webapp-focus-hand-back.spec.ts` checks that Cmd/Ctrl+Z and C act on the canvas at once after a
-  click on zoom in or zoom out. After the menu's dialog closes it checks that the focus is on the
-  menu trigger, after a click on Share that it is off the canvas, and in both cases that the keys
-  act once a click on the canvas has given it the focus back. Both run in `webapp` too. Safari
+  click on zoom in, zoom out or Share, and that Enter on Share leaves the focus on the button. After
+  the menu's dialog closes it checks that the focus is on the menu trigger and that the keys act
+  once a click on the canvas has given it the focus back. Both run in `webapp` too. Safari
   gives a clicked button no focus, while Chromium and Playwright's WebKit on Linux (as in CI) focus
   it, so the focus spec takes the focus off a clicked button as Safari does
   (`tests/support/safari.ts`).

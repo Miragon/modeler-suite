@@ -382,7 +382,8 @@ ever half-dark (the painted canvas surround and the palette's colours included, 
 the harness lists), that Enter on a creating palette entry adds one selected element, that an empty
 document opens at 100 % (or fitted to a plot that always counts) with the empty-file hint in the
 middle of the free rectangle, which the first element takes away and deleting the last brings back
-(in the web app also after File > New diagram on a document), that the shell's zoom, fit and refit never commit an open label editor
+(in the web app also after File > New diagram on a document), that the shell's zoom, fit and
+refit never commit an open label editor
 (contract L5) and leave it open with the typed text (L5 recommends it, the kit requires it), that an
 invalid file locks the canvas, that nothing moves under reduced motion (also VS Code's) and an
 explicit fit jumps, that under forced colours the islands, the dropdown and the modeler's dialogs
