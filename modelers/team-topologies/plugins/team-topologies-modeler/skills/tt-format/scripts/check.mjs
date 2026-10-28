@@ -128,28 +128,49 @@ const pathLabel = (path) =>
     "",
   );
 
-// Every object or array at the first level too deep. Walked without recursion, because the files
-// it finds are the ones that overflow a recursive walk.
+// The modeler reports no more than this: each error names a path of MAX_NESTING_DEPTH keys, and
+// one wide array beyond the limit would otherwise give millions of them.
+const MAX_NESTING_ERRORS = 100;
+
+const isContainer = (value) => value !== null && typeof value === "object";
+
+// Every object or array at the first level too deep, in document order, up to MAX_NESTING_ERRORS.
+// Walked without recursion, because the files it finds are the ones that overflow a recursive
+// walk, and with a stack of only the containers the walk is inside of, so a wide array costs no
+// more memory than a narrow one.
 function nestingErrors(document) {
   const errors = [];
-  const pending = [{ value: document, path: [] }];
-  while (pending.length > 0) {
-    const { value, path } = pending.pop();
-    if (path.length >= MAX_NESTING_DEPTH) {
+  // A caller may put one container in several places, or inside itself: walking it again at a
+  // level no deeper than before finds nothing new, and would grow exponentially.
+  const deepestWalk = new WeakMap();
+  const open = [];
+  const enter = (container, keyInParent) => {
+    deepestWalk.set(container, open.length);
+    const keys = Array.isArray(container) ? undefined : Object.keys(container);
+    const size = keys === undefined ? container.length : keys.length;
+    open.push({ container, keys, size, next: 0, keyInParent });
+  };
+  enter(document);
+  while (open.length > 0 && errors.length < MAX_NESTING_ERRORS) {
+    const current = open[open.length - 1];
+    if (current.next === current.size) {
+      open.pop();
+      continue;
+    }
+    const index = current.next++;
+    const key = current.keys === undefined ? index : current.keys[index];
+    const entry = current.container[key];
+    if (!isContainer(entry)) continue;
+    if (open.length >= MAX_NESTING_DEPTH) {
+      const path = [...open.slice(1).map(({ keyInParent }) => keyInParent), key];
       errors.push({
         path: pathLabel(path),
         message: `nested more than ${MAX_NESTING_DEPTH} levels deep; the modeler refuses the file`,
       });
       continue;
     }
-    const entries = Array.isArray(value)
-      ? Array.from(value, (entry, index) => [index, entry])
-      : Object.entries(value);
-    for (const [key, entry] of entries.reverse()) {
-      if (entry !== null && typeof entry === "object") {
-        pending.push({ value: entry, path: [...path, key] });
-      }
-    }
+    if ((deepestWalk.get(entry) ?? -1) >= open.length) continue;
+    enter(entry, key);
   }
   return errors;
 }

@@ -241,6 +241,33 @@ describe("plugin checker ↔ schema-model", () => {
       `x-vendor${"[0]".repeat(MAX_NESTING_DEPTH - 1)}`,
     ]);
   });
+
+  it("names the containers too deep that parseDocument names, at most 100, also in a cycle", () => {
+    const pathLabel = (path: (string | number)[]): string =>
+      path.reduce<string>(
+        (label, key) =>
+          typeof key === "number" ? `${label}[${key}]` : label ? `${label}.${key}` : key,
+        "",
+      );
+    let tooDeepAtTheLast: unknown = Array.from({ length: 1_000 }, (): unknown[] => []);
+    for (let level = 0; level < MAX_NESTING_DEPTH - 2; level += 1) {
+      tooDeepAtTheLast = [tooDeepAtTheLast];
+    }
+    const cycle: Record<string, unknown> = {};
+    cycle.left = cycle;
+    cycle.right = cycle;
+
+    const sameErrorPaths = (vendorData: unknown): string[] => {
+      const document = { ...sampleCopy(), "x-vendor": vendorData };
+      const refused = parseDocument(document);
+      if (refused.ok) throw new Error("expected the document to be refused");
+      const checkerPaths = checker.checkDocument(document).errors.map(({ path }) => path);
+      expect(checkerPaths).toEqual(refused.issues.map(({ path }) => pathLabel(path)));
+      return checkerPaths;
+    };
+    expect(sameErrorPaths(tooDeepAtTheLast)).toHaveLength(100);
+    expect(sameErrorPaths(cycle)).toHaveLength(2);
+  });
 });
 
 interface Bounds {

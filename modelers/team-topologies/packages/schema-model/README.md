@@ -173,9 +173,11 @@ console.log(SAMPLE_DOCUMENT.title);
   the known fields, sorted by name (nested keys too), so another tool's data survives a save. Only
   they can nest deeper than the four levels of the known fields, and objects and arrays nest at
   most 100 levels deep (`MAX_NESTING_DEPTH`), the document itself counting as the first:
-  `parseDocument()` refuses a deeper document with an issue at each first level too deep, checked
-  without recursion, because the serializer and JSON tools overflow the stack a few thousand
-  levels down.
+  `parseDocument()` refuses a deeper document with an issue at each first level too deep, the
+  first 100 of them in document order. The check runs without recursion, because the serializer
+  and JSON tools overflow the stack a few thousand levels down, keeps only the containers it is
+  inside of, so a wide array costs no more memory than a narrow one, and walks a container that a
+  caller puts in several places or inside itself no more than once per level.
 - **Ids:** `parseDocument()` rejects a document whose ids would collide on the canvas: an id used
   twice, the diagram's own id `tt-root` (`DIAGRAM_ROOT_ID`), ids starting with `__implicitroot`,
   `assoc_<annotation id>` (`associationId()`), the id of that annotation's connector, and the names

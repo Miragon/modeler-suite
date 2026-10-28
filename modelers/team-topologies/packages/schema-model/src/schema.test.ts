@@ -351,4 +351,52 @@ describe("parseDocument: nesting depth", () => {
     if (result.ok) return;
     expect(result.issues).toHaveLength(1);
   });
+
+  const arraysAround = (levels: number, innermost: unknown[]): unknown[] => {
+    let value = innermost;
+    for (let level = 0; level < levels; level += 1) value = [value];
+    return value;
+  };
+
+  it("reports at most 100 containers too deep, the first ones in document order", () => {
+    // The vendor field's value is the second level and the 98 arrays around the wide one end at
+    // the 99th, so the wide array is the 100th level and each empty array in it one level too many.
+    const wide = Array.from({ length: 100_000 }, (): unknown[] => []);
+    const result = parseDocument(withVendorData(arraysAround(98, wide)));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual(
+      Array.from({ length: 100 }, (_, index) => tooDeep(["x-vendor", ...zeros(98), index])),
+    );
+    expect(result.error.split("; ")).toHaveLength(100);
+  });
+
+  it("accepts a wide array of containers at the last level, and finds the one container below it", () => {
+    const wide = Array.from({ length: 200_000 }, (): unknown[] => []);
+    expect(parseDocument(withVendorData(arraysAround(97, wide))).ok).toBe(true);
+
+    wide[199_999] = [[]];
+    const result = parseDocument(withVendorData(arraysAround(97, wide)));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues).toEqual([tooDeep(["x-vendor", ...zeros(97), 199_999, 0])]);
+  });
+
+  it("walks a container a caller shares or nests in itself without growing exponentially", () => {
+    let shared: unknown = 0;
+    for (let level = 0; level < 60; level += 1) shared = [shared, shared];
+    expect(parseDocument(withVendorData(shared)).ok).toBe(true);
+
+    const cycle: Record<string, unknown> = {};
+    cycle.left = cycle;
+    cycle.right = cycle;
+    const result = parseDocument(withVendorData(cycle));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    const lefts = (count: number): string[] => Array<string>(count).fill("left");
+    expect(result.issues).toEqual([
+      tooDeep(["x-vendor", ...lefts(MAX_NESTING_DEPTH - 1)]),
+      tooDeep(["x-vendor", ...lefts(MAX_NESTING_DEPTH - 2), "right"]),
+    ]);
+  });
 });

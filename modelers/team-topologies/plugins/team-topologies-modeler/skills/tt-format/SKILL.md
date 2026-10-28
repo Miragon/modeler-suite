@@ -223,7 +223,8 @@ It reports:
 - **errors:** anything that stops the modeler opening the file: invalid JSON, wrong field types,
   unknown `type`/`mode`, non-hex colours, non-positive sizes, duplicate or reserved ids, a
   non-array collection, an interaction without `position`/`size`, objects and arrays nested more
-  than 100 levels deep (the document counts as the first; only unknown fields can get there);
+  than 100 levels deep (the document counts as the first; only unknown fields can get there; it
+  names the first 100 such places, as the modeler does);
 - **warnings:** what opens but reads wrong: stream-aligned teams one after the other along the
   flow (side by side or staggered, sharing less than half their width and at most 60 px apart
   vertically; a hand-off; once per neighbouring pair, on the right-hand team; not inside a platform
