@@ -73,12 +73,6 @@ export function percentOf(readout: string | null | undefined): number | undefine
   return digits ? Number(digits[0]) : undefined;
 }
 
-/** The readout a key must show, for the keys that go to a fixed zoom. */
-function targetOf(effect: ZoomEffect, fit: number): number | undefined {
-  if (effect === "actual") return 100;
-  return effect === "fit" ? fit : undefined;
-}
-
 /** Whether the readout `now` shows `effect` after `previous`; the fit may differ by its rounding. */
 export function zoomEffectShown(
   effect: ZoomEffect,
@@ -263,14 +257,19 @@ export async function checkKeys(
   };
 
   for (const zoomPress of zoomKeyPresses(modifier)) {
-    // A key whose target the readout already shows proves nothing: zoom in first.
-    const target = targetOf(zoomPress.effect, fit);
+    // A key that goes to a fixed zoom proves nothing where the readout already shows it, within
+    // the same tolerance that accepts it afterwards: zoom in first.
+    const goesToFixedZoom = zoomPress.effect === "actual" || zoomPress.effect === "fit";
+    const alreadyThere =
+      goesToFixedZoom && zoomEffectShown(zoomPress.effect, undefined, current, fit);
     const nudge: ZoomKeyPress = { chord: `${modifier}+Equal`, effect: "in" };
-    if (target !== undefined && current === target && !(await zoomKey(nudge))) return finish();
+    if (alreadyThere && !(await zoomKey(nudge))) return finish();
     if (!(await zoomKey(zoomPress))) return finish();
   }
 
   const selectAll = `${modifier}+KeyA`;
+  // An element an earlier step left selected must not make a select all that does nothing pass.
+  const selectedBefore = await session.selectedElements();
   const selectAllRecord = await press(selectAll);
   if (!selectAllRecord) return finish();
   if (selectAllRecord.handled === true && selectAllRecord.reachedWindow) {
@@ -280,12 +279,15 @@ export async function checkKeys(
   }
   const selected = await pollUntil(
     () => session.selectedElements(),
-    (count) => count > 0,
+    (count) => count > selectedBefore,
     options.effectTimeoutMs,
     options.intervalMs,
   );
   result.selected = selected.value;
-  if (!selected.met) failures.push(`${selectAll} selected no element of the canvas`);
+  if (!selected.met) {
+    const beyond = selectedBefore > 0 ? ` beyond the ${selectedBefore} selected before it` : "";
+    failures.push(`${selectAll} selected no element of the canvas${beyond}`);
+  }
   await delay(options.graceMs);
   const text = await session.textSelection();
   if (text.trim()) failures.push(`${selectAll} selected the webview's text "${excerpt(text)}"`);

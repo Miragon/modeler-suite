@@ -233,9 +233,10 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
   every key: VS Code's own zoom reset is Ctrl+numpad 0, so one reading at the end could miss a
   zoom a later key took back. A first Shift+1 sets the fit the last one must restore: an
   inspector or a legend opened since the fixture's first fit changes the fit insets. Where the
-  readout already shows a key's target (a fixture that fits at 100 %), the driver zooms in first,
-  or that key would prove nothing. The clipboard is only
-  read, never written, so a local run on macOS leaves the user's clipboard alone. CI opts every
+  readout already shows a key's target (a fixture that fits at 100 %, or within a point of it), the
+  driver zooms in first, or that key would prove nothing. Select all has to select more elements
+  than were selected before it, since an earlier step may have left one selected. The clipboard is
+  only read, never written, so a local run on macOS leaves the user's clipboard alone. CI opts every
   modeler in with `VSCODE_SMOKE_OPT_IN=keys`; a change to the five smoke tests would make
   release-please release every extension and Team Topologies for a test change.
 - **Docker.** `modeler-shell-vscode-docker` runs the same test in a Linux container under

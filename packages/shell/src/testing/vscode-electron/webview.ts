@@ -182,7 +182,6 @@ export const installKeyRecorderProbe = (): void => {
   });
 };
 
-/** The keys recorded since the last call, oldest first; empty without a recorder. */
 export const takeKeyRecordsProbe = (): KeyRecord[] => {
   const store = globalThis as unknown as { modelerShellSmokeKeys?: KeyRecord[] };
   return store.modelerShellSmokeKeys?.splice(0) ?? [];

@@ -48,7 +48,6 @@ export interface VsCodeSmokeKeysResult {
   zoom: { key: string; percent?: number | undefined }[];
   /** VS Code's window zoom level per window (`webContents.getZoomLevel()`), before and after the keys. */
   windowZoomLevels: { before: number[]; after: number[] };
-  /** The canvas elements Cmd/Ctrl+A selected. */
   selected: number;
 }
 

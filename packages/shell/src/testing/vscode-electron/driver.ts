@@ -477,7 +477,6 @@ interface SessionRun {
   islands: readonly ChromeIsland[];
   themes: readonly Theme[];
   colorThemes: readonly VsCodeColorTheme[];
-  /** Whether the keys step runs. */
   keys: boolean;
   timeoutMs: number;
   name: string;

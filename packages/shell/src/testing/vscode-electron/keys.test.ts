@@ -32,6 +32,10 @@ interface FakeVsCodeOptions {
   ignored?: readonly string[] | undefined;
   /** The canvas takes no focus. */
   canvasRefusesFocus?: boolean | undefined;
+  /** Keys the shell stops but the canvas does nothing for, from their n-th press on (0: the first). */
+  inert?: Readonly<Record<string, number>> | undefined;
+  /** Elements an earlier step left selected. */
+  selectedAtStart?: number | undefined;
 }
 
 /**
@@ -46,7 +50,7 @@ function fakeVsCode(options: FakeVsCodeOptions = {}) {
   const fit = options.fit ?? 0.62;
   let zoom = options.start ?? fit;
   let records: KeyRecord[] = [];
-  let selected = 0;
+  let selected = options.selectedAtStart ?? 0;
   let textSelection = "";
   let windowZoomLevel = 0;
   let focus = WEBVIEW;
@@ -95,12 +99,16 @@ function fakeVsCode(options: FakeVsCodeOptions = {}) {
   const session: KeysSession = {
     keys,
     press: async (chord) => {
+      const earlierPresses = pressed.filter((earlier) => earlier === chord).length;
       pressed.push(chord);
       if (focus !== WEBVIEW) return;
       const parts = chord.split("+");
       const code = parts.pop()!;
+      const inertFrom = options.inert?.[chord];
+      const doesNothing = inertFrom !== undefined && earlierPresses >= inertFrom;
       const handled =
-        !(options.ignored ?? []).includes(chord) && webviewRuns(code, parts.includes("Shift"));
+        !(options.ignored ?? []).includes(chord) &&
+        (doesNothing || webviewRuns(code, parts.includes("Shift")));
       const reachedWindow = !handled || (options.leaks ?? []).includes(chord);
       records.push({ key: "", code, handled, reachedWindow });
       if (reachedWindow) vsCodeRuns(code);
@@ -234,6 +242,26 @@ describe("checkKeys", () => {
     ]);
   });
 
+  it("zooms in first where the fit shows as 100 % within its rounding, so a second Shift+1 has to act", async () => {
+    const { session, pressed } = fakeVsCode({ fit: 0.99, inert: { "Shift+Digit1": 1 } });
+
+    const { failures } = await checkKeys(session, OPTIONS);
+
+    expect(pressed.slice(-5, -2)).toEqual(["Control+Numpad0", "Control+Equal", "Shift+Digit1"]);
+    expect(failures).toEqual([
+      "Shift+Digit1 did not fit the canvas: the readout shows 135%, the first Shift+Digit1 fit it at 99%",
+    ]);
+  });
+
+  it("passes a fit of 99 % whose second Shift+1 acts", async () => {
+    const { session } = fakeVsCode({ fit: 0.99 });
+
+    const { result, failures } = await checkKeys(session, OPTIONS);
+
+    expect(failures).toEqual([]);
+    expect(result.zoom.at(-1)).toEqual({ key: "Shift+Digit1", percent: 99 });
+  });
+
   it("names a zoom key that reached the window and the window zoom VS Code applied for it", async () => {
     const { session } = fakeVsCode({ leaks: ["Control+Shift+Equal"] });
 
@@ -299,6 +327,26 @@ describe("checkKeys", () => {
       `Control+KeyC on the canvas changed the clipboard, it holds "${CHROME_TEXT}" (text/plain, text/html) now`,
     ]);
     expect(result.selected).toBe(0);
+  });
+
+  it("fails a select all that selects nothing more than an earlier step left selected", async () => {
+    const { session } = fakeVsCode({ selectedAtStart: 1, inert: { "Control+KeyA": 0 } });
+
+    const { result, failures } = await checkKeys(session, OPTIONS);
+
+    expect(failures).toEqual([
+      "Control+KeyA selected no element of the canvas beyond the 1 selected before it",
+    ]);
+    expect(result.selected).toBe(1);
+  });
+
+  it("passes a select all that selects more than an earlier step left selected", async () => {
+    const { session } = fakeVsCode({ selectedAtStart: 1 });
+
+    const { result, failures } = await checkKeys(session, OPTIONS);
+
+    expect(failures).toEqual([]);
+    expect(result.selected).toBe(3);
   });
 
   it("fails select all and copy that the canvas handled but let through to VS Code", async () => {

@@ -3071,31 +3071,32 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
    again"). A modeler's own retry of a missed theme switch is no longer needed.
 8. **keys** (0.7, opt-in): runs with `keys: true`, or without the option when the test process's
    environment has `VSCODE_SMOKE_OPT_IN=keys` (CI's smoke workflow sets it, so every modeler runs
-   the step without a change to its test; an unknown name there throws). It checks the keys of
-   guide §5.8 and §13.5 with the focus on the canvas. The driver adds a recorder to the webview (a
+   the step without a change to its test; an unknown name there throws). It checks the keys of guide
+   §5.8 and §13.5 with the focus on the canvas. The driver adds a recorder to the webview (a
    `keydown` listener on `window` in the capture phase, one on `document` after the shell's and the
    modeler's, one on `window` in the bubble phase), focuses the canvas `<svg>` and presses Shift+1,
    whose fit is the reference (an inspector or a legend opened since the first fit moves it), then
    Cmd/Ctrl+0, Cmd/Ctrl+=, Cmd/Ctrl+Shift+=, Cmd/Ctrl+numpad +, Cmd/Ctrl+0, Cmd/Ctrl+-,
    Cmd/Ctrl+Shift+-, Cmd/Ctrl+numpad −, Cmd/Ctrl+numpad 0 and Shift+1 again. Each of these has to
    change the zoom panel's readout as it says: zoom in, zoom out, 100 %, or back to the reference
-   fit (within a percentage point). Where the readout already shows a key's target, Cmd/Ctrl+= goes
-   first, so every key changes it. None of these keys may reach the webview's
-   `window`: VS Code forwards every `keydown` that gets there to the workbench, prevented or not,
-   and runs its own binding (the window zoom, Go Back, the side bar). After every key the driver
-   also reads VS Code's window zoom, which must stay as it was: Electron's
-   `webContents.getZoomLevel()` of every window through `electronApp.evaluate`, and the
-   workbench's `devicePixelRatio`. After Cmd/Ctrl+0, VS Code's focus must still be where it was
-   (VS Code binds the key to the side bar). Then Cmd/Ctrl+A has to select a canvas element
-   (`.djs-element.selected`) and no text of the webview, and Cmd/Ctrl+C has to leave the system
-   clipboard as it was (read through Electron's `clipboard` before and after, never written). A key
-   the canvas handled (`defaultPrevented` once the `document` listeners ran) must not reach
-   `window` either. A key that never reaches the webview ends the step and names where VS Code's
-   focus is. The step runs after the themes, so the zoom and the selection it leaves are in no
-   screenshot; `result.keys` holds the readouts, the window zoom levels and how many elements
-   Cmd/Ctrl+A selected. Its failures read like "keys: Control+Shift+Minus reached the webview's
-   window, where VS Code runs its own binding for it" or "keys: Control+Digit0 moved VS Code's
-   focus to the side bar". A modeler whose chrome has no zoom panel cannot take the step.
+   fit (within a percentage point). Where the readout already shows a key's target (100 %, or the
+   fit within a percentage point), Cmd/Ctrl+= goes first, so every key changes it. None of these
+   keys may reach the webview's `window`: VS Code forwards every `keydown` that gets there to the
+   workbench, prevented or not, and runs its own binding (the window zoom, Go Back, the side bar).
+   After every key the driver also reads VS Code's window zoom, which must stay as it was:
+   Electron's `webContents.getZoomLevel()` of every window through `electronApp.evaluate`, and the
+   workbench's `devicePixelRatio`. After Cmd/Ctrl+0, VS Code's focus must still be where it was (VS
+   Code binds the key to the side bar). Then Cmd/Ctrl+A has to select more canvas elements
+   (`.djs-element.selected`) than were selected before it, and no text of the webview, and
+   Cmd/Ctrl+C has to leave the system clipboard as it was (read through Electron's `clipboard`
+   before and after, never written). A key the canvas handled (`defaultPrevented` once the
+   `document` listeners ran) must not reach `window` either. A key that never reaches the webview
+   ends the step and names where VS Code's focus is. The step runs after the themes, so the zoom and
+   the selection it leaves are in no screenshot; `result.keys` holds the readouts, the window zoom
+   levels and how many elements Cmd/Ctrl+A selected. Its failures read like "keys:
+   Control+Shift+Minus reached the webview's window, where VS Code runs its own binding for it" or
+   "keys: Control+Digit0 moved VS Code's focus to the side bar". A modeler whose chrome has no zoom
+   panel cannot take the step.
 9. **close**: `app.close()`; a VS Code that has not quit after 10 s (a modal dialog) is killed. The
    temporary directory goes, unless `keepTemporaryFiles`, also when Ctrl+C ends the test process
    in the middle of a run.
