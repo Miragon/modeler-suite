@@ -41,7 +41,7 @@ skip_reason() {
         echo "it compares a pull request with its base, which a $EVENT_NAME run has not"
       fi
       ;;
-    shared-lint | shared-test | shared-e2e)
+    shared-lint | shared-test | shared-test-browser | shared-e2e)
       if [[ "$changes" == success && "$shared" == false ]]; then
         echo "no path the shared packages depend on changed"
       fi

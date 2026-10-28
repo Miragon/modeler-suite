@@ -1,7 +1,7 @@
 {
   "name": "@miragon/modeler-shell",
   "version": "0.6.0",
-  "description": "The shared, framework-free chrome around Miragon diagram-js modelers: menu, palette skin, tooltip, zoom panel, keys, fit, problems pill, status box, legend and inspector slots, the VS Code host plumbing and the web-app chrome (primary action, legal line, toasts, empty state, drop zone).",
+  "description": "The shared, framework-free chrome around Miragon diagram-js modelers: menu, palette skin, tooltip, zoom panel, keys, fit, problems pill, status box, legend and inspector slots, the VS Code host plumbing, the web-app chrome (primary action, legal line, toasts, empty state, drop zone) and the PNG export.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -65,6 +65,16 @@
         "default": "./dist/vscode-webview.cjs"
       }
     },
+    "./export": {
+      "import": {
+        "types": "./dist/export.d.ts",
+        "default": "./dist/export.js"
+      },
+      "require": {
+        "types": "./dist/export.d.cts",
+        "default": "./dist/export.cjs"
+      }
+    },
     "./testing": {
       "import": {
         "types": "./dist/testing.d.ts",
@@ -125,6 +135,9 @@
       "vscode/webview": [
         "./dist/vscode-webview.d.ts"
       ],
+      "export": [
+        "./dist/export.d.ts"
+      ],
       "testing": [
         "./dist/testing.d.ts"
       ],
@@ -159,7 +172,8 @@
     "build": "tsup",
     "publint": "publint",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.core.json && tsc -p demo/tsconfig.json",
-    "test": "vitest run",
+    "test": "vitest run --project=node --project=dom",
+    "test:browser": "vitest run --project=browser*",
     "test:e2e": "playwright test",
     "demo": "vite --config demo/vite.config.ts"
   },

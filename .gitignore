@@ -3,6 +3,9 @@ dist/
 *.tsbuildinfo
 test-results/
 playwright-report/
+# Vitest browser mode: failure screenshots and attachments
+.vitest/
+__screenshots__/
 *.vsix
 .claude/logs/
 

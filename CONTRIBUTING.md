@@ -23,7 +23,7 @@ Node `^22.22.2` or `>=24.15.0` and npm. From the repository root:
 ```sh
 npm ci                              # every workspace; also installs the pre-commit hook
 npm run build:shared                # @miragon/modeler-api and @miragon/modeler-shell
-npx playwright install chromium webkit  # once; WebKit only for the e2e of the shell, Wardley Maps, Event Storming, Context Maps, Team Topologies and Value Chain
+npx playwright install chromium webkit  # once; WebKit for the shell's browser tests and the e2e of the shell, Wardley Maps, Event Storming, Context Maps, Team Topologies and Value Chain
 ```
 
 The modelers link the workspace's `@miragon/modeler-api` and `@miragon/modeler-shell` and read
@@ -47,7 +47,7 @@ Everything runs from the repository root.
 | `npm run depcruise`                         | every modeler's module-graph rules                                                                    |
 | `npm run publint`                           | the published shape (exports, types, files) of the shared packages                                    |
 | `npm run test:plugin`                       | the checks in `test/`: modeler-kit drift, plugin manifests, release config, boundaries, auto-merge    |
-| `npm run test:browser` / `npm run test:e2e` | every modeler's browser tests / e2e suites (`test:e2e` also the shell's)                              |
+| `npm run test:browser` / `npm run test:e2e` | every modeler's browser tests / e2e suites, both after the shell's own                                |
 | `npm run package:vscode`                    | packs every VS Code extension (`modelers/<modeler>/apps/vscode/*.vsix`)                               |
 
 `npm run <modeler> <script>` runs one script of one modeler, with the aliases `wardley-maps`,
@@ -108,6 +108,8 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   [Setup](#setup)).
 - **Browser:** `npm run <modeler> test:browser` runs the renderer's integration tests and the
   contract's conformance kit in Chromium. A skipped kit case or an advisory fails the run.
+  `npm run test:browser:shared` runs the shell's browser tests (the PNG export of `./export`) in
+  Chromium and WebKit.
 - **e2e:** `npm run <modeler> test:e2e` runs Playwright from the modeler's `e2e/`, each project with
   its own dev server built from source: the web app (`webapp`; `chromium` and `webkit` in Context
   Maps) and the VS Code webview inside the shell's VS Code stub (`vscode-webview`), both held to the
@@ -240,7 +242,8 @@ the accessible name`. A pull request with a single commit must carry the title a
   touched `npm run <modeler> depcruise`, `test:browser`, `test:e2e` and `npm run build`; for a web
   app change `npm run <modeler> build:webapp` with `npm run check:build -w modelers/<modeler>/apps/webapp`;
   for a change to an extension, a DSL, a schema model or a dependency `npm run <modeler> test:vscode:docker`;
-  for a change to `packages/` the modelers' kits (`test:browser`, `test:e2e`) and `npm run publint`.
+  for a change to `packages/` the modelers' kits (`test:browser`, `test:e2e`), the shell's browser
+  tests (`npm run test:browser:shared`) and `npm run publint`.
 
 ## Releases
 
@@ -304,6 +307,7 @@ npm run test:shared               # the kit's own conformance suite (reference m
                                   # the shell's unit tests, then the plugin's drift test
 npm run build:shared              # tsup: dual ESM/CJS + d.ts
 npm run publint                   # the published package shape (exports, types, files)
+npm run test:browser:shared       # the shell's browser tests: the PNG export in Chromium and WebKit
 npm run test:e2e:shared           # the shell's conformance kit against its demo (Playwright)
 ```
 

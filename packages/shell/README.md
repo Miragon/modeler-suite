@@ -3,10 +3,11 @@
 The shared, framework-free chrome around Miragon diagram-js modelers: the menu button with its
 dropdown, the horizontal palette skin, the chrome tooltip, the zoom panel with its keys and fit, the
 problems pill, the status box, the empty-file hint, legend and inspector slots, the plumbing to a
-VS Code webview, and the web-app chrome (primary action, legal line, File and Appearance groups,
-problems list, toasts, empty-state card, drop zone, the web app's mode), and the modal dialog with
-the "Keyboard shortcuts…" dialog on it, which also opens without a mounted shell. One implementation for every modeler and every host (VS Code webview, web app,
-embedded in a foreign page), so the chrome looks and behaves the same everywhere.
+VS Code webview, the web-app chrome (primary action, legal line, File and Appearance groups,
+problems list, toasts, empty-state card, drop zone, the web app's mode), the modal dialog with the
+"Keyboard shortcuts…" dialog on it, which also opens without a mounted shell, and the PNG export. One
+implementation for every modeler and every host (VS Code webview, web app, embedded in a foreign
+page), so the chrome looks and behaves the same everywhere.
 
 - **Look and behaviour** follow the Miragon design system, guide
   [`modeler-design-system.md`][guide] §5, §6, §8, §9, §11, §12 and §13.3 to §13.5 (skill
@@ -79,6 +80,7 @@ expect(Object.keys(vendoredTokens.shell)).toEqual(
 | `@miragon/modeler-shell/diagram-js`              | `shellModule`, the viewport, `connectDiagramJs`              |
 | `@miragon/modeler-shell/vscode/extension`        | webview HTML with CSP and nonce, theme bridge                |
 | `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state        |
+| `@miragon/modeler-shell/export`                  | the PNG export: `svgToPng`, its labels in Geist              |
 | `@miragon/modeler-shell/testing`                 | the Playwright-driven shell conformance kit                  |
 | `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page            |
 | `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code     |
@@ -893,7 +895,8 @@ Run from the repository root (`-w packages/shell` for this package only):
 npm run build -w packages/shell         # tsup: ESM + CJS + d.ts, dist/shell.css
 npm run typecheck -w packages/shell     # src, core without the DOM library, demo
 npm test -w packages/shell              # Vitest: node (core, boundaries) and happy-dom projects
-npx playwright install chromium webkit  # once; webkit for e2e/pointer-focus.spec.ts
+npx playwright install chromium webkit  # once; webkit for test:browser and e2e/pointer-focus.spec.ts
+npm run test:browser -w packages/shell  # Vitest browser mode: ./export in Chromium and WebKit
 npm run test:e2e -w packages/shell      # Playwright against demo/
 npm run demo -w packages/shell          # the demo page on http://localhost:5181
 ```
