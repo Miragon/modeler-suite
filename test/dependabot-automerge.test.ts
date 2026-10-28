@@ -122,7 +122,7 @@ describe("the template's Dependabot auto-merge", () => {
   it("works as the suite's: same trigger, permissions, guard, app token and merge token", () => {
     const suite = readWorkflow(ROOT, AUTO_MERGE);
     const template = readWorkflow(TEMPLATE, AUTO_MERGE);
-    // Dependabot bumps only the suite's pins; each copy follows its own release-please.yml.
+    // Each copy pins the token action as its own release-please.yml does (checked above).
     const unpinned = (step: Step | undefined) => ({
       ...step,
       if: undefined,
