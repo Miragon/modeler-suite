@@ -87,6 +87,17 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
   under the CSP's `font-src`, zod's `config({ jitless: true })` imported before any schema, the
   Lucide legal comment kept. Exports go to the host, which shows the save dialog and a
   notification with `revealFileLabel`, not a toast.
+- Native contributions (guide §13.5): "New Empty Diagram" and "New Diagram from Example" are
+  commands that ask for a location in the save dialog and write a real file (a custom text editor
+  is most robust on a file URI). Both are in File › New File…, which shows a command's short title,
+  such as "Capability Map Diagram" and "New Capability Map Diagram from Example", in the order of
+  the group suffixes @1 and @2 (without them VS Code sorts a group by title). The walkthrough (id
+  getStarted) has the steps New, Example and Source to the side, each completed by its command,
+  then Learn. "Open Source to the Side" and "Open Diagram to the Side" sit in the navigation group
+  of the editor title with a Codicon, and in the Command Palette only while a diagram or its text
+  has the focus. There is no keybindings contribution. A unit test pins all of it (template:
+  [`contributions.test.ts`](../assets/template/apps/vscode/test/contributions.test.ts), media in
+  [`media/walkthrough/`](../assets/template/apps/vscode/media/walkthrough/)).
 
 ## The web host
 

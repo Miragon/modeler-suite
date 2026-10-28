@@ -5,6 +5,7 @@ import {
   renderWebviewHtml,
   revealFileLabel,
 } from '@miragon/modeler-shell/vscode/extension';
+import { DIAGRAM_VIEW_TYPE, registerSideBySideCommands } from './commands.js';
 import { DIAGNOSTIC_SOURCE, documentDiagnostics } from './diagnostics.js';
 import { DocumentWriter } from './DocumentWriter.js';
 import { withExampleInserted } from './examples.js';
@@ -17,7 +18,7 @@ import { WEBVIEW_THEMES } from './themes.js';
  * writes every canvas edit back as one minimal WorkspaceEdit.
  */
 export class EditorProvider implements vscode.CustomTextEditorProvider {
-  static readonly viewType = '__NOTATION__.editor';
+  static readonly viewType = DIAGRAM_VIEW_TYPE;
 
   static register(context: vscode.ExtensionContext): vscode.Disposable {
     const provider = new EditorProvider(context);
@@ -28,12 +29,20 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
         supportsMultipleEditorsPerDocument: false,
       }),
       provider.diagnostics,
+      ...registerSideBySideCommands(() => provider.activeDocumentUri()),
     );
   }
 
   private readonly diagnostics = vscode.languages.createDiagnosticCollection(DIAGNOSTIC_SOURCE);
+  private activePanel: vscode.WebviewPanel | undefined;
+  private readonly documentOfPanel = new WeakMap<vscode.WebviewPanel, vscode.Uri>();
 
   private constructor(private readonly context: vscode.ExtensionContext) {}
+
+  /** The document of the focused diagram, if a diagram editor has the focus. */
+  activeDocumentUri(): vscode.Uri | undefined {
+    return this.activePanel ? this.documentOfPanel.get(this.activePanel) : undefined;
+  }
 
   async resolveCustomTextEditor(
     document: vscode.TextDocument,
@@ -57,6 +66,9 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
     // Disposes itself with the panel; never into context.subscriptions (one per opened editor).
     connectThemeBridge(vscode, panel, { themes: WEBVIEW_THEMES });
 
+    this.documentOfPanel.set(panel, document.uri);
+    if (panel.active) this.activePanel = panel;
+
     const writer = new DocumentWriter(document);
     const post = (message: HostToWebview) => void webview.postMessage(message);
     const refreshDiagnostics = () => {
@@ -67,6 +79,10 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
     };
 
     const subscriptions = [
+      panel.onDidChangeViewState(() => {
+        if (panel.active) this.activePanel = panel;
+        else if (this.activePanel === panel) this.activePanel = undefined;
+      }),
       vscode.workspace.onDidChangeTextDocument((event) => {
         if (event.document.uri.toString() !== document.uri.toString()) return;
         if (event.contentChanges.length === 0) return;
@@ -100,6 +116,7 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
     panel.onDidDispose(() => {
       for (const subscription of subscriptions) subscription.dispose();
       this.diagnostics.delete(document.uri);
+      if (this.activePanel === panel) this.activePanel = undefined;
     });
   }
 }
