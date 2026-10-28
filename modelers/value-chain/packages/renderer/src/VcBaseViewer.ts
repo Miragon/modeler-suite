@@ -86,14 +86,15 @@ export abstract class VcBaseViewer {
    * `commandStack.changed`, since an import is no edit a host should save. The document is
    * validated before the canvas is touched, so a rejected one leaves no trace; an open label edit
    * is taken down without committing and reopened afterwards when its element is still there. A
-   * running gesture (move, resize, connect, lasso, making space, a pan with the hand tool, a create
-   * from the palette or the context pad, also one still inside the drag threshold, and a press of
-   * the armed connect tool whose pointer has not left its shape yet) ends first, as Escape ends it:
-   * its release applies nothing. A palette tool that only waits for its next press (lasso, hand,
-   * space, connect) stays armed; a press of the connect tool before the pointer has entered a
-   * shape the import drew under it starts no connect and puts the tool down. A drop already being
-   * applied (a host importing from its change listener) finishes, and the import replaces its
-   * result (`vcGestures`).
+   * running gesture (move, resize, connect, lasso, making space, a create from the palette or the
+   * context pad, also one still inside the drag threshold, and a press of the armed connect tool
+   * whose pointer has not left its shape yet) ends first, as Escape ends it: its release applies
+   * nothing. A pan, with the hand tool, with Space held or with Ctrl/Cmd and a press, is no gesture
+   * and keeps running, from the fitted view when the import fits, and so does the hand tool; a
+   * palette tool that only waits for its next press (lasso, hand, space, connect) stays armed. A
+   * press of the connect tool before the pointer has entered a shape the import drew under it
+   * starts no connect and puts the tool down. A drop already being applied (a host importing from
+   * its change listener) finishes, and the import replaces its result (`vcGestures`).
    */
   importDocument(document: ValueChainDocument): ImportWarning[] {
     const valid = validateDocument(document);
@@ -136,7 +137,10 @@ export abstract class VcBaseViewer {
     }
   }
 
-  /** Empties the diagram. A running gesture ends first, as in `importDocument`. */
+  /**
+   * Empties the diagram. A running gesture ends first, while a pan and an armed tool run on, as in
+   * `importDocument`.
+   */
   clear(): void {
     this.getOptional<GesturesLike>("vcGestures")?.cancel();
     this.get<VcImporter>("vcImporter").clear();
