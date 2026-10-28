@@ -113,7 +113,9 @@ missing at its other places; the verdict stays the same).
   mock) · `npm run value-chain test:browser`: Chromium (vitest browser mode; jsdom lacks
   `getBBox`, so renderer integration tests must be browser tests) · `npm run value-chain test:e2e`:
   Playwright in `e2e/`, project `webapp` (port `E2E_PORT`, default 5181) and `vscode-webview`
-  (the webview inside the shell's VS Code stub, port `E2E_WEBVIEW_PORT`, default 5191) ·
+  (the webview inside the shell's VS Code stub, port `E2E_WEBVIEW_PORT`, default 5191), and
+  `webapp-webkit` with the web app's Share and focus hand-back specs in WebKit
+  (`npx playwright install chromium webkit` once) ·
   `npm run value-chain test:vscode`: the packaged extension in a real VS Code. It packs the VSIX
   (`vscode:prepublish`), unpacks it and runs `runVsCodeSmoke`
   (`@miragon/modeler-shell/testing/vscode-electron`) on `example/porter.vc.json`: chrome, the
