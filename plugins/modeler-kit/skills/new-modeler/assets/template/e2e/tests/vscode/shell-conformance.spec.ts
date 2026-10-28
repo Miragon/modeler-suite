@@ -13,17 +13,18 @@ import { openWebviewBundle } from '@miragon/modeler-shell/testing/webview-bundle
 import { EXAMPLE_DIAGRAM } from '../../../apps/vscode/src/examples.js';
 import { WEBVIEW_THEMES } from '../../../apps/vscode/src/themes.js';
 import { labelEditorHooks } from '../support/label-editor.js';
+import { shortcutsDialogHooks } from '../support/shortcuts-dialog.js';
 
 /**
  * The shell's conformance kit against the real VS Code webview inside the shell's VS Code stub
  * (the `ide` host): geometry, ARIA and keys that never reach VS Code, keyboard creation, the label
  * editor across the shell's zoom, fit and refit, the read-only lock of an invalid file, the
  * appearance VS Code requests (a light-only modeler stays light, high contrast passes), reduced
- * motion, forced colours, the canvas's overlay layers and a clean teardown. `documents` adds the
- * file the "New Empty Diagram" command writes (EMPTY_DIAGRAM) and a file of zero bytes: each
- * opens at 100 % with the empty-file hint, which the first element takes away (the `emptyFile`
- * case), and the appearance case runs on them too. `csp` opens the production bundle under the
- * webview's CSP. Any skip fails.
+ * motion, forced colours, the canvas's overlay layers, the shell's shortcuts dialog with the
+ * renderer's groups and a clean teardown. `documents` adds the file the "New Empty Diagram"
+ * command writes (EMPTY_DIAGRAM) and a file of zero bytes: each opens at 100 % with the empty-file
+ * hint, which the first element takes away (the `emptyFile` case), and the appearance case runs on
+ * them too. `csp` opens the production bundle under the webview's CSP. Any skip fails.
  */
 const describeSkips = (skips: readonly ShellSkip[]) =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join('; ');
@@ -88,6 +89,7 @@ test.describe('VS Code webview: shell conformance', () => {
       // entry acts on the canvas (a Model action without a dialog would: then drop it from here).
       absent: ['legend', 'inspector', 'canvasMenuAction'],
       labelEditor: labelEditorHooks((page) => page.evaluate(() => window.modeler!.exportText())),
+      shortcutsDialog: shortcutsDialogHooks('webview'),
       show: {
         async problems(page) {
           await page.evaluate(() =>
@@ -114,9 +116,6 @@ test.describe('VS Code webview: shell conformance', () => {
     test,
     {
       onSkip(caseName, skips) {
-        // The shortcutsDialog case needs shell.showShortcutsDialog of modeler-shell 0.7.0; the
-        // template feeds it once its pin reaches that release.
-        if (caseName === 'shortcutsDialog') return;
         throw new Error(`shell conformance "${caseName}" skipped: ${describeSkips(skips)}`);
       },
     },

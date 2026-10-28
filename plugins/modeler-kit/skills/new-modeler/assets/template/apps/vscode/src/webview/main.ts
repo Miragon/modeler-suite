@@ -2,11 +2,13 @@ import './zod-jitless.js';
 import '@fontsource-variable/geist/wght.css';
 import '@fontsource-variable/geist-mono/wght.css';
 import '@miragon/modeler-shell/shell.css';
+import geistLatin from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?dataurl';
+import geistLatinExt from '@fontsource-variable/geist/files/geist-latin-ext-wght-normal.woff2?dataurl';
 import {
+  COLORS,
   createCollaborativeModeler,
   createShortcutsDialog,
   diagramMenu,
-  svgToPng,
   type CollaborativeDiagram,
   type ReadOnly,
 } from '@miragon/__NOTATION__-renderer';
@@ -18,6 +20,7 @@ import {
   shellModule,
   type DiagramJsConnection,
 } from '@miragon/modeler-shell/diagram-js';
+import { GEIST_UNICODE_RANGES, svgToPng, type GeistFace } from '@miragon/modeler-shell/export';
 import {
   mountVsCodeShell,
   persistView,
@@ -34,6 +37,13 @@ interface VsCodeApi {
 declare const acquireVsCodeApi: () => VsCodeApi;
 
 const DIAGRAM_NAME = '__DISPLAY_NAME__ diagram';
+
+// An SVG drawn as an image loads no file, and the webview's CSP lets the script fetch none: the
+// PNG export gets Geist as data: URLs, the subsets a Latin label needs.
+const GEIST: GeistFace[] = [
+  { src: geistLatinExt, unicodeRange: GEIST_UNICODE_RANGES.latinExt },
+  { src: geistLatin, unicodeRange: GEIST_UNICODE_RANGES.latin },
+];
 
 const vscode = acquireVsCodeApi();
 const stored = readShellState(vscode);
@@ -146,8 +156,24 @@ modeler.onContentChanged(() => {
 async function exportPicture(format: 'png' | 'svg'): Promise<void> {
   try {
     const { svg } = diagram.saveSVG();
-    const data = format === 'svg' ? svg : await blobToBase64(await svgToPng(svg));
-    post({ type: 'export', format, data });
+    if (format === 'svg') {
+      post({ type: 'export', format, data: svg });
+      return;
+    }
+    let fontFallback = false;
+    const png = await svgToPng(svg, {
+      background: COLORS.paper,
+      fonts: GEIST,
+      onFontFallback: () => {
+        fontFallback = true;
+      },
+    });
+    post({
+      type: 'export',
+      format,
+      data: await blobToBase64(png),
+      ...(fontFallback ? { fontFallback } : {}),
+    });
   } catch (error) {
     post({ type: 'error', message: `Could not export the diagram: ${String(error)}` });
   }

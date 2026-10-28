@@ -62,10 +62,10 @@ through. A DSL directive such as `style dark` round-trips but renders nothing.
 
 - Geist and Geist Mono, bundled from `@fontsource-variable/*`; no font CDN (offline use, GDPR). SVG
   text names the family itself, since it does not inherit the container's font.
-- Chrome icons come from the shell. Icons the renderer draws itself (palette tools, the dialog's
-  close button) are Lucide geometry copied into a module with its ISC (and Feather MIT) legal
-  comment, which the bundles keep (`comments.legal` in Vite 8, `legalComments` in esbuild). The VSIX
-  and the web bundle carry the Lucide and Feather notices.
+- Chrome icons come from the shell. Icons the renderer draws itself (the palette tools) are Lucide
+  geometry copied into a module with its ISC legal comment (and Feather's MIT one for an icon
+  Lucide derived from Feather), which the bundles keep (`comments.legal` in Vite 8,
+  `legalComments` in esbuild). The VSIX and the web bundle carry the Lucide and Feather notices.
 - The modeler's own icon (favicon, VS Code icon, file icons) comes from the `miragon-brand:icon-design`
   skill.
 - The UI is English in every modeler (the design system's exception for modeler tools); numbers go

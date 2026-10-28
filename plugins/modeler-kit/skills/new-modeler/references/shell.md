@@ -41,14 +41,34 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
   the mirror against the shell (template:
   [`menu.sync.test.ts`](../assets/template/apps/vscode/test/menu.sync.test.ts)). Export: PNG first,
   then SVG, then the document format in the web app only (in VS Code the file is the document).
-  Help: "Keyboard shortcuts…", a dialog the renderer renders into `shell.root` and removes on
-  `diagram.destroy` (the shell removes only what it added). In the web app its entry shows the
-  "?" chip, which modeler-shell 0.4.0 keeps out of the entry's name (`aria-hidden`), so the name
-  still ends with "…", and "?" opens the dialog from anywhere but a text field, another dialog and
-  the start screen (the listener sits on `document` in the capture phase, ahead of the open menu's
-  type-ahead). Only the web app passes the key: the VS Code webview keeps from VS Code only the keys
-  guide §13.5 gives it and passes every other one on, so its entry has no chip and the dialog opens
-  from the menu; a page that embeds the renderer keeps its own keys.
+  The PNG is the shell's `svgToPng` from `@miragon/modeler-shell/export` (modeler-shell 0.7.0 or
+  later), not a rasteriser of the renderer's or the app's own: it embeds Geist, which an SVG drawn
+  as an image cannot take from the page, loads the SVG through a `data:` URL and fills the
+  `background` the app names, the light value of the tokens' `--cd-ui-grund` (`--cd-ui-plot` for a
+  notation with a plot, guide §10.7; template: the renderer's `paper` colour). The web app passes
+  nothing else, since the helper reads the faces from the stylesheet of
+  `@fontsource-variable/geist`. A VS Code webview cannot fetch its font files under the CSP, so it
+  passes `fonts` as `data:` URLs with `GEIST_UNICODE_RANGES` (template: `?dataurl` imports, which an
+  esbuild plugin and, in the e2e test page, a Vite plugin inline). Both apps pass `onFontFallback`
+  and warn once the PNG is saved, since the console reaches no user: a toast in the web app, a
+  warning notification in VS Code (the webview's `export` message carries a font-fallback flag).
+  The template's `png-export` specs check both ways: the SVG the page draws holds the Geist faces,
+  and a failed embedding reaches the toast and the message.
+  Help: "Keyboard shortcuts…" opens the shell's dialog (modeler-shell 0.7.0 or later). The renderer
+  builds the groups as plain data, typed structurally so it never imports the shell, and the app
+  hands them to `shell.showShortcutsDialog(groups)`: the shell draws the dialog of guide §8 (top
+  layer, focus trap and return, backdrop, high contrast, forced colours), closes the open menu
+  first, puts its zoom and fit keys at the top of the View group and leaves out the renderer's own
+  rows for them (the renderer lists them for a host without the shell). In the web app the entry
+  shows the "?" chip, which modeler-shell 0.4.0 keeps out of the entry's name (`aria-hidden`), so
+  the name still ends with "…", and "?" opens the dialog from anywhere but a text field, another
+  dialog and the start screen. That key is the renderer's (template:
+  [`ShortcutsDialog.ts`](../assets/template/packages/renderer/src/menu/ShortcutsDialog.ts)): its
+  listener sits on `document` in the capture phase, ahead of the open menu's type-ahead, and goes
+  with `diagram.destroy`, while the shell removes the dialog with `shell.destroy()`. Only the web
+  app passes the key: the VS Code webview keeps from VS Code only the keys guide §13.5 gives it and
+  passes every other one on, so its entry has no chip and the dialog opens from the menu; a page
+  that embeds the renderer keeps its own keys.
   View-only toggles in Model set `keepEnabledWhenReadOnly`; entries that change the document go
   through the command stack. The web app's File group comes from the shell's `file` option.
 - **Palette entries.** The shell skins diagram-js's palette (`data-chrome="palette"`, roving focus,
@@ -122,9 +142,10 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
 
 A **legend** (`legend: { render, open, onToggle }`, persisted with `writeShellState` in VS Code
 and in local storage on the web; the shell adds the Legend checkbox to Model; without a stored
-`open` it starts closed at every size since modeler-shell 0.5.0) and an **inspector**
-(`inspector: { label }`, Team Topologies). A modeler without them declares them `absent` in the
-kit's harness, and the kit asserts that they never show.
+`open` it starts closed at every size since modeler-shell 0.5.0; the host passes only the state
+it stored, and legendStartsOpen, which returned false whatever it was given, is gone since 0.7.0)
+and an **inspector** (`inspector: { label }`, Team Topologies). A modeler without them declares
+them `absent` in the kit's harness, and the kit asserts that they never show.
 
 ## The shell's conformance kit
 
@@ -134,8 +155,8 @@ state, ARIA and keys, keys that never reach VS Code, focus hand-back, appearance
 dark, dark with high contrast and light with high contrast: a light-only modeler stays light, never
 half-dark, also on each of the harness's documents), keyboard creation, the empty file, the label
 editor across the shell's zoom, fit and refit, the read-only lock, reduced motion and forced
-colours, the canvas's overlay layers, the production webview bundle under the webview CSP, the web
-column and a clean `destroy`.
+colours, the canvas's overlay layers, the shortcuts dialog, the production webview bundle under the
+webview CSP, the web column and a clean `destroy`.
 
 - `ide`: a Vite test page runs the webview's `main.ts` inside `installVsCodeWebviewStub` (with
   `stubOptionsFromSearch`), opened with `vsCodeStubSearch(requested)` and a `doc` key for the
@@ -170,9 +191,12 @@ column and a clean `destroy`.
   root its own reduced-motion rule.
 - `shortcutsDialog` (modeler-shell 0.7.0 or later): its `show` calls `shell.showShortcutsDialog`
   with the modeler's own shortcut groups, built by the renderer's shortcut table for the page's
-  `shell.platform` and `shell.lang`, or with the kit's fixture where the page cannot build them. The
-  kit checks the dialog of guide §8, the chrome's keys at the top of the View group and the focus.
-  The template lets that case's skip pass until its modeler-shell pin reaches 0.7.0.
+  `shell.platform` and `shell.lang` (template:
+  [`shortcuts-dialog.ts`](../assets/template/e2e/tests/support/shortcuts-dialog.ts), which imports
+  the table's source, since it needs nothing at runtime), or with the kit's fixture where the page
+  cannot build them. The kit checks the dialog of guide §8, the chrome's keys at the top of the View
+  group and the focus. Without the hook the case skips with `hook: "shortcutsDialog"`, and `onSkip`
+  fails the run.
 - `absent` lists what the modeler lacks, and `onSkip` throws: every other skip is a gap. In VS Code
   a menu without a Model action (no File group there) adds `absent: ["canvasMenuAction"]`
   (modeler-shell 0.4.0 or later).

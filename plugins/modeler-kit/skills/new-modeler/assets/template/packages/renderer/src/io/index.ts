@@ -11,6 +11,5 @@ export const ioModule: ModuleDeclaration = {
 
 export { default as ContentBounds } from './ContentBounds.js';
 export { saveSVG } from './saveSvg.js';
-export { svgToPng, type PngOptions } from './png.js';
 export { ROOT_ID, type Bounds, type RootBusinessObject } from './types.js';
 export type { ImportConfig } from './Importer.js';
