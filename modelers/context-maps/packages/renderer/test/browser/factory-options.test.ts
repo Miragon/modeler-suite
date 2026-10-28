@@ -6,7 +6,12 @@ import {
   createCollaborativeViewer,
   isCmContext,
 } from "@miragon/context-maps-renderer";
-import type { CmContext, CmLabelEditing, CmViewerOptions } from "@miragon/context-maps-renderer";
+import type {
+  CmContext,
+  CmLabelEditing,
+  CmPaletteConfig,
+  CmViewerOptions,
+} from "@miragon/context-maps-renderer";
 import { SAMPLE_DOCUMENT, serializeDocumentText } from "@miragon/context-maps-schema-model";
 
 interface Viewbox {
@@ -68,31 +73,48 @@ function screenCentre(modeler: Modeler, shape: CmContext): { x: number; y: numbe
 
 const INSETS = { top: 88, right: 24, bottom: 64, left: 24 };
 
-test("freeArea.insets places a keyboard-created context and fits like freeRectInsets", () => {
-  const aligned = mountModeler({ freeArea: { insets: () => INSETS } });
-  const deprecated = mountModeler({ freeRectInsets: () => INSETS });
+const OWN_PALETTE_ROOM = { top: 84, right: 56, bottom: 56, left: 56 };
+
+test("freeArea.insets places a keyboard-created context in the centre of what they leave", () => {
+  const modeler = mountModeler({ freeArea: { insets: () => INSETS } });
   try {
-    const viewboxOf = (modeler: Modeler) => modeler.get<CanvasLike>("canvas").viewbox();
-    expect(viewboxOf(aligned)).toEqual(viewboxOf(deprecated));
-    const centre = screenCentre(aligned, createByKeyboard(aligned));
-    expect(centre.x).toBeCloseTo((900 - 24 - 24) / 2 + 24, 0);
-    expect(centre.y).toBeCloseTo((640 - 88 - 64) / 2 + 88, 0);
+    const centre = screenCentre(modeler, createByKeyboard(modeler));
+    expect(centre.x).toBeCloseTo((900 - INSETS.left - INSETS.right) / 2 + INSETS.left, 0);
+    expect(centre.y).toBeCloseTo((640 - INSETS.top - INSETS.bottom) / 2 + INSETS.top, 0);
   } finally {
-    aligned.destroy();
-    deprecated.destroy();
+    modeler.destroy();
   }
 });
 
-test("freeArea wins over freeRectInsets when a host passes both", () => {
-  const modeler = mountModeler({
-    freeArea: { insets: () => INSETS },
-    freeRectInsets: () => ({ top: 0, right: 400, bottom: 0, left: 0 }),
-  });
+test("the palette config holds the host's freeArea as given, as in the other renderers", () => {
+  const freeArea = { insets: () => INSETS };
+  const withFreeArea = mountModeler({ freeArea });
+  const withoutOption = mountModeler();
   try {
-    const centre = screenCentre(modeler, createByKeyboard(modeler));
-    expect(centre.x).toBeCloseTo((900 - 24 - 24) / 2 + 24, 0);
+    const paletteConfig = (modeler: Modeler) =>
+      modeler.get<CmPaletteConfig>("config.cmPalette").freeArea;
+    expect(paletteConfig(withFreeArea)).toBe(freeArea);
+    expect(paletteConfig(withFreeArea)?.insets?.()).toEqual(INSETS);
+    expect(paletteConfig(withoutOption)).toBeUndefined();
   } finally {
-    modeler.destroy();
+    withFreeArea.destroy();
+    withoutOption.destroy();
+  }
+});
+
+test("without insets a keyboard-created context lands in the room of the renderer's palette", () => {
+  const withoutOption = mountModeler();
+  const unknownCentre = mountModeler({ freeArea: { center: () => undefined } });
+  try {
+    for (const modeler of [withoutOption, unknownCentre]) {
+      const centre = screenCentre(modeler, createByKeyboard(modeler));
+      const room = OWN_PALETTE_ROOM;
+      expect(centre.x).toBeCloseTo((900 - room.left - room.right) / 2 + room.left, 0);
+      expect(centre.y).toBeCloseTo((640 - room.top - room.bottom) / 2 + room.top, 0);
+    }
+  } finally {
+    withoutOption.destroy();
+    unknownCentre.destroy();
   }
 });
 

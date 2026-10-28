@@ -97,8 +97,8 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   `Modeler`; neither computes bounds of its own. The renderer **never imports the shell** (ESLint
   and dependency-cruiser enforce it); it hands the chrome structurally typed parts: `contextMapMenu`,
   `createShortcutsDialog`, `createTitleDialog`, `renderLegend`, the `cmReadOnly` canvas lock,
-  keyboard creation in the free area (`freeArea: { insets }`; `freeRectInsets` stays a deprecated
-  alias through the 0.5 releases), `fitOnImport` and `undoRedoKeys: false` for hosts that own the
+  keyboard creation in the free area (`freeArea: { insets }`, handed unchanged to the palette as
+  `cmPalette: { freeArea }`), `fitOnImport` and `undoRedoKeys: false` for hosts that own the
   history. `cmLegendModule` (closed at first on every canvas size; a host's `setOpen()` restores a
   stored state) and the renderer's own palette rules stay for hosts that embed the renderer without
   the shell. The DOM-free packages take only types from `@miragon/modeler-api`.

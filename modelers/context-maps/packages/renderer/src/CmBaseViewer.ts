@@ -12,7 +12,6 @@ import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
 import type { Root } from "diagram-js/lib/model/Types";
-import type { Point } from "diagram-js/lib/util/Types";
 import type { ElementBounds, FreeArea } from "@miragon/modeler-api";
 import { parseDocumentText, serializeDocumentText } from "@miragon/context-maps-schema-model";
 import type { CmDocument } from "@miragon/context-maps-schema-model";
@@ -23,6 +22,7 @@ import type CmLabelEditing from "./label-editing/CmLabelEditing.js";
 import type CmModeling from "./modeling/CmModeling.js";
 import type CmReadOnly from "./read-only/CmReadOnly.js";
 import { contentBoundsOf } from "./model/contentBounds.js";
+import { freeAreaInsets } from "./palette/freeArea.js";
 import { ROOT_ID, type ImportWarning, type RootBusinessObject } from "./io/types.js";
 
 /** Container margins in screen px that a host's chrome covers. */
@@ -54,8 +54,6 @@ export interface CmViewerOptions {
    * fit also keeps when only `center` is given.
    */
   freeArea?: FreeArea | undefined;
-  /** @deprecated Use `freeArea: { insets }`; accepted through the 0.5 releases, ignored next to it. */
-  freeRectInsets?: (() => FreeRectInsets) | undefined;
   /**
    * Fit the content into the view after every import (default true). Pass false when the host's
    * chrome fits the content itself, so the view changes once per import.
@@ -66,9 +64,6 @@ export interface CmViewerOptions {
 export type EventCallback<T = unknown> = (event: T) => void;
 
 type RootWithMeta = Root & { businessObject?: RootBusinessObject };
-
-/** Margins (screen px) the renderer's own palette needs, without a host's chrome around it. */
-const DEFAULT_FREE_RECT_INSETS: FreeRectInsets = { top: 84, right: 56, bottom: 56, left: 56 };
 
 /**
  * diagram-js reads its zoom back rounded to three decimals: a fit below 0.0005 would read back as
@@ -112,7 +107,7 @@ export abstract class CmBaseViewer {
         canvas: { container: this._container },
         modules,
         cmKeyboard: { undoRedoKeys: this._options.undoRedoKeys ?? true },
-        cmPalette: { freeRectInsets: this.freeRectInsets, freeRectCenter: this.freeRectCenter },
+        cmPalette: { freeArea: this._options.freeArea },
       });
     }
     return this._diagram;
@@ -122,16 +117,6 @@ export abstract class CmBaseViewer {
   get<T>(name: string): T {
     return this._ensureDiagram().get<T>(name);
   }
-
-  /** The margins the host's chrome covers right now. */
-  private readonly freeRectInsets = (): FreeRectInsets => {
-    const { freeArea, freeRectInsets } = this._options;
-    const insets = freeArea ? freeArea.insets?.() : freeRectInsets?.();
-    return insets ?? DEFAULT_FREE_RECT_INSETS;
-  };
-
-  /** The free rectangle's centre when the host names it, else the palette derives it. */
-  private readonly freeRectCenter = (): Point | undefined => this._options.freeArea?.center?.();
 
   /** A service only some of the viewers have (the Modeler's editing services), else null. */
   private _optional<T>(name: string): T | null {
@@ -252,7 +237,7 @@ export abstract class CmBaseViewer {
       canvas.viewbox({ x: 0, y: 0, width, height });
       return;
     }
-    const insets = this.freeRectInsets();
+    const insets = freeAreaInsets(this._options.freeArea);
     const freeWidth = Math.max(width - insets.left - insets.right, 1);
     const freeHeight = Math.max(height - insets.top - insets.bottom, 1);
     const contentWidth = Math.max(content.width, 1);

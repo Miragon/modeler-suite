@@ -15,7 +15,7 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element } from "diagram-js/lib/model/Types";
 import { getBBox } from "diagram-js/lib/util/Elements";
-import type { CmViewerOptions, FreeRectInsets } from "../CmBaseViewer.js";
+import type { CmViewerOptions } from "../CmBaseViewer.js";
 import { Modeler } from "../Modeler.js";
 import { NavigatedViewer } from "../NavigatedViewer.js";
 import { isCmElement, type CmElement } from "../model/di-types.js";
@@ -30,8 +30,6 @@ export const CONTEXT_MAPS_NOTATION = "context-maps";
 export interface CollaborativeContextMapsOptions extends CollaborativeModelerOptions {
   /** Appended to the renderer's own modules (e.g. a host's chrome module). */
   additionalModules?: ModuleDeclaration[] | undefined;
-  /** @deprecated Use `freeArea: { insets }`; accepted through the 0.5 releases, ignored next to it. */
-  freeRectInsets?: (() => FreeRectInsets) | undefined;
 }
 
 /** The contract surface plus the wrapped diagram for host-specific wiring. */
@@ -74,7 +72,6 @@ function diagramOptions(options: CollaborativeContextMapsOptions): CmViewerOptio
     height: "100%",
     additionalModules: options.additionalModules ?? [],
     freeArea: options.freeArea,
-    freeRectInsets: options.freeRectInsets,
     fitOnImport: options.fitOnImport,
   };
 }
