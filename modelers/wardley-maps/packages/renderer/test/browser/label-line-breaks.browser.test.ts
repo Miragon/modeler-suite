@@ -9,6 +9,7 @@ import {
   anchorLabelSlot,
   componentLabelSlot,
 } from "../../src/draw/label-layout.js";
+import { FONT } from "../../src/draw/styles.js";
 import type WardleyLabelEditing from "../../src/label-editing/WardleyLabelEditing.js";
 import "../../src/assets/wardley.css";
 
@@ -104,7 +105,10 @@ describe("Line breaks in names (real browser DOM)", () => {
       expect(twoLines.top + twoLines.height / 2).toBeCloseTo(oneLine.top + oneLine.height / 2, 0);
       expect(shapeLabeled("Platform").wardleyLabel).toBe("Platform");
       expect(field.matches(":focus-visible")).toBe(true);
-      expect(getComputedStyle(field).outlineStyle).toBe("none");
+      const accent = document.createElement("div");
+      accent.style.borderColor = "var(--cd-ui-interaktion)";
+      container.appendChild(accent);
+      expect(getComputedStyle(field).borderTopColor).toBe(getComputedStyle(accent).borderTopColor);
     });
 
     it("saves the lines on Enter", async () => {
@@ -187,6 +191,26 @@ describe("Line breaks in names (real browser DOM)", () => {
       expect(fieldBox.bottom).toBeGreaterThanOrEqual(labelBox.bottom - 2);
     });
 
+    it("leaves Enter and Escape to an input method that is composing", () => {
+      const field = open("Platform");
+      field.value = "Plat";
+      const keys: KeyboardEventInit[] = [
+        { key: "Enter", isComposing: true },
+        { key: "Enter", isComposing: false, keyCode: 229 },
+        { key: "Escape", isComposing: true },
+      ];
+      for (const key of keys) {
+        field.dispatchEvent(new KeyboardEvent("keydown", { ...key, bubbles: true }));
+        expect(document.querySelector("textarea.wardley-label-input")).toBe(field);
+        expect(field.value).toBe("Plat");
+      }
+      expect(shapeLabeled("Platform").wardleyLabel).toBe("Platform");
+
+      field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      expect(document.querySelector(".wardley-label-input")).toBeNull();
+      expect(shapeLabeled("Plat")).toBeDefined();
+    });
+
     it("keeps notes as they were: Enter breaks, Cmd or Ctrl+Enter saves", async () => {
       const field = open("Remember the budget");
       caretToEnd(field);
@@ -216,6 +240,36 @@ describe("Line breaks in names (real browser DOM)", () => {
       const shape = shapeLabeled("Payment\nGateway");
       const [first, second] = lineBaselines(nameText("Payment\nGateway"));
       expect((first! + second!) / 2).toBe(shape.height / 2 + componentLabelSlot().y);
+    });
+
+    it("keeps every line of an evolving component's name clear of the evolve arrow", async () => {
+      await modeler.importDSL(`title Evolving
+component Two\\nLines [0.4, 0.2] (buy)
+evolve Two\\nLines 0.8
+component Three\\nLines\\nHere [0.7, 0.2]
+evolve Three\\nLines\\nHere 0.8`);
+
+      for (const name of ["Two\nLines", "Three\nLines\nHere"]) {
+        const shape = shapeLabeled(name);
+        const arrowY = shape.height / 2;
+        const lines = lineBaselines(nameText(name));
+        expect(lines).toHaveLength(name.split("\n").length);
+        for (const baseline of lines) {
+          const glyphTop = baseline - 0.75 * FONT.label;
+          expect(arrowY < glyphTop || arrowY > baseline, `${name}: line at ${baseline}`).toBe(true);
+        }
+        expect(lines.at(-1)).toBe(arrowY + componentLabelSlot().y);
+      }
+    });
+
+    it("keeps the sourcing method of an evolving component under the arrow", async () => {
+      await modeler.importDSL(`title Evolving
+component Two\\nLines [0.4, 0.2] (buy)
+evolve Two\\nLines 0.8`);
+      const shape = shapeLabeled("Two\nLines");
+      const gfx = modeler.get<Canvas>("canvas").getGraphics(shape);
+      const method = [...gfx.querySelectorAll("text")].find((text) => text.textContent === "buy")!;
+      expect(Number(method.getAttribute("y"))).toBeGreaterThan(shape.height / 2);
     });
 
     it("keeps the last line of an anchor's name on the slot above its icon", () => {

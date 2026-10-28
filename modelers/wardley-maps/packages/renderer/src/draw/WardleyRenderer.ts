@@ -199,7 +199,15 @@ export default class WardleyRenderer extends BaseRenderer {
     }
 
     drawComponentSymbols(visuals, cx, cy, tint, dec);
-    drawComponentLabel(visuals, shape, cx, cy, componentLabelPlacement(shape, movementDeltaX));
+    // The evolve arrow runs along the circle's centre line, which centred lines would cross.
+    drawComponentLabel(
+      visuals,
+      shape,
+      cx,
+      cy,
+      componentLabelPlacement(shape, movementDeltaX),
+      movementDeltaX === undefined ? "centered" : "up",
+    );
     return ring;
   }
 
@@ -597,6 +605,7 @@ function drawComponentLabel(
   cx: number,
   cy: number,
   placement: LabelPlacement,
+  growth: LineGrowth,
 ): void {
   const lx = cx + placement.x;
   const ly = cy + placement.y;
@@ -614,12 +623,12 @@ function drawComponentLabel(
         ...(shape.color ? { fill: shape.color } : {}),
       },
       true,
-      "centered",
+      growth,
     ),
   );
   const method = shape.decorators?.method;
   if (method) {
-    const lastLineY = lastLineBaseline(ly, nameLines(shape.wardleyLabel).length, "centered");
+    const lastLineY = lastLineBaseline(ly, nameLines(shape.wardleyLabel).length, growth);
     svgAppend(
       visuals,
       label(method, lx, lastLineY + LABEL_METHOD_LINE_SHIFT, {

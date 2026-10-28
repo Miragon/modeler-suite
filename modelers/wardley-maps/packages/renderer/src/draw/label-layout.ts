@@ -58,17 +58,16 @@ export function nameLines(text: string | undefined): string[] {
 /**
  * How the lines of a name that holds line breaks spread around the slot of its first line:
  * `centered` keeps the block's middle on the slot (names beside a circle or a symbol), `up` keeps
- * the last line on it (a name above an icon or a pipeline's edge, which the lines must not cover).
+ * the last line on it (a name above an icon, a pipeline's edge or an evolve arrow, which the lines
+ * must stay clear of).
  */
 export type LineGrowth = "centered" | "up";
 
-/** Where the first line's baseline goes, given the slot's `y` for a name of one line. */
 export function firstLineBaseline(slotY: number, lineCount: number, growth: LineGrowth): number {
   const extra = (lineCount - 1) * LABEL_LINE_HEIGHT;
   return slotY - (growth === "up" ? extra : extra / 2);
 }
 
-/** Where the last line's baseline goes; whatever sits below the name starts under it. */
 export function lastLineBaseline(slotY: number, lineCount: number, growth: LineGrowth): number {
   return firstLineBaseline(slotY, lineCount, growth) + (lineCount - 1) * LABEL_LINE_HEIGHT;
 }
