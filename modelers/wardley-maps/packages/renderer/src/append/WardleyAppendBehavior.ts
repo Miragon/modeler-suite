@@ -1,3 +1,4 @@
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type { Injector } from "didi";
 
@@ -22,7 +23,7 @@ interface CreateEvent {
   y: number;
   context: {
     source?: SourceShape;
-    shape?: { wardleyType?: unknown };
+    shape?: { id: string; wardleyType?: unknown };
     elements?: readonly object[];
     canExecute?: { connect?: unknown } | false | null;
     /** Set by WardleyCopyPaste: pasted copies keep their names, no editor. */
@@ -54,9 +55,9 @@ const AFTER_CREATE = 500;
  *     Regions, drawings and pasted copies are left alone.
  */
 export default class WardleyAppendBehavior {
-  static $inject = ["injector", "eventBus"];
+  static $inject = ["injector", "eventBus", "elementRegistry"];
 
-  constructor(injector: Injector, eventBus: EventBus) {
+  constructor(injector: Injector, eventBus: EventBus, elementRegistry: ElementRegistry) {
     const connectionPreview = injector.get(
       "connectionPreview",
       false,
@@ -93,8 +94,14 @@ export default class WardleyAppendBehavior {
         const shape = context.shape;
         if (!context.canExecute || !shape || context.wardleyPaste) return;
         if ((context.elements?.length ?? 1) !== 1 || !NAMED_TYPES.has(shape.wardleyType)) return;
-        // Activate only after render/cleanup so the editor is positioned correctly.
-        setTimeout(() => labelEditing.activate(shape), 0);
+        // Activate only after render/cleanup so the editor is positioned correctly. A host that
+        // re-imports from the create's change listener has replaced the shape by then, and a name
+        // typed into an editor on the removed shape would commit onto it.
+        setTimeout(() => {
+          if (elementRegistry.get(shape.id) === shape) {
+            labelEditing.activate(shape);
+          }
+        }, 0);
       });
     }
   }

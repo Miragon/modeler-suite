@@ -39,7 +39,12 @@ import fails `npm run wardley-maps lint` and `npm run wardley-maps depcruise`.
 [`packages/renderer/src/collaborative/`](packages/renderer/src/collaborative/)); its conformance kit
 runs in the browser tests
 ([`conformance.browser.test.ts`](packages/renderer/test/browser/conformance.browser.test.ts)), and a
-skipped case fails the run. The VS Code webview mounts `@miragon/modeler-shell`
+skipped case fails the run. An import cancels a running gesture first, as Escape does
+(`cancelGesture` in `WardleyBaseViewer`: `dragging.cancel(false)` and the drawing handles' point
+drag, which also ends on `shape.remove`); the armed lasso (`lasso.selection`) stays armed, and a drop
+the host imports over from its change listener is left to finish (pinned by
+[`import-during-gesture.browser.test.ts`](packages/renderer/test/browser/import-during-gesture.browser.test.ts)).
+The VS Code webview mounts `@miragon/modeler-shell`
 ([`apps/vscode/src/webview/main.ts`](apps/vscode/src/webview/main.ts)), the web app mounts its web
 host ([`apps/webapp/src/main.ts`](apps/webapp/src/main.ts)); the shell's conformance kit runs
 against both, in the `vscode-webview` Playwright project (`e2e/tests/vscode/`) and in the `webapp`

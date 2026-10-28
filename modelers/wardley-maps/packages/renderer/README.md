@@ -109,7 +109,12 @@ modeler.onContentChanged(() => save(modeler.exportText()));
 
 An import is silent (no content change is reported back), keeps the selection and an open label
 editor and fits the view (unless `fitOnImport: false`); a host's view change (`setViewState`, a fit)
-never saves an open editor either. `exportText()` is the committed document, never a live preview:
+never saves an open editor either. A gesture that runs during an import (a move, resize, connect or
+lasso drag, a create from the palette or the context pad, the evolve or plot-corner drag, the point
+drag of a drawing) is cancelled first, as Escape cancels it, so its release changes nothing. A tool
+that only waits for the user's next press stays armed: the lasso from the palette or `L`, and the
+draw tool. A drop whose change the host imports over at once, from its change listener, has applied
+and is left to finish. `exportText()` is the committed document, never a live preview:
 while the plot corner is dragged or the size or axis-label popover previews a change, it returns the
 document as it was before, and the change event of the commit brings the new one. A command during a
 size preview (an undo pressed mid-drag, a title the host sets) puts the preview back first, and a

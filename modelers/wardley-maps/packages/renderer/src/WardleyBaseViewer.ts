@@ -32,6 +32,7 @@ import {
   type ProjectionSnapshot,
 } from "./map-resize/MapProjection.js";
 import type WardleyModeling from "./modeling/WardleyModeling.js";
+import type WardleyDrawingHandles from "./draw-tool/WardleyDrawingHandles.js";
 import type { FreeArea } from "@miragon/modeler-api";
 import type { FreeRectConfig } from "./free-rect/index.js";
 import { COMMAND_START_EVENTS, PUT_BACK_PRIORITY, type LivePreview } from "./live-preview/index.js";
@@ -127,6 +128,38 @@ function sizeToCss(value: number | string): string {
 }
 
 /**
+ * The drag of a palette tool that only waits for its next press (the lasso from the palette or
+ * `L`): no gesture yet. It holds no element of the map, so an import leaves the tool armed, and the
+ * user's next press still draws a lasso instead of panning or moving the element under the pointer.
+ */
+const ARMED_TOOL_PREFIXES: ReadonlySet<string> = new Set(["lasso.selection"]);
+
+/** Ahead of every other listener of a drop, so that the command it runs finds the drop marked. */
+const DROP_MARK_PRIORITY = 100_000;
+
+type DragContext = { prefix: string } | null;
+
+/**
+ * Ends a running gesture (a move, resize, connect, lasso, evolve or plot-resize drag, a create
+ * from the palette or the context pad, a drawing's point drag) the way Escape does. The gesture
+ * holds the elements an import is about to replace, and diagram-js keeps it running across the
+ * import: released after it, its command would fail half-way and leave the command stack stuck, so
+ * no later edit would fire `commandStack.changed` again. The selection is not restored, since it
+ * holds those elements too.
+ *
+ * A drop that runs (`dropping`) is left to finish: its command has applied, and a host that imports
+ * from that command's change listener would otherwise cancel the drag inside diagram-js's own end
+ * of it, which then cleans up a drag that is gone and throws.
+ */
+function cancelGesture(diagram: Diagram, dropping: DragContext): void {
+  diagram.get<WardleyDrawingHandles | null>("wardleyDrawingHandles", false)?.endPointDrag();
+  const dragging = diagram.get<Dragging | null>("dragging", false);
+  const gesture = dragging?.context() as DragContext | undefined;
+  if (!dragging || !gesture || gesture === dropping) return;
+  if (!ARMED_TOOL_PREFIXES.has(gesture.prefix)) dragging.cancel(false);
+}
+
+/**
  * Shared lifecycle & DI bootstrap for all Wardley viewers (analogous to bpmn-js BaseViewer, but OUR
  * OWN code — no bpmn-js as a dependency, §3.3). Subclasses only override `_getModules()` (a method
  * rather than a field, to sidestep the constructor/field initialization order). `attachTo`/`detach`
@@ -142,6 +175,8 @@ export abstract class WardleyBaseViewer {
   private _labelsBeforePreview: { labels: EvolutionLabels | undefined } | undefined;
   /** The map before the first transient size preview, put back before the size is committed. */
   private _sizePreview: { snapshot: ProjectionSnapshot; model: WardleyMap } | undefined;
+  /** The drag whose drop runs now, from its end until its cleanup. */
+  private _dropping: DragContext = null;
 
   constructor(options: WardleyViewerOptions = {}) {
     this._options = options;
@@ -170,8 +205,21 @@ export abstract class WardleyBaseViewer {
       this._diagram
         .get<EventBus>("eventBus")
         .on(COMMAND_START_EVENTS, PUT_BACK_PRIORITY, () => this._putBackSizePreview());
+      this._markDrops(this._diagram);
     }
     return this._diagram;
+  }
+
+  private _markDrops(diagram: Diagram): void {
+    const dragging = diagram.get<Dragging | null>("dragging", false);
+    if (!dragging) return;
+    const eventBus = diagram.get<EventBus>("eventBus");
+    eventBus.on("drag.end", DROP_MARK_PRIORITY, () => {
+      this._dropping = dragging.context() as DragContext;
+    });
+    eventBus.on("drag.cleanup", DROP_MARK_PRIORITY, () => {
+      this._dropping = null;
+    });
   }
 
   get<T>(name: string): T {
@@ -189,7 +237,9 @@ export abstract class WardleyBaseViewer {
   /**
    * Load a model into the canvas (replaces existing content). Rejects a map the canvas cannot
    * hold (invalid, or ids the canvas reserves for itself) before anything changes, so the current
-   * map, its rendering and its undo history stay as they were.
+   * map, its rendering and its undo history stay as they were. A gesture that runs ends first, as
+   * on Escape, so its release applies nothing; an armed lasso tool stays armed, and an import from
+   * the change listener of a drop leaves that drop to finish, with its change applied.
    */
   async importMap(map: WardleyMap): Promise<{ warnings: ImportWarning[] }> {
     const checked = importableMap(map);
@@ -201,10 +251,7 @@ export abstract class WardleyBaseViewer {
     const previous = this._rootBusinessObject() ? this.exportMap() : undefined;
     this._labelsBeforePreview = undefined;
     this._sizePreview = undefined;
-    // A running drag (move, connect, create, resize) holds the previous map's shapes. Released after
-    // the import, its command would fail half-way and leave the command stack stuck, so no later
-    // edit would fire commandStack.changed again (VS Code: external edit during a drag).
-    diagram.get<Dragging>("dragging", false)?.cancel(false);
+    cancelGesture(diagram, this._dropping);
     importer.clear();
     let warnings: ImportWarning[];
     try {
