@@ -8,7 +8,8 @@
     "paths": {
       "@miragon/__NOTATION__-schema-model": ["./packages/schema-model/src/index.ts"],
       "@miragon/__NOTATION__-dsl": ["./packages/dsl/src/index.ts"],
-      "@miragon/__NOTATION__-renderer": ["./packages/renderer/src/index.ts"]
+      "@miragon/__NOTATION__-renderer": ["./packages/renderer/src/index.ts"],
+      "@miragon/__NOTATION__-renderer/themes": ["./packages/renderer/src/themes.ts"]
     }
   },
   "include": [

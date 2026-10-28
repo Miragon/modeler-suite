@@ -9,6 +9,7 @@ import '@miragon/modeler-shell/shell.css';
 import {
   COLORS,
   SHORTCUTS_KEY,
+  THEMES,
   createCollaborativeModeler,
   createShortcutsDialog,
   diagramMenu,
@@ -18,7 +19,6 @@ import { connectDiagramJs, shellModule } from '@miragon/modeler-shell/diagram-js
 import { svgToPng } from '@miragon/modeler-shell/export';
 import { EXAMPLE } from './example.js';
 import { linkHash, linkedText } from './link.js';
-import { THEMES } from './themes.js';
 
 const APP_NAME = '__DISPLAY_NAME__ Modeler';
 const REPOSITORY_URL = 'https://github.com/Miragon/__REPO__';

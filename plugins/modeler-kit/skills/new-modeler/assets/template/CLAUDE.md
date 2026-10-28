@@ -56,6 +56,12 @@ Build the packages before the tests: workspace dependencies resolve to `dist`.
 - The renderer implements `@miragon/modeler-api` (`createCollaborativeModeler`,
   `createCollaborativeViewer`, notation `__NOTATION__`); every harness hook of the conformance
   kit is filled, so a skip or an advisory fails `npm run test:browser`.
+- An accepted import first ends a running gesture the way Escape does
+  ([`gestures/`](packages/renderer/src/gestures/)); an armed palette tool and a hand-tool pan run
+  on, and the contract's `importText` waits for a drop being applied. `THEMES`
+  ([`themes.ts`](packages/renderer/src/themes.ts), for Node code
+  `@miragon/__NOTATION__-renderer/themes`) is the one list of themes: the contract's `appearance`,
+  the shell in both apps and the theme bridge read it.
 - CI: `ci-ok` is the merge gate, so a new job in `ci.yml` goes into its `needs`. `ci-ok` and the
   PR title check `validate-pr-title` are the checks for the `main` ruleset to require, not the
   single jobs. The VS Code smoke test runs in CI when a change touches `apps/vscode/`,

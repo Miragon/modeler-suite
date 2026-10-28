@@ -118,6 +118,10 @@ known version), and the new repository's Dependabot moves them on.
   1.2 options `freeArea`, `fitOnImport` and `undoRedoKeys`, both mounts report
   `contentBounds()` (1.3), which the apps and Design IQ fit to, and the canvas acts on a key only
   while it holds the focus (1.4).
+- An accepted import ends a running gesture the way Escape does, while an armed palette tool and a
+  hand-tool pan run on, and an import called while a drop is applied waits until the drop has
+  ended; both mounts expose `interaction` and `appearance`, whose `themes` is the renderer's one
+  `THEMES` constant that both apps read (1.5, [contract](references/contract.md#gestures)).
 - Neither app has chrome of its own: menu, palette skin, zoom, keys, problems, status, empty state,
   toasts and the shortcuts dialog come from the shell, and the menu content and the shortcut rows
   come from the renderer.

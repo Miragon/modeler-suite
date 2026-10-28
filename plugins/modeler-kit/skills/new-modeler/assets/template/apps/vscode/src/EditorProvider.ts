@@ -5,12 +5,12 @@ import {
   renderWebviewHtml,
   revealFileLabel,
 } from '@miragon/modeler-shell/vscode/extension';
+import { THEMES } from '@miragon/__NOTATION__-renderer/themes';
 import { DIAGRAM_VIEW_TYPE, registerSideBySideCommands, revealRestoredTab } from './commands.js';
 import { DIAGNOSTIC_SOURCE, documentDiagnostics } from './diagnostics.js';
 import { DocumentWriter } from './DocumentWriter.js';
 import { withExampleInserted } from './examples.js';
 import type { ExportFormat, HostToWebview, WebviewToHost } from './protocol.js';
-import { WEBVIEW_THEMES } from './themes.js';
 
 interface OpenDiagram {
   readonly uri: vscode.Uri;
@@ -83,11 +83,11 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
       title: '__DISPLAY_NAME__',
       lang: 'en',
       // on <html> before the first paint: no flash of the wrong mode
-      appearance: currentAppearance(vscode, { themes: WEBVIEW_THEMES }),
+      appearance: currentAppearance(vscode, { themes: THEMES }),
       body: '<div id="app"></div>',
     });
     // Disposes itself with the panel; never into context.subscriptions (one per opened editor).
-    connectThemeBridge(vscode, panel, { themes: WEBVIEW_THEMES });
+    connectThemeBridge(vscode, panel, { themes: THEMES });
 
     const diagram: OpenDiagram = { uri: document.uri, panel };
     if (panel.active) this.openDiagrams.unshift(diagram);

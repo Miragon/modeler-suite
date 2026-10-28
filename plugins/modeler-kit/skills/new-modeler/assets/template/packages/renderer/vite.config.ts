@@ -23,9 +23,13 @@ export default defineConfig({
     sourcemap: true,
     cssCodeSplit: false,
     lib: {
-      entry: resolve(import.meta.dirname, 'src/index.ts'),
+      // `themes` stays an entry of its own without the diagram, for Node code (`./themes`).
+      entry: {
+        index: resolve(import.meta.dirname, 'src/index.ts'),
+        themes: resolve(import.meta.dirname, 'src/themes.ts'),
+      },
       formats: ['es'],
-      fileName: () => 'index.js',
+      fileName: (_format, entryName) => `${entryName}.js`,
       cssFileName: '__NOTATION__',
     },
     rollupOptions: {

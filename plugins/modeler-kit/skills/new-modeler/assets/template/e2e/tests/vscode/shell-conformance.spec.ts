@@ -10,8 +10,8 @@ import {
   type ShellSkip,
 } from '@miragon/modeler-shell/testing';
 import { openWebviewBundle } from '@miragon/modeler-shell/testing/webview-bundle';
+import { THEMES } from '@miragon/__NOTATION__-renderer/themes';
 import { EXAMPLE_DIAGRAM } from '../../../apps/vscode/src/examples.js';
-import { WEBVIEW_THEMES } from '../../../apps/vscode/src/themes.js';
 import { labelEditorHooks } from '../support/label-editor.js';
 import { shortcutsDialogHooks } from '../support/shortcuts-dialog.js';
 
@@ -50,7 +50,7 @@ async function openShippedWebview(page: Page, { size, requested }: OpenContext):
     dist: join(appsVscode, 'dist'),
     title: '__DISPLAY_NAME__',
     requested,
-    themes: WEBVIEW_THEMES,
+    themes: THEMES,
   });
   await page.waitForFunction(() =>
     (window.__modelerShellVsCodeStub?.posted ?? []).some(
@@ -67,7 +67,7 @@ test.describe('VS Code webview: shell conformance', () => {
   registerShellConformance<Page>(
     {
       host: 'ide',
-      themes: WEBVIEW_THEMES,
+      themes: THEMES,
       csp: { open: openShippedWebview },
       async open(page, { size, requested, document: documentKey }) {
         await page.setViewportSize(size);

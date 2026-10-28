@@ -27,6 +27,10 @@ export default defineConfig({
         replacement: fromRoot('packages/renderer/src/assets/__NOTATION__.css'),
       },
       {
+        find: '@miragon/__NOTATION__-renderer/themes',
+        replacement: fromRoot('packages/renderer/src/themes.ts'),
+      },
+      {
         find: '@miragon/__NOTATION__-renderer',
         replacement: fromRoot('packages/renderer/src/index.ts'),
       },

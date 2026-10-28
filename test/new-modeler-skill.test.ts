@@ -119,12 +119,28 @@ const typeCheckedTemplateFiles = templateFiles.filter(
   (file) => file.endsWith(".ts") && !NOT_TYPE_CHECKED_HERE.has(fromTemplate(file)),
 );
 
-function templateProgram(): ts.Program {
-  const templatePackages = ["schema-model", "dsl", "renderer"];
+/**
+ * The template packages' entry points at their sources, as the template's tsconfig paths map them:
+ * every `exports` entry with an `import` condition (`./dist/themes.js` is `src/themes.ts`).
+ */
+function templateEntryPaths(): Record<string, string[]> {
   const paths: Record<string, string[]> = {};
-  for (const name of templatePackages) {
-    paths[`@miragon/__NOTATION__-${name}`] = [join(TEMPLATE, "packages", name, "src/index.ts")];
+  for (const name of ["schema-model", "dsl", "renderer"]) {
+    const directory = join(TEMPLATE, "packages", name);
+    const { exports } = readJson<{ exports: Record<string, string | { import?: string }> }>(
+      join(directory, "package.json"),
+    );
+    for (const [subpath, target] of Object.entries(exports)) {
+      if (typeof target !== "object" || target.import === undefined) continue;
+      const source = target.import.replace(/^\.\/dist\//, "src/").replace(/\.js$/, ".ts");
+      paths[`@miragon/__NOTATION__-${name}${subpath.slice(1)}`] = [join(directory, source)];
+    }
   }
+  return paths;
+}
+
+function templateProgram(): ts.Program {
+  const paths = templateEntryPaths();
   for (const pkg of workspacePackages) {
     for (const [specifier, source] of pkg.entries) paths[specifier] = [source];
   }
@@ -132,7 +148,7 @@ function templateProgram(): ts.Program {
   const { options, errors } = ts.convertCompilerOptionsFromJson(
     {
       ...base.compilerOptions,
-      // the web app's Vite config imports `./src/themes.ts`, as its tsconfig.config.json allows
+      // the web app's Vite config imports the renderer's `src/themes.ts` (tsconfig.config.json)
       allowImportingTsExtensions: true,
       lib: ["ES2022", "DOM", "DOM.Iterable"],
       types: ["node", "vscode"],
@@ -901,6 +917,18 @@ const NON_API_NAMES = new Map<string, string>([
   ["commandStack.clear", "diagram-js"],
   ["modeling.moveElements", "diagram-js"],
   ["canvas.viewbox.changing", "diagram-js"],
+  ["dragging.cancel", "diagram-js"],
+  ["drag.move", "diagram-js"],
+  ["drag.ended", "diagram-js"],
+  ["drag.canceled", "diagram-js"],
+  ["lasso.selection", "diagram-js, the drag of the armed lasso tool"],
+  ["hand.move", "diagram-js, the drag of the hand tool's pan"],
+  ["SelectionBehavior", "diagram-js"],
+  ["import.render.done", "the import events a diagram-js renderer fires (bpmn-js's names)"],
+  ["THEMES", "the template renderer's themes constant"],
+  ["startGesture", "the kit's planned 1.5 harness field (packages/api README)"],
+  ["armTool", "the kit's planned 1.5 harness field (packages/api README)"],
+  ["exportImage", "the kit's planned 1.5 harness field (packages/api README)"],
   ["import.parse.start", "the import events a diagram-js renderer fires (bpmn-js's names)"],
   ["import.render.start", "the import events a diagram-js renderer fires (bpmn-js's names)"],
   ["import.done", "the import events a diagram-js renderer fires (bpmn-js's names)"],

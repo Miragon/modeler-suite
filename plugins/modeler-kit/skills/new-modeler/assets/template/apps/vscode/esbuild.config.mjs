@@ -13,6 +13,7 @@ const watch = process.argv.includes('--watch');
 const production = process.argv.includes('--production');
 
 const alias = {
+  '@miragon/__NOTATION__-renderer/themes': fromRoot('packages/renderer/src/themes.ts'),
   '@miragon/__NOTATION__-renderer': fromRoot('packages/renderer/src/index.ts'),
   '@miragon/__NOTATION__-schema-model': fromRoot('packages/schema-model/src/index.ts'),
   '@miragon/__NOTATION__-dsl': fromRoot('packages/dsl/src/index.ts'),

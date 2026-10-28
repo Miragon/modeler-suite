@@ -6,6 +6,7 @@ import type { ModuleDeclaration } from 'didi';
 import type { CollaborativeModelerOptions } from '@miragon/modeler-api';
 import { parseText, serializeText } from '@miragon/__NOTATION__-dsl';
 import { validateDocument, type DiagramDocument } from '@miragon/__NOTATION__-schema-model';
+import type Gestures from './gestures/Gestures.js';
 import type ContentBounds from './io/ContentBounds.js';
 import type Exporter from './io/Exporter.js';
 import type Importer from './io/Importer.js';
@@ -69,8 +70,11 @@ export abstract class BaseViewer {
 
   /**
    * Parses, validates, then renders: a text that is no document rejects before the canvas is
-   * touched (contract L7). Silent (L1): the undo history goes without a `commandStack.changed`,
-   * and an open label edit is taken down without committing.
+   * touched (contract L7), and a gesture the user holds runs on. Silent (L1): the undo history
+   * goes without a `commandStack.changed`, an open label edit is taken down without committing,
+   * and an accepted text first ends a running gesture the way Escape does. Called while a drop is
+   * applied (from the change listener of its command), it leaves that drop to finish; the
+   * contract's `importText` waits for the drop instead.
    */
   importText(text: string): ImportOutcome {
     const { document, diagnostics } = parseText(text);
@@ -85,6 +89,7 @@ export abstract class BaseViewer {
 
   importDocument(document: DiagramDocument): void {
     const valid = validateDocument(document);
+    this.getOptional<Gestures>('gestures')?.cancel();
     const labelEditing = this.getOptional<LabelEditing>('labelEditing');
     labelEditing?.suspend();
     const previous = this.exportDocument();
