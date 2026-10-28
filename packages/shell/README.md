@@ -348,13 +348,16 @@ dialog. See [API.md][api], "Web host (0.2)", and the complete Event Storming exa
 
 `mountShell(container, { host: "embedded", themes: ["light"], canvas })` on an explicitly sized
 container: the root carries the tool's `lang` itself, keys act only while the focus is inside the
-modeler, and the page's `<html>` stays untouched. Until the `@miragon/modeler-api` contract gains
-its `appearance` surface (a later 1.x minor), an embedded modeler has no appearance channel, so the
-root carries its own `data-cd-theme` (the first of `themes`, light) and stays light inside a dark
-host page; it takes the page's `data-cd-kontrast="hoch"` over from the nearest mode carrier above
-it. The page's element styles (`button { text-transform: uppercase }`) do not reach the chrome.
-Toasts show at the bottom centre of the modeler, and the pill opens the problems list unless the
-modeler passes `problems.onActivate` (an embedding host with a list of its own).
+modeler, and the page's `<html>` stays untouched. The root carries its own `data-cd-theme` (the
+first of `themes`, light) and stays light inside a dark host page; it takes the page's
+`data-cd-kontrast="hoch"` over from the nearest mode carrier above it. The host asks the renderer,
+not the shell, for a mode through the optional `appearance` surface of `@miragon/modeler-api` 1.5,
+and a light-only renderer draws light for every request, as the root does. The page's element
+styles (`button { text-transform: uppercase }`) do not reach the chrome. The embedding host owns all
+feedback, since the contract plans no channel for messages to the host: it shows a toast at the
+bottom centre of the modeler with `shell.toast()` or in notifications of its own. The pill opens
+the problems list unless the modeler passes `problems.onActivate` (an embedding host with a list of
+its own).
 
 A page that embeds a modeler without mounting the shell still opens its "Keyboard shortcuts…"
 dialog from the shell (0.7): `showShortcutsDialog(groups, { container })` with the renderer's

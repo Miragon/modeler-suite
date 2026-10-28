@@ -555,9 +555,10 @@ export interface AppearanceVerdict {
 }
 
 /**
- * What an embedded root must show (guide §13.3): until the contract's `appearance` surface there
- * is no channel to ask it for a mode, so it stays in its first one whatever the page shows, and
- * takes the page's high contrast over from the nearest mode carrier above it.
+ * What an embedded root must show (guide §13.3): its first mode whatever the page shows, the one a
+ * light-only renderer draws for any request through the contract's `appearance` surface
+ * (`@miragon/modeler-api` 1.5), with the page's high contrast taken over from the nearest mode
+ * carrier above it.
  */
 export function expectedEmbeddedAppearance(
   facts: AppearanceFacts,
