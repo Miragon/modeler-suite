@@ -99,7 +99,22 @@ navigator.platform`), never `process.platform`, which names the remote machine u
   the modeler's container instead (guide §5.1, also for §8), so it uses `cqw`/`cqh`: container
   units follow the DOM, not the containing block, and resolve against the shell root even in the
   top layer (Chromium and WebKit alike), and against the window where no size container is around
-  the dialog. It is still centred in the window, and its backdrop covers the whole page.
+  the dialog.
+- The top layer centres the dialog in the window, which in an embedding host (a designIQ widget, a
+  side panel) can lie far from the diagram. So `dialog-centre.ts` shifts it with an inline
+  `translate` over the part of its container that shows, as long as it fits there with 16px around
+  it (guide §5.1, §8), and leaves it in the window's centre otherwise. A `translate` moves the
+  box and nothing else: the size stays as `cqw` and `cqh` made it, and the `::backdrop`, a
+  separate box of the top layer, still covers the whole window. The container's visible part is its
+  rect inside the window and inside every ancestor that clips its overflow (a scrolling side panel),
+  up to a fixed one; `<body>` and `<html>` hand their overflow to the window. It is measured again
+  on a resize (of the container through a `ResizeObserver`, of the dialog, of the window) and on a
+  scroll heard in the capture phase on the document, which a scroll does not otherwise reach. A move
+  that is neither is not noticed: nothing reports it, and the page behind a modal dialog is inert,
+  so only the host's own code can cause one.
+- The dialog sets `position: fixed; inset: 0; margin: auto; translate: none` itself, because
+  the centring (the UA's, then the shift) assumes them and a foreign page's `dialog { ... }` rule
+  could otherwise change them.
 - `showModal()` keeps Tab inside the page, not inside the dialog: after the last Tab stop the
   browser moves on to its own UI, and in a VS Code webview to the workbench. WebKit's Shift+Tab
   also skips Close (buttons are no Tab stops there by default) and lands on the `<dialog>` itself.

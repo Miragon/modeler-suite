@@ -80,6 +80,7 @@ function facts(): ShellDialogFacts {
       viewport: { width: 1280, height: 900 },
       container: { width: 1280, height: 900 },
       box: { left: 360, top: 150, width: 560, height: 600 },
+      shown: { left: 0, top: 0, right: 1280, bottom: 900 },
       name: { text: "Keyboard shortcuts", tag: "h2" },
       title: { fontSize: "21px", fontWeight: "600" },
       background: ROLES.flaecheHoch,
@@ -194,15 +195,17 @@ describe("shortcutsDialogProblems (guide §5.4, §5.6, §8)", () => {
     ]);
   });
 
-  it("sizes the dialog by the modeler's container, not the window, and centres it in the window", () => {
+  it("sizes the dialog by the modeler's container, not the window, and centres it over the container", () => {
     const embedded = withDialog((dialog) => {
       dialog.container = { width: 480, height: 400 };
-      dialog.box = { left: 416, top: 266, width: 448, height: 368 };
+      dialog.shown = { left: 700, top: 100, right: 1180, bottom: 500 };
+      dialog.box = { left: 716, top: 116, width: 448, height: 368 };
     });
     expect(shortcutsDialogProblems(embedded, NORMAL)).toEqual([]);
 
     const byWindow = withDialog((dialog) => {
       dialog.container = { width: 480, height: 400 };
+      dialog.shown = { left: 700, top: 100, right: 1180, bottom: 500 };
       dialog.box = { left: 360, top: 100, width: 560, height: 700 };
     });
     expect(shortcutsDialogProblems(byWindow, NORMAL)).toEqual([
@@ -211,6 +214,82 @@ describe("shortcutsDialogProblems (guide §5.4, §5.6, §8)", () => {
       ),
       expect.stringMatching(/700px high in a 400px high shell root/),
     ]);
+  });
+
+  describe("where the dialog sits (guide §5.1, §8)", () => {
+    const offset = { left: 600, top: 100, right: 1240, bottom: 800 };
+
+    it("expects the centre of the part of the container that shows, while the dialog fits there", () => {
+      const over = withDialog((dialog) => {
+        dialog.shown = offset;
+        dialog.box = { left: 640, top: 250, width: 560, height: 400 };
+      });
+      expect(shortcutsDialogProblems(over, NORMAL)).toEqual([]);
+    });
+
+    it("fails a dialog in the window's centre where the container has room for it", () => {
+      const inWindow = withDialog((dialog) => {
+        dialog.shown = { left: 400, top: 100, right: 1280, bottom: 800 };
+        dialog.box = { left: 360, top: 250, width: 560, height: 400 };
+      });
+      expect(shortcutsDialogProblems(inWindow, NORMAL)).toEqual([
+        expect.stringMatching(
+          /centred at 640, 450, expected the centre of the part of the shell root that shows, which has room for it with 16px around it \(840, 450\)/,
+        ),
+      ]);
+    });
+
+    it("fails a dialog off the container's centre in one axis only", () => {
+      const low = withDialog((dialog) => {
+        dialog.shown = offset;
+        dialog.box = { left: 640, top: 290, width: 560, height: 400 };
+      });
+      expect(shortcutsDialogProblems(low, NORMAL)).toEqual([
+        expect.stringMatching(/centred at 920, 490, expected the centre .* \(920, 450\)/),
+      ]);
+    });
+
+    it("expects the window's centre where the part of the container is too small", () => {
+      const small = { left: 700, top: 100, right: 1100, bottom: 500 };
+      const inWindow = withDialog((dialog) => {
+        dialog.shown = small;
+        dialog.box = { left: 360, top: 250, width: 560, height: 400 };
+      });
+      expect(shortcutsDialogProblems(inWindow, NORMAL)).toEqual([]);
+
+      const overContainer = withDialog((dialog) => {
+        dialog.shown = small;
+        dialog.box = { left: 620, top: 100, width: 560, height: 400 };
+      });
+      expect(shortcutsDialogProblems(overContainer, NORMAL)).toEqual([
+        expect.stringMatching(
+          /centred at 900, 300, expected the centre of the window, the part of the shell root that shows having no room for it with 16px around it \(640, 450\)/,
+        ),
+      ]);
+    });
+
+    it("asks for 16px around the dialog in both axes, give or take a rounded pixel", () => {
+      const tight = (width: number, height: number) =>
+        withDialog((dialog) => {
+          dialog.shown = { left: 100, top: 100, right: 100 + width, bottom: 100 + height };
+          dialog.box = { left: 360, top: 250, width: 560, height: 400 };
+        });
+      expect(shortcutsDialogProblems(tight(592, 432), NORMAL)).toEqual([
+        expect.stringMatching(/expected the centre of the part of the shell root that shows/),
+      ]);
+      expect(shortcutsDialogProblems(tight(591, 431), NORMAL)).toEqual([
+        expect.stringMatching(/expected the centre of the part of the shell root that shows/),
+      ]);
+      expect(shortcutsDialogProblems(tight(590, 432), NORMAL)).toEqual([]);
+      expect(shortcutsDialogProblems(tight(592, 430), NORMAL)).toEqual([]);
+    });
+
+    it("expects the window's centre where nothing of the container shows", () => {
+      const nothing = withDialog((dialog) => {
+        dialog.shown = null;
+      });
+      expect(shortcutsDialogProblems(nothing, NORMAL)).toEqual([]);
+    });
   });
 
   it("fails header, body and title off the guide's measures", () => {

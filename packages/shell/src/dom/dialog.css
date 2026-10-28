@@ -2,10 +2,11 @@
  * The shell's dialog (guide §8) and its "Keyboard shortcuts…" tables (§5.4): a native modal
  * <dialog> in the top layer. It also opens without a mounted shell, in an embedding host's own
  * page, so its rules need no .cd-shell around them and set every property a foreign page's element
- * styles (h2, table, th, button, kbd, dialog::backdrop) would otherwise change. Colours only from
- * var(--cd-ui-*). Sizes refer to the modeler's container (guide §5.1, also for §8): cqw and cqh
- * resolve against the shell root even in the top layer, and against the window where no size
- * container is around the dialog.
+ * styles (dialog, h2, table, th, button, kbd, dialog::backdrop) would otherwise change. Colours
+ * only from var(--cd-ui-*). Sizes refer to the modeler's container (guide §5.1, also for §8): cqw
+ * and cqh resolve against the shell root even in the top layer, and against the window where no
+ * size container is around the dialog. The rules centre it in the window; dialog-centre.ts shifts
+ * it from there over the container with an inline translate.
  */
 
 .cd-shell-dialog {
@@ -13,11 +14,14 @@
     "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --modeler-shell-font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
   box-sizing: border-box;
+  position: fixed;
+  inset: 0;
   width: min(560px, 100cqw - 32px);
   max-width: none;
   height: fit-content;
   max-height: calc(100cqh - 32px);
   margin: auto;
+  translate: none;
   padding: 0;
   overflow: hidden;
   color: var(--cd-ui-text);

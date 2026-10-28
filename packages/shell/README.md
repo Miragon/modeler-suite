@@ -363,9 +363,11 @@ its own).
 
 A page that embeds a modeler without mounting the shell still opens its "Keyboard shortcuts…"
 dialog from the shell (0.7): `showShortcutsDialog(groups, { container })` with the renderer's
-shortcut groups, `container` an element inside the page's themed area (its mode, contrast and
-language), and `shell.css` loaded after the tokens. `openShellDialog` opens the same dialog of
-guide §8 with a body of the host's own. Both are the host's to `close()` in its teardown.
+shortcut groups, `container` the element that holds the modeler, inside the page's themed area (its
+mode, contrast and language), and `shell.css` loaded after the tokens. The dialog centres over the
+part of `container` that shows while it fits there, and else in the window; its backdrop covers the
+window. `openShellDialog` opens the same dialog of guide §8 with a body of the host's own. Both are
+the host's to `close()` in its teardown.
 
 ## The conformance kit
 

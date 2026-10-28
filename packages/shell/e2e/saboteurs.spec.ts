@@ -2201,6 +2201,52 @@ test.describe("saboteurs", () => {
       );
     });
 
+    /**
+     * The embedded demo with its container moved 30px up and to the left of its place in the foreign
+     * page, so the container's centre is not the window's; `afterShow` then sabotages the dialog.
+     */
+    function offsetContainerHarness(afterShow?: () => void): ShellConformanceHarness<Page> {
+      const harness = demoHarness("embedded");
+      return {
+        ...harness,
+        sizes: WIDE_ONLY,
+        documents: undefined,
+        shortcutsDialog: {
+          async show(page, fixture) {
+            await page.evaluate(() => {
+              Object.assign(document.querySelector<HTMLElement>(".demo-embedded-host")!.style, {
+                position: "relative",
+                left: "-30px",
+                top: "-30px",
+              });
+            });
+            await harness.shortcutsDialog!.show(page, fixture);
+            if (afterShow) await page.evaluate(afterShow);
+          },
+        },
+      };
+    }
+
+    test("shortcutsDialog passes a dialog centred over a container off the window's centre", async ({
+      page,
+    }) => {
+      const outcome = await runCase("shortcutsDialog", page, offsetContainerHarness());
+      expect(outcome?.skipped ?? []).toEqual([]);
+    });
+
+    test("shortcutsDialog fails a dialog in the window's centre over a container off it", async ({
+      page,
+    }) => {
+      const harness = offsetContainerHarness(() => {
+        const style = document.createElement("style");
+        style.textContent = ".cd-shell-dialog { translate: none !important; }";
+        document.head.append(style);
+      });
+      await expect(runCase("shortcutsDialog", page, harness)).rejects.toThrow(
+        /shortcuts dialog \(dialog\.cd-shell-dialog\.cd-shell-shortcuts\): centred at \d+, \d+, expected the centre of the part of the shell root that shows, which has room for it with 16px around it \(\d+, \d+\) \(guide §5\.1, §8\)/,
+      );
+    });
+
     test("shortcutsDialog is skipped without its hook", async ({ page }) => {
       const outcome = await runCase("shortcutsDialog", page, {
         ...demoHarness("ide"),

@@ -1,13 +1,16 @@
 import { defaultMessages } from "../core/index.js";
+import { centreOverContainer } from "./dialog-centre.js";
 import { createElement } from "./element.js";
 import { iconElement } from "./icons.js";
 
 export interface ShellDialogOptions {
   /**
-   * Where the `<dialog>` lives: the shell root, or an element of an embedding host, so the dialog
-   * takes its mode (`data-cd-theme`), contrast and language, and its sizes refer to the size
-   * container around it (the shell root; the window without one, guide §5.1). It shows in the top
-   * layer, centred in the window, whatever its place.
+   * Where the `<dialog>` lives: the shell root, or the modeler's element in an embedding host, so
+   * the dialog takes its mode (`data-cd-theme`), contrast and language, and its sizes refer to the
+   * size container around it (the shell root; the window without one, guide §5.1). It shows in the
+   * top layer and is centred over the part of this element that shows, as long as it fits there
+   * with 16px around it, and else in the window; its backdrop covers the whole window. It follows
+   * resizes of the element and of the window and scrolls of the page or of an element around it.
    */
   container: HTMLElement;
   /** The title (21px/600) and the dialog's accessible name. */
@@ -151,9 +154,10 @@ function outside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
 /**
  * A dialog of guide §8: a native `<dialog>` opened with `showModal()`, so it lies in the top layer
  * above every island and the page behind it is inert, with a header (title, Close) and a scrolling
- * body. Escape, Close and a click on the backdrop close it; the focus stays inside (Tab and
- * Shift+Tab wrap, also in a VS Code webview, whose Tab would otherwise leave for the workbench) and
- * returns to the element that had it before. The dialog is built on open and removed on close.
+ * body, centred over its container (see `ShellDialogOptions.container`). Escape, Close and a click
+ * on the backdrop close it; the focus stays inside (Tab and Shift+Tab wrap, also in a VS Code
+ * webview, whose Tab would otherwise leave for the workbench) and returns to the element that had
+ * it before. The dialog is built on open and removed on close.
  */
 export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDialog {
   const { container } = options;
@@ -192,6 +196,7 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
   dialog.append(header, body);
 
   let finished = false;
+  let stopCentring: (() => void) | undefined;
   const ResizeObserverClass = globalThis.ResizeObserver;
 
   /** A body that scrolls is a Tab stop, so the keyboard can scroll it (in every engine alike). */
@@ -245,6 +250,7 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
     if (finished) return;
     finished = true;
     ownerDocument.removeEventListener("keydown", onTab);
+    stopCentring?.();
     resizeObserver?.disconnect();
     if (dialog.open) dialog.close();
     dialog.remove();
@@ -265,6 +271,7 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
     dialog.remove();
     throw error;
   }
+  stopCentring = centreOverContainer(dialog, container);
   ownerDocument.addEventListener("keydown", onTab);
   resizeObserver?.observe(body);
   updateScrollStop();

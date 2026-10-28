@@ -93,6 +93,7 @@ export interface ShellDialogFacts {
     description: string;
     /** Opened with `showModal()`: in the top layer, the page behind it inert. */
     modal: boolean;
+    /** The window a fixed element lies in: the root's client size, without scrollbars. */
     viewport: Size;
     /**
      * The content box of the modeler's container, the shell root, which the dialog's sizes refer
@@ -101,6 +102,12 @@ export interface ShellDialogFacts {
     container: Size;
     /** The dialog's box in viewport coordinates. */
     box: { left: number; top: number; width: number; height: number };
+    /**
+     * The part of the element the dialog lives in (the shell root of a mounted shell) that shows,
+     * in viewport coordinates: its box inside the window and inside every element around it that
+     * clips its overflow, up to a fixed one; `null` when nothing of it shows.
+     */
+    shown: { left: number; top: number; right: number; bottom: number } | null;
     /** The text of what `aria-labelledby` names, and that element's tag. */
     name: { text: string; tag: string } | null;
     title: { fontSize: string; fontWeight: string } | null;
@@ -208,6 +215,43 @@ export const shellDialogProbe = ({
             parseFloat(rootStyle.paddingBottom),
         }
       : { width: window.innerWidth, height: window.innerHeight };
+  const viewport = {
+    width: document.documentElement.clientWidth || window.innerWidth,
+    height: document.documentElement.clientHeight || window.innerHeight,
+  };
+  const home = first.parentElement;
+  let shown = null as { left: number; top: number; right: number; bottom: number } | null;
+  if (home) {
+    const own = home.getBoundingClientRect();
+    shown = {
+      left: Math.max(own.left, 0),
+      top: Math.max(own.top, 0),
+      right: Math.min(own.right, viewport.width),
+      bottom: Math.min(own.bottom, viewport.height),
+    };
+    for (
+      let element: Element | null = home;
+      element && element !== document.body && element !== document.documentElement;
+      element = element.parentElement
+    ) {
+      const around = getComputedStyle(element);
+      const clipX = around.overflowX !== "visible";
+      const clipY = around.overflowY !== "visible";
+      if (element !== home && (clipX || clipY)) {
+        const rect = element.getBoundingClientRect();
+        const left = rect.left + element.clientLeft;
+        const top = rect.top + element.clientTop;
+        shown = {
+          left: clipX ? Math.max(shown.left, left) : shown.left,
+          top: clipY ? Math.max(shown.top, top) : shown.top,
+          right: clipX ? Math.min(shown.right, left + element.clientWidth) : shown.right,
+          bottom: clipY ? Math.min(shown.bottom, top + element.clientHeight) : shown.bottom,
+        };
+      }
+      if (around.position === "fixed") break;
+    }
+    if (shown.right <= shown.left || shown.bottom <= shown.top) shown = null;
+  }
   const style = getComputedStyle(first);
   const backdrop = getComputedStyle(first, "::backdrop");
   const box = first.getBoundingClientRect();
@@ -275,9 +319,10 @@ export const shellDialogProbe = ({
     dialog: {
       description: tools.describe(first),
       modal,
-      viewport: { width: window.innerWidth, height: window.innerHeight },
+      viewport,
       container,
       box: { left: box.left, top: box.top, width: box.width, height: box.height },
+      shown,
       name: nameElement ? { text: text(nameElement), tag: nameElement.localName } : null,
       title: titleElement
         ? {

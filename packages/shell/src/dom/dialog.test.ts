@@ -280,6 +280,63 @@ describe("openShellDialog (guide §8)", () => {
   });
 });
 
+describe("openShellDialog centres over its container (guide §5.1, §8)", () => {
+  function openIn(box: { left: number; top: number; width: number; height: number }) {
+    Object.defineProperty(document.documentElement, "clientWidth", {
+      configurable: true,
+      value: 1280,
+    });
+    Object.defineProperty(document.documentElement, "clientHeight", {
+      configurable: true,
+      value: 900,
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    setBox(container, box);
+    const dialog = openShellDialog({ container, title: "Keyboard shortcuts", render() {} });
+    opened.push(dialog);
+    const element = container.querySelector<HTMLDialogElement>("dialog")!;
+    setBox(element, { left: 0, top: 0, width: 560, height: 400 });
+    FakeResizeObserver.resize(element);
+    return { container, dialog, element };
+  }
+
+  it("shifts the dialog over the container once it is open and while it is open", () => {
+    const { container, element } = openIn({ left: 100, top: 80, width: 900, height: 700 });
+    expect(element.style.getPropertyValue("translate")).toBe("-90px -20px");
+
+    setBox(container, { left: 100, top: 160, width: 900, height: 700 });
+    FakeResizeObserver.resize(container);
+
+    expect(element.style.getPropertyValue("translate")).toBe("-90px 60px");
+  });
+
+  it("leaves it in the window where the container is too small for it", () => {
+    const { element } = openIn({ left: 100, top: 80, width: 400, height: 700 });
+    expect(element.style.getPropertyValue("translate")).toBe("");
+  });
+
+  it("closes on a click on the backdrop around the shifted panel", () => {
+    const { element, dialog } = openIn({ left: 100, top: 80, width: 900, height: 700 });
+    setBox(element, { left: 270, top: 230, width: 560, height: 400 });
+
+    pointer(element, "pointerdown", { clientX: 1100, clientY: 400 });
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: 1100, clientY: 400 }));
+
+    expect(dialog.isOpen()).toBe(false);
+  });
+
+  it("stops following the container once closed", () => {
+    const { container, element, dialog } = openIn({ left: 100, top: 80, width: 900, height: 700 });
+    dialog.close();
+
+    setBox(container, { left: 0, top: 0, width: 1280, height: 900 });
+    window.dispatchEvent(new Event("resize"));
+
+    expect(element.style.getPropertyValue("translate")).toBe("-90px -20px");
+  });
+});
+
 describe("showShortcutsDialog without a mounted shell (guide §5.4)", () => {
   const groups = [
     {
