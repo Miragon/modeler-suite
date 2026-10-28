@@ -27,6 +27,7 @@ export default class EventStormingDrawingHandles {
   private shape: EventStormingShape | null = null;
   private group: SVGElement | null = null;
   private dragPreview: SVGElement | null = null;
+  private pointDrag: { shape: EventStormingShape; unbind: () => void } | null = null;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -44,7 +45,15 @@ export default class EventStormingDrawingHandles {
     eventBus.on("element.changed", (event: { element?: unknown }) => {
       if (this.shape && event.element === this.shape) this.render();
     });
-    eventBus.on(["diagram.clear", "diagram.destroy"], () => this.attach(null));
+    // An import, a delete or an undo removes the drawing mid-drag: the release must not commit
+    // onto the removed shape.
+    eventBus.on("shape.remove", (event: { element?: unknown }) => {
+      if (this.pointDrag?.shape === event.element) this.endPointDrag();
+    });
+    eventBus.on(["diagram.clear", "diagram.destroy"], () => {
+      this.endPointDrag();
+      this.attach(null);
+    });
   }
 
   private attach(shape: EventStormingShape | null): void {
@@ -83,6 +92,7 @@ export default class EventStormingDrawingHandles {
     if (e.button !== 0 || !this.shape) return;
     e.preventDefault();
     e.stopPropagation();
+    this.endPointDrag();
     const shape = this.shape;
     const points = this.absolutePoints();
 
@@ -91,14 +101,27 @@ export default class EventStormingDrawingHandles {
       this.renderDragPreview(points, !!shape.closed);
     };
     const onUp = (ev: MouseEvent): void => {
-      document.removeEventListener("mousemove", onMove, true);
-      document.removeEventListener("mouseup", onUp, true);
       points[index] = this.toCanvasPoint(ev);
-      this.clearDragPreview();
+      this.endPointDrag();
       this.commit(shape, points);
     };
     document.addEventListener("mousemove", onMove, true);
     document.addEventListener("mouseup", onUp, true);
+    this.pointDrag = {
+      shape,
+      unbind: () => {
+        document.removeEventListener("mousemove", onMove, true);
+        document.removeEventListener("mouseup", onUp, true);
+      },
+    };
+  }
+
+  private endPointDrag(): void {
+    const drag = this.pointDrag;
+    if (!drag) return;
+    this.pointDrag = null;
+    drag.unbind();
+    this.clearDragPreview();
   }
 
   /** New bbox + relative points — ONE undoable updateProperties command. */

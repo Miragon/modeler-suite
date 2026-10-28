@@ -88,7 +88,11 @@ centred at the largest zoom that shows all of it, never above 100%; an empty boa
 board with arrow annotations is imported once the font they are set in has loaded (or failed to), so
 that the fit on import, and a host's fit after the import resolves, frame them as drawn and not as
 the fallback font would set them; imports still run in the order they were called. A label being
-typed when an import arrives is reopened on the same element afterwards, with the typed text.
+typed when an import arrives is reopened on the same element afterwards, with the typed text. A
+drag running when an import arrives (a move, resize, connection or lasso, a create from the
+palette or a paste, also with its preview off the canvas, or a point of a drawing) ends before the
+board is replaced, as Escape ends it: its release changes nothing and fires no
+`commandStack.changed`. The palette's lasso tool, armed but not yet pressed, stays armed.
 
 `contentBounds()` gives the tight box around what the board draws (`{ x, y, width, height }` in
 board coordinates, which zoom and scroll leave alone): every sticky, note and drawing, a hotspot
