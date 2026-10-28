@@ -581,6 +581,8 @@ describe("runVsCodeSmoke, keys", () => {
 });
 
 interface FakeDocumentOptions {
+  /** How many document edits the edit makes; the undo and the redo move one of them per key. Default 1. */
+  steps?: number | undefined;
   /** The redo key changes nothing. */
   redoDoesNothing?: boolean | undefined;
   /** The undo key changes nothing. */
@@ -591,34 +593,40 @@ interface FakeDocumentOptions {
 
 /**
  * A document with the history VS Code keeps for it: the fixture's text, the edited text the edit
- * made, the file on disk the save writes, and a canvas that draws one more shape for the edited
- * text. The view keeps its zoom through the imports an undo and a redo cause, and the selection
- * keeps what the canvas still draws.
+ * made (the texts between them, where the edit made more than one document edit, show the
+ * fixture's shapes), the file on disk the save writes, and a canvas that draws one more shape for
+ * the edited text. The view keeps its zoom through the imports an undo and a redo cause, and the
+ * selection keeps what the canvas still draws.
  */
 function fakeDocument(original: string, options: FakeDocumentOptions = {}) {
   const keys = platformKeys(process.platform);
+  const steps = options.steps ?? 1;
   const edited = `${original} edited`;
-  let text = original;
+  let position = 0;
   let onDisk = original;
   let scale = 0.62;
   let selected: string[] = [];
-  const drawn = () => (text === edited ? ["a", "b", "c", "d"] : ["a", "b", "c"]);
-  const importText = (next: string) => {
-    text = next;
+  const textAt = (index: number) =>
+    index === 0 ? original : index === steps ? edited : `${original} edit ${index}`;
+  const drawn = () => (position === steps ? ["a", "b", "c", "d"] : ["a", "b", "c"]);
+  const importPosition = (next: number) => {
+    position = next;
     const kept = new Set(drawn());
     selected = options.dropsSelection ? [] : selected.filter((id) => kept.has(id));
   };
   const editing: FakeEditing = {
     press(chord, file) {
       if (chord === keys.save) {
-        onDisk = text;
-        writeFileSync(file, text);
-      } else if (chord === keys.undo && !options.undoDoesNothing) importText(original);
-      else if (chord === keys.redo && !options.redoDoesNothing) importText(edited);
-      else if (chord === `${keys.modifier}+Equal`) scale *= 1.35;
+        onDisk = textAt(position);
+        writeFileSync(file, onDisk);
+      } else if (chord === keys.undo && !options.undoDoesNothing && position > 0) {
+        importPosition(position - 1);
+      } else if (chord === keys.redo && !options.redoDoesNothing && position < steps) {
+        importPosition(position + 1);
+      } else if (chord === `${keys.modifier}+Equal`) scale *= 1.35;
       else if (chord === `${keys.modifier}+KeyA`) selected = drawn();
     },
-    dirty: () => text !== onDisk,
+    dirty: () => textAt(position) !== onDisk,
     canvas: () => ({
       shapes: drawn().length,
       connections: 0,
@@ -635,7 +643,7 @@ function fakeDocument(original: string, options: FakeDocumentOptions = {}) {
   return {
     keys,
     editing,
-    edit: async () => importText(edited),
+    edit: async () => importPosition(steps),
     diskText: (file: string) => readFileSync(file, "utf8"),
   };
 }
@@ -712,6 +720,22 @@ describe("runVsCodeSmoke, history", () => {
     },
   );
 
+  it(
+    "presses the redo and the undo key as often as the undo step does",
+    { timeout: 30_000 },
+    async () => {
+      const document = fakeDocument("board", { steps: 3 });
+
+      const result = await smokeEditing(document, { history: true, undoSteps: 3 });
+
+      expect(result.failures).toEqual([]);
+      expect(result.undone).toBe(true);
+      expect(result.history?.afterRedo).toEqual({ zoom: 84, selected: 3 });
+      expect(result.history?.afterUndo).toEqual({ zoom: 84, selected: 3 });
+      expect(document.editing.dirty()).toBe(false);
+    },
+  );
+
   it("skips it by default", { timeout: 30_000 }, async () => {
     vi.stubEnv("VSCODE_SMOKE_OPT_IN", "");
 
@@ -742,6 +766,28 @@ describe("runVsCodeSmoke, history", () => {
       `history: ${document.keys.redo} dropped the selection of a, b, c, which are still on the canvas`,
     ]);
   });
+
+  it(
+    "is skipped, and says so, when the edit never reached a saved document",
+    { timeout: 30_000 },
+    async () => {
+      const lines: string[] = [];
+
+      const result = await smokeEditing(
+        fakeDocument("board"),
+        { history: true, timeoutMs: 1_000, edit: async () => undefined },
+        lines,
+      );
+
+      expect(result.failures).toEqual([
+        "edit: the document did not change (its editor never turned dirty)",
+      ]);
+      expect(result.history).toBeUndefined();
+      expect(lines).toContain(
+        "history: skipped, the edit was not saved, so there was nothing to undo",
+      );
+    },
+  );
 
   it(
     "is skipped, and says so, when the undo step did not bring the canvas back",

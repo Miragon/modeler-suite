@@ -123,7 +123,10 @@ export interface VsCodeSmokeOptions {
   edit?: ((context: VsCodeSmokeContext) => Promise<void>) | undefined;
   /** Resolves once the opened fixture is ready for the edit; default: the canvas shows a shape. */
   ready?: ((context: VsCodeSmokeContext) => Promise<void>) | undefined;
-  /** How many undo steps take the edit back; default 1 (one canvas change is one document edit). */
+  /**
+   * How many undo steps take the edit back; default 1 (one canvas change is one document edit). The
+   * history step presses the redo key as often, and then the undo key again.
+   */
   undoSteps?: number | undefined;
   /** The modes the modeler declares, as its extension passes them to the theme bridge; default `["light"]`. */
   themes?: readonly Theme[] | undefined;
@@ -709,7 +712,11 @@ async function runSession(run: SessionRun): Promise<void> {
       log(`history: ${describeHistory(checked.result)}`);
     });
   } else if (run.history) {
-    log("history: skipped, the undo step did not bring the canvas back");
+    log(
+      saved
+        ? "history: skipped, the undo step did not bring the canvas back"
+        : "history: skipped, the edit was not saved, so there was nothing to undo",
+    );
   }
 }
 

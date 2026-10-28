@@ -318,10 +318,13 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
   or a webview that refits after an import would pass by landing on the same view, and selects
   every element, or an empty selection would pass. A selection is judged by ids: what was selected
   and is still drawn has to be selected, and nothing new may be, which leaves out the element the
-  redo brings back and the undo takes away. The redo's canvas is compared within two pixels per shape,
-  since the edit's canvas holds the gesture's positions and the redo's the saved text's, which
-  rounds. The view has to hold for 0.5 s after it matched: a restore or a refit may follow the
-  import. The step presses redo and undo `undoSteps` times each, the same number of document edits
+  redo brings back and the undo takes away. A modeler that gives every element a new id on an
+  import fails, since a dropped selection would otherwise look like one that was never there. The
+  redo's canvas is compared within two pixels per shape, each shape paired with a partner of its
+  own, since the edit's canvas holds the gesture's positions and the redo's the saved text's,
+  which rounds. An edit that leaves the shapes as they were cannot show the redo on the canvas, so
+  VS Code has to call the document changed after it. The view has to hold for 0.5 s after it
+  matched: a restore or a refit may follow the import. The step presses redo and undo `undoSteps` times each, the same number of document edits
   as the edit made, and ends with the undo, so the document is the saved one again. It reads the
   state after the keys step on purpose: nothing in it edits the document, so the redo history of
   the undo step is still there.

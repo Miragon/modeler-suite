@@ -68,6 +68,15 @@ export function selectionChange(before: ViewFacts, after: ViewFacts): SelectionC
   };
 }
 
+/**
+ * The selection was something and none of it is drawn any more: an import that gives every element
+ * a new id leaves the step nothing to follow, and would pass it whatever happens to the selection.
+ */
+export function replacedEveryId(before: ViewFacts, after: ViewFacts): boolean {
+  const drawn = new Set(after.elements);
+  return before.selected.length > 0 && before.selected.every((id) => !drawn.has(id));
+}
+
 function summarize(view: ViewFacts): VsCodeSmokeHistoryView {
   return { zoom: Math.round(view.scale * 100), selected: view.selected.length };
 }
@@ -99,7 +108,12 @@ async function checkViewKept(
 ): Promise<ViewFacts> {
   const kept = (view: ViewFacts) => {
     const { lost, gained } = selectionChange(previous, view);
-    return sameView(previous, view) && lost.length === 0 && gained.length === 0;
+    return (
+      sameView(previous, view) &&
+      lost.length === 0 &&
+      gained.length === 0 &&
+      !replacedEveryId(previous, view)
+    );
   };
   const settled = await pollUntil(
     () => session.view(),
@@ -112,6 +126,11 @@ async function checkViewKept(
   if (!sameView(previous, now)) {
     failures.push(
       `${label} moved the view: ${describeViewport(previous)} before, ${describeViewport(now)} after`,
+    );
+  }
+  if (replacedEveryId(previous, now)) {
+    failures.push(
+      `${label} gave every selected element a new id (${listIds(previous.selected)} are not on the canvas any more), so the selection cannot be followed`,
     );
   }
   const { lost, gained } = selectionChange(previous, now);
@@ -206,6 +225,18 @@ export async function checkHistory(
       `${labelOf(redo, options.steps)} did not bring the edit back: the canvas shows ${describeCanvas(redone.value)}, after the edit ${describeCanvas(options.edited)}`,
     );
   } else {
+    // A canvas that shows the same shapes before and after the edit cannot tell a redo from none.
+    const changedDocument = await pollUntil(
+      () => session.dirty(),
+      (dirty) => dirty,
+      options.effectTimeoutMs,
+      options.intervalMs,
+    );
+    if (!changedDocument.met) {
+      failures.push(
+        `${labelOf(redo, options.steps)} did not change the document: VS Code does not call it changed, so the canvas did not come from the redo`,
+      );
+    }
     previous = await checkViewKept(session, options, kept, labelOf(redo, options.steps), failures);
     result.afterRedo = summarize(previous);
   }

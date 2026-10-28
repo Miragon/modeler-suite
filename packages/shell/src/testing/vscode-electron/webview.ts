@@ -5,7 +5,7 @@
  * because they run through `locator.evaluate`.
  */
 
-/** What the driver compares before the edit and after the undo. */
+/** What the driver compares before the edit and after the undo, and in the history step after the redo. */
 export interface CanvasFacts {
   shapes: number;
   connections: number;

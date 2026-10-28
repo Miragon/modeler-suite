@@ -27,6 +27,21 @@ describe("similarCanvas", () => {
     );
   });
 
+  it("pairs shapes by distance, not by the order their positions sort in", () => {
+    const columns: CanvasFacts = { shapes: 2, connections: 0, positions: ["100,50", "101,10"] };
+    expect(similarCanvas(columns, { ...columns, positions: ["101,50", "100,10"] })).toBe(true);
+
+    const apart: CanvasFacts = { shapes: 2, connections: 0, positions: ["100,0", "101,500"] };
+    expect(similarCanvas(apart, { ...apart, positions: ["101,0", "100,500"] })).toBe(true);
+  });
+
+  it("gives every shape one partner, also where two shapes both fit one", () => {
+    const close: CanvasFacts = { shapes: 2, connections: 0, positions: ["0,0", "2,0"] };
+
+    expect(similarCanvas(close, { ...close, positions: ["2,0", "-2,0"] })).toBe(true);
+    expect(similarCanvas(close, { ...close, positions: ["2,0", "10,0"] })).toBe(false);
+  });
+
   it("fails a shape three pixels off, another count and another number of positions", () => {
     expect(similarCanvas(canvas, { ...canvas, positions: ["-40,12", "100,0", "100,23"] })).toBe(
       false,

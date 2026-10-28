@@ -765,18 +765,19 @@ A theme switch VS Code does not pick up is retried within the run (0.4.1): the d
 setting again, then switches through another theme and back, before the theme fails with the theme
 requested and the one VS Code shows. A modeler needs no retry of its own for a missed theme switch.
 Opted in with `keys: true`, or with `VSCODE_SMOKE_OPT_IN=keys` in the environment of the test (0.7),
-a run ends with the keys step: with the focus on the canvas it presses every zoom key of guide §5.8
+a run takes the keys step: with the focus on the canvas it presses every zoom key of guide §5.8
 (the Shift and numpad variants included) and Shift+1, then Cmd/Ctrl+A and C. The readout has to
 follow each key, no key the webview handled may reach the webview's `window` (where VS Code would
 run its own binding, such as the window zoom), VS Code's window zoom level has to stay as it was,
 Cmd/Ctrl+0 must not move VS Code's focus to the side bar, select all has to select more canvas
 elements than were selected before and no text, and the copy has to leave the clipboard alone.
 Opted in with `history: true`, or with `VSCODE_SMOKE_OPT_IN=history` (0.8; a list takes commas
-or spaces, `keys,history`), a run ends with the history step: it zooms the canvas away from the fit,
-selects every element, redoes the edit and undoes it again, and after each of the two the view
-(zoom and translation) and the selection have to be what they were, the element the history
-takes away or brings back aside. The document is VS Code's, so the webview imports every text a
-redo or an undo brings; this is where a modeler that refits or loses the selection shows. New
+or spaces, `keys,history`), a run ends with the history step, after the keys: it zooms the canvas
+away from the fit, selects every element, redoes the edit (as often as `undoSteps`) and undoes it
+again, and after each of the two the view (zoom and translation) and the selection have to be what
+they were, the element the history takes away or brings back aside. The document is VS Code's, so
+the webview imports every text a redo or an undo brings; this is where a modeler that refits, loses
+the selection or numbers its elements anew on every import shows. New
 steps start opt-in and become the default once every modeler passes them in CI.
 Keep the smoke test out of the unit tests' project: it needs a display and the built extension. Add
 the screenshot directory to `.gitignore`.

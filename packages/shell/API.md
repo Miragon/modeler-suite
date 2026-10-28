@@ -2967,7 +2967,8 @@ extension, opens a fixture in the custom editor and checks what only a real VS C
 webview inside VS Code's two frames, the document's dirty state, save and undo through the
 workbench's keybindings, and the theme bridge under VS Code's four default themes, with a screenshot
 per theme. Opted in (0.7), it also presses the zoom and selection keys and checks that none of them
-reaches VS Code's own bindings. It runs in Node, from a Vitest or `node:test` file; no Playwright test runner is needed.
+reaches VS Code's own bindings; opted in (0.8), it also redoes and undoes the edit and checks that
+the zoomed view and the selection survive both. It runs in Node, from a Vitest or `node:test` file; no Playwright test runner is needed.
 The package's command `modeler-shell-vscode-docker` runs such a test in a Linux container, without a
 window on the host ([In Docker](#in-docker-031)).
 
@@ -3003,7 +3004,7 @@ interface VsCodeSmokeOptions {
   parse: (text: string) => unknown; // the modeler's parser; throws or rejects for an invalid document
   edit?: (context: VsCodeSmokeContext) => Promise<void>; // default createFromPalette
   ready?: (context: VsCodeSmokeContext) => Promise<void>; // default: the canvas shows a shape
-  undoSteps?: number; // default 1
+  undoSteps?: number; // default 1; the history step presses the redo key as often, then the undo key
   themes?: readonly Theme[]; // what the extension passes to the theme bridge; default ["light"]
   colorThemes?: readonly VsCodeColorTheme[]; // default VSCODE_COLOR_THEMES; the first also at start
   chrome?: readonly ChromeIsland[]; // must be visible; default ["menu", "palette", "zoom"]
@@ -3294,11 +3295,14 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
    which with the container's size are the viewbox) and `data-element-id` of every drawn and every
    selected element, then presses the platform's redo key `undoSteps` times (Cmd+Shift+Z on
    macOS, Ctrl+Y elsewhere): the canvas has to show the edit again, as read before the undo (each
-   shape within two pixels, since the saved text rounds positions), and the view has to be what it was,
-   within three decimals of the zoom and a pixel of the translation, held for 0.5 s after it
-   matched, so that a refit after the import counts. Every element that was selected and is still
-   drawn has to be selected, and nothing may be selected that was not (the element the redo
-   brings back is not). Then the undo key `undoSteps` times: the canvas has to show what it
+   shape within two pixels of one of the edit's, since the saved text rounds positions), VS Code has
+   to call the document changed (an edit that leaves the canvas as it was cannot show the redo
+   otherwise), and the view has to be what it was, within three decimals of the zoom and a pixel
+   of the translation, held for 0.5 s after it matched, so that a refit after the import counts.
+   Every element that was selected and is still drawn has to be selected, and nothing may be
+   selected that was not (the element the redo brings back is not); an import that gives every
+   selected element a new id fails, since the step could not follow the selection. Then the undo
+   key `undoSteps` times: the canvas has to show what it
    showed before the edit, and the view and the selection are checked against the redo's. A
    document that VS Code still calls changed afterwards is saved, so that closing VS Code does not
    wait on a prompt. `result.history` holds the zoom in percent and the number of selected

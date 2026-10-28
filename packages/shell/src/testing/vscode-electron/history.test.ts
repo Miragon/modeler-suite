@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   checkHistory,
+  replacedEveryId,
   sameView,
   selectionChange,
   type HistoryCheckOptions,
@@ -45,8 +46,12 @@ interface FakeVsCodeOptions {
   steps?: number | undefined;
   /** The import after this key puts the view back to the fit, as a modeler that refits would. */
   refitsAfter?: "redo" | "undo" | undefined;
+  /** With `refitsAfter`: the refit comes only after the view was read this many times, so the first reads still match. */
+  refitsAfterReads?: number | undefined;
   /** The import after this key drops the selection. */
   dropsSelectionAfter?: "redo" | "undo" | undefined;
+  /** Every import gives the elements new ids and the selection is gone, as a modeler that numbers them anew would. */
+  replacesIds?: boolean | undefined;
   /** The import after this key keeps the view and selection only after this many reads. */
   restoresAfterReads?: number | undefined;
   /** The redo brings the new element back selected. */
@@ -81,9 +86,14 @@ function fakeVsCode(options: FakeVsCodeOptions = {}) {
   let dirty = false;
   let readsSinceImport = Number.POSITIVE_INFINITY;
   let stale: ViewFacts | undefined;
+  let readsUntilRefit: number | undefined;
+  let generation = 0;
   const pressed: string[] = [];
 
-  const drawn = () => (position === steps ? EDITED_ELEMENTS : ORIGINAL_ELEMENTS);
+  const drawn = () =>
+    (position === steps ? EDITED_ELEMENTS : ORIGINAL_ELEMENTS).map((id) =>
+      generation === 0 ? id : `${id}#${generation}`,
+    );
 
   const current = (): ViewFacts => ({
     scale,
@@ -98,8 +108,14 @@ function fakeVsCode(options: FakeVsCodeOptions = {}) {
     const stillDrawn = new Set(drawn());
     selected = selected.filter((id) => stillDrawn.has(id));
     if (options.dropsSelectionAfter === key) selected = [];
+    if (options.replacesIds) {
+      generation += 1;
+      selected = [];
+    }
     if (options.selectsNewElement && key === "redo" && position === steps) selected.push("shape-d");
-    if (options.refitsAfter === key) {
+    if (options.refitsAfter === key && options.refitsAfterReads !== undefined) {
+      readsUntilRefit = options.refitsAfterReads;
+    } else if (options.refitsAfter === key) {
       scale = fit;
       translate = { x: 0, y: 0 };
     }
@@ -146,6 +162,13 @@ function fakeVsCode(options: FakeVsCodeOptions = {}) {
         readsSinceImport += 1;
         return stale;
       }
+      if (readsUntilRefit === 0) {
+        scale = fit;
+        translate = { x: 0, y: 0 };
+        readsUntilRefit = undefined;
+      } else if (readsUntilRefit !== undefined) {
+        readsUntilRefit -= 1;
+      }
       return current();
     },
     dirty: async () => dirty,
@@ -178,6 +201,19 @@ describe("selectionChange", () => {
     const after = view({ selected: ["shape-a"] });
 
     expect(selectionChange(before, after)).toEqual({ lost: [], gained: [] });
+  });
+});
+
+describe("replacedEveryId", () => {
+  it("is true when something was selected and none of it is drawn any more", () => {
+    const before = view({ selected: ["shape-a", "shape-b"] });
+
+    expect(replacedEveryId(before, view({ elements: ["shape-a#1", "shape-b#1"] }))).toBe(true);
+    expect(replacedEveryId(before, view({ elements: ["shape-b", "shape-d"] }))).toBe(false);
+  });
+
+  it("is false for an empty selection, which has no id to follow", () => {
+    expect(replacedEveryId(view(), view({ elements: ["shape-a#1"] }))).toBe(false);
   });
 });
 
@@ -265,6 +301,26 @@ describe("checkHistory", () => {
     expect(result.afterRedo).toEqual({ zoom: 62, selected: 5 });
   });
 
+  it("fails a refit that follows the import after the view matched once", async () => {
+    const { session } = fakeVsCode({ refitsAfter: "redo", refitsAfterReads: 1 });
+
+    const { failures } = await checkHistory(session, OPTIONS);
+
+    expect(failures).toEqual([
+      "Control+y moved the view: zoom 84% at 12, -8 before, zoom 62% at 0, 0 after",
+    ]);
+  });
+
+  it("fails an undo that refits the view after it matched once", async () => {
+    const { session } = fakeVsCode({ refitsAfter: "undo", refitsAfterReads: 1 });
+
+    const { failures } = await checkHistory(session, OPTIONS);
+
+    expect(failures).toEqual([
+      "Control+z moved the view: zoom 84% at 12, -8 before, zoom 62% at 0, 0 after",
+    ]);
+  });
+
   it("fails an undo that refits the view", async () => {
     const { session } = fakeVsCode({ refitsAfter: "undo" });
 
@@ -284,6 +340,16 @@ describe("checkHistory", () => {
       "Control+y dropped the selection of conn-1, conn-2, shape-a and 2 more, which are still on the canvas",
     ]);
     expect(result.afterRedo?.selected).toBe(0);
+  });
+
+  it("fails an import that gives every element a new id, which leaves no selection to follow", async () => {
+    const { session } = fakeVsCode({ replacesIds: true });
+
+    const { failures } = await checkHistory(session, OPTIONS);
+
+    expect(failures).toEqual([
+      "Control+y gave every selected element a new id (conn-1, conn-2, shape-a and 2 more are not on the canvas any more), so the selection cannot be followed",
+    ]);
   });
 
   it("fails a redo that selects the element it brings back, and does not blame the undo for taking it away", async () => {
@@ -306,6 +372,21 @@ describe("checkHistory", () => {
     ]);
     expect(pressed.at(-1)).toBe("Control+z");
     expect(result.afterRedo).toBeUndefined();
+  });
+
+  it("shows the redo reached the document where the edit left the canvas as it was", async () => {
+    const options = { ...OPTIONS, edited: ORIGINAL };
+
+    const working = await checkHistory(fakeVsCode({ editedCanvas: ORIGINAL }).session, options);
+    expect(working.failures).toEqual([]);
+
+    const ignored = await checkHistory(
+      fakeVsCode({ editedCanvas: ORIGINAL, ignored: ["Control+y"] }).session,
+      options,
+    );
+    expect(ignored.failures).toEqual([
+      "Control+y did not change the document: VS Code does not call it changed, so the canvas did not come from the redo",
+    ]);
   });
 
   it("names an undo that left the edit on the canvas", async () => {
