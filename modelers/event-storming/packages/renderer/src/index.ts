@@ -38,6 +38,12 @@ export {
   ROOT_ID,
 } from "./io/index.js";
 export { eventStormingModelingModule, EventStormingModeling } from "./modeling/index.js";
+export type { LabelChange } from "./modeling/index.js";
+export {
+  eventStormingVocabularyModule,
+  EventStormingSpellingVariants,
+  SPELLING_VARIANT_OVERLAY,
+} from "./vocabulary/index.js";
 export { eventStormingRulesModule, EventStormingRules } from "./rules/index.js";
 export { elementSnappingModule } from "./snapping/index.js";
 export { eventStormingPaletteModule } from "./palette/index.js";

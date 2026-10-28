@@ -126,6 +126,8 @@ describe("theme.sync — event-storming.css takes every colour from the roles", 
       ".event-storming-container .event-storming-note-toolbar",
       ".event-storming-container .event-storming-color-picker",
       ".event-storming-container .event-storming-label-input",
+      ".event-storming-container .event-storming-label-suggestions",
+      ".event-storming-container .event-storming-spelling-tooltip",
     ]) {
       expect(zIndexOf(overlay), overlay).toBeLessThanOrEqual(100);
     }

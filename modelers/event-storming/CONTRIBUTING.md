@@ -61,7 +61,10 @@ chrome specs and the web app's own (`webapp-chrome.spec.ts`: share link, the fit
 draws, replace with undo, open, drop, exports, app keys, Delete after a click on + or a palette
 entry, Escape after Enter on the Draw entry, Enter on the Lasso entry or a creating entry ending a
 drawing, and Escape and Enter for the menu, the shortcuts dialog and the zoom panel while a line is
-drawn). Run one project with
+drawn). Both hosts run the vocabulary specs (`webapp-vocabulary.spec.ts`,
+`vscode/vocabulary.spec.ts`): the label editor's suggestions with their keys, mouse and layer, the
+spelling-variant dots and "Unify spelling" as one undo step, in VS Code one edit of the document.
+Run one project with
 `npm run event-storming test:e2e -- --project=vscode-webview`. Locally an already running server
 on a port is reused, so pick free ports
 (`E2E_PORT=5387 E2E_WEBVIEW_PORT=5397 npm run event-storming test:e2e`) when another app occupies
@@ -135,14 +138,14 @@ edit or reformat them by hand.
 
 ## Monorepo map & the DOM boundary (P1)
 
-| Package                                | Purpose                                                   | DOM      |
-| -------------------------------------- | --------------------------------------------------------- | -------- |
-| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, JSON serialization       | DOM-free |
-| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)           | DOM-free |
-| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms | DOM-free |
-| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export     | DOM      |
-| `apps/webapp`                          | Vite demo editor                                          | DOM      |
-| `apps/vscode`                          | VS Code custom editor for `.storm`                        | DOM      |
+| Package                                | Purpose                                                         | DOM      |
+| -------------------------------------- | --------------------------------------------------------------- | -------- |
+| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, JSON serialization, vocabulary | DOM-free |
+| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                 | DOM-free |
+| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms       | DOM-free |
+| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export           | DOM      |
+| `apps/webapp`                          | Vite demo editor                                                | DOM      |
+| `apps/vscode`                          | VS Code custom editor for `.storm`                              | DOM      |
 
 **P1, the DOM boundary:** the DOM-free packages (`schema-model`, `dsl`, `transforms`) must **never**
 import `diagram-js`/DOM libraries (`tiny-svg`, `min-dom`) or use the DOM (`window`/`document`). This

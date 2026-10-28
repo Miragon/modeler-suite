@@ -2,6 +2,11 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import {
+  collectVocabulary,
+  isVocabularyStickyKind,
+  suggestLabels,
+} from "@miragon/event-storming-schema-model";
+import {
   isEventStormingConnection,
   isEventStormingShape,
   type EventStormingConnection,
@@ -10,6 +15,7 @@ import {
 import type EventStormingModeling from "../modeling/EventStormingModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type EventStormingReadOnly } from "../read-only/index.js";
 import { isManualNoteBox, noteMetrics } from "../draw/styles.js";
+import { LabelSuggestionList, boardStickies } from "../vocabulary/index.js";
 import {
   NOTE_BULLET_CLASS,
   HORIZONTAL_CYCLE,
@@ -38,6 +44,8 @@ interface ActiveEdit {
   cleanup: () => void;
   /** What was typed so far, to reopen the same edit after an import. */
   snapshot: () => SuspendedEdit;
+  /** Closes a popup of the editor (the label suggestions), leaving the editor open. */
+  closePopup?: () => void;
 }
 
 /** An open edit taken down for an import: the element it belongs to and the uncommitted text. */
@@ -117,6 +125,8 @@ export default class EventStormingLabelEditing {
     // (modeler-api L5), and scroll and zoom move the board under the field. Committing there would
     // write half-typed text, so the field follows its element instead.
     eventBus.on("canvas.viewbox.changed", () => this.active?.place());
+    // A popup of the editor closes on pan and zoom like every canvas popup (guide §5.13).
+    eventBus.on("canvas.viewbox.changing", () => this.active?.closePopup?.());
   }
 
   /**
@@ -206,11 +216,13 @@ export default class EventStormingLabelEditing {
     container.appendChild(field);
     field.focus();
     field.select();
+    const suggestions = this.suggestionsFor(element, field);
 
     let done = false;
     const cleanup = () => {
       if (done) return;
       done = true;
+      suggestions?.destroy();
       field.removeEventListener("keydown", onKey as EventListener);
       field.removeEventListener("blur", onBlur);
       field.remove();
@@ -230,6 +242,7 @@ export default class EventStormingLabelEditing {
       this.modeling.updateLabel(element, value);
     };
     const onKey = (e: KeyboardEvent) => {
+      if (suggestions?.handleKey(e)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         cleanup();
@@ -253,7 +266,32 @@ export default class EventStormingLabelEditing {
       selectionStart: field.selectionStart ?? undefined,
       selectionEnd: field.selectionEnd ?? undefined,
     });
-    this.active = { field, place, commit, cleanup, snapshot };
+    const closePopup = () => suggestions?.close();
+    this.active = { field, place, commit, cleanup, snapshot, closePopup };
+  }
+
+  /**
+   * The suggestion list of a sticky whose kind names the domain: the names the other stickies of
+   * that kind use (issue #115). None for hotspots, and none without an element registry.
+   */
+  private suggestionsFor(
+    element: EventStormingShape,
+    field: HTMLTextAreaElement,
+  ): LabelSuggestionList | undefined {
+    const kind = element.eventStormingType;
+    const registry = this.elementRegistry;
+    if (!registry || !isVocabularyStickyKind(kind)) return undefined;
+    return new LabelSuggestionList(
+      field,
+      this.canvas.getContainer(),
+      (typed) =>
+        suggestLabels(collectVocabulary(boardStickies(registry, element.id)), kind, typed).map(
+          (term) => term.label,
+        ),
+      () => {
+        field.rows = Math.max(2, field.value.split("\n").length);
+      },
+    );
   }
 
   /**

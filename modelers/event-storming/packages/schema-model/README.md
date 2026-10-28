@@ -36,6 +36,42 @@ const restored = parseBoardJSON(json); // validated + migrated to the current sc
 (`LARGEST_DRAWABLE_NUMBER`), more than the canvas can draw: the same bound the `.storm` DSL applies.
 `validateBoard` checks the structure only.
 
+## Vocabulary
+
+The names a board uses, per sticky kind, so that an editor can suggest an established name and
+point at names spelled more than one way. It is derived from the board every time and never
+stored, so the schema and the `.storm` DSL stay as they are.
+
+```ts
+import {
+  collectVocabulary,
+  normalizeLabel,
+  spellingVariants,
+  suggestLabels,
+} from "@miragon/event-storming-schema-model";
+
+const vocabulary = collectVocabulary(board.elements); // one term per kind and normalised name
+spellingVariants(vocabulary); // the terms the board writes in more than one way
+suggestLabels(vocabulary, "aggregate", "Ord"); // what to offer while "Ord" is typed
+normalizeLabel("Orders") === normalizeLabel("order"); // true
+```
+
+- The vocabulary covers the kinds in `VOCABULARY_STICKY_KINDS`: domain events, commands, actors,
+  aggregates, policies, read models and external systems. Hotspots and notes are free text.
+- Two names are the same term when `normalizeLabel` gives them one key. It ignores case,
+  whitespace, line breaks, punctuation and camel case (`OrderPlaced`, `order placed`). It reads
+  simple plurals as their singular: English `-s`, `-es` and `-ies`, and the German endings
+  `-ungen`, `-heiten`, `-keiten`, `-schaften`, `-ionen`, `-täten`, `-innen` and `-nisse`. It also
+  reads `ß` as `ss`, `ä`, `ö`, `ü` as `ae`, `oe`, `ue`, American `-ize` as `-ise` and doubled
+  letters as single ones (`cancelled`, `canceled`). Digits count as written, so `Room 1` and
+  `Room 11` stay apart.
+- A term's `label` is the spelling most of its stickies use (on a tie, the one met first), and
+  `spellings` lists every spelling with the ids of the stickies that write it.
+- `suggestLabels` offers the terms of one kind whose name, or one of its later words, starts with
+  what is typed, the matches at the start first, then the most used, at most
+  `DEFAULT_SUGGESTION_LIMIT` (8). The last word counts as written so far, so `Pay` finds
+  `Payment Received`.
+
 Part of the [Event Storming Modeler](https://github.com/Miragon/modeler-suite/tree/main/modelers/event-storming) in the [Miragon modeler suite](https://github.com/Miragon/modeler-suite).
 
 ## License

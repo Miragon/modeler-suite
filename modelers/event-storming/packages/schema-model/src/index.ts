@@ -33,6 +33,23 @@ export { DEFAULT_BOARD_LEVEL, LEVEL_STICKY_KINDS } from "./levels.js";
 // Pinning — which sticky kinds can be attached and which can host them
 export { ATTACHABLE_STICKY_KINDS, HOST_STICKY_KINDS } from "./attachments.js";
 
+// Vocabulary: the names per sticky kind, compared after normalisation, and their spelling variants
+export {
+  VOCABULARY_STICKY_KINDS,
+  DEFAULT_SUGGESTION_LIMIT,
+  isVocabularyStickyKind,
+  normalizeLabel,
+  collectVocabulary,
+  spellingVariants,
+  suggestLabels,
+} from "./vocabulary.js";
+export type {
+  VocabularyStickyKind,
+  LabelledSticky,
+  LabelSpelling,
+  VocabularyTerm,
+} from "./vocabulary.js";
+
 export {
   validateBoard,
   loadBoard,
