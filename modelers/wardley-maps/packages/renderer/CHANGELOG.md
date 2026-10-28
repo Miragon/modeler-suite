@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.13.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.12.0...wardley-renderer-v0.13.0) (2026-10-28)
+
+
+### Features
+
+* **wardley-maps:** break a label's line with Shift+Enter ([#253](https://github.com/Miragon/modeler-suite/issues/253)) ([8314e7c](https://github.com/Miragon/modeler-suite/commit/8314e7ce6283151ead8d697f7c1f0e0b84354339))
+
+
+### Bug Fixes
+
+* re-vendor cd-canvas.css of design guide 1.27.0 in the five renderers ([#255](https://github.com/Miragon/modeler-suite/issues/255)) ([9f412c0](https://github.com/Miragon/modeler-suite/commit/9f412c0018ba8ecc82838e4dac71bf09e2a20795))
+* **wardley-maps:** survive an import during a drop and keep armed tools armed ([#245](https://github.com/Miragon/modeler-suite/issues/245)) ([8dbbc71](https://github.com/Miragon/modeler-suite/commit/8dbbc71a4e0c0235662708d34b550d05d252ad99))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.4.0 to 1.5.0
+    * @miragon/wardley-dsl bumped from 0.7.1 to 0.8.0
+
 ## [0.12.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.11.0...wardley-renderer-v0.12.0) (2026-10-28)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/Miragon/modeler-suite/compare/wardley-dsl-v0.7.1...wardley-dsl-v0.8.0) (2026-10-28)
+
+
+### Features
+
+* **wardley-maps:** break a label's line with Shift+Enter ([#253](https://github.com/Miragon/modeler-suite/issues/253)) ([8314e7c](https://github.com/Miragon/modeler-suite/commit/8314e7ce6283151ead8d697f7c1f0e0b84354339))
+
 ## [0.7.1](https://github.com/Miragon/modeler-suite/compare/wardley-dsl-v0.7.0...wardley-dsl-v0.7.1) (2026-10-25)
 
 

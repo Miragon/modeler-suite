@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.1](https://github.com/Miragon/modeler-suite/compare/value-chain-vscode-v0.8.0...value-chain-vscode-v0.8.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* open the source to the side from the walkthrough in every extension ([#244](https://github.com/Miragon/modeler-suite/issues/244)) ([6325498](https://github.com/Miragon/modeler-suite/commit/632549862937500d1a73075711430959c09b5e39))
+* **value-chain:** guard the Problems view's tree parser against deep text after comments and strings ([#239](https://github.com/Miragon/modeler-suite/issues/239)) ([4bc4de3](https://github.com/Miragon/modeler-suite/commit/4bc4de36ad09587f99ae85e39ae64c94756aa5f9))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.6.0 to 0.7.0
+    * @miragon/value-chain-renderer bumped from 0.8.0 to 0.8.1
+    * @miragon/value-chain-schema-model bumped from 0.7.1 to 0.7.2
+
 ## [0.8.0](https://github.com/Miragon/modeler-suite/compare/value-chain-vscode-v0.7.2...value-chain-vscode-v0.8.0) (2026-10-28)
 
 

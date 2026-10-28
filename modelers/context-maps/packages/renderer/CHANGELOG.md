@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.1](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.7.0...context-maps-renderer-v0.7.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **context-maps:** cancel a running drag or palette create when a text is imported ([#206](https://github.com/Miragon/modeler-suite/issues/206)) ([5fb36bb](https://github.com/Miragon/modeler-suite/commit/5fb36bb38d4dd49d2c6cb0250ede66dedeebf070))
+* re-vendor cd-canvas.css of design guide 1.27.0 in the five renderers ([#255](https://github.com/Miragon/modeler-suite/issues/255)) ([9f412c0](https://github.com/Miragon/modeler-suite/commit/9f412c0018ba8ecc82838e4dac71bf09e2a20795))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.4.0 to 1.5.0
+
 ## [0.7.0](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.6.1...context-maps-renderer-v0.7.0) (2026-10-28)
 
 

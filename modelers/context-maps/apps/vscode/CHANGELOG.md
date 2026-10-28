@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.10.1](https://github.com/Miragon/modeler-suite/compare/context-maps-vscode-v0.10.0...context-maps-vscode-v0.10.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **context-maps:** show the nesting issue in the Problems view instead of overflowing the stack ([#222](https://github.com/Miragon/modeler-suite/issues/222)) ([65a2bdb](https://github.com/Miragon/modeler-suite/commit/65a2bdb3cd7301698aab7c4c7b38f6d9d5ece3d5))
+* open the source to the side from the walkthrough in every extension ([#244](https://github.com/Miragon/modeler-suite/issues/244)) ([6325498](https://github.com/Miragon/modeler-suite/commit/632549862937500d1a73075711430959c09b5e39))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/context-maps-renderer bumped from 0.7.0 to 0.7.1
+    * @miragon/modeler-shell bumped from 0.6.0 to 0.7.0
+
 ## [0.10.0](https://github.com/Miragon/modeler-suite/compare/context-maps-vscode-v0.9.1...context-maps-vscode-v0.10.0) (2026-10-28)
 
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.2](https://github.com/Miragon/modeler-suite/compare/value-chain-schema-model-v0.7.1...value-chain-schema-model-v0.7.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* **value-chain:** bound the nesting check's memory and issues ([#223](https://github.com/Miragon/modeler-suite/issues/223)) ([308afe3](https://github.com/Miragon/modeler-suite/commit/308afe3e0f110c130e8920a4da271e7f2b5a5334))
+* **value-chain:** serialize a document whose objects are shared without a cycle ([#240](https://github.com/Miragon/modeler-suite/issues/240)) ([a9feea0](https://github.com/Miragon/modeler-suite/commit/a9feea08987102ee0e7f94bd77c928e0fa75e40e))
+
 ## [0.7.1](https://github.com/Miragon/value-chain-modeler/compare/schema-model-v0.7.0...schema-model-v0.7.1) (2026-10-23)
 
 

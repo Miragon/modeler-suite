@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.1](https://github.com/Miragon/modeler-suite/compare/value-chain-renderer-v0.8.0...value-chain-renderer-v0.8.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* re-vendor cd-canvas.css of design guide 1.27.0 in the five renderers ([#255](https://github.com/Miragon/modeler-suite/issues/255)) ([9f412c0](https://github.com/Miragon/modeler-suite/commit/9f412c0018ba8ecc82838e4dac71bf09e2a20795))
+* **value-chain:** cancel a running drag or palette create when a text is imported ([#204](https://github.com/Miragon/modeler-suite/issues/204)) ([691e164](https://github.com/Miragon/modeler-suite/commit/691e164057934ee633b9222f139effa0bf19591c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.4.0 to 1.5.0
+    * @miragon/value-chain-schema-model bumped from 0.7.1 to 0.7.2
+
 ## [0.8.0](https://github.com/Miragon/modeler-suite/compare/value-chain-renderer-v0.7.2...value-chain-renderer-v0.8.0) (2026-10-28)
 
 
