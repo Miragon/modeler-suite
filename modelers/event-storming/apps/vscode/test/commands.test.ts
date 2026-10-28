@@ -54,7 +54,7 @@ describe("board commands", () => {
     expect(second.messagesOfType("command")).toEqual([]);
   });
 
-  it("tells the user when no board is focused instead of failing silently", async () => {
+  it("tells the user when no board is focused instead of using the one focused last", async () => {
     const showInformationMessage = vi.spyOn(window, "showInformationMessage");
     const h = await openBoard(fakeDocument("/a.storm", "title A\n"));
     h.setViewState({ active: false });
@@ -114,13 +114,91 @@ describe("text and board side by side", () => {
     ]);
   });
 
-  it("tells the user when no board is focused", async () => {
+  it("tells the user when no board is open", async () => {
     const showInformationMessage = vi.spyOn(window, "showInformationMessage");
     newProvider();
 
     await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
 
     expect(vscodeMock.executedCommands()).toEqual([]);
+    expect(showInformationMessage).toHaveBeenCalledWith(NO_BOARD_MESSAGE);
+  });
+
+  it("opens the board focused last once a walkthrough link has taken the focus", async () => {
+    const document = fakeDocument("/a.storm", "title A\n");
+    const h = await openBoard(document);
+    h.setViewState({ active: false });
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", document.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("follows the order the boards were focused in", async () => {
+    const provider = newProvider();
+    const first = fakeDocument("/a.storm", "title A\n");
+    const a = await openBoard(first, {}, provider);
+    a.setViewState({ active: false });
+    const b = await openBoard(fakeDocument("/b.storm", "title B\n"), {}, provider);
+    b.setViewState({ active: false });
+    a.setViewState({ active: true });
+    a.setViewState({ active: false });
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", first.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("opens the board that took the focus when it opened, not an earlier one", async () => {
+    const provider = newProvider();
+    const a = await openBoard(fakeDocument("/a.storm", "title A\n"), {}, provider);
+    const second = fakeDocument("/b.storm", "title B\n");
+    const b = await openBoard(second, {}, provider);
+    a.setViewState({ active: false });
+    b.setViewState({ active: false });
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", second.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("puts a board opened in the background behind the ones focused before", async () => {
+    const provider = newProvider();
+    const focused = fakeDocument("/a.storm", "title A\n");
+    const a = await openBoard(focused, {}, provider);
+    await openBoard(fakeDocument("/b.storm", "title B\n"), { active: false }, provider);
+    a.setViewState({ active: false });
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", focused.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("forgets a closed board and asks for one once none is open", async () => {
+    const showInformationMessage = vi.spyOn(window, "showInformationMessage");
+    const provider = newProvider();
+    const first = fakeDocument("/a.storm", "title A\n");
+    const a = await openBoard(first, {}, provider);
+    a.setViewState({ active: false });
+    const b = await openBoard(fakeDocument("/b.storm", "title B\n"), {}, provider);
+    b.dispose();
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+    a.dispose();
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", first.uri, "default", ViewColumn.Beside],
+    ]);
+    expect(showInformationMessage).toHaveBeenCalledTimes(1);
     expect(showInformationMessage).toHaveBeenCalledWith(NO_BOARD_MESSAGE);
   });
 });

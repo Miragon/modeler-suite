@@ -16,8 +16,9 @@ export const OPEN_SOURCE_COMMAND = "valueChain.openSource";
 export const OPEN_DIAGRAM_COMMAND = "valueChain.openDiagram";
 
 /**
- * Editor title buttons pass the editor's resource; the Command Palette passes nothing, so the
- * caller falls back to the focused diagram or text editor.
+ * Editor title buttons pass the editor's resource; the Command Palette and a walkthrough link pass
+ * nothing, so the caller falls back to the diagram focused last (Open Source to the Side) or the
+ * focused text editor (Open Diagram to the Side).
  */
 function resourceArgument(argument: unknown): vscode.Uri | undefined {
   return argument instanceof vscode.Uri ? argument : undefined;

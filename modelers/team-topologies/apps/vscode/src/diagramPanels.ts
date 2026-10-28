@@ -16,10 +16,14 @@ interface TrackedPanel {
 
 /**
  * The diagram webviews of both editors (text and PNG): the HTML, CSP and theme bridge of the
- * modeler shell for each, and the focused one, so Command Palette commands reach it.
+ * modeler shell for each, the focused one, so Command Palette commands reach it, and the order they
+ * were focused in, so Open Source to the Side finds a diagram after a walkthrough link took the
+ * focus.
  */
 export class DiagramPanels {
   private active: TrackedPanel | undefined;
+  /** The open diagrams of both editors, the one focused last first. */
+  private readonly byFocus: TrackedPanel[] = [];
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -43,26 +47,53 @@ export class DiagramPanels {
     connectThemeBridge(vscode, panel, { themes: WEBVIEW_THEMES });
 
     const tracked: TrackedPanel = { panel, uri, text };
-    if (panel.active) this.active = tracked;
+    if (panel.active) {
+      this.active = tracked;
+      this.byFocus.unshift(tracked);
+    } else {
+      this.byFocus.push(tracked);
+    }
     const viewState = panel.onDidChangeViewState(() => {
-      if (panel.active) this.active = tracked;
-      else if (this.active === tracked) this.active = undefined;
+      if (panel.active) {
+        this.active = tracked;
+        this.bringToFront(tracked);
+      } else if (this.active === tracked) {
+        this.active = undefined;
+      }
     });
     panel.onDidDispose(() => {
       viewState.dispose();
       if (this.active === tracked) this.active = undefined;
+      this.forget(tracked);
     });
   }
 
-  /** Forwards a Command Palette command to the focused diagram; false when none is focused. */
+  private forget(tracked: TrackedPanel): void {
+    const index = this.byFocus.indexOf(tracked);
+    if (index !== -1) this.byFocus.splice(index, 1);
+  }
+
+  private bringToFront(tracked: TrackedPanel): void {
+    this.forget(tracked);
+    this.byFocus.unshift(tracked);
+  }
+
+  /**
+   * Forwards a Command Palette command to the focused diagram, never to one focused earlier; false
+   * when none is focused.
+   */
   runCommand(name: WebviewCommand): boolean {
     if (!this.active) return false;
     void this.active.panel.webview.postMessage({ type: "command", name } satisfies HostToWebview);
     return true;
   }
 
-  /** The text document of the focused diagram, if it has one. */
+  /**
+   * The text document of the focused diagram, else of the text diagram focused last: a link in the
+   * walkthrough takes the focus from the diagram it means. A focused PNG diagram has no text.
+   */
   activeTextDocumentUri(): vscode.Uri | undefined {
-    return this.active?.text ? this.active.uri : undefined;
+    if (this.active) return this.active.text ? this.active.uri : undefined;
+    return this.byFocus.find((tracked) => tracked.text)?.uri;
   }
 }

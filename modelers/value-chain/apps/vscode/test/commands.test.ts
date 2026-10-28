@@ -57,7 +57,7 @@ describe("diagram commands", () => {
     expect(second.messagesOfType("command")).toEqual([]);
   });
 
-  it("tells the user when no diagram is focused instead of failing silently", async () => {
+  it("tells the user when no diagram is focused instead of using the one focused last", async () => {
     const showInformationMessage = vi.spyOn(window, "showInformationMessage");
     const h = await openDiagram(fakeDocument("/a.vc.json", DOC_A));
     h.setViewState({ active: false });
@@ -117,13 +117,91 @@ describe("text and diagram side by side", () => {
     ]);
   });
 
-  it("tells the user when no diagram is focused", async () => {
+  it("tells the user when no diagram is open", async () => {
     const showInformationMessage = vi.spyOn(window, "showInformationMessage");
     newProvider();
 
     await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
 
     expect(vscodeMock.executedCommands()).toEqual([]);
+    expect(showInformationMessage).toHaveBeenCalledWith(NO_DIAGRAM_MESSAGE);
+  });
+
+  it("opens the diagram focused last once a walkthrough link has taken the focus", async () => {
+    const document = fakeDocument("/a.vc.json", DOC_A);
+    const h = await openDiagram(document);
+    h.setViewState({ active: false });
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", document.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("follows the order the diagrams were focused in", async () => {
+    const provider = newProvider();
+    const first = fakeDocument("/a.vc.json", DOC_A);
+    const a = await openDiagram(first, {}, provider);
+    a.setViewState({ active: false });
+    const b = await openDiagram(fakeDocument("/b.vc.json", DOC_B), {}, provider);
+    b.setViewState({ active: false });
+    a.setViewState({ active: true });
+    a.setViewState({ active: false });
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", first.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("opens the diagram that took the focus when it opened, not an earlier one", async () => {
+    const provider = newProvider();
+    const a = await openDiagram(fakeDocument("/a.vc.json", DOC_A), {}, provider);
+    const second = fakeDocument("/b.vc.json", DOC_B);
+    const b = await openDiagram(second, {}, provider);
+    a.setViewState({ active: false });
+    b.setViewState({ active: false });
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", second.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("puts a diagram opened in the background behind the ones focused before", async () => {
+    const provider = newProvider();
+    const focused = fakeDocument("/a.vc.json", DOC_A);
+    const a = await openDiagram(focused, {}, provider);
+    await openDiagram(fakeDocument("/b.vc.json", DOC_B), { active: false }, provider);
+    a.setViewState({ active: false });
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", focused.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("forgets a closed diagram and asks for one once none is open", async () => {
+    const showInformationMessage = vi.spyOn(window, "showInformationMessage");
+    const provider = newProvider();
+    const first = fakeDocument("/a.vc.json", DOC_A);
+    const a = await openDiagram(first, {}, provider);
+    a.setViewState({ active: false });
+    const b = await openDiagram(fakeDocument("/b.vc.json", DOC_B), {}, provider);
+    b.dispose();
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+    a.dispose();
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", first.uri, "default", ViewColumn.Beside],
+    ]);
+    expect(showInformationMessage).toHaveBeenCalledTimes(1);
     expect(showInformationMessage).toHaveBeenCalledWith(NO_DIAGRAM_MESSAGE);
   });
 });

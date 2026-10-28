@@ -18,8 +18,9 @@ export const OPEN_DIAGRAM_COMMAND = "teamTopologies.openDiagram";
 export const NO_DIAGRAM_MESSAGE = "Open a Team Topologies diagram in the diagram editor first.";
 
 /**
- * Editor title buttons pass the editor's resource; the Command Palette passes nothing, so the
- * caller falls back to the focused diagram or text editor.
+ * Editor title buttons pass the editor's resource; the Command Palette and a walkthrough link pass
+ * nothing, so the caller falls back to the text diagram focused last (Open Source to the Side) or
+ * the focused text editor (Open Diagram to the Side).
  */
 function resourceArgument(argument: unknown): vscode.Uri | undefined {
   return argument instanceof vscode.Uri ? argument : undefined;

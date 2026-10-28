@@ -138,7 +138,7 @@ export class CmPngEditorProvider implements vscode.CustomEditorProvider<CmPngDoc
 
     const binding: PanelBinding = { webview, pending: new Map(), nextId: 1 };
     this.bindings.set(document, binding);
-    const tracking = this.panels.track(webviewPanel, document.uri);
+    const tracking = this.panels.track(webviewPanel, document.uri, { text: false });
     const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: WEBVIEW_THEMES });
 
     const post = (msg: HostToWebview): Thenable<boolean> => webview.postMessage(msg);

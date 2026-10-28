@@ -14,6 +14,10 @@ import { DIAGNOSTIC_COLLECTION_NAME } from "./diagnostics.js";
 import type { HostToWebview, WebviewCommand } from "./protocol.js";
 import { WEBVIEW_THEMES } from "./themes.js";
 
+interface OpenDiagram {
+  readonly uri: vscode.Uri;
+}
+
 /**
  * CustomTextEditor for `*.vc` / `*.vc.json`. The document (canonical JSON) remains the source of
  * truth — VS Code handles dirty state, saving, Git, diff, and file undo "for free". The webview
@@ -46,16 +50,33 @@ export class VcEditorProvider implements vscode.CustomTextEditorProvider {
     DIAGNOSTIC_COLLECTION_NAME,
   );
   private activePanel: vscode.WebviewPanel | undefined;
-  private readonly documentOfPanel = new WeakMap<vscode.WebviewPanel, vscode.Uri>();
+  /** The open diagrams, the one focused last first. */
+  private readonly openDiagrams: OpenDiagram[] = [];
 
   private constructor(private readonly context: vscode.ExtensionContext) {}
 
-  /** The document of the focused diagram, if a diagram editor has the focus. */
+  /**
+   * The document of the focused diagram, else of the open diagram focused last: a link in the
+   * walkthrough takes the focus from the diagram it means.
+   */
   public activeDocumentUri(): vscode.Uri | undefined {
-    return this.activePanel ? this.documentOfPanel.get(this.activePanel) : undefined;
+    return this.openDiagrams[0]?.uri;
   }
 
-  /** Forwards a Command Palette command to the focused diagram; false when none is focused. */
+  private forget(diagram: OpenDiagram): void {
+    const index = this.openDiagrams.indexOf(diagram);
+    if (index !== -1) this.openDiagrams.splice(index, 1);
+  }
+
+  private bringToFront(diagram: OpenDiagram): void {
+    this.forget(diagram);
+    this.openDiagrams.unshift(diagram);
+  }
+
+  /**
+   * Forwards a Command Palette command to the focused diagram, never to one focused earlier; false
+   * when none is focused.
+   */
   public runCommand(name: WebviewCommand): boolean {
     if (!this.activePanel) return false;
     void this.activePanel.webview.postMessage({ type: "command", name } satisfies HostToWebview);
@@ -84,12 +105,21 @@ export class VcEditorProvider implements vscode.CustomTextEditorProvider {
     });
 
     const session = new DiagramSession(document, webviewPanel, this.diagnostics);
-    this.documentOfPanel.set(webviewPanel, document.uri);
     const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: WEBVIEW_THEMES });
-    if (webviewPanel.active) this.activePanel = webviewPanel;
+    const diagram: OpenDiagram = { uri: document.uri };
+    if (webviewPanel.active) {
+      this.activePanel = webviewPanel;
+      this.openDiagrams.unshift(diagram);
+    } else {
+      this.openDiagrams.push(diagram);
+    }
     const viewState = webviewPanel.onDidChangeViewState(() => {
-      if (webviewPanel.active) this.activePanel = webviewPanel;
-      else if (this.activePanel === webviewPanel) this.activePanel = undefined;
+      if (webviewPanel.active) {
+        this.activePanel = webviewPanel;
+        this.bringToFront(diagram);
+      } else if (this.activePanel === webviewPanel) {
+        this.activePanel = undefined;
+      }
     });
 
     webviewPanel.onDidDispose(() => {
@@ -97,6 +127,7 @@ export class VcEditorProvider implements vscode.CustomTextEditorProvider {
       themeBridge.dispose();
       session.dispose();
       if (this.activePanel === webviewPanel) this.activePanel = undefined;
+      this.forget(diagram);
     });
   }
 }

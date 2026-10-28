@@ -17,8 +17,9 @@ export const OPEN_BOARD_COMMAND = "eventStorming.openBoard";
 export const BOARD_VIEW_TYPE = "eventStorming.boardEditor";
 
 /**
- * Editor title buttons pass the editor's resource; the Command Palette passes nothing, so the
- * caller falls back to the focused board or text editor.
+ * Editor title buttons pass the editor's resource; the Command Palette and a walkthrough link pass
+ * nothing, so the caller falls back to the board focused last (Open Source to the Side) or the
+ * focused text editor (Open Board to the Side).
  */
 function resourceArgument(argument: unknown): vscode.Uri | undefined {
   return argument instanceof vscode.Uri ? argument : undefined;

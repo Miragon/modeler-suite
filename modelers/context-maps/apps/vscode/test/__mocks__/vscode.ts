@@ -258,6 +258,12 @@ export const vscodeMock = {
   registeredCommandIds(): string[] {
     return [...registeredCommands.keys()];
   },
+  /** Runs a registered command the way the Command Palette or a walkthrough link does. */
+  runCommand(command: string, ...args: unknown[]): unknown {
+    const callback = registeredCommands.get(command);
+    if (!callback) throw new Error(`Command ${command} is not registered.`);
+    return callback(...args);
+  },
   executedCommands(): readonly unknown[][] {
     return executedCommands;
   },
