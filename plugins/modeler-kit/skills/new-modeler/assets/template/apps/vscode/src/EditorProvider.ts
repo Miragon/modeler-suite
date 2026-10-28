@@ -12,6 +12,10 @@ import { withExampleInserted } from './examples.js';
 import type { ExportFormat, HostToWebview, WebviewToHost } from './protocol.js';
 import { WEBVIEW_THEMES } from './themes.js';
 
+interface OpenDiagram {
+  readonly uri: vscode.Uri;
+}
+
 /**
  * The custom text editor: the document stays the source of truth, so VS Code owns dirty state,
  * saving, Git, diff and undo (guide §13.5). The webview renders it inside the modeler shell and
@@ -34,14 +38,27 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   private readonly diagnostics = vscode.languages.createDiagnosticCollection(DIAGNOSTIC_SOURCE);
-  private activePanel: vscode.WebviewPanel | undefined;
-  private readonly documentOfPanel = new WeakMap<vscode.WebviewPanel, vscode.Uri>();
+  /** The open diagrams, the one focused last first. */
+  private readonly openDiagrams: OpenDiagram[] = [];
 
   private constructor(private readonly context: vscode.ExtensionContext) {}
 
-  /** The document of the focused diagram, if a diagram editor has the focus. */
+  /**
+   * The document of the focused diagram, else of the open diagram focused last: a link in the
+   * walkthrough takes the focus from the diagram it means.
+   */
   activeDocumentUri(): vscode.Uri | undefined {
-    return this.activePanel ? this.documentOfPanel.get(this.activePanel) : undefined;
+    return this.openDiagrams[0]?.uri;
+  }
+
+  private forget(diagram: OpenDiagram): void {
+    const index = this.openDiagrams.indexOf(diagram);
+    if (index !== -1) this.openDiagrams.splice(index, 1);
+  }
+
+  private bringToFront(diagram: OpenDiagram): void {
+    this.forget(diagram);
+    this.openDiagrams.unshift(diagram);
   }
 
   async resolveCustomTextEditor(
@@ -66,8 +83,9 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
     // Disposes itself with the panel; never into context.subscriptions (one per opened editor).
     connectThemeBridge(vscode, panel, { themes: WEBVIEW_THEMES });
 
-    this.documentOfPanel.set(panel, document.uri);
-    if (panel.active) this.activePanel = panel;
+    const diagram: OpenDiagram = { uri: document.uri };
+    if (panel.active) this.openDiagrams.unshift(diagram);
+    else this.openDiagrams.push(diagram);
 
     const writer = new DocumentWriter(document);
     const post = (message: HostToWebview) => void webview.postMessage(message);
@@ -80,8 +98,7 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
 
     const subscriptions = [
       panel.onDidChangeViewState(() => {
-        if (panel.active) this.activePanel = panel;
-        else if (this.activePanel === panel) this.activePanel = undefined;
+        if (panel.active) this.bringToFront(diagram);
       }),
       vscode.workspace.onDidChangeTextDocument((event) => {
         if (event.document.uri.toString() !== document.uri.toString()) return;
@@ -116,7 +133,7 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
     panel.onDidDispose(() => {
       for (const subscription of subscriptions) subscription.dispose();
       this.diagnostics.delete(document.uri);
-      if (this.activePanel === panel) this.activePanel = undefined;
+      this.forget(diagram);
     });
   }
 }

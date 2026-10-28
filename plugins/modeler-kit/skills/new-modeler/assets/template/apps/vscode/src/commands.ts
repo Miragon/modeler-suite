@@ -10,12 +10,12 @@ export const NEW_DIAGRAM_FROM_EXAMPLE_COMMAND = '__NOTATION__.newDiagramFromExam
 export const OPEN_SOURCE_COMMAND = '__NOTATION__.openSource';
 export const OPEN_DIAGRAM_COMMAND = '__NOTATION__.openDiagram';
 
-export const NO_DIAGRAM_MESSAGE = 'Open a __DISPLAY_NAME__ diagram first.';
+export const NO_DIAGRAM_MESSAGE = 'Open a diagram in the __DISPLAY_NAME__ editor first.';
 export const NO_SOURCE_MESSAGE = 'Open a .__EXT__ file first.';
 
 /**
- * Editor title buttons pass the editor's resource; the Command Palette passes nothing, so the
- * command falls back to the focused diagram or text editor.
+ * Editor title buttons pass the editor's resource; the Command Palette and a walkthrough link pass
+ * nothing, so the command falls back to the diagram focused last or the focused text editor.
  */
 function resourceArgument(argument: unknown): vscode.Uri | undefined {
   return argument instanceof vscode.Uri ? argument : undefined;
