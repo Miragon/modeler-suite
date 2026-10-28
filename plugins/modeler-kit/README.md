@@ -47,5 +47,6 @@ directory, so every merged change reaches an installed copy on its next update
 commit included. A fixed version would hold every installed copy until someone changed it.
 
 The suite's Dependabot keeps the template's other pins and its GitHub Actions current. Its group
-pull requests update the suite and the template together; an npm major comes as one pull request
-per folder. The drift test fails when its entries miss a folder of the template.
+pull requests update the suite and the template together; an npm major comes as one pull request per
+dependency that moves it in both. The drift test fails when its entries miss a folder of the
+template.

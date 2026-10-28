@@ -160,10 +160,15 @@ packages or the root install changed. Site settings (Site configuration → Buil
   Conventional Commit, and a single-commit pull request's commit says the same.
 - [`codeql.yml`](../.github/workflows/codeql.yml): JavaScript and TypeScript, on pull requests,
   `main` and weekly.
-- [`dependabot.yml`](../.github/dependabot.yml): npm weekly (minor and patch grouped, each major on
-  its own, the suite's `@miragon/*` workspaces ignored), GitHub Actions monthly. Both entries also
-  cover the new-modeler template (its `package.json` files, workflows and composite action), so a
-  group pull request moves the suite and the template together.
+- [`dependabot.yml`](../.github/dependabot.yml): npm weekly (minor and patch grouped, the suite's
+  `@miragon/*` workspaces ignored), GitHub Actions monthly. Both entries also cover the new-modeler
+  template (its `package.json` files, workflows and composite action), so a group pull request moves
+  the suite and the template together. An npm major gets one pull request per dependency
+  (`npm-major`, `group-by: dependency-name`): it moves that dependency in the suite and in the
+  template at once, because the template's Node-range drift test fails a template pin that runs
+  ahead of every version the suite installs. Dependabot still opens a pull request per directory
+  for a dependency whose directories cannot take the same version. A major is never auto-merged:
+  the update type of a group pull request is its highest one, so a maintainer decides each major.
   [`dependabot-automerge.yml`](../.github/workflows/dependabot-automerge.yml) merges green npm
   patch and minor updates once auto-merge is enabled for the repository. It enables auto-merge with
   a token of the release-please app: GitHub merges in the name of whoever enabled it, and a merge

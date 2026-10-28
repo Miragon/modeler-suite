@@ -1,12 +1,15 @@
 version: 2
 updates:
   # npm (every workspace resolves from the root lockfile): minor and patch arrive grouped, every
-  # major lands as its own PR so a breaking change gets its own review. The new-modeler template has
-  # no lockfile, so Dependabot bumps the exact pins of its package.json files. It shares this entry
-  # so that a group PR moves the suite and the template together; a major comes per directory.
+  # major arrives as one PR per dependency so a breaking change gets its own review. The new-modeler
+  # template has no lockfile, so Dependabot bumps the exact pins of its package.json files. It shares
+  # this entry so that a group PR moves the suite and the template together, and a major moves one
+  # dependency in both at once (npm-major below).
   # Dependabot cannot run npm's peer-dependency check in the template (its placeholder names are not
   # valid package names), so it may move a template pin the suite holds back: the template's
-  # Node-range drift test fails a pin that runs ahead of every version the suite installs.
+  # Node-range drift test fails a pin that runs ahead of every version the suite installs. That is
+  # also why a major must not come per directory: the template's PR would fail until the suite's
+  # merged.
   - package-ecosystem: "npm"
     directories:
       - "/"
@@ -16,7 +19,7 @@ updates:
     rebase-strategy: "disabled"
     labels:
       - "dependencies"
-    # majors arrive as individual PRs, which needs headroom above the default of 5
+    # majors arrive as one PR per dependency, which needs headroom above the default of 5
     open-pull-requests-limit: 10
     commit-message:
       prefix: "chore"
@@ -49,6 +52,17 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      # group-by works for version updates only and gives each dependency its own PR across all
+      # directories above. A dependency whose directories cannot take the same version still gets a
+      # PR per directory. The PR's highest update type is major, so dependabot-automerge.yml leaves
+      # it for a human.
+      npm-major:
+        applies-to: version-updates
+        group-by: dependency-name
+        patterns:
+          - "*"
+        update-types:
+          - "major"
       npm-security:
         applies-to: security-updates
         patterns:
