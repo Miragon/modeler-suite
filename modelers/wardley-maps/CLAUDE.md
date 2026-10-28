@@ -63,10 +63,11 @@ italic) with `?dataurl`, which the `dataurl-imports` plugin of
 [`esbuild.config.mjs`](apps/vscode/esbuild.config.mjs) (also read by
 `scripts/third-party-notices.mjs`) and of the e2e page's
 [`vite.config.ts`](e2e/webview/vite.config.ts) inline, and a fallback reaches the host as
-`fontFallback` on the `export` message, which then warns instead of confirming. Both apps show their
-own text when a PNG fails (guide §2), never the rasteriser's message. The renderer's
-`createShortcutsDialog` and `svgToPng` stay exported for designIQ, deprecated since 0.14.0 and
-removed in 0.15.0 ([#258](https://github.com/Miragon/modeler-suite/issues/258)); no app uses them.
+`fontFallback` on the `export` message (`pngExportMessage`), which then warns instead of confirming.
+Both apps show their own text when an export fails (guide §2), never the error's message. The
+renderer's `createShortcutsDialog` and `svgToPng` stay exported for designIQ, deprecated since 0.14.0
+and removed in 0.15.0 ([#258](https://github.com/Miragon/modeler-suite/issues/258)); no app uses
+them.
 
 ## Commands
 

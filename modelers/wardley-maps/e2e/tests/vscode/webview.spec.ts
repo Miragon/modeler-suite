@@ -403,6 +403,23 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(countOf(await postedMessages(page), "export")).toBe(0);
   });
 
+  test("an SVG that can't be saved posts the app's own text, never the error's", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      window.modeler!.diagram.saveSVG = () => Promise.reject(new Error("saveSVG internals"));
+    });
+
+    await postFromHost(page, { type: "command", name: "exportSvg" });
+
+    expect(await waitForPosted(page, "error")).toEqual({
+      type: "error",
+      message: "Couldn't export the map as SVG. Try again.",
+    });
+    expect(countOf(await postedMessages(page), "export")).toBe(0);
+  });
+
   test("the keyboard shortcuts dialog opens from Help, closes on Escape and backdrop", async ({
     page,
   }) => {

@@ -7,7 +7,6 @@ import "@fontsource-variable/geist-mono/wght.css";
 // The renderer brings its stylesheet (tokens, diagram-js.css, cd-canvas.css); the shell's comes
 // last.
 import {
-  blobToBase64,
   createAxisLabelsPopover,
   createCollaborativeModeler,
   createMapSizePopover,
@@ -29,7 +28,6 @@ import {
   shellModule,
   type DiagramJsConnection,
 } from "@miragon/modeler-shell/diagram-js";
-import { svgToPng } from "@miragon/modeler-shell/export";
 import {
   mountVsCodeShell,
   persistView,
@@ -43,7 +41,7 @@ import {
 } from "../protocol.js";
 import { WEBVIEW_THEMES } from "../themes.js";
 import { GEIST_FACES } from "./geist-faces.js";
-import { PNG_EXPORT_FAILED, pngExportOptions, type PngFormat } from "./png-export.js";
+import { PNG_EXPORT_FAILED, pngExportMessage, type PngFormat } from "./png-export.js";
 
 interface VsCodeApi {
   postMessage(message: WebviewToHost): void;
@@ -228,9 +226,7 @@ modeler.on("wardley.label.deduplicated", (event: LabelDeduplicatedEvent) => {
 // Export (the webview rasterizes/serializes; the host shows the save dialog)
 // ---------------------------------------------------------------------------
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+const SVG_EXPORT_FAILED = "Couldn't export the map as SVG. Try again.";
 
 // The picture never shows selection or hover state (saveSVG leaves it out): the selection stays.
 async function exportSvg(): Promise<void> {
@@ -238,26 +234,15 @@ async function exportSvg(): Promise<void> {
     const { svg } = await modeler.saveSVG();
     post({ type: "export", format: "svg", data: svg });
   } catch (error) {
-    post({ type: "error", message: `Could not export the map as SVG: ${messageOf(error)}` });
+    console.error("Wardley SVG export failed", error);
+    post({ type: "error", message: SVG_EXPORT_FAILED });
   }
 }
 
 async function exportRaster(format: PngFormat): Promise<void> {
   try {
     const { svg } = await modeler.saveSVG();
-    let fontFallback = false;
-    const png = await svgToPng(
-      svg,
-      pngExportOptions(format, GEIST_FACES, () => {
-        fontFallback = true;
-      }),
-    );
-    post({
-      type: "export",
-      format,
-      data: await blobToBase64(png),
-      ...(fontFallback ? { fontFallback } : {}),
-    });
+    post(await pngExportMessage(svg, format, GEIST_FACES));
   } catch (error) {
     console.error("Wardley PNG export failed", error);
     post({ type: "error", message: PNG_EXPORT_FAILED });

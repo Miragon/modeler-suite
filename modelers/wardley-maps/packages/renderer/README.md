@@ -5,7 +5,8 @@
 
 [diagram-js](https://github.com/bpmn-io/diagram-js)-based renderer for
 [Wardley Maps](https://learnwardleymapping.com/): `Viewer`, `NavigatedViewer`, and a full editable
-`Modeler`, plus OWM / JSON import and OWM / JSON / SVG / PNG export. Browser/DOM only.
+`Modeler`, plus OWM / JSON import and OWM / JSON / SVG export (a PNG through `svgToPng` of
+`@miragon/modeler-shell/export`). Browser/DOM only.
 
 ## Install
 
