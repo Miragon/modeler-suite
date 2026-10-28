@@ -311,12 +311,109 @@ describe("an import while a gesture runs cancels the gesture first", () => {
     expectNothingApplied();
   });
 
-  it("a text the import rejects leaves the gesture running, and its drop applies", async () => {
+  it.each(["lasso-tool", "hand-tool", "space-tool", "global-connect-tool"])(
+    "a %s the palette armed, before the pointer moved, is put down with its palette entry",
+    async (action) => {
+      const { entry, at } = paletteEntry(action);
+      entry.dispatchEvent(pointer("click", at, { detail: 1 }));
+      expect(entry.classList.contains("highlighted-entry")).toBe(true);
+
+      await importPeerEditMidGesture();
+
+      expect(entry.classList.contains("highlighted-entry")).toBe(false);
+      expectNothingApplied();
+      entry.dispatchEvent(pointer("click", at, { detail: 1 }));
+      expect(gestureRuns()).toBe(true);
+      expect(entry.classList.contains("highlighted-entry")).toBe(true);
+    },
+  );
+
+  it("a press of the armed connect tool on a shape, before the pointer leaves that shape", async () => {
+    const { entry, at } = paletteEntry("global-connect-tool");
+    entry.dispatchEvent(pointer("click", at, { detail: 1 }));
+    const start = centreOf("step-stock");
+    hover(graphics(shape("step-stock")), start);
+    press(graphics(shape("step-stock")), start);
+    // The tool's own drag ended on the press; its connect starts once the pointer leaves the shape.
+    expect(gestureRuns()).toBe(false);
+
+    await editor().importText(PEER_EDIT);
+    expect(entry.classList.contains("highlighted-entry")).toBe(false);
+    graphics(shape("step-stock")).dispatchEvent(pointer("mouseout", start));
+    const target = centreOf("step-delivery");
+    hover(graphics(shape("step-delivery")), target);
+    release(target);
+
+    expect(gestureRuns()).toBe(false);
+    expectNothingApplied();
+    expectNextEditSaves();
+  });
+
+  describe("a host that imports from its change listener, while the drop applies", () => {
+    function importOnFirstChange(): void {
+      const unsubscribe = editor().onContentChanged(() => {
+        unsubscribe();
+        void editor().importText(PEER_EDIT);
+      });
+    }
+
+    function expectImportReplacedTheDrop(): void {
+      expect(errors).toEqual([]);
+      expect(changes).toBe(1);
+      expect(gestureRuns()).toBe(false);
+      expect(editor().exportText()).toBe(PEER_EDIT);
+      service<VcModeling>("vcModeling").updateLabel(shape("step-credit"), "Credit limit");
+      expect(changes).toBe(2);
+    }
+
+    it("of a move", async () => {
+      importOnFirstChange();
+      const start = centreOf("step-credit");
+      press(graphics(shape("step-credit")), start);
+      moveTo({ x: start.x + 40, y: start.y });
+      release({ x: start.x + 40, y: start.y });
+
+      expectImportReplacedTheDrop();
+    });
+
+    it("of a create from the palette", async () => {
+      importOnFirstChange();
+      const { entry, at } = paletteEntry("create.step");
+      entry.dispatchEvent(pointer("click", at, { detail: 1 }));
+      const freeSpot = { x: 500, y: 450 };
+      hover(canvasSvg(), freeSpot);
+      release(freeSpot);
+
+      expectImportReplacedTheDrop();
+    });
+
+    it("of a connect from the context pad", async () => {
+      importOnFirstChange();
+      service<Selection>("selection").select(shape("step-stock"));
+      const entry = editor().diagram.container.querySelector(
+        '.djs-context-pad [data-action="connect.sequence"]',
+      );
+      if (!entry) throw new Error("no connect entry in the context pad");
+      const start = centreOf("step-stock");
+      entry.dispatchEvent(pointer("click", start, { detail: 1 }));
+      const target = centreOf("step-delivery");
+      moveTo({ x: start.x + 20, y: start.y });
+      hover(graphics(shape("step-delivery")), target);
+      release(target);
+
+      expectImportReplacedTheDrop();
+    });
+  });
+
+  it("a text or a document the import rejects leaves the gesture running, and its drop applies", async () => {
     const start = centreOf("step-credit");
     press(graphics(shape("step-credit")), start);
     moveTo({ x: start.x + 40, y: start.y });
 
     await expect(editor().importText('{ "schemaVersion": 99 }')).rejects.toThrow();
+    const current = parseDocumentJSON(ORDER_TO_CASH);
+    const duplicateIds = { ...current, elements: [...current.elements, ...current.elements] };
+    expect(() => editor().diagram.importDocument(duplicateIds)).toThrow();
     expect(gestureRuns()).toBe(true);
     moveTo({ x: start.x + 60, y: start.y });
     release({ x: start.x + 60, y: start.y });

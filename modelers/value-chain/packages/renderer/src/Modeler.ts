@@ -22,6 +22,7 @@ import { vcKeyboardModule } from "./keyboard/index.js";
 import { vcOrderingModule } from "./ordering/index.js";
 import { vcCopyPasteModule } from "./copy-paste/index.js";
 import { vcResizeModule } from "./resize/index.js";
+import { vcGestureModule } from "./gesture/index.js";
 import { vcReadOnlyModule } from "./read-only/index.js";
 
 /**
@@ -57,6 +58,7 @@ export class Modeler extends NavigatedViewer {
       vcOrderingModule,
       vcCopyPasteModule,
       vcResizeModule,
+      vcGestureModule,
     ];
   }
 
