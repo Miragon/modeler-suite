@@ -14,6 +14,10 @@ import { DIAGNOSTIC_COLLECTION_NAME } from "./diagnostics.js";
 import type { HostToWebview, WebviewCommand } from "./protocol.js";
 import { WEBVIEW_THEMES } from "./themes.js";
 
+interface OpenBoard {
+  readonly uri: vscode.Uri;
+}
+
 /**
  * CustomTextEditor for `.storm`. The document (Event Storming DSL text) remains the source of
  * truth — VS Code handles dirty state, saving, Git, diff, and file undo "for free". The webview
@@ -46,16 +50,33 @@ export class EventStormingEditorProvider implements vscode.CustomTextEditorProvi
     DIAGNOSTIC_COLLECTION_NAME,
   );
   private activePanel: vscode.WebviewPanel | undefined;
-  private readonly documentOfPanel = new WeakMap<vscode.WebviewPanel, vscode.Uri>();
+  /** The open boards, the one focused last first. */
+  private readonly openBoards: OpenBoard[] = [];
 
   private constructor(private readonly context: vscode.ExtensionContext) {}
 
-  /** The document of the focused board, if a board editor has the focus. */
+  /**
+   * The document of the focused board, else of the open board focused last: a link in the
+   * walkthrough takes the focus from the board it means.
+   */
   public activeDocumentUri(): vscode.Uri | undefined {
-    return this.activePanel ? this.documentOfPanel.get(this.activePanel) : undefined;
+    return this.openBoards[0]?.uri;
   }
 
-  /** Forwards a Command Palette command to the focused board; false when none is focused. */
+  private forget(board: OpenBoard): void {
+    const index = this.openBoards.indexOf(board);
+    if (index !== -1) this.openBoards.splice(index, 1);
+  }
+
+  private bringToFront(board: OpenBoard): void {
+    this.forget(board);
+    this.openBoards.unshift(board);
+  }
+
+  /**
+   * Forwards a Command Palette command to the focused board, never to one focused earlier; false
+   * when none is focused.
+   */
   public runCommand(name: WebviewCommand): boolean {
     if (!this.activePanel) return false;
     void this.activePanel.webview.postMessage({ type: "command", name } satisfies HostToWebview);
@@ -83,12 +104,21 @@ export class EventStormingEditorProvider implements vscode.CustomTextEditorProvi
     });
 
     const session = new BoardSession(document, webviewPanel, this.diagnostics);
-    this.documentOfPanel.set(webviewPanel, document.uri);
     const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: WEBVIEW_THEMES });
-    if (webviewPanel.active) this.activePanel = webviewPanel;
+    const board: OpenBoard = { uri: document.uri };
+    if (webviewPanel.active) {
+      this.activePanel = webviewPanel;
+      this.openBoards.unshift(board);
+    } else {
+      this.openBoards.push(board);
+    }
     const viewState = webviewPanel.onDidChangeViewState(() => {
-      if (webviewPanel.active) this.activePanel = webviewPanel;
-      else if (this.activePanel === webviewPanel) this.activePanel = undefined;
+      if (webviewPanel.active) {
+        this.activePanel = webviewPanel;
+        this.bringToFront(board);
+      } else if (this.activePanel === webviewPanel) {
+        this.activePanel = undefined;
+      }
     });
 
     webviewPanel.onDidDispose(() => {
@@ -96,6 +126,7 @@ export class EventStormingEditorProvider implements vscode.CustomTextEditorProvi
       themeBridge.dispose();
       session.dispose();
       if (this.activePanel === webviewPanel) this.activePanel = undefined;
+      this.forget(board);
     });
   }
 }

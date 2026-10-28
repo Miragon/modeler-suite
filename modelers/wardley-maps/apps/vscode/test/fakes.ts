@@ -74,7 +74,7 @@ export interface FakePanel {
   dispose: () => void;
 }
 
-export function fakeWebviewPanel(): FakePanel {
+export function fakeWebviewPanel({ active = true }: { active?: boolean } = {}): FakePanel {
   const posted: HostToWebview[] = [];
   let onMessage: ((msg: WebviewToHost) => unknown) | undefined;
   let onViewState: (() => void) | undefined;
@@ -97,7 +97,7 @@ export function fakeWebviewPanel(): FakePanel {
   const disposeListeners = new Set<() => void>();
   const panel = {
     webview,
-    active: true,
+    active,
     visible: true,
     onDidChangeViewState: (listener: (event: { webviewPanel: unknown }) => void) => {
       viewStateListeners.add(listener);

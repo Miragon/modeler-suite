@@ -11,6 +11,10 @@ import type { WardleyDiagnostics } from "./diagnostics.js";
 import type { HostToWebview, WebviewCommand, WebviewToHost } from "./protocol.js";
 import { WEBVIEW_THEMES } from "./themes.js";
 
+interface OpenMap {
+  readonly uri: vscode.Uri;
+}
+
 /** Echo keys ignore the line break style: VS Code writes inserted '\n' as the document's EOL. */
 function echoKey(text: string): string {
   return text.replace(/\r\n/g, "\n");
@@ -44,20 +48,35 @@ export class WardleyEditorProvider implements vscode.CustomTextEditorProvider {
   /** Open diagram panels by document URI (one per document). */
   private readonly panels = new Map<string, vscode.WebviewPanel>();
   private activePanelKey: string | undefined;
+  /** The open maps, the one focused last first. */
+  private readonly openMaps: OpenMap[] = [];
 
   private constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly diagnostics?: WardleyDiagnostics,
   ) {}
 
-  /** The document of the focused diagram editor, if any. */
+  /**
+   * The document of the focused map, else of the open map focused last: a link in the walkthrough
+   * takes the focus from the map it means.
+   */
   public activeDocumentUri(): vscode.Uri | undefined {
-    return this.activePanelKey ? vscode.Uri.parse(this.activePanelKey) : undefined;
+    return this.openMaps[0]?.uri;
+  }
+
+  private forget(map: OpenMap): void {
+    const index = this.openMaps.indexOf(map);
+    if (index !== -1) this.openMaps.splice(index, 1);
+  }
+
+  private bringToFront(map: OpenMap): void {
+    this.forget(map);
+    this.openMaps.unshift(map);
   }
 
   /**
-   * Runs a diagram action in the editor of `uri` (default: the focused diagram). Returns false when
-   * no such diagram is open.
+   * Runs a diagram action in the editor of `uri` (default: the focused diagram, never one focused
+   * earlier). Returns false when no such diagram is open.
    */
   public runCommand(name: WebviewCommand, uri?: vscode.Uri): boolean {
     const key = uri?.toString() ?? this.activePanelKey;
@@ -92,7 +111,13 @@ export class WardleyEditorProvider implements vscode.CustomTextEditorProvider {
     const post = (msg: HostToWebview): Thenable<boolean> => webview.postMessage(msg);
     const key = document.uri.toString();
     this.panels.set(key, webviewPanel);
-    if (webviewPanel.active) this.activePanelKey = key;
+    const map: OpenMap = { uri: document.uri };
+    if (webviewPanel.active) {
+      this.activePanelKey = key;
+      this.openMaps.unshift(map);
+    } else {
+      this.openMaps.push(map);
+    }
 
     // Texts the webview itself produced — to suppress the echo (an own change comes back as
     // onDidChangeTextDocument) and NOT reset the canvas. A SET (not a single value): for edits A,B
@@ -137,8 +162,12 @@ export class WardleyEditorProvider implements vscode.CustomTextEditorProvider {
     });
 
     const viewStateSub = webviewPanel.onDidChangeViewState(() => {
-      if (webviewPanel.active) this.activePanelKey = key;
-      else if (this.activePanelKey === key) this.activePanelKey = undefined;
+      if (webviewPanel.active) {
+        this.activePanelKey = key;
+        this.bringToFront(map);
+      } else if (this.activePanelKey === key) {
+        this.activePanelKey = undefined;
+      }
     });
 
     // The parser's findings are warnings: the map stays editable (guide §13.5), so no errors.
@@ -183,6 +212,7 @@ export class WardleyEditorProvider implements vscode.CustomTextEditorProvider {
       messageSub.dispose();
       if (this.panels.get(key) === webviewPanel) this.panels.delete(key);
       if (this.activePanelKey === key) this.activePanelKey = undefined;
+      this.forget(map);
     });
   }
 

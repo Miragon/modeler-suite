@@ -67,7 +67,7 @@ export class CmEditorProvider implements vscode.CustomTextEditorProvider {
   ): Promise<void> {
     setWebviewHtml(webviewPanel.webview, this.context.extensionUri);
     const session = new MapSession(document, webviewPanel, this.diagnostics);
-    const tracking = this.panels.track(webviewPanel, document.uri);
+    const tracking = this.panels.track(webviewPanel, document.uri, { text: true });
     // Disposes itself with the panel; disposed here as well so nothing outlives the editor.
     const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: WEBVIEW_THEMES });
     webviewPanel.onDidDispose(() => {

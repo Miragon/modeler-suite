@@ -6,11 +6,12 @@ import { WEBVIEW_COMMANDS, type WebviewCommand } from "./protocol.js";
 export const SHOW_SOURCE_COMMAND = "wardley.showSource";
 export const SHOW_DIAGRAM_COMMAND = "wardley.showDiagram";
 
-const NO_DIAGRAM_MESSAGE = "Open a Wardley map in the diagram editor first.";
+export const NO_DIAGRAM_MESSAGE = "Open a Wardley map in the diagram editor first.";
 
 /**
- * Editor title buttons pass the editor's resource; the Command Palette passes nothing, so fall back
- * to the focused diagram or text editor.
+ * Editor title buttons pass the editor's resource; the Command Palette and a walkthrough link pass
+ * nothing, so fall back to the map focused last (Open Source to the Side) or the focused text editor
+ * (Open Diagram to the Side). Fit and the exports need the focused map.
  */
 function resourceArgument(argument: unknown): vscode.Uri | undefined {
   return argument instanceof vscode.Uri ? argument : undefined;
