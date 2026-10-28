@@ -71,9 +71,10 @@ One workspace on its own: `npm run <script> -w <name or path>`, e.g.
 `npm run test:e2e -w packages/shell` or `npm run notices -w modelers/wardley-maps/apps/vscode`.
 
 A flag after an alias never reaches the script. The alias runs a second `npm run`, which takes the
-flag for an npm option of its own: npm 12 stops with `EUNKNOWNCONFIG`, npm 10 (Node 22) drops it
-silently and runs the whole script, and `-g` turns into `--global`. Run the script in its
-workspace instead, with the flags after `--`. Playwright's flags go to the modeler's `e2e`
+flag for an npm option of its own. npm 10 and 11, the npm of Node 22, 24 and 26, drop it and run
+the whole script, npm 11 after an `Unknown cli config` warning; npm 12 stops with
+`EUNKNOWNCONFIG`. In every version `-g` turns into `--global`. Run the script in its workspace
+instead, with the flags after `--`. Playwright's flags go to the modeler's `e2e`
 workspace, whose `test:e2e` is `playwright test` itself. A modeler's own scripts, such as
 `test:vscode:docker`, take its workspace's name, `@miragon/<modeler>-modeler-workspace`: the path
 `modelers/<modeler>` would select every workspace beneath it as well, and each one without the

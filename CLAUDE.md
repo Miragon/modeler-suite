@@ -46,8 +46,9 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
 - One modeler: `npm run <modeler> <script>` with the aliases `wardley-maps`, `event-storming`,
   `team-topologies`, `context-maps`, `value-chain` (e.g. `npm run wardley-maps test`). All five:
   `npm run modelers <script>`. One workspace: `npm run <script> -w <name or path>`. A flag after
-  an alias never reaches the script (npm takes it for an option of its own: npm 12 stops with
-  `EUNKNOWNCONFIG`, npm 10 drops it silently, `-g` means `--global`), so give them to the workspace:
+  an alias never reaches the script, since npm takes it for an option of its own: npm 10 and 11
+  (Node 22, 24 and 26) drop it and run the whole script, npm 11 after a warning; npm 12 stops with
+  `EUNKNOWNCONFIG`; `-g` means `--global`. Give flags to the workspace instead:
   `npm run test:e2e -w modelers/<modeler>/e2e -- --project=<name> --grep "<title>"` for
   Playwright, `npm run <script> -w @miragon/<modeler>-modeler-workspace -- <flags>` for the
   modeler's own scripts (e.g. `test:vscode:docker -- --env VSCODE_SMOKE_KEEP=1`; the path
