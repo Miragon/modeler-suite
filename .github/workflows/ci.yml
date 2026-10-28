@@ -28,6 +28,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       shared: ${{ steps.paths.outputs.shared }}
+      template: ${{ steps.paths.outputs.template }}
       modelers: ${{ steps.paths.outputs.modelers }}
       all-modelers: ${{ steps.paths.outputs.all-modelers }}
       playwright: ${{ steps.playwright.outputs.version }}
@@ -269,6 +270,59 @@ jobs:
         env:
           MODELER: ${{ matrix.modeler }}
 
+  # A modeler created from the new-modeler template (plugins/modeler-kit), on the shared packages of
+  # this checkout packed as they are published, with that modeler's own checks. The drift test only
+  # type-checks the template; this is the one place that installs, builds and runs it, so a kit case
+  # the template's harness fails or a bundling problem shows here and not when the next modeler
+  # starts (.github/scripts/template-instance.mjs). The opt-in VS Code smoke of the instance is
+  # template-vscode-smoke.yml.
+  template:
+    name: template / checks
+    needs: changes
+    if: needs.changes.outputs.template == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.changes.outputs.playwright }}-noble
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: npm run build:shared
+      - id: instance
+        run: |
+          node .github/scripts/template-instance.mjs "$INSTANCE"
+          echo "directory=$INSTANCE" >> "$GITHUB_OUTPUT"
+        env:
+          INSTANCE: ${{ runner.temp }}/capability-map-modeler
+      - run: npm run lint
+        working-directory: ${{ steps.instance.outputs.directory }}
+      - run: npm run depcruise
+        working-directory: ${{ steps.instance.outputs.directory }}
+      - run: npm run build
+        working-directory: ${{ steps.instance.outputs.directory }}
+      - run: npm test
+        working-directory: ${{ steps.instance.outputs.directory }}
+      - run: npm run test:browser
+        working-directory: ${{ steps.instance.outputs.directory }}
+      - run: npm run test:e2e
+        working-directory: ${{ steps.instance.outputs.directory }}
+      - run: npm run build:webapp
+        working-directory: ${{ steps.instance.outputs.directory }}
+      - run: npm run check:build -w apps/webapp
+        working-directory: ${{ steps.instance.outputs.directory }}
+      - run: npm run build:vscode
+        working-directory: ${{ steps.instance.outputs.directory }}
+      # The VSIX as the template's release packs it (vscode:prepublish, .vscodeignore).
+      - run: npm run package -w apps/vscode
+        working-directory: ${{ steps.instance.outputs.directory }}
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report-template
+          path: ${{ steps.instance.outputs.directory }}/e2e/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
   format-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -351,6 +405,7 @@ jobs:
       - modeler-test-browser
       - modeler-e2e
       - modeler-build
+      - template
       - format-check
       - pin-check
       - dependency-review

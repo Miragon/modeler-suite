@@ -16,16 +16,19 @@ cancelled.
 The first job, `changes` (`.github/scripts/ci-paths.sh affected`), compares the change with its base
 commit and decides which jobs it can break:
 
-| Changed path                                                                                                   | Runs                                  |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `modelers/<m>/**`                                                                                              | the jobs of modeler `<m>`             |
-| `packages/**`, `.github/**`, root `package.json`, `package-lock.json`, `.npmrc`, any other root file or folder | the shared jobs and all five modelers |
-| `plugins/**`, `test/**`, `.claude-plugin/**`                                                                   | the shared jobs                       |
-| `docs/**`, `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`, `.husky/**`     | nothing but the always-on jobs        |
+| Changed path                                                                                                   | Runs                                                    |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `modelers/<m>/**`                                                                                              | the jobs of modeler `<m>`                               |
+| `packages/**`, `.github/**`, root `package.json`, `package-lock.json`, `.npmrc`, any other root file or folder | the shared jobs, the template job and all five modelers |
+| `plugins/modeler-kit/**`                                                                                       | the shared jobs and the template job                    |
+| `plugins/**`, `test/**`, `.claude-plugin/**`                                                                   | the shared jobs                                         |
+| `docs/**`, `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`, `.husky/**`     | nothing but the always-on jobs                          |
 
 Markdown elsewhere is no documentation here: skills under `plugins/` feed drift tests, and a
-package or an extension ships its README. A run without a base commit (started by hand, a new
-branch) and a base that cannot be fetched run everything; so does any path no rule names.
+package or an extension ships its README. The template job also runs when the design-system files
+it borrows change (`modelers/event-storming/packages/renderer/src/theme/**`). A run without a base
+commit (started by hand, a new branch) and a base that cannot be fetched run everything; so does any
+path no rule names.
 
 ### Jobs
 
@@ -43,6 +46,20 @@ branch) and a base that cannot be fetched run everything; so does any path no ru
   build and `check:build`, VSIX via `package:vscode`). Every job builds the shared packages first.
   The Node version is the floor of the root's `engines.node`, raised to the modeler's own (Node
   24.15.0 for context-maps).
+- **Template** (`template`): a modeler created from the new-modeler template, to run what nothing
+  else runs. The shared packages are built and packed as they are published (`npm pack` of
+  `packages/api` and `packages/shell`, so a release pull request tests the unreleased versions),
+  `.github/scripts/template-instance.mjs` writes the template into a folder of the runner with the
+  skill's `new-modeler.mjs`, copies the vendored `cd-tokens.generated.*` and `cd-canvas.css` of
+  Event Storming's renderer into it (the template has none), points every dependency on the shared
+  packages at the packs, installs without a lockfile, as a new modeler's first install does, and
+  checks the lockfile for a copy from the registry. Then the instance runs `lint`, `depcruise`,
+  `build`, `test`, `test:browser` (the contract's conformance kit), `test:e2e` (the shell's kit on
+  the `web` and `ide` hosts), `build:webapp`, `check:build`, `build:vscode` and the VSIX
+  (`package`), in the Playwright image of the root's `playwright` pin. The script runs locally too
+  (`npm run build:shared`, then `node .github/scripts/template-instance.mjs <empty folder>`;
+  `npx playwright install chromium` once). The drift test of `test:plugin` only type-checks the
+  template against the sources.
 - **Always**: `format-check` (Prettier over the whole suite), `pin-check` (exact pins in every
   `package.json`, every Playwright pin equal to the root's), `dependency-review` (pull requests),
   `release-bootstrap` (see [the imported history](#the-imported-history)).
@@ -60,13 +77,24 @@ branch) and a base that cannot be fetched run everything; so does any path no ru
 job of `ci.yml` (and fails if one is missing from its `needs`), and it fails on any failed or
 cancelled job and on every skip except these, each checked against its reason:
 
-| Job                                                               | Skipped by design when                                            |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `dependency-review`                                               | the run is no pull request                                        |
-| `shared-lint`, `shared-test`, `shared-test-browser`, `shared-e2e` | `changes` succeeded and reports no shared change (`shared=false`) |
-| the five `modeler-*` jobs                                         | `changes` succeeded and reports no modeler (`modelers=[]`)        |
+| Job                                                               | Skipped by design when                                                |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `dependency-review`                                               | the run is no pull request                                            |
+| `shared-lint`, `shared-test`, `shared-test-browser`, `shared-e2e` | `changes` succeeded and reports no shared change (`shared=false`)     |
+| `template`                                                        | `changes` succeeded and reports no template change (`template=false`) |
+| the five `modeler-*` jobs                                         | `changes` succeeded and reports no modeler (`modelers=[]`)            |
 
 A skip after a failed or cancelled `changes` is never accepted, and the smoke never skips.
+
+### Template smoke (opt-in)
+
+[`template-vscode-smoke.yml`](../.github/workflows/template-vscode-smoke.yml) runs the VS Code
+smoke of a modeler created from the template (the instance of the `template` job, its
+`test:vscode` under `xvfb-run -a`) on the newest stable VS Code and on the oldest that the
+template's `engines.vscode` accepts. It downloads VS Code twice, so it is no part of `ci-ok`: add
+the label `template-vscode-smoke` to a pull request (it runs again on every push while the label
+stays), or start the workflow by hand on a branch. The label is created once with
+`gh label create template-vscode-smoke`.
 
 ### Weekly smoke
 
