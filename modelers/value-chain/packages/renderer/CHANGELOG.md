@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.0](https://github.com/Miragon/modeler-suite/compare/value-chain-renderer-v0.7.2...value-chain-renderer-v0.8.0) (2026-10-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **value-chain:** Modeler, Viewer, NavigatedViewer, createCollaborativeModeler and createCollaborativeViewer no longer accept freeRectCenter (VcViewerOptions and CollaborativeValueChainOptions no longer declare it), and VcPaletteConfig no longer has it. Pass freeArea: { center } instead, for example freeArea: { center: () => viewport.freeRectCenter() }.
+
+### Features
+
+* **value-chain:** remove the deprecated freeRectCenter palette option ([#182](https://github.com/Miragon/modeler-suite/issues/182)) ([c41e5b6](https://github.com/Miragon/modeler-suite/commit/c41e5b65466a1e1db1dab0ceaca1e296d63772e6))
+
 ## [0.7.2](https://github.com/Miragon/modeler-suite/compare/value-chain-renderer-v0.7.1...value-chain-renderer-v0.7.2) (2026-10-25)
 
 

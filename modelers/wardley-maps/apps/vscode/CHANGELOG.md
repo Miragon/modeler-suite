@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.12.0](https://github.com/Miragon/modeler-suite/compare/wardley-vscode-v0.11.2...wardley-vscode-v0.12.0) (2026-10-28)
+
+
+### Features
+
+* add New … from Example to the New File menu of every extension ([#196](https://github.com/Miragon/modeler-suite/issues/196)) ([e1d5541](https://github.com/Miragon/modeler-suite/commit/e1d55415fbab56ce8e669406efab7a6ef677563d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/wardley-renderer bumped from 0.11.0 to 0.12.0
+
 ## [0.11.2](https://github.com/Miragon/modeler-suite/compare/wardley-vscode-v0.11.1...wardley-vscode-v0.11.2) (2026-10-25)
 
 

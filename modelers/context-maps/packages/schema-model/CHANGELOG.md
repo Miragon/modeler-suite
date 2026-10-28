@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/Miragon/modeler-suite/compare/context-maps-schema-model-v0.4.1...context-maps-schema-model-v0.5.0) (2026-10-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **context-maps:** MARK_TEXT_COLOR is removed from @miragon/context-maps-schema-model. Write black or white on each role chip instead, whichever has more contrast on its MARK_COLORS fill, as @miragon/context-maps-renderer has done since 0.6.1 (black on PL and CF, white on OHS and ACL).
+* **context-maps:** parseDocument and parseDocumentText refuse a document whose objects and arrays nest more than MAX_NESTING_DEPTH (100) levels deep, with an issue at the first level too deep of each branch (the first 100 of them), instead of opening a file the canvas cannot save from about 2,000 levels on. Keep the whole document, the values of foreign keys included, within MAX_NESTING_DEPTH levels, the document counting as the first.
+
+### Features
+
+* **context-maps:** remove MARK_TEXT_COLOR and refuse documents nested more than 100 levels deep ([#191](https://github.com/Miragon/modeler-suite/issues/191)) ([feee62a](https://github.com/Miragon/modeler-suite/commit/feee62ac62bff6a835a53630ddbf978e8cb8c8cf))
+
+
+### Bug Fixes
+
+* **context-maps:** refuse documents nested more than 100 levels deep ([feee62a](https://github.com/Miragon/modeler-suite/commit/feee62ac62bff6a835a53630ddbf978e8cb8c8cf))
+
 ## [0.4.1](https://github.com/Miragon/modeler-suite/compare/context-maps-schema-model-v0.4.0...context-maps-schema-model-v0.4.1) (2026-10-25)
 
 
