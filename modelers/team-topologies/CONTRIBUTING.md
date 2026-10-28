@@ -51,8 +51,11 @@ and the `@miragon/modeler-api` conformance kit in Chromium. `npm run team-topolo
 | `webapp-webkit`         | the web app in Safari's engine, only the focus hand-back cases          | the `webapp` server                       |
 | `vscode-webview-webkit` | the webview in Safari's engine (vscode.dev in Safari), only those cases | the `vscode-webview` server               |
 
-Run one project with `npm run team-topologies test:e2e -- --project=vscode-webview`; set both ports
-when several worktrees run the suite at once
+Run one project with `npm run test:e2e -w modelers/team-topologies/e2e -- --project=vscode-webview`,
+and only the tests whose title matches with `-- --grep "<title>"`; the alias
+`npm run team-topologies` cannot pass Playwright's flags on (see the suite's
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)). Set both ports when several worktrees run the
+suite at once
 (`E2E_PORT=6301 E2E_WEBVIEW_PORT=6311 npm run team-topologies test:e2e`). In the `vscode-webview`
 project the kit's `csp` case walks the production bundle behind the webview CSP. The WebKit
 projects run only `focus-hand-back.spec.ts`: Safari does not focus a clicked button, so there every
@@ -82,11 +85,19 @@ default themes, with a screenshot each in `test-results/vscode-smoke/` (gitignor
 of `npm test`: it needs a display and the VS Code download.
 
 ```bash
-npm run team-topologies test:vscode:docker                                 # in Docker, no window: the local way
-npm run team-topologies test:vscode:docker -- --env VSCODE_VERSION=1.96.0   # the oldest VS Code engines.vscode admits
-npm run team-topologies test:vscode:docker -- --env VSCODE_SMOKE_KEEP=1      # brings VS Code's logs back
-npm run team-topologies test:vscode                                        # on the host, with a window
+# in Docker, no window: the local way
+npm run team-topologies test:vscode:docker
+# the oldest VS Code engines.vscode admits
+npm run test:vscode:docker -w @miragon/team-topologies-modeler-workspace -- --env VSCODE_VERSION=1.96.0
+# brings VS Code's logs back
+npm run test:vscode:docker -w @miragon/team-topologies-modeler-workspace -- --env VSCODE_SMOKE_KEEP=1
+# on the host, with a window
+npm run team-topologies test:vscode
 ```
+
+The `--env` flags go to the modeler's workspace by its name: the alias `npm run team-topologies`
+would take them for npm's own, and the path `modelers/team-topologies` would select the workspaces
+beneath it too (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)).
 
 This modeler's `package.json` declares `@miragon/modeler-shell` itself, at the workspaces' exact
 version, so the Docker command's bin resolves for its scripts whatever npm hoists; bump the pins

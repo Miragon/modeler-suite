@@ -81,10 +81,12 @@ project (`e2e/tests/webapp-shell-conformance.spec.ts`).
 - `npm run wardley-maps test:vscode:docker`: the local way to run that smoke test, without a VS Code
   window: `modeler-shell-vscode-docker` of `@miragon/modeler-shell` runs `npm run test:vscode`
   under `xvfb-run -a` in a Linux container (needs Docker; it copies the suite in, runs `npm ci`
-  there, the host's `node_modules` stay untouched). Variables go in with `--env`
-  (`npm run wardley-maps test:vscode:docker -- --env VSCODE_SMOKE_KEEP=1` brings VS Code's logs back
-  into `test-results/vscode-smoke/vscode-logs/`). On a developer's Mac run this one, not
-  `test:vscode`, whose window would take the user's focus. Details in
+  there, the host's `node_modules` stay untouched). Variables go in with `--env`, given to the
+  workspace because the alias passes no flag on; this brings VS Code's logs back into
+  `test-results/vscode-smoke/vscode-logs/`:
+  `npm run test:vscode:docker -w @miragon/wardley-maps-modeler-workspace -- --env VSCODE_SMOKE_KEEP=1`.
+  On a developer's Mac run this one, not `test:vscode`, whose window would take the user's focus.
+  Details in
   [`CONTRIBUTING.md`](CONTRIBUTING.md#vs-code-smoke-test); when CI runs the smoke is in the suite's
   [docs/ci-and-releases.md](../../docs/ci-and-releases.md).
 - `npm run wardley-maps format`: Prettier · `npm run wardley-maps depcruise`: check the module graph

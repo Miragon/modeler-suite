@@ -52,8 +52,7 @@ Everything runs from the repository root.
 
 `npm run <modeler> <script>` runs one script of one modeler, with the aliases `wardley-maps`,
 `event-storming`, `team-topologies`, `context-maps` and `value-chain`; `npm run modelers <script>`
-runs it in all five. Arguments for the script go after `--`, e.g.
-`npm run wardley-maps test:e2e -- --project=vscode-webview`. Every modeler has these scripts:
+runs it in all five. Every modeler has these scripts:
 
 | Modeler script                                   | Does                                                                                    |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------- |
@@ -70,6 +69,24 @@ runs it in all five. Arguments for the script go after `--`, e.g.
 
 One workspace on its own: `npm run <script> -w <name or path>`, e.g.
 `npm run test:e2e -w packages/shell` or `npm run notices -w modelers/wardley-maps/apps/vscode`.
+
+A flag after an alias never reaches the script. The alias runs a second `npm run`, which takes the
+flag for an npm option of its own: npm 12 stops with `EUNKNOWNCONFIG`, npm 10 (Node 22) drops it
+silently and runs the whole script, and `-g` turns into `--global`. Run the script in its
+workspace instead, with the flags after `--`. Playwright's flags go to the modeler's `e2e`
+workspace, whose `test:e2e` is `playwright test` itself. A modeler's own scripts, such as
+`test:vscode:docker`, take its workspace's name, `@miragon/<modeler>-modeler-workspace`: the path
+`modelers/<modeler>` would select every workspace beneath it as well, and each one without the
+script fails the run.
+
+```sh
+npm run test:e2e -w modelers/wardley-maps/e2e -- --project=vscode-webview  # one project
+npm run test:e2e -w modelers/wardley-maps/e2e -- --grep "Share"            # the tests whose title matches
+npm run test:vscode:docker -w @miragon/wardley-maps-modeler-workspace -- --env VSCODE_SMOKE_KEEP=1
+```
+
+`npx playwright test --project=vscode-webview` inside `modelers/wardley-maps/e2e` does the same as
+the first line.
 
 ## Dev servers
 
@@ -115,9 +132,11 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   Maps) and the VS Code webview inside the shell's VS Code stub (`vscode-webview`), both held to the
   shell's conformance kit. Team Topologies also runs its focus hand-back cases in WebKit on both
   hosts (`webapp-webkit`, `vscode-webview-webkit`), Wardley Maps, Event Storming and Value Chain
-  their web app's Share and focus hand-back specs (`webapp-webkit`). `-- --project=<name>` runs one
-  project. A running server on a port is reused, so pick free ports when another checkout runs its
-  suite: `E2E_PORT=6101 E2E_WEBVIEW_PORT=6111 npm run wardley-maps test:e2e`.
+  their web app's Share and focus hand-back specs (`webapp-webkit`).
+  `npm run test:e2e -w modelers/<modeler>/e2e -- --project=<name>` runs one project and
+  `-- --grep "<title>"` the tests whose title matches; the alias cannot pass these flags on (see
+  [Scripts](#scripts)). A running server on a port is reused, so pick free ports when another
+  checkout runs its suite: `E2E_PORT=6101 E2E_WEBVIEW_PORT=6111 npm run wardley-maps test:e2e`.
   `npm run test:e2e:shared` runs the shell's own suite against its demo, in Chromium and its
   pointer-focus cases in WebKit too.
 - **VS Code smoke test:** `npm run <modeler> test:vscode` (the Vitest project `vscode`, never part
@@ -140,14 +159,20 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   modeler. **Locally, run it in Docker instead**, where no window opens:
 
   ```sh
-  npm run wardley-maps test:vscode:docker                                 # the newest stable VS Code
-  npm run wardley-maps test:vscode:docker -- --env VSCODE_VERSION=1.96.0  # the engines.vscode floor
-  npm run wardley-maps test:vscode:docker -- --env VSCODE_SMOKE_KEEP=1    # VS Code's logs in vscode-logs/
-  npm run wardley-maps test:vscode:docker -- --env VSCODE_SMOKE_OPT_IN=keys  # the opt-in steps, as CI runs them
+  # the newest stable VS Code
+  npm run wardley-maps test:vscode:docker
+  # the engines.vscode floor
+  npm run test:vscode:docker -w @miragon/wardley-maps-modeler-workspace -- --env VSCODE_VERSION=1.96.0
+  # VS Code's logs in vscode-logs/
+  npm run test:vscode:docker -w @miragon/wardley-maps-modeler-workspace -- --env VSCODE_SMOKE_KEEP=1
+  # the opt-in steps, as CI runs them
+  npm run test:vscode:docker -w @miragon/wardley-maps-modeler-workspace -- --env VSCODE_SMOKE_OPT_IN=keys
   ```
 
-  CI's smoke sets `VSCODE_SMOKE_OPT_IN=keys`: the driver's opt-in steps (now the zoom and selection
-  keys) run for every modeler without a change to its test, until they become the default.
+  The flags go to the modeler's workspace, not to the alias `npm run wardley-maps`, which would take
+  them for npm's own (see [Scripts](#scripts)). CI's smoke sets `VSCODE_SMOKE_OPT_IN=keys`: the
+  driver's opt-in steps (now the zoom and selection keys) run for every modeler without a change to
+  its test, until they become the default.
 
   `test:vscode:docker` is the shell's `modeler-shell-vscode-docker`. It mounts the repository (the
   nearest directory with a `package-lock.json`, so the whole suite) read-only, copies it into a

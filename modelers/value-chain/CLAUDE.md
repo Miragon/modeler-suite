@@ -131,15 +131,17 @@ missing at its other places; the verdict stays the same).
   the save only once the tab is clean and the file holds still, and itself writes a theme switch VS
   Code missed again); `VSCODE_VERSION` picks the VS Code release, `VSCODE_SMOKE_VSIX` a prebuilt
   VSIX to test instead of packing one, `VSCODE_SMOKE_KEEP=1` keeps VS Code's logs; an agent running
-  it on Linux under `xvfb-run -a` adds `-- --reporter=default` to see the timings ·
+  it on Linux under `xvfb-run -a` sees the timings with the flag given to the workspace, since the
+  alias `npm run value-chain` passes no flag on:
+  `npm run test:vscode -w @miragon/value-chain-modeler-workspace -- --reporter=default` ·
   `npm run value-chain test:vscode:docker`: the same test in a Linux container under
   `xvfb-run -a` (`modeler-shell-vscode-docker` of the shell; needs Docker, copies the suite without
   `node_modules`, runs `npm ci` there, caches VS Code in a Docker volume shared by every modeler),
   no VS Code window; prints the full log, no reporter flag (it rejects one); variables only via
-  `-- --env NAME=value` or `-- --env NAME` for the host's value, a variable set in front of `npm`
-  does not reach the container. **From an agent, run this one, never `test:vscode` on macOS**: its
-  VS Code window takes the user's focus (see
-  [`CONTRIBUTING.md`](CONTRIBUTING.md#vs-code-smoke-test))
+  `npm run test:vscode:docker -w @miragon/value-chain-modeler-workspace -- --env NAME=value`, or
+  `--env NAME` for the host's value, a variable set in front of `npm` does not reach the
+  container. **From an agent, run this one, never `test:vscode` on macOS**: its VS Code window
+  takes the user's focus (see [`CONTRIBUTING.md`](CONTRIBUTING.md#vs-code-smoke-test))
 - `npm run check:build -w modelers/value-chain/apps/webapp`: after `build:webapp`, checks the head
   markup and the licence comments the production bundle must carry
 - `npm run value-chain lint`: ESLint + typecheck · `npm run value-chain depcruise`: module-graph

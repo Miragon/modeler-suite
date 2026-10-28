@@ -80,8 +80,10 @@ a clicked button no focus, while Chromium and Playwright's WebKit on Linux (as i
 the focus spec takes the focus off a clicked button as Safari does (`e2e/tests/support/safari.ts`).
 
 Run one project with
-`npm run event-storming test:e2e -- --project=vscode-webview`. Locally an already running server
-on a port is reused, so pick free ports
+`npm run test:e2e -w modelers/event-storming/e2e -- --project=vscode-webview`, and only the tests
+whose title matches with `-- --grep "<title>"`; the alias `npm run event-storming` cannot pass
+Playwright's flags on (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)).
+Locally an already running server on a port is reused, so pick free ports
 (`E2E_PORT=5387 E2E_WEBVIEW_PORT=5397 npm run event-storming test:e2e`) when another app occupies
 5180 or 5190.
 
@@ -112,11 +114,19 @@ No build is needed to run it: the parser check takes the package sources, as the
 bundle does.
 
 ```bash
-npm run event-storming test:vscode:docker                                 # in Docker, no window: the local way
-npm run event-storming test:vscode:docker -- --env VSCODE_VERSION=1.96.0  # the engines.vscode floor, or another
-npm run event-storming test:vscode:docker -- --env VSCODE_SMOKE_KEEP=1    # VS Code's logs in vscode-logs/
-npm run event-storming test:vscode                                        # on the host, with a window
+# in Docker, no window: the local way
+npm run event-storming test:vscode:docker
+# the engines.vscode floor, or another
+npm run test:vscode:docker -w @miragon/event-storming-modeler-workspace -- --env VSCODE_VERSION=1.96.0
+# VS Code's logs in vscode-logs/
+npm run test:vscode:docker -w @miragon/event-storming-modeler-workspace -- --env VSCODE_SMOKE_KEEP=1
+# on the host, with a window
+npm run event-storming test:vscode
 ```
+
+The `--env` flags go to the modeler's workspace by its name: the alias `npm run event-storming`
+would take them for npm's own, and the path `modelers/event-storming` would select the workspaces
+beneath it too (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)).
 
 On the host, `unzip` must be on the `PATH` (it is on macOS and Ubuntu); a VS Code window opens for
 about 5 seconds and takes the focus, so leave it alone until it closes.
@@ -148,8 +158,8 @@ these steps; a theme that still fails names the theme requested and the one VS C
 (`assets/`). To update them, copy all three again, put the vendoring header back as the first line
 of the two CSS files (the JSON gets none), and run `npm run event-storming test` (`theme.sync` in
 the renderer, `tokens.sync` in apps/vscode against the shell's sizes) and
-`npm run event-storming test:e2e -- --project=vscode-webview` (the shell conformance kit). Never
-edit or reformat them by hand.
+`npm run test:e2e -w modelers/event-storming/e2e -- --project=vscode-webview` (the shell
+conformance kit). Never edit or reformat them by hand.
 
 ## Monorepo map & the DOM boundary (P1)
 

@@ -53,13 +53,16 @@ so a violating import fails `npm run event-storming lint` and `npm run event-sto
   `vscode-webview` (the webview inside the shell's VS Code stub, incl. the kit on the `ide` host)
   and `webapp-webkit` (the web app's Share and focus hand-back specs in WebKit;
   `npx playwright install chromium webkit` once); one project with
-  `npm run event-storming test:e2e -- --project=vscode-webview`, other ports via
+  `npm run test:e2e -w modelers/event-storming/e2e -- --project=vscode-webview` (the alias
+  `npm run event-storming` passes no flag on, so neither `--project` nor `--grep`), other ports via
   `E2E_PORT` / `E2E_WEBVIEW_PORT` (default 5180 / 5190)
 - `npm run event-storming test:vscode:docker`: the VS Code smoke test below in a Linux container
   under `xvfb-run -a` (the shell's `modeler-shell-vscode-docker`): the way to run it locally, since
   no VS Code window opens; needs Docker. It copies the suite in without `node_modules`/`.git`, runs
-  `npm ci` there and brings `test-results/vscode-smoke/` back; options after `--`, e.g.
-  `-- --env VSCODE_VERSION=1.96.0 --env VSCODE_SMOKE_KEEP=1` (VS Code's logs in `vscode-logs/`).
+  `npm ci` there and brings `test-results/vscode-smoke/` back; options such as
+  `--env VSCODE_VERSION=1.96.0 --env VSCODE_SMOKE_KEEP=1` (VS Code's logs in `vscode-logs/`) go to
+  the workspace, since the alias passes no flag on:
+  `npm run test:vscode:docker -w @miragon/event-storming-modeler-workspace -- --env …`.
 - `npm run event-storming test:vscode`: the packaged extension in a real VS Code on the host, for
   CI and for watching the window (Vitest project `vscode`,
   [`apps/vscode/test-smoke/`](apps/vscode/test-smoke/)): packs it as the release does

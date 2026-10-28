@@ -56,8 +56,10 @@ run:
   it, so the focus spec takes the focus off a clicked button as Safari does
   (`tests/support/safari.ts`).
 
-Run one with `npm run wardley-maps test:e2e -- --project=vscode-webview`. When the default ports are
-taken (several worktrees at once), pick others:
+Run one with `npm run test:e2e -w modelers/wardley-maps/e2e -- --project=vscode-webview`, and only
+the tests whose title matches with `-- --grep "<title>"`; the alias `npm run wardley-maps` cannot
+pass Playwright's flags on (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)).
+When the default ports are taken (several worktrees at once), pick others:
 `E2E_PORT=6101 E2E_WEBVIEW_PORT=6111 npm run wardley-maps test:e2e`.
 
 The renderer's browser tests also run the `@miragon/modeler-api` conformance kit against
@@ -85,10 +87,17 @@ needed first.
 Locally, run it in Docker, where no VS Code window opens and nothing takes the focus:
 
 ```bash
-npm run wardley-maps test:vscode:docker                                 # the newest stable VS Code
-npm run wardley-maps test:vscode:docker -- --env VSCODE_VERSION=1.96.0  # another one, the engines floor
-npm run wardley-maps test:vscode:docker -- --env VSCODE_SMOKE_KEEP=1    # brings VS Code's logs back
+# the newest stable VS Code
+npm run wardley-maps test:vscode:docker
+# another one, the engines floor
+npm run test:vscode:docker -w @miragon/wardley-maps-modeler-workspace -- --env VSCODE_VERSION=1.96.0
+# brings VS Code's logs back
+npm run test:vscode:docker -w @miragon/wardley-maps-modeler-workspace -- --env VSCODE_SMOKE_KEEP=1
 ```
+
+The `--env` flags go to the modeler's workspace by its name: the alias `npm run wardley-maps` would
+take them for npm's own, and the path `modelers/wardley-maps` would select the workspaces beneath it
+too (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)).
 
 `npm run wardley-maps test:vscode` runs the same test on the host; use it to watch VS Code at work (on
 macOS a window opens for a few seconds and takes the focus; on Linux run it under `xvfb-run -a`).
