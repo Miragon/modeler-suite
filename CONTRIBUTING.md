@@ -261,6 +261,19 @@ case that enforces what the contract text already states is not a stricter law (
 when it comes with a new optional harness field); a requirement the text does not state yet ships
 as a RECOMMENDATION whose case only advises, and becomes a law in the next major.
 
+Every new `@deprecated` gets an issue that names its target version as a number, as
+[#184](https://github.com/Miragon/modeler-suite/issues/184) does: the release that removes it, or
+the package's first breaking release when the removal waits for another breaking change
+([#183](https://github.com/Miragon/modeler-suite/issues/183), wardley-dsl's `parseDecorators`).
+"The next minor" is no target: [#88](https://github.com/Miragon/modeler-suite/issues/88) and
+[#161](https://github.com/Miragon/modeler-suite/issues/161) named it, and the Wardley renderer's
+next minor shipped without the removal both times. The pull request that adds the deprecation files
+the issue, with the modeler's label where there is one (`modeler: wardley`,
+`modeler: event-storming`, …), and refers to it. A deprecation without a tracked removal outlives
+the minor it promises: wave 4's cleanup
+([#170](https://github.com/Miragon/modeler-suite/issues/170)) takes out aliases and exports that
+had stayed past their minor or that no issue tracked.
+
 The first release of a new package needs one manual step on npm: trusted publishing (OIDC) can only
 be bound to a package that already exists, so the release job's `npm publish` fails with E404 for a
 name npm has never seen. This is how `@miragon/modeler-api@1.0.0` was bootstrapped:

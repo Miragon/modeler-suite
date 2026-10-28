@@ -32,6 +32,10 @@ To set a version or rewrite the entries a PR contributes, put conventional commi
 `BEGIN_COMMIT_OVERRIDE` and `END_COMMIT_OVERRIDE` in the PR body (a `Release-As:` footer at the end
 of a squash body is no footer once GitHub appends its co-author block).
 
+The pull request that adds a `@deprecated` files an issue that names its target version as a
+number (the release that removes it, not "the next minor"): a deprecation without a tracked removal
+outlives the minor it promises.
+
 ## npm: trusted publishing
 
 Each released library publishes from a job of `release-please.yml` that calls the reusable
