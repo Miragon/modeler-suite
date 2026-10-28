@@ -10,6 +10,7 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
 import type { Root } from "diagram-js/lib/model/Types";
 import type { ElementBounds, FreeArea } from "@miragon/modeler-api";
@@ -141,6 +142,10 @@ export abstract class CmBaseViewer {
     const eventBus = diagram.get<EventBus>("eventBus");
     const importer = diagram.get<CmImporter>("cmImporter");
     importer.assertImportable(doc);
+    // A running gesture (move, connect, lasso, a create from the palette or the context pad) holds
+    // elements the import removes: released after it, its command would throw half-way. Cancelled
+    // as Escape cancels it, but without putting back a selection of removed elements.
+    this._optional<Dragging>("dragging")?.cancel(false);
     const labelEditing = this._optional<CmLabelEditing>("cmLabelEditing");
     // An edit in progress belongs to an element the import is about to replace: a commit after it
     // (Enter, blur) would land on a removed shape.

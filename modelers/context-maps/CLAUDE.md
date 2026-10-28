@@ -81,7 +81,10 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   event), reject without a trace and keep unknown keys. They reject a newer version (checked
   first), reserved and repeated ids, coordinates and sizes beyond `MAX_COORDINATE`, and objects
   and arrays nested more than `MAX_NESTING_DEPTH` (100) levels deep, the document being the first
-  level. A host's view change (`setViewState`, a fit) never commits an open editor,
+  level. An import cancels a running gesture first, as Escape does (`dragging.cancel(false)`; move,
+  connect, lasso, palette and context-pad create, pinned by
+  [`import-cancels-gesture.test.ts`](packages/renderer/test/browser/import-cancels-gesture.test.ts)).
+  A host's view change (`setViewState`, a fit) never commits an open editor,
   `elements.bounds(id)` gives an element's live box and `contentBounds()` (also on every
   `CmBaseViewer`) the tight box around what the canvas draws: the contexts, wider where a team row
   or a type's name runs past one (`draw/contextLayout.ts` holds the geometry for the renderer and
