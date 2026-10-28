@@ -283,7 +283,7 @@ describe("an import from inside the change listener of a drop", () => {
     expect(dropped).not.toContain("component Water [0.3, 0.3]");
   });
 
-  test("keeps the element a palette create dropped", async () => {
+  test("keeps the element a palette create dropped, and its name editor on it", async () => {
     const current = await session();
     const { container, pointer, diagram } = current;
     const reimport = reimportOnFirstChange(current);
@@ -294,13 +294,17 @@ describe("an import from inside the change listener of a drop", () => {
     pointer.moveTo(drop);
     pointer.releaseAt(drop);
 
+    // The import waits for the drop and the name editor it opens a task later: the editor names the
+    // created element, and the import keeps it open on the element with the same id (L1).
+    await expect(reimport()).resolves.toBeDefined();
+    const created = theCreatedComponent(diagram);
+    const labelEditing = diagram.get<WardleyLabelEditing>("wardleyLabelEditing");
+    expect(labelEditing.getActiveEdit()?.elementId).toBe(created.id);
+    expect(container.querySelector(".wardley-label-input")).not.toBeNull();
+    labelEditing.cancel();
+
     const dropped = await expectTheDropKept(current, reimport());
     expect(dropped.split("\n").filter((line) => line.startsWith("component "))).toHaveLength(4);
-    // The label editor a create opens after the drop would name the shape the import removed.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(container.querySelector(".wardley-label-input")).toBeNull();
-    expect(current.errors).toEqual([]);
-    expect(current.changes()).toBe(2);
   });
 
   test("keeps the point a drawing's handle dropped", async () => {

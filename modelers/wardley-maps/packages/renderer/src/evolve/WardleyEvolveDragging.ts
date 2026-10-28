@@ -10,6 +10,7 @@ import type WardleyModeling from "../modeling/WardleyModeling.js";
 import type { WardleyShape } from "../model/di-types.js";
 import { MIN_EVOLVE_DELTA } from "./constants.js";
 import { focusCanvasWithoutRing } from "../a11y/index.js";
+import type { WardleyInteraction } from "../interaction/index.js";
 
 const PREFIX = "wardley.evolve";
 /** CSS class of the red target circle (set by the renderer) — direct drag handle. */
@@ -20,6 +21,12 @@ interface EvolveContext {
   originalMovement?: Movement;
   target?: number;
   committed?: boolean;
+}
+
+/** A drag of the evolve target's handle, ended without a commit by `cancel`. */
+interface HandleDrag {
+  shape: WardleyShape;
+  cancel: () => void;
 }
 
 function clamp01(n: number): number {
@@ -40,7 +47,10 @@ export default class WardleyEvolveDragging {
     "canvas",
     "elementRegistry",
     "injector",
+    "wardleyInteraction",
   ];
+
+  private handleDrag: HandleDrag | null = null;
 
   constructor(
     eventBus: EventBus,
@@ -50,6 +60,7 @@ export default class WardleyEvolveDragging {
     canvas: Canvas,
     elementRegistry: ElementRegistry,
     private readonly injector: Injector,
+    interaction: WardleyInteraction,
   ) {
     const preview = (shape: WardleyShape, movement: Movement | undefined) => {
       if (movement === undefined) delete shape.movement;
@@ -93,28 +104,50 @@ export default class WardleyEvolveDragging {
         event.preventDefault();
         focusCanvasWithoutRing(canvas);
 
+        this.handleDrag?.cancel();
+
         const original = shape.movement;
         const cy = shape.y + shape.height / 2;
         let target: number | undefined;
+        const stop = () => {
+          this.handleDrag = null;
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+          preview(shape, original);
+        };
+        const drag: HandleDrag = {
+          shape,
+          cancel: () => {
+            stop();
+            interaction.end(drag);
+          },
+        };
         const onMove = (e: MouseEvent) => {
+          interaction.begin(drag);
           target = forwardTarget(shape, evolutionAtClientX(e.clientX, cy));
           preview(shape, { ...original, targetEvolution: target });
         };
-        const onUp = () => {
-          document.removeEventListener("mousemove", onMove);
-          document.removeEventListener("mouseup", onUp);
-          preview(shape, original); // reset preview, then ONE undoable commit (P4)
-          // The shape may be gone (deleted mid-drag, or replaced by a re-import).
-          if (elementRegistry.get(shape.id) !== shape) return;
-          if (target !== undefined && target > shape.evolution + MIN_EVOLVE_DELTA) {
-            modeling.evolveComponent(shape, target);
-          }
-        };
+        // The preview is reset first, then ONE undoable commit (P4).
+        const onUp = () =>
+          interaction.drop(drag, () => {
+            stop();
+            if (target !== undefined && target > shape.evolution + MIN_EVOLVE_DELTA) {
+              modeling.evolveComponent(shape, target);
+            }
+          });
         document.addEventListener("mousemove", onMove);
         document.addEventListener("mouseup", onUp);
+        this.handleDrag = drag;
       },
       true,
     );
+    // Deleting the component mid-drag or an import that replaces it ends the drag, or the release
+    // would evolve a removed shape.
+    eventBus.on("shape.remove", ({ element }: { element: unknown }) => {
+      const drag = this.handleDrag;
+      if (drag && drag.shape === element) drag.cancel();
+    });
+    eventBus.on("diagram.destroy", () => this.handleDrag?.cancel());
 
     eventBus.on(`${PREFIX}.move`, (event: { context: EvolveContext; x: number }) => {
       const { shape } = event.context;

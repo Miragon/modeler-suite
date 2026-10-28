@@ -28,6 +28,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: "@miragon/wardley-renderer/themes",
+        replacement: fromRepository("packages/renderer/src/appearance/index.ts"),
+      },
+      {
         find: "@miragon/wardley-renderer",
         replacement: fromRepository("packages/renderer/src/index.ts"),
       },

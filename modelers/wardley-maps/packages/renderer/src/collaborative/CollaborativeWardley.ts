@@ -1,11 +1,13 @@
 import {
   MODELER_API_VERSION,
+  type AppearanceSurface,
   type CollaborativeModeler,
   type CollaborativeModelerOptions,
   type ElementBounds,
   type ElementInfo,
   type ElementsSurface,
   type ImportResult,
+  type InteractionSurface,
   type ModelerMeta,
 } from "@miragon/modeler-api";
 import { readBackIds, serializeDSL } from "@miragon/wardley-dsl";
@@ -18,7 +20,13 @@ import type { Element } from "diagram-js/lib/model/Types";
 import { Modeler } from "../Modeler.js";
 import { NavigatedViewer } from "../NavigatedViewer.js";
 import type { WardleyViewerOptions } from "../WardleyBaseViewer.js";
+import { WARDLEY_THEMES } from "../appearance/index.js";
 import { restoreEditorState, setAsideEditorState, type EditorState } from "../editor-state.js";
+import {
+  INTERACTION_CHANGED,
+  type InteractionChangedEvent,
+  type WardleyInteraction,
+} from "../interaction/index.js";
 import type { LivePreview } from "../live-preview/index.js";
 import { isWardleyShape, type WardleyShape } from "../model/di-types.js";
 import type { PanConstraint } from "../pan-constraint/index.js";
@@ -41,11 +49,13 @@ export interface WardleyElementsSurface extends ElementsSurface {
 }
 
 /**
- * The contract surface, with the optional `contentBounds` of contract 1.3 always present, plus the
- * wrapped diagram for host-specific wiring.
+ * The contract surface, with the optional `contentBounds` of contract 1.3 and `interaction` and
+ * `appearance` of contract 1.5 always present, plus the wrapped diagram for host-specific wiring.
  */
 export interface CollaborativeWardleyModeler extends CollaborativeModeler {
   readonly elements: WardleyElementsSurface;
+  readonly interaction: InteractionSurface;
+  readonly appearance: AppearanceSurface;
   readonly diagram: Modeler | NavigatedViewer;
   contentBounds(): ElementBounds | undefined;
 }
@@ -133,6 +143,75 @@ function documentIds(diagram: Modeler | NavigatedViewer, eventBus: EventBus) {
   };
 }
 
+/**
+ * The contract's `interaction`, read from the Modeler's `wardleyInteraction`; a viewer has no
+ * editing gesture and reports none. `afterDrop` is the service's wait for a running drop.
+ */
+function interactionOf(diagram: Modeler | NavigatedViewer, editable: boolean) {
+  const service = editable ? diagram.get<WardleyInteraction>("wardleyInteraction") : undefined;
+  const listeners = new Set<(active: boolean) => void>();
+  let destroyed = false;
+  diagram.get<EventBus>("eventBus").on(INTERACTION_CHANGED, (event: InteractionChangedEvent) => {
+    for (const listener of [...listeners]) listener(event.active);
+  });
+  const surface: InteractionSurface = {
+    active: () => !destroyed && service?.isActive() === true,
+    onChange(callback) {
+      if (destroyed) return () => undefined;
+      listeners.add(callback);
+      return () => {
+        listeners.delete(callback);
+      };
+    },
+  };
+  return {
+    surface,
+    afterDrop: (): Promise<void> | undefined => (destroyed ? undefined : service?.afterDrop()),
+    destroy() {
+      destroyed = true;
+      listeners.clear();
+    },
+  };
+}
+
+/**
+ * The contract's `appearance`: written onto the container the map is drawn in, so the design tokens
+ * resolve their roles there and not from the page around it. View state only: the map, its
+ * exports, its history and the view are left as they are.
+ */
+function appearanceOf(root: HTMLElement, isDestroyed: () => boolean): AppearanceSurface {
+  return {
+    themes: WARDLEY_THEMES,
+    set(request) {
+      if (isDestroyed()) return;
+      // A host without the contract's types may send anything: it counts as an unlisted theme and
+      // as normal contrast.
+      const { theme, contrast } = (
+        typeof request === "object" && request !== null ? request : {}
+      ) as { theme?: unknown; contrast?: unknown };
+      const drawn = WARDLEY_THEMES.find((listed) => listed === theme) ?? WARDLEY_THEMES[0];
+      root.setAttribute("data-cd-theme", drawn);
+      if (contrast === "high") root.setAttribute("data-cd-kontrast", "hoch");
+      else root.removeAttribute("data-cd-kontrast");
+    },
+  };
+}
+
+/**
+ * Waits for `edit`, then for each drop still running by then, and rejects once the modeler has been
+ * destroyed meanwhile.
+ */
+async function untilTheEditHasEnded(
+  edit: Promise<void>,
+  afterDrop: () => Promise<void> | undefined,
+  isDestroyed: () => boolean,
+): Promise<void> {
+  for (let wait: Promise<void> | undefined = edit; wait; wait = afterDrop()) {
+    await wait;
+    if (isDestroyed()) throw new Error("The modeler was destroyed.");
+  }
+}
+
 function collaborative(
   diagram: Modeler | NavigatedViewer,
   editable: boolean,
@@ -144,6 +223,7 @@ function collaborative(
   const panConstraint = diagram.get<PanConstraint>("panConstraint");
   const ids = documentIds(diagram, eventBus);
   const livePreview = editable ? diagram.get<LivePreview>("wardleyLivePreview") : undefined;
+  const interaction = interactionOf(diagram, editable);
   const contentListeners = new Set<() => void>();
   let importsRunning = 0;
   let changesReporting = 0;
@@ -223,13 +303,11 @@ function collaborative(
   async function importText(text: string): Promise<ImportResult> {
     if (destroyed) throw new Error("The modeler was destroyed.");
     // A host that echoes its own change back through its store imports from the change listener,
-    // while the edit that made the change still runs: a create without a pointer goes on to select
-    // the new element and open its name editor. Applied there, the import would replace that
-    // element first, so it waits until the edit has returned and then keeps both, as any import does.
-    if (changesReporting > 0) {
-      await Promise.resolve();
-      if (destroyed) throw new Error("The modeler was destroyed.");
-    }
+    // while the edit still runs: a create goes on to select its element and open its name editor,
+    // and a drop's later steps, also those it defers by a task, hold the shapes the import would
+    // replace. So the import waits until the edit has returned and a running drop has ended.
+    const edit = changesReporting > 0 ? Promise.resolve() : interaction.afterDrop();
+    if (edit) await untilTheEditHasEnded(edit, interaction.afterDrop, () => destroyed);
     importsRunning += 1;
     // An open label editor neither commits during the import nor loses what was typed (L1): it
     // is taken down and reopened on the element with the same id.
@@ -252,6 +330,8 @@ function collaborative(
   return {
     meta,
     elements,
+    interaction: interaction.surface,
+    appearance: appearanceOf(diagram.container, () => destroyed),
     diagram,
     attachTo(host) {
       diagram.attachTo(host as HTMLElement);
@@ -297,6 +377,7 @@ function collaborative(
       }
       destroyed = true;
       contentListeners.clear();
+      interaction.destroy();
       diagram.destroy();
     },
   };

@@ -28,6 +28,12 @@
   overflow: hidden;
 }
 
+/* A container that carries its own mode (`appearance.set`) takes its text colour from that mode,
+   not the one a page in another mode would pass down to it. */
+.wardley-container[data-cd-theme] {
+  color: var(--cd-ui-text);
+}
+
 .wardley-container .layer-wardley-axes {
   pointer-events: none;
 }

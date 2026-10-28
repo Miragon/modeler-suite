@@ -117,21 +117,22 @@ editor and fits the view (unless `fitOnImport: false`); a host's view change (`s
 never saves an open editor either. A gesture that runs during an import ends first, so its release
 changes nothing: a diagram-js drag (a move, resize, connect or lasso drag, a create from the palette
 or the context pad, the evolve drag the context pad starts, the plot-corner drag) is cancelled as
-Escape cancels it, a drawing's point drag ends when the import removes its drawing, and the drag of
-a component's red evolve target applies nothing on release to a component the import has replaced.
-A tool that only waits for the user's next press stays armed: the lasso from the palette or `L`,
-and the draw tool. An `importText` called from the change listener (a host that echoes its own
-change back through its store) waits until the edit that made the change has returned, a drop
-included, and then keeps what the edit left, as any import does: a create without a pointer (C, a
-palette entry with Enter or Space, the context pad's append with Enter) keeps its new element
-selected and its name editor open. The name editor a create with the pointer opens a task after its
-drop stays closed, since the import has replaced the shape it was handed by then. `exportText()` is
-the committed document, never a live preview: while the plot corner is dragged or the size or
-axis-label popover previews a change, it returns the document as it was before, and the change event
-of the commit brings the new one. A command during a size preview (an undo pressed mid-drag, a title
-the host sets) puts the preview back first, and a drag then ends without resizing, so the history
-stays in step with the document. A drawing's point drag ends the same way, without a commit, when a
-command runs before its release (an undo or an arrow-key nudge pressed mid-drag). `elements` names
+Escape cancels it, and a drawing's point drag and the drag of a component's red evolve target end
+when the import removes their element. A tool that only waits for the user's next press stays
+armed: the lasso from the palette or `L`, and the draw tool. An `importText` called from the change
+listener (a host that echoes its own change back through its store) waits until the edit that made
+the change has returned, and one called while a drop runs waits until the drop has ended and the
+steps it defers to the next task have run; then it imports, and its Promise settles after that
+import. It keeps what the edit left, as any import does: a create without a pointer (C, a palette
+entry with Enter or Space, the context pad's append with Enter) keeps its new element selected and
+its name editor open, and the name editor a create with the pointer opens a task after its drop
+opens on the new element and stays open. `exportText()` is the committed document, never a live
+preview: while the plot corner is dragged or the size or axis-label popover previews a change, it
+returns the document as it was before, and the change event of the commit brings the new one. A
+command during a size preview (an undo pressed mid-drag, a title the host sets) puts the preview
+back first, and a drag then ends without resizing, so the history stays in step with the document.
+A drawing's point drag ends the same way, without a commit, when a command runs before its release
+(an undo or an arrow-key nudge pressed mid-drag). `elements` names
 components, anchors, pipelines, submaps and accelerators by the id the document gives them
 (`cmp_kettle`), also right after a canvas edit, and `elements.bounds(id)` gives an element's live
 box in diagram coordinates; `getViewState` and `setViewState` carry the viewbox. `contentBounds()`
@@ -144,6 +145,25 @@ elements. `diagram` is the wrapped `Modeler` or `NavigatedViewer` for host-speci
 factories take the options above (`additionalModules`, `freeArea`, `fitOnImport` and
 `undoRedoKeys`); the viewer never edits and ignores the undo keys. Both pass the
 contract's conformance kit (1.3) without skips.
+
+`interaction` (contract 1.5) tells a host whether the user holds a gesture, so it can defer a remote
+re-import until the gesture ends: `active()` is true from the moment a move, resize, connect or
+lasso drag, a label drag, the point drag of a drawing, the drag of an evolve target, the evolve or
+plot-corner drag or a create from the palette or the context pad (also while its preview is over
+the palette) starts, until its drop or cancel. It stays false while the lasso or the draw tool only
+waits for the next press, during a pan and on the viewer. `onChange(callback)` reports each change
+once, and may run inside `importText` (its cancel of a gesture), so a host queues its re-import
+instead of importing from the callback.
+
+`appearance` (contract 1.5) takes a host's mode: `themes` is `WARDLEY_THEMES`, `["light"]` until the
+Miragon modelers turn dark together, and `set({ theme, contrast })` writes `data-cd-theme` (the theme
+when `themes` lists it, else `themes[0]`) and, for `contrast: "high"`, `data-cd-kontrast="hoch"` on
+the map's container, so the design tokens resolve there and not from the page: on a dark page the
+map stays light, and the contrast the host asks for holds. It is view state: no change event, the
+same text and SVG export, and the history, view, selection and an open editor are left as they are.
+Until the first `set` the map takes its mode from the page, as before. `WARDLEY_THEMES` is also
+`@miragon/wardley-renderer/themes`, which loads no DOM code, for hosts outside the browser (the VS
+Code extension's theme bridge).
 
 ### Menu entries and dialogs for a host's chrome
 

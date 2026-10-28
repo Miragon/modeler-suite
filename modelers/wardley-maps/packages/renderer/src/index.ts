@@ -84,6 +84,13 @@ export type {
 } from "./label-editing/WardleyLabelEditing.js";
 export { restoreEditorState, setAsideEditorState } from "./editor-state.js";
 export {
+  wardleyInteractionModule,
+  WardleyInteraction,
+  INTERACTION_CHANGED,
+} from "./interaction/index.js";
+export type { InteractionChangedEvent } from "./interaction/index.js";
+export { WARDLEY_THEMES } from "./appearance/index.js";
+export {
   WARDLEY_NOTATION,
   createCollaborativeModeler,
   createCollaborativeViewer,

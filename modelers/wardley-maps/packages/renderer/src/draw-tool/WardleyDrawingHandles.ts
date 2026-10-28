@@ -14,10 +14,16 @@ import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
 import { focusCanvasWithoutRing } from "../a11y/index.js";
 import { COMMAND_START_EVENTS, PUT_BACK_PRIORITY } from "../live-preview/index.js";
+import type { WardleyInteraction } from "../interaction/index.js";
 
 interface Point {
   x: number;
   y: number;
+}
+
+interface PointDrag {
+  shape: WardleyShape;
+  unbind: () => void;
 }
 
 /**
@@ -26,12 +32,19 @@ interface Point {
  * recomputed bbox) as ONE undoable command.
  */
 export default class WardleyDrawingHandles {
-  static $inject = ["eventBus", "canvas", "wardleyModeling", "evolutionGrid", "injector"];
+  static $inject = [
+    "eventBus",
+    "canvas",
+    "wardleyModeling",
+    "evolutionGrid",
+    "injector",
+    "wardleyInteraction",
+  ];
 
   private shape: WardleyShape | null = null;
   private group: SVGElement | null = null;
   private dragPreview: SVGElement | null = null;
-  private pointDrag: { shape: WardleyShape; unbind: () => void } | null = null;
+  private pointDrag: PointDrag | null = null;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -39,6 +52,7 @@ export default class WardleyDrawingHandles {
     private readonly modeling: WardleyModeling,
     private readonly grid: EvolutionGrid,
     private readonly injector: Injector,
+    private readonly interaction: WardleyInteraction,
   ) {
     eventBus.on("selection.changed", (event: { newSelection?: unknown[] }) => {
       const sel = event.newSelection ?? [];
@@ -108,25 +122,27 @@ export default class WardleyDrawingHandles {
     this.endPointDrag();
     const shape = this.shape;
     const points = this.absolutePoints();
+    const drag: PointDrag = { shape, unbind: () => undefined };
 
     const onMove = (ev: MouseEvent): void => {
+      this.interaction.begin(drag);
       points[index] = this.toCanvasPoint(ev);
       this.renderDragPreview(points, !!shape.closed);
     };
     const onUp = (ev: MouseEvent): void => {
       points[index] = this.toCanvasPoint(ev);
-      this.endPointDrag();
-      this.commit(shape, points);
+      this.interaction.drop(drag, () => {
+        this.stopPointDrag();
+        this.commit(shape, points);
+      });
     };
     document.addEventListener("mousemove", onMove, true);
     document.addEventListener("mouseup", onUp, true);
-    this.pointDrag = {
-      shape,
-      unbind: () => {
-        document.removeEventListener("mousemove", onMove, true);
-        document.removeEventListener("mouseup", onUp, true);
-      },
+    drag.unbind = () => {
+      document.removeEventListener("mousemove", onMove, true);
+      document.removeEventListener("mouseup", onUp, true);
     };
+    this.pointDrag = drag;
   }
 
   /**
@@ -135,11 +151,17 @@ export default class WardleyDrawingHandles {
    * drawing ends it, and so does any command before the release.
    */
   private endPointDrag(): void {
+    const drag = this.stopPointDrag();
+    if (drag) this.interaction.end(drag);
+  }
+
+  private stopPointDrag(): PointDrag | null {
     const drag = this.pointDrag;
-    if (!drag) return;
+    if (!drag) return null;
     this.pointDrag = null;
     drag.unbind();
     this.clearDragPreview();
+    return drag;
   }
 
   /** New bbox + relative points + normalized anchor — ONE undoable updateProperties command. */

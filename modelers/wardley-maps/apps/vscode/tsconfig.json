@@ -7,6 +7,7 @@
     "baseUrl": ".",
     "paths": {
       "@miragon/wardley-renderer": ["../../packages/renderer/src/index.ts"],
+      "@miragon/wardley-renderer/themes": ["../../packages/renderer/src/appearance/index.ts"],
       "@miragon/wardley-schema-model": ["../../packages/schema-model/src/index.ts"],
       "@miragon/wardley-dsl": ["../../packages/dsl/src/index.ts"],
       "@miragon/wardley-transforms": ["../../packages/transforms/src/index.ts"]

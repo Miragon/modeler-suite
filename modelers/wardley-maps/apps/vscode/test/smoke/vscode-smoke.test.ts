@@ -13,7 +13,7 @@ import {
 } from "@miragon/modeler-shell/testing/vscode-electron";
 import { parseDSLWithDiagnostics } from "@miragon/wardley-dsl";
 import type { WardleyMap } from "@miragon/wardley-schema-model";
-import { WEBVIEW_THEMES } from "../../src/themes.js";
+import { WARDLEY_THEMES } from "@miragon/wardley-renderer/themes";
 
 const APP_DIRECTORY = fileURLToPath(new URL("../../", import.meta.url));
 const SCREENSHOT_DIRECTORY = fileURLToPath(
@@ -111,7 +111,7 @@ it(
       fixture: { fileName: FIXTURE_FILE_NAME, text: fixtureText },
       parse: parseMap,
       edit: evolveComponent,
-      themes: WEBVIEW_THEMES,
+      themes: WARDLEY_THEMES,
       name: "wardley",
       screenshotDir: SCREENSHOT_DIRECTORY,
       vscodeVersion: process.env.VSCODE_VERSION || undefined,

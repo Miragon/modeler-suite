@@ -45,9 +45,19 @@ without a commit when its drawing is removed (`shape.remove` in `WardleyDrawingH
 command starts before its release. The armed lasso (`lasso.selection`) stays armed. An `importText`
 from the change listener waits until the edit that changed the map has returned (`changesReporting`
 in `CollaborativeWardley`), so a create without a pointer keeps its element selected and its name
-editor open across a host's echo; a drop an import runs during is left to finish, and the name
-editor of a create opens only on a shape the import has not replaced (pinned by
+editor open across a host's echo, and the name editor of a create opens only on a shape the import
+has not replaced (pinned by
 [`import-during-gesture.browser.test.ts`](packages/renderer/test/browser/import-during-gesture.browser.test.ts)).
+`wardleyInteraction` ([`src/interaction/`](packages/renderer/src/interaction/)) follows every gesture
+(diagram-js drags past their threshold and the renderer's own label, point and evolve-target drags,
+which report to it) for the contract's `interaction`, and marks drops: an `importText` called during
+a drop waits until it has ended and the steps it defers by a task have run (#248). `appearance`
+writes `data-cd-theme` and `data-cd-kontrast` on the map's container; its `themes` is
+`WARDLEY_THEMES`. Both are pinned by
+[`interaction.browser.test.ts`](packages/renderer/test/browser/interaction.browser.test.ts) and
+[`appearance.browser.test.ts`](packages/renderer/test/browser/appearance.browser.test.ts), which
+follow the contract's planned 1.5 kit cases with the harness fields of
+[`support/gesture-harness.ts`](packages/renderer/test/browser/support/gesture-harness.ts).
 The VS Code webview mounts `@miragon/modeler-shell`
 ([`apps/vscode/src/webview/main.ts`](apps/vscode/src/webview/main.ts)), the web app mounts its web
 host ([`apps/webapp/src/main.ts`](apps/webapp/src/main.ts)); the shell's conformance kit runs
@@ -185,9 +195,10 @@ files byte-identical to the release; also: the in-canvas chrome uses only
 [`packages/renderer/test/fixtures/lucide-static-1.59.0.icon-nodes.json`](packages/renderer/test/fixtures/lucide-static-1.59.0.icon-nodes.json):
 re-copy both from the same Lucide release, together with the licence notices in the renderer
 README and in `apps/vscode/scripts/third-party-notices.mjs` · in-canvas chrome [`packages/renderer/src/assets/wardley.css`](packages/renderer/src/assets/wardley.css)
-· web app and VS Code webview: the chrome of `@miragon/modeler-shell` (light only: `THEMES` in
-[`apps/webapp/src/themes.ts`](apps/webapp/src/themes.ts) and `WEBVIEW_THEMES` in
-[`apps/vscode/src/themes.ts`](apps/vscode/src/themes.ts), kept equal by a unit test; `style dark`
+· web app and VS Code webview: the chrome of `@miragon/modeler-shell` (light only: the renderer's
+`WARDLEY_THEMES` in [`packages/renderer/src/appearance/index.ts`](packages/renderer/src/appearance/index.ts),
+DOM-free as `@miragon/wardley-renderer/themes`, which both apps and the extension's theme bridge
+read, pinned by [`apps/webapp/test/themes.test.ts`](apps/webapp/test/themes.test.ts); `style dark`
 round-trips but is never painted), its sizes checked by
 [`apps/vscode/test/tokens.sync.test.ts`](apps/vscode/test/tokens.sync.test.ts); the web app's own
 content is the map-as-text dialogs and the start screen's empty canvas

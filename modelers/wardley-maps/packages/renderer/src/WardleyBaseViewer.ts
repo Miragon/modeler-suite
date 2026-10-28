@@ -36,6 +36,7 @@ import type { FreeArea } from "@miragon/modeler-api";
 import type { FreeRectConfig } from "./free-rect/index.js";
 import { COMMAND_START_EVENTS, PUT_BACK_PRIORITY, type LivePreview } from "./live-preview/index.js";
 import { applyConfigUpdate, type MapConfigUpdate } from "./modeling/cmd/UpdateConfigHandler.js";
+import { ARMED_TOOL_PREFIXES, DROP_MARK_PRIORITY } from "./interaction/index.js";
 
 export interface WardleyViewerOptions {
   /** Host element. If missing, a detached <div> is created (can be attached later via attachTo). */
@@ -125,16 +126,6 @@ function importableMap(map: WardleyMap): WardleyMap {
 function sizeToCss(value: number | string): string {
   return typeof value === "number" ? `${value}px` : value;
 }
-
-/**
- * The drag of a palette tool that only waits for its next press (the lasso from the palette or
- * `L`): no gesture yet. It holds no element of the map, so an import leaves the tool armed, and the
- * user's next press still draws a lasso instead of panning or moving the element under the pointer.
- */
-const ARMED_TOOL_PREFIXES: ReadonlySet<string> = new Set(["lasso.selection"]);
-
-/** Ahead of every other listener of a drop, so that the command it runs finds the drop marked. */
-const DROP_MARK_PRIORITY = 100_000;
 
 type DragContext = { prefix: string } | null;
 

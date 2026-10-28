@@ -77,7 +77,7 @@ suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#tests). Here VS Code opens a s
 ([`tea-shop.wmap`](apps/vscode/test/smoke/tea-shop.wmap)) in the custom editor, and the test checks
 the chrome, evolves a component (click, Shift+→), saves (the file changes and
 `parseDSLWithDiagnostics` finds nothing), undoes (canvas and file are back) and switches through
-VS Code's four default themes, in which the webview stays light (`WEBVIEW_THEMES`) and high contrast
+VS Code's four default themes, in which the webview stays light (`WARDLEY_THEMES`) and high contrast
 passes. A screenshot per theme goes to `test-results/vscode-smoke/` (git-ignored, emptied at the
 start of every run): `wardley-light.png`, `wardley-dark.png`, `wardley-high-contrast-dark.png` and
 `wardley-high-contrast-light.png`, or `wardley-open-failure.png` when the editor never opened. The
