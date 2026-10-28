@@ -303,7 +303,8 @@ export function connectionExtensions(connection: ChainConnection): Fields {
 /**
  * Deterministic serialization: elements/connections sorted by id, coordinates rounded to
  * 3 decimals, object keys deep-sorted. Clean Git diffs and reliable change detection.
- * Values of unknown keys are written as they are, without rounding.
+ * Values of unknown keys are written as they are, without rounding. A value that sits in several
+ * places is written at each of them; a document that contains itself throws.
  */
 export function serializeDocument(document: ValueChainDocument): string {
   return stableStringify(canonicalize(document));
@@ -347,23 +348,26 @@ function roundPoint(point: Point): Point {
 }
 
 function stableStringify(value: unknown): string {
-  const seen = new WeakSet<object>();
+  // Only the containers the walk is inside of: a JavaScript caller may put one object in several
+  // places, which is no cycle and is written out at each of them.
+  const ancestors = new Set<object>();
   const sortKeys = (input: unknown): unknown => {
-    if (Array.isArray(input)) {
-      return input.map(sortKeys);
+    if (typeof input !== "object" || input === null) {
+      return input;
     }
-    if (typeof input === "object" && input !== null) {
-      if (seen.has(input)) {
-        throw new Error("Cannot serialize a cyclic document.");
-      }
-      seen.add(input);
-      return Object.fromEntries(
-        Object.entries(input)
-          .sort(([a], [b]) => compare(a, b))
-          .map(([key, entry]) => [key, sortKeys(entry)]),
-      );
+    if (ancestors.has(input)) {
+      throw new Error("Cannot serialize a cyclic document.");
     }
-    return input;
+    ancestors.add(input);
+    const sorted = Array.isArray(input)
+      ? input.map(sortKeys)
+      : Object.fromEntries(
+          Object.entries(input)
+            .sort(([a], [b]) => compare(a, b))
+            .map(([key, entry]) => [key, sortKeys(entry)]),
+        );
+    ancestors.delete(input);
+    return sorted;
   };
   return `${JSON.stringify(sortKeys(value), null, 2)}\n`;
 }

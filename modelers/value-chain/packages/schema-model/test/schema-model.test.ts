@@ -105,6 +105,80 @@ describe("serializeDocument", () => {
     expect(parsed.elements[0]!.bounds.x).toBe(1);
     expect(parsed.elements[0]!.bounds.y).toBe(3);
   });
+
+  describe("a value a JavaScript caller puts in several places", () => {
+    /** The same document with every shared object and array copied, as a parsed file holds it. */
+    const unshared = (document: unknown): unknown => JSON.parse(JSON.stringify(document));
+
+    const expectWrittenAtEachPlace = (document: Record<string, unknown>): void => {
+      const text = serializeDocument(validateDocument(document));
+      expect(text).toBe(serializeDocument(validateDocument(unshared(document))));
+      expect(serializeDocument(parseDocumentJSON(text))).toBe(text);
+    };
+
+    it("writes an object shared by two elements at both places", () => {
+      const shared = { owner: "ops" };
+      const sharing = {
+        ...doc,
+        elements: doc.elements.map((element) => ({ ...element, "x-tag": shared })),
+      };
+      expectWrittenAtEachPlace(sharing);
+      const written = parseDocumentJSON(serializeDocument(validateDocument(sharing)));
+      expect(written.elements.map((element) => elementExtensions(element))).toEqual([
+        { "x-tag": { owner: "ops" } },
+        { "x-tag": { owner: "ops" } },
+      ]);
+    });
+
+    it("writes an array shared by the document, its meta, an element and a connection", () => {
+      const shared = ["b", { a: 1 }];
+      expectWrittenAtEachPlace({
+        ...doc,
+        "x-tags": shared,
+        meta: { ...doc.meta, "x-tags": shared },
+        elements: [{ ...doc.elements[0]!, "x-tags": shared }, doc.elements[1]!],
+        connections: [{ ...doc.connections[0]!, "x-tags": shared }],
+      });
+    });
+
+    it("writes an object shared at different depths, and a chain that holds each level twice", () => {
+      const leaf = { value: 1 };
+      expectWrittenAtEachPlace({
+        ...doc,
+        "x-shallow": leaf,
+        "x-deep": { first: [leaf, { second: [[leaf]] }], again: leaf },
+      });
+
+      let chain: unknown = { leaf };
+      for (let level = 0; level < 10; level++) {
+        chain = { left: chain, right: [chain] };
+      }
+      const text = serializeDocument(validateDocument({ ...doc, "x-chain": chain }));
+      expect(text.match(/"leaf"/g)).toHaveLength(2 ** 10);
+      expectWrittenAtEachPlace({ ...doc, "x-chain": chain });
+    });
+
+    it("still refuses an object or an array that contains itself", () => {
+      const message = "Cannot serialize a cyclic document.";
+      const cyclicObject: Record<string, unknown> = { name: "loop" };
+      cyclicObject["self"] = { back: [cyclicObject] };
+      expect(() =>
+        serializeDocument({ ...doc, "x-cycle": cyclicObject } as ValueChainDocument),
+      ).toThrow(message);
+
+      const cyclicArray: unknown[] = [];
+      cyclicArray.push([cyclicArray]);
+      expect(() =>
+        serializeDocument({ ...doc, "x-cycle": cyclicArray } as ValueChainDocument),
+      ).toThrow(message);
+
+      const element: Record<string, unknown> = { ...doc.elements[0]! };
+      element["x-owner"] = { element };
+      expect(() =>
+        serializeDocument({ ...doc, elements: [element] } as unknown as ValueChainDocument),
+      ).toThrow(message);
+    });
+  });
 });
 
 describe("loadDocument", () => {
