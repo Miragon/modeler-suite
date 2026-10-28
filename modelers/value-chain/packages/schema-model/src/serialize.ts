@@ -72,7 +72,10 @@ export function validateDocument(data: unknown): ValueChainDocument {
 /**
  * Every finding that keeps `data` from loading, with its location; empty for a valid document.
  * The same checks as `loadDocument`, for editors that point at the broken spot. Of the `__proto__`
- * keys and the containers nested too deep, it reports the first 100 in document order.
+ * keys and the containers nested too deep, it reports the first 100 in document order. A
+ * container that a JavaScript caller puts in several places is checked at its first place and
+ * again only where it lies deeper than before, so its findings may be missing at its other places;
+ * whether `data` loads stays the same. A parsed file never shares one.
  */
 export function documentIssues(data: unknown): DocumentIssue[] {
   const structural = structureIssues(data);

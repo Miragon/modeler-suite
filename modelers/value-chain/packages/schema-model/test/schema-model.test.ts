@@ -443,6 +443,23 @@ describe("nesting depth", () => {
     expect(() => validateDocument(tooWide)).toThrow(/nest at most/);
   });
 
+  it("reads a wide container one entry at a time instead of holding all its entries", () => {
+    let entriesRead = 0;
+    const wide = new Proxy(
+      Array.from({ length: 100_000 }, (): unknown[] => []),
+      {
+        get(target, key, receiver) {
+          if (typeof key === "string" && /^\d+$/.test(key)) {
+            entriesRead++;
+          }
+          return Reflect.get(target, key, receiver) as unknown;
+        },
+      },
+    );
+    expect(documentIssues({ ...doc, "x-wide": arraysAround(98, wide) })).toHaveLength(100);
+    expect(entriesRead).toBe(100);
+  });
+
   it("counts __proto__ keys and containers too deep against the same limit", () => {
     const protos = Array.from({ length: 60 }, () => JSON.parse('{ "__proto__": 0 }') as unknown);
     const wide = Array.from({ length: 60 }, (): unknown[] => []);
@@ -483,5 +500,22 @@ describe("nesting depth", () => {
       { message: tooDeepMessage, path: ["x-cycle", ...keysToLimit, "right"] },
     ]);
     expect(() => validateDocument(cyclic)).toThrow(/nest at most/);
+  });
+
+  it("checks a shared container again only where it lies deeper, with the same verdict", () => {
+    const proto = JSON.parse('{ "__proto__": 0 }') as unknown;
+    const protoMessage = 'The key "__proto__" is not allowed.';
+    const deeperFirst = { ...doc, "x-deeper": [[proto]], "x-shallower": proto };
+    expect(documentIssues(deeperFirst)).toEqual([
+      { message: protoMessage, path: ["x-deeper", 0, 0, "__proto__"] },
+    ]);
+    expect(() => validateDocument(deeperFirst)).toThrow(protoMessage);
+
+    const shallowerFirst = { ...doc, "x-shallower": proto, "x-deeper": [[proto]] };
+    expect(documentIssues(shallowerFirst)).toEqual([
+      { message: protoMessage, path: ["x-shallower", "__proto__"] },
+      { message: protoMessage, path: ["x-deeper", 0, 0, "__proto__"] },
+    ]);
+    expect(() => validateDocument(shallowerFirst)).toThrow(protoMessage);
   });
 });

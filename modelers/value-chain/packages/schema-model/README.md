@@ -91,7 +91,10 @@ invalid, the ids `vc-root`, `__implicitroot…` and the names of built-in JavaSc
 properties (`constructor`, `toString`, …) are reserved, coordinates and sizes stay within ±1e9
 (`COORDINATE_LIMIT`), and objects and arrays nest at most 100 levels (`MAX_NESTING_DEPTH`). Of
 the keys named `__proto__` and the objects and arrays nested too deep, `documentIssues` reports
-the first 100 in document order.
+the first 100 in document order. An object or array that a JavaScript caller puts in several
+places is checked at its first place and again only where it lies deeper than before, so its
+findings may be missing at its other places; whether the document loads stays the same. A parsed
+file never shares one.
 
 A complete example lives in
 [`example/porter.vc.json`](https://github.com/Miragon/modeler-suite/blob/main/modelers/value-chain/example/porter.vc.json).
