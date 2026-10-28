@@ -21,6 +21,7 @@ import { getMid } from "diagram-js/lib/layout/LayoutUtil";
 import { isCmContext } from "../model/di-types.js";
 import { chromeIcon } from "../draw/lucide.js";
 import { READ_ONLY_CHANGED_EVENT, type CmReadOnly } from "../read-only/index.js";
+import type { CmGestureCancel } from "../gesture-cancel/index.js";
 
 const OVERLAY_TYPE = "cm-connect-handle";
 const HANDLE_SIZE = 28;
@@ -64,6 +65,7 @@ export default class CmConnectHandles {
     "dragging",
     "cmReadOnly",
     "canvas",
+    "cmGestureCancel",
   ];
 
   constructor(
@@ -74,6 +76,7 @@ export default class CmConnectHandles {
     private readonly dragging: Dragging,
     private readonly readOnly: Pick<CmReadOnly, "isReadOnly">,
     private readonly canvas: Canvas,
+    private readonly gestureCancel: Pick<CmGestureCancel, "isCancellingForImport">,
   ) {
     // Not used to start the drag, but injecting Connect instantiates it so its
     // connect.* event handlers (hover/end → modeling.connect) are registered —
@@ -129,8 +132,10 @@ export default class CmConnectHandles {
         this.canvas.focus();
         // Keep the source context marked after the drag: the drag lifecycle
         // clears the selection, but the user is still "at" this context. Low
-        // priority so this runs after the stock cleanup listeners.
+        // priority so this runs after the stock cleanup listeners. Not when an
+        // import cancelled the connect: it is about to remove the context.
         this.eventBus.once("connect.cleanup", 250, () => {
+          if (this.gestureCancel.isCancellingForImport()) return;
           if (this.selection.get().length === 0) this.selection.select(element);
         });
       });

@@ -10,6 +10,7 @@ import { cmModelingModule } from "../modeling/index.js";
 import { cmRulesModule } from "../rules/index.js";
 import { cmLabelEditingModule } from "../label-editing/index.js";
 import { cmReadOnlyModule } from "../read-only/index.js";
+import { cmGestureCancelModule } from "../gesture-cancel/index.js";
 import CmContextPadProvider from "./CmContextPadProvider.js";
 
 export const cmContextPadModule: ModuleDeclaration = {
@@ -27,6 +28,7 @@ export const cmContextPadModule: ModuleDeclaration = {
     cmRulesModule,
     cmLabelEditingModule,
     cmReadOnlyModule,
+    cmGestureCancelModule,
   ],
   __init__: ["cmContextPadProvider"],
   cmContextPadProvider: ["type", CmContextPadProvider],

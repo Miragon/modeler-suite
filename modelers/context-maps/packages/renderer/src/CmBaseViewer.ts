@@ -10,7 +10,6 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
-import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
 import type { Root } from "diagram-js/lib/model/Types";
 import type { ElementBounds, FreeArea } from "@miragon/modeler-api";
@@ -19,6 +18,7 @@ import type { CmDocument } from "@miragon/context-maps-schema-model";
 import { saveSVG } from "./io/saveSvg.js";
 import type CmImporter from "./io/CmImporter.js";
 import type CmExporter from "./io/CmExporter.js";
+import type CmGestureCancel from "./gesture-cancel/CmGestureCancel.js";
 import type CmLabelEditing from "./label-editing/CmLabelEditing.js";
 import type CmModeling from "./modeling/CmModeling.js";
 import type CmReadOnly from "./read-only/CmReadOnly.js";
@@ -136,16 +136,14 @@ export abstract class CmBaseViewer {
    * Load a document into the canvas (replaces existing content). Silent: the previous document's
    * undo history goes without a `commandStack.changed`, so a host that saves on every change does
    * not write the import back. Throws before anything changes when the document cannot be drawn.
+   * A gesture that runs ends first, as on Escape (`CmGestureCancel`).
    */
   importDocument(doc: CmDocument): { warnings: ImportWarning[] } {
     const diagram = this._ensureDiagram();
     const eventBus = diagram.get<EventBus>("eventBus");
     const importer = diagram.get<CmImporter>("cmImporter");
     importer.assertImportable(doc);
-    // A running gesture (move, connect, lasso, a create from the palette or the context pad) holds
-    // elements the import removes: released after it, its command would throw half-way. Cancelled
-    // as Escape cancels it, but without putting back a selection of removed elements.
-    this._optional<Dragging>("dragging")?.cancel(false);
+    this._optional<CmGestureCancel>("cmGestureCancel")?.cancelForImport();
     const labelEditing = this._optional<CmLabelEditing>("cmLabelEditing");
     // An edit in progress belongs to an element the import is about to replace: a commit after it
     // (Enter, blur) would land on a removed shape.

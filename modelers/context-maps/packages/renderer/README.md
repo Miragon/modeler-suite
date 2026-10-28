@@ -118,7 +118,9 @@ keys the model does not know and relationships whose ends are not on the map com
 label edit open during an import is taken down and reopened on the element with the same id, with
 the typed text. A gesture that runs during an import (a move, a connect, a lasso, a create from the
 palette or the context pad, also while its preview is still off the canvas) is cancelled first, as
-Escape cancels it: its release changes nothing and selects nothing.
+Escape cancels it: its release changes nothing and selects nothing. The lasso tool armed in the
+palette is no gesture and stays armed. A drop whose change the host imports over at once, from its
+change listener, has applied and is not cancelled.
 
 `contentBounds()` is the tight box around what the canvas draws of the map in diagram coordinates,
 without a margin: the contexts, wider where a team row or a subdomain type's name runs past a

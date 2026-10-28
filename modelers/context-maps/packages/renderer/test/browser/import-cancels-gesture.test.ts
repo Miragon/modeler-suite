@@ -6,7 +6,9 @@ import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element as DiagramElement, Shape } from "diagram-js/lib/model/Types";
+import type { ModuleDeclaration } from "didi";
 import {
+  cmConnectHandlesModule,
   createCollaborativeModeler,
   type CollaborativeContextMapsModeler,
 } from "@miragon/context-maps-renderer";
@@ -56,9 +58,9 @@ afterEach(() => {
   for (const teardown of teardowns.splice(0)) teardown();
 });
 
-async function stage(): Promise<Stage> {
+async function stage(additionalModules: ModuleDeclaration[] = []): Promise<Stage> {
   const host = attachedHost(900, 640);
-  const modeler = createCollaborativeModeler();
+  const modeler = createCollaborativeModeler({ additionalModules });
   modeler.attachTo(host);
   await modeler.importText(BEFORE);
   let changes = 0;
@@ -173,6 +175,8 @@ function selectedIds(stage: Stage): string[] {
 interface Gesture {
   name: string;
   previewOnCanvas: boolean;
+  /** Opt-in modules the gesture needs besides the default modeler's. */
+  modules?: ModuleDeclaration[];
   /** Starts the gesture on BEFORE and takes it past the drag threshold; returns the pointer. */
   begin(stage: Stage): ClientPoint;
   /** Moves the pointer on from where it is and releases it. */
@@ -202,6 +206,31 @@ const MOVE: Gesture = {
   },
 };
 
+/** The box of the lasso: around B and C, before and after the import, never around A. */
+const LASSO_FROM = { x: 420, y: 70 };
+const LASSO_TO = { x: 690, y: 520 };
+
+const LASSO: Gesture = {
+  name: "a lasso drag around B and C",
+  previewOnCanvas: true,
+  begin(stage) {
+    const start = clientPoint(stage, LASSO_FROM);
+    pointer(svg(stage), "mousedown", start, { shiftKey: true });
+    pointer(document, "mousemove", shifted(start, 20, 20));
+    const end = clientPoint(stage, LASSO_TO);
+    pointer(document, "mousemove", end);
+    return end;
+  },
+  release(_stage, pointerAt) {
+    pointer(document, "mousemove", shifted(pointerAt, 5, 5));
+    pointer(document, "mouseup", shifted(pointerAt, 5, 5));
+  },
+  expectApplied(stage) {
+    expect(stage.changes()).toBe(0);
+    expect(selectedIds(stage)).toEqual(["b", "c"]);
+  },
+};
+
 const GESTURES: Gesture[] = [
   MOVE,
   {
@@ -227,25 +256,33 @@ const GESTURES: Gesture[] = [
     },
   },
   {
-    name: "a lasso drag around B and C",
+    name: "a connect dragged from the bottom connect handle of B to C",
     previewOnCanvas: true,
+    modules: [cmConnectHandlesModule],
     begin(stage) {
-      const start = clientPoint(stage, { x: 420, y: 70 });
-      pointer(svg(stage), "mousedown", start, { shiftKey: true });
-      pointer(document, "mousemove", shifted(start, 20, 20));
-      const end = clientPoint(stage, { x: 690, y: 520 });
-      pointer(document, "mousemove", end);
-      return end;
+      service<Selection>(stage, "selection").select(shape(stage, "b") as DiagramElement);
+      const handle = container(stage).querySelector<HTMLElement>(
+        '.cm-connect-handle[data-side="bottom"]',
+      );
+      if (!handle) throw new Error("B shows no bottom connect handle");
+      const start = centreOfBox(handle);
+      pointer(handle, "mousedown", start);
+      const target = centreOfShape(stage, "c");
+      pointer(document, "mousemove", shifted(start, 0, 20));
+      pointer(hitArea(stage, "c"), "mouseover", target);
+      pointer(document, "mousemove", target);
+      return target;
     },
     release(_stage, pointerAt) {
-      pointer(document, "mousemove", shifted(pointerAt, 5, 5));
-      pointer(document, "mouseup", shifted(pointerAt, 5, 5));
+      pointer(document, "mouseup", pointerAt);
     },
     expectApplied(stage) {
-      expect(stage.changes()).toBe(0);
-      expect(selectedIds(stage)).toEqual(["b", "c"]);
+      expect(stage.changes()).toBe(1);
+      const added = exported(stage).relationships.filter((relationship) => relationship.id !== "r");
+      expect(added).toMatchObject([{ from: "b", to: "c" }]);
     },
   },
+  LASSO,
   {
     name: "a create dragged from the palette onto the canvas",
     previewOnCanvas: true,
@@ -316,21 +353,25 @@ function dragging(stage: Stage): Dragging {
 
 describe.each(GESTURES)("$name", (gesture) => {
   test("applies when no import comes in between", async () => {
-    const running = await stage();
+    const running = await stage(gesture.modules);
     gesture.release(running, gesture.begin(running));
     expect(running.errors).toEqual([]);
     gesture.expectApplied(running);
   });
 
   test("is cancelled by an import that arrives while it runs, as Escape cancels it", async () => {
-    const running = await stage();
+    const running = await stage(gesture.modules);
     const pointerAt = gesture.begin(running);
     expect(dragging(running).context()?.active).toBe(true);
     expect(container(running).querySelector(GESTURE_PREVIEW) !== null).toBe(
       gesture.previewOnCanvas,
     );
 
+    const selections: string[][] = [];
+    const stopRecording = running.modeler.elements.onSelection((ids) => selections.push(ids));
     await running.modeler.importText(AFTER);
+    stopRecording();
+    expect(selections.flat()).toEqual([]);
     expect(dragging(running).context()).toBeFalsy();
     expect(container(running).querySelector(GESTURE_PREVIEW)).toBeNull();
     gesture.release(running, pointerAt);
@@ -344,15 +385,96 @@ describe.each(GESTURES)("$name", (gesture) => {
     service<Modeling>(running, "modeling").moveElements([shape(running, "c")], { x: 30, y: 0 });
     expect(running.changes()).toBe(1);
   });
+
+  // The lasso changes no content, so no host imports from its drop.
+  if (gesture === LASSO) return;
+
+  test("applies its drop when the host imports from its change listener", async () => {
+    const running = await stage(gesture.modules);
+    let imports = 0;
+    running.modeler.onContentChanged(() => {
+      if (imports > 0) return;
+      imports += 1;
+      void running.modeler.importText(AFTER);
+    });
+
+    gesture.release(running, gesture.begin(running));
+
+    expect(running.errors).toEqual([]);
+    expect(imports).toBe(1);
+    expect(running.changes()).toBe(1);
+    expect(running.modeler.exportText()).toBe(AFTER);
+    expect(dragging(running).context()).toBeFalsy();
+    service<Modeling>(running, "modeling").moveElements([shape(running, "c")], { x: 30, y: 0 });
+    expect(running.changes()).toBe(2);
+  });
 });
 
-test("an import the renderer rejects leaves the running gesture alone", async () => {
-  const running = await stage();
-  const pointerAt = MOVE.begin(running);
+describe("an import the renderer rejects leaves the running gesture alone", () => {
+  test("a text that does not parse", async () => {
+    const running = await stage();
+    const pointerAt = MOVE.begin(running);
 
-  await expect(running.modeler.importText("{ no context map")).rejects.toThrow();
-  MOVE.release(running, pointerAt);
+    await expect(running.modeler.importText("{ no context map")).rejects.toThrow();
+    MOVE.release(running, pointerAt);
 
-  expect(running.errors).toEqual([]);
-  MOVE.expectApplied(running);
+    expect(running.errors).toEqual([]);
+    MOVE.expectApplied(running);
+  });
+
+  test("a document the canvas cannot draw: two contexts share an id", async () => {
+    const running = await stage();
+    const pointerAt = MOVE.begin(running);
+    const parsed = parseDocumentText(AFTER);
+    if (!parsed.ok) throw new Error(parsed.error);
+    const sharedId: CmDocument = {
+      ...parsed.document,
+      contexts: parsed.document.contexts.map((context) =>
+        context.id === "c" ? { ...context, id: "b" } : context,
+      ),
+    };
+
+    expect(() => running.modeler.diagram.importDocument(sharedId)).toThrow(/more than once/);
+    MOVE.release(running, pointerAt);
+
+    expect(running.errors).toEqual([]);
+    MOVE.expectApplied(running);
+  });
+});
+
+describe("the lasso tool armed in the palette", () => {
+  function lassoEntry(stage: Stage): HTMLElement {
+    return paletteEntry(stage, "lasso-tool");
+  }
+
+  function arm(stage: Stage): void {
+    pointer(lassoEntry(stage), "click", centreOfBox(lassoEntry(stage)), { detail: 1 });
+  }
+
+  test.each([
+    { pointer: "still on the palette", onCanvasFirst: false },
+    { pointer: "already on the canvas", onCanvasFirst: true },
+  ])("stays armed across an import, the pointer $pointer", async ({ onCanvasFirst }) => {
+    const running = await stage();
+    arm(running);
+    if (onCanvasFirst) hoverCanvasAt(running, clientPoint(running, FREE_SPOT));
+    expect(dragging(running).context()?.prefix).toBe("lasso.selection");
+
+    await running.modeler.importText(AFTER);
+
+    expect(dragging(running).context()?.prefix).toBe("lasso.selection");
+    expect(lassoEntry(running).classList.contains("highlighted-entry")).toBe(true);
+
+    const start = clientPoint(running, LASSO_FROM);
+    hoverCanvasAt(running, start);
+    pointer(svg(running), "mousedown", start);
+    const end = clientPoint(running, LASSO_TO);
+    pointer(document, "mousemove", end);
+    pointer(document, "mouseup", end);
+
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(0);
+    expect(selectedIds(running)).toEqual(["b", "c"]);
+    expect(running.modeler.exportText()).toBe(AFTER);
+  });
 });
