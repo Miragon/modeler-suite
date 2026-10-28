@@ -90,6 +90,21 @@ export async function openMenu(page: Page): Promise<Locator> {
   return dropdown;
 }
 
+/**
+ * Closes a board dialog and waits for its close event: the dialog hands the focus back to the menu
+ * trigger there, in a task of its own that can run after a focus the test moves at once.
+ */
+export async function closeDialog(dialog: Locator, close: () => Promise<void>): Promise<void> {
+  type Watched = HTMLElement & { closed?: Promise<void> };
+  await dialog.evaluate((element: Watched) => {
+    element.closed = new Promise<void>((resolve) =>
+      element.addEventListener("close", () => resolve(), { once: true }),
+    );
+  });
+  await close();
+  await dialog.evaluate((element: Watched) => element.closed);
+}
+
 export function exportBoard(page: Page): Promise<EventStormingBoardExport> {
   return page.evaluate(() => window.__eventStormingViewer.exportMap());
 }
@@ -105,6 +120,26 @@ async function canvasPoint(page: Page, fractionX: number, fractionY: number): Pr
   const box = await page.locator(".cd-shell-canvas").boundingBox();
   if (!box) throw new Error("the canvas slot has no bounding box");
   return { x: box.x + box.width * fractionX, y: box.y + box.height * fractionY };
+}
+
+/**
+ * Absolute page coordinate of a point in diagram coordinates (the board's own, as the `.storm`
+ * positions give them), for the current viewbox, so a spot stays on the same place of the board
+ * whatever the zoom.
+ */
+export async function diagramPoint(page: Page, point: Point): Promise<Point> {
+  const box = await page.locator(".cd-shell-canvas").boundingBox();
+  if (!box) throw new Error("the canvas slot has no bounding box");
+  const viewbox = await page.evaluate(() => {
+    const viewer = window.__eventStormingViewer as unknown as {
+      get(name: "canvas"): { viewbox(): { x: number; y: number; scale: number } };
+    };
+    return viewer.get("canvas").viewbox();
+  });
+  return {
+    x: box.x + (point.x - viewbox.x) * viewbox.scale,
+    y: box.y + (point.y - viewbox.y) * viewbox.scale,
+  };
 }
 
 /**
