@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/Miragon/modeler-suite/compare/event-storming-schema-model-v0.2.3...event-storming-schema-model-v0.3.0) (2026-10-28)
+
+
+### Features
+
+* **event-storming:** find the names a board spells several ways, mark them on the canvas and unify them in one undo step ([ea4e748](https://github.com/Miragon/modeler-suite/commit/ea4e7484b28fe6a46f839d47299bf42e8b03da82))
+* **event-storming:** suggest labels so that the board speaks one language ([#225](https://github.com/Miragon/modeler-suite/issues/225)) ([ea4e748](https://github.com/Miragon/modeler-suite/commit/ea4e7484b28fe6a46f839d47299bf42e8b03da82))
+
 ## [0.2.3](https://github.com/Miragon/modeler-suite/compare/event-storming-schema-model-v0.2.2...event-storming-schema-model-v0.2.3) (2026-10-25)
 
 

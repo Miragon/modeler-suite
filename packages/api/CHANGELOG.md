@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.0](https://github.com/Miragon/modeler-suite/compare/modeler-api-v1.4.0...modeler-api-v1.5.0) (2026-10-28)
+
+
+### Features
+
+* **api:** add the optional interaction and appearance surfaces ([#210](https://github.com/Miragon/modeler-suite/issues/210)) ([559b76c](https://github.com/Miragon/modeler-suite/commit/559b76c440a268c903a9904d0fee4a67782088c9))
+* **api:** recommend that an accepted import first cancels a running gesture ([559b76c](https://github.com/Miragon/modeler-suite/commit/559b76c440a268c903a9904d0fee4a67782088c9))
+
 ## [1.4.0](https://github.com/Miragon/modeler-suite/compare/modeler-api-v1.3.0...modeler-api-v1.4.0) (2026-10-25)
 
 

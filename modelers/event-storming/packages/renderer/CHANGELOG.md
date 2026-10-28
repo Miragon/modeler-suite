@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.7.0](https://github.com/Miragon/modeler-suite/compare/event-storming-renderer-v0.6.0...event-storming-renderer-v0.7.0) (2026-10-28)
+
+
+### Features
+
+* **event-storming:** find the names a board spells several ways, mark them on the canvas and unify them in one undo step ([ea4e748](https://github.com/Miragon/modeler-suite/commit/ea4e7484b28fe6a46f839d47299bf42e8b03da82))
+* **event-storming:** suggest labels so that the board speaks one language ([#225](https://github.com/Miragon/modeler-suite/issues/225)) ([ea4e748](https://github.com/Miragon/modeler-suite/commit/ea4e7484b28fe6a46f839d47299bf42e8b03da82))
+
+
+### Bug Fixes
+
+* **event-storming:** cancel a running drag or palette create when a text is imported ([#211](https://github.com/Miragon/modeler-suite/issues/211)) ([c950225](https://github.com/Miragon/modeler-suite/commit/c950225bb1393f11150f6b390b5adcc9acb65afc))
+* **event-storming:** survive an import from the change listener during a drop ([#241](https://github.com/Miragon/modeler-suite/issues/241)) ([8002bf7](https://github.com/Miragon/modeler-suite/commit/8002bf78cdbec4f76a63c1183dabe2f202475c19))
+* re-vendor cd-canvas.css of design guide 1.27.0 in the five renderers ([#255](https://github.com/Miragon/modeler-suite/issues/255)) ([9f412c0](https://github.com/Miragon/modeler-suite/commit/9f412c0018ba8ecc82838e4dac71bf09e2a20795))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/event-storming-dsl bumped from 0.3.2 to 0.3.3
+    * @miragon/event-storming-schema-model bumped from 0.2.3 to 0.3.0
+    * @miragon/modeler-api bumped from 1.4.0 to 1.5.0
+
 ## [0.6.0](https://github.com/Miragon/modeler-suite/compare/event-storming-renderer-v0.5.1...event-storming-renderer-v0.6.0) (2026-10-28)
 
 

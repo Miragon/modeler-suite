@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.13.0](https://github.com/Miragon/modeler-suite/compare/wardley-vscode-v0.12.0...wardley-vscode-v0.13.0) (2026-10-28)
+
+
+### Features
+
+* **wardley-maps:** break a label's line with Shift+Enter ([#253](https://github.com/Miragon/modeler-suite/issues/253)) ([8314e7c](https://github.com/Miragon/modeler-suite/commit/8314e7ce6283151ead8d697f7c1f0e0b84354339))
+
+
+### Bug Fixes
+
+* open the source to the side from the walkthrough in every extension ([#244](https://github.com/Miragon/modeler-suite/issues/244)) ([6325498](https://github.com/Miragon/modeler-suite/commit/632549862937500d1a73075711430959c09b5e39))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.6.0 to 0.7.0
+    * @miragon/wardley-dsl bumped from 0.7.1 to 0.8.0
+    * @miragon/wardley-renderer bumped from 0.12.0 to 0.13.0
+
 ## [0.12.0](https://github.com/Miragon/modeler-suite/compare/wardley-vscode-v0.11.2...wardley-vscode-v0.12.0) (2026-10-28)
 
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.15.1](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.15.0...team-topologies-v0.15.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* open the source to the side from the walkthrough in every extension ([#244](https://github.com/Miragon/modeler-suite/issues/244)) ([6325498](https://github.com/Miragon/modeler-suite/commit/632549862937500d1a73075711430959c09b5e39))
+* re-vendor cd-canvas.css of design guide 1.27.0 in the five renderers ([#255](https://github.com/Miragon/modeler-suite/issues/255)) ([9f412c0](https://github.com/Miragon/modeler-suite/commit/9f412c0018ba8ecc82838e4dac71bf09e2a20795))
+* **team-topologies:** bound the nesting check's memory and issues ([#224](https://github.com/Miragon/modeler-suite/issues/224)) ([2881f98](https://github.com/Miragon/modeler-suite/commit/2881f986284c1b15bafd2509ba49374af3c25989))
+* **team-topologies:** cancel a running drag or palette create when a text is imported ([#205](https://github.com/Miragon/modeler-suite/issues/205)) ([ba6dc21](https://github.com/Miragon/modeler-suite/commit/ba6dc21f8abeec4c8eda1aceb340bd923a545e73))
+* **team-topologies:** keep the Problems view from overflowing the stack on deep text after a comment, a broken string or a closing bracket of the other kind ([2881f98](https://github.com/Miragon/modeler-suite/commit/2881f986284c1b15bafd2509ba49374af3c25989))
+* **team-topologies:** name a nesting issue by the first four keys of its path in the Problems view ([2881f98](https://github.com/Miragon/modeler-suite/commit/2881f986284c1b15bafd2509ba49374af3c25989))
+* **team-topologies:** replace the diagram chunk of a .tt.png instead of adding a second one ([#209](https://github.com/Miragon/modeler-suite/issues/209)) ([45a32b2](https://github.com/Miragon/modeler-suite/commit/45a32b26872de8ddeba04225417ad87332273d7d))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @miragon/modeler-shell bumped from 0.6.0 to 0.7.0
+
 ## [0.15.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.14.0...team-topologies-v0.15.0) (2026-10-28)
 
 

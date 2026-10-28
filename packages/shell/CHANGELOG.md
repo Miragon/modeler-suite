@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.6.0...modeler-shell-v0.7.0) (2026-10-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* **shell:** @miragon/modeler-shell no longer exports legendStartsOpen, from ./core or the main entry; it had returned false whatever it was given since 0.5. A host removes the call and lets the shell decide the start state: it passes the state it stored as legend.open to mountShell or mountVsCodeShell (nothing on a first visit) and writes each change from legend.onToggle, so the legend starts closed at every size unless a stored state opens it.
+
+### Features
+
+* **shell:** add a PNG export helper that embeds Geist and fills the notation's background ([#226](https://github.com/Miragon/modeler-suite/issues/226)) ([d730b30](https://github.com/Miragon/modeler-suite/commit/d730b3089309d9bad939667271d6cbc241fec7cc))
+* **shell:** check zoom and selection keys in the VS Code smoke driver ([#246](https://github.com/Miragon/modeler-suite/issues/246)) ([5f4fac9](https://github.com/Miragon/modeler-suite/commit/5f4fac9239e19d31928a96dc85254a0302474620))
+* **shell:** remove the deprecated legendStartsOpen option ([#203](https://github.com/Miragon/modeler-suite/issues/203)) ([7659271](https://github.com/Miragon/modeler-suite/commit/7659271f3cfca66f9e20d864e5515f2e87c97148))
+
+
+### Bug Fixes
+
+* **shell:** centre the shared dialog over the modeler ([#250](https://github.com/Miragon/modeler-suite/issues/250)) ([90da431](https://github.com/Miragon/modeler-suite/commit/90da431ace81c4d32188438e0d637293d749b06e))
+
 ## [0.6.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.5.0...modeler-shell-v0.6.0) (2026-10-25)
 
 
