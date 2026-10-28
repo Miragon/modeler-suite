@@ -61,11 +61,13 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   first if a real window is unavoidable. Its command is the shell's bin, which `npm ci` links only
   when `packages/shell/dist` exists: after a fresh `npm ci` and `npm run build:shared`, run
   `npm rebuild @miragon/modeler-shell` once.
-- The pre-commit hook runs lint-staged (ESLint and Prettier on staged files), `npm run lint` of every
-  modeler whose files are staged and the shared type check when `packages/` or `test/` change. It
-  runs **no** tests, builds or dependency-cruiser: run `npm test` (and the affected modeler's
-  `test:browser`, `test:e2e` and `depcruise`) yourself before pushing. Never bypass it with
-  `--no-verify`.
+- The pre-commit hook runs lint-staged with the root config only (`--config package.json`: ESLint
+  and Prettier on staged files under the root `.prettierignore`, which keeps the new-modeler
+  template's Markdown placeholders; the template's own config is for the repository it starts),
+  `npm run lint` of every modeler whose files are staged and the shared type check when `packages/`
+  or `test/` change. It runs **no** tests, builds or dependency-cruiser: run `npm test` (and the
+  affected modeler's `test:browser`, `test:e2e` and `depcruise`) yourself before pushing. Never
+  bypass it with `--no-verify`.
 
 ## Boundaries
 

@@ -1,4 +1,7 @@
-npx lint-staged
+# Only the root config, so every staged file runs under the root .prettierignore. lint-staged's own
+# search would hand the new-modeler template's files to the template's config, whose Prettier run
+# rewrites the placeholders of the template's Markdown (__NAME__ becomes **NAME**).
+npx lint-staged --config package.json
 
 # Lint (ESLint and type check) only the modelers whose code or config the commit touches, and
 # type-check the shared packages when they change. A modeler's type check reads the shared

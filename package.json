@@ -41,11 +41,11 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "modelers/**/*.{ts,tsx}": [
+    "{modelers,plugins}/**/*.{ts,tsx}": [
       "eslint --fix --no-warn-ignored",
       "prettier --write"
     ],
-    "{packages,test,plugins}/**/*.{ts,tsx}": "prettier --write",
+    "{packages,test}/**/*.{ts,tsx}": "prettier --write",
     "*.{js,mjs,cjs,json,jsonc,md,yaml,yml,css,html}": "prettier --write"
   },
   "devDependencies": {
