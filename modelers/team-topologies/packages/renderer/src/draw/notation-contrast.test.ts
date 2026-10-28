@@ -9,17 +9,21 @@ import vendoredTokens from "../theme/cd-tokens.generated.json";
 import { contrastRatio, interactionPaint, parseHexColour, type Rgb } from "./colour.js";
 import { labelLayout } from "./label-layout.js";
 import { STROKE_MUTED } from "./styles.js";
+import { contourOnUnderlay, templateContoursOnUnderlay } from "./underlay.js";
 
 const TEXT_CONTRAST = 4.5;
 const NON_TEXT_CONTRAST = 3;
 
 const CANVAS_GROUND = vendoredTokens.hell["--cd-ui-grund"];
+/** What `cd-c-unterleger-hoch` draws under `data-cd-kontrast="hoch"` in light mode. */
+const HIGH_CONTRAST_UNDERLAY = vendoredTokens.hochkontrast.hell["--cd-ui-kontur"];
 
 /**
  * The official Team-Shape-Templates strokes below 3:1 on the canvas ground. They stay as they are
  * for fidelity to the templates, an accepted exception (decided 2026-10-24 in #94) that the design
  * guide records for foreign notation in §10.6 since release 1.22.0. Their colours are
- * pinned too, so recolouring one of them fails like any new stroke below 3:1.
+ * pinned too, so recolouring one of them fails like any new stroke below 3:1. Under high contrast
+ * each lies on an underlay (#213, guide 1.27.0).
  */
 const OFFICIAL_STROKES_BELOW_NON_TEXT_CONTRAST: Record<string, string> = {
   "stream-aligned": "#FFD966",
@@ -86,5 +90,37 @@ describe("structural strokes on the canvas ground", () => {
         .map(([name, stroke]) => [name, stroke.toUpperCase()]),
     );
     expect(below).toEqual(OFFICIAL_STROKES_BELOW_NON_TEXT_CONTRAST);
+  });
+});
+
+// Decided in #213, guide §10.6 since release 1.27.0: under data-cd-kontrast="hoch" each exempt
+// stroke lies on an underlay in --cd-ui-kontur, so in high contrast no stroke stays below 3:1.
+describe("the exempt strokes under high contrast", () => {
+  const exempt = Object.values(OFFICIAL_STROKES_BELOW_NON_TEXT_CONTRAST);
+
+  it("are exactly the template strokes the renderer draws on the high-contrast underlay", () => {
+    expect(templateContoursOnUnderlay().sort()).toEqual([...exempt].sort());
+  });
+
+  it("lie on the underlay only as the template draws them, never in a colour the user set", () => {
+    for (const stroke of exempt) {
+      expect(contourOnUnderlay(stroke, undefined)).toBe(true);
+      expect(contourOnUnderlay(stroke, stroke)).toBe(false);
+    }
+    expect(contourOnUnderlay(FLOW_SPEC.stroke, undefined)).toBe(false);
+    expect(contourOnUnderlay(STROKE_MUTED, undefined)).toBe(false);
+  });
+
+  it.each(Object.entries(OFFICIAL_STROKES_BELOW_NON_TEXT_CONTRAST))(
+    "reach 3:1 on their underlay: %s",
+    (_name, stroke) => {
+      expect(contrast(stroke, HIGH_CONTRAST_UNDERLAY)).toBeGreaterThanOrEqual(NON_TEXT_CONTRAST);
+    },
+  );
+
+  it("on an underlay that itself reaches 3:1 on the canvas ground", () => {
+    expect(contrast(HIGH_CONTRAST_UNDERLAY, CANVAS_GROUND)).toBeGreaterThanOrEqual(
+      NON_TEXT_CONTRAST,
+    );
   });
 });

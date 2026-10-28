@@ -1,6 +1,6 @@
 import { test, type Page } from "@playwright/test";
 import { registerShellConformance, type ShellSkip } from "@miragon/modeler-shell/testing";
-import { THEMES } from "../../apps/webapp/src/themes.js";
+import { TEAM_TOPOLOGIES_THEMES } from "../../packages/renderer/src/theme/themes.js";
 import { SAMPLE_TEXT, diagramLink, documentWithWarnings, sampleDocument } from "./support/app.js";
 import { typeIntoLabelEditor } from "./support/labelEditor.js";
 import { waitForApp } from "./support/modeler.js";
@@ -54,7 +54,7 @@ test.describe("web app: shell conformance", () => {
   registerShellConformance<Page>(
     {
       host: "web",
-      themes: THEMES,
+      themes: TEAM_TOPOLOGIES_THEMES,
       // The kit emulates the system's colour scheme and contrast before every open.
       async open(page, { size, document: documentKey }) {
         if (!freshPages.has(page)) {

@@ -17,7 +17,7 @@ import {
 import { parseDocument, type TtDocument } from "@miragon/team-topologies-schema-model";
 import { expect, it } from "vitest";
 import { documentProblems } from "../src/problems.js";
-import { WEBVIEW_THEMES } from "../src/themes.js";
+import { TEAM_TOPOLOGIES_THEMES } from "../../../packages/renderer/src/theme/themes.js";
 
 const run = promisify(execFile);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -215,7 +215,7 @@ it(
         edit: typeInInspectorThenCreateTeam,
         // the first team, its name and the second team: three edits of the document
         undoSteps: 3,
-        themes: WEBVIEW_THEMES,
+        themes: TEAM_TOPOLOGIES_THEMES,
         name: "team-topologies",
         screenshotDir,
         vscodeVersion: requestedVsCodeVersion,

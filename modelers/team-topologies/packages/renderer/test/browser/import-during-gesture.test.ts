@@ -4,7 +4,7 @@ import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
-import type { Element as DiagramElement, Shape } from "diagram-js/lib/model/Types";
+import type { Element as DiagramElement } from "diagram-js/lib/model/Types";
 import {
   createCollaborativeModeler,
   parseDocumentText,
@@ -14,15 +14,19 @@ import {
 } from "@miragon/team-topologies-renderer";
 import { serializeDocument } from "@miragon/team-topologies-schema-model";
 import onlineShop from "../../../../example/sample.tt?raw";
+import {
+  Pointer,
+  centreOf,
+  holdGesture,
+  middle,
+  paletteEntry,
+  previewOf,
+  shape,
+} from "./support/pointer.js";
 
 // A host with a live sync (designIQ, the VS Code webview) imports a peer's text while the user may
 // be in the middle of a gesture. The import cancels the gesture the way Escape does, so its release
 // applies nothing to the elements the import replaced.
-
-interface Point {
-  x: number;
-  y: number;
-}
 
 interface Mounted {
   modeler: CollaborativeTeamTopologiesModeler;
@@ -39,8 +43,6 @@ afterEach(() => {
     host.remove();
   }
 });
-
-const PREVIEW_SELECTOR = ".djs-drag-group, .djs-dragger, .djs-resize-overlay, .djs-lasso-overlay";
 
 interface Session {
   modeler: CollaborativeTeamTopologiesModeler;
@@ -95,102 +97,6 @@ function peerMoves(nodeId: string, dx: number): string {
         : node,
     ),
   });
-}
-
-/** The mouse as diagram-js sees it: presses on an element, then moves and releases on `document`. */
-class Pointer {
-  constructor(private readonly diagram: Modeler) {}
-
-  private client(point: Point): MouseEventInit {
-    const canvas = this.diagram.get<Canvas>("canvas");
-    const rect = canvas.getContainer().getBoundingClientRect();
-    const viewbox = canvas.viewbox();
-    return {
-      clientX: rect.left + (point.x - viewbox.x) * viewbox.scale,
-      clientY: rect.top + (point.y - viewbox.y) * viewbox.scale,
-    };
-  }
-
-  graphics(id: string): SVGElement {
-    const graphics = this.diagram.get<ElementRegistry>("elementRegistry").getGraphics(id);
-    if (!graphics) throw new Error(`no graphics for ${id}`);
-    return graphics;
-  }
-
-  private svg(): SVGSVGElement {
-    return this.diagram
-      .get<Canvas>("canvas")
-      .getContainer()
-      .querySelector<SVGSVGElement>(":scope > svg")!;
-  }
-
-  press(target: EventTarget, at: Point, init: MouseEventInit = {}): void {
-    target.dispatchEvent(
-      new MouseEvent("mousedown", { bubbles: true, cancelable: true, ...this.client(at), ...init }),
-    );
-  }
-
-  /** A click on chrome outside the canvas, at the centre of `target`. */
-  clickOn(target: HTMLElement): void {
-    target.dispatchEvent(
-      new MouseEvent("click", { bubbles: true, detail: 1, ...centreOf(target) }),
-    );
-  }
-
-  /** The pointer enters an element, or the canvas itself without an id. */
-  enter(id?: string): void {
-    const target = id ? this.graphics(id) : this.svg();
-    target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-  }
-
-  moveTo(at: Point): void {
-    document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, ...this.client(at) }));
-  }
-
-  /** Moves over chrome outside the canvas, `offset` px from the centre of `target`. */
-  moveOver(target: HTMLElement, offset: { dx: number; dy: number }): void {
-    const { clientX, clientY } = centreOf(target);
-    document.dispatchEvent(
-      new MouseEvent("mousemove", {
-        bubbles: true,
-        clientX: clientX + offset.dx,
-        clientY: clientY + offset.dy,
-      }),
-    );
-  }
-
-  releaseAt(at: Point): void {
-    this.svg().dispatchEvent(
-      new MouseEvent("mouseup", { bubbles: true, cancelable: true, ...this.client(at) }),
-    );
-  }
-}
-
-function centreOf(target: Element): { clientX: number; clientY: number } {
-  const rect = target.getBoundingClientRect();
-  return { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
-}
-
-function shape(diagram: Modeler, id: string): Shape {
-  const element = diagram.get<ElementRegistry>("elementRegistry").get(id);
-  if (!element) throw new Error(`the diagram has no ${id}`);
-  return element as Shape;
-}
-
-function middle(element: Shape): Point {
-  return { x: element.x + element.width / 2, y: element.y + element.height / 2 };
-}
-
-function paletteEntry(container: HTMLElement, action: string): HTMLElement {
-  const entry = container.querySelector<HTMLElement>(
-    `.djs-palette .entry[data-action="${action}"]`,
-  );
-  if (!entry) throw new Error(`the palette has no ${action} entry`);
-  return entry;
-}
-
-function previewOf(container: HTMLElement): Element | null {
-  return container.querySelector(PREVIEW_SELECTOR);
 }
 
 /** What every gesture leaves behind once the import cancelled it and the pointer was released. */
@@ -438,7 +344,153 @@ describe("an import from inside the change listener of a drop", () => {
 
     await expectTheDropKept(current, reimport(), before);
   });
+
+  // #248: a host whose store answers the change with another text (a peer's state without the
+  // team that was dragged). diagram-js's selection behaviour looks the moved team up again after
+  // the move command, to restore what was selected before the drag.
+  test("waits for the drop when the import removes the moved team", async () => {
+    const current = await session();
+    const { diagram, pointer } = current;
+    const imported = sampleWithout("team_checkout");
+    const events = recordDropAndImport(current, imported);
+    const registry = diagram.get<ElementRegistry>("elementRegistry");
+    // After the move command and after diagram-js's selection behaviour (priority 500).
+    const movedTeamAfterTheCommand: (string | undefined)[] = [];
+    diagram.on<{ context: { shape: DiagramElement } }>(
+      "shape.move.end",
+      (event) => {
+        movedTeamAfterTheCommand.push(registry.get(event.context.shape.id)?.id);
+      },
+      250,
+    );
+    diagram.get<Selection>("selection").select(shape(diagram, "team_discovery"));
+    const start = middle(shape(diagram, "team_checkout"));
+    pointer.press(pointer.graphics("team_checkout"), start);
+    pointer.enter();
+    pointer.moveTo({ x: start.x + 20, y: start.y + 10 });
+    pointer.moveTo({ x: start.x + 60, y: start.y + 30 });
+    pointer.releaseAt({ x: start.x + 60, y: start.y + 30 });
+
+    expect(registry.get("team_checkout")).toBeDefined();
+    await events.imported();
+    expect(movedTeamAfterTheCommand).toEqual(["team_checkout"]);
+    expectTheImportAfterTheDrop(current, events, imported);
+  });
+
+  test("waits for the drop when the import leaves out the team a palette create dropped", async () => {
+    const current = await session();
+    const { modeler, diagram } = current;
+    const events = recordDropAndImport(current, onlineShop);
+    diagram.get<Selection>("selection").select(shape(diagram, "team_discovery"));
+    const teamsBefore = modeler.elements.list().length;
+
+    holdGesture(diagram, "create").drop();
+
+    expect(modeler.elements.list()).toHaveLength(teamsBefore + 1);
+    await events.imported();
+    expectTheImportAfterTheDrop(current, events, onlineShop);
+  });
+
+  test("rejects a text it cannot import at once and leaves the drop as it was", async () => {
+    const current = await session();
+    const { modeler, diagram, pointer } = current;
+    const before = modeler.exportText();
+    let rejected: Promise<unknown> | undefined;
+    modeler.onContentChanged(() => {
+      rejected ??= modeler.importText('{"version": 3, "nodes": [');
+    });
+    const start = middle(shape(diagram, "team_checkout"));
+    pointer.press(pointer.graphics("team_checkout"), start);
+    pointer.enter();
+    pointer.moveTo({ x: start.x + 60, y: start.y + 30 });
+    pointer.releaseAt({ x: start.x + 60, y: start.y + 30 });
+
+    await expect(rejected).rejects.toThrow();
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(modeler.exportText()).not.toBe(before);
+    expect(diagram.get<Dragging>("dragging").context()).toBeFalsy();
+  });
+
+  test("runs the imports made during the drop and right after it in the order they were made", async () => {
+    const current = await session();
+    const { modeler, diagram } = current;
+    const first = peerMoves("team_platform", 40);
+    const second = peerMoves("team_platform", 80);
+    const settled: string[] = [];
+    let duringTheDrop: Promise<unknown> | undefined;
+    modeler.onContentChanged(() => {
+      duringTheDrop ??= modeler.importText(first).then(() => settled.push("first"));
+    });
+    let afterTheDrop: Promise<unknown> | undefined;
+    diagram.on("drag.ended", () => {
+      afterTheDrop ??= modeler.importText(second).then(() => settled.push("second"));
+    });
+
+    holdGesture(diagram, "move").drop();
+
+    await Promise.all([duringTheDrop, afterTheDrop]);
+    expect(settled).toEqual(["first", "second"]);
+    expect(modeler.exportText()).toBe(second);
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+  });
 });
+
+/** The sample without one of its teams: a peer's state the drop's own change did not reach. */
+function sampleWithout(nodeId: string): string {
+  const document = parseDocumentText(onlineShop);
+  if (!document.nodes.some((node) => node.id === nodeId)) {
+    throw new Error(`the sample lost ${nodeId}`);
+  }
+  return serializeDocument({
+    ...document,
+    nodes: document.nodes.filter((node) => node.id !== nodeId),
+  });
+}
+
+interface DropAndImport {
+  /** The import's promise, once the drop's change listener made it. */
+  imported(): Promise<unknown>;
+  /** The drop's last events and the import's settling, in the order they came. */
+  order: string[];
+}
+
+/** The first change of the drop makes the host import `text`, as a store that answers it would. */
+function recordDropAndImport(current: Session, text: string): DropAndImport {
+  const order: string[] = [];
+  let imported: Promise<unknown> | undefined;
+  current.modeler.onContentChanged(() => {
+    imported ??= current.modeler.importText(text).then(() => order.push("imported"));
+  });
+  current.diagram.on("drag.ended", () => {
+    order.push("drag.ended");
+  });
+  current.diagram.on("drag.canceled", () => {
+    order.push("drag.canceled");
+  });
+  return {
+    order,
+    imported: () => imported ?? Promise.reject(new Error("the drop changed nothing")),
+  };
+}
+
+/** The drop ended as a drop, the import came after it, and the canvas is the imported text. */
+function expectTheImportAfterTheDrop(current: Session, events: DropAndImport, text: string): void {
+  const { modeler, diagram, container } = current;
+  expect(current.errors).toEqual([]);
+  expect(events.order).toEqual(["drag.ended", "imported"]);
+  expect(current.changes()).toBe(1);
+  expect(modeler.exportText()).toBe(text);
+  expect(diagram.get<Dragging>("dragging").context()).toBeFalsy();
+  expect(previewOf(container)).toBeNull();
+  expectNoReplacedElementSelected(diagram);
+  diagram
+    .get<Modeling>("modeling")
+    .moveElements([shape(diagram, "team_discovery")], { x: 10, y: 0 });
+  expect(current.changes()).toBe(2);
+  expect(modeler.exportText()).not.toBe(text);
+}
 
 describe("an import while a palette tool only waits for its press", () => {
   test("leaves the lasso tool armed, and its next drag selects the imported elements", async () => {

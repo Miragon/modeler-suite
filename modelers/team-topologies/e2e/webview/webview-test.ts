@@ -3,7 +3,7 @@ import {
   stubOptionsFromSearch,
 } from "@miragon/modeler-shell/testing/vscode-stub";
 import { EMPTY_MAP, EXAMPLE_MAP } from "../../apps/vscode/src/examples.js";
-import { WEBVIEW_THEMES } from "../../apps/vscode/src/themes.js";
+import { TEAM_TOPOLOGIES_THEMES } from "../../packages/renderer/src/theme/themes.js";
 
 const search = new URLSearchParams(location.search);
 
@@ -15,7 +15,7 @@ const storedState = search.get("state");
 // theme classes, acquireVsCodeApi, theme bridge) and must be in place before the webview runs.
 installVsCodeWebviewStub({
   ...stubOptionsFromSearch(location.search),
-  themes: WEBVIEW_THEMES,
+  themes: TEAM_TOPOLOGIES_THEMES,
   ...(storedState ? { state: JSON.parse(storedState) as unknown } : {}),
 });
 const { webview } = await import("../../apps/vscode/src/webview/main.js");

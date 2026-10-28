@@ -21,6 +21,7 @@ export {
   createCollaborativeViewer,
   parseDocumentText,
 } from "./collaborative/index.js";
+export { TEAM_TOPOLOGIES_THEMES } from "./theme/themes.js";
 export type {
   CollaborativeTeamTopologiesModeler,
   CollaborativeTeamTopologiesOptions,

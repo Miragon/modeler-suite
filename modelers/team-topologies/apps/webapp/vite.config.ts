@@ -2,7 +2,7 @@ import { fileURLToPath, URL } from "node:url";
 import { webHeadMarkup } from "@miragon/modeler-shell/core";
 import { defineConfig, type Plugin } from "vite";
 import tokens from "../../packages/renderer/src/theme/cd-tokens.generated.json" with { type: "json" };
-import { THEMES } from "./src/themes.ts";
+import { TEAM_TOPOLOGIES_THEMES } from "../../packages/renderer/src/theme/themes.ts";
 
 const fromHere = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
 const portlessUrl = process.env.PORTLESS_URL || undefined;
@@ -23,8 +23,9 @@ const portlessBanner = (url: string): Plugin => ({
 /**
  * The web app's mode before the first paint (guide §13.3): a light-only diagram writes
  * `data-cd-theme="light"` statically in index.html, one theme-color and the contrast line of the
- * guide's script. With the joint dark-mode release THEMES gains "dark" and the same call writes
- * the whole script with both theme-colors (index.html then says `data-cd-theme="system"`).
+ * guide's script. With the joint dark-mode release the renderer's TEAM_TOPOLOGIES_THEMES gains
+ * "dark" and the same call writes the whole script with both theme-colors (index.html then says
+ * `data-cd-theme="system"`).
  */
 const modeMarkup = (): Plugin => ({
   name: "miragon-mode",
@@ -32,7 +33,7 @@ const modeMarkup = (): Plugin => ({
     html.replace(
       "<!-- miragon-mode -->",
       webHeadMarkup({
-        themes: THEMES,
+        themes: TEAM_TOPOLOGIES_THEMES,
         themeColors: { light: tokens.fest["--cd-blau"], dark: tokens.dunkel["--cd-ui-grund"] },
       }),
     ),

@@ -10,7 +10,7 @@ import { vsCodeStubSearch, type OpenContext } from "@miragon/modeler-shell/testi
 import { openWebviewBundle } from "@miragon/modeler-shell/testing/webview-bundle";
 import type { VsCodeWebviewStub } from "@miragon/modeler-shell/testing/vscode-stub";
 import { EXAMPLE_MAP } from "../../../../apps/vscode/src/examples.js";
-import { WEBVIEW_THEMES } from "../../../../apps/vscode/src/themes.js";
+import { TEAM_TOPOLOGIES_THEMES } from "../../../../packages/renderer/src/theme/themes.js";
 
 /*
  * The webview test page (e2e/webview/webview-test.html) runs apps/vscode/src/webview/main.ts inside
@@ -116,7 +116,7 @@ export async function openShippedWebview(
     dist: join(appsVscode, "dist"),
     title: "Team Topologies Diagram",
     requested,
-    themes: WEBVIEW_THEMES,
+    themes: TEAM_TOPOLOGIES_THEMES,
   });
   await waitForPosted(page, "ready");
   await postFromHost(page, { type: "init", text: EXAMPLE_MAP });
