@@ -146,7 +146,7 @@ to `v0.5.0`) and is no longer written.
 All UI/visual work follows the Miragon product design system (the `miragon-brand:modeler-tool-design`
 skill; see the suite's [`CLAUDE.md`](../../CLAUDE.md#design-system-mandatory)). Here:
 
-The skill's design-system files are vendored **verbatim** (guide 1.13.0) into
+The skill's design-system files are vendored **verbatim** (guide 1.27.0) into
 [`packages/renderer/src/theme/`](packages/renderer/src/theme/): `cd-tokens.generated.css`,
 `cd-tokens.generated.json` and `cd-canvas.css`; do not fork hex values or edit them; re-copy from
 the skill to update. Reference implementation in this modeler: tokens

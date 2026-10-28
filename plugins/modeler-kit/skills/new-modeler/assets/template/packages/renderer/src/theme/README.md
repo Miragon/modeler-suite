@@ -2,11 +2,11 @@
 
 Copy these three files here **unchanged** from the `miragon-brand:modeler-tool-design` skill
 (`plugins/miragon-brand/skills/modeler-tool-design/assets/` of Miragon/corporate-identity, design
-system 1.15.0; 1.13.0 and 1.14.0 ship the same files) and re-copy them to update; never edit or
+system 1.27.0; the token files are the same from 1.12.0 on) and re-copy them to update; never edit or
 reformat them:
 
 - `cd-tokens.generated.css`, with this header as its new first line:
-  `/* Vendored unchanged from Miragon/corporate-identity (design system 1.15.0, plugins/miragon-brand/skills/modeler-tool-design/assets). Do not edit; re-copy to update. */`
+  `/* Vendored unchanged from Miragon/corporate-identity (design system 1.27.0, plugins/miragon-brand/skills/modeler-tool-design/assets). Do not edit; re-copy to update. */`
 - `cd-tokens.generated.json`, byte-identical (JSON has no comments)
 - `cd-canvas.css`, with the same header line
 

@@ -27,7 +27,7 @@ interface VendoredTokens {
 const tokens = JSON.parse(vendoredTokensJson) as VendoredTokens;
 
 const VENDORED_HEADER =
-  "/* Vendored unchanged from Miragon/corporate-identity (design system 1.20.1, plugins/miragon-brand/skills/modeler-tool-design/assets). Do not edit; re-copy to update. */";
+  "/* Vendored unchanged from Miragon/corporate-identity (design system 1.27.0, plugins/miragon-brand/skills/modeler-tool-design/assets). Do not edit; re-copy to update. */";
 
 /** Colours by meaning, not bytes: hex case and whitespace inside rgba() do not count. */
 function norm(value: string): string {
@@ -144,7 +144,7 @@ describe("theme.sync — value-chain.css wires the vendored design-system files"
   });
 });
 
-describe("theme.sync — the vendored files are complete, unchanged copies (design system 1.20.1)", () => {
+describe("theme.sync — the vendored files are complete, unchanged copies (design system 1.27.0)", () => {
   it("both CSS files start with the vendoring header, followed by the generated banner", () => {
     for (const [name, source] of [
       ["cd-tokens.generated.css", vendoredTokensCss],

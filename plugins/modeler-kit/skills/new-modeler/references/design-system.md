@@ -16,12 +16,12 @@ Copy three files of the skill's `assets/` **unchanged** into `packages/renderer/
 - `cd-canvas.css`: the mapping of diagram-js's variables onto the roles and the `cd-c-*` classes.
 
 Give the two CSS files one header line,
-`/* Vendored unchanged from Miragon/corporate-identity (design system 1.15.0, plugins/miragon-brand/skills/modeler-tool-design/assets). Do not edit; re-copy to update. */`,
+`/* Vendored unchanged from Miragon/corporate-identity (design system 1.27.0, plugins/miragon-brand/skills/modeler-tool-design/assets). Do not edit; re-copy to update. */`,
 keep the JSON byte-identical, mark all three `linguist-generated` in `.gitattributes` and
 Prettier-ignore them. Never edit or reformat them, never fork a hex value: re-copy all three to
-update. Design system 1.13.0 to 1.15.0 ship identical token files (1.14.0 added the focus rule of
-§5.8 to the guide, 1.15.0 the settled readings that modeler-shell 0.4.0's kit checks), so a modeler
-on any of them is current. The public copies of the two token files live at
+update. Design system 1.12.0 to 1.27.0 ship identical token files; `cd-canvas.css` is the same from
+1.12.0 to 1.26.0 and changed in 1.27.0 (underlay switches and dark rules scoped to the nearest
+`data-cd-theme` carrier), so a modeler is current on 1.27.0. The public copies of the two token files live at
 <https://corporate-identity.netlify.app/brand/>; `cd-canvas.css` comes from the skill.
 
 ## Stylesheet rules

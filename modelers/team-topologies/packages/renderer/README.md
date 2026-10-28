@@ -115,7 +115,7 @@ modeler.redo();
 > **The CSS is required.** Import `@miragon/team-topologies-renderer/assets/team-topologies.css`
 > (it also pulls in the Miragon design tokens, `diagram-js`'s own stylesheet and `cd-canvas.css`, in
 > that order); without it the palette, context pad and label editor are unstyled. Every colour is a
-> `--cd-ui-*` role of design system 1.20.1, vendored unchanged under `src/theme/`. The tokens sit in
+> `--cd-ui-*` role of design system 1.27.0, vendored unchanged under `src/theme/`. The tokens sit in
 > the cascade layer `team-topologies-tokens`, so a host page's own `--cd-*` tokens (unlayered) win
 > over this copy.
 

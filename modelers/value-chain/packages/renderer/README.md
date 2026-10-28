@@ -45,7 +45,7 @@ The stylesheet is required. It loads, in this order, the design-system tokens
 diagram-js' own CSS and `cd-canvas.css`, which maps diagram-js' chrome onto the `--cd-ui-*` roles;
 then it styles the canvas surround, the context pad, the label editor and the shortcuts dialog on
 those roles only. The three design-system files are vendored unchanged from the
-`miragon-brand:modeler-tool-design` skill (design system 1.20.1) into `src/theme/`. The diagram
+`miragon-brand:modeler-tool-design` skill (design system 1.27.0) into `src/theme/`. The diagram
 itself is drawn with SVG presentation values in the light roles of those tokens, so SVG and PNG
 exports stay light in every mode.
 

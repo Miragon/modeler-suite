@@ -154,7 +154,7 @@ function normalized(values: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(values).map(([name, value]) => [name, norm(value)]));
 }
 
-describe("theme.sync — the vendored files are complete, unchanged copies (design system 1.13.0)", () => {
+describe("theme.sync — the vendored files are complete, unchanged copies (design system 1.27.0)", () => {
   it("every file starts with the generated banner of the design system", () => {
     for (const source of [vendoredTokens, vendoredCanvas]) {
       expect(source).toMatch(/^\/\* AUTOMATISCH GENERIERT aus brand\/tokens\.json\./);

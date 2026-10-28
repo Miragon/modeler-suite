@@ -14,12 +14,12 @@ adds what is special to Context Maps. Run its scripts from the repository root a
 ## Design system (mandatory)
 
 All UI/visual work follows the Miragon product design system: the
-**`miragon-brand:modeler-tool-design`** Claude skill (design system **1.15.0**; see the suite's
+**`miragon-brand:modeler-tool-design`** Claude skill (design system **1.27.0**; see the suite's
 [`CLAUDE.md`](../../CLAUDE.md#design-system-mandatory)). Here:
 
 Its files are **vendored unchanged** in [`packages/renderer/src/theme/`](packages/renderer/src/theme):
-`cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css` (the same bytes from
-1.13.0 to 1.15.0). Never edit them, re-copy them from the skill's `assets/`. [`assets/context-maps.css`](packages/renderer/src/assets/context-maps.css)
+`cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css` (the token files are the same bytes from
+1.12.0 to 1.27.0, `cd-canvas.css` changed in 1.27.0). Never edit them, re-copy them from the skill's `assets/`. [`assets/context-maps.css`](packages/renderer/src/assets/context-maps.css)
 loads them in the order of guide §10.3 (tokens in a cascade layer, then `diagram-js.css`, then
 `cd-canvas.css`) and reads only the `--cd-ui-*` roles and the mode-independent tokens: no colour
 literal, no fixed palette token. The pure-TS mirror
