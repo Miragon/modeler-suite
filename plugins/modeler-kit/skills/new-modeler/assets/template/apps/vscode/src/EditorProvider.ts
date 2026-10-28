@@ -154,12 +154,12 @@ async function exportToFile(
   const bytes = format === 'png' ? Buffer.from(data, 'base64') : new TextEncoder().encode(data);
   await vscode.workspace.fs.writeFile(target, bytes);
   const reveal = revealFileLabel(process.platform);
-  const exported = `Exported ${vscode.workspace.asRelativePath(target)}.`;
+  const exported = `Exported ${vscode.workspace.asRelativePath(target)}`;
   const choice = fontFallback
     ? await vscode.window.showWarningMessage(
-        `${exported} Geist couldn't be embedded, so its labels are in a system font.`,
+        `${exported} in a system font. Geist couldn't be embedded.`,
         reveal,
       )
-    : await vscode.window.showInformationMessage(exported, reveal);
+    : await vscode.window.showInformationMessage(`${exported}.`, reveal);
   if (choice === reveal) void vscode.commands.executeCommand('revealFileInOS', target);
 }

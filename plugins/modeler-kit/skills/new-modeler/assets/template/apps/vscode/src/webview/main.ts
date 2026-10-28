@@ -175,7 +175,15 @@ async function exportPicture(format: 'png' | 'svg'): Promise<void> {
       ...(fontFallback ? { fontFallback } : {}),
     });
   } catch (error) {
-    post({ type: 'error', message: `Could not export the diagram: ${String(error)}` });
+    // The shell's rejections are developer text: the console keeps them, the user reads the app's.
+    console.error(error);
+    post({
+      type: 'error',
+      message:
+        format === 'png'
+          ? "Couldn't export the diagram as PNG. Try again, or export it as SVG."
+          : "Couldn't export the diagram as SVG. Try again.",
+    });
   }
 }
 

@@ -7,15 +7,20 @@ import { EMBEDDED_GEIST, recordSvgImages, recordedSvgImages } from './support/sv
 /**
  * "Export as PNG" draws the diagram with the shell's `svgToPng` (`@miragon/modeler-shell/export`),
  * which embeds Geist from the page's own font faces. When it cannot, the app saves the picture all
- * the same and says so in a warning toast instead of the success one.
+ * the same and says so in a warning toast instead of the success one. When the shell rejects, the
+ * toast holds the app's own sentence, never the shell's developer text.
  */
 const PNG_SIGNATURE = '89504e470d0a1a0a';
 
-async function exportAsPng(page: Page): Promise<void> {
+async function openExample(page: Page): Promise<void> {
   await page.goto(`/${linkHash(EXAMPLE)}`);
   await page.waitForFunction(
     () => window.app?.ready === true && document.querySelector('.djs-shape') !== null,
   );
+}
+
+async function exportAsPng(page: Page): Promise<void> {
+  await openExample(page);
   await page.getByRole('button', { name: 'Menu' }).click();
   const download = page.waitForEvent('download');
   await page.getByRole('menuitem', { name: 'Export as PNG', exact: true }).click();
@@ -43,4 +48,22 @@ test('web app: Export as PNG says so when Geist cannot be embedded', async ({ pa
   ).toBeVisible();
   const [svg] = await recordedSvgImages(page);
   expect(svg).not.toContain('@font-face');
+});
+
+test("web app: a picture the browser cannot draw shows the app's own text", async ({ page }) => {
+  await openExample(page);
+  await page.evaluate(() => {
+    window.app!.modeler.diagram.saveSVG = () => ({ svg: 'this is no SVG' });
+  });
+  const downloads: string[] = [];
+  page.on('download', (download) => downloads.push(download.suggestedFilename()));
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await page.getByRole('menuitem', { name: 'Export as PNG', exact: true }).click();
+  await expect(
+    page.getByText("Couldn't export the diagram as PNG. Try again, or export it as SVG.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByText('@miragon/modeler-shell')).toHaveCount(0);
+  expect(downloads).toEqual([]);
 });
