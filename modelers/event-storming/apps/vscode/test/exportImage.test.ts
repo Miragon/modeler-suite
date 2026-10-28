@@ -75,6 +75,46 @@ describe("EventStormingEditorProvider — export", () => {
     expect(executeCommand).toHaveBeenCalledWith("revealFileInOS", target);
   });
 
+  it("saves a PNG in the system font and warns about it, with the same reveal action", async () => {
+    vi.spyOn(window, "showSaveDialog").mockResolvedValue(target);
+    const writeFile = vi.spyOn(workspace.fs, "writeFile");
+    const reveal = revealFileLabel(process.platform);
+    const showWarningMessage = vi.spyOn(window, "showWarningMessage").mockResolvedValue(reveal);
+    const showInformationMessage = vi.spyOn(window, "showInformationMessage");
+    const executeCommand = vi.spyOn(commands, "executeCommand");
+    const h = await openBoard(fakeDocument("/boards/checkout.storm", "title A\n"));
+
+    await h.receive({
+      type: "export",
+      format: "png",
+      data: Buffer.from("png!").toString("base64"),
+      fontFallback: true,
+    });
+
+    expect(Buffer.from(writeFile.mock.calls[0]![1]).toString()).toBe("png!");
+    expect(showWarningMessage).toHaveBeenCalledWith(
+      "Exported checkout.png in a system font. Geist couldn't be embedded.",
+      reveal,
+    );
+    expect(showInformationMessage).not.toHaveBeenCalled();
+    expect(executeCommand).toHaveBeenCalledWith("revealFileInOS", target);
+  });
+
+  it("keeps the plain notification when the labels are in Geist", async () => {
+    vi.spyOn(window, "showSaveDialog").mockResolvedValue(target);
+    const showWarningMessage = vi.spyOn(window, "showWarningMessage");
+    const showInformationMessage = vi.spyOn(window, "showInformationMessage");
+    const h = await openBoard(fakeDocument("/boards/checkout.storm", "title A\n"));
+
+    await h.receive({ type: "export", format: "png", data: "", fontFallback: false });
+
+    expect(showInformationMessage).toHaveBeenCalledWith(
+      "Exported checkout.png.",
+      revealFileLabel(process.platform),
+    );
+    expect(showWarningMessage).not.toHaveBeenCalled();
+  });
+
   it("reports a failed write as an error notification, not as a success", async () => {
     vi.spyOn(window, "showSaveDialog").mockResolvedValue(target);
     vi.spyOn(workspace.fs, "writeFile").mockRejectedValue(new Error("disk full"));
@@ -102,8 +142,13 @@ describe("EventStormingEditorProvider — export", () => {
     const showErrorMessage = vi.spyOn(window, "showErrorMessage");
     const h = await openBoard(fakeDocument("/boards/checkout.storm", "title A\n"));
 
-    await h.receive({ type: "error", message: "Could not export the board as PNG: boom" });
+    await h.receive({
+      type: "error",
+      message: "Couldn't export the board as PNG. Try again, or export it as SVG.",
+    });
 
-    expect(showErrorMessage).toHaveBeenCalledWith("Could not export the board as PNG: boom");
+    expect(showErrorMessage).toHaveBeenCalledWith(
+      "Couldn't export the board as PNG. Try again, or export it as SVG.",
+    );
   });
 });

@@ -41,12 +41,14 @@ const EXPORT_KINDS: Readonly<Record<ExportFormat, ExportKind>> = {
 /**
  * An export (PNG, SVG, the transparent 4× PNG, JSON) to disk via a save dialog, generic over the
  * source URI so it works with or without a backing file. The outcome is a host notification
- * (guide §13.5): the file name with a reveal action, or the error.
+ * (guide §13.5): the file name with a reveal action, or the error. A PNG whose labels fell back to
+ * the system font (`fontFallback`) is saved all the same and the notification warns about it.
  */
 export async function exportImageToFile(
   sourceUri: vscode.Uri | undefined,
   format: ExportFormat,
   data: string,
+  fontFallback = false,
 ): Promise<void> {
   const kind = EXPORT_KINDS[format];
   const options: vscode.SaveDialogOptions = {
@@ -73,9 +75,13 @@ export async function exportImageToFile(
   }
 
   const reveal = revealFileLabel(process.platform);
-  if ((await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal)) === reveal) {
-    void vscode.commands.executeCommand("revealFileInOS", target);
-  }
+  const choice = fontFallback
+    ? await vscode.window.showWarningMessage(
+        `Exported ${fileName} in a system font. Geist couldn't be embedded.`,
+        reveal,
+      )
+    : await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal);
+  if (choice === reveal) void vscode.commands.executeCommand("revealFileInOS", target);
 }
 
 /** `<boardname>.<format>` next to the source file (if no file: in the first workspace folder). */

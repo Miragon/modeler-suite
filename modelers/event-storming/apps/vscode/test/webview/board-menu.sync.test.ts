@@ -12,20 +12,21 @@ import {
   type ShellHandle,
   type ShellMessages,
 } from "@miragon/modeler-shell";
+import { isChromeShortcutRow, withChromeShortcuts } from "@miragon/modeler-shell/core";
 import {
   STORM_EXPORT_LABEL,
   boardMenu,
   boardShortcuts,
   commandKeyLabel,
   type BoardMenu,
-  type ShortcutsDialogChrome,
+  type ShortcutsChrome,
 } from "@miragon/event-storming-renderer";
 
 /*
  * The renderer builds the board's menu entries and shortcut tables without importing the shell
  * (only the apps mount it), so it mirrors the shell's types and its key labels. These tests pin
  * the mirror: the View rows of the shortcuts dialog say what the zoom panel's tooltips say, and
- * the menu and the dialog take what the shell hands them.
+ * the menu and the shell's dialog take what the shell hands them.
  */
 
 const VIEW_KEYS: readonly ChromeKey[] = ["zoomIn", "zoomOut", "zoomToActual", "fit"];
@@ -97,7 +98,20 @@ describe("the board menu and shortcuts against @miragon/modeler-shell", () => {
     expect(file?.rows[1]?.action).toBe(STORM_EXPORT_LABEL);
   });
 
-  it("the board menu is a menu the shell takes, and a shell handle is a dialog chrome", () => {
+  for (const platform of ["mac", "other"] as const satisfies readonly Platform[]) {
+    it(`the shell's dialog shows the zoom keys once, as its own rows (${platform})`, () => {
+      const chrome = { platform, lang: "en", messages: defaultMessages };
+
+      const shown = withChromeShortcuts(boardShortcuts(chrome, { fileKeys: true }), chrome);
+
+      expect(shown.map((group) => group.title)).toEqual(["File", "View", "Edit", "Tools"]);
+      const view = shown.find((group) => group.title === defaultMessages.shortcutsView);
+      expect(view?.rows).toHaveLength(4);
+      expect(view?.rows.every(isChromeShortcutRow)).toBe(true);
+    });
+  }
+
+  it("the board menu is a menu the shell takes, and a shell handle is the chrome of the groups", () => {
     const menu: BoardMenu = boardMenu({
       levels: { getLevel: () => "design", setLevel: () => undefined },
       typeCaptions: { typeCaptionsVisible: () => true, setTypeCaptionsVisible: () => undefined },
@@ -105,9 +119,11 @@ describe("the board menu and shortcuts against @miragon/modeler-shell", () => {
       showKeyboardShortcuts: () => undefined,
     });
     const groups: MenuGroups = menu;
-    const chrome = (shell: ShellHandle): ShortcutsDialogChrome => shell;
+    const chrome = (shell: ShellHandle): ShortcutsChrome => shell;
+    const showGroups = (shell: ShellHandle) => shell.showShortcutsDialog(boardShortcuts(shell));
 
     expect(groups.model).toHaveLength(2);
     expect(chrome).toBeTypeOf("function");
+    expect(showGroups).toBeTypeOf("function");
   });
 });

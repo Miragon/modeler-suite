@@ -17,6 +17,13 @@ import {
   waitForViewer,
 } from "./support/viewer.js";
 import { codeEditors, pressIn } from "./support/code-editors.js";
+import {
+  PNG_GROUND,
+  decodePng,
+  lastDrawnSvg,
+  readDownload,
+  recordImageSources,
+} from "./support/png.js";
 
 /**
  * The web app's side of the shell's web chrome: what it hands the shell (menu groups, primary
@@ -50,6 +57,11 @@ async function openLink(page: Page, dsl: string): Promise<void> {
 
 function toast(page: Page, text: string | RegExp) {
   return page.locator('[data-chrome="toasts"] .cd-shell-toast').filter({ hasText: text });
+}
+
+/** The shell's dialog behind the Help entry (`cd-shell-dialog`), in the chrome's root. */
+function shortcutsDialog(page: Page) {
+  return page.locator(".cd-shell dialog.cd-shell-shortcuts");
 }
 
 function fileInput(page: Page) {
@@ -581,25 +593,126 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     await expect(page).toHaveTitle("Event Storming Modeler");
   });
 
-  test("the shortcuts dialog lists the file keys first and returns the focus", async ({ page }) => {
+  test("the shell's shortcuts dialog lists the file keys first and returns the focus", async ({
+    page,
+  }) => {
     await page.goto("/");
     await waitForViewer(page);
     await openExample(page);
 
     await (await openMenu(page)).locator('[data-menu-id="keyboard-shortcuts"]').click();
-    const dialog = page.locator(".cd-shell dialog.event-storming-shortcuts");
+    const dialog = shortcutsDialog(page);
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator(".event-storming-shortcuts-group-title")).toHaveText([
+    await expect(dialog.locator(".cd-shell-shortcuts-title")).toHaveText([
       "File",
       "View",
       "Edit",
       "Tools",
     ]);
     await expect(dialog.getByRole("row", { name: /Open…/ })).toContainText(/(⌘|Ctrl\+)O/);
+    await expect(dialog.getByRole("row", { name: /Export as .storm/ })).toContainText(
+      /(⌘|Ctrl\+)S/,
+    );
+    // The zoom and fit keys are the chrome's four rows, once: the board's own View rows give way.
+    await expect(dialog.locator("[data-chrome-key]")).toHaveCount(4);
+    await expect(dialog.getByRole("row", { name: /^Fit/ })).toHaveCount(1);
+    expect(await page.locator("dialog.event-storming-shortcuts").count()).toBe(0);
 
-    await page.keyboard.press("Escape");
+    await closeDialog(dialog, () => page.keyboard.press("Escape"));
     await expect(dialog).toBeHidden();
     await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
+  });
+
+  test("the shortcuts dialog opens from the keyboard and hands the focus back to the menu", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await waitForViewer(page);
+    await openExample(page);
+    const trigger = page.locator('[data-chrome="menu"]');
+
+    await trigger.focus();
+    await page.keyboard.press("ArrowUp");
+    await expect(page.locator('[data-menu-id="keyboard-shortcuts"]')).toBeFocused();
+    await page.keyboard.press("Enter");
+    const dialog = shortcutsDialog(page);
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
+    await expect(page.locator('.cd-shell-menu[role="menu"]')).toBeHidden();
+
+    await closeDialog(dialog, () => page.keyboard.press("Escape"));
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toBeFocused();
+  });
+
+  test("the PNG export draws on the paper of guide §10.7 with Geist inside", async ({ page }) => {
+    await recordImageSources(page);
+    await page.goto("/");
+    await waitForViewer(page);
+    await openExample(page);
+
+    const dropdown = await openMenu(page);
+    const download = page.waitForEvent("download");
+    await dropdown.locator('[data-menu-id="export-png"]').click();
+    const png = await decodePng(page, await readDownload(await download));
+
+    expect(png.corner).toEqual([...PNG_GROUND]);
+    await expect(toast(page, "Exported order-checkout.png.")).toBeVisible();
+    const drawn = await lastDrawnSvg(page);
+    expect(drawn).toMatch(/@font-face\{[^}]*Geist Variable[^}]*url\(["']?data:font\/woff2/);
+    expect(await page.locator('[data-chrome="toasts"] [data-status="warning"]').count()).toBe(0);
+  });
+
+  test("the 4× transparent PNG has no ground and twice the pixels of the PNG", async ({ page }) => {
+    await page.goto("/");
+    await waitForViewer(page);
+    await openExample(page);
+    const exportAs = async (id: string) => {
+      const download = page.waitForEvent("download");
+      await (await openMenu(page)).locator(`[data-menu-id="${id}"]`).click();
+      return decodePng(page, await readDownload(await download));
+    };
+
+    const plain = await exportAs("export-png");
+    const transparent = await exportAs("export-png-transparent");
+
+    expect(transparent.corner[3]).toBe(0);
+    expect(transparent.width).toBe(plain.width * 2);
+    expect(transparent.height).toBe(plain.height * 2);
+  });
+
+  test("a PNG whose Geist could not be embedded is saved and the toast warns about it", async ({
+    page,
+  }) => {
+    await page.route("**/*.woff2", (route) => route.abort());
+    await page.goto("/");
+    await waitForViewer(page);
+    await openExample(page);
+
+    const download = page.waitForEvent("download");
+    await (await openMenu(page)).locator('[data-menu-id="export-png"]').click();
+
+    expect((await download).suggestedFilename()).toBe("order-checkout.png");
+    await expect(
+      toast(page, "Exported order-checkout.png in a system font. Geist couldn't be embedded."),
+    ).toBeVisible();
+    await expect(toast(page, /^Exported order-checkout\.png\.$/)).toHaveCount(0);
+  });
+
+  test("a PNG the browser cannot draw is refused with the app's own words", async ({ page }) => {
+    await page.goto("/");
+    await waitForViewer(page);
+    await openExample(page);
+    await page.evaluate(() => {
+      HTMLCanvasElement.prototype.toBlob = (callback) => callback(null);
+    });
+
+    await (await openMenu(page)).locator('[data-menu-id="export-png"]').click();
+
+    await expect(
+      toast(page, "Couldn't export the board as PNG. Try again, or export it as SVG."),
+    ).toBeVisible();
+    await expect(toast(page, "@miragon")).toHaveCount(0);
   });
 
   // Guide §5.8 (modeler-shell 0.2.2): a pointer click on the chrome hands the keys back to the
@@ -734,7 +847,7 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     await expect(drawMode).toHaveCount(1);
 
     await (await openMenu(page)).locator('[data-menu-id="keyboard-shortcuts"]').click();
-    const dialog = page.locator(".cd-shell dialog.event-storming-shortcuts");
+    const dialog = page.locator(".cd-shell dialog.cd-shell-shortcuts");
     await expect(dialog).toBeVisible();
     await closeDialog(dialog, () => page.keyboard.press("Escape"));
     await expect(dialog).toBeHidden();

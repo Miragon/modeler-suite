@@ -6,7 +6,8 @@
  *  - Host -> webview: `problems` with the diagnostics summary for the problems pill.
  *  - Host -> webview: `command` when a Command Palette command targets the active board.
  *  - Webview -> host: `edit` after every graphical change (serialized DSL) -> WorkspaceEdit.
- *  - Webview -> host: `export` (SVG or JSON text, Base64 PNG) -> save dialog + write file.
+ *  - Webview -> host: `export` (SVG or JSON text, Base64 PNG) -> save dialog + write file; a PNG
+ *    whose labels fell back to the system font says so, and the host warns once it is saved.
  *  - Webview -> host: `showProblems` (pill) and `insertExample` (empty-file hint).
  *
  * Echo protection: the host suppresses re-import when a document change exactly matches the DSL
@@ -37,7 +38,7 @@ export type WebviewToHost =
   /** Graphical change -> apply to the document as a WorkspaceEdit. */
   | { type: "edit"; text: string }
   /** Trigger an export (SVG and JSON = text, PNG = Base64). */
-  | { type: "export"; format: ExportFormat; data: string }
+  | { type: "export"; format: ExportFormat; data: string; fontFallback?: boolean }
   | { type: "error"; message: string }
   /** The problems pill was activated -> open the Problems view. */
   | { type: "showProblems" }

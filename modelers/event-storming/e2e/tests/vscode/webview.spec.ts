@@ -7,6 +7,8 @@ import {
   expectFittedToContentBounds,
   geistDrawsAnnotations,
 } from "../support/shell-kit.js";
+import { PNG_GROUND, decodePng, lastDrawnSvg, recordImageSources } from "../support/png.js";
+import { closeDialog } from "../support/viewer.js";
 import {
   openWebview,
   postFromHost,
@@ -348,7 +350,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
   }) => {
     await openWebview(page);
     const trigger = page.locator('[data-chrome="menu"]');
-    const dialog = page.locator(".cd-shell dialog.event-storming-shortcuts");
+    const dialog = page.locator(".cd-shell dialog.cd-shell-shortcuts");
 
     for (const close of ["Escape", "backdrop"] as const) {
       const dropdown = await openMenu(page);
@@ -362,81 +364,105 @@ test.describe("VS Code webview: protocol and chrome", () => {
 
       if (close === "Escape") await page.keyboard.press("Escape");
       else await page.mouse.click(4, 4);
-      await expect(dialog).not.toHaveAttribute("open", "");
+      await expect(dialog).toHaveCount(0);
       await expect(trigger).toBeFocused();
     }
   });
 
-  // Guide §6 and §8: under high contrast the dialog trades its shadow for a --cd-ui-kontur edge
-  // and its focus ring grows to 3px; the shell's own contrast rules match only its classes.
-  test("the keyboard shortcuts dialog follows high contrast", async ({ page }) => {
+  test("the shell's shortcuts dialog opens from the keyboard with the board's groups and hands the focus back", async ({
+    page,
+  }) => {
     await openWebview(page);
-    await page.evaluate(() => window.__modelerShellVsCodeStub!.setColorThemeKind(3));
-    await expect(page.locator("html")).toHaveAttribute("data-cd-kontrast", "hoch");
-    // opened by keyboard, so the focus ring on Close is the :focus-visible one
-    await page.locator('[data-chrome="menu"]').focus();
+    const trigger = page.locator('[data-chrome="menu"]');
+    const dialog = page.locator(".cd-shell dialog.cd-shell-shortcuts");
+
+    await trigger.focus();
     await page.keyboard.press("ArrowUp");
     await expect(page.locator('[data-menu-id="keyboard-shortcuts"]')).toBeFocused();
     await page.keyboard.press("Enter");
-    const dialog = page.locator(".cd-shell dialog.event-storming-shortcuts");
-    await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
 
-    const painted = await page.evaluate(() => {
-      const role = (name: string): string => {
-        const probe = document.createElement("span");
-        probe.style.color = `var(${name})`;
-        document.querySelector(".cd-shell")!.append(probe);
-        const color = getComputedStyle(probe).color;
-        probe.remove();
-        return color;
-      };
-      const panel = getComputedStyle(document.querySelector("dialog.event-storming-shortcuts")!);
-      const close = getComputedStyle(document.querySelector(".event-storming-shortcuts-close")!);
-      return {
-        shadow: panel.boxShadow,
-        edge: panel.borderTopColor,
-        kontur: role("--cd-ui-kontur"),
-        linie: role("--cd-ui-linie"),
-        ring: close.outlineWidth,
-      };
-    });
-    expect(painted.kontur).not.toBe(painted.linie);
-    expect(painted).toMatchObject({ shadow: "none", edge: painted.kontur, ring: "3px" });
+    await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
+    await expect(dialog.locator(".cd-shell-shortcuts-title")).toHaveText(["View", "Edit", "Tools"]);
+    await expect(dialog.locator("[data-chrome-key]")).toHaveCount(4);
+    await expect(dialog.getByRole("row", { name: /^Fit/ })).toHaveCount(1);
+    await expect(dialog.getByRole("row", { name: /Open…/ })).toHaveCount(0);
+    expect(await page.locator("dialog.event-storming-shortcuts").count()).toBe(0);
+
+    await closeDialog(dialog, () => page.keyboard.press("Escape"));
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
   });
 
-  // Under forced colours the panel's edge is CanvasText and the Close ring Highlight, as on the
-  // shell's own popups. Chromium and the tokens' forced-colours block already paint both; this
-  // fails once the dialog opts out (forced-color-adjust: none) with colours of its own.
-  test("the keyboard shortcuts dialog follows forced colours", async ({ page }) => {
-    await page.emulateMedia({ forcedColors: "active" });
+  test("Export as PNG posts a PNG on the paper of guide §10.7 with Geist inside", async ({
+    page,
+  }) => {
+    await recordImageSources(page);
     await openWebview(page);
-    await page.locator('[data-chrome="menu"]').focus();
-    await page.keyboard.press("ArrowUp");
-    await expect(page.locator('[data-menu-id="keyboard-shortcuts"]')).toBeFocused();
-    await page.keyboard.press("Enter");
-    const dialog = page.locator(".cd-shell dialog.event-storming-shortcuts");
-    await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
 
-    const painted = await page.evaluate(() => {
-      const system = (name: string): string => {
-        const probe = document.createElement("span");
-        probe.style.color = name;
-        document.body.append(probe);
-        const color = getComputedStyle(probe).color;
-        probe.remove();
-        return color;
-      };
-      const panel = getComputedStyle(document.querySelector("dialog.event-storming-shortcuts")!);
-      const close = getComputedStyle(document.querySelector(".event-storming-shortcuts-close")!);
-      return {
-        edge: panel.borderTopColor,
-        ring: close.outlineColor,
-        canvasText: system("CanvasText"),
-        highlight: system("Highlight"),
+    await (await openMenu(page)).locator('[data-menu-id="export-png"]').click();
+    const message = await waitForPosted(page, "export");
+
+    expect(message.format).toBe("png");
+    expect(message).not.toHaveProperty("fontFallback");
+    expect((await decodePng(page, String(message.data))).corner).toEqual([...PNG_GROUND]);
+    expect(await lastDrawnSvg(page)).toMatch(
+      /@font-face\{font-family:'Geist Variable'[^}]*src:url\("data:font\/woff2;base64,/,
+    );
+  });
+
+  test("the transparent PNG has no ground and twice the pixels of the PNG", async ({ page }) => {
+    await openWebview(page);
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+    await postFromHost(page, { type: "command", name: "exportPngTransparent" });
+    await expect.poll(async () => countOf(await postedMessages(page), "export")).toBe(2);
+    const [plain, transparent] = (await postedMessages(page)).filter(
+      (message) => message.type === "export",
+    );
+    const plainPng = await decodePng(page, String(plain?.data));
+    const transparentPng = await decodePng(page, String(transparent?.data));
+
+    expect(plain?.format).toBe("png");
+    expect(transparent?.format).toBe("png-transparent");
+    expect(transparentPng.corner[3]).toBe(0);
+    expect(transparentPng.width).toBe(plainPng.width * 2);
+    expect(transparentPng.height).toBe(plainPng.height * 2);
+  });
+
+  test("a PNG whose Geist could not be embedded is posted with the fallback flag", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    // The renderer serializes an element for saveSVG(); only the shell's embedding of Geist
+    // serializes a whole document.
+    await page.evaluate(() => {
+      const serializeToString = XMLSerializer.prototype.serializeToString;
+      XMLSerializer.prototype.serializeToString = function (node: Node) {
+        if (node instanceof Document) throw new Error("no serializer");
+        return serializeToString.call(this, node);
       };
     });
-    expect(painted.canvasText).not.toBe(painted.highlight);
-    expect(painted).toMatchObject({ edge: painted.canvasText, ring: painted.highlight });
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+    const message = await waitForPosted(page, "export");
+
+    expect(message).toMatchObject({ format: "png", fontFallback: true });
+    expect((await decodePng(page, String(message.data))).corner).toEqual([...PNG_GROUND]);
+  });
+
+  test("a PNG the browser cannot draw is reported with the app's own words", async ({ page }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      HTMLCanvasElement.prototype.toBlob = (callback) => callback(null);
+    });
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+    const message = await waitForPosted(page, "error");
+
+    expect(message.message).toBe(
+      "Couldn't export the board as PNG. Try again, or export it as SVG.",
+    );
+    expect(countOf(await postedMessages(page), "export")).toBe(0);
   });
 
   test("palette entries name their tool and expose its key", async ({ page }) => {

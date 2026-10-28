@@ -182,12 +182,18 @@ uses the shell's webview HTML/CSP and theme bridge. The web app
 plus the web column (File group, "Share" as primary action, legal line, toasts, problems list,
 start screen, page-wide drop zone); its `index.html` stays `data-cd-theme="light"` and the Vite
 config writes the shell's `webHeadMarkup` (light only: one theme-color and the contrast line).
-Stylesheet order in both: fonts, the renderer (tokens, diagram-js, canvas mapping and the shortcuts
-dialog), `@miragon/modeler-shell/shell.css` last; neither app has a stylesheet of its own. Both take
-the board's menu entries (Level, Type captions, the exports, "Keyboard shortcuts…") and the
-shortcuts dialog from the renderer (`boardMenu`, `createShortcutsDialog`,
+Stylesheet order in both: fonts, the renderer (tokens, diagram-js, canvas mapping),
+`@miragon/modeler-shell/shell.css` last; neither app has a stylesheet of its own. Both take the
+board's menu entries (Level, Type captions, the exports, "Keyboard shortcuts…") and its shortcut
+groups from the renderer (`boardMenu`, `boardShortcuts`,
 [`packages/renderer/src/board-menu/`](packages/renderer/src/board-menu/)), which mirrors the
 shell's types structurally; a sync test in apps/vscode pins the mirror against the shell. The
+shell draws the dialog: "Keyboard shortcuts…" calls `shell.showShortcutsDialog(boardShortcuts(shell))`
+(the web app with `{ fileKeys: true }`), the shell puts its own zoom and fit rows into the View
+group and leaves the renderer's out, and the kit's `shortcutsDialog` case checks the rest. The
+renderer's own `createShortcutsDialog`, its types and the `.event-storming-shortcuts*` rules of
+`event-storming.css` are `@deprecated` for designIQ, which still uses them; their removal is due
+in renderer 0.9.0 ([#262](https://github.com/Miragon/modeler-suite/issues/262)). The
 renderer's own palette rules apply only to `.djs-palette:not([data-chrome='palette'])`, so a
 shell-skinned palette wears the shell's look alone. **Renderers never import the shell**: only
 the apps (and `e2e/`) do; `packages/*` reaching `@miragon/modeler-shell` fails ESLint and
@@ -197,7 +203,20 @@ factory option, for keyboard creation from the palette) and connect with
 fits to the renderer's `contentBounds()` (the webview passes its contract instance, the web app
 its `Modeler`); the webview runs on `createCollaborativeModeler` (the tested contract path) and toggles
 the renderer's `eventStormingReadOnly` lock together with `shell.setReadOnly`, the web app keeps
-the canvas's undo keys and replaces a board with an undo toast instead of a confirmation. The
+the canvas's undo keys and replaces a board with an undo toast instead of a confirmation.
+**PNG export** is `svgToPng` of `@miragon/modeler-shell/export` in both apps (`boardToPng` in
+`apps/webapp/src/io.ts` and `apps/vscode/src/webview/io.ts`): 2× on `COLORS.paper` (#F9F7F7,
+`hell['--cd-ui-grund']` as guide §10.7 names it for a notation without a plot; both apps' unit
+tests pin it to the vendored tokens), the 4× variant on `"transparent"`, Geist inside the picture.
+The web app lets the shell read the page's own faces and warns with a toast when Geist could not be
+embedded ("Exported … in a system font."); the webview cannot fetch (its CSP has no `connect-src`),
+so [`geist-faces.ts`](apps/vscode/src/webview/geist-faces.ts) passes all five Geist subsets as
+`data:` URLs, which the `?dataurl` plugin of [`esbuild.config.mjs`](apps/vscode/esbuild.config.mjs)
+inlines (the e2e webview page has the same plugin in its Vite config, and
+`scripts/third-party-notices.mjs` builds from the config's `host` and `web` options). A fallback
+travels to the extension host as `fontFallback` on the `export` message, and the host warns in a
+notification after it saved the file. A rejection shows the app's own words ("Couldn't export the
+board as PNG. Try again, or export it as SVG."), never the shell's `error.message`. The
 VSIX ships `apps/vscode/THIRD_PARTY_NOTICES.md`, generated from the bundles
 (`npm run notices -w modelers/event-storming/apps/vscode`; a unit test fails when it is stale); the
 web bundle keeps the shell's Lucide/Feather legal comment.
@@ -206,7 +225,7 @@ Reference implementation in this modeler: tokens
 [`packages/renderer/src/theme/palette.ts`](packages/renderer/src/theme/palette.ts) · canvas
 colours [`packages/renderer/src/draw/styles.ts`](packages/renderer/src/draw/styles.ts) · in-canvas
 chrome [`packages/renderer/src/assets/event-storming.css`](packages/renderer/src/assets/event-storming.css)
-· board menu and shortcuts dialog
+· board menu and shortcut groups
 [`packages/renderer/src/board-menu/`](packages/renderer/src/board-menu/) · web app
 [`apps/webapp/src/main.ts`](apps/webapp/src/main.ts) · VS Code webview
 [`apps/vscode/src/webview/`](apps/vscode/src/webview/).
