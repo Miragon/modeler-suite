@@ -53,7 +53,6 @@ interface PanelBinding {
   nextId: number;
 }
 
-/** The webview's PNG as Base64; `fontFallback`: its labels are in the system font. */
 interface RenderedPng {
   readonly base64: string;
   readonly fontFallback: boolean;

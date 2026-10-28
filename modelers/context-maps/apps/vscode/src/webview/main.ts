@@ -219,7 +219,6 @@ collaborative.onContentChanged(pushEdit);
 // Export (the webview rasterizes/serializes; the host shows the save dialog)
 // ---------------------------------------------------------------------------
 
-/** What an export puts into the file, and whether Geist was missing from its labels. */
 interface ExportedData {
   readonly data: string;
   readonly fontFallback: boolean;

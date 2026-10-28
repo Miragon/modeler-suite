@@ -30,6 +30,25 @@ export async function openWebview(page: Page, options: OpenOptions = {}): Promis
   await page.waitForFunction(() => window.webviewReady === true);
 }
 
+/**
+ * Makes the next PNG export lose its fonts: the faces are data: URLs, so nothing is fetched that a
+ * test could block, but the shell serialises the SVG with the font rules in as its last step. The
+ * serialiser breaks only after `saveSVG`, which needs it to draw the map.
+ */
+export function failFontEmbeddingOfNextExport(page: Page): Promise<void> {
+  return page.evaluate(() => {
+    const diagram = window.modeler!.diagram;
+    const saveSVG = diagram.saveSVG.bind(diagram);
+    diagram.saveSVG = () => {
+      const saved = saveSVG();
+      XMLSerializer.prototype.serializeToString = () => {
+        throw new Error("the page cannot serialise the font faces");
+      };
+      return saved;
+    };
+  });
+}
+
 export interface PostedMessage {
   type: string;
   [key: string]: unknown;

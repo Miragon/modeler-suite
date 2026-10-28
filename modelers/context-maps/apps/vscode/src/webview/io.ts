@@ -34,7 +34,6 @@ const GEIST_FACES: readonly GeistFace[] = [
 
 export interface EmbeddedPng {
   readonly blob: Blob;
-  /** The labels fell back to the system sans: Geist could not be embedded. */
   readonly fontFallback: boolean;
 }
 

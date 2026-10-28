@@ -5,6 +5,7 @@ import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/vscode/s
 import { pngChunks, textChunksWith, textWith } from "../../../apps/vscode/test/pngChunks.js";
 import { PNG_GROUND, pngFacts } from "../support/png.js";
 import {
+  failFontEmbeddingOfNextExport,
   openWebview,
   postFromHost,
   postedMessages,
@@ -82,6 +83,38 @@ test.describe("VS Code webview: the .cm.png editor", () => {
     expect(facts.width).toBeGreaterThan(0);
     expect(facts.height).toBeGreaterThan(0);
     expect(facts.corners).toEqual([PNG_GROUND, PNG_GROUND, PNG_GROUND, PNG_GROUND]);
+  });
+
+  test("a save whose Geist could not be embedded still writes the PNG and tells the host", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await failFontEmbeddingOfNextExport(page);
+
+    const png = await savePng(page, 1);
+
+    const response = (await postedMessages(page)).find(
+      (message) => message.type === "pngResponse",
+    )!;
+    expect(response.fontFallback).toBe(true);
+    expect(reopenedMap(png)).toBe(EXAMPLE_MAP);
+    expect((await pngFacts(page, png)).corners).toEqual([
+      PNG_GROUND,
+      PNG_GROUND,
+      PNG_GROUND,
+      PNG_GROUND,
+    ]);
+  });
+
+  test("a save with Geist embedded reports no fallback", async ({ page }) => {
+    await openWebview(page);
+
+    await savePng(page, 1);
+
+    const response = (await postedMessages(page)).find(
+      (message) => message.type === "pngResponse",
+    )!;
+    expect(response.fontFallback).toBe(false);
   });
 
   test("a save that cannot draw the picture answers with the app's own text and no data", async ({

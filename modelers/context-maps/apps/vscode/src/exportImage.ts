@@ -60,7 +60,6 @@ export async function exportToFile(
   if (answer === reveal) void vscode.commands.executeCommand("revealFileInOS", target);
 }
 
-/** `Exported shop.png in a system font. Geist couldn't be embedded.` */
 export function fontFallbackText(done: string): string {
   return `${done} in a system font. Geist couldn't be embedded.`;
 }

@@ -4,6 +4,7 @@ import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/vscode/s
 import { PNG_GROUND, pngFacts, rasterisedSvgs, recordRasterisedSvgs } from "../support/png.js";
 import {
   INVALID_MAP,
+  failFontEmbeddingOfNextExport,
   openWebview,
   postFromHost,
   postedMessages,
@@ -338,6 +339,27 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(drawn).toContain("@font-face");
     expect(drawn).toContain("Geist Variable");
     expect(drawn).toMatch(/url\("data:font\/woff2;base64,/);
+  });
+
+  test("a PNG whose Geist could not be embedded still exports and tells the host", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await failFontEmbeddingOfNextExport(page);
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+
+    const exported = await waitForPosted(page, "export");
+    expect(exported.format).toBe("png");
+    expect(exported.fontFallback).toBe(true);
+    const png = new Uint8Array(Buffer.from(exported.data as string, "base64"));
+    expect((await pngFacts(page, png)).corners).toEqual([
+      PNG_GROUND,
+      PNG_GROUND,
+      PNG_GROUND,
+      PNG_GROUND,
+    ]);
+    expect(decodeDoc(pngExtractText(png, EMBED_KEYWORD)!)).toBe(EXAMPLE_MAP);
   });
 
   test("a picture the browser cannot draw reaches the host as the app's own text", async ({

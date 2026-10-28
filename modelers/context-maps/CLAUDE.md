@@ -127,7 +127,10 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   the shipped bundle. When Geist can't be embedded the PNG still comes out, in the system font: the
   web app shows a warning toast, the webview sets `fontFallback` on its `export` and `pngResponse`
   messages and the host shows a warning notification (after the export, or after the save of a
-  `.cm.png`). A rejection shows the app's own text, never the rejection's message (guide §2). The
+  `.cm.png`). The webview's faces are data: URLs, so no request can be blocked to provoke the
+  fallback there: the e2e cases break the page's `XMLSerializer` after `saveSVG`
+  (`failFontEmbeddingOfNextExport`), and `webviewIo.test.ts` and `cmPngEditorProvider.test.ts` pin
+  the flag and the notices. A rejection shows the app's own text, never the rejection's message (guide §2). The
   `.cm.png` editor's image goes through the same `svgToEmbeddedPng`, which inserts the map's tEXt
   chunk into the shell's PNG as before (`png.ts`).
 - **Kit.** `e2e/` runs the shell's conformance kit against the real webview in the shell's VS Code

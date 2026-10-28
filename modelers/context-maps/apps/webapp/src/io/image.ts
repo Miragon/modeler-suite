@@ -11,7 +11,6 @@ import { downloadBlob } from "./download";
 const PNG_BACKGROUND = MIRAGON.grau;
 
 export interface PngDownload {
-  /** The labels fell back to the system sans: Geist could not be embedded. */
   readonly fontFallback: boolean;
 }
 
