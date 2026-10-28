@@ -136,7 +136,8 @@ export abstract class CmBaseViewer {
    * Load a document into the canvas (replaces existing content). Silent: the previous document's
    * undo history goes without a `commandStack.changed`, so a host that saves on every change does
    * not write the import back. Throws before anything changes when the document cannot be drawn.
-   * A gesture that runs ends first, as on Escape (`CmGestureCancel`).
+   * A gesture that runs ends first, as on Escape, and an armed palette tool stays armed
+   * (`CmGestureCancel`).
    */
   importDocument(doc: CmDocument): { warnings: ImportWarning[] } {
     const diagram = this._ensureDiagram();

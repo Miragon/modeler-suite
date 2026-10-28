@@ -410,6 +410,30 @@ describe.each(GESTURES)("$name", (gesture) => {
   });
 });
 
+describe("a press on context B that has not reached the drag threshold", () => {
+  test("is ended by an import, so the moves after it start no drag", async () => {
+    const running = await stage();
+    const start = centreOfShape(running, "b");
+    pointer(hitArea(running, "b"), "mousedown", start);
+    pointer(document, "mousemove", shifted(start, 2, 1));
+    expect(dragging(running).context()?.prefix).toBe("shape.move");
+    expect(dragging(running).context()?.active).toBeFalsy();
+
+    await running.modeler.importText(AFTER);
+    expect(dragging(running).context()).toBeFalsy();
+    hoverCanvasAt(running, shifted(start, 40, 20));
+    pointer(document, "mouseup", shifted(start, 40, 20));
+
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(0);
+    expect(running.modeler.exportText()).toBe(AFTER);
+    expect(dragging(running).context()).toBeFalsy();
+    expect(container(running).querySelector(GESTURE_PREVIEW)).toBeNull();
+    service<Modeling>(running, "modeling").moveElements([shape(running, "c")], { x: 30, y: 0 });
+    expect(running.changes()).toBe(1);
+  });
+});
+
 describe("an import the renderer rejects leaves the running gesture alone", () => {
   test("a text that does not parse", async () => {
     const running = await stage();
@@ -475,6 +499,30 @@ describe("the lasso tool armed in the palette", () => {
     expect(running.errors).toEqual([]);
     expect(running.changes()).toBe(0);
     expect(selectedIds(running)).toEqual(["b", "c"]);
+    expect(running.modeler.exportText()).toBe(AFTER);
+  });
+
+  test("its press starts a lasso drag, which an import cancels", async () => {
+    const running = await stage();
+    arm(running);
+    const start = clientPoint(running, LASSO_FROM);
+    hoverCanvasAt(running, start);
+    pointer(svg(running), "mousedown", start);
+    const end = clientPoint(running, LASSO_TO);
+    pointer(document, "mousemove", end);
+    expect(dragging(running).context()?.prefix).toBe("lasso");
+    expect(container(running).querySelector(GESTURE_PREVIEW)).not.toBeNull();
+
+    await running.modeler.importText(AFTER);
+    expect(dragging(running).context()).toBeFalsy();
+    expect(container(running).querySelector(GESTURE_PREVIEW)).toBeNull();
+    pointer(document, "mousemove", shifted(end, 5, 5));
+    pointer(document, "mouseup", shifted(end, 5, 5));
+
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(0);
+    expect(selectedIds(running)).toEqual([]);
+    expect(lassoEntry(running).classList.contains("highlighted-entry")).toBe(false);
     expect(running.modeler.exportText()).toBe(AFTER);
   });
 });

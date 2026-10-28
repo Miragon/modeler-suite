@@ -39,10 +39,12 @@ export default class CmGestureCancel {
 
   /**
    * Cancels the running gesture (a move, connect or lasso drag, a create from the palette or the
-   * context pad) the way Escape does, without restoring the selection: it holds the elements the
-   * import removes. A gesture whose drop is running is left alone: its command has applied, the
-   * host imports from its change listener, and diagram-js's drop throws when its own drag is
-   * cancelled from inside it.
+   * context pad) and a press that has not reached the drag threshold yet, the way Escape does,
+   * without restoring the selection: it holds the elements the import removes. A palette tool that
+   * only waits for its next press is no gesture and stays armed; the press that starts its drag
+   * starts one. A gesture whose drop is running is left alone: its command has applied, the host
+   * imports from its change listener, and diagram-js's drop throws when its own drag is cancelled
+   * from inside it.
    */
   cancelForImport(): void {
     const gesture = this.runningGesture();
