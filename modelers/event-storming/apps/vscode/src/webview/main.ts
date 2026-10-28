@@ -204,7 +204,7 @@ collaborative.onContentChanged(pushEdit);
 modeler.on("commandStack.changed", () => shell.menu.refresh());
 
 // ---------------------------------------------------------------------------
-// Export (the webview rasterizes/serializes; the host shows the save dialog)
+// Export (the webview serializes and, via the shell, rasterizes; the host shows the save dialog)
 // ---------------------------------------------------------------------------
 
 function messageOf(error: unknown): string {

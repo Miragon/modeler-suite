@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import type { Download, Page } from "@playwright/test";
 
 declare global {
@@ -7,8 +8,22 @@ declare global {
   }
 }
 
-/** Guide §10.7: the ground of "Export as PNG", `hell['--cd-ui-grund']` (#F9F7F7). */
-export const PNG_GROUND = [0xf9, 0xf7, 0xf7, 0xff] as const;
+const vendoredTokens = JSON.parse(
+  readFileSync(
+    new URL("../../../packages/renderer/src/theme/cd-tokens.generated.json", import.meta.url),
+    "utf8",
+  ),
+) as { hell: Record<string, string> };
+
+function opaqueRgba(hex: string): readonly number[] {
+  const digits = /^#([0-9a-f]{6})$/i.exec(hex)?.[1];
+  if (!digits) throw new Error(`"${hex}" is not a #RRGGBB colour`);
+  const channel = (offset: number) => parseInt(digits.slice(offset, offset + 2), 16);
+  return [channel(0), channel(2), channel(4), 255];
+}
+
+/** Guide §10.7: the ground of "Export as PNG", `hell['--cd-ui-grund']`, read from the vendored tokens. */
+export const PNG_GROUND = opaqueRgba(vendoredTokens.hell["--cd-ui-grund"]!);
 
 /** Records every `src` the page sets on an <img>, before any of the page's scripts run. */
 export async function recordImageSources(page: Page): Promise<void> {

@@ -7,9 +7,9 @@ modeler chrome ([`@miragon/modeler-shell`](https://www.npmjs.com/package/@mirago
 the same as in the VS Code extension: URL sharing ("Share"), opening and dropping `.storm`, `.json`
 and `.txt` files, and the VS Code extension's exports (PNG, SVG, the transparent 4× PNG, JSON) plus
 `.storm`. A PNG draws its labels in Geist; if Geist can't be embedded, the PNG is still saved, in a
-system font, and a warning toast says so. Replacing a board offers it back ("Board replaced · Undo", or `Ctrl/Cmd+Z`), the tab names
-the board, and import findings are listed under the problems pill in plain words. The demo app for
-the `@miragon/event-storming-*` packages.
+system font, and a warning toast says so. Replacing a board offers it back ("Board replaced · Undo",
+or `Ctrl/Cmd+Z`), the tab names the board, and import findings are listed under the problems pill in
+plain words. The demo app for the `@miragon/event-storming-*` packages.
 
 **[Live demo](https://event-storming.modeler.miragon.io)**
 
