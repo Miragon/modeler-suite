@@ -3,11 +3,13 @@ import { attachedHost } from "@miragon/modeler-api/conformance";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
 import {
   createCollaborativeModeler,
+  Modeler,
   type CollaborativeEventStormingModeler,
 } from "../../src/index.js";
 import { isEventStormingShape, type EventStormingShape } from "../../src/model/di-types.js";
@@ -37,6 +39,7 @@ interface Point {
 }
 
 const mounted: CollaborativeEventStormingModeler[] = [];
+const plainModelers: Modeler[] = [];
 const wrappers: HTMLElement[] = [];
 const faces: FontFace[] = [];
 let uncaught: unknown[] = [];
@@ -51,6 +54,7 @@ beforeEach(() => {
 afterEach(() => {
   window.removeEventListener("error", recordUncaught);
   for (const modeler of mounted.splice(0)) modeler.destroy();
+  for (const modeler of plainModelers.splice(0)) modeler.destroy();
   for (const wrapper of wrappers.splice(0)) wrapper.remove();
   for (const face of faces.splice(0)) document.fonts.delete(face);
 });
@@ -418,5 +422,70 @@ describe("an import while the user drags a point of a drawing", () => {
       modeler.diagram.container.querySelector(`.event-storming-drawing-handle, ${preview}`),
     ).toBe(null);
     expectEditsToCount(modeler, changes);
+  });
+
+  it("ends the point drag when the import is called, though the import waits for its font", async () => {
+    loadingAnnotationFont();
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const changes = changesOf(modeler);
+    let stackChanges = 0;
+    service<EventBus>(modeler, "eventBus").on("commandStack.changed", () => (stackChanges += 1));
+    service<Selection>(modeler, "selection").select(
+      shapeOf(modeler, (shape) => shape.eventStormingType === "drawing"),
+    );
+    const handle = modeler.diagram.container.querySelector(".event-storming-drawing-handle")!;
+    const first = { x: 40, y: 480 };
+
+    pointer.press(handle, first);
+    pointer.moveTo(offset(first, 60, -80));
+    const importing = modeler.importText(REMOTE_ANNOTATED);
+    pointer.release(offset(first, 60, -80));
+    expect(modeler.exportText()).toBe(BOARD);
+    expect(stackChanges).toBe(0);
+    await importing;
+
+    expectNothingApplied(modeler, changes, REMOTE_ANNOTATED);
+    expectEditsToCount(modeler, changes);
+  });
+});
+
+describe("clearing the board while the user drags a sticky", () => {
+  it("ends the drag: the release throws nothing and changes nothing", async () => {
+    const host = attachedHost();
+    if (host.parentElement) wrappers.push(host.parentElement);
+    const modeler = new Modeler({ container: host });
+    plainModelers.push(modeler);
+    await modeler.importDSL(BOARD);
+    let stackChanges = 0;
+    modeler.on("commandStack.changed", () => (stackChanges += 1));
+    const canvas = modeler.get<Canvas>("canvas");
+    const event = modeler.get<ElementRegistry>("elementRegistry").get("event_order_placed")!;
+    const start = centre(event as Shape);
+    const at = (point: Point): MouseEventInit => {
+      const rect = canvas.getContainer().getBoundingClientRect();
+      const viewbox = canvas.viewbox();
+      return {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: rect.left + (point.x - viewbox.x) * viewbox.scale,
+        clientY: rect.top + (point.y - viewbox.y) * viewbox.scale,
+      };
+    };
+    const svg = canvas.getContainer().querySelector("svg")!;
+    const graphics = modeler.get<ElementRegistry>("elementRegistry").getGraphics(event);
+
+    graphics.dispatchEvent(new MouseEvent("mousedown", at(start)));
+    svg.dispatchEvent(new MouseEvent("mousemove", at(offset(start, 20, 10))));
+    svg.dispatchEvent(new MouseEvent("mousemove", at(offset(start, 60, 40))));
+    expect(modeler.container.querySelector(".djs-drag-group")).not.toBe(null);
+
+    modeler.clear();
+    svg.dispatchEvent(new MouseEvent("mouseup", at(offset(start, 60, 40))));
+
+    expect(uncaught).toEqual([]);
+    expect(stackChanges).toBe(0);
+    expect(modeler.exportDSL()).not.toContain("Order Placed");
   });
 });

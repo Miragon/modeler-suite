@@ -116,7 +116,7 @@ export default class EventStormingDrawingHandles {
     };
   }
 
-  private endPointDrag(): void {
+  endPointDrag(): void {
     const drag = this.pointDrag;
     if (!drag) return;
     this.pointDrag = null;

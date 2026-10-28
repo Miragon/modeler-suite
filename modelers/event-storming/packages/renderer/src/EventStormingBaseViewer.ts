@@ -13,6 +13,7 @@ import type EventStormingExporter from "./io/EventStormingExporter.js";
 import type BoardBounds from "./board-bounds/BoardBounds.js";
 import type { Bounds } from "./board-bounds/BoardBounds.js";
 import type EventStormingLabelEditing from "./label-editing/EventStormingLabelEditing.js";
+import type EventStormingDrawingHandles from "./draw-tool/EventStormingDrawingHandles.js";
 import { ROOT_ID, type ImportWarning } from "./io/types.js";
 import { linkLabelFontLoading } from "./draw/extent.js";
 import type { FreeArea } from "./palette/EventStormingPaletteProvider.js";
@@ -65,13 +66,18 @@ function assertNoEngineIds(board: EventStormingBoard): void {
 const ARMED_TOOLS: ReadonlySet<string> = new Set(["lasso.selection"]);
 
 /**
- * Ends a running gesture (move, resize, connect, lasso, a create from the palette or a paste) the
- * way Escape does, before an import replaces the shapes it holds. diagram-js keeps a drag running
- * across the import, and its release would then apply a command to a removed shape: moveShape
- * throws, a create adds a sticky to the new board. Not restoring the selection: it holds shapes
- * the import removes.
+ * Ends a running gesture (move, resize, connect, lasso, a create from the palette or a paste, the
+ * point drag of a drawing) without applying it, before an import or a clear replaces the shapes it
+ * holds. diagram-js keeps a drag running across `diagram.clear`, and its release would then apply
+ * a command to a removed shape: moveShape throws, a create adds a sticky to the new board. Ended
+ * here and not on the shapes' removal, since an annotated import waits for its font first and a
+ * release during that wait would still commit. Not restoring the selection: it holds shapes the
+ * import removes.
  */
 function cancelGesture(diagram: Diagram): void {
+  diagram
+    .get<EventStormingDrawingHandles | null>("eventStormingDrawingHandles", false)
+    ?.endPointDrag();
   const dragging = diagram.get<Dragging | null>("dragging", false);
   const gesture = dragging?.context() as { prefix: string } | null | undefined;
   if (!dragging || !gesture || ARMED_TOOLS.has(gesture.prefix)) return;
@@ -254,7 +260,9 @@ export abstract class EventStormingBaseViewer {
   }
 
   clear(): void {
-    this._ensureDiagram().clear();
+    const diagram = this._ensureDiagram();
+    cancelGesture(diagram);
+    diagram.clear();
   }
 
   destroy(): void {

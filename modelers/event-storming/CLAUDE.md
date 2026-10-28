@@ -122,11 +122,12 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   `text-rendering: geometricPrecision` so that the drawn text does not change with the zoom either),
   or `undefined` while the board has no element. An annotated board is imported only once the
   annotation font has loaded, imports staying in call order, so every fit on import measures it in
-  that font. An import first ends a running drag the way Escape does (`dragging.cancel(false)` in
-  `EventStormingBaseViewer`, when called and again after the font wait; the drawing handles end
-  their point drag on `shape.remove`), so no release lands on a removed shape; the palette's armed
-  lasso tool (`lasso.selection`) stays armed. A view change (`setViewState`, a host's fit, scroll, zoom) never commits an open label
-  editor: it stays open and follows its element (contract L5).
+  that font. An import first ends a running drag without applying it (`cancelGesture` in
+  `EventStormingBaseViewer`, when called and again after the font wait; `clear()` too):
+  `dragging.cancel(false)` as Escape does, and the drawing handles' point drag, which also ends on
+  `shape.remove`, so no release lands on a removed shape; the palette's armed lasso tool
+  (`lasso.selection`) stays armed. A view change (`setViewState`, a host's fit, scroll, zoom) never
+  commits an open label editor: it stays open and follows its element (contract L5).
 - Contributor notes for this modeler in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Design system (mandatory)
