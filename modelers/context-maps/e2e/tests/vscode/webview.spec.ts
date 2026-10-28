@@ -360,6 +360,12 @@ test.describe("VS Code webview: protocol and chrome", () => {
       PNG_GROUND,
     ]);
     expect(decodeDoc(pngExtractText(png, EMBED_KEYWORD)!)).toBe(EXAMPLE_MAP);
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+    await expect
+      .poll(async () => (await postedMessages(page)).filter((m) => m.type === "export").length)
+      .toBe(2);
+    expect((await waitForPosted(page, "export")).fontFallback).toBe(false);
   });
 
   test("a picture the browser cannot draw reaches the host as the app's own text", async ({
