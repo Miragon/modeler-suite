@@ -1,7 +1,7 @@
 /**
  * File IO for the webapp: open Wardley maps (.wmap / .owm / .json) and download files. Pictures
- * come from the renderer (`saveSVG`, `svgToPng`); sharing an editable map is done via the URL (see
- * share.ts), not via the picture.
+ * come from the renderer (`saveSVG`) and the shell (`svgToPng`); sharing an editable map is done
+ * via the URL (see share.ts), not via the picture.
  */
 import { loadMap, type WardleyMap } from "@miragon/wardley-schema-model";
 import { parseDSLWithDiagnostics } from "@miragon/wardley-dsl";

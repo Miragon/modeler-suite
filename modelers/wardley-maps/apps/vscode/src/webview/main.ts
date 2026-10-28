@@ -7,18 +7,15 @@ import "@fontsource-variable/geist-mono/wght.css";
 // The renderer brings its stylesheet (tokens, diagram-js.css, cd-canvas.css); the shell's comes
 // last.
 import {
-  blobToBase64,
   createAxisLabelsPopover,
   createCollaborativeModeler,
   createMapSizePopover,
-  createShortcutsDialog,
   isWardleyShape,
   mapMenu,
-  svgToPng,
+  mapShortcuts,
   type CollaborativeWardleyModeler,
   type LabelDeduplicatedEvent,
   type Modeler,
-  type SvgToPngOptions,
   type WardleyReadOnly,
 } from "@miragon/wardley-renderer";
 import { patchDSL } from "@miragon/wardley-dsl";
@@ -38,12 +35,13 @@ import {
 } from "@miragon/modeler-shell/vscode/webview";
 import {
   isWebviewCommand,
-  type ExportFormat,
   type HostToWebview,
   type WebviewCommand,
   type WebviewToHost,
 } from "../protocol.js";
 import { WEBVIEW_THEMES } from "../themes.js";
+import { GEIST_FACES } from "./geist-faces.js";
+import { PNG_EXPORT_FAILED, pngExportMessage, type PngFormat } from "./png-export.js";
 
 interface VsCodeApi {
   postMessage(message: WebviewToHost): void;
@@ -93,17 +91,15 @@ const shell: ShellHandle = mountVsCodeShell(app, {
       svg: { onSelect: () => void exportSvg() },
       transparentPng: { onSelect: () => void exportPngTransparent() },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    showKeyboardShortcuts: () => shell.showShortcutsDialog(mapShortcuts(shell)),
   }),
   problems: { onActivate: () => post({ type: "showProblems" }) },
   emptyHint: { onInsertExample: () => post({ type: "insertExample" }) },
 });
 // The modeler's own content in the shell root; it goes with the diagram.
-const shortcutsDialog = createShortcutsDialog(shell);
 const mapSizePopover = createMapSizePopover(shell, modeler);
 const axisLabelsPopover = createAxisLabelsPopover(shell, modeler);
 modeler.on("diagram.destroy", () => {
-  shortcutsDialog.destroy();
   mapSizePopover.destroy();
   axisLabelsPopover.destroy();
 });
@@ -230,9 +226,7 @@ modeler.on("wardley.label.deduplicated", (event: LabelDeduplicatedEvent) => {
 // Export (the webview rasterizes/serializes; the host shows the save dialog)
 // ---------------------------------------------------------------------------
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+const SVG_EXPORT_FAILED = "Couldn't export the map as SVG. Try again.";
 
 // The picture never shows selection or hover state (saveSVG leaves it out): the selection stays.
 async function exportSvg(): Promise<void> {
@@ -240,23 +234,24 @@ async function exportSvg(): Promise<void> {
     const { svg } = await modeler.saveSVG();
     post({ type: "export", format: "svg", data: svg });
   } catch (error) {
-    post({ type: "error", message: `Could not export the map as SVG: ${messageOf(error)}` });
+    console.error("Wardley SVG export failed", error);
+    post({ type: "error", message: SVG_EXPORT_FAILED });
   }
 }
 
-async function exportRaster(format: ExportFormat, options: SvgToPngOptions): Promise<void> {
+async function exportRaster(format: PngFormat): Promise<void> {
   try {
     const { svg } = await modeler.saveSVG();
-    post({ type: "export", format, data: await blobToBase64(await svgToPng(svg, options)) });
+    post(await pngExportMessage(svg, format, GEIST_FACES));
   } catch (error) {
-    post({ type: "error", message: `Could not export the map as PNG: ${messageOf(error)}` });
+    console.error("Wardley PNG export failed", error);
+    post({ type: "error", message: PNG_EXPORT_FAILED });
   }
 }
 
-const exportPng = (): Promise<void> => exportRaster("png", {});
-/** Four times the size, without the paper (slides, documents), as in the web app. */
-const exportPngTransparent = (): Promise<void> =>
-  exportRaster("png-transparent", { scale: 4, transparent: true });
+const exportPng = (): Promise<void> => exportRaster("png");
+/** Four times the size, without the plot's background (slides, documents), as in the web app. */
+const exportPngTransparent = (): Promise<void> => exportRaster("png-transparent");
 
 // ---------------------------------------------------------------------------
 // Messages from the extension host

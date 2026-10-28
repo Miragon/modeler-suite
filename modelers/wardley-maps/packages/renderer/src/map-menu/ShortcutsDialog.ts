@@ -9,11 +9,16 @@ import {
 
 const DIALOG_CLASS = "wardley-shortcuts";
 
-/** What the dialog needs of the chrome around the map; a `@miragon/modeler-shell` handle fits. */
+/**
+ * What the dialog needs of the chrome around the map; a `@miragon/modeler-shell` handle fits.
+ *
+ * @deprecated Since 0.14.0, removed in 0.15.0 (#258), with `createShortcutsDialog`.
+ */
 export interface ShortcutsDialogChrome extends ShortcutsChrome, DialogChrome {
   readonly messages: ShortcutsChrome["messages"] & DialogChrome["messages"];
 }
 
+/** @deprecated Since 0.14.0, removed in 0.15.0 (#258), with `createShortcutsDialog`. */
 export type ShortcutsDialog = MapDialog;
 
 function shortcutTable(group: ShortcutGroup, titleId: string): HTMLElement {
@@ -39,6 +44,11 @@ function shortcutTable(group: ShortcutGroup, titleId: string): HTMLElement {
  * The "Keyboard shortcuts…" dialog of the Help group (guide §5.4, §8): one table per group, the
  * keys as chips like the chrome tooltip's. A web app that binds keys of its own (Open…, the map
  * file's export, `?`) passes them in `options`, so the dialog lists them as well.
+ *
+ * @deprecated Since 0.14.0, removed in 0.15.0 (#258). The shell opens the same dialog with the
+ * groups as data: `shell.showShortcutsDialog(mapShortcuts(shell, options))` on a mounted shell,
+ * `showShortcutsDialog(mapShortcuts(chrome, options), { container })` of `@miragon/modeler-shell`
+ * in a host without one.
  */
 export function createShortcutsDialog(
   chrome: ShortcutsDialogChrome,

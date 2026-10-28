@@ -129,8 +129,9 @@ The variable package registers the family as **`'Geist Variable'`** (not `'Geist
 font stack (`FONT.family`, set on every SVG `<text>`, and `.wardley-container` in `wardley.css`)
 starts with `'Geist Variable', 'Geist', …`, so both that package and a locally installed Geist are
 picked up. Use the same name in your own CSS: `font-family: 'Geist', …` alone never matches the
-self-hosted face. Without a font the fallback chain degrades cleanly to system sans. Exported SVG/PNG
-files only show Geist where the font is available to the program that renders them.
+self-hosted face. Without a font the fallback chain degrades cleanly to system sans. An exported SVG
+only shows Geist where the font is available to the program that renders it; the web app and the VS
+Code extension embed Geist in their PNG exports.
 
 ## Supported Wardley elements
 

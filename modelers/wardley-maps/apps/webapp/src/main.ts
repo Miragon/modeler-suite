@@ -12,11 +12,10 @@ import {
   createAxisLabelsPopover,
   createCollaborativeModeler,
   createMapSizePopover,
-  createShortcutsDialog,
   createTitleDialog,
   isWardleyShape,
   mapMenu,
-  svgToPng,
+  mapShortcuts,
   type ImportWarning,
   type LabelDeduplicatedEvent,
   type MapMenu,
@@ -35,6 +34,7 @@ import {
   problemSummary,
 } from "@miragon/modeler-shell";
 import { connectDiagramJs, shellModule } from "@miragon/modeler-shell/diagram-js";
+import { svgToPng } from "@miragon/modeler-shell/export";
 import {
   encodeMapCompressed,
   readHashMap,
@@ -50,6 +50,12 @@ import { createMapReplacer } from "./replace.js";
 import { trackSourceText } from "./source-text.js";
 import { createTextDialogs } from "./text-dialog.js";
 import { EXAMPLE_MAP } from "./example.js";
+import {
+  PNG_EXPORT_FAILED,
+  fontFallbackText,
+  pngExportOptions,
+  type PngKind,
+} from "./png-export.js";
 import { importWarningsText, problemItems } from "./problems.js";
 import { THEMES } from "./themes.js";
 import {
@@ -113,7 +119,7 @@ function webMenu(): MapMenu {
       json: { onSelect: () => exportMapText("json") },
       wmap: { onSelect: () => exportMapText("dsl"), shortcut: saveKey },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    showKeyboardShortcuts: showShortcuts,
     shortcutsKey: SHORTCUTS_KEY,
   });
   return {
@@ -175,11 +181,11 @@ const shell = mountShell(app, {
   },
 });
 
+function showShortcuts(): void {
+  shell.showShortcutsDialog(mapShortcuts(shell, { fileKeys: true, shortcutsKey: SHORTCUTS_KEY }));
+}
+
 // The map's own dialogs and popovers in the chrome's root; they go with the diagram.
-const shortcutsDialog = createShortcutsDialog(shell, {
-  fileKeys: true,
-  shortcutsKey: SHORTCUTS_KEY,
-});
 const titleDialog = createTitleDialog(shell, viewer);
 const mapSizePopover = createMapSizePopover(shell, viewer);
 const axisLabelsPopover = createAxisLabelsPopover(shell, viewer);
@@ -190,7 +196,6 @@ const textDialogs = createTextDialogs(shell, {
   copyKeys,
 });
 viewer.on("diagram.destroy", () => {
-  shortcutsDialog.destroy();
   titleDialog.destroy();
   mapSizePopover.destroy();
   axisLabelsPopover.destroy();
@@ -388,10 +393,18 @@ function share(): void {
   })();
 }
 
-function saveAs(kind: DownloadKind, save: (name: string) => void): void {
+function saveAs(
+  kind: DownloadKind,
+  save: (name: string) => void,
+  fellBackToSystemFont = false,
+): void {
   const name = downloadFileName(currentTitle(), kind);
   save(name);
-  shell.toast({ status: "success", text: `Exported ${name}.` });
+  shell.toast(
+    fellBackToSystemFont
+      ? { status: "warning", text: fontFallbackText(name) }
+      : { status: "success", text: `Exported ${name}.` },
+  );
 }
 
 function exportMapText(mode: "dsl" | "json", text?: string): void {
@@ -405,23 +418,26 @@ function exportMapText(mode: "dsl" | "json", text?: string): void {
 }
 
 /** saveSVG leaves selection and hover state out, so the user's selection stays as it is. */
-async function exportPicture(kind: "svg" | "png" | "png-transparent"): Promise<void> {
+async function exportPicture(kind: "svg" | PngKind): Promise<void> {
   try {
     const { svg } = await viewer.saveSVG();
     if (kind === "svg") {
       saveAs("svg", (name) => downloadText(svg, name, "image/svg+xml"));
       return;
     }
-    const png = await svgToPng(svg, kind === "png" ? {} : { scale: 4, transparent: true });
-    saveAs(kind, (name) => downloadBlob(png, name));
+    let fellBackToSystemFont = false;
+    const png = await svgToPng(
+      svg,
+      pngExportOptions(kind, () => {
+        fellBackToSystemFont = true;
+      }),
+    );
+    saveAs(kind, (name) => downloadBlob(png, name), fellBackToSystemFont);
   } catch (error) {
     console.error("[wardley-export]", error);
     shell.toast({
       status: "danger",
-      text:
-        kind === "svg"
-          ? "Couldn't export the map as SVG. Try again."
-          : "Couldn't export the map as PNG. Try again, or export it as SVG.",
+      text: kind === "svg" ? "Couldn't export the map as SVG. Try again." : PNG_EXPORT_FAILED,
     });
   }
 }
@@ -485,8 +501,7 @@ function onAppKey(event: KeyboardEvent): void {
   if (event.defaultPrevented || isTextField(event.target) || anyDialogOpen()) return;
   if (shell.isEmptyStateShown()) return;
   event.preventDefault();
-  shell.menu.close();
-  shortcutsDialog.open();
+  showShortcuts();
 }
 
 /** OWM text or a share link pasted onto the canvas opens it (undoable like any replacement). */

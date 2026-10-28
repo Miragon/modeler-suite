@@ -200,7 +200,8 @@ export const workspace = {
     readFile(_uri: Uri): Promise<Uint8Array> {
       return Promise.resolve(new Uint8Array());
     },
-    writeFile(_uri: Uri, _content: Uint8Array): Promise<void> {
+    writeFile(uri: Uri, content: Uint8Array): Promise<void> {
+      writtenFiles.push({ uri, content });
       return Promise.resolve();
     },
     createDirectory(_uri: Uri): Promise<void> {
@@ -223,6 +224,9 @@ const diagnosticCollections: MockDiagnosticCollection[] = [];
 const registeredCommands = new Map<string, (...args: unknown[]) => unknown>();
 const executedCommands: Array<{ command: string; args: unknown[] }> = [];
 const informationMessages: string[] = [];
+const warningMessages: string[] = [];
+const writtenFiles: Array<{ uri: Uri; content: Uint8Array }> = [];
+let saveDialogAnswer: Uri | undefined;
 
 export const languages = {
   createDiagnosticCollection(name: string): MockDiagnosticCollection {
@@ -242,11 +246,15 @@ export const window = {
     informationMessages.push(message);
     return Promise.resolve(undefined);
   },
+  showWarningMessage(message: string, ..._items: string[]): Promise<string | undefined> {
+    warningMessages.push(message);
+    return Promise.resolve(undefined);
+  },
   showErrorMessage(_message: string, ..._items: string[]): Promise<string | undefined> {
     return Promise.resolve(undefined);
   },
   showSaveDialog(_options: unknown): Promise<Uri | undefined> {
-    return Promise.resolve(undefined);
+    return Promise.resolve(saveDialogAnswer);
   },
   registerCustomEditorProvider(viewType: string, provider: unknown, options?: unknown): Disposable {
     registeredEditors.push({ viewType, provider, options });
@@ -295,6 +303,16 @@ export const vscodeMock = {
   informationMessages(): readonly string[] {
     return informationMessages;
   },
+  warningMessages(): readonly string[] {
+    return warningMessages;
+  },
+  /** The file the next save dialogs choose; none cancels them. */
+  chooseSaveTarget(uri: Uri | undefined): void {
+    saveDialogAnswer = uri;
+  },
+  writtenFiles(): ReadonlyArray<{ uri: Uri; content: Uint8Array }> {
+    return writtenFiles;
+  },
   /** The provider instance a `register(...)` call handed to `registerCustomEditorProvider`. */
   lastRegisteredProvider<T>(): T {
     const last = registeredEditors[registeredEditors.length - 1];
@@ -316,6 +334,9 @@ export const vscodeMock = {
     registeredCommands.clear();
     executedCommands.length = 0;
     informationMessages.length = 0;
+    warningMessages.length = 0;
+    writtenFiles.length = 0;
+    saveDialogAnswer = undefined;
     docChangeEmitter.dispose();
     docOpenEmitter.dispose();
     docCloseEmitter.dispose();

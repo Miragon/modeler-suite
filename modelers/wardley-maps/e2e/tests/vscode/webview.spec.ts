@@ -2,7 +2,10 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ICONS, type ShellIconName } from "@miragon/modeler-shell";
 import { EMPTY_MAP, withExampleInserted } from "../../../apps/vscode/src/examples.js";
 import { FIT_TOLERANCE, LONG_NAME_DRAWING, LONG_NAME_MAP, overhang } from "../support/fit.js";
+import { PAPER_BACKGROUND, PLOT_BACKGROUND, cornerPixel } from "../support/png.js";
 import {
+  WIDE,
+  openShippedWebview,
   openWebview,
   postFromHost,
   postedMessages,
@@ -342,14 +345,89 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(String(transparent?.data)).toMatch(/^[A-Za-z0-9+/]+=*$/);
   });
 
+  test("the PNG lies on the plot role of the tokens (§10.7), the 4x variant on nothing", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await postFromHost(page, { type: "command", name: "exportPng" });
+    await postFromHost(page, { type: "command", name: "exportPngTransparent" });
+    await expect
+      .poll(async () => (await postedMessages(page)).filter((m) => m.type === "export").length)
+      .toBe(2);
+    const exported = (await postedMessages(page)).filter((message) => message.type === "export");
+    const pngOf = (format: string) =>
+      Buffer.from(String(exported.find((message) => message.format === format)?.data), "base64");
+
+    const corner = await cornerPixel(page, pngOf("png"));
+    expect(corner).toEqual(PLOT_BACKGROUND);
+    expect(corner).not.toEqual(PAPER_BACKGROUND);
+    expect((await cornerPixel(page, pngOf("png-transparent")))[3]).toBe(0);
+    for (const message of exported) expect(message).not.toHaveProperty("fontFallback");
+  });
+
+  test("the shipped bundle draws the PNG under the webview's CSP, with its Geist inline", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const blocked: string[] = [];
+    page.on("console", (message) => {
+      if (/Content Security Policy|violates/i.test(message.text())) blocked.push(message.text());
+    });
+    await openShippedWebview(page, { size: WIDE, requested: { theme: "light" } });
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+
+    const exported = await waitForPosted(page, "export");
+    expect(exported).toMatchObject({ type: "export", format: "png" });
+    expect(exported).not.toHaveProperty("fontFallback");
+    expect(await cornerPixel(page, Buffer.from(String(exported.data), "base64"))).toEqual(
+      PLOT_BACKGROUND,
+    );
+    expect(blocked).toEqual([]);
+  });
+
+  test("a PNG that can't be drawn posts the app's own text, never the rasteriser's", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      window.modeler!.diagram.saveSVG = () => Promise.resolve({ svg: "this is not an SVG" });
+    });
+
+    await postFromHost(page, { type: "command", name: "exportPng" });
+
+    expect(await waitForPosted(page, "error")).toEqual({
+      type: "error",
+      message: "Couldn't export the map as PNG. Try again, or export it as SVG.",
+    });
+    expect(countOf(await postedMessages(page), "export")).toBe(0);
+  });
+
+  test("an SVG that can't be saved posts the app's own text, never the error's", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      window.modeler!.diagram.saveSVG = () => Promise.reject(new Error("saveSVG internals"));
+    });
+
+    await postFromHost(page, { type: "command", name: "exportSvg" });
+
+    expect(await waitForPosted(page, "error")).toEqual({
+      type: "error",
+      message: "Couldn't export the map as SVG. Try again.",
+    });
+    expect(countOf(await postedMessages(page), "export")).toBe(0);
+  });
+
   test("the keyboard shortcuts dialog opens from Help, closes on Escape and backdrop", async ({
     page,
   }) => {
     await openWebview(page);
     const trigger = page.locator('[data-chrome="menu"]');
-    const dialog = page.locator(".cd-shell dialog.wardley-shortcuts");
+    const dialog = page.locator("dialog.cd-shell-shortcuts");
 
-    for (const close of ["Escape", "backdrop"] as const) {
+    for (const close of ["Escape", "Close", "backdrop"] as const) {
       const dropdown = await openMenu(page);
       await dropdown.locator('[data-menu-id="keyboard-shortcuts"]').click();
       await expect(dialog).toHaveAttribute("open", "");
@@ -360,10 +438,49 @@ test.describe("VS Code webview: protocol and chrome", () => {
       await expect(dialog.getByRole("button", { name: "Close" })).toBeVisible();
 
       if (close === "Escape") await page.keyboard.press("Escape");
+      else if (close === "Close") await dialog.getByRole("button", { name: "Close" }).click();
       else await page.mouse.click(4, 4);
-      await expect(dialog).not.toHaveAttribute("open", "");
+      await expect(dialog).toHaveCount(0);
       await expect(trigger).toBeFocused();
     }
+  });
+
+  test("the keyboard shortcuts dialog opens from Help by keyboard and hands the focus back", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    const trigger = page.locator('[data-chrome="menu"]');
+    const dialog = page.locator("dialog.cd-shell-shortcuts");
+
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const entry = page.locator('.cd-shell-menu [data-menu-id="keyboard-shortcuts"]');
+    await entry.focus();
+    await page.keyboard.press("Enter");
+
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+
+  test("the keyboard shortcuts dialog lists the chrome's zoom keys and the map's own", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await (await openMenu(page)).locator('[data-menu-id="keyboard-shortcuts"]').click();
+
+    const dialog = page.locator("dialog.cd-shell-shortcuts");
+    await expect(dialog.locator(".cd-shell-shortcuts-title")).toHaveText([
+      "View",
+      "Edit",
+      "Tools",
+      "Map",
+    ]);
+    await expect(dialog.locator("[data-chrome-key]")).toHaveCount(4);
+    await expect(dialog.getByRole("row", { name: /^Fit/ })).toContainText(/(⇧1|Shift\+1)/);
+    await expect(dialog.getByRole("row", { name: "Lasso L", exact: true })).toBeVisible();
   });
 
   test("palette entries name their tool and expose its key", async ({ page }) => {

@@ -188,7 +188,7 @@ export class WardleyEditorProvider implements vscode.CustomTextEditorProvider {
           await insertExample();
           break;
         case "export":
-          await exportImageToFile(document.uri, msg.format, msg.data);
+          await exportImageToFile(document.uri, msg.format, msg.data, msg.fontFallback === true);
           break;
         case "showProblems":
           void vscode.commands.executeCommand("workbench.actions.view.problems");

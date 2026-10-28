@@ -17,6 +17,7 @@ import {
   waitForViewer,
 } from "./support/viewer.js";
 import { codeEditors, pressIn } from "./support/code-editors.js";
+import { PAPER_BACKGROUND, PLOT_BACKGROUND, cornerPixel } from "./support/png.js";
 
 /**
  * The web app's side of the shell's web chrome: what it hands the shell (menu groups, primary
@@ -109,6 +110,11 @@ async function menuLayout(page: Page): Promise<Array<string | null>> {
 async function readDownload(page: Page, run: () => Promise<void>): Promise<[string, string]> {
   const [download] = await Promise.all([page.waitForEvent("download"), run()]);
   return [download.suggestedFilename(), await readFile(await download.path(), "utf8")];
+}
+
+async function readDownloadBytes(page: Page, run: () => Promise<void>): Promise<Buffer> {
+  const [download] = await Promise.all([page.waitForEvent("download"), run()]);
+  return readFile(await download.path());
 }
 
 test.describe("the start screen", () => {
@@ -511,6 +517,59 @@ test.describe("files", () => {
   });
 });
 
+test.describe("the PNG exports", () => {
+  test("lie on the plot role of the tokens (§10.7), the 4x variant on nothing", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await openExample(page);
+
+    const png = await readDownloadBytes(page, () => menuEntry(page, "export-png"));
+    const corner = await cornerPixel(page, png);
+    expect(corner).toEqual(PLOT_BACKGROUND);
+    expect(corner).not.toEqual(PAPER_BACKGROUND);
+
+    const transparent = await readDownloadBytes(page, () =>
+      menuEntry(page, "export-png-transparent"),
+    );
+    expect((await cornerPixel(page, transparent))[3]).toBe(0);
+  });
+
+  test("say so in a warning toast when Geist can't be embedded, and still save the file", async ({
+    page,
+  }) => {
+    await page.route(/\.woff2(\?|$)/, (route) => route.abort());
+    await openApp(page);
+    await openExample(page);
+
+    const png = await readDownloadBytes(page, () => menuEntry(page, "export-png"));
+
+    expect(await cornerPixel(page, png)).toEqual(PLOT_BACKGROUND);
+    const warning = toast(
+      page,
+      "Exported tea-shop.png in a system font. Geist couldn't be embedded.",
+    );
+    await expect(warning).toHaveAttribute("data-status", "warning");
+    await expect(toast(page, "Exported tea-shop.png.")).toHaveCount(0);
+  });
+
+  test("show the app's own text when the picture can't be drawn, never the rasteriser's", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await openExample(page);
+    await page.evaluate(() => {
+      window.__wardleyViewer.saveSVG = () => Promise.resolve({ svg: "this is not an SVG" });
+    });
+
+    await menuEntry(page, "export-png");
+
+    const failure = toast(page, "Couldn't export the map as PNG. Try again, or export it as SVG.");
+    await expect(failure).toHaveAttribute("data-status", "danger");
+    await expect(page.locator('[data-chrome="toasts"] .cd-shell-toast')).toHaveCount(1);
+  });
+});
+
 test.describe("the map as text", () => {
   test("Edit as OWM-DSL… edits the map as text with Apply", async ({ page }) => {
     await startNewMap(page);
@@ -781,12 +840,16 @@ test.describe("the view", () => {
 });
 
 test.describe("keys and dialogs", () => {
-  test("? opens the keyboard shortcuts, with the web app’s File keys first", async ({ page }) => {
+  test("? opens the shell’s keyboard shortcuts, with the web app’s File keys first", async ({
+    page,
+  }) => {
     await startNewMap(page);
+    const canvas = canvasSlot(page).locator('svg[role="application"]');
+    await canvas.focus();
     await page.keyboard.press("Shift+Slash");
-    const dialog = page.locator("dialog.wardley-shortcuts");
+    const dialog = page.locator("dialog.cd-shell-shortcuts");
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator(".wardley-shortcuts-group-title")).toHaveText([
+    await expect(dialog.locator(".cd-shell-shortcuts-title")).toHaveText([
       "File",
       "View",
       "Edit",
@@ -795,11 +858,15 @@ test.describe("keys and dialogs", () => {
     ]);
     await expect(dialog.getByRole("row", { name: /Open…/ })).toContainText(/(⌘|Ctrl\+)O/);
     await expect(dialog.getByRole("row", { name: /Paste OWM text/ })).toContainText(/(⌘|Ctrl\+)V/);
+    await expect(dialog.getByRole("row", { name: /^Keyboard shortcuts/ })).toContainText("?");
+    await expect(dialog.locator("[data-chrome-key]")).toHaveCount(4);
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
+    await expect(canvas).toBeFocused();
 
     await menuEntry(page, "keyboard-shortcuts");
     await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
   });
@@ -811,7 +878,7 @@ test.describe("keys and dialogs", () => {
       expect(await pressIn(editor, "Shift+Slash")).toBe("free");
     }
 
-    await expect(page.locator("dialog.wardley-shortcuts")).toBeHidden();
+    await expect(page.locator("dialog.cd-shell-shortcuts")).toBeHidden();
   });
 
   test("while drawing, Enter on a zoom button zooms and Escape closes the menu", async ({
@@ -870,8 +937,9 @@ test.describe("keys and dialogs", () => {
     await expect.poll(count).toBe(before - 1);
 
     await menuEntry(page, "keyboard-shortcuts");
-    const dialog = page.locator("dialog.wardley-shortcuts");
-    await closeDialog(dialog, () => dialog.getByRole("button", { name: "Close" }).click());
+    const dialog = page.locator("dialog.cd-shell-shortcuts");
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toHaveCount(0);
     await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
     await canvasSlot(page).locator('svg[role="application"]').focus();
     await page.keyboard.press("ControlOrMeta+z");
