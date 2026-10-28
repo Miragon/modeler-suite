@@ -24,8 +24,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  smoke:
-    name: template / vscode-smoke (${{ matrix.vscode }})
+  # No name: one with the matrix in it shows on a pull request without the label, where the job is
+  # skipped, as the unexpanded expression.
+  template-vscode-smoke:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'template-vscode-smoke')
     # Pinned rather than ubuntu-latest: VS Code needs the image's X server and GTK libraries, and a
     # label migration should not break this job unnoticed.
