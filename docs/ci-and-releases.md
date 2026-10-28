@@ -161,7 +161,9 @@ packages or the root install changed. Site settings (Site configuration → Buil
 - [`codeql.yml`](../.github/workflows/codeql.yml): JavaScript and TypeScript, on pull requests,
   `main` and weekly.
 - [`dependabot.yml`](../.github/dependabot.yml): npm weekly (minor and patch grouped, each major on
-  its own, the suite's `@miragon/*` workspaces ignored), GitHub Actions monthly.
+  its own, the suite's `@miragon/*` workspaces ignored), GitHub Actions monthly. Both entries also
+  cover the new-modeler template (its `package.json` files, workflows and composite action), so a
+  group pull request moves the suite and the template together.
   [`dependabot-automerge.yml`](../.github/workflows/dependabot-automerge.yml) merges green npm
   patch and minor updates once auto-merge is enabled for the repository. It enables auto-merge with
   a token of the release-please app: GitHub merges in the name of whoever enabled it, and a merge

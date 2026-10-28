@@ -468,6 +468,82 @@ describe("the template's package.json files and workflows", () => {
   });
 });
 
+interface DependabotUpdate {
+  "package-ecosystem": string;
+  directory?: string;
+  directories?: string[];
+  ignore?: { "dependency-name": string; "update-types"?: string[] }[];
+}
+
+const dependabotUpdates = (
+  parseYaml(readText(join(ROOT, ".github/dependabot.yml"))) as { updates: DependabotUpdate[] }
+).updates;
+const dependabotDirectories = (update: DependabotUpdate): string[] =>
+  update.directories ?? (update.directory ? [update.directory] : []);
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Dependabot's directory globs: `*` stands for one path segment, `**` for any number of them. */
+const matchesDirectory = (pattern: string, directory: string): boolean =>
+  new RegExp(
+    `^${pattern
+      .split("**")
+      .map((part) => part.split("*").map(escapeRegExp).join("[^/]+"))
+      .join(".*")}$`,
+  ).test(directory);
+
+describe("the suite's Dependabot config keeps the template's third-party pins current", () => {
+  const templateDirectory = `/${fromRoot(TEMPLATE)}`;
+  const entriesFor = (ecosystem: string, directory: string): DependabotUpdate[] =>
+    dependabotUpdates.filter(
+      (update) =>
+        update["package-ecosystem"] === ecosystem &&
+        dependabotDirectories(update).some((pattern) => matchesDirectory(pattern, directory)),
+    );
+
+  it("updates the template's package.json files in the suite's npm entry, and never its @miragon/* pins", () => {
+    const entries = entriesFor("npm", templateDirectory);
+    expect(entries.map(dependabotDirectories)).toEqual([
+      expect.arrayContaining(["/", templateDirectory]),
+    ]);
+    expect(entries[0]?.ignore).toContainEqual({ "dependency-name": "@miragon/*" });
+  });
+
+  it("reaches every package.json of the template through its workspaces", () => {
+    const { workspaces } = readJson<{ workspaces: string[] }>(join(TEMPLATE, "package.json"));
+    expect(
+      templateManifests
+        .map((file) => fromTemplate(dirname(file)))
+        .filter((directory) => directory !== "")
+        .sort(),
+    ).toEqual([...workspaces].sort());
+  });
+
+  it("updates the actions of every template workflow and composite action in the suite's github-actions entry", () => {
+    const actionDirectories = [
+      ...new Set(
+        filesUnder(join(TEMPLATE, ".github"))
+          .filter(
+            (file) => /\.ya?ml$/.test(file) && /^\s*-?\s*uses:\s*[^.\s]/m.test(readText(file)),
+          )
+          .map((file) => `/${fromRoot(dirname(file))}`),
+      ),
+    ];
+    expect(actionDirectories.length).toBeGreaterThan(1);
+    for (const directory of actionDirectories) {
+      const entries = entriesFor("github-actions", directory);
+      expect(entries, directory).toHaveLength(1);
+      expect(dependabotDirectories(entries[0]!), directory).toContain("/");
+    }
+    const templatePatterns = dependabotUpdates
+      .flatMap(dependabotDirectories)
+      .filter((pattern) => pattern.startsWith(`${templateDirectory}/`));
+    expect(
+      templatePatterns.filter(
+        (pattern) => !actionDirectories.some((directory) => matchesDirectory(pattern, directory)),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe("the template's brand-lint config", () => {
   it("turns off exactly the German copy rules of an English modeler, as the suite does", () => {
     const config = readBrandLintConfig(TEMPLATE);

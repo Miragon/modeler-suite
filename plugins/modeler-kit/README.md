@@ -30,7 +30,9 @@ packages: the template's `@miragon/modeler-api` and
 `@miragon/modeler-shell` pins against the workspace versions (release-please rewrites them on every
 release), every API name the skill mentions against the packages' exports, every link, the plugin
 and marketplace manifests, and a type check of the template's TypeScript against the current
-sources.
+sources. The suite's Dependabot keeps the template's other pins and its GitHub Actions current, in
+the same pull requests that update the suite, and the drift test fails when its entries miss a
+folder of the template.
 
 The plugin has no `version`, neither in [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json)
 nor in its marketplace entry ([`.claude-plugin/marketplace.json`](https://github.com/Miragon/modeler-suite/blob/main/.claude-plugin/marketplace.json)),

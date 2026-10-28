@@ -352,7 +352,11 @@ the scope `plugin` (`feat(plugin): …`, `fix(plugin): …`).
 - **Pins.** The template's `@miragon/modeler-api` and `@miragon/modeler-shell` pins follow the
   releases: the shared packages' `extra-files` in the release configuration name the template's
   `package.json` fields they rewrite (root-relative paths, leading `/`). A new pin in the template
-  needs a new entry there.
+  needs a new entry there. Its third-party pins and actions move with Dependabot: the suite's npm
+  and github-actions entries in `.github/dependabot.yml` list the template's folder and its
+  `.github` folders, so one pull request updates the suite and the template together. The template
+  has no lockfile, so Dependabot bumps the exact pins of its `package.json` files, and it never
+  touches the `@miragon/*` pins.
 - **The drift test** (`test/new-modeler-skill.test.ts`, `npm run test:plugin`, part of `npm test`)
   fails when the template's platform pins differ from the workspace versions or lack their
   `extra-files` entry, when the template pins anything loosely, when a placeholder is undocumented
@@ -364,7 +368,9 @@ the scope `plugin` (`feat(plugin): …`, `fix(plugin): …`).
   member that option does not have, and when the template's TypeScript, its build configs included,
   does not type-check against the packages' current sources (only the two configs that import
   tooling this workspace does not install are left to the template's own lint). `zod` is a root
-  devDependency for that last check only (the template's schema model uses it).
+  devDependency for that last check only (the template's schema model uses it). The test also fails
+  when the suite's Dependabot entries miss the template's folder or one of its workflow or
+  composite-action folders.
 - **The VS Code smoke step** (`apps/vscode/test-smoke/` in the template) runs on the shell's
   `./testing/vscode-electron` entry (released in modeler-shell 0.3.0). The drift test type-checks it
   with the rest of the template and fails when it imports the driver from elsewhere, when
