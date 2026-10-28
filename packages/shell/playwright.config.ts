@@ -15,11 +15,12 @@ export default defineConfig({
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    // On macOS, WebKit gives a clicked button no focus, as Firefox there does.
+    // On macOS, WebKit gives a clicked button no focus, as Firefox there does. The dialog's place
+    // rests on the top layer, container units and `translate`, which each engine implements itself.
     {
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
-      testMatch: "pointer-focus.spec.ts",
+      testMatch: ["pointer-focus.spec.ts", "dialog-centre.spec.ts"],
     },
   ],
   webServer: {

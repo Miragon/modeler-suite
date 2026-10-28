@@ -1,0 +1,32 @@
+/* Demo page only: an embedding host's page around the modeler's container (/host.html). */
+
+body {
+  margin: 0;
+  background: var(--cd-ui-flaeche);
+}
+
+.host-page {
+  position: relative;
+  min-height: 100vh;
+}
+
+.host-open {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+
+.host-modeler {
+  position: absolute;
+  top: 120px;
+  left: 300px;
+  box-sizing: border-box;
+  width: 800px;
+  height: 600px;
+  border: 1px solid var(--cd-ui-linie);
+}
+
+/* Tall, so the page scrolls under a modeler that sits in it. */
+.host-spacer {
+  height: 3000px;
+}

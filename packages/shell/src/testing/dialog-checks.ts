@@ -18,6 +18,9 @@ export const CHROME_ROW_ORDER: readonly ChromeKey[] = ["zoomIn", "zoomOut", "zoo
 
 const SIDES = ["top", "right", "bottom", "left"] as const;
 
+/** Guide §8 sizes a dialog at most `100% - 32px`: 16px of backdrop on each side. */
+const BAND = 16;
+
 const within = (actual: number, expected: number, tolerance = 1) =>
   Math.abs(actual - expected) <= tolerance;
 
@@ -28,13 +31,35 @@ function sideText(side: BorderSideFacts): string {
   return `${side.width}px ${side.style} ${side.color}`;
 }
 
+/**
+ * Guide §5.1 and §8: centred over the part of its container that shows while it fits there with
+ * 16px around it, else in the window, the top layer's own centre.
+ */
+function centreProblems(dialog: NonNullable<ShellDialogFacts["dialog"]>, at: string): string[] {
+  const { box, shown, viewport } = dialog;
+  const fits =
+    shown !== null &&
+    shown.right - shown.left + 1 >= box.width + 2 * BAND &&
+    shown.bottom - shown.top + 1 >= box.height + 2 * BAND;
+  const target = fits ? shown : { left: 0, top: 0, right: viewport.width, bottom: viewport.height };
+  const expected = { x: (target.left + target.right) / 2, y: (target.top + target.bottom) / 2 };
+  const actual = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  if (within(actual.x, expected.x) && within(actual.y, expected.y)) return [];
+  const place = fits
+    ? "the part of the shell root that shows, which has room for it with 16px around it"
+    : "the window, the part of the shell root that shows having no room for it with 16px around it";
+  return [
+    `${at}: centred at ${actual.x}, ${actual.y}, expected the centre of ${place} (${expected.x}, ${expected.y}) (guide §5.1, §8)`,
+  ];
+}
+
 /** Guide §8: the dialog itself, its panel, header, Close and backdrop, in normal or high contrast. */
 function lookProblems(
   dialog: NonNullable<ShellDialogFacts["dialog"]>,
   highContrast: boolean,
 ): string[] {
   const problems: string[] = [];
-  const { roles, viewport, container, box } = dialog;
+  const { roles, container, box, viewport } = dialog;
   const at = `shortcuts dialog (${dialog.description})`;
   if (!dialog.modal) {
     problems.push(
@@ -76,20 +101,19 @@ function lookProblems(
         : `${at}: shadow ${dialog.boxShadow}, expected --cd-shadow-3 (${roles.shadow3}) (guide §8)`,
     );
   }
-  const width = Math.min(560, container.width - 32);
+  const width = Math.min(560, container.width - 2 * BAND, viewport.width - 2 * BAND);
   if (!within(box.width, width)) {
     problems.push(
-      `${at}: ${box.width}px wide in a ${container.width}px wide shell root, expected min(560px, 100% - 32px) of the modeler's container = ${width}px (guide §5.1, §8)`,
+      `${at}: ${box.width}px wide in a ${container.width}px wide shell root and a ${viewport.width}px wide window, expected ${width}px: min(560px, 100% - 32px) of the modeler's container, and never more than 100% - 32px of the window (guide §5.1, §8)`,
     );
   }
-  if (box.height > container.height - 32 + 1) {
+  const maxHeight = Math.min(container.height, viewport.height) - 2 * BAND;
+  if (box.height > maxHeight + 1) {
     problems.push(
-      `${at}: ${box.height}px high in a ${container.height}px high shell root, expected at most 100% - 32px of the modeler's container, the body scrolling (guide §5.1, §8)`,
+      `${at}: ${box.height}px high in a ${container.height}px high shell root and a ${viewport.height}px high window, expected at most ${maxHeight}px: 100% - 32px of the modeler's container and of the window, the body scrolling (guide §5.1, §8)`,
     );
   }
-  if (!within(box.left, (viewport.width - box.width) / 2)) {
-    problems.push(`${at}: not centred in the window (left ${box.left}px)`);
-  }
+  problems.push(...centreProblems(dialog, at));
   if (dialog.backdrop.background !== roles.backdrop) {
     problems.push(
       `${at}: the backdrop is ${dialog.backdrop.background}, expected --cd-ui-backdrop (${roles.backdrop}) (guide §8)`,

@@ -2,7 +2,7 @@
 import type Diagram from "diagram-js";
 
 import type { DiagramJsConnection } from "../src/diagram-js.js";
-import type { Bounds, ShellHandle, ToastStatus } from "../src/index.js";
+import type { Bounds, ShellDialog, ShellHandle, ToastStatus } from "../src/index.js";
 import type { VsCodeWebviewStub } from "../src/testing-vscode-stub.js";
 
 declare global {
@@ -66,6 +66,13 @@ declare global {
       setInvalid(invalid: boolean): void;
       toast(request: { status: ToastStatus; text: string; actionLabel?: string | undefined }): void;
       destroy(): void;
+    };
+    /** The host page's handle (`/host.html`, demo/host.ts): a dialog without a mounted shell. */
+    __hostDemo?: {
+      ready: boolean;
+      /** `openShellDialog` in the modeler's container (`#modeler`). */
+      open(): ShellDialog;
+      close(): void;
     };
   }
 }

@@ -134,13 +134,15 @@ async function zoomKeyProblems(page: PageLike, root: string): Promise<string[]> 
 
 /**
  * Opens `shell.showShortcutsDialog` through the harness's hook from the menu trigger and checks
- * guide §5.4, §5.6, §5.8, §8 and §12: a modal `<dialog>` in the top layer, named by its 21px/600
- * title, the panel, backdrop (`grayscale(1)`), header, body and Close of §8, one labelled table per
- * group with the tooltip's chips, the chrome's zoom and fit keys first in the View group as their
- * tooltips show them and nowhere twice; the focus inside on open, kept there by Tab and Shift+Tab,
- * its ring in `--cd-ui-fokus`; the zoom keys blocked; Escape, Close and a click on the backdrop
- * close it and return the focus to the menu trigger. Then the same dialog in high contrast (no
- * shadow, `--cd-ui-kontur`, a 3px ring) and under forced colours (CanvasText border, Highlight ring).
+ * guide §5.1, §5.4, §5.6, §5.8, §8 and §12: a modal `<dialog>` in the top layer, named by its
+ * 21px/600 title, never larger than the window minus 32px, centred over the part of its container
+ * that shows while it fits there with 16px around it and else in the window, the panel, backdrop (`grayscale(1)`), header, body and Close
+ * of §8, one labelled table per group with the tooltip's chips, the chrome's zoom and fit keys
+ * first in the View group as their tooltips show them and nowhere twice; the focus inside on open,
+ * kept there by Tab and Shift+Tab, its ring in `--cd-ui-fokus`; the zoom keys blocked; Escape,
+ * Close and a click on the backdrop close it and return the focus to the menu trigger. Then the
+ * same dialog in high contrast (no shadow, `--cd-ui-kontur`, a 3px ring) and under forced colours
+ * (CanvasText border, Highlight ring).
  */
 export const shortcutsDialogCase: ShellConformanceCase = {
   name: "shortcutsDialog",

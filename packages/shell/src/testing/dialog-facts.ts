@@ -93,6 +93,7 @@ export interface ShellDialogFacts {
     description: string;
     /** Opened with `showModal()`: in the top layer, the page behind it inert. */
     modal: boolean;
+    /** The window a fixed element lies in: the root's client size, without scrollbars. */
     viewport: Size;
     /**
      * The content box of the modeler's container, the shell root, which the dialog's sizes refer
@@ -101,6 +102,12 @@ export interface ShellDialogFacts {
     container: Size;
     /** The dialog's box in viewport coordinates. */
     box: { left: number; top: number; width: number; height: number };
+    /**
+     * The part of the element the dialog lives in (the shell root of a mounted shell) that shows,
+     * in viewport coordinates: its box inside the window and inside every element that clips its
+     * overflow and has it in its containing-block chain; `null` when nothing of it shows.
+     */
+    shown: { left: number; top: number; right: number; bottom: number } | null;
     /** The text of what `aria-labelledby` names, and that element's tag. */
     name: { text: string; tag: string } | null;
     title: { fontSize: string; fontWeight: string } | null;
@@ -208,6 +215,68 @@ export const shellDialogProbe = ({
             parseFloat(rootStyle.paddingBottom),
         }
       : { width: window.innerWidth, height: window.innerHeight };
+  const viewport = {
+    width: document.documentElement.clientWidth || window.innerWidth,
+    height: document.documentElement.clientHeight || window.innerHeight,
+  };
+  const home = first.parentElement;
+  let shown = null as { left: number; top: number; right: number; bottom: number } | null;
+  if (home) {
+    const own = home.getBoundingClientRect();
+    shown = {
+      left: Math.max(own.left, 0),
+      top: Math.max(own.top, 0),
+      right: Math.min(own.right, viewport.width),
+      bottom: Math.min(own.bottom, viewport.height),
+    };
+    const isRoot = (element: Element) =>
+      element === document.body || element === document.documentElement;
+    const isSet = (value: string) => value !== "" && value !== "none";
+    const containsPositioned = (around: CSSStyleDeclaration, position: string) =>
+      (position === "absolute" && around.position !== "static") ||
+      [
+        "transform",
+        "translate",
+        "rotate",
+        "scale",
+        "perspective",
+        "filter",
+        "backdrop-filter",
+      ].some((property) => isSet(around.getPropertyValue(property))) ||
+      /\b(layout|paint|strict|content)\b/.test(around.contain) ||
+      /\b(transform|perspective|filter)\b/.test(around.willChange);
+    let element: Element = home;
+    for (;;) {
+      const { position } = getComputedStyle(element);
+      let around = element.parentElement;
+      if (position === "absolute" || position === "fixed") {
+        while (
+          around &&
+          !isRoot(around) &&
+          !containsPositioned(getComputedStyle(around), position)
+        ) {
+          around = around.parentElement;
+        }
+      }
+      if (!around || isRoot(around)) break;
+      const aroundStyle = getComputedStyle(around);
+      const clipX = aroundStyle.overflowX !== "visible";
+      const clipY = aroundStyle.overflowY !== "visible";
+      if (clipX || clipY) {
+        const rect = around.getBoundingClientRect();
+        const left = rect.left + around.clientLeft;
+        const top = rect.top + around.clientTop;
+        shown = {
+          left: clipX ? Math.max(shown.left, left) : shown.left,
+          top: clipY ? Math.max(shown.top, top) : shown.top,
+          right: clipX ? Math.min(shown.right, left + around.clientWidth) : shown.right,
+          bottom: clipY ? Math.min(shown.bottom, top + around.clientHeight) : shown.bottom,
+        };
+      }
+      element = around;
+    }
+    if (shown.right <= shown.left || shown.bottom <= shown.top) shown = null;
+  }
   const style = getComputedStyle(first);
   const backdrop = getComputedStyle(first, "::backdrop");
   const box = first.getBoundingClientRect();
@@ -275,9 +344,10 @@ export const shellDialogProbe = ({
     dialog: {
       description: tools.describe(first),
       modal,
-      viewport: { width: window.innerWidth, height: window.innerHeight },
+      viewport,
       container,
       box: { left: box.left, top: box.top, width: box.width, height: box.height },
+      shown,
       name: nameElement ? { text: text(nameElement), tag: nameElement.localName } : null,
       title: titleElement
         ? {
