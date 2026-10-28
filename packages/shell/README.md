@@ -748,10 +748,10 @@ edit: async ({ webview, page }) => {
 ```
 
 The result says what happened (`ok`, `failures`, `saved`, `undone`, `themes` with the observed
-appearance and the screenshot, `timings` per step); `runVsCodeSmoke` never throws for a failed
-check, only for options it cannot run with. An extension that fails to activate in VS Code (a module
-its bundle cannot load, a throw in `activate`) fails the open step at once, with VS Code's own error
-from its extension host log; `keepTemporaryFiles: true` keeps the profile with all of VS Code's logs.
+appearance and the screenshot, `keys` when that step ran, `timings` per step); `runVsCodeSmoke`
+never throws for a failed check, only for options it cannot run with. An extension that fails to
+activate in VS Code (a module its bundle cannot load, a throw in `activate`) fails the open step at
+once, with VS Code's own error from its extension host log; `keepTemporaryFiles: true` keeps the profile with all of VS Code's logs.
 A webview that throws on start (0.6.0), before its menu shows or while it imports the fixture, fails
 the open step 3 s after the throw instead of after `timeoutMs`, and every failure of the open step
 quotes the webview's uncaught errors and console errors with their stacks, which none of VS Code's
@@ -759,6 +759,14 @@ logs holds.
 A theme switch VS Code does not pick up is retried within the run (0.4.1): the driver writes the
 setting again, then switches through another theme and back, before the theme fails with the theme
 requested and the one VS Code shows. A modeler needs no retry of its own for a missed theme switch.
+Opted in with `keys: true`, or with `VSCODE_SMOKE_OPT_IN=keys` in the environment of the test (0.7),
+a run ends with the keys step: with the focus on the canvas it presses every zoom key of guide §5.8
+(the Shift and numpad variants included) and Shift+1, then Cmd/Ctrl+A and C. The readout has to
+follow each key, no key the webview handled may reach the webview's `window` (where VS Code would
+run its own binding, such as the window zoom), VS Code's window zoom level has to stay as it was,
+Cmd/Ctrl+0 must not move VS Code's focus to the side bar, select all has to select more canvas
+elements than were selected before and no text, and the copy has to leave the clipboard alone. New
+steps start opt-in and become the default once every modeler passes them in CI.
 Keep the smoke test out of the unit tests' project: it needs a display and the built extension. Add
 the screenshot directory to `.gitignore`.
 

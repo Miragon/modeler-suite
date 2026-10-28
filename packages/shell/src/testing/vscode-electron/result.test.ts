@@ -37,6 +37,7 @@ describe("VSCODE_SMOKE_STEPS", () => {
       "save",
       "undo",
       "themes",
+      "keys",
       "close",
     ]);
   });
@@ -147,6 +148,29 @@ describe("formatVsCodeSmoke", () => {
       "  FAILED Default Dark Modern: dark (expected light), 30.1 s",
       "failures:",
       "  - themes: Default Dark Modern: the webview shows dark, the theme bridge has to show light",
+    ]);
+  });
+
+  it("adds a line for the keys step: the readouts, the window zoom and the selection", () => {
+    const text = formatVsCodeSmoke(
+      result({
+        keys: {
+          start: 62,
+          zoom: [
+            { key: "Control+Digit0", percent: 100 },
+            { key: "Control+Equal", percent: 135 },
+            { key: "Shift+Digit1" },
+          ],
+          windowZoomLevels: { before: [0], after: [0] },
+          selected: 7,
+        },
+        timings: { themes: 412, keys: 3_210, total: 8_200 },
+      }),
+    );
+    expect(text.split("\n").slice(1)).toEqual([
+      "themes 0.4 s · keys 3.2 s · total 8.2 s",
+      "  ok     Default Light Modern: light (expected light), 0.4 s, /shots/wardley-light.png",
+      "  keys: zoom 62% → 100% → 135% → ?, window zoom level 0 → 0, select all selected 7",
     ]);
   });
 

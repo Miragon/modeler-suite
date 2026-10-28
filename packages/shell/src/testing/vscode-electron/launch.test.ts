@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
 import {
+  VSCODE_SMOKE_OPT_IN_STEPS,
   customEditorViewType,
   defaultVsCodeCachePath,
   extensionIdOf,
@@ -13,6 +14,7 @@ import {
   resolveExtensionMain,
   vsCodeEnvironment,
   vsCodeLaunchArgs,
+  vsCodeSmokeOptIn,
   vsCodeUserSettings,
   type ExtensionManifest,
 } from "./launch.js";
@@ -124,6 +126,32 @@ describe("vsCodeEnvironment", () => {
         UNSET: undefined,
       }),
     ).toEqual({ PATH: "/usr/bin", HOME: "/home/ci" });
+  });
+
+  it("keeps VSCODE_SMOKE_OPT_IN, which only the test process reads, away from VS Code", () => {
+    expect(vsCodeEnvironment({ VSCODE_SMOKE_OPT_IN: "keys" })).toEqual({});
+  });
+});
+
+describe("vsCodeSmokeOptIn", () => {
+  it("reads the opt-in steps VSCODE_SMOKE_OPT_IN names, by comma or space", () => {
+    expect([...vsCodeSmokeOptIn({ VSCODE_SMOKE_OPT_IN: "keys" })]).toEqual(["keys"]);
+    expect([...vsCodeSmokeOptIn({ VSCODE_SMOKE_OPT_IN: " keys, keys " })]).toEqual(["keys"]);
+    expect(VSCODE_SMOKE_OPT_IN_STEPS).toEqual(["keys"]);
+  });
+
+  it("is empty without the variable or with an empty one", () => {
+    expect(vsCodeSmokeOptIn({}).size).toBe(0);
+    expect(vsCodeSmokeOptIn({ VSCODE_SMOKE_OPT_IN: "" }).size).toBe(0);
+  });
+
+  it("throws for a name that is no opt-in step, so a typo turns nothing off unnoticed", () => {
+    expect(() => vsCodeSmokeOptIn({ VSCODE_SMOKE_OPT_IN: "keys,kyes" })).toThrow(
+      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "kyes", which is no opt-in step (keys)',
+    );
+    expect(() => vsCodeSmokeOptIn({ VSCODE_SMOKE_OPT_IN: "kyes themes" })).toThrow(
+      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "kyes", "themes", which are no opt-in steps (keys)',
+    );
   });
 });
 

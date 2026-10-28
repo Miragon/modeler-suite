@@ -2933,7 +2933,8 @@ The stub above stands in for VS Code; this entry starts the real one. It downloa
 extension, opens a fixture in the custom editor and checks what only a real VS Code can show: the
 webview inside VS Code's two frames, the document's dirty state, save and undo through the
 workbench's keybindings, and the theme bridge under VS Code's four default themes, with a screenshot
-per theme. It runs in Node, from a Vitest or `node:test` file; no Playwright test runner is needed.
+per theme. Opted in (0.7), it also presses the zoom and selection keys and checks that none of them
+reaches VS Code's own bindings. It runs in Node, from a Vitest or `node:test` file; no Playwright test runner is needed.
 The package's command `modeler-shell-vscode-docker` runs such a test in a Linux container, without a
 window on the host ([In Docker](#in-docker-031)).
 
@@ -2983,6 +2984,7 @@ interface VsCodeSmokeOptions {
   settings?: Record<string, unknown>; // more user settings, merged over the driver's
   log?: (line: string) => void; // progress; default silent
   keepTemporaryFiles?: boolean; // keep profile, workspace and VS Code's logs, and log where
+  keys?: boolean; // 0.7: the keys step; default: whether VSCODE_SMOKE_OPT_IN names "keys"
 }
 function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCodeSmokeResult>;
 function createFromPalette(context: VsCodeSmokeContext): Promise<void>;
@@ -3006,8 +3008,16 @@ const VSCODE_SMOKE_STEPS: readonly [
   "save",
   "undo",
   "themes",
+  "keys", // 0.7, opt-in
   "close",
 ];
+// 0.7: the steps a run takes only when asked to, until every modeler passes them in CI
+const VSCODE_SMOKE_OPT_IN_STEPS: readonly ["keys"];
+type VsCodeSmokeOptInStep = (typeof VSCODE_SMOKE_OPT_IN_STEPS)[number];
+// the steps VSCODE_SMOKE_OPT_IN names, separated by commas or spaces; throws for an unknown name
+function vsCodeSmokeOptIn(
+  environment: Record<string, string | undefined>,
+): ReadonlySet<VsCodeSmokeOptInStep>;
 type VsCodeSmokeStep = (typeof VSCODE_SMOKE_STEPS)[number];
 type VsCodeSmokeTimings = Partial<Record<VsCodeSmokeStep | "total", number>>; // milliseconds
 type ChromePresence = Partial<Record<ChromeIsland, boolean>>;
@@ -3021,6 +3031,12 @@ interface VsCodeSmokeThemeResult {
   ms: number;
   ok: boolean;
 }
+interface VsCodeSmokeKeysResult {
+  start?: number; // the readout before the keys, in percent
+  zoom: { key: string; percent?: number }[]; // every zoom key in pressing order (first Shift+1) and the readout it left
+  windowZoomLevels: { before: number[]; after: number[] }; // webContents.getZoomLevel() of every window
+  selected: number; // the canvas elements Cmd/Ctrl+A selected
+}
 interface VsCodeSmokeResult {
   ok: boolean; // failures is empty
   failures: string[]; // "save: Meta+s wrote nothing to disk", one per broken expectation
@@ -3032,6 +3048,7 @@ interface VsCodeSmokeResult {
   saved?: { text: string; parsed: unknown }; // what the save wrote and parse returned
   undone: boolean; // undo brought the canvas back and, saved again, the fixture's exact text
   themes: VsCodeSmokeThemeResult[];
+  keys?: VsCodeSmokeKeysResult; // 0.7: missing when the keys step did not run
   timings: VsCodeSmokeTimings;
 }
 function formatVsCodeSmoke(result: VsCodeSmokeResult): string; // a few lines for the test log
@@ -3189,7 +3206,35 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
    after 30.0 s, though the driver wrote the setting 4 times (…)". Every retry is in the log
    ("themes: Default Dark Modern: the workbench still shows … after 2.0 s, writing the setting
    again"). A modeler's own retry of a missed theme switch is no longer needed.
-8. **close**: `app.close()`; a VS Code that has not quit after 10 s (a modal dialog) is killed. The
+8. **keys** (0.7, opt-in): runs with `keys: true`, or without the option when the test process's
+   environment has `VSCODE_SMOKE_OPT_IN=keys` (CI's smoke workflow sets it, so every modeler runs
+   the step without a change to its test; an unknown name there throws). It checks the keys of guide
+   §5.8 and §13.5 with the focus on the canvas. The driver adds a recorder to the webview (a
+   `keydown` listener on `window` in the capture phase, one on `document` after the shell's and the
+   modeler's, one on `window` in the bubble phase), focuses the canvas `<svg>` and presses Shift+1,
+   whose fit is the reference (an inspector or a legend opened since the first fit moves it), then
+   Cmd/Ctrl+0, Cmd/Ctrl+=, Cmd/Ctrl+Shift+=, Cmd/Ctrl+numpad +, Cmd/Ctrl+0, Cmd/Ctrl+-,
+   Cmd/Ctrl+Shift+-, Cmd/Ctrl+numpad −, Cmd/Ctrl+numpad 0 and Shift+1 again. Each of these has to
+   change the zoom panel's readout as it says: zoom in, zoom out, 100 %, or back to the reference
+   fit (within a percentage point). Where the readout already shows a key's target (100 %, or the
+   fit within a percentage point), Cmd/Ctrl+= goes first, so every key changes it. None of these
+   keys may reach the webview's `window`: VS Code forwards every `keydown` that gets there to the
+   workbench, prevented or not, and runs its own binding (the window zoom, Go Back, the side bar).
+   After every key the driver also reads VS Code's window zoom, which must stay as it was:
+   Electron's `webContents.getZoomLevel()` of every window through `electronApp.evaluate`, and the
+   workbench's `devicePixelRatio`. After Cmd/Ctrl+0, VS Code's focus must still be where it was (VS
+   Code binds the key to the side bar). Then Cmd/Ctrl+A has to select more canvas elements
+   (`.djs-element.selected`) than were selected before it, and no text of the webview, and
+   Cmd/Ctrl+C has to leave the system clipboard as it was (read through Electron's `clipboard`
+   before and after, never written). A key the canvas handled (`defaultPrevented` once the
+   `document` listeners ran) must not reach `window` either. A key that never reaches the webview
+   ends the step and names where VS Code's focus is. The step runs after the themes, so the zoom and
+   the selection it leaves are in no screenshot; `result.keys` holds the readouts, the window zoom
+   levels and how many elements Cmd/Ctrl+A selected. Its failures read like "keys:
+   Control+Shift+Minus reached the webview's window, where VS Code runs its own binding for it" or
+   "keys: Control+Digit0 moved VS Code's focus to the side bar". A modeler whose chrome has no zoom
+   panel cannot take the step.
+9. **close**: `app.close()`; a VS Code that has not quit after 10 s (a modal dialog) is killed. The
    temporary directory goes, unless `keepTemporaryFiles`, also when Ctrl+C ends the test process
    in the middle of a run.
 

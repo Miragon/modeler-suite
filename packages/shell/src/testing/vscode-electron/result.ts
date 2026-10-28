@@ -10,6 +10,7 @@ export const VSCODE_SMOKE_STEPS = [
   "save",
   "undo",
   "themes",
+  "keys",
   "close",
 ] as const;
 
@@ -36,6 +37,20 @@ export interface VsCodeSmokeThemeResult {
   ok: boolean;
 }
 
+/** What the keys step saw (0.7). */
+export interface VsCodeSmokeKeysResult {
+  /** The readout before the keys, in percent. */
+  start?: number | undefined;
+  /**
+   * Every zoom key in pressing order, with the readout it left in percent (missing without one):
+   * first Shift+1, whose fit the last one has to restore.
+   */
+  zoom: { key: string; percent?: number | undefined }[];
+  /** VS Code's window zoom level per window (`webContents.getZoomLevel()`), before and after the keys. */
+  windowZoomLevels: { before: number[]; after: number[] };
+  selected: number;
+}
+
 export interface VsCodeSmokeResult {
   /** No failure. */
   ok: boolean;
@@ -54,6 +69,8 @@ export interface VsCodeSmokeResult {
   /** Undo brought back the canvas and, saved again, the fixture's exact text. */
   undone: boolean;
   themes: VsCodeSmokeThemeResult[];
+  /** The keys step's observations; missing when the step did not run. */
+  keys?: VsCodeSmokeKeysResult | undefined;
   timings: VsCodeSmokeTimings;
 }
 
@@ -98,6 +115,22 @@ function seconds(ms: number | undefined): string {
   return ms === undefined ? "–" : `${(ms / 1000).toFixed(1)} s`;
 }
 
+function percent(value: number | undefined): string {
+  return value === undefined ? "?" : `${value}%`;
+}
+
+/** One line of what the keys step saw: the readouts, the window zoom and what select all selected. */
+export function describeKeys(keys: VsCodeSmokeKeysResult): string {
+  const readouts = [keys.start, ...keys.zoom.map((entry) => entry.percent)]
+    .map(percent)
+    .join(" → ");
+  const levels = (values: number[]) => (values.length > 0 ? values.join(", ") : "?");
+  return (
+    `zoom ${readouts}, window zoom level ${levels(keys.windowZoomLevels.before)} → ` +
+    `${levels(keys.windowZoomLevels.after)}, select all selected ${keys.selected}`
+  );
+}
+
 /** A few lines for the test log: version, timings, every theme and the failures. */
 export function formatVsCodeSmoke(result: VsCodeSmokeResult): string {
   const head = [
@@ -118,11 +151,13 @@ export function formatVsCodeSmoke(result: VsCodeSmokeResult): string {
       ` (expected ${describeAppearance(entry.expected)}), ${seconds(entry.ms)}` +
       (entry.screenshot ? `, ${entry.screenshot}` : ""),
   );
+  const keys = result.keys ? [`  keys: ${describeKeys(result.keys)}`] : [];
   const failures = result.failures.map((failure) => `  - ${failure}`);
   return [
     head,
     timings,
     ...themes,
+    ...keys,
     ...(failures.length > 0 ? ["failures:", ...failures] : []),
   ].join("\n");
 }

@@ -4,7 +4,7 @@ import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   fakeTestElectron,
@@ -14,8 +14,11 @@ import {
 import { runVsCodeSmoke, type VsCodeSmokeOptions } from "./driver.js";
 import {
   activeTextEditorProbe,
+  blurProbe,
   canvasFactsProbe,
   chromeProbe,
+  focusCanvasProbe,
+  installKeyRecorderProbe,
   settleProbe,
   workbenchWebviewsProbe,
 } from "./webview.js";
@@ -179,8 +182,14 @@ function fakeVsCode(options: FakeVsCodeOptions) {
         };
       }
       if (probe === chromeProbe) return shown.chrome ?? { menu: true, palette: true, zoom: true };
-      if (probe === settleProbe) return undefined;
-      throw new Error("the fake webview answers only the canvas, chrome and settle probes");
+      if (probe === settleProbe || probe === blurProbe || probe === installKeyRecorderProbe) {
+        return undefined;
+      }
+      // A canvas that takes no focus ends the keys step before its first key.
+      if (probe === focusCanvasProbe) return false;
+      throw new Error(
+        "the fake webview answers only the probes of the open step and the keys' start",
+      );
     },
   };
   Object.assign(window, {
@@ -197,9 +206,18 @@ function fakeVsCode(options: FakeVsCodeOptions) {
     },
     screenshot: async ({ path }: { path: string }) => writeFile(path, ""),
   });
+  const electron = {
+    BrowserWindow: {
+      getAllWindows: () => [
+        { id: 1, webContents: { getZoomLevel: () => 0 }, setContentSize: () => undefined },
+      ],
+    },
+    clipboard: { availableFormats: () => [], readText: () => "" },
+  };
   const app = {
     firstWindow: async () => window,
-    evaluate: async () => undefined,
+    evaluate: async (main: (module: typeof electron, argument: unknown) => unknown, arg: unknown) =>
+      main(electron, arg),
     close: async () => {
       closed = true;
     },
@@ -463,5 +481,77 @@ describe("runVsCodeSmoke, open", () => {
         `        at ${bundle}:3:1`,
       ].join("\n"),
     ]);
+  });
+});
+
+describe("runVsCodeSmoke, keys", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  async function smokeUpToKeys(overrides: Partial<VsCodeSmokeOptions> = {}) {
+    fakeVsCode({ menu: true, document: { shapes: 1 } });
+    return runVsCodeSmoke(
+      await smokeOptions({
+        edit: async () => {
+          throw new Error("the test skips the edit");
+        },
+        colorThemes: [],
+        ...overrides,
+      }),
+    );
+  }
+
+  it("runs the keys step after the themes when the modeler opts in", async () => {
+    const result = await smokeUpToKeys({ keys: true });
+
+    expect(result.failures).toEqual([
+      "edit: the test skips the edit",
+      "keys: the canvas <svg> did not take the focus",
+    ]);
+    expect(result.keys).toEqual({
+      zoom: [],
+      windowZoomLevels: { before: [0], after: [0] },
+      selected: 0,
+    });
+    expect(Object.keys(result.timings)).toEqual([
+      "resolve",
+      "launch",
+      "open",
+      "edit",
+      "themes",
+      "keys",
+      "close",
+      "total",
+    ]);
+  });
+
+  it("runs it for VSCODE_SMOKE_OPT_IN=keys, unless the modeler passes keys: false", async () => {
+    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "keys");
+
+    expect((await smokeUpToKeys()).failures).toContain(
+      "keys: the canvas <svg> did not take the focus",
+    );
+    const optedOut = await smokeUpToKeys({ keys: false });
+    expect(optedOut.keys).toBeUndefined();
+    expect(optedOut.timings.keys).toBeUndefined();
+  });
+
+  it("skips it by default", async () => {
+    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "");
+
+    const result = await smokeUpToKeys();
+
+    expect(result.failures).toEqual(["edit: the test skips the edit"]);
+    expect(result.keys).toBeUndefined();
+    expect(result.timings.keys).toBeUndefined();
+  });
+
+  it("throws before it starts VS Code for an unknown step in VSCODE_SMOKE_OPT_IN", async () => {
+    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "key");
+
+    await expect(smokeUpToKeys()).rejects.toThrow(
+      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "key", which is no opt-in step (keys)',
+    );
   });
 });

@@ -136,3 +136,96 @@ export const blurProbe = (): void => {
   const active = document.activeElement;
   if (active instanceof HTMLElement || active instanceof SVGElement) active.blur();
 };
+
+/** One `keydown` in the webview, as the recorder of `installKeyRecorderProbe` saw it. */
+export interface KeyRecord {
+  key: string;
+  code: string;
+  /** `defaultPrevented` once every listener on `document` ran; `null` when it never got there. */
+  handled: boolean | null;
+  /** It reached a listener on the webview's `window`, where VS Code forwards it to the workbench. */
+  reachedWindow: boolean;
+}
+
+/**
+ * Records every `keydown` of the webview from now on: whether something on the way handled it, and
+ * whether it reached `window`. Added after the shell and the modeler, so its `document` listener runs
+ * after theirs and sees the event as they left it. Installs once per document.
+ */
+export const installKeyRecorderProbe = (): void => {
+  const store = globalThis as unknown as { modelerShellSmokeKeys?: KeyRecord[] };
+  if (store.modelerShellSmokeKeys) return;
+  const records: KeyRecord[] = [];
+  store.modelerShellSmokeKeys = records;
+  const recordOf = new WeakMap<Event, KeyRecord>();
+  window.addEventListener(
+    "keydown",
+    (event) => {
+      const record: KeyRecord = {
+        key: event.key,
+        code: event.code,
+        handled: null,
+        reachedWindow: false,
+      };
+      recordOf.set(event, record);
+      records.push(record);
+    },
+    true,
+  );
+  document.addEventListener("keydown", (event) => {
+    const record = recordOf.get(event);
+    if (record) record.handled = event.defaultPrevented;
+  });
+  window.addEventListener("keydown", (event) => {
+    const record = recordOf.get(event);
+    if (record) record.reachedWindow = true;
+  });
+};
+
+export const takeKeyRecordsProbe = (): KeyRecord[] => {
+  const store = globalThis as unknown as { modelerShellSmokeKeys?: KeyRecord[] };
+  return store.modelerShellSmokeKeys?.splice(0) ?? [];
+};
+
+/** Clears the text selection and focuses the canvas `<svg>`; whether it holds the focus then. */
+export const focusCanvasProbe = (): boolean => {
+  const svg = document.querySelector<SVGSVGElement>(".djs-container > svg");
+  if (!svg) return false;
+  document.getSelection()?.removeAllRanges();
+  svg.focus({ preventScroll: true });
+  return document.activeElement === svg;
+};
+
+/** The zoom panel's readout ("86%"); null without one. */
+export const zoomReadoutProbe = (): string | null =>
+  document.querySelector('[data-chrome="zoom"] [data-zoom="actual"]')?.textContent ?? null;
+
+export const selectedElementsProbe = (): number =>
+  document.querySelectorAll(".djs-element.selected").length;
+
+export const textSelectionProbe = (): string => document.getSelection()?.toString() ?? "";
+
+/** Where VS Code's focus is: the webview, the side bar or elsewhere. */
+export interface WorkbenchFocus {
+  /** A webview frame holds the focus. */
+  webview: boolean;
+  sideBar: boolean;
+  /** The focused part's id, or the focused element. */
+  where: string;
+}
+
+export const workbenchFocusProbe = (): WorkbenchFocus => {
+  const active = document.activeElement;
+  const part = active?.closest<HTMLElement>(".part");
+  const element = active
+    ? [active.localName, ...[...active.classList].slice(0, 2)].join(".") +
+      (active.id ? `#${active.id}` : "")
+    : "nothing";
+  return {
+    webview: active instanceof HTMLIFrameElement && active.classList.contains("webview"),
+    sideBar: part?.classList.contains("sidebar") === true,
+    where: part?.id || element,
+  };
+};
+
+export const devicePixelRatioProbe = (): number => window.devicePixelRatio;

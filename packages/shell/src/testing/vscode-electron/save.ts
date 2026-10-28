@@ -1,4 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
+import { delay } from "./wait.js";
 
 /** One read of the file between two `stat` calls. */
 export interface FileSample {
@@ -37,8 +38,6 @@ export type SavedTextOutcome<T> =
 
 const DEFAULT_INTERVAL_MS = 100;
 const DEFAULT_SETTLE_MS = 1_000;
-
-const delay = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
 
 async function sampleFile(path: string): Promise<FileSample | undefined> {
   try {

@@ -99,10 +99,14 @@ jobs:
       # is Linux with VS Code's libraries already, and the cache above keeps VS Code on the runner,
       # where a Docker volume would start empty on every run. The runner is thrown away anyway, so the
       # run keeps VS Code's profile in RUNNER_TEMP, for its logs when it fails.
+      # VSCODE_SMOKE_OPT_IN runs the driver's opt-in steps for every modeler without a change to their
+      # tests, which would release each extension for a test change. The release workflow's smoke of
+      # the VSIX it publishes leaves them out until they are the driver's default.
       - run: xvfb-run -a npm run "$MODELER" test:vscode
         env:
           VSCODE_VERSION: ${{ steps.vscode.outputs.version }}
           VSCODE_SMOKE_KEEP: "1"
+          VSCODE_SMOKE_OPT_IN: keys
           TMPDIR: ${{ runner.temp }}
 
       - if: always()

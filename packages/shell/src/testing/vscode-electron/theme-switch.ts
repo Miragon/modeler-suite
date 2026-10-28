@@ -1,5 +1,6 @@
 import type { ColorThemeKind } from "../vscode-stub.js";
 import { VSCODE_COLOR_THEMES, workbenchThemeClass, type VsCodeColorTheme } from "./themes.js";
+import { delay } from "./wait.js";
 
 /** The color theme `.monaco-workbench` shows. */
 export interface WorkbenchTheme {
@@ -42,8 +43,6 @@ const DEFAULT_INTERVAL_MS = 100;
 const THEME_TYPE_CLASSES: readonly string[] = VSCODE_COLOR_THEMES.map(({ kind }) =>
   workbenchThemeClass(kind),
 );
-
-const delay = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
 
 function seconds(ms: number): string {
   return `${(ms / 1000).toFixed(1)} s`;
