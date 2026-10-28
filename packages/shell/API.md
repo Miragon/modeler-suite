@@ -650,12 +650,17 @@ passes `lang` together with its messages.
 **The embedded root's mode** (§13.3). The token CSS resolves the roles on the nearest
 `[data-cd-theme]`, so a root without one would take the mode of a themed host page (designIQ, a web
 app on `system` under a dark OS) and be half-dark against its light-drawn diagram. The `embedded`
-root therefore carries `data-cd-theme="<themes[0]>"` itself (until the contract's `appearance`
-surface, planned for a later 1.x minor of `@miragon/modeler-api`, there is no channel to ask an
-embedded modeler for another mode, so it stays in its first one), and mirrors the host's
-`data-cd-kontrast` from the nearest mode carrier above it for as long as it lives (a
-`MutationObserver` on the document's `data-cd-theme`/`data-cd-kontrast` attributes), because its own
-`data-cd-theme` would otherwise drop the host's high contrast. In the `ide` host the
+root therefore carries `data-cd-theme="<themes[0]>"` itself and stays in that mode whatever the
+page shows, and mirrors the host's `data-cd-kontrast` from the nearest mode carrier above it for as
+long as it lives (a `MutationObserver` on the document's `data-cd-theme`/`data-cd-kontrast`
+attributes), because its own `data-cd-theme` would otherwise drop the host's high contrast. The
+shell takes no mode request of its own: an embedding host asks the renderer through the optional
+`appearance` surface of `@miragon/modeler-api` 1.5 (`set({ theme, contrast })`), and the renderer
+draws a theme its `themes` does not list as `themes[0]`, so the root of a light-only modeler shows
+the mode its canvas draws whatever the host requests. A host that requests high contrast shows it on
+its page as well (`data-cd-kontrast="hoch"` on the nearest mode carrier above the root), where the
+root takes it from. For a modeler whose `themes` lists `"dark"` the root does not follow the
+request yet (see [Out of scope for 0.7](#out-of-scope-for-07)). In the `ide` host the
 host writes the mode on `<html>` and `themes` is not read; in the `web` host the page's head script
 writes it before the first paint and `themes` decides whether the shell renders the Appearance
 group (see [Mode](#mode-133)). An empty `themes` throws before anything is mounted.
@@ -1244,7 +1249,9 @@ rule of guide §5.13 (design system 1.13.0).
 keys (the chrome keys prevent the browser's page zoom), fit insets and the pill and legend offsets;
 0.2 renders the rest of the column. Everything in this section is read in the `web` host only and
 ignored by `ide` and `embedded` hosts, except toasts and the problems popover, which an embedded
-modeler shows as well (§5.2: until the contract has a channel for messages to the host).
+modeler shows as well. The embedding host owns all feedback and shows it through `shell.toast()` or
+its own notifications: no channel for messages to the host is planned (`@miragon/modeler-api` 1.5
+dropped it from its roadmap, since no renderer produces user messages).
 `mountVsCodeShell` does not accept these options at all; the IDE host is unchanged.
 
 | Anchor (§5.2) | Web app                                                  | Option → handle                         | `data-chrome`                                     |
@@ -3885,8 +3892,11 @@ Later candidates unless noted:
   the rules of [Modeler dialogs](#modeler-dialogs) itself.
 - **Placement helper** for palette keyboard creation: the 24px diagonal steps when the centre of the
   free rectangle is taken (§5.5), next to `Viewport.freeRectCenter()`.
-- the `appearance` surface of the modeler-api contract (a later 1.x minor) for embedded hosts and
-  the `miragon.<modeler>.colorTheme` setting UI (the bridge already honours `settingKey`).
+- An embedded root that follows the host's mode request for a modeler whose `themes` lists
+  `"dark"`: the root stays in `themes[0]` while the host asks the renderer through the contract's
+  `appearance` surface (`@miragon/modeler-api` 1.5), which a light-only modeler answers in
+  `themes[0]` as well.
+- The `miragon.<modeler>.colorTheme` setting UI (the bridge already honours `settingKey`).
 - **VS Code smoke driver** (`./testing/vscode-electron`): keeping a local run on macOS in the
   background (no focus change; the Docker command is the way until then), a reused `node_modules`
   between Docker runs; viewbox and selection kept across the

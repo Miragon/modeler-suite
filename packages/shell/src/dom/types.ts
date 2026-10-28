@@ -39,8 +39,9 @@ export interface ShellOptions {
   /**
    * The modes the modeler can show (a static value of the modeler package), default `["light"]`.
    * Read in the `embedded` and `web` hosts. Embedded: the root carries `data-cd-theme="<themes[0]>"`
-   * itself (until the contract's `appearance` surface an embedded modeler stays in its first mode,
-   * whatever the page shows) and mirrors the host's `data-cd-kontrast` (guide §13.3). Web: with
+   * itself, whatever the page shows, and mirrors the host's `data-cd-kontrast` (guide §13.3); the
+   * host asks the renderer for a mode through the contract's `appearance` surface
+   * (`@miragon/modeler-api` 1.5), which a light-only renderer answers in `themes[0]` too. Web: with
    * `"dark"` the shell renders the Appearance group and applies the choice on `<html>` (needs
    * `appearance`); light-only it renders no group. In the `ide` host the host writes the mode.
    */
