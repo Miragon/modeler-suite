@@ -894,7 +894,8 @@ Run from the repository root (`-w packages/shell` for this package only):
 npm run build -w packages/shell         # tsup: ESM + CJS + d.ts, dist/shell.css
 npm run typecheck -w packages/shell     # src, core without the DOM library, demo
 npm test -w packages/shell              # Vitest: node (core, boundaries) and happy-dom projects
-npx playwright install chromium webkit  # once; webkit for e2e/pointer-focus.spec.ts
+npx playwright install chromium webkit  # once; webkit for test:browser and e2e/pointer-focus.spec.ts
+npm run test:browser -w packages/shell  # Vitest browser mode: ./export in Chromium and WebKit
 npm run test:e2e -w packages/shell      # Playwright against demo/
 npm run demo -w packages/shell          # the demo page on http://localhost:5181
 ```

@@ -2302,9 +2302,10 @@ interface GeistFace {
   readonly style?: string | undefined; // default "normal"
 }
 interface PngExportOptions {
-  readonly background: string; // a CSS colour, or "transparent"
+  readonly background: string; // a value of the tokens' hell, or "transparent"
   readonly scale?: number | undefined; // default 2
   readonly fonts?: readonly GeistFace[] | undefined; // default pageGeistFaces()
+  readonly onFontFallback?: ((reason: unknown) => void) | undefined; // the labels fell back
 }
 function svgToPng(svg: string, options: PngExportOptions): Promise<Blob>;
 function embedGeist(svg: string, faces?: readonly GeistFace[]): Promise<string>; // default pageGeistFaces()
@@ -2330,10 +2331,15 @@ names no colour of its own:
 | Export as PNG, Event Storming, Team Topologies, Context Maps, Value Chain | `hell['--cd-ui-grund']`     | `#F9F7F7`   |
 | Export as PNG (4×, transparent), every modeler                            | `"transparent"`, `scale: 4` | none        |
 
-A `background` that is no CSS colour is a `RangeError` (a canvas would keep its black fill style).
-What the SVG paints itself lies on top: a sheet across the whole picture hides the background.
+Pass the value itself, never `var(--cd-ui-grund)`: a canvas resolves no custom property. A
+`background` a canvas cannot fill is a `RangeError`, since the canvas would keep its black fill
+style: no CSS colour, and also what `CSS.supports("color", …)` accepts but only an element resolves
+(`var()`, `inherit`, `initial`, `unset`), and `currentcolor` and `light-dark()`, which follow the
+element or the mode where an export is always light (§10.7). What the SVG paints itself lies on top:
+a sheet across the whole picture hides the background.
 
-**Size.** The PNG is the root `<svg>`'s `width` and `height` in pixels, else its `viewBox`, else
+**Size.** The PNG is the root `<svg>`'s `width` and `height` in pixels (with only one of them, the
+other from the `viewBox`'s ratio, as the browser sizes the image), else its `viewBox`, else
 1000 × 700, times `scale` (default 2, §10.7; 4 for the transparent variant; a scale that is no
 positive finite number is a `RangeError`). Where that passes 32,767 pixels per side or 2^27 in all,
 the scale goes down in proportion, so a huge diagram still exports at a lower density. A browser
@@ -2357,9 +2363,18 @@ reach it and it loads nothing from outside, so without help its labels come out 
 It loads the result through a `data:` URL, never a `blob:` URL: the MCP Apps default CSP for a widget
 (`img-src 'self' data:`) refuses `blob:` images, while the `data:` fonts inside the SVG image load
 under a strict `font-src` (designIQ checked Chromium and WebKit). It waits for `load` and then for
-`image.decode()`, since `load` can fire before an embedded font is ready. A face whose file cannot be
-read leaves the PNG in the system sans with a `console.warn` (a PNG in the system sans beats no PNG);
-an SVG that does not parse or that the browser cannot draw rejects.
+`image.decode()`, since `load` can fire before an embedded font is ready. A lone surrogate in the
+text (diagram-js's text layout leaves one where it breaks a word inside an emoji) is drawn as
+U+FFFD, the replacement character.
+
+**Failures.** A face whose file cannot be read leaves the labels in the system sans, since a PNG in
+the system sans beats no PNG: the promise still resolves, `onFontFallback` gets the reason, and a
+`console.warn` names it. The console reaches no user (§9), so the app passes `onFontFallback` and
+warns once the PNG is saved: a toast in `--cd-ui-warning` in the web app, a warning notification in
+an IDE host, for example "Exported map.png in a system font. Geist couldn't be embedded." An SVG
+that does not parse, or that the browser cannot draw or cannot fit on a canvas, rejects. The
+rejections name the package and are meant for the developer, so the app shows its own text (§2),
+not `error.message`: "Couldn't export the map as PNG. Try again, or export it as SVG."
 
 **Where the faces come from.** Left out, `fonts` is `pageGeistFaces()`: every `@font-face` of
 'Geist Variable' in the page's stylesheets (also inside `@media`, `@supports`, `@layer` and
@@ -2389,6 +2404,7 @@ const forSlides = await svgToPng(svg, { background: "transparent", scale: 4 });
 // VS Code webview
 import latin from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?dataurl";
 import latinExt from "@fontsource-variable/geist/files/geist-latin-ext-wght-normal.woff2?dataurl";
+import tokens from "./theme/cd-tokens.generated.json";
 import { GEIST_UNICODE_RANGES, svgToPng, type GeistFace } from "@miragon/modeler-shell/export";
 
 const GEIST: GeistFace[] = [

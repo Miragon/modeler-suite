@@ -29,7 +29,8 @@ const FALLBACK_SIZE: PixelSize = { width: 1000, height: 700 };
 /**
  * The root's own `width` and `height` in pixels, else its `viewBox`. Reads the root element only:
  * a pattern over the text would take the width of the first nested element when the root has a
- * relative size such as `100%`.
+ * relative size such as `100%`. With one side in pixels, the other follows the `viewBox`'s ratio,
+ * as the browser sizes the image, so the drawing is not stretched.
  */
 export function svgSize(root: Element): PixelSize {
   const width = absoluteLength(root.getAttribute("width"));
@@ -41,7 +42,9 @@ export function svgSize(root: Element): PixelSize {
     .map(Number);
   const [, , viewBoxWidth = NaN, viewBoxHeight = NaN] = viewBox;
   if (viewBox.length === 4 && viewBoxWidth > 0 && viewBoxHeight > 0) {
-    return { width: width ?? viewBoxWidth, height: height ?? viewBoxHeight };
+    if (width !== undefined) return { width, height: (width * viewBoxHeight) / viewBoxWidth };
+    if (height !== undefined) return { width: (height * viewBoxWidth) / viewBoxHeight, height };
+    return { width: viewBoxWidth, height: viewBoxHeight };
   }
   return { width: width ?? FALLBACK_SIZE.width, height: height ?? FALLBACK_SIZE.height };
 }

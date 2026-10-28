@@ -106,7 +106,8 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
 - **Shared code changes reach every modeler at once.** The modelers pin the workspace's current
   `@miragon/modeler-api` and `@miragon/modeler-shell` and npm links them, so a change in
   `packages/` is live in all five: rebuild (`npm run build:shared`) and run the affected modelers'
-  `test:browser` (contract) or `test:e2e` (shell) before pushing.
+  `test:browser` (contract) or `test:e2e` (shell) before pushing, and `npm run test:browser:shared`
+  (the shell's `./export` in Chromium and WebKit) after a change to the shell.
 
 ## Dependencies
 

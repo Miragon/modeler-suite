@@ -3,9 +3,10 @@ import { parseSvg, svgSize, type PixelSize } from "./svg.js";
 
 export interface PngExportOptions {
   /**
-   * What lies under the drawing, a CSS colour (guide §10.7): `hell['--cd-ui-plot']` of the
-   * vendored `cd-tokens.generated.json` for a notation with a plot (Wardley Maps),
+   * What lies under the drawing, a colour a canvas fills (guide §10.7): `hell['--cd-ui-plot']` of
+   * the vendored `cd-tokens.generated.json` for a notation with a plot (Wardley Maps),
    * `hell['--cd-ui-grund']` for the others, `"transparent"` for "Export as PNG (4×, transparent)".
+   * Never a `var()`: a canvas resolves no custom property, and an export is always light.
    */
   readonly background: string;
   /**
@@ -15,6 +16,12 @@ export interface PngExportOptions {
   readonly scale?: number | undefined;
   /** The Geist faces to embed: the page's own (`pageGeistFaces()`) when left out, none with `[]`. */
   readonly fonts?: readonly GeistFace[] | undefined;
+  /**
+   * Called with the reason when a face cannot be embedded and the labels fall back to the system
+   * sans; the PNG still resolves. The app tells the user (guide §9: a warning toast in the web app,
+   * a warning notification in an IDE host), since the console reaches no user.
+   */
+  readonly onFontFallback?: ((reason: unknown) => void) | undefined;
 }
 
 const DEFAULT_SCALE = 2;
@@ -38,11 +45,13 @@ export async function svgToPng(svg: string, options: PngExportOptions): Promise<
     throw new RangeError(`@miragon/modeler-shell: svgToPng takes a positive scale, got ${scale}.`);
   }
   const background = options.background === "transparent" ? undefined : options.background;
-  if (background !== undefined && !CSS.supports("color", background)) {
-    throw new RangeError(`@miragon/modeler-shell: svgToPng got "${background}", no CSS colour.`);
+  if (background !== undefined && !isCanvasColour(background)) {
+    throw new RangeError(
+      `@miragon/modeler-shell: svgToPng got "${background}", no colour a canvas fills; pass a value of the tokens' hell.`,
+    );
   }
   const size = svgSize(parseSvg(svg).documentElement);
-  const image = await loadImage(await inGeist(svg, options.fonts));
+  const image = await loadImage(await inGeist(svg, options));
   for (const pixels of attemptSizes(size, scale)) {
     const png = await drawPng(image, pixels, background);
     if (png) return png;
@@ -82,12 +91,28 @@ function attemptSizes(size: PixelSize, scale: number): PixelSize[] {
   return sizes;
 }
 
-async function inGeist(svg: string, fonts: readonly GeistFace[] | undefined): Promise<string> {
+/**
+ * `CSS.supports` alone lets through what only an element resolves (`var()`, `inherit`, `initial`,
+ * `unset`): a canvas ignores it and keeps its black fill style. So the value has to replace a
+ * gradient fill style with a colour. `currentcolor` and `light-dark()` follow the element or the
+ * mode, while an export is always light (§10.7).
+ */
+function isCanvasColour(background: string): boolean {
+  if (/\b(?:currentcolor|light-dark)\b/i.test(background)) return false;
+  const context = document.createElement("canvas").getContext("2d");
+  if (!context) return CSS.supports("color", background);
+  context.fillStyle = context.createLinearGradient(0, 0, 1, 1);
+  context.fillStyle = background;
+  return typeof context.fillStyle === "string";
+}
+
+async function inGeist(svg: string, options: PngExportOptions): Promise<string> {
   try {
-    return await embedGeist(svg, fonts);
+    return await embedGeist(svg, options.fonts);
   } catch (error) {
     // A PNG in the system sans beats no PNG.
     console.warn("@miragon/modeler-shell: the PNG falls back to the system sans:", error);
+    options.onFontFallback?.(error);
     return svg;
   }
 }
@@ -100,8 +125,10 @@ async function loadImage(svg: string): Promise<HTMLImageElement> {
       reject(new Error("@miragon/modeler-shell: the browser could not draw the SVG."));
   });
   // A data: URL, since a widget's content security policy may refuse blob: images (the MCP Apps
-  // default is img-src 'self' data:).
-  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  // default is img-src 'self' data:). encodeURIComponent throws on a lone surrogate, which
+  // diagram-js's text layout leaves where it breaks a word inside an emoji.
+  const wellFormed = svg.replace(/[\uD800-\uDFFF]/gu, "\uFFFD");
+  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(wellFormed)}`;
   await loaded;
   // load can fire before an embedded font is ready; decode() waits for it.
   await image.decode().catch(() => undefined);

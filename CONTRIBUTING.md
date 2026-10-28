@@ -23,7 +23,7 @@ Node `^22.22.2` or `>=24.15.0` and npm. From the repository root:
 ```sh
 npm ci                              # every workspace; also installs the pre-commit hook
 npm run build:shared                # @miragon/modeler-api and @miragon/modeler-shell
-npx playwright install chromium webkit  # once; WebKit only for the e2e of the shell, Wardley Maps, Event Storming, Context Maps, Team Topologies and Value Chain
+npx playwright install chromium webkit  # once; WebKit for the shell's browser tests and the e2e of the shell, Wardley Maps, Event Storming, Context Maps, Team Topologies and Value Chain
 ```
 
 The modelers link the workspace's `@miragon/modeler-api` and `@miragon/modeler-shell` and read
@@ -242,7 +242,8 @@ the accessible name`. A pull request with a single commit must carry the title a
   touched `npm run <modeler> depcruise`, `test:browser`, `test:e2e` and `npm run build`; for a web
   app change `npm run <modeler> build:webapp` with `npm run check:build -w modelers/<modeler>/apps/webapp`;
   for a change to an extension, a DSL, a schema model or a dependency `npm run <modeler> test:vscode:docker`;
-  for a change to `packages/` the modelers' kits (`test:browser`, `test:e2e`) and `npm run publint`.
+  for a change to `packages/` the modelers' kits (`test:browser`, `test:e2e`), the shell's browser
+  tests (`npm run test:browser:shared`) and `npm run publint`.
 
 ## Releases
 

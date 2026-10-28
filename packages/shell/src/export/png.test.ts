@@ -61,6 +61,18 @@ describe("svgToPng: size and background", () => {
     expect(await dimensions(await svgToPng(sized(""), options))).toEqual([2000, 1400]);
   });
 
+  it("takes the other side from the viewBox's ratio where the root has only one side in pixels", async () => {
+    const options = { background: PLOT, fonts: [] };
+    expect(
+      await dimensions(await svgToPng(sized('width="150" viewBox="0 0 300 100"'), options)),
+    ).toEqual([300, 100]);
+    expect(
+      await dimensions(
+        await svgToPng(sized('width="100%" height="50" viewBox="0 0 300 100"'), options),
+      ),
+    ).toEqual([300, 100]);
+  });
+
   it("fills the background it is given (guide §10.7), and none for the transparent variant", async () => {
     const svg = sized('width="40" height="40"');
     const corner = async (background: string): Promise<number[]> =>
@@ -68,17 +80,35 @@ describe("svgToPng: size and background", () => {
     expect(await corner(PLOT)).toEqual([255, 255, 255, 255]);
     expect(await corner(GRUND)).toEqual([249, 247, 247, 255]);
     expect((await corner("transparent"))[3]).toBe(0);
+    expect(await corner("black")).toEqual([0, 0, 0, 255]);
     const drawing = pixelAt(await pngPixels(await svgToPng(svg, { background: GRUND })), 40, 40);
     expect(drawing).toEqual([0, 0, 0, 255]);
   });
 
-  it("refuses a scale that is no positive number, a background that is no colour and an SVG that does not parse", async () => {
+  it("refuses a scale that is no positive number and an SVG that does not parse", async () => {
     const svg = sized('width="10" height="10"');
     for (const scale of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
       await expect(svgToPng(svg, { background: PLOT, scale })).rejects.toThrow(RangeError);
     }
-    await expect(svgToPng(svg, { background: "--cd-ui-plot" })).rejects.toThrow(/no CSS colour/);
     await expect(svgToPng("<svg", { background: PLOT })).rejects.toThrow(/does not parse/);
+  });
+
+  it("refuses a background a canvas cannot fill, which would leave it black, also what CSS.supports accepts", async () => {
+    const svg = sized('width="10" height="10"');
+    const refused = [
+      "--cd-ui-plot",
+      "var(--cd-ui-grund)",
+      "inherit",
+      "initial",
+      "unset",
+      "currentcolor",
+      "light-dark(white, black)",
+    ];
+    for (const background of refused) {
+      await expect(svgToPng(svg, { background, fonts: [] }), background).rejects.toThrow(
+        /no colour a canvas fills/,
+      );
+    }
   });
 });
 
@@ -98,6 +128,32 @@ describe("svgToPng: loading", () => {
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(sources).toHaveLength(1);
     expect(sources[0]?.startsWith("data:image/svg+xml;charset=utf-8,")).toBe(true);
+  });
+
+  it("awaits image.decode() after load and before drawing, since load can fire before a font is ready", async () => {
+    const drawImage = vi.spyOn(CanvasRenderingContext2D.prototype, "drawImage");
+    const decodeOriginal = HTMLImageElement.prototype.decode;
+    const seenByDecode: { loaded: boolean; drawnBeforeDecoded: number }[] = [];
+    const decode = vi
+      .spyOn(HTMLImageElement.prototype, "decode")
+      .mockImplementation(async function (this: HTMLImageElement) {
+        const loaded = this.complete && this.naturalWidth > 0;
+        await decodeOriginal.call(this);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        seenByDecode.push({ loaded, drawnBeforeDecoded: drawImage.mock.calls.length });
+      });
+    await svgToPng(await labelSvg("Tea"), { background: PLOT });
+    expect(decode).toHaveBeenCalledOnce();
+    expect(seenByDecode).toEqual([{ loaded: true, drawnBeforeDecoded: 0 }]);
+    expect(drawImage).toHaveBeenCalledOnce();
+    expect(drawImage.mock.calls[0]?.[0]).toBe(decode.mock.contexts[0]);
+  });
+
+  it("draws text with a lone surrogate, as diagram-js leaves where it breaks a word inside an emoji", async () => {
+    const svg = `<svg xmlns="${SVG_NAMESPACE}" width="60" height="20"><text y="15">Tea \uD83D</text></svg>`;
+    expect(await dimensions(await svgToPng(svg, { background: GRUND, fonts: [] }))).toEqual([
+      120, 40,
+    ]);
   });
 
   it("draws a canvas the browser refuses again at iOS Safari's limit, and fails when that is refused too", async () => {
@@ -165,8 +221,10 @@ describe("svgToPng: Geist", () => {
     const label = "Tier 1 Support 1111";
     const { geist, fallback } = await pageDrawings(label);
     const svg = await labelSvg(label);
-    await expectNearer(await svgToPng(svg, { background: PLOT }), geist, fallback);
+    const onFontFallback = vi.fn();
+    await expectNearer(await svgToPng(svg, { background: PLOT, onFontFallback }), geist, fallback);
     await expectNearer(await svgToPng(svg, { background: PLOT, fonts: [] }), fallback, geist);
+    expect(onFontFallback).not.toHaveBeenCalled();
   });
 
   it("loads every subset a label needs, also one only a later character asks for", async () => {
@@ -193,18 +251,22 @@ describe("svgToPng: Geist", () => {
     await expectNearer(png, geist, fallback);
   });
 
-  it("draws in the fallback, with a warning, when a font file cannot be read", async () => {
+  it("draws in the fallback, and tells the caller, when a font file cannot be read", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const label = "Tier 1 Support 1111";
     const { geist, fallback } = await pageDrawings(label);
     const svg = await labelSvg(label);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 404 }));
+    const onFontFallback = vi.fn();
     const png = await svgToPng(svg, {
       background: PLOT,
       fonts: [
         { src: "/fonts/missing/geist-latin.woff2", unicodeRange: GEIST_UNICODE_RANGES.latin },
       ],
+      onFontFallback,
     });
+    expect(onFontFallback).toHaveBeenCalledOnce();
+    expect(String(onFontFallback.mock.calls[0]?.[0])).toMatch(/answered 404/);
     expect(warn).toHaveBeenCalledOnce();
     expect(String(warn.mock.calls[0]?.[0])).toMatch(/falls back to the system sans/);
     expect((await pngPixels(png)).width).toBe(LABEL.width * SCALE);

@@ -215,6 +215,11 @@ notation's light background, no grid).
   images. Then `image.decode()` after `load`, which can fire before an embedded font is ready.
 - **VS Code cannot fetch its fonts.** The webview CSP has no `connect-src`, so the webview passes its
   Geist files to `svgToPng` as `data:` URLs from its script; the stylesheet keeps them as files.
+- **A background the canvas can fill.** `CSS.supports("color", …)` accepts `var()` and the CSS-wide
+  keywords, which a canvas ignores, so the PNG came out black. The check sets the value over a
+  gradient fill style and wants a colour back; `currentcolor` and `light-dark()` are refused by name.
+- **The fallback reaches the app.** A font that cannot be read still gives a PNG, in the system
+  sans, and `onFontFallback` lets the app say so: a `console.warn` alone reaches no user (guide §9).
 - **Measure against a far fallback.** The tests compare a label's ink width in the PNG with the
   page's own drawing in Geist and in a fallback. On Linux the system sans and monospace came within
   a few pixels of Geist for some labels, and the canvas and an SVG image round glyph positions
