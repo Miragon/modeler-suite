@@ -155,9 +155,22 @@ describe("documentProblems", () => {
   it("reads brackets inside strings as text when it measures the nesting", () => {
     const text = EXAMPLE_DOCUMENT.replace(
       '"schemaVersion": 1',
-      `"x-note": "${'[{\\"'.repeat(MAX_NESTING_DEPTH)}",\n  "schemaVersion": 1`,
-    );
-    expect(documentProblems(text)).toEqual([]);
+      `"x-note": "${'[{\\"'.repeat(levelsBeyondTheTreeParser)}",\n  "schemaVersion": 1`,
+    ).replace('"width": 160', '"width": 0');
+    const [problem, ...rest] = documentProblems(text);
+    expect(rest).toEqual([]);
+    expect(at(text, problem!.offset)).toMatch(/^0,/);
+    expect(problem!.length).toBe(1);
+  });
+
+  it.each([
+    ["a line comment", `// ${"[".repeat(levelsBeyondTheTreeParser)}\n${EXAMPLE_DOCUMENT}`],
+    ["a block comment", `/* ${"{".repeat(levelsBeyondTheTreeParser)} */\n${EXAMPLE_DOCUMENT}`],
+  ])("reads brackets inside %s as text when it measures the nesting", (_, text) => {
+    const [problem, ...rest] = documentProblems(text);
+    expect(rest).toEqual([]);
+    expect(problem!.message).toBe("Invalid JSON: Invalid comment token.");
+    expect(problem!.offset).toBe(0);
   });
 
   it("reports a newer schema version at schemaVersion", () => {
