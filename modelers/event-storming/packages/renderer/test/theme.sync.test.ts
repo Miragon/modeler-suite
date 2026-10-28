@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { MIRAGON } from "../src/theme/palette.js";
+import { CHROME_SPACING, MIRAGON } from "../src/theme/palette.js";
 import {
   COLORS,
   NOTE_STYLE,
@@ -126,6 +126,8 @@ describe("theme.sync — event-storming.css takes every colour from the roles", 
       ".event-storming-container .event-storming-note-toolbar",
       ".event-storming-container .event-storming-color-picker",
       ".event-storming-container .event-storming-label-input",
+      ".event-storming-container .event-storming-label-suggestions",
+      ".event-storming-container .event-storming-spelling-tooltip",
     ]) {
       expect(zIndexOf(overlay), overlay).toBeLessThanOrEqual(100);
     }
@@ -266,6 +268,11 @@ describe("theme.sync — MIRAGON mirrors the vendored design-system tokens", () 
     expect(MIRAGON.warning).toBe(tokens.fest["--cd-warning"]);
     expect(MIRAGON.danger).toBe(tokens.fest["--cd-danger"]);
     expect(MIRAGON.info).toBe(tokens.fest["--cd-info"]);
+  });
+
+  it("CHROME_SPACING is the shell group's edge and gap", () => {
+    expect(`${CHROME_SPACING.rand}px`).toBe(tokens.shell["--cd-shell-rand"]);
+    expect(`${CHROME_SPACING.luecke}px`).toBe(tokens.shell["--cd-shell-luecke"]);
   });
 });
 

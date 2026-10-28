@@ -30,6 +30,8 @@ export const LUCIDE = {
   "align-vertical-justify-end":
     '<rect width="14" height="6" x="5" y="12" rx="2"/><rect width="10" height="6" x="7" y="2" rx="2"/><path d="M2 22h20"/>',
   x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  "spell-check":
+    '<path d="m20 15-5.5 5.5L12 18"/><path d="m4 16 6-12 5.115 10.23"/><path d="M6 12h8"/>',
 } as const;
 
 export type LucideIconName = keyof typeof LUCIDE;

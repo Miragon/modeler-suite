@@ -28,11 +28,13 @@ import { eventStormingOrderingModule } from "./ordering/index.js";
 import { eventStormingDrawToolModule } from "./draw-tool/index.js";
 import { eventStormingResizeModule } from "./resize/index.js";
 import { eventStormingReadOnlyModule } from "./read-only/index.js";
+import { eventStormingVocabularyModule } from "./vocabulary/index.js";
 
 /**
  * Full Event Storming editor: palette/create, free move with sticky-center snapping, connect
- * with rules, context pad, inline label editing, undo/redo, pinning of actor/hotspot stickies,
- * free resizing of notes, and the edit lock for an invalid document (`eventStormingReadOnly`).
+ * with rules, context pad, inline label editing with suggestions from the board's vocabulary,
+ * spelling variants marked and unified, undo/redo, pinning of actor/hotspot stickies, free
+ * resizing of notes, and the edit lock for an invalid document (`eventStormingReadOnly`).
  */
 export class Modeler extends NavigatedViewer {
   protected override _getModules(): ModuleDeclaration[] {
@@ -63,6 +65,7 @@ export class Modeler extends NavigatedViewer {
       eventStormingOrderingModule,
       eventStormingDrawToolModule,
       eventStormingResizeModule,
+      eventStormingVocabularyModule,
     ];
   }
 

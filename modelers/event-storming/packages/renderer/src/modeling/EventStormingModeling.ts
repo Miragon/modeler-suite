@@ -17,8 +17,10 @@ import {
 import type { RootBusinessObject } from "../io/types.js";
 import { STICKY_STYLES, isManualNoteBox, noteMetrics } from "../draw/styles.js";
 import UpdatePropertiesHandler from "./cmd/UpdatePropertiesHandler.js";
+import UpdateLabelsHandler, { type LabelChange } from "./cmd/UpdateLabelsHandler.js";
 
 const UPDATE_PROPERTIES = "element.updateProperties";
+const UPDATE_LABELS = "elements.updateLabels";
 
 /**
  * High-level mutations on Event Storming elements that run through the commandStack (undo/redo).
@@ -33,6 +35,7 @@ export default class EventStormingModeling {
     private readonly elementRegistry: ElementRegistry,
   ) {
     commandStack.registerHandler(UPDATE_PROPERTIES, UpdatePropertiesHandler);
+    commandStack.registerHandler(UPDATE_LABELS, UpdateLabelsHandler);
   }
 
   updateProperties(
@@ -63,6 +66,20 @@ export default class EventStormingModeling {
       return;
     }
     this.updateProperties(element, { eventStormingLabel: label });
+  }
+
+  /**
+   * Renames several fixed-size stickies in one command, one undo step (unifying a spelling). A
+   * change that keeps a sticky's label still marks the sticky as changed, so what shows for it
+   * (its context pad) follows the rename of the others. Notes resize to their text, so they take
+   * `updateLabel` one by one.
+   */
+  updateLabels(changes: readonly LabelChange[]): void {
+    if (changes.every(({ element, label }) => element.eventStormingLabel === label)) return;
+    if (changes.some(({ element }) => !isStickyKind(element.eventStormingType))) {
+      throw new Error("updateLabels: only fixed-size stickies are renamed together");
+    }
+    this.commandStack.execute(UPDATE_LABELS, { changes });
   }
 
   /**

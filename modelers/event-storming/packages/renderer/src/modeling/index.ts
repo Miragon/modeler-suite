@@ -15,3 +15,4 @@ export const eventStormingModelingModule: ModuleDeclaration = {
 
 export { default as EventStormingModeling } from "./EventStormingModeling.js";
 export { default as EventStormingCopyPaste } from "./EventStormingCopyPaste.js";
+export type { LabelChange } from "./cmd/UpdateLabelsHandler.js";

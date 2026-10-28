@@ -20,6 +20,7 @@ import type EventStormingModeling from "../modeling/EventStormingModeling.js";
 import type EventStormingLabelEditing from "../label-editing/EventStormingLabelEditing.js";
 import type EventStormingElementFactory from "../model/EventStormingElementFactory.js";
 import type EventStormingColorPicker from "../color-picker/EventStormingColorPicker.js";
+import type EventStormingSpellingVariants from "../vocabulary/EventStormingSpellingVariants.js";
 import { POPUP_PROVIDER_ID } from "../popup/index.js";
 import { READ_ONLY_CHANGED_EVENT, type EventStormingReadOnly } from "../read-only/index.js";
 import { chromeIcon, type LucideIconName } from "../draw/lucide.js";
@@ -33,7 +34,16 @@ const APPEND_TITLE = "Append sticky (auto-connect, choose the type after placing
  * `dragstart` action — otherwise diagram-js does not fire the drag.
  */
 function cpHtml(icon: LucideIconName, title: string, draggable = false): string {
-  return `<div class="entry event-storming-cp-entry"${draggable ? ' draggable="true"' : ""} title="${title}">${chromeIcon(icon)}</div>`;
+  return `<div class="entry event-storming-cp-entry"${draggable ? ' draggable="true"' : ""} title="${escapeAttribute(title)}">${chromeIcon(icon)}</div>`;
+}
+
+/** A title that quotes a sticky's label, which may hold any character, as an HTML attribute. */
+function escapeAttribute(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 /** Context actions per element. */
@@ -51,6 +61,7 @@ export default class EventStormingContextPadProvider implements ContextPadProvid
     "eventBus",
     "eventStormingReadOnly",
     "canvas",
+    "eventStormingSpellingVariants",
   ];
 
   constructor(
@@ -66,6 +77,7 @@ export default class EventStormingContextPadProvider implements ContextPadProvid
     eventBus?: EventBus,
     private readonly readOnly?: Pick<EventStormingReadOnly, "isReadOnly">,
     private readonly canvas?: Pick<Canvas, "focus" | "getContainer">,
+    private readonly spellingVariants?: Pick<EventStormingSpellingVariants, "variantOf" | "unify">,
   ) {
     contextPad.registerProvider(this);
     eventBus?.on(READ_ONLY_CHANGED_EVENT, (event: { readOnly?: boolean }) => {
@@ -185,6 +197,18 @@ export default class EventStormingContextPadProvider implements ContextPadProvid
         title: "Edit label",
         html: cpHtml("pencil", "Edit label"),
         action: { click: () => this.labelEditing.activate(shape) },
+      };
+    }
+
+    const spellingVariants = this.spellingVariants;
+    if (spellingVariants?.variantOf(shape)) {
+      const spelling = shape.eventStormingLabel.replace(/\r?\n/g, " ");
+      const title = `Unify spelling to “${spelling}”`;
+      entries["unify-spelling"] = {
+        group: "edit",
+        title,
+        html: cpHtml("spell-check", title),
+        action: { click: this.focusingCanvas(() => spellingVariants.unify(shape)) },
       };
     }
 

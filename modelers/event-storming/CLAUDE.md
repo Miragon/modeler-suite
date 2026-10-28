@@ -18,14 +18,14 @@ links them to the local workspace because the local version satisfies the pin); 
 to exact pins are the consumer-shared runtime libs declared as ranged `peerDependencies` (see
 Conventions).
 
-| Package                                | Purpose                                                             | DOM |
-| -------------------------------------- | ------------------------------------------------------------------- | --- |
-| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, timeline sort, JSON serialization  | no  |
-| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                     | no  |
-| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms (move, …) | no  |
-| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export, CSS          | yes |
-| `apps/webapp`                          | Vite demo editor                                                    | yes |
-| `apps/vscode`                          | VS Code extension: custom editor for `.storm`                       | yes |
+| Package                                | Purpose                                                                        | DOM |
+| -------------------------------------- | ------------------------------------------------------------------------------ | --- |
+| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, timeline sort, JSON serialization, vocabulary | no  |
+| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                                | no  |
+| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms (move, …)            | no  |
+| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export, CSS                     | yes |
+| `apps/webapp`                          | Vite demo editor                                                               | yes |
+| `apps/vscode`                          | VS Code extension: custom editor for `.storm`                                  | yes |
 
 **P1, the DOM boundary:** the DOM-free packages (`schema-model`, `dsl`, `transforms`) must **never**
 import `diagram-js`/DOM libraries (`tiny-svg`, `min-dom`) or use the DOM (`window`/`document`).

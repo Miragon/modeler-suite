@@ -362,20 +362,125 @@
   );
 }
 
+/* The label editor's suggestions (vocabulary/LabelSuggestionList.ts): a popup of the editor on the
+   canvas layer, below the palette, that closes on pan and zoom (guide §5.13). It looks like a
+   dropdown (guide §8): opaque, 6px inside, entries as in the menu (§5.4); the active option is
+   hover plus a 2px bar in the interaction blue, with aria-selected. Its script caps its height at
+   the room beside the field, and it scrolls beyond that like the menu's dropdown (§5.4). */
+.event-storming-container .event-storming-label-suggestions {
+  position: absolute;
+  z-index: 100;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  max-width: min(320px, calc(100% - 24px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  background: var(--cd-ui-flaeche-hoch);
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-md);
+  box-shadow: var(--cd-shadow-3);
+  color: var(--cd-ui-text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.event-storming-container .event-storming-label-suggestion {
+  flex: none;
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: var(--cd-radius-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: background-color 150ms var(--cd-ease);
+}
+.event-storming-container .event-storming-label-suggestion:hover {
+  background: var(--cd-ui-hover);
+}
+.event-storming-container .event-storming-label-suggestion[aria-selected="true"] {
+  background: var(--cd-ui-hover);
+  box-shadow: inset 2px 0 0 var(--cd-ui-interaktion);
+}
+
+/* A spelling variant (vocabulary/EventStormingSpellingVariants.ts): a dot in the warning role on the
+   sticky's top right corner, an HTML overlay, so no export carries it. Its rim in the text role
+   keeps it visible on every sticky fill, which amber alone is not (guide §3.3). The overlay keeps
+   its size at every zoom; the 16px around the dot is what the pointer hovers. */
+.event-storming-container .event-storming-spelling-variant {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+.event-storming-container .event-storming-spelling-variant::after {
+  content: "";
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--cd-ui-text);
+  border-radius: 50%;
+  background: var(--cd-ui-warning);
+}
+/* Its tooltip: the chrome tooltip's look (guide §5.6), on the canvas layer like the dot. */
+.event-storming-container .event-storming-spelling-tooltip {
+  position: absolute;
+  z-index: 100;
+  box-sizing: border-box;
+  max-width: min(280px, calc(100% - 24px));
+  padding: 3px 8px;
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-sm);
+  background: var(--cd-ui-flaeche-hoch);
+  color: var(--cd-ui-text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  box-shadow: var(--cd-shadow-2);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* High contrast drops every shadow (guide §5.3); forced colours keep the island edges visible. */
 :root[data-cd-kontrast="hoch"] .djs-palette:not([data-chrome="palette"]),
 :root[data-cd-kontrast="hoch"] .djs-hover-tooltip,
 :root[data-cd-kontrast="hoch"] .event-storming-container .djs-context-pad.open,
 :root[data-cd-kontrast="hoch"] .event-storming-container .event-storming-label-input,
 :root[data-cd-kontrast="hoch"] .event-storming-container .event-storming-note-toolbar,
-:root[data-cd-kontrast="hoch"] .event-storming-container .event-storming-color-picker {
+:root[data-cd-kontrast="hoch"] .event-storming-container .event-storming-color-picker,
+:root[data-cd-kontrast="hoch"] .event-storming-container .event-storming-label-suggestions,
+:root[data-cd-kontrast="hoch"] .event-storming-container .event-storming-spelling-tooltip {
   box-shadow: none;
 }
 @media (forced-colors: active) {
   .event-storming-container .djs-context-pad.open,
   .event-storming-container .event-storming-note-toolbar,
-  .event-storming-container .event-storming-color-picker {
+  .event-storming-container .event-storming-color-picker,
+  .event-storming-container .event-storming-label-suggestions,
+  .event-storming-container .event-storming-spelling-tooltip {
     border-color: CanvasText;
+  }
+  .event-storming-container .event-storming-label-suggestion[aria-selected="true"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  .event-storming-container .event-storming-spelling-variant::after {
+    forced-color-adjust: none;
+    border-color: Canvas;
+    background: CanvasText;
   }
 }
 
