@@ -52,3 +52,15 @@ export const MIRAGON = {
   /** Signature brand gradient — hero, large surfaces, brand moments. Use verbatim. */
   gradientBrand: "linear-gradient(120deg, #335DE5 30%, #00E676)",
 } as const;
+
+/**
+ * Chrome spacing in px from the `shell` group of `cd-tokens.generated.json` (guide §5.2). `rand`
+ * keeps a canvas popup off the container edge and `luecke` parts it from what opened it. Scripts
+ * that place a popup read them here and never type their own numbers (guide §13.2).
+ */
+export const CHROME_SPACING = {
+  /** `--cd-shell-rand` */
+  rand: 12,
+  /** `--cd-shell-luecke` */
+  luecke: 8,
+} as const;

@@ -62,9 +62,12 @@ normalizeLabel("Orders") === normalizeLabel("order"); // true
   whitespace, line breaks, punctuation and camel case (`OrderPlaced`, `order placed`). It reads
   simple plurals as their singular: English `-s`, `-es` and `-ies`, and the German endings
   `-ungen`, `-heiten`, `-keiten`, `-schaften`, `-ionen`, `-täten`, `-innen` and `-nisse`. It also
-  reads `ß` as `ss`, `ä`, `ö`, `ü` as `ae`, `oe`, `ue`, American `-ize` as `-ise` and doubled
-  letters as single ones (`cancelled`, `canceled`). Digits count as written, so `Room 1` and
-  `Room 11` stay apart.
+  reads `ß` as `ss`, `ä`, `ö`, `ü` as `ae`, `oe`, `ue`, American `-ize` as `-ise` and the British
+  doubled `l` as single (`cancelled`, `canceled`; `modelling`, `modeling`). Every other letter
+  counts: digits as written, so `Room 1` and `Room 11` stay apart, and a final `e` or a doubled
+  letter of the word itself, so `Plan` and `Plane`, `Akt` and `Akte` or `Filled` and `Filed` are
+  different names. A final `e` drops only where an `-es` plural would keep it, after `s`, `x`,
+  `z`, `ch`, `sh` and in `-ies`, in the singular too (`Purchase`, `Purchases`).
 - A term's `label` is the spelling most of its stickies use (on a tie, the one met first), and
   `spellings` lists every spelling with the ids of the stickies that write it.
 - `suggestLabels` offers the terms of one kind whose name, or one of its later words, starts with

@@ -1,6 +1,7 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type { FreeArea } from "@miragon/modeler-api";
 import {
   collectVocabulary,
   isVocabularyStickyKind,
@@ -92,6 +93,7 @@ export default class EventStormingLabelEditing {
     "eventStormingModeling",
     "elementRegistry",
     "eventStormingReadOnly",
+    "config.eventStormingPalette",
   ];
 
   private active: ActiveEdit | null = null;
@@ -104,6 +106,7 @@ export default class EventStormingLabelEditing {
     private readonly modeling: EventStormingModeling,
     private readonly elementRegistry?: ElementRegistry,
     private readonly readOnly?: Pick<EventStormingReadOnly, "isReadOnly">,
+    private readonly chrome?: { freeArea?: FreeArea | undefined },
   ) {
     eventBus.on(READ_ONLY_CHANGED_EVENT, (event: { readOnly?: boolean }) => {
       if (event.readOnly) this.cancel();
@@ -291,6 +294,7 @@ export default class EventStormingLabelEditing {
       () => {
         field.rows = Math.max(2, field.value.split("\n").length);
       },
+      () => this.chrome?.freeArea?.insets?.(),
     );
   }
 

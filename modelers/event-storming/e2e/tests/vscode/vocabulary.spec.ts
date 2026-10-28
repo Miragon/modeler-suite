@@ -93,6 +93,21 @@ test.describe("VS Code webview: label suggestions and spelling variants", () => 
     expect((await postedMessages(page)).map((message) => message.type)).toEqual(["ready"]);
   });
 
+  test("keeps the dots when the host re-imports the document, as after an undo of another edit", async ({
+    page,
+  }) => {
+    await expect(variantDots(page)).toHaveCount(3);
+    const command = page.locator('.djs-container [data-element-id="cmd_place_order"] .djs-hit');
+    const before = (await command.boundingBox())!.y;
+    await postFromHost(page, {
+      type: "update",
+      text: VOCABULARY_BOARD.replace("[200, 220]", "[200, 300]"),
+    });
+    await expect.poll(async () => (await command.boundingBox())!.y).toBeGreaterThan(before + 20);
+    await expect(variantDots(page)).toHaveCount(3);
+    for (const id of VARIANT_IDS) await expect(variantDot(page, id)).toBeVisible();
+  });
+
   test("Unify spelling is one edit of the document; the host's undo brings the variants back", async ({
     page,
   }) => {

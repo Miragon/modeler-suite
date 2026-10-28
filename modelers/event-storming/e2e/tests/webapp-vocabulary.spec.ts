@@ -138,6 +138,11 @@ test.describe("webapp: label suggestions and spelling variants", () => {
     await expect(tooltip).toHaveAttribute("role", "tooltip");
     await page.mouse.move(5, 450);
     await expect(tooltip).toBeHidden();
+
+    await variantDot(page, "agg_orders").hover();
+    await expect(tooltip).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(tooltip).toBeHidden();
   });
 
   test("Unify spelling writes the chosen spelling on every variant, one undo takes it back", async ({
@@ -165,5 +170,50 @@ test.describe("webapp: label suggestions and spelling variants", () => {
     await variantDot(page, "agg_orders").click();
     await expect(page.locator('.djs-context-pad [data-action="unify-spelling"]')).toBeVisible();
     await expect(labelField(page)).toHaveCount(0);
+  });
+});
+
+const CROWDED_BOARD = [
+  "title Crowded",
+  ..."ABCDEFGH".split("").map((letter, index) => `event Order ${letter} [${index * 220}, 0]`),
+  "event Payment Received [770, 300] (id event_payment_received)",
+  "event Invoice Sent [770, 600]",
+].join("\n");
+
+test.describe("webapp: label suggestions in a low window", () => {
+  test("the list stays in the free area beside the field and scrolls itself, never the board", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 520 });
+    await page.goto(`/#mz=${await encodeMapCompressed(CROWDED_BOARD)}`);
+    await waitForViewer(page);
+    await typeLabel(page, "event_payment_received", "Ord");
+    await expect(suggestions(page)).toHaveCount(8);
+
+    const placement = () =>
+      suggestionList(page).evaluate((list) => {
+        const canvas = list.closest(".djs-container")!;
+        const field = document.querySelector("textarea.event-storming-label-textarea")!;
+        const [listBox, fieldBox, canvasBox] = [list, field, canvas].map((element) =>
+          element.getBoundingClientRect(),
+        );
+        return {
+          overField: listBox!.top < fieldBox!.bottom && listBox!.bottom > fieldBox!.top,
+          fromTop: listBox!.top - canvasBox!.top,
+          fromBottom: canvasBox!.bottom - listBox!.bottom,
+          canvasScrolled: canvas.scrollTop + canvas.scrollLeft,
+          listScrolls: list.scrollHeight > list.clientHeight,
+        };
+      });
+    const opened = await placement();
+    expect(opened.overField).toBe(false);
+    expect(opened.fromTop).toBeGreaterThanOrEqual(64);
+    expect(opened.fromBottom).toBeGreaterThanOrEqual(64);
+    expect(opened.listScrolls).toBe(true);
+
+    await page.keyboard.press("ArrowUp");
+    expect(await activeSuggestion(page)).toBe("Order H");
+    await expect(suggestions(page).filter({ hasText: "Order H" })).toBeInViewport();
+    expect((await placement()).canvasScrolled).toBe(0);
   });
 });

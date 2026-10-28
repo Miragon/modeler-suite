@@ -46,14 +46,15 @@ interface AddedOverlay {
 function variantsHarness(shapes: EventStormingShape[]) {
   const container = document.createElement("div");
   document.body.appendChild(container);
-  const handlers = new Map<string, Array<() => void>>();
+  const handlers = new Map<string, Array<(event?: unknown) => void>>();
   const eventBus = {
-    on: (events: string | string[], callback: () => void) => {
+    on: (events: string | string[], callback: (event?: unknown) => void) => {
       for (const name of [events].flat())
         handlers.set(name, [...(handlers.get(name) ?? []), callback]);
     },
   } as unknown as EventBus;
-  const fire = (name: string) => handlers.get(name)?.forEach((handler) => handler());
+  const fire = (name: string, event?: unknown) =>
+    handlers.get(name)?.forEach((handler) => handler(event));
   const canvas = { getContainer: () => container, focus: vi.fn() } as unknown as Canvas;
   const registry = {
     getAll: () => shapes,
@@ -91,7 +92,25 @@ function variantsHarness(shapes: EventStormingShape[]) {
     readOnly = value;
     fire(READ_ONLY_CHANGED_EVENT);
   };
-  return { container, variants, overlays, fire, updateLabels, selection, setReadOnly };
+  /** What diagram-js does on removing a shape: its overlays go, then `shape.remove` fires. */
+  const removeShape = (element: EventStormingShape) => {
+    for (const overlay of overlays.filter((candidate) => candidate.element === element)) {
+      overlayService.remove(overlay.id);
+    }
+    fire("shape.remove", { element });
+  };
+  const dotOf = (id: string) => overlays.find((overlay) => overlay.element.id === id)!.attrs.html;
+  return {
+    container,
+    variants,
+    overlays,
+    fire,
+    updateLabels,
+    selection,
+    setReadOnly,
+    removeShape,
+    dotOf,
+  };
 }
 
 describe("EventStormingSpellingVariants", () => {
@@ -159,6 +178,67 @@ describe("EventStormingSpellingVariants", () => {
     harness.fire("import.done");
     harness.fire("diagram.clear");
     expect(harness.variants.markedIds()).toEqual([]);
+  });
+
+  it("draws the dots again after a re-import that removed the shapes and kept their ids", () => {
+    harness.fire("import.done");
+    for (const sticky of shapes) harness.removeShape(sticky);
+    expect(harness.overlays).toEqual([]);
+    expect(harness.variants.markedIds()).toEqual([]);
+    harness.fire("import.done");
+    expect(harness.variants.markedIds().sort()).toEqual(["agg_1", "agg_2", "agg_3", "agg_4"]);
+    expect(harness.overlays).toHaveLength(4);
+  });
+
+  it("hides the tooltip on Escape and leaves the key to the canvas", () => {
+    harness.fire("import.done");
+    harness.dotOf("agg_1").dispatchEvent(new Event("pointerenter"));
+    vi.advanceTimersByTime(300);
+    expect(harness.container.querySelector('[role="tooltip"]')).not.toBeNull();
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    document.body.dispatchEvent(escape);
+    expect(harness.container.querySelector('[role="tooltip"]')).toBeNull();
+    expect(escape.defaultPrevented).toBe(false);
+    expect(harness.dotOf("agg_1").hasAttribute("aria-describedby")).toBe(false);
+  });
+
+  it("drops a waiting tooltip when Escape comes before the delay", () => {
+    harness.fire("import.done");
+    harness.dotOf("agg_1").dispatchEvent(new Event("pointerenter"));
+    document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    vi.advanceTimersByTime(300);
+    expect(harness.container.querySelector('[role="tooltip"]')).toBeNull();
+  });
+
+  it("drops a waiting tooltip whose dot a change takes away", () => {
+    harness.fire("import.done");
+    harness.dotOf("agg_1").dispatchEvent(new Event("pointerenter"));
+    vi.advanceTimersByTime(100);
+    const renamed = shapes.slice(0, 4).map((sticky) => sticky.eventStormingLabel);
+    for (const sticky of shapes.slice(0, 4)) sticky.eventStormingLabel = "Order";
+    try {
+      harness.fire("elements.changed");
+      vi.advanceTimersByTime(300);
+      expect(harness.variants.markedIds()).toEqual([]);
+      expect(harness.container.querySelector('[role="tooltip"]')).toBeNull();
+    } finally {
+      shapes.slice(0, 4).forEach((sticky, index) => (sticky.eventStormingLabel = renamed[index]!));
+    }
+  });
+
+  it("takes a shown tooltip down when its dot's text changes", () => {
+    harness.fire("import.done");
+    harness.dotOf("agg_1").dispatchEvent(new Event("pointerenter"));
+    vi.advanceTimersByTime(300);
+    expect(harness.container.querySelector('[role="tooltip"]')?.textContent).toContain("“Orders”");
+    shapes[2]!.eventStormingLabel = "Order";
+    try {
+      harness.fire("elements.changed");
+      expect(harness.container.querySelector('[role="tooltip"]')).toBeNull();
+      expect(harness.variants.markedIds().sort()).toEqual(["agg_1", "agg_2", "agg_3", "agg_4"]);
+    } finally {
+      shapes[2]!.eventStormingLabel = "Orders";
+    }
   });
 
   it("shows the tooltip after hovering the dot, under the dot, and hides it on leaving", () => {

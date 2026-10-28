@@ -40,6 +40,12 @@ describe("normalizeLabel", () => {
     ["Purchase", "Purchases"],
     ["Day", "Days"],
     ["Order Cancelled", "Order Canceled"],
+    ["Modelling", "Modeling"],
+    ["Payment Signalled", "Payment Signaled"],
+    ["Travellers", "Traveler"],
+    ["Bus Stop", "Busstop"],
+    ["Book Keeping", "Bookkeeping"],
+    ["Church", "Churches"],
     ["Authorise Payment", "Authorize Payment"],
     ["Organisation", "Organizations"],
     ["Bestellung", "Bestellungen"],
@@ -60,8 +66,28 @@ describe("normalizeLabel", () => {
     ["Domain Event 2", "Domain Event 3"],
     ["Zähler", "Zahler"],
     ["Order", "Ordered"],
+    ["Plan", "Plane"],
+    ["Car", "Care"],
+    ["Rat", "Rate"],
+    ["Note Added", "Not Added"],
+    ["List", "Liste"],
+    ["Akt", "Akte"],
+    ["Verwaltungsakt", "Verwaltungsakte"],
+    ["Dinner", "Diner"],
+    ["Claim Filled", "Claim Filed"],
+    ["Call", "Cal"],
   ])("keeps %j and %j apart", (first, second) => {
     expect(normalizeLabel(first)).not.toBe(normalizeLabel(second));
+  });
+
+  it("marks no spelling variant for two words that differ by more than spelling", () => {
+    const vocabulary = collectVocabulary([
+      sticky("aggregate", "Plan"),
+      sticky("aggregate", "Plane"),
+      sticky("aggregate", "Verwaltungsakt"),
+      sticky("aggregate", "Verwaltungsakte"),
+    ]);
+    expect(spellingVariants(vocabulary)).toEqual([]);
   });
 
   it("gives an empty key to a label without a word", () => {
@@ -220,6 +246,16 @@ describe("suggestLabels", () => {
   it("offers the established spelling for a variant, but not the text typed exactly", () => {
     expect(labels("event", "order placed")).toEqual(["Order Placed"]);
     expect(labels("event", "Order Placed")).toEqual([]);
+  });
+
+  it("finds a British spelling while it is half typed", () => {
+    const british = collectVocabulary([sticky("event", "Order Cancelled")]);
+    for (const typed of ["Order Cancel", "Order Cancell", "Cancelle", "order canceled"]) {
+      expect(
+        suggestLabels(british, "event", typed).map((term) => term.label),
+        typed,
+      ).toEqual(["Order Cancelled"]);
+    }
   });
 
   it("matches inside a word nowhere, so a single letter finds only word starts", () => {

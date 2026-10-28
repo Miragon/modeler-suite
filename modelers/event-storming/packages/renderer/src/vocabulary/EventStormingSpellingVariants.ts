@@ -12,6 +12,7 @@ import { focusCanvasWithoutRing } from "../keyboard/index.js";
 import { isEventStormingShape, type EventStormingShape } from "../model/di-types.js";
 import type EventStormingModeling from "../modeling/EventStormingModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type EventStormingReadOnly } from "../read-only/index.js";
+import { CHROME_SPACING } from "../theme/palette.js";
 import { boardStickies } from "./board-stickies.js";
 
 /** The diagram-js overlay type of the dots. */
@@ -21,8 +22,7 @@ export const SPELLING_VARIANT_OVERLAY = "event-storming-spelling-variant";
 const TOOLTIP_DELAY_MS = 300;
 
 /** The tooltip's gap to the dot and its least distance to the container edge (guide §5.6). */
-const TOOLTIP_GAP = 8;
-const TOOLTIP_EDGE = 12;
+const { luecke: TOOLTIP_GAP, rand: TOOLTIP_EDGE } = CHROME_SPACING;
 
 let tooltipCount = 0;
 
@@ -68,6 +68,13 @@ export default class EventStormingSpellingVariants {
   private readonly shown = new Map<string, ShownDot>();
   private tooltip: HTMLElement | undefined;
   private tooltipTimer: ReturnType<typeof setTimeout> | undefined;
+  /** The sticky whose tooltip shows or waits for its delay, and its dot. */
+  private tooltipElementId: string | undefined;
+  private tooltipAnchor: HTMLElement | undefined;
+
+  private readonly onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") this.hideTooltip();
+  };
 
   constructor(
     eventBus: EventBus,
@@ -82,6 +89,12 @@ export default class EventStormingSpellingVariants {
     eventBus.on(["canvas.viewbox.changing", "drag.init", "element.mousedown"], () =>
       this.hideTooltip(),
     );
+    // diagram-js drops the overlays of a removed shape itself, an import's clear included. The
+    // dot is forgotten with it, so the next refresh draws it again for a sticky of the same id.
+    eventBus.on("shape.remove", (event: { element?: { id?: string } }) => {
+      const id = event.element?.id;
+      if (id !== undefined) this.forget(id);
+    });
     eventBus.on(["diagram.clear", "diagram.destroy"], () => {
       this.hideTooltip();
       this.shown.clear();
@@ -135,7 +148,7 @@ export default class EventStormingSpellingVariants {
     for (const [id, dot] of this.shown) {
       if (wanted.get(id) === dot.text) continue;
       this.overlays.remove(dot.overlayId);
-      this.shown.delete(id);
+      this.forget(id);
     }
     for (const [id, text] of wanted) {
       if (this.shown.has(id)) continue;
@@ -148,9 +161,12 @@ export default class EventStormingSpellingVariants {
       });
       this.shown.set(id, { overlayId, text });
     }
-    if (this.tooltip && !this.shown.has(this.tooltip.dataset["elementId"] ?? "")) {
-      this.hideTooltip();
-    }
+  }
+
+  /** Drops the dot of `id` from the record, and its tooltip with it, shown or still waiting. */
+  private forget(id: string): void {
+    this.shown.delete(id);
+    if (this.tooltipElementId === id) this.hideTooltip();
   }
 
   private dot(shape: EventStormingShape, text: string): HTMLElement {
@@ -171,10 +187,20 @@ export default class EventStormingSpellingVariants {
 
   private scheduleTooltip(dot: HTMLElement, elementId: string, text: string): void {
     this.hideTooltip();
+    this.tooltipElementId = elementId;
+    this.tooltipAnchor = dot;
+    // Escape hides the tooltip without moving the pointer (guide §5.6, WCAG 1.4.13). The key is
+    // not consumed, so the canvas still gets its own Escape.
+    dot.ownerDocument.addEventListener("keydown", this.onKeyDown, true);
     this.tooltipTimer = setTimeout(() => this.showTooltip(dot, elementId, text), TOOLTIP_DELAY_MS);
   }
 
   private showTooltip(dot: HTMLElement, elementId: string, text: string): void {
+    this.tooltipTimer = undefined;
+    if (!dot.isConnected) {
+      this.hideTooltip();
+      return;
+    }
     const container = this.canvas.getContainer();
     tooltipCount += 1;
     const tooltip = document.createElement("div");
@@ -202,12 +228,12 @@ export default class EventStormingSpellingVariants {
   private hideTooltip(): void {
     clearTimeout(this.tooltipTimer);
     this.tooltipTimer = undefined;
+    this.tooltipElementId = undefined;
+    const anchor = this.tooltipAnchor;
+    this.tooltipAnchor = undefined;
+    anchor?.ownerDocument.removeEventListener("keydown", this.onKeyDown, true);
     if (!this.tooltip) return;
-    const id = this.tooltip.id;
-    this.canvas
-      .getContainer()
-      .querySelector(`[aria-describedby="${id}"]`)
-      ?.removeAttribute("aria-describedby");
+    anchor?.removeAttribute("aria-describedby");
     this.tooltip.remove();
     this.tooltip = undefined;
   }

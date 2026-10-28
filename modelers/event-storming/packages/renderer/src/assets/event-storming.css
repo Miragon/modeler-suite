@@ -365,14 +365,17 @@
 /* The label editor's suggestions (vocabulary/LabelSuggestionList.ts): a popup of the editor on the
    canvas layer, below the palette, that closes on pan and zoom (guide §5.13). It looks like a
    dropdown (guide §8): opaque, 6px inside, entries as in the menu (§5.4); the active option is
-   hover plus a 2px bar in the interaction blue, with aria-selected. */
+   hover plus a 2px bar in the interaction blue, with aria-selected. Its script caps its height at
+   the room beside the field, and it scrolls beyond that like the menu's dropdown (§5.4). */
 .event-storming-container .event-storming-label-suggestions {
   position: absolute;
   z-index: 100;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  max-width: min(320px, calc(100% - 8px));
+  max-width: min(320px, calc(100% - 24px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px;
   background: var(--cd-ui-flaeche-hoch);
   border: 1px solid var(--cd-ui-linie);
@@ -387,6 +390,7 @@
   -webkit-user-select: none;
 }
 .event-storming-container .event-storming-label-suggestion {
+  flex: none;
   box-sizing: border-box;
   min-height: 36px;
   padding: 8px 12px;

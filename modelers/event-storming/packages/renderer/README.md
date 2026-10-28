@@ -122,7 +122,9 @@ drawing keeps literal light colours in its SVG attributes, so exports look the s
 While a sticky's label is typed, the `Modeler` lists the names the board already gives that kind
 of sticky (domain events, commands, actors, aggregates, policies, read models and external
 systems; hotspots and notes are free text). The list (`role="listbox"`, `role="option"`) opens
-under the field on the canvas layer and closes on a pan or zoom, like every canvas popup. The field
+under the field on the canvas layer, or above it where there is more room, never over it and out
+of the chrome's way when the host passes `freeArea.insets`. It scrolls when the room on that side
+is too low, and it closes on a pan or zoom, like every canvas popup. The field
 keeps the focus and names the active option with `aria-activedescendant`. ↑ and ↓ move through
 the options, Tab takes the active one (else the first) without moving the focus, Enter takes the
 active one and still breaks the line while none is active, and a click takes an option. Escape
@@ -134,7 +136,8 @@ compared with `normalizeLabel` of
 
 A name the board writes in more than one way (`Order`, `order`, `Orders`) gets a dot in
 `--cd-ui-warning` on the top right corner of each of its stickies. Its tooltip names the other
-spellings, and a click on it selects the sticky. The sticky's context pad then offers "Unify
+spellings and hides on Escape, and a click on the dot selects the sticky. The dots follow every
+import, a re-import of the same board included. The sticky's context pad then offers "Unify
 spelling" (`unify-spelling`): every sticky of that kind and name takes the selected sticky's
 spelling in one command, so one undo takes it back. Different names stay legal, since a real
 language conflict is what a workshop wants to find. The dots are HTML overlays, so no export

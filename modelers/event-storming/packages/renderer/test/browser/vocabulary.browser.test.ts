@@ -98,6 +98,19 @@ describe("the board's vocabulary on the canvas (real browser DOM)", () => {
     expect(modeler.get<CommandStack>("commandStack").canUndo()).toBe(false);
   });
 
+  it("keeps the dots through a re-import that keeps the stickies' ids", async () => {
+    const variants = modeler.get<EventStormingSpellingVariants>("eventStormingSpellingVariants");
+    const before = variants.markedIds().sort();
+    await modeler.importDSL(BOARD);
+    expect(dots()).toHaveLength(3);
+    expect(variants.markedIds().sort()).toEqual(before);
+    expect(
+      dots()
+        .map((dot) => dot.dataset["elementId"])
+        .sort(),
+    ).toEqual(before);
+  });
+
   it("hides the dots while the board is read-only", () => {
     const lock = modeler.get<EventStormingReadOnly>("eventStormingReadOnly");
     lock.setReadOnly(true);
@@ -154,5 +167,86 @@ describe("the board's vocabulary on the canvas (real browser DOM)", () => {
       }),
     );
     expect(labelsOf("event")).toEqual(["Order Placed", "Order Shipped", "Order Shipped"]);
+  });
+});
+
+const CROWDED_BOARD = [
+  "title Crowded",
+  ..."ABCDEFGH".split("").map((letter, index) => `aggregate Order ${letter} [${index * 220}, 0]`),
+  "aggregate Invoice [770, 300]",
+  "aggregate Customer [770, 600]",
+].join("\n");
+
+/** What the modeler shell's chrome covers on a wide window (guide §5.9). */
+const CHROME_INSETS = { top: 88, right: 24, bottom: 64, left: 24 };
+
+describe("the label suggestions on a low canvas (real browser DOM)", () => {
+  let container: HTMLElement;
+  let modeler: Modeler;
+
+  beforeEach(async () => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    modeler = new Modeler({
+      container,
+      width: "1280px",
+      height: "420px",
+      freeArea: { insets: () => CHROME_INSETS },
+    });
+    await modeler.importDSL(CROWDED_BOARD);
+  });
+
+  afterEach(() => {
+    modeler.destroy();
+    container.remove();
+  });
+
+  function openSuggestions(): { field: HTMLTextAreaElement; list: HTMLElement } {
+    const invoice = modeler
+      .get<ElementRegistry>("elementRegistry")
+      .find(
+        (element) => isEventStormingShape(element) && element.eventStormingLabel === "Invoice",
+      ) as EventStormingShape;
+    modeler.get<EventStormingLabelEditing>("eventStormingLabelEditing").activate(invoice);
+    const field = container.querySelector<HTMLTextAreaElement>("textarea")!;
+    field.value = "Ord";
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    return { field, list: container.querySelector<HTMLElement>('[role="listbox"]')! };
+  }
+
+  it("keeps the whole list in the free area, 8px beside the field and never over it", () => {
+    const { field, list } = openSuggestions();
+    expect(list.querySelectorAll('[role="option"]')).toHaveLength(8);
+    const canvasBox = modeler.get<Canvas>("canvas").getContainer().getBoundingClientRect();
+    const listBox = list.getBoundingClientRect();
+    const fieldBox = field.getBoundingClientRect();
+    expect(listBox.top).toBeGreaterThanOrEqual(canvasBox.top + CHROME_INSETS.top);
+    expect(listBox.bottom).toBeLessThanOrEqual(canvasBox.bottom - CHROME_INSETS.bottom);
+    const overlaps = listBox.top < fieldBox.bottom && listBox.bottom > fieldBox.top;
+    expect(overlaps).toBe(false);
+    const gap =
+      listBox.top >= fieldBox.bottom
+        ? listBox.top - fieldBox.bottom
+        : fieldBox.top - listBox.bottom;
+    expect(gap).toBeCloseTo(8, 0);
+    expect(list.scrollHeight).toBeGreaterThan(list.clientHeight);
+    expect(getComputedStyle(list).overflowY).toBe("auto");
+  });
+
+  it("scrolls the list, never the canvas, to show the active option", () => {
+    const { field, list } = openSuggestions();
+    const djsContainer = modeler.get<Canvas>("canvas").getContainer();
+    field.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }),
+    );
+    const active = list.querySelector<HTMLElement>('[aria-selected="true"]')!;
+    expect(active.textContent).toBe("Order H");
+    expect(djsContainer.scrollTop).toBe(0);
+    expect(djsContainer.scrollLeft).toBe(0);
+    expect(list.scrollTop).toBeGreaterThan(0);
+    const listBox = list.getBoundingClientRect();
+    const activeBox = active.getBoundingClientRect();
+    expect(activeBox.top).toBeGreaterThanOrEqual(listBox.top);
+    expect(activeBox.bottom).toBeLessThanOrEqual(listBox.bottom);
   });
 });

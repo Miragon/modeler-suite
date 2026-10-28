@@ -60,8 +60,19 @@ const APOSTROPHES = /['‘’ʼ`´]/gu;
 const WORD_SEPARATORS = /[^\p{L}\p{M}\p{N}]+/u;
 const DIGITS_ONLY = /^\p{N}+$/u;
 const AMERICAN_IZE = /iz(e|ed|es|er|ers|ing|ation|ations)$/u;
-const DOUBLED_LETTER = /(\p{L})\1+/gu;
+/**
+ * The British doubled `l` before an ending, after an unstressed `a` or `e` of a longer word:
+ * `cancelled`, `modelling`, `signalled`, `traveller`. Short words keep it, so `filled` and
+ * `filed` stay apart.
+ */
+const BRITISH_DOUBLED_L = /^(.*[aeiou][^aeiou]*[ae])ll(ed|ing|er)$/u;
 const KEEPS_FINAL_S = /(ss|us|is)$/u;
+/**
+ * Where an English `-es` plural keeps its `e`: after a sibilant (`boxes`, `statuses`) and in
+ * `-ies` (`policies`). The `e` goes in the singular too (`purchase`), so both read alike, while
+ * `plane` and `plan` or `Akte` and `Akt` stay apart.
+ */
+const PLURAL_E = /(s|x|z|ch|sh|i)e$/u;
 
 /**
  * German plural endings that leave no doubt about their singular, after the umlauts are folded
@@ -100,15 +111,15 @@ function singularOf(word: string): string {
   }
   let stem = word;
   if (stem.length >= 4 && stem.endsWith("s") && !KEEPS_FINAL_S.test(stem)) stem = stem.slice(0, -1);
-  if (stem.length >= 4 && stem.endsWith("e")) stem = stem.slice(0, -1);
+  if (stem.length >= 4 && PLURAL_E.test(stem)) stem = stem.slice(0, -1);
   if (stem.length >= 3 && stem.endsWith("y")) stem = `${stem.slice(0, -1)}i`;
   return stem;
 }
 
-/** One word as the comparison sees it: singular, British -ise, no doubled letters. */
+/** One word as the comparison sees it: singular, British -ise, a British doubled l single. */
 function wordKey(word: string): string {
   if (DIGITS_ONLY.test(word)) return word;
-  return singularOf(word.replace(AMERICAN_IZE, "is$1")).replace(DOUBLED_LETTER, "$1");
+  return singularOf(word.replace(AMERICAN_IZE, "is$1")).replace(BRITISH_DOUBLED_L, "$1l$2");
 }
 
 /**
@@ -116,8 +127,10 @@ function wordKey(word: string): string {
  * ignores case (with `ß` as `ss` and `ä`, `ö`, `ü` as `ae`, `oe`, `ue`), whitespace, line breaks,
  * punctuation and camel case, and it reads simple plurals as their singular (English `-s`, `-es`,
  * `-ies`; German `-ungen`, `-heiten`, `-keiten`, `-schaften`, `-ionen`, `-täten`, `-innen`,
- * `-nisse`), American `-ize` as `-ise` and doubled letters as single ones (`cancelled`,
- * `canceled`). Digits stay as they are. An empty key means the label names nothing.
+ * `-nisse`). It reads British and American spellings alike: `-ize` as `-ise`, and the doubled `l`
+ * of `cancelled` or `modelling` as single. Digits stay as they are. Other letters count, so a word
+ * with a final `e` or a doubled letter of its own stays a word of its own (`Plan` and `Plane`,
+ * `Filled` and `Filed`). An empty key means the label names nothing.
  */
 export function normalizeLabel(label: string): string {
   return labelWords(label).map(wordKey).join("");
@@ -173,13 +186,19 @@ export function spellingVariants(vocabulary: readonly VocabularyTerm[]): Vocabul
   return vocabulary.filter((term) => term.spellings.length > 1);
 }
 
-/** Where `query` meets the term: 0 at its start, 1 at the start of a later word, else none. */
+/**
+ * Where `query` meets the term: 0 at its start, 1 at the start of a later word, else none. The
+ * words count as compared and as written, so a half-typed `Cancell` still finds `Cancelled`.
+ */
 function matchRank(term: VocabularyTerm, queries: readonly string[]): number | undefined {
   if (queries.some((query) => term.key.startsWith(query))) return 0;
-  const words = labelWords(term.label).map(wordKey);
-  for (let start = 1; start < words.length; start++) {
-    const rest = words.slice(start).join("");
-    if (queries.some((query) => rest.startsWith(query))) return 1;
+  const written = labelWords(term.label);
+  const compared = written.map(wordKey);
+  for (let start = 0; start < written.length; start++) {
+    const rests = [compared, written].map((words) => words.slice(start).join(""));
+    if (rests.some((rest) => queries.some((query) => rest.startsWith(query)))) {
+      return start === 0 ? 0 : 1;
+    }
   }
   return undefined;
 }
