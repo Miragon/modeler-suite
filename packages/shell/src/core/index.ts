@@ -89,7 +89,6 @@ export {
   PALETTE_CLEARANCE,
   TOOLTIP_DELAY_MS,
   decidePaletteRow,
-  legendStartsOpen,
   placeTooltip,
 } from "./layout.js";
 

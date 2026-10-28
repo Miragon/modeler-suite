@@ -4,7 +4,6 @@ import {
   PALETTE_CLEARANCE,
   TOOLTIP_DELAY_MS,
   decidePaletteRow,
-  legendStartsOpen,
   placeTooltip,
 } from "./layout.js";
 import type { Bounds, Size } from "./types.js";
@@ -53,25 +52,6 @@ describe("decidePaletteRow (guide §5.15)", () => {
     expect(
       decidePaletteRow({ containerWidth: 1000, paletteWidth: 800, menuRight: MENU_RIGHT }),
     ).toBe("top");
-  });
-});
-
-describe("legendStartsOpen (guide §5.10, deprecated)", () => {
-  it.each([
-    [844, 390],
-    [900, 441],
-    [900, 1280],
-    [1200, 1920],
-  ])(
-    "is false at %i high and %i wide: without a stored state the legend starts closed",
-    (height, width) => {
-      expect(legendStartsOpen(height, width)).toBe(false);
-    },
-  );
-
-  it("is false without arguments and with only a height", () => {
-    expect(legendStartsOpen()).toBe(false);
-    expect(legendStartsOpen(1200)).toBe(false);
   });
 });
 

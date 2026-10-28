@@ -222,6 +222,11 @@ contract's `contentBounds()`, so the host needs to know none of the renderer's s
 `contentBounds` still wins, for a renderer before 1.3 or a host that fits to other bounds; a host may
 pass both while its renderer is on 1.2 and drop its own once the renderer reports them.
 
+The legend starts closed in every container, on a phone as on a wide desktop (guide §5.10). The
+shell decides that alone, and the host only remembers the user's choice: it passes the stored state
+as `legend.open` (the webview state here, `localStorage` in a web app) and writes each change from
+`onToggle`. A stored state wins at any size. 0.7 removed `legendStartsOpen`, deprecated since 0.5.
+
 `mountVsCodeShell` stops every key the webview handles on `document`, before VS Code's listener on
 `window` forwards it to the workbench, and keeps the webview in the mode the extension resolved: a
 modeler declaring `["light"]` stays light under any VS Code theme, high contrast passes, and VS

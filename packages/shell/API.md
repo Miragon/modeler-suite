@@ -517,8 +517,6 @@ interface PaletteRowInput {
   primaryLeft?: number;
 }
 function decidePaletteRow(input: PaletteRowInput): PaletteRow;
-/** @deprecated 0.5: always false, the arguments are ignored */
-function legendStartsOpen(containerHeight?: number, containerWidth?: number): boolean;
 interface TooltipPlacementInput {
   anchor: Bounds;
   island: Bounds;
@@ -897,9 +895,9 @@ interface StatusMessage {
   While it is open, the fit keeps room for it above 440px width. Its close button returns the focus
   to the menu trigger, also after a click with mouse, pen or finger in WebKit or Firefox on macOS,
   which give the clicked button no focus.
-- `legendStartsOpen` is deprecated since 0.5: it returns `false` whatever it is given and keeps
-  its optional parameters only so existing callers compile. Pass the stored state as `legend.open`
-  and leave the default to the shell.
+- 0.7 removed `legendStartsOpen`. Deprecated since 0.5, it returned `false` whatever it was given.
+  The shell decides the start state alone: a host passes its stored state as `legend.open`
+  (nothing on a first visit) and stores each change from `onToggle`.
 - `destroy()` removes every element, class, attribute, listener, observer and timer the shell added
   and restores what was there before the mount: a passed `canvas` stays where it is, without
   `cd-shell-canvas`, and a `cd-shell-document` class or a `lang` the page already had stays (the
