@@ -54,8 +54,11 @@ in `e2e/`) has three projects:
 | `webkit`         | the web app in Safari's engine (without the kit, see below)           | the same                                  |
 | `vscode-webview` | the VS Code webview in the shell's VS Code stub, with the shell's kit | `e2e/webview/`, `E2E_WEBVIEW_PORT` 5190   |
 
-Run one project with `npm run context-maps test:e2e -- --project=vscode-webview`; set both ports
-when another checkout already uses the defaults
+Run one project with `npm run test:e2e -w modelers/context-maps/e2e -- --project=vscode-webview`,
+and only the tests whose title matches with `-- --grep "<title>"`; the alias `npm run context-maps`
+cannot pass Playwright's flags on (see the suite's
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)). Set both ports when another checkout already
+uses the defaults
 (`E2E_PORT=6201 E2E_WEBVIEW_PORT=6211 npm run context-maps test:e2e`). In the `vscode-webview`
 project the kit's `csp` case builds the production webview bundle and walks it behind the real
 webview CSP. The shell's kit skips WebKit: its tab-order checks need a browser whose Tab reaches
@@ -80,11 +83,19 @@ through VS Code's four default themes, with one screenshot per theme in `test-re
 extension itself.
 
 ```bash
-npm run context-maps test:vscode:docker                                 # in Docker, no window: the local way
-npm run context-maps test:vscode:docker -- --env VSCODE_VERSION=1.96.0  # here the engines.vscode floor
-npm run context-maps test:vscode:docker -- --env VSCODE_SMOKE_KEEP=1    # brings VS Code's logs back
-npm run context-maps test:vscode                                        # on the host, with a window
+# in Docker, no window: the local way
+npm run context-maps test:vscode:docker
+# here the engines.vscode floor
+npm run test:vscode:docker -w @miragon/context-maps-modeler-workspace -- --env VSCODE_VERSION=1.96.0
+# brings VS Code's logs back
+npm run test:vscode:docker -w @miragon/context-maps-modeler-workspace -- --env VSCODE_SMOKE_KEEP=1
+# on the host, with a window
+npm run context-maps test:vscode
 ```
+
+The `--env` flags go to the modeler's workspace by its name: the alias `npm run context-maps` would
+take them for npm's own, and the path `modelers/context-maps` would select the workspaces beneath it
+too (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)).
 
 Packing in your checkout (`test:vscode` on the host) rebuilds `apps/vscode/dist` in production
 mode, so run `npm run context-maps build:vscode` (or `dev:vscode`) afterwards for a debug build; the

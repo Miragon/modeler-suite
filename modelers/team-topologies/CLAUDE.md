@@ -114,9 +114,10 @@ by `dependency-cruiser`, the shell ban also by ESLint, so the pre-commit hook ca
   `xvfb-run -a`, so no window opens and takes the user's focus; it runs `npm ci` in the container
   and copies `test-results/vscode-smoke/` back. This modeler's `package.json` declares the shell
   itself as a devDependency, at the workspaces' exact version; keep the pins equal.
-  `VSCODE_VERSION` picks the VS Code (`stable`, `1.96.0`; with Docker
-  `npm run team-topologies test:vscode:docker -- --env VSCODE_VERSION=1.96.0`),
+  `VSCODE_VERSION` picks the VS Code (`stable`, `1.96.0`),
   `VSCODE_SMOKE_KEEP=1` keeps VS Code's logs (with Docker in `test-results/vscode-smoke/vscode-logs/`).
+  Docker takes them as `--env` flags, given to the workspace since the alias passes no flag on:
+  `npm run test:vscode:docker -w @miragon/team-topologies-modeler-workspace -- --env VSCODE_VERSION=1.96.0`.
   When CI runs it is in the suite's [docs/ci-and-releases.md](../../docs/ci-and-releases.md); see
   [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - `npm run team-topologies typecheck` · `npm run team-topologies lint` (ESLint + typecheck)

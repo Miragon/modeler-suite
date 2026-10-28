@@ -133,8 +133,10 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   (`VSCODE_SMOKE_VSIX`), and when CI runs it is in the suite's
   [docs/ci-and-releases.md](../../docs/ci-and-releases.md). Locally run
   `npm run context-maps test:vscode:docker` (the shell's `modeler-shell-vscode-docker`: the same
-  test in a Linux container, no window, no focus taken; `-- --env VSCODE_SMOKE_KEEP=1` brings VS
-  Code's logs back into `test-results/vscode-smoke/vscode-logs/`);
+  test in a Linux container, no window, no focus taken; VS Code's logs come back into
+  `test-results/vscode-smoke/vscode-logs/` with the flag given to the workspace, since the alias
+  passes no flag on:
+  `npm run test:vscode:docker -w @miragon/context-maps-modeler-workspace -- --env VSCODE_SMOKE_KEEP=1`);
   `npm run context-maps test:vscode` opens a real VS Code window on macOS.
 
 ## Packages
@@ -182,7 +184,9 @@ violating import fails `npm run context-maps lint` and `npm run context-maps dep
   `npm run context-maps test:e2e`: Playwright, the web app (`chromium`, `webkit`, port `E2E_PORT`,
   default 5180) and the VS Code webview (`vscode-webview`, port `E2E_WEBVIEW_PORT`, default 5190) ·
   `npm run context-maps test:vscode:docker`: the packaged extension in a real VS Code inside
-  Docker, without a window (the local way; `-- --env VSCODE_VERSION=1.96.0` picks the version) ·
+  Docker, without a window (the local way; another version:
+  `npm run test:vscode:docker -w @miragon/context-maps-modeler-workspace -- --env VSCODE_VERSION=1.96.0`)
+  ·
   `npm run context-maps test:vscode`: the same on the host, for CI (Linux under `xvfb-run -a`)
   and for a visible window on macOS (`VSCODE_VERSION` picks the version; see
   [`CONTRIBUTING.md`](CONTRIBUTING.md))

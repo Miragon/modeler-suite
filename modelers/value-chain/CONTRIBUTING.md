@@ -42,7 +42,10 @@ Extras: `npm run value-chain dev:webapp` (editor at http://localhost:5181),
   focus back. Both run in `webapp` too. Safari gives a clicked button no focus, while Chromium and
   Playwright's WebKit on Linux (as in CI) focus it, so the focus spec takes the focus off a clicked
   button as Safari does (`tests/support/safari.ts`). One project:
-  `npm run value-chain test:e2e -- --project=vscode-webview`. Set both ports when another checkout
+  `npm run test:e2e -w modelers/value-chain/e2e -- --project=vscode-webview`, only the tests whose
+  title matches: `-- --grep "<title>"`; the alias `npm run value-chain` cannot pass Playwright's
+  flags on (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)). Set both ports
+  when another checkout
   already serves the defaults.
 
 `test:browser` needs Chromium, `test:e2e` Chromium and WebKit: locally run
@@ -64,17 +67,19 @@ not on `apps/vscode`, because only there a module the bundle requires but does n
 as it does for users. With `VSCODE_SMOKE_VSIX` set to a `.vsix` file it tests that file instead of
 packing one; the release does so with the VSIX it is about to publish. With `VSCODE_SMOKE_KEEP=1`
 it keeps VS Code's profile and prints where, so VS Code's logs of a failed run can be read (in
-Docker, `npm run value-chain test:vscode:docker -- --env VSCODE_SMOKE_KEEP=1` brings them back
-into `test-results/vscode-smoke/vscode-logs/`).
+Docker, `--env VSCODE_SMOKE_KEEP=1` brings them back into `test-results/vscode-smoke/vscode-logs/`,
+see below).
 
 - **Locally, without a window:** `npm run value-chain test:vscode:docker` runs the same test in a
   Linux container under `xvfb-run -a`, through `modeler-shell-vscode-docker` of
   `@miragon/modeler-shell`, so no VS Code window opens and nothing takes the focus. It needs Docker
-  and no build. Variables go in only with `--env`, as in
-  `npm run value-chain test:vscode:docker -- --env VSCODE_VERSION=1.96.0`; `--env` without a value
-  passes on the value set on the host:
-  `VSCODE_VERSION=1.96.0 npm run value-chain test:vscode:docker -- --env VSCODE_VERSION`. A
-  variable set in front of `npm` alone stays on the host: the test then runs the newest VS Code
+  and no build. Variables go in only with `--env`, given to the modeler's workspace by its name,
+  since the alias `npm run value-chain` takes every flag for npm's own (see the suite's
+  [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)), as in
+  `npm run test:vscode:docker -w @miragon/value-chain-modeler-workspace -- --env VSCODE_VERSION=1.96.0`;
+  `--env` without a value passes on the value set on the host:
+  `VSCODE_VERSION=1.96.0 npm run test:vscode:docker -w @miragon/value-chain-modeler-workspace -- --env VSCODE_VERSION`.
+  A variable set in front of `npm` alone stays on the host: the test then runs the newest VS Code
   and passes without a warning. The log shows the container's paths (`/work/…`) and, as Vitest
   finds no AI agent there, the whole log of a passing test, so the command needs no reporter flag
   (it rejects `--reporter=default` as an unknown option).
@@ -82,8 +87,10 @@ into `test-results/vscode-smoke/vscode-logs/`).
   bundles the packages from source; `unzip` comes with macOS). A VS Code window opens for a few
   seconds and takes the focus; later runs take about 5 s. `VSCODE_VERSION=1.96.0` tests another
   VS Code release, such as the `engines.vscode` floor; without it the newest stable release runs.
-  Run from an AI agent, add `-- --reporter=default`: Vitest's agent reporter hides the log of a
-  passing test, VS Code's version and the timings included.
+  Run from an AI agent, give the workspace `--reporter=default`, since the alias passes no flag
+  on: `npm run test:vscode -w @miragon/value-chain-modeler-workspace -- --reporter=default`.
+  Vitest's agent reporter hides the log of a passing test, VS Code's version and the timings
+  included.
 - **Linux:** VS Code needs an X server, `xvfb-run -a npm run value-chain test:vscode`.
 
 The test runs once, without a retry. Since `@miragon/modeler-shell` 0.3.2 the save step waits until
