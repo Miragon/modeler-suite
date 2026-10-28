@@ -4,8 +4,8 @@ import "@fontsource-variable/geist-mono/wght.css";
 // The renderer's stylesheet (through its entry) brings the tokens, diagram-js.css and cd-canvas.css.
 import {
   contextMapMenu,
+  contextMapShortcuts,
   createCollaborativeModeler,
-  createShortcutsDialog,
   createTitleDialog,
   isCmElement,
   renderLegend,
@@ -85,7 +85,7 @@ const shell = mountVsCodeShell(app, {
       json: { onSelect: () => void exportAs("json") },
       cml: { onSelect: () => void exportAs("cml") },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    showKeyboardShortcuts: () => shell.showShortcutsDialog(contextMapShortcuts(shell)),
     editTitle: () => titleDialog.open(),
   }),
   // The rows come after the mount, which hands out the chrome tooltip they explain themselves in.
@@ -98,7 +98,6 @@ const shell = mountVsCodeShell(app, {
   emptyHint: { onInsertExample: () => post({ type: "insertExample" }) },
 });
 if (shell.legend) renderLegend(shell.legend.body, { tooltip: shell.tooltip });
-const shortcutsDialog = createShortcutsDialog(shell);
 // A title change is a canvas edit like any other: one command, posted to the document as one edit.
 const titleDialog = createTitleDialog(shell, {
   title: () => modeler.getMeta()?.title ?? "",
@@ -108,10 +107,7 @@ const titleDialog = createTitleDialog(shell, {
 modeler.on<{ readOnly?: boolean }>(READ_ONLY_CHANGED_EVENT, (event) => {
   if (event.readOnly) titleDialog.close();
 });
-modeler.on("diagram.destroy", () => {
-  shortcutsDialog.destroy();
-  titleDialog.destroy();
-});
+modeler.on("diagram.destroy", () => titleDialog.destroy());
 
 // Cheap tests only: the shell asks on every content change.
 const connection = connectDiagramJs(shell, modeler, {
@@ -223,8 +219,14 @@ collaborative.onContentChanged(pushEdit);
 // Export (the webview rasterizes/serializes; the host shows the save dialog)
 // ---------------------------------------------------------------------------
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+/** What an export puts into the file, and whether Geist was missing from its labels. */
+interface ExportedData {
+  readonly data: string;
+  readonly fontFallback: boolean;
+}
+
+function plainData(data: string): ExportedData {
+  return { data, fontFallback: false };
 }
 
 /** The picture shows the map, not the current selection outlines. */
@@ -238,30 +240,37 @@ async function withoutSelection<T>(task: () => Promise<T> | T): Promise<T> {
   }
 }
 
-async function exportData(format: ExportFormat): Promise<string> {
+async function exportData(format: ExportFormat): Promise<ExportedData> {
   const text = collaborative.exportText();
   switch (format) {
     case "json":
-      return text;
+      return plainData(text);
     case "cml":
-      return serializeCml(modeler.exportDocument());
+      return plainData(serializeCml(modeler.exportDocument()));
     case "svg":
-      return embedSvg((await withoutSelection(() => modeler.saveSVG())).svg, text);
+      return plainData(embedSvg((await withoutSelection(() => modeler.saveSVG())).svg, text));
     case "png": {
       const { svg } = await withoutSelection(() => modeler.saveSVG());
-      return blobToBase64(await svgToEmbeddedPng(svg, text));
+      const { blob, fontFallback } = await svgToEmbeddedPng(svg, text);
+      return { data: await blobToBase64(blob), fontFallback };
     }
   }
 }
 
+/** What the user reads when an export fails; the cause goes to the console (guide §2, §9). */
+function exportFailureText(format: ExportFormat): string {
+  return format === "png"
+    ? "Couldn't export the map as PNG. Try again, or export it as SVG."
+    : `Couldn't export the map as ${format.toUpperCase()}. Try again.`;
+}
+
 async function exportAs(format: ExportFormat): Promise<void> {
   try {
-    post({ type: "export", format, data: await exportData(format) });
+    const { data, fontFallback } = await exportData(format);
+    post({ type: "export", format, data, fontFallback });
   } catch (error) {
-    post({
-      type: "error",
-      message: `Could not export the map as ${format.toUpperCase()}: ${messageOf(error)}`,
-    });
+    console.error("Context Maps export failed", error);
+    post({ type: "error", message: exportFailureText(format) });
   }
 }
 
@@ -273,9 +282,11 @@ async function exportAs(format: ExportFormat): Promise<void> {
 async function respondPng(id: number): Promise<void> {
   try {
     await importChain;
-    post({ type: "pngResponse", id, data: await exportData("png") });
+    const { data, fontFallback } = await exportData("png");
+    post({ type: "pngResponse", id, data, fontFallback });
   } catch (error) {
-    post({ type: "pngResponse", id, error: messageOf(error) });
+    console.error("Context Maps PNG render failed", error);
+    post({ type: "pngResponse", id, error: "Couldn't render the map as PNG. Try again." });
   }
 }
 

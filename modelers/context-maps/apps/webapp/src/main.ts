@@ -9,7 +9,7 @@ import "@miragon/modeler-shell/shell.css";
 import {
   Modeler,
   contextMapMenu,
-  createShortcutsDialog,
+  contextMapShortcuts,
   createTitleDialog,
   isCmElement,
   renderLegend,
@@ -134,7 +134,8 @@ const shell = mountShell(app, {
       json: { onSelect: () => exportMapFile("json"), shortcut: saveKey },
       cml: { onSelect: () => exportMapFile("cml") },
     },
-    showKeyboardShortcuts: () => shortcutsDialog.open(),
+    showKeyboardShortcuts: () =>
+      shell.showShortcutsDialog(contextMapShortcuts(shell, { fileKeys: true })),
     editTitle: () => titleDialog.open(),
   }),
   // The rows come after the mount, which hands out the chrome tooltip they explain themselves in.
@@ -160,15 +161,11 @@ const shell = mountShell(app, {
   },
 });
 if (shell.legend) renderLegend(shell.legend.body, { tooltip: shell.tooltip });
-const shortcutsDialog = createShortcutsDialog(shell, { fileKeys: true });
 const titleDialog = createTitleDialog(shell, {
   title: () => mapTitle(),
   setTitle: (title) => modeler.setMeta({ title }),
 });
-modeler.on("diagram.destroy", () => {
-  shortcutsDialog.destroy();
-  titleDialog.destroy();
-});
+modeler.on("diagram.destroy", () => titleDialog.destroy());
 
 // 3. Viewport, palette skin, keys. Cheap tests only: the chrome asks on every content change.
 const connection = connectDiagramJs(shell, modeler, {
@@ -395,7 +392,14 @@ async function withoutSelection<T>(task: () => T | Promise<T>): Promise<T> {
   }
 }
 
-function announceExport(fileName: string): void {
+function announceExport(fileName: string, fontFallback = false): void {
+  if (fontFallback) {
+    shell.toast({
+      status: "warning",
+      text: `Exported ${fileName} in a system font. Geist couldn't be embedded.`,
+    });
+    return;
+  }
   shell.toast({ status: "success", text: `Exported ${fileName}.` });
 }
 
@@ -403,9 +407,13 @@ async function exportPicture(kind: "png" | "svg"): Promise<void> {
   const fileName = mapFileName(mapTitle(), `.${kind}`);
   try {
     const { svg } = await withoutSelection(() => modeler.saveSVG());
-    if (kind === "svg") downloadSvg(svg, fileName);
-    else await downloadPng(svg, fileName);
-    announceExport(fileName);
+    if (kind === "svg") {
+      downloadSvg(svg, fileName);
+      announceExport(fileName);
+    } else {
+      const { fontFallback } = await downloadPng(svg, fileName);
+      announceExport(fileName, fontFallback);
+    }
   } catch (error) {
     console.error("[cm-modeler] export", error);
     shell.toast({

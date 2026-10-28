@@ -13,6 +13,7 @@ import {
 } from "./support/app.js";
 import { codeEditors, pressIn } from "./support/code-editors.js";
 import { CML_WITH_UNKNOWN_ROLE, MAP_WITH_FINDINGS } from "./support/maps.js";
+import { PNG_GROUND, pngFacts, rasterisedSvgs, recordRasterisedSvgs } from "./support/png.js";
 
 /**
  * The web app's side of the shell's web chrome: what it hands the shell (menu groups, primary
@@ -52,14 +53,22 @@ async function dropFile(page: Page, name: string, type: string, text: string): P
   );
 }
 
-async function readDownload(page: Page, menuId: string): Promise<{ name: string; text: string }> {
+async function readBytesDownload(
+  page: Page,
+  menuId: string,
+): Promise<{ name: string; bytes: Buffer }> {
   const dropdown = await openMenu(page);
   const download = page.waitForEvent("download");
   await dropdown.locator(`[data-menu-id="${menuId}"]`).click();
   const file = await download;
   const chunks: Buffer[] = [];
   for await (const chunk of await file.createReadStream()) chunks.push(chunk as Buffer);
-  return { name: file.suggestedFilename(), text: Buffer.concat(chunks).toString("utf8") };
+  return { name: file.suggestedFilename(), bytes: Buffer.concat(chunks) };
+}
+
+async function readDownload(page: Page, menuId: string): Promise<{ name: string; text: string }> {
+  const { name, bytes } = await readBytesDownload(page, menuId);
+  return { name, text: bytes.toString("utf8") };
 }
 
 function selectedIds(page: Page): Promise<string[]> {
@@ -401,6 +410,72 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     }
   });
 
+  test("Export as PNG lies on the light ground at 2× and carries Geist inside the image", async ({
+    page,
+  }) => {
+    expect(PNG_GROUND).toBe("#f9f7f7");
+    await openMap(page, { ...SAMPLE_DOCUMENT, title: "Conference Planner" });
+    await recordRasterisedSvgs(page);
+    const [width, height] = await page.evaluate(() => {
+      const root = new DOMParser().parseFromString(
+        window.__cmModeler.saveSVG().svg,
+        "image/svg+xml",
+      ).documentElement;
+      return [Number(root.getAttribute("width")), Number(root.getAttribute("height"))];
+    });
+
+    const { name, bytes } = await readBytesDownload(page, "export-png");
+
+    expect(name).toBe("conference-planner.png");
+    const facts = await pngFacts(page, bytes);
+    expect(facts.corners).toEqual([PNG_GROUND, PNG_GROUND, PNG_GROUND, PNG_GROUND]);
+    expect({ width: facts.width, height: facts.height }).toEqual({
+      width: width! * 2,
+      height: height! * 2,
+    });
+    const [drawn] = await rasterisedSvgs(page);
+    expect(drawn).toContain("@font-face");
+    expect(drawn).toContain("Geist Variable");
+    expect(drawn).toMatch(/url\("data:font\/woff2;base64,/);
+    await expect(toast(page, "Exported conference-planner.png.")).toHaveAttribute(
+      "data-status",
+      "success",
+    );
+  });
+
+  test("a PNG whose Geist files cannot be read still downloads and warns", async ({ page }) => {
+    await page.route(/\.woff2(\?.*)?$/, (route) => route.abort());
+    await openMap(page, { ...SAMPLE_DOCUMENT, title: "Conference Planner" });
+
+    const { name, bytes } = await readBytesDownload(page, "export-png");
+
+    expect(name).toBe("conference-planner.png");
+    expect((await pngFacts(page, bytes)).corners[0]).toBe(PNG_GROUND);
+    await expect(
+      toast(page, "Exported conference-planner.png in a system font. Geist couldn't be embedded."),
+    ).toHaveAttribute("data-status", "warning");
+    await expect(toast(page, "Exported conference-planner.png.")).toHaveCount(0);
+  });
+
+  test("a picture the browser cannot draw shows the app's own text and downloads nothing", async ({
+    page,
+  }) => {
+    await openExample(page);
+    await page.evaluate(() => {
+      window.__cmModeler.saveSVG = () => ({ svg: "this is no SVG" });
+    });
+    const downloads: string[] = [];
+    page.on("download", (download) => downloads.push(download.suggestedFilename()));
+
+    await (await openMenu(page)).locator('[data-menu-id="export-png"]').click();
+
+    await expect(
+      toast(page, "Couldn't export the map as PNG. Try again, or export it as SVG."),
+    ).toHaveAttribute("data-status", "danger");
+    await expect(toast(page, "@miragon/modeler-shell")).toHaveCount(0);
+    expect(downloads).toEqual([]);
+  });
+
   test("the JSON export is the canonical file and opens as the same map", async ({ page }) => {
     await openExample(page);
     const { text } = await readDownload(page, "export-json");
@@ -560,19 +635,51 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     await expect(legend).toBeHidden();
   });
 
-  test("the shortcuts dialog lists the file keys first and returns the focus", async ({ page }) => {
+  test("the shortcuts dialog is the shell's: the file keys first, the chrome's zoom keys once", async ({
+    page,
+  }) => {
     await openExample(page);
 
     await (await openMenu(page)).locator('[data-menu-id="keyboard-shortcuts"]').click();
     const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator("h4")).toHaveText(["File", "View", "Edit", "Tools"]);
+    await expect(dialog).toHaveClass(/cd-shell-dialog/);
+    await expect(page.locator("dialog.cm-shortcuts")).toHaveCount(0);
+    await expect(dialog.locator("h3")).toHaveText(["File", "View", "Edit", "Tools"]);
     await expect(dialog.getByRole("row", { name: /Open…/ })).toContainText(/(⌘|Ctrl\+)O/);
     await expect(dialog.getByRole("row", { name: /Export as JSON/ })).toContainText(/(⌘|Ctrl\+)S/);
+    await expect(dialog.locator("[data-chrome-key]")).toHaveCount(4);
+    await expect(dialog.getByRole("table", { name: "View" }).getByRole("row")).toHaveCount(4);
+
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
+  });
+
+  test("the shortcuts dialog opens from the keyboard, keeps the focus inside and gives it back on Escape", async ({
+    page,
+  }) => {
+    await openExample(page);
+    const trigger = page.locator('[data-chrome="menu"]');
+    await trigger.focus();
+
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+
+    const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
+    for (let tab = 0; tab < 4; tab++) {
+      await page.keyboard.press("Tab");
+      expect(await page.evaluate(() => document.activeElement?.closest("dialog") !== null)).toBe(
+        true,
+      );
+    }
 
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
-    await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
+    await expect(trigger).toBeFocused();
   });
 
   test("the legal line names Miragon GmbH and keeps Impressum and Datenschutz German", async ({

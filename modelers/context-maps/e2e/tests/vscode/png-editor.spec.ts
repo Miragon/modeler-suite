@@ -3,6 +3,7 @@ import { parseDocumentText } from "@miragon/context-maps-schema-model";
 import { EXAMPLE_MAP } from "../../../apps/vscode/src/examples.js";
 import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/vscode/src/png.js";
 import { pngChunks, textChunksWith, textWith } from "../../../apps/vscode/test/pngChunks.js";
+import { PNG_GROUND, pngFacts } from "../support/png.js";
 import {
   openWebview,
   postFromHost,
@@ -77,14 +78,32 @@ test.describe("VS Code webview: the .cm.png editor", () => {
     if (!parsed.ok) throw new Error(parsed.error);
     expect(parsed.document.contexts).toHaveLength(7);
 
-    const size = await page.evaluate(async (base64) => {
-      const image = await createImageBitmap(
-        await (await fetch(`data:image/png;base64,${base64}`)).blob(),
-      );
-      return { width: image.width, height: image.height };
-    }, Buffer.from(png).toString("base64"));
-    expect(size.width).toBeGreaterThan(0);
-    expect(size.height).toBeGreaterThan(0);
+    const facts = await pngFacts(page, png);
+    expect(facts.width).toBeGreaterThan(0);
+    expect(facts.height).toBeGreaterThan(0);
+    expect(facts.corners).toEqual([PNG_GROUND, PNG_GROUND, PNG_GROUND, PNG_GROUND]);
+  });
+
+  test("a save that cannot draw the picture answers with the app's own text and no data", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      window.modeler!.diagram.saveSVG = () => ({ svg: "this is no SVG" });
+    });
+
+    await postFromHost(page, { type: "requestPng", id: 1 });
+
+    await page.waitForFunction(() =>
+      (window.__modelerShellVsCodeStub?.posted ?? []).some(
+        (message) => (message as { type?: unknown }).type === "pngResponse",
+      ),
+    );
+    const response = (await postedMessages(page)).find(
+      (message) => message.type === "pngResponse",
+    )!;
+    expect(response.error).toBe("Couldn't render the map as PNG. Try again.");
+    expect(response.data).toBeUndefined();
   });
 
   test("each save embeds the map the host holds: as opened, edited and after the host's undo", async ({

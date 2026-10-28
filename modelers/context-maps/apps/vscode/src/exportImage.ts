@@ -21,12 +21,14 @@ const EXPORT_TITLES: Record<ExportFormat, string> = {
  * Export to disk via a save dialog. Images (SVG/PNG) embed the map (its JSON) so they can be
  * reopened as a diagram; JSON and CML write the text itself. Shared by the text and the PNG editor
  * (hence generic over the source URI). The outcome is a host notification (guide §13.5): the file
- * name with the platform's reveal action, or the error.
+ * name with the platform's reveal action, or the error. A PNG whose labels are in the system font
+ * (`fontFallback`) is a warning, since the console reaches no user (guide §9).
  */
 export async function exportToFile(
   sourceUri: vscode.Uri | undefined,
   format: ExportFormat,
   data: string,
+  fontFallback = false,
 ): Promise<void> {
   const spec = EXPORT_SPECS[format];
   const options: vscode.SaveDialogOptions = {
@@ -52,9 +54,15 @@ export async function exportToFile(
   }
 
   const reveal = revealFileLabel(process.platform);
-  if ((await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal)) === reveal) {
-    void vscode.commands.executeCommand("revealFileInOS", target);
-  }
+  const answer = fontFallback
+    ? await vscode.window.showWarningMessage(fontFallbackText(`Exported ${fileName}`), reveal)
+    : await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal);
+  if (answer === reveal) void vscode.commands.executeCommand("revealFileInOS", target);
+}
+
+/** `Exported shop.png in a system font. Geist couldn't be embedded.` */
+export function fontFallbackText(done: string): string {
+  return `${done} in a system font. Geist couldn't be embedded.`;
 }
 
 /** `<name>.<extension>` next to the source file (if no file: in the first workspace folder). */

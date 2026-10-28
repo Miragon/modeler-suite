@@ -106,6 +106,10 @@ describe("theme.sync — MIRAGON mirrors the vendored tokens", () => {
     expect(MIRAGON.kontur).toBe(tokens.fest["--cd-kontur"]);
     expect(MIRAGON.textLeise).toBe(tokens.fest["--cd-text-leise"]);
   });
+
+  it("takes the ground of a PNG export (guide §10.7) from the light roles", () => {
+    expect(MIRAGON.grau).toBe(tokens.hell["--cd-ui-grund"]);
+  });
 });
 
 describe("theme.sync — context-maps.css", () => {

@@ -210,7 +210,7 @@ export const window = {
   },
   showWarningMessage(message: string, ...items: string[]): Promise<string | undefined> {
     notifications.push({ level: "warning", message, items });
-    return Promise.resolve(undefined);
+    return Promise.resolve(notificationAnswer);
   },
   showErrorMessage(message: string, ...items: string[]): Promise<string | undefined> {
     notifications.push({ level: "error", message, items });

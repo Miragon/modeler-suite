@@ -1,38 +1,32 @@
 /**
  * Picture export from the renderer's standalone SVG snapshot (`modeler.saveSVG()`): SVG as it is,
- * PNG rasterised through a canvas at 2×, on white.
+ * PNG through the shell's rasteriser at 2×, in Geist, on the light ground.
  */
 
-import { downloadBlob, triggerDownload } from "./download";
+import { MIRAGON } from "@miragon/context-maps-renderer";
+import { svgToPng } from "@miragon/modeler-shell/export";
+import { downloadBlob } from "./download";
 
-const PNG_BACKGROUND = "#ffffff";
+/** `hell['--cd-ui-grund']`: a picture is light in every mode (guide §10.7); `theme.sync` pins it. */
+const PNG_BACKGROUND = MIRAGON.grau;
+
+export interface PngDownload {
+  /** The labels fell back to the system sans: Geist could not be embedded. */
+  readonly fontFallback: boolean;
+}
 
 export function downloadSvg(svg: string, fileName: string): void {
   downloadBlob(fileName, new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
 }
 
-export async function downloadPng(svg: string, fileName: string): Promise<void> {
-  const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
-  const image = new Image();
-  await new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error("Could not rasterise the map"));
-    image.src = url;
+export async function downloadPng(svg: string, fileName: string): Promise<PngDownload> {
+  let fontFallback = false;
+  const png = await svgToPng(svg, {
+    background: PNG_BACKGROUND,
+    onFontFallback: () => {
+      fontFallback = true;
+    },
   });
-
-  const width = image.naturalWidth || 1000;
-  const height = image.naturalHeight || 700;
-  const scale = width * height > 4_000_000 ? 1 : 2;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(width * scale);
-  canvas.height = Math.round(height * scale);
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Canvas not supported");
-  context.fillStyle = PNG_BACKGROUND;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.scale(scale, scale);
-  context.drawImage(image, 0, 0, width, height);
-
-  triggerDownload(fileName, canvas.toDataURL("image/png"));
+  downloadBlob(fileName, png);
+  return { fontFallback };
 }

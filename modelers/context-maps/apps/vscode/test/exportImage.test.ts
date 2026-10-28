@@ -18,6 +18,22 @@ describe("exportToFile", () => {
     expect(vscodeMock.executedCommands()).toEqual([["revealFileInOS", target]]);
   });
 
+  it("warns instead of confirming when the PNG's labels fell back to the system font", async () => {
+    const target = Uri.file("/maps/shop.png");
+    vscodeMock.answerSaveDialog(target);
+    vscodeMock.answerNotification(revealFileLabel(process.platform));
+    await exportToFile(Uri.file("/maps/shop.cm") as never, "png", "iVBORw0KGgo=", true);
+    expect(workspace.fs.written).toHaveLength(1);
+    expect(vscodeMock.notifications()).toEqual([
+      {
+        level: "warning",
+        message: "Exported shop.png in a system font. Geist couldn't be embedded.",
+        items: [revealFileLabel(process.platform)],
+      },
+    ]);
+    expect(vscodeMock.executedCommands()).toEqual([["revealFileInOS", target]]);
+  });
+
   it("decodes a PNG from Base64 and writes nothing when the dialog is cancelled", async () => {
     await exportToFile(Uri.file("/maps/shop.cm") as never, "png", "iVBORw0KGgo=");
     expect(workspace.fs.written).toHaveLength(0);

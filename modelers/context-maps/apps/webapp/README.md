@@ -75,15 +75,18 @@ On first load the app shows, in priority order, a map from a **shared link** (`#
   line, toasts, the problems list, the start screen and the drop zone; `connectDiagramJs` binds the
   zoom panel, the keys and the fit, which frames the `Modeler`'s `contentBounds()` (passed as
   `modeler`). The map's own parts come from the renderer: `contextMapMenu` (Model, Export, Help),
-  `createShortcutsDialog`, `createTitleDialog` and `renderLegend`.
+  `contextMapShortcuts` (the groups the shell's `showShortcutsDialog` shows, with the file keys
+  first), `createTitleDialog` and `renderLegend`.
 - **Mode:** light only until the joint dark-mode release. `index.html` writes
   `data-cd-theme="light"`, and the Vite config puts the shell's `webHeadMarkup` (theme colour, the
   high-contrast line) in place of `<!-- miragon-mode -->`.
 - **Sharing and autosave:** `serializeDocument()` → `LZString.compressToEncodedURIComponent` →
   `#d=…`; very large maps skip the hash and rely on `localStorage`.
 - **Export:** JSON is the canonical `.cm.json` text, CML via `@miragon/context-maps-cml`, SVG via
-  `modeler.saveSVG()`, PNG by rasterising that SVG on a canvas. Downloads are named after the map's
-  title.
+  `modeler.saveSVG()`, PNG by rasterising that SVG with `svgToPng` of
+  `@miragon/modeler-shell/export` at 2×, on the light ground of guide §10.7 and with Geist inside
+  the image; if Geist can't be read, the PNG still downloads in the system font and a warning toast
+  says so. Downloads are named after the map's title.
 
 The renderer, cml and schema-model packages are aliased to their **TypeScript source** in
 `vite.config.ts`, so there is no separate library build step.
