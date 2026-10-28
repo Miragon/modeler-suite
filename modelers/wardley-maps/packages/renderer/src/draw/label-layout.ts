@@ -20,6 +20,8 @@ export const INERTIA_LABEL_SHIFT = 6;
 export const LABEL_BASELINE_SHIFT = -4;
 /** Second line (sourcing method) below a name label. */
 export const LABEL_METHOD_LINE_SHIFT = 15;
+/** Distance between the lines of a name that holds line breaks; the name editor follows it. */
+export const LABEL_LINE_HEIGHT = 16;
 export const LABEL_OFFSET_LIMIT = 200;
 
 export type TextAnchor = "start" | "middle" | "end";
@@ -46,7 +48,28 @@ export function movementDeltaX(
 }
 
 export function estimatedLabelWidth(text: string): number {
-  return (text ?? "").length * LABEL_CHAR_WIDTH;
+  return Math.max(...nameLines(text).map((line) => line.length)) * LABEL_CHAR_WIDTH;
+}
+
+export function nameLines(text: string | undefined): string[] {
+  return (text ?? "").split("\n");
+}
+
+/**
+ * How the lines of a name that holds line breaks spread around the slot of its first line:
+ * `centered` keeps the block's middle on the slot (names beside a circle or a symbol), `up` keeps
+ * the last line on it (a name above an icon, a pipeline's edge or an evolve arrow, which the lines
+ * must stay clear of).
+ */
+export type LineGrowth = "centered" | "up";
+
+export function firstLineBaseline(slotY: number, lineCount: number, growth: LineGrowth): number {
+  const extra = (lineCount - 1) * LABEL_LINE_HEIGHT;
+  return slotY - (growth === "up" ? extra : extra / 2);
+}
+
+export function lastLineBaseline(slotY: number, lineCount: number, growth: LineGrowth): number {
+  return firstLineBaseline(slotY, lineCount, growth) + (lineCount - 1) * LABEL_LINE_HEIGHT;
 }
 
 /** The canonical OWM slot of a component name — the origin of its `label [dx, dy]`. */

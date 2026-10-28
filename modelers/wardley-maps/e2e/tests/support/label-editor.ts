@@ -3,7 +3,7 @@ import type { LabelEditorHooks } from "@miragon/modeler-shell/testing";
 
 /** Kettle's own hit area in the Tea Shop example both hosts open; its label is a name. */
 const KETTLE = '.cd-shell-canvas .djs-shape[data-element-id="cmp_kettle"] > .djs-hit';
-const LABEL_FIELD = "input.wardley-label-input";
+const LABEL_FIELD = "textarea.wardley-label-input";
 
 /**
  * The shell kit's label editor on the Tea Shop example: a double-click on Kettle opens its name,

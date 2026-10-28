@@ -16,6 +16,7 @@ import {
   settleForSnapshot,
   showDiagramOrigin,
   startNewMap,
+  typeNameLines,
   waitForViewer,
 } from "./support/viewer.js";
 
@@ -132,6 +133,41 @@ test.describe("webapp modelling interactions", () => {
     expect(dsl).toMatch(/component Kettle \[/);
     await page.evaluate((text) => window.__wardleyViewer.importDSL(text), dsl);
     expect((await exportMap(page)).elements.map((element) => element.label)).toEqual(["Kettle"]);
+  });
+
+  test("breaks the line of a name with Shift+Enter and keeps the break through a round-trip", async ({
+    page,
+  }) => {
+    const id = await createComponentAt(page, 0.45, 0.5);
+
+    const field = await typeNameLines(page, id, ["Customer", "Portal"]);
+    await expect(field).toHaveValue("Customer\nPortal");
+    await expect(field).toBeFocused();
+    expect((await exportMap(page)).elements[0]?.label).toBe("Component");
+    await field.press("Enter");
+    await expect(field).toBeHidden();
+
+    expect((await exportMap(page)).elements.map((element) => element.label)).toEqual([
+      "Customer\nPortal",
+    ]);
+    await expect(elementGfx(page, id).locator("tspan")).toHaveText(["Customer", "Portal"]);
+    const dsl = await exportDSL(page);
+    expect(dsl).toMatch(/^component Customer\\nPortal \[/m);
+    await page.evaluate((text) => window.__wardleyViewer.importDSL(text), dsl);
+    expect((await exportMap(page)).elements.map((element) => element.label)).toEqual([
+      "Customer\nPortal",
+    ]);
+    expect(await exportDSL(page)).toBe(dsl);
+  });
+
+  test("discards the lines of a name with Escape", async ({ page }) => {
+    const id = await createComponentAt(page, 0.45, 0.5);
+
+    const field = await typeNameLines(page, id, ["Customer", "Portal"]);
+    await field.press("Escape");
+
+    await expect(field).toBeHidden();
+    expect((await exportMap(page)).elements.map((element) => element.label)).toEqual(["Component"]);
   });
 
   test("deletes a component", async ({ page }) => {

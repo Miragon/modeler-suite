@@ -60,7 +60,10 @@ constraint may still move a map smaller than the view, to keep its margins aroun
 
 An open inline editor (name, note, link annotation, flow value, link address) stays open with its
 typed text across a view change, a scroll, a zoom or a host's fit, and moves with its element;
-Enter, leaving the field, or a click or drag on the canvas saves it.
+Enter, leaving the field, or a click or drag on the canvas saves it. Shift+Enter breaks the line in
+a name (a note's Enter breaks it, and Cmd/Ctrl+Enter saves); the editor of a name is a `<textarea>`
+that grows with its lines, `textarea.wardley-label-input`. A name's line breaks are drawn as lines
+of the label and written to the DSL as a literal `\n` (`@miragon/wardley-dsl`).
 
 Options (the names of the `@miragon/modeler-api` 1.2 factory options):
 

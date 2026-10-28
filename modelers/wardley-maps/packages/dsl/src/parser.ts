@@ -51,7 +51,14 @@ import {
   type SuffixToken,
   type TextSpan,
 } from "./lexer.js";
-import { UniqueNames, escapeCommentMarkers, roundAsWritten, writtenName } from "./names.js";
+import {
+  UniqueNames,
+  escapeCommentMarkers,
+  lineBreaksAsWritten,
+  readLineBreaks,
+  roundAsWritten,
+  writtenName,
+} from "./names.js";
 import type { UrlReferenceHint } from "./serializer.js";
 
 /** Splits `A -> B` at the FIRST arrow — plain indexOf, immune to regex backtracking. */
@@ -497,7 +504,7 @@ class MapReader {
 
   private register(sourceName: string, elementName: string, id: string): void {
     if (!this.idBySourceName.has(sourceName)) this.idBySourceName.set(sourceName, id);
-    this.idByElementName.set(elementName, id);
+    this.idByElementName.set(lineBreaksAsWritten(elementName), id);
   }
 
   private setConfig(keyword: string, update: MapConfig): void {
@@ -587,14 +594,18 @@ class MapReader {
     return written;
   }
 
-  /** Names an element the way the serializer writes it, so the next parse yields the same name. */
+  /**
+   * Names an element the way the serializer writes it, so the next parse yields the same name.
+   * Names are compared and claimed as written, with their line breaks as a literal `\n`; the
+   * returned name has them as real line breaks.
+   */
   private nameElement(
     sourceName: string,
     elementType: string,
     atLine = this.lineNo,
     atText = this.currentLine,
   ): string {
-    const base = writtenName(sourceName, elementType);
+    const base = writtenName(readLineBreaks(sourceName), elementType);
     const name = this.namesInUse.claim(base);
     if (name !== base) {
       this.diag(
@@ -605,7 +616,7 @@ class MapReader {
     } else if (name !== sourceName) {
       this.diag(renamedMessage(sourceName, name), atLine, atText);
     }
-    return name;
+    return readLineBreaks(name);
   }
 
   private openBlock(): void {
@@ -836,8 +847,7 @@ class MapReader {
       "before the coordinates is read as part of the text",
       "write it after them",
     );
-    // Literal `\n` back into real line breaks (multi-line notes).
-    const textPart = this.readText(split.name.replace(/\\n/g, "\n"));
+    const textPart = this.readText(readLineBreaks(split.name));
     const note: NoteElement = compact({
       id: this.ids.alloc("note", textPart || "note"),
       elementType: "note",
@@ -999,7 +1009,7 @@ class MapReader {
       "after the annotation text is read as part of the text",
       "write it directly after the position",
     );
-    const text = this.readText(rest.trim());
+    const text = this.readText(readLineBreaks(rest.trim()));
     const positions: Coordinate[] = found.tuples.map((t) => this.position(t.a, t.b));
     const annotation: AnnotationElement = {
       id: this.ids.alloc("anno", String(number)),
@@ -1236,10 +1246,10 @@ class MapReader {
   private resolvePipelines(): void {
     const componentByName = new Map<string, MapElement>();
     for (const el of this.elements) {
-      if (el.elementType === "component") componentByName.set(el.label, el);
+      if (el.elementType === "component") componentByName.set(lineBreaksAsWritten(el.label), el);
     }
     for (const p of this.pendingPipeline) {
-      const label = writtenName(p.name, "pipeline");
+      const label = writtenName(readLineBreaks(p.name), "pipeline");
       const component = componentByName.get(label);
       const writtenRange = pipelineRange(p);
       if (!writtenRange) {
@@ -1266,7 +1276,8 @@ class MapReader {
         );
       }
       const visibility = p.visibility ?? component?.position.visibility ?? 0.5;
-      const id = this.ids.alloc("pipeline", label);
+      const pipelineLabel = readLineBreaks(label);
+      const id = this.ids.alloc("pipeline", pipelineLabel);
       this.pipelineIds.set(p, id);
       if (writtenRange.fromChildren) this.rangeFromChildren.add(id);
       // Standalone pipelines (no same-named component) are edge endpoints themselves; an element
@@ -1278,7 +1289,7 @@ class MapReader {
         this.nameElement(child.name, "component", child.lineNo, child.text),
       );
       const { pipeline, children } = pipelineElements(
-        { ...p, name: label },
+        { ...p, name: pipelineLabel },
         id,
         visibility,
         range,
@@ -1325,7 +1336,7 @@ class MapReader {
       this.evolveLinesById.set(component.id, evolveLines);
       const movement = compact({
         targetEvolution: ev.target,
-        newLabel: ev.newLabel && this.readText(ev.newLabel, ev.lineNo, ev.text),
+        newLabel: ev.newLabel && this.readText(readLineBreaks(ev.newLabel), ev.lineNo, ev.text),
         method: ev.method,
         labelOffset: ev.labelOffset,
       }) as Movement;

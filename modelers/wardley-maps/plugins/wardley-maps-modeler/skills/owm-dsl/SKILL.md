@@ -253,6 +253,11 @@ Roast Selection -> Roastery
   `note Risk [0.5, 0.3] label [10, 10]` loses `label [10, 10]` on save, with
   `Ignored text after the coordinates`. `(color …)` counts only after the coordinates (on an
   `annotation`, directly after the position). Inside a text it is plain text.
+- **A name may hold a line break, written as a literal `\n`** (`component Customer\nPortal [0.6, 0.4]`),
+  like the text of a note. Every line that refers to the name writes the same `\n`
+  (`Customer\nPortal -> Payments`, `evolve Customer\nPortal 0.8`), and a name with the break is a
+  different name from the same words with a space. A real backslash followed by `n` reads as a
+  line break too.
 - **Duplicate names are renamed when read.** A repeated name becomes `Name 2`, `Name 3`, with a
   diagnostic, across anchors, components, pipeline children, accelerators and submaps: an anchor
   `Tea` and a component `Tea` give `Tea 2`. Links bind to the first. A pipeline may share its

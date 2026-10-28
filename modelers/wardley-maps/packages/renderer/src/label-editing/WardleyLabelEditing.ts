@@ -105,6 +105,15 @@ const MIN_FONT_SIZE = 11;
 const CAPTION_GAP = 4;
 const CARET_ROOM = 2;
 
+/**
+ * Enter and Escape that confirm or cancel an IME candidate belong to the composition. `isComposing`
+ * alone misses Safari: it sends the confirming Enter after `compositionend`, with `isComposing`
+ * false and the `keyCode` 229 that every engine gives a key the IME took.
+ */
+function isImeCompositionKey(event: KeyboardEvent): boolean {
+  return event.isComposing || event.keyCode === 229;
+}
+
 export const NOTE_EDIT_HINT = "Cmd/Ctrl+Enter to save · Esc to cancel";
 
 export function duplicateNameMessage(name: string): string {
@@ -113,10 +122,12 @@ export function duplicateNameMessage(name: string): string {
 
 /**
  * Defuses DSL metacharacters in labels: in the OWM DSL, names double as references —
- * `->`, `;` and square brackets would corrupt edge/coordinate lines on re-import.
+ * `->`, `;` and square brackets would corrupt edge/coordinate lines on re-import. Line breaks stay
+ * (the DSL writes them as `\n`); leading and trailing ones go with the other whitespace.
  */
 function sanitizeLabel(raw: string): string {
   return raw
+    .replace(/\r\n?/g, "\n")
     .replace(/->/g, "→") // -> would be the edge operator
     .replace(/;/g, ",") // ; separates link annotations
     .replace(/\[/g, "(") // [..] would be a coordinate tuple
@@ -151,9 +162,9 @@ interface LabelGeometry {
  * Custom inline label editing as an HTML overlay (deliberately not diagram-js direct-editing, §8.5).
  * The field sits exactly over the label it replaces (which is hidden meanwhile), scales with the
  * zoom and grows with its content. Commit goes through `wardleyModeling.updateLabel` ->
- * commandStack (undo, P4). Notes are edited in a `<textarea>` over the note itself (multiline:
- * Enter = line break, Cmd/Ctrl+Enter or click outside = save); everything else in an `<input>`
- * (Enter = save). Escape always discards.
+ * commandStack (undo, P4). Notes are edited in a `<textarea>` over the note itself (Enter = line
+ * break, Cmd/Ctrl+Enter or click outside = save); every other name in a `<textarea>` over its label
+ * (Enter = save, Shift+Enter = line break). Escape always discards.
  */
 export default class WardleyLabelEditing {
   static $inject = [
@@ -249,6 +260,8 @@ export default class WardleyLabelEditing {
         width: `${width}px`,
         height: `${height}px`,
       });
+      // A new line made the field scroll to the caret before it grew to hold it.
+      field.scrollTop = 0;
       let captionTop = top + height + CAPTION_GAP;
       for (const caption of [error.caption, hint]) {
         if (!caption) continue;
@@ -321,6 +334,7 @@ export default class WardleyLabelEditing {
       }
     };
     const onKey = (e: KeyboardEvent) => {
+      if (isImeCompositionKey(e)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         cleanup();
@@ -328,8 +342,9 @@ export default class WardleyLabelEditing {
         return;
       }
       if (e.key === "Enter") {
-        // Note: save only with Cmd/Ctrl -> otherwise line break. Others: Enter saves.
-        if (isNote && !(e.metaKey || e.ctrlKey)) return;
+        // Note: save only with Cmd/Ctrl -> otherwise line break. Others: Enter saves, Shift+Enter
+        // breaks the line.
+        if (isNote ? !(e.metaKey || e.ctrlKey) : e.shiftKey) return;
         e.preventDefault();
         commit("enter");
         if (done) this.returnToCanvas(element, openedByPointer);
@@ -517,10 +532,12 @@ export default class WardleyLabelEditing {
     const texts = [...gfx.querySelectorAll<SVGTextElement>("text")].filter(
       (text) => !text.closest(".wardley-movement"),
     );
+    // The lines of a name are tspans of one text, whose content joins them without a break.
+    const drawnLabel = (element.wardleyLabel ?? "").split("\n").join("");
     const matched =
       element.wardleyType === "note"
         ? texts
-        : texts.filter((text) => text.textContent === element.wardleyLabel).slice(-1);
+        : texts.filter((text) => text.textContent === drawnLabel).slice(-1);
     for (const text of matched) text.classList.add(NAME_LABEL_CLASS);
     return { labelElements: matched, classedByFallback: matched };
   }
@@ -584,16 +601,14 @@ function createNameField(
   value: string,
   geometry: LabelGeometry,
   lineHeight: number,
-): HTMLInputElement | HTMLTextAreaElement {
-  const field = isNote ? document.createElement("textarea") : document.createElement("input");
-  field.className = isNote
-    ? "wardley-label-input wardley-label-input--name wardley-label-textarea"
-    : "wardley-label-input wardley-label-input--name";
+): HTMLTextAreaElement {
+  const field = document.createElement("textarea");
+  field.className = "wardley-label-input wardley-label-input--name wardley-label-textarea";
   field.value = value;
+  field.rows = 1;
   field.setAttribute("aria-label", isNote ? "Note text" : "Name");
   field.spellcheck = false;
-  if (field instanceof HTMLTextAreaElement) field.wrap = "off";
-  else field.type = "text";
+  field.wrap = "off";
   Object.assign(field.style, {
     position: "absolute",
     fontFamily: geometry.fontFamily,

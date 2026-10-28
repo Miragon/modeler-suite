@@ -72,11 +72,11 @@ function moveKettle(modeler: CollaborativeModeler): string {
   return id;
 }
 
-function labelField(modeler: CollaborativeModeler): HTMLInputElement | null {
+function labelField(modeler: CollaborativeModeler): HTMLTextAreaElement | null {
   return diagramOf(modeler)
     .get<Canvas>("canvas")
     .getContainer()
-    .querySelector<HTMLInputElement>("input.wardley-label-input");
+    .querySelector<HTMLTextAreaElement>("textarea.wardley-label-input");
 }
 
 function typedHalfway(fragment: string, typedSoFar: string): string {

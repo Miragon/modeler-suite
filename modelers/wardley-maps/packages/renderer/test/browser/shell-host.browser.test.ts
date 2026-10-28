@@ -120,7 +120,7 @@ describe("inside a host chrome (the Miragon modeler shell)", () => {
     const target = mount({ shell: true, insets: INSETS });
     await target.importDSL(MAP);
     click(entry(target, "create.component"), 0);
-    target.container.querySelector<HTMLInputElement>(".wardley-label-input")?.blur();
+    target.container.querySelector<HTMLTextAreaElement>(".wardley-label-input")?.blur();
     click(entry(target, "create.component"), 0);
     const created = target
       .exportMap()

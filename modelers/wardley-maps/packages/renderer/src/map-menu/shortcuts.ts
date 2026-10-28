@@ -78,6 +78,7 @@ function keysOf(platform: ShortcutPlatform, names: ShortcutKeyNames) {
       fit: "⇧1",
       remove: ["⌫"],
       enter: "↵",
+      breakLine: "⇧↵",
     };
   }
   const { ctrl, shift, plus, minus } = names;
@@ -92,6 +93,7 @@ function keysOf(platform: ShortcutPlatform, names: ShortcutKeyNames) {
     fit: `${shift}+1`,
     remove: ["Del", "Backspace"],
     enter: "Enter",
+    breakLine: `${shift}+Enter`,
   };
 }
 
@@ -146,6 +148,7 @@ export function mapShortcuts(
               : [keys.shiftCommand("Z"), keys.command("Y")],
         },
         { action: "Rename", keys: ["Double-click"] },
+        { action: "Break the line in a name", keys: [keys.breakLine] },
         { action: "Save a note while editing", keys: [keys.command(keys.enter)] },
         { action: "Copy", keys: [keys.command("C")] },
         { action: "Paste (a click places it, Esc cancels)", keys: [keys.command("V")] },

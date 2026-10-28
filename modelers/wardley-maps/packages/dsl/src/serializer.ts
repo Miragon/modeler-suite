@@ -113,6 +113,7 @@ function planUrls(
     let name = definitionNameById.get(el.id);
     if (name === undefined) {
       const readable = nameOf(el)
+        .replace(/\\n/g, " ")
         .replace(/[()[\]<>]/g, " ")
         .replace(/\s+/g, " ")
         .trim();
@@ -331,7 +332,7 @@ function elementLine(el: MapElement, name: string): string {
         el.positions.length > 1
           ? `[${el.positions.map((q) => `[${r(q.visibility)}, ${r(q.evolution)}]`).join(", ")}]`
           : `[${r(p.visibility)}, ${r(p.evolution)}]`;
-      return `annotation ${el.number} ${pos}${colorSuffix(el)} ${writtenText(el.text)}`;
+      return `annotation ${el.number} ${pos}${colorSuffix(el)} ${writtenNoteText(el.text)}`;
     }
     case "accelerator":
       return `${el.direction === "deaccelerate" ? "deaccelerator" : "accelerator"} ${name} [${r(p.visibility)}, ${r(p.evolution)}]${colorSuffix(el)}`;
@@ -350,7 +351,7 @@ function elementLine(el: MapElement, name: string): string {
 
 function evolveLine(el: ComponentElement, name: string): string {
   const mv = el.movement!;
-  const label = mv.newLabel ? `${name}->${writtenText(mv.newLabel)}` : name;
+  const label = mv.newLabel ? `${name}->${writtenNoteText(mv.newLabel)}` : name;
   const method = mv.method ? ` (${mv.method})` : "";
   return `evolve ${label} ${r(mv.targetEvolution)}${method}${offsetSuffix(mv.labelOffset)}`;
 }

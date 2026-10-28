@@ -105,7 +105,7 @@ describe("the read-only lock of a canvas (guide §13.5)", () => {
     const target = await mount();
     const before = target.exportDSL();
     target.get<WardleyLabelEditing>("wardleyLabelEditing").activate(shape(target, "Kettle"));
-    const field = target.container.querySelector<HTMLInputElement>(".wardley-label-input")!;
+    const field = target.container.querySelector<HTMLTextAreaElement>(".wardley-label-input")!;
     field.value = "Typed, not saved";
     lock(target);
     expect(target.container.querySelector(".wardley-label-input")).toBeNull();

@@ -24,6 +24,25 @@ evolve Kettle 0.62`);
 const text = serializeDSL(map); // back to OWM text, losslessly
 ```
 
+### Line breaks in names
+
+The text is one statement per line, so a line break in a name, in a note's text, in an
+annotation's text or in the new name of an `evolve` line is written as a literal `\n`, and read
+back as a line break:
+
+```ts
+const map = parseDSL(`title Portal
+anchor Customer\\nPortal [0.95, 0.5]
+component Ledger [0.3, 0.7]
+Customer\\nPortal -> Ledger`);
+
+map.elements[0].label; // "Customer\nPortal"
+```
+
+Links, `evolve` lines and pipeline blocks refer to the name with its `\n`, and names are unique
+with their breaks (`Customer\nPortal` and `Customer Portal` are two names). A real backslash
+followed by `n` (`C:\new`) reads as a line break too. Other OWM tools may show the `\n` as text.
+
 ### Writing edits back into hand-written text
 
 `serializeDSL` writes the canonical form: statements grouped by kind, comments and unknown lines at

@@ -298,7 +298,6 @@
   line-height: 17px;
   white-space: pre;
   min-width: 120px;
-  font-style: italic;
 }
 
 /* Label editing: the name field replaces the label in place (size, font and zoom set inline). */
