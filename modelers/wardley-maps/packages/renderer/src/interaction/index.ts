@@ -1,7 +1,7 @@
 import type { ModuleDeclaration } from "didi";
 import WardleyInteraction from "./WardleyInteraction.js";
 
-/** Whether the user holds a gesture on the canvas, and when a drop has ended. */
+/** Whether the user holds a gesture on the canvas, and when the user's action has finished. */
 export const wardleyInteractionModule: ModuleDeclaration = {
   __init__: ["wardleyInteraction"],
   wardleyInteraction: ["type", WardleyInteraction],

@@ -121,13 +121,19 @@ with the pointer over the canvas), a connect started with `A`, the evolve drag t
 starts and the plot-corner drag. A label drag, the point drag of a drawing and the drag of a
 component's red evolve target end when the import removes their element. A tool that only waits for
 the user's next press stays armed: the lasso from the palette or `L`, and the draw tool. An
-`importText` called from the change listener (a host that echoes its own change back through its
-store) waits until the edit that made the change has returned, and one called while a drop runs
-waits until the drop has ended and the steps it defers to the next task have run; then it imports,
-and its Promise settles after that import. It keeps what the edit left, as any import does: a create
-without a pointer (C, a palette entry with Enter or Space, the context pad's append with Enter)
-keeps its new element selected and its name editor open, and the name editor a create with the
-pointer opens a task after its drop opens on the new element and stays open. `exportText()` is the
+`importText` called while a user's action runs (a host that echoes its own change back through its
+store imports from the action's change listener) waits until the action has finished, then imports,
+and its Promise settles after that import; imports that wait keep their call order. A drop has
+finished once it has ended and the steps it defers to the next task have run (the name editor of a
+create or an append with the pointer). Any other command, undo or redo has finished once the code
+that ran it has returned, so an import from any listener it calls waits too: a create without a
+pointer (C, U, N, P, a palette entry with Enter or Space, the context pad's append with Enter), the
+save of a name editor (Enter, leaving the field) and the save a press on the map or the palette
+makes. The import keeps what the action left, as any import does: a create keeps its new element
+selected and its name editor open on it, with what was typed, and a saved name keeps its element
+selected. A drag that a press started after it saved a name ends with the import, as every gesture
+does ([#285](https://github.com/Miragon/modeler-suite/issues/285),
+[#305](https://github.com/Miragon/modeler-suite/issues/305)). `exportText()` is the
 committed document, never a live preview: while the plot corner is dragged or the size or
 axis-label popover previews a change, it returns the document as it was before, and the change
 event of the commit brings the new one. A command during a size preview (an undo pressed mid-drag, a

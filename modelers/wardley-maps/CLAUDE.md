@@ -42,16 +42,20 @@ runs in the browser tests
 skipped case fails the run. An import cancels a running diagram-js drag first, as Escape does
 (`cancelGesture` in `WardleyBaseViewer`); a drawing's point drag is the renderer's own and ends
 without a commit when its drawing is removed (`shape.remove` in `WardleyDrawingHandles`) or a
-command starts before its release. The armed lasso (`lasso.selection`) stays armed. An `importText`
-from the change listener waits until the edit that changed the map has returned (`changesReporting`
-in `CollaborativeWardley`), so a create without a pointer keeps its element selected and its name
-editor open across a host's echo, and the name editor of a create opens only on a shape the import
-has not replaced (pinned by
-[`import-during-gesture.browser.test.ts`](packages/renderer/test/browser/import-during-gesture.browser.test.ts)).
+command starts before its release. The armed lasso (`lasso.selection`) stays armed.
 `wardleyInteraction` ([`src/interaction/`](packages/renderer/src/interaction/)) follows every gesture
 (diagram-js drags past their threshold and the renderer's own label, point and evolve-target drags,
-which report to it) for the contract's `interaction`, and marks drops: an `importText` called during
-a drop waits until it has ended and the steps it defers by a task have run (#248). `appearance`
+which report to it) for the contract's `interaction`, and marks the user's actions, the one wait of
+`importText` (`afterUserAction`): an import called during an action waits until it has finished,
+behind the imports that waited before it (#248, #285, #305). A drop has finished once it has ended
+and the steps it defers by a task have run (the name editor of a create with the pointer); any other
+command, undo or redo once the code that ran it has returned (`COMMAND_START_EVENTS`, a microtask),
+so a create without a pointer keeps its element selected and its name editor open across a host's
+echo, a saved name keeps its selection, and the drag a press starts after it saved a name ends with
+the import, as every gesture does. Pinned by
+[`import-during-user-action.browser.test.ts`](packages/renderer/test/browser/import-during-user-action.browser.test.ts),
+[`import-during-gesture.browser.test.ts`](packages/renderer/test/browser/import-during-gesture.browser.test.ts)
+and the drop cases of `interaction.browser.test.ts`. `appearance`
 writes `data-cd-theme` and `data-cd-kontrast` on the map's container; its `themes` is
 `WARDLEY_THEMES`. Both are pinned by
 [`interaction.browser.test.ts`](packages/renderer/test/browser/interaction.browser.test.ts) and

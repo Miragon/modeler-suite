@@ -1,6 +1,7 @@
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type { Injector } from "didi";
+import { COMMAND_START_EVENTS } from "../live-preview/index.js";
 
 /** Fired as `{ active }` each time a gesture starts or ends (`InteractionChangedEvent`). */
 export const INTERACTION_CHANGED = "wardley.interaction.changed";
@@ -17,7 +18,10 @@ export interface InteractionChangedEvent {
  */
 export const ARMED_TOOL_PREFIXES: ReadonlySet<string> = new Set(["lasso.selection"]);
 
-/** Ahead of every other listener of a drag, so that what a drop runs finds the drop marked. */
+/**
+ * Ahead of every other listener of a drag or a command, so that what a drop or a command runs finds
+ * the user's action marked.
+ */
 export const DROP_MARK_PRIORITY = 100_000;
 
 type DragContext = { prefix: string } | null;
@@ -29,9 +33,13 @@ type DragContext = { prefix: string } | null;
  * this renderer's own drags (a label, a point of a drawing, the evolve target), from its start until
  * its drop or cancel. A tool that only waits for its next press is none, and neither is a pan.
  *
- * It also marks the drops, from the release until the drop has ended and the follow-ups it deferred
- * to a later task (the name editor of a create) have run: `afterDrop()` lets an import wait for that,
- * so that no listener of the drop finds the map replaced under it.
+ * It also marks the user's actions, and `afterUserAction()` lets an import wait until the running
+ * one has finished, so that no step of it finds the map replaced under it (#248, #285, #305):
+ * - a drop, from the release until the drop has ended and the follow-ups it deferred to a later task
+ *   (the name editor of a create) have run;
+ * - every other command, an undo or a redo, from its start until the code that ran it has returned:
+ *   a create without a pointer, a click append with Enter, the save of a name editor, also the one a
+ *   press on the canvas makes. Such an action defers no step, so the next microtask ends it.
  */
 export default class WardleyInteraction {
   static $inject = ["eventBus", "injector"];
@@ -39,6 +47,7 @@ export default class WardleyInteraction {
   private gesture: object | null = null;
   private dropsRunning = 0;
   private settling: ReturnType<typeof setTimeout> | undefined;
+  private commandRunning = false;
   private readonly waiting: Array<() => void> = [];
 
   constructor(
@@ -47,6 +56,7 @@ export default class WardleyInteraction {
   ) {
     const dragging = injector.get<Dragging | null>("dragging", false);
     if (dragging) this.followDragging(dragging);
+    eventBus.on(COMMAND_START_EVENTS, DROP_MARK_PRIORITY, () => this.commandStarts());
     eventBus.on("diagram.destroy", () => {
       clearTimeout(this.settling);
       this.settling = undefined;
@@ -84,12 +94,16 @@ export default class WardleyInteraction {
   }
 
   /**
-   * Resolves once the running drop has ended and the follow-ups it deferred to a later task have
-   * run; `undefined` while no drop runs.
+   * Resolves once the user's running action has finished: a drop with the follow-ups it deferred to
+   * a later task, and the code that ran a command; `undefined` while no action runs.
    */
-  afterDrop(): Promise<void> | undefined {
-    if (this.dropsRunning === 0 && this.settling === undefined) return undefined;
+  afterUserAction(): Promise<void> | undefined {
+    if (!this.actionRunning()) return undefined;
     return new Promise((resolve) => this.waiting.push(resolve));
+  }
+
+  private actionRunning(): boolean {
+    return this.dropsRunning > 0 || this.settling !== undefined || this.commandRunning;
   }
 
   private followDragging(dragging: Dragging): void {
@@ -138,6 +152,17 @@ export default class WardleyInteraction {
     this.dropsRunning += 1;
   }
 
+  // The code that ran the command goes on after it (a create selects its element and opens its name
+  // editor, a press that saved a name starts its drag), and a microtask runs only once it returned.
+  private commandStarts(): void {
+    if (this.commandRunning) return;
+    this.commandRunning = true;
+    queueMicrotask(() => {
+      this.commandRunning = false;
+      this.settleWhenIdle();
+    });
+  }
+
   // A listener of the gesture's end that throws must not keep the drop marked: every later import
   // would wait for it.
   private endDrop(endGesture: () => void): void {
@@ -156,8 +181,12 @@ export default class WardleyInteraction {
     clearTimeout(this.settling);
     this.settling = setTimeout(() => {
       this.settling = undefined;
-      if (this.dropsRunning === 0) this.settled();
+      this.settleWhenIdle();
     }, 0);
+  }
+
+  private settleWhenIdle(): void {
+    if (!this.actionRunning()) this.settled();
   }
 
   private settled(): void {
