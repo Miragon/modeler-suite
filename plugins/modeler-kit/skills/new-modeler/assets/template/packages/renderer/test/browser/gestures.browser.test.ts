@@ -23,6 +23,11 @@ interface Point {
   y: number;
 }
 
+interface ClientPoint {
+  clientX: number;
+  clientY: number;
+}
+
 /** The kinds of the kit's planned `startGesture` (packages/api README, "Cases for the 1.5 surfaces"). */
 type GestureKind = 'move' | 'create' | 'createOffCanvas';
 
@@ -78,7 +83,7 @@ function centreOf(id: string): Point {
   return { x: x + width / 2, y: y + height / 2 };
 }
 
-function client(point: Point): { clientX: number; clientY: number } {
+function client(point: Point): ClientPoint {
   const canvas = service<Canvas>('canvas');
   const rect = canvas.getContainer().getBoundingClientRect();
   const viewbox = canvas.viewbox();
@@ -312,24 +317,33 @@ describe('a drag that holds no element runs on through an import', () => {
     expect(modeler.interaction.active()).toBe(false);
   });
 
-  it("the hand tool's pan goes on from the view the import fitted", async () => {
-    const calls = recordInteraction();
+  /** Presses the hand tool on the canvas and pans by 60 px; returns where the pointer is. */
+  function startPan(): ClientPoint {
     const at = clickPalette('hand-tool');
     const start = { x: 300, y: 200 };
     hover(canvasSvg(), { x: at.x + 60, y: at.y + 60 });
     hover(canvasSvg(), start);
     press(canvasSvg(), start);
     moveTo({ x: start.x + 30, y: start.y });
-    const { clientX, clientY } = client({ x: start.x + 60, y: start.y });
-    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX, clientY }));
+    const pointerAt = client({ x: start.x + 60, y: start.y });
+    panTo(pointerAt);
     expect(dragPrefix()).toBe('hand.move');
+    return pointerAt;
+  }
+
+  /** A move in client pixels, so the point does not follow the view the pan changes. */
+  function panTo({ clientX, clientY }: ClientPoint): void {
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX, clientY }));
+  }
+
+  it("the hand tool's pan goes on from the view the import fitted", async () => {
+    const calls = recordInteraction();
+    const { clientX, clientY } = startPan();
 
     await modeler.importText(payments);
     expect(dragPrefix()).toBe('hand.move');
     const fitted = service<Canvas>('canvas').viewbox();
-    document.dispatchEvent(
-      new MouseEvent('mousemove', { bubbles: true, clientX: clientX + 40, clientY }),
-    );
+    panTo({ clientX: clientX + 40, clientY });
     const panned = service<Canvas>('canvas').viewbox();
 
     expect(panned.x).toBeCloseTo(fitted.x - 40 / fitted.scale, 3);
@@ -337,6 +351,36 @@ describe('a drag that holds no element runs on through an import', () => {
     expect(modeler.interaction.active()).toBe(false);
     expect(calls).toEqual([]);
     expect(changes).toBe(0);
+  });
+
+  it('the pan goes on from the view a host restores after the import (L5)', async () => {
+    const { clientX, clientY } = startPan();
+    const before = service<Canvas>('canvas').viewbox();
+    const snapshot = modeler.getViewState();
+
+    await modeler.importText(payments);
+    modeler.setViewState(snapshot);
+    const restored = service<Canvas>('canvas').viewbox();
+    panTo({ clientX: clientX + 40, clientY });
+    const panned = service<Canvas>('canvas').viewbox();
+
+    expect(restored.x).toBeCloseTo(before.x, 3);
+    expect(restored.y).toBeCloseTo(before.y, 3);
+    expect(panned.x).toBeCloseTo(restored.x - 40 / restored.scale, 3);
+    expect(panned.y).toBeCloseTo(restored.y, 3);
+    expect(dragPrefix()).toBe('hand.move');
+  });
+
+  it('the pan goes on from a view the host sets while it runs', () => {
+    const { clientX, clientY } = startPan();
+    const { x, y, width, height } = service<Canvas>('canvas').viewbox();
+    modeler.setViewState({ x: x + 500, y: y - 300, width: width * 2, height: height * 2 });
+    const changed = service<Canvas>('canvas').viewbox();
+    panTo({ clientX: clientX + 40, clientY: clientY + 20 });
+    const panned = service<Canvas>('canvas').viewbox();
+
+    expect(panned.x).toBeCloseTo(changed.x - 40 / changed.scale, 3);
+    expect(panned.y).toBeCloseTo(changed.y - 20 / changed.scale, 3);
   });
 });
 

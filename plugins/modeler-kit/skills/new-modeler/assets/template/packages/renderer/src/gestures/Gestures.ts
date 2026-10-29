@@ -69,7 +69,9 @@ export default class Gestures {
     // First, so a cleanup listener that throws can neither keep the gesture running nor hold
     // back the imports that wait for the drop.
     eventBus.on('drag.cleanup', FIRST, () => this.noticeEnd());
-    eventBus.on('import.render.done', () => this.anchorPanToView());
+    // Fired at once after each change, since the canvas runs without `deferUpdate`: the import's
+    // fit, a host's `setViewState` after it and a fit of the shell each move the view under a pan.
+    eventBus.on('canvas.viewbox.changed', () => this.anchorPanToView());
     // Before diagram-js cancels a running drag on destroy: nothing is called after it.
     eventBus.on('diagram.destroy', FIRST, () => this.listeners.clear());
   }
@@ -101,10 +103,12 @@ export default class Gestures {
 
   /**
    * While a drop is applied, a promise that resolves once it has ended; otherwise `undefined`. An
-   * import waits for it, so no listener of the drop, synchronous or deferred, finds its elements
-   * replaced (diagram-js's own `SelectionBehavior` throws on a moved shape the import removed).
-   * The promise resolves when the drag is cleaned up, so whatever waits for it runs once the
-   * drop's task is over, after `drag.ended` or `drag.canceled`.
+   * import waits for it, so no listener the drop runs finds its elements replaced (diagram-js's
+   * own `SelectionBehavior` throws on a moved shape the import removed). The promise resolves when
+   * the drag is cleaned up, so whatever waits for it runs once the drop's task is over, after
+   * `drag.ended` or `drag.canceled`, and before a step the drop scheduled for later (a timer, a
+   * popup after a create): such a step has to hold the drop until it has run, or look its shape up
+   * again by id.
    */
   dropEnded(): Promise<void> | undefined {
     const drop = this.drop;
@@ -154,9 +158,10 @@ export default class Gestures {
   }
 
   /**
-   * A pan keeps the diagram point it started on under the pointer, so its next move would put the
-   * view from before an import back, undoing the import's fit. It starts again from the diagram
-   * point that now lies under the pointer.
+   * A pan keeps the diagram point it started on under the pointer. After a view change the pan did
+   * not make, its next move would put the view from before back, undoing the fit of an import or
+   * the view a host restores after it (L5). So it starts again from the diagram point that now lies
+   * under the pointer; after the pan's own scroll that is the point it already holds.
    */
   private anchorPanToView(): void {
     const pan = this.dragging.context() as DragContext | null;

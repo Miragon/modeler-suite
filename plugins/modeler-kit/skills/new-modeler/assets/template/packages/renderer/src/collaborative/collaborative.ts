@@ -170,7 +170,7 @@ function collaborative(
     },
     /**
      * Imports at once, unless a drop is being applied (a host importing from the change listener
-     * of the drop's command): then it waits until the drop has ended, so no listener of the drop
+     * of the drop's command): then it waits until the drop has ended, so no listener the drop runs
      * finds its elements replaced, and settles after that import.
      */
     importText(text): Promise<ImportResult> {

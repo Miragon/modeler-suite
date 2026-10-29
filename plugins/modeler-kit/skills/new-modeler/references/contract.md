@@ -91,41 +91,54 @@ key acts; in the apps the shell does that for its chrome ([shell](shell.md)).
 
 Hosts re-import a peer's text whenever it arrives, also while the user drags. diagram-js keeps a
 drag running across a cleared canvas, and its release then applies a command to removed shapes and
-throws half-way. Since 1.5 the contract RECOMMENDS the following, and the kit's cases for it come
-once every Miragon renderer has it (template:
+throws half-way. Contract 1.5 RECOMMENDS the cancel below and defines the optional `interaction`
+surface. Its text lets a pan count as a gesture (MAY) and says nothing about a drop yet; every
+Miragon renderer and the template go further on both (a pan is none, and an import waits for a
+running drop), and the contract text for that comes with the kit's cases for the 1.5 surfaces,
+once every Miragon renderer has them (template:
 [`Gestures.ts`](../assets/template/packages/renderer/src/gestures/Gestures.ts), called from
 [`BaseViewer.ts`](../assets/template/packages/renderer/src/BaseViewer.ts)):
 
-- **An accepted import ends a running gesture the way Escape does**: a move, resize, connect or
-  lasso drag, a create or append from the palette or the context pad, also while its preview is
-  still over the palette, and a press that has not reached the drag threshold yet. Call
-  `dragging.cancel(false)` once the text passed the parser and the validation and before the
-  canvas is cleared (`false`: the selection it would restore holds the replaced shapes). A rejected
-  import (L7) leaves the gesture running, since hosts re-import half-typed peer text on every sync.
-- **A drag that holds no element is no gesture** and runs on: a palette tool that only waits for
-  its next press stays armed (the lasso, `lasso.selection`, and the hand), and so does a pan of the
-  hand tool (`hand.move`, also with Space held). An import that fits the view moves the pan's
-  starting point to the diagram point under the pointer (on `import.render.done`); without that, the
-  next move would put the view from before the import back. A renderer that adds diagram-js's space
-  or global connect tool adds their waiting drags to that list, and refuses a connect whose start
-  shape the import removed, as Value Chain does.
-- **An import called while a drop is applied waits until the drop has ended.** A host that imports
-  from `onContentChanged` does so inside the drop's own command. The contract's `importText` then
-  returns a promise that settles after the import it runs once the drag has ended (`drag.ended` or
-  `drag.canceled`), so no listener of the drop, synchronous or deferred, finds its elements replaced
-  (diagram-js's `SelectionBehavior` throws on a moved shape the import removed, when something was
-  selected before the drag). Imports keep their call order, also one called after the drop while an
-  earlier one still waits. Outside a drop it imports at once. The diagram's own import, which cannot
-  wait, leaves the drop to finish and never cancels it from inside diagram-js's end of it. Tell the
-  drop apart by its drag context, never by a flag: a drop whose cleanup throws never announces its
-  end, and a flag left set would hold every later import.
+- **An accepted import ends a running gesture the way Escape does** (contract 1.5): a move,
+  resize, connect or lasso drag, a create or append from the palette or the context pad, also
+  while its preview is still over the palette, and a press that has not reached the drag threshold
+  yet. Call `dragging.cancel(false)` once the text passed the parser and the validation and before
+  the canvas is cleared (`false`: the selection it would restore holds the replaced shapes). A
+  rejected import (L7) leaves the gesture running, since hosts re-import half-typed peer text on
+  every sync.
+- **A drag that holds no element is no gesture** and runs on. A palette tool that only waits for
+  its next press stays armed (the lasso, `lasso.selection`, and the hand), as the contract's
+  definition of a gesture already implies. A pan of the hand tool (`hand.move`, also with Space
+  held) MAY count under contract 1.5; the Miragon renderers count it as none, so it runs on too.
+  An import's fit and a host's `setViewState` after it (L5) move the view under a running pan, so
+  the template moves the pan's starting point to the diagram point under the pointer on every
+  `canvas.viewbox.changed` (the canvas runs without `deferUpdate`, so the event comes at once);
+  without that, the next move would put the view from before back. A renderer that adds
+  diagram-js's space or global connect tool adds their waiting drags to that list, and refuses a
+  connect whose start shape the import removed, as Value Chain does.
+- **An import called while a drop is applied waits until the drop has ended** (the suite's rule,
+  pending contract text). A host that imports from `onContentChanged` does so inside the drop's own
+  command. The contract's `importText` then returns a promise that settles after the import it
+  runs once the drag has ended (`drag.ended` or `drag.canceled`), so no listener the drop runs in
+  its own task finds its elements replaced (diagram-js's `SelectionBehavior` throws on a moved
+  shape the import removed, when something was selected before the drag). Imports keep their call
+  order, also one called after the drop while an earlier one still waits. Outside a drop it imports
+  at once. The diagram's own import, which cannot wait, leaves the drop to finish and never cancels
+  it from inside diagram-js's end of it. Tell the drop apart by its drag context, never by a flag:
+  a drop whose cleanup throws never announces its end, and a flag left set would hold every later
+  import.
+- **A step the drop schedules for later runs after the waiting import**: the wait ends with the
+  drop's task, before a timer or a popup that opens after a create or an append. Such a step either
+  holds the drop until it has run, so that `dropEnded()` resolves only after it, or looks its shape
+  up again by id and leaves a shape the import replaced alone, as Wardley's name editor after a
+  create does. The template schedules none.
 - **`interaction`**, an optional surface the kit will check like the cancel: `active()` is true
   from the first `drag.move` of an activated gesture drag, a palette create at once, until
   diagram-js cleans the drag up, so it is still true during the drop's command; `onChange` fires
-  once each way, with `active()` already returning the new value, and never for an armed tool or a
-  pan. The listener can run inside `importText` and inside diagram-js's events, so a listener that
-  throws is reported, not left to break the drag. The viewer has no editing gesture and reports
-  false.
+  once each way, with `active()` already returning the new value, and never for an armed tool or,
+  in the Miragon renderers, a pan. The listener can run inside `importText` and inside
+  diagram-js's events, so a listener that throws is reported, not left to break the drag. The
+  viewer has no editing gesture and reports false.
 
 The template's
 [`gestures.browser.test.ts`](../assets/template/packages/renderer/test/browser/gestures.browser.test.ts)
