@@ -86,13 +86,20 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   lasso tool waits for its next press and stays armed, and a pan of the canvas is no gesture and
   runs on), and so does `clear()`. The contract's `importText` called while a user action runs (a
   host echoing its own change from `onContentChanged`, or importing from `interaction.onChange`
-  after Escape) waits until the action has finished with the steps it deferred, and its promise
-  settles after that import (#248, #285, #305). `CmGestureCancel.whenActionEnded()` is the one
-  wait: a drop until its release has run every listener, a step an action holds (`holdAction`:
-  the subdomain-type menu of an append, the integration-roles menu after a toggle) until it has
-  run, and any other change until its handler has returned. A label or description commit at a
-  press is such a change: the import runs once the press has returned and ends the drag the press
-  started, as every accepted import ends a running gesture (contract L1). The import reopens the
+  after Escape, or from `elements.onSelection` inside a delete, an undo or a redo or at a drag's
+  start) waits until the action has finished with the steps it deferred, and its promise
+  settles after that import (#248, #285, #305, #336); an import called while an earlier one still
+  waits runs after it, so the imports keep their call order. `CmGestureCancel.whenActionEnded()`
+  is the one wait: a drop until its release has run every listener, a step an action holds
+  (`holdAction`: the subdomain-type menu of an append, the integration-roles menu after a toggle)
+  until it has run, any other command, undo or redo from its `commandStack.execute` / `revert`
+  until its handler has returned, and a drag's activation (diagram-js fires `drag.start`,
+  deselects and fires the first `drag.move` in one call of `Dragging.move`) until every
+  `drag.move` listener of that first move has run, at the latest a microtask later (the
+  notation's `<prefix>.move` listeners follow; no host listener fires from them). The import that
+  waited for the activation then ends the drag. A label or description commit at a press is such
+  a command: the import runs once the press has returned and ends the drag the press started, as
+  every accepted import ends a running gesture (contract L1). The import reopens the
   label editor (its element selected again) on the element with the same id, and the imports that
   waited for an action reopen those two menus there; a later import closes them. The `Modeler`'s
   own synchronous `importDocument` leaves the drop to finish instead. Pinned by

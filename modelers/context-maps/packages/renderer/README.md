@@ -170,9 +170,13 @@ next to `additionalModules`. `modeler.diagram` is the wrapped
 tests, every case and every hook, without a skip or an advisory.
 
 `importText` called while a user action runs (a host that echoes its own change back from
-`onContentChanged`) waits until the action has finished, with the steps it deferred, and then
-imports; its promise settles after that import, and imports called during the same action run in
-the order they were called. An action runs from its change until:
+`onContentChanged`, or imports from `elements.onSelection` or `interaction.onChange` inside the
+action) waits until the action has finished, with the steps it deferred, and then imports; its
+promise settles after that import, and imports called during the same action, or while an earlier
+import still waits, run in the order they were called. An action runs from the start of its first
+command, undo or redo, or from a drop's release. So an import from the selection listener inside a
+command waits too: diagram-js deselects an element its canvas removes before the change is
+reported. The action has finished once:
 
 - a drop: its release has run every listener, so diagram-js selects the moved context after a move;
 - an append from the context pad, clicked or dragged: its subdomain-type menu is open, which the
@@ -186,7 +190,15 @@ the order they were called. An action runs from its change until:
   that starts a create): the handler of the press has returned, so diagram-js has set up the drag
   the press starts. The import then ends that drag, as it ends every running gesture: the commit
   is kept, the release moves or creates nothing, and no step of diagram-js runs on a replaced
-  map. A press that arms the lasso tool leaves the tool armed.
+  map. A press that arms the lasso tool leaves the tool armed;
+- any other command, undo or redo, a delete for example: the handler that ran it has returned, so
+  the command has run whole and the import replaces its result.
+
+A drag's start is an action as well: diagram-js activates the drag (the first move past the drag
+threshold, or at once for a create from the palette or the context pad) by firing its start,
+deselecting and firing its first move in one call. An import from the selection or interaction
+listener there runs once that call has returned, and then ends the drag like any running gesture,
+so the release moves or creates nothing.
 
 So no step of the action works on a replaced map. Only the imports that waited for an action
 reopen the menu it left open; a later import closes it like every other menu. An import called while Escape cancels a gesture (from `interaction.onChange`) waits for

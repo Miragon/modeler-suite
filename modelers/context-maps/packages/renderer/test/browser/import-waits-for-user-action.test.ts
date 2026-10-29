@@ -1,15 +1,18 @@
 import { afterEach, describe, expect, test } from "vitest";
 import { attachedHost } from "@miragon/modeler-api/conformance";
+import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type ContextPad from "diagram-js/lib/features/context-pad/ContextPad";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
+import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element as DiagramElement, Shape } from "diagram-js/lib/model/Types";
 import {
   createCollaborativeModeler,
+  type CmElementFactory,
   type CmLabelEditing,
   type CollaborativeContextMapsModeler,
 } from "@miragon/context-maps-renderer";
@@ -258,10 +261,10 @@ function addedContextId(stage: Stage): string {
 }
 
 /** A peer's text: the map on the canvas right now, with context C renamed. */
-function peerText(stage: Stage): string {
+function peerText(stage: Stage, label = "C by a peer"): string {
   const document = exported(stage);
   document.contexts = document.contexts.map((context) =>
-    context.id === "c" ? { ...context, label: "C by a peer" } : context,
+    context.id === "c" ? { ...context, label } : context,
   );
   return serializeDocumentText(document);
 }
@@ -576,5 +579,272 @@ describe("an import from the change listener of a user action waits until the ac
 
     await expect(echo()).rejects.toThrow(/destroyed/);
     expect(running.errors).toEqual([]);
+  });
+});
+
+function commandStack(stage: Stage): CommandStack {
+  return service<CommandStack>(stage, "commandStack");
+}
+
+function modeling(stage: Stage): Modeling {
+  return service<Modeling>(stage, "modeling");
+}
+
+function select(stage: Stage, id: string): void {
+  service<Selection>(stage, "selection").select(shape(stage, id) as DiagramElement);
+}
+
+/** A host that imports `text` once, from the first selection change after this call. */
+function importOnSelection(stage: Stage, text: string): () => Promise<unknown> | undefined {
+  let reimport: Promise<unknown> | undefined;
+  stage.modeler.elements.onSelection(() => {
+    reimport ??= stage.modeler.importText(text);
+  });
+  return () => reimport;
+}
+
+/** The next edit is reported and exported, and its undo goes back to the imported text only. */
+function expectTheNextEditApplied(stage: Stage, imported: string): void {
+  const changesBefore = stage.changes();
+  modeling(stage).moveElements([shape(stage, "c")], { x: 40, y: 0 });
+  expect(stage.changes()).toBe(changesBefore + 1);
+  expect(exportedContext(stage, "c")?.position.x).toBe(490);
+  commandStack(stage).undo();
+  expect(stage.modeler.exportText()).toBe(imported);
+  expect(commandStack(stage).canUndo()).toBe(false);
+}
+
+interface DeselectingCommand {
+  what: string;
+  /** Selects the context the command removes; returns the command. */
+  prepare(stage: Stage): () => void;
+}
+
+// diagram-js deselects an element its canvas removes, inside the command and before its change.
+const DESELECTING_COMMANDS: DeselectingCommand[] = [
+  {
+    what: "a delete of the selected context from its context pad",
+    prepare(stage) {
+      const entry = contextPadEntry(stage, "b", "delete");
+      return () => pointer(entry, "click", centreOfBox(entry), { detail: 1 });
+    },
+  },
+  {
+    what: "an undo of the create of the selected context",
+    prepare(stage) {
+      const context = service<CmElementFactory>(stage, "cmElementFactory").createNewContext(
+        "core",
+        "Billing",
+      );
+      const created = modeling(stage).createShape(
+        context as unknown as Shape,
+        { x: 900, y: 450 },
+        service<Canvas>(stage, "canvas").getRootElement() as Shape,
+      );
+      select(stage, created.id);
+      return () => commandStack(stage).undo();
+    },
+  },
+  {
+    what: "a redo of the delete of the selected context",
+    prepare(stage) {
+      modeling(stage).removeElements([shape(stage, "b")]);
+      commandStack(stage).undo();
+      select(stage, "b");
+      return () => commandStack(stage).redo();
+    },
+  },
+];
+
+describe("an import from the selection listener inside a command, an undo or a redo waits until it has finished", () => {
+  test.each(DESELECTING_COMMANDS)(
+    "$what: the command runs whole, then the import replaces its result",
+    async ({ prepare }) => {
+      const running = await stage();
+      const run = prepare(running);
+      await nextTasks();
+      const changesBefore = running.changes();
+      const imported = peerText(running);
+      const reimport = importOnSelection(running, imported);
+      running.steps.length = 0;
+
+      run();
+      expect(reimport()).toBeDefined();
+      expect(running.steps).not.toContain("import");
+      expect(running.errors).toEqual([]);
+      await reimport();
+      await nextTasks();
+
+      expect(running.steps).toEqual(["import"]);
+      expect(running.errors).toEqual([]);
+      expect(running.changes()).toBe(changesBefore + 1);
+      expect(running.modeler.exportText()).toBe(imported);
+      expect(commandStack(running).canUndo()).toBe(false);
+      expect(commandStack(running).canRedo()).toBe(false);
+      expectTheNextEditApplied(running, imported);
+    },
+  );
+});
+
+interface DragStart {
+  what: string;
+  /** Activates a drag; its start deselects context A. */
+  start(stage: Stage): void;
+}
+
+const DRAG_STARTS_WHILE_A_IS_SELECTED: DragStart[] = [
+  {
+    what: "a move of another context",
+    start(stage) {
+      const from = centreOfShape(stage, "b");
+      pointer(hitArea(stage, "b"), "mousedown", from);
+      pointer(document, "mousemove", shifted(from, 20, 0));
+    },
+  },
+  {
+    what: "a create from the palette",
+    start(stage) {
+      const entry = paletteEntry(stage, "context.supporting");
+      pointer(entry, "click", centreOfBox(entry), { detail: 1 });
+    },
+  },
+];
+
+describe("an import from the selection listener at a drag's start runs once diagram-js has started the drag, and ends it", () => {
+  test("a move of another context, whose start deselects the selected one", async () => {
+    const running = await stage();
+    const reported = interactionChanges(running);
+    select(running, "a");
+    const imported = peerText(running);
+    const reimport = importOnSelection(running, imported);
+    const start = centreOfShape(running, "b");
+
+    pointer(hitArea(running, "b"), "mousedown", start);
+    expect(reimport()).toBeUndefined();
+    pointer(document, "mousemove", shifted(start, 20, 0));
+    expect(reimport()).toBeDefined();
+    expect(running.errors).toEqual([]);
+    expect(service<Dragging>(running, "dragging").context()?.prefix).toBe("shape.move");
+    expect(running.modeler.interaction.active()).toBe(true);
+    await reimport();
+    expect(service<Dragging>(running, "dragging").context()).toBeFalsy();
+
+    hoverCanvasAt(running, shifted(start, 60, 0));
+    pointer(document, "mouseup", shifted(start, 60, 0));
+    await nextTasks();
+
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(0);
+    expect(reported).toEqual([true, false]);
+    expect(running.modeler.exportText()).toBe(imported);
+    expect(exportedContext(running, "b")?.position.x).toBe(450);
+    expectTheNextEditApplied(running, imported);
+  });
+
+  test("a create from the palette while a context is selected", async () => {
+    const running = await stage();
+    const reported = interactionChanges(running);
+    select(running, "a");
+    const imported = peerText(running);
+    const reimport = importOnSelection(running, imported);
+
+    const entry = paletteEntry(running, "context.supporting");
+    pointer(entry, "click", centreOfBox(entry), { detail: 1 });
+    expect(reimport()).toBeDefined();
+    expect(running.errors).toEqual([]);
+    expect(service<Dragging>(running, "dragging").context()?.prefix).toBe("create");
+    expect(running.modeler.interaction.active()).toBe(true);
+    await reimport();
+    expect(service<Dragging>(running, "dragging").context()).toBeFalsy();
+
+    const drop = clientPoint(running, FREE_SPOT);
+    hoverCanvasAt(running, drop);
+    pointer(svg(running), "mousedown", drop);
+    pointer(document, "mouseup", drop);
+    await nextTasks();
+
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(0);
+    expect(reported).toEqual([true, false]);
+    expect(running.modeler.exportText()).toBe(imported);
+    expect(exported(running).contexts).toHaveLength(3);
+    expectTheNextEditApplied(running, imported);
+  });
+
+  test.each(DRAG_STARTS_WHILE_A_IS_SELECTED)(
+    "$what: an import called after the one that waits, in the same task, runs after it",
+    async ({ start }) => {
+      const running = await stage();
+      select(running, "a");
+      const waiting = importOnSelection(running, peerText(running, "C by the first peer"));
+      const later = peerText(running, "C by the second peer");
+      const settled: string[] = [];
+
+      start(running);
+      expect(waiting()).toBeDefined();
+      void waiting()?.then(() => settled.push("first"));
+      await running.modeler.importText(later).then(() => settled.push("second"));
+      await nextTasks();
+
+      expect(running.errors).toEqual([]);
+      expect(settled).toEqual(["first", "second"]);
+      expect(running.steps.filter((step) => step === "import")).toHaveLength(2);
+      expect(running.modeler.exportText()).toBe(later);
+      expect(service<Dragging>(running, "dragging").context()).toBeFalsy();
+      expect(running.changes()).toBe(0);
+      expectTheNextEditApplied(running, later);
+    },
+  );
+
+  test("an import from the interaction listener when the move starts", async () => {
+    const running = await stage();
+    const imported = peerText(running);
+    let reimport: Promise<unknown> | undefined;
+    running.modeler.interaction.onChange((active) => {
+      if (active) reimport ??= running.modeler.importText(imported);
+    });
+    const reported = interactionChanges(running);
+    const start = centreOfShape(running, "b");
+
+    pointer(hitArea(running, "b"), "mousedown", start);
+    pointer(document, "mousemove", shifted(start, 20, 0));
+    expect(reimport).toBeDefined();
+    expect(running.errors).toEqual([]);
+    expect(service<Dragging>(running, "dragging").context()?.prefix).toBe("shape.move");
+    await reimport;
+    expect(service<Dragging>(running, "dragging").context()).toBeFalsy();
+
+    hoverCanvasAt(running, shifted(start, 60, 0));
+    pointer(document, "mouseup", shifted(start, 60, 0));
+    await nextTasks();
+
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(0);
+    expect(reported).toEqual([true, false]);
+    expect(running.modeler.exportText()).toBe(imported);
+    expectTheNextEditApplied(running, imported);
+  });
+
+  test("a first move that a listener aborts leaves no import waiting", async () => {
+    const running = await stage();
+    const failure = new Error("a listener of the first move failed");
+    service<EventBus>(running, "eventBus").once("drag.move", () => {
+      throw failure;
+    });
+    const imported = peerText(running);
+    const start = centreOfShape(running, "b");
+    pointer(hitArea(running, "b"), "mousedown", start);
+    pointer(document, "mousemove", shifted(start, 20, 0));
+    await nextTasks(1);
+
+    const settled = await Promise.race([
+      running.modeler.importText(imported).then(() => "settled"),
+      nextTasks(5).then(() => "pending"),
+    ]);
+
+    expect(settled).toBe("settled");
+    expect(running.errors).toEqual([failure]);
+    expect(running.modeler.exportText()).toBe(imported);
+    expect(service<Dragging>(running, "dragging").context()).toBeFalsy();
   });
 });

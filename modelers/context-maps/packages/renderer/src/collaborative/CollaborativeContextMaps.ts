@@ -139,6 +139,31 @@ function collaborative(
     return { warnings: warnings.map((warning) => warning.message) };
   }
 
+  /** The last import that waits, settled once it has run or failed. */
+  let waitingImports: Promise<void> | undefined;
+
+  function whenActionEnded(): Promise<void> | undefined {
+    return destroyed ? undefined : gestures?.whenActionEnded();
+  }
+
+  /**
+   * Imports once `ready` has settled. An action can end before the imports that waited for it have
+   * run (a drag's activation ends inside `Dragging.move`, they run a microtask later): an import
+   * called in between queues behind them, so the imports run in the order they were called.
+   */
+  function importLater(ready: Promise<void>, text: string): Promise<ImportResult> {
+    const imported = ready.then(() => importNow(text));
+    const settled = imported.then(
+      () => undefined,
+      () => undefined,
+    );
+    waitingImports = settled;
+    void settled.then(() => {
+      if (waitingImports === settled) waitingImports = undefined;
+    });
+    return imported;
+  }
+
   const elements: CollaborativeContextMapsModeler["elements"] = {
     list: () =>
       destroyed ? [] : (elementRegistry.getAll() as unknown[]).filter(isCmElement).map(elementInfo),
@@ -177,9 +202,17 @@ function collaborative(
       // A host that imports from its change listener (an echo of its own change) would replace the
       // elements the user's action still works on: diagram-js's selection after a move, the type
       // menu after an append, the name editor after a keyboard create, diagram-js's drag init
-      // after a press committed a label. The import waits until the action has finished.
-      const actionEnded = destroyed ? undefined : gestures?.whenActionEnded();
-      return actionEnded ? actionEnded.then(() => importNow(text)) : importNow(text);
+      // after a press committed a label. So would one that imports from its selection listener:
+      // the rest of a delete, an undo or a redo, diagram-js's `Dragging.move` that activates a
+      // drag. The import waits until the action has finished.
+      if (waitingImports) {
+        return importLater(
+          waitingImports.then(() => whenActionEnded()),
+          text,
+        );
+      }
+      const actionEnded = whenActionEnded();
+      return actionEnded ? importLater(actionEnded, text) : importNow(text);
     },
     exportText() {
       // Asking a destroyed diagram would build a new one on the detached container.
