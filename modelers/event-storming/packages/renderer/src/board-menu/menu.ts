@@ -84,7 +84,10 @@ export interface BoardExports {
 
 /** The board's aggregates (`eventStormingAggregates`), behind "Aggregates…" in the Model group. */
 export interface BoardAggregates {
-  /** Read when `boardMenu` runs: the entry is there only while the board has an aggregate. */
+  /**
+   * Read when `boardMenu` runs: the entry is there only while the board has a named aggregate,
+   * one whose label is no placeholder such as "Aggregate 2".
+   */
   hasAggregates(): boolean;
   /** Opens the dialog, e.g. `eventStormingAggregates.showDialog({ container, openDialog })`. */
   showAggregates(): void;
@@ -96,8 +99,9 @@ export interface BoardMenuActions {
   /** Every toggle of the type captions, so the host can remember the choice. */
   onTypeCaptionsToggled?(visible: boolean): void;
   /**
-   * "Aggregates…" (issue #116). The menu shows it only while the board has an aggregate, so a
-   * host builds the menu again after every import and command (the shell's `menu.setGroups`).
+   * "Aggregates…" (issue #116). The menu shows it only while the board has a named aggregate,
+   * so a host builds the menu again after every import and command (the shell's
+   * `menu.setGroups`).
    */
   readonly aggregates?: BoardAggregates | undefined;
   readonly exports: BoardExports;

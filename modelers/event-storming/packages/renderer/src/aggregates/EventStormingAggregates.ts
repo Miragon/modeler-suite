@@ -5,6 +5,7 @@ import type Selection from "diagram-js/lib/features/selection/Selection";
 import { getBBox } from "diagram-js/lib/util/Elements";
 import {
   groupByAggregate,
+  isPlaceholderLabel,
   type AggregateBoard,
   type AggregateGroup,
   type ArrowEnds,
@@ -119,7 +120,10 @@ export default class EventStormingAggregates {
     eventBus.on("diagram.destroy", () => this.open?.dialog.close());
   }
 
-  /** Whether the board holds an aggregate: the menu shows "Aggregates…" only then. */
+  /**
+   * Whether the board holds an aggregate with a name, not the placeholder a new one gets
+   * ("Aggregate 2"), which `groupByAggregate` leaves out: the menu shows "Aggregates…" only then.
+   */
   hasAggregates(): boolean {
     return this.elementRegistry
       .getAll()
@@ -127,7 +131,8 @@ export default class EventStormingAggregates {
         (element) =>
           isEventStormingShape(element) &&
           !element.provisional &&
-          element.eventStormingType === "aggregate",
+          element.eventStormingType === "aggregate" &&
+          !isPlaceholderLabel(element.eventStormingType, element.eventStormingLabel),
       );
   }
 

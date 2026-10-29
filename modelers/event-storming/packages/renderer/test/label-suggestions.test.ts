@@ -3,11 +3,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import { parseDSL, serializeDSL } from "@miragon/event-storming-dsl";
+import { PLACEHOLDER_LABELS, isPlaceholderLabel } from "@miragon/event-storming-schema-model";
+import { STICKY_STYLES } from "../src/draw/styles.js";
 import EventStormingLabelEditing from "../src/label-editing/EventStormingLabelEditing.js";
 import type EventStormingModeling from "../src/modeling/EventStormingModeling.js";
-import type { EventStormingShape } from "../src/model/di-types.js";
+import { STICKY_KINDS, type EventStormingShape } from "../src/model/di-types.js";
 import { LabelSuggestionList } from "../src/vocabulary/LabelSuggestionList.js";
-import { boardStickies, isPlaceholderLabel } from "../src/vocabulary/board-stickies.js";
+import { boardStickies } from "../src/vocabulary/board-stickies.js";
 
 function press(field: HTMLElement, key: string, init: KeyboardEventInit = {}): KeyboardEvent {
   const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
@@ -227,8 +230,32 @@ describe("boardStickies", () => {
       { id: "event_a", elementType: "event", label: "Order Placed" },
       { id: "event_d", elementType: "event", label: "Domain Event Two" },
     ]);
-    expect(isPlaceholderLabel(shape("cmd_b", "command", "Command 12"))).toBe(true);
-    expect(isPlaceholderLabel(shape("note_b", "note", "Note"))).toBe(false);
+  });
+
+  it("leaves out the placeholder the palette and the keys give a new sticky of each kind", () => {
+    for (const kind of STICKY_KINDS) {
+      expect(STICKY_STYLES[kind].label).toBe(PLACEHOLDER_LABELS[kind]);
+      const shapes = [
+        shape(`${kind}_new`, kind, STICKY_STYLES[kind].label),
+        shape(`${kind}_next`, kind, `${STICKY_STYLES[kind].label} 12`),
+      ];
+      const registry = { getAll: () => shapes };
+      expect(boardStickies(registry as unknown as ElementRegistry)).toEqual([]);
+    }
+  });
+
+  it("knows the name the .storm file writes for an empty sticky as its kind's placeholder", () => {
+    for (const kind of STICKY_KINDS) {
+      const board = parseDSL(`title Blank\n${kind} Named [0, 0] (id blank)`);
+      const emptied = {
+        ...board,
+        elements: board.elements.map((element) => ({ ...element, label: "" })),
+      };
+      const [reopened] = parseDSL(serializeDSL(emptied)).elements;
+      expect(reopened!.label).toBe(PLACEHOLDER_LABELS[kind]);
+      expect(isPlaceholderLabel(kind, "")).toBe(true);
+      expect(isPlaceholderLabel(kind, reopened!.label)).toBe(true);
+    }
   });
 });
 

@@ -74,6 +74,11 @@ normalizeLabel("Orders") === normalizeLabel("order"); // true
   what is typed, the matches at the start first, then the most used, at most
   `DEFAULT_SUGGESTION_LIMIT` (8). The last word counts as written so far, so `Pay` finds
   `Payment Received`.
+- `isPlaceholderLabel(kind, label)` knows the name a new sticky gets until it is renamed, the
+  kind's entry in `PLACEHOLDER_LABELS` with or without a number (`Domain Event`,
+  `Domain Event 2`). It says nothing about the domain, so an editor offers no such name and
+  `groupByAggregate` counts no such aggregate. It reads the label as a `.storm` file stores it:
+  trimmed, and an empty one as the placeholder the file writes in its place.
 
 ## Aggregates
 
@@ -95,6 +100,9 @@ for (const { aggregate, commands, events, pairs } of groupByAggregate(board)) {
 ```
 
 - Aggregates whose names `normalizeLabel` reads alike form one group (`Order`, `order`, `Orders`).
+- An aggregate whose label is still a placeholder (`Aggregate`, `Aggregate 2`: `isPlaceholderLabel`)
+  forms no group, so commands and events that reach only such aggregates are in no group either.
+  An empty aggregate is one too, as the file stores it as `Aggregate`.
 - A command counts through an arrow into one of the group's aggregates, an event through an arrow
   out of one. Arrows the other way, a command's arrow straight to an event, and policies, read
   models, actors, external systems, hotspots and notes leave the groups as they are.
@@ -106,8 +114,8 @@ for (const { aggregate, commands, events, pairs } of groupByAggregate(board)) {
 - An aggregate without arrows is a group with empty lists; commands and events that reach no
   aggregate are in no group. Only the arrows join a sticky to an aggregate; how near it stands
   does not.
-- A label without a word (`?`, an empty sticky) names nothing: such a sticky groups with no other,
-  and its `key` is empty.
+- A label without a word (`?`; an empty command or event) names nothing: such a sticky groups with
+  no other, and its `key` is empty.
 - Groups follow their first aggregate on the timeline (`sortByTimeline`), commands and events do
   the same within a group.
 

@@ -170,7 +170,7 @@ test.describe("VS Code webview: commands and events grouped by aggregate", () =>
 
     await postFromHost(page, { type: "update", text: PLAIN_BOARD });
 
-    const empty = aggregatesDialog(page).getByText("The board has no aggregates.");
+    const empty = aggregatesDialog(page).getByText("The board has no named aggregates.");
     await expect(empty).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(aggregatesDialog(page).getByRole("button", { name: "Close" })).toBeFocused();

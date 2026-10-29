@@ -3,6 +3,7 @@ import { encodeMapCompressed } from "../../apps/webapp/src/share.js";
 import {
   AGGREGATES_BOARD,
   AGGREGATES_TABLE,
+  PLACEHOLDER_BOARD,
   PLAIN_BOARD,
   aggregatesDialog,
   aggregatesEntryInMenu,
@@ -18,10 +19,11 @@ import {
 import { closeDialog, exportDSL, openMenu, waitForViewer } from "./support/viewer.js";
 
 /**
- * Issue #116 in the web app: "Aggregates…" in the Model group while the board has an aggregate,
- * the shell's dialog with one row group per aggregate, and a name that selects and reveals its
- * stickies without an undo step, a change of the board or of the link. The same runs in the VS
- * Code webview (vscode/aggregates.spec.ts).
+ * Issue #116 in the web app: "Aggregates…" in the Model group while the board has a named
+ * aggregate (a placeholder such as "Aggregate 2" counts for nothing), the shell's dialog with one
+ * row group per aggregate, and a name that selects and reveals its stickies without an undo step,
+ * a change of the board or of the link. The same runs in the VS Code webview
+ * (vscode/aggregates.spec.ts).
  */
 
 async function link(board: string): Promise<string> {
@@ -115,6 +117,31 @@ test.describe("webapp: commands and events grouped by aggregate", () => {
     );
     await openMenu(page);
     await expect(aggregatesEntryInMenu(page)).toBeVisible();
+  });
+
+  test('"Aggregates…" stays out while every aggregate carries a placeholder, until one is renamed', async ({
+    page,
+  }) => {
+    await openBoard(page, PLACEHOLDER_BOARD);
+    await openMenu(page);
+    await expect(
+      page.locator('.cd-shell-menu[role="menu"] [data-menu-id="type-captions"]'),
+    ).toBeVisible();
+    await expect(aggregatesEntryInMenu(page)).toHaveCount(0);
+    await page.keyboard.press("Escape");
+
+    await page.evaluate(() => {
+      const viewer = window.__eventStormingViewer as unknown as {
+        get(name: "eventStormingModeling"): { updateLabel(element: unknown, label: string): void };
+        get(name: "elementRegistry"): { get(id: string): unknown };
+      };
+      viewer
+        .get("eventStormingModeling")
+        .updateLabel(viewer.get("elementRegistry").get("agg_new"), "Order");
+    });
+    await openMenu(page);
+    await aggregatesEntryInMenu(page).click();
+    expect(await tableRows(page)).toEqual([["Place Order", "Order", "Order Placed"]]);
   });
 
   test("the shell's dialog shows a row group per aggregate, its lines following the arrows", async ({

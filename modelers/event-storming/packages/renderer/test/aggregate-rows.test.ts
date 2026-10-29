@@ -98,18 +98,31 @@ describe("aggregateTableRows", () => {
   });
 
   it("shows a name on one line, and a sticky without a name as unnamed", () => {
-    const [named, unnamed] = rowsOf(
+    const rows = rowsOf(
       [
         sticky("order", "aggregate", "Order\n  Line", 100),
         sticky("blank", "aggregate", "  ", 300),
         sticky("cmd", "command", "", 0),
+        sticky("evt", "event", " ", 200),
       ],
-      [{ from: "cmd", to: "blank" }],
+      [
+        { from: "cmd", to: "order" },
+        { from: "order", to: "evt" },
+      ],
     );
 
-    expect(named!.aggregate.label).toBe("Order Line");
+    expect(rows.map((row) => row.aggregate.label)).toEqual(["Order Line"]);
+    expect(lines(rows[0]!)).toEqual([["Unnamed command", ["Unnamed event"]]]);
+
+    const [unnamed] = aggregateTableRows([
+      {
+        aggregate: { key: "", label: " ", spellings: [], elementIds: ["blank"] },
+        commands: [],
+        events: [],
+        pairs: [],
+      },
+    ]);
     expect(unnamed!.aggregate.label).toBe("Unnamed aggregate");
-    expect(unnamed!.lines[0]!.command?.label).toBe("Unnamed command");
   });
 
   it("keeps the order of the groups: the board's reading order", () => {

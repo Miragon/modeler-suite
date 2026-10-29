@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   CURRENT_SCHEMA_VERSION,
   DEFAULT_SUGGESTION_LIMIT,
+  PLACEHOLDER_LABELS,
   VOCABULARY_STICKY_KINDS,
   collectVocabulary,
+  isPlaceholderLabel,
   isVocabularyStickyKind,
   normalizeLabel,
   serializeBoard,
@@ -187,6 +189,56 @@ describe("collectVocabulary", () => {
     const [term] = collectVocabulary(board.elements);
     expect(term!.spellings.map((spelling) => spelling.label)).toEqual(["Order", "Orders"]);
     expect(serializeBoard(board)).toBe(before);
+  });
+});
+
+describe("isPlaceholderLabel", () => {
+  it("knows the name a new sticky of each kind gets, notes and drawings having none", () => {
+    expect(PLACEHOLDER_LABELS).toEqual({
+      event: "Domain Event",
+      command: "Command",
+      actor: "Actor",
+      aggregate: "Aggregate",
+      policy: "Policy",
+      readmodel: "Read Model",
+      external: "External System",
+      hotspot: "Hotspot",
+    });
+  });
+
+  it.each([
+    ["event", "Domain Event"],
+    ["event", "Domain Event 2"],
+    ["command", "Command 12"],
+    ["aggregate", "Aggregate"],
+    ["aggregate", "Aggregate 2"],
+    ["readmodel", "Read Model 3"],
+    ["external", "External System"],
+    ["hotspot", "Hotspot 4"],
+    ["event", ""],
+    ["aggregate", ""],
+    ["aggregate", " \n "],
+    ["aggregate", " Aggregate 2 "],
+  ] as const)("reads %s %j as a placeholder", (kind, label) => {
+    expect(isPlaceholderLabel(kind, label)).toBe(true);
+  });
+
+  it.each([
+    ["event", "Order Placed"],
+    ["event", "Domain Event Two"],
+    ["event", "Domain Event 2b"],
+    ["event", "Domain Event  2"],
+    ["event", "domain event"],
+    ["event", "Domain Events"],
+    ["aggregate", "?"],
+    ["aggregate", "Aggregate Root"],
+    ["aggregate", "Domain Event"],
+    ["command", "Aggregate 2"],
+    ["note", "Note"],
+    ["note", ""],
+    ["drawing", ""],
+  ] as const)("reads %s %j as a name, or as no placeholder", (kind, label) => {
+    expect(isPlaceholderLabel(kind, label)).toBe(false);
   });
 });
 

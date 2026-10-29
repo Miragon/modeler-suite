@@ -10,12 +10,15 @@ import {
   AGGREGATES_DIALOG_TITLE,
   Modeler,
   NavigatedViewer,
+  boardMenu,
   type AggregatesDialogChrome,
   type AggregatesDialogOptions,
+  type BoardLevels,
   type EventStormingAggregates,
   type EventStormingModeling,
   type EventStormingReadOnly,
   type EventStormingShape,
+  type TypeCaptions,
 } from "../../src/index.js";
 import "../../src/assets/event-storming.css";
 
@@ -35,6 +38,19 @@ policy Bill it [550, 450] (id pol_bill)
 #cmd_ship -> #agg_order_2
 #agg_order_2 -> #evt_shipped
 #evt_placed -> #pol_bill`;
+
+/**
+ * A board whose aggregates still carry the placeholders new stickies get, "Aggregate" and
+ * "Aggregate 2", with a command and an event at the first.
+ */
+const PLACEHOLDER_BOARD = `title Placeholders
+command Place Order [150, 200] (id cmd_place)
+aggregate Aggregate [350, 200] (id agg_new)
+event Order Placed [550, 200] (id evt_placed)
+aggregate Aggregate 2 [350, 450] (id agg_next)
+
+#cmd_place -> #agg_new
+#agg_new -> #evt_placed`;
 
 /** What the shell's chrome covers: the menu row on top, a legend on the left. */
 const INSETS = { top: 64, right: 12, bottom: 64, left: 240 };
@@ -115,6 +131,28 @@ const entry = (name: string): HTMLButtonElement => {
   return found;
 };
 const canvasSvg = () => container!.querySelector<SVGSVGElement>("svg[tabindex]");
+const rename = (diagram: Modeler, id: string, label: string) =>
+  diagram.get<EventStormingModeling>("eventStormingModeling").updateLabels([
+    {
+      element: diagram.get<ElementRegistry>("elementRegistry").get(id) as EventStormingShape,
+      label,
+    },
+  ]);
+
+/** The ids of the Model group as an app builds it after an import or a command. */
+function modelGroupIds(diagram: Modeler): string[] {
+  const aggregates = aggregatesOf(diagram);
+  return boardMenu({
+    levels: diagram.get<BoardLevels>("eventStormingModeling"),
+    typeCaptions: diagram.get<TypeCaptions>("eventStormingViewOptions"),
+    aggregates: {
+      hasAggregates: () => aggregates.hasAggregates(),
+      showAggregates: () => aggregates.showDialog(dialogChrome(container!)),
+    },
+    exports: { png: { onSelect: () => undefined }, svg: { onSelect: () => undefined } },
+    showKeyboardShortcuts: () => undefined,
+  }).model.map((entry) => entry.id);
+}
 
 /**
  * Where a sticky stands on the screen, against the container's box minus the chrome's insets: its
@@ -176,6 +214,58 @@ describe("the board's aggregates on the canvas (issue #116, real browser DOM)", 
     const modeling = diagram.get<{ removeElements(elements: unknown[]): void }>("modeling");
     modeling.removeElements([diagram.get<ElementRegistry>("elementRegistry").get("agg")]);
     expect(aggregatesOf(diagram).hasAggregates()).toBe(false);
+  });
+
+  it("counts no aggregate whose label is a placeholder, and counts it once it is renamed", async () => {
+    const diagram = await mount({ board: PLACEHOLDER_BOARD });
+    const aggregates = aggregatesOf(diagram);
+    expect(aggregates.hasAggregates()).toBe(false);
+    expect(aggregates.rows()).toEqual([]);
+
+    rename(diagram, "agg_new", "Order");
+
+    expect(aggregates.hasAggregates()).toBe(true);
+    expect(aggregates.rows()).toEqual([
+      {
+        aggregate: { kind: "aggregate", label: "Order", elementIds: ["agg_new"] },
+        lines: [
+          {
+            command: { kind: "command", label: "Place Order", elementIds: ["cmd_place"] },
+            events: [{ kind: "event", label: "Order Placed", elementIds: ["evt_placed"] }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("counts an emptied aggregate as the placeholder it is saved as, before and after a reopen", async () => {
+    const diagram = await mount({ board: "title One\naggregate Order [100, 100] (id agg)" });
+    const aggregates = aggregatesOf(diagram);
+    expect(aggregates.hasAggregates()).toBe(true);
+
+    rename(diagram, "agg", "");
+    expect(aggregates.hasAggregates()).toBe(false);
+    expect(aggregates.rows()).toEqual([]);
+
+    const text = diagram.exportDSL();
+    expect(text).toContain("aggregate Aggregate [100, 100]");
+    await diagram.importDSL(text);
+    expect(aggregates.hasAggregates()).toBe(false);
+    expect(aggregates.rows()).toEqual([]);
+  });
+
+  it('leaves "Aggregates…" out while every aggregate carries a placeholder, and adds it once one is renamed', async () => {
+    const diagram = await mount({ board: PLACEHOLDER_BOARD });
+    expect(modelGroupIds(diagram)).toEqual(["level", "type-captions"]);
+
+    rename(diagram, "agg_next", "Payment");
+    expect(modelGroupIds(diagram)).toEqual(["level", "type-captions", "aggregates"]);
+
+    diagram.get<CommandStack>("commandStack").undo();
+    expect(modelGroupIds(diagram)).toEqual(["level", "type-captions"]);
+
+    rename(diagram, "agg_next", "Aggregate 3");
+    expect(modelGroupIds(diagram)).toEqual(["level", "type-captions"]);
   });
 
   it("shows a table with a row group per aggregate whose header spans its lines", async () => {
@@ -547,12 +637,23 @@ describe("the board's aggregates on the canvas (issue #116, real browser DOM)", 
     await diagram.importDSL("title Plain\ncommand Place Order [100, 100]");
 
     const empty = dialog()!.querySelector<HTMLElement>(".event-storming-aggregates-empty")!;
-    expect(empty.textContent).toBe("The board has no aggregates.");
+    expect(empty.textContent).toBe("The board has no named aggregates.");
     expect(dialog()!.querySelector("table")).toBeNull();
     expect([getComputedStyle(empty).fontSize, getComputedStyle(empty).lineHeight]).toEqual([
       "16px",
       "25.6px",
     ]);
+  });
+
+  it("says the same once the last named aggregate goes and only placeholders stay", async () => {
+    const diagram = await mount();
+    aggregatesOf(diagram).showDialog(dialogChrome(container!));
+
+    await diagram.importDSL(PLACEHOLDER_BOARD);
+
+    const empty = dialog()!.querySelector<HTMLElement>(".event-storming-aggregates-empty")!;
+    expect(empty.textContent).toBe("The board has no named aggregates.");
+    expect(dialog()!.querySelector("table")).toBeNull();
   });
 
   it("keeps the focus in the dialog, on that sentence, when a name had it", async () => {

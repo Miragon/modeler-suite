@@ -211,14 +211,19 @@ shell draws the dialog: "Keyboard shortcuts…" calls `shell.showShortcutsDialog
 (the web app with `{ fileKeys: true }`), the shell puts its own zoom and fit rows into the View
 group and leaves the renderer's out, and the kit's `shortcutsDialog` case checks the rest.
 "Aggregates…" ([#116](https://github.com/Miragon/modeler-suite/issues/116)) ends the Model group
-only while the board has an aggregate, also on a read-only canvas (`keepEnabledWhenReadOnly`), so
-both apps build the menu again after every import and command (`shell.menu.setGroups`). It opens
-the shell's `openShellDialog` through the renderer's `eventStormingAggregates.showDialog`
+only while the board has a named aggregate, also on a read-only canvas
+(`keepEnabledWhenReadOnly`), so both apps build the menu again after every import and command
+(`shell.menu.setGroups`). An aggregate whose label is still the placeholder a new sticky gets
+("Aggregate", "Aggregate 2") counts for nothing, as it is no label suggestion, and so does an
+empty one, which the `.storm` file stores as "Aggregate" (`isPlaceholderLabel` of the schema
+model, one rule for both). It opens the shell's
+`openShellDialog` through the renderer's `eventStormingAggregates.showDialog`
 (`{ container: shell.root, openDialog }`,
 [`packages/renderer/src/aggregates/`](packages/renderer/src/aggregates/)):
-`groupByAggregate` of the schema model (DOM-free, arrows only, names by `normalizeLabel`) as a
-table with a row group per aggregate, each line a command and the events after it, drawn by the
-renderer with its own `.event-storming-aggregates` rules in `event-storming.css`. A name closes
+`groupByAggregate` of the schema model (DOM-free, arrows only, names by `normalizeLabel`, no
+placeholder-labelled aggregate) as a table with a row group per aggregate, each line a command and
+the events after it, drawn by the renderer with its own `.event-storming-aggregates` rules in
+`event-storming.css`. A name closes
 the dialog, then selects and reveals its stickies inside `freeArea.insets` and focuses the canvas;
 no command runs, so neither the history nor the `.storm` text changes. The
 renderer's own `createShortcutsDialog`, its types and the `.event-storming-shortcuts*` rules of

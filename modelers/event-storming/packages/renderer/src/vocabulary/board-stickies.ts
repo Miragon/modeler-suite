@@ -1,20 +1,10 @@
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
-import { isVocabularyStickyKind, type LabelledSticky } from "@miragon/event-storming-schema-model";
-import { STICKY_STYLES } from "../draw/styles.js";
-import { isEventStormingShape, isStickyKind, type EventStormingShape } from "../model/di-types.js";
-
-/**
- * "Domain Event", "Domain Event 2": the name the palette and the keys give a new sticky until it
- * is renamed. It says nothing about the domain, so the vocabulary leaves it out.
- */
-export function isPlaceholderLabel(shape: EventStormingShape): boolean {
-  const kind = shape.eventStormingType;
-  if (!isStickyKind(kind)) return false;
-  const placeholder = STICKY_STYLES[kind].label;
-  const label = shape.eventStormingLabel;
-  if (label === placeholder) return true;
-  return label.startsWith(`${placeholder} `) && /^\d+$/.test(label.slice(placeholder.length + 1));
-}
+import {
+  isPlaceholderLabel,
+  isVocabularyStickyKind,
+  type LabelledSticky,
+} from "@miragon/event-storming-schema-model";
+import { isEventStormingShape } from "../model/di-types.js";
 
 /**
  * The stickies on the canvas as the vocabulary reads them, in the order of the registry: no
@@ -33,7 +23,7 @@ export function boardStickies(
         shape.id !== excludedId &&
         !shape.provisional &&
         isVocabularyStickyKind(shape.eventStormingType) &&
-        !isPlaceholderLabel(shape),
+        !isPlaceholderLabel(shape.eventStormingType, shape.eventStormingLabel),
     )
     .map((shape) => ({
       id: shape.id,

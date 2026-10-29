@@ -11,7 +11,7 @@ export const AGGREGATES_TABLE_LABEL = "Commands and events by aggregate";
 
 const COLUMN_TITLES = ["Commands", "Aggregate", "Events"] as const;
 const HINT = "Choose a name to select its stickies on the board.";
-const EMPTY = "The board has no aggregates.";
+const EMPTY = "The board has no named aggregates.";
 
 export interface AggregateTableOptions {
   /** A click on a name, also Enter or Space on it (`detail` 0). */
@@ -142,8 +142,8 @@ function rowGroup(table: HTMLTableElement, row: AggregateTableRow, context: RowG
 /**
  * Fills `body` with the rows, replacing what it held. Called again on an open dialog (the board
  * changed under it), it gives the focus back to the name that had it, else to the first name; once
- * the board has no aggregate left, to the sentence that says so, so the focus stays in the dialog
- * and a screen reader reads the change.
+ * the board has no named aggregate left (only placeholders or none), to the sentence that says
+ * so, so the focus stays in the dialog and a screen reader reads the change.
  */
 export function renderAggregateTable(
   body: HTMLElement,
