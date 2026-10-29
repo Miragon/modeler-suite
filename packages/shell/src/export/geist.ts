@@ -194,9 +194,13 @@ function sameStyleAndWeight(face: GeistFace, other: GeistFace): boolean {
  * (`100 900`, `oblique 0deg 10deg`), which no property takes, gives its first value.
  */
 function preloadTextStyle(face: GeistFace): string {
-  const style = faceStyle(face).replace(/^(oblique \S+) \S+$/, "$1");
-  const weight = faceWeight(face).replace(/ .*$/, "");
+  const style = leadingWords(faceStyle(face), 2);
+  const weight = leadingWords(faceWeight(face), 1);
   return `font-family:'${GEIST_FAMILY}';font-style:${style};font-weight:${weight}`;
+}
+
+function leadingWords(descriptor: string, count: number): string {
+  return descriptor.split(" ").slice(0, count).join(" ");
 }
 
 function fontFaceRule(face: GeistFace, dataUrl: string): string {
