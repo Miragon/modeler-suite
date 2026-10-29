@@ -185,12 +185,22 @@ export, for every peer. The host therefore keeps a flag instead of the text,
 and its import reads the shared text when it starts, not inside the listener:
 the contract does not order `onChange(false)` and the drop's change event, and
 a renderer may report the end before it runs the drop's command in the same
-handler, which has returned by the time a queued import starts. While a
-re-import waits, the host merges a local change into the shared document
-against the text it last imported or exported, which is what the canvas held
-before the change, and does not write the export over the shared text whole:
-the export lacks the remote changes the canvas has not shown yet. One queue for
-every import the host makes covers all of this:
+handler (Event Storming's point drop on a drawing does). That handler has
+returned by the time a queued import starts, so the read holds the drop when
+two things happened inside the handler: the renderer fired the drop's change
+event, as every Miragon renderer does from the drop's command, and the host
+wrote the change into the shared document before its `onContentChanged`
+listener returned (L3: `exportText()` already returns the change there). A host
+that writes later, after an `await` or a debounce, flushes that write before a
+queued import reads the shared text.
+
+The host merges every local change into the shared document against the text
+it last imported or exported, which is what the canvas held before the change,
+and never writes the export over the shared text whole: the export lacks every
+remote change the canvas has not shown yet, one a gesture holds back as well as
+one whose import still waits in the queue or for the user's action to end. While
+nothing waits, the merge writes what a whole write would. One queue for every
+import the host makes, and the merge in its change listener, cover all of this:
 
 ```ts
 let remoteWaits = false;
@@ -211,11 +221,14 @@ function applyRemote(): void {
 modeler.interaction?.onChange((active) => {
   if (!active && remoteWaits) importNow(sharedText).catch(reportRejectedText);
 });
+
+modeler.onContentChanged(() => mergeLocalChange(modeler.exportText()));
 ```
 
-`applyRemote` runs for each change a peer makes to the shared document, and
-`sharedText` returns that document's current text. For a file the user opens,
-the host calls `importNow(() => fileText)`.
+`applyRemote` runs for each change a peer makes to the shared document,
+`sharedText` returns that document's current text, and `mergeLocalChange`
+merges the export into it as above before it returns. For a file the user
+opens, the host calls `importNow(() => fileText)`.
 
 A view change the HOST makes (`setViewState`, or a fit its chrome applies to
 the canvas) never commits an interaction in progress either (L5, since 1.2):
@@ -807,7 +820,10 @@ Recommendations today, proposed as hard laws for the next major:
   [Miragon/design-iq#307](https://github.com/Miragon/design-iq/pull/307) added
   with the host snippet under `interaction`, which imports the shared
   document's current text after a gesture and so keeps the user's own drop
-  ([#287](https://github.com/Miragon/modeler-suite/issues/287)).
+  ([#287](https://github.com/Miragon/modeler-suite/issues/287)). designIQ's
+  change listener writes a local change after an `await` today; with the
+  snippet it writes before the listener returns, or flushes that write before
+  the import reads the text.
 - Dark mode, on hold since 2026-10-29 and a topic of its own later:
   [#331](https://github.com/Miragon/modeler-suite/issues/331) collects what the
   first attempt found and how to start again, and is the open tracker (#47 and

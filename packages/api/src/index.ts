@@ -358,16 +358,19 @@ export interface CollaborativeModeler {
  *
  * A host that defers re-imports while `active()` is true imports the shared
  * document's current state once `onChange` reports false, read when that
- * import starts: the remote text it deferred lacks the user's own drop,
- * which the host wrote into the shared document meanwhile, and the drop's
- * change event may come after the listener. While a re-import waits, the
- * host merges a local change into the shared document against the text it
- * last imported or exported, and does not write the export over it whole.
- * It may still import during a gesture (after a timeout of its own, or for a
- * file the user opens): the RECOMMENDED cancel of L1 then ends the gesture,
- * and that import takes the place of the deferred one. The contract defines
- * no imports that overlap, so a host starts each import once the one before
- * has settled.
+ * import starts: the remote text it deferred lacks the user's own drop, and
+ * the drop's change event may come after the `onChange` listener, in the
+ * same handler. The read holds the drop because the host writes each local
+ * change into the shared document before its `onContentChanged` listener
+ * returns (a host that writes later, after an `await` or a debounce,
+ * flushes that write before the read). The host merges every local change
+ * into the shared document against the text it last imported or exported,
+ * and never writes the export over it whole: the export lacks every remote
+ * change the canvas has not shown yet. It may still import during a gesture
+ * (after a timeout of its own, or for a file the user opens): the
+ * RECOMMENDED cancel of L1 then ends the gesture, and that import takes the
+ * place of the deferred one. The contract defines no imports that overlap,
+ * so a host starts each import once the one before has settled.
  */
 export interface InteractionSurface {
   /** true from a gesture's start until its drop or cancel, false otherwise:
