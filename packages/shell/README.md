@@ -92,7 +92,11 @@ every optional input field accepts `undefined`, so a modeler compiling with
 
 ## Usage in a VS Code webview
 
-Extension host (0.8; Wardley Maps' `apps/vscode/src/mapEditor.ts` is the first adopter):
+Extension host (0.8). The extensions of all five modelers register their text editors this way:
+Wardley Maps (`apps/vscode/src/mapEditor.ts`, shown here), Event Storming (`boardEditor.ts`), Team
+Topologies (`diagramEditor.ts`), Context Maps (`mapEditor.ts`) and Value Chain
+(`diagramEditor.ts`). Only the PNG editors, Context Maps' `.cm.png` and Team Topologies' `.tt.png`,
+stay outside the plumbing: binary custom editors with a document of their own.
 
 ```ts
 import * as vscode from "vscode";
@@ -258,9 +262,11 @@ guide §8 and removes it with `shell.destroy()`. A host without a mounted shell 
 opens the same dialog with `showShortcutsDialog(groups, { container })`. Content the modeler adds
 to `shell.root` itself (a dialog of its own) is the modeler's: it removes it in its own teardown,
 for example on `diagram.destroy`, since `shell.destroy()` removes only what the shell added. The complete Event
-Storming example, including the export notification, is in [API.md][api]. Since 0.8 the document
-sync, the undo through the document and the problems pill are the shell's (`registerModelerEditor`
-and `connectDocumentSync`); the modeler keeps its diagnostics and the export's save dialog.
+Storming extension on the document plumbing, including the export notification, is in
+[API.md][api]. Since 0.8 the document sync, the undo through the document and the problems pill
+are the shell's (`registerModelerEditor` and `connectDocumentSync`) in the extensions of all five
+modelers, for every editor but the two PNG editors (`.cm.png`, `.tt.png`); the modeler keeps its
+diagnostics and the export's save dialog.
 
 ## Usage in a web app
 
