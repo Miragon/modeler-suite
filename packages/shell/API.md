@@ -13,7 +13,8 @@ editor: two-way sync, minimal line edits, undo through the document and the prob
 [The document plumbing](#the-document-plumbing-08) and
 [`connectDocumentSync`](#the-document-sync-08)). Planned in
 [Miragon/modeler-suite#4](https://github.com/Miragon/modeler-suite/issues/4) (Phase 4); the first
-consumer is the Event Storming modeler, in VS Code (0.1) and in its web app (0.2, see
+consumer is the Event Storming modeler, in VS Code (0.1, on the document plumbing since 0.8, see
+[Usage: Event Storming in VS Code](#usage-event-storming-in-vs-code)) and in its web app (0.2, see
 [Usage: Event Storming in the web app](#usage-event-storming-in-the-web-app)).
 
 - **Look and behaviour** come from the Miragon design system, guide `modeler-design-system.md`
@@ -2433,9 +2434,25 @@ function isTypedMessage(value: unknown): value is TypedMessage;
 `registerModelerEditor` is the extension host's half of a custom text editor whose document stays
 the source of truth (guide §13.5): VS Code keeps dirty state, saving, Git, diff and the undo
 history, and the webview shows the canvas in the shell. The webview's half is
-[`connectDocumentSync`](#the-document-sync-08). Wardley Maps uses it since 0.8
-(`apps/vscode/src/mapEditor.ts`); the other modelers follow, one pull request each
-([#46](https://github.com/Miragon/modeler-suite/issues/46)).
+[`connectDocumentSync`](#the-document-sync-08). The extensions of all five modelers sync their
+text editors through both since 0.8 ([#46](https://github.com/Miragon/modeler-suite/issues/46)),
+each registering it in `apps/vscode/src/` and connecting the sync in
+`apps/vscode/src/webview/main.ts`:
+
+| Modeler         | `viewType`                  | Files              | Registered in      |
+| --------------- | --------------------------- | ------------------ | ------------------ |
+| Wardley Maps    | `wardley.mapEditor`         | `.wmap`, `.owm`    | `mapEditor.ts`     |
+| Event Storming  | `eventStorming.boardEditor` | `.storm`           | `boardEditor.ts`   |
+| Team Topologies | `teamTopologies.editor`     | `.tt`, `.ttm.json` | `diagramEditor.ts` |
+| Context Maps    | `contextMaps.editor`        | `.cm`, `.cm.json`  | `mapEditor.ts`     |
+| Value Chain     | `valueChain.diagramEditor`  | `.vc`, `.vc.json`  | `diagramEditor.ts` |
+
+Only the PNG editors stay outside the plumbing, as decided in
+[#170](https://github.com/Miragon/modeler-suite/issues/170): Context Maps' `.cm.png`
+(`CmPngEditorProvider.ts`) and Team Topologies' `.tt.png` / `.ttm.png` (`TtPngEditorProvider.ts`)
+are binary custom editors that keep their own document with its dirty state, undo, save and
+backup. Their webviews speak the same messages, and each of the two modelers sends its Command
+Palette commands to the focused diagram of either editor itself.
 
 - **The editor.** It registers `viewType` with `retainContextWhenHidden` and one editor per
   document. Per editor it writes `renderWebviewHtml`'s document around
@@ -4029,47 +4046,110 @@ The shell bundles no font: the modeler loads Geist and Geist Mono (`@fontsource-
 
 ## Usage: Event Storming in VS Code
 
-The Event Storming extension, the pilot of 0.1. Extension host
-(`EventStormingEditorProvider.resolveCustomTextEditor`):
+The Event Storming extension, the pilot of 0.1, on the [document plumbing](#the-document-plumbing-08)
+of 0.8 like the extensions of the other four modelers. The extension hands `registerModelerEditor`
+what belongs to the notation: its options, its diagnostics and the export. The webview HTML with
+its CSP, the theme bridge, the sync with its echo suppression and minimal line edits, the undo
+through the document, "Insert example" and the problems pill are the shell's.
+
+Extension host (`apps/vscode/src/`):
 
 ```ts
+// boardEditorOptions.ts: no vscode at runtime, so the e2e test page registers the same options
+import type { ModelerEditorOptions } from "@miragon/modeler-shell/vscode/extension";
+// the renderer's DOM-free module, not its entry: the extension host bundle runs in Node
+import { EVENT_STORMING_THEMES } from "../../../packages/renderer/src/theme/themes.js";
+
+export const BOARD_VIEW_TYPE = "eventStorming.boardEditor"; // contributes.customEditors, *.storm
+export const BOARD_EDITOR_OPTIONS = {
+  viewType: BOARD_VIEW_TYPE,
+  title: "Event Storming Board", // the webview's <title>
+  themes: EVENT_STORMING_THEMES, // ["light"] until the shared dark-mode release of all modelers
+  insertExample: withExampleInserted, // the empty-file hint's "Insert example", one undo step
+} satisfies ModelerEditorOptions;
+```
+
+```ts
+// boardEditor.ts
 import * as vscode from "vscode";
 import {
-  connectThemeBridge,
-  currentAppearance,
-  renderWebviewHtml,
-  revealFileLabel,
+  registerModelerEditor,
+  type ModelerEditorRegistration,
 } from "@miragon/modeler-shell/vscode/extension";
 
-const THEMES = ["light"] as const; // until the shared dark-mode release of all modelers
+export type BoardEditors = ModelerEditorRegistration<vscode.TextDocument>;
 
-// activate(): a hidden tab keeps document, view and selection (and may report 0 × 0 meanwhile)
-vscode.window.registerCustomEditorProvider(viewType, provider, {
-  webviewOptions: { retainContextWhenHidden: true },
-});
+export function registerBoardEditor(
+  context: Pick<vscode.ExtensionContext, "extensionUri">,
+  diagnostics: BoardDiagnostics,
+): BoardEditors {
+  return registerModelerEditor<vscode.TextDocument, WebviewToHost>(vscode, context, {
+    ...BOARD_EDITOR_OPTIONS,
+    diagnostics, // refresh(document) and clear(document), see diagnostics.ts
+    onMessage: (message, editor) =>
+      message.type === "export"
+        ? exportImageToFile(
+            editor.document.uri,
+            message.format,
+            message.data,
+            message.fontFallback === true,
+          )
+        : undefined,
+  });
+}
 
-// resolveCustomTextEditor():
-const dist = vscode.Uri.joinPath(extensionUri, "dist");
-webview.options = { enableScripts: true, localResourceRoots: [dist] }; // webview.js, webview.css, fonts/
-const asset = (file: string) => webview.asWebviewUri(vscode.Uri.joinPath(dist, file)).toString();
-webview.html = renderWebviewHtml({
-  cspSource: webview.cspSource,
-  scriptUri: asset("webview.js"),
-  styleUris: [asset("webview.css")],
-  title: "Event Storming Board",
-  lang: "en",
-  appearance: currentAppearance(vscode, { themes: THEMES }),
-});
-connectThemeBridge(vscode, webviewPanel, { themes: THEMES }); // disposes itself with the panel
+// extension.ts
+export function activate(context: vscode.ExtensionContext): void {
+  const diagnostics = new BoardDiagnostics();
+  const editors = registerBoardEditor(context, diagnostics);
+  context.subscriptions.push(diagnostics, editors, ...registerBoardCommands(editors));
+}
+```
 
-// after an export (exportImage.ts):
+```ts
+// diagnostics.ts: the parser is lenient, so its findings are warnings and the board stays editable
+import { splitLines, type ProblemCounts } from "@miragon/modeler-shell/vscode/extension";
+
+export class BoardDiagnostics implements vscode.Disposable {
+  private readonly collection = vscode.languages.createDiagnosticCollection("event-storming");
+
+  refresh(document: vscode.TextDocument): ProblemCounts {
+    const diagnostics = boardDiagnostics(document.getText()); // ranges from splitLines(text)
+    this.collection.set(document.uri, diagnostics);
+    return { count: diagnostics.length, errors: 0 };
+  }
+
+  clear(document: vscode.TextDocument): void {
+    this.collection.delete(document.uri); // a board has problems only while its editor is open
+  }
+
+  dispose(): void {
+    this.collection.dispose();
+  }
+}
+```
+
+```ts
+// protocol.ts: the shell's messages and the export
+export type WebviewToHost =
+  | DocumentWebviewMessage
+  | { type: "export"; format: ExportFormat; data: string; fontFallback?: boolean };
+
+// exportImage.ts, once the save dialog's file is written: the notification of §13.5
 const reveal = revealFileLabel(process.platform);
-if ((await vscode.window.showInformationMessage(`Exported ${name}.`, reveal)) === reveal) {
+if ((await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal)) === reveal) {
   void vscode.commands.executeCommand("revealFileInOS", target);
 }
 ```
 
-The two bundles (`esbuild.config.mjs`):
+`registerBoardCommands` (`commands.ts`) registers the Command Palette commands. Fit and the exports
+go through `editors.runCommand(name)` to the focused board. Open Source to the Side takes
+`editors.revealActiveDocument()`, and for a board tab VS Code restored after a reload and has not
+resolved yet it looks in `vscode.window.tabGroups` itself.
+
+The two bundles (`esbuild.config.mjs`) land where `registerModelerEditor` expects them: it writes
+its HTML around `dist/webview.js` and `dist/webview.css`, and `dist` is the only local resource
+root:
 
 ```js
 const host = {
@@ -4100,19 +4180,26 @@ import "@fontsource-variable/geist/wght.css";
 import "@fontsource-variable/geist-mono/wght.css";
 // the renderer's stylesheet brings diagram-js.css and the tokens, so they are not imported again
 import {
+  EVENT_STORMING_THEMES,
+  boardMenu,
   boardShortcuts,
   createCollaborativeModeler,
-  type BoardBounds,
+  type BoardLevels,
+  type BoardMenuActions,
+  type EventStormingAggregates,
   type EventStormingReadOnly,
-  type EventStormingViewOptions,
+  type TypeCaptions,
 } from "@miragon/event-storming-renderer";
 import "@miragon/modeler-shell/shell.css";
-import { INVALID_STATUS_DELAY_MS } from "@miragon/modeler-shell";
+import { openShellDialog } from "@miragon/modeler-shell";
+import { INVALID_STATUS_DELAY_MS } from "@miragon/modeler-shell/core";
 import { connectDiagramJs, shellModule } from "@miragon/modeler-shell/diagram-js";
 import {
+  connectDocumentSync,
   mountVsCodeShell,
   persistView,
   readShellState,
+  type DocumentImportContext,
 } from "@miragon/modeler-shell/vscode/webview";
 
 const vscode = acquireVsCodeApi();
@@ -4132,100 +4219,78 @@ const collaborative = createCollaborativeModeler({
 });
 const modeler = collaborative.diagram;
 modeler.get("canvas");
-const viewOptions = modeler.get<EventStormingViewOptions>("eventStormingViewOptions");
-const levels = modeler.get<{ getLevel(): string; setLevel(level: string): void }>(
-  "eventStormingModeling",
-);
-// the canvas lock of an invalid file: context pad, move, resize, delete, paste, label editor
-const canvasLock = modeler.get<EventStormingReadOnly>("eventStormingReadOnly");
-const boardBounds = modeler.get<BoardBounds>("boardBounds");
-
-// 2. The chrome around it.
-const shell = mountVsCodeShell(document.getElementById("app")!, {
-  themes: ["light"],
-  canvas: modeler.container,
-  messages: { canvas: "Event Storming board" },
-  menu: {
-    model: [
-      {
-        kind: "radio",
-        id: "level",
-        label: "Level",
-        options: [
-          { value: "big-picture", label: "Big picture" },
-          { value: "process", label: "Process modeling" },
-          { value: "design", label: "Software design" },
-        ],
-        value: () => levels.getLevel(),
-        onSelect: (level) => levels.setLevel(level),
-      },
-      {
-        kind: "checkbox",
-        id: "type-captions",
-        label: "Type captions",
-        keepEnabledWhenReadOnly: true, // a view toggle, not board content: usable while read-only
-        checked: () => viewOptions.typeCaptionsVisible(),
-        onToggle: (visible) => viewOptions.setTypeCaptionsVisible(visible),
-      },
-    ],
-    export: [
-      {
-        kind: "action",
-        id: "export-png",
-        label: "Export as PNG",
-        icon: "file-image",
-        onSelect: () => void exportPng(),
-      },
-      {
-        kind: "action",
-        id: "export-svg",
-        label: "Export as SVG",
-        icon: "file-code-corner",
-        onSelect: () => void exportSvg(),
-      },
-    ],
-    help: [
-      {
-        kind: "dialog",
-        id: "keyboard-shortcuts",
-        label: "Keyboard shortcuts…",
-        icon: "keyboard",
-        // the board's groups as data; the shell adds the chrome's keys and goes with destroy()
-        onSelect: () => shell.showShortcutsDialog(boardShortcuts(shell)),
-      },
-    ],
-  },
-  problems: { onActivate: () => vscode.postMessage({ type: "showProblems" }) },
-  emptyHint: { onInsertExample: () => vscode.postMessage({ type: "insertExample" }) },
-});
-
-// 3. Viewport, palette, keys and the empty-file hint. Cheap tests only: canFit() is cached, but
-//    exportMap() validates the whole board.
 const registry = modeler.get<{ getAll(): Array<{ parent?: unknown; waypoints?: unknown }> }>(
   "elementRegistry",
 );
-const isEmpty = () => !registry.getAll().some((element) => element.parent && !element.waypoints); // §13.5
-const connection = connectDiagramJs(shell, modeler, {
-  isEmpty,
-  // no padding of its own (the default pads by 120px): the fit insets are the only margin (§5.9)
-  contentBounds: () => (isEmpty() ? undefined : boardBounds.contentBounds(0)),
+const levels = modeler.get<BoardLevels>("eventStormingModeling");
+const typeCaptions = modeler.get<TypeCaptions>("eventStormingViewOptions");
+// the canvas lock of an invalid file: context pad, move, resize, delete, paste, label editor
+const canvasLock = modeler.get<EventStormingReadOnly>("eventStormingReadOnly");
+const aggregates = modeler.get<EventStormingAggregates>("eventStormingAggregates");
+
+// 2. The chrome around it. The renderer builds the menu groups, the same as in the web app:
+//    Level, Type captions and "Aggregates…", the exports, "Keyboard shortcuts…".
+const menuActions: BoardMenuActions = {
+  levels,
+  typeCaptions,
+  onTypeCaptionsToggled: (visible) => writeTypeCaptionsVisible(vscode, visible), // state.ts
+  aggregates: {
+    hasAggregates: () => aggregates.hasAggregates(),
+    showAggregates: () =>
+      aggregates.showDialog({ container: shell.root, openDialog: openShellDialog }),
+  },
+  // the web app's Export group without its .storm export: here the file is the .storm
+  exports: {
+    png: { onSelect: () => void exportPng() },
+    svg: { onSelect: () => void exportSvg() },
+    transparentPng: { onSelect: () => void exportPng(true) },
+    json: { onSelect: () => exportJson() },
+  },
+  // the board's groups as data; the shell adds the chrome's keys and goes with destroy()
+  showKeyboardShortcuts: () => shell.showShortcutsDialog(boardShortcuts(shell)),
+};
+const shell = mountVsCodeShell(document.getElementById("app")!, {
+  themes: EVENT_STORMING_THEMES,
+  canvas: modeler.container,
+  messages: { canvas: "Event Storming board" },
+  menu: boardMenu(menuActions),
+  problems: { onActivate: () => vscode.postMessage({ type: "showProblems" }) },
+  emptyHint: { onInsertExample: () => vscode.postMessage({ type: "insertExample" }) },
 });
+// the level is undoable, and "Aggregates…" shows only while the board has a named aggregate
+const refreshMenu = () => shell.menu.setGroups(boardMenu(menuActions));
+modeler.on("commandStack.changed", refreshMenu);
+
+// 3. Viewport, palette, keys and the empty-file hint. With `modeler` the shell fits to the
+//    contract's contentBounds(), the tight bounds of the board: the fit insets are the only
+//    margin (§5.9). Cheap tests only: exportMap() validates the whole board.
+const isEmpty = () => !registry.getAll().some((element) => element.parent && !element.waypoints); // §13.5
+const connection = connectDiagramJs(shell, modeler, { modeler: collaborative, isEmpty });
 const { viewport } = connection;
 persistView(vscode, viewport); // vscode.setState once the view rested, not on every frame
-modeler.on("commandStack.changed", () => shell.menu.refresh()); // level undo/redo
 
-// 4. Every import from the document (init and external updates), strictly one after another.
-async function importText(text: string, first: boolean): Promise<void> {
+// 4. Every import from the document: init, then the text editor, Git, undo and redo. The sync
+//    runs them one at a time; true when the canvas shows the text, false when it refused it.
+//    showValidBoard, selectedIds, reselect and withoutSelection are small helpers of main.ts.
+const sameBoardText = (a: string, b: string) =>
+  a.replace(/\r\n/g, "\n").trim() === b.replace(/\r\n/g, "\n").trim();
+async function importText(text: string, { first }: DocumentImportContext): Promise<boolean> {
+  // only formatting differs (insertFinalNewline on a save): the canvas shows that board already
+  if (!first && sameBoardText(text, collaborative.exportText())) {
+    showValidBoard(); // canvasLock, shell.setReadOnly and shell.setStatus as after an import
+    return true;
+  }
   const keep = first ? undefined : viewport.getViewbox();
+  const selected = first ? [] : selectedIds();
   try {
     await collaborative.importText(text); // silent: no change event comes from an import
-    canvasLock.setReadOnly(false);
-    shell.setReadOnly(false);
-    shell.setStatus(null);
+    showValidBoard();
     if (keep) viewport.restore(keep);
     else if (first && stored.view) viewport.setState(stored.view);
+    reselect(selected); // the ids the new text still has
     viewport.afterImport(); // first content fits, an empty file shows 100 %, the hint follows import.done
-    shell.menu.refresh();
+    refreshMenu();
+    return true;
   } catch {
     // locked at once, the canvas included; marks and status box show after 800ms without a valid import
     canvasLock.setReadOnly(true);
@@ -4234,32 +4299,50 @@ async function importText(text: string, first: boolean): Promise<void> {
       { severity: "danger", text: shell.messages.invalidFile("Event Storming board") },
       { delayMs: INVALID_STATUS_DELAY_MS },
     );
+    return false;
   }
 }
-let imports = Promise.resolve();
-const enqueueImport = (text: string, first = false) =>
-  (imports = imports.then(() => importText(text, first)));
 
-// 5. Messages from the extension: the document, the diagnostics and the Command Palette commands,
-//    which run the same handlers as the menu.
-let firstImportSettled = () => {};
-const ready = new Promise<void>((resolve) => (firstImportSettled = resolve));
-window.addEventListener("message", (event) => {
-  const message = event.data;
-  if (message?.type === "init") void enqueueImport(message.text, true).then(firstImportSettled);
-  if (message?.type === "update") void enqueueImport(message.text);
-  if (message?.type === "problems")
-    shell.setProblems({ count: message.count, errors: message.errors });
-  if (message?.type === "command" && message.name === "fitView") viewport.fit();
+// 5. The exports serialise here and post to the extension, which shows the save dialog. The
+//    plumbing shows an `error` with showErrorMessage, which the webview posts only for an action
+//    the user triggered.
+async function exportSvg(): Promise<void> {
+  try {
+    const { svg } = await withoutSelection(() => modeler.saveSVG()); // no selection outlines
+    vscode.postMessage({ type: "export", format: "svg", data: svg });
+  } catch {
+    vscode.postMessage({ type: "error", message: "Couldn't export the board as SVG. Try again." });
+  }
+}
+// exportPng(transparent) posts boardToPng(svg, transparent) in Base64 (svgToPng of ./export) as
+// "png" or "png-transparent" with its fontFallback, exportJson the board's exportMap() as JSON
+
+// 6. The extension: init, update, problems and the Command Palette commands in, ready and edits
+//    out. Connected last, since it posts ready at once.
+const sync = connectDocumentSync({
+  api: vscode,
+  importText,
+  exportText: () => collaborative.exportText(), // the board's DSL text, from the contract
+  canWrite: () => !shell.isReadOnly(), // read-only, the canvas shows the last valid board
+  onProblems: (counts) => shell.setProblems(counts),
+  commands: {
+    // the same handlers as the menu
+    fitView: () => viewport.fit(),
+    exportPng: () => void exportPng(),
+    exportSvg: () => void exportSvg(),
+    exportPngTransparent: () => void exportPng(true),
+    exportJson: () => exportJson(),
+  },
 });
-vscode.postMessage({ type: "ready" });
+collaborative.onContentChanged(sync.pushEdit); // the extension writes it as a minimal line edit
 
 // For the e2e test page (see ./testing/vscode-stub); the bundle publishes nothing on window.
-export const webview = { shell, modeler: collaborative, connection, ready };
+export const webview = { shell, modeler: collaborative, connection, ready: sync.ready };
 ```
 
 `zod-jitless.ts` is one line, `config({ jitless: true })` from `zod`, in a module of its own so that
-it runs before any module that builds a schema.
+it runs before any module that builds a schema. `state.ts` keeps the type captions in the webview
+state beside the shell's part, merging into `vscode.getState()` as `writeShellState` does.
 
 A modeler with a legend persists it the same way: `legend: { render, open: stored.legendOpen,
 onToggle: (open) => writeShellState(vscode, { legendOpen: open }) }`.
@@ -4283,9 +4366,15 @@ What the Event Storming renderer changes for the shell (the kit's `aria`, `keys`
   keyboard, context pad, label editor and drawing handles consult it;
 - its own overlays inside the canvas (the note toolbar, the colour picker) stay at `z-index` 100 or
   below, so the palette at 110 covers them (see Layers above);
-- `boardBounds.contentBounds(0)`: the tight bounds of the board, since the fit insets are the margin.
+- the contract's `contentBounds()` is `boardBounds.contentBounds(0)`, the tight bounds of the
+  board, since the fit insets are the margin.
 
-Document sync, echo suppression, minimal edits and undo stay in the modeler for 0.1 (see below).
+The e2e suite runs both halves in one page: with `?host` the webview test page registers
+`BOARD_EDITOR_OPTIONS` with `registerModelerEditor` against `createVsCodeHostStub` (see
+[The extension host's documents](#the-extension-hosts-documents-08)). Its
+`tests/vscode/document-sync.spec.ts` moves a sticky and reads the one line the edit rewrote,
+changes the text, saves, undoes and redoes in the document, inserts the example and has VS Code
+refuse an edit, and checks the canvas after each.
 
 ## Usage: Event Storming in the web app
 
@@ -4510,10 +4599,12 @@ element order (the importer stacks overlapping stickies by it). The web app's ow
 Later candidates unless noted:
 
 - **More of the VS Code document plumbing** (0.8 has the sync, the minimal edits, the undo through
-  the document, "Insert example" and the pill; Wardley Maps uses it, the other four modelers follow
-  one by one, [#46](https://github.com/Miragon/modeler-suite/issues/46)): the export's save dialog
-  and notification, the "New … from Example" command, and binary custom editors such as Team
-  Topologies' and Context Maps' PNG editors. The modelers keep their own code for these.
+  the document, "Insert example" and the pill, and all five modelers' extensions use it,
+  [#46](https://github.com/Miragon/modeler-suite/issues/46)): the export's save dialog and
+  notification and the "New … from Example" command
+  ([#345](https://github.com/Miragon/modeler-suite/issues/345)), and binary custom editors, Team
+  Topologies' `.tt.png` / `.ttm.png` and Context Maps' `.cm.png` editors, the only editors of the
+  five that stay outside the plumbing. The modelers keep their own code for these.
 - An ES-module webview bundle (`renderWebviewHtml` writes a classic script; a `scriptType` option).
 - **More of the web column**: further top-right actions left of the primary action (§5.7), the
   loading state (§9 "Laden": spinner or skeleton during asynchronous work), share-link helpers
