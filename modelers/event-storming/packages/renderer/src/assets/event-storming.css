@@ -3,7 +3,9 @@
    cd-canvas.css stays unlayered and comes after diagram-js.css, so its mapping of the --bio-* and
    .djs-parent variables onto the --cd-ui-* roles beats diagram-js's defaults. Everything below
    reads the roles (--cd-ui-*) and the mode-independent tokens (radius, shadow, motion) only, so
-   the chrome follows the mode the page sets; the canvas drawing keeps its light SVG attributes. */
+   the chrome follows the mode of the nearest carrier; the one fixed colour is the black rim of the
+   spelling-variant dot (guide §8). The canvas drawing keeps its light SVG attributes, and its
+   cd-c-* classes switch what lies on the board. */
 @import "../theme/cd-tokens.generated.css" layer(event-storming-tokens);
 @import "diagram-js/assets/diagram-js.css";
 @import "../theme/cd-canvas.css";
@@ -57,6 +59,47 @@
 
 .event-storming-container .djs-resizer-hit {
   fill: none;
+}
+
+/* The board in dark mode (guide §10.2): the renderer draws the light values as attributes and
+   cd-canvas.css switches arrows, their annotations, the default drawing ink and the draw tool's
+   handles through their cd-c-* classes; stickies are paper and keep their look (guide §10.6).
+   cd-canvas.css has no fill class for kontur, so the arrowhead takes the role here and agrees
+   with its line in high contrast. The export drops this class with the cd-c-* ones. */
+.event-storming-container .event-storming-arrowhead {
+  fill: var(--cd-ui-kontur) !important;
+}
+/* diagram-js draws a drag or connect preview as an outline in its dragger colour (the interaction
+   role); the canvas classes would recolour it, so the preview keeps that look, and an underlay
+   stays out of it as it does in light mode. */
+.event-storming-container .djs-dragger :is(.cd-c-stroke-text, .cd-c-stroke-kontur) {
+  stroke: var(--element-dragger-color) !important;
+}
+.event-storming-container .djs-dragger .cd-c-fill-text-leise {
+  fill: var(--element-dragger-color) !important;
+}
+.event-storming-container .djs-dragger .event-storming-arrowhead {
+  fill: none !important;
+}
+.event-storming-container .djs-dragger .cd-c-unterleger {
+  stroke: none !important;
+}
+/* diagram-js fades what is being dragged to 30 %, which over the dark board tints a sticky's
+   colour (guide §1, no transparency on dark): dark, the faded original turns grey. Mode rules
+   follow the nearest carrier, as cd-canvas.css does (guide §10.2). */
+@media screen {
+  @scope ([data-cd-theme="dark"]) to ([data-cd-theme]) {
+    :is(:scope.event-storming-container, :scope .event-storming-container) .djs-dragging {
+      filter: grayscale(1);
+    }
+  }
+}
+@media screen and (prefers-color-scheme: dark) {
+  @scope ([data-cd-theme="system"]) to ([data-cd-theme]) {
+    :is(:scope.event-storming-container, :scope .event-storming-container) .djs-dragging {
+      filter: grayscale(1);
+    }
+  }
 }
 
 /* Palette: horizontal floating toolbar. Styling on the element itself (.djs-palette), NOT on
@@ -412,9 +455,11 @@
 }
 
 /* A spelling variant (vocabulary/EventStormingSpellingVariants.ts): a dot in the warning role on the
-   sticky's top right corner, an HTML overlay, so no export carries it. Its rim in the text role
-   keeps it visible on every sticky fill, which amber alone is not (guide §3.3). The overlay keeps
-   its size at every zoom; the 16px around the dot is what the pointer hovers. */
+   sticky's top right corner, an HTML overlay, so no export carries it. Its rim keeps it visible on
+   every sticky fill, which amber alone is not (guide §3.3). The rim is the fixed black and no role
+   (guide §8): the stickies stay light on a dark board, where the text role would be white. On the
+   dark board the dot's own amber carries it. The overlay keeps its size at every zoom; the 16px
+   around the dot is what the pointer hovers. */
 .event-storming-container .event-storming-spelling-variant {
   position: absolute;
   left: 0;
@@ -432,7 +477,7 @@
   box-sizing: border-box;
   width: 12px;
   height: 12px;
-  border: 2px solid var(--cd-ui-text);
+  border: 2px solid var(--cd-schwarz);
   border-radius: 50%;
   background: var(--cd-ui-warning);
 }

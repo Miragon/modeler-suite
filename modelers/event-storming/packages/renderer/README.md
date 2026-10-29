@@ -140,6 +140,24 @@ renderer paints nothing for it: the page's design-system mode (or a host's reque
 contract's `appearance`) decides light or dark, never the file. The chrome reads the `--cd-ui-*` roles of the vendored Miragon tokens only, and the canvas
 drawing keeps literal light colours in its SVG attributes, so exports look the same everywhere.
 
+The canvas can draw dark, though the board still reports `themes: ["light"]` until the Miragon
+modelers switch together ([#219](https://github.com/Miragon/modeler-suite/issues/219)): under
+`data-cd-theme="dark"` on the container or the page, the `cd-c-*` classes of the vendored
+`cd-canvas.css` switch what lies on the board to the dark roles (Miragon design guide §10.2). The
+board turns black with its dot grid, arrows stay in `kontur`, their annotations take `text-leise`,
+a drawing without a colour of its own and the draw tool's lines and handles take the text colour.
+Stickies and notes are paper and keep their fill, border and text in both modes (guide §10.6). A
+drawing whose own colour falls below 3:1 on the dark plot lies on an underlay
+(`cd-c-unterleger`) that only a dark carrier shows; the stored colour never changes. High contrast
+(`data-cd-kontrast="hoch"`), which a host can already ask for on the light board, draws the arrows
+and their annotations in the text colour; the arrowhead takes `kontur` through
+`event-storming.css`, since `cd-canvas.css` has no fill class for it, so line and head agree. The
+in-canvas chrome follows the same carrier; the spelling-variant dot keeps its black rim (guide
+§8). Drag and connect previews keep diagram-js's dragger colour, and on the dark board what is
+being dragged fades to grey instead of to a tint of its colour. `saveSVG`
+drops every class that switches with the mode, so an SVG or PNG exported from a dark canvas is
+byte-identical to the light one (guide §10.7, §13.4).
+
 ### Label suggestions and spelling variants
 
 While a sticky's label is typed, the `Modeler` lists the names the board already gives that kind

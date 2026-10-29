@@ -53,4 +53,41 @@ describe("saveSVG", () => {
     expect(board.getAttribute("role")).toBe("application");
     expect(board.getAttribute("tabindex")).toBe("0");
   });
+
+  it("drops the classes that switch with the mode and keeps every other class", () => {
+    const container = containerWithPaletteFirst();
+    const sticky = container.querySelector('[data-element-id="event_order_placed"]')!;
+    const drawn: ReadonlyArray<[tag: string, drawnWith: string | null, exported: string | null]> = [
+      ["polyline", "cd-c-stroke-kontur", null],
+      ["polygon", "event-storming-arrowhead", null],
+      ["text", "event-storming-kind-caption cd-c-fill-text-leise", "event-storming-kind-caption"],
+      [
+        "circle",
+        "event-storming-drawing-handle cd-c-fill-grund cd-c-stroke-text",
+        "event-storming-drawing-handle",
+      ],
+      ["polyline", "cd-c-unterleger", null],
+      ["rect", null, null],
+      ["path", "djs-hit djs-hit-stroke", "djs-hit djs-hit-stroke"],
+    ];
+    drawn.forEach(([tag, classes], index) => {
+      const element = document.createElementNS(SVG_NS, tag);
+      if (classes !== null) element.setAttribute("class", classes);
+      element.setAttribute("data-drawn", String(index));
+      sticky.append(element);
+    });
+    const canvas = { getContainer: () => container } as unknown as Canvas;
+    const before = container.innerHTML;
+
+    const { svg } = saveSVG(canvas);
+
+    expect(svg).not.toMatch(/cd-c-|event-storming-arrowhead/);
+    // jsdom serializes the namespace twice, which the XML parser refuses; the HTML one reads it.
+    const picture = new DOMParser().parseFromString(svg, "text/html");
+    drawn.forEach(([tag, , exported], index) => {
+      const element = picture.querySelector(`[data-drawn="${index}"]`)!;
+      expect(element.getAttribute("class"), tag).toBe(exported);
+    });
+    expect(container.innerHTML).toBe(before);
+  });
 });

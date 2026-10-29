@@ -7,6 +7,7 @@ import {
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import { COLORS } from "../draw/styles.js";
+import { CANVAS_ROLE, withCanvasRoles } from "../theme/canvas-roles.js";
 import { isDrawing, type EventStormingShape } from "../model/di-types.js";
 import type EventStormingModeling from "../modeling/EventStormingModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type EventStormingReadOnly } from "../read-only/index.js";
@@ -82,15 +83,19 @@ export default class EventStormingDrawingHandles {
     const layer = this.canvas.getLayer("event-storming-drawing-handles", 1100);
     const group = svgCreate("g");
     this.absolutePoints().forEach((p, index) => {
-      const handle = svgAttr(svgCreate("circle"), {
-        cx: p.x,
-        cy: p.y,
-        r: 5,
-        fill: COLORS.paper,
-        stroke: COLORS.ink,
-        "stroke-width": 1.5,
-        class: "event-storming-drawing-handle",
-      });
+      const handle = withCanvasRoles(
+        svgAttr(svgCreate("circle"), {
+          cx: p.x,
+          cy: p.y,
+          r: 5,
+          fill: COLORS.paper,
+          stroke: COLORS.ink,
+          "stroke-width": 1.5,
+          class: "event-storming-drawing-handle",
+        }),
+        CANVAS_ROLE.fillGrund,
+        CANVAS_ROLE.strokeText,
+      );
       handle.addEventListener("mousedown", (e) => this.startDrag(e as MouseEvent, index));
       svgAppend(group, handle);
     });
@@ -161,14 +166,17 @@ export default class EventStormingDrawingHandles {
   private renderDragPreview(points: Point[], closed: boolean): void {
     this.clearDragPreview();
     const layer = this.canvas.getLayer("event-storming-drawing-handles", 1100);
-    const preview = svgAttr(svgCreate(closed ? "polygon" : "polyline"), {
-      points: points.map((p) => `${p.x},${p.y}`).join(" "),
-      fill: "none",
-      stroke: COLORS.ink,
-      "stroke-width": 1.5,
-      "stroke-dasharray": "5 4",
-      "pointer-events": "none",
-    });
+    const preview = withCanvasRoles(
+      svgAttr(svgCreate(closed ? "polygon" : "polyline"), {
+        points: points.map((p) => `${p.x},${p.y}`).join(" "),
+        fill: "none",
+        stroke: COLORS.ink,
+        "stroke-width": 1.5,
+        "stroke-dasharray": "5 4",
+        "pointer-events": "none",
+      }),
+      CANVAS_ROLE.strokeText,
+    );
     svgAppend(layer, preview);
     this.dragPreview = preview;
   }

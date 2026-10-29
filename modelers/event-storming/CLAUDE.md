@@ -178,12 +178,14 @@ Drift tests: [`packages/renderer/test/theme.sync.test.ts`](packages/renderer/tes
 (import order and layer, the header, the sha256 of each file below its header against the release,
 the JSON roles against the CSS so a partial re-copy fails,
 every `MIRAGON` value in [`palette.ts`](packages/renderer/src/theme/palette.ts) against its `--cd-*`
-token, no colour literal and no fixed palette token in `event-storming.css` (it reads the
-`--cd-ui-*` roles only), no `style dark` rendering, overlays below the palette, palette rules scoped
-away from the shell, and the notation contrast: the text colour `textColorOn` picks 4.5:1 on every
-kind fill and on the review skill's note colours, arrows, sticky borders and the provisional
-sticky's dashed border 3:1 on the canvas ground, arrows in `kontur` and their annotation in
-`text-leise`, colour literals only in `palette.ts` and `draw/styles.ts`) and
+token, no colour literal in `event-storming.css` and no fixed palette token but the black rim of
+the spelling-variant dot (guide §8; it reads the `--cd-ui-*` roles otherwise), no `style dark`
+rendering, overlays below the palette, palette rules scoped away from the shell, the canvas
+classes against `cd-canvas.css`, and the notation contrast: the text colour `textColorOn` picks
+4.5:1 on every kind fill and on the review skill's note colours, arrows, sticky borders and the
+provisional sticky's dashed border 3:1 on the canvas ground in both modes, arrows in `kontur` and
+their annotation in `text-leise`, the underlay rule for colours weak on the dark plot and no
+picker swatch among them, colour literals only in `palette.ts` and `draw/styles.ts`) and
 [`apps/vscode/test/tokens.sync.test.ts`](apps/vscode/test/tokens.sync.test.ts) (the shell's `SHELL`
 sizes against the vendored `shell` group). The canvas drawing keeps literal light colours in its SVG
 attributes (`draw/styles.ts`), never a `var()`. The sticky colours are the modeler's own: each
@@ -191,6 +193,24 @@ border keeps its fill's hue, dark enough for 3:1, and a new kind's colours must 
 Text on a fill the user sets (`(color …)`, any CSS colour) is black or white, whichever contrasts
 more ([`draw/contrast.ts`](packages/renderer/src/draw/contrast.ts), guide §10.6). The DSL's
 `style dark` stays in the board config for the round-trip, but nothing renders it (guide §10.7).
+
+**Dark canvas** ([#215](https://github.com/Miragon/modeler-suite/issues/215)), invisible while
+`EVENT_STORMING_THEMES` stays `["light"]` (the joint switch is
+[#219](https://github.com/Miragon/modeler-suite/issues/219)): what lies on the board takes the
+`cd-c-*` classes of `cd-canvas.css` (`CANVAS_ROLE` in
+[`theme/canvas-roles.ts`](packages/renderer/src/theme/canvas-roles.ts)): arrows `kontur`, their
+annotation `text-leise`, a drawing without its own colour and the draw tool's lines and handles
+the text colour, the handles' fill the ground. Stickies and notes are paper and take no class
+(guide §10.6). A drawing colour below 3:1 on the dark plot (`strokeNeedsUnderlayOnDark`, against
+`DARK_PLOT`) gets a `cd-c-unterleger` path under it. The arrowhead's fill takes `kontur` through
+`event-storming-arrowhead` in `event-storming.css` (no fill class for `kontur` exists), the drag
+and connect previews keep diagram-js's dragger colour, and a dark carrier fades a dragged element
+to grey. `saveSVG` drops `cd-c-*` and the arrowhead class, so the export stays light;
+[`dark-canvas.browser.test.ts`](packages/renderer/test/browser/dark-canvas.browser.test.ts) checks
+the computed colours and contrast in both modes, diagram-js's variables on the dark roles in
+either stylesheet order (guide §10.3) and the byte-identical SVG and PNG, and
+`e2e/tests/webapp-dark-canvas.spec.ts` and `e2e/tests/vscode/dark-canvas.spec.ts` the three image
+exports of both apps from a dark page.
 
 **Chrome = `@miragon/modeler-shell`, in both apps.** The VS Code webview
 ([`apps/vscode/src/webview/main.ts`](apps/vscode/src/webview/main.ts)) mounts the shared Miragon

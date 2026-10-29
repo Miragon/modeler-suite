@@ -1,4 +1,4 @@
-import { MIRAGON } from "../theme/index.js";
+import { DARK_PLOT, MIRAGON } from "../theme/palette.js";
 
 type Rgba = readonly [red: number, green: number, blue: number, alpha: number];
 
@@ -88,8 +88,23 @@ function ratio(first: Rgba, second: Rgba): number {
 }
 
 const CANVAS_GROUND = parseHex(MIRAGON.grau)!;
+const DARK_GROUND = parseHex(DARK_PLOT)!;
 const BLACK_TEXT = parseHex(MIRAGON.schwarz)!;
 const WHITE_TEXT = parseHex(MIRAGON.weiss)!;
+
+/** Guide §3.6: a stroke needs 3:1 against what it lies on. */
+const NON_TEXT_CONTRAST = 3;
+
+/**
+ * Whether a stroke the user coloured falls below 3:1 on the dark plot and so lies on an underlay
+ * there (guide §10.6). A translucent stroke counts as it shows over that plot; a colour the
+ * renderer cannot read gets none, since nothing says it is weak.
+ */
+export function strokeNeedsUnderlayOnDark(color: string): boolean {
+  const parsed = parseColor(color);
+  if (!parsed) return false;
+  return ratio(over(parsed, DARK_GROUND), DARK_GROUND) < NON_TEXT_CONTRAST;
+}
 
 /**
  * Text colour on a sticky's fill (guide §10.6): `schwarz` or `weiss`, whichever contrasts more

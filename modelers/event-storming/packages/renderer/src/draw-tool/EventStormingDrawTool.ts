@@ -10,6 +10,7 @@ import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
 import { COLORS, DRAWING_INK } from "../draw/styles.js";
+import { CANVAS_ROLE, withCanvasRoles } from "../theme/canvas-roles.js";
 import type EventStormingElementFactory from "../model/EventStormingElementFactory.js";
 import { READ_ONLY_CHANGED_EVENT } from "../read-only/index.js";
 import { focusCanvasWithoutRing, isUnhandledKey, targetsCanvas } from "../keyboard/index.js";
@@ -228,42 +229,24 @@ export default class EventStormingDrawTool {
     const pts = this.cursor ? [...this.points, this.cursor] : this.points;
     svgAppend(
       group,
-      svgAttr(svgCreate("polyline"), {
-        points: pts.map((p) => `${p.x},${p.y}`).join(" "),
-        fill: "none",
-        stroke: DRAWING_INK,
-        "stroke-width": 2,
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "stroke-dasharray": "5 4",
-      }),
+      withCanvasRoles(
+        svgAttr(svgCreate("polyline"), {
+          points: pts.map((p) => `${p.x},${p.y}`).join(" "),
+          fill: "none",
+          stroke: DRAWING_INK,
+          "stroke-width": 2,
+          "stroke-linecap": "round",
+          "stroke-linejoin": "round",
+          "stroke-dasharray": "5 4",
+        }),
+        CANVAS_ROLE.strokeText,
+      ),
     );
     // First point = "close the shape here", last point = "finish the line here".
     const first = this.points[0]!;
-    svgAppend(
-      group,
-      svgAttr(svgCreate("circle"), {
-        cx: first.x,
-        cy: first.y,
-        r: this.points.length >= 3 ? 5 : 3,
-        fill: COLORS.paper,
-        stroke: DRAWING_INK,
-        "stroke-width": 1.5,
-      }),
-    );
+    svgAppend(group, previewHandle(first, this.points.length >= 3 ? 5 : 3));
     if (this.points.length >= 2) {
-      const last = this.points[this.points.length - 1]!;
-      svgAppend(
-        group,
-        svgAttr(svgCreate("circle"), {
-          cx: last.x,
-          cy: last.y,
-          r: 5,
-          fill: COLORS.paper,
-          stroke: DRAWING_INK,
-          "stroke-width": 1.5,
-        }),
-      );
+      svgAppend(group, previewHandle(this.points[this.points.length - 1]!, 5));
     }
     svgAppend(layer, group);
     this.layer = group;
@@ -275,6 +258,22 @@ export default class EventStormingDrawTool {
       this.layer = null;
     }
   }
+}
+
+/** An end point of the line being drawn: the board's ground inside a rim in the drawing ink. */
+function previewHandle(point: Point, radius: number): SVGElement {
+  return withCanvasRoles(
+    svgAttr(svgCreate("circle"), {
+      cx: point.x,
+      cy: point.y,
+      r: radius,
+      fill: COLORS.paper,
+      stroke: DRAWING_INK,
+      "stroke-width": 1.5,
+    }),
+    CANVAS_ROLE.fillGrund,
+    CANVAS_ROLE.strokeText,
+  );
 }
 
 function distance(a: Point, b: Point): number {

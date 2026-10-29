@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { CHROME_SPACING, MIRAGON } from "../src/theme/palette.js";
+import { CHROME_SPACING, DARK_PLOT, MIRAGON } from "../src/theme/palette.js";
+import { ARROWHEAD_CLASS, CANVAS_ROLE, isModeClass } from "../src/theme/canvas-roles.js";
 import {
   COLORS,
   NOTE_STYLE,
@@ -10,7 +11,7 @@ import {
   STICKY_SHADOW,
   STICKY_STYLES,
 } from "../src/draw/styles.js";
-import { textColorOn } from "../src/draw/contrast.js";
+import { strokeNeedsUnderlayOnDark, textColorOn } from "../src/draw/contrast.js";
 
 /**
  * Drift guard: `assets/event-storming.css` reads the design-system roles only, and `MIRAGON`
@@ -111,6 +112,15 @@ function withoutComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
+/** The declarations of the rule whose whole selector is `selector`. */
+function ruleBody(selector: string): string {
+  const rule = new RegExp(`(?:^|\\})\\s*${escapeForRegExp(selector)}\\s*\\{([^}]*)\\}`).exec(
+    withoutComments(css),
+  );
+  if (!rule) throw new Error(`no rule for ${selector} in event-storming.css`);
+  return rule[1]!;
+}
+
 /** Every selector of every rule (the text in front of a `{`, split at the commas). */
 function ruleSelectors(source: string): string[] {
   return [...withoutComments(source).matchAll(/([^{};]+)\{/g)].flatMap((match) =>
@@ -123,12 +133,18 @@ describe("theme.sync — event-storming.css takes every colour from the roles", 
     expect(withoutComments(css)).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
   });
 
-  it("reads only roles and mode-independent tokens, never a fixed palette colour", () => {
+  it("reads only roles and mode-independent tokens, and one fixed colour: the dot's black rim", () => {
     const tokens = [...withoutComments(css).matchAll(/var\((--cd-[\w-]+)/g)].map((m) => m[1]!);
     expect(tokens.length).toBeGreaterThan(20);
-    for (const token of tokens) {
-      expect(token).toMatch(/^--cd-(ui-[\w-]+|radius-\w+|shadow-\d|ease(-out)?|motion-\w+)$/);
-    }
+    const fixed = tokens.filter(
+      (token) => !/^--cd-(ui-[\w-]+|radius-\w+|shadow-\d|ease(-out)?|motion-\w+)$/.test(token),
+    );
+    expect(fixed).toEqual(["--cd-schwarz"]);
+    // Guide §8: the rim of a spelling variant's dot is fixed black, since the stickies it sits on
+    // stay light on a dark board, where the text role would be white.
+    expect(ruleBody(".event-storming-container .event-storming-spelling-variant::after")).toMatch(
+      /border:\s*2px solid var\(--cd-schwarz\);/,
+    );
   });
 
   it("never renders the DSL `style` directive (guide §10.7: no navy board)", () => {
@@ -305,6 +321,65 @@ describe("theme.sync — MIRAGON mirrors the vendored design-system tokens", () 
     expect(`${CHROME_SPACING.luecke}px`).toBe(tokens.shell["--cd-shell-luecke"]);
     expect(`${CHROME_SPACING.einpassenSeite}px`).toBe(tokens.shell["--cd-shell-einpassen-seite"]);
   });
+
+  it("DARK_PLOT is the dark plot role", () => {
+    expect(DARK_PLOT).toBe(tokens.dunkel["--cd-ui-plot"]);
+  });
+});
+
+/** The declarations of `.class` in cd-canvas.css, the vendored file the classes come from. */
+function canvasClassBody(className: string): string | undefined {
+  const rule = new RegExp(`(?:^|\\n)\\.${escapeForRegExp(className)}\\s*\\{([^}]*)\\}`).exec(
+    withoutComments(vendoredCanvasCss),
+  );
+  return rule?.[1]?.trim();
+}
+
+describe("theme.sync — the canvas classes the renderer draws with (guide §10.2)", () => {
+  it("are the cd-canvas.css classes for the roles the canvas table names", () => {
+    expect(canvasClassBody(CANVAS_ROLE.strokeText)).toBe("stroke: var(--cd-ui-text) !important;");
+    expect(canvasClassBody(CANVAS_ROLE.strokeKontur)).toBe(
+      "stroke: var(--cd-ui-kontur) !important;",
+    );
+    expect(canvasClassBody(CANVAS_ROLE.fillTextLeise)).toBe(
+      "fill: var(--cd-ui-text-leise) !important;",
+    );
+    expect(canvasClassBody(CANVAS_ROLE.fillGrund)).toBe("fill: var(--cd-ui-grund) !important;");
+    expect(canvasClassBody(CANVAS_ROLE.underlay)).toBe("stroke: var(--cdc-unterleger) !important;");
+  });
+
+  it("give the arrowhead the arrow's role, since cd-canvas.css has no fill class for kontur", () => {
+    expect(canvasClassBody("cd-c-fill-kontur")).toBeUndefined();
+    expect(ruleBody(`.event-storming-container .${ARROWHEAD_CLASS}`).trim()).toBe(
+      "fill: var(--cd-ui-kontur) !important;",
+    );
+  });
+
+  it("leave diagram-js's drag and connect previews in its dragger colour", () => {
+    expect(
+      ruleBody(
+        ".event-storming-container .djs-dragger :is(.cd-c-stroke-text, .cd-c-stroke-kontur)",
+      ).trim(),
+    ).toBe("stroke: var(--element-dragger-color) !important;");
+    expect(ruleBody(".event-storming-container .djs-dragger .cd-c-fill-text-leise").trim()).toBe(
+      "fill: var(--element-dragger-color) !important;",
+    );
+    expect(ruleBody(`.event-storming-container .djs-dragger .${ARROWHEAD_CLASS}`).trim()).toBe(
+      "fill: none !important;",
+    );
+    expect(ruleBody(".event-storming-container .djs-dragger .cd-c-unterleger").trim()).toBe(
+      "stroke: none !important;",
+    );
+  });
+
+  it("are the classes the export drops, and no other", () => {
+    for (const role of [...Object.values(CANVAS_ROLE), ARROWHEAD_CLASS]) {
+      expect(isModeClass(role), role).toBe(true);
+    }
+    for (const kept of ["event-storming-kind-caption", "djs-visual", "djs-hit", "viewport"]) {
+      expect(isModeClass(kept), kept).toBe(false);
+    }
+  });
 });
 
 /** WCAG 2.x contrast ratio of two opaque hex colours. */
@@ -368,6 +443,45 @@ describe("theme.sync — notation contrast (guide §3.6, §10.1, §10.6)", () =>
       for (const ground of CANVAS_GROUNDS) {
         expect(contrast(look.stroke, ground), `${kind} on ${ground}`).toBeGreaterThanOrEqual(3);
       }
+    }
+  });
+
+  it("on the dark board every sticky border keeps 3:1 and the paper needs no underlay", () => {
+    for (const [kind, look] of STICKY_LOOKS) {
+      expect(
+        contrast(look.stroke, tokens.dunkel["--cd-ui-grund"]!),
+        `${kind} border on the dark board`,
+      ).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("the arrow, its annotation and the default drawing ink hold their contrast dark", () => {
+    const board = tokens.dunkel["--cd-ui-grund"]!;
+    expect(contrast(tokens.dunkel["--cd-ui-kontur"]!, board)).toBeGreaterThanOrEqual(3);
+    expect(contrast(tokens.dunkel["--cd-ui-text-leise"]!, board)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(tokens.dunkel["--cd-ui-text"]!, board)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("puts a stroke the user coloured on an underlay exactly where it falls below 3:1 dark", () => {
+    for (const weak of ["#4A4A4A", "#2B50D4", "#6A3DB8", "#333333"]) {
+      expect(contrast(weak, DARK_PLOT), weak).toBeLessThan(3);
+      expect(strokeNeedsUnderlayOnDark(weak), weak).toBe(true);
+    }
+    expect(strokeNeedsUnderlayOnDark("#333")).toBe(true);
+    // A translucent white counts as it shows over the dark plot, where it is a dark grey.
+    expect(strokeNeedsUnderlayOnDark("#FFFFFF1A")).toBe(true);
+    for (const strong of [MIRAGON.kontur, MIRAGON.weiss, MIRAGON.gruen, "#808080"]) {
+      expect(contrast(strong, DARK_PLOT), strong).toBeGreaterThanOrEqual(3);
+      expect(strokeNeedsUnderlayOnDark(strong), strong).toBe(false);
+    }
+    // jsdom and node read hex only: a colour the renderer cannot read gets no underlay.
+    expect(strokeNeedsUnderlayOnDark("not a colour")).toBe(false);
+  });
+
+  it("the colour picker offers no swatch that is weak on the dark board", () => {
+    for (const [kind, look] of Object.entries(STICKY_STYLES)) {
+      expect(contrast(look.fill, DARK_PLOT), kind).toBeGreaterThanOrEqual(3);
+      expect(strokeNeedsUnderlayOnDark(look.fill), kind).toBe(false);
     }
   });
 

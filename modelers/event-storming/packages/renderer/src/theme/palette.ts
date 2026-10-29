@@ -15,7 +15,9 @@
  * literal (rather than read from the JSON) so the literal-string types survive into the public
  * `COLORS` type.
  *
- * The renderer draws light only (the modelers switch to dark together, guide §13.3). Brand rule:
+ * The renderer draws these light values; the `cd-c-*` classes of `cd-canvas.css` switch what lies
+ * on the board to the dark roles under a dark carrier (guide §10.2), and `EVENT_STORMING_THEMES`
+ * stays light only until the modelers switch to dark together (guide §13.5). Brand rule:
  * blue leads (`blau` — surfaces, buttons, links), green accents (`gruen` — key visual, highlights;
  * never body text on white).
  */
@@ -52,6 +54,13 @@ export const MIRAGON = {
   /** Signature brand gradient — hero, large surfaces, brand moments. Use verbatim. */
   gradientBrand: "linear-gradient(120deg, #335DE5 30%, #00E676)",
 } as const;
+
+/**
+ * The dark plot, `dunkel['--cd-ui-plot']` of `cd-tokens.generated.json`: the ground a stroke the
+ * user coloured is measured against for its underlay (guide §10.6). Nothing is drawn in it, since
+ * the canvas draws light values and the roles switch them; theme.sync pins it to the token file.
+ */
+export const DARK_PLOT = MIRAGON.schwarz;
 
 /**
  * Chrome spacing in px from the `shell` group of `cd-tokens.generated.json` (guide §5.2, §5.9).

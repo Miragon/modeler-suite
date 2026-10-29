@@ -17,7 +17,13 @@ import {
   STICKY_SHADOW,
   STICKY_STYLES,
 } from "./styles.js";
-import { textColorOn } from "./contrast.js";
+import { strokeNeedsUnderlayOnDark, textColorOn } from "./contrast.js";
+import {
+  ARROWHEAD_CLASS,
+  CANVAS_ROLE,
+  UNDERLAY_EXTRA_WIDTH,
+  withCanvasRoles,
+} from "../theme/canvas-roles.js";
 import { parseNoteMarkdown, type NoteLine, type NoteRun } from "./note-markdown.js";
 import {
   HOTSPOT_ROTATION_DEG,
@@ -37,6 +43,8 @@ import type EventStormingViewOptions from "../view-options/EventStormingViewOpti
 
 /** BaseRenderer default is 1000; 1500 wins the render.shape/render.connection event. */
 const RENDER_PRIORITY = 1500;
+
+const DRAWING_STROKE_WIDTH = 2;
 
 /** Class of the small kind caption at a sticky's bottom (selector contract for tests/e2e). */
 export const KIND_CAPTION_CLASS = "event-storming-kind-caption";
@@ -107,20 +115,35 @@ export default class EventStormingRenderer extends BaseRenderer {
     return this.drawSticky(visuals, shape);
   }
 
-  /** Freeform drawing: polyline/polygon from relative points (see EventStormingDrawTool). */
+  /**
+   * Freeform drawing: polyline/polygon from relative points (see EventStormingDrawTool). The
+   * default ink follows the text role; a colour the user set stays as stored and, where it falls
+   * below 3:1 on the dark plot, lies on an underlay that only a dark carrier shows (guide §10.6).
+   */
   private drawDrawing(visuals: SVGElement, shape: EventStormingShape): SVGElement {
     const pts = shape.drawingPoints ?? [];
     const dash =
       shape.strokeStyle === "dashed" ? "8 5" : shape.strokeStyle === "dotted" ? "2 4" : undefined;
-    const path = svgAttr(svgCreate(shape.closed ? "polygon" : "polyline"), {
-      points: pts.map((p) => `${p.x},${p.y}`).join(" "),
-      fill: "none",
-      stroke: shape.color ?? DRAWING_INK,
-      "stroke-width": 2,
-      "stroke-linecap": "round",
-      "stroke-linejoin": "round",
-      ...(dash ? { "stroke-dasharray": dash } : {}),
-    });
+    const line = (stroke: string, width: number): SVGElement =>
+      svgAttr(svgCreate(shape.closed ? "polygon" : "polyline"), {
+        points: pts.map((p) => `${p.x},${p.y}`).join(" "),
+        fill: "none",
+        stroke,
+        "stroke-width": width,
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        ...(dash ? { "stroke-dasharray": dash } : {}),
+      });
+    if (!shape.color) {
+      const path = withCanvasRoles(line(DRAWING_INK, DRAWING_STROKE_WIDTH), CANVAS_ROLE.strokeText);
+      svgAppend(visuals, path);
+      return path;
+    }
+    if (strokeNeedsUnderlayOnDark(shape.color)) {
+      const underlay = line("none", DRAWING_STROKE_WIDTH + UNDERLAY_EXTRA_WIDTH);
+      svgAppend(visuals, withCanvasRoles(underlay, CANVAS_ROLE.underlay));
+    }
+    const path = line(shape.color, DRAWING_STROKE_WIDTH);
     svgAppend(visuals, path);
     return path;
   }
@@ -129,7 +152,8 @@ export default class EventStormingRenderer extends BaseRenderer {
    * Every sticky (and the free note) is a rounded rectangle with centered, wrapped text inside —
    * the label lives IN the sticky, never beside it. A user-picked `color` overrides the kind's
    * fill and turns the text black or white, whichever reads better on it; the border stays the
-   * kind's own (so the type remains recognizable).
+   * kind's own (so the type remains recognizable). A sticky is paper on the board: its fill,
+   * border and text look the same on a dark board (guide §10.6), so it takes no canvas class.
    */
   private drawSticky(visuals: SVGElement, shape: EventStormingShape): SVGElement {
     const kind = shape.eventStormingType;
@@ -199,28 +223,37 @@ export default class EventStormingRenderer extends BaseRenderer {
     const conn = element as unknown as EventStormingConnection;
     const [start, end] = connectionEndpoints(conn);
 
-    const path = svgAttr(svgCreate("polyline"), {
-      points: `${start.x},${start.y} ${end.x},${end.y}`,
-      fill: "none",
-      stroke: COLORS.arrow,
-      "stroke-width": 1.5,
-      "stroke-linecap": "round",
-    });
+    const path = withCanvasRoles(
+      svgAttr(svgCreate("polyline"), {
+        points: `${start.x},${start.y} ${end.x},${end.y}`,
+        fill: "none",
+        stroke: COLORS.arrow,
+        "stroke-width": 1.5,
+        "stroke-linecap": "round",
+      }),
+      CANVAS_ROLE.strokeKontur,
+    );
     svgAppend(visuals, path);
-    svgAppend(visuals, connectionArrow(start, end, COLORS.arrow, 11, 5));
+    svgAppend(
+      visuals,
+      withCanvasRoles(connectionArrow(start, end, COLORS.arrow, 11, 5), ARROWHEAD_CLASS),
+    );
 
     // Arrow annotation (`; …`) at the midpoint.
     if (conn.linkLabel) {
       const anchor = linkLabelAnchor(conn);
       svgAppend(
         visuals,
-        label(conn.linkLabel, anchor.x, anchor.y, {
-          "text-anchor": "middle",
-          "font-size": LINK_LABEL_FONT_SIZE,
-          "font-style": "italic",
-          "text-rendering": LINK_LABEL_TEXT_RENDERING,
-          fill: COLORS.inkSoft,
-        }),
+        withCanvasRoles(
+          label(conn.linkLabel, anchor.x, anchor.y, {
+            "text-anchor": "middle",
+            "font-size": LINK_LABEL_FONT_SIZE,
+            "font-style": "italic",
+            "text-rendering": LINK_LABEL_TEXT_RENDERING,
+            fill: COLORS.inkSoft,
+          }),
+          CANVAS_ROLE.fillTextLeise,
+        ),
       );
     }
     return path;
