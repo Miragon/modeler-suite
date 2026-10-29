@@ -58,8 +58,9 @@ export function pageGeistFaces(): GeistFace[] {
 
 /**
  * The SVG with the Geist faces its text uses in a `<style>` up front, each file inline as a
- * `data:` URL, and a hidden text per face. Returns the SVG unchanged when no face draws a
- * character of its text. Throws when the SVG does not parse or a font file cannot be read.
+ * `data:` URL, and a hidden text per face in that face's style and weight. Returns the SVG
+ * unchanged when no face draws a character of its text. Throws when the SVG does not parse or a
+ * font file cannot be read.
  */
 export async function embedGeist(
   svg: string,
@@ -83,17 +84,20 @@ export async function embedGeist(
 
   // An SVG image counts as loaded before a subset that only a later character of a label needs
   // has loaded (designIQ, headless Chromium: the Ł in "Kettle from Łódź" after latin), and that
-  // text comes out in the system sans. A hidden text up front, one per face in a character only
-  // that face draws, makes every subset load first. The family goes in as a style, which a rule
-  // of the SVG's own stylesheet cannot override.
+  // text comes out in the system sans. A hidden text up front, one per face in that face's style
+  // and weight and in a character only that face draws, makes every subset load first. Its font
+  // goes in as a style, which a rule of the SVG's own stylesheet cannot override.
   const preload = createSvgElement(parsed, "g");
   preload.setAttribute("visibility", "hidden");
-  used.forEach(({ ranges }, index) => {
-    const laterRanges = used.slice(index + 1).map((later) => later.ranges);
+  used.forEach(({ face, ranges }, index) => {
+    const laterRanges = used
+      .slice(index + 1)
+      .filter((later) => sameStyleAndWeight(later.face, face))
+      .map((later) => later.ranges);
     const sample = sampleCharacter(ranges, laterRanges, codePoints);
     if (sample === undefined) return;
     const text = createSvgElement(parsed, "text");
-    text.setAttribute("style", `font-family:'${GEIST_FAMILY}'`);
+    text.setAttribute("style", preloadTextStyle(face));
     text.textContent = sample;
     preload.append(text);
   });
@@ -135,8 +139,9 @@ const VISIBLE = /[\p{L}\p{M}\p{N}\p{P}\p{S}]/u;
 const SAMPLE_SEARCH_LIMIT = 256;
 
 /**
- * A visible character that this face draws and no face declared after it does: of faces whose
- * ranges overlap, the last one declared draws the character (CSS Fonts 4, `unicode-range`). One
+ * A visible character that this face draws and no later face of its style and weight does: of
+ * faces with the same style and weight whose ranges overlap, the last one declared draws the
+ * character (CSS Fonts 4, `unicode-range`); a face of another style or weight never takes it. One
  * of the text first; for a face the text uses only for white space, one of its own ranges.
  */
 function sampleCharacter(
@@ -168,11 +173,41 @@ function textCodePoints(root: Element): number[] {
   return [...new Set(Array.from(text, (character) => character.codePointAt(0) ?? 0))];
 }
 
+function faceStyle(face: GeistFace): string {
+  return normalizedDescriptor(face.style) || "normal";
+}
+
+function faceWeight(face: GeistFace): string {
+  return normalizedDescriptor(face.weight) || "100 900";
+}
+
+function normalizedDescriptor(value: string | undefined): string {
+  return value?.trim().replace(/\s+/g, " ").toLowerCase() ?? "";
+}
+
+function sameStyleAndWeight(face: GeistFace, other: GeistFace): boolean {
+  return faceStyle(face) === faceStyle(other) && faceWeight(face) === faceWeight(other);
+}
+
+/**
+ * Font properties that pick this face: its style and weight, where a descriptor's range
+ * (`100 900`, `oblique 0deg 10deg`), which no property takes, gives its first value.
+ */
+function preloadTextStyle(face: GeistFace): string {
+  const style = leadingWords(faceStyle(face), 2);
+  const weight = leadingWords(faceWeight(face), 1);
+  return `font-family:'${GEIST_FAMILY}';font-style:${style};font-weight:${weight}`;
+}
+
+function leadingWords(descriptor: string, count: number): string {
+  return descriptor.split(" ").slice(0, count).join(" ");
+}
+
 function fontFaceRule(face: GeistFace, dataUrl: string): string {
   const descriptors = [
     `font-family:'${GEIST_FAMILY}'`,
-    `font-style:${face.style ?? "normal"}`,
-    `font-weight:${face.weight ?? "100 900"}`,
+    `font-style:${faceStyle(face)}`,
+    `font-weight:${faceWeight(face)}`,
     // swap: a face still loading when the image is drawn shows its text in the system sans,
     // where block would leave the text out of the PNG.
     "font-display:swap",

@@ -235,8 +235,9 @@ notation's light background, no grid).
   subsets the text uses.
 - **One hidden text per subset.** An SVG image counts as loaded before a subset that only a later
   character needs has loaded (designIQ, headless Chromium: the Ł of "Kettle from Łódź" in the system
-  sans). A hidden text up front, in a character only that subset draws, loads every subset first.
-  `font-display: swap`, since `block` lost every label once.
+  sans). A hidden text up front, in the subset's style and weight and in a character no later subset
+  of that style and weight draws, loads every subset first. `font-display: swap`, since `block` lost
+  every label once.
 - **`data:`, not `blob:`.** A widget's CSP (MCP Apps: `img-src 'self' data:`) refuses `blob:`
   images. Then `image.decode()` after `load`, which can fire before an embedded font is ready.
 - **VS Code cannot fetch its fonts.** The webview CSP has no `connect-src`, so the webview passes its

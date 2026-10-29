@@ -2373,11 +2373,11 @@ a sheet across the whole picture hides the background.
 
 **Size.** The PNG is the root `<svg>`'s `width` and `height` in pixels (with only one of them, the
 other from the `viewBox`'s ratio, as the browser sizes the image), else its `viewBox`, else
-1000 × 700, times `scale` (default 2, §10.7; 4 for the transparent variant; a scale that is no
-positive finite number is a `RangeError`). Where that passes 32,767 pixels per side or 2^27 in all,
-the scale goes down in proportion, so a huge diagram still exports at a lower density. A browser
-that refuses the canvas (no 2D context or no blob, as iOS Safari above 2^24 pixels) gets it once more
-at 2^24 pixels in all; refused again, the promise rejects.
+1000 × 700, times `scale` (2 by default, §10.7; pass 4 for the transparent variant; a scale that
+is no positive finite number is a `RangeError`). Where that passes 32,767 pixels per side or 2^27
+in all, the scale goes down in proportion, so a huge diagram still exports at a lower density. A
+browser that refuses the canvas (no 2D context or no blob, as iOS Safari above 2^24 pixels) gets it
+once more at 2^24 pixels in all; refused again, the promise rejects.
 
 **Geist.** An SVG drawn as an image is a document of its own: the page's `@font-face` rules do not
 reach it and it loads nothing from outside, so without help its labels come out in the system sans.
@@ -2387,11 +2387,13 @@ reach it and it loads nothing from outside, so without help its labels come out 
   character of the SVG's text (`<text>`, `<foreignObject>`), in the order given, the file inline as
   a `data:` URL, `font-display: swap` (a face still loading shows its text in the system sans, where
   `block` left labels out);
-- a hidden `<g>` with one `<text>` per face, set in a character that face draws and no face declared
-  after it does (of overlapping faces, the last declared draws a character), taken from the text,
-  else from the face's own range. An SVG image counts as loaded before a subset that only a later
-  character needs has loaded (designIQ saw the Ł of "Kettle from Łódź" in the system sans in
-  headless Chromium); the hidden texts make every subset load first.
+- a hidden `<g>` with one `<text>` per face, in that face's style and weight (the first value of a
+  range, such as `100` of `100 900`), set in a character that face draws and no face of the same
+  style and weight declared after it does (of overlapping faces with the same style and weight, the
+  last declared draws a character; a face of another style or weight never takes one), taken from
+  the text, else from the face's own range. An SVG image counts as loaded before a subset that only
+  a later character needs has loaded (designIQ saw the Ł of "Kettle from Łódź" in the system sans
+  in headless Chromium); the hidden texts make every subset load first.
 
 It loads the result through a `data:` URL, never a `blob:` URL: the MCP Apps default CSP for a widget
 (`img-src 'self' data:`) refuses `blob:` images, while the `data:` fonts inside the SVG image load
