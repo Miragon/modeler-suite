@@ -243,10 +243,11 @@ export interface ShellConformanceCase {
  * (roles, names, `aria-expanded`/`-controls`/`-keyshortcuts`/`-disabled`, DOM order, no positive
  * tabindex), `keys` (each chrome key acts exactly once; in the IDE host a `keydown` listener on
  * `window` never fires for a handled key; unmodified `+`/`-` never zoom; select all acts on the
- * canvas only), `focusHandBack` (a pointer click on a zoom control, a palette tool or a File or Model
- * action without a dialog leaves the focus on the canvas; Enter and Space on zoom in leave it on the
- * button, Enter on that menu entry returns it to the trigger), `create` (Enter on the first
- * creating palette entry places one selected element in the free rectangle and focuses the canvas),
+ * canvas only), `focusHandBack` (a pointer click on a zoom control, a palette tool, a File or Model
+ * action without a dialog or, in the web host, the primary action leaves the focus on the canvas;
+ * Enter and Space on zoom in and on the primary action leave it on the button, Enter on that menu
+ * entry returns it to the trigger), `create` (Enter on the first creating palette entry places one
+ * selected element in the free rectangle and focuses the canvas),
  * `emptyFile` (each empty document of `documents` opens at 100 %, or fitted to a plot that always
  * counts, with the empty-file hint in the middle of the free rectangle and no invalid-file state;
  * the first element takes the hint away without moving the view, deleting it brings the hint back;
