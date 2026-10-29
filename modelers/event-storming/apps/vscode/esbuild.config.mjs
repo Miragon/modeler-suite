@@ -7,6 +7,7 @@
 // and the diagram-js imports resolve relative to the renderer source. The host needs the DSL for
 // its diagnostics; @miragon/modeler-shell comes from node_modules in both.
 import * as esbuild from "esbuild";
+import { realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -89,8 +90,11 @@ export const web = {
   plugins: [dataUrlImports],
 };
 
-// The options are also read by scripts/third-party-notices.mjs; only a direct run builds.
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// The options are also read by scripts/third-party-notices.mjs; only a direct run builds. The module
+// URL is the real path, argv keeps a symlinked one.
+const directRun =
+  process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+if (directRun) {
   if (watch) {
     const ctxs = await Promise.all([esbuild.context(host), esbuild.context(web)]);
     await Promise.all(ctxs.map((c) => c.watch()));

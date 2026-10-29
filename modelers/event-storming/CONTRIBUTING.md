@@ -69,7 +69,8 @@ Help entry opens the shell's shortcuts dialog from the menu and by keyboard and 
 to the menu trigger; an exported PNG has the corner pixel of guide §10.7 (#F9F7F7, transparent for
 the 4× variant, which has twice the pixels), the SVG the browser drew carries Geist as `data:`
 faces, a PNG without Geist is saved with a warning (the web app's toast, the webview's
-`fontFallback` flag) and a PNG the browser cannot draw is refused in the app's own words. Both
+`fontFallback` flag) and a PNG the browser cannot draw is refused in the app's own words, in the
+webview also a failed SVG or JSON export. Both
 hosts run the vocabulary specs (`webapp-vocabulary.spec.ts`,
 `vscode/vocabulary.spec.ts`): the label editor's suggestions with their keys, mouse and layer, the
 spelling-variant dots and "Unify spelling" as one undo step, in VS Code one edit of the document.

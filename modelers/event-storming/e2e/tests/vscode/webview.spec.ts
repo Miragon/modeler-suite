@@ -413,7 +413,9 @@ test.describe("VS Code webview: protocol and chrome", () => {
   test("the transparent PNG has no ground and twice the pixels of the PNG", async ({ page }) => {
     await openWebview(page);
 
+    // One after the other: two exports at once may finish in either order.
     await postFromHost(page, { type: "command", name: "exportPng" });
+    await expect.poll(async () => countOf(await postedMessages(page), "export")).toBe(1);
     await postFromHost(page, { type: "command", name: "exportPngTransparent" });
     await expect.poll(async () => countOf(await postedMessages(page), "export")).toBe(2);
     const [plain, transparent] = (await postedMessages(page)).filter(
@@ -462,6 +464,42 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(message.message).toBe(
       "Couldn't export the board as PNG. Try again, or export it as SVG.",
     );
+    expect(countOf(await postedMessages(page), "export")).toBe(0);
+  });
+
+  test("an SVG that can't be saved is reported with the app's own words, never the error's", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      window.modeler!.diagram.saveSVG = () => Promise.reject(new Error("saveSVG internals"));
+    });
+
+    await postFromHost(page, { type: "command", name: "exportSvg" });
+
+    expect(await waitForPosted(page, "error")).toEqual({
+      type: "error",
+      message: "Couldn't export the board as SVG. Try again.",
+    });
+    expect(countOf(await postedMessages(page), "export")).toBe(0);
+  });
+
+  test("a JSON that can't be built is reported with the app's own words, never the error's", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    await page.evaluate(() => {
+      window.modeler!.diagram.exportMap = () => {
+        throw new Error("exportMap internals");
+      };
+    });
+
+    await postFromHost(page, { type: "command", name: "exportJson" });
+
+    expect(await waitForPosted(page, "error")).toEqual({
+      type: "error",
+      message: "Couldn't export the board as JSON. Try again.",
+    });
     expect(countOf(await postedMessages(page), "export")).toBe(0);
   });
 
