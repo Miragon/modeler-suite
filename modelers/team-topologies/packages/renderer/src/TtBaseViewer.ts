@@ -14,6 +14,7 @@ import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type { Root } from "diagram-js/lib/model/Types";
 import type { ElementBounds, FreeArea } from "@miragon/modeler-api";
 import { documentIdProblems, type TtDocument } from "@miragon/team-topologies-schema-model";
+import { isArmedTool, type DragContext } from "./gestures.js";
 import { saveSVG } from "./io/saveSvg.js";
 import type TtImporter from "./io/TtImporter.js";
 import type TtExporter from "./io/TtExporter.js";
@@ -27,17 +28,8 @@ import type TtLabelEditing from "./label-editing/TtLabelEditing.js";
  */
 const CANVAS_KEYBOARD_FOCUS_CLASS = "tt-canvas-keyboard-focus";
 
-/**
- * The drag of a palette tool that only waits for its next press: no gesture yet. It holds no
- * element, so an import leaves it armed, and the user's next press still draws a lasso instead of
- * moving the element under the pointer.
- */
-const ARMED_TOOL_PREFIXES: ReadonlySet<string> = new Set(["lasso.selection"]);
-
 /** Ahead of every other listener of a drop, so that the command it runs finds the drop marked. */
 const DROP_MARK_PRIORITY = 100_000;
-
-type DragContext = { prefix: string } | null;
 
 /**
  * Ends a running gesture (move, resize, connect, lasso, palette create) the way Escape does. The
@@ -51,9 +43,9 @@ type DragContext = { prefix: string } | null;
  */
 function cancelGesture(diagram: Diagram, dropping: DragContext): void {
   const dragging = diagram.get<Dragging | null>("dragging", false);
-  const gesture = dragging?.context() as DragContext | undefined;
+  const gesture = dragging?.context() as DragContext;
   if (!dragging || !gesture || gesture === dropping) return;
-  if (!ARMED_TOOL_PREFIXES.has(gesture.prefix)) dragging.cancel(false);
+  if (!isArmedTool(gesture)) dragging.cancel(false);
 }
 
 export interface TtViewerOptions {

@@ -5,6 +5,7 @@ import "@fontsource-variable/geist-mono/wght.css";
 // The renderer's stylesheet brings the tokens, diagram-js.css, cd-canvas.css and the content of
 // legend and dialogs, the ui package the inspector's; the shell's stylesheet comes last.
 import {
+  TEAM_TOPOLOGIES_THEMES,
   createCollaborativeModeler,
   diagramMenu,
   diagramShortcuts,
@@ -32,7 +33,6 @@ import {
   writeShellState,
 } from "@miragon/modeler-shell/vscode/webview";
 import type { HostToWebview, WebviewCommand, WebviewToHost } from "../protocol.js";
-import { WEBVIEW_THEMES } from "../themes.js";
 import { blobToBase64, embedSvg, svgToEmbeddedPng } from "./io.js";
 import { takeLegacyLegendOpen } from "./state.js";
 
@@ -84,7 +84,7 @@ const app = document.getElementById("app");
 if (!app) throw new Error("The webview HTML has no #app root.");
 
 const shell: ShellHandle = mountVsCodeShell(app, {
-  themes: WEBVIEW_THEMES,
+  themes: TEAM_TOPOLOGIES_THEMES,
   canvas: modeler.container,
   messages: { canvas: DIAGRAM_NAME },
   menu: diagramMenu({

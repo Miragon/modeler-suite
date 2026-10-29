@@ -36,9 +36,15 @@ Keyboard shortcuts dialog, the PNG export,
 `themes: ["light"]` until the shared dark mode (VS Code: theme bridge and the hint's "Insert
 example"; web: the hint after "New diagram" without it, Share as primary action, legal line,
 toasts, problems list, start screen, drop zone and the head markup from `vite.config.ts`). The
+themes are one constant, the renderer's `TEAM_TOPOLOGIES_THEMES` in
+[`packages/renderer/src/theme/themes.ts`](packages/renderer/src/theme/themes.ts), which both apps,
+the extension's theme bridge and the contract's `appearance.themes` read (the extension host and
+the web app's Vite config import the module by its path: it has no runtime imports). The
 renderer implements the canvas rules it asks for (keyboard creation, the `ttReadOnly` lock, no zoom
 keys, `undoRedoKeys: false` in VS Code) and the `@miragon/modeler-api` contract
-(`createCollaborativeModeler`, its conformance kit in `npm run team-topologies test:browser`). The
+(`createCollaborativeModeler`, with the 1.5 surfaces `interaction` and `appearance`; an `importText`
+during a drop waits for its end, #248; its conformance kit and the 1.5 cases the kit plans run in
+`npm run team-topologies test:browser`). The
 shell's own conformance kit runs in the e2e projects `webapp` and `vscode-webview`; their WebKit
 twins `webapp-webkit` and `vscode-webview-webkit` run only the focus hand-back cases.
 
@@ -53,8 +59,15 @@ draw the same strokes on the chrome's surfaces in the palette and the legend.
 [`packages/renderer/src/draw/notation-contrast.test.ts`](packages/renderer/src/draw/notation-contrast.test.ts)
 checks every notation colour pair (label text at least 4.5:1 on its fill, structural strokes at
 least 3:1 on the canvas ground) and lists exactly the exempt official strokes, so a new colour
-cannot slip below unnoticed. The design system covers everything else (chrome, typography,
-accent/selection, neutrals, the app icon).
+cannot slip below unnoticed. Under `data-cd-kontrast="hoch"` each exempt stroke lies on an underlay
+in `--cd-ui-kontur` (decided in #213, guide §10.6 since release 1.27.0): the element's fill carries
+it as a 2px wider stroke with the class `cd-c-unterleger-hoch` of `cd-canvas.css`, and the contour
+is drawn above it ([`draw/underlay.ts`](packages/renderer/src/draw/underlay.ts)), on the canvas and
+in the icons of palette, legend and inspector (`draw/palette-icons.ts`). Without high contrast and
+in the export (which drops every `cd-c-*` class) the underlay is `stroke: none`; a stroke the user
+set gets none. The same test checks that the renderer and the icons underlay exactly the exempt
+strokes and that each reaches 3:1 on its underlay. The design system covers everything else (chrome,
+typography, accent/selection, neutrals, the app icon).
 
 ## Packages
 

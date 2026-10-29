@@ -13,6 +13,11 @@ import {
 import type { InteractionMode, TeamType } from "@miragon/team-topologies-schema-model";
 import { PREMIXED_INTERACTION_FILLS } from "../theme/index.js";
 import { ICON_SQUARE_DASHED_MOUSE_POINTER, iconMarkup } from "./icons.js";
+import {
+  HIGH_CONTRAST_UNDERLAY_CLASS,
+  UNDERLAY_EXTRA_WIDTH,
+  contourOnUnderlay,
+} from "./underlay.js";
 
 /**
  * The lasso is a tool, not notation: a Lucide icon at the guide's tool size (§5.14, 20px with a
@@ -20,25 +25,46 @@ import { ICON_SQUARE_DASHED_MOUSE_POINTER, iconMarkup } from "./icons.js";
  */
 const PALETTE_TOOL_ICON = { size: 20, strokeWidth: 2 } as const;
 
+const PREVIEW_STROKE_WIDTH = 1.5;
+
+type PreviewShape = (attributes: string) => string;
+
 function svg(inner: string): string {
   return `<svg class="tt-palette-svg" width="24" height="24" viewBox="0 0 26 26" aria-hidden="true">${inner}</svg>`;
 }
 
+/**
+ * A notation preview's fill and contour as the canvas draws them. Guide §10.6 puts the previews
+ * in palette and legend under the canvas's exception, so a template contour below 3:1 lies on the
+ * high-contrast underlay here too (#213): the fill carries it as a stroke 2px wider, and the
+ * contour is drawn above it.
+ */
+function previewOutline(shape: PreviewShape, fill: string, stroke: string, dash: string): string {
+  const dashed = dash ? ` stroke-dasharray="${dash}"` : "";
+  const contour = `stroke="${stroke}" stroke-width="${PREVIEW_STROKE_WIDTH}"${dashed}`;
+  if (!contourOnUnderlay(stroke, undefined)) return shape(`fill="${fill}" ${contour}`);
+  const underlayWidth = PREVIEW_STROKE_WIDTH + UNDERLAY_EXTRA_WIDTH;
+  const underlay = `class="${HIGH_CONTRAST_UNDERLAY_CLASS}" fill="${fill}" stroke="none" stroke-width="${underlayWidth}"${dashed}`;
+  return shape(underlay) + shape(`fill="none" ${contour}`);
+}
+
 export function teamIconSvg(type: TeamType): string {
   const s = TEAM_TYPE_SPECS[type];
-  const dash = dashArray(s.strokeStyle, 1.5);
-  const common =
-    `fill="${s.fill}" stroke="${s.stroke}" stroke-width="1.5"` +
-    (dash ? ` stroke-dasharray="${dash}"` : "");
-  switch (s.shape) {
+  const dash = dashArray(s.strokeStyle, PREVIEW_STROKE_WIDTH);
+  return svg(previewOutline(teamShape(s.shape), s.fill, s.stroke, dash));
+}
+
+function teamShape(shape: (typeof TEAM_TYPE_SPECS)[TeamType]["shape"]): PreviewShape {
+  switch (shape) {
     case "octagon":
-      return svg(`<polygon points="8,3 18,3 23,8 23,18 18,23 8,23 3,18 3,8" ${common}/>`);
+      return (attributes) =>
+        `<polygon points="8,3 18,3 23,8 23,18 18,23 8,23 3,18 3,8" ${attributes}/>`;
     case "rounded-rect-vertical":
-      return svg(`<rect x="8" y="3" width="10" height="20" rx="4" ${common}/>`);
+      return (attributes) => `<rect x="8" y="3" width="10" height="20" rx="4" ${attributes}/>`;
     case "rect":
-      return svg(`<rect x="3" y="7" width="20" height="12" rx="1.5" ${common}/>`);
+      return (attributes) => `<rect x="3" y="7" width="20" height="12" rx="1.5" ${attributes}/>`;
     default:
-      return svg(`<rect x="3" y="8" width="20" height="10" rx="5" ${common}/>`);
+      return (attributes) => `<rect x="3" y="8" width="20" height="10" rx="5" ${attributes}/>`;
   }
 }
 
@@ -68,16 +94,20 @@ export function lassoIconSvg(): string {
 
 export function interactionIconSvg(mode: InteractionMode): string {
   const s = INTERACTION_MODE_SPECS[mode];
-  const dash = dashArray(s.strokeStyle, 1.5);
-  const common =
-    `fill="${PREMIXED_INTERACTION_FILLS[mode]}" stroke="${s.stroke}" stroke-width="1.5"` +
-    (dash ? ` stroke-dasharray="${dash}"` : "");
-  switch (s.shape) {
+  const dash = dashArray(s.strokeStyle, PREVIEW_STROKE_WIDTH);
+  const fill = PREMIXED_INTERACTION_FILLS[mode];
+  return svg(previewOutline(interactionShape(s.shape), fill, s.stroke, dash));
+}
+
+function interactionShape(
+  shape: (typeof INTERACTION_MODE_SPECS)[InteractionMode]["shape"],
+): PreviewShape {
+  switch (shape) {
     case "circle":
-      return svg(`<circle cx="13" cy="13" r="9" ${common}/>`);
+      return (attributes) => `<circle cx="13" cy="13" r="9" ${attributes}/>`;
     case "triangle":
-      return svg(`<polygon points="5,6 22,13 5,20" ${common}/>`);
+      return (attributes) => `<polygon points="5,6 22,13 5,20" ${attributes}/>`;
     default:
-      return svg(`<polygon points="9,6 23,6 17,20 3,20" ${common}/>`);
+      return (attributes) => `<polygon points="9,6 23,6 17,20 3,20" ${attributes}/>`;
   }
 }

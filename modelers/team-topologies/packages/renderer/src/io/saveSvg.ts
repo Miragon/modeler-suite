@@ -27,6 +27,8 @@ const INTERACTION_CHROME_SELECTOR = [
 
 const TRANSIENT_CLASSES = ["selected", "hover"];
 
+const CANVAS_ROLE_CLASS_PREFIX = "cd-c-";
+
 const CANVAS_ONLY_ATTRIBUTES = ["class", "tabindex", "role", "aria-roledescription", "aria-label"];
 
 export function saveSVG(canvas: Canvas, elementRegistry: ElementRegistry): { svg: string } {
@@ -47,6 +49,7 @@ export function saveSVG(canvas: Canvas, elementRegistry: ElementRegistry): { svg
   for (const node of clone.querySelectorAll(TRANSIENT_CLASSES.map((name) => `.${name}`).join())) {
     node.classList.remove(...TRANSIENT_CLASSES);
   }
+  removeCanvasRoleClasses(clone);
 
   clone.setAttribute("xmlns", SVG_NAMESPACE);
   clone.setAttribute("viewBox", `${x} ${y} ${width} ${height}`);
@@ -59,4 +62,17 @@ export function saveSVG(canvas: Canvas, elementRegistry: ElementRegistry): { svg
 
   const svg = new XMLSerializer().serializeToString(clone);
   return { svg: '<?xml version="1.0" encoding="utf-8"?>\n' + svg };
+}
+
+/**
+ * The `cd-c-*` classes switch a role or an underlay with the mode of the page. An exported SVG
+ * placed into a page with `cd-canvas.css` would follow that page's mode, and the export stays light
+ * (guide §10.7), so it keeps the values the renderer drew with.
+ */
+function removeCanvasRoleClasses(clone: SVGSVGElement): void {
+  for (const node of clone.querySelectorAll(`[class*="${CANVAS_ROLE_CLASS_PREFIX}"]`)) {
+    const roles = [...node.classList].filter((name) => name.startsWith(CANVAS_ROLE_CLASS_PREFIX));
+    node.classList.remove(...roles);
+    if (node.classList.length === 0) node.removeAttribute("class");
+  }
 }

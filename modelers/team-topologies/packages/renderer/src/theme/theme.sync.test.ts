@@ -86,10 +86,13 @@ function withoutComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
-/** Every selector of every rule (the text in front of a `{`, split at the commas). */
+/**
+ * Every selector of every rule (the text in front of a `{`, split at the commas), on one line as
+ * Prettier may break a long one.
+ */
 function ruleSelectors(source: string): string[] {
   return [...withoutComments(source).matchAll(/([^{};]+)\{/g)].flatMap((match) =>
-    match[1]!.split(",").map((selector) => selector.trim()),
+    match[1]!.split(",").map((selector) => selector.trim().replace(/\s+/g, " ")),
   );
 }
 
@@ -301,7 +304,7 @@ describe("theme.sync — team-topologies.css takes every colour from the roles",
     expect(paletteSelectors.length).toBeGreaterThan(5);
     for (const selector of paletteSelectors) {
       expect(selector).toMatch(
-        /^(\[data-cd-kontrast="hoch"\] )?(\.tt-djs-container )?\.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
+        /^(\[data-cd-kontrast="hoch"\] )?(\.tt-djs-container(\[data-cd-kontrast="hoch"\]|:not\(\[data-cd-theme\]\))? )?\.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
       );
     }
   });

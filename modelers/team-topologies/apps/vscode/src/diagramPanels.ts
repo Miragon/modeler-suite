@@ -6,7 +6,7 @@ import {
 } from "@miragon/modeler-shell/vscode/extension";
 import { DIAGRAM_VIEW_TYPE, revealRestoredTab } from "./commands.js";
 import type { HostToWebview, WebviewCommand } from "./protocol.js";
-import { WEBVIEW_THEMES } from "./themes.js";
+import { TEAM_TOPOLOGIES_THEMES } from "../../../packages/renderer/src/theme/themes.js";
 
 interface TrackedPanel {
   readonly panel: vscode.WebviewPanel;
@@ -41,11 +41,11 @@ export class DiagramPanels {
       styleUris: [asset("webview.css")],
       title: "Team Topologies Diagram",
       lang: "en",
-      appearance: currentAppearance(vscode, { themes: WEBVIEW_THEMES }),
+      appearance: currentAppearance(vscode, { themes: TEAM_TOPOLOGIES_THEMES }),
       body: '<div id="app"></div>',
     });
     // Disposes itself with the panel; never kept in context.subscriptions.
-    connectThemeBridge(vscode, panel, { themes: WEBVIEW_THEMES });
+    connectThemeBridge(vscode, panel, { themes: TEAM_TOPOLOGIES_THEMES });
 
     const tracked: TrackedPanel = { panel, uri, text };
     if (panel.active) {

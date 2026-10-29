@@ -24,6 +24,9 @@
   container: team-topologies / inline-size;
   width: 100%;
   height: 100%;
+  /* Its own, so currentColor inside never inherits the page's text colour: on a dark page that
+     would be light even where a host keeps the canvas light (contract 1.5, appearance). */
+  color: var(--cd-ui-text);
   background-color: var(--cd-ui-grund);
   background-image: radial-gradient(var(--cd-ui-linie) 1px, transparent 1px);
   background-size: 22px 22px;
@@ -326,12 +329,24 @@
 }
 
 /* --- High contrast (guide §6, §5.14) -------------------------------------------- */
-[data-cd-kontrast="hoch"] .tt-djs-container .djs-context-pad .group,
-[data-cd-kontrast="hoch"] .djs-palette:not([data-chrome="palette"]) {
+/* The contrast of the nearest mode carrier, as for the roles: the renderer's own root once a host
+   set its appearance (contract 1.5), the page around it otherwise. So a request for normal
+   contrast holds on a high-contrast page. */
+.tt-djs-container[data-cd-kontrast="hoch"] .djs-context-pad .group,
+.tt-djs-container[data-cd-kontrast="hoch"] .djs-palette:not([data-chrome="palette"]),
+[data-cd-kontrast="hoch"] .tt-djs-container:not([data-cd-theme]) .djs-context-pad .group,
+[data-cd-kontrast="hoch"]
+  .tt-djs-container:not([data-cd-theme])
+  .djs-palette:not([data-chrome="palette"]) {
   box-shadow: none;
 }
-[data-cd-kontrast="hoch"] .tt-djs-container .djs-context-pad .entry:focus-visible,
-[data-cd-kontrast="hoch"] .tt-djs-container .tt-label-editor:focus {
+.tt-djs-container[data-cd-kontrast="hoch"] .djs-context-pad .entry:focus-visible,
+.tt-djs-container[data-cd-kontrast="hoch"] .tt-label-editor:focus,
+[data-cd-kontrast="hoch"]
+  .tt-djs-container:not([data-cd-theme])
+  .djs-context-pad
+  .entry:focus-visible,
+[data-cd-kontrast="hoch"] .tt-djs-container:not([data-cd-theme]) .tt-label-editor:focus {
   outline-width: 3px;
 }
 

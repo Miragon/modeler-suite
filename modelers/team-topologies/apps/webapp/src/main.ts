@@ -11,6 +11,7 @@ import "@miragon/modeler-shell/shell.css";
 import {
   Modeler,
   SHORTCUTS_DIALOG_KEY,
+  TEAM_TOPOLOGIES_THEMES,
   createTitleDialog,
   diagramMenu,
   diagramShortcuts,
@@ -63,7 +64,6 @@ import {
 } from "./persistence";
 import { importWarningsText, problemItems, remainingWarnings } from "./problems";
 import { planStart } from "./start";
-import { THEMES } from "./themes";
 
 interface ElementRegistryLike {
   getAll(): unknown[];
@@ -123,7 +123,7 @@ const shell: ShellHandle = mountShell(app, {
   canvas: modeler.container,
   lang: "en",
   platform,
-  themes: THEMES,
+  themes: TEAM_TOPOLOGIES_THEMES,
   messages: { canvas: DIAGRAM_NAME },
   primary: { onSelect: () => share() },
   legal: { links: [{ label: "GitHub", href: REPOSITORY_URL }] },

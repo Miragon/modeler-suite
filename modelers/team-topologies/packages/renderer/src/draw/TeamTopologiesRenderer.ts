@@ -13,7 +13,12 @@
  */
 
 import BaseRenderer from "diagram-js/lib/draw/BaseRenderer";
-import { append as svgAppend, create as svgCreate, attr as svgAttr } from "tiny-svg";
+import {
+  append as svgAppend,
+  attr as svgAttr,
+  classes as svgClasses,
+  create as svgCreate,
+} from "tiny-svg";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type { ConnectionLike, ElementLike, ShapeLike } from "diagram-js/lib/model/Types";
 import {
@@ -25,6 +30,11 @@ import {
 import { MIRAGON } from "../theme/index.js";
 import { interactionPaint } from "./colour.js";
 import { FONT, STROKE_MUTED, TT_RENDER_PRIORITY } from "./styles.js";
+import {
+  HIGH_CONTRAST_UNDERLAY_CLASS,
+  UNDERLAY_EXTRA_WIDTH,
+  contourOnUnderlay,
+} from "./underlay.js";
 import {
   LINE_HEIGHT,
   flowHeadWidth,
@@ -102,14 +112,18 @@ export default class TeamTopologiesRenderer extends BaseRenderer {
     const h = Math.max(team.height, 1);
     const sw = spec.strokeWidth;
     const dash = dashArray(spec.strokeStyle, sw);
-    const outline = this.teamOutline(spec.shape, w, h, sw, {
-      fill: team.fill ?? spec.fill,
-      stroke: team.stroke ?? spec.stroke,
-      "stroke-width": sw,
-      ...(dash ? { "stroke-dasharray": dash } : {}),
-      "stroke-linejoin": "round",
-    });
-    svgAppend(visuals, outline);
+    const outline = this.appendOutline(
+      visuals,
+      (attrs) => this.teamOutline(spec.shape, w, h, sw, attrs),
+      { fill: team.fill ?? spec.fill },
+      {
+        stroke: team.stroke ?? spec.stroke,
+        "stroke-width": sw,
+        ...(dash ? { "stroke-dasharray": dash } : {}),
+        "stroke-linejoin": "round",
+      },
+      contourOnUnderlay(spec.stroke, team.stroke),
+    );
     this.appendLabel(visuals, team.ttLabel ?? "", labelLayout(team));
     return outline;
   }
@@ -133,38 +147,54 @@ export default class TeamTopologiesRenderer extends BaseRenderer {
     const w = Math.max(el.width, 1);
     const h = Math.max(el.height, 1);
     const sw = 2;
-    const i = sw / 2;
     const paint = interactionPaint(el);
-    const common: Attrs = {
-      fill: paint.fill,
-      ...(paint.fillOpacity < 1 ? { "fill-opacity": paint.fillOpacity } : {}),
-      stroke: el.stroke ?? spec.stroke,
-      "stroke-width": sw,
-      "stroke-dasharray": dashArray(spec.strokeStyle, sw) || "6 4",
-      "stroke-linejoin": "round",
-    };
-
-    let glyph: SVGElement;
-    if (spec.shape === "circle") {
-      glyph = svgAttr(svgCreate("ellipse"), {
-        cx: w / 2,
-        cy: h / 2,
-        rx: (w - sw) / 2,
-        ry: (h - sw) / 2,
-        ...common,
-      });
-    } else if (spec.shape === "triangle") {
-      // Point up — the tip indicates the direction the service is provided.
-      const pts = `${w / 2},${i} ${w - i},${h - i} ${i},${h - i}`;
-      glyph = svgAttr(svgCreate("polygon"), { points: pts, ...common });
-    } else {
-      const skew = Math.min(w * 0.26, h * 0.85);
-      const pts = `${i + skew},${i} ${w - i},${i} ${w - i - skew},${h - i} ${i},${h - i}`;
-      glyph = svgAttr(svgCreate("polygon"), { points: pts, ...common });
-    }
-    svgAppend(visuals, glyph);
+    const glyph = this.appendOutline(
+      visuals,
+      (attrs) => interactionGlyph(spec.shape, w, h, sw, attrs),
+      {
+        fill: paint.fill,
+        ...(paint.fillOpacity < 1 ? { "fill-opacity": paint.fillOpacity } : {}),
+      },
+      {
+        stroke: el.stroke ?? spec.stroke,
+        "stroke-width": sw,
+        "stroke-dasharray": dashArray(spec.strokeStyle, sw) || "6 4",
+        "stroke-linejoin": "round",
+      },
+      contourOnUnderlay(spec.stroke, el.stroke),
+    );
     this.appendLabel(visuals, el.ttLabel ?? "", labelLayout(el));
     return glyph;
+  }
+
+  /**
+   * The shape's fill and contour as one element, as the templates draw it. A contour on the
+   * high-contrast underlay takes two: the fill, whose stroke is the underlay, and the contour above
+   * it, so the underlay shows on both sides of the contour. The fill stays the visual's first
+   * element, which diagram-js's connect and drop markers tint.
+   */
+  private appendOutline(
+    visuals: SVGElement,
+    shape: (attrs: Attrs) => SVGElement,
+    area: Attrs,
+    contour: Attrs,
+    onUnderlay: boolean,
+  ): SVGElement {
+    if (!onUnderlay) {
+      const outline = shape({ ...area, ...contour });
+      svgAppend(visuals, outline);
+      return outline;
+    }
+    const underlay = shape({
+      ...area,
+      ...contour,
+      stroke: "none",
+      "stroke-width": Number(contour["stroke-width"]) + UNDERLAY_EXTRA_WIDTH,
+    });
+    svgClasses(underlay).add(HIGH_CONTRAST_UNDERLAY_CLASS);
+    svgAppend(visuals, underlay);
+    svgAppend(visuals, shape({ fill: "none", ...contour }));
+    return underlay;
   }
 
   // --- flow of change ------------------------------------------------------
@@ -253,6 +283,33 @@ export default class TeamTopologiesRenderer extends BaseRenderer {
 }
 
 // --- helpers ---------------------------------------------------------------
+
+function interactionGlyph(
+  shape: string,
+  w: number,
+  h: number,
+  sw: number,
+  attrs: Attrs,
+): SVGElement {
+  const i = sw / 2;
+  if (shape === "circle") {
+    return svgAttr(svgCreate("ellipse"), {
+      cx: w / 2,
+      cy: h / 2,
+      rx: (w - sw) / 2,
+      ry: (h - sw) / 2,
+      ...attrs,
+    });
+  }
+  if (shape === "triangle") {
+    // Point up — the tip indicates the direction the service is provided.
+    const pts = `${w / 2},${i} ${w - i},${h - i} ${i},${h - i}`;
+    return svgAttr(svgCreate("polygon"), { points: pts, ...attrs });
+  }
+  const skew = Math.min(w * 0.26, h * 0.85);
+  const pts = `${i + skew},${i} ${w - i},${i} ${w - i - skew},${h - i} ${i},${h - i}`;
+  return svgAttr(svgCreate("polygon"), { points: pts, ...attrs });
+}
 
 function octagon(i: number, w: number, h: number, c: number): string {
   return [

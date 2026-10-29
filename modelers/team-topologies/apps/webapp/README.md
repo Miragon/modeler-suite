@@ -86,9 +86,10 @@ On first load the app shows, in priority order, a diagram from a **shared link**
 `src/main.ts` mounts the renderer's `Modeler` and the shell around it; React runs only inside the
 shell's inspector slot:
 
-- **Chrome:** `mountShell(…, { host: "web", themes: ["light"] })` renders the menu, Share, the legal
-  line, toasts, the problems list, the legend card, the inspector slot, the start screen and the
-  drop zone; `connectDiagramJs` binds the zoom panel, the keys and the fit. What the diagram puts
+- **Chrome:** `mountShell(…, { host: "web", themes: TEAM_TOPOLOGIES_THEMES })` (the renderer's
+  `["light"]`) renders the menu, Share, the legal line, toasts, the problems list, the legend card,
+  the inspector slot, the start screen and the drop zone; `connectDiagramJs` binds the zoom panel,
+  the keys and the fit. What the diagram puts
   into that chrome comes from the renderer, as for any other host: `diagramMenu` (Model, Export,
   Help), `diagramShortcuts` (the groups of the shell's `showShortcutsDialog`), `renderLegend` and
   `createTitleDialog`; the inspector (`mountInspector`) from the private

@@ -146,8 +146,9 @@ new Modeler({
 `createCollaborativeModeler(options?)` and `createCollaborativeViewer(options?)` wrap the editor and
 the `NavigatedViewer` in the contract of [`@miragon/modeler-api`](https://www.npmjs.com/package/@miragon/modeler-api)
 (notation `team-topologies`): `importText` / `exportText` of the canonical document text,
-`onContentChanged`, view state and the `elements` surface (teams, interactions, flows and
-annotations; their label or text as the name). Hosts that embed the modeler (designIQ, the VS Code
+`onContentChanged`, view state, the `elements` surface (teams, interactions, flows and
+annotations; their label or text as the name) and the `interaction` and `appearance` surfaces of
+contract 1.5. Hosts that embed the modeler (designIQ, the VS Code
 webview) work against it without knowing the renderer. The conformance kit of
 `@miragon/modeler-api` runs in this package's browser tests (`npm run test:browser`).
 
@@ -164,8 +165,37 @@ An import (`importText`, or `importDocument` of the wrapped diagram) that arrive
 drags, such as a peer's text in a live sync, ends the gesture first, as Escape does: a move,
 resize, connect, lasso or palette create, also one whose pointer is still on the palette, applies
 nothing to the replaced elements and fires no change. An armed lasso tool that waits for its press
-stays armed. An import from the change listener of a drop (a host that echoes its own change back)
-leaves that drop to finish, with its change applied.
+stays armed. An `importText` made while a drop runs (from the change listener its command fires,
+for example, by a host that echoes its own change back or answers it with a peer's text) waits until
+the drop has ended and then imports; its promise settles after that import. So no listener of the
+drop sees a replaced diagram, diagram-js's selection behaviour among them. `importDocument` of the
+wrapped diagram cannot wait: called there, it leaves the drop to finish, with its change applied.
+
+`interaction` (contract 1.5, modeler and viewer) tells a host whether the user holds a gesture, so
+it can defer a peer's text until the gesture ends instead of reading diagram-js's DOM classes:
+`active()` is true from the start of a move, resize, connect, lasso drag or palette create (also
+while its pointer is still on the palette) until its drop or cancel, and `onChange(listener)` reports
+each change once. A press below the drag threshold and the armed lasso tool are no gesture, nor is a
+pan of the view or a label editor. A resize counts from the press on its handle: diagram-js starts
+it at once, with no drag threshold. The listener runs where the gesture ends, which can be inside
+`importText`, so a host queues its next import instead of starting it there (the contract's
+README shows the queue).
+
+`appearance` (contract 1.5, modeler and viewer) takes a host's mode: `themes` is
+`TEAM_TOPOLOGIES_THEMES`, `["light"]` until the Miragon modelers move to dark together, and
+`set({ theme, contrast })` writes `data-cd-theme` (a theme the renderer does not draw falls back to
+light) and, for `contrast: "high"`, `data-cd-kontrast="hoch"` on the renderer's container. The
+canvas then follows that request, not the page: it stays light on a dark page, and normal contrast
+holds on a high-contrast one. Until the first `set` it takes its mode from the page, as both apps
+use it. The mode is view state: no change event, the text and the SVG export stay byte-identical,
+and an open label editor stays open. Under high contrast, each team or interaction contour that the
+official templates draw below 3:1 on the canvas (stream-aligned, enabling, complicated-subsystem and
+platform teams, X-as-a-Service and facilitating) lies on an underlay in `--cd-ui-kontur` (guide
+§10.6, the `cd-c-unterleger-hoch` class of `cd-canvas.css`), and so does its preview in the palette,
+the legend rows and the inspector, which follow the mode of the nearest carrier; a contour the user
+coloured has none.
+Without high contrast and in the export the contours stay as the templates draw them: the SVG
+export drops every `cd-c-*` class, so the underlay keeps its `stroke: none`.
 
 Options: the contract's `CollaborativeModelerOptions` (1.2) and `additionalModules`:
 

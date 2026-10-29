@@ -1,18 +1,20 @@
 /**
  * The Team Topologies modeler behind the collaborative-modeler contract of `@miragon/modeler-api`
  * (the laws L1 to L7 in its README): hosts such as designIQ, the VS Code webview and the web app
- * import and export the document as text, observe changes and anchor on element ids without
- * knowing the renderer.
+ * import and export the document as text, observe changes and gestures, ask for a mode and anchor
+ * on element ids without knowing the renderer.
  */
 
 import {
   MODELER_API_VERSION,
+  type AppearanceSurface,
   type CollaborativeModeler,
   type CollaborativeModelerOptions,
   type ElementBounds,
   type ElementInfo,
   type ElementsSurface,
   type ImportResult,
+  type InteractionSurface,
   type ModelerMeta,
 } from "@miragon/modeler-api";
 import {
@@ -20,14 +22,18 @@ import {
   serializeDocument,
   type TtDocument,
 } from "@miragon/team-topologies-schema-model";
-import type { ModuleDeclaration } from "didi";
+import type { Injector, ModuleDeclaration } from "didi";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import { Modeler } from "../Modeler.js";
 import { NavigatedViewer } from "../NavigatedViewer.js";
 import { isTtElement, type TtElement } from "../model/di-types.js";
+import { appearanceSurface } from "./appearance.js";
+import { watchDrops } from "./drops.js";
+import { trackInteraction } from "./interaction.js";
 
 /** Stable notation id in `meta.notation` of the collaborative-modeler contract. */
 export const TEAM_TOPOLOGIES_NOTATION = "team-topologies";
@@ -47,11 +53,14 @@ export interface TtElementsSurface extends ElementsSurface {
 }
 
 /**
- * The contract surface, with the optional `contentBounds` of contract 1.3, which this renderer
- * has, plus the wrapped diagram for host-specific wiring.
+ * The contract surface, with the optional `contentBounds` of contract 1.3 and `interaction` and
+ * `appearance` of contract 1.5, which this renderer has, plus the wrapped diagram for
+ * host-specific wiring.
  */
 export interface CollaborativeTeamTopologiesModeler extends CollaborativeModeler {
   readonly elements: TtElementsSurface;
+  readonly interaction: InteractionSurface;
+  readonly appearance: AppearanceSurface;
   readonly diagram: Modeler | NavigatedViewer;
   contentBounds(): ElementBounds | undefined;
 }
@@ -112,6 +121,10 @@ function collaborative(
   const canvas = diagram.get<Canvas>("canvas");
   const elementRegistry = diagram.get<ElementRegistry>("elementRegistry");
   const selection = diagram.get<Selection>("selection");
+  const dragging =
+    diagram.get<Injector>("injector").get<Dragging | null>("dragging", false) ?? null;
+  const interaction = trackInteraction(eventBus, dragging);
+  const drops = watchDrops(eventBus);
   const contentListeners = new Set<() => void>();
   let importsRunning = 0;
   let destroyed = false;
@@ -131,6 +144,35 @@ function collaborative(
   }
 
   const exportText = (): string => serializeDocument(diagram.exportDocument());
+
+  const importNow = (document: TtDocument): ImportResult => {
+    if (destroyed) throw new Error("The modeler was destroyed.");
+    importsRunning += 1;
+    try {
+      const { warnings } = diagram.importDocument(document, { fit: fitOnImport });
+      return { warnings: warnings.map((warning) => warning.message) };
+    } finally {
+      importsRunning -= 1;
+    }
+  };
+
+  /** The imports that wait for a drop, each settled before the next one runs. */
+  let waitingImports: Promise<unknown> | undefined;
+
+  const importAfterDrop = (document: TtDocument): Promise<ImportResult> => {
+    const imported = (waitingImports ?? Promise.resolve())
+      .then(() => drops.untilNoDropRuns())
+      .then(() => importNow(document));
+    const settled = imported.then(
+      () => undefined,
+      () => undefined,
+    );
+    waitingImports = settled;
+    void settled.then(() => {
+      if (waitingImports === settled) waitingImports = undefined;
+    });
+    return imported;
+  };
 
   const elements: TtElementsSurface = {
     list: () =>
@@ -162,6 +204,8 @@ function collaborative(
   return {
     meta,
     elements,
+    interaction: interaction.surface,
+    appearance: appearanceSurface(diagram.container),
     diagram,
     attachTo(host) {
       diagram.attachTo(host);
@@ -169,13 +213,8 @@ function collaborative(
     async importText(text): Promise<ImportResult> {
       if (destroyed) throw new Error("The modeler was destroyed.");
       const document = parseDocumentText(text);
-      importsRunning += 1;
-      try {
-        const { warnings } = diagram.importDocument(document, { fit: fitOnImport });
-        return { warnings: warnings.map((warning) => warning.message) };
-      } finally {
-        importsRunning -= 1;
-      }
+      if (drops.running() || waitingImports) return importAfterDrop(document);
+      return importNow(document);
     },
     exportText() {
       // Asking a destroyed diagram would build a new one on the detached container.
@@ -213,6 +252,8 @@ function collaborative(
       }
       destroyed = true;
       contentListeners.clear();
+      interaction.stop();
+      drops.stop();
       diagram.destroy();
     },
   };
