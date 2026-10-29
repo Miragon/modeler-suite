@@ -421,6 +421,37 @@ describe("groupByAggregate", () => {
     ]);
   });
 
+  it("reads another kind's default name as a placeholder where a board means it as a name", () => {
+    const board = {
+      elements: [
+        sticky("issue", "command", "Issue Policy", 0),
+        sticky("policy", "aggregate", "Policy", 200),
+        sticky("issued", "event", "Policy Issued", 400),
+        sticky("renew", "command", "Renew Policy", 0, 300),
+        sticky("policies", "aggregate", "Policies", 200, 300),
+        sticky("renewed", "event", "Policy Renewed", 400, 300),
+      ],
+      edges: [
+        arrow("issue", "policy"),
+        arrow("policy", "issued"),
+        arrow("renew", "policies"),
+        arrow("policies", "renewed"),
+      ],
+    };
+
+    const group = only(groupByAggregate(board));
+    expect(group.aggregate.elementIds).toEqual(["policies"]);
+    expect(group.aggregate.label).toBe("Policies");
+    expect(pairsOf(group)).toEqual(["Renew Policy -> Policy Renewed"]);
+
+    const specific = board.elements.map((element) =>
+      element.id === "policy" ? { ...element, label: "Insurance Policy" } : element,
+    );
+    expect(
+      groupByAggregate({ elements: specific, edges: board.edges }).map((each) => pairsOf(each)),
+    ).toEqual([["Issue Policy -> Policy Issued"], ["Renew Policy -> Policy Renewed"]]);
+  });
+
   it("counts a name that only starts like the placeholder, and never merges a placeholder into it", () => {
     const groups = groupByAggregate({
       elements: [

@@ -155,7 +155,8 @@ closes the list and leaves the editor open; the next Escape discards the edit as
 compared with `normalizeLabel` of
 [`@miragon/event-storming-schema-model`](https://www.npmjs.com/package/@miragon/event-storming-schema-model)
 (case, whitespace, punctuation, simple plurals and a few spellings), and the placeholder name of
-any kind, such as "Domain Event 2", is no suggestion, also on a sticky retyped to another kind.
+any kind, such as "Domain Event 2", is no suggestion, also on a sticky retyped to another kind and
+where a board means it as a name (an aggregate called "Policy"; "Insurance Policy" is one).
 
 A name the board writes in more than one way (`Order`, `order`, `Orders`) gets a dot in
 `--cd-ui-warning` on the top right corner of each of its stickies. Its tooltip names the other
@@ -163,8 +164,10 @@ spellings and hides on Escape, and a click on the dot selects the sticky. The do
 import, a re-import of the same board included. The sticky's context pad then offers "Unify
 spelling" (`unify-spelling`): every sticky of that kind and name takes the selected sticky's
 spelling in one command, so one undo takes it back. Different names stay legal, since a real
-language conflict is what a workshop wants to find. The dots are HTML overlays, so no export
-carries them and no host's problems list them, and they hide under the read-only lock.
+language conflict is what a workshop wants to find. A placeholder name, by the same rule as the
+suggestions, gets no dot and keeps its label on "Unify spelling", so an aggregate called "Policy"
+next to one called "Policies" marks neither. The dots are HTML overlays, so no export carries
+them and no host's problems list them, and they hide under the read-only lock.
 `eventStormingSpellingVariants` lists the variants (`variants()`, `variantOf(shape)`) and unifies
 them (`unify(shape)`); `eventStormingModeling.updateLabels(changes)` renames several stickies in
 one command.
@@ -176,9 +179,10 @@ from the canvas through `groupByAggregate` of the schema model, which the packag
 every aggregate once, however often the timeline repeats it, with the commands whose arrows lead
 into it and the domain events its arrows lead to. An aggregate whose label is still the
 placeholder a new sticky of any kind gets ("Aggregate", "Aggregate 2", or "Domain Event" on a
-sticky retyped to an aggregate) is left out, as it is no label suggestion, and so is an empty one,
-which the `.storm` file stores as "Aggregate". `rows()` gives them as the rows of a table, one per
-aggregate, each line a command and the events it leads to (`aggregateTableRows`), and
+sticky retyped to an aggregate) is left out, as it is no label suggestion, also one a board means
+as a name ("Policy"; "Insurance Policy" counts), and so is an empty one, which the `.storm` file
+stores as "Aggregate". `rows()` gives them as the rows of a table, one per aggregate, each line a
+command and the events it leads to (`aggregateTableRows`), and
 `renderAggregateTable(body, rows, { onSelect })` draws that table into a dialog body.
 `showDialog({ container, openDialog })` opens it in a dialog of guide §8, the shell's
 `openShellDialog` passed in structurally, so the renderer never imports the shell:

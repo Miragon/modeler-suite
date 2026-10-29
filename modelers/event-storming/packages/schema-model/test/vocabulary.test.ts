@@ -312,7 +312,7 @@ describe("suggestLabels", () => {
     sticky("event", "Payment Received"),
     sticky("event", "Invoice Sent"),
     sticky("command", "Place Order"),
-    sticky("aggregate", "Policy"),
+    sticky("aggregate", "Delivery"),
   ]);
   const labels = (kind: Parameters<typeof suggestLabels>[1], typed: string, limit?: number) =>
     suggestLabels(vocabulary, kind, typed, limit).map((term) => term.label);
@@ -331,7 +331,7 @@ describe("suggestLabels", () => {
   it("reads the last word as written so far and the earlier ones as whole words", () => {
     expect(labels("event", "Pay")).toEqual(["Payment Received"]);
     expect(labels("event", "orders pl")).toEqual(["Order Placed"]);
-    expect(labels("aggregate", "Policies")).toEqual(["Policy"]);
+    expect(labels("aggregate", "Deliveries")).toEqual(["Delivery"]);
     expect(labels("event", "Invoice")).toEqual(["Invoice Sent"]);
   });
 

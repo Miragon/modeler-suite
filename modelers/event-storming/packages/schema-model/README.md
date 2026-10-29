@@ -77,9 +77,10 @@ normalizeLabel("Orders") === normalizeLabel("order"); // true
 - `isPlaceholderLabel(kind, label)` knows the names a new sticky gets until it is renamed: any
   entry of `PLACEHOLDER_LABELS` with or without a number (`Domain Event`, `Domain Event 2`), on a
   sticky of any kind, since a sticky keeps its label when its kind changes (an aggregate still
-  called `Domain Event` names nothing either). It says nothing about the domain, so an editor
-  offers no such name and `groupByAggregate` counts no such aggregate. It reads the label as a
-  `.storm` file stores it: trimmed, and an empty one as the placeholder the file writes in its
+  called `Domain Event` names nothing either). An editor offers no such name and
+  `groupByAggregate` counts no such aggregate, also where a board means it as a domain name (an
+  aggregate called `Policy`); a more specific name (`Insurance Policy`) counts. It reads the label
+  as a `.storm` file stores it: trimmed, and an empty one as the placeholder the file writes in its
   place. Notes and drawings have no placeholder.
 
 ## Aggregates
@@ -104,8 +105,9 @@ for (const { aggregate, commands, events, pairs } of groupByAggregate(board)) {
 - Aggregates whose names `normalizeLabel` reads alike form one group (`Order`, `order`, `Orders`).
 - An aggregate whose label is still a placeholder of any sticky kind (`Aggregate`, `Aggregate 2`,
   or `Domain Event` on a sticky retyped to an aggregate: `isPlaceholderLabel`) forms no group, so
-  commands and events that reach only such aggregates are in no group either. An empty aggregate
-  is one too, as the file stores it as `Aggregate`.
+  commands and events that reach only such aggregates are in no group either. That holds for an
+  aggregate called `Policy` too, while `Policies` and `Insurance Policy` form groups. An empty
+  aggregate is one too, as the file stores it as `Aggregate`.
 - A command counts through an arrow into one of the group's aggregates, an event through an arrow
   out of one. Arrows the other way, a command's arrow straight to an event, and policies, read
   models, actors, external systems, hotspots and notes leave the groups as they are.

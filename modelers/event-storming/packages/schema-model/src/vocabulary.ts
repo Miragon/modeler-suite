@@ -54,8 +54,9 @@ function isPlaceholderWithOptionalNumber(stored: string, placeholder: string): b
  * Whether `label` is a placeholder on a sticky of `kind`: the name a new sticky of any kind gets
  * until it is renamed, alone or with a number ("Aggregate", "Domain Event 2"). A sticky keeps its
  * label when its kind changes, so an aggregate still called "Domain Event" names nothing either.
- * It says nothing about the domain, so the label suggestions offer no such name and
- * `groupByAggregate` counts no such aggregate. The label is read as a `.storm` file stores it,
+ * The label suggestions offer no such name and `groupByAggregate` counts no such aggregate, also
+ * where a board means it as a name of its domain (an insurance aggregate called "Policy"); a more
+ * specific name ("Insurance Policy") counts. The label is read as a `.storm` file stores it,
  * trimmed, and an empty one as the placeholder the file writes in its place, so a board answers
  * the same before and after it is saved and opened again. Notes and drawings have no placeholder.
  */
