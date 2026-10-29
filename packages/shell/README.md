@@ -356,10 +356,10 @@ first of `themes`, light) and stays light inside a dark host page; it takes the 
 not the shell, for a mode through the optional `appearance` surface of `@miragon/modeler-api` 1.5,
 and a light-only renderer draws light for every request, as the root does. The page's element
 styles (`button { text-transform: uppercase }`) do not reach the chrome. The embedding host owns all
-feedback, since the contract plans no channel for messages to the host: it shows a toast at the
-bottom centre of the modeler with `shell.toast()` or in notifications of its own. The pill opens
-the problems list unless the modeler passes `problems.onActivate` (an embedding host with a list of
-its own).
+feedback: the feedback on an action belongs to the host that ran it, so the contract plans no
+channel for messages to the host. The host shows a toast at the bottom centre of the modeler with
+`shell.toast()` or in notifications of its own. The pill opens the problems list unless the
+modeler passes `problems.onActivate` (an embedding host with a list of its own).
 
 A page that embeds a modeler without mounting the shell still opens its "Keyboard shortcuts…"
 dialog from the shell (0.7): `showShortcutsDialog(groups, { container })` with the renderer's

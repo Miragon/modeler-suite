@@ -71,8 +71,8 @@ export function demoHarness(
     async invalid(page) {
       await page.evaluate(() => window.__demo?.setInvalid(true));
     },
-    // Embedded: the embedding host owns all feedback and may show it here, since no channel for
-    // messages to the host is planned; IDE: inert.
+    // Embedded: the embedding host runs the actions and owns their feedback, so no channel for
+    // messages to the host is planned and the host may show it here; IDE: inert.
     async toast(page, toast) {
       await page.evaluate(
         ({ status, text, actionLabel }) =>

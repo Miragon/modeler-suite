@@ -3965,7 +3965,9 @@ Later candidates unless noted:
 - An embedded root that follows the host's mode request for a modeler whose `themes` lists
   `"dark"`: the root stays in `themes[0]` while the host asks the renderer through the contract's
   `appearance` surface (`@miragon/modeler-api` 1.5), which a light-only modeler answers in
-  `themes[0]` as well.
+  `themes[0]` as well. It has to land, with a kit check that drives it, before the modelers
+  report `["light", "dark"]`:
+  [Miragon/modeler-suite#291](https://github.com/Miragon/modeler-suite/issues/291).
 - The `miragon.<modeler>.colorTheme` setting UI (the bridge already honours `settingKey`).
 - **VS Code smoke driver** (`./testing/vscode-electron`): keeping a local run on macOS in the
   background (no focus change; the Docker command is the way until then), a reused `node_modules`
