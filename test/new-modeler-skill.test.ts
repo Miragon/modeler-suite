@@ -589,6 +589,7 @@ describe("the suite's Dependabot config keeps the template's third-party pins cu
     const ownedDirectories = readText(join(ROOT, ".github/CODEOWNERS"))
       .split("\n")
       .map((line) => line.replace(/#.*/, "").trim().split(/\s+/))
+      .map(([pattern, ...owners]) => [pattern === "*" ? "/" : pattern, ...owners])
       .filter(
         ([pattern, ...owners]) =>
           pattern?.startsWith("/") && pattern.endsWith("/") && owners.length > 0,
