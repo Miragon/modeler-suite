@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -28,6 +29,29 @@ const tokens = JSON.parse(vendoredTokensJson) as VendoredTokens;
 
 const VENDORED_HEADER =
   "/* Vendored unchanged from Miragon/corporate-identity (design system 1.27.0, plugins/miragon-brand/skills/modeler-tool-design/assets). Do not edit; re-copy to update. */";
+
+function withoutVendoringHeader(source: string): string {
+  return source.slice(source.indexOf("\n") + 1);
+}
+
+/**
+ * sha256 of the files of design system 1.27.0, the token files unchanged since 1.12.0. The CSS
+ * files are hashed without the vendoring header, which the release does not carry.
+ */
+const DESIGN_SYSTEM_1_27_0 = {
+  "cd-tokens.generated.css": {
+    source: withoutVendoringHeader(vendoredTokensCss),
+    sha256: "36ccd5bbcb732c57143e32f13172967467dd574ae1ac5d84d6c601d0ab0847a1",
+  },
+  "cd-tokens.generated.json": {
+    source: vendoredTokensJson,
+    sha256: "549a244fba0951e9b77fed0f5d2172cb793191913326f08749e167ac7fdbb127",
+  },
+  "cd-canvas.css": {
+    source: withoutVendoringHeader(vendoredCanvasCss),
+    sha256: "b49da7068bcbc95a682d93e19267c1d8308033ef421f6c120ce30eeb62eeb13a",
+  },
+};
 
 /** Colours by meaning, not bytes: hex case and whitespace inside rgba() do not count. */
 function norm(value: string): string {
@@ -145,6 +169,12 @@ describe("theme.sync — value-chain.css wires the vendored design-system files"
 });
 
 describe("theme.sync — the vendored files are complete, unchanged copies (design system 1.27.0)", () => {
+  for (const [file, { source, sha256 }] of Object.entries(DESIGN_SYSTEM_1_27_0)) {
+    it(`${file} is byte-identical to the release below its header`, () => {
+      expect(createHash("sha256").update(source, "utf8").digest("hex")).toBe(sha256);
+    });
+  }
+
   it("both CSS files start with the vendoring header, followed by the generated banner", () => {
     for (const [name, source] of [
       ["cd-tokens.generated.css", vendoredTokensCss],

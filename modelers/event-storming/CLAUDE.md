@@ -157,7 +157,8 @@ update, re-add the header, and run `npm run event-storming test`.
 then `cd-canvas.css` (unlayered, so its `--bio-*`/`.djs-parent` mapping beats diagram-js's
 defaults); both apps get the tokens through the renderer CSS and import no token file themselves.
 Drift tests: [`packages/renderer/test/theme.sync.test.ts`](packages/renderer/test/theme.sync.test.ts)
-(import order and layer, the header, the JSON roles against the CSS so a partial re-copy fails,
+(import order and layer, the header, the sha256 of each file below its header against the release,
+the JSON roles against the CSS so a partial re-copy fails,
 every `MIRAGON` value in [`palette.ts`](packages/renderer/src/theme/palette.ts) against its `--cd-*`
 token, no colour literal and no fixed palette token in `event-storming.css` (it reads the
 `--cd-ui-*` roles only), no `style dark` rendering, overlays below the palette, palette rules scoped

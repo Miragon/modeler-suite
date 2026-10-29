@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { MIRAGON } from "../src/theme/palette.js";
@@ -135,6 +136,22 @@ interface VendoredTokens {
 }
 const vendoredJson = JSON.parse(vendoredJsonText) as VendoredTokens;
 
+/** sha256 of the files of design system 1.27.0, the token files unchanged since 1.12.0. */
+const DESIGN_SYSTEM_1_27_0 = {
+  "cd-tokens.generated.css": {
+    source: vendoredTokens,
+    sha256: "36ccd5bbcb732c57143e32f13172967467dd574ae1ac5d84d6c601d0ab0847a1",
+  },
+  "cd-tokens.generated.json": {
+    source: vendoredJsonText,
+    sha256: "549a244fba0951e9b77fed0f5d2172cb793191913326f08749e167ac7fdbb127",
+  },
+  "cd-canvas.css": {
+    source: vendoredCanvas,
+    sha256: "b49da7068bcbc95a682d93e19267c1d8308033ef421f6c120ce30eeb62eeb13a",
+  },
+};
+
 /** The CSS without comments: what the browser parses. */
 function withoutComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -155,6 +172,12 @@ function normalized(values: Record<string, string>): Record<string, string> {
 }
 
 describe("theme.sync — the vendored files are complete, unchanged copies (design system 1.27.0)", () => {
+  for (const [file, { source, sha256 }] of Object.entries(DESIGN_SYSTEM_1_27_0)) {
+    it(`${file} is byte-identical to the release`, () => {
+      expect(createHash("sha256").update(source, "utf8").digest("hex")).toBe(sha256);
+    });
+  }
+
   it("every file starts with the generated banner of the design system", () => {
     for (const source of [vendoredTokens, vendoredCanvas]) {
       expect(source).toMatch(/^\/\* AUTOMATISCH GENERIERT aus brand\/tokens\.json\./);
