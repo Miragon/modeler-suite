@@ -1,17 +1,9 @@
 ---
 name: storm-dsl
 description: >-
-  The `.storm` Event Storming DSL, the line-based text format behind
-  `@miragon/event-storming-dsl`: full grammar (config lines, sticky/note/drawing declarations,
-  `->` arrows), the `(color …)` `(id …)` `(on …)` `(size …)` `(align …)` suffixes, coordinate
-  and layout conventions, escaping rules, parser diagnostics and the round-trip guarantee,
-  plus the per-level authoring rules for Brandolini's three workshop formats (`big-picture`,
-  `process`, `design`) and the rule that recurring stickies are repeated along the timeline
-  rather than reused. Use whenever reading, writing, generating, editing, validating or
-  debugging a `.storm` file or board text, converting an Event Storming board to or from text,
-  placing stickies on the canvas, or calling `parseDSL` / `parseDSLWithDiagnostics` /
-  `serializeDSL`. For the Event Storming *method* (board reviews, facilitation) use the
-  `event-storming` skill.
+  The `.storm` Event Storming DSL behind `@miragon/event-storming-dsl`: grammar, suffixes, layout,
+  diagnostics and per-level authoring rules. Use when reading, writing, editing or validating a
+  `.storm` file or board text; for the Event Storming method use the `event-storming` skill.
 ---
 
 # The `.storm` DSL

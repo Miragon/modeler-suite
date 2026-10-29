@@ -1,12 +1,9 @@
 ---
 name: value-chain-modeling
 description: >-
-  Value chain diagram (Wertschöpfungskettendiagramm, ARIS VACD) expert. Explains the notation
-  (chevron steps, sequence/hierarchy relations, organizational units), reads and writes the
-  project's *.vc / *.vc.json document format, and reviews a user's process landscape: structure,
-  granularity, decomposition depth, and responsibility assignment. Use whenever the user asks
-  to create, review, critique, or restructure a value chain diagram; to explain the WKD/VACD
-  notation; or to read/write *.vc / *.vc.json files.
+  Explains the value chain notation (Wertschöpfungskettendiagramm, ARIS VACD), reads and writes *.vc
+  / *.vc.json files and reviews process landscapes. Use when creating, reviewing or restructuring a
+  value chain diagram or editing a *.vc file.
 ---
 
 # Value Chain Modeling

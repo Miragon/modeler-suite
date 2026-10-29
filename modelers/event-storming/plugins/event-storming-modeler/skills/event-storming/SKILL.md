@@ -1,15 +1,9 @@
 ---
 name: event-storming
 description: >-
-  Event Storming expert. Explains Alberto Brandolini's Event Storming method, teaches the
-  sticky-note grammar (actor → command → aggregate → domain event → policy → …) and the three
-  workshop levels (big picture, process modeling, software design), and reviews a user's board
-  (what is good, what is weak, and where the potential is), adding colour-coded feedback notes
-  directly to the .storm file. Use whenever the user asks to review, critique, improve, or
-  sanity-check an Event Storming board, or to explain Event-Storming concepts (domain events,
-  commands, aggregates, policies, hotspots, pivotal events, swimlanes, bounded contexts). For the
-  `.storm` text format itself (grammar, suffixes, coordinates, escaping, diagnostics), use the
-  `storm-dsl` skill.
+  Explains Alberto Brandolini's Event Storming method and reviews a user's board, adding
+  colour-coded feedback notes to the .storm file. Use when reviewing or improving an Event Storming
+  board or explaining its concepts; for the `.storm` text format use the `storm-dsl` skill.
 ---
 
 # Event Storming
