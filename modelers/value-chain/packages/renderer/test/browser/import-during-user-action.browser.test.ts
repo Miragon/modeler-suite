@@ -7,11 +7,12 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
-import { parseDocumentJSON } from "@miragon/value-chain-schema-model";
+import { parseDocumentJSON, serializeDocument } from "@miragon/value-chain-schema-model";
 import {
   createCollaborativeModeler,
   type CollaborativeValueChainModeler,
   type VcLabelEditingProvider,
+  type VcModeling,
 } from "../../src/index.js";
 import "../../src/assets/value-chain.css";
 import ORDER_TO_CASH from "./fixtures/order-to-cash.vc.json?raw";
@@ -24,7 +25,8 @@ import { CanvasPointer, FREE_SPOT } from "./support/pointer.js";
  * a redo waits until the handler that ran it has returned. Without that, the label editor of a
  * click append or a keyboard create opened on a shape the import had replaced and lost the name
  * typed into it, and a press on the palette that committed a label threw in diagram-js's
- * `Dragging.init`.
+ * `Dragging.init`. A drag's activation waits as well (#336): an import from the selection
+ * listener, which hears diagram-js empty the selection there, threw in `Dragging.move`.
  */
 
 let modeler: CollaborativeValueChainModeler | undefined;
@@ -163,6 +165,21 @@ function keyboardCreate(action: string): void {
 }
 
 const ELEMENT_COUNT = parseDocumentJSON(ORDER_TO_CASH).elements.length;
+
+/** A peer's edit of the document on the canvas: one element further right, in canonical form. */
+function withElementMoved(text: string, id: string, dx: number): string {
+  const document = parseDocumentJSON(text);
+  return serializeDocument({
+    ...document,
+    elements: document.elements.map((element) =>
+      element.id === id
+        ? { ...element, bounds: { ...element.bounds, x: element.bounds.x + dx } }
+        : element,
+    ),
+  });
+}
+
+const PEER_EDIT = withElementMoved(ORDER_TO_CASH, "step-invoice", 40);
 
 describe("an import from the change listener of a click append or a keyboard create waits until the action has finished (#285)", () => {
   const actions = [
@@ -500,6 +517,118 @@ describe("an import from a listener inside a command, an undo or a redo waits un
       expect(editor().exportText()).toBe(ORDER_TO_CASH);
       expect(service<CommandStack>("commandStack").canUndo()).toBe(false);
       expect(service<CommandStack>("commandStack").canRedo()).toBe(false);
+      expect(errors).toEqual([]);
+    },
+  );
+});
+
+describe("an import from the selection listener at a drag's start runs once diagram-js has activated the drag, and ends it (#336)", () => {
+  let entry: Element | undefined;
+
+  function heldEntry(): Element {
+    if (!entry) throw new Error("no context pad entry");
+    return entry;
+  }
+
+  /** Each gesture starts with a shape selected, which diagram-js deselects as it activates the drag. */
+  const gestures = [
+    {
+      what: "a press on another step, moved past the drag threshold",
+      select: () => editor().elements.reveal("step-credit"),
+      activate: () => {
+        const start = pointer.centreOf("step-order");
+        pointer.press(pointer.graphics("step-order"), start);
+        pointer.moveTo({ x: start.x + 60, y: start.y });
+      },
+    },
+    {
+      what: "a click on the palette's Step",
+      select: () => editor().elements.reveal("step-credit"),
+      activate: () => void pointer.pickFromPalette("create.step"),
+    },
+    {
+      what: "an append dragged out of the context pad",
+      select: () => {
+        entry = pointer.contextPadEntry("step-delivery", "append.step");
+      },
+      activate: () =>
+        heldEntry().dispatchEvent(pointer.event("dragstart", pointer.centreOf("step-delivery"))),
+    },
+    {
+      what: "a connect from the context pad, moved past the drag threshold",
+      select: () => {
+        entry = pointer.contextPadEntry("step-stock", "connect.sequence");
+      },
+      activate: () => {
+        const start = pointer.centreOf("step-stock");
+        pointer.click(heldEntry(), start);
+        pointer.moveTo({ x: start.x + 40, y: start.y });
+      },
+    },
+  ];
+
+  function releaseOnAFreeSpot(): void {
+    pointer.hover(pointer.canvasSvg(), FREE_SPOT);
+    pointer.release(FREE_SPOT);
+  }
+
+  it.each(gestures)(
+    "$what: no error, the import applies, the release changes nothing and the next edit saves",
+    async ({ select, activate }) => {
+      select();
+      const imported = importsDone();
+      const seen: boolean[] = [];
+      editor().interaction.onChange((active) => seen.push(active));
+      let reimport: Promise<unknown> | undefined;
+      const unsubscribe = editor().elements.onSelection(() => {
+        unsubscribe();
+        reimport = editor().importText(PEER_EDIT);
+      });
+
+      activate();
+      expect(errors).toEqual([]);
+      expect(reimport).toBeDefined();
+      expect(imported).toEqual([]);
+      expect(editor().interaction.active()).toBe(true);
+
+      await reimport;
+      expect(imported).toEqual(["imported"]);
+      expect(service<Dragging>("dragging").context()).toBeNull();
+      expect(seen).toEqual([true, false]);
+      expect(dragEnds).toEqual(["drag.canceled"]);
+      releaseOnAFreeSpot();
+
+      expect(editor().exportText()).toBe(PEER_EDIT);
+      expect(changes).toBe(0);
+      expect(errors).toEqual([]);
+      service<VcModeling>("vcModeling").updateLabel(pointer.shape("step-credit"), "Credit limit");
+      expect(changes).toBe(1);
+      expect(exportedElement("step-credit")?.name).toBe("Credit limit");
+    },
+  );
+
+  it.each(gestures)(
+    "$what, cleared: the diagram is empty once diagram-js has activated the drag, and the release changes nothing",
+    async ({ select, activate }) => {
+      select();
+      const unsubscribe = editor().elements.onSelection(() => {
+        unsubscribe();
+        editor().diagram.clear();
+      });
+
+      activate();
+      expect(errors).toEqual([]);
+      expect(editor().elements.list()).toHaveLength(ELEMENT_COUNT);
+
+      await nextTask();
+      expect(editor().diagram.exportDocument().elements).toEqual([]);
+      expect(service<Dragging>("dragging").context()).toBeNull();
+      const changesOfTheClear = changes;
+      releaseOnAFreeSpot();
+
+      expect(editor().diagram.exportDocument().elements).toEqual([]);
+      expect(changes).toBe(changesOfTheClear);
+      expect(editor().interaction.active()).toBe(false);
       expect(errors).toEqual([]);
     },
   );

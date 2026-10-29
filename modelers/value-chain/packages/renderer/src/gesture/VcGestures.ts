@@ -66,6 +66,7 @@ export default class VcGestures {
   static $inject = ["eventBus", "dragging", "toolManager", "elementRegistry", "canvas"];
 
   private dropping: DragContext | null = null;
+  private activating: DragContext | null = null;
   private gesture: DragContext | null = null;
   private commandRunning = false;
   private runningHeldWork = false;
@@ -79,15 +80,22 @@ export default class VcGestures {
     private readonly elementRegistry: ElementRegistry,
     private readonly canvas: Canvas,
   ) {
-    // diagram-js fires the first move of a drag right after the drag has started, and only then:
-    // a start that a listener refuses never shows as a gesture. A host that destroys the modeler
-    // from its interaction listener ends the drag there, and diagram-js would go on moving it on a
-    // torn-down canvas.
+    // diagram-js fires the first move of a drag right after it has activated the drag, and only
+    // then: a start that a listener refuses never shows as a gesture. A host that destroys the
+    // modeler from its interaction listener ends the drag there, and diagram-js would go on moving
+    // it on a torn-down canvas.
     eventBus.on("drag.move", FIRST, () => {
+      this.activating = null;
       const drag = this.context();
       this.noteDrag();
       if (this.context() === drag) return undefined;
       return false;
+    });
+    // diagram-js activates a drag after its start and before its first move: it empties the
+    // selection, whose listeners may import, and then reads the drag's context again, which a cancel
+    // in between has taken away (`Cannot read properties of null (reading 'cursor')`, #336).
+    eventBus.on("drag.start", FIRST, () => {
+      this.activating = this.context();
     });
     eventBus.on("drag.end", FIRST, () => {
       this.dropping = this.context();
@@ -145,8 +153,9 @@ export default class VcGestures {
    * Runs `work` at once, or once the user action running right now has finished, so that nothing
    * the action still runs meets a replaced diagram: a drop's own listeners and the label editor a
    * dragged append opens, the selection and the label editor of a click append or a keyboard
-   * create, the drag a press starts after it committed a label, the rest of a command. Work held
-   * back runs in the order it came, and later work waits behind it.
+   * create, the drag a press starts after it committed a label, the activation of a drag whose
+   * emptied selection a listener heard, the rest of a command. Work held back runs in the order it
+   * came, and later work waits behind it.
    */
   afterUserAction(work: () => void): void {
     if (this.afterUserActionQueue.length === 0 && !this.isUserActionRunning()) {
@@ -201,12 +210,18 @@ export default class VcGestures {
   }
 
   /**
-   * A drop runs until its drag has ended, and every other action that runs a command, an undo or a
-   * redo (a click append, a keyboard create, a label commit, a delete) from its first command until
-   * the handler that ran it has returned.
+   * A drop runs until its drag has ended, a drag's activation from its start until its first move,
+   * and every other action that runs a command, an undo or a redo (a click append, a keyboard
+   * create, a label commit, a delete) from its first command until the handler that ran it has
+   * returned.
    */
   private isUserActionRunning(): boolean {
-    return this.commandRunning || this.isDropping();
+    return this.commandRunning || this.isDropping() || this.isActivating();
+  }
+
+  /** A start that a listener refuses ends the drag before any move, so it ends the activation too. */
+  private isActivating(): boolean {
+    return this.activating !== null && this.context() === this.activating;
   }
 
   private noteCommand(): void {
@@ -220,7 +235,8 @@ export default class VcGestures {
 
   /**
    * A drop runs synchronously inside the release, so a microtask queued during it runs once the
-   * drop, its end and the tool it re-arms are through.
+   * drop, its end and the tool it re-arms are through; one queued during a drag's activation runs
+   * once diagram-js's `Dragging.move` has returned.
    */
   private queueFlush(): void {
     if (this.flushQueued) return;

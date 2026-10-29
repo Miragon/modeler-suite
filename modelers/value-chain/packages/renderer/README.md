@@ -182,8 +182,11 @@ wrapped `Modeler` or `NavigatedViewer` for host wiring.
   while a pointer press on the palette commits the label at its `mousedown`, so the import runs
   before the click and the create the click starts survives; a delete, an undo or a redo runs
   whole. The same holds for an import from any other listener inside the action, such as
-  `elements.onSelection`. A text that does not parse rejects at once and leaves the gesture
-  running.
+  `elements.onSelection`. The start of a drag is such an action as well: diagram-js empties the
+  selection while it activates a move, a create from the palette, or an append or a connect from
+  the context pad, and an import from `elements.onSelection` there runs once the drag is active,
+  then ends it as it ends any gesture, so its release changes nothing. A text that does not parse
+  rejects at once and leaves the gesture running.
 - `interaction` (contract 1.5): `active()` is true from the start of a gesture until its drop or
   cancel: a move, resize, connect, bendpoint, lasso or space drag, and a create or append from the
   palette or the context pad, also while its preview is off the canvas. A press inside the drag
