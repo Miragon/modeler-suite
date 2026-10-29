@@ -4,7 +4,13 @@ import { homedir, tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import type { ProgressReport, ProgressReporter } from "@vscode/test-electron";
 import type { ElectronApplication, FrameLocator, Page } from "playwright-core";
-import type { Appearance, ChromeIsland, Size, Theme } from "../../core/index.js";
+import {
+  FIT_ANIMATION_MS,
+  type Appearance,
+  type ChromeIsland,
+  type Size,
+  type Theme,
+} from "../../core/index.js";
 import { resolveInSharedCache } from "./cache.js";
 import { checkKeys, type KeysSession } from "./keys.js";
 import {
@@ -669,6 +675,7 @@ async function runSession(run: SessionRun): Promise<void> {
         effectTimeoutMs: Math.min(KEY_EFFECT_TIMEOUT_MS, timeoutMs),
         graceMs: KEY_GRACE_MS,
         intervalMs: POLL_INTERVAL_MS,
+        fitAnimationMs: FIT_ANIMATION_MS,
       });
       result.keys = checked.result;
       for (const failure of checked.failures) failures.add("keys", failure);
