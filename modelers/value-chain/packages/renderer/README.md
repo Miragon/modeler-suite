@@ -90,7 +90,8 @@ container as in bpmn-js; the feature modules (`vcDrawModule`, `vcRulesModule`, `
   import drew under it: it starts no connect and puts the tool down. A drop already being applied
   (a host importing from its change listener) is not cancelled. `importDocument` returns its
   warnings at once, so called while a user action runs it replaces the diagram under what the
-  action still does; a host imports through the collaborative modeler's `importText`, which waits
+  action still does, and from a selection listener at the start of a drag it throws in diagram-js;
+  a host imports through the collaborative modeler's `importText`, which waits
   until the action has finished (see below). `clear` ends a running gesture and leaves a pan and an
   armed tool alone, as an import does; called while a user action runs, it empties the diagram once
   the action has finished. A command, an undo or a redo counts as such an action until the next
@@ -183,9 +184,10 @@ wrapped `Modeler` or `NavigatedViewer` for host wiring.
   before the click and the create the click starts survives; a delete, an undo or a redo runs
   whole. The same holds for an import from any other listener inside the action, such as
   `elements.onSelection`. The start of a drag is such an action as well: diagram-js empties the
-  selection while it activates a move, a create from the palette, or an append or a connect from
-  the context pad, and an import from `elements.onSelection` there runs once the drag is active,
-  then ends it as it ends any gesture, so its release changes nothing. A text that does not parse
+  selection while it activates any drag that works on the diagram (a move, resize, connect,
+  bendpoint or space drag, a create or append from the palette or the context pad), and an import
+  from `elements.onSelection` there runs once the drag is active, then ends it as it ends any
+  gesture, so its release changes nothing. A text that does not parse
   rejects at once and leaves the gesture running.
 - `interaction` (contract 1.5): `active()` is true from the start of a gesture until its drop or
   cancel: a move, resize, connect, bendpoint, lasso or space drag, and a create or append from the

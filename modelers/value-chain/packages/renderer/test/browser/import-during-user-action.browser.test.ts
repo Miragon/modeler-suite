@@ -13,6 +13,7 @@ import {
   type CollaborativeValueChainModeler,
   type VcLabelEditingProvider,
   type VcModeling,
+  type VcReadOnly,
 } from "../../src/index.js";
 import "../../src/assets/value-chain.css";
 import ORDER_TO_CASH from "./fixtures/order-to-cash.vc.json?raw";
@@ -632,6 +633,22 @@ describe("an import from the selection listener at a drag's start runs once diag
       expect(errors).toEqual([]);
     },
   );
+
+  it("a drag whose start is refused holds nothing: under the edit lock a press on a step moved past the threshold starts no move, and the next importText applies at once", async () => {
+    service<VcReadOnly>("vcReadOnly").setReadOnly(true);
+    const start = pointer.centreOf("step-order");
+    pointer.press(pointer.graphics("step-order"), start);
+    pointer.moveTo({ x: start.x + 60, y: start.y });
+    expect(service<Dragging>("dragging").context()).toBeNull();
+    pointer.release();
+
+    const imported = importsDone();
+    const reimport = editor().importText(PEER_EDIT);
+    expect(imported).toEqual(["imported"]);
+    await reimport;
+    expect(editor().exportText()).toBe(PEER_EDIT);
+    expect(errors).toEqual([]);
+  });
 });
 
 describe("importDocument keeps the order of the calls before it", () => {
