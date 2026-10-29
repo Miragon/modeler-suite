@@ -88,16 +88,21 @@ describe("VcEditorProvider — export", () => {
     expect(showWarningMessage).not.toHaveBeenCalled();
   });
 
-  it("reports a failed write as an error notification, not as a success", async () => {
+  it("reports a failed write in its own words, logs the cause and shows no success", async () => {
+    const cause = new Error("disk full");
     vi.spyOn(window, "showSaveDialog").mockResolvedValue(target);
-    vi.spyOn(workspace.fs, "writeFile").mockRejectedValue(new Error("disk full"));
+    vi.spyOn(workspace.fs, "writeFile").mockRejectedValue(cause);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const showInformationMessage = vi.spyOn(window, "showInformationMessage");
     const showErrorMessage = vi.spyOn(window, "showErrorMessage");
     const h = await openDiagram(fakeDocument("/chains/checkout.vc.json", DOC_A));
 
     await h.receive({ type: "export", format: "svg", data: "<svg/>" });
 
-    expect(showErrorMessage).toHaveBeenCalledWith("Could not export checkout.png: disk full");
+    expect(showErrorMessage).toHaveBeenCalledWith(
+      "Couldn't export checkout.png. Try again, or choose another folder.",
+    );
+    expect(consoleError).toHaveBeenCalledWith("Couldn't write checkout.png", cause);
     expect(showInformationMessage).not.toHaveBeenCalled();
   });
 
