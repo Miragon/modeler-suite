@@ -100,14 +100,22 @@ missing at its other places; the verdict stays the same).
   the tool down; a drop being applied is never cancelled, told apart by its drag context, not a
   flag; `clear()` treats all of them the same way;
   `test/browser/import-cancels-gesture.browser.test.ts`). `importText` and `clear()` called while
-  a drop is being applied (a host's change listener) wait until it has ended (#248,
-  `vcGestures.afterDrop`: a queue in call order, flushed in a microtask after `drag.ended` or
-  `drag.canceled`, also when a throwing cleanup listener keeps diagram-js from firing either), so
-  no listener of the drop, diagram-js's `SelectionBehavior` or the label editor a dragged append
-  opens, meets a replaced diagram; the direct `importDocument` cannot wait, it returns its warnings
-  (`test/browser/import-during-drop.browser.test.ts`). Only a drop waits: a click append, a
-  keyboard create and a label commit at a press are no drop, and an import from their change
-  listener still runs inside them (#285). The 1.5 surfaces: `interaction` is
+  a user action runs (from a host's change listener or any other listener inside it) wait until it
+  has finished (`vcGestures.afterUserAction`, one queue in call order). A drop finishes at
+  `drag.ended` or `drag.canceled` (#248; the queue flushes a microtask later, also when a throwing
+  cleanup listener keeps diagram-js from firing either), so no listener of the drop, diagram-js's
+  `SelectionBehavior` or the label editor a dragged append opens, meets a replaced diagram
+  (`test/browser/import-during-drop.browser.test.ts`). Any other action that runs a command, an
+  undo or a redo (a click append, a keyboard create, a label commit at a press, a delete) runs from
+  its first `commandStack.execute` or `commandStack.revert` until the handler that ran it has
+  returned, a microtask later (#285): the selection and label editor of an append or a create open
+  on the live element, and the import reopens the editor there; a handler that commits a label and
+  starts a drag (a press on the canvas, a palette click without a press) still starts it, and the
+  import then ends it as it ends any gesture, while a pointer press on the palette commits at its
+  `mousedown` and its create survives; a command the host runs itself holds `clear()` and
+  `importText` the same microtask (`test/browser/import-during-user-action.browser.test.ts`). The
+  direct `importDocument` cannot wait, it returns its warnings, and it first runs what still waits
+  (`vcGestures.runHeldWork`), so the calls keep their order. The 1.5 surfaces: `interaction` is
   `vcGestures.isActive()` (set on the first `drag.move` of an activated drag that is no armed tool
   and no pan, cleared on `drag.ended`/`drag.canceled`, `GESTURE_CHANGED_EVENT`; the delivery skips
   a listener once the modeler is destroyed or the listener unsubscribed, and a `drag.move` whose
