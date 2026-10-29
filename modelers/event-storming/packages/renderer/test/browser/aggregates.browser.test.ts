@@ -500,6 +500,46 @@ describe("the board's aggregates on the canvas (issue #116, real browser DOM)", 
     expect(document.activeElement).toBe(named("?")[1]);
   });
 
+  it("keeps the focus on the same one of two wordless commands and their events", async () => {
+    const diagram = await mount({
+      board: [
+        "title Wordless commands",
+        "command ? [150, 200] (id cmd_open_1)",
+        "command ? [150, 400] (id cmd_open_2)",
+        "aggregate Order [350, 300] (id agg_order)",
+        "event Order Placed [550, 300] (id evt_placed)",
+        "command Wait [150, 700] (id cmd_wait)",
+        "aggregate Stock [350, 700] (id agg_stock)",
+        "",
+        "#cmd_open_1 -> #agg_order",
+        "#cmd_open_2 -> #agg_order",
+        "#agg_order -> #evt_placed",
+        "#cmd_wait -> #agg_stock",
+      ].join("\n"),
+    });
+    aggregatesOf(diagram).showDialog(dialogChrome(container!));
+    const named = (name: string) =>
+      [
+        ...(dialog()?.querySelectorAll<HTMLButtonElement>(".event-storming-aggregates-entry") ??
+          []),
+      ].filter((button) => button.textContent === name);
+    const wait = diagram.get<ElementRegistry>("elementRegistry").get("cmd_wait");
+    const renameWait = (label: string) =>
+      diagram
+        .get<EventStormingModeling>("eventStormingModeling")
+        .updateLabels([{ element: wait as EventStormingShape, label }]);
+
+    expect(named("?")).toHaveLength(2);
+    named("?")[1]!.focus();
+    renameWait("Wait longer");
+    expect(document.activeElement).toBe(named("?")[1]);
+
+    expect(named("Order Placed")).toHaveLength(2);
+    named("Order Placed")[1]!.focus();
+    renameWait("Wait");
+    expect(document.activeElement).toBe(named("Order Placed")[1]);
+  });
+
   it("says so in body text when the board under the open dialog loses its last aggregate", async () => {
     const diagram = await mount();
     aggregatesOf(diagram).showDialog(dialogChrome(container!));

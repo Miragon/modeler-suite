@@ -41,6 +41,11 @@ interface RowGroupContext {
   readonly options: AggregateTableOptions;
   /** The aggregate's label and how many rows with that label came before, such as unnamed ones. */
   readonly rowKey: string;
+  /**
+   * How often each key was given in this table: wordless names never merge, so two "?" commands of
+   * one aggregate would share a key, and their order tells them apart.
+   */
+  readonly keysGiven: Map<string, number>;
   readonly commandsHeaderId: string;
   readonly eventsHeaderId: string;
   readonly aggregateHeaderId: string;
@@ -61,7 +66,10 @@ function entryButton(
   button.dataset["entryKind"] = entry.kind;
   // An event stands on the line of every command that leads to it, so its line is part of its key.
   const lineKey = entry.kind === "event" ? (line?.command?.label ?? "") : "";
-  entryKeys.set(button, [context.rowKey, entry.kind, lineKey, entry.label].join("\u0000"));
+  const key = [context.rowKey, entry.kind, lineKey, entry.label].join("\u0000");
+  const given = context.keysGiven.get(key) ?? 0;
+  context.keysGiven.set(key, given + 1);
+  entryKeys.set(button, `${key}\u0000${given}`);
   button.addEventListener("click", (event) => context.options.onSelect(entry, event));
   return button;
 }
@@ -172,6 +180,7 @@ export function renderAggregateTable(
     return heading.id;
   });
   const rowsBefore = new Map<string, number>();
+  const keysGiven = new Map<string, number>();
   rows.forEach((row, rowIndex) => {
     const occurrence = rowsBefore.get(row.aggregate.label) ?? 0;
     rowsBefore.set(row.aggregate.label, occurrence + 1);
@@ -179,6 +188,7 @@ export function renderAggregateTable(
       ownerDocument,
       options,
       rowKey: `${row.aggregate.label}\u0000${occurrence}`,
+      keysGiven,
       commandsHeaderId: commandsHeaderId!,
       eventsHeaderId: eventsHeaderId!,
       aggregateHeaderId: `${idPrefix}-row-${rowIndex}`,
