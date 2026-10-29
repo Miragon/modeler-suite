@@ -1,3 +1,4 @@
+import type * as vscode from "vscode";
 import { beforeEach, describe, expect, it } from "vitest";
 import { TabInputCustom, Uri, ViewColumn, commands, vscodeMock } from "./__mocks__/vscode";
 import {
@@ -5,26 +6,26 @@ import {
   SHOW_SOURCE_COMMAND,
   registerEditorCommands,
 } from "../src/commands.js";
+import { MAP_VIEW_TYPE } from "../src/mapEditor.js";
 import { WEBVIEW_COMMANDS } from "../src/protocol.js";
-import { WardleyEditorProvider } from "../src/WardleyEditorProvider.js";
 import {
   asTextDocument,
-  fakeContext,
   fakeDocument,
   fakeToken,
   fakeWebviewPanel,
+  registerMapEditorForTest,
   type FakeDoc,
   type FakePanel,
 } from "./fakes.js";
 
-function newProvider(): WardleyEditorProvider {
-  const { provider } = WardleyEditorProvider.register(fakeContext);
-  registerEditorCommands(provider);
+function newProvider(): vscode.CustomTextEditorProvider {
+  const { editors, provider } = registerMapEditorForTest();
+  registerEditorCommands(editors);
   return provider;
 }
 
 async function openMap(
-  provider: WardleyEditorProvider,
+  provider: vscode.CustomTextEditorProvider,
   doc: FakeDoc,
   { active = true }: { active?: boolean } = {},
 ): Promise<FakePanel> {
@@ -154,7 +155,7 @@ describe("Open Source to the Side beside the map", () => {
 });
 
 describe("Open Source to the Side after a reload", () => {
-  const viewType = WardleyEditorProvider.viewType;
+  const viewType = MAP_VIEW_TYPE;
   const walkthrough = undefined;
 
   it("shows a map tab VS Code restored but has not resolved, then opens its source beside it", async () => {

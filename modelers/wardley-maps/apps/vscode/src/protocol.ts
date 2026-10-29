@@ -1,20 +1,20 @@
+import type {
+  DocumentHostMessage,
+  DocumentWebviewMessage,
+} from "@miragon/modeler-shell/vscode/extension";
+
 /**
- * Message protocol between the extension host and the webview.
+ * Message protocol between the extension host and the webview: the shell's document plumbing
+ * (`registerModelerEditor` in the extension, `connectDocumentSync` in the webview) plus the export.
  *
- * Data flow (classic CustomTextEditor pattern):
- *  - Host -> webview: `init`/`update` with the current document text (OWM-DSL).
+ *  - Host -> webview: `init`/`update` with the document's text (OWM-DSL), `problems` for the pill
+ *    and `command` from the Command Palette or the editor title bar.
  *  - Webview -> host: `edit` after every graphical change (the document text with only the changed
- *    statements rewritten) -> minimal WorkspaceEdit.
+ *    statements rewritten), written as one minimal WorkspaceEdit whose echo is not imported again;
+ *    `showProblems` (the pill), `insertExample` (the empty-file hint), `info` and `error`.
  *  - Webview -> host: `export` (SVG text or Base64 PNG) -> save dialog + write file.
- *  - Webview -> host: `showProblems` (the problems pill) and `insertExample` (the empty-file hint).
- *  - Host -> webview: `command` (from the Command Palette or the editor title bar) and `problems`
- *    (the parser's findings shown in the Problems view, for the pill).
  *
- * Echo protection: the host suppresses re-import when a document change exactly matches the text
- * last sent by the webview (otherwise every own change would reset the canvas). The webview, in
- * turn, only sends an `edit` when the text actually differs from the last known text. The modeler
- * shell's `modelerShell.appearance` messages arrive on the same window; the webview ignores types
- * it does not know.
+ * The modeler shell's `modelerShell.appearance` messages arrive on the same window.
  */
 
 /** Diagram actions the host can trigger in the webview, keyed to their VS Code command ids. */
@@ -27,35 +27,15 @@ export const WEBVIEW_COMMANDS = {
 
 export type WebviewCommand = keyof typeof WEBVIEW_COMMANDS;
 
-export function isWebviewCommand(name: unknown): name is WebviewCommand {
-  return typeof name === "string" && Object.prototype.hasOwnProperty.call(WEBVIEW_COMMANDS, name);
-}
-
 /** What an export carries: SVG as text, the PNGs in Base64. */
 export type ExportFormat = "svg" | "png" | "png-transparent";
 
-export type HostToWebview =
-  /** Initial population after `ready`. */
-  | { type: "init"; text: string }
-  /** External document change (text editor, Git, undo, Insert example, …) -> re-import. */
-  | { type: "update"; text: string }
-  /** Run a diagram action (fit, export). */
-  | { type: "command"; name: WebviewCommand }
-  /** The document's diagnostics, for the problems pill (0 hides it). */
-  | { type: "problems"; count: number; errors: number };
+export type HostToWebview = DocumentHostMessage;
 
 export type WebviewToHost =
-  | { type: "ready" }
-  /** Graphical change -> apply to the document as a WorkspaceEdit. */
-  | { type: "edit"; text: string }
+  | DocumentWebviewMessage
   /**
    * Trigger an image export (SVG = text, PNG = Base64). `fontFallback` tells that a PNG was drawn
    * in the system font because Geist could not be embedded: the host says so once the file is saved.
    */
-  | { type: "export"; format: ExportFormat; data: string; fontFallback?: boolean }
-  /** The problems pill was activated -> open the Problems view. */
-  | { type: "showProblems" }
-  /** "Insert example" of the empty-file hint -> append the example as one document edit. */
-  | { type: "insertExample" }
-  | { type: "info"; message: string }
-  | { type: "error"; message: string };
+  | { type: "export"; format: ExportFormat; data: string; fontFallback?: boolean };

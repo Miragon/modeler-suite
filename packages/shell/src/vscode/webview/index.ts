@@ -9,5 +9,23 @@ export type {
   WebviewStateApi,
 } from "./state.js";
 export { SHELL_STATE_KEY, persistView, readShellState, writeShellState } from "./state.js";
-export type { AppearanceMessage } from "../protocol.js";
-export { APPEARANCE_MESSAGE_TYPE, appearanceMessage, isAppearanceMessage } from "../protocol.js";
+export type {
+  DocumentImportContext,
+  DocumentSync,
+  DocumentSyncApi,
+  DocumentSyncOptions,
+} from "./document-sync.js";
+export { connectDocumentSync } from "./document-sync.js";
+export type {
+  AppearanceMessage,
+  DocumentHostMessage,
+  DocumentWebviewMessage,
+  ProblemCounts,
+  TypedMessage,
+} from "../protocol.js";
+export {
+  APPEARANCE_MESSAGE_TYPE,
+  appearanceMessage,
+  isAppearanceMessage,
+  isTypedMessage,
+} from "../protocol.js";

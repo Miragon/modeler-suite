@@ -34,3 +34,110 @@ export interface WebviewPanelLike {
   ): DisposableLike;
   onDidDispose(listener: () => unknown): DisposableLike;
 }
+
+// ---- The document plumbing (0.8) ----
+
+export interface UriLike {
+  readonly scheme: string;
+  readonly path: string;
+  toString(): string;
+}
+
+export interface PositionLike {
+  readonly line: number;
+  readonly character: number;
+}
+
+export interface RangeLike {
+  readonly start: PositionLike;
+  readonly end: PositionLike;
+}
+
+/** `vscode.TextDocument` as far as the document plumbing reads it. */
+export interface TextDocumentLike {
+  readonly uri: UriLike;
+  /** Lines without their line breaks, as `lineAt(i).text` reports them. */
+  readonly lineCount: number;
+  lineAt(line: number): { readonly text: string };
+  getText(): string;
+}
+
+export interface TextDocumentChangeEventLike {
+  readonly document: TextDocumentLike;
+  /** Empty when only the dirty state changed, as on a save. */
+  readonly contentChanges: readonly unknown[];
+}
+
+export interface WorkspaceEditLike {
+  replace(uri: UriLike, range: RangeLike, newText: string): void;
+}
+
+/** `vscode.Webview` as far as the document plumbing uses it. */
+export interface WebviewLike {
+  options: {
+    readonly enableScripts?: boolean | undefined;
+    readonly localResourceRoots?: readonly UriLike[] | undefined;
+  };
+  html: string;
+  readonly cspSource: string;
+  asWebviewUri(localResource: UriLike): UriLike;
+  postMessage(message: unknown): PromiseLike<boolean>;
+  onDidReceiveMessage(listener: (message: unknown) => unknown): DisposableLike;
+}
+
+/** `vscode.WebviewPanel` of a custom editor, as far as the document plumbing uses it. */
+export interface EditorWebviewPanelLike extends WebviewPanelLike {
+  readonly webview: WebviewLike;
+  /** Whether the panel holds the focus. */
+  readonly active: boolean;
+  /** Shows the panel in `viewColumn` (default: its own group) and, unless `preserveFocus`, focuses it. */
+  reveal(viewColumn?: number, preserveFocus?: boolean): void;
+}
+
+/** `vscode.CustomTextEditorProvider` as the document plumbing implements it. */
+export interface CustomTextEditorProviderLike {
+  resolveCustomTextEditor(
+    document: TextDocumentLike,
+    webviewPanel: EditorWebviewPanelLike,
+    token: unknown,
+  ): void | PromiseLike<void>;
+}
+
+export interface CustomEditorRegistrationOptions {
+  readonly webviewOptions?: { readonly retainContextWhenHidden?: boolean | undefined } | undefined;
+  readonly supportsMultipleEditorsPerDocument?: boolean | undefined;
+}
+
+/**
+ * The parts of the `vscode` namespace `registerModelerEditor` uses: `VsCodeLike` for the theme
+ * bridge plus the custom editor, the document's edits and change events, the notifications, the
+ * Problems view command and the three classes it constructs.
+ */
+export interface VsCodeEditorLike extends VsCodeLike {
+  readonly window: VsCodeLike["window"] & {
+    registerCustomEditorProvider(
+      viewType: string,
+      provider: CustomTextEditorProviderLike,
+      options?: CustomEditorRegistrationOptions,
+    ): DisposableLike;
+    showInformationMessage(message: string): PromiseLike<unknown>;
+    showErrorMessage(message: string): PromiseLike<unknown>;
+  };
+  readonly workspace: VsCodeLike["workspace"] & {
+    onDidChangeTextDocument(
+      listener: (event: TextDocumentChangeEventLike) => unknown,
+    ): DisposableLike;
+    applyEdit(edit: WorkspaceEditLike): PromiseLike<boolean>;
+  };
+  readonly commands: {
+    executeCommand(command: string, ...rest: unknown[]): PromiseLike<unknown>;
+  };
+  readonly Uri: { joinPath(base: UriLike, ...pathSegments: string[]): UriLike };
+  readonly Range: new (
+    startLine: number,
+    startCharacter: number,
+    endLine: number,
+    endCharacter: number,
+  ) => RangeLike;
+  readonly WorkspaceEdit: new () => WorkspaceEditLike;
+}

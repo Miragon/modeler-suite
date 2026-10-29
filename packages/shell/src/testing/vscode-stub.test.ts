@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { registerModelerEditor } from "../vscode/extension/index.js";
+import { connectDocumentSync } from "../vscode/webview/index.js";
 import { vsCodeStubSearch } from "./harness.js";
+import { createVsCodeHostStub } from "./vscode-host-stub.js";
 import {
   STUB_SETTING_KEY,
   colorThemeKindOf,
@@ -105,6 +108,57 @@ describe("installVsCodeWebviewStub", () => {
     api?.postMessage({ type: "showProblems" });
     expect(stub.state()).toEqual({ b: 2 });
     expect(stub.posted).toEqual([{ type: "showProblems" }]);
+  });
+
+  it("hands what the webview posts to the extension's side, in a later task", async () => {
+    const received: unknown[] = [];
+    installVsCodeWebviewStub({
+      requested: { theme: "light" },
+      themes: ["light"],
+      onPostMessage: (message) => received.push(message),
+    });
+    (window as StubWindow).acquireVsCodeApi?.().postMessage({ type: "ready" });
+    expect(received).toEqual([]);
+    await vi.waitFor(() => expect(received).toEqual([{ type: "ready" }]));
+  });
+
+  it("runs the document plumbing of both sides against a host stub", async () => {
+    const host = createVsCodeHostStub();
+    registerModelerEditor(
+      host.vscode,
+      { extensionUri: host.extensionUri },
+      { viewType: "modeler.editor", title: "Modeler", themes: ["light"] },
+    );
+    const document = host.openTextDocument("/a.wmap", "title A\nnote\n");
+    const panel = await host.openCustomEditor("modeler.editor", document, {
+      deliver: (message) => window.postMessage(message, "*"),
+    });
+    installVsCodeWebviewStub({
+      requested: { theme: "light" },
+      themes: ["light"],
+      onPostMessage: (message) => void panel.receive(message),
+    });
+    let canvas = "";
+    const sync = connectDocumentSync({
+      api: (window as StubWindow).acquireVsCodeApi!(),
+      importText: (text) => {
+        canvas = text;
+        return Promise.resolve(true);
+      },
+      exportText: () => canvas,
+    });
+    await sync.ready;
+    expect(canvas).toBe("title A\nnote\n");
+
+    canvas = "title B\nnote\n";
+    sync.pushEdit();
+    await vi.waitFor(() => expect(document.getText()).toBe("title B\nnote\n"));
+    host.undo(document);
+    await vi.waitFor(() => expect(canvas).toBe("title A\nnote\n"));
+    expect(
+      panel.posted.filter((message) => (message as { type?: unknown }).type === "update"),
+    ).toEqual([{ type: "update", text: "title A\nnote\n" }]);
+    sync.disconnect();
   });
 
   it("keeps the default styles a page under the webview CSP carries ahead of its policy", () => {

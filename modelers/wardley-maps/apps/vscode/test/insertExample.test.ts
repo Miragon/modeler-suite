@@ -1,16 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseDSLWithDiagnostics } from "@miragon/wardley-dsl";
 import { type WorkspaceEdit, workspace, vscodeMock } from "./__mocks__/vscode";
-import { WardleyEditorProvider } from "../src/WardleyEditorProvider.js";
 import { EMPTY_MAP, EXAMPLE_MAP, withExampleInserted } from "../src/examples.js";
 import {
   applyRangeEdit,
   asTextDocument,
-  fakeContext,
   fakeDocument,
   fakeToken,
   fakeWebviewPanel,
   lastEdit,
+  registerMapEditorForTest,
 } from "./fakes.js";
 
 beforeEach(() => vscodeMock.reset());
@@ -52,7 +51,7 @@ describe("Insert example from the empty-file hint", () => {
       vscodeMock.fireDidChangeTextDocument(doc);
       return Promise.resolve(true);
     };
-    const { provider } = WardleyEditorProvider.register(fakeContext);
+    const { provider } = registerMapEditorForTest();
     const panel = fakeWebviewPanel();
     await provider.resolveCustomTextEditor(asTextDocument(doc), panel.panel, fakeToken);
 

@@ -7,7 +7,7 @@ const THEME_READERS = [
   "apps/webapp/src/main.ts",
   "apps/webapp/vite.config.ts",
   "apps/vscode/src/webview/main.ts",
-  "apps/vscode/src/WardleyEditorProvider.ts",
+  "apps/vscode/src/mapEditorOptions.ts",
 ];
 
 function themesPassedIn(path: string): string[] {

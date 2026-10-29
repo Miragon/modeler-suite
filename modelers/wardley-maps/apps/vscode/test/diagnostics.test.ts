@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { DiagnosticSeverity, vscodeMock, workspace } from "./__mocks__/vscode";
 import { WardleyDiagnostics, wardleyDiagnostics } from "../src/diagnostics.js";
-import { WardleyEditorProvider } from "../src/WardleyEditorProvider.js";
-import { asTextDocument, fakeContext, fakeDocument, fakeToken, fakeWebviewPanel } from "./fakes.js";
+import {
+  asTextDocument,
+  fakeDocument,
+  fakeToken,
+  fakeWebviewPanel,
+  registerMapEditorForTest,
+} from "./fakes.js";
 
 const VALID = "title Tea\ncomponent Water [0.4, 0.8]\ncomponent Tea [0.6, 0.7]\nTea -> Water\n";
 const TYPO = VALID.replace("component Water", "compnent Water");
@@ -85,7 +90,7 @@ describe("WardleyDiagnostics", () => {
 
   it("checks the document when the diagram editor opens and tells the problems pill the count", async () => {
     const diagnostics = new WardleyDiagnostics();
-    const { provider } = WardleyEditorProvider.register(fakeContext, diagnostics);
+    const { provider } = registerMapEditorForTest(diagnostics);
     const doc = fakeDocument("/a.wmap", TYPO);
     const panel = fakeWebviewPanel();
 
@@ -103,7 +108,7 @@ describe("WardleyDiagnostics", () => {
   });
 
   it("opens the Problems view when the webview asks for it", async () => {
-    const { provider } = WardleyEditorProvider.register(fakeContext, new WardleyDiagnostics());
+    const { provider } = registerMapEditorForTest(new WardleyDiagnostics());
     const panel = fakeWebviewPanel();
     await provider.resolveCustomTextEditor(
       asTextDocument(fakeDocument("/a.wmap", VALID)),

@@ -206,7 +206,7 @@ export enum ColorThemeKind {
 }
 
 // The document buses the host subscribes to; tests fire them via `vscodeMock`.
-const docChangeEmitter = new EventEmitter<{ document: unknown }>();
+const docChangeEmitter = new EventEmitter<{ document: unknown; contentChanges: unknown[] }>();
 const colorThemeEmitter = new EventEmitter<{ kind: ColorThemeKind }>();
 const configurationEmitter = new EventEmitter<{
   affectsConfiguration(section: string): boolean;
@@ -217,7 +217,9 @@ const docCloseEmitter = new EventEmitter<unknown>();
 export const workspace = {
   workspaceFolders: undefined as ReadonlyArray<{ uri: Uri }> | undefined,
   textDocuments: [] as unknown[],
-  onDidChangeTextDocument(listener: (e: { document: unknown }) => void): Disposable {
+  onDidChangeTextDocument(
+    listener: (e: { document: unknown; contentChanges: unknown[] }) => void,
+  ): Disposable {
     return docChangeEmitter.event(listener);
   },
   onDidOpenTextDocument(listener: (document: unknown) => void): Disposable {
@@ -329,8 +331,8 @@ export const commands = {
  */
 export const vscodeMock = {
   /** Simulate an editor change event (echo or external edit) for the given document. */
-  fireDidChangeTextDocument(document: unknown): void {
-    docChangeEmitter.fire({ document });
+  fireDidChangeTextDocument(document: unknown, contentChanges: unknown[] = [{}]): void {
+    docChangeEmitter.fire({ document, contentChanges });
   },
   fireDidOpenTextDocument(document: unknown): void {
     docOpenEmitter.fire(document);

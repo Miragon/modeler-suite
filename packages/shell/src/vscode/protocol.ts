@@ -30,3 +30,48 @@ export function isAppearanceMessage(value: unknown): value is AppearanceMessage 
   const { theme, kontrast } = value.appearance;
   return (theme === "light" || theme === "dark") && (kontrast === undefined || kontrast === "hoch");
 }
+
+/** The problems pill's summary of a document's findings, as the Problems view lists them. */
+export interface ProblemCounts {
+  count: number;
+  /** How many of them are errors; the pill's icon and wording follow it. */
+  errors: number;
+}
+
+/**
+ * What the extension's document plumbing (`registerModelerEditor`) posts to the webview. The types
+ * are the ones the Miragon modelers used before the shell took the plumbing over, so a test page
+ * that posts `{ type: "init", text }` keeps working.
+ */
+export type DocumentHostMessage =
+  /** The document's text, the answer to `ready`. */
+  | { type: "init"; text: string }
+  /** A change the webview did not make: the text editor, Git, undo, "Insert example". */
+  | { type: "update"; text: string }
+  | { type: "problems"; count: number; errors: number }
+  /** A Command Palette or editor title command for this editor. */
+  | { type: "command"; name: string };
+
+/** What the webview posts to the extension's document plumbing (`connectDocumentSync`). */
+export type DocumentWebviewMessage =
+  | { type: "ready" }
+  /** The document as the canvas shows it now. */
+  | { type: "edit"; text: string }
+  /** The empty-file hint's "Insert example": one edit, one undo step (guide §13.5). */
+  | { type: "insertExample" }
+  /** The problems pill: open the Problems view. */
+  | { type: "showProblems" }
+  /** A notification of the host, only for an action the user triggered (guide §13.5). */
+  | { type: "info"; message: string }
+  | { type: "error"; message: string };
+
+/** A message of either side as it arrives: a record with a string `type`. */
+export interface TypedMessage {
+  readonly type: string;
+  readonly [key: string]: unknown;
+}
+
+/** Type guard for a message from the other side, which nothing types at runtime. */
+export function isTypedMessage(value: unknown): value is TypedMessage {
+  return isRecord(value) && typeof value.type === "string";
+}

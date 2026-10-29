@@ -1,16 +1,16 @@
 import * as vscode from "vscode";
-import { WardleyEditorProvider } from "./WardleyEditorProvider.js";
+import { MAP_VIEW_TYPE, registerMapEditor } from "./mapEditor.js";
 import { WardleyDiagnostics } from "./diagnostics.js";
 import { registerEditorCommands } from "./commands.js";
 import { EMPTY_MAP, EXAMPLE_MAP } from "./examples.js";
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = new WardleyDiagnostics();
-  const { provider, registration } = WardleyEditorProvider.register(context, diagnostics);
+  const editors = registerMapEditor(context, diagnostics);
   context.subscriptions.push(
     diagnostics,
-    registration,
-    ...registerEditorCommands(provider),
+    editors,
+    ...registerEditorCommands(editors),
     vscode.commands.registerCommand("wardley.newMap", () => createMap(EMPTY_MAP)),
     vscode.commands.registerCommand("wardley.newMapFromExample", () => createMap(EXAMPLE_MAP)),
   );
@@ -34,7 +34,7 @@ async function createMap(initial: string): Promise<void> {
   if (!target) return;
 
   await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(initial));
-  await vscode.commands.executeCommand("vscode.openWith", target, WardleyEditorProvider.viewType);
+  await vscode.commands.executeCommand("vscode.openWith", target, MAP_VIEW_TYPE);
 }
 
 function defaultMapUri(): vscode.Uri | undefined {

@@ -220,6 +220,22 @@ The extension owns file, document, history and mode; the webview shows canvas an
   (`undoRedoKeys: false`); the shell lets the key reach `window`, where VS Code undoes. Each canvas
   change is one `WorkspaceEdit`. The extension recognises its own edits as echoes. In text fields,
   undo keys get `stopPropagation()` without `preventDefault()`, so the field keeps its native undo.
+- **Document sync (0.8, `registerModelerEditor` and `connectDocumentSync`).**
+  - _Minimal line edits._ A whole-document replace moves every cursor of a side-by-side text editor
+    to the end of the file. The edit replaces only the lines between the longest shared start and
+    end, with `\n` breaks that VS Code writes as the document's own.
+  - _One write at a time._ `applyEdit` lands later than the extension asks, so each edit is diffed
+    against the document the previous one left; queued edits are not merged, so every canvas change
+    stays one undo step.
+  - _Echoes._ The change event of an own edit carries the document's text in its own line breaks:
+    the echo set compares texts without `\r`, and holds every pending write, since the events of
+    quick edits may arrive in any order. A change event without content changes is a save or a
+    dirty-state change, never a sync.
+  - _A refused edit_ (read-only file) leaves the canvas ahead of the document: the extension posts
+    the document back as an `update`, unless a newer edit is queued, whose outcome decides.
+  - _The webview_ imports one text at a time, writes only after its first import and never while it
+    shows an invalid file read-only, and posts an edit only when the text differs from the one it
+    showed last; an update that differs from it in formatting only is not imported again.
 - **Key interception.** VS Code forwards every `keydown` that reaches the webview's `window`, whether
   prevented or not. So the webview stops every key it handled on `document` (zoom keys, Escape with an
   open menu, keys the canvas already prevented such as Cmd+C or Cmd+A) and lets the rest through.

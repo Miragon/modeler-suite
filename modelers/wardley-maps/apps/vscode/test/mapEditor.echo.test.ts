@@ -1,14 +1,13 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { type WorkspaceEdit, workspace, vscodeMock } from "./__mocks__/vscode";
-import { WardleyEditorProvider } from "../src/WardleyEditorProvider.js";
 import {
   applyRangeEdit,
   asTextDocument,
-  fakeContext,
   fakeDocument,
   fakeToken,
   fakeWebviewPanel,
   lastEdit,
+  registerMapEditorForTest,
   type FakeDoc,
 } from "./fakes.js";
 
@@ -19,8 +18,8 @@ import {
  * the `suppressEcho` set is a private closure.
  */
 
-function newProvider(): WardleyEditorProvider {
-  return WardleyEditorProvider.register(fakeContext).provider;
+function newProvider() {
+  return registerMapEditorForTest().provider;
 }
 
 /** Install a realistic `applyEdit`: apply the range replacement and fire the echo change. */
@@ -39,7 +38,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("WardleyEditorProvider — echo protection", () => {
+describe("the map editor: echo protection", () => {
   it("posts init with the document text on `ready`", async () => {
     const doc = fakeDocument("/a.wmap", "title A\n");
     const h = fakeWebviewPanel();
@@ -147,7 +146,7 @@ describe("WardleyEditorProvider — echo protection", () => {
   });
 });
 
-describe("WardleyEditorProvider — edits in quick succession", () => {
+describe("the map editor: edits in quick succession", () => {
   it("diffs each edit against the document the previous edit produced", async () => {
     const doc = fakeDocument("/a.wmap", "title A\ncomponent X [0.5, 0.5]\n");
     // Like VS Code: the document changes only once the write has gone through the main thread.
@@ -183,7 +182,7 @@ describe("WardleyEditorProvider — edits in quick succession", () => {
   });
 });
 
-describe("WardleyEditorProvider — minimal write-back", () => {
+describe("the map editor: minimal write-back", () => {
   const MAP = [
     "title Tea Shop",
     "// users",
