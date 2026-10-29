@@ -13,6 +13,19 @@ export const COLORS = {
 } as const;
 
 /**
+ * The role classes of `cd-canvas.css` (guide §10.2) for the colours above, one per property: the
+ * attribute keeps the light value, so the export stays light, and the class draws the role of the
+ * nearest mode carrier on screen. The SVG export drops every `cd-c-*` class (guide §10.7).
+ */
+export const ROLE_CLASSES = {
+  inkStroke: "cd-c-stroke-text",
+  inkFill: "cd-c-fill-text",
+  fillFill: "cd-c-fill-plot",
+  fillStroke: "cd-c-stroke-plot",
+  surroundStroke: "cd-c-stroke-grund",
+} as const;
+
+/**
  * The family goes onto every SVG text node, since SVG text does not inherit the container's font
  * (guide §4). "Geist Variable" is the name `@fontsource-variable/geist` registers; the hosts load
  * it, and an exported SVG opened elsewhere falls back to "Geist" or a system sans.

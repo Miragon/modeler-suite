@@ -575,6 +575,38 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     );
   });
 
+  test("a dark canvas exports the PNG and the SVG of the light one, byte for byte (guide §10.7, §13.4)", async ({
+    page,
+  }) => {
+    await openApp(page);
+    await openExample(page);
+    const exportBoth = async () => {
+      const png = page.waitForEvent("download");
+      await (await openMenu(page)).locator('[data-menu-id="export-png"]').click();
+      const pngBytes = await downloadBytes(png);
+      const svg = page.waitForEvent("download");
+      await (await openMenu(page)).locator('[data-menu-id="export-svg"]').click();
+      return { png: pngBytes, svg: await readDownload(svg) };
+    };
+    const chevronFill = () =>
+      page
+        .locator('.vc-container [data-element-id="step-operations"] .djs-visual > path')
+        .evaluate((path) => getComputedStyle(path).fill);
+
+    expect(await chevronFill()).toBe("rgb(255, 255, 255)");
+    const light = await exportBoth();
+    await page
+      .locator(".vc-container")
+      .evaluate((container) => container.setAttribute("data-cd-theme", "dark"));
+    expect(await chevronFill()).toBe("rgb(29, 29, 29)");
+    const dark = await exportBoth();
+
+    expect(dark.svg).toBe(light.svg);
+    expect(dark.svg).not.toContain("cd-c-");
+    expect(light.png.length).toBeGreaterThan(1000);
+    expect(dark.png.equals(light.png)).toBe(true);
+  });
+
   test("a PNG whose Geist files cannot be read is saved in the system font and says so", async ({
     page,
   }) => {

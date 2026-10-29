@@ -1,5 +1,5 @@
 import { CHROME_ICON, PALETTE_TOOL_ICON, lucideIcon } from "./lucide.js";
-import { COLORS } from "./styles.js";
+import { COLORS, ROLE_CLASSES } from "./styles.js";
 
 /**
  * Notation glyphs of the context pad (append and connect): the value chain's own shapes and
@@ -15,12 +15,13 @@ function glyph(content: string, viewBox = "0 0 24 24"): string {
 }
 
 /**
- * Palette previews of the creating entries (guide §5.5): the shape as the canvas draws it,
- * white with the ink contour, so the palette shows what it creates.
+ * Palette previews of the creating entries (guide §5.5): the shape as the canvas draws it, in the
+ * fill and ink roles, so the palette shows what it creates in either mode.
  */
 function preview(content: string): string {
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" ` +
+    `class="${ROLE_CLASSES.fillFill} ${ROLE_CLASSES.inkStroke}" ` +
     `fill="${COLORS.fill}" stroke="${COLORS.ink}" stroke-width="1.5" stroke-linecap="round" ` +
     `stroke-linejoin="round" aria-hidden="true" focusable="false">${content}</svg>`
   );

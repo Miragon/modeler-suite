@@ -74,6 +74,25 @@ missing at its other places; the verdict stays the same).
   (`COLOR_OPTIONS`) offers "Default", then the palette and status colours from the vendored
   tokens; `test/color-options.test.ts` pins them. Labels drawn before the web font arrived are
   laid out again once it has. Tool and chrome icons are Lucide, inlined in `draw/lucide.ts`.
+- Dark canvas (#218, guide §10.2): next to each light value the renderer writes the role class of
+  `cd-canvas.css` for that property (`ROLE_CLASSES` in `draw/styles.ts`), so the canvas draws the
+  mode of its nearest carrier of `data-cd-theme` on screen, CSS only, without a redraw: every
+  contour, relation and arrowhead in `cd-c-stroke-text` (`cd-c-fill-text` on the arrowhead), a
+  shape without a colour of its own in `cd-c-fill-plot` with its label in `cd-c-fill-text` on a
+  `cd-c-stroke-plot` halo, a label line past its shape in `cd-c-fill-text` on a
+  `cd-c-stroke-grund` halo. A shape's own colour is its fill only: the fill, and the label and halo
+  it decides, carry no class and look the same in every mode, while its contour follows the mode
+  (a Black step keeps its outline on the dark ground). The palette previews and the colour
+  picker's swatches carry the same classes. No stroke falls below 3:1 and no label line below
+  4.5:1 on the dark ground #1D1D1D, so the canvas needs no Unterleger. `saveSVG` drops every
+  `cd-c-*` class, and a class attribute left empty, so SVG and PNG exports stay light: from a dark
+  canvas byte for byte the same as from a light one (`test/browser/dark-canvas.browser.test.ts`,
+  the dark export cases of both e2e suites; `test/theme.sync.test.ts` pins each class to the role
+  of its light value).
+  `VALUE_CHAIN_THEMES` stays `["light"]` until the joint switch (#219), so only a carrier set by
+  hand, as the tests do, draws dark today. Known gap: a hand-written translucent colour (the
+  picker offers none) shows tinted over the dark ground; its label stays readable on its opaque
+  halo.
 - `src/theme/` holds the design system's `cd-tokens.generated.css`/`.json` and `cd-canvas.css`
   (1.27.0), vendored unchanged with a header; re-copy them from the
   `miragon-brand:modeler-tool-design` skill, never edit. `assets/value-chain.css` loads tokens

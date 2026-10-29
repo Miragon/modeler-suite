@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { COLORS, ROLE_CLASSES } from "../src/draw/styles.js";
 
 /**
  * Drift guard: `assets/value-chain.css` reads the design-system roles only, and the files in
@@ -230,4 +231,35 @@ describe("theme.sync — the vendored files are complete, unchanged copies (desi
       expect(Object.keys(tokens.hell), role).toContain(role);
     }
   });
+});
+
+describe("theme.sync — the role classes the renderer sets (guide §10.2)", () => {
+  /** The one property and role a class of `cd-canvas.css` sets. */
+  function setBy(className: string): { property: string; role: string } | undefined {
+    const rule = new RegExp(
+      `^\\.${escapeForRegExp(className)}\\s*\\{\\s*(fill|stroke):\\s*var\\((--cd-ui-[\\w-]+)\\)\\s*!important;\\s*\\}`,
+      "m",
+    ).exec(withoutComments(vendoredCanvasCss));
+    return rule ? { property: rule[1]!, role: rule[2]! } : undefined;
+  }
+
+  /** Each class with the property it goes on and the light colour the renderer writes there. */
+  const DRAWN: Record<
+    keyof typeof ROLE_CLASSES,
+    { property: string; role: string; color: string }
+  > = {
+    inkStroke: { property: "stroke", role: "--cd-ui-text", color: COLORS.ink },
+    inkFill: { property: "fill", role: "--cd-ui-text", color: COLORS.ink },
+    fillFill: { property: "fill", role: "--cd-ui-plot", color: COLORS.fill },
+    fillStroke: { property: "stroke", role: "--cd-ui-plot", color: COLORS.fill },
+    surroundStroke: { property: "stroke", role: "--cd-ui-grund", color: COLORS.surround },
+  };
+
+  for (const [name, className] of Object.entries(ROLE_CLASSES)) {
+    const drawn = DRAWN[name as keyof typeof ROLE_CLASSES];
+    it(`${className} sets the ${drawn.property} to ${drawn.role}, whose light value the attribute holds`, () => {
+      expect(setBy(className)).toEqual({ property: drawn.property, role: drawn.role });
+      expect(norm(tokens.hell[drawn.role]!)).toBe(norm(drawn.color));
+    });
+  }
 });

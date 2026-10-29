@@ -16,7 +16,14 @@ import {
   shapeHoldsLine,
 } from "./geometry.js";
 import { labelLines, linesBox } from "./labelBox.js";
-import { COLORS, FONT, LABEL_HALO_WIDTH, LABEL_PADDING, STROKE_WIDTH } from "./styles.js";
+import {
+  COLORS,
+  FONT,
+  LABEL_HALO_WIDTH,
+  LABEL_PADDING,
+  ROLE_CLASSES,
+  STROKE_WIDTH,
+} from "./styles.js";
 import {
   isOrgUnit,
   isVcConnection,
@@ -113,6 +120,10 @@ export default class VcRenderer extends BaseRenderer {
       "stroke-linecap": "round",
       "stroke-linejoin": "round",
     });
+    // A colour of the shape's own is its fill only: the contour stays in the ink role, so a Black
+    // step keeps its outline on the dark ground.
+    path.classList.add(ROLE_CLASSES.inkStroke);
+    if (colors.roles) path.classList.add(colors.roles.fill);
     svgAppend(visuals, path);
 
     this.labelBoxes.delete(element);
@@ -135,11 +146,13 @@ export default class VcRenderer extends BaseRenderer {
           "paint-order": "stroke",
         },
       });
+      if (colors.roles) label.classList.add(colors.roles.label, colors.roles.halo);
       svgAppend(visuals, label);
       const lines = labelLines(label as SVGTextElement);
       for (const line of lines) {
         if (!shapeHoldsLine(orgUnit, shape.width, shape.height, line.box)) {
           svgAttr(line.element, { fill: SURROUND_LABEL.label, stroke: SURROUND_LABEL.halo });
+          line.element.classList.add(SURROUND_LABEL.roles.label, SURROUND_LABEL.roles.halo);
         }
       }
       const box = linesBox(lines);
@@ -183,6 +196,7 @@ export default class VcRenderer extends BaseRenderer {
     }
 
     const line = createLine(connection.waypoints, attrs);
+    line.classList.add(ROLE_CLASSES.inkStroke);
     svgAppend(visuals, line);
     return line;
   }
@@ -228,6 +242,7 @@ export default class VcRenderer extends BaseRenderer {
         "stroke-width": 1,
         "stroke-linejoin": "round",
       });
+      arrow.classList.add(ROLE_CLASSES.inkFill, ROLE_CLASSES.inkStroke);
       svgAppend(marker, arrow);
       svgAppend(defs, marker);
     }

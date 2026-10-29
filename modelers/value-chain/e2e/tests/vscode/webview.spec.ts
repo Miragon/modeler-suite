@@ -524,6 +524,38 @@ test.describe("VS Code webview: protocol and chrome", () => {
     await page.evaluate(() => window.__modelerShellVsCodeStub!.setColorThemeKind(2));
     await page.waitForTimeout(100);
     await expect(page.locator("html")).toHaveAttribute("data-cd-theme", "light");
+    const chevronFill = await page
+      .locator('.cd-shell-canvas [data-element-id="step-operations"] .djs-visual > path')
+      .evaluate((path) => getComputedStyle(path).fill);
+    expect(chevronFill).toBe("rgb(255, 255, 255)");
+  });
+
+  test("a dark carrier on the page darkens the canvas, not its PNG and SVG exports (guide §10.7, §13.4)", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    const exported = async (name: "exportPng" | "exportSvg"): Promise<string> => {
+      const before = countOf(await postedMessages(page), "export");
+      await postFromHost(page, { type: "command", name });
+      await expect.poll(async () => countOf(await postedMessages(page), "export")).toBe(before + 1);
+      const latest = (await postedMessages(page)).filter((message) => message.type === "export");
+      return latest.at(-1)!["data"] as string;
+    };
+    const chevronFill = () =>
+      page
+        .locator('.cd-shell-canvas [data-element-id="step-operations"] .djs-visual > path')
+        .evaluate((path) => getComputedStyle(path).fill);
+
+    expect(await chevronFill()).toBe("rgb(255, 255, 255)");
+    const light = { png: await exported("exportPng"), svg: await exported("exportSvg") };
+    await page.evaluate(() => document.documentElement.setAttribute("data-cd-theme", "dark"));
+    expect(await chevronFill()).toBe("rgb(29, 29, 29)");
+    const dark = { png: await exported("exportPng"), svg: await exported("exportSvg") };
+
+    expect(dark.svg).toBe(light.svg);
+    expect(dark.svg).not.toContain("cd-c-");
+    expect(light.png.length).toBeGreaterThan(1000);
+    expect(dark.png).toBe(light.png);
   });
 
   test("stores the view in the webview state, for a reload of the window", async ({ page }) => {

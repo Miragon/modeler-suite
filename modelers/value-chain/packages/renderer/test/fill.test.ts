@@ -8,7 +8,7 @@ import { COLORS } from "../src/draw/styles.js";
  * rgb() still fill the shape, as the picker writes hex.
  */
 describe("shape colours without a 2D canvas", () => {
-  it("still fill the shape with hex and rgb() colours", () => {
+  it("still fill the shape with hex and rgb() colours, with no role class", () => {
     expect(shapeColors(fest["--cd-blau"])).toEqual({
       fill: fest["--cd-blau"],
       label: fest["--cd-weiss"],
@@ -21,8 +21,13 @@ describe("shape colours without a 2D canvas", () => {
     });
   });
 
-  it("draw every other value and no value as Default", () => {
-    const fallback = { fill: COLORS.fill, label: COLORS.ink, halo: COLORS.fill };
+  it("draw every other value and no value as Default, in the roles", () => {
+    const fallback = {
+      fill: COLORS.fill,
+      label: COLORS.ink,
+      halo: COLORS.fill,
+      roles: { fill: "cd-c-fill-plot", label: "cd-c-fill-text", halo: "cd-c-stroke-plot" },
+    };
     expect(shapeColors(undefined)).toEqual(fallback);
     expect(shapeColors("hsl(205, 100%, 45%)")).toEqual(fallback);
     expect(shapeColors("not a colour")).toEqual(fallback);

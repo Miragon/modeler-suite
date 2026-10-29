@@ -1,5 +1,5 @@
 import { canvasContext } from "./canvas2d.js";
-import { COLORS, LABEL_ON_FILL } from "./styles.js";
+import { COLORS, LABEL_ON_FILL, ROLE_CLASSES } from "./styles.js";
 
 type Rgba = readonly [red: number, green: number, blue: number, alpha: number];
 
@@ -13,7 +13,24 @@ export interface ShapeColors {
    * time around every glyph.
    */
   halo: string;
+  /**
+   * The role classes of fill, label and halo (guide §10.2), only for a shape drawn in the roles. A
+   * colour of the shape's own, and the label and halo it decides, look the same in every mode
+   * (guide §10.6).
+   */
+  roles?: { fill: string; label: string; halo: string };
 }
+
+const ROLE_COLORS: ShapeColors = Object.freeze({
+  fill: COLORS.fill,
+  label: COLORS.ink,
+  halo: COLORS.fill,
+  roles: Object.freeze({
+    fill: ROLE_CLASSES.fillFill,
+    label: ROLE_CLASSES.inkFill,
+    halo: ROLE_CLASSES.fillStroke,
+  }),
+});
 
 /**
  * How a shape with the stored `color` is drawn (guide §10.6): the colour fills the shape and its
@@ -24,16 +41,20 @@ export interface ShapeColors {
  */
 export function shapeColors(color: string | undefined): ShapeColors {
   const rgba = color === undefined ? undefined : readColor(color);
-  if (!rgba) return { fill: COLORS.fill, label: COLORS.ink, halo: COLORS.fill };
+  if (!rgba) return ROLE_COLORS;
   const shown = overPlot(rgba);
   return { fill: cssColor(rgba), label: labelColorOn(shown), halo: hexColor(shown) };
 }
 
 /**
  * A label line that runs past its shape stands on the surround, not on the fill: ink with the
- * surround's halo (guide §10.1), whatever colour the shape has.
+ * surround's halo (guide §10.1), whatever colour the shape has, so always in the roles.
  */
-export const SURROUND_LABEL = { label: COLORS.ink, halo: COLORS.surround } as const;
+export const SURROUND_LABEL = {
+  label: COLORS.ink,
+  halo: COLORS.surround,
+  roles: { label: ROLE_CLASSES.inkFill, halo: ROLE_CLASSES.surroundStroke },
+} as const;
 
 const readColors = new Map<string, Rgba | undefined>();
 

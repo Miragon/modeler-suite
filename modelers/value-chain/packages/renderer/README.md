@@ -46,8 +46,13 @@ diagram-js' own CSS and `cd-canvas.css`, which maps diagram-js' chrome onto the 
 then it styles the canvas surround (its text colour included), the context pad and the label editor
 (and the deprecated shortcuts dialog) on those roles only. The three design-system files are vendored unchanged from the
 `miragon-brand:modeler-tool-design` skill (design system 1.27.0) into `src/theme/`. The diagram
-itself is drawn with SVG presentation values in the light roles of those tokens, so SVG and PNG
-exports stay light in every mode.
+itself is drawn with SVG presentation values in the light roles of those tokens, each with the
+matching `cd-c-*` role class of `cd-canvas.css`: on screen the canvas follows the mode of the
+nearest `data-cd-theme` carrier, on the container or on a page around it, so a dark carrier draws
+it dark, while `saveSVG()` drops those classes and SVG and PNG exports stay light in every mode,
+byte for byte the same from a dark canvas. A shape's own colour, and the black or white label it
+decides, look the same in every mode. `VALUE_CHAIN_THEMES` stays `["light"]` until the Miragon
+modelers switch to dark together, so `appearance.set` still draws light.
 
 Labels are set in `'Geist Variable', 'Geist', ui-sans-serif, system-ui, sans-serif` on every SVG
 text node. The package does not ship the font: self-host it, for example with
