@@ -98,7 +98,11 @@ point (which Escape leaves running) without its commit. `clear()` ends a running
 palette's lasso tool, armed but not yet pressed, stays armed, and a pan of the empty canvas keeps
 running. A press that starts a drag (on a resize handle, say) while a label is being typed commits
 the label first; when the host imports from that commit's change listener, the label stays and
-the drag does not start. An import called while a user action runs (a host that imports from the
+the drag does not start. A drag that starts while something is selected clears the selection;
+when the host imports from that selection listener (or clears the board there), the drag ends as
+cancelled right after it started, without applying anything, and the import replaces the board
+once the start has run ([#336](https://github.com/Miragon/modeler-suite/issues/336)). An import
+called while a user action runs (a host that imports from the
 change listener of the action's command, or from a selection listener that the command's removal
 of a selected sticky calls) waits until the action has finished, and only then replaces the board;
 its Promise settles after that import. The action is the handler that ran a command, from the

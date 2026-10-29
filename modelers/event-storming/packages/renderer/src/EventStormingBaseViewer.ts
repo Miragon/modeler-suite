@@ -81,7 +81,10 @@ function assertNoEngineIds(board: EventStormingBoard): void {
  * A drag diagram-js still initializes is refused at the end of its `drag.init` instead: an open
  * label editor commits there, so a host that imports from that commit's change listener gets here
  * inside the init, and diagram-js activates the drag right after it (a resize, a create or an
- * append at once), which throws once the drag is gone.
+ * append at once), which throws once the drag is gone. A drag diagram-js activates right now ends
+ * at the last step of that activation instead: the activation clears the selection, so a host that
+ * imports from a selection listener gets here inside it, and diagram-js reads the drag once more
+ * after that listener.
  */
 function cancelGesture(diagram: Diagram): void {
   diagram
@@ -93,6 +96,7 @@ function cancelGesture(diagram: Diagram): void {
   const gestures = gesturesOf(diagram);
   if (gestures?.isDropping(gesture)) return;
   if (gestures?.isStarting(gesture)) gestures.refuseStart();
+  else if (gestures?.isActivating(gesture)) gestures.endOnceActivated();
   else dragging.cancel(false);
 }
 
@@ -178,9 +182,9 @@ export abstract class EventStormingBaseViewer {
    * Load a board into the canvas (replaces existing content). Resolves once the board stands
    * fitted on its final content box: an annotated board waits for its annotations' font first.
    * Called while a user action runs (a host that imports from the change listener of a drop, a
-   * keyboard create or a label commit, or from a selection listener inside a delete or an undo), it
-   * waits until the action and the step it scheduled (the kind chooser after an append) have run,
-   * so none of them finds its shapes replaced.
+   * keyboard create or a label commit, or from a selection listener inside a delete, an undo or a
+   * drag's start), it waits until the action and the step it scheduled (the kind chooser after an
+   * append) have run, so none of them finds its shapes replaced.
    */
   async importMap(board: EventStormingBoard): Promise<{ warnings: ImportWarning[] }> {
     const diagram = this._ensureDiagram();
