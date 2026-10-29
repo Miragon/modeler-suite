@@ -47,13 +47,15 @@ command starts before its release. The armed lasso (`lasso.selection`) stays arm
 (diagram-js drags past their threshold and the renderer's own label, point and evolve-target drags,
 which report to it) for the contract's `interaction`, and marks the user's actions, the one wait of
 `importText` (`afterUserAction`): an import called during an action waits until it has finished,
-behind the imports that waited before it (#248, #285, #305). A drop has finished once it has ended
-and the steps it defers by a task have run (the name editor of a create with the pointer); any other
-command, undo or redo once the code that ran it has returned (`COMMAND_START_EVENTS`, a microtask),
-so a create without a pointer keeps its element selected and its name editor open across a host's
-echo, a saved name keeps its selection, and the drag a press starts after it saved a name ends with
-the import, as an accepted import ends a running gesture and a press below the drag threshold (L1,
-1.5). Pinned by
+behind the imports that waited before it (#248, #285, #305, #336). A drop has finished once it has
+ended and the steps it defers by a task have run (the name editor of a create with the pointer); any
+other command, undo or redo once the code that ran it has returned (`COMMAND_START_EVENTS`, a
+microtask), so a create without a pointer keeps its element selected and its name editor open across
+a host's echo, a saved name keeps its selection, and the drag a press starts after it saved a name
+ends with the import, as an accepted import ends a running gesture and a press below the drag
+threshold (L1, 1.5). The activation of a diagram-js drag (`drag.start`, a microtask) is an action
+too: diagram-js clears the selection after the start and reads the drag again, so an import from the
+selection listener there runs once `Dragging.move` has returned and then ends the drag. Pinned by
 [`import-during-user-action.browser.test.ts`](packages/renderer/test/browser/import-during-user-action.browser.test.ts),
 [`import-during-gesture.browser.test.ts`](packages/renderer/test/browser/import-during-gesture.browser.test.ts)
 and the drop cases of `interaction.browser.test.ts`. `appearance`

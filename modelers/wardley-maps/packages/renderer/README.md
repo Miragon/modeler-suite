@@ -128,13 +128,19 @@ finished once it has ended and the steps it defers to the next task have run (th
 create or an append with the pointer). Any other command, undo or redo has finished once the code
 that ran it has returned, so an import from any listener it calls waits too: a create without a
 pointer (C, U, N, P, a palette entry with Enter or Space, the context pad's append with Enter), the
-save of a name editor (Enter, leaving the field) and the save a press on the map or the palette
-makes. The import keeps what the action left, as any import does: a create keeps its new element
-selected and its name editor open on it, with what was typed, and a saved name keeps its element
-selected. A drag that a press started after it saved a name ends with the import, as an accepted
-import ends a running gesture and a press below the drag threshold (L1, 1.5;
+save of a name editor (Enter, leaving the field), the save a press on the map or the palette
+makes, and a delete, an undo or a redo that deselects what it removes. The import keeps what the
+action left, as any import does: a create keeps its new element selected and its name editor open
+on it, with what was typed, and a saved name keeps its element selected. A drag that a press started
+after it saved a name ends with the import, as an accepted import ends a running gesture and a press
+below the drag threshold (L1, 1.5;
 [#285](https://github.com/Miragon/modeler-suite/issues/285),
-[#305](https://github.com/Miragon/modeler-suite/issues/305)). `exportText()` is the
+[#305](https://github.com/Miragon/modeler-suite/issues/305)). The start of a diagram-js drag is an
+action too, until diagram-js has activated the drag: the start clears the selection, so an import
+from the selection listener at the start of a move, a resize, a connect, the evolve placement or a
+create from the palette, the context pad or a quick-create key runs right after it and then ends
+that drag, without an error and without a change
+([#336](https://github.com/Miragon/modeler-suite/issues/336)). `exportText()` is the
 committed document, never a live preview: while the plot corner is dragged or the size or
 axis-label popover previews a change, it returns the document as it was before, and the change
 event of the commit brings the new one. A command during a size preview (an undo pressed mid-drag, a
