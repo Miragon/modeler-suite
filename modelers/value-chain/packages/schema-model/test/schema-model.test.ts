@@ -158,16 +158,50 @@ describe("serializeDocument", () => {
       expectWrittenAtEachPlace({ ...doc, "x-chain": chain });
     });
 
+    const repeatLimit =
+      "Cannot serialize a document whose shared objects and arrays would repeat more than 1000000 entries.";
+    const numbers = (count: number): number[] => Array.from({ length: count }, (_, index) => index);
+
     it("refuses a chain that holds each level twice before it exhausts the memory", () => {
       let chain: unknown = { leaf: 1 };
       for (let level = 0; level < 40; level++) {
         chain = { left: chain, right: chain };
       }
       const sharing = validateDocument({ ...doc, "x-chain": chain });
-      expect(() => serializeDocument(sharing)).toThrow(
-        "Cannot serialize a document with more than 1000000 objects and arrays",
-      );
+      expect(() => serializeDocument(sharing)).toThrow(repeatLimit);
     });
+
+    it("refuses a wide array at the end of such a chain before it exhausts the memory", () => {
+      let chain: unknown = numbers(1_000);
+      for (let level = 0; level < 14; level++) {
+        chain = { left: chain, right: chain };
+      }
+      const sharing = validateDocument({ ...doc, "x-chain": chain });
+      expect(() => serializeDocument(sharing)).toThrow(repeatLimit);
+    });
+
+    it("refuses one wide object held a thousand times before it exhausts the memory", () => {
+      const wide = Object.fromEntries(numbers(2_000).map((index) => [`key-${index}`, index]));
+      const sharing = validateDocument({ ...doc, "x-many": Array<unknown>(1_000).fill(wide) });
+      expect(() => serializeDocument(sharing)).toThrow(repeatLimit);
+    });
+
+    it("counts the entries of a shared value at every place after its first", () => {
+      const wide = numbers(1_000);
+      const atTheLimit = validateDocument({ ...doc, "x-many": Array<unknown>(1_001).fill(wide) });
+      expect(serializeDocument(atTheLimit)).toBe(
+        serializeDocument(validateDocument(unshared(atTheLimit))),
+      );
+
+      const pastTheLimit = validateDocument({ ...doc, "x-many": Array<unknown>(1_002).fill(wide) });
+      expect(() => serializeDocument(pastTheLimit)).toThrow(repeatLimit);
+    });
+
+    it("writes a document that shares nothing, even with more than a million objects", () => {
+      const log = numbers(1_000_000).map((index) => ({ entry: index }));
+      const text = serializeDocument(validateDocument({ ...doc, "x-log": log }));
+      expect(serializeDocument(parseDocumentJSON(text))).toBe(text);
+    }, 30_000);
 
     it("still refuses an object or an array that contains itself", () => {
       const message = "Cannot serialize a cyclic document.";
