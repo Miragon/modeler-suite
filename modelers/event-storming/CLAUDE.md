@@ -139,19 +139,23 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   editor commits there, and a host may import from that commit's change listener) is refused at
   the end of that `drag.init` instead of cancelled (`refuseStart`): diagram-js activates a resize,
   create or append right after its init, which throws on a drag cancelled inside it. A user
-  action runs from each command (`commandStack.changed`) until the handler that ran it has
-  returned, a microtask later (a keyboard create selects its sticky and opens its editor after the
-  command, a press that commits a label starts its drag), through a drop, from `drag.end` until
+  action runs from the start of each command (`commandStack.execute`, `revert` for an undo) until
+  the handler that ran it has returned, a microtask later (a selection listener runs inside a
+  delete or an undo, a keyboard create selects its sticky and opens its editor after the command,
+  a press that commits a label starts its drag), through a drop, from `drag.end` until
   `drag.ended` or `drag.canceled` (a drawing's point drop while its command applies), and while a
   step it scheduled holds it (`holdAction`: the append's kind chooser or label editor). An import
-  called during an action, from a host's change listener, waits for its end (`actionEnded()`), so
+  called during an action, from a host's change or selection listener, waits for its end
+  (`actionEnded()`), so
   no step of the action, also diagram-js's `SelectionBehavior` after a drop, sees a replaced board
   ([#248](https://github.com/Miragon/modeler-suite/issues/248),
   [#305](https://github.com/Miragon/modeler-suite/issues/305)); a `clear()` does not wait, and a
   drop is never cancelled by it (diagram-js would throw inside its own end of the drag): it ends
   as a drop unless something was selected before the drag, since the clear removes the moved
   shape, and `SelectionBehavior` then throws and the drag ends as `drag.canceled`. The kind
-  chooser an import closes reopens on the sticky with the same id while it is still blank. The
+  chooser an import closes reopens on the sticky with the same id while it is still blank; a label
+  editor an import closes reopens on the element with the same id, a note's on the note in its
+  place, since a note created since the last import comes back under the id its text derives. The
   contract's optional `interaction` reads the same service (true from diagram-js's first drag move
   or a point drag's first move until the end; an armed tool, a pan and a line the draw tool holds
   point by point are none, #243), and `appearance` lists `EVENT_STORMING_THEMES` (`["light"]`, in

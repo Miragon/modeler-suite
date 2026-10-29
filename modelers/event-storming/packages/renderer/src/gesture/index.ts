@@ -2,7 +2,7 @@ import type { ModuleDeclaration } from "didi";
 import DraggingModule from "diagram-js/lib/features/dragging";
 import EventStormingGestures from "./EventStormingGestures.js";
 
-/** The gesture the user holds and the drop that applies it, for imports and the contract. */
+/** The user's gesture and the action that changes the board, for imports and the contract. */
 export const eventStormingGestureModule: ModuleDeclaration = {
   __depends__: [DraggingModule],
   __init__: ["eventStormingGestures"],

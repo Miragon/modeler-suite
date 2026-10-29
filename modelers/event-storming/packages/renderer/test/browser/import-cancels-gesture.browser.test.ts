@@ -16,6 +16,7 @@ import {
 } from "../../src/index.js";
 import { isEventStormingShape, type EventStormingShape } from "../../src/model/di-types.js";
 import type EventStormingLabelEditing from "../../src/label-editing/EventStormingLabelEditing.js";
+import { noteMarkdownToDom } from "../../src/label-editing/note-editor-dom.js";
 import {
   GESTURE_BOARD as BOARD,
   centre,
@@ -866,7 +867,7 @@ const RENAMED_POLICY = BOARD.replace(
 const labelField = (modeler: CollaborativeEventStormingModeler) =>
   modeler.diagram.container.querySelector<HTMLTextAreaElement>(".event-storming-label-input");
 
-function commitWithCtrlEnter(field: HTMLTextAreaElement): void {
+function commitWithCtrlEnter(field: HTMLElement): void {
   field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }));
 }
 
@@ -1037,6 +1038,118 @@ describe("an import from inside the change listener of a user action waits for t
     expect(uncaught).toEqual([]);
     expect(changes()).toBe(2);
     expect(modeler.exportText()).not.toBe(RENAMED_POLICY);
+  });
+
+  it("keeps the text typed after a keyboard create of a note, whose id the echo changes", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const echo = echoEveryChange(modeler);
+    const labelEditing = service<EventStormingLabelEditing>(modeler, "eventStormingLabelEditing");
+
+    const created = createWithEnter(modeler, "create.note");
+    expect(labelEditing.openEdit()?.elementId).toBe(created.id);
+    await echo.settled();
+    await nextTask();
+    // A note has no id grammar: the import derives its id from its text.
+    expect(service<ElementRegistry>(modeler, "elementRegistry").get(created.id)).toBeUndefined();
+    const echoed = shapeOf(
+      modeler,
+      (shape) => shape.eventStormingType === "note" && shape.id !== "note_agenda",
+    );
+    expect(centre(echoed).x).toBeCloseTo(centre(created).x, 2);
+    expect(centre(echoed).y).toBeCloseTo(centre(created).y, 2);
+    expect(labelEditing.openEdit()?.elementId).toBe(echoed.id);
+
+    const editor = labelField(modeler)!;
+    noteMarkdownToDom(editor, "Remember the milk");
+    commitWithCtrlEnter(editor);
+    await echo.settled();
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(2);
+    expect(echo.started()).toBe(2);
+    expect(labelField(modeler)).toBe(null);
+    expect(modeler.exportText()).toContain("note Remember the milk [");
+  });
+});
+
+/** A host that imports a peer's board as soon as the selection changes, once. */
+function importOnSelection(
+  modeler: CollaborativeEventStormingModeler,
+  text: string,
+): () => Promise<unknown> | undefined {
+  let reimport: Promise<unknown> | undefined;
+  modeler.elements.onSelection(() => {
+    reimport ??= modeler.importText(text);
+  });
+  return () => reimport;
+}
+
+/** The import replaced the board after the command, which left a usable history behind. */
+async function expectTheImportAfterTheCommand(
+  modeler: CollaborativeEventStormingModeler,
+  changes: () => number,
+  reimport: () => Promise<unknown> | undefined,
+): Promise<void> {
+  expect(reimport()).toBeDefined();
+  expect(modeler.exportText()).not.toBe(REMOTE);
+  await expect(reimport()).resolves.toBeDefined();
+  expect(uncaught).toEqual([]);
+  expect(changes()).toBe(1);
+  expect(modeler.exportText()).toBe(REMOTE);
+  const commandStack = service<CommandStack>(modeler, "commandStack");
+  expect(commandStack.canUndo()).toBe(false);
+  expect(commandStack.canRedo()).toBe(false);
+  const policy = sticky(modeler, "policy_reserve_stock");
+  expect(policy.parent).toBeTruthy();
+  service<Modeling>(modeler, "modeling").moveElements([policy as Shape], { x: 20, y: 0 });
+  expect(changes()).toBe(2);
+  commandStack.undo();
+  expect(uncaught).toEqual([]);
+  expect(modeler.exportText()).toBe(REMOTE);
+}
+
+describe("an import from a selection listener inside a command waits for the command", () => {
+  it("imports after a delete of the selected sticky", async () => {
+    const modeler = await editorWithBoard();
+    const event = sticky(modeler, "event_order_placed");
+    service<Selection>(modeler, "selection").select(event);
+    const changes = changesOf(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+
+    service<Modeling>(modeler, "modeling").removeElements([event as Shape]);
+
+    await expectTheImportAfterTheCommand(modeler, changes, reimport);
+  });
+
+  it("imports after an undo that removes the selected sticky", async () => {
+    const modeler = await editorWithBoard();
+    createWithEnter(modeler, "create.event");
+    service<EventStormingLabelEditing>(modeler, "eventStormingLabelEditing").cancel();
+    expect(service<Selection>(modeler, "selection").get()).toHaveLength(1);
+    await nextTask();
+    const changes = changesOf(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+
+    service<CommandStack>(modeler, "commandStack").undo();
+
+    await expectTheImportAfterTheCommand(modeler, changes, reimport);
+  });
+
+  it("imports after a redo that deletes the selected sticky again", async () => {
+    const modeler = await editorWithBoard();
+    const commandStack = service<CommandStack>(modeler, "commandStack");
+    const event = sticky(modeler, "event_order_placed");
+    service<Modeling>(modeler, "modeling").removeElements([event as Shape]);
+    commandStack.undo();
+    service<Selection>(modeler, "selection").select(sticky(modeler, "event_order_placed"));
+    await nextTask();
+    const changes = changesOf(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+
+    commandStack.redo();
+
+    await expectTheImportAfterTheCommand(modeler, changes, reimport);
   });
 });
 

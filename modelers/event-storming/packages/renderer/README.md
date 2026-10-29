@@ -99,15 +99,18 @@ palette's lasso tool, armed but not yet pressed, stays armed, and a pan of the e
 running. A press that starts a drag (on a resize handle, say) while a label is being typed commits
 the label first; when the host imports from that commit's change listener, the label stays and
 the drag does not start. An import called while a user action runs (a host that imports from the
-change listener of the action's command) waits until the action has finished, and only then
-replaces the board; its Promise settles after that import. The action is the handler that ran the
-command (a keyboard create from the palette, which selects its sticky and opens its label editor
-after the create; a label commit, also the one a press on the board makes), a drop
-until it has ended (`drag.ended` or `drag.canceled`, a drawing's point drop once its command has
-applied), and the step a drop scheduled (the kind chooser, or the label editor, of an append). So
-every step of the action runs on the board it changed: the label editor of a keyboard create opens
-on the created sticky, and the import reopens it on the sticky with the same id, with what was
-typed ([#305](https://github.com/Miragon/modeler-suite/issues/305)), and every listener of a drop,
+change listener of the action's command, or from a selection listener that the command's removal
+of a selected sticky calls) waits until the action has finished, and only then replaces the board;
+its Promise settles after that import. The action is the handler that ran a command, from the
+command's start until that handler has returned (a keyboard create from the palette, which selects
+its sticky and opens its label editor after the create; a label commit, also the one a press on
+the board makes; a delete, an undo or a redo), a drop until it has ended (`drag.ended` or
+`drag.canceled`, a drawing's point drop once its command has applied), and the step a drop
+scheduled (the kind chooser, or the label editor, of an append). So every step of the action runs
+on the board it changed: the label editor of a keyboard create opens on the created sticky, and
+the import reopens it on the sticky with the same id, or a note's on the note in its place (a note
+has no id grammar, so the import gives it the id its text derives), with what was typed
+([#305](https://github.com/Miragon/modeler-suite/issues/305)), and every listener of a drop,
 also diagram-js's selection behaviour, which threw when the import had removed the moved sticky
 while something was selected before the drag
 ([#248](https://github.com/Miragon/modeler-suite/issues/248)), runs on the board the drop changed.

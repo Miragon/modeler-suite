@@ -109,7 +109,7 @@ const replacementsRunning = new WeakMap<EventStormingBaseViewer, number>();
 /**
  * Whether an import replaces the board of `viewer` right now, past everything it waited for. What
  * the command stack reports meanwhile is the import's own; what it reports while the import still
- * waits (for a running drop or the annotation font) is the user's.
+ * waits (for a running user action, the step it scheduled or the annotation font) is the user's.
  */
 export function isReplacingBoard(viewer: EventStormingBaseViewer): boolean {
   return (replacementsRunning.get(viewer) ?? 0) > 0;
@@ -178,8 +178,9 @@ export abstract class EventStormingBaseViewer {
    * Load a board into the canvas (replaces existing content). Resolves once the board stands
    * fitted on its final content box: an annotated board waits for its annotations' font first.
    * Called while a user action runs (a host that imports from the change listener of a drop, a
-   * keyboard create or a label commit), it waits until the action and the step it scheduled (the
-   * kind chooser after an append) have run, so none of them finds its shapes replaced.
+   * keyboard create or a label commit, or from a selection listener inside a delete or an undo), it
+   * waits until the action and the step it scheduled (the kind chooser after an append) have run,
+   * so none of them finds its shapes replaced.
    */
   async importMap(board: EventStormingBoard): Promise<{ warnings: ImportWarning[] }> {
     const diagram = this._ensureDiagram();
