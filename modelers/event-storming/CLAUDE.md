@@ -214,8 +214,9 @@ group and leaves the renderer's out, and the kit's `shortcutsDialog` case checks
 only while the board has a named aggregate, also on a read-only canvas
 (`keepEnabledWhenReadOnly`), so both apps build the menu again after every import and command
 (`shell.menu.setGroups`). An aggregate whose label is still the placeholder a new sticky gets
-("Aggregate", "Aggregate 2") counts for nothing, as it is no label suggestion
-(`isPlaceholderLabel` of the schema model, one rule for both). It opens the shell's
+("Aggregate", "Aggregate 2") counts for nothing, as it is no label suggestion, and so does an
+empty one, which the `.storm` file stores as "Aggregate" (`isPlaceholderLabel` of the schema
+model, one rule for both). It opens the shell's
 `openShellDialog` through the renderer's `eventStormingAggregates.showDialog`
 (`{ container: shell.root, openDialog }`,
 [`packages/renderer/src/aggregates/`](packages/renderer/src/aggregates/)):

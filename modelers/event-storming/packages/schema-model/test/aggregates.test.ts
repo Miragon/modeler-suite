@@ -357,6 +357,30 @@ describe("groupByAggregate", () => {
     expect(labels(group.commands)).toEqual(["Place Order"]);
   });
 
+  it("reads an empty aggregate as the placeholder a .storm file stores for it, a ? as a name", () => {
+    const groups = groupByAggregate({
+      elements: [
+        sticky("place", "command", "Place Order", 0),
+        sticky("empty", "aggregate", "", 200),
+        sticky("blank", "aggregate", " \n ", 400),
+        sticky("padded", "aggregate", " Aggregate 3 ", 600),
+        sticky("unknown", "aggregate", "?", 800),
+        sticky("placed", "event", "Order Placed", 1000),
+      ],
+      edges: [
+        arrow("place", "empty"),
+        arrow("empty", "placed"),
+        arrow("place", "blank"),
+        arrow("padded", "placed"),
+      ],
+    });
+
+    const group = only(groups);
+    expect(group.aggregate.elementIds).toEqual(["unknown"]);
+    expect(group.commands).toEqual([]);
+    expect(group.events).toEqual([]);
+  });
+
   it("counts a name that only starts like the placeholder, and never merges a placeholder into it", () => {
     const groups = groupByAggregate({
       elements: [

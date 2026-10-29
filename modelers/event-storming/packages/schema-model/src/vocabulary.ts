@@ -46,13 +46,16 @@ const PLACEHOLDER_OF: ReadonlyMap<string, string> = new Map(Object.entries(PLACE
 /**
  * Whether `label` is the placeholder a new sticky of `kind` gets: "Aggregate", "Aggregate 2". It
  * says nothing about the domain, so the label suggestions offer no such name and
- * `groupByAggregate` counts no such aggregate.
+ * `groupByAggregate` counts no such aggregate. The label is read as a `.storm` file stores it,
+ * trimmed, and an empty one as the placeholder the file writes in its place, so a board answers
+ * the same before and after it is saved and opened again.
  */
 export function isPlaceholderLabel(kind: ElementType, label: string): boolean {
   const placeholder = PLACEHOLDER_OF.get(kind);
   if (placeholder === undefined) return false;
-  if (label === placeholder) return true;
-  return label.startsWith(`${placeholder} `) && /^\d+$/.test(label.slice(placeholder.length + 1));
+  const stored = label.trim();
+  if (stored === "" || stored === placeholder) return true;
+  return stored.startsWith(`${placeholder} `) && /^\d+$/.test(stored.slice(placeholder.length + 1));
 }
 
 /** A sticky as the vocabulary reads it; every `BoardElement` fits. */

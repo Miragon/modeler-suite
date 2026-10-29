@@ -238,6 +238,22 @@ describe("the board's aggregates on the canvas (issue #116, real browser DOM)", 
     ]);
   });
 
+  it("counts an emptied aggregate as the placeholder it is saved as, before and after a reopen", async () => {
+    const diagram = await mount({ board: "title One\naggregate Order [100, 100] (id agg)" });
+    const aggregates = aggregatesOf(diagram);
+    expect(aggregates.hasAggregates()).toBe(true);
+
+    rename(diagram, "agg", "");
+    expect(aggregates.hasAggregates()).toBe(false);
+    expect(aggregates.rows()).toEqual([]);
+
+    const text = diagram.exportDSL();
+    expect(text).toContain("aggregate Aggregate [100, 100]");
+    await diagram.importDSL(text);
+    expect(aggregates.hasAggregates()).toBe(false);
+    expect(aggregates.rows()).toEqual([]);
+  });
+
   it('leaves "Aggregates…" out while every aggregate carries a placeholder, and adds it once one is renamed', async () => {
     const diagram = await mount({ board: PLACEHOLDER_BOARD });
     expect(modelGroupIds(diagram)).toEqual(["level", "type-captions"]);

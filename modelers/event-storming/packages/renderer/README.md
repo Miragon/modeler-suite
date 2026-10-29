@@ -176,7 +176,7 @@ from the canvas through `groupByAggregate` of the schema model, which the packag
 every aggregate once, however often the timeline repeats it, with the commands whose arrows lead
 into it and the domain events its arrows lead to. An aggregate whose label is still the
 placeholder a new sticky gets ("Aggregate", "Aggregate 2") is left out, as it is no label
-suggestion. `rows()` gives them as the rows of a table, one per aggregate, each line a command
+suggestion, and so is an empty one, which the `.storm` file stores as "Aggregate". `rows()` gives them as the rows of a table, one per aggregate, each line a command
 and the events it leads to (`aggregateTableRows`), and
 `renderAggregateTable(body, rows, { onSelect })` draws that table into a dialog body.
 `showDialog({ container, openDialog })` opens it in a dialog of guide §8, the shell's

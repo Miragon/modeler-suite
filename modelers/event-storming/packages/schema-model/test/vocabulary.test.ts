@@ -215,6 +215,10 @@ describe("isPlaceholderLabel", () => {
     ["readmodel", "Read Model 3"],
     ["external", "External System"],
     ["hotspot", "Hotspot 4"],
+    ["event", ""],
+    ["aggregate", ""],
+    ["aggregate", " \n "],
+    ["aggregate", " Aggregate 2 "],
   ] as const)("reads %s %j as a placeholder", (kind, label) => {
     expect(isPlaceholderLabel(kind, label)).toBe(true);
   });
@@ -226,11 +230,12 @@ describe("isPlaceholderLabel", () => {
     ["event", "Domain Event  2"],
     ["event", "domain event"],
     ["event", "Domain Events"],
-    ["event", ""],
+    ["aggregate", "?"],
     ["aggregate", "Aggregate Root"],
     ["aggregate", "Domain Event"],
     ["command", "Aggregate 2"],
     ["note", "Note"],
+    ["note", ""],
     ["drawing", ""],
   ] as const)("reads %s %j as a name, or as no placeholder", (kind, label) => {
     expect(isPlaceholderLabel(kind, label)).toBe(false);

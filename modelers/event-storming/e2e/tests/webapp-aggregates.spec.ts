@@ -19,10 +19,11 @@ import {
 import { closeDialog, exportDSL, openMenu, waitForViewer } from "./support/viewer.js";
 
 /**
- * Issue #116 in the web app: "Aggregates…" in the Model group while the board has an aggregate,
- * the shell's dialog with one row group per aggregate, and a name that selects and reveals its
- * stickies without an undo step, a change of the board or of the link. The same runs in the VS
- * Code webview (vscode/aggregates.spec.ts).
+ * Issue #116 in the web app: "Aggregates…" in the Model group while the board has a named
+ * aggregate (a placeholder such as "Aggregate 2" counts for nothing), the shell's dialog with one
+ * row group per aggregate, and a name that selects and reveals its stickies without an undo step,
+ * a change of the board or of the link. The same runs in the VS Code webview
+ * (vscode/aggregates.spec.ts).
  */
 
 async function link(board: string): Promise<string> {

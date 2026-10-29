@@ -136,10 +136,11 @@ function distinct(named: Iterable<NamedStickies>): NamedStickies[] {
  *   it stands.
  * - An aggregate whose label is still the placeholder a new sticky gets (`Aggregate`,
  *   `Aggregate 2`: `isPlaceholderLabel`) is no aggregate of the domain yet and forms no group, so
- *   commands and events that reach only such aggregates are in no group either.
- * - A label without a word (`?`, an empty sticky) names nothing, so its sticky groups with no
- *   other: each such aggregate is a group of its own, each such command or event an entry of its
- *   own. Its `key` is empty.
+ *   commands and events that reach only such aggregates are in no group either. An empty
+ *   aggregate counts as one, since a `.storm` file stores it as `Aggregate`.
+ * - A label without a word (`?`; an empty command or event) names nothing, so its sticky groups
+ *   with no other: each such aggregate is a group of its own, each such command or event an entry
+ *   of its own. Its `key` is empty.
  *
  * The groups come in the order their first aggregate stands on the timeline (`sortByTimeline`:
  * left to right, then top to bottom), the commands and events of a group likewise, and the sticky

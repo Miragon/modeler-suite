@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
-import { PLACEHOLDER_LABELS } from "@miragon/event-storming-schema-model";
+import { parseDSL, serializeDSL } from "@miragon/event-storming-dsl";
+import { PLACEHOLDER_LABELS, isPlaceholderLabel } from "@miragon/event-storming-schema-model";
 import { STICKY_STYLES } from "../src/draw/styles.js";
 import EventStormingLabelEditing from "../src/label-editing/EventStormingLabelEditing.js";
 import type EventStormingModeling from "../src/modeling/EventStormingModeling.js";
@@ -240,6 +241,20 @@ describe("boardStickies", () => {
       ];
       const registry = { getAll: () => shapes };
       expect(boardStickies(registry as unknown as ElementRegistry)).toEqual([]);
+    }
+  });
+
+  it("knows the name the .storm file writes for an empty sticky as its kind's placeholder", () => {
+    for (const kind of STICKY_KINDS) {
+      const board = parseDSL(`title Blank\n${kind} Named [0, 0] (id blank)`);
+      const emptied = {
+        ...board,
+        elements: board.elements.map((element) => ({ ...element, label: "" })),
+      };
+      const [reopened] = parseDSL(serializeDSL(emptied)).elements;
+      expect(reopened!.label).toBe(PLACEHOLDER_LABELS[kind]);
+      expect(isPlaceholderLabel(kind, "")).toBe(true);
+      expect(isPlaceholderLabel(kind, reopened!.label)).toBe(true);
     }
   });
 });

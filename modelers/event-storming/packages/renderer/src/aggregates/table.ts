@@ -142,8 +142,8 @@ function rowGroup(table: HTMLTableElement, row: AggregateTableRow, context: RowG
 /**
  * Fills `body` with the rows, replacing what it held. Called again on an open dialog (the board
  * changed under it), it gives the focus back to the name that had it, else to the first name; once
- * the board has no aggregate left, to the sentence that says so, so the focus stays in the dialog
- * and a screen reader reads the change.
+ * the board has no named aggregate left (only placeholders or none), to the sentence that says
+ * so, so the focus stays in the dialog and a screen reader reads the change.
  */
 export function renderAggregateTable(
   body: HTMLElement,
