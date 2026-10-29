@@ -41,12 +41,12 @@ type DragContext = { prefix: string } | null;
  *   a create without a pointer, the context pad's append with Enter, the save of a name editor, also
  *   the one a press on the canvas makes, a delete, an undo or a redo that deselects what it removes.
  *   Such an action defers no step: the next microtask ends it;
- * - the activation of a diagram-js drag (a move or resize past its threshold, a create the palette
- *   or the context pad starts at once, a connect, the evolve placement of the context pad), from its
- *   start until diagram-js's `Dragging.move` has returned: it clears the selection after the start
- *   and goes on with the drag, so an import from the selection listener there would cancel the drag
- *   under it. The import then ends the drag, as it ends any running gesture. The next microtask
- *   ends this action too.
+ * - the activation of a diagram-js drag (a move, a connect or the evolve placement of the context pad
+ *   past its threshold; a resize, a create from the palette, the context pad or a key, and a connect
+ *   with the key A at once), from its start until diagram-js's `Dragging.move` has returned: it
+ *   clears the selection after the start and goes on with the drag, so an import from the selection
+ *   listener there would cancel the drag under it. The import then ends the drag, as it ends any
+ *   running gesture. The next microtask ends this action too.
  */
 export default class WardleyInteraction {
   static $inject = ["eventBus", "injector"];
