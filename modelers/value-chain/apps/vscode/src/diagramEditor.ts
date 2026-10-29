@@ -46,7 +46,7 @@ export function registerDiagramEditor(
   return vscode.Disposable.from(
     editors,
     problems,
-    ...registerWebviewCommands((name) => editors.runCommand(name)),
+    ...registerWebviewCommands((name, uri) => editors.runCommand(name, uri)),
     ...registerSideBySideCommands(
       async () => editors.revealActiveDocument() ?? revealRestoredTab(DIAGRAM_VIEW_TYPE),
     ),

@@ -209,10 +209,11 @@ passed on the VSIX it uploads) is in the suite's
   `@miragon/modeler-shell/vscode/extension` (sync, echo suppression, minimal line edits, undo
   through the document, "Insert example", the problems pill), handing it `withExampleInserted`,
   the findings of `diagnostics.ts` (each one an error on the pill, dropped from the Problems view
-  when the editor closes) and the export, and registers the commands with it. The webview's half is
-  `connectDocumentSync`, whose `exportText` writes the canonical JSON, or keeps the document's own
-  text while the canvas shows the diagram it describes, so a formatted file keeps its formatting
-  until the diagram changes. The options that need no `vscode` live in
+  when the editor closes) and the export, and registers the commands with it (fit and export from
+  an editor title button go to that button's diagram, from the Command Palette to the focused
+  one). The webview's half is `connectDocumentSync`, whose `exportText` writes the canonical JSON,
+  or keeps the document's own text while the canvas shows the diagram it describes, so a formatted
+  file keeps its formatting until the diagram changes. The options that need no `vscode` live in
   `apps/vscode/src/diagramEditorOptions.ts`, which the e2e page also registers against the shell's
   host stub (`?host`, `e2e/tests/vscode/document-sync.spec.ts`).
 - Both apps export the PNG through `svgToPng` of `@miragon/modeler-shell/export` with
