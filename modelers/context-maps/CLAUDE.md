@@ -71,7 +71,7 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
 ## Contract and chrome
 
 - **Contract.** The renderer implements the collaborative-modeler contract of
-  [`@miragon/modeler-api`](../../packages/api/README.md) (1.3):
+  [`@miragon/modeler-api`](../../packages/api/README.md) (1.5):
   `createCollaborativeModeler` / `createCollaborativeViewer` in
   [`packages/renderer/src/collaborative/`](packages/renderer/src/collaborative), the text lane being
   the canonical JSON of a `.cm` file (`serializeDocumentText`, ends in one line break). Its
@@ -83,9 +83,23 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   and arrays nested more than `MAX_NESTING_DEPTH` (100) levels deep, the document being the first
   level. An import cancels a running gesture first, as Escape does (`CmGestureCancel`; move,
   connect, lasso, palette and context-pad create, and a press below the drag threshold; the armed
-  lasso tool waits for its next press and stays armed, and a drop the host imports over from its
-  change listener is not cancelled; pinned by
-  [`import-cancels-gesture.test.ts`](packages/renderer/test/browser/import-cancels-gesture.test.ts)).
+  lasso tool waits for its next press and stays armed, and a pan of the canvas is no gesture and
+  runs on), and so does `clear()`. The contract's `importText` called while a gesture ends (a
+  host echoing a drop's change from `onContentChanged`, or importing from `interaction.onChange`
+  after Escape) waits until it has ended, every listener of the release or key included, and its
+  promise settles after that import (#248); the subdomain-type menu of an append follows its
+  context across such an echo by id. The `Modeler`'s own synchronous `importDocument` leaves the
+  drop to finish instead. Pinned by
+  [`import-cancels-gesture.test.ts`](packages/renderer/test/browser/import-cancels-gesture.test.ts).
+  Both factories expose the 1.5 surfaces: `interaction` (true from a gesture's start, the first
+  move past the threshold or a palette create's preview, until its drop or cancel; false for an
+  armed tool and a pan; always false on the viewer) and `appearance` (`themes` is
+  `CONTEXT_MAPS_THEMES`, `["light"]`, from `theme/themes.ts`, which both apps and the VS Code
+  theme bridge re-export through their `src/themes.ts`; `set` writes `data-cd-theme` and
+  `data-cd-kontrast="hoch"` on the diagram's container, which carries `color: var(--cd-ui-text)`
+  so no colour of the page shows through). Pinned by
+  [`contract-surfaces.test.ts`](packages/renderer/test/browser/contract-surfaces.test.ts), which
+  checks them as the kit's planned 1.5 cases will.
   A host's view change (`setViewState`, a fit) never commits an open editor,
   `elements.bounds(id)` gives an element's live box and `contentBounds()` (also on every
   `CmBaseViewer`) the tight box around what the canvas draws: the contexts, wider where a team row
@@ -95,10 +109,10 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   with room for the renderer's own palette (also when only `{ center }` is given; a test pins
   both), and a browser test compares the box with the drawing at zoom 1.
 - **Chrome.** Both apps mount [`@miragon/modeler-shell`](../../packages/shell/README.md)
-  with `themes: ["light"]`: the VS Code webview on the `ide` host (menu, palette skin, zoom panel and
-  keys, fit, legend slot, problems pill, status box, empty-file hint), the web app on the `web` host
-  (the same plus File group, Share, legal line, toasts, problems list, start screen and drop zone;
-  `index.html` gets the mode markup of `webHeadMarkup` from the Vite config). Neither app has a
+  with the renderer's `themes` (`["light"]`): the VS Code webview on the `ide` host (menu, palette
+  skin, zoom panel and keys, fit, legend slot, problems pill, status box, empty-file hint), the web
+  app on the `web` host (the same plus File group, Share, legal line, toasts, problems list, start
+  screen and drop zone; `index.html` gets the mode markup of `webHeadMarkup` from the Vite config). Neither app has a
   stylesheet or chrome markup of its own. `connectDiagramJs(shell, …, { modeler, isEmpty })` fits
   to the renderer's `contentBounds()`: the webview passes its contract instance, the web app its
   `Modeler`; neither computes bounds of its own. The renderer **never imports the shell** (ESLint

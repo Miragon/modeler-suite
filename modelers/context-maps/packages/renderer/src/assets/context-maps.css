@@ -14,10 +14,14 @@
    Miragon modeler shell). The host owns the surrounding chrome (menu, zoom, legend slot).
    ========================================================================== */
 
+/* The text colour too resolves here, not in the host's page: with `appearance.set` this element
+   carries its own data-cd-theme, and a colour inherited from a page in another mode would show
+   through (guide §13.3). */
 .cm-djs-container {
   position: relative;
   width: 100%;
   height: 100%;
+  color: var(--cd-ui-text);
   background-color: var(--cd-ui-grund);
   background-image: radial-gradient(var(--cd-ui-linie) 1px, transparent 1px);
   background-size: 22px 22px;

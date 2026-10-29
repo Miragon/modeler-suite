@@ -1,11 +1,14 @@
 import {
   MODELER_API_VERSION,
+  type AppearanceRequest,
+  type AppearanceSurface,
   type CollaborativeModeler,
   type CollaborativeModelerOptions,
   type ElementBounds,
   type ElementInfo,
   type ElementsSurface,
   type ImportResult,
+  type InteractionSurface,
   type ModelerMeta,
 } from "@miragon/modeler-api";
 import type { ModuleDeclaration } from "didi";
@@ -16,9 +19,11 @@ import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element } from "diagram-js/lib/model/Types";
 import { getBBox } from "diagram-js/lib/util/Elements";
 import type { CmViewerOptions } from "../CmBaseViewer.js";
+import type CmGestureCancel from "../gesture-cancel/CmGestureCancel.js";
 import { Modeler } from "../Modeler.js";
 import { NavigatedViewer } from "../NavigatedViewer.js";
 import { isCmElement, type CmElement } from "../model/di-types.js";
+import { CONTEXT_MAPS_THEMES } from "../theme/themes.js";
 
 /** Stable notation id in `meta.notation` of the collaborative-modeler contract. */
 export const CONTEXT_MAPS_NOTATION = "context-maps";
@@ -36,6 +41,8 @@ export interface CollaborativeContextMapsOptions extends CollaborativeModelerOpt
 export interface CollaborativeContextMapsModeler extends CollaborativeModeler {
   readonly elements: ElementsSurface & { bounds(id: string): ElementBounds | undefined };
   contentBounds(): ElementBounds | undefined;
+  readonly interaction: InteractionSurface;
+  readonly appearance: AppearanceSurface;
   readonly diagram: Modeler | NavigatedViewer;
 }
 
@@ -84,6 +91,8 @@ function collaborative(
   const canvas = diagram.get<Canvas>("canvas");
   const elementRegistry = diagram.get<ElementRegistry>("elementRegistry");
   const selection = diagram.get<Selection>("selection");
+  // Only the editor runs gestures: the viewer has no dragging, its pan runs outside of it.
+  const gestures = editable ? diagram.get<CmGestureCancel>("cmGestureCancel") : undefined;
   const contentListeners = new Set<() => void>();
   let destroyed = false;
   let lastExport = "";
@@ -100,6 +109,34 @@ function collaborative(
     eventBus.on("commandStack.changed", () => {
       for (const listener of [...contentListeners]) listener();
     });
+  }
+  const interaction: InteractionSurface = {
+    active: () => !destroyed && (gestures?.isActive() ?? false),
+    onChange(callback) {
+      if (!gestures || destroyed) return () => undefined;
+      // Each listener on its own, so one that throws keeps no other from hearing the change. The
+      // diagram's teardown cancels a running drag: its listeners hear nothing after destroy().
+      const unsubscribe = gestures.onActiveChange((active) => {
+        if (!destroyed) callback(active);
+      });
+      return () => {
+        unsubscribe();
+      };
+    },
+  };
+
+  const appearance: AppearanceSurface = {
+    themes: CONTEXT_MAPS_THEMES,
+    set(request) {
+      if (!destroyed) drawAppearance(diagram.container, request);
+    },
+  };
+
+  /** The import itself; its body runs at once when called, up to the canvas. */
+  async function importNow(text: string): Promise<ImportResult> {
+    if (destroyed) throw new Error("The modeler was destroyed.");
+    const { warnings } = diagram.importText(text);
+    return { warnings: warnings.map((warning) => warning.message) };
   }
 
   const elements: CollaborativeContextMapsModeler["elements"] = {
@@ -130,14 +167,18 @@ function collaborative(
   return {
     meta,
     elements,
+    interaction,
+    appearance,
     diagram,
     attachTo(host) {
       diagram.attachTo(host as HTMLElement);
     },
-    async importText(text): Promise<ImportResult> {
-      if (destroyed) throw new Error("The modeler was destroyed.");
-      const { warnings } = diagram.importText(text);
-      return { warnings: warnings.map((warning) => warning.message) };
+    importText(text): Promise<ImportResult> {
+      // A host that imports from the change listener of a drop (an echo of its own change) would
+      // replace the elements the drop's later listeners still hold: diagram-js's selection after a
+      // move, the type menu after an append. The import waits until the gesture has ended.
+      const gestureEnded = destroyed ? undefined : gestures?.whenGestureEnded();
+      return gestureEnded ? gestureEnded.then(() => importNow(text)) : importNow(text);
     },
     exportText() {
       // Asking a destroyed diagram would build a new one on the detached container.
@@ -176,6 +217,20 @@ function collaborative(
       diagram.destroy();
     },
   };
+}
+
+/**
+ * Draws the theme the host asked for where `themes` lists it, else the first, with the contrast it
+ * asked for, on the root of what the renderer draws: the token roles resolve there and not in the
+ * host's page (guide §13.3). The root is the diagram's container, the same before `attachTo` and
+ * across every import. A request from an untyped host counts as the fallback theme at normal
+ * contrast where it names nothing known.
+ */
+function drawAppearance(root: HTMLElement, request: AppearanceRequest | undefined): void {
+  const theme = CONTEXT_MAPS_THEMES.find((listed) => listed === request?.theme);
+  root.dataset.cdTheme = theme ?? CONTEXT_MAPS_THEMES[0];
+  if (request?.contrast === "high") root.dataset.cdKontrast = "hoch";
+  else delete root.dataset.cdKontrast;
 }
 
 function elementIds(elements: readonly unknown[]): string[] {

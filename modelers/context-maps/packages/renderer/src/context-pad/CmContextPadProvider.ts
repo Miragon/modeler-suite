@@ -37,6 +37,7 @@ import type Rules from "diagram-js/lib/features/rules/Rules";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type Scheduler from "diagram-js/lib/features/scheduler/Scheduler";
 import type Canvas from "diagram-js/lib/core/Canvas";
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
 import type { Point } from "diagram-js/lib/util/Types";
@@ -141,6 +142,7 @@ export default class CmContextPadProvider implements ContextPadProvider {
     "scheduler",
     "cmReadOnly",
     "cmGestureCancel",
+    "elementRegistry",
   ];
 
   /** The last pad-opened menu, so a roles toggle can re-open it in place. */
@@ -163,7 +165,8 @@ export default class CmContextPadProvider implements ContextPadProvider {
     private readonly canvas: Canvas,
     private readonly scheduler: Scheduler,
     private readonly readOnly: Pick<CmReadOnly, "isReadOnly">,
-    private readonly gestureCancel: Pick<CmGestureCancel, "isCancellingForImport">,
+    private readonly gestureCancel: Pick<CmGestureCancel, "isCancellingForClear">,
+    private readonly elementRegistry: ElementRegistry,
   ) {
     // Injecting Connect instantiates it so its connect.* drag handlers exist
     // (same reason as CmConnectHandles — the module does not eagerly init it).
@@ -376,9 +379,9 @@ export default class CmContextPadProvider implements ContextPadProvider {
       });
     }
     // The drag lifecycle clears the selection; the user is still "at" the source, unless an import
-    // cancelled the connect and is about to remove it.
+    // or a clear cancelled the connect and is about to remove it.
     this.eventBus.once("connect.cleanup", 250, () => {
-      if (this.gestureCancel.isCancellingForImport()) return;
+      if (this.gestureCancel.isCancellingForClear()) return;
       if (this.selection.get().length === 0) this.selection.select(source);
     });
   }
@@ -422,17 +425,36 @@ export default class CmContextPadProvider implements ContextPadProvider {
 
   /**
    * Open the subdomain-type menu for a freshly appended context, anchored to
-   *  its pad entry — deferred one task so the pad has been positioned first.
+   * its pad entry, deferred one task so the pad has been positioned first.
+   * A host that imports its own change back (from the change listener, after
+   * the drop) replaces the context by one with the same id and clears the
+   * selection: the menu follows the context there, as a label edit follows its
+   * element across an import. Not when the import removed it, and not when
+   * something else is selected by then.
    */
   private openTypeMenu(context: CmContext): void {
     void this.scheduler.schedule(() => {
-      if (!this.contextPad.isOpen(context)) return;
-      const entry = this.canvas
-        .getContainer()
-        .querySelector<HTMLElement>('.djs-context-pad.open [data-action="subdomain-type"]');
-      if (!entry) return;
-      this.openMenuBeside(entry.getBoundingClientRect(), context, SUBDOMAIN_MENU, "Subdomain type");
+      const current = this.elementRegistry.get(context.id);
+      if (current === context) {
+        this.openTypeMenuOnPad(context);
+        return;
+      }
+      if (!isCmContext(current) || this.readOnly.isReadOnly()) return;
+      if (this.selection.get().length === 0) this.selection.select(current as unknown as Element);
+      void this.scheduler.schedule(
+        () => this.openTypeMenuOnPad(current),
+        "cmContextPad#openTypeMenu",
+      );
     }, "cmContextPad#openTypeMenu");
+  }
+
+  private openTypeMenuOnPad(context: CmContext): void {
+    if (!this.contextPad.isOpen(context)) return;
+    const entry = this.canvas
+      .getContainer()
+      .querySelector<HTMLElement>('.djs-context-pad.open [data-action="subdomain-type"]');
+    if (!entry) return;
+    this.openMenuBeside(entry.getBoundingClientRect(), context, SUBDOMAIN_MENU, "Subdomain type");
   }
 
   // --- relationship ---------------------------------------------------------
