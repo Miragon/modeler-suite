@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { EMPTY_BOARD, withExampleInserted } from "../../../apps/vscode/src/examples.js";
-import { openWebview } from "./support/webview.js";
+import { openWebview, postedMessages } from "./support/webview.js";
 
 /**
  * The webview and the extension's document plumbing (`registerModelerEditor` of the shell, with the
@@ -84,6 +84,64 @@ test.describe("VS Code webview: the document both ways", () => {
 
     await expect(sticky(page, "event_order_cancelled")).toBeVisible();
     expect(await appliedEdits(page)).toBe(0);
+  });
+
+  test("a change of formatting only, as insertFinalNewline on a save, leaves the canvas as it is", async ({
+    page,
+  }) => {
+    await openWebview(page, { host: true, text: BOARD.trimEnd() });
+    await sticky(page, "event_order_placed").click();
+    const shapeBefore = await page.evaluateHandle(() =>
+      window
+        .modeler!.diagram.get<{ get(id: string): unknown }>("elementRegistry")
+        .get("event_order_placed"),
+    );
+    const viewboxBefore = await page.evaluate(() => window.connection!.viewport.getViewbox());
+
+    await page.evaluate((text) => {
+      const { host, document } = window.vscodeHost!;
+      host.replaceText(document, text);
+    }, BOARD);
+    await expect.poll(() => postedTypes(page)).toContain("update");
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 100)));
+
+    expect(
+      await page.evaluate(
+        (shape) =>
+          window
+            .modeler!.diagram.get<{ get(id: string): unknown }>("elementRegistry")
+            .get("event_order_placed") === shape,
+        shapeBefore,
+      ),
+    ).toBe(true);
+    expect(
+      await page.evaluate(() =>
+        window
+          .modeler!.diagram.get<{ get(): Array<{ id: string }> }>("selection")
+          .get()
+          .map((element) => element.id),
+      ),
+    ).toEqual(["event_order_placed"]);
+    expect(await page.evaluate(() => window.connection!.viewport.getViewbox())).toEqual(
+      viewboxBefore,
+    );
+    expect(await canvasText(page)).toBe(BOARD);
+    expect(await documentText(page)).toBe(BOARD);
+    expect(await appliedEdits(page)).toBe(0);
+
+    await page.evaluate(() => {
+      const diagram = window.modeler!.diagram;
+      const shape = diagram
+        .get<{ get(id: string): unknown }>("elementRegistry")
+        .get("event_order_placed");
+      diagram
+        .get<{ moveElements(elements: unknown[], delta: { x: number; y: number }): void }>(
+          "modeling",
+        )
+        .moveElements([shape], { x: 0, y: 0 });
+    });
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    expect((await postedMessages(page)).filter((message) => message.type === "edit")).toEqual([]);
   });
 
   test("undo and redo in VS Code take the canvas back and forth, one canvas change per step", async ({
