@@ -40,7 +40,26 @@ interface Mounted {
 
 const mounted: Mounted[] = [];
 
-afterEach(() => {
+/** A spot below the sample's teams, where the real pointer starts no hover tooltip. */
+const EMPTY_CANVAS_SPOT = { x: 640, y: 720 };
+
+let realPointerUsed = false;
+
+/** Clicks with Playwright's real pointer, which `afterEach` moves off the palette again. */
+async function clickWithTheRealPointer(element: Element): Promise<void> {
+  realPointerUsed = true;
+  await userEvent.click(element);
+}
+
+afterEach(async () => {
+  const topmost = mounted.at(-1);
+  if (realPointerUsed && topmost) {
+    // The real pointer stays where it clicked. Over a palette entry, it starts the entry's hover
+    // tooltip in this diagram and in every diagram mounted under it later, and diagram-js's
+    // tooltip timer throws once it outlives its destroyed diagram.
+    await userEvent.hover(topmost.host, { position: EMPTY_CANVAS_SPOT });
+  }
+  realPointerUsed = false;
   for (const { modeler, host, stopCollecting } of mounted.splice(0)) {
     stopCollecting();
     modeler.destroy();
@@ -702,7 +721,7 @@ describe("an import from inside the change listener of a user action", () => {
     const reimport = reimportOnFirstChange(current);
     const idsBefore = elementIds(current);
     startTyping(current, "team_discovery", "Discovery squad");
-    await userEvent.click(paletteEntry(container, "team.platform"));
+    await clickWithTheRealPointer(paletteEntry(container, "team.platform"));
 
     await expect(reimport()).resolves.toBeDefined();
     expect(order).toEqual(["change", "imported", "drag.init"]);
