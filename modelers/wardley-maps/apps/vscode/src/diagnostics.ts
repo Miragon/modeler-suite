@@ -63,7 +63,11 @@ export class WardleyDiagnostics implements vscode.Disposable {
     return diagnostics.length;
   }
 
-  /** Typing fires a change per keystroke; parse once the user pauses. */
+  /**
+   * Typing fires a change per keystroke; parse once the user pauses. An open map editor refreshes
+   * at once instead (`registerMapEditor`): its canvas imports every change, and the pill counts
+   * what the canvas shows.
+   */
   scheduleRefresh(document: vscode.TextDocument): void {
     if (!isWardleyDocument(document)) return;
     this.cancelPending(document.uri);

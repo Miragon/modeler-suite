@@ -229,9 +229,10 @@ export function registerModelerEditor<
         if (event.document.uri.toString() !== key) return;
         // A save or a dirty-state change fires without a content change: nothing to sync.
         if (event.contentChanges.length === 0) return;
+        // The sync first: a modeler's diagnostics that throw keep neither a change from the canvas
+        // nor an echo in the writer, where it would swallow a later change back to that text.
+        if (!writer.consumeEcho()) resync();
         refreshProblems();
-        if (writer.consumeEcho()) return;
-        resync();
       }),
       panel.webview.onDidReceiveMessage((message) =>
         isTypedMessage(message) ? answer(message) : undefined,
@@ -246,17 +247,23 @@ export function registerModelerEditor<
         }
       }),
     ];
-    diagnostics?.refresh(document);
-    const opened = options.onDidOpen?.(editor);
-    if (opened) subscriptions.push(opened);
-
-    panel.onDidDispose(() => {
+    const close = (): void => {
       for (const subscription of subscriptions.splice(0)) subscription.dispose();
       diagnostics?.clear?.(document);
       if (editorsByDocument.get(key) === entry) editorsByDocument.delete(key);
       if (focused === entry) focused = undefined;
       forget(entry);
-    });
+    };
+    panel.onDidDispose(close);
+    // A hook that throws fails the editor in VS Code: nothing of it may stay focused or reachable.
+    try {
+      diagnostics?.refresh(document);
+      const opened = options.onDidOpen?.(editor);
+      if (opened) subscriptions.push(opened);
+    } catch (error) {
+      close();
+      throw error;
+    }
   }
 
   const registration = vscode.window.registerCustomEditorProvider(

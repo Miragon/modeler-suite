@@ -31,6 +31,28 @@ describe("createVsCodeHostStub: text documents", () => {
     });
   });
 
+  it("logs what a change listener throws and still applies the edit, as VS Code does", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const host = createVsCodeHostStub();
+    const document = host.openTextDocument("/a.wmap", "a\n");
+    const failure = new Error("listener failed");
+    const later = vi.fn();
+    host.vscode.workspace.onDidChangeTextDocument(() => {
+      throw failure;
+    });
+    host.vscode.workspace.onDidChangeTextDocument(later);
+    const edit = new host.vscode.WorkspaceEdit();
+    edit.replace(document.uri, new host.vscode.Range(0, 0, 0, 1), "b");
+
+    expect(await host.vscode.workspace.applyEdit(edit)).toBe(true);
+    expect(() => host.replaceText(document, "c\n")).not.toThrow();
+    expect(document.getText()).toBe("c\n");
+    expect(later).toHaveBeenCalledTimes(2);
+    expect(host.listenerErrors).toEqual([failure, failure]);
+    expect(logged).toHaveBeenCalledTimes(2);
+    logged.mockRestore();
+  });
+
   it("refuses an edit to a read-only document and one built without its WorkspaceEdit", async () => {
     const host = createVsCodeHostStub();
     const document = host.openTextDocument("/a.wmap", "a\n");

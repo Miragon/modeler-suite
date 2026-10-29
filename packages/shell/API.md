@@ -2449,11 +2449,12 @@ history, and the webview shows the canvas in the shell. The webview's half is
   VS Code refuses an edit (a read-only file, a rejected `applyEdit`) and no newer one is queued, the
   webview gets the document's text as an `update`, since its canvas shows the change already.
 - **Changes of the document** are read from `onDidChangeTextDocument`: those of other documents and
-  those without content changes (a save, a dirty-state change) are ignored. `diagnostics.refresh`
-  runs after every change, the canvas's own included (an edit on the canvas can add or remove a
-  finding). The echo of an own edit, the document's text compared with the written one without its
-  line breaks (a set, so edits in quick succession are all recognised), posts nothing; every other
-  change (typing, Git, undo and redo, "Insert example") posts `update` with the document's text.
+  those without content changes (a save, a dirty-state change) are ignored. The echo of an own
+  edit, the document's text compared with the written one without its line breaks (a set, so edits
+  in quick succession are all recognised), posts nothing; every other change (typing, Git, undo and
+  redo, "Insert example") posts `update` with the document's text. `diagnostics.refresh` runs after
+  that, after every change, the canvas's own included (an edit on the canvas can add or remove a
+  finding): diagnostics that throw hold no change back from the canvas.
 - **The pill.** `diagnostics.refresh(document)` finds the problems, keeps them where the Problems
   view reads them (the modeler's `DiagnosticCollection`) and returns the counts; it runs when an
   editor opens, on `ready` and after every change. The webview gets `problems` from its `ready` on,
@@ -2469,7 +2470,10 @@ history, and the webview shows the canvas in the shell. The webview's half is
   editor: `editor.post` answers, `editor.written()` waits until the edits queued before have landed
   (a save that waits for a flushed field). `onDidOpen` runs per editor, and what it returns is
   disposed with the editor: a save participant (`onWillSaveTextDocument`), or the tracker an
-  extension shares with a PNG editor. `Message` types `onMessage`; nothing checks it at runtime.
+  extension shares with a PNG editor. When `onDidOpen` or the first `diagnostics.refresh` throws,
+  the editor is undone at once (nothing of it is focused, reachable by `runCommand` or listening)
+  and the error goes on to VS Code, which shows the editor as failed. `Message` types `onMessage`;
+  nothing checks it at runtime.
 - **The focused editor.** `runCommand(name)` posts `{ type: "command", name }` to the focused editor,
   never to one focused earlier, and `runCommand(name, uri)` to the editor of that document; both
   return `false` without one. `revealActiveDocument()` returns the document of the editor focused
@@ -2494,20 +2498,29 @@ history, and the webview shows the canvas in the shell. The webview's half is
   and Context Maps' PNG editors).
 
 ```ts
-// apps/vscode/src/mapEditor.ts (Wardley Maps)
+// apps/vscode/src/mapEditor.ts (Wardley Maps, its options spelled out)
 export function registerMapEditor(
-  context: vscode.ExtensionContext,
-  diagnostics: WardleyDiagnostics,
-) {
+  context: Pick<vscode.ExtensionContext, "extensionUri">,
+  diagnostics?: WardleyDiagnostics,
+): MapEditors {
   return registerModelerEditor<vscode.TextDocument, WebviewToHost>(vscode, context, {
     viewType: "wardley.mapEditor",
     title: "Wardley Map",
     themes: WARDLEY_THEMES,
     insertExample: withExampleInserted,
     // the parser's findings are warnings: the map stays editable, so no errors
-    diagnostics: { refresh: (document) => ({ count: diagnostics.refresh(document), errors: 0 }) },
+    diagnostics: diagnostics && {
+      refresh: (document) => ({ count: diagnostics.refresh(document), errors: 0 }),
+    },
     onMessage: (message, editor) =>
-      message.type === "export" ? exportImageToFile(editor.document.uri, message) : undefined,
+      message.type === "export"
+        ? exportImageToFile(
+            editor.document.uri,
+            message.format,
+            message.data,
+            message.fontFallback === true,
+          )
+        : undefined,
   });
 }
 ```
@@ -3260,6 +3273,7 @@ interface VsCodeHostStub {
   readonly appliedEdits: readonly StubTextEdit[];
   readonly executedCommands: ReadonlyArray<{ command: string; args: readonly unknown[] }>;
   readonly notifications: ReadonlyArray<{ severity: "info" | "error"; message: string }>;
+  readonly listenerErrors: readonly unknown[]; // what event listeners threw, also on console.error
   setColorThemeKind(kind: number): void;
 }
 function createVsCodeHostStub(): VsCodeHostStub;
@@ -3271,7 +3285,9 @@ Code's line semantics: a document keeps the line break its text uses first (or `
 every inserted `\n` as it; every applied edit and every `replaceText` is one undo step, `redo`
 follows `undo`; each change fires one change event with one content change, `save` one without. A
 read-only document refuses edits, `applyEdit` rejects an edit built with another `WorkspaceEdit`,
-and `holdEdits` keeps edits back as VS Code applies them later than the extension asks.
+and `holdEdits` keeps edits back as VS Code applies them later than the extension asks. As in VS
+Code, an error a listener throws reaches neither the edit nor the other listeners: the stub logs it
+with `console.error` and keeps it in `listenerErrors`.
 `openCustomEditor` calls the provider registered last for the view type with a new panel, whose
 `receive` delivers a message of the webview and settles once the listeners' promises did.
 

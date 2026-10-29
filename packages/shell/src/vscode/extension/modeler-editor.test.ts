@@ -341,6 +341,27 @@ describe("registerModelerEditor: the problems", () => {
     ]);
   });
 
+  it("syncs a change before its problems, so diagnostics that throw hold no change back", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    let broken = false;
+    const refresh = vi.fn((): ProblemCounts => {
+      if (broken) throw new Error("parser crashed");
+      return { count: 0, errors: 0 };
+    });
+    const { host, open } = setup({ diagnostics: { refresh } });
+    const { document, panel } = await open("/a.wmap", "a\n");
+    await panel.receive({ type: "ready" });
+    broken = true;
+
+    await panel.receive({ type: "edit", text: "b\n" });
+    host.replaceText(document, "a\n");
+    host.replaceText(document, "b\n");
+
+    expect(updatesOf(panel)).toEqual(["a\n", "b\n"]);
+    expect(host.listenerErrors).toHaveLength(3);
+    logged.mockRestore();
+  });
+
   it("posts the counts again to a reloaded webview", async () => {
     const { diagnostics } = markDiagnostics();
     const { open } = setup({ diagnostics });
@@ -405,6 +426,45 @@ describe("registerModelerEditor: notifications and the modeler's own messages", 
     expect(seen).toEqual([{ type: "export", text: "title B\n" }]);
     expect(messagesOf(panel, "exported")).toHaveLength(1);
   });
+
+  it.each<[string, Partial<ModelerEditorOptions<StubTextDocument>>]>([
+    [
+      "diagnostics.refresh",
+      {
+        diagnostics: {
+          refresh: () => {
+            throw new Error("hook failed");
+          },
+        },
+      },
+    ],
+    [
+      "onDidOpen",
+      {
+        onDidOpen: () => {
+          throw new Error("hook failed");
+        },
+      },
+    ],
+  ])(
+    "leaves nothing behind of an editor whose %s throws while it opens",
+    async (_hook, options) => {
+      const { host, registration } = setup(options);
+      const document = host.openTextDocument("/a.wmap", MAP);
+      const delivered: unknown[] = [];
+      const opening = host.openCustomEditor(VIEW_TYPE, document, {
+        deliver: (message) => delivered.push(message),
+      });
+
+      await expect(opening).rejects.toThrow("hook failed");
+      host.replaceText(document, "title B\n");
+      host.setColorThemeKind(2);
+      expect(delivered).toEqual([]);
+      expect(registration.revealActiveDocument()).toBeUndefined();
+      expect(registration.runCommand("fitView")).toBe(false);
+      expect(registration.runCommand("fitView", document.uri)).toBe(false);
+    },
+  );
 
   it("disposes what onDidOpen returned with the editor", async () => {
     const dispose = vi.fn();

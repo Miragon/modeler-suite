@@ -59,8 +59,11 @@ class StubWorkspaceEdit implements WorkspaceEditLike {
   }
 }
 
+/** VS Code logs what a listener throws and goes on: the edit that fired the event still applies. */
 class Emitter<T> {
   private readonly listeners = new Set<(value: T) => unknown>();
+
+  constructor(private readonly onListenerError: (error: unknown) => void) {}
 
   readonly event = (listener: (value: T) => unknown): DisposableLike => {
     this.listeners.add(listener);
@@ -68,7 +71,14 @@ class Emitter<T> {
   };
 
   fire(value: T): unknown[] {
-    return [...this.listeners].map((listener) => listener(value));
+    return [...this.listeners].map((listener) => {
+      try {
+        return listener(value);
+      } catch (error) {
+        this.onListenerError(error);
+        return undefined;
+      }
+    });
   }
 }
 
@@ -149,6 +159,8 @@ export interface VsCodeHostStub {
   readonly executedCommands: ReadonlyArray<{ command: string; args: readonly unknown[] }>;
   /** Every notification the extension showed. */
   readonly notifications: ReadonlyArray<{ severity: "info" | "error"; message: string }>;
+  /** Every error an event listener threw, which VS Code logs; the other listeners still ran. */
+  readonly listenerErrors: readonly unknown[];
   /** Switches VS Code's color theme kind: 1 Light, 2 Dark, 3 High Contrast, 4 High Contrast Light. */
   setColorThemeKind(kind: number): void;
 }
@@ -167,11 +179,18 @@ function withLineBreak(text: string, eol: EndOfLine): string {
 
 /** A fake `vscode` for the document plumbing, in Node or in a test page. */
 export function createVsCodeHostStub(): VsCodeHostStub {
+  const listenerErrors: unknown[] = [];
+  const reportListenerError = (error: unknown): void => {
+    listenerErrors.push(error);
+    console.error("@miragon/modeler-shell VS Code host stub: an event listener threw", error);
+  };
   const documents = new Map<string, DocumentState>();
   const providers = new Map<string, CustomTextEditorProviderLike>();
-  const documentChanged = new Emitter<TextDocumentChangeEventLike>();
-  const themeChanged = new Emitter<ColorThemeLike>();
-  const configurationChanged = new Emitter<{ affectsConfiguration(section: string): boolean }>();
+  const documentChanged = new Emitter<TextDocumentChangeEventLike>(reportListenerError);
+  const themeChanged = new Emitter<ColorThemeLike>(reportListenerError);
+  const configurationChanged = new Emitter<{ affectsConfiguration(section: string): boolean }>(
+    reportListenerError,
+  );
   const appliedEdits: StubTextEdit[] = [];
   const executedCommands: Array<{ command: string; args: readonly unknown[] }> = [];
   const notifications: Array<{ severity: "info" | "error"; message: string }> = [];
@@ -264,11 +283,11 @@ export function createVsCodeHostStub(): VsCodeHostStub {
 
   function createPanel(active: boolean, deliver: ((message: unknown) => void) | undefined) {
     const posted: unknown[] = [];
-    const received = new Emitter<unknown>();
+    const received = new Emitter<unknown>(reportListenerError);
     const viewStateChanged = new Emitter<{
       readonly webviewPanel: { readonly visible: boolean; readonly active: boolean };
-    }>();
-    const disposed = new Emitter<void>();
+    }>(reportListenerError);
+    const disposed = new Emitter<void>(reportListenerError);
     let isDisposed = false;
     const webview: WebviewLike = {
       options: {},
@@ -395,6 +414,7 @@ export function createVsCodeHostStub(): VsCodeHostStub {
     appliedEdits,
     executedCommands,
     notifications,
+    listenerErrors,
     setColorThemeKind(kind) {
       colorThemeKind = kind;
       themeChanged.fire({ kind });
