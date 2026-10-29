@@ -142,7 +142,9 @@ that advises (template:
   left set would hold every later import. Imports keep their call order, also one called after the
   action while an earlier one still waits. Outside an action it imports at once. The diagram's own
   import, which cannot wait, leaves a drop to finish and never cancels it from inside diagram-js's
-  end of it (tell the drop apart by its drag context).
+  end of it (tell the drop apart by its drag context). Called from a selection listener at a
+  drag's start, it still ends the drag inside `Dragging.move`, which then throws on the cursor, so
+  a host imports there through the contract's `importText`, which waits.
   - After a keyboard create, the import takes the label editor down and reopens it on the element
     with the same id. An edit the first of several waiting imports takes down stays suspended
     through the next; a render that fails reopens it as well, so no later import brings back an

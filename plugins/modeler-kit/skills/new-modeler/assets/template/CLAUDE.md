@@ -59,7 +59,8 @@ Build the packages before the tests: workspace dependencies resolve to `dist`.
 - An accepted import first ends a running gesture the way Escape does
   ([`gestures/`](packages/renderer/src/gestures/)); an armed palette tool and a hand-tool pan run
   on, and the contract's `importText` waits until a user's action being applied (a drop, the
-  start of a drag, a keyboard create, a label commit) has finished. `THEMES`
+  start of a drag, a keyboard create, a label commit, a key's command, an undo or a redo) has
+  finished. `THEMES`
   ([`themes.ts`](packages/renderer/src/themes.ts), for Node code
   `@miragon/__NOTATION__-renderer/themes`) is the one list of themes: the contract's `appearance`,
   the shell in both apps and the theme bridge read it.
