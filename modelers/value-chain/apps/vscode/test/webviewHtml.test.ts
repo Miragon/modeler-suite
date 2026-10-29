@@ -14,7 +14,7 @@ function htmlTag(html: string): string {
   return /<html[^>]*>/.exec(html)?.[0] ?? "";
 }
 
-describe("VcEditorProvider — webview HTML", () => {
+describe("the diagram editor: webview HTML", () => {
   it("writes the CSP with a nonce, and the same nonce on the one script", async () => {
     const h = await openDiagram(fakeDocument("/a.vc.json", DOC_A));
     const { html } = h.webview;
@@ -67,7 +67,7 @@ describe("VcEditorProvider — webview HTML", () => {
   });
 });
 
-describe("VcEditorProvider — theme bridge", () => {
+describe("the diagram editor: theme bridge", () => {
   it("posts the resolved appearance on a theme change, light for a light-only diagram", async () => {
     const h = await openDiagram(fakeDocument("/a.vc.json", DOC_A));
 

@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 describe("diagram commands", () => {
-  it("registers fit and export with the provider", () => {
+  it("registers fit and export with the editor", () => {
     newProvider();
 
     expect(vscodeMock.registeredCommandIds()).toEqual(
@@ -55,6 +55,31 @@ describe("diagram commands", () => {
 
     expect(first.messagesOfType("command")).toEqual([{ type: "command", name: "fitView" }]);
     expect(second.messagesOfType("command")).toEqual([]);
+  });
+
+  it.each(Object.entries(WEBVIEW_COMMANDS))(
+    "posts %s from a title button to its own diagram, not to the focused one",
+    async (name, command) => {
+      const provider = newProvider();
+      const focused = await openDiagram(fakeDocument("/a.vc.json", DOC_A), {}, provider);
+      const other = fakeDocument("/b.vc.json", DOC_B);
+      const titled = await openDiagram(other, { active: false }, provider);
+
+      vscodeMock.runCommand(command, other.uri);
+
+      expect(titled.messagesOfType("command")).toEqual([{ type: "command", name }]);
+      expect(focused.messagesOfType("command")).toEqual([]);
+    },
+  );
+
+  it("tells the user when the title button's diagram is no longer open", async () => {
+    const showInformationMessage = vi.spyOn(window, "showInformationMessage");
+    const h = await openDiagram(fakeDocument("/a.vc.json", DOC_A));
+
+    vscodeMock.runCommand("valueChain.exportPng", Uri.file("/closed.vc.json"));
+
+    expect(h.messagesOfType("command")).toEqual([]);
+    expect(showInformationMessage).toHaveBeenCalledWith(NO_DIAGRAM_MESSAGE);
   });
 
   it("tells the user when no diagram is focused instead of using the one focused last", async () => {
