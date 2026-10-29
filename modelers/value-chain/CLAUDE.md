@@ -113,7 +113,12 @@ missing at its other places; the verdict stays the same).
   starts a drag (a press on the canvas, a palette click without a press) still starts it, and the
   import then ends it as it ends any gesture, while a pointer press on the palette commits at its
   `mousedown` and its create survives; a command the host runs itself holds `clear()` and
-  `importText` the same microtask (`test/browser/import-during-user-action.browser.test.ts`). The
+  `importText` the same microtask. A drag's activation runs from its `drag.start` until its first
+  `drag.move` (#336): diagram-js empties the selection in between and then reads the drag's
+  context again, so an import from `elements.onSelection` that cancelled the drag there threw
+  `Cannot read properties of null (reading 'cursor')`; held, it runs a microtask later, once
+  `Dragging.move` has returned, and ends the drag (`drag.canceled`)
+  (`test/browser/import-during-user-action.browser.test.ts`). The
   direct `importDocument` cannot wait, it returns its warnings, and it first runs what still waits
   (`vcGestures.runHeldWork`), so the calls keep their order. The 1.5 surfaces: `interaction` is
   `vcGestures.isActive()` (set on the first `drag.move` of an activated drag that is no armed tool

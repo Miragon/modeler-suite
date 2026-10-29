@@ -99,7 +99,8 @@ export abstract class VcBaseViewer {
    * the import drew under it starts no connect and puts the tool down. A drop already being
    * applied (a host importing from its change listener) is not cancelled. This import is
    * synchronous: called while a user action runs (a drop, a click append, a keyboard create, a
-   * label commit), it replaces the diagram under what the action still does, so a host imports
+   * label commit, the start of a drag), it replaces the diagram under what the action still does,
+   * and from a selection listener at the start of a drag it throws in diagram-js, so a host imports
    * through the collaborative modeler's `importText`, which waits until the action has finished
    * (`vcGestures.afterUserAction`). A valid document first lets an `importText` or a `clear()`
    * still waiting run, so the calls take effect in the order they came.
@@ -149,11 +150,11 @@ export abstract class VcBaseViewer {
   /**
    * Empties the diagram. A running gesture ends first, while a pan and an armed tool run on, as in
    * `importDocument`. Called while a user action runs (a drop, a click append, a keyboard create, a
-   * label commit, typically from a change listener), it empties the diagram once the action has
-   * finished, so nothing the action still does meets the shapes removed. A command, an undo or a
-   * redo counts as such an action until the next microtask, also one the host runs itself: a
-   * `clear()` right after it empties the diagram a microtask later, and an `importDocument` in
-   * between runs the waiting clear first.
+   * label commit, typically from a change listener, or the start of a drag, from a selection
+   * listener), it empties the diagram once the action has finished, so nothing the action still
+   * does meets the shapes removed. A command, an undo or a redo counts as such an action until the
+   * next microtask, also one the host runs itself: a `clear()` right after it empties the diagram a
+   * microtask later, and an `importDocument` in between runs the waiting clear first.
    */
   clear(): void {
     const diagram = this._ensureDiagram();
