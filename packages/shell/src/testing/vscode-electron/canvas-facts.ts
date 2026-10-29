@@ -58,6 +58,19 @@ export function similarCanvas(a: CanvasFacts, b: CanvasFacts): boolean {
   return pairsOneToOne(a.positions.map(positionOf), b.positions.map(positionOf));
 }
 
+/**
+ * Whether a canvas shows the edit again: `similarCanvas` to the edited one, or exactly the same
+ * where the edit moved no shape further than the tolerance, which would let a canvas without the
+ * edit pass.
+ */
+export function showsEdit(
+  original: CanvasFacts,
+  edited: CanvasFacts,
+): (facts: CanvasFacts) => boolean {
+  const compare = similarCanvas(original, edited) ? sameCanvas : similarCanvas;
+  return (facts) => compare(facts, edited);
+}
+
 export function describeCanvas(facts: CanvasFacts): string {
   return `${facts.shapes} shapes and ${facts.connections} connections`;
 }

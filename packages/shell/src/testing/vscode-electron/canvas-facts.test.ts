@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { describeCanvas, sameCanvas, similarCanvas } from "./canvas-facts.js";
+import { describeCanvas, sameCanvas, showsEdit, similarCanvas } from "./canvas-facts.js";
 import type { CanvasFacts } from "./webview.js";
 
 const canvas: CanvasFacts = {
@@ -49,6 +49,24 @@ describe("similarCanvas", () => {
     expect(similarCanvas(canvas, { ...canvas, shapes: 4 })).toBe(false);
     expect(similarCanvas(canvas, { ...canvas, connections: 0 })).toBe(false);
     expect(similarCanvas(canvas, { ...canvas, positions: ["-40,12", "100,0"] })).toBe(false);
+  });
+});
+
+describe("showsEdit", () => {
+  it("takes the edit within the tolerance where it added or moved a shape further", () => {
+    const edited: CanvasFacts = { ...canvas, positions: ["-40,12", "100,0", "100,80"] };
+    const shows = showsEdit(canvas, edited);
+
+    expect(shows({ ...canvas, positions: ["-41,12", "100,1", "101,79"] })).toBe(true);
+    expect(shows(canvas)).toBe(false);
+  });
+
+  it("asks for the edit's exact positions where the edit moved no shape beyond the tolerance", () => {
+    const nudged: CanvasFacts = { ...canvas, positions: ["-40,12", "100,0", "101,20"] };
+    const shows = showsEdit(canvas, nudged);
+
+    expect(shows(nudged)).toBe(true);
+    expect(shows(canvas)).toBe(false);
   });
 });
 

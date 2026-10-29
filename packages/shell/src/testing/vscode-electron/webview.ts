@@ -259,3 +259,159 @@ export const viewFactsProbe = (): ViewFacts => {
     selected: idsOf(".djs-element.selected"),
   };
 };
+
+/** The reduced-motion classes of the webview: VS Code's on `<body>`, the shell's mirror on `<html>`. */
+export interface WebviewMotion {
+  /** `vscode-reduce-motion`, which VS Code's webview sets for `workbench.reduceMotion`. */
+  body: boolean;
+  /** The shell's `REDUCED_MOTION_CLASS`, which stops its animations and makes a fit jump. */
+  html: boolean;
+}
+
+export const webviewMotionProbe = (
+  _html: Element,
+  classes: { body: string; html: string },
+): WebviewMotion => ({
+  body: document.body.classList.contains(classes.body),
+  html: document.documentElement.classList.contains(classes.html),
+});
+
+interface ViewRecording {
+  views: string[];
+  stop(): void;
+}
+
+/**
+ * Records the views the canvas shows from now on, frame by frame: the viewport's matrix, whenever
+ * it differs from the frame before. A recording still running is replaced. False without a canvas.
+ */
+export const watchViewFramesProbe = (): boolean => {
+  const store = globalThis as unknown as { modelerShellSmokeViews?: ViewRecording | undefined };
+  store.modelerShellSmokeViews?.stop();
+  store.modelerShellSmokeViews = undefined;
+  const viewport = document.querySelector<SVGGraphicsElement>(".djs-container > svg > .viewport");
+  if (!viewport) return false;
+  const read = (): string => {
+    const matrix = viewport.transform.baseVal.consolidate()?.matrix;
+    return matrix
+      ? [matrix.a, matrix.d, matrix.e, matrix.f]
+          .map((value) => Math.round(value * 1000) / 1000)
+          .join(" ")
+      : "";
+  };
+  const views = [read()];
+  let recording = true;
+  const sample = (): void => {
+    if (!recording) return;
+    const view = read();
+    if (view !== views[views.length - 1]) views.push(view);
+    requestAnimationFrame(sample);
+  };
+  requestAnimationFrame(sample);
+  store.modelerShellSmokeViews = {
+    views,
+    stop: () => {
+      recording = false;
+    },
+  };
+  return true;
+};
+
+/** Stops the recording: the views it saw, the one it started on first; empty without one. */
+export const takeViewFramesProbe = (): string[] => {
+  const store = globalThis as unknown as { modelerShellSmokeViews?: ViewRecording | undefined };
+  const recording = store.modelerShellSmokeViews;
+  store.modelerShellSmokeViews = undefined;
+  recording?.stop();
+  return recording ? [...recording.views] : [];
+};
+
+/** Marks the document (the webview's or the workbench's), so that a new one shows. */
+export const markDocumentProbe = (): void => {
+  (globalThis as unknown as { modelerShellSmokeMark?: boolean }).modelerShellSmokeMark = true;
+};
+
+/** The document still carries the mark of `markDocumentProbe`: it was not loaded again since. */
+export const documentMarkedProbe = (): boolean =>
+  (globalThis as unknown as { modelerShellSmokeMark?: boolean }).modelerShellSmokeMark === true;
+
+/** A size the canvas container reported to a `ResizeObserver`, in whole pixels. */
+export interface ContainerSize {
+  width: number;
+  height: number;
+}
+
+/**
+ * Records every size the canvas container (`.djs-container`, which the shell's viewport follows)
+ * reports from now on, the observer's first report of the current size included. Installs once per
+ * document; false without a container.
+ */
+export const installSizeRecorderProbe = (): boolean => {
+  const store = globalThis as unknown as { modelerShellSmokeSizes?: ContainerSize[] };
+  if (store.modelerShellSmokeSizes) return true;
+  const container = document.querySelector(".djs-container");
+  if (!container) return false;
+  const sizes: ContainerSize[] = [];
+  store.modelerShellSmokeSizes = sizes;
+  new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      sizes.push({
+        width: Math.round(entry.contentRect.width),
+        height: Math.round(entry.contentRect.height),
+      });
+    }
+  }).observe(container);
+  return true;
+};
+
+export const takeSizeRecordsProbe = (): ContainerSize[] => {
+  const store = globalThis as unknown as { modelerShellSmokeSizes?: ContainerSize[] };
+  return store.modelerShellSmokeSizes?.splice(0) ?? [];
+};
+
+/** Whether the shell's legend is open; null without a legend. */
+export const legendOpenProbe = (): boolean | null => {
+  const legend = document.querySelector<HTMLElement>('[data-chrome="legend"]');
+  return legend ? !legend.hidden : null;
+};
+
+/**
+ * Toggles the shell's legend through its entry in the menu, as a user does (the shell reports the
+ * change to the modeler, which stores it), and closes the menu again. The legend's state then;
+ * null without a legend or without the entry.
+ */
+export const toggleLegendProbe = (): boolean | null => {
+  const legend = document.querySelector<HTMLElement>('[data-chrome="legend"]');
+  const trigger = document.querySelector<HTMLElement>('[data-chrome="menu"]');
+  if (!legend || !trigger) return null;
+  const wasOpen = trigger.getAttribute("aria-expanded") === "true";
+  if (!wasOpen) trigger.click();
+  const entry = document.querySelector<HTMLElement>(
+    '[role="menuitemcheckbox"][data-menu-id="legend"]',
+  );
+  entry?.click();
+  if (!wasOpen && trigger.getAttribute("aria-expanded") === "true") trigger.click();
+  return entry ? !legend.hidden : null;
+};
+
+/** Focuses the webview frame `selector` finds in the workbench; whether it holds the focus then. */
+export const focusFrameProbe = (selector: string): boolean => {
+  const frame = document.querySelector<HTMLElement>(selector);
+  frame?.focus();
+  return frame !== null && document.activeElement === frame;
+};
+
+/**
+ * Whether the workbench shows the webview frame `selector` finds: VS Code hides the frame of a
+ * retained webview in a background tab with `visibility: hidden` on its container. Undefined
+ * without the frame.
+ */
+export const webviewFrameShownProbe = (selector: string): boolean | undefined => {
+  const frame = document.querySelector(selector);
+  if (!frame) return undefined;
+  const rect = frame.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return false;
+  return typeof frame.checkVisibility === "function"
+    ? frame.checkVisibility({ visibilityProperty: true })
+    : getComputedStyle(frame).visibility === "visible";
+};

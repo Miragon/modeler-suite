@@ -253,10 +253,12 @@ The extension owns file, document, history and mode; the webview shows canvas an
   focus rings, scrollbars). Never use `var(--vscode-font-family)`: undefined elsewhere, it
   invalidates the whole declaration. Bundle fonts as files, not data URLs. Never add
   `'unsafe-eval'`; a webview with zod 4 sets `z.config({ jitless: true })` first. Mirror
-  `vscode-reduce-motion` as the shell's own class.
+  `vscode-reduce-motion` as the shell's own class. The smoke driver's motion step checks it in a
+  real VS Code when the setting changes, its reload step at start (see below).
 - **State.** `retainContextWhenHidden: true`; a hidden tab reports 0 × 0. Legend state and view go
   through `vscode.setState` under `modelerShell`, written 250 ms after the view rests; a stored view
-  wins over the first fit.
+  wins over the first fit. The smoke driver's hidden step checks a background tab in a real VS
+  Code, its reload step Developer: Reload Window (see below).
 
 ## PNG export
 
@@ -325,8 +327,9 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
   100 %), the driver zooms in first, or that key would prove nothing. Select all has to select more
   elements than were selected before it, since an earlier step may have left one selected. The
   clipboard is only read, never written, so a local run on macOS leaves the user's clipboard alone.
-  CI opts every modeler in with `VSCODE_SMOKE_OPT_IN=keys,history`; a change to the five smoke tests
-  would make release-please release every extension and Team Topologies for a test change.
+  CI opts every modeler in with `VSCODE_SMOKE_OPT_IN=keys,history,workbench`; a change to the five
+  smoke tests would make release-please release every extension and Team Topologies for a test
+  change.
 - **History (opt-in, 0.8).** The history step runs last, after the keys, so the zoom and the
   selection it leaves are in no screenshot. The webview's view is not in the page's API, so the
   driver reads the viewport group's matrix (`.djs-container > svg > .viewport`): scale and
@@ -344,6 +347,34 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
   as the edit made, and ends with the undo, so the document is the saved one again. It reads the
   state after the keys step on purpose: nothing in it edits the document, so the redo history of
   the undo step is still there.
+- **Workbench steps (opt-in, 0.8).** `VSCODE_SMOKE_OPT_IN=workbench` turns on three steps, run last
+  in this order: `motion`, `hidden`, `reload`. One name, because they start and become the default
+  together; each keeps its own timing, result and failure prefix.
+  - _Reduced motion._ The setting goes into `settings.json`, like a theme, and counts once
+    `.monaco-workbench` shows it: `reduce-motion` or `enable-motion` in VS Code 1.96,
+    `monaco-reduce-motion` or `monaco-enable-motion` in later releases. A write VS Code missed is
+    written again after 2 s. VS Code's body class and the shell's mirror are read apart, so a
+    failure names whose part is missing. The fit's views are recorded frame by frame in the
+    webview (the viewport's matrix on every `requestAnimationFrame`), as the shell's own
+    `reducedMotion` case does with at most 3 views. The views of a fit without reduced motion are
+    only reported: a slow runner draws few frames of a glide, and a check would fail for that.
+  - _Hidden tab._ Cmd/Ctrl+N opens an untitled text editor in the same group, in front of the
+    modeler's. VS Code hides a retained webview with `visibility: hidden` on its overlay container,
+    so the frame counts as hidden by `checkVisibility`. Shift+1 then has to type `!` into the text
+    editor: it proves that the key went somewhere, and it is the fit on the canvas, which would
+    move the view if the webview took it. The theme switch while hidden tests that the theme
+    bridge sends again on return. Backspace empties the untitled file before Cmd/Ctrl+W: an empty
+    untitled file is no change, so VS Code closes it without the save prompt, a native dialog that
+    no driver can answer. The step marks the webview's document (a global in its window) and wants
+    the mark back, which tells a retained webview from one VS Code built again.
+  - _Reload Window._ Cmd/Ctrl+R runs Developer: Reload Window: VS Code binds it in an extension
+    development host, which every smoke run is. Playwright keeps the same page across the reload,
+    so the driver marks the workbench's document too and waits until a read finds no mark (reads
+    during the reload fail and count as "not yet"). The redo of the edit before it leaves an
+    unsaved change: an extension development host always backs dirty documents up on shutdown, so
+    the change has to come back. `workbench.reduceMotion` is "on" before the reload, so the new
+    webview has to start under reduced motion: that is the "at start" half of the setting, which a
+    change while the webview runs does not show.
 - **Docker.** `modeler-shell-vscode-docker` runs the same test in a Linux container under
   `xvfb-run`, so no window takes the focus on a Mac. The repository is copied without `node_modules`
   and installed with `npm ci` inside; VS Code and npm caches are shared volumes.

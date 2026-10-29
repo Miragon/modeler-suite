@@ -3403,7 +3403,8 @@ webview inside VS Code's two frames, the document's dirty state, save and undo t
 workbench's keybindings, and the theme bridge under VS Code's four default themes, with a screenshot
 per theme. Opted in (0.7), it also presses the zoom and selection keys and checks that none of them
 reaches VS Code's own bindings; opted in (0.8), it also redoes and undoes the edit and checks that
-the zoomed view and the selection survive both. It runs in Node, from a Vitest or `node:test` file; no Playwright test runner is needed.
+the zoomed view and the selection survive both, and runs the workbench steps: VS Code's
+`workbench.reduceMotion`, the editor in a hidden tab and Developer: Reload Window. It runs in Node, from a Vitest or `node:test` file; no Playwright test runner is needed.
 The package's command `modeler-shell-vscode-docker` runs such a test in a Linux container, without a
 window on the host ([In Docker](#in-docker-031)).
 
@@ -3455,6 +3456,7 @@ interface VsCodeSmokeOptions {
   keepTemporaryFiles?: boolean; // keep profile, workspace and VS Code's logs, and log where
   keys?: boolean; // 0.7: the keys step; default: whether VSCODE_SMOKE_OPT_IN names "keys"
   history?: boolean; // 0.8: the history step; default: whether VSCODE_SMOKE_OPT_IN names "history"
+  workbench?: boolean; // 0.8: the motion, hidden and reload steps; default: whether VSCODE_SMOKE_OPT_IN names "workbench"
 }
 function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCodeSmokeResult>;
 function createFromPalette(context: VsCodeSmokeContext): Promise<void>;
@@ -3480,10 +3482,14 @@ const VSCODE_SMOKE_STEPS: readonly [
   "themes",
   "keys", // 0.7, opt-in
   "history", // 0.8, opt-in
+  "motion", // 0.8, opt-in as "workbench"
+  "hidden", // 0.8, opt-in as "workbench"
+  "reload", // 0.8, opt-in as "workbench"
   "close",
 ];
-// the steps a run takes only when asked to (keys since 0.7, history since 0.8), until every modeler passes them in CI
-const VSCODE_SMOKE_OPT_IN_STEPS: readonly ["keys", "history"];
+// the steps a run takes only when asked to (keys since 0.7, history and workbench since 0.8; workbench
+// names motion, hidden and reload), until every modeler passes them in CI
+const VSCODE_SMOKE_OPT_IN_STEPS: readonly ["keys", "history", "workbench"];
 type VsCodeSmokeOptInStep = (typeof VSCODE_SMOKE_OPT_IN_STEPS)[number];
 // the steps VSCODE_SMOKE_OPT_IN names, separated by commas or spaces; throws for an unknown name
 function vsCodeSmokeOptIn(
@@ -3517,6 +3523,26 @@ interface VsCodeSmokeHistoryResult {
   afterRedo?: VsCodeSmokeHistoryView; // missing when the redo did not bring the edit back
   afterUndo?: VsCodeSmokeHistoryView; // missing when the undo did not take it away again
 }
+interface VsCodeSmokeMotionResult {
+  reducedFitViews?: number; // the views of Shift+1 under reduced motion, the one before included: a jump shows 2
+  enabledFitViews?: number; // the same with the setting "off" again, only for comparison
+}
+interface VsCodeSmokeHiddenResult {
+  before?: VsCodeSmokeHistoryView; // before another editor hid the modeler's
+  theme?: string; // the color theme switched to while hidden
+  sizesWhileHidden: Size[]; // what the canvas container reported while hidden; none when VS Code left it alone
+  afterReturn?: VsCodeSmokeHistoryView; // missing when the tab did not come back
+}
+interface VsCodeSmokeReloadView {
+  zoom: number; // percent
+  dirty: boolean; // VS Code calls the document changed
+  legendOpen?: boolean; // missing for a modeler without a legend
+}
+interface VsCodeSmokeReloadResult {
+  before?: VsCodeSmokeReloadView; // right before Developer: Reload Window
+  after?: VsCodeSmokeReloadView; // missing when the editor did not come back
+  reducedMotionAtStart?: boolean; // the new webview started under reduced motion
+}
 interface VsCodeSmokeResult {
   ok: boolean; // failures is empty
   failures: string[]; // "save: Meta+s wrote nothing to disk", one per broken expectation
@@ -3530,6 +3556,9 @@ interface VsCodeSmokeResult {
   themes: VsCodeSmokeThemeResult[];
   keys?: VsCodeSmokeKeysResult; // 0.7: missing when the keys step did not run
   history?: VsCodeSmokeHistoryResult; // 0.8: missing when the history step did not run
+  motion?: VsCodeSmokeMotionResult; // 0.8: missing when the motion step did not run
+  hidden?: VsCodeSmokeHiddenResult; // 0.8: missing when the hidden step did not run
+  reload?: VsCodeSmokeReloadResult; // 0.8: missing when the reload step did not run
   timings: VsCodeSmokeTimings;
 }
 function formatVsCodeSmoke(result: VsCodeSmokeResult): string; // a few lines for the test log
@@ -3744,7 +3773,47 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
    elements before the redo, after it and after the undo. Its failures read like "history:
    Control+y moved the view: zoom 84% at 12, -8 before, zoom 62% at 0, 0 after" or "history:
    Control+z dropped the selection of cmp_tea, cmp_milk, which are still on the canvas".
-10. **close**: `app.close()`; a VS Code that has not quit after 10 s (a modal dialog) is killed. The
+10. **motion** (0.8, opt-in as `workbench`): runs with `workbench: true`, or without the option
+    when `VSCODE_SMOKE_OPT_IN` names `workbench` (CI's smoke workflow sets
+    `keys,history,workbench`), with the two steps after it. It writes `workbench.reduceMotion: "on"`
+    into the settings file and waits for `.monaco-workbench` to show it (`reduce-motion` in VS Code
+    1.96, `monaco-reduce-motion` later; a write VS Code missed is written again after 2 s). Then
+    the webview's `<body>` has to carry `vscode-reduce-motion` (VS Code's part) and its `<html>`
+    `cd-shell-reduce-motion` (the shell's mirror), and Shift+1, after Cmd/Ctrl+= moved the view
+    away from the fit, has to jump: the driver records the viewport's matrix on every frame, and
+    more than 3 views fail (guide §5.9, §7), as in the shell's `reducedMotion` case. With the
+    setting `"off"` both classes have to go; the views of that fit are only reported.
+    `result.motion` holds both counts. Its failures read like "motion: with workbench.reduceMotion
+    "on", the webview's <html> has no cd-shell-reduce-motion, the shell's mirror of
+    vscode-reduce-motion".
+11. **hidden** (0.8, opt-in as `workbench`): the editor in a background tab
+    (`retainContextWhenHidden`). It zooms the canvas away from the fit, so a refit would show,
+    marks the webview's document and records its keys and the canvas container's sizes, then
+    presses Cmd/Ctrl+N: an untitled text editor opens in front of the modeler's, whose frame VS
+    Code hides. There it presses Shift+1, which has to type into the text editor and must not reach
+    the webview, and switches the color theme (the first of another type than the one shown).
+    Backspace empties the untitled file, so Cmd/Ctrl+W closes it without a save prompt. The webview
+    has to come back as the same document (still marked), with the same canvas, view and selection,
+    held for 0.5 s, and with the theme switched while it was hidden. `result.hidden` holds the view
+    before and after, the theme and the sizes the container reported while hidden (none, or VS
+    Code's 0 × 0). Its failures read like "hidden: after the tab came back, the view moved: zoom
+    84% at 12, -8 before, zoom 62% at 0, 0".
+12. **reload** (0.8, opt-in as `workbench`): needs the undo step to have brought the canvas back,
+    else the log says it was skipped. It turns `workbench.reduceMotion` on, presses the redo key
+    `undoSteps` times (the document has an unsaved change again), fits, zooms away from the fit,
+    toggles the legend through its menu entry where there is one, and gives the webview 1 s to
+    store its state. Then Cmd/Ctrl+R, Developer: Reload Window (bound in an extension development
+    host): the driver waits for a new workbench document, the shell's menu and a shape. The
+    webview has to be a new document that starts under reduced motion, VS Code has to still call
+    the document changed (it backs it up across the reload), the canvas has to show the edit, the
+    view has to be the one before, held for 0.5 s (a first fit that wins over the stored view
+    fails, and says so), the legend has to be as it was and the webview has to show the
+    workbench's theme. The step saves at the end, so that closing VS Code asks nothing.
+    `result.reload` holds the zoom, the dirty state and the legend before and after, and whether
+    the new webview started under reduced motion. Its failures read like "reload: the reload did
+    not restore the view: zoom 84% at -30, -20 before, zoom 62% at 0, 0 after, the fit: the stored
+    view has to win over the first fit".
+13. **close**: `app.close()`; a VS Code that has not quit after 10 s (a modal dialog) is killed. The
     temporary directory goes, unless `keepTemporaryFiles`, also when Ctrl+C ends the test process
     in the middle of a run.
 
@@ -4454,8 +4523,7 @@ Later candidates unless noted:
 - The `miragon.<modeler>.colorTheme` setting UI (the bridge already honours `settingKey`).
 - **VS Code smoke driver** (`./testing/vscode-electron`): keeping a local run on macOS in the
   background (no focus change; the Docker command is the way until then), a reused `node_modules`
-  between Docker runs; `workbench.reduceMotion`, Developer: Reload Window with the stored view, a
-  hidden tab, VS Code for the Web; and a fixture extension in this repository, so the shell's own CI runs the
+  between Docker runs; VS Code for the Web; and a fixture extension in this repository, so the shell's own CI runs the
   driver (until then it is validated against the modelers' extensions).
 - IntelliJ/JCEF hosts, Electron, Tauri, Theia.
 - Canvas theming (`cd-canvas.css`, `cd-c-*` classes), light-only export, the token files themselves.

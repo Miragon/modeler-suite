@@ -39,6 +39,9 @@ describe("VSCODE_SMOKE_STEPS", () => {
       "themes",
       "keys",
       "history",
+      "motion",
+      "hidden",
+      "reload",
       "close",
     ]);
   });
@@ -189,6 +192,49 @@ describe("formatVsCodeSmoke", () => {
       "keys 3.2 s · history 2.4 s · total 8.2 s",
       "  ok     Default Light Modern: light (expected light), 0.4 s, /shots/wardley-light.png",
       "  history: view 84% with 7 selected, after the redo 84% with 7 selected, after the undo ?",
+    ]);
+  });
+
+  it("adds a line for each workbench step: the fit's views, the hidden tab and the reload", () => {
+    const text = formatVsCodeSmoke(
+      result({
+        motion: { reducedFitViews: 2, enabledFitViews: 14 },
+        hidden: {
+          before: { zoom: 135, selected: 3 },
+          theme: "Default Light Modern",
+          sizesWhileHidden: [],
+          afterReturn: { zoom: 135, selected: 3 },
+        },
+        reload: {
+          before: { zoom: 84, dirty: true, legendOpen: true },
+          after: { zoom: 84, dirty: true, legendOpen: true },
+          reducedMotionAtStart: true,
+        },
+        timings: { motion: 2_100, hidden: 3_300, reload: 6_400, total: 12_000 },
+      }),
+    );
+    expect(text.split("\n").slice(1)).toEqual([
+      "motion 2.1 s · hidden 3.3 s · reload 6.4 s · total 12.0 s",
+      "  ok     Default Light Modern: light (expected light), 0.4 s, /shots/wardley-light.png",
+      "  motion: a fit showed 2 views under reduced motion, 14 without",
+      "  hidden: view 135% with 3 selected, hidden under Default Light Modern (no resize), back at 135% with 3 selected",
+      "  reload: view 84% (unsaved, legend open) before, 84% (unsaved, legend open) after, with reduced motion at start",
+    ]);
+  });
+
+  it("names what the workbench steps did not see, and the sizes a hidden tab reported", () => {
+    const text = formatVsCodeSmoke(
+      result({
+        motion: { reducedFitViews: 9 },
+        hidden: { sizesWhileHidden: [{ width: 0, height: 0 }] },
+        reload: { before: { zoom: 62, dirty: false } },
+        timings: { total: 12_000 },
+      }),
+    );
+    expect(text.split("\n").slice(3)).toEqual([
+      "  motion: a fit showed 9 views under reduced motion, ? without",
+      "  hidden: view ?, hidden under ? (resized to 0 × 0), back at ?",
+      "  reload: view 62% (saved) before, ? after",
     ]);
   });
 

@@ -145,7 +145,12 @@ describe("vsCodeSmokeOptIn", () => {
       "history",
       "keys",
     ]);
-    expect(VSCODE_SMOKE_OPT_IN_STEPS).toEqual(["keys", "history"]);
+    expect([...vsCodeSmokeOptIn({ VSCODE_SMOKE_OPT_IN: "keys,history,workbench" })]).toEqual([
+      "keys",
+      "history",
+      "workbench",
+    ]);
+    expect(VSCODE_SMOKE_OPT_IN_STEPS).toEqual(["keys", "history", "workbench"]);
   });
 
   it("is empty without the variable or with an empty one", () => {
@@ -155,10 +160,10 @@ describe("vsCodeSmokeOptIn", () => {
 
   it("throws for a name that is no opt-in step, so a typo turns nothing off unnoticed", () => {
     expect(() => vsCodeSmokeOptIn({ VSCODE_SMOKE_OPT_IN: "keys,kyes" })).toThrow(
-      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "kyes", which is no opt-in step (keys, history)',
+      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "kyes", which is no opt-in step (keys, history, workbench)',
     );
     expect(() => vsCodeSmokeOptIn({ VSCODE_SMOKE_OPT_IN: "kyes themes" })).toThrow(
-      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "kyes", "themes", which are no opt-in steps (keys, history)',
+      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "kyes", "themes", which are no opt-in steps (keys, history, workbench)',
     );
   });
 });

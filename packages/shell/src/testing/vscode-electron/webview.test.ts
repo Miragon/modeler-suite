@@ -1,12 +1,23 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
+  documentMarkedProbe,
   focusCanvasProbe,
+  focusFrameProbe,
   installKeyRecorderProbe,
+  installSizeRecorderProbe,
+  legendOpenProbe,
+  markDocumentProbe,
   selectedElementsProbe,
   takeKeyRecordsProbe,
+  takeSizeRecordsProbe,
+  takeViewFramesProbe,
+  toggleLegendProbe,
   viewFactsProbe,
+  watchViewFramesProbe,
+  webviewFrameShownProbe,
+  webviewMotionProbe,
   workbenchFocusProbe,
   zoomReadoutProbe,
 } from "./webview.js";
@@ -170,5 +181,177 @@ describe("workbenchFocusProbe", () => {
 
     document.querySelector<HTMLElement>("button")!.focus();
     expect(workbenchFocusProbe()).toMatchObject({ webview: false, sideBar: false });
+  });
+});
+
+describe("webviewMotionProbe", () => {
+  afterEach(() => {
+    document.body.classList.remove("vscode-reduce-motion");
+    document.documentElement.classList.remove("cd-shell-reduce-motion");
+  });
+
+  it("reads VS Code's class on <body> and the shell's mirror on <html> apart", () => {
+    const classes = { body: "vscode-reduce-motion", html: "cd-shell-reduce-motion" };
+    const html = document.documentElement;
+    expect(webviewMotionProbe(html, classes)).toEqual({ body: false, html: false });
+
+    document.body.classList.add("vscode-reduce-motion");
+    expect(webviewMotionProbe(html, classes)).toEqual({ body: true, html: false });
+
+    html.classList.add("cd-shell-reduce-motion");
+    expect(webviewMotionProbe(html, classes)).toEqual({ body: true, html: true });
+  });
+});
+
+describe("watchViewFramesProbe and takeViewFramesProbe", () => {
+  const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+
+  it("records every view the viewport shows from frame to frame, the first one included", async () => {
+    document.body.innerHTML =
+      '<div class="djs-container"><svg><g class="viewport"></g></svg></div>';
+    const matrix = { a: 1, d: 1, e: 0, f: 0 };
+    Object.defineProperty(document.querySelector(".viewport"), "transform", {
+      value: { baseVal: { consolidate: () => ({ matrix }) } },
+    });
+
+    expect(watchViewFramesProbe()).toBe(true);
+    await frame();
+    Object.assign(matrix, { a: 0.8, d: 0.8, e: 10 });
+    await frame();
+    await frame();
+    Object.assign(matrix, { a: 0.62, d: 0.62, e: 24.5 });
+    await frame();
+    await frame();
+
+    expect(takeViewFramesProbe()).toEqual(["1 1 0 0", "0.8 0.8 10 0", "0.62 0.62 24.5 0"]);
+    expect(takeViewFramesProbe()).toEqual([]);
+  });
+
+  it("is false without a canvas", () => {
+    expect(watchViewFramesProbe()).toBe(false);
+    expect(takeViewFramesProbe()).toEqual([]);
+  });
+});
+
+describe("markDocumentProbe", () => {
+  it("leaves a mark only a new document lacks", () => {
+    expect(documentMarkedProbe()).toBe(false);
+    markDocumentProbe();
+    expect(documentMarkedProbe()).toBe(true);
+  });
+});
+
+describe("installSizeRecorderProbe", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("records the sizes the canvas container reports, once per document", () => {
+    const observers: ((entries: { contentRect: { width: number; height: number } }[]) => void)[] =
+      [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: (typeof observers)[number]) {
+          observers.push(callback);
+        }
+        observe(): void {}
+      },
+    );
+    expect(installSizeRecorderProbe()).toBe(false);
+
+    document.body.innerHTML = '<div class="djs-container"></div>';
+    expect(installSizeRecorderProbe()).toBe(true);
+    expect(installSizeRecorderProbe()).toBe(true);
+    expect(observers).toHaveLength(1);
+
+    observers[0]!([{ contentRect: { width: 899.6, height: 600 } }]);
+    observers[0]!([{ contentRect: { width: 0, height: 0 } }]);
+    expect(takeSizeRecordsProbe()).toEqual([
+      { width: 900, height: 600 },
+      { width: 0, height: 0 },
+    ]);
+    expect(takeSizeRecordsProbe()).toEqual([]);
+  });
+});
+
+describe("legendOpenProbe and toggleLegendProbe", () => {
+  /** The shell's menu as far as the probe reaches it: the trigger renders the legend's entry on open. */
+  function shellWithLegend(): void {
+    document.body.innerHTML = [
+      '<button data-chrome="menu" aria-haspopup="menu" aria-expanded="false"></button>',
+      '<div class="cd-shell-menu" hidden></div>',
+      '<section data-chrome="legend" hidden></section>',
+    ].join("");
+    const trigger = document.querySelector<HTMLElement>('[data-chrome="menu"]')!;
+    const dropdown = document.querySelector<HTMLElement>(".cd-shell-menu")!;
+    const legend = document.querySelector<HTMLElement>('[data-chrome="legend"]')!;
+    trigger.addEventListener("click", () => {
+      const open = trigger.getAttribute("aria-expanded") !== "true";
+      trigger.setAttribute("aria-expanded", String(open));
+      dropdown.hidden = !open;
+      dropdown.innerHTML = open
+        ? '<div role="menuitemcheckbox" data-menu-id="legend" aria-checked="false"></div>'
+        : "";
+      dropdown
+        .querySelector('[data-menu-id="legend"]')
+        ?.addEventListener("click", () => (legend.hidden = !legend.hidden));
+    });
+  }
+
+  it("toggles the legend through its menu entry and closes the menu again", () => {
+    shellWithLegend();
+    expect(legendOpenProbe()).toBe(false);
+
+    expect(toggleLegendProbe()).toBe(true);
+    expect(legendOpenProbe()).toBe(true);
+    expect(document.querySelector('[data-chrome="menu"]')!.getAttribute("aria-expanded")).toBe(
+      "false",
+    );
+
+    expect(toggleLegendProbe()).toBe(false);
+    expect(legendOpenProbe()).toBe(false);
+  });
+
+  it("is null without a legend", () => {
+    document.body.innerHTML = '<button data-chrome="menu" aria-expanded="false"></button>';
+    expect(legendOpenProbe()).toBeNull();
+    expect(toggleLegendProbe()).toBeNull();
+  });
+});
+
+describe("focusFrameProbe", () => {
+  it("focuses the webview frame, and is false without one", () => {
+    expect(focusFrameProbe("iframe.webview")).toBe(false);
+
+    document.body.innerHTML =
+      '<button>Explorer</button><iframe class="webview" srcdoc=""></iframe>';
+    document.querySelector("button")!.focus();
+    expect(focusFrameProbe("iframe.webview")).toBe(true);
+    expect(document.activeElement).toBe(document.querySelector("iframe"));
+  });
+});
+
+describe("webviewFrameShownProbe", () => {
+  function frameOf(size: { width: number; height: number }, visible: boolean): void {
+    document.body.innerHTML = '<iframe class="webview" srcdoc=""></iframe>';
+    const frame = document.querySelector("iframe")!;
+    Object.assign(frame, {
+      getBoundingClientRect: () => ({ ...size, top: 0, left: 0, right: 0, bottom: 0 }),
+      checkVisibility: () => visible,
+    });
+  }
+
+  it("tells a shown frame from one VS Code hid or gave no size", () => {
+    expect(webviewFrameShownProbe("iframe.webview")).toBeUndefined();
+
+    frameOf({ width: 900, height: 600 }, true);
+    expect(webviewFrameShownProbe("iframe.webview")).toBe(true);
+
+    frameOf({ width: 900, height: 600 }, false);
+    expect(webviewFrameShownProbe("iframe.webview")).toBe(false);
+
+    frameOf({ width: 0, height: 0 }, true);
+    expect(webviewFrameShownProbe("iframe.webview")).toBe(false);
   });
 });

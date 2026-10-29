@@ -130,16 +130,17 @@ export function vsCodeEnvironment(
 }
 
 /**
- * The steps a run takes only when asked to (`keys` since 0.7, `history` since 0.8): new ones start
- * here and become the default once every modeler passes them in CI.
+ * The steps a run takes only when asked to (`keys` since 0.7, `history` and `workbench` since 0.8;
+ * `workbench` names the three steps `motion`, `hidden` and `reload`): new ones start here and
+ * become the default once every modeler passes them in CI.
  */
-export const VSCODE_SMOKE_OPT_IN_STEPS = ["keys", "history"] as const;
+export const VSCODE_SMOKE_OPT_IN_STEPS = ["keys", "history", "workbench"] as const;
 
 export type VsCodeSmokeOptInStep = (typeof VSCODE_SMOKE_OPT_IN_STEPS)[number];
 
 /**
  * The opt-in steps that `VSCODE_SMOKE_OPT_IN` names, separated by commas or spaces
- * (`keys,history`). A CI workflow opts every modeler's smoke in at once this way, without a change
+ * (`keys,history,workbench`). A CI workflow opts every modeler's smoke in at once this way, without a change
  * to the modelers' tests.
  * Throws for a name that is no opt-in step, so a typo cannot turn a step off unnoticed.
  */

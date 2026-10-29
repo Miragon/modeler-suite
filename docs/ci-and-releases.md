@@ -67,10 +67,11 @@ path no rule names.
   modeler: the packaged extension in a real VS Code under `xvfb`, on the newest stable release and on
   the oldest that `engines.vscode` accepts. The workflow decides itself whether the change can reach
   that VSIX (`ci-paths.sh vscode-smoke <modeler>`); when it cannot, a job that succeeds stands in, so
-  the smoke always reports. It sets `VSCODE_SMOKE_OPT_IN=keys,history`, so every modeler also runs
-  the driver's opt-in steps (the zoom and selection keys, and the view and selection across a redo
-  and an undo) until they become its default; the smoke the release runs on the VSIX it publishes
-  leaves them out.
+  the smoke always reports. It sets `VSCODE_SMOKE_OPT_IN=keys,history,workbench`, so every modeler
+  also runs the driver's opt-in steps (the zoom and selection keys, the view and selection across a
+  redo and an undo, and the workbench steps: reduced motion, a hidden tab and Developer: Reload
+  Window) until they become its default; the smoke the release runs on the VSIX it publishes leaves
+  them out.
 
 ### `ci-ok`
 
@@ -92,7 +93,8 @@ A skip after a failed or cancelled `changes` is never accepted, and the smoke ne
 [`template-vscode-smoke.yml`](../.github/workflows/template-vscode-smoke.yml) runs the VS Code
 smoke of a modeler created from the template (the instance of the `template` job, its
 `test:vscode` under `xvfb-run -a`) on the newest stable VS Code and on the oldest that the
-template's `engines.vscode` accepts, with `VSCODE_SMOKE_OPT_IN=keys,history` like the VS Code smoke.
+template's `engines.vscode` accepts, with `VSCODE_SMOKE_OPT_IN=keys,history,workbench` like the VS
+Code smoke.
 It downloads VS Code twice, so it is no part of `ci-ok`: add the label `template-vscode-smoke` to a
 pull request (it runs again on every push while the label stays; adding another label starts no
 run), or start the workflow by hand on a branch. The label is created once with
