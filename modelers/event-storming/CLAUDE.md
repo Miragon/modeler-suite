@@ -152,7 +152,8 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   no step of the action, also diagram-js's `SelectionBehavior` after a drop, sees a replaced board
   ([#248](https://github.com/Miragon/modeler-suite/issues/248),
   [#305](https://github.com/Miragon/modeler-suite/issues/305)). An import or a clear called while
-  a drag activates (a host's selection listener) asks for `endOnceActivated` instead of
+  a drag activates (a host's selection listener, which diagram-js calls at the start of every drag
+  but a lasso, also with nothing selected) asks for `endOnceActivated` instead of
   cancelling: the drag ends as `drag.canceled` at the activation's own first move, its last step,
   which then reaches no other listener, and the import runs after the activation
   ([#336](https://github.com/Miragon/modeler-suite/issues/336)); a `clear()` does not wait, and a
@@ -164,7 +165,9 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   place, since a note created since the last import comes back under the id its text derives. The
   contract's optional `interaction` reads the same service (true from diagram-js's first drag move
   or a point drag's first move until the end; an armed tool, a pan and a line the draw tool holds
-  point by point are none, #243), and `appearance` lists `EVENT_STORMING_THEMES` (`["light"]`, in
+  point by point are none, #243, and a drag that an import or a clear from the selection listener
+  ends at its start is never reported, #336), and `appearance` lists `EVENT_STORMING_THEMES`
+  (`["light"]`, in
   [`packages/renderer/src/theme/themes.ts`](packages/renderer/src/theme/themes.ts), the one
   constant both apps and the VS Code theme bridge read) and writes `data-cd-theme="light"` and
   `data-cd-kontrast="hoch"` on the `.event-storming-container`; the renderer's high-contrast rules

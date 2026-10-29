@@ -98,9 +98,10 @@ point (which Escape leaves running) without its commit. `clear()` ends a running
 palette's lasso tool, armed but not yet pressed, stays armed, and a pan of the empty canvas keeps
 running. A press that starts a drag (on a resize handle, say) while a label is being typed commits
 the label first; when the host imports from that commit's change listener, the label stays and
-the drag does not start. A drag that starts while something is selected clears the selection;
-when the host imports from that selection listener (or clears the board there), the drag ends as
-cancelled right after it started, without applying anything, and the import replaces the board
+the drag does not start. diagram-js clears the selection when any drag but a lasso starts, also
+an empty selection, so the host's selection listener runs at that start; when the host imports
+from it (or clears the board there), the drag ends as cancelled right after it started, without
+applying anything and without `interaction` ever reporting it, and the import replaces the board
 once the start has run ([#336](https://github.com/Miragon/modeler-suite/issues/336)). An import
 called while a user action runs (a host that imports from the
 change listener of the action's command, or from a selection listener that the command's removal
@@ -283,7 +284,8 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
 - `interaction` (contract 1.5) tells a host whether the user holds a gesture: `active()` is true
   from the moment diagram-js starts a drag (a move, resize, connect or lasso past the threshold, a
   create, an append or a paste at once, also while its preview is still over the palette) and
-  while a drawing's point drag moves, until the drop or the cancel (Escape, or an import). A
+  while a drawing's point drag moves, until the drop or the cancel (Escape, or an import). A drag
+  that an import or a clear from the selection listener ends at its start is never reported. A
   palette tool that only waits for its next press (the lasso, the draw tool) and a pan of the empty
   canvas are no gesture; a line the draw tool holds point by point is not reported either, since
   what an import does to it is still open

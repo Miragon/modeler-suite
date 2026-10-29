@@ -213,13 +213,10 @@ export default class EventStormingGestures {
     this.activatingDrag = activating;
     this.activationEndAsked = false;
     queueMicrotask(() => {
-      // An activation that fired no move: a listener refused the start or threw.
-      const endAsked = this.activatingDrag === activating && this.finishActivation();
-      try {
-        if (endAsked && this.dragContext() === activating) this.dragging.cancel(false);
-      } finally {
-        release();
-      }
+      // An activation that fired no move (a listener refused the start or threw) is one whose drag
+      // diagram-js has ended already, so only the activation is left to forget.
+      if (this.activatingDrag === activating) this.finishActivation();
+      release();
     });
   }
 
