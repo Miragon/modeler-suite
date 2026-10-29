@@ -104,6 +104,17 @@ function annotationTexts(board: EventStormingBoard): string[] {
   return board.edges.flatMap((edge) => (edge.label ? [edge.label] : []));
 }
 
+const replacementsRunning = new WeakMap<EventStormingBaseViewer, number>();
+
+/**
+ * Whether an import replaces the board of `viewer` right now, past everything it waited for. What
+ * the command stack reports meanwhile is the import's own; what it reports while the import still
+ * waits (for a running drop or the annotation font) is the user's.
+ */
+export function isReplacingBoard(viewer: EventStormingBaseViewer): boolean {
+  return (replacementsRunning.get(viewer) ?? 0) > 0;
+}
+
 function sizeToCss(value: number | string): string {
   return typeof value === "number" ? `${value}px` : value;
 }
@@ -198,16 +209,22 @@ export abstract class EventStormingBaseViewer {
     // A gesture the user started while the import waited.
     if (waited) cancelGesture(diagram);
     const labelEditing = diagram.get<EventStormingLabelEditing>("eventStormingLabelEditing", false);
-    labelEditing?.suspend();
-    diagram.get<PopupMenu>("popupMenu", false)?.close();
-    importer.clear();
-    const warnings = importer.import(board);
-    // Discard the PREVIOUS board's undo history: undo on orphaned elements would otherwise
-    // crash or insert zombie elements into the new board. Silently, because an import is no
-    // content change (hosts would echo it back), and only where a stack exists: the viewers
-    // have none.
-    diagram.get<CommandStack>("commandStack", false)?.clear(false);
-    eventBus.fire("import.done", { warnings });
+    replacementsRunning.set(this, (replacementsRunning.get(this) ?? 0) + 1);
+    let warnings: ImportWarning[];
+    try {
+      labelEditing?.suspend();
+      diagram.get<PopupMenu>("popupMenu", false)?.close();
+      importer.clear();
+      warnings = importer.import(board);
+      // Discard the PREVIOUS board's undo history: undo on orphaned elements would otherwise
+      // crash or insert zombie elements into the new board. Silently, because an import is no
+      // content change (hosts would echo it back), and only where a stack exists: the viewers
+      // have none.
+      diagram.get<CommandStack>("commandStack", false)?.clear(false);
+      eventBus.fire("import.done", { warnings });
+    } finally {
+      replacementsRunning.set(this, (replacementsRunning.get(this) ?? 1) - 1);
+    }
     labelEditing?.resumeAfterImport();
     return { warnings };
   }

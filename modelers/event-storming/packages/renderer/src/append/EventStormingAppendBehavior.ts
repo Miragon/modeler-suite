@@ -84,7 +84,9 @@ const PLACEHOLDER_KIND = "event";
  * The step after the placement belongs to the drop (`eventStormingGestures.holdDrop`): a host that
  * imports from the change listener of the create waits for it, so the popup or the editor opens
  * on the sticky the user placed. The import then replaces that sticky, and the popup reopens on
- * the sticky with its id while that one is still blank (contract L1, keep and reopen).
+ * the sticky with its id while that one is still blank (contract L1, keep and reopen). A host
+ * that echoes the retype replaces the sticky again before the label editor opens, so the editor
+ * opens on the sticky with that id.
  */
 export default class EventStormingAppendBehavior {
   static $inject = ["injector", "eventBus"];
@@ -171,9 +173,18 @@ export default class EventStormingAppendBehavior {
             if (replacement) reopenKindChooser(replacement);
             return;
           }
-          labelEditing?.activate(shape);
+          // A host that echoes the retype imports inside its change listener, before this runs.
+          const named = shape.parent ? shape : replacementOf(shape);
+          if (named) labelEditing?.activate(named);
         }, 0);
       });
+    };
+
+    /** The sticky an import put on the board in the place of `shape`: the same id. */
+    const replacementOf = (shape: CreatedShape): CreatedShape | undefined => {
+      if (shape.id === undefined) return undefined;
+      const element = elementRegistry?.get(shape.id) as CreatedShape | undefined;
+      return element && element !== shape && element.parent ? element : undefined;
     };
 
     /**
@@ -182,9 +193,8 @@ export default class EventStormingAppendBehavior {
      * has given it a kind or a label meanwhile.
      */
     const blankReplacementOf = (shape: CreatedShape): CreatedShape | undefined => {
-      if (shape.id === undefined) return undefined;
-      const element = elementRegistry?.get(shape.id) as CreatedShape | undefined;
-      if (!element || element === shape || !element.parent) return undefined;
+      const element = replacementOf(shape);
+      if (!element) return undefined;
       const label = element.eventStormingLabel ?? "";
       const blank =
         element.eventStormingType === PLACEHOLDER_KIND &&

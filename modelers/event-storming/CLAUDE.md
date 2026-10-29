@@ -128,7 +128,8 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   or `undefined` while the board has no element. An annotated board is imported only once the
   annotation font has loaded, imports staying in call order, so every fit on import measures it in
   that font. An import first ends a running drag without applying it (`cancelGesture` in
-  `EventStormingBaseViewer`, when called and again after the font wait; `clear()` too):
+  `EventStormingBaseViewer`, when called and again after any wait, for the annotation font or
+  for a running drop and the step it scheduled; `clear()` too):
   `dragging.cancel(false)` as Escape does, and the drawing handles' point drag, which also ends on
   `shape.remove`, so no release lands on a removed shape; the palette's armed lasso tool
   (`lasso.selection`) stays armed, and a pan (diagram-js's `MoveCanvas`, outside the dragging

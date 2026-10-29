@@ -19,7 +19,7 @@ import type Selection from "diagram-js/lib/features/selection/Selection";
 import { Modeler } from "../Modeler.js";
 import { NavigatedViewer } from "../NavigatedViewer.js";
 import { importWarningText } from "../io/index.js";
-import type { EventStormingViewerOptions } from "../EventStormingBaseViewer.js";
+import { isReplacingBoard, type EventStormingViewerOptions } from "../EventStormingBaseViewer.js";
 import { isSticky, type EventStormingShape } from "../model/di-types.js";
 import type { EventStormingGestures } from "../gesture/index.js";
 import { EVENT_STORMING_THEMES } from "../theme/index.js";
@@ -124,7 +124,6 @@ function collaborative(
     .get<EventStormingGestures | null>("eventStormingGestures", false);
   const contentListeners = new Set<() => void>();
   const interactionListeners = new Set<(active: boolean) => void>();
-  let importsRunning = 0;
   let destroyed = false;
   let lastExport = "";
 
@@ -136,7 +135,7 @@ function collaborative(
 
   if (editable) {
     eventBus.on("commandStack.changed", () => {
-      if (importsRunning > 0) return;
+      if (isReplacingBoard(diagram)) return;
       for (const listener of [...contentListeners]) listener();
     });
   }
@@ -208,13 +207,8 @@ function collaborative(
     },
     async importText(text): Promise<ImportResult> {
       if (destroyed) throw new Error("The modeler was destroyed.");
-      importsRunning += 1;
-      try {
-        const { warnings } = await diagram.importDSL(text);
-        return { warnings: warnings.map(importWarningText) };
-      } finally {
-        importsRunning -= 1;
-      }
+      const { warnings } = await diagram.importDSL(text);
+      return { warnings: warnings.map(importWarningText) };
     },
     exportText() {
       // Asking a destroyed diagram would build a new one on the detached container.

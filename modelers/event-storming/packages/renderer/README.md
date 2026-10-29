@@ -91,9 +91,9 @@ the fallback font would set them; imports still run in the order they were calle
 typed when an import arrives is reopened on the same element afterwards, with the typed text. A
 drag running when an import is called (a move, resize, connection or lasso, a create from the
 palette or a paste, also with its preview off the canvas, or the drag of a drawing's point) ends
-at once without applying anything, and so does one the user starts while an annotated import
-waits for its font and still holds when the board is replaced: its release changes nothing and
-fires no `commandStack.changed`. A diagram-js drag ends as Escape ends it, the drag of a drawing's
+at once without applying anything, and so does one the user starts while an import waits (for
+the annotation font, or for a running drop and the step it scheduled) and still holds when the
+board is replaced: its release changes nothing and fires no `commandStack.changed`. A diagram-js drag ends as Escape ends it, the drag of a drawing's
 point (which Escape leaves running) without its commit. `clear()` ends a running drag too. The
 palette's lasso tool, armed but not yet pressed, stays armed, and a pan of the empty canvas keeps
 running. A press that starts a drag (on a resize handle, say) while a label is being typed commits
@@ -106,10 +106,12 @@ Promise settles after that import. So every listener of the drop, also diagram-j
 behaviour, which threw when the import had removed the moved sticky while something was selected
 before the drag ([#248](https://github.com/Miragon/modeler-suite/issues/248)), runs on the board it
 changed. The kind chooser that an import closes reopens on the sticky with the same id while that
-sticky is still blank. `clear()` from the change listener of a drop does not wait (it returns
-nothing to wait for) and leaves the drop running: the drag ends as a drop, unless something was
-selected before the drag. A clear always removes the moved sticky, so diagram-js's selection
-behaviour then throws, and the drag ends as cancelled.
+sticky is still blank, and the label editor that follows the kind opens on the sticky with that
+id, also when a host has echoed the retype and so replaced the sticky again. `clear()` from the
+change listener of a drop does not wait (it returns nothing to wait for) and leaves the drop
+running: the drag ends as a drop, unless something was selected before the drag. A clear always
+removes the moved sticky, so diagram-js's selection behaviour then throws, and the drag ends as
+cancelled.
 
 `contentBounds()` gives the tight box around what the board draws (`{ x, y, width, height }` in
 board coordinates, which zoom and scroll leave alone): every sticky, note and drawing, a hotspot
@@ -233,7 +235,9 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
   passed to `diagram.importMap` that uses a reserved id, or a coordinate or size beyond ±1e38
   (`UndrawableBoardError` from the schema model), rejects before the canvas changes.
 - `onContentChanged` fires for every command-stack change, undo and redo included (also the
-  workshop level), never for imports, view options (type captions) or the viewport.
+  workshop level), never for imports, view options (type captions) or the viewport. Only the
+  replacement of the board is the import's: an edit or an undo while an import still waits (for
+  a running drop, the step it scheduled or the annotation font) fires it as usual.
 - `getViewState()` / `setViewState()` read and set the diagram-js viewbox (`x`, `y`, `width`,
   `height`); an import fits the board, never above 100% and never below 0.1% (a board too wide to
   show whole at 0.1% is centred there instead).
