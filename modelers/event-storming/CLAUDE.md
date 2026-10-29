@@ -196,7 +196,7 @@ more ([`draw/contrast.ts`](packages/renderer/src/draw/contrast.ts), guide §10.6
 ([`apps/vscode/src/webview/main.ts`](apps/vscode/src/webview/main.ts)) mounts the shared Miragon
 modeler chrome on the `ide` host (menu, palette skin, chrome tooltip, zoom panel and keys, fit,
 problems pill, status box, empty-file hint, theme bridge, key interception); the extension host
-uses the shell's webview HTML/CSP and theme bridge. The web app
+runs on the shell's document plumbing (below). The web app
 ([`apps/webapp/src/main.ts`](apps/webapp/src/main.ts)) mounts it on the `web` host: the same chrome
 plus the web column (File group, "Share" as primary action, legal line, toasts, problems list,
 start screen, page-wide drop zone); its `index.html` stays `data-cd-theme="light"` and the Vite
@@ -239,6 +239,18 @@ fits to the renderer's `contentBounds()` (the webview passes its contract instan
 its `Modeler`); the webview runs on `createCollaborativeModeler` (the tested contract path) and toggles
 the renderer's `eventStormingReadOnly` lock together with `shell.setReadOnly`, the web app keeps
 the canvas's undo keys and replaces a board with an undo toast instead of a confirmation.
+**Document plumbing** is the shell's ([#46](https://github.com/Miragon/modeler-suite/issues/46)):
+[`boardEditor.ts`](apps/vscode/src/boardEditor.ts) registers the custom editor with
+`registerModelerEditor` of `@miragon/modeler-shell/vscode/extension` (the webview HTML and CSP,
+the theme bridge, sync, echo suppression, minimal line edits, undo through the document, "Insert
+example", the problems pill, Show in Problems view), handing it `withExampleInserted`, the
+`BoardDiagnostics` of [`diagnostics.ts`](apps/vscode/src/diagnostics.ts) (the parser's findings as
+warnings, so the pill counts no errors; a board's entry lives only while its board editor is open)
+and the export; the webview's half is `connectDocumentSync`, whose `exportText` is the contract's
+`exportText()`. An edit VS Code refuses (a read-only file) brings the document's text back to the
+canvas. The options that need no `vscode` live in
+[`boardEditorOptions.ts`](apps/vscode/src/boardEditorOptions.ts), which the e2e page also
+registers against the shell's host stub (`?host`, `e2e/tests/vscode/document-sync.spec.ts`).
 **PNG export** is `svgToPng` of `@miragon/modeler-shell/export` in both apps (`boardToPng` in
 `apps/webapp/src/io.ts` and `apps/vscode/src/webview/io.ts`): 2× on `COLORS.paper` (#F9F7F7,
 `hell['--cd-ui-grund']` as guide §10.7 names it for a notation without a plot; both apps' unit

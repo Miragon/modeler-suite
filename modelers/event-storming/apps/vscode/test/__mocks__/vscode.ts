@@ -11,11 +11,6 @@
 
 export class Disposable {
   constructor(private readonly _dispose: () => void) {}
-  static from(...disposables: Array<{ dispose(): unknown }>): Disposable {
-    return new Disposable(() => {
-      for (const disposable of disposables) disposable.dispose();
-    });
-  }
   dispose(): void {
     this._dispose();
   }

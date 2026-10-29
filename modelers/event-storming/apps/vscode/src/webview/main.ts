@@ -22,11 +22,13 @@ import {
   type DiagramJsConnection,
 } from "@miragon/modeler-shell/diagram-js";
 import {
+  connectDocumentSync,
   mountVsCodeShell,
   persistView,
   readShellState,
+  type DocumentImportContext,
 } from "@miragon/modeler-shell/vscode/webview";
-import type { HostToWebview, WebviewCommand, WebviewToHost } from "../protocol.js";
+import type { WebviewCommand, WebviewToHost } from "../protocol.js";
 import { boardToPng } from "./io.js";
 import { readTypeCaptionsVisible, writeTypeCaptionsVisible } from "./state.js";
 
@@ -122,9 +124,6 @@ persistView(vscode, viewport);
 // Two-way sync with the document
 // ---------------------------------------------------------------------------
 
-let lastText = "";
-let initialized = false;
-
 function post(message: WebviewToHost): void {
   vscode.postMessage(message);
 }
@@ -162,64 +161,39 @@ function showInvalidBoard(): void {
   );
 }
 
+/** The level is undoable, and "Aggregates…" comes and goes with the board's aggregates. */
+function refreshMenu(): void {
+  shell.menu.setGroups(boardMenu(menuActions));
+}
+
 /**
- * Loads `text` into the modeler. The first import takes the stored view or fits; every later one
- * (a host undo, the text editor, Git) keeps viewbox and selection. An update that describes the
- * board the canvas already shows (only whitespace/EOL differ, e.g. `insertFinalNewline` on save)
- * is not re-imported at all.
+ * Loads `text` into the modeler, one import at a time (the shell's document sync serializes them).
+ * The first import takes the stored view or fits; every later one (a host undo, the text editor,
+ * Git) keeps viewbox and selection. An update that describes the board the canvas already shows
+ * (only whitespace/EOL differ, e.g. `insertFinalNewline` on save) is not re-imported at all.
  */
-async function importText(text: string): Promise<void> {
-  const first = !initialized;
+async function importText(text: string, { first }: DocumentImportContext): Promise<boolean> {
   if (!first && sameBoardText(text, collaborative.exportText())) {
-    lastText = text;
     showValidBoard();
-    return;
+    return true;
   }
   const keep = first ? undefined : viewport.getViewbox();
   const selected = first ? [] : selectedIds();
   try {
     await collaborative.importText(text);
-    lastText = text;
     showValidBoard();
     if (keep) viewport.restore(keep);
     else if (first && storedShellState.view) viewport.setState(storedShellState.view);
     reselect(selected);
     viewport.afterImport();
     refreshMenu();
+    return true;
   } catch {
     showInvalidBoard();
-  } finally {
-    initialized = true;
+    return false;
   }
 }
 
-// Strictly serialized: init/update arrive as un-awaited messages, and two quick updates (several
-// undos) must not import concurrently and finish in the wrong order.
-let importChain: Promise<void> = Promise.resolve();
-function enqueueImport(text: string): Promise<void> {
-  importChain = importChain
-    .then(() => importText(text))
-    .catch((error: unknown) => console.error("Event Storming import failed", error));
-  return importChain;
-}
-
-/** Graphical change -> serialize DSL and (only on a real difference) report it to the host. */
-function pushEdit(): void {
-  // Before the first import the canvas does not show the document yet; read-only: it shows the
-  // last valid board. Either way an edit would overwrite text the canvas never saw.
-  if (!initialized || shell.isReadOnly()) return;
-  const text = collaborative.exportText();
-  if (text === lastText) return;
-  lastText = text;
-  post({ type: "edit", text });
-}
-
-/** The level is undoable, and "Aggregates…" comes and goes with the board's aggregates. */
-function refreshMenu(): void {
-  shell.menu.setGroups(boardMenu(menuActions));
-}
-
-collaborative.onContentChanged(pushEdit);
 modeler.on("commandStack.changed", () => refreshMenu());
 
 // ---------------------------------------------------------------------------
@@ -275,7 +249,7 @@ function exportJson(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Messages from the extension host
+// The extension host: init, updates, problems and commands in; ready and edits out
 // ---------------------------------------------------------------------------
 
 const COMMANDS: Readonly<Record<WebviewCommand, () => void>> = {
@@ -286,38 +260,17 @@ const COMMANDS: Readonly<Record<WebviewCommand, () => void>> = {
   exportJson: () => exportJson(),
 };
 
-function isHostMessage(data: unknown): data is HostToWebview {
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    typeof (data as { type?: unknown }).type === "string"
-  );
-}
-
-let firstImportSettled: () => void = () => undefined;
-const ready = new Promise<void>((resolve) => (firstImportSettled = resolve));
-
-window.addEventListener("message", (event: MessageEvent<unknown>) => {
-  if (!isHostMessage(event.data)) return;
-  const message = event.data;
-  switch (message.type) {
-    case "init":
-      void enqueueImport(message.text).then(firstImportSettled);
-      break;
-    case "update":
-      void enqueueImport(message.text);
-      break;
-    case "problems":
-      shell.setProblems({ count: message.count, errors: message.errors });
-      break;
-    case "command":
-      // Only own entries: a name such as "constructor" must not reach Object.prototype.
-      if (Object.hasOwn(COMMANDS, message.name)) COMMANDS[message.name]();
-      break;
-  }
+// Before the first import the canvas does not show the document yet; read-only, it shows the last
+// valid board. Either way an edit would overwrite text the canvas never saw, so the sync writes none.
+const sync = connectDocumentSync({
+  api: vscode,
+  importText,
+  exportText: () => collaborative.exportText(),
+  canWrite: () => !shell.isReadOnly(),
+  onProblems: (counts) => shell.setProblems(counts),
+  commands: COMMANDS,
 });
-
-post({ type: "ready" });
+collaborative.onContentChanged(sync.pushEdit);
 
 /** For test pages: the mounted parts, and `ready` once the first `init` import settled. */
 export const webview: {
@@ -325,4 +278,4 @@ export const webview: {
   modeler: CollaborativeEventStormingModeler;
   connection: DiagramJsConnection;
   ready: Promise<void>;
-} = { shell, modeler: collaborative, connection, ready };
+} = { shell, modeler: collaborative, connection, ready: sync.ready };

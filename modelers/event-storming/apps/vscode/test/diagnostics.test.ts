@@ -36,7 +36,7 @@ describe("boardDiagnostics", () => {
   });
 });
 
-describe("EventStormingEditorProvider — diagnostics and the problems pill", () => {
+describe("the board editor: diagnostics and the problems pill", () => {
   it("creates one collection named event-storming and fills it when the board opens", async () => {
     const doc = fakeDocument("/a.storm", ONE_PROBLEM);
     await openBoard(doc);

@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 describe("board commands", () => {
-  it("registers fit and export with the provider", () => {
+  it("registers fit and export on activation", () => {
     newProvider();
 
     expect(vscodeMock.registeredCommandIds()).toEqual(

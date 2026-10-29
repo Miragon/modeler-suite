@@ -59,8 +59,13 @@ selects an element, since its problems name lines, never elements; in the webvie
 that hands the focus to the canvas, since its Model group holds only toggles and dialog entries:
 the Level radios, the Type captions checkbox and "Aggregates…"), and any skip fails the suite. Both harnesses list `documents`: the empty board
 (in the web app after "New diagram"; in the webview also a file of zero bytes), on which the kit
-checks the empty file and runs appearance too. Next to the kit run the webview's protocol and
-chrome specs and the web app's own (`webapp-chrome.spec.ts`: share link, the fit to what the board
+checks the empty file and runs appearance too. With `?host` the webview page also runs the
+extension's document plumbing (`registerModelerEditor` with `BOARD_EDITOR_OPTIONS`) against the
+shell's stand-in for VS Code's documents, so `vscode/document-sync.spec.ts` moves a sticky and
+reads the document (one line changed, no echo imported, nothing posted on a save), changes, undoes
+and redoes the document and reads the canvas, inserts the example as one edit and one undo step,
+and has a read-only document refuse an edit, which takes the canvas back. Next to the kit run the
+webview's protocol and chrome specs and the web app's own (`webapp-chrome.spec.ts`: share link, the fit to what the board
 draws, replace with undo, open, drop, exports, app keys, Delete after a click on + or a palette
 entry, Escape after Enter on the Draw entry, Enter on the Lasso entry or a creating entry ending a
 drawing, and Escape and Enter for the menu, the shortcuts dialog and the zoom panel while a line is

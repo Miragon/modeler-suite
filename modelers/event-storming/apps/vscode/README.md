@@ -49,7 +49,8 @@ yellow), **Aggregate** (yellow), **Policy** (purple), **Read Model** (green), **
 - **Undo and redo belong to the file.** Every change on the canvas is one edit of the document, so
   `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z` (or **Edit > Undo**) undo it like a text change, and the
   canvas keeps its view and selection. Only the lines that changed are rewritten, so a text editor
-  open beside the board keeps its cursor.
+  open beside the board keeps its cursor. When VS Code refuses a change, as for a file it opened
+  read-only, the board goes back to what the file holds.
 - **Menu** (top left): the workshop **Level** and **Type captions** (the caption on each sticky),
   **Aggregates…** while the board has a named aggregate, **Export as PNG**, **Export as SVG**,
   **Export as PNG (4×, transparent)** (for slides) and **Export as JSON**, the same exports as the
@@ -80,9 +81,10 @@ yellow), **Aggregate** (yellow), **Policy** (purple), **Read Model** (green), **
   file is kept, but the board follows the theme, not the file.
 - **Self-hosted fonts**: no CDN, offline-capable.
 
-The menu, palette skin, zoom panel, problems pill, status box, empty-board hint and the theme
-bridge come from [`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell),
-the chrome shared by all Miragon modelers.
+The menu, palette skin, zoom panel, problems pill, status box, empty-board hint, the theme
+bridge and the sync between board and file come from
+[`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell), the chrome shared
+by all Miragon modelers.
 
 ## Development
 

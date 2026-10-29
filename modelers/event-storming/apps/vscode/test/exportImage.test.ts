@@ -11,7 +11,7 @@ afterEach(() => {
 
 const target = Uri.parse("file:/boards/checkout.png");
 
-describe("EventStormingEditorProvider — export", () => {
+describe("the board editor: export", () => {
   it("suggests the board name next to the file and writes the decoded PNG", async () => {
     const showSaveDialog = vi.spyOn(window, "showSaveDialog").mockResolvedValue(target);
     const writeFile = vi.spyOn(workspace.fs, "writeFile");
