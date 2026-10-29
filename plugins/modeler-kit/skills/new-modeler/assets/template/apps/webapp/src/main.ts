@@ -182,10 +182,15 @@ async function exportPicture(kind: 'png' | 'svg'): Promise<void> {
       },
     });
     download(png, 'image/png', 'png', fontFallback);
-  } catch {
+  } catch (error) {
+    // The shell's rejections are developer text: the console keeps them, the user reads the app's.
+    console.error(error);
     shell.toast({
       status: 'danger',
-      text: `Couldn't export the diagram as ${kind.toUpperCase()}.`,
+      text:
+        kind === 'png'
+          ? "Couldn't export the diagram as PNG. Try again, or export it as SVG."
+          : "Couldn't export the diagram as SVG. Try again.",
     });
   }
 }

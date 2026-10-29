@@ -52,21 +52,25 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
   esbuild plugin and, in the e2e test page, a Vite plugin inline). Both apps pass `onFontFallback`
   and warn once the PNG is saved, since the console reaches no user: a toast in the web app, a
   warning notification in VS Code (the webview's `export` message carries a font-fallback flag).
-  The template's `png-export` specs check both ways: the SVG the page draws holds the Geist faces,
-  and a failed embedding reaches the toast and the message.
+  A rejection of `svgToPng` is developer text (`@miragon/modeler-shell: …`): both apps log it and
+  show their own sentence ("Couldn't export the diagram as PNG. Try again, or export it as SVG."),
+  never the rejection's own text. The template's `png-export` specs check all three: the SVG the page draws
+  holds the Geist faces, a failed embedding reaches the toast and the message, and a picture the
+  browser cannot draw shows the app's sentence.
   Help: "Keyboard shortcuts…" opens the shell's dialog (modeler-shell 0.7.0 or later). The renderer
-  builds the groups as plain data, typed structurally so it never imports the shell, and the app
-  hands them to `shell.showShortcutsDialog(groups)`: the shell draws the dialog of guide §8 (top
-  layer, focus trap and return, backdrop, high contrast, forced colours), closes the open menu
-  first, puts its zoom and fit keys at the top of the View group and leaves out the renderer's own
-  rows for them (the renderer lists them for a host without the shell). In the web app the entry
-  shows the "?" chip, which modeler-shell 0.4.0 keeps out of the entry's name (`aria-hidden`), so
-  the name still ends with "…", and "?" opens the dialog from anywhere but a text field, another
-  dialog and the start screen. That key is the renderer's (template:
-  [`ShortcutsDialog.ts`](../assets/template/packages/renderer/src/menu/ShortcutsDialog.ts)): its
-  listener sits on `document` in the capture phase, ahead of the open menu's type-ahead, and goes
-  with `diagram.destroy`, while the shell removes the dialog with `shell.destroy()`. Only the web
-  app passes the key: the VS Code webview keeps from VS Code only the keys guide §13.5 gives it and
+  builds the groups as plain data, typed structurally so it never imports the shell. The app hands
+  the shell to the renderer's `createShortcutsDialog` (template:
+  [`ShortcutsDialog.ts`](../assets/template/packages/renderer/src/menu/ShortcutsDialog.ts)), which
+  passes the groups to `shell.showShortcutsDialog(groups)` and owns the "?" key: the shell draws
+  the dialog of guide §8 (top layer, focus trap and return, backdrop, high contrast, forced
+  colours), closes the open menu first, puts its zoom and fit keys at the top of the View group and
+  leaves out the renderer's own rows for them (the renderer lists them for a host without the
+  shell). In the web app the entry shows the "?" chip, which modeler-shell 0.4.0 keeps out of the
+  entry's name (`aria-hidden`), so the name still ends with "…", and "?" opens the dialog from
+  anywhere but a text field, another dialog and the start screen. The key's listener sits on
+  `document` in the capture phase, ahead of the open menu's type-ahead, and goes with
+  `diagram.destroy`, while the shell removes the dialog with `shell.destroy()`. Only the web app
+  passes the key: the VS Code webview keeps from VS Code only the keys guide §13.5 gives it and
   passes every other one on, so its entry has no chip and the dialog opens from the menu; a page
   that embeds the renderer keeps its own keys.
   View-only toggles in Model set `keepEnabledWhenReadOnly`; entries that change the document go

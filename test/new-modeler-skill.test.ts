@@ -896,6 +896,7 @@ const NON_API_NAMES = new Map<string, string>([
   ["createCollaborativeViewer", "the renderer's factory, a naming convention of the contract"],
   ["NavigatedViewer", "the renderer's diagram-js viewer class"],
   ["additionalModules", "the renderer's own factory option"],
+  ["createShortcutsDialog", "the template renderer's controller of the shortcuts dialog"],
   ["commandStack.changed", "diagram-js"],
   ["commandStack.clear", "diagram-js"],
   ["modeling.moveElements", "diagram-js"],
