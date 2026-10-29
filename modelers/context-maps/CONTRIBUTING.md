@@ -65,10 +65,10 @@ webview CSP. With `?host` the webview test page runs the extension's document pl
 (`registerModelerEditor` with `MAP_EDITOR_OPTIONS`) against the shell's stand-in for VS Code's
 documents, so `document-sync.spec.ts` moves a context and reads the document, and changes, refuses
 or undoes the document and reads the canvas. The shell's kit skips WebKit: its tab-order checks
-need a browser whose Tab reaches buttons and links, which WebKit does not do by default. After `npm run context-maps build:webapp`,
-`npm run check:build -w modelers/context-maps/apps/webapp` checks that the production `index.html`
-carries the mode markup and the bundle keeps the shell's Lucide licence comment. Locally, run
-`npx playwright install chromium webkit` once.
+need a browser whose Tab reaches buttons and links, which WebKit does not do by default. After
+`npm run context-maps build:webapp`, `npm run check:build -w modelers/context-maps/apps/webapp`
+checks that the production `index.html` carries the mode markup and the bundle keeps the shell's
+Lucide licence comment. Locally, run `npx playwright install chromium webkit` once.
 
 ## VS Code smoke test
 
