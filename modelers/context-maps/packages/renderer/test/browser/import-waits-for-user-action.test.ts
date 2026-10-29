@@ -261,10 +261,10 @@ function addedContextId(stage: Stage): string {
 }
 
 /** A peer's text: the map on the canvas right now, with context C renamed. */
-function peerText(stage: Stage): string {
+function peerText(stage: Stage, label = "C by a peer"): string {
   const document = exported(stage);
   document.contexts = document.contexts.map((context) =>
-    context.id === "c" ? { ...context, label: "C by a peer" } : context,
+    context.id === "c" ? { ...context, label } : context,
   );
   return serializeDocumentText(document);
 }
@@ -686,6 +686,30 @@ describe("an import from the selection listener inside a command, an undo or a r
   );
 });
 
+interface DragStart {
+  what: string;
+  /** Activates a drag; its start deselects context A. */
+  start(stage: Stage): void;
+}
+
+const DRAG_STARTS_WHILE_A_IS_SELECTED: DragStart[] = [
+  {
+    what: "a move of another context",
+    start(stage) {
+      const from = centreOfShape(stage, "b");
+      pointer(hitArea(stage, "b"), "mousedown", from);
+      pointer(document, "mousemove", shifted(from, 20, 0));
+    },
+  },
+  {
+    what: "a create from the palette",
+    start(stage) {
+      const entry = paletteEntry(stage, "context.supporting");
+      pointer(entry, "click", centreOfBox(entry), { detail: 1 });
+    },
+  },
+];
+
 describe("an import from the selection listener at a drag's start runs once diagram-js has started the drag, and ends it", () => {
   test("a move of another context, whose start deselects the selected one", async () => {
     const running = await stage();
@@ -746,6 +770,31 @@ describe("an import from the selection listener at a drag's start runs once diag
     expect(exported(running).contexts).toHaveLength(3);
     expectTheNextEditApplied(running, imported);
   });
+
+  test.each(DRAG_STARTS_WHILE_A_IS_SELECTED)(
+    "$what: an import called after the one that waits, in the same task, runs after it",
+    async ({ start }) => {
+      const running = await stage();
+      select(running, "a");
+      const waiting = importOnSelection(running, peerText(running, "C by the first peer"));
+      const later = peerText(running, "C by the second peer");
+      const settled: string[] = [];
+
+      start(running);
+      expect(waiting()).toBeDefined();
+      void waiting()?.then(() => settled.push("first"));
+      await running.modeler.importText(later).then(() => settled.push("second"));
+      await nextTasks();
+
+      expect(running.errors).toEqual([]);
+      expect(settled).toEqual(["first", "second"]);
+      expect(running.steps.filter((step) => step === "import")).toHaveLength(2);
+      expect(running.modeler.exportText()).toBe(later);
+      expect(service<Dragging>(running, "dragging").context()).toBeFalsy();
+      expect(running.changes()).toBe(0);
+      expectTheNextEditApplied(running, later);
+    },
+  );
 
   test("an import from the interaction listener when the move starts", async () => {
     const running = await stage();

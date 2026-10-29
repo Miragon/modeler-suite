@@ -172,10 +172,11 @@ tests, every case and every hook, without a skip or an advisory.
 `importText` called while a user action runs (a host that echoes its own change back from
 `onContentChanged`, or imports from `elements.onSelection` or `interaction.onChange` inside the
 action) waits until the action has finished, with the steps it deferred, and then imports; its
-promise settles after that import, and imports called during the same action run in the order they
-were called. An action runs from the start of its first command, undo or redo, or from a drop's
-release. So an import from the selection listener inside a command waits too: diagram-js deselects
-an element its canvas removes before the change is reported. The action has finished once:
+promise settles after that import, and imports called during the same action, or while an earlier
+import still waits, run in the order they were called. An action runs from the start of its first
+command, undo or redo, or from a drop's release. So an import from the selection listener inside a
+command waits too: diagram-js deselects an element its canvas removes before the change is
+reported. The action has finished once:
 
 - a drop: its release has run every listener, so diagram-js selects the moved context after a move;
 - an append from the context pad, clicked or dragged: its subdomain-type menu is open, which the

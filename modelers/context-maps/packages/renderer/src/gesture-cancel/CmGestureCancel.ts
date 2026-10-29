@@ -72,11 +72,12 @@ function deliver(listener: ActiveListener, active: boolean): void {
  * runs until it has finished, with the steps it deferred: a drop until its release has run every
  * listener, a step such as the subdomain-type menu of an append until it has run (`holdAction`),
  * any other command, undo or redo from its start until the handler that ran it has returned, and a
- * drag's activation inside diagram-js's `Dragging.move` until every listener of its first move has
- * run. An import that waits for `whenActionEnded()` runs a microtask after the action and replaces
- * no element the action still works on. The drag that a press starts after it committed a label,
- * and the drag whose activation the import waited for, are gestures, not part of the action: the
- * import ends them, as an accepted import ends every running gesture.
+ * drag's activation inside diagram-js's `Dragging.move` until every `drag.move` listener of its
+ * first move has run (the notation's `<prefix>.move` listeners follow, and no host listener fires
+ * from them). An import that waits for `whenActionEnded()` runs a microtask after the action and
+ * replaces no element the action still works on. The drag that a press starts after it committed a
+ * label, and the drag whose activation the import waited for, are gestures, not part of the
+ * action: the import ends them, as an accepted import ends every running gesture.
  */
 export default class CmGestureCancel {
   static $inject = ["eventBus", "dragging"];
@@ -117,10 +118,11 @@ export default class CmGestureCancel {
     // diagram-js activates a drag inside `Dragging.move`: it fires the start, deselects, which a
     // host may import from, then fires the first move, whose listener above tells the host that a
     // gesture runs, and reads the drag's state throughout: an import inside that would end the
-    // drag under it. The activation has finished once every listener of that first move has run,
-    // at the latest once the handler that moved the pointer has returned. An import that waited
-    // for it runs a microtask later, after `move` has returned, and ends the drag like every
-    // running gesture.
+    // drag under it. The hold ends once every `drag.move` listener of that first move has run, at
+    // the latest once the handler that moved the pointer has returned. diagram-js then still fires
+    // `<prefix>.move` (`shape.move.move`, `create.move`), from which no host listener fires. An
+    // import that waited for the hold runs a microtask later, after `move` has returned, and ends
+    // the drag like every running gesture.
     eventBus.on("drag.start", FIRST, () => {
       this.endActivation = this.holdAction();
       queueMicrotask(this.endActivation);
