@@ -29,7 +29,9 @@ export const DRAW_TOOL_PALETTE_ENTRY = "draw-tool";
  * Excalidraw-style polyline tool: activate, click point by point (rubber-band preview).
  * Finishing (like Excalidraw): click the LAST point again, double-click, Enter or Escape
  * commits the open line; clicking the FIRST point closes the shape. Escape with fewer than
- * two points cancels. The result is ONE undoable `drawing` shape that moves as a whole.
+ * two points cancels. The result is ONE undoable `drawing` shape that moves as a whole. While a
+ * line is in progress the board's other keys do nothing (`EventStormingKeyboard` asks
+ * `holdsLine()`), and an import ends it without a drawing (`endLine()`).
  */
 export default class EventStormingDrawTool {
   static $inject = ["canvas", "eventBus", "modeling", "selection", "eventStormingElementFactory"];
@@ -54,6 +56,20 @@ export default class EventStormingDrawTool {
 
   isActive(): boolean {
     return this.active;
+  }
+
+  /** Whether the tool holds the points of a line in progress, which own the canvas keys. */
+  holdsLine(): boolean {
+    return this.active && this.points.length > 0;
+  }
+
+  /**
+   * Ends a line in progress without a drawing, as an import that replaces the board under it does
+   * (contract L1: no change comes from an import). A tool only armed, with no point yet, stays
+   * armed.
+   */
+  endLine(): void {
+    if (this.holdsLine()) this.cancel();
   }
 
   toggle(): void {

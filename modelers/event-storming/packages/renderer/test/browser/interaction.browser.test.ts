@@ -18,6 +18,7 @@ import {
   offset,
   pointerOn,
   pressEscape,
+  pressEscapeOnFocus,
   service,
   shapeOf,
   sticky,
@@ -132,8 +133,6 @@ type GestureKind = [
   hold: (modeler: CollaborativeEventStormingModeler) => HeldGesture,
 ];
 
-const POINT_DRAG = "a point drag of a drawing";
-
 /** The gestures of the board, each held the way a user holds it, with its drop and its cancel. */
 const GESTURES: GestureKind[] = [
   [
@@ -236,7 +235,7 @@ const GESTURES: GestureKind[] = [
     },
   ],
   [
-    POINT_DRAG,
+    "a point drag of a drawing",
     (modeler) => {
       const pointer = pointerOn(modeler);
       service<Selection>(modeler, "selection").select(
@@ -249,7 +248,7 @@ const GESTURES: GestureKind[] = [
       );
       expect(modeler.interaction.active()).toBe(false);
       pointer.moveTo(offset(first, 30, -40));
-      return { drop: () => pointer.release(offset(first, 30, -40)) };
+      return { drop: () => pointer.release(offset(first, 30, -40)), cancel: pressEscapeOnFocus };
     },
   ],
 ];
@@ -279,21 +278,17 @@ describe("the interaction surface (modeler-api 1.5)", () => {
     expect(uncaught).toEqual([]);
   });
 
-  // A drawing's point drag has no Escape yet (#243).
-  it.each(GESTURES.filter(([name]) => name !== POINT_DRAG))(
-    "is false after %s is cancelled with Escape",
-    async (_, hold) => {
-      const modeler = await editorWithBoard();
-      const reports = reportsOf(modeler);
+  it.each(GESTURES)("is false after %s is cancelled with Escape", async (_, hold) => {
+    const modeler = await editorWithBoard();
+    const reports = reportsOf(modeler);
 
-      const gesture = hold(modeler);
-      gesture.cancel?.();
-      expect(modeler.interaction.active()).toBe(false);
-      expect(reports.values()).toEqual([true, false]);
-      expect(reports.consistent()).toBe(true);
-      expect(modeler.exportText()).toBe(BOARD);
-    },
-  );
+    const gesture = hold(modeler);
+    gesture.cancel?.();
+    expect(modeler.interaction.active()).toBe(false);
+    expect(reports.values()).toEqual([true, false]);
+    expect(reports.consistent()).toBe(true);
+    expect(modeler.exportText()).toBe(BOARD);
+  });
 
   it.each(GESTURES)(
     "is false once an import ended %s, before the import resolves",

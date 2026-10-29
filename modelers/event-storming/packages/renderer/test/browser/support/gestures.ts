@@ -90,3 +90,16 @@ export function pointerOn(modeler: CollaborativeEventStormingModeler) {
 export function pressEscape(): void {
   document.dispatchEvent(new KeyboardEvent("keyup", { key: "Escape", bubbles: true }));
 }
+
+/**
+ * Escape as the keyboard sends it, to the element with the focus: the press on a drawing's handle
+ * focuses the canvas, and the point drag takes an Escape aimed at it.
+ */
+export function pressEscapeOnFocus(): void {
+  const focused = document.activeElement ?? document.body;
+  for (const type of ["keydown", "keyup"]) {
+    focused.dispatchEvent(
+      new KeyboardEvent(type, { key: "Escape", bubbles: true, cancelable: true }),
+    );
+  }
+}
