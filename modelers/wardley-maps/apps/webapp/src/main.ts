@@ -9,6 +9,7 @@ import "@miragon/wardley-renderer/assets/wardley.css";
 import "./style.css";
 import "@miragon/modeler-shell/shell.css";
 import {
+  WARDLEY_THEMES,
   createAxisLabelsPopover,
   createCollaborativeModeler,
   createMapSizePopover,
@@ -57,7 +58,6 @@ import {
   type PngKind,
 } from "./png-export.js";
 import { importWarningsText, problemItems } from "./problems.js";
-import { THEMES } from "./themes.js";
 import {
   downloadFileName,
   importErrorMessage,
@@ -150,7 +150,7 @@ const shell = mountShell(app, {
   canvas: viewer.container,
   lang: "en",
   platform,
-  themes: THEMES,
+  themes: WARDLEY_THEMES,
   messages: { canvas: MAP_NAME },
   primary: { onSelect: () => share() },
   legal: { links: [{ label: "GitHub", href: REPOSITORY_URL }] },

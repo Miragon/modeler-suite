@@ -4,12 +4,12 @@ import {
   currentAppearance,
   renderWebviewHtml,
 } from "@miragon/modeler-shell/vscode/extension";
+import { WARDLEY_THEMES } from "@miragon/wardley-renderer/themes";
 import { exportImageToFile } from "./exportImage.js";
 import { withExampleInserted } from "./examples.js";
 import { minimalLineEdit } from "./minimalEdit.js";
 import type { WardleyDiagnostics } from "./diagnostics.js";
 import type { HostToWebview, WebviewCommand, WebviewToHost } from "./protocol.js";
-import { WEBVIEW_THEMES } from "./themes.js";
 
 interface OpenMap {
   readonly uri: vscode.Uri;
@@ -140,10 +140,10 @@ export class WardleyEditorProvider implements vscode.CustomTextEditorProvider {
       styleUris: [asset("webview.css")],
       title: "Wardley Map",
       lang: "en",
-      appearance: currentAppearance(vscode, { themes: WEBVIEW_THEMES }),
+      appearance: currentAppearance(vscode, { themes: WARDLEY_THEMES }),
       body: '<div id="app"></div>',
     });
-    const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: WEBVIEW_THEMES });
+    const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: WARDLEY_THEMES });
 
     const post = (msg: HostToWebview): Thenable<boolean> => webview.postMessage(msg);
     const key = document.uri.toString();

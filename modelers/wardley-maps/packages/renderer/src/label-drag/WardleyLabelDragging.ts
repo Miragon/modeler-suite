@@ -9,6 +9,7 @@ import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
 import { isWardleyShape, type WardleyShape } from "../model/di-types.js";
 import { focusCanvasWithoutRing } from "../a11y/index.js";
+import type { WardleyInteraction } from "../interaction/index.js";
 import {
   LABEL_HANDLE_CLASS,
   LABEL_ROLE_ATTRIBUTE,
@@ -61,6 +62,7 @@ export default class WardleyLabelDragging {
     "selection",
     "evolutionGrid",
     "injector",
+    "wardleyInteraction",
   ];
 
   private active: LabelDrag | null = null;
@@ -73,6 +75,7 @@ export default class WardleyLabelDragging {
     private readonly selection: Selection,
     private readonly grid: EvolutionGrid,
     private readonly injector: Injector,
+    private readonly interaction: WardleyInteraction,
   ) {
     const container = canvas.getContainer();
     this.outerContainer().classList.add(ARMED_CLASS);
@@ -140,6 +143,7 @@ export default class WardleyLabelDragging {
       if (Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD) return;
       drag.dragging = true;
       this.outerContainer().classList.add(DRAGGING_CLASS);
+      this.interaction.begin(drag);
     }
     drag.latest = {
       dx: Math.round(drag.startOffset.dx + deltaX / drag.zoom),
@@ -151,10 +155,17 @@ export default class WardleyLabelDragging {
   private readonly onMouseUp = (): void => {
     const drag = this.active;
     if (!drag) return;
-    this.finish();
     // A plain press falls through to diagram-js's own click selection (incl. Shift to add).
-    if (!drag.dragging || !drag.latest) return;
-    if (this.elementRegistry.get(drag.shape.id) !== drag.shape) return;
+    if (!drag.dragging) {
+      this.finish();
+      return;
+    }
+    this.interaction.drop(drag, () => this.dropLabel(drag));
+  };
+
+  private dropLabel(drag: LabelDrag): void {
+    this.finish();
+    if (!drag.latest || this.elementRegistry.get(drag.shape.id) !== drag.shape) return;
     const next = this.snapHome(drag.latest, drag.homeOffset);
     const previous =
       drag.role === "name" ? drag.originalOffset : drag.originalMovement?.labelOffset;
@@ -164,7 +175,7 @@ export default class WardleyLabelDragging {
     }
     this.suppressNextClick();
     this.selection.select(drag.shape);
-  };
+  }
 
   /** The click that ends a drag would toggle the owner's selection off again. */
   private suppressNextClick(): void {
@@ -190,7 +201,10 @@ export default class WardleyLabelDragging {
   };
 
   private cancel(): void {
-    if (this.active) this.finish();
+    const drag = this.active;
+    if (!drag) return;
+    this.finish();
+    this.interaction.end(drag);
   }
 
   /** Ends the gesture and restores the pre-drag state (commits run through the command stack). */

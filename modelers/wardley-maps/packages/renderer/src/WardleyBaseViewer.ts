@@ -36,6 +36,7 @@ import type { FreeArea } from "@miragon/modeler-api";
 import type { FreeRectConfig } from "./free-rect/index.js";
 import { COMMAND_START_EVENTS, PUT_BACK_PRIORITY, type LivePreview } from "./live-preview/index.js";
 import { applyConfigUpdate, type MapConfigUpdate } from "./modeling/cmd/UpdateConfigHandler.js";
+import { ARMED_TOOL_PREFIXES, DROP_MARK_PRIORITY } from "./interaction/index.js";
 
 export interface WardleyViewerOptions {
   /** Host element. If missing, a detached <div> is created (can be attached later via attachTo). */
@@ -126,30 +127,21 @@ function sizeToCss(value: number | string): string {
   return typeof value === "number" ? `${value}px` : value;
 }
 
-/**
- * The drag of a palette tool that only waits for its next press (the lasso from the palette or
- * `L`): no gesture yet. It holds no element of the map, so an import leaves the tool armed, and the
- * user's next press still draws a lasso instead of panning or moving the element under the pointer.
- */
-const ARMED_TOOL_PREFIXES: ReadonlySet<string> = new Set(["lasso.selection"]);
-
-/** Ahead of every other listener of a drop, so that the command it runs finds the drop marked. */
-const DROP_MARK_PRIORITY = 100_000;
-
 type DragContext = { prefix: string } | null;
 
 /**
  * Ends a running diagram-js drag (a move, resize, connect, lasso, evolve or plot-resize drag, a
- * create from the palette or the context pad) the way Escape does. The gesture holds the elements an
- * import is about to replace, and diagram-js keeps it running across the import: released after it,
- * its command would fail half-way and leave the command stack stuck, so no later edit would fire
- * `commandStack.changed` again. The selection is not restored, since it holds those elements too.
- * A drawing's point drag is no diagram-js drag: it ends by itself when the import removes its
- * drawing.
+ * create from the palette, the context pad or a quick-create key) the way Escape does. The gesture
+ * holds the elements an import is about to replace, and diagram-js keeps it running across the
+ * import: released after it, its command would fail half-way and leave the command stack stuck, so
+ * no later edit would fire `commandStack.changed` again. The selection is not restored, since it
+ * holds those elements too. The renderer's own drags (a label, a point of a drawing, the evolve
+ * target) are no diagram-js drags: each ends by itself when the import removes its element.
  *
- * A drop that runs (`dropping`) is left to finish: its command has applied, and a host that imports
- * from that command's change listener would otherwise cancel the drag inside diagram-js's own end
- * of it, which then cleans up a drag that is gone and throws.
+ * A drop that runs (`dropping`) is left to finish: its command has applied, and a caller of
+ * `importDSL` or `importMap` that imports from that command's change listener would otherwise
+ * cancel the drag inside diagram-js's own end of it, which then cleans up a drag that is gone and
+ * throws. The collaborative `importText` waits until the drop has ended instead.
  */
 function cancelGesture(diagram: Diagram, dropping: DragContext): void {
   const dragging = diagram.get<Dragging | null>("dragging", false);

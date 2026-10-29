@@ -238,9 +238,10 @@ export default class WardleyLabelEditing {
    */
   activate(element: WardleyShape, options: ActivateOptions = {}): void {
     if (!isWardleyShape(element) || NOT_EDITABLE.has(element.wardleyType) || this.locked()) return;
-    // A host that re-imports from the change listener of a create with the pointer has replaced the
-    // new shape by the time the editor opens after the drop, and a name typed into it would commit
-    // onto the removed shape.
+    // A caller of the Modeler's own `importDSL` or `importMap` that re-imports from the change
+    // listener of a create with the pointer has replaced the new shape by the time the editor opens
+    // after the drop (the collaborative `importText` waits for the drop instead), and a name typed
+    // into it would commit onto the removed shape.
     if (this.elementRegistry.get(element.id) !== element) return;
     this.active?.commit("outside");
 

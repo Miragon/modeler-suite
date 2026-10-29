@@ -7,6 +7,7 @@ import "@fontsource-variable/geist-mono/wght.css";
 // The renderer brings its stylesheet (tokens, diagram-js.css, cd-canvas.css); the shell's comes
 // last.
 import {
+  WARDLEY_THEMES,
   createAxisLabelsPopover,
   createCollaborativeModeler,
   createMapSizePopover,
@@ -39,7 +40,6 @@ import {
   type WebviewCommand,
   type WebviewToHost,
 } from "../protocol.js";
-import { WEBVIEW_THEMES } from "../themes.js";
 import { GEIST_FACES } from "./geist-faces.js";
 import { PNG_EXPORT_FAILED, pngExportMessage, type PngFormat } from "./png-export.js";
 
@@ -79,7 +79,7 @@ const app = document.getElementById("app");
 if (!app) throw new Error("The webview HTML has no #app root.");
 
 const shell: ShellHandle = mountVsCodeShell(app, {
-  themes: WEBVIEW_THEMES,
+  themes: WARDLEY_THEMES,
   canvas: modeler.container,
   messages: { canvas: MAP_NAME },
   menu: mapMenu({

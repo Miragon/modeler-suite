@@ -283,7 +283,7 @@ describe("an import from inside the change listener of a drop", () => {
     expect(dropped).not.toContain("component Water [0.3, 0.3]");
   });
 
-  test("keeps the element a palette create dropped", async () => {
+  test("keeps the element a palette create dropped, and its name editor on it", async () => {
     const current = await session();
     const { container, pointer, diagram } = current;
     const reimport = reimportOnFirstChange(current);
@@ -294,13 +294,49 @@ describe("an import from inside the change listener of a drop", () => {
     pointer.moveTo(drop);
     pointer.releaseAt(drop);
 
+    // The import waits for the drop and the name editor it opens a task later: the editor names the
+    // created element, and the import keeps it open on the element with the same id (L1).
+    await expect(reimport()).resolves.toBeDefined();
+    const created = theCreatedComponent(diagram);
+    const labelEditing = diagram.get<WardleyLabelEditing>("wardleyLabelEditing");
+    expect(labelEditing.getActiveEdit()?.elementId).toBe(created.id);
+    expect(container.querySelector(".wardley-label-input")).not.toBeNull();
+    labelEditing.cancel();
+
     const dropped = await expectTheDropKept(current, reimport());
     expect(dropped.split("\n").filter((line) => line.startsWith("component "))).toHaveLength(4);
-    // The label editor a create opens after the drop would name the shape the import removed.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(container.querySelector(".wardley-label-input")).toBeNull();
+  });
+
+  test("by the Modeler's own importDSL, which does not wait, leaves the drop to finish", async () => {
+    const current = await session();
+    const { diagram, pointer, container } = current;
+    let reimport: Promise<unknown> | undefined;
+    // The import clears the command stack, which fires the event again from inside the call.
+    let reimporting = false;
+    diagram.on("commandStack.changed", () => {
+      if (reimporting) return;
+      reimporting = true;
+      reimport = diagram.importDSL(diagram.exportDSL());
+    });
+    const water = shapeNamed(diagram, "Water");
+    const start = middle(water as unknown as Shape);
+    pointer.press(pointer.graphics(water.id), start);
+    pointer.enter();
+    pointer.moveTo({ x: start.x + 20, y: start.y });
+    pointer.moveTo({ x: start.x + 60, y: start.y });
+    pointer.releaseAt({ x: start.x + 60, y: start.y });
+
+    await expect(reimport).resolves.toBeDefined();
     expect(current.errors).toEqual([]);
-    expect(current.changes()).toBe(2);
+    const dropped = current.modeler.exportText();
+    expect(dropped).toMatch(/^component Water \[/m);
+    expect(dropped).not.toContain("component Water [0.3, 0.3]");
+    expect(diagram.get<Dragging>("dragging").context()).toBeFalsy();
+    expect(container.querySelector(DRAG_PREVIEW)).toBeNull();
+    expect(current.modeler.interaction.active()).toBe(false);
+    expectNoReplacedElementSelected(diagram);
+    expectTheNextEditReported(current, current.changes());
+    expect(current.modeler.exportText()).not.toBe(dropped);
   });
 
   test("keeps the point a drawing's handle dropped", async () => {

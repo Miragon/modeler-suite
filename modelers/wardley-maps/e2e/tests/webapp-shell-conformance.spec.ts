@@ -2,7 +2,7 @@ import { test, type Page } from "@playwright/test";
 import { registerShellConformance, type ShellSkip } from "@miragon/modeler-shell/testing";
 import { EXAMPLE_MAP } from "../../apps/webapp/src/example.js";
 import { encodeMapCompressed } from "../../apps/webapp/src/share.js";
-import { THEMES } from "../../apps/webapp/src/themes.js";
+import { WARDLEY_THEMES } from "../../packages/renderer/src/appearance/index.js";
 import { kettleLabelEditor } from "./support/label-editor.js";
 import { mapShortcutsDialog } from "./support/shortcuts-dialog.js";
 import { waitForViewer } from "./support/viewer.js";
@@ -40,7 +40,7 @@ test.describe("web app: shell conformance", () => {
   registerShellConformance<Page>(
     {
       host: "web",
-      themes: THEMES,
+      themes: WARDLEY_THEMES,
       // The kit emulates the system's colour scheme and contrast before every open.
       async open(page, { size, document: documentKey }) {
         await page.setViewportSize(size);

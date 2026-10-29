@@ -26,9 +26,14 @@ export default defineConfig({
     sourcemap: true,
     cssCodeSplit: false,
     lib: {
-      entry: resolve(__dirname, "src/index.ts"),
+      // `./themes` is DOM-free, for hosts that read the list outside the browser (a VS Code
+      // extension host).
+      entry: {
+        index: resolve(__dirname, "src/index.ts"),
+        "appearance/index": resolve(__dirname, "src/appearance/index.ts"),
+      },
       formats: ["es"],
-      fileName: () => "index.js",
+      fileName: (_format, entryName) => `${entryName}.js`,
       cssFileName: "wardley",
     },
     rollupOptions: {

@@ -5,8 +5,8 @@
 // Like the demo webapp, both bundles take the @miragon/wardley-* packages straight from SOURCE
 // (aliased to src/index.ts). That makes the build self-contained: no prior lib build needed, and the
 // diagram-js imports resolve relative to the renderer source (packages/renderer/node_modules). The
-// host only pulls in the DOM-free DSL (diagnostics); @miragon/modeler-shell comes from node_modules
-// in both.
+// host only pulls in the DOM-free DSL (diagnostics) and the renderer's DOM-free theme list
+// (`@miragon/wardley-renderer/themes`); @miragon/modeler-shell comes from node_modules in both.
 import * as esbuild from "esbuild";
 import { realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -22,6 +22,7 @@ const r = (p) => resolve(root, p);
 
 /** Package aliases pointing at the TS source (mirrors apps/webapp/vite.config.ts). */
 const alias = {
+  "@miragon/wardley-renderer/themes": r("packages/renderer/src/appearance/index.ts"),
   "@miragon/wardley-renderer": r("packages/renderer/src/index.ts"),
   "@miragon/wardley-schema-model": r("packages/schema-model/src/index.ts"),
   "@miragon/wardley-dsl": r("packages/dsl/src/index.ts"),

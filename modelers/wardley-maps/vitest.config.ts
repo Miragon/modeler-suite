@@ -61,6 +61,10 @@ export default defineConfig({
           alias: {
             "@miragon/wardley-dsl": sourceOf("dsl"),
             "@miragon/wardley-schema-model": sourceOf("schema-model"),
+            "@miragon/wardley-renderer/themes": new URL(
+              "./packages/renderer/src/appearance/index.ts",
+              import.meta.url,
+            ).pathname,
           },
         },
       },
