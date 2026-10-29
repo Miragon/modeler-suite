@@ -10,6 +10,7 @@ import { COLORS } from "../draw/styles.js";
 import { isDrawing, type EventStormingShape } from "../model/di-types.js";
 import type EventStormingModeling from "../modeling/EventStormingModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type EventStormingReadOnly } from "../read-only/index.js";
+import type { EventStormingGestures } from "../gesture/index.js";
 
 interface Point {
   x: number;
@@ -19,10 +20,18 @@ interface Point {
 /**
  * Vertex handles for drawings: when exactly one drawing is selected, every point gets a small
  * draggable handle. Dragging shows a live preview; releasing commits the new geometry (points +
- * recomputed bbox) as ONE undoable command.
+ * recomputed bbox) as ONE undoable command. The point drag is a gesture of its own, outside
+ * diagram-js's dragging, so it reports itself to `eventStormingGestures` from its first move, and
+ * its release holds the drop while the command applies.
  */
 export default class EventStormingDrawingHandles {
-  static $inject = ["eventBus", "canvas", "eventStormingModeling", "eventStormingReadOnly"];
+  static $inject = [
+    "eventBus",
+    "canvas",
+    "eventStormingModeling",
+    "eventStormingReadOnly",
+    "eventStormingGestures",
+  ];
 
   private shape: EventStormingShape | null = null;
   private group: SVGElement | null = null;
@@ -34,6 +43,7 @@ export default class EventStormingDrawingHandles {
     private readonly canvas: Canvas,
     private readonly modeling: EventStormingModeling,
     private readonly readOnly?: Pick<EventStormingReadOnly, "isReadOnly">,
+    private readonly gestures?: Pick<EventStormingGestures, "beginGesture" | "holdDrop">,
   ) {
     eventBus.on(READ_ONLY_CHANGED_EVENT, () => this.render());
     eventBus.on("selection.changed", (event: { newSelection?: unknown[] }) => {
@@ -95,15 +105,22 @@ export default class EventStormingDrawingHandles {
     this.endPointDrag();
     const shape = this.shape;
     const points = this.absolutePoints();
+    let endGesture: (() => void) | undefined;
 
     const onMove = (ev: MouseEvent): void => {
+      endGesture ??= this.gestures?.beginGesture();
       points[index] = this.toCanvasPoint(ev);
       this.renderDragPreview(points, !!shape.closed);
     };
     const onUp = (ev: MouseEvent): void => {
       points[index] = this.toCanvasPoint(ev);
-      this.endPointDrag();
-      this.commit(shape, points);
+      const endDrop = this.gestures?.holdDrop();
+      try {
+        this.endPointDrag();
+        this.commit(shape, points);
+      } finally {
+        endDrop?.();
+      }
     };
     document.addEventListener("mousemove", onMove, true);
     document.addEventListener("mouseup", onUp, true);
@@ -112,6 +129,7 @@ export default class EventStormingDrawingHandles {
       unbind: () => {
         document.removeEventListener("mousemove", onMove, true);
         document.removeEventListener("mouseup", onUp, true);
+        endGesture?.();
       },
     };
   }

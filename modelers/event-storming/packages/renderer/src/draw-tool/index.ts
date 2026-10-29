@@ -2,8 +2,10 @@ import type { ModuleDeclaration } from "didi";
 import EventStormingDrawTool from "./EventStormingDrawTool.js";
 import EventStormingDrawingHandles from "./EventStormingDrawingHandles.js";
 import EventStormingDrawingHitProvider from "./EventStormingDrawingHitProvider.js";
+import { eventStormingGestureModule } from "../gesture/index.js";
 
 export const eventStormingDrawToolModule: ModuleDeclaration = {
+  __depends__: [eventStormingGestureModule],
   __init__: [
     "eventStormingDrawTool",
     "eventStormingDrawingHandles",

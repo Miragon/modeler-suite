@@ -91,18 +91,27 @@ the fallback font would set them; imports still run in the order they were calle
 typed when an import arrives is reopened on the same element afterwards, with the typed text. A
 drag running when an import is called (a move, resize, connection or lasso, a create from the
 palette or a paste, also with its preview off the canvas, or the drag of a drawing's point) ends
-at once without applying anything, and so does one the user starts while an annotated import
-waits for its font and still holds when the board is replaced: its release changes nothing and
-fires no `commandStack.changed`. A diagram-js drag ends as Escape ends it, the drag of a drawing's
+at once without applying anything, and so does one the user starts while an import waits (for
+the annotation font, or for a running drop and the step it scheduled) and still holds when the
+board is replaced: its release changes nothing and fires no `commandStack.changed`. A diagram-js drag ends as Escape ends it, the drag of a drawing's
 point (which Escape leaves running) without its commit. `clear()` ends a running drag too. The
-palette's lasso tool, armed but not yet pressed, stays armed. A press that starts a drag (on a
-resize handle, say) while a label is being typed commits the label first; when the host imports
-from that commit's change listener, the label stays and the drag does not start. A drop whose
-change the host imports over at once, from its change listener (or clears the board there), has
-applied and is not cancelled: it ends as a drop, and the board shows what the host imported. The
-exception is an import or a clear that removes the moved sticky (a clear always does) while
-something was selected before the drag: diagram-js's selection behaviour then throws, and the drag
-ends as cancelled ([#248](https://github.com/Miragon/modeler-suite/issues/248)).
+palette's lasso tool, armed but not yet pressed, stays armed, and a pan of the empty canvas keeps
+running. A press that starts a drag (on a resize handle, say) while a label is being typed commits
+the label first; when the host imports from that commit's change listener, the label stays and
+the drag does not start. An import called while a drop runs (a host that imports from the change
+listener of the drop's command) waits until the drop has ended (`drag.ended` or `drag.canceled`,
+a drawing's point drop once its command has applied) and until the step the drop scheduled has run
+(the kind chooser, or the label editor, of an append), and only then replaces the board; its
+Promise settles after that import. So every listener of the drop, also diagram-js's selection
+behaviour, which threw when the import had removed the moved sticky while something was selected
+before the drag ([#248](https://github.com/Miragon/modeler-suite/issues/248)), runs on the board it
+changed. The kind chooser that an import closes reopens on the sticky with the same id while that
+sticky is still blank, and the label editor that follows the kind opens on the sticky with that
+id, also when a host has echoed the retype and so replaced the sticky again. `clear()` from the
+change listener of a drop does not wait (it returns nothing to wait for) and leaves the drop
+running: the drag ends as a drop, unless something was selected before the drag. A clear always
+removes the moved sticky, so diagram-js's selection behaviour then throws, and the drag ends as
+cancelled.
 
 `contentBounds()` gives the tight box around what the board draws (`{ x, y, width, height }` in
 board coordinates, which zoom and scroll leave alone): every sticky, note and drawing, a hotspot
@@ -127,8 +136,8 @@ creates, connections and deletes through the diagram-js rules, and the keyboard,
 editor and drawing handles stop editing. Selection, zoom, pan, copy and export stay.
 
 The DSL's `style dark` directive stays in the board config, so the text round-trips, but the
-renderer paints nothing for it: the page's design-system mode decides light or dark, never the
-file. The chrome reads the `--cd-ui-*` roles of the vendored Miragon tokens only, and the canvas
+renderer paints nothing for it: the page's design-system mode (or a host's request through the
+contract's `appearance`) decides light or dark, never the file. The chrome reads the `--cd-ui-*` roles of the vendored Miragon tokens only, and the canvas
 drawing keeps literal light colours in its SVG attributes, so exports look the same everywhere.
 
 ### Label suggestions and spelling variants
@@ -200,9 +209,10 @@ without the dialog.
 
 ### Collaborative hosts
 
-The package implements the collaborative-modeler contract 1.3 of
+The package implements the collaborative-modeler contract 1.5 of
 [`@miragon/modeler-api`](https://www.npmjs.com/package/@miragon/modeler-api) (notation
-`event-storming`) and runs its conformance kit in CI, every case and no advisory:
+`event-storming`), with the optional `interaction` and `appearance` surfaces, and runs its
+conformance kit in CI, every case and no advisory:
 
 ```ts
 import {
@@ -225,7 +235,9 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
   passed to `diagram.importMap` that uses a reserved id, or a coordinate or size beyond ±1e38
   (`UndrawableBoardError` from the schema model), rejects before the canvas changes.
 - `onContentChanged` fires for every command-stack change, undo and redo included (also the
-  workshop level), never for imports, view options (type captions) or the viewport.
+  workshop level), never for imports, view options (type captions) or the viewport. Only the
+  replacement of the board is the import's: an edit or an undo while an import still waits (for
+  a running drop, the step it scheduled or the annotation font) fires it as usual.
 - `getViewState()` / `setViewState()` read and set the diagram-js viewbox (`x`, `y`, `width`,
   `height`); an import fits the board, never above 100% and never below 0.1% (a board too wide to
   show whole at 0.1% is centred there instead).
@@ -247,6 +259,24 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
   arrow's annotation, and is `undefined` for a board without elements, before the first import and
   after `destroy()`. The modeler shell's `connectDiagramJs(shell, diagram, { modeler })` fits to
   it. The viewer answers it too.
+- `interaction` (contract 1.5) tells a host whether the user holds a gesture: `active()` is true
+  from the moment diagram-js starts a drag (a move, resize, connect or lasso past the threshold, a
+  create, an append or a paste at once, also while its preview is still over the palette) and
+  while a drawing's point drag moves, until the drop or the cancel (Escape, or an import). A
+  palette tool that only waits for its next press (the lasso, the draw tool) and a pan of the empty
+  canvas are no gesture; a line the draw tool holds point by point is not reported either, since
+  what an import does to it is still open
+  ([#243](https://github.com/Miragon/modeler-suite/issues/243)). `onChange(cb)` reports each
+  change once, with `active()` already returning the new value; nothing is reported after
+  `destroy()`. The viewer's is always false.
+- `appearance` (contract 1.5) lists the modes the board draws, `themes: ["light"]`
+  (`EVENT_STORMING_THEMES`, the same constant both apps and the VS Code theme bridge read), and
+  takes the host's request: `set({ theme, contrast })` writes `data-cd-theme="light"` (a theme the
+  board does not draw falls back to it) and, for `contrast: "high"`, `data-cd-kontrast="hoch"` on
+  the `.event-storming-container`, so the board stays light on a dark page and takes the contrast
+  the host asked for, also when the page has another. It is view state: no change event, the
+  same `exportText()` and SVG, the view, the selection, the undo history and an open label editor
+  untouched. Until the first `set` the board takes its mode from the page, as before.
 - New sticky ids are random: a sticky created on the canvas (palette, keyboard, append, paste) gets
   `<prefix>_<8 characters of [0-9a-z]>`, such as `(id event_k3x9q2ab)`, so two peers that each add
   one at the same time do not pick the same id. Ids already in a text are read as they are.

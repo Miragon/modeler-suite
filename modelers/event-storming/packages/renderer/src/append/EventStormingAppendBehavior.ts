@@ -1,6 +1,7 @@
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type { Injector } from "didi";
 import { POPUP_PROVIDER_ID } from "../popup/index.js";
+import { STICKY_STYLES } from "../draw/styles.js";
 
 interface ConnectionPreviewLike {
   drawPreview(context: object, canConnect: unknown, hints: object): void;
@@ -33,10 +34,21 @@ interface SourceShape {
 }
 
 interface CreatedShape {
+  id?: string;
+  eventStormingType?: string;
+  eventStormingLabel?: string;
   /** Blank append sticky awaiting its kind — see EventStormingElementFactory.createProvisional. */
   provisional?: boolean;
   /** Unset again once the shape leaves the canvas (e.g. undo of the create). */
   parent?: object | null;
+}
+
+interface ElementRegistryLike {
+  get(id: string): unknown;
+}
+
+interface GesturesLike {
+  holdDrop(): () => void;
 }
 
 interface CreateEvent {
@@ -56,6 +68,9 @@ const AFTER_CREATE = 500;
 /** Gap (px) between the placed sticky's bottom edge and the kind-chooser popup. */
 const CHOOSER_GAP = 6;
 
+/** The kind a blank append sticky holds until the user picks one (`createProvisional`). */
+const PLACEHOLDER_KIND = "event";
+
 /**
  * Behavior for "append sticky" (`create.start` with `context.source`):
  *  1. LIVE arrow preview from the source to the cursor (analogous to diagram-js ConnectPreview,
@@ -65,6 +80,13 @@ const CHOOSER_GAP = 6;
  *     chain). Dismissing the popup without choosing removes the blank sticky (and thereby its
  *     auto-arrow) again.
  * Both only when `context.source` is set; ordinary palette-create stays untouched.
+ *
+ * The step after the placement belongs to the drop (`eventStormingGestures.holdDrop`): a host that
+ * imports from the change listener of the create waits for it, so the popup or the editor opens
+ * on the sticky the user placed. The import then replaces that sticky, and the popup reopens on
+ * the sticky with its id while that one is still blank (contract L1, keep and reopen). A host
+ * that echoes the retype replaces the sticky again before the label editor opens, so the editor
+ * opens on the sticky with that id.
  */
 export default class EventStormingAppendBehavior {
   static $inject = ["injector", "eventBus"];
@@ -81,6 +103,8 @@ export default class EventStormingAppendBehavior {
     const popupMenu = injector.get("popupMenu", false) as PopupMenuLike | null;
     const modeling = injector.get("modeling", false) as ModelingLike | null;
     const canvas = injector.get("canvas", false) as CanvasLike | null;
+    const elementRegistry = injector.get("elementRegistry", false) as ElementRegistryLike | null;
+    const gestures = injector.get("eventStormingGestures", false) as GesturesLike | null;
 
     // The chain steps run deferred (setTimeout) — after a teardown they must become no-ops
     // instead of executing commands on a destroyed diagram.
@@ -141,12 +165,53 @@ export default class EventStormingAppendBehavior {
           if (shape.provisional) {
             // Dismissed without choosing: the blank sticky goes away, its auto-arrow with it —
             // unless something else (e.g. undo of the create) already removed it.
-            if (shape.parent) modeling.removeElements([shape]);
+            if (shape.parent) {
+              modeling.removeElements([shape]);
+              return;
+            }
+            const replacement = blankReplacementOf(shape);
+            if (replacement) reopenKindChooser(replacement);
             return;
           }
-          labelEditing?.activate(shape);
+          // A host that echoes the retype imports inside its change listener, before this runs.
+          const named = shape.parent ? shape : replacementOf(shape);
+          if (named) labelEditing?.activate(named);
         }, 0);
       });
+    };
+
+    /** The sticky an import put on the board in the place of `shape`: the same id. */
+    const replacementOf = (shape: CreatedShape): CreatedShape | undefined => {
+      if (shape.id === undefined) return undefined;
+      const element = elementRegistry?.get(shape.id) as CreatedShape | undefined;
+      return element && element !== shape && element.parent ? element : undefined;
+    };
+
+    /**
+     * The sticky an import put in the place of `shape`: the same id, and still the blank event the
+     * placeholder exports as (its empty label is written as the kind's default name), so nobody
+     * has given it a kind or a label meanwhile.
+     */
+    const blankReplacementOf = (shape: CreatedShape): CreatedShape | undefined => {
+      const element = replacementOf(shape);
+      if (!element) return undefined;
+      const label = element.eventStormingLabel ?? "";
+      const blank =
+        element.eventStormingType === PLACEHOLDER_KIND &&
+        (label === "" || label === STICKY_STYLES[PLACEHOLDER_KIND].label);
+      return blank ? element : undefined;
+    };
+
+    /**
+     * Back to the placeholder the user placed. The empty label exports as the default name it
+     * came back with, so the document stays as imported, and the label editor that follows the
+     * kind opens empty, as it does without the import.
+     */
+    const reopenKindChooser = (shape: CreatedShape) => {
+      shape.provisional = true;
+      shape.eventStormingLabel = "";
+      eventBus.fire("element.changed", { element: shape });
+      openKindChooser(shape);
     };
 
     // (2) post-placement chain: provisional stickies get the kind chooser first (label editing
@@ -155,6 +220,14 @@ export default class EventStormingAppendBehavior {
       const { context } = event;
       if (!context.source || !context.canExecute || !context.shape) return;
       const shape = context.shape;
+      const release = gestures?.holdDrop();
+      const afterDrop = (step: () => void) => () => {
+        try {
+          step();
+        } finally {
+          release?.();
+        }
+      };
       if (shape.provisional && popupMenu && modeling && canvas) {
         // Open only after render/cleanup — like the label edit below, plus the create's own
         // commandStack.changed would auto-close a popup opened synchronously.
@@ -167,18 +240,30 @@ export default class EventStormingAppendBehavior {
           const openAfterClick = () => {
             document.removeEventListener("click", openAfterClick, true);
             clearTimeout(fallback);
-            setTimeout(() => openKindChooser(shape), 0);
+            setTimeout(
+              afterDrop(() => openKindChooser(shape)),
+              0,
+            );
           };
           document.addEventListener("click", openAfterClick, true);
           const fallback = setTimeout(openAfterClick, 300);
           return;
         }
-        setTimeout(() => openKindChooser(shape), 0);
+        setTimeout(
+          afterDrop(() => openKindChooser(shape)),
+          0,
+        );
         return;
       }
-      if (!labelEditing) return;
+      if (!labelEditing) {
+        release?.();
+        return;
+      }
       // Activate only after render/cleanup so the editor is positioned correctly.
-      setTimeout(() => labelEditing.activate(shape), 0);
+      setTimeout(
+        afterDrop(() => labelEditing.activate(shape)),
+        0,
+      );
     });
   }
 }

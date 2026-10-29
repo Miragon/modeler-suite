@@ -2,6 +2,7 @@ import "./zod-jitless.js";
 import "@fontsource-variable/geist/wght.css";
 import "@fontsource-variable/geist-mono/wght.css";
 import {
+  EVENT_STORMING_THEMES,
   boardMenu,
   boardShortcuts,
   createCollaborativeModeler,
@@ -26,7 +27,6 @@ import {
   readShellState,
 } from "@miragon/modeler-shell/vscode/webview";
 import type { HostToWebview, WebviewCommand, WebviewToHost } from "../protocol.js";
-import { WEBVIEW_THEMES } from "../themes.js";
 import { boardToPng } from "./io.js";
 import { readTypeCaptionsVisible, writeTypeCaptionsVisible } from "./state.js";
 
@@ -103,7 +103,7 @@ const menuActions: BoardMenuActions = {
 };
 
 const shell = mountVsCodeShell(app, {
-  themes: WEBVIEW_THEMES,
+  themes: EVENT_STORMING_THEMES,
   canvas: modeler.container,
   messages: { canvas: BOARD_NAME },
   menu: boardMenu(menuActions),

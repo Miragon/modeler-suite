@@ -29,7 +29,7 @@ export { parseNoteMarkdown, serializeNoteMarkdown, plainNoteText } from "./draw/
 export type { NoteLine, NoteRun } from "./draw/note-markdown.js";
 
 /* Miragon brand tokens (single source of truth for colour) — for consumers theming their own chrome. */
-export { MIRAGON } from "./theme/index.js";
+export { MIRAGON, EVENT_STORMING_THEMES } from "./theme/index.js";
 export {
   ioModule,
   EventStormingImporter,

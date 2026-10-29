@@ -6,6 +6,7 @@ import "@fontsource-variable/geist-mono/wght.css";
 import "@miragon/event-storming-renderer/assets/event-storming.css";
 import "@miragon/modeler-shell/shell.css";
 import {
+  EVENT_STORMING_THEMES,
   Modeler,
   boardMenu,
   boardShortcuts,
@@ -45,7 +46,6 @@ import { openErrorText } from "./open-error.js";
 import { readTypeCaptionsVisible, writeTypeCaptionsVisible } from "./preferences.js";
 import { importWarningsText, problemItems } from "./problems.js";
 import { hashHoldsBoard, readHashMap, shareUrl, writeHashMap } from "./share.js";
-import { THEMES } from "./themes.js";
 
 interface DiagramElement {
   id: string;
@@ -133,7 +133,8 @@ const shell = mountShell(app, {
   canvas: modeler.container,
   lang: "en",
   platform,
-  themes: THEMES,
+  // Light only until the joint dark-mode release: no Appearance group (guide §13.3).
+  themes: EVENT_STORMING_THEMES,
   messages: { canvas: BOARD_NAME },
   primary: { onSelect: () => share() },
   legal: { links: [{ label: "GitHub", href: REPOSITORY_URL }] },

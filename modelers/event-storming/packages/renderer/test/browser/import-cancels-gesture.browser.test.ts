@@ -14,18 +14,18 @@ import {
   Modeler,
   type CollaborativeEventStormingModeler,
 } from "../../src/index.js";
-import { isEventStormingShape, type EventStormingShape } from "../../src/model/di-types.js";
+import { isEventStormingShape } from "../../src/model/di-types.js";
 import type EventStormingLabelEditing from "../../src/label-editing/EventStormingLabelEditing.js";
-
-const BOARD = `title Gestures
-level design
-line [[40, 480], [360, 480], [360, 620]]
-command Place Order [200, 200]
-event Order Placed [500, 200]
-policy Reserve Stock [800, 200]
-note Agenda [560, 520] (size 200x120)
-Place Order -> Order Placed
-`;
+import {
+  GESTURE_BOARD as BOARD,
+  centre,
+  offset,
+  pointerOn,
+  service,
+  shapeOf,
+  sticky,
+  type Point,
+} from "./support/gestures.js";
 
 // A peer moved the policy: the import replaces every shape a running gesture holds.
 const REMOTE = BOARD.replace("policy Reserve Stock [800, 200]", "policy Reserve Stock [840, 260]");
@@ -35,11 +35,6 @@ const REMOTE_ANNOTATED = REMOTE.replace(
   "Place Order -> Order Placed",
   "Place Order -> Order Placed; async",
 );
-
-interface Point {
-  x: number;
-  y: number;
-}
 
 const mounted: CollaborativeEventStormingModeler[] = [];
 const plainModelers: Modeler[] = [];
@@ -85,72 +80,6 @@ function changesOf(modeler: CollaborativeEventStormingModeler): () => number {
   modeler.onContentChanged(() => (changes += 1));
   return () => changes;
 }
-
-function service<T>(modeler: CollaborativeEventStormingModeler, name: string): T {
-  return modeler.diagram.get<T>(name);
-}
-
-function shapeOf(
-  modeler: CollaborativeEventStormingModeler,
-  matches: (shape: EventStormingShape) => boolean,
-): EventStormingShape {
-  const shape = service<ElementRegistry>(modeler, "elementRegistry").find(
-    (element) => isEventStormingShape(element) && matches(element),
-  );
-  if (!shape) throw new Error("the board has no such shape");
-  return shape as EventStormingShape;
-}
-
-const sticky = (modeler: CollaborativeEventStormingModeler, id: string) =>
-  shapeOf(modeler, (shape) => shape.id === id);
-
-const centre = (shape: Shape): Point => ({
-  x: shape.x + shape.width / 2,
-  y: shape.y + shape.height / 2,
-});
-
-/** Synthetic mouse events at board coordinates, as diagram-js receives them from a real pointer. */
-function pointerOn(modeler: CollaborativeEventStormingModeler) {
-  const canvas = service<Canvas>(modeler, "canvas");
-  const svg = canvas.getContainer().querySelector("svg")!;
-  const client = (point: Point) => {
-    const rect = canvas.getContainer().getBoundingClientRect();
-    const viewbox = canvas.viewbox();
-    return {
-      clientX: rect.left + (point.x - viewbox.x) * viewbox.scale,
-      clientY: rect.top + (point.y - viewbox.y) * viewbox.scale,
-    };
-  };
-  const fire = (type: string, target: EventTarget, point: Point, init: MouseEventInit = {}) =>
-    target.dispatchEvent(
-      new MouseEvent(type, {
-        bubbles: true,
-        cancelable: true,
-        button: 0,
-        ...client(point),
-        ...init,
-      }),
-    );
-  return {
-    svg,
-    graphicsOf: (element: Element) =>
-      service<ElementRegistry>(modeler, "elementRegistry").getGraphics(element),
-    press: (target: EventTarget, point: Point, init?: MouseEventInit) =>
-      fire("mousedown", target, point, init),
-    click: (target: EventTarget, point: Point) => fire("click", target, point, { detail: 1 }),
-    /** Hover first: diagram-js takes a drag's drop target from the hover events. */
-    moveTo(point: Point, over: EventTarget = svg) {
-      fire("mouseover", over, point);
-      fire("mousemove", over, point);
-    },
-    release: (point: Point, over: EventTarget = svg) => fire("mouseup", over, point),
-  };
-}
-
-const offset = (point: Point, dx: number, dy: number): Point => ({
-  x: point.x + dx,
-  y: point.y + dy,
-});
 
 function expectNothingApplied(
   modeler: CollaborativeEventStormingModeler,
@@ -467,6 +396,45 @@ function reimportOnFirstChange(
   return () => reimport;
 }
 
+/**
+ * A host that echoes every change back, each import started once the one before has settled (the
+ * contract defines no overlapping imports): the first echo of a drop runs inside it.
+ */
+function echoEveryChange(modeler: CollaborativeEventStormingModeler) {
+  const imports: Promise<unknown>[] = [];
+  let pending: Promise<unknown> | undefined;
+  modeler.onContentChanged(() => {
+    const text = modeler.exportText();
+    const run = () => modeler.importText(text);
+    const next = pending ? pending.then(run, run) : run();
+    pending = next;
+    imports.push(next);
+    void next.then(
+      () => (pending = pending === next ? undefined : pending),
+      () => (pending = pending === next ? undefined : pending),
+    );
+  });
+  return {
+    started: () => imports.length,
+    settled: () => Promise.all(imports),
+  };
+}
+
+const appendEntry = (modeler: CollaborativeEventStormingModeler) =>
+  modeler.diagram.container.querySelector('.djs-context-pad [data-action="append"]')!;
+
+/** An append from Order Placed, placed with a press at `free`; the trailing click is the caller's. */
+function pressAppend(modeler: CollaborativeEventStormingModeler, free: Point) {
+  const pointer = pointerOn(modeler);
+  const source = sticky(modeler, "event_order_placed");
+  service<Selection>(modeler, "selection").select(source);
+  pointer.click(appendEntry(modeler), centre(source));
+  pointer.moveTo(offset(free, -40, -20));
+  pointer.moveTo(free);
+  pointer.press(pointer.svg, free);
+  return { pointer, placed: shapeOf(modeler, (shape) => shape.provisional === true) };
+}
+
 function dragEndingsOf(modeler: CollaborativeEventStormingModeler) {
   const endings = { ended: 0, canceled: 0 };
   const eventBus = service<EventBus>(modeler, "eventBus");
@@ -613,6 +581,260 @@ describe("an import from inside the change listener of the label commit a press 
     expect(changes()).toBe(2);
     expect(resizeStarts).toBe(1);
     expect(modeler.exportText()).toContain("note XY [580, 530] (size 240x140)");
+  });
+});
+
+// A peer deleted the event the user moves: the import removes the moved sticky.
+const WITHOUT_ORDER_PLACED = BOARD.replace("event Order Placed [500, 200]\n", "").replace(
+  "Place Order -> Order Placed\n",
+  "",
+);
+
+const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe("an import from inside the change listener of a drop waits for the drop (#248)", () => {
+  it.each([
+    ["the moved sticky", "event_order_placed"],
+    ["another sticky", "policy_reserve_stock"],
+  ])(
+    "ends a move as a drop when %s was selected before the drag",
+    async (_, selectedBeforeDrag) => {
+      const modeler = await editorWithBoard();
+      const pointer = pointerOn(modeler);
+      const changes = changesOf(modeler);
+      const endings = dragEndingsOf(modeler);
+      let reimport: Promise<unknown> | undefined;
+      modeler.onContentChanged(() => {
+        reimport ??= modeler.importText(WITHOUT_ORDER_PLACED);
+      });
+      service<Selection>(modeler, "selection").select(sticky(modeler, selectedBeforeDrag));
+      const event = sticky(modeler, "event_order_placed");
+      const start = centre(event);
+
+      pointer.press(pointer.graphicsOf(event), start);
+      pointer.moveTo(offset(start, 20, 10));
+      pointer.moveTo(offset(start, 60, 40));
+      pointer.release(offset(start, 60, 40));
+
+      // Every listener of the drop ran on the board it changed; the import comes after it.
+      expect(uncaught).toEqual([]);
+      expect(endings).toEqual({ ended: 1, canceled: 0 });
+      expect(reimport).toBeDefined();
+      expect(centre(sticky(modeler, "event_order_placed"))).toEqual(offset(start, 60, 40));
+
+      await expect(reimport).resolves.toBeDefined();
+      expect(uncaught).toEqual([]);
+      expect(changes()).toBe(1);
+      expect(modeler.exportText()).toBe(WITHOUT_ORDER_PLACED);
+      const registry = service<ElementRegistry>(modeler, "elementRegistry");
+      for (const selected of service<Selection>(modeler, "selection").get() as Element[]) {
+        expect(registry.get(selected.id)).toBe(selected);
+      }
+      service<Modeling>(modeler, "modeling").moveElements(
+        [sticky(modeler, "policy_reserve_stock") as Shape],
+        { x: 20, y: 0 },
+      );
+      expect(changes()).toBe(2);
+    },
+  );
+
+  it("opens the kind chooser of an append on the placed sticky, and again on the echoed one", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const changes = changesOf(modeler);
+    const reimport = reimportOnFirstChange(modeler);
+    const registry = service<ElementRegistry>(modeler, "elementRegistry");
+    const choosers: { target: unknown; onTheBoard: boolean; imported: boolean }[] = [];
+    let imported = false;
+    service<EventBus>(modeler, "eventBus").on(
+      "popupMenu.open.allowed",
+      (event: { target: { id: string } }) => {
+        choosers.push({
+          target: event.target,
+          onTheBoard: registry.get(event.target.id) === event.target,
+          imported,
+        });
+      },
+    );
+    const source = sticky(modeler, "event_order_placed");
+    service<Selection>(modeler, "selection").select(source);
+    const entry = modeler.diagram.container.querySelector(
+      '.djs-context-pad [data-action="append"]',
+    )!;
+    const free = { x: 700, y: 400 };
+
+    pointer.click(entry, centre(source));
+    pointer.moveTo(offset(free, -40, -20));
+    pointer.moveTo(free);
+    pointer.press(pointer.svg, free);
+    const placed = shapeOf(modeler, (shape) => shape.provisional === true);
+    void reimport()?.then(() => (imported = true));
+    pointer.release(free);
+    pointer.click(pointer.svg, free);
+
+    await expect(reimport()).resolves.toBeDefined();
+    await nextTask();
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(1);
+    const echoed = sticky(modeler, placed.id);
+    expect(echoed).not.toBe(placed);
+    expect(echoed.provisional).toBe(true);
+    // First on the sticky the user placed, before the import; then on its echo.
+    expect(
+      choosers.map(({ target, onTheBoard, imported: afterImport }) => ({
+        placed: target === placed,
+        echoed: target === echoed,
+        onTheBoard,
+        afterImport,
+      })),
+    ).toEqual([
+      { placed: true, echoed: false, onTheBoard: true, afterImport: false },
+      { placed: false, echoed: true, onTheBoard: true, afterImport: true },
+    ]);
+    const popup = modeler.diagram.container.querySelector(".djs-popup");
+    expect(popup).not.toBe(null);
+
+    popup!
+      .querySelector('[data-id="kind-policy"]')!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await nextTask();
+    expect(changes()).toBe(2);
+    expect(echoed.eventStormingType).toBe("policy");
+    expect(echoed.provisional).toBeUndefined();
+    expect(modeler.diagram.container.querySelector(".event-storming-label-input")).not.toBe(null);
+  });
+
+  it("keeps the name typed after the kind of an append is picked, with a host that echoes every change", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const echo = echoEveryChange(modeler);
+    const free = { x: 700, y: 400 };
+
+    const { pointer, placed } = pressAppend(modeler, free);
+    pointer.release(free);
+    pointer.click(pointer.svg, free);
+    await echo.settled();
+    await nextTask();
+    modeler.diagram.container
+      .querySelector('.djs-popup [data-id="kind-policy"]')!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await echo.settled();
+    await nextTask();
+
+    const field = modeler.diagram.container.querySelector<HTMLTextAreaElement>(
+      ".event-storming-label-input",
+    );
+    expect(field).not.toBe(null);
+    field!.value = "Reserve More Stock";
+    field!.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }),
+    );
+    await echo.settled();
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(3);
+    expect(echo.started()).toBe(3);
+    const named = sticky(modeler, placed.id);
+    expect(named.eventStormingType).toBe("policy");
+    expect(named.eventStormingLabel).toBe("Reserve More Stock");
+    expect(modeler.exportText()).toContain("policy Reserve More Stock [");
+  });
+
+  it("reports an undo while the step of an append holds the drop, and the waiting import keeps it", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const echo = echoEveryChange(modeler);
+    const free = { x: 700, y: 400 };
+
+    const { pointer } = pressAppend(modeler, free);
+    pointer.release(free);
+    expect(echo.started()).toBe(1);
+    expect(modeler.exportText()).not.toBe(BOARD);
+
+    service<CommandStack>(modeler, "commandStack").undo();
+    expect(changes()).toBe(2);
+    expect(modeler.exportText()).toBe(BOARD);
+    pointer.click(pointer.svg, free);
+    await echo.settled();
+    await nextTask();
+
+    expect(uncaught).toEqual([]);
+    expect(echo.started()).toBe(2);
+    expect(modeler.exportText()).toBe(BOARD);
+  });
+
+  it("applies a drawing's point drop before the import, which waits for the drop's listeners", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const changes = changesOf(modeler);
+    const reimport = reimportOnFirstChange(modeler);
+    const drawing = shapeOf(modeler, (shape) => shape.eventStormingType === "drawing");
+    const registry = service<ElementRegistry>(modeler, "elementRegistry");
+    const boardInTheDrop: boolean[] = [];
+    service<EventBus>(modeler, "eventBus").on("commandStack.changed", () =>
+      boardInTheDrop.push(registry.get(drawing.id) === drawing),
+    );
+    service<Selection>(modeler, "selection").select(drawing);
+    const handle = modeler.diagram.container.querySelector(".event-storming-drawing-handle")!;
+    const first = { x: 40, y: 480 };
+
+    pointer.press(handle, first);
+    pointer.moveTo(offset(first, 30, -40));
+    pointer.release(offset(first, 30, -40));
+    const dropped = modeler.exportText();
+    expect(dropped).not.toBe(BOARD);
+    expect(boardInTheDrop).toEqual([true]);
+
+    await expect(reimport()).resolves.toBeDefined();
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).toBe(dropped);
+  });
+
+  it("rejects an import waiting for the step of an append when the modeler is destroyed", async () => {
+    const modeler = await editorWithBoard();
+    const reimport = reimportOnFirstChange(modeler);
+    const free = { x: 700, y: 400 };
+
+    const { pointer } = pressAppend(modeler, free);
+    pointer.release(free);
+    expect(reimport()).toBeDefined();
+    modeler.destroy();
+
+    await expect(reimport()).rejects.toThrow(/destroyed/);
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(uncaught).toEqual([]);
+  });
+
+  it("lets an import run after a drop whose cleanup throws, with the gesture ended", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const endings = dragEndingsOf(modeler);
+    const failure = new Error("a cleanup listener failed");
+    service<EventBus>(modeler, "eventBus").on("drag.cleanup", () => {
+      throw failure;
+    });
+    let reimport: Promise<unknown> | undefined;
+    modeler.onContentChanged(() => {
+      reimport ??= modeler.importText(WITHOUT_ORDER_PLACED);
+    });
+    const event = sticky(modeler, "event_order_placed");
+    const start = centre(event);
+
+    pointer.press(pointer.graphicsOf(event), start);
+    pointer.moveTo(offset(start, 20, 10));
+    pointer.moveTo(offset(start, 60, 40));
+    pointer.release(offset(start, 60, 40));
+    expect(endings).toEqual({ ended: 0, canceled: 0 });
+    expect(reimport).toBeDefined();
+    expect(modeler.exportText()).not.toBe(WITHOUT_ORDER_PLACED);
+
+    await expect(reimport).resolves.toBeDefined();
+    await nextTask();
+    expect(uncaught).toEqual([failure]);
+    expect(modeler.interaction.active()).toBe(false);
+    expect(modeler.exportText()).toBe(WITHOUT_ORDER_PLACED);
   });
 });
 

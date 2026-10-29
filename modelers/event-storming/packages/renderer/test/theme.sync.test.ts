@@ -202,7 +202,7 @@ describe("theme.sync — event-storming.css wires the vendored design-system fil
     expect(paletteSelectors.length).toBeGreaterThan(5);
     for (const selector of paletteSelectors) {
       expect(selector).toMatch(
-        /^(:root\[data-cd-kontrast="hoch"\] )?\.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
+        /^(:scope )?\.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
       );
     }
   });

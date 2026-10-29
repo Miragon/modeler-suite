@@ -9,7 +9,7 @@ import { parseDSLWithDiagnostics } from "@miragon/event-storming-dsl";
 import type { EventStormingBoard } from "@miragon/event-storming-schema-model";
 import { formatVsCodeSmoke, runVsCodeSmoke } from "@miragon/modeler-shell/testing/vscode-electron";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { WEBVIEW_THEMES } from "../src/themes.js";
+import { EVENT_STORMING_THEMES } from "../../../packages/renderer/src/theme/themes.js";
 
 const run = promisify(execFile);
 const extensionSources = fileURLToPath(new URL("..", import.meta.url));
@@ -86,7 +86,7 @@ it(
       extensionPath: packagedExtension,
       fixture: { fileName: "smoke.storm", text: fixtureText },
       parse: savedBoardParser(parseBoard(fixtureText)),
-      themes: WEBVIEW_THEMES,
+      themes: EVENT_STORMING_THEMES,
       name: "event-storming",
       screenshotDir: screenshotDirectory,
       keepTemporaryFiles: keepVsCodeProfile,
