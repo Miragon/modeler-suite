@@ -929,6 +929,44 @@ describe("a pan is no gesture: an import leaves it running", () => {
     expect(dragPrefix()).toBe("hand");
   });
 
+  it("goes on from a view the host sets while it runs", () => {
+    armHandTool();
+    const start = client(START);
+    pointerOnCanvas(start);
+    pressForPan(start);
+    panTo(offset(start, 30));
+    panTo(offset(start, 60));
+    const { x, y, width, height } = service<Canvas>("canvas").viewbox();
+
+    editor().setViewState({ x: x + 500, y: y - 300, width: width * 2, height: height * 2 });
+    const changed = service<Canvas>("canvas").viewbox();
+    const end = { clientX: start.clientX + 100, clientY: start.clientY + 20 };
+    panTo(end);
+    const panned = service<Canvas>("canvas").viewbox();
+
+    expect(panned.x).toBeCloseTo(changed.x - 40 / changed.scale, 3);
+    expect(panned.y).toBeCloseTo(changed.y - 20 / changed.scale, 3);
+    releaseAt(end);
+    expect(dragPrefix()).toBe("hand");
+    expect(changes).toBe(0);
+  });
+
+  it("keeps the diagram under the pointer of a slow pan at a high zoom", () => {
+    const { x, y, width, height } = service<Canvas>("canvas").viewbox();
+    editor().setViewState({ x, y, width: width / 3, height: height / 3 });
+    const zoomed = service<Canvas>("canvas").viewbox();
+    const rect = service<Canvas>("canvas").getContainer().getBoundingClientRect();
+    const start = { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 };
+    armHandTool();
+    pointerOnCanvas(start);
+    pressForPan(start);
+    for (let moved = 1; moved <= 30; moved += 1) panTo(offset(start, moved));
+
+    expect(dragPrefix()).toBe("hand.move");
+    expect(Math.abs(viewboxX() - (zoomed.x - 30 / zoomed.scale))).toBeLessThanOrEqual(0.5);
+    releaseAt(offset(start, 30));
+  });
+
   it("a move drag next to a pan is still cancelled", async () => {
     const start = centreOf("step-credit");
     press(graphics(shape("step-credit")), start);
@@ -974,6 +1012,32 @@ describe("a pan is no gesture: an import leaves it running", () => {
       expect(viewboxX()).toBeCloseTo(fittedView - 31, 0);
       releaseAt(offset(start, 91));
       expect(dragPrefix()).toBe("hand");
+    });
+
+    it("moves a running pan on from the view the host restores after the import (L5)", async () => {
+      armHandTool();
+      const start = client(START);
+      pointerOnCanvas(start);
+      pressForPan(start);
+      panTo(offset(start, 30));
+      panTo(offset(start, 60));
+      const before = service<Canvas>("canvas").viewbox();
+      const snapshot = editor().getViewState();
+
+      await editor().importText(PEER_EDIT);
+      expect(Math.abs(viewboxX() - before.x)).toBeGreaterThan(50);
+      editor().setViewState(snapshot);
+      const restored = service<Canvas>("canvas").viewbox();
+      panTo(offset(start, 100));
+      const panned = service<Canvas>("canvas").viewbox();
+
+      expect(restored.x).toBeCloseTo(before.x, 3);
+      expect(restored.y).toBeCloseTo(before.y, 3);
+      expect(panned.x).toBeCloseTo(restored.x - 40 / restored.scale, 3);
+      expect(panned.y).toBeCloseTo(restored.y, 3);
+      releaseAt(offset(start, 100));
+      expect(dragPrefix()).toBe("hand");
+      expect(changes).toBe(0);
     });
 
     it("moves a pan that has not left its press yet on from the fitted view", async () => {

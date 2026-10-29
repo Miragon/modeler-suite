@@ -13,6 +13,9 @@ export const GESTURE_CHANGED_EVENT = "valueChain.gesture.changed";
 /** Ahead of every other listener of the same event. */
 const FIRST = 100_000;
 
+/** After every other listener of the same event. */
+const LAST = -100_000;
+
 const PAN_PREFIX = "hand.move";
 
 /**
@@ -69,6 +72,7 @@ export default class VcGestures {
   private activating: DragContext | null = null;
   private gesture: DragContext | null = null;
   private commandRunning = false;
+  private panScrolling = false;
   private runningHeldWork = false;
   private readonly afterUserActionQueue: (() => void)[] = [];
   private flushQueued = false;
@@ -128,10 +132,21 @@ export default class VcGestures {
       if (toolManager.isActive(GLOBAL_CONNECT_TOOL)) toolManager.setActive(null);
       return false;
     });
-    eventBus.on("import.render.done", () => {
-      this.anchorPanToView();
-      this.holdImportedSelection();
+    // The canvas runs without `deferUpdate`, so this comes at once after each change: the fit of an
+    // import, a host's `setViewState` after it (L5), a fit of the shell's viewport.
+    eventBus.on("canvas.viewbox.changed", () => {
+      if (!this.panScrolling) this.anchorPanToView();
     });
+    // The hand tool scrolls by the distance from the pan's start point, which diagram-js rounds to
+    // whole diagram units: moved after each of these scrolls, the start point would add the
+    // rounding up, and at a zoom above 200 % a slow pointer would not pan at all.
+    eventBus.on(`${PAN_PREFIX}.move`, FIRST, () => {
+      this.panScrolling = true;
+    });
+    eventBus.on(`${PAN_PREFIX}.move`, LAST, () => {
+      this.panScrolling = false;
+    });
+    eventBus.on("import.render.done", () => this.holdImportedSelection());
   }
 
   /**
@@ -265,9 +280,10 @@ export default class VcGestures {
   }
 
   /**
-   * A pan keeps the diagram point it started on under the pointer, so its next move would put the
-   * view from before an import back, undoing the import's fit. It starts again from the diagram
-   * point that now lies under the pointer (diagram-js keeps that point in the drag's context).
+   * A pan keeps the diagram point it started on under the pointer. After a view change the pan did
+   * not make, its next move would put the view from before back, undoing the fit of an import or
+   * the view a host restores after it (L5). It starts again from the diagram point that now lies
+   * under the pointer (diagram-js keeps that point in the drag's context).
    */
   private anchorPanToView(): void {
     const pan = this.context();
