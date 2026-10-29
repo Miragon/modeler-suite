@@ -1,4 +1,4 @@
-import type { Appearance, ChromeIsland } from "../../core/index.js";
+import type { Appearance, ChromeIsland, Size } from "../../core/index.js";
 import { describeAppearance, type VsCodeColorTheme } from "./themes.js";
 
 /** The steps of a run, in order; `total` spans all of them. */
@@ -12,6 +12,9 @@ export const VSCODE_SMOKE_STEPS = [
   "themes",
   "keys",
   "history",
+  "motion",
+  "hidden",
+  "reload",
   "close",
 ] as const;
 
@@ -68,6 +71,48 @@ export interface VsCodeSmokeHistoryResult {
   afterUndo?: VsCodeSmokeHistoryView | undefined;
 }
 
+/** What the motion step saw (0.8): how many views the canvas showed while Shift+1 fit it. */
+export interface VsCodeSmokeMotionResult {
+  /** With `workbench.reduceMotion` "on", the view before the fit included: a jump shows 2. */
+  reducedFitViews?: number | undefined;
+  /** With the setting "off" again, only for comparison: a glide shows many, a slow machine fewer. */
+  enabledFitViews?: number | undefined;
+}
+
+/** What the hidden step saw (0.8). */
+export interface VsCodeSmokeHiddenResult {
+  /** The view and the selection before another editor hid the modeler's. */
+  before?: VsCodeSmokeHistoryView | undefined;
+  /** The color theme the step switched to while the modeler's tab was hidden. */
+  theme?: string | undefined;
+  /** Every size the canvas container reported while hidden; none when VS Code left it alone. */
+  sizesWhileHidden: Size[];
+  /** Once the tab came back; missing when it did not. */
+  afterReturn?: VsCodeSmokeHistoryView | undefined;
+}
+
+/** The editor at one moment of the reload step. */
+export interface VsCodeSmokeReloadView {
+  /** The zoom in percent. */
+  zoom: number;
+  /** VS Code calls the document changed. */
+  dirty: boolean;
+  /** Whether the legend is open; missing for a modeler without one. */
+  legendOpen?: boolean | undefined;
+}
+
+/** What the reload step saw (0.8). */
+export interface VsCodeSmokeReloadResult {
+  /** Right before Developer: Reload Window, once the webview had stored its state. */
+  before?: VsCodeSmokeReloadView | undefined;
+  /** Once the editor showed again; missing when it did not. */
+  after?: VsCodeSmokeReloadView | undefined;
+  /** The new webview started with reduced motion, as the setting asked; missing when not checked. */
+  reducedMotionAtStart?: boolean | undefined;
+  /** The legend has no menu entry (`menuEntry: false`), so its stored state was not checked. */
+  legendWithoutMenuEntry?: boolean | undefined;
+}
+
 export interface VsCodeSmokeResult {
   /** No failure. */
   ok: boolean;
@@ -90,6 +135,12 @@ export interface VsCodeSmokeResult {
   keys?: VsCodeSmokeKeysResult | undefined;
   /** The history step's observations; missing when the step did not run. */
   history?: VsCodeSmokeHistoryResult | undefined;
+  /** The motion step's observations; missing when the step did not run. */
+  motion?: VsCodeSmokeMotionResult | undefined;
+  /** The hidden step's observations; missing when the step did not run. */
+  hidden?: VsCodeSmokeHiddenResult | undefined;
+  /** The reload step's observations; missing when the step did not run. */
+  reload?: VsCodeSmokeReloadResult | undefined;
   timings: VsCodeSmokeTimings;
 }
 
@@ -160,6 +211,52 @@ export function describeHistory(history: VsCodeSmokeHistoryResult): string {
   );
 }
 
+function count(value: number | undefined): string {
+  return value === undefined ? "?" : String(value);
+}
+
+/** One line of what the motion step saw: the views of a fit under reduced motion and without. */
+export function describeMotion(motion: VsCodeSmokeMotionResult): string {
+  return (
+    `a fit showed ${count(motion.reducedFitViews)} views under reduced motion, ` +
+    `${count(motion.enabledFitViews)} without`
+  );
+}
+
+function sizes(list: readonly Size[]): string {
+  if (list.length === 0) return "no resize";
+  return `resized to ${list.map((size) => `${size.width} × ${size.height}`).join(", ")}`;
+}
+
+/** One line of what the hidden step saw: the view before, while hidden and once back. */
+export function describeHidden(hidden: VsCodeSmokeHiddenResult): string {
+  const view = (entry: VsCodeSmokeHistoryView | undefined) =>
+    entry ? `${entry.zoom}% with ${entry.selected} selected` : "?";
+  return (
+    `view ${view(hidden.before)}, hidden under ${hidden.theme ?? "?"} ` +
+    `(${sizes(hidden.sizesWhileHidden)}), back at ${view(hidden.afterReturn)}`
+  );
+}
+
+/** One line of what the reload step saw: the editor before Developer: Reload Window and after it. */
+export function describeReload(reload: VsCodeSmokeReloadResult): string {
+  const view = (entry: VsCodeSmokeReloadView | undefined) => {
+    if (!entry) return "?";
+    const details = [entry.dirty ? "unsaved" : "saved"];
+    if (entry.legendOpen !== undefined)
+      details.push(`legend ${entry.legendOpen ? "open" : "closed"}`);
+    return `${entry.zoom}% (${details.join(", ")})`;
+  };
+  const motion =
+    reload.reducedMotionAtStart === undefined
+      ? ""
+      : `, ${reload.reducedMotionAtStart ? "with" : "without"} reduced motion at start`;
+  const legend = reload.legendWithoutMenuEntry
+    ? ", the legend not checked: it has no menu entry"
+    : "";
+  return `view ${view(reload.before)} before, ${view(reload.after)} after${motion}${legend}`;
+}
+
 /** A few lines for the test log: version, timings, every theme and the failures. */
 export function formatVsCodeSmoke(result: VsCodeSmokeResult): string {
   const head = [
@@ -182,6 +279,9 @@ export function formatVsCodeSmoke(result: VsCodeSmokeResult): string {
   );
   const keys = result.keys ? [`  keys: ${describeKeys(result.keys)}`] : [];
   const history = result.history ? [`  history: ${describeHistory(result.history)}`] : [];
+  const motion = result.motion ? [`  motion: ${describeMotion(result.motion)}`] : [];
+  const hidden = result.hidden ? [`  hidden: ${describeHidden(result.hidden)}`] : [];
+  const reload = result.reload ? [`  reload: ${describeReload(result.reload)}`] : [];
   const failures = result.failures.map((failure) => `  - ${failure}`);
   return [
     head,
@@ -189,6 +289,9 @@ export function formatVsCodeSmoke(result: VsCodeSmokeResult): string {
     ...themes,
     ...keys,
     ...history,
+    ...motion,
+    ...hidden,
+    ...reload,
     ...(failures.length > 0 ? ["failures:", ...failures] : []),
   ].join("\n");
 }

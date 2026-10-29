@@ -1,4 +1,4 @@
-import { describeCanvas, sameCanvas, similarCanvas } from "./canvas-facts.js";
+import { describeCanvas, sameCanvas, showsEdit } from "./canvas-facts.js";
 import type { PlatformKeys } from "./launch.js";
 import type { VsCodeSmokeHistoryResult, VsCodeSmokeHistoryView } from "./result.js";
 import { delay, pollUntil } from "./wait.js";
@@ -210,12 +210,10 @@ export async function checkHistory(
     for (let step = 0; step < options.steps; step++) await session.press(chord);
   };
 
-  // An edit that moved no shape by more than the tolerance would let a redo that did nothing pass.
-  const showsEdit = similarCanvas(options.original, options.edited) ? sameCanvas : similarCanvas;
   await pressSteps(redo);
   const redone = await pollUntil(
     () => session.canvas(),
-    (facts) => showsEdit(facts, options.edited),
+    showsEdit(options.original, options.edited),
     options.canvasTimeoutMs,
     options.intervalMs,
   );

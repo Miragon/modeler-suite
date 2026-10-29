@@ -36,9 +36,13 @@ export {
 } from "./launch.js";
 export type {
   ChromePresence,
+  VsCodeSmokeHiddenResult,
   VsCodeSmokeHistoryResult,
   VsCodeSmokeHistoryView,
   VsCodeSmokeKeysResult,
+  VsCodeSmokeMotionResult,
+  VsCodeSmokeReloadResult,
+  VsCodeSmokeReloadView,
   VsCodeSmokeResult,
   VsCodeSmokeStep,
   VsCodeSmokeThemeResult,

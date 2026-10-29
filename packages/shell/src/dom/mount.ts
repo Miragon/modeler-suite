@@ -503,7 +503,7 @@ function renderShell(
   function updateLayout(): void {
     if (ledger.isClosed) return;
     const size = containerSize();
-    // A hidden tab reports 0 × 0; it neither measures nor decides anything (guide §5.9).
+    // A hidden tab may report 0 × 0; it neither measures nor decides anything then (guide §5.9).
     if (size.width === 0 || size.height === 0) return;
     const topRow = decideTopRow({
       containerWidth: size.width,

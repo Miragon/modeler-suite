@@ -6,6 +6,7 @@ import type { ProgressReport, ProgressReporter } from "@vscode/test-electron";
 import type { ElectronApplication, FrameLocator, Page } from "playwright-core";
 import {
   FIT_ANIMATION_MS,
+  REDUCED_MOTION_CLASS,
   type Appearance,
   type ChromeIsland,
   type Size,
@@ -13,8 +14,19 @@ import {
 } from "../../core/index.js";
 import { resolveInSharedCache } from "./cache.js";
 import { describeCanvas, sameCanvas } from "./canvas-facts.js";
+import { checkHidden, type HiddenSession } from "./hidden.js";
 import { checkHistory, type HistorySession } from "./history.js";
 import { checkKeys, type KeysSession } from "./keys.js";
+import {
+  REDUCE_MOTION_BODY_CLASS,
+  checkMotion,
+  workbenchMotionFor,
+  workbenchMotionOf,
+  writeWorkbenchSetting,
+  type MotionSession,
+  type ReduceMotionSetting,
+} from "./motion.js";
+import { checkReload, type ReloadSession } from "./reload.js";
 import {
   DEFAULT_WINDOW_SIZE,
   customEditorViewType,
@@ -34,8 +46,11 @@ import {
 import { extensionActivationFailures } from "./logs.js";
 import {
   SmokeFailures,
+  describeHidden,
   describeHistory,
   describeKeys,
+  describeMotion,
+  describeReload,
   missingChrome,
   sameAppearance,
   screenshotFileName,
@@ -46,9 +61,11 @@ import {
 } from "./result.js";
 import { readSaveOnceClean } from "./save.js";
 import {
+  THEME_RETRY_AFTER_MS,
   missedThemeSwitch,
   switchWorkbenchTheme,
   workbenchThemeKey,
+  workbenchThemeOf,
   type WorkbenchThemeSwitch,
 } from "./theme-switch.js";
 import {
@@ -73,20 +90,32 @@ import {
   canvasFactsProbe,
   chromeProbe,
   devicePixelRatioProbe,
+  documentMarkedProbe,
   focusCanvasProbe,
+  focusFrameProbe,
   focusCreatingEntryProbe,
   installKeyRecorderProbe,
+  installSizeRecorderProbe,
+  legendOpenProbe,
+  markDocumentProbe,
   selectedElementsProbe,
   settleProbe,
   takeKeyRecordsProbe,
+  takeSizeRecordsProbe,
+  takeViewFramesProbe,
   textSelectionProbe,
+  toggleLegendProbe,
   viewFactsProbe,
+  watchViewFramesProbe,
+  webviewFrameShownProbe,
+  webviewMotionProbe,
   webviewThemeProbe,
   workbenchClassesProbe,
   workbenchFocusProbe,
   workbenchWebviewsProbe,
   zoomReadoutProbe,
   type CanvasFacts,
+  type WebviewMotion,
   type WebviewThemeFacts,
 } from "./webview.js";
 
@@ -169,6 +198,14 @@ export interface VsCodeSmokeOptions {
    * without the option, `VSCODE_SMOKE_OPT_IN=history` in the environment turns it on.
    */
   history?: boolean | undefined;
+  /**
+   * Runs the workbench steps (0.8), last: `motion` (the modeler follows `workbench.reduceMotion`),
+   * `hidden` (an editor in a background tab keeps its state, takes no key and comes back as it was)
+   * and `reload` (Developer: Reload Window brings back the saved document, the view and the
+   * legend). Opt-in while they are new; without the option, `VSCODE_SMOKE_OPT_IN=workbench` in
+   * the environment turns them on.
+   */
+  workbench?: boolean | undefined;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -186,6 +223,8 @@ const KEY_EFFECT_TIMEOUT_MS = 5_000;
 const KEY_GRACE_MS = 300;
 /** A late refit or restore after an import moves the view within this time. */
 const VIEW_SETTLE_MS = 500;
+/** `persistView` writes the view 250 ms after it rests, and VS Code takes the state over by message. */
+const STATE_WRITE_MS = 1_000;
 const DEFAULT_CHROME: readonly ChromeIsland[] = ["menu", "palette", "zoom"];
 /** Names the screenshot of a webview that never showed, next to the theme screenshots. */
 const OPEN_FAILURE: VsCodeColorTheme = { id: "open-failure", name: "", kind: 1 };
@@ -296,6 +335,13 @@ async function defaultReady(context: VsCodeSmokeContext): Promise<void> {
   if (!shown.met) throw new Error("the canvas shows no element of the fixture");
 }
 
+/** The workbench may show other webviews; the outer frame's URL names the owning extension. */
+function webviewFrameSelector(extensionId: string | undefined): string {
+  return extensionId
+    ? `iframe.webview[src*="extensionId=${extensionId}&" i], iframe.webview[src$="extensionId=${extensionId}" i]`
+    : "iframe.webview";
+}
+
 async function settle(context: VsCodeSmokeContext): Promise<void> {
   await context.webview.locator("html").evaluate(settleProbe);
   await context.page.evaluate(settleProbe);
@@ -318,8 +364,9 @@ async function closeApplication(app: ElectronApplication): Promise<void> {
 /**
  * Starts a real VS Code with the modeler's built extension, opens `fixture` in its custom editor,
  * and checks the shell's chrome, an edit through the canvas, save, undo, and the theme bridge under
- * every color theme, with a screenshot per theme; opted in, also the zoom and selection keys and the
- * view and selection across a redo and an undo. A failed check never throws: it is in `failures`.
+ * every color theme, with a screenshot per theme; opted in, also the zoom and selection keys, the
+ * view and selection across a redo and an undo, and the workbench steps: reduced motion, a hidden
+ * tab and Developer: Reload Window. A failed check never throws: it is in `failures`.
  * Throws for unusable options (no manifest, no matching custom editor, an unbuilt extension, a file
  * name with a path, an unknown step in `VSCODE_SMOKE_OPT_IN`) and when the optional peers are
  * missing.
@@ -333,6 +380,7 @@ export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCod
   const colorThemes = options.colorThemes ?? VSCODE_COLOR_THEMES;
   const keys = options.keys ?? vsCodeSmokeOptIn(process.env).has("keys");
   const history = options.history ?? vsCodeSmokeOptIn(process.env).has("history");
+  const workbench = options.workbench ?? vsCodeSmokeOptIn(process.env).has("workbench");
   const { fileName } = options.fixture;
   if (!isPlainFileName(fileName)) {
     throw new Error(`runVsCodeSmoke: the fixture needs a plain file name, not "${fileName}"`);
@@ -449,6 +497,7 @@ export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCod
         colorThemes,
         keys,
         history,
+        workbench,
         timeoutMs,
         name: options.name ?? manifest.name ?? "modeler",
         paths: {
@@ -491,36 +540,68 @@ interface SessionRun {
   colorThemes: readonly VsCodeColorTheme[];
   keys: boolean;
   history: boolean;
+  workbench: boolean;
   timeoutMs: number;
   name: string;
   paths: VsCodeSmokePaths;
+}
+
+/** What the workbench shows and the driver last wrote into the profile's `settings.json`. */
+interface WorkbenchState {
+  /** The `workbench.colorTheme` written last. */
+  colorTheme: string;
+  /** `workbench.reduceMotion` once a step wrote it; VS Code's default `auto` before. */
+  reduceMotion?: ReduceMotionSetting | undefined;
+  /** The color theme the workbench switched to last; undefined after a switch it missed. */
+  shownTheme?: VsCodeColorTheme | undefined;
+  /** The themes the workbench showed so far, by `workbenchThemeKey`, to name the one it shows when a switch fails. */
+  shownThemes: Map<string, string>;
 }
 
 async function runSession(run: SessionRun): Promise<void> {
   const { options, step, failures, result, log, paths, timeoutMs, islands } = run;
   const original = options.fixture.text;
   const settingsFile = join(paths.userDataDir, "User", "settings.json");
-  const writeSettings = (colorTheme: string) =>
+  const startTheme = run.colorThemes[0] ?? VSCODE_COLOR_THEMES[0]!;
+  const workbenchState: WorkbenchState = {
+    colorTheme: startTheme.name,
+    shownTheme: startTheme,
+    shownThemes: new Map(),
+  };
+  const writeSettingsFile = () =>
     writeFile(
       settingsFile,
       JSON.stringify(
         vsCodeUserSettings({
-          colorTheme,
+          colorTheme: workbenchState.colorTheme,
           fileName: options.fixture.fileName,
           viewType: run.viewType,
-          extra: options.settings,
+          extra: {
+            ...(workbenchState.reduceMotion
+              ? { "workbench.reduceMotion": workbenchState.reduceMotion }
+              : {}),
+            ...options.settings,
+          },
         }),
         null,
         2,
       ),
     );
+  const writeSettings = (colorTheme: string) => {
+    workbenchState.colorTheme = colorTheme;
+    return writeSettingsFile();
+  };
+  const writeReduceMotion = (setting: ReduceMotionSetting) => {
+    workbenchState.reduceMotion = setting;
+    return writeSettingsFile();
+  };
   const readDisk = () => readFile(paths.file, "utf8");
 
   await mkdir(join(paths.userDataDir, "User"), { recursive: true });
   await mkdir(paths.extensionsDir, { recursive: true });
   await mkdir(paths.workspaceDir, { recursive: true });
   await writeFile(paths.file, original);
-  await writeSettings((run.colorThemes[0] ?? VSCODE_COLOR_THEMES[0]!).name);
+  await writeSettingsFile();
 
   let webviewErrors: WebviewErrorWatch | undefined;
   const context = await step("launch", async (): Promise<VsCodeSmokeContext> => {
@@ -541,14 +622,12 @@ async function runSession(run: SessionRun): Promise<void> {
     await app.evaluate(({ BrowserWindow }, { width, height }) => {
       BrowserWindow.getAllWindows()[0]?.setContentSize(width, height);
     }, size);
-    // The workbench may show other webviews; the outer frame's URL names the owning extension.
-    const id = run.extensionId;
-    const frame = id
-      ? page.locator(
-          `iframe.webview[src*="extensionId=${id}&" i], iframe.webview[src$="extensionId=${id}" i]`,
-        )
-      : page.locator("iframe.webview");
-    const webview = frame.first().contentFrame().locator("iframe#active-frame").contentFrame();
+    const webview = page
+      .locator(webviewFrameSelector(run.extensionId))
+      .first()
+      .contentFrame()
+      .locator("iframe#active-frame")
+      .contentFrame();
     return { page, webview, keys: platformKeys(process.platform), timeoutMs };
   });
   if (!context || !webviewErrors) return;
@@ -619,11 +698,11 @@ async function runSession(run: SessionRun): Promise<void> {
       return true;
     }));
 
-  // What the history step's redo has to bring back, read before the undo takes it away.
+  // What the redo of the history and the reload step has to bring back, read before the undo takes it away.
   let editedCanvas: CanvasFacts | undefined;
   if (saved) {
     await step("undo", async () => {
-      if (run.history) editedCanvas = await canvasFacts();
+      if (run.history || run.workbench) editedCanvas = await canvasFacts();
       for (let index = 0; index < (options.undoSteps ?? 1); index++) {
         await context.page.keyboard.press(context.keys.undo);
       }
@@ -654,18 +733,18 @@ async function runSession(run: SessionRun): Promise<void> {
   await step("themes", async () => {
     // The keyboard edit leaves the canvas focused; its focus ring would show in every screenshot.
     await html.evaluate(blurProbe);
-    const shownThemes = new Map<string, string>();
     for (const theme of run.colorThemes) {
       const checked = await checkTheme(context, theme, {
         themes: run.themes,
         islands,
         timeoutMs,
         writeSettings,
-        shownThemes,
+        shownThemes: workbenchState.shownThemes,
         log: (line) => log(`themes: ${line}`),
         screenshotDir: options.screenshotDir,
         name: run.name,
       });
+      workbenchState.shownTheme = checked.workbench.switched ? theme : undefined;
       result.themes.push(checked.result);
       for (const failure of checked.failures) failures.add("themes", failure);
       const workbench = checked.workbench.switched
@@ -695,8 +774,8 @@ async function runSession(run: SessionRun): Promise<void> {
 
   if (run.history && result.undone && editedCanvas) {
     const edited = editedCanvas;
-    // Last, so the zoom and the selection it leaves are in no screenshot, and after the keys, which
-    // leave nothing in the document that would end the redo history.
+    // After the themes, so the zoom and the selection it leaves are in no screenshot, and after the
+    // keys, which leave nothing in the document that would end the redo history.
     await step("history", async () => {
       const checked = await checkHistory(historySession(context), {
         edited,
@@ -717,6 +796,311 @@ async function runSession(run: SessionRun): Promise<void> {
         ? "history: skipped, the undo step did not bring the canvas back"
         : "history: skipped, the edit was not saved, so there was nothing to undo",
     );
+  }
+
+  if (!run.workbench) return;
+  const settings: SettingsWriter = { writeSettings, writeReduceMotion };
+  // After the history, which needs the redo the undo step left; the reload step redoes it once more.
+  await step("motion", async () => {
+    const checked = await checkMotion(motionSession(context, run, settings, "motion"), {
+      effectTimeoutMs: Math.min(KEY_EFFECT_TIMEOUT_MS, timeoutMs),
+      fitAnimationMs: FIT_ANIMATION_MS,
+      graceMs: KEY_GRACE_MS,
+      intervalMs: POLL_INTERVAL_MS,
+    });
+    result.motion = checked.result;
+    for (const failure of checked.failures) failures.add("motion", failure);
+    log(`motion: ${describeMotion(checked.result)}`);
+  });
+
+  await step("hidden", async () => {
+    const checked = await checkHidden(hiddenSession(context, run, settings, workbenchState), {
+      effectTimeoutMs: Math.min(KEY_EFFECT_TIMEOUT_MS, timeoutMs),
+      graceMs: VIEW_SETTLE_MS,
+      intervalMs: POLL_INTERVAL_MS,
+      colorThemes: run.colorThemes,
+    });
+    result.hidden = checked.result;
+    for (const failure of checked.failures) failures.add("hidden", failure);
+    log(`hidden: ${describeHidden(checked.result)}`);
+  });
+
+  if (!result.undone || !editedCanvas) {
+    log(
+      saved
+        ? "reload: skipped, the undo step did not bring the canvas back, so there is no edit to redo"
+        : "reload: skipped, the edit was not saved, so there is no edit to redo",
+    );
+    return;
+  }
+  const inFront = await pollUntil(
+    () => modelerEditorInFront(context, run),
+    (shown) => shown,
+    Math.min(KEY_EFFECT_TIMEOUT_MS, timeoutMs),
+  );
+  if (!inFront.met) {
+    log("reload: skipped, the hidden step left another editor in front of the modeler's");
+    return;
+  }
+  const canvasToRedo = editedCanvas;
+  await step("reload", async () => {
+    const checked = await checkReload(reloadSession(context, run, settings, workbenchState), {
+      edited: canvasToRedo,
+      original: before,
+      steps: options.undoSteps ?? 1,
+      canvasTimeoutMs: timeoutMs,
+      effectTimeoutMs: Math.min(KEY_EFFECT_TIMEOUT_MS, timeoutMs),
+      graceMs: VIEW_SETTLE_MS,
+      stateWriteMs: STATE_WRITE_MS,
+      fitAnimationMs: FIT_ANIMATION_MS,
+      intervalMs: POLL_INTERVAL_MS,
+    });
+    result.reload = checked.result;
+    for (const failure of checked.failures) failures.add("reload", failure);
+    log(`reload: ${describeReload(checked.result)}`);
+  });
+}
+
+/** How the workbench steps change the profile's `settings.json`, as a user's settings change would. */
+interface SettingsWriter {
+  writeSettings(colorTheme: string): Promise<void>;
+  writeReduceMotion(setting: ReduceMotionSetting): Promise<void>;
+}
+
+/** Writes `workbench.reduceMotion` and waits for `.monaco-workbench` to show it; whether it did. */
+async function applyReduceMotion(
+  context: VsCodeSmokeContext,
+  run: SessionRun,
+  settings: SettingsWriter,
+  setting: ReduceMotionSetting,
+  logPrefix: VsCodeSmokeStep,
+): Promise<boolean> {
+  const wanted = workbenchMotionFor(setting);
+  const { applied, writes } = await writeWorkbenchSetting({
+    write: () => settings.writeReduceMotion(setting),
+    applied: async () =>
+      workbenchMotionOf(await context.page.evaluate(workbenchClassesProbe)) === wanted,
+    timeoutMs: run.timeoutMs,
+    retryAfterMs: Math.min(THEME_RETRY_AFTER_MS, run.timeoutMs / 4),
+    intervalMs: POLL_INTERVAL_MS,
+  });
+  if (writes > 1) {
+    run.log(
+      `${logPrefix}: VS Code ${applied ? "applied" : "never applied"} workbench.reduceMotion "${setting}", written ${writes} times`,
+    );
+  }
+  return applied;
+}
+
+function webviewMotion(context: VsCodeSmokeContext): Promise<WebviewMotion> {
+  return context.webview
+    .locator("html")
+    .evaluate(webviewMotionProbe, { body: REDUCE_MOTION_BODY_CLASS, html: REDUCED_MOTION_CLASS });
+}
+
+async function canvasScale(context: VsCodeSmokeContext): Promise<number> {
+  return (await context.webview.locator("html").evaluate(viewFactsProbe)).scale;
+}
+
+/**
+ * Focuses the canvas `<svg>`, and first the webview's frame when the workbench's focus is elsewhere
+ * (after another editor was in front of it, or a reload), so that the keys after it reach the
+ * canvas and not VS Code's own bindings, such as its window zoom. Whether the frame and the canvas
+ * hold the focus: the `<svg>` takes it inside its own frame even while the workbench's focus is in
+ * another editor.
+ */
+async function focusWebviewCanvas(context: VsCodeSmokeContext, run: SessionRun): Promise<boolean> {
+  const focus = await context.page.evaluate(workbenchFocusProbe);
+  if (
+    !focus.webview &&
+    !(await context.page.evaluate(focusFrameProbe, webviewFrameSelector(run.extensionId)))
+  ) {
+    return false;
+  }
+  return context.webview.locator("html").evaluate(focusCanvasProbe);
+}
+
+/** The modeler's editor is in front: no text editor is active and the workbench shows its frame. */
+async function modelerEditorInFront(
+  context: VsCodeSmokeContext,
+  run: SessionRun,
+): Promise<boolean> {
+  if (await context.page.evaluate(activeTextEditorProbe)) return false;
+  const frameSelector = webviewFrameSelector(run.extensionId);
+  return (await context.page.evaluate(webviewFrameShownProbe, frameSelector)) === true;
+}
+
+/** The motion step's reads and presses in the running VS Code (see `checkMotion`). */
+function motionSession(
+  context: VsCodeSmokeContext,
+  run: SessionRun,
+  settings: SettingsWriter,
+  logPrefix: VsCodeSmokeStep,
+): MotionSession {
+  const html = context.webview.locator("html");
+  return {
+    keys: context.keys,
+    press: (chord) => context.page.keyboard.press(chord),
+    focusCanvas: () => focusWebviewCanvas(context, run),
+    setReduceMotion: (setting) => applyReduceMotion(context, run, settings, setting, logPrefix),
+    webviewMotion: () => webviewMotion(context),
+    scale: () => canvasScale(context),
+    watchViews: () => html.evaluate(watchViewFramesProbe),
+    takeViews: () => html.evaluate(takeViewFramesProbe),
+  };
+}
+
+/**
+ * Switches the workbench to `theme` as the themes step does; why it did not, or undefined. The
+ * workbench state remembers the theme it shows for the steps after.
+ */
+async function switchTheme(
+  context: VsCodeSmokeContext,
+  run: SessionRun,
+  settings: SettingsWriter,
+  state: WorkbenchState,
+  theme: VsCodeColorTheme,
+  logPrefix: VsCodeSmokeStep,
+): Promise<string | undefined> {
+  const switched = await switchWorkbenchTheme({
+    theme,
+    writeSettings: settings.writeSettings,
+    readWorkbench: () => context.page.evaluate(workbenchClassesProbe),
+    timeoutMs: run.timeoutMs,
+    intervalMs: POLL_INTERVAL_MS,
+    names: state.shownThemes,
+    log: (line) => run.log(`${logPrefix}: ${line}`),
+  });
+  if (!switched.switched) {
+    state.shownTheme = undefined;
+    return missedThemeSwitch(theme, switched, state.shownThemes);
+  }
+  state.shownThemes.set(workbenchThemeKey(switched.shown), theme.name);
+  state.shownTheme = theme;
+  return undefined;
+}
+
+/** The hidden step's reads and presses in the running VS Code (see `checkHidden`). */
+function hiddenSession(
+  context: VsCodeSmokeContext,
+  run: SessionRun,
+  settings: SettingsWriter,
+  state: WorkbenchState,
+): HiddenSession {
+  const html = context.webview.locator("html");
+  const frameSelector = webviewFrameSelector(run.extensionId);
+  return {
+    keys: context.keys,
+    press: (chord) => context.page.keyboard.press(chord),
+    focusCanvas: () => focusWebviewCanvas(context, run),
+    scale: () => canvasScale(context),
+    view: () => html.evaluate(viewFactsProbe),
+    canvas: () => html.evaluate(canvasFactsProbe),
+    startWatching: async () => {
+      await html.evaluate(markDocumentProbe);
+      await html.evaluate(installKeyRecorderProbe);
+      return html.evaluate(installSizeRecorderProbe);
+    },
+    stillMarked: () => html.evaluate(documentMarkedProbe),
+    takeKeys: () => html.evaluate(takeKeyRecordsProbe),
+    takeSizes: () => html.evaluate(takeSizeRecordsProbe),
+    webviewShown: async () =>
+      (await context.page.evaluate(webviewFrameShownProbe, frameSelector)) === true,
+    textEditorActive: () => context.page.evaluate(activeTextEditorProbe),
+    dirty: () => context.page.evaluate(activeEditorDirtyProbe),
+    workbenchThemeType: async () =>
+      workbenchThemeOf(await context.page.evaluate(workbenchClassesProbe)).type,
+    switchTheme: (theme) => switchTheme(context, run, settings, state, theme, "hidden"),
+    webviewShowsTheme: async (theme) =>
+      (await awaitWebviewTheme(context, theme, run.themes, run.timeoutMs)).failure,
+  };
+}
+
+/** The reload step's reads and presses in the running VS Code (see `checkReload`). */
+function reloadSession(
+  context: VsCodeSmokeContext,
+  run: SessionRun,
+  settings: SettingsWriter,
+  state: WorkbenchState,
+): ReloadSession {
+  const html = context.webview.locator("html");
+  return {
+    keys: context.keys,
+    press: (chord) => context.page.keyboard.press(chord),
+    focusCanvas: () => focusWebviewCanvas(context, run),
+    scale: () => canvasScale(context),
+    view: () => html.evaluate(viewFactsProbe),
+    canvas: () => html.evaluate(canvasFactsProbe),
+    dirty: () => context.page.evaluate(activeEditorDirtyProbe),
+    setReduceMotion: (setting) => applyReduceMotion(context, run, settings, setting, "reload"),
+    webviewMotion: () => webviewMotion(context),
+    legendOpen: () => html.evaluate(legendOpenProbe),
+    toggleLegend: () => html.evaluate(toggleLegendProbe),
+    markWebview: () => html.evaluate(markDocumentProbe),
+    webviewMarked: () => html.evaluate(documentMarkedProbe),
+    reloadWindow: () => reloadWindow(context, run),
+    webviewShowsWorkbenchTheme: async () => {
+      const theme = state.shownTheme;
+      if (!theme) return undefined;
+      return (await awaitWebviewTheme(context, theme, run.themes, run.timeoutMs)).failure;
+    },
+  };
+}
+
+/**
+ * Developer: Reload Window through its key (Cmd/Ctrl+R, bound in an extension development host),
+ * then waits for a new workbench document, the shell's menu and a shape on the canvas; why one of
+ * them did not come, with the errors the webview reported meanwhile, or undefined.
+ */
+async function reloadWindow(
+  context: VsCodeSmokeContext,
+  run: SessionRun,
+): Promise<string | undefined> {
+  const { page } = context;
+  const chord = `${context.keys.modifier}+KeyR`;
+  const seconds = `${run.timeoutMs / 1000} s`;
+  await page.evaluate(markDocumentProbe);
+  const errors = watchWebviewErrors(page, run.webviewOwner);
+  try {
+    await page.keyboard.press(chord);
+    const reloaded = await pollUntil(
+      // The old document's context goes away during the reload: no answer yet.
+      () => page.evaluate(documentMarkedProbe).catch(() => true),
+      (marked) => !marked,
+      run.timeoutMs,
+    );
+    if (!reloaded.met)
+      return `${chord} (Developer: Reload Window) left the window as it was for ${seconds}`;
+    const menu = context.webview.locator('[data-chrome="menu"]');
+    const shown = await pollUntil(
+      () => menu.isVisible().catch(() => false),
+      (visible) => visible,
+      run.timeoutMs,
+    );
+    if (!shown.met) {
+      return withWebviewErrors(
+        `after Developer: Reload Window the custom editor did not show the shell's menu within ${seconds}`,
+        errors,
+      );
+    }
+    const drawn = await pollUntil(
+      () =>
+        context.webview
+          .locator("html")
+          .evaluate(canvasFactsProbe)
+          .catch(() => undefined),
+      (facts) => (facts?.shapes ?? 0) > 0,
+      run.timeoutMs,
+    );
+    if (!drawn.met) {
+      return withWebviewErrors(
+        `after Developer: Reload Window the canvas showed no element within ${seconds}`,
+        errors,
+      );
+    }
+    return undefined;
+  } finally {
+    errors.stop();
   }
 }
 
@@ -929,6 +1313,45 @@ async function openFailure(
   );
 }
 
+/**
+ * Waits until the webview shows `theme`: VS Code's classes on `<body>` and the appearance the theme
+ * bridge has to show for `themes` on `<html>`, without the shell's transition stop. The last facts
+ * read, and why they do not show it.
+ */
+async function awaitWebviewTheme(
+  context: VsCodeSmokeContext,
+  theme: VsCodeColorTheme,
+  themes: readonly Theme[],
+  timeoutMs: number,
+): Promise<{ facts: WebviewThemeFacts; failure?: string | undefined }> {
+  const expected = expectedWebviewAppearance(theme.kind, themes);
+  const bodyClasses = [...webviewBodyClasses(theme.kind)].sort().join(" ");
+  const shown = await pollUntil(
+    () => context.webview.locator("html").evaluate(webviewThemeProbe, WEBVIEW_THEME_BODY_CLASSES),
+    (value) =>
+      value.bodyClasses.join(" ") === bodyClasses &&
+      !value.switching &&
+      sameAppearance(expected, appearanceOf(value)),
+    timeoutMs,
+  );
+  const facts = shown.value;
+  if (facts.bodyClasses.join(" ") !== bodyClasses) {
+    return {
+      facts,
+      failure: `${theme.name}: the webview's body has "${facts.bodyClasses.join(" ")}", VS Code's classes are "${bodyClasses}"`,
+    };
+  }
+  if (!sameAppearance(expected, appearanceOf(facts))) {
+    return {
+      facts,
+      failure:
+        `${theme.name}: the webview shows ${describeAppearance(appearanceOf(facts))}, ` +
+        `the theme bridge has to show ${describeAppearance(expected)}`,
+    };
+  }
+  return { facts };
+}
+
 interface ThemeCheckOptions {
   themes: readonly Theme[];
   islands: readonly ChromeIsland[];
@@ -954,7 +1377,6 @@ async function checkTheme(
   const failures: string[] = [];
   const html = context.webview.locator("html");
   const expected = expectedWebviewAppearance(theme.kind, options.themes);
-  const bodyClasses = [...webviewBodyClasses(theme.kind)].sort().join(" ");
 
   // VS Code watches its settings file: the theme changes the way a user's setting change does.
   const workbench = await switchWorkbenchTheme({
@@ -971,25 +1393,9 @@ async function checkTheme(
     failures.push(missedThemeSwitch(theme, workbench, options.shownThemes));
   } else {
     options.shownThemes.set(workbenchThemeKey(workbench.shown), theme.name);
-    const shown = await pollUntil(
-      () => html.evaluate(webviewThemeProbe, WEBVIEW_THEME_BODY_CLASSES),
-      (value) =>
-        value.bodyClasses.join(" ") === bodyClasses &&
-        !value.switching &&
-        sameAppearance(expected, appearanceOf(value)),
-      options.timeoutMs,
-    );
-    facts = shown.value;
-    if (facts.bodyClasses.join(" ") !== bodyClasses) {
-      failures.push(
-        `${theme.name}: the webview's body has "${facts.bodyClasses.join(" ")}", VS Code's classes are "${bodyClasses}"`,
-      );
-    } else if (!sameAppearance(expected, appearanceOf(facts))) {
-      failures.push(
-        `${theme.name}: the webview shows ${describeAppearance(appearanceOf(facts))}, ` +
-          `the theme bridge has to show ${describeAppearance(expected)}`,
-      );
-    }
+    const shown = await awaitWebviewTheme(context, theme, options.themes, options.timeoutMs);
+    facts = shown.facts;
+    if (shown.failure) failures.push(shown.failure);
   }
   await settle(context);
   const chrome: ChromePresence = await html.evaluate(chromeProbe, options.islands);

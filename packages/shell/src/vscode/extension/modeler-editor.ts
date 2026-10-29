@@ -273,7 +273,7 @@ export function registerModelerEditor<
       resolveCustomTextEditor: (document, panel) => open(document as Document, panel),
     },
     {
-      // A hidden tab keeps document, view and selection (and reports 0 × 0 meanwhile).
+      // A hidden tab keeps document, view and selection (and may report 0 × 0 meanwhile).
       webviewOptions: { retainContextWhenHidden: true },
       supportsMultipleEditorsPerDocument: false,
     },

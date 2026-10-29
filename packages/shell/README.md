@@ -764,7 +764,7 @@ edit: async ({ webview, page }) => {
 ```
 
 The result says what happened (`ok`, `failures`, `saved`, `undone`, `themes` with the observed
-appearance and the screenshot, `keys` and `history` when those steps ran, `timings` per step); `runVsCodeSmoke`
+appearance and the screenshot, `keys`, `history`, `motion`, `hidden` and `reload` when those steps ran, `timings` per step); `runVsCodeSmoke`
 never throws for a failed check, only for options it cannot run with. An extension that fails to
 activate in VS Code (a module its bundle cannot load, a throw in `activate`) fails the open step at
 once, with VS Code's own error from its extension host log; `keepTemporaryFiles: true` keeps the profile with all of VS Code's logs.
@@ -782,14 +782,28 @@ follow each key, no key the webview handled may reach the webview's `window` (wh
 run its own binding, such as the window zoom), VS Code's window zoom level has to stay as it was,
 Cmd/Ctrl+0 must not move VS Code's focus to the side bar, select all has to select more canvas
 elements than were selected before and no text, and the copy has to leave the clipboard alone.
-Opted in with `history: true`, or with `VSCODE_SMOKE_OPT_IN=history` (0.8; a list takes commas
-or spaces, `keys,history`), a run ends with the history step, after the keys: it zooms the canvas
+Opted in with `history: true`, or with `VSCODE_SMOKE_OPT_IN=history` (0.8; a list takes commas or
+spaces, `keys,history,workbench`), a run takes the history step, after the keys: it zooms the canvas
 away from the fit, selects every element, redoes the edit (as often as `undoSteps`) and undoes it
 again, and after each of the two the view (zoom and translation) and the selection have to be what
 they were, the element the history takes away or brings back aside. The document is VS Code's, so
 the webview imports every text a redo or an undo brings; this is where a modeler that refits, loses
-the selection or numbers its elements anew on every import shows. New
-steps start opt-in and become the default once every modeler passes them in CI.
+the selection or numbers its elements anew on every import shows.
+Opted in with `workbench: true`, or with `VSCODE_SMOKE_OPT_IN=workbench` (0.8), a run ends with
+three workbench steps. **motion** turns `workbench.reduceMotion` on and off in the settings file:
+the webview's `<body>` has to follow (VS Code's `vscode-reduce-motion`), the shell's mirror on
+`<html>` too, and Shift+1 has to jump under reduced motion. **hidden** zooms the canvas away from
+the fit, selects every element, opens an untitled text file in front of the modeler's editor,
+presses Shift+1 there and switches the theme; the hidden webview must not see the key, and once
+the untitled editor closes the webview has to be the same document with the same canvas, view and
+selection, under the new theme. **reload** turns reduced motion on, redoes and saves the edit,
+zooms away from the fit and toggles the legend through its menu entry where there is one, then
+runs Developer: Reload Window: the new webview has to start under reduced motion and show the
+saved edit, still saved, the stored view (not a fit), the legend as it was and the workbench's
+theme. An unsaved change cannot be checked there: VS Code keeps no backups for an extension
+development host, which every smoke run is. The reload needs the undo step to have brought the
+canvas back and the modeler's editor in front again after the hidden step, else the log says it
+was skipped. New steps start opt-in and become the default once every modeler passes them in CI.
 Keep the smoke test out of the unit tests' project: it needs a display and the built extension. Add
 the screenshot directory to `.gitignore`.
 

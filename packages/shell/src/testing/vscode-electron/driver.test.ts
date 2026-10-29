@@ -14,15 +14,36 @@ import {
 import { runVsCodeSmoke, type VsCodeSmokeOptions } from "./driver.js";
 import { platformKeys } from "./launch.js";
 import {
+  VSCODE_COLOR_THEMES,
+  expectedWebviewAppearance,
+  webviewBodyClasses,
+  workbenchThemeClass,
+} from "./themes.js";
+import {
   activeEditorDirtyProbe,
   activeTextEditorProbe,
   blurProbe,
   canvasFactsProbe,
   chromeProbe,
+  documentMarkedProbe,
   focusCanvasProbe,
+  focusFrameProbe,
   installKeyRecorderProbe,
+  installSizeRecorderProbe,
+  legendOpenProbe,
+  markDocumentProbe,
   settleProbe,
+  takeKeyRecordsProbe,
+  takeSizeRecordsProbe,
+  takeViewFramesProbe,
+  toggleLegendProbe,
   viewFactsProbe,
+  watchViewFramesProbe,
+  webviewFrameShownProbe,
+  webviewMotionProbe,
+  webviewThemeProbe,
+  workbenchClassesProbe,
+  workbenchFocusProbe,
   workbenchWebviewsProbe,
   type CanvasFacts,
   type ViewFacts,
@@ -152,6 +173,8 @@ interface FakeVsCodeOptions {
   extensionHostLog?: string | undefined;
   /** A document that is edited, saved, undone and redone; the canvas, the view and the keys follow it. */
   editing?: FakeEditing | undefined;
+  /** The workbench around the editor: settings, a second editor, Reload Window. */
+  workbench?: FakeWorkbench | undefined;
 }
 
 /** The part of a VS Code window that a document with a history drives. */
@@ -160,6 +183,19 @@ interface FakeEditing {
   dirty(): boolean;
   canvas(): CanvasFacts;
   view(): ViewFacts;
+}
+
+/** An answer of the fake workbench; undefined leaves the probe to the rest of the fake. */
+type FakeAnswer = { value: unknown } | undefined;
+
+/** The part of a VS Code window that the workbench steps drive. */
+interface FakeWorkbench {
+  /** VS Code started with this profile. */
+  attach(userDataDir: string): void;
+  /** Whether the workbench took the key; the document gets the others. */
+  press(chord: string): boolean;
+  webview(probe: unknown, argument: unknown): FakeAnswer;
+  page(probe: unknown, argument: unknown): FakeAnswer;
 }
 
 /**
@@ -184,11 +220,13 @@ function fakeVsCode(options: FakeVsCodeOptions) {
       report("open");
       return options.menu;
     },
-    evaluate: async (probe: unknown) => {
+    evaluate: async (probe: unknown, argument?: unknown) => {
       if (closed)
         throw new Error("locator.evaluate: Target page, context or browser has been closed");
       const shown = options.document;
       if (!shown) throw new Error("the fake webview has no document");
+      const answer = options.workbench?.webview(probe, argument);
+      if (answer) return answer.value;
       if (options.editing) {
         if (probe === canvasFactsProbe) return options.editing.canvas();
         if (probe === viewFactsProbe) return options.editing.view();
@@ -214,11 +252,17 @@ function fakeVsCode(options: FakeVsCodeOptions) {
   };
   let workspaceFile = "";
   Object.assign(window, {
-    keyboard: { press: async (chord: string) => options.editing?.press(chord, workspaceFile) },
+    keyboard: {
+      press: async (chord: string) => {
+        if (!options.workbench?.press(chord)) options.editing?.press(chord, workspaceFile);
+      },
+    },
     setDefaultTimeout: () => undefined,
     waitForSelector: async () => report("launch"),
     locator: () => webview,
-    evaluate: async (probe: unknown) => {
+    evaluate: async (probe: unknown, argument?: unknown) => {
+      const answer = options.workbench?.page(probe, argument);
+      if (answer) return answer.value;
       if (probe === workbenchWebviewsProbe) return [OWN_WEBVIEW];
       if (probe === activeTextEditorProbe) {
         if (options.textEditorCheckFails) throw new Error(options.textEditorCheckFails);
@@ -249,8 +293,9 @@ function fakeVsCode(options: FakeVsCodeOptions) {
   peers.download = fakeTestElectron().download;
   peers.launch = async ({ args }) => {
     workspaceFile = args.at(-1)!;
+    const userDataDir = args.find((arg) => arg.startsWith("--user-data-dir="))!.split("=")[1]!;
+    options.workbench?.attach(userDataDir);
     if (options.extensionHostLog !== undefined) {
-      const userDataDir = args.find((arg) => arg.startsWith("--user-data-dir="))!.split("=")[1]!;
       const logs = join(userDataDir, "logs", "20261024T100000", "window1", "exthost");
       await mkdir(logs, { recursive: true });
       await writeFile(join(logs, "exthost.log"), options.extensionHostLog);
@@ -575,7 +620,7 @@ describe("runVsCodeSmoke, keys", () => {
     vi.stubEnv("VSCODE_SMOKE_OPT_IN", "key");
 
     await expect(smokeUpToKeys()).rejects.toThrow(
-      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "key", which is no opt-in step (keys, history)',
+      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "key", which is no opt-in step (keys, history, workbench)',
     );
   });
 });
@@ -624,6 +669,8 @@ function fakeDocument(original: string, options: FakeDocumentOptions = {}) {
       } else if (chord === keys.redo && !options.redoDoesNothing && position < steps) {
         importPosition(position + 1);
       } else if (chord === `${keys.modifier}+Equal`) scale *= 1.35;
+      else if (chord === `${keys.modifier}+Minus`) scale /= 1.35;
+      else if (chord === "Shift+Digit1") scale = 0.62;
       else if (chord === `${keys.modifier}+KeyA`) selected = drawn();
     },
     dirty: () => textAt(position) !== onDisk,
@@ -802,6 +849,296 @@ describe("runVsCodeSmoke, history", () => {
       expect(result.failures.every((failure) => failure.startsWith("undo: "))).toBe(true);
       expect(result.history).toBeUndefined();
       expect(lines).toContain("history: skipped, the undo step did not bring the canvas back");
+    },
+  );
+});
+
+interface FakeWorkbenchOptions {
+  /** The shell does not mirror VS Code's reduced-motion class on `<html>`. */
+  noMirror?: boolean | undefined;
+  /** Backspace leaves the untitled text editor's text, so it stays open in front of the modeler's. */
+  untitledKeepsText?: boolean | undefined;
+}
+
+/**
+ * The workbench around the fake document: it reads the profile's `settings.json` as VS Code watches
+ * it (the theme and `workbench.reduceMotion` show on `.monaco-workbench` and in the webview),
+ * Cmd/Ctrl+N opens an untitled text editor in front of the modeler's, which takes the keys until
+ * Cmd/Ctrl+W closes it, and Cmd/Ctrl+R reloads the window: a new workbench and webview document,
+ * with the document's unsaved change and the view kept.
+ */
+function fakeWorkbench(
+  document: ReturnType<typeof fakeDocument>,
+  options: FakeWorkbenchOptions = {},
+) {
+  const { keys, editing } = document;
+  let settingsFile = "";
+  let untitled: string | undefined;
+  let pageMarked = false;
+  let webviewMarked = false;
+  let reloads = 0;
+  let recording: { start: string; fitted: boolean } | undefined;
+
+  const settings = (): Record<string, unknown> => {
+    try {
+      return JSON.parse(readFileSync(settingsFile, "utf8")) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  };
+  const theme = () =>
+    VSCODE_COLOR_THEMES.find((entry) => entry.name === settings()["workbench.colorTheme"]) ??
+    VSCODE_COLOR_THEMES[0]!;
+  const reduced = () => settings()["workbench.reduceMotion"] === "on";
+  const viewString = () => `${editing.view().scale}`;
+
+  const workbench: FakeWorkbench = {
+    attach(userDataDir) {
+      settingsFile = join(userDataDir, "User", "settings.json");
+    },
+    press(chord) {
+      if (chord === `${keys.modifier}+KeyR`) {
+        pageMarked = false;
+        webviewMarked = false;
+        reloads += 1;
+        return true;
+      }
+      if (untitled === undefined) {
+        if (chord === `${keys.modifier}+KeyN`) {
+          untitled = "";
+          return true;
+        }
+        if (chord === "Shift+Digit1" && recording) recording.fitted = true;
+        return false;
+      }
+      if (chord === "Shift+Digit1") untitled += "!";
+      else if (chord === "Backspace" && !options.untitledKeepsText)
+        untitled = untitled.slice(0, -1);
+      else if (chord === keys.close && untitled === "") untitled = undefined;
+      return true;
+    },
+    webview(probe) {
+      if (probe === webviewMotionProbe) {
+        return { value: { body: reduced(), html: reduced() && !options.noMirror } };
+      }
+      if (probe === watchViewFramesProbe) {
+        recording = { start: viewString(), fitted: false };
+        return { value: true };
+      }
+      if (probe === takeViewFramesProbe) {
+        const taken = recording;
+        recording = undefined;
+        if (!taken) return { value: [] };
+        if (!taken.fitted) return { value: [taken.start] };
+        const glide = reduced() ? [] : Array.from({ length: 14 }, (_, index) => `glide ${index}`);
+        return { value: [taken.start, ...glide, viewString()] };
+      }
+      if (probe === markDocumentProbe) {
+        webviewMarked = true;
+        return { value: undefined };
+      }
+      if (probe === documentMarkedProbe) return { value: webviewMarked };
+      if (probe === installSizeRecorderProbe) return { value: true };
+      if (probe === takeSizeRecordsProbe || probe === takeKeyRecordsProbe) return { value: [] };
+      if (probe === legendOpenProbe || probe === toggleLegendProbe) return { value: null };
+      if (probe === webviewThemeProbe) {
+        const shown = expectedWebviewAppearance(theme().kind, ["light"]);
+        return {
+          value: {
+            theme: shown.theme,
+            kontrast: shown.kontrast ?? null,
+            bodyClasses: [...webviewBodyClasses(theme().kind)].sort(),
+            switching: false,
+          },
+        };
+      }
+      return undefined;
+    },
+    page(probe) {
+      if (probe === workbenchClassesProbe) {
+        const shown = theme();
+        return {
+          value: [
+            "monaco-workbench",
+            workbenchThemeClass(shown.kind),
+            `vscode-theme-${shown.id}`,
+            reduced() ? "monaco-reduce-motion" : "monaco-enable-motion",
+          ],
+        };
+      }
+      if (probe === activeTextEditorProbe) return { value: untitled !== undefined };
+      if (probe === activeEditorDirtyProbe) {
+        return { value: untitled === undefined ? editing.dirty() : untitled !== "" };
+      }
+      if (probe === webviewFrameShownProbe) return { value: untitled === undefined };
+      if (probe === workbenchFocusProbe) {
+        const webview = untitled === undefined;
+        return { value: { webview, sideBar: false, where: webview ? "webview" : "editor" } };
+      }
+      if (probe === focusFrameProbe) return { value: untitled === undefined };
+      if (probe === markDocumentProbe) {
+        pageMarked = true;
+        return { value: undefined };
+      }
+      if (probe === documentMarkedProbe) return { value: pageMarked };
+      return undefined;
+    },
+  };
+  return { workbench, reloads: () => reloads, untitledOpen: () => untitled !== undefined };
+}
+
+describe("runVsCodeSmoke, workbench", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  async function smokeWorkbench(
+    overrides: Partial<VsCodeSmokeOptions> = {},
+    documentOptions: FakeDocumentOptions = {},
+    workbenchOptions: FakeWorkbenchOptions = {},
+  ) {
+    const document = fakeDocument("board", documentOptions);
+    const workbench = fakeWorkbench(document, workbenchOptions);
+    const lines: string[] = [];
+    fakeVsCode({
+      menu: true,
+      document: { shapes: 3 },
+      editing: document.editing,
+      workbench: workbench.workbench,
+    });
+    const result = await runVsCodeSmoke(
+      await smokeOptions({
+        edit: document.edit,
+        colorThemes: [],
+        timeoutMs: 2_000,
+        log: (line) => lines.push(line),
+        ...overrides,
+      }),
+    );
+    return { result, lines, document, workbench };
+  }
+
+  it(
+    "runs the motion, hidden and reload steps last, after the history, when the modeler opts in",
+    { timeout: 60_000 },
+    async () => {
+      const { result, lines, document, workbench } = await smokeWorkbench({
+        history: true,
+        workbench: true,
+      });
+
+      expect(result.failures).toEqual([]);
+      expect(result.motion).toEqual({ reducedFitViews: 2, enabledFitViews: 16 });
+      expect(result.hidden).toEqual({
+        before: { zoom: 84, selected: 3 },
+        theme: "Default Dark Modern",
+        sizesWhileHidden: [],
+        afterReturn: { zoom: 84, selected: 3 },
+      });
+      expect(result.reload).toEqual({
+        before: { zoom: 84, dirty: false },
+        after: { zoom: 84, dirty: false },
+        reducedMotionAtStart: true,
+      });
+      expect(Object.keys(result.timings)).toEqual([
+        "resolve",
+        "launch",
+        "open",
+        "edit",
+        "save",
+        "undo",
+        "themes",
+        "history",
+        "motion",
+        "hidden",
+        "reload",
+        "close",
+        "total",
+      ]);
+      expect(lines).toContain("motion: a fit showed 2 views under reduced motion, 16 without");
+      expect(lines).toContain(
+        "reload: view 84% (saved) before, 84% (saved) after, with reduced motion at start",
+      );
+      expect(workbench.reloads()).toBe(1);
+      expect(workbench.untitledOpen()).toBe(false);
+      // The reload step saves the edit it redid before the reload, so closing VS Code asks nothing.
+      expect(document.editing.dirty()).toBe(false);
+    },
+  );
+
+  it(
+    "runs them for VSCODE_SMOKE_OPT_IN=workbench, unless the modeler passes workbench: false",
+    { timeout: 60_000 },
+    async () => {
+      vi.stubEnv("VSCODE_SMOKE_OPT_IN", "workbench");
+
+      const optedIn = await smokeWorkbench();
+      expect(optedIn.result.failures).toEqual([]);
+      expect(optedIn.result.reload?.after?.dirty).toBe(false);
+
+      const optedOut = await smokeWorkbench({ workbench: false });
+      expect(optedOut.result.motion).toBeUndefined();
+      expect(optedOut.result.timings.reload).toBeUndefined();
+    },
+  );
+
+  it("skips them by default", { timeout: 30_000 }, async () => {
+    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "");
+
+    const { result } = await smokeWorkbench();
+
+    expect(result.failures).toEqual([]);
+    expect(result.motion).toBeUndefined();
+    expect(result.hidden).toBeUndefined();
+    expect(result.reload).toBeUndefined();
+  });
+
+  it("prefixes a failure with its step", { timeout: 60_000 }, async () => {
+    const { result } = await smokeWorkbench({ workbench: true }, {}, { noMirror: true });
+
+    expect(result.failures).toEqual([
+      "motion: with workbench.reduceMotion \"on\", the webview's <html> has no cd-shell-reduce-motion, the shell's mirror of vscode-reduce-motion",
+      "reload: after the reload with workbench.reduceMotion \"on\", the webview's <html> has no cd-shell-reduce-motion, the shell's mirror of vscode-reduce-motion",
+    ]);
+  });
+
+  it(
+    "skips the reload, and says so, when the undo step did not bring the canvas back",
+    { timeout: 60_000 },
+    async () => {
+      const { result, lines } = await smokeWorkbench(
+        { workbench: true, timeoutMs: 1_000 },
+        { undoDoesNothing: true },
+      );
+
+      expect(result.failures.every((failure) => failure.startsWith("undo: "))).toBe(true);
+      expect(result.motion?.reducedFitViews).toBe(2);
+      expect(result.hidden?.afterReturn).toBeDefined();
+      expect(result.reload).toBeUndefined();
+      expect(lines).toContain(
+        "reload: skipped, the undo step did not bring the canvas back, so there is no edit to redo",
+      );
+    },
+  );
+
+  it(
+    "skips the reload, and says so, when the hidden step left another editor in front",
+    { timeout: 60_000 },
+    async () => {
+      const { result, lines, workbench } = await smokeWorkbench(
+        { workbench: true, timeoutMs: 1_000 },
+        {},
+        { untitledKeepsText: true },
+      );
+
+      expect(result.failures).toEqual([
+        "hidden: the untitled text editor kept the typed text, so the step left it open instead of answering a save prompt",
+      ]);
+      expect(result.reload).toBeUndefined();
+      expect(workbench.reloads()).toBe(0);
+      expect(lines).toContain(
+        "reload: skipped, the hidden step left another editor in front of the modeler's",
+      );
     },
   );
 });
