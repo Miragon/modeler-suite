@@ -44,11 +44,13 @@ const FORBIDDEN_KEY = "__proto__";
 export const MAX_NESTING_DEPTH = 100;
 
 /**
- * The serializer writes a value that sits in several places at each of them, so an object that
- * holds the level below twice would need memory doubling with every level. No real document comes
- * near this many objects and arrays.
+ * The serializer writes an object or array that sits in several places at each of them. An object
+ * that holds the level below twice would need memory doubling with every level, and a wide object
+ * held a thousand times would need a thousand copies of it. So each time the serializer writes a
+ * container again, it counts that container's entries; no real document repeats this many. A
+ * document that shares nothing counts none, however large it is.
  */
-const MAX_SERIALIZED_CONTAINERS = 1_000_000;
+const MAX_REPEATED_ENTRIES = 1_000_000;
 
 /** A finding that makes a document invalid. */
 export interface DocumentIssue {
@@ -310,9 +312,10 @@ export function connectionExtensions(connection: ChainConnection): Fields {
 /**
  * Deterministic serialization: elements/connections sorted by id, coordinates rounded to
  * 3 decimals, object keys deep-sorted. Clean Git diffs and reliable change detection.
- * Values of unknown keys are written as they are, without rounding. A value that sits in several
- * places is written, and counted, at each of them: more than {@link MAX_SERIALIZED_CONTAINERS}
- * objects and arrays in total throw, and so does a value that contains itself.
+ * Values of unknown keys are written as they are, without rounding. An object or array that sits
+ * in several places is written at each of them, and its entries count at every place after the
+ * first: past 1,000,000 such repeated entries it throws, and so does a value that contains itself.
+ * A document that shares nothing has no such limit.
  */
 export function serializeDocument(document: ValueChainDocument): string {
   return stableStringify(canonicalize(document));
@@ -358,7 +361,8 @@ function roundPoint(point: Point): Point {
 function stableStringify(value: unknown): string {
   // Only the containers on the current path: one object in several places is no cycle.
   const ancestors = new Set<object>();
-  let writtenContainers = 0;
+  const writtenContainers = new WeakSet<object>();
+  let repeatedEntries = 0;
   const sortKeys = (input: unknown): unknown => {
     if (typeof input !== "object" || input === null) {
       return input;
@@ -366,11 +370,15 @@ function stableStringify(value: unknown): string {
     if (ancestors.has(input)) {
       throw new Error("Cannot serialize a cyclic document.");
     }
-    writtenContainers += 1;
-    if (writtenContainers > MAX_SERIALIZED_CONTAINERS) {
-      throw new Error(
-        `Cannot serialize a document with more than ${MAX_SERIALIZED_CONTAINERS} objects and arrays, counting a value at each place it sits.`,
-      );
+    if (writtenContainers.has(input)) {
+      repeatedEntries += Array.isArray(input) ? input.length : Object.keys(input).length;
+      if (repeatedEntries > MAX_REPEATED_ENTRIES) {
+        throw new Error(
+          `Cannot serialize a document whose shared objects and arrays would repeat more than ${MAX_REPEATED_ENTRIES} entries.`,
+        );
+      }
+    } else {
+      writtenContainers.add(input);
     }
     ancestors.add(input);
     const sorted = Array.isArray(input)
