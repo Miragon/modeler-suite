@@ -1,18 +1,2 @@
-# Code owners are auto-requested as reviewers on any PR touching the paths below. This replaces
-# Dependabot's removed `reviewers:` option (retired 2025-05-20), so Dependabot PRs (npm manifests and
-# the lockfile, GitHub Actions) request a review from the owners here, as do all other PRs touching
-# these paths. The last matching line wins.
-
-# wardley and event-storming asked for a review of every change, as their own repositories did.
-/modelers/wardley-maps/          @emaarco @dominikhorn93
-/modelers/event-storming/   @emaarco @dominikhorn93
-
-# Dependency manifests and the lockfile (Dependabot `npm` updates)
-package.json                @emaarco @dominikhorn93
-package-lock.json           @emaarco @dominikhorn93
-/modelers/context-maps/**/package.json  @daanda97 @dominikhorn93
-
-# Workflows, composite actions and their scripts (Dependabot `github-actions` updates), the
-# new-modeler template's included
-/.github/                   @emaarco @dominikhorn93
-/plugins/modeler-kit/skills/new-modeler/assets/template/.github/  @emaarco @dominikhorn93
+# Single owner until ownership per modeler is decided: https://github.com/Miragon/modeler-suite/issues/327
+* @dominikhorn93
