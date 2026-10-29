@@ -92,8 +92,8 @@ A skip after a failed or cancelled `changes` is never accepted, and the smoke ne
 [`template-vscode-smoke.yml`](../.github/workflows/template-vscode-smoke.yml) runs the VS Code
 smoke of a modeler created from the template (the instance of the `template` job, its
 `test:vscode` under `xvfb-run -a`) on the newest stable VS Code and on the oldest that the
-template's `engines.vscode` accepts, with `VSCODE_SMOKE_OPT_IN=keys` like the VS Code smoke. It
-downloads VS Code twice, so it is no part of `ci-ok`: add the label `template-vscode-smoke` to a
+template's `engines.vscode` accepts, with `VSCODE_SMOKE_OPT_IN=keys,history` like the VS Code smoke.
+It downloads VS Code twice, so it is no part of `ci-ok`: add the label `template-vscode-smoke` to a
 pull request (it runs again on every push while the label stays; adding another label starts no
 run), or start the workflow by hand on a branch. The label is created once with
 `gh label create template-vscode-smoke`.
