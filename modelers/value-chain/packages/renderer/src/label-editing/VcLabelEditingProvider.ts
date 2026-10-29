@@ -70,17 +70,15 @@ export default class VcLabelEditingProvider {
     // Open editing on freshly appended/created-with-source steps (after the default
     // handlers at priority 1000 have created the shape).
     eventBus.on("autoPlace.end", 500, (event: { shape?: Element }) => {
-      if (event.shape && isVcShape(event.shape)) {
-        directEditing.activate(event.shape);
-      }
+      this.editAppended(event.shape);
     });
     eventBus.on(
       "create.end",
       500,
       (event: { context: { source?: Element; shape?: Element; canExecute?: unknown } }) => {
         const { source, shape, canExecute } = event.context;
-        if (source && canExecute && shape && isVcShape(shape)) {
-          directEditing.activate(shape);
+        if (source && canExecute) {
+          this.editAppended(shape);
         }
       },
     );
@@ -156,6 +154,18 @@ export default class VcLabelEditingProvider {
         this.resume(edit);
       }
     }, 0);
+  }
+
+  /**
+   * A host that imports from its change listener replaces the diagram while the append is still
+   * being applied: the shape the append made is then removed, and an echo of the text drew another
+   * one with its id. The editor opens on the shape the diagram holds now, or not at all.
+   */
+  private editAppended(appended: Element | undefined): void {
+    const live = appended && this.elementRegistry.get(appended.id);
+    if (isVcShape(live)) {
+      this.directEditing.activate(live);
+    }
   }
 
   private resume(edit: SuspendedEdit): void {

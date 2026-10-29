@@ -3,6 +3,7 @@ import { attachedHost } from "@miragon/modeler-api/conformance";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import { parseDocumentJSON, serializeDocument } from "@miragon/value-chain-schema-model";
@@ -13,6 +14,7 @@ import {
   type VcModeling,
   type VcShape,
 } from "../../src/index.js";
+import type VcLabelEditingProvider from "../../src/label-editing/VcLabelEditingProvider.js";
 import "../../src/assets/value-chain.css";
 import ORDER_TO_CASH from "./fixtures/order-to-cash.vc.json?raw";
 
@@ -986,4 +988,115 @@ describe("a pan is no gesture: an import leaves it running", () => {
       expect(dragPrefix()).toBe("hand");
     });
   });
+});
+
+describe("an append whose change listener imports a text opens the label editor only on a live shape", () => {
+  const freeSpot = { x: 500, y: 450 };
+  let reimport: Promise<unknown> | undefined;
+
+  interface DirectEditingService {
+    isActive(): boolean;
+    complete(): void;
+  }
+
+  function labelEditing(): VcLabelEditingProvider {
+    return service<VcLabelEditingProvider>("vcLabelEditingProvider");
+  }
+
+  function importOnFirstChange(text: () => string): void {
+    reimport = undefined;
+    const unsubscribe = editor().onContentChanged(() => {
+      unsubscribe();
+      reimport = editor().importText(text());
+    });
+  }
+
+  function appendEntry(): Element {
+    service<Selection>("selection").select(shape("step-delivery"));
+    const entry = editor().diagram.container.querySelector(
+      '.djs-context-pad [data-action="append.step"]',
+    );
+    if (!entry) throw new Error("no append entry in the context pad");
+    return entry;
+  }
+
+  function clickAppend(): void {
+    appendEntry().dispatchEvent(pointer("click", centreOf("step-delivery"), { detail: 1 }));
+  }
+
+  function dragAppend(): void {
+    appendEntry().dispatchEvent(pointer("dragstart", centreOf("step-delivery")));
+    hover(canvasSvg(), freeSpot);
+    release(freeSpot);
+  }
+
+  /** The import has run, and a label edit it took down has had its task to reopen. */
+  async function importSettled(): Promise<void> {
+    expect(reimport).toBeDefined();
+    await reimport;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  function elementIds(): Set<string> {
+    return new Set(parseDocumentJSON(editor().exportText()).elements.map(({ id }) => id));
+  }
+
+  function expectOnlyLiveElementsSelected(): void {
+    const registry = service<ElementRegistry>("elementRegistry");
+    for (const selected of service<Selection>("selection").get()) {
+      expect(registry.get(selected.id)).toBe(selected);
+    }
+  }
+
+  const appends = [
+    { how: "clicked in the context pad", append: clickAppend },
+    { how: "dragged out of the context pad", append: dragAppend },
+  ];
+
+  it.each(appends)(
+    "$how, replaced by a peer's text without the new step: no label editor opens",
+    async ({ append }) => {
+      importOnFirstChange(() => PEER_EDIT);
+      append();
+      await importSettled();
+
+      expect(labelEditing().openEdit()).toBeUndefined();
+      expect(service<DirectEditingService>("directEditing").isActive()).toBe(false);
+      expectOnlyLiveElementsSelected();
+      expect(errors).toEqual([]);
+      expect(changes).toBe(1);
+      expect(editor().exportText()).toBe(PEER_EDIT);
+      expect(service<CommandStack>("commandStack").canUndo()).toBe(false);
+    },
+  );
+
+  it.each(appends)(
+    "$how, replaced by an echo of its own text: the label editor opens on the new step and names it",
+    async ({ append }) => {
+      const idsBefore = elementIds();
+      importOnFirstChange(() => editor().exportText());
+      append();
+      await importSettled();
+
+      const open = labelEditing().openEdit();
+      if (!open) throw new Error("no label editor open");
+      expect(idsBefore.has(open.element.id)).toBe(false);
+      expect(service<ElementRegistry>("elementRegistry").get(open.element.id)).toBe(open.element);
+      expectOnlyLiveElementsSelected();
+
+      const content = editor().diagram.container.querySelector<HTMLElement>(
+        ".djs-direct-editing-content",
+      );
+      if (!content) throw new Error("no label editor text box");
+      content.innerText = "Typed label";
+      service<DirectEditingService>("directEditing").complete();
+
+      expect(errors).toEqual([]);
+      expect(changes).toBe(2);
+      const appended = parseDocumentJSON(editor().exportText()).elements.find(
+        ({ id }) => id === open.element.id,
+      );
+      expect(appended?.name).toBe("Typed label");
+    },
+  );
 });
