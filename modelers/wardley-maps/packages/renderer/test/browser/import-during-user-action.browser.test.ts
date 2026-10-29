@@ -14,6 +14,7 @@ import {
   type Modeler,
 } from "../../src/index.js";
 import type EvolutionGrid from "../../src/evolution-grid/EvolutionGrid.js";
+import type WardleyInteraction from "../../src/interaction/WardleyInteraction.js";
 import type WardleyLabelEditing from "../../src/label-editing/WardleyLabelEditing.js";
 import {
   isWardleyConnection,
@@ -612,6 +613,13 @@ function importOnFirstSelection(
   return () => reimport;
 }
 
+/** Lets the setup's own commands finish, so that only the command under test can hold the import. */
+async function untilNoActionRuns(current: Session): Promise<void> {
+  await nextTask();
+  const interaction = current.diagram.get<WardleyInteraction>("wardleyInteraction");
+  expect(interaction.afterUserAction()).toBeUndefined();
+}
+
 /** The history was cleared by the import and still records: one undo, then nothing to undo. */
 function expectAFreshHistory(current: Session, imported: string): void {
   expectTheNextEditReported(current);
@@ -649,6 +657,7 @@ describe("an import from a listener a command calls while it runs waits until th
     pressKey(entry, "Enter");
     current.labelEditing.cancel();
     expect(selected(current)).toEqual([theCreatedShape(current)]);
+    await untilNoActionRuns(current);
     const reimport = importOnFirstSelection(current, PEER_MAP);
 
     commandStackOf(current).undo();
@@ -671,6 +680,7 @@ describe("an import from a listener a command calls while it runs waits until th
       .removeElements([shapeNamed(modeler, "Water") as unknown as DiagramElement]);
     commandStack.undo();
     select(current, shapeNamed(modeler, "Water"));
+    await untilNoActionRuns(current);
     const reimport = importOnFirstSelection(current, PEER_MAP);
 
     commandStack.redo();

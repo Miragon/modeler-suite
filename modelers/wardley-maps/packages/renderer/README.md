@@ -131,8 +131,9 @@ pointer (C, U, N, P, a palette entry with Enter or Space, the context pad's appe
 save of a name editor (Enter, leaving the field) and the save a press on the map or the palette
 makes. The import keeps what the action left, as any import does: a create keeps its new element
 selected and its name editor open on it, with what was typed, and a saved name keeps its element
-selected. A drag that a press started after it saved a name ends with the import, as every gesture
-does ([#285](https://github.com/Miragon/modeler-suite/issues/285),
+selected. A drag that a press started after it saved a name ends with the import, as an accepted
+import ends a running gesture and a press below the drag threshold (L1, 1.5;
+[#285](https://github.com/Miragon/modeler-suite/issues/285),
 [#305](https://github.com/Miragon/modeler-suite/issues/305)). `exportText()` is the
 committed document, never a live preview: while the plot corner is dragged or the size or
 axis-label popover previews a change, it returns the document as it was before, and the change

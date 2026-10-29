@@ -9,8 +9,8 @@ export const wardleyInteractionModule: ModuleDeclaration = {
 
 export {
   default as WardleyInteraction,
+  ACTION_MARK_PRIORITY,
   ARMED_TOOL_PREFIXES,
-  DROP_MARK_PRIORITY,
   INTERACTION_CHANGED,
   type InteractionChangedEvent,
 } from "./WardleyInteraction.js";

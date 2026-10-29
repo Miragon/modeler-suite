@@ -52,7 +52,8 @@ and the steps it defers by a task have run (the name editor of a create with the
 command, undo or redo once the code that ran it has returned (`COMMAND_START_EVENTS`, a microtask),
 so a create without a pointer keeps its element selected and its name editor open across a host's
 echo, a saved name keeps its selection, and the drag a press starts after it saved a name ends with
-the import, as every gesture does. Pinned by
+the import, as an accepted import ends a running gesture and a press below the drag threshold (L1,
+1.5). Pinned by
 [`import-during-user-action.browser.test.ts`](packages/renderer/test/browser/import-during-user-action.browser.test.ts),
 [`import-during-gesture.browser.test.ts`](packages/renderer/test/browser/import-during-gesture.browser.test.ts)
 and the drop cases of `interaction.browser.test.ts`. `appearance`

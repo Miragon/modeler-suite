@@ -22,7 +22,7 @@ export const ARMED_TOOL_PREFIXES: ReadonlySet<string> = new Set(["lasso.selectio
  * Ahead of every other listener of a drag or a command, so that what a drop or a command runs finds
  * the user's action marked.
  */
-export const DROP_MARK_PRIORITY = 100_000;
+export const ACTION_MARK_PRIORITY = 100_000;
 
 type DragContext = { prefix: string } | null;
 
@@ -36,10 +36,10 @@ type DragContext = { prefix: string } | null;
  * It also marks the user's actions, and `afterUserAction()` lets an import wait until the running
  * one has finished, so that no step of it finds the map replaced under it (#248, #285, #305):
  * - a drop, from the release until the drop has ended and the follow-ups it deferred to a later task
- *   (the name editor of a create) have run;
+ *   (the name editor of a create or an append with the pointer) have run;
  * - every other command, an undo or a redo, from its start until the code that ran it has returned:
- *   a create without a pointer, a click append with Enter, the save of a name editor, also the one a
- *   press on the canvas makes. Such an action defers no step, so the next microtask ends it.
+ *   a create without a pointer, the context pad's append with Enter, the save of a name editor, also
+ *   the one a press on the canvas makes. Such an action defers no step: the next microtask ends it.
  */
 export default class WardleyInteraction {
   static $inject = ["eventBus", "injector"];
@@ -56,7 +56,7 @@ export default class WardleyInteraction {
   ) {
     const dragging = injector.get<Dragging | null>("dragging", false);
     if (dragging) this.followDragging(dragging);
-    eventBus.on(COMMAND_START_EVENTS, DROP_MARK_PRIORITY, () => this.commandStarts());
+    eventBus.on(COMMAND_START_EVENTS, ACTION_MARK_PRIORITY, () => this.commandStarts());
     eventBus.on("diagram.destroy", () => {
       clearTimeout(this.settling);
       this.settling = undefined;
@@ -112,12 +112,12 @@ export default class WardleyInteraction {
     let ending: DragContext = null;
     // diagram-js fires the first move right after a start, also the start of a create that it
     // activates at once, and never after a start a listener refused.
-    this.eventBus.on("drag.move", DROP_MARK_PRIORITY, () => {
+    this.eventBus.on("drag.move", ACTION_MARK_PRIORITY, () => {
       const context = current();
       if (!context || context === this.gesture || ARMED_TOOL_PREFIXES.has(context.prefix)) return;
       this.begin(context);
     });
-    this.eventBus.on("drag.end", DROP_MARK_PRIORITY, () => {
+    this.eventBus.on("drag.end", ACTION_MARK_PRIORITY, () => {
       const context = current();
       if (!context || context !== this.gesture) return;
       dropping = context;
@@ -134,7 +134,7 @@ export default class WardleyInteraction {
       dropping = null;
       this.endDrop(() => this.end(context));
     };
-    this.eventBus.on("drag.cleanup", DROP_MARK_PRIORITY, () => {
+    this.eventBus.on("drag.cleanup", ACTION_MARK_PRIORITY, () => {
       const context = current();
       ending = context;
       // A cleanup listener that throws keeps diagram-js from firing the drag's end, and every
@@ -145,7 +145,7 @@ export default class WardleyInteraction {
     });
     // After the cleanup, once diagram-js has let go of the drag: a listener that imports from here
     // finds no drag left to cancel.
-    this.eventBus.on(["drag.ended", "drag.canceled"], DROP_MARK_PRIORITY, ended);
+    this.eventBus.on(["drag.ended", "drag.canceled"], ACTION_MARK_PRIORITY, ended);
   }
 
   private dropStarts(): void {
