@@ -286,6 +286,31 @@ describe("EventStormingSpellingVariants", () => {
     expect(harness.variants.unify(shapes[5]!)).toBe(false);
   });
 
+  it("leaves another kind's default name out of the dots and a unify, where a board means it as a name", () => {
+    const policies = [
+      shape("policy", "aggregate", "Policy"),
+      shape("policies", "aggregate", "Policies"),
+      shape("policies_lower", "aggregate", "policies"),
+      shape("insurance", "aggregate", "Insurance Policy"),
+      shape("insurances", "aggregate", "Insurance Policies"),
+    ];
+    const board = variantsHarness(policies);
+    board.fire("import.done");
+    expect(board.variants.markedIds().sort()).toEqual([
+      "insurance",
+      "insurances",
+      "policies",
+      "policies_lower",
+    ]);
+    expect(board.variants.unify(policies[0]!)).toBe(false);
+    expect(board.variants.unify(policies[1]!)).toBe(true);
+    expect(board.updateLabels).toHaveBeenCalledWith([
+      { element: policies[1], label: "Policies" },
+      { element: policies[2], label: "Policies" },
+    ]);
+    board.container.remove();
+  });
+
   it("names a line break in a spelling, which would read like a space", () => {
     const term = collectVocabulary([
       { id: "a", elementType: "event", label: "Order Placed" },

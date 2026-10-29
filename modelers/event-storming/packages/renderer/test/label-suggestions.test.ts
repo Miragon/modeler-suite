@@ -244,6 +244,20 @@ describe("boardStickies", () => {
     }
   });
 
+  it("leaves out the palette's placeholder of every kind on a sticky of every kind, as a retype keeps it", () => {
+    const shapes = STICKY_KINDS.flatMap((placeholderKind) =>
+      STICKY_KINDS.flatMap((kind) => [
+        shape(`${kind}_was_${placeholderKind}`, kind, STICKY_STYLES[placeholderKind].label),
+        shape(`${kind}_next_${placeholderKind}`, kind, `${STICKY_STYLES[placeholderKind].label} 2`),
+      ]),
+    );
+    const named = shape("aggregate_store", "aggregate", "Domain Event Store");
+    const registry = { getAll: () => [...shapes, named] };
+    expect(boardStickies(registry as unknown as ElementRegistry)).toEqual([
+      { id: "aggregate_store", elementType: "aggregate", label: "Domain Event Store" },
+    ]);
+  });
+
   it("knows the name the .storm file writes for an empty sticky as its kind's placeholder", () => {
     for (const kind of STICKY_KINDS) {
       const board = parseDSL(`title Blank\n${kind} Named [0, 0] (id blank)`);

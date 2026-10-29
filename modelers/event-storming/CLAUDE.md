@@ -221,10 +221,12 @@ group and leaves the renderer's out, and the kit's `shortcutsDialog` case checks
 "Aggregates…" ([#116](https://github.com/Miragon/modeler-suite/issues/116)) ends the Model group
 only while the board has a named aggregate, also on a read-only canvas
 (`keepEnabledWhenReadOnly`), so both apps build the menu again after every import and command
-(`shell.menu.setGroups`). An aggregate whose label is still the placeholder a new sticky gets
-("Aggregate", "Aggregate 2") counts for nothing, as it is no label suggestion, and so does an
-empty one, which the `.storm` file stores as "Aggregate" (`isPlaceholderLabel` of the schema
-model, one rule for both). It opens the shell's
+(`shell.menu.setGroups`). An aggregate whose label is still the placeholder a new sticky of any
+kind gets ("Aggregate", "Aggregate 2", or "Domain Event" on a sticky retyped to an aggregate, since
+a retype keeps the label) counts for nothing, as it is no label suggestion, also where a board
+means the name ("Policy" on an aggregate; "Insurance Policy" counts), and so does an empty one,
+which the `.storm` file stores as "Aggregate" (`isPlaceholderLabel` of the schema model, one rule
+for the aggregates, the suggestions and the spelling-variant dots). It opens the shell's
 `openShellDialog` through the renderer's `eventStormingAggregates.showDialog`
 (`{ container: shell.root, openDialog }`,
 [`packages/renderer/src/aggregates/`](packages/renderer/src/aggregates/)):

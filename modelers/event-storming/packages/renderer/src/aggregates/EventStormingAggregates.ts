@@ -121,8 +121,9 @@ export default class EventStormingAggregates {
   }
 
   /**
-   * Whether the board holds an aggregate with a name, not the placeholder a new one gets
-   * ("Aggregate 2"), which `groupByAggregate` leaves out: the menu shows "Aggregates…" only then.
+   * Whether the board holds an aggregate with a name, not the placeholder a new sticky of any kind
+   * gets ("Aggregate 2", or "Domain Event" on a sticky retyped to an aggregate), which
+   * `groupByAggregate` leaves out: the menu shows "Aggregates…" only then.
    */
   hasAggregates(): boolean {
     return this.elementRegistry
