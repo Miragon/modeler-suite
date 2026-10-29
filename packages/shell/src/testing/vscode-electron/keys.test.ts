@@ -36,6 +36,13 @@ interface FakeVsCodeOptions {
   inert?: Readonly<Record<string, number>> | undefined;
   /** Elements an earlier step left selected. */
   selectedAtStart?: number | undefined;
+  /**
+   * Per Shift+1 that fits, in order: the zooms its readout shows, one per read, the last one until
+   * the next zoom key. A Shift+1 without one jumps to `fit`.
+   */
+  fitAnimations?: readonly (readonly number[])[] | undefined;
+  /** Each Shift+1 that fits shows this zoom for `ms` first, a frame that holds still for reads. */
+  heldFitFrame?: { zoom: number; ms: number } | undefined;
 }
 
 /**
@@ -49,6 +56,9 @@ function fakeVsCode(options: FakeVsCodeOptions = {}) {
   const keys = platformKeys("linux");
   const fit = options.fit ?? 0.62;
   let zoom = options.start ?? fit;
+  let animationFrames: number[] = [];
+  let heldFrameUntil = 0;
+  let fitsRun = 0;
   let records: KeyRecord[] = [];
   let selected = options.selectedAtStart ?? 0;
   let textSelection = "";
@@ -68,24 +78,36 @@ function fakeVsCode(options: FakeVsCodeOptions = {}) {
     }
   };
 
+  /** A zoom key ends a running fit animation where it is, as the viewport does. */
+  const zoomTo = (next: number) => {
+    zoom = next;
+    animationFrames = [];
+    heldFrameUntil = 0;
+  };
+
   /** Returns whether the shell or the canvas handled the key. */
   const webviewRuns = (code: string, shift: boolean): boolean => {
     switch (code) {
       case "Equal":
       case "NumpadAdd":
-        zoom = step(zoom, 1);
+        zoomTo(step(zoom, 1));
         return true;
       case "Minus":
       case "NumpadSubtract":
-        zoom = step(zoom, -1);
+        zoomTo(step(zoom, -1));
         return true;
       case "Digit0":
       case "Numpad0":
-        zoom = 1;
+        zoomTo(1);
         return true;
-      case "Digit1":
-        if (shift) zoom = fit;
-        return shift;
+      case "Digit1": {
+        if (!shift) return false;
+        const frames = options.fitAnimations?.[fitsRun++] ?? [fit];
+        zoomTo(frames.at(-1) ?? fit);
+        animationFrames = frames.slice(0, -1);
+        if (options.heldFitFrame) heldFrameUntil = performance.now() + options.heldFitFrame.ms;
+        return true;
+      }
       case "KeyA":
         selected = 3;
         return true;
@@ -114,7 +136,10 @@ function fakeVsCode(options: FakeVsCodeOptions = {}) {
       if (reachedWindow) vsCodeRuns(code);
     },
     focusCanvas: async () => !options.canvasRefusesFocus,
-    readout: async () => `${Math.round(zoom * 100)}%`,
+    readout: async () => {
+      const held = performance.now() < heldFrameUntil ? options.heldFitFrame?.zoom : undefined;
+      return `${Math.round((animationFrames.shift() ?? held ?? zoom) * 100)}%`;
+    },
     takeKeyRecords: async () => {
       const taken = records;
       records = [];
@@ -133,7 +158,12 @@ function fakeVsCode(options: FakeVsCodeOptions = {}) {
   return { session, pressed };
 }
 
-const OPTIONS = { effectTimeoutMs: 30, graceMs: 0, intervalMs: 5 };
+const OPTIONS = { effectTimeoutMs: 30, graceMs: 0, intervalMs: 5, fitAnimationMs: 0 };
+/** Room to read every frame of a fake fit animation, however slow the runner. */
+const ANIMATED_OPTIONS = { ...OPTIONS, effectTimeoutMs: 1_000 };
+/** A readout that never holds still: it alternates between two zooms on every read. */
+const flickering = (first: number, second: number) =>
+  Array.from({ length: 400 }, (_, index) => (index % 2 ? second : first));
 
 describe("zoomKeyPresses", () => {
   it("presses every zoom key of guide §5.8, the numpad and Shift+1 included", () => {
@@ -162,15 +192,16 @@ describe("percentOf", () => {
 });
 
 describe("zoomEffectShown", () => {
-  it("needs a change for zoom in and out, 100 % for Cmd/Ctrl+0 and the fit within its rounding", () => {
+  it("needs a change for zoom in and out, 100 % for Cmd/Ctrl+0 and exactly the reference for the fit", () => {
     expect(zoomEffectShown("in", 100, 135, 62)).toBe(true);
     expect(zoomEffectShown("in", 100, 100, 62)).toBe(false);
     expect(zoomEffectShown("out", 100, 74, 62)).toBe(true);
     expect(zoomEffectShown("out", undefined, 74, 62)).toBe(false);
     expect(zoomEffectShown("actual", 41, 100, 62)).toBe(true);
     expect(zoomEffectShown("actual", 41, 99, 62)).toBe(false);
-    expect(zoomEffectShown("fit", 100, 63, 62)).toBe(true);
-    expect(zoomEffectShown("fit", 100, 64, 62)).toBe(false);
+    expect(zoomEffectShown("fit", 100, 62, 62)).toBe(true);
+    expect(zoomEffectShown("fit", 100, 63, 62)).toBe(false);
+    expect(zoomEffectShown("fit", 100, 61, 62)).toBe(false);
     expect(zoomEffectShown("fit", 100, undefined, 62)).toBe(false);
   });
 });
@@ -242,14 +273,14 @@ describe("checkKeys", () => {
     ]);
   });
 
-  it("zooms in first where the fit shows as 100 % within its rounding, so a second Shift+1 has to act", async () => {
+  it("fails a second Shift+1 that does nothing where the fit is 99 %, without zooming in first", async () => {
     const { session, pressed } = fakeVsCode({ fit: 0.99, inert: { "Shift+Digit1": 1 } });
 
     const { failures } = await checkKeys(session, OPTIONS);
 
-    expect(pressed.slice(-5, -2)).toEqual(["Control+Numpad0", "Control+Equal", "Shift+Digit1"]);
+    expect(pressed.slice(-4, -2)).toEqual(["Control+Numpad0", "Shift+Digit1"]);
     expect(failures).toEqual([
-      "Shift+Digit1 did not fit the canvas: the readout shows 135%, the first Shift+Digit1 fit it at 99%",
+      "Shift+Digit1 did not fit the canvas: the readout shows 100%, the first Shift+Digit1 fit it at 99%",
     ]);
   });
 
@@ -260,6 +291,77 @@ describe("checkKeys", () => {
 
     expect(failures).toEqual([]);
     expect(result.zoom.at(-1)).toEqual({ key: "Shift+Digit1", percent: 99 });
+  });
+
+  it("takes the reference where the first fit's animation ends, not from a frame on the way", async () => {
+    const { session } = fakeVsCode({ fit: 0.94, start: 1, fitAnimations: [[0.98, 0.95, 0.94]] });
+
+    const { result, failures } = await checkKeys(session, ANIMATED_OPTIONS);
+
+    expect(failures).toEqual([]);
+    expect(result.zoom.at(0)).toEqual({ key: "Shift+Digit1", percent: 94 });
+    expect(result.zoom.at(-1)).toEqual({ key: "Shift+Digit1", percent: 94 });
+  });
+
+  it("records the last fit where its animation ends, not a frame a point off the reference", async () => {
+    const { session } = fakeVsCode({ fit: 0.94, fitAnimations: [[0.94], [0.98, 0.95, 0.94]] });
+
+    const { result, failures } = await checkKeys(session, ANIMATED_OPTIONS);
+
+    expect(failures).toEqual([]);
+    expect(result.zoom.at(-1)).toEqual({ key: "Shift+Digit1", percent: 94 });
+  });
+
+  it("fails a last Shift+1 whose animation passes the reference fit on its way to another one", async () => {
+    const { session } = fakeVsCode({
+      fit: 0.94,
+      fitAnimations: [[0.94], [0.98, 0.95, 0.94, 0.91, 0.88]],
+    });
+
+    const { result, failures } = await checkKeys(session, ANIMATED_OPTIONS);
+
+    expect(failures).toEqual([
+      "Shift+Digit1 did not fit the canvas: the readout shows 88%, the first Shift+Digit1 fit it at 94%",
+    ]);
+    expect(result.zoom.at(-1)).toEqual({ key: "Shift+Digit1", percent: 88 });
+  });
+
+  it("reads a fit only after its animation, where a frame on the way holds still for two reads", async () => {
+    const { session } = fakeVsCode({ fit: 0.94, start: 1, heldFitFrame: { zoom: 0.95, ms: 40 } });
+
+    const { result, failures } = await checkKeys(session, {
+      ...ANIMATED_OPTIONS,
+      fitAnimationMs: 60,
+    });
+
+    expect(failures).toEqual([]);
+    expect(result.zoom.at(0)).toEqual({ key: "Shift+Digit1", percent: 94 });
+    expect(result.zoom.at(-1)).toEqual({ key: "Shift+Digit1", percent: 94 });
+  });
+
+  it("fails a last Shift+1 whose readout never holds still, even at the reference fit", async () => {
+    const { session } = fakeVsCode({ fitAnimations: [[0.62], flickering(0.63, 0.62)] });
+
+    const { failures } = await checkKeys(session, OPTIONS);
+
+    expect(failures).toEqual([
+      expect.stringMatching(
+        /^Shift\+Digit1 did not fit the canvas: the readout still changes, at 6[23]%, the first Shift\+Digit1 fit it at 62%$/,
+      ),
+    ]);
+  });
+
+  it("names a first Shift+1 whose readout never holds still, and compares the last one with where it was", async () => {
+    const { session } = fakeVsCode({ fitAnimations: [flickering(0.61, 0.63)] });
+
+    const { failures } = await checkKeys(session, OPTIONS);
+
+    expect(failures).toEqual([
+      expect.stringMatching(/^the readout still changes after the first Shift\+Digit1, at 6[13]%$/),
+      expect.stringMatching(
+        /^Shift\+Digit1 did not fit the canvas: the readout shows 62%, the first Shift\+Digit1 fit it at 6[13]%$/,
+      ),
+    ]);
   });
 
   it("names a zoom key that reached the window and the window zoom VS Code applied for it", async () => {

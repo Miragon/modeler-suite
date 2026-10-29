@@ -1,6 +1,6 @@
 import type { PlatformKeys } from "./launch.js";
 import type { VsCodeSmokeKeysResult } from "./result.js";
-import { delay, pollUntil } from "./wait.js";
+import { delay, pollUntil, pollUntilSettled } from "./wait.js";
 import type { KeyRecord, WorkbenchFocus } from "./webview.js";
 
 /** VS Code's window zoom: Electron's zoom level of every window and the workbench's pixel ratio. */
@@ -36,6 +36,8 @@ export interface KeysCheckOptions {
   /** How long VS Code gets after a key to act on it, had it reached the workbench. */
   graceMs: number;
   intervalMs: number;
+  /** How long a fit animates (`FIT_ANIMATION_MS`); a Shift+1's readout is read after it. */
+  fitAnimationMs: number;
 }
 
 /** What a zoom key has to do to the readout: zoom in, zoom out, show 100 % or the fit. */
@@ -73,7 +75,11 @@ export function percentOf(readout: string | null | undefined): number | undefine
   return digits ? Number(digits[0]) : undefined;
 }
 
-/** Whether the readout `now` shows `effect` after `previous`; the fit may differ by its rounding. */
+/**
+ * Whether the readout `now` shows `effect` after `previous`. A fit has to show the reference `fit`
+ * exactly: both fits settle on the same target, so only a frame of the animation or a wrong target
+ * differs from it.
+ */
 export function zoomEffectShown(
   effect: ZoomEffect,
   previous: number | undefined,
@@ -89,7 +95,7 @@ export function zoomEffectShown(
     case "actual":
       return now === 100;
     case "fit":
-      return Math.abs(now - fit) <= 1;
+      return now === fit;
   }
 }
 
@@ -100,18 +106,20 @@ function shown(percent: number | undefined): string {
 function missedZoomEffect(
   { chord, effect }: ZoomKeyPress,
   previous: number | undefined,
-  now: number | undefined,
+  readout: { value: number | undefined; met: boolean },
   fit: number,
 ): string {
-  const readout = `the readout shows ${shown(now)}`;
+  const shows = `the readout shows ${shown(readout.value)}`;
   switch (effect) {
     case "in":
     case "out":
-      return `${chord} did not zoom the canvas ${effect}: ${readout}, ${shown(previous)} before`;
+      return `${chord} did not zoom the canvas ${effect}: ${shows}, ${shown(previous)} before`;
     case "actual":
-      return `${chord} did not zoom the canvas to 100%: ${readout}`;
-    case "fit":
-      return `${chord} did not fit the canvas: ${readout}, the first Shift+Digit1 fit it at ${fit}%`;
+      return `${chord} did not zoom the canvas to 100%: ${shows}`;
+    case "fit": {
+      const where = readout.met ? shows : `the readout still changes, at ${shown(readout.value)}`;
+      return `${chord} did not fit the canvas: ${where}, the first Shift+Digit1 fit it at ${fit}%`;
+    }
   }
 }
 
@@ -217,15 +225,29 @@ export async function checkKeys(
     );
   };
 
+  const readPercent = async () => percentOf(await session.readout());
+  // A fit animates, and on its way its readout can pass the reference fit even where its target is
+  // another one: only the readout that holds still after the animation is the fit's.
+  const readSettledFit = async () => {
+    await delay(options.fitAnimationMs);
+    return pollUntilSettled(readPercent, options.effectTimeoutMs, options.intervalMs);
+  };
+
   // The fit the last Shift+1 has to come back to, taken here: an inspector or a legend that opened
   // since the fixture's first fit moves it.
   const fitChord = "Shift+Digit1";
   const fitRecord = await press(fitChord);
   if (!fitRecord) return finish();
   if (fitRecord.reachedWindow) failures.push(reachedWindow(fitChord));
-  await delay(options.graceMs);
-  const fit = percentOf(await session.readout()) ?? start;
+  const firstFit = await readSettledFit();
+  if (!firstFit.met) {
+    failures.push(
+      `the readout still changes after the first ${fitChord}, at ${shown(firstFit.value)}`,
+    );
+  }
+  const fit = firstFit.value ?? start;
   result.zoom.push({ key: fitChord, percent: fit });
+  await delay(options.graceMs);
   await checkWindowZoom(fitChord);
 
   let current: number | undefined = fit;
@@ -235,15 +257,20 @@ export async function checkKeys(
     const record = await press(chord);
     if (!record) return false;
     if (record.reachedWindow) failures.push(reachedWindow(chord));
-    const readout = await pollUntil(
-      async () => percentOf(await session.readout()),
-      (now) => zoomEffectShown(effect, previous, now, fit),
-      options.effectTimeoutMs,
-      options.intervalMs,
-    );
+    const readout =
+      effect === "fit"
+        ? await readSettledFit()
+        : await pollUntil(
+            readPercent,
+            (now) => zoomEffectShown(effect, previous, now, fit),
+            options.effectTimeoutMs,
+            options.intervalMs,
+          );
     current = readout.value;
     result.zoom.push({ key: chord, percent: readout.value });
-    if (!readout.met) failures.push(missedZoomEffect(zoomPress, previous, readout.value, fit));
+    if (!(readout.met && zoomEffectShown(effect, previous, readout.value, fit))) {
+      failures.push(missedZoomEffect(zoomPress, previous, readout, fit));
+    }
     await delay(options.graceMs);
     await checkWindowZoom(chord);
     if (chord === `${modifier}+Digit0`) {
@@ -257,8 +284,8 @@ export async function checkKeys(
   };
 
   for (const zoomPress of zoomKeyPresses(modifier)) {
-    // A key that goes to a fixed zoom proves nothing where the readout already shows it, within
-    // the same tolerance that accepts it afterwards: zoom in first.
+    // A key that goes to a fixed zoom proves nothing where the readout already shows it: zoom in
+    // first.
     const goesToFixedZoom = zoomPress.effect === "actual" || zoomPress.effect === "fit";
     const alreadyThere =
       goesToFixedZoom && zoomEffectShown(zoomPress.effect, undefined, current, fit);

@@ -3240,11 +3240,14 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
    whose fit is the reference (an inspector or a legend opened since the first fit moves it), then
    Cmd/Ctrl+0, Cmd/Ctrl+=, Cmd/Ctrl+Shift+=, Cmd/Ctrl+numpad +, Cmd/Ctrl+0, Cmd/Ctrl+-,
    Cmd/Ctrl+Shift+-, Cmd/Ctrl+numpad −, Cmd/Ctrl+numpad 0 and Shift+1 again. Each of these has to
-   change the zoom panel's readout as it says: zoom in, zoom out, 100 %, or back to the reference
-   fit (within a percentage point). Where the readout already shows a key's target (100 %, or the
-   fit within a percentage point), Cmd/Ctrl+= goes first, so every key changes it. None of these
-   keys may reach the webview's `window`: VS Code forwards every `keydown` that gets there to the
-   workbench, prevented or not, and runs its own binding (the window zoom, Go Back, the side bar).
+   change the zoom panel's readout as it says: zoom in, zoom out, 100 %, or exactly back to the
+   reference fit. A fit animates for `FIT_ANIMATION_MS` (250 ms) and its readout passes other zooms
+   on the way, so the driver reads the readout of either Shift+1 only after that time, once two
+   reads 100 ms apart agree; a readout that never holds still fails. Where the readout already
+   shows a key's target (100 % or the reference fit), Cmd/Ctrl+= goes first, so every key changes
+   it. None of these keys may reach the webview's `window`: VS Code forwards every `keydown` that
+   gets there to the workbench, prevented or not, and runs its own binding (the window zoom, Go
+   Forward for Ctrl+Shift+- on Linux, the side bar).
    After every key the driver also reads VS Code's window zoom, which must stay as it was:
    Electron's `webContents.getZoomLevel()` of every window through `electronApp.evaluate`, and the
    workbench's `devicePixelRatio`. After Cmd/Ctrl+0, VS Code's focus must still be where it was (VS
