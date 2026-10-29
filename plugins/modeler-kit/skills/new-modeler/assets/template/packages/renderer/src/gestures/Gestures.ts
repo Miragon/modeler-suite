@@ -32,29 +32,33 @@ interface DragContext {
   payload: { originalEvent?: Event | null };
 }
 
-/** A drop being applied: from its `drag.end` until diagram-js cleans the drag up. */
-interface Drop {
-  context: DragContext;
-  ended: Promise<void>;
-  end(): void;
-}
-
 export type GestureListener = (active: boolean) => void;
 
 /**
  * The user's gestures on the canvas: whether one runs (the contract's `interaction`), ending one
- * before an import replaces the elements it holds, and the drop an import has to wait for.
+ * before an import replaces the elements it holds, and the user's action an import has to wait
+ * for.
  *
  * A gesture starts when its drag moves past the threshold (diagram-js activates the drag, a
  * palette create at once) and ends with its drop or its cancel, when diagram-js cleans the drag
  * up: during the drop's own command, and so in the change listener a host imports from, it still
  * runs.
+ *
+ * A user's action is what the diagram does for one input of the user: a drop, a keyboard create,
+ * a label commit, a key's command. It runs from its drop or its first command until the task that
+ * handles the input is over, since the handler goes on after the command (a keyboard create
+ * selects the new node and opens its label editor, a press that commits the label editor starts a
+ * drag), and longer while a step it scheduled for later holds it (`holdAction`).
  */
 export default class Gestures {
   static $inject = ['eventBus', 'dragging', 'canvas'];
 
   private gesture: DragContext | null = null;
-  private drop: Drop | undefined;
+  /** The drag whose drop is being applied, from its `drag.end` until it has ended. */
+  private droppingDrag: DragContext | null = null;
+  private actionInTask = false;
+  private readonly actionHolds = new Set<object>();
+  private actionWaiters: Array<() => void> = [];
   private readonly listeners = new Set<GestureListener>();
 
   constructor(
@@ -66,14 +70,23 @@ export default class Gestures {
     // listener refused it (a refused start never sets the drag active).
     eventBus.on('drag.move', FIRST, () => this.noticeStart());
     eventBus.on('drag.end', FIRST, () => this.noticeDrop());
-    // First, so a cleanup listener that throws can neither keep the gesture running nor hold
-    // back the imports that wait for the drop.
+    // First, so the action counts before a host's change listener imports.
+    eventBus.on('commandStack.changed', FIRST, () => this.noticeAction());
+    // First, so a cleanup listener that throws cannot keep the gesture running.
     eventBus.on('drag.cleanup', FIRST, () => this.noticeEnd());
+    eventBus.on(['drag.ended', 'drag.canceled'], FIRST, () => {
+      this.droppingDrag = null;
+    });
     // Fired at once after each change, since the canvas runs without `deferUpdate`: the import's
     // fit, a host's `setViewState` after it and a fit of the shell each move the view under a pan.
     eventBus.on('canvas.viewbox.changed', () => this.anchorPanToView());
-    // Before diagram-js cancels a running drag on destroy: nothing is called after it.
-    eventBus.on('diagram.destroy', FIRST, () => this.listeners.clear());
+    // Before diagram-js cancels a running drag on destroy: nothing is called after it, and a step
+    // that never runs on the destroyed diagram holds no import.
+    eventBus.on('diagram.destroy', FIRST, () => {
+      this.listeners.clear();
+      this.actionHolds.clear();
+      this.settleAction();
+    });
   }
 
   /** Whether a gesture runs: from its start until its drop or cancel. */
@@ -102,25 +115,41 @@ export default class Gestures {
   }
 
   /**
-   * While a drop is applied, a promise that resolves once it has ended; otherwise `undefined`. An
-   * import waits for it, so no listener the drop runs finds its elements replaced (diagram-js's
-   * own `SelectionBehavior` throws on a moved shape the import removed). The promise resolves when
-   * the drag is cleaned up, so whatever waits for it runs once the drop's task is over, after
-   * `drag.ended` or `drag.canceled`, and before a step the drop scheduled for later (a timer, a
-   * popup after a create): such a step has to hold the drop until it has run, or look its shape up
-   * again by id.
+   * While a user's action is being applied, a promise that resolves once it has ended; otherwise
+   * `undefined`. An import waits for it, so nothing the action still does finds the elements it
+   * works on replaced: diagram-js's own `SelectionBehavior` throws on a moved shape the import
+   * removed, a keyboard create would open its label editor on a removed node, and a label commit
+   * at a press would leave diagram-js to start its drag on one. It resolves once the task of the
+   * user's input is over and no step the action scheduled holds it any longer.
    */
-  dropEnded(): Promise<void> | undefined {
-    const drop = this.drop;
-    return drop && this.dropping(drop.context) ? drop.ended : undefined;
+  actionEnded(): Promise<void> | undefined {
+    if (!this.actionRunning()) return undefined;
+    return new Promise((resolve) => this.actionWaiters.push(resolve));
+  }
+
+  /**
+   * Keeps the user's action running for a step it scheduled for later (a popup or a label editor
+   * that opens after an append), so an import waits until that step has run; returns the release.
+   * A step that does not run (the user ended the action first) releases it all the same.
+   */
+  holdAction(): () => void {
+    const hold = {};
+    this.actionHolds.add(hold);
+    return () => {
+      if (this.actionHolds.delete(hold)) this.settleAction();
+    };
   }
 
   /**
    * Told apart by its drag, not by a flag: a drop whose cleanup throws keeps diagram-js from
-   * announcing its end, and a flag left set would hold every later import.
+   * announcing its end, and a flag left set would keep every later import from ending a gesture.
    */
   private dropping(context: DragContext): boolean {
-    return this.drop?.context === context && this.dragging.context() === context;
+    return this.droppingDrag === context && this.dragging.context() === context;
+  }
+
+  private actionRunning(): boolean {
+    return this.actionInTask || this.actionHolds.size > 0;
   }
 
   private noticeStart(): void {
@@ -131,16 +160,31 @@ export default class Gestures {
   }
 
   private noticeDrop(): void {
-    const context = this.dragging.context() as DragContext | null;
-    if (!context) return;
-    let end = () => {};
-    const ended = new Promise<void>((resolve) => (end = resolve));
-    this.drop = { context, ended, end };
+    this.droppingDrag = this.dragging.context() as DragContext | null;
+    this.noticeAction();
+  }
+
+  /**
+   * The rest of the task belongs to the action. diagram-js applies a drop, and the command of a
+   * click or a key, inside the handler of the user's input, so a microtask queued now runs once
+   * that handler has returned. Ended there, not by a listener of a later event, which a listener
+   * that throws before it would keep from running.
+   */
+  private noticeAction(): void {
+    if (this.actionInTask) return;
+    this.actionInTask = true;
+    queueMicrotask(() => {
+      this.actionInTask = false;
+      this.settleAction();
+    });
+  }
+
+  private settleAction(): void {
+    if (this.actionRunning()) return;
+    for (const resolve of this.actionWaiters.splice(0)) resolve();
   }
 
   private noticeEnd(): void {
-    const drop = this.drop;
-    if (drop && this.dropping(drop.context)) drop.end();
     if (!this.gesture) return;
     this.gesture = null;
     this.notify(false);
