@@ -7,8 +7,8 @@ interface CopyContext {
 }
 
 /**
- * Copy/paste support: diagram-js turns copy descriptors into element attrs on paste,
- * so carrying the flat domain properties across is all that is needed.
+ * Carries the flat domain properties (type, label, colour, link) across a copy: diagram-js turns
+ * the copy descriptors into the attrs of the pasted elements.
  */
 export default class VcCopyPasteBehavior {
   static $inject = ["eventBus"];

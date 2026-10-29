@@ -128,6 +128,12 @@ false. `diagramShortcuts()` lists them for a dialog.
   so Delete and `Cmd/Ctrl+Z` act at once; a label editor or menu the entry opens takes it from
   there. Enter or Space on an entry leave the focus on it, unless the entry's action left it on
   `<body>`.
+- Copy, cut, paste and duplicate take steps, org units and the relations between them; a copy gets
+  fresh ids and keeps its label, colour and link. A paste follows the pointer while it is on the
+  canvas, until a click places it (Escape cancels). Without the pointer there, the copy lands
+  20 px to the right of and below the original, one step further with each paste, and the first
+  paste after a cut lands where the cut elements were. Duplicate places its copy 20 px off the
+  original at once. Each is one undo step, and what it placed is selected.
 - A host that hides the canvas without destroying the modeler makes its container `inert` or
   `display: none`, not only transparent: a hidden or inert canvas cannot hold the focus, so no key
   reaches it.
