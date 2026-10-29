@@ -31,6 +31,13 @@ const NO_GESTURE_PREFIXES: ReadonlySet<string> = new Set([
 
 const GLOBAL_CONNECT_TOOL = "global-connect";
 
+/**
+ * Fired before a command or a redo (`execute`) and an undo (`revert`) change the diagram, so before
+ * any of their changes reaches a listener; emptying the history (`clear()`'s last step) fires
+ * neither.
+ */
+const COMMAND_STARTS = ["commandStack.execute", "commandStack.revert"];
+
 interface Point {
   x: number;
   y: number;
@@ -49,18 +56,19 @@ interface ConnectInitEvent {
 }
 
 /**
- * The user's gestures on the canvas: whether one runs (contract 1.5 `interaction`), ending it
- * before an import replaces the shapes it works on, and holding back what replaces the diagram
- * while a drop is being applied. diagram-js keeps a drag running across `diagram.clear`, and its
- * drop would apply a command to removed shapes and throw half-way. A pan and an armed palette tool
- * are no gesture and run on.
+ * The user's gestures and actions on the canvas: whether a gesture runs (contract 1.5
+ * `interaction`), ending it before an import replaces the shapes it works on, and holding back
+ * what replaces the diagram while a user action runs. diagram-js keeps a drag running across
+ * `diagram.clear`, and its drop would apply a command to removed shapes and throw half-way. A pan
+ * and an armed palette tool are no gesture and run on.
  */
 export default class VcGestures {
   static $inject = ["eventBus", "dragging", "toolManager", "elementRegistry", "canvas"];
 
   private dropping: DragContext | null = null;
   private gesture: DragContext | null = null;
-  private readonly afterDropQueue: (() => void)[] = [];
+  private commandRunning = false;
+  private readonly afterUserActionQueue: (() => void)[] = [];
   private flushQueued = false;
 
   constructor(
@@ -86,8 +94,13 @@ export default class VcGestures {
     eventBus.on(["drag.ended", "drag.canceled"], FIRST, () => {
       this.dropping = null;
       this.endGesture();
-      if (this.afterDropQueue.length > 0) this.queueFlush();
+      if (this.afterUserActionQueue.length > 0) this.queueFlush();
     });
+    // A command runs inside the handler of the user's action, which goes on after it: a click
+    // append selects its step and opens its label editor, a keyboard create does the same, and a
+    // label committed by a press lets the press start its drag. That handler runs to its end
+    // before the next microtask.
+    eventBus.on(COMMAND_STARTS, FIRST, () => this.noteCommand());
     // A listener that throws during the cleanup keeps diagram-js from announcing the end of the
     // drag, which is gone all the same.
     eventBus.on("drag.cleanup", FIRST, () => {
@@ -128,18 +141,18 @@ export default class VcGestures {
   }
 
   /**
-   * Runs `work` at once, or after the drop being applied right now has ended, so that nothing the
-   * drop still runs (its own listeners, the label editor a dragged append opens) meets a replaced
-   * diagram. Work held back runs in the order it came, and later work waits behind it. Only a drop
-   * is held back: a click append or a keyboard create is no drop, and work arriving from its change
-   * runs at once (#285).
+   * Runs `work` at once, or once the user action running right now has finished, so that nothing
+   * the action still runs meets a replaced diagram: a drop's own listeners and the label editor a
+   * dragged append opens, the selection and the label editor of a click append or a keyboard
+   * create, the drag a press starts after it committed a label, the rest of a command. Work held
+   * back runs in the order it came, and later work waits behind it.
    */
-  afterDrop(work: () => void): void {
-    if (this.afterDropQueue.length === 0 && !this.isDropping()) {
+  afterUserAction(work: () => void): void {
+    if (this.afterUserActionQueue.length === 0 && !this.isUserActionRunning()) {
       work();
       return;
     }
-    this.afterDropQueue.push(work);
+    this.afterUserActionQueue.push(work);
     this.queueFlush();
   }
 
@@ -177,6 +190,24 @@ export default class VcGestures {
   }
 
   /**
+   * A drop runs until its drag has ended, and every other action that runs a command, an undo or a
+   * redo (a click append, a keyboard create, a label commit, a delete) from its first command until
+   * the handler that ran it has returned.
+   */
+  private isUserActionRunning(): boolean {
+    return this.commandRunning || this.isDropping();
+  }
+
+  private noteCommand(): void {
+    if (this.commandRunning) return;
+    this.commandRunning = true;
+    queueMicrotask(() => {
+      this.commandRunning = false;
+      this.flushAfterUserAction();
+    });
+  }
+
+  /**
    * A drop runs synchronously inside the release, so a microtask queued during it runs once the
    * drop, its end and the tool it re-arms are through.
    */
@@ -185,13 +216,13 @@ export default class VcGestures {
     this.flushQueued = true;
     queueMicrotask(() => {
       this.flushQueued = false;
-      this.flushAfterDrop();
+      this.flushAfterUserAction();
     });
   }
 
-  private flushAfterDrop(): void {
-    while (this.afterDropQueue.length > 0 && !this.isDropping()) {
-      const work = this.afterDropQueue.shift();
+  private flushAfterUserAction(): void {
+    while (this.afterUserActionQueue.length > 0 && !this.isUserActionRunning()) {
+      const work = this.afterUserActionQueue.shift();
       try {
         work?.();
       } catch (error) {

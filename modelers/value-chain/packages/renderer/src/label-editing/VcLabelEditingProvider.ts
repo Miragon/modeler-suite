@@ -157,9 +157,10 @@ export default class VcLabelEditingProvider {
   }
 
   /**
-   * A host that imports from its change listener replaces the diagram while the append is still
-   * being applied: the shape the append made is then removed, and an echo of the text drew another
-   * one with its id. The editor opens on the shape the diagram holds now, or not at all.
+   * The editor opens on the shape the diagram holds now, or not at all. `importText` waits until
+   * the append has finished, but a host that calls the synchronous `importDocument` from the
+   * append's change listener has replaced the diagram by then: the shape the append made is
+   * removed, and an echo of the text drew another one with its id.
    */
   private editAppended(appended: Element | undefined): void {
     const live = appended && this.elementRegistry.get(appended.id);

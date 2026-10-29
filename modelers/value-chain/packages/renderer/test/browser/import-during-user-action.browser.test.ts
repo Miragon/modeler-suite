@@ -1,0 +1,476 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { attachedHost } from "@miragon/modeler-api/conformance";
+import type Canvas from "diagram-js/lib/core/Canvas";
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
+import type CommandStack from "diagram-js/lib/command/CommandStack";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
+import type Selection from "diagram-js/lib/features/selection/Selection";
+import { parseDocumentJSON } from "@miragon/value-chain-schema-model";
+import {
+  createCollaborativeModeler,
+  type CollaborativeValueChainModeler,
+  type VcLabelEditingProvider,
+} from "../../src/index.js";
+import "../../src/assets/value-chain.css";
+import ORDER_TO_CASH from "./fixtures/order-to-cash.vc.json?raw";
+import { CanvasPointer, FREE_SPOT } from "./support/pointer.js";
+
+/**
+ * #285: a host that imports (or clears) from its change listener does so while the user's action
+ * that made the change still runs. A drop waits until its drag has ended
+ * (`import-during-drop.browser.test.ts`, #248); every other action that runs a command, an undo or
+ * a redo waits until the handler that ran it has returned. Without that, the label editor of a
+ * click append or a keyboard create opened on a shape the import had replaced and lost the name
+ * typed into it, and a press on the palette that committed a label threw in diagram-js's
+ * `Dragging.init`.
+ */
+
+let modeler: CollaborativeValueChainModeler | undefined;
+let pointer: CanvasPointer;
+let changes = 0;
+let errors: unknown[] = [];
+let dragEnds: string[] = [];
+
+function recordError(event: ErrorEvent): void {
+  errors.push(event.error);
+}
+
+function editor(): CollaborativeValueChainModeler {
+  if (!modeler) throw new Error("no modeler mounted");
+  return modeler;
+}
+
+function service<T>(name: string): T {
+  return editor().diagram.get<T>(name);
+}
+
+function eventBus(): EventBus {
+  return service<EventBus>("eventBus");
+}
+
+/** Calls `react` in the change listener of the first change only, as an echoing host does. */
+function onFirstChange(react: () => void): void {
+  const unsubscribe = editor().onContentChanged(() => {
+    unsubscribe();
+    react();
+  });
+}
+
+beforeEach(async () => {
+  modeler = createCollaborativeModeler({ fitOnImport: false });
+  modeler.attachTo(attachedHost(1000, 700));
+  await modeler.importText(ORDER_TO_CASH);
+  pointer = new CanvasPointer(modeler);
+  changes = 0;
+  errors = [];
+  dragEnds = [];
+  modeler.onContentChanged(() => (changes += 1));
+  eventBus().on(["drag.ended", "drag.canceled"], (event: { type: string }) => {
+    dragEnds.push(event.type);
+  });
+  window.addEventListener("error", recordError);
+});
+
+afterEach(() => {
+  window.removeEventListener("error", recordError);
+  vi.restoreAllMocks();
+  modeler?.destroy();
+  modeler = undefined;
+});
+
+interface DirectEditingService {
+  isActive(): boolean;
+  complete(): void;
+}
+
+function labelEditing(): VcLabelEditingProvider {
+  return service<VcLabelEditingProvider>("vcLabelEditingProvider");
+}
+
+function textBox(): HTMLElement {
+  const content = editor().diagram.container.querySelector<HTMLElement>(
+    ".djs-direct-editing-content",
+  );
+  if (!content) throw new Error("no label editor text box");
+  return content;
+}
+
+/** Types into the open label editor and commits it, as Enter does. */
+function typeAndCommit(text: string): void {
+  textBox().innerText = text;
+  service<DirectEditingService>("directEditing").complete();
+}
+
+/** Opens the label editor of `id` with a double click and types into it, without a commit. */
+function startTyping(id: string, text: string): void {
+  pointer
+    .graphics(id)
+    .dispatchEvent(pointer.event("dblclick", pointer.centreOf(id), { detail: 2 }));
+  textBox().innerText = text;
+}
+
+/** Every microtask has run by then, the import or clear a user action held back included. */
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** The import has run, and a label edit it took down has had its task to reopen. */
+async function settled(work: Promise<unknown> | undefined): Promise<void> {
+  expect(work).toBeDefined();
+  await work;
+  await nextTask();
+}
+
+function exportedElement(id: string): { elementType: string; name?: string } | undefined {
+  return parseDocumentJSON(editor().exportText()).elements.find((element) => element.id === id);
+}
+
+function importsDone(): string[] {
+  const done: string[] = [];
+  eventBus().on("import.done", () => {
+    done.push("imported");
+  });
+  return done;
+}
+
+function clickAppend(action: string): void {
+  pointer.click(
+    pointer.contextPadEntry("step-delivery", action),
+    pointer.centreOf("step-delivery"),
+  );
+}
+
+/** What a host's chrome dispatches for Enter or Space on a palette entry: a click with detail 0. */
+function keyboardCreate(action: string): void {
+  pointer
+    .paletteEntry(action)
+    .entry.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 }));
+}
+
+const ELEMENT_COUNT = parseDocumentJSON(ORDER_TO_CASH).elements.length;
+
+describe("an import from the change listener of a click append or a keyboard create waits until the action has finished (#285)", () => {
+  const actions = [
+    {
+      how: "a click on the context pad's append step",
+      act: () => clickAppend("append.step"),
+      elementType: "step",
+    },
+    {
+      how: "a click on the context pad's append sub-step",
+      act: () => clickAppend("append.sub-step"),
+      elementType: "step",
+    },
+    {
+      how: "a click on the context pad's append organizational unit",
+      act: () => clickAppend("append.org-unit"),
+      elementType: "orgUnit",
+    },
+    {
+      how: "Enter or Space on the palette's Step",
+      act: () => keyboardCreate("create.step"),
+      elementType: "step",
+    },
+    {
+      how: "Enter or Space on the palette's Organizational unit",
+      act: () => keyboardCreate("create.org-unit"),
+      elementType: "orgUnit",
+    },
+  ];
+
+  it.each(actions)(
+    "$how, echoed: the label editor opens on the live element, open again after the import, and the typed name reaches the export",
+    async ({ act, elementType }) => {
+      const registry = service<ElementRegistry>("elementRegistry");
+      const imported = importsDone();
+      let reimport: Promise<unknown> | undefined;
+      onFirstChange(() => {
+        reimport = editor().importText(editor().exportText());
+      });
+
+      act();
+      const opened = labelEditing().openEdit()?.element;
+      if (!opened) throw new Error("no label editor open");
+      expect(registry.get(opened.id)).toBe(opened);
+      expect(imported).toEqual([]);
+
+      await settled(reimport);
+      expect(imported).toEqual(["imported"]);
+      const reopened = labelEditing().openEdit()?.element;
+      expect(reopened?.id).toBe(opened.id);
+      expect(registry.get(opened.id)).toBe(reopened);
+
+      typeAndCommit("Typed after the action");
+      expect(exportedElement(opened.id)).toMatchObject({
+        elementType,
+        name: "Typed after the action",
+      });
+      expect(changes).toBe(2);
+      expect(errors).toEqual([]);
+    },
+  );
+
+  it.each(actions)(
+    "$how, cleared: the diagram is empty once the action has finished, and no label editor stays open",
+    async ({ act }) => {
+      onFirstChange(() => editor().diagram.clear());
+
+      act();
+      expect(labelEditing().openEdit()).toBeDefined();
+      expect(editor().diagram.exportDocument().elements).toHaveLength(ELEMENT_COUNT + 1);
+
+      await nextTask();
+      expect(editor().diagram.exportDocument().elements).toEqual([]);
+      expect(labelEditing().openEdit()).toBeUndefined();
+      expect(service<DirectEditingService>("directEditing").isActive()).toBe(false);
+      expect(service<Selection>("selection").get()).toEqual([]);
+      expect(errors).toEqual([]);
+    },
+  );
+
+  it("settles after the action has returned and the import has run", async () => {
+    const order: string[] = [];
+    eventBus().on("directEditing.activate", () => {
+      order.push("label editor opened");
+    });
+    eventBus().on("import.done", () => {
+      order.push("imported");
+    });
+    let reimport: Promise<unknown> | undefined;
+    onFirstChange(() => {
+      order.push("import called");
+      reimport = editor()
+        .importText(editor().exportText())
+        .then(() => order.push("settled"));
+    });
+
+    keyboardCreate("create.step");
+    expect(order).toEqual(["import called", "label editor opened"]);
+
+    await settled(reimport);
+    expect(order).toEqual([
+      "import called",
+      "label editor opened",
+      "imported",
+      "settled",
+      "label editor opened",
+    ]);
+  });
+
+  it("an import from the selection listener of a keyboard create waits as well", async () => {
+    const registry = service<ElementRegistry>("elementRegistry");
+    let reimport: Promise<unknown> | undefined;
+    const unsubscribe = editor().elements.onSelection(() => {
+      unsubscribe();
+      reimport = editor().importText(editor().exportText());
+    });
+
+    keyboardCreate("create.step");
+    const opened = labelEditing().openEdit()?.element;
+    if (!opened) throw new Error("no label editor open");
+    expect(registry.get(opened.id)).toBe(opened);
+
+    await settled(reimport);
+    expect(labelEditing().openEdit()?.element).toBe(registry.get(opened.id));
+    typeAndCommit("Typed after the create");
+    expect(exportedElement(opened.id)?.name).toBe("Typed after the create");
+    expect(errors).toEqual([]);
+  });
+
+  it("rejects when the modeler is destroyed before the action's import ran", async () => {
+    let reimport: Promise<unknown> | undefined;
+    onFirstChange(() => {
+      reimport = editor().importText(editor().exportText());
+    });
+
+    keyboardCreate("create.step");
+    editor().destroy();
+
+    await expect(reimport).rejects.toThrow("The modeler was destroyed.");
+  });
+});
+
+describe("an import from the change listener of a label commit at a press waits until the press has returned (#285)", () => {
+  const TYPED = "Credit check, typed";
+
+  beforeEach(() => {
+    startTyping("step-credit", TYPED);
+  });
+
+  /**
+   * A pointer click on a palette entry gives the canvas the focus, which commits the label before
+   * the create starts. In a page without the focus nothing moves it, and the create's own
+   * `drag.init` commits the label, inside diagram-js's `Dragging.init`.
+   */
+  const paletteCommits = [
+    { where: "where the canvas takes the focus", focusMoves: true },
+    { where: "in a page without the focus, at the create's start", focusMoves: false },
+  ];
+
+  it.each(paletteCommits)(
+    "a press on the palette's Step, $where: no error, and the import ends the create it started",
+    async ({ focusMoves }) => {
+      if (!focusMoves) vi.spyOn(service<Canvas>("canvas"), "focus").mockImplementation(() => {});
+      const committedAt: string[] = [];
+      eventBus().on("drag.init", 100_001, () => {
+        committedAt.push("drag.init");
+      });
+      eventBus().on("commandStack.changed", () => {
+        committedAt.push("committed");
+      });
+      const seen: boolean[] = [];
+      editor().interaction.onChange((active) => seen.push(active));
+      let reimport: Promise<unknown> | undefined;
+      onFirstChange(() => {
+        reimport = editor().importText(editor().exportText());
+      });
+
+      pointer.pickFromPalette("create.step");
+      if (!focusMoves) expect(committedAt).toEqual(["drag.init", "committed"]);
+      expect(errors).toEqual([]);
+      expect(editor().interaction.active()).toBe(true);
+
+      await reimport;
+      expect(editor().interaction.active()).toBe(false);
+      expect(seen).toEqual([true, false]);
+      pointer.hover(pointer.canvasSvg(), FREE_SPOT);
+      pointer.release(FREE_SPOT);
+
+      expect(exportedElement("step-credit")?.name).toBe(TYPED);
+      expect(editor().elements.list()).toHaveLength(ELEMENT_COUNT);
+      expect(changes).toBe(1);
+      expect(errors).toEqual([]);
+    },
+  );
+
+  it("a press on another step: the import runs once the press has returned and ends the drag it started", async () => {
+    const imported = importsDone();
+    let reimport: Promise<unknown> | undefined;
+    onFirstChange(() => {
+      reimport = editor().importText(editor().exportText());
+    });
+    const start = pointer.centreOf("step-order");
+
+    pointer.press(pointer.graphics("step-order"), start);
+    expect(errors).toEqual([]);
+    expect(imported).toEqual([]);
+    expect(service<Dragging>("dragging").context()).not.toBeNull();
+
+    await reimport;
+    expect(imported).toEqual(["imported"]);
+    expect(service<Dragging>("dragging").context()).toBeNull();
+    pointer.moveTo({ x: start.x + 30, y: start.y });
+    pointer.moveTo({ x: start.x + 60, y: start.y });
+    pointer.release();
+
+    expect(pointer.shape("step-order").x).toBe(40);
+    expect(exportedElement("step-credit")?.name).toBe(TYPED);
+    expect(changes).toBe(1);
+    expect(dragEnds).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  const presses = [
+    { on: "the palette's Step", press: () => void pointer.pickFromPalette("create.step") },
+    {
+      on: "another step",
+      press: () => pointer.press(pointer.graphics("step-order"), pointer.centreOf("step-order")),
+    },
+  ];
+
+  it.each(presses)(
+    "a press on $on, cleared: the diagram is empty once the press has returned, and its release changes nothing",
+    async ({ press }) => {
+      onFirstChange(() => editor().diagram.clear());
+
+      press();
+      expect(errors).toEqual([]);
+
+      await nextTask();
+      expect(editor().diagram.exportDocument().elements).toEqual([]);
+      expect(service<Dragging>("dragging").context()).toBeNull();
+      pointer.hover(pointer.canvasSvg(), FREE_SPOT);
+      pointer.release(FREE_SPOT);
+
+      expect(editor().diagram.exportDocument().elements).toEqual([]);
+      expect(editor().interaction.active()).toBe(false);
+      expect(errors).toEqual([]);
+    },
+  );
+});
+
+describe("an import from a listener inside a command, an undo or a redo waits until it has finished", () => {
+  let deleteEntry: Element | undefined;
+
+  const commands = [
+    {
+      what: "a delete from the context pad",
+      before: () => {
+        deleteEntry = pointer.contextPadEntry("step-credit", "delete");
+      },
+      run: () => {
+        if (!deleteEntry) throw new Error("no delete entry");
+        pointer.click(deleteEntry, pointer.centreOf("step-credit"));
+      },
+    },
+    {
+      what: "an undo of a keyboard create",
+      before: () => keyboardCreate("create.step"),
+      run: () => service<CommandStack>("commandStack").undo(),
+    },
+    {
+      what: "a redo of a delete",
+      before: () => {
+        editor().elements.reveal("step-credit");
+        service<{ removeElements(elements: unknown[]): void }>("modeling").removeElements([
+          pointer.shape("step-credit"),
+        ]);
+        service<CommandStack>("commandStack").undo();
+        editor().elements.reveal("step-credit");
+      },
+      run: () => service<CommandStack>("commandStack").redo(),
+    },
+  ];
+
+  it.each(commands)(
+    "$what, whose selection listener imports: the command runs whole, then the import replaces it",
+    async ({ before, run }) => {
+      before();
+      await nextTask();
+      changes = 0;
+      let reimport: Promise<unknown> | undefined;
+      const unsubscribe = editor().elements.onSelection(() => {
+        unsubscribe();
+        reimport = editor().importText(ORDER_TO_CASH);
+      });
+
+      run();
+      expect(errors).toEqual([]);
+      expect(changes).toBe(1);
+      expect(() => editor().exportText()).not.toThrow();
+
+      await reimport;
+      expect(editor().exportText()).toBe(ORDER_TO_CASH);
+      expect(service<CommandStack>("commandStack").canUndo()).toBe(false);
+      expect(service<CommandStack>("commandStack").canRedo()).toBe(false);
+      expect(errors).toEqual([]);
+    },
+  );
+});
+
+describe("clear() outside a user action", () => {
+  it("reports its emptied history as no user action: an import from that change runs at once", async () => {
+    const imported = importsDone();
+    let reimport: Promise<unknown> | undefined;
+    onFirstChange(() => {
+      reimport = editor().importText(ORDER_TO_CASH);
+    });
+
+    editor().diagram.clear();
+    expect(imported).toEqual(["imported"]);
+
+    await reimport;
+    expect(editor().exportText()).toBe(ORDER_TO_CASH);
+  });
+});
