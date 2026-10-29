@@ -2449,10 +2449,10 @@ each registering it in `apps/vscode/src/` and connecting the sync in
 
 Only the PNG editors stay outside the plumbing, as decided in
 [#170](https://github.com/Miragon/modeler-suite/issues/170): Context Maps' `.cm.png`
-(`CmPngEditorProvider.ts`) and Team Topologies' `.tt.png` (`TtPngEditorProvider.ts`) are binary
-custom editors that keep their own document with its dirty state, undo, save and backup. Their
-webviews speak the same messages, and each of the two modelers sends its Command Palette commands
-to the focused diagram of either editor itself.
+(`CmPngEditorProvider.ts`) and Team Topologies' `.tt.png` / `.ttm.png` (`TtPngEditorProvider.ts`)
+are binary custom editors that keep their own document with its dirty state, undo, save and
+backup. Their webviews speak the same messages, and each of the two modelers sends its Command
+Palette commands to the focused diagram of either editor itself.
 
 - **The editor.** It registers `viewType` with `retainContextWhenHidden` and one editor per
   document. Per editor it writes `renderWebviewHtml`'s document around
@@ -4601,9 +4601,10 @@ Later candidates unless noted:
 - **More of the VS Code document plumbing** (0.8 has the sync, the minimal edits, the undo through
   the document, "Insert example" and the pill, and all five modelers' extensions use it,
   [#46](https://github.com/Miragon/modeler-suite/issues/46)): the export's save dialog and
-  notification, the "New … from Example" command, and binary custom editors, Team Topologies'
-  `.tt.png` and Context Maps' `.cm.png` editors, the only editors of the five that stay outside the
-  plumbing. The modelers keep their own code for these.
+  notification and the "New … from Example" command
+  ([#345](https://github.com/Miragon/modeler-suite/issues/345)), and binary custom editors, Team
+  Topologies' `.tt.png` / `.ttm.png` and Context Maps' `.cm.png` editors, the only editors of the
+  five that stay outside the plumbing. The modelers keep their own code for these.
 - An ES-module webview bundle (`renderWebviewHtml` writes a classic script; a `scriptType` option).
 - **More of the web column**: further top-right actions left of the primary action (§5.7), the
   loading state (§9 "Laden": spinner or skeleton during asynchronous work), share-link helpers
