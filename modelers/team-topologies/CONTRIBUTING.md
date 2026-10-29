@@ -57,8 +57,12 @@ and only the tests whose title matches with `-- --grep "<title>"`; the alias
 [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)). Set both ports when several worktrees run the
 suite at once
 (`E2E_PORT=6301 E2E_WEBVIEW_PORT=6311 npm run team-topologies test:e2e`). In the `vscode-webview`
-project the kit's `csp` case walks the production bundle behind the webview CSP. The WebKit
-projects run only `focus-hand-back.spec.ts`: Safari does not focus a clicked button, so there every
+project the kit's `csp` case walks the production bundle behind the webview CSP. With `?host` the
+test page runs the extension's document plumbing too (`registerModelerEditor` with
+`DIAGRAM_EDITOR_OPTIONS` and the pill's counts of `documentProblems`) against the shell's stand-in
+for VS Code's documents, so `document-sync.spec.ts` renames a team and reads the document (also a
+read-only one, which refuses the edit), and changes or undoes the document and reads the canvas and
+the pill. The WebKit projects run only `focus-hand-back.spec.ts`: Safari does not focus a clicked button, so there every
 control has to hand the focus to the canvas without having held it. Locally, run
 `npx playwright install chromium webkit` once. Keep `playwright-core` and the e2e workspace's
 `@playwright/test` on the root `playwright` version.

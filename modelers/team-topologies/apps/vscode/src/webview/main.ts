@@ -27,12 +27,15 @@ import {
   type DiagramJsConnection,
 } from "@miragon/modeler-shell/diagram-js";
 import {
+  connectDocumentSync,
   mountVsCodeShell,
   persistView,
   readShellState,
   writeShellState,
+  type DocumentImportContext,
+  type TypedMessage,
 } from "@miragon/modeler-shell/vscode/webview";
-import type { HostToWebview, WebviewCommand, WebviewToHost } from "../protocol.js";
+import type { WebviewCommand, WebviewToHost } from "../protocol.js";
 import { blobToBase64, embedSvg, svgToEmbeddedPng } from "./io.js";
 import { takeLegacyLegendOpen } from "./state.js";
 
@@ -126,9 +129,6 @@ persistView(vscode, viewport);
 // Two-way sync with the document (native JSON is the source of truth)
 // ---------------------------------------------------------------------------
 
-let lastText = ""; // text last reconciled with the host
-let initialized = false; // the first import settled; from then on the view and selection stay
-
 function post(message: WebviewToHost): void {
   vscode.postMessage(message);
 }
@@ -183,54 +183,28 @@ function showInvalidDiagram(): void {
  * diagram the canvas already shows (only formatting differs, e.g. `insertFinalNewline` on save) is
  * not re-imported at all.
  */
-async function importText(text: string): Promise<void> {
-  const first = !initialized;
+async function importText(text: string, { first }: DocumentImportContext): Promise<boolean> {
   if (!first && showsText(text)) {
-    lastText = text;
     showValidDiagram();
-    return;
+    return true;
   }
   const keep = first ? undefined : viewport.getViewbox();
   const selected = first ? [] : selectedIds();
   try {
     await collaborative.importText(text);
-    lastText = text;
     showValidDiagram();
     if (keep) viewport.restore(keep);
     else if (first && storedShellState.view) viewport.setState(storedShellState.view);
     reselect(selected);
     viewport.afterImport();
     shell.menu.refresh();
+    return true;
   } catch {
     showInvalidDiagram();
-  } finally {
-    initialized = true;
+    return false;
   }
 }
 
-// Strictly serialized: init/update arrive as un-awaited messages, and two quick updates (several
-// undos) must not import concurrently and finish in the wrong order. The PNG save (respondPng)
-// also hooks onto this chain, so a half-imported state is never rasterized.
-let importChain: Promise<void> = Promise.resolve();
-function enqueueImport(text: string): Promise<void> {
-  importChain = importChain
-    .then(() => importText(text))
-    .catch((error: unknown) => console.error("Team Topologies import failed", error));
-  return importChain;
-}
-
-/** Graphical change -> serialize JSON and (only on a real difference) report it to the host. */
-function pushEdit(): void {
-  // Before the first import the canvas does not show the document yet; read-only: it shows the
-  // last valid diagram. Either way an edit would overwrite text the canvas never saw.
-  if (!initialized || shell.isReadOnly()) return;
-  const text = collaborative.exportText();
-  if (text === lastText) return;
-  lastText = text;
-  post({ type: "edit", text });
-}
-
-collaborative.onContentChanged(pushEdit);
 modeler.on("commandStack.changed", () => shell.menu.refresh());
 
 /**
@@ -251,7 +225,7 @@ function commitPanelDraft(): void {
 
 /** The text editor is about to save: commit a draft (its `edit` goes out first), then answer. */
 async function respondFlush(id: number): Promise<void> {
-  await importChain;
+  await sync.imported();
   commitPanelDraft();
   post({ type: "flushed", id });
 }
@@ -265,7 +239,7 @@ async function respondFlush(id: number): Promise<void> {
 async function respondPng(id: number, includeDraft: boolean): Promise<void> {
   let fontFallback = false;
   try {
-    await importChain;
+    await sync.imported();
     if (includeDraft) commitPanelDraft();
     const { svg } = modeler.saveSVG();
     const blob = await svgToEmbeddedPng(svg, collaborative.exportText(), {
@@ -323,7 +297,7 @@ async function exportPng(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Messages from the extension host
+// The extension host: init, updates, problems and commands in; ready and edits out
 // ---------------------------------------------------------------------------
 
 const COMMANDS: Readonly<Record<WebviewCommand, () => void>> = {
@@ -332,44 +306,32 @@ const COMMANDS: Readonly<Record<WebviewCommand, () => void>> = {
   exportSvg: () => exportSvg(),
 };
 
-function isHostMessage(data: unknown): data is HostToWebview {
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    typeof (data as { type?: unknown }).type === "string"
-  );
-}
-
-let firstImportSettled: () => void = () => undefined;
-const ready = new Promise<void>((resolve) => (firstImportSettled = resolve));
-
-window.addEventListener("message", (event: MessageEvent<unknown>) => {
-  if (!isHostMessage(event.data)) return;
-  const message = event.data;
+/** The text editor's flush before a save, and the PNG editor's request for its file. */
+function answerHost(message: TypedMessage): void {
+  if (typeof message.id !== "number") return;
   switch (message.type) {
-    case "init":
-      void enqueueImport(message.text).then(firstImportSettled);
-      break;
-    case "update":
-      void enqueueImport(message.text);
-      break;
-    case "problems":
-      shell.setProblems({ count: message.count, errors: message.errors });
-      break;
-    case "command":
-      // Only own entries: a name such as "constructor" must not reach Object.prototype.
-      if (Object.hasOwn(COMMANDS, message.name)) COMMANDS[message.name]();
-      break;
-    case "requestPng":
-      void respondPng(message.id, message.includeDraft);
-      break;
     case "flush":
       void respondFlush(message.id);
       break;
+    case "requestPng":
+      void respondPng(message.id, message.includeDraft === true);
+      break;
   }
-});
+}
 
-post({ type: "ready" });
+// Before the first import the canvas does not show the document yet; read-only, it shows the last
+// valid diagram. Either way an edit would overwrite text the canvas never saw, so the sync writes
+// none. The PNG editor's provider speaks the same messages, so one sync serves both editors.
+const sync = connectDocumentSync({
+  api: vscode,
+  importText,
+  exportText: () => collaborative.exportText(),
+  canWrite: () => !shell.isReadOnly(),
+  onProblems: (counts) => shell.setProblems(counts),
+  commands: COMMANDS,
+  onMessage: answerHost,
+});
+collaborative.onContentChanged(sync.pushEdit);
 
 /** For test pages: the mounted parts, and `ready` once the first `init` import settled. */
 export const webview: {
@@ -377,4 +339,4 @@ export const webview: {
   modeler: CollaborativeTeamTopologiesModeler;
   connection: DiagramJsConnection;
   ready: Promise<void>;
-} = { shell, modeler: collaborative, connection, ready };
+} = { shell, modeler: collaborative, connection, ready: sync.ready };

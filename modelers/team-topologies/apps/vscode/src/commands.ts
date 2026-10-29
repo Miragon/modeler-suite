@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
+import { DIAGRAM_VIEW_TYPE } from "./diagramEditorOptions.js";
 import type { WebviewCommand } from "./protocol.js";
 
-export const DIAGRAM_VIEW_TYPE = "teamTopologies.editor";
 export const PNG_VIEW_TYPE = "teamTopologies.pngEditor";
 
 /** The Command Palette commands that run the same handlers as the webview menu (guide §13.5). */
