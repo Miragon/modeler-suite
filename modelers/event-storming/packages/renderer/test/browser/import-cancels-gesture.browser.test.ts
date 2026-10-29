@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
@@ -14,6 +15,7 @@ import {
   type CollaborativeEventStormingModeler,
 } from "../../src/index.js";
 import { isEventStormingShape, type EventStormingShape } from "../../src/model/di-types.js";
+import type EventStormingLabelEditing from "../../src/label-editing/EventStormingLabelEditing.js";
 
 const BOARD = `title Gestures
 level design
@@ -565,6 +567,52 @@ describe("an import from inside the change listener of a drop", () => {
     expect(endings).toEqual({ ended: 1, canceled: 0 });
     expect(service<Dragging>(modeler, "dragging").context()).toBeFalsy();
     expect(modeler.exportText()).not.toContain("Order Placed");
+  });
+});
+
+describe("an import from inside the change listener of the label commit a press makes", () => {
+  it("refuses the resize the press on a note's handle starts, and keeps the commit", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const changes = changesOf(modeler);
+    const endings = dragEndingsOf(modeler);
+    const reimport = reimportOnFirstChange(modeler);
+    let resizeStarts = 0;
+    service<EventBus>(modeler, "eventBus").on("resize.start", () => (resizeStarts += 1));
+    const note = shapeOf(modeler, (shape) => shape.eventStormingType === "note");
+    service<Selection>(modeler, "selection").select(note);
+    service<EventStormingLabelEditing>(modeler, "eventStormingLabelEditing").activate(note);
+    await userEvent.keyboard("XY");
+    const handle = modeler.diagram.container.querySelector(".djs-resizer-se .djs-resizer-hit")!;
+    const corner = { x: note.x + note.width, y: note.y + note.height };
+    const committed = BOARD.replace("note Agenda [", "note XY [");
+
+    pointer.press(handle, corner);
+    await expect(reimport()).resolves.toBeDefined();
+    pointer.moveTo(offset(corner, 80, 60));
+    pointer.release(offset(corner, 80, 60));
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).toBe(committed);
+    expect(resizeStarts).toBe(0);
+    expect(endings).toEqual({ ended: 0, canceled: 0 });
+    expect(service<Dragging>(modeler, "dragging").context()).toBeFalsy();
+    expect(modeler.diagram.container.querySelector(".djs-resize-overlay")).toBe(null);
+
+    const imported = shapeOf(modeler, (shape) => shape.eventStormingType === "note");
+    service<Selection>(modeler, "selection").select(imported);
+    pointer.press(
+      modeler.diagram.container.querySelector(".djs-resizer-se .djs-resizer-hit")!,
+      corner,
+    );
+    pointer.moveTo(offset(corner, 40, 20));
+    pointer.release(offset(corner, 40, 20));
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(2);
+    expect(resizeStarts).toBe(1);
+    expect(modeler.exportText()).toContain("note XY [580, 530] (size 240x140)");
   });
 });
 

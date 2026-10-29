@@ -65,10 +65,23 @@ function assertNoEngineIds(board: EventStormingBoard): void {
  */
 const ARMED_TOOLS: ReadonlySet<string> = new Set(["lasso.selection"]);
 
-/** Ahead of every other listener of a drop, so that the command it runs finds the drop marked. */
-const DROP_MARK_PRIORITY = 100_000;
+/** Ahead of every other listener of a drag's init or drop, so that what they run finds it marked. */
+const MARK_PRIORITY = 100_000;
+
+/** Behind every other listener of a drag's init, so that it sees every end they asked for. */
+const INIT_VETO_PRIORITY = -100_000;
 
 type DragContext = { prefix: string } | null;
+
+/** The drags that an import or a clear must not cancel at once. */
+interface DragMarks {
+  /** The drag whose drop runs now, from its end until it has ended. */
+  dropping: DragContext;
+  /** The drag diagram-js initializes now, while the listeners of its `drag.init` run. */
+  starting: DragContext;
+  /** Whether an import or a clear asked to end the starting drag. */
+  startCanceled: boolean;
+}
 
 /**
  * Ends a running gesture (move, resize, connect, lasso, a create from the palette or a paste, the
@@ -82,15 +95,23 @@ type DragContext = { prefix: string } | null;
  * A drop that runs (`dropping`) is left to finish: its command has applied, and a host that imports
  * from that command's change listener would otherwise cancel the drag inside diagram-js's own end of
  * it, which then cleans up a drag that is gone and throws.
+ *
+ * A drag diagram-js still initializes (`starting`) is refused at the end of its `drag.init`
+ * instead: an open label editor commits there, so a host that imports from that commit's change
+ * listener gets here inside the init, and diagram-js activates the drag right after it (a resize, a
+ * create or an append at once), which throws once the drag is gone.
  */
-function cancelGesture(diagram: Diagram, dropping: DragContext): void {
+function cancelGesture(diagram: Diagram, drags: DragMarks): void {
   diagram
     .get<EventStormingDrawingHandles | null>("eventStormingDrawingHandles", false)
     ?.endPointDrag();
   const dragging = diagram.get<Dragging | null>("dragging", false);
   const gesture = dragging?.context() as DragContext | undefined;
-  if (!dragging || !gesture || gesture === dropping || ARMED_TOOLS.has(gesture.prefix)) return;
-  dragging.cancel(false);
+  if (!dragging || !gesture || gesture === drags.dropping || ARMED_TOOLS.has(gesture.prefix)) {
+    return;
+  }
+  if (gesture === drags.starting) drags.startCanceled = true;
+  else dragging.cancel(false);
 }
 
 function annotationTexts(board: EventStormingBoard): string[] {
@@ -116,8 +137,7 @@ export abstract class EventStormingBaseViewer {
   private readonly _options: EventStormingViewerOptions;
   /** The last import still waiting for its turn; a later one queues behind it. */
   private _waitingImport: Promise<unknown> | undefined;
-  /** The drag whose drop runs now, from its end until it has ended. */
-  private _dropping: DragContext = null;
+  private readonly _drags: DragMarks = { dropping: null, starting: null, startCanceled: false };
 
   constructor(options: EventStormingViewerOptions = {}) {
     this._options = options;
@@ -142,20 +162,33 @@ export abstract class EventStormingBaseViewer {
         eventStormingPalette: { freeArea: this._options.freeArea },
         eventStormingImporter: { fitOnImport: this._options.fitOnImport ?? true },
       });
-      this._markDrops(this._diagram);
+      this._markDrags(this._diagram);
     }
     return this._diagram;
   }
 
-  private _markDrops(diagram: Diagram): void {
+  private _markDrags(diagram: Diagram): void {
     const dragging = diagram.get<Dragging | null>("dragging", false);
     if (!dragging) return;
     const eventBus = diagram.get<EventBus>("eventBus");
-    eventBus.on("drag.end", DROP_MARK_PRIORITY, () => {
-      this._dropping = dragging.context() as DragContext;
+    const drags = this._drags;
+    eventBus.on("drag.init", MARK_PRIORITY, () => {
+      drags.starting = dragging.context() as DragContext;
+      drags.startCanceled = false;
     });
-    eventBus.on("drag.ended", DROP_MARK_PRIORITY, () => {
-      this._dropping = null;
+    // Refused here, diagram-js ends the drag before it activates, so nothing of it runs on the
+    // shapes the import removed.
+    eventBus.on("drag.init", INIT_VETO_PRIORITY, () => {
+      const refused = drags.startCanceled && dragging.context() === drags.starting;
+      drags.starting = null;
+      drags.startCanceled = false;
+      return refused ? false : undefined;
+    });
+    eventBus.on("drag.end", MARK_PRIORITY, () => {
+      drags.dropping = dragging.context() as DragContext;
+    });
+    eventBus.on("drag.ended", MARK_PRIORITY, () => {
+      drags.dropping = null;
     });
   }
 
@@ -183,14 +216,14 @@ export abstract class EventStormingBaseViewer {
     // A board straight from code skips loadBoard; its import would stop at the first shape the SVG
     // transforms cannot hold, after the previous board was cleared.
     assertDrawable(board);
-    cancelGesture(diagram, this._dropping);
+    cancelGesture(diagram, this._drags);
     const turn = this._importTurn(board);
     if (turn) {
       await turn;
       if (this._waitingImport === turn) this._waitingImport = undefined;
       if (this._diagram !== diagram) throw new Error("The viewer was destroyed during the import.");
       // A gesture the user started while the import waited for its font.
-      cancelGesture(diagram, this._dropping);
+      cancelGesture(diagram, this._drags);
     }
     const labelEditing = diagram.get<EventStormingLabelEditing>("eventStormingLabelEditing", false);
     labelEditing?.suspend();
@@ -285,7 +318,7 @@ export abstract class EventStormingBaseViewer {
 
   clear(): void {
     const diagram = this._ensureDiagram();
-    cancelGesture(diagram, this._dropping);
+    cancelGesture(diagram, this._drags);
     diagram.clear();
   }
 

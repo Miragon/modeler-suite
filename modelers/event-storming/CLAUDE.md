@@ -131,11 +131,15 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   `EventStormingBaseViewer`, when called and again after the font wait; `clear()` too):
   `dragging.cancel(false)` as Escape does, and the drawing handles' point drag, which also ends on
   `shape.remove`, so no release lands on a removed shape; the palette's armed lasso tool
-  (`lasso.selection`) stays armed. A drop that runs (marked from `drag.end` until `drag.ended`) is
-  never cancelled: a host that imports or clears from the change listener of its command would
-  otherwise cancel the drag inside diagram-js's own end of it, which then throws. That drop ends
-  as a drop unless the import removes the moved shape while something was selected before the
-  drag: diagram-js's `SelectionBehavior` then throws, and the drag ends as `drag.canceled`
+  (`lasso.selection`) stays armed. A drag whose `drag.init` still runs (an open label editor
+  commits there, and a host may import from that commit's change listener) is refused at the end
+  of that `drag.init` instead of cancelled: diagram-js activates a resize, create or append right
+  after its init, which throws on a drag cancelled inside it. A drop that runs (marked from
+  `drag.end` until `drag.ended`) is never cancelled: a host that imports or clears from the change
+  listener of its command would otherwise cancel the drag inside diagram-js's own end of it, which
+  then throws. That drop ends as a drop unless the import or the clear removes the moved shape (a
+  clear always does) while something was selected before the drag: diagram-js's
+  `SelectionBehavior` then throws, and the drag ends as `drag.canceled`
   ([#248](https://github.com/Miragon/modeler-suite/issues/248)). A view change (`setViewState`, a
   host's fit, scroll, zoom) never commits an open label editor: it stays open and follows its
   element (contract L5).
