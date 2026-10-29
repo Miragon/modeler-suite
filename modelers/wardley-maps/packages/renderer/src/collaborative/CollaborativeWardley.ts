@@ -318,7 +318,8 @@ function collaborative(
     },
   };
 
-  // Never a live preview: a host saves the export at any moment, also during a plot-resize drag.
+  // Never a live preview: a host saves the export at any moment, also while the user drags the plot
+  // corner, an evolve target or a label.
   const committedText = (): string => {
     const committed = livePreview?.committedMap();
     return committed ? serializeDSL(committed) : diagram.exportDSL();

@@ -43,10 +43,11 @@ import teaShop from "./fixtures/tea-shop.wmap?raw";
 import platformStrategy from "./fixtures/platform-strategy.wmap?raw";
 import "../../src/assets/wardley.css";
 
-// The `interaction` surface of contract 1.5, the RECOMMENDED gesture cancel of L1, and an import
-// from the change listener of a drop, which waits until the drop has ended (#248). The first two
-// describe blocks follow the kit's cases (packages/api/README.md, "Cases for the 1.5
-// surfaces"), with the harness fields of ./support/gesture-harness.ts.
+// The `interaction` surface of contract 1.5, the RECOMMENDED gesture cancel of L1, the export while
+// a gesture runs, which stays the committed document (#347), and an import from the change listener
+// of a drop, which waits until the drop has ended (#248). The first two describe blocks follow the
+// kit's cases (packages/api/README.md, "Cases for the 1.5 surfaces"), with the harness fields of
+// ./support/gesture-harness.ts.
 
 const mountedModelers: CollaborativeWardleyModeler[] = [];
 const hostWrappers: HTMLElement[] = [];
@@ -485,6 +486,149 @@ describe("interaction follows every Wardley gesture", () => {
     expect(modeler.exportText()).toBe(afterImport);
     expect(current.delivered).toEqual([true, false]);
   });
+});
+
+function gestureNamed(name: string): WardleyGesture {
+  const gesture = WARDLEY_GESTURES.find(([listed]) => listed === name);
+  if (!gesture) throw new Error(`no Wardley gesture "${name}"`);
+  return gesture[1];
+}
+
+/** The lines of `text` that `committed` does not have. */
+function linesAdded(committed: string, text: string): string[] {
+  const before = new Set(committed.split("\n"));
+  return text.split("\n").filter((line) => !before.has(line));
+}
+
+// The drags that preview on the shapes themselves, and the line their release commits.
+const SHAPE_PREVIEWS: ReadonlyArray<readonly [string, WardleyGesture, RegExp]> = [
+  [
+    "a drag of the evolve target",
+    gestureNamed("a drag of the evolve target"),
+    /^evolve Kettle 0\.\d+$/,
+  ],
+  [
+    "an evolve placement from the context pad",
+    gestureNamed("an evolve placement from the context pad"),
+    /^evolve Water 0\.\d+$/,
+  ],
+  [
+    "a drag of a component's name",
+    gestureNamed("a label drag"),
+    /^component Water \[0\.3, 0\.3\] label \[-?\d+, -?\d+\]$/,
+  ],
+  [
+    "a drag of an evolve target's name",
+    async (modeler) => {
+      const label = graphicsOf(modeler, shapeNamed(modeler, "Kettle").id).querySelector(
+        '.wardley-label-handle[data-label-role="movement"]',
+      );
+      if (!label) throw new Error("Kettle's evolve target has no label handle");
+      const rect = label.getBoundingClientRect();
+      const to = pressAndDrag(label, { x: rect.left + 4, y: rect.top + rect.height / 2 });
+      return () => mouse(document, "mouseup", to);
+    },
+    /^evolve Kettle 0\.7 label \[-?\d+, -?\d+\]$/,
+  ],
+];
+
+// A host saves the export at any moment, also while the user drags (#347).
+describe("the export is the committed document while a gesture runs", () => {
+  test.each(WARDLEY_GESTURES)("%s, until its release", async (_, start) => {
+    const current = await session(GESTURE_MAP);
+    const { modeler } = current;
+    const committed = modeler.exportText();
+    const release = await start(modeler);
+    expect(modeler.exportText()).toBe(committed);
+
+    release();
+    await settle();
+    expect(errors).toEqual([]);
+    expect(modeler.exportText()).toBe(diagramOf(modeler).exportDSL());
+    expect(current.changes()).toBe(modeler.exportText() === committed ? 0 : 1);
+  });
+
+  test.each(SHAPE_PREVIEWS)(
+    "%s: without the preview the canvas shows, then with the commit of the release",
+    async (_, start, committedLine) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const committed = modeler.exportText();
+      const release = await start(modeler);
+      expect(diagramOf(modeler).exportDSL()).not.toBe(committed);
+      expect(modeler.exportText()).toBe(committed);
+      expect(current.changes()).toBe(0);
+
+      let exportedOnChange: string | undefined;
+      modeler.onContentChanged(() => (exportedOnChange ??= modeler.exportText()));
+      release();
+      expect(current.changes()).toBe(1);
+      const dropped = modeler.exportText();
+      expect(exportedOnChange).toBe(dropped);
+      expect(dropped).toBe(diagramOf(modeler).exportDSL());
+      const added = linesAdded(committed, dropped);
+      expect(added).toHaveLength(1);
+      expect(added[0]).toMatch(committedLine);
+    },
+  );
+
+  test.each(SHAPE_PREVIEWS)(
+    "%s: a command before the release ends it without a commit and keeps the command",
+    async (_, start) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const committed = modeler.exportText();
+      const release = await start(modeler);
+      diagramOf(modeler).setTitle("Renamed mid-drag");
+      const renamed = committed.replace("title Gestures", "title Renamed mid-drag");
+      expect(modeler.exportText()).toBe(renamed);
+      expect(diagramOf(modeler).exportDSL()).toBe(renamed);
+      expect(modeler.interaction.active()).toBe(false);
+
+      release();
+      await settle();
+      expect(errors).toEqual([]);
+      expect(modeler.exportText()).toBe(renamed);
+      expect(current.changes()).toBe(1);
+      expect(current.delivered).toEqual([true, false]);
+      undo(modeler);
+      expect(modeler.exportText()).toBe(committed);
+    },
+  );
+
+  test.each(SHAPE_PREVIEWS)(
+    "%s: an undo before the release keeps its redo step",
+    async (_, start) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const committed = modeler.exportText();
+      diagramOf(modeler).setTitle("Edited title");
+      const release = await start(modeler);
+      undo(modeler);
+      expect(modeler.exportText()).toBe(committed);
+      expect(diagramOf(modeler).exportDSL()).toBe(committed);
+
+      release();
+      await settle();
+      expect(modeler.exportText()).toBe(committed);
+      const commandStack = diagramOf(modeler).get<CommandStack>("commandStack");
+      expect(commandStack.canRedo()).toBe(true);
+      commandStack.redo();
+      expect(modeler.exportText()).toBe(committed.replace("title Gestures", "title Edited title"));
+    },
+  );
+
+  test.each(SHAPE_PREVIEWS)(
+    "%s: the last export of a modeler destroyed mid-drag",
+    async (_, start) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const committed = modeler.exportText();
+      await start(modeler);
+      modeler.destroy();
+      expect(modeler.exportText()).toBe(committed);
+    },
+  );
 });
 
 describe("interaction reports no gesture", () => {

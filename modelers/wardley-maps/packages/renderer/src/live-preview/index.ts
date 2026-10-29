@@ -1,7 +1,7 @@
 import type { ModuleDeclaration } from "didi";
 import LivePreview from "./LivePreview.js";
 
-/** The committed document behind a live preview (map size, axis labels). */
+/** The committed document behind a live preview (map size, axis labels, evolve targets, labels). */
 export const livePreviewModule: ModuleDeclaration = {
   wardleyLivePreview: ["type", LivePreview],
 };
