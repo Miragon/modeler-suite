@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CURRENT_SCHEMA_VERSION,
+  PLACEHOLDER_LABELS,
   groupByAggregate,
   normalizeLabel,
   type AggregateGroup,
@@ -379,6 +380,45 @@ describe("groupByAggregate", () => {
     expect(group.aggregate.elementIds).toEqual(["unknown"]);
     expect(group.commands).toEqual([]);
     expect(group.events).toEqual([]);
+  });
+
+  it("leaves out an aggregate retyped from another kind while it carries that kind's placeholder", () => {
+    const groups = groupByAggregate({
+      elements: [
+        sticky("place", "command", "Place Order", 0, 0),
+        sticky("retyped_event", "aggregate", "Domain Event", 200, 0),
+        sticky("placed", "event", "Order Placed", 400, 0),
+        sticky("retyped_command", "aggregate", "Command 2", 200, 300),
+        sticky("retyped_hotspot", "aggregate", " Hotspot ", 200, 600),
+        sticky("retyped_readmodel", "aggregate", "Read Model 3", 200, 900),
+        sticky("store", "aggregate", "Domain Event Store", 200, 1200),
+      ],
+      edges: [
+        arrow("place", "retyped_event"),
+        arrow("retyped_event", "placed"),
+        arrow("place", "retyped_command"),
+      ],
+    });
+
+    const group = only(groups);
+    expect(group.aggregate.elementIds).toEqual(["store"]);
+    expect(group.commands).toEqual([]);
+    expect(group.events).toEqual([]);
+  });
+
+  it("forms no group from the placeholder of any sticky kind, alone or numbered", () => {
+    const elements = Object.values(PLACEHOLDER_LABELS).flatMap((placeholder, index) => [
+      sticky(`plain_${index}`, "aggregate", placeholder, index * 200),
+      sticky(`numbered_${index}`, "aggregate", `${placeholder} ${index + 2}`, index * 200, 300),
+    ]);
+    expect(groupByAggregate({ elements, edges: [] })).toEqual([]);
+
+    const renamed = elements.map((element) =>
+      element.id === "numbered_0" ? { ...element, label: "Order" } : element,
+    );
+    expect(only(groupByAggregate({ elements: renamed, edges: [] })).aggregate.elementIds).toEqual([
+      "numbered_0",
+    ]);
   });
 
   it("counts a name that only starts like the placeholder, and never merges a placeholder into it", () => {

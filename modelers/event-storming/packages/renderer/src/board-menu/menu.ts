@@ -86,7 +86,7 @@ export interface BoardExports {
 export interface BoardAggregates {
   /**
    * Read when `boardMenu` runs: the entry is there only while the board has a named aggregate,
-   * one whose label is no placeholder such as "Aggregate 2".
+   * one whose label is no placeholder of any sticky kind, such as "Aggregate 2" or "Domain Event".
    */
   hasAggregates(): boolean;
   /** Opens the dialog, e.g. `eventStormingAggregates.showDialog({ container, openDialog })`. */

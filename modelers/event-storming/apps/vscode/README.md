@@ -57,9 +57,9 @@ yellow), **Aggregate** (yellow), **Policy** (purple), **Read Model** (green), **
   embedded, the PNG is still saved, in a system font, and a warning says so. **Aggregates…** lists
   every named aggregate once, however often the timeline repeats it, with the commands that lead
   into it and the domain events that follow, as the arrows connect them; spellings such as `Order`
-  and `Orders` count as one name, and a placeholder such as `Aggregate 2` counts as none. Choose a
-  name to select its stickies on the board: that changes nothing in the file, and it works while
-  the file is invalid too.
+  and `Orders` count as one name, and a placeholder such as `Aggregate 2`, or `Domain Event` on a
+  sticky retyped to an aggregate, counts as none. Choose a name to select its stickies on the
+  board: that changes nothing in the file, and it works while the file is invalid too.
 - **Zoom** (bottom right): zoom out, the current zoom (click for 100%), zoom in and fit. With the
   board focused, `Ctrl/Cmd` + `+`, `-` and `0` zoom the canvas (not the window), `Shift+1` fits.
 - **Problems.** Lines the parser cannot fully use (an arrow to a missing sticky, an unreadable

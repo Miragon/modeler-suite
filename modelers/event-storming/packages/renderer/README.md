@@ -154,8 +154,8 @@ active one and still breaks the line while none is active, and a click takes an 
 closes the list and leaves the editor open; the next Escape discards the edit as before. Names are
 compared with `normalizeLabel` of
 [`@miragon/event-storming-schema-model`](https://www.npmjs.com/package/@miragon/event-storming-schema-model)
-(case, whitespace, punctuation, simple plurals and a few spellings), and a placeholder name such as
-"Domain Event 2" is no suggestion.
+(case, whitespace, punctuation, simple plurals and a few spellings), and the placeholder name of
+any kind, such as "Domain Event 2", is no suggestion, also on a sticky retyped to another kind.
 
 A name the board writes in more than one way (`Order`, `order`, `Orders`) gets a dot in
 `--cd-ui-warning` on the top right corner of each of its stickies. Its tooltip names the other
@@ -175,9 +175,10 @@ one command.
 from the canvas through `groupByAggregate` of the schema model, which the package re-exports:
 every aggregate once, however often the timeline repeats it, with the commands whose arrows lead
 into it and the domain events its arrows lead to. An aggregate whose label is still the
-placeholder a new sticky gets ("Aggregate", "Aggregate 2") is left out, as it is no label
-suggestion, and so is an empty one, which the `.storm` file stores as "Aggregate". `rows()` gives them as the rows of a table, one per aggregate, each line a command
-and the events it leads to (`aggregateTableRows`), and
+placeholder a new sticky of any kind gets ("Aggregate", "Aggregate 2", or "Domain Event" on a
+sticky retyped to an aggregate) is left out, as it is no label suggestion, and so is an empty one,
+which the `.storm` file stores as "Aggregate". `rows()` gives them as the rows of a table, one per
+aggregate, each line a command and the events it leads to (`aggregateTableRows`), and
 `renderAggregateTable(body, rows, { onSelect })` draws that table into a dialog body.
 `showDialog({ container, openDialog })` opens it in a dialog of guide §8, the shell's
 `openShellDialog` passed in structurally, so the renderer never imports the shell:

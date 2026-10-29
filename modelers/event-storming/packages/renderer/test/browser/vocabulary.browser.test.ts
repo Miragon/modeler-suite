@@ -6,6 +6,7 @@ import type Selection from "diagram-js/lib/features/selection/Selection";
 import { parseDSL, serializeDSL } from "@miragon/event-storming-dsl";
 import { Modeler } from "../../src/index.js";
 import type EventStormingLabelEditing from "../../src/label-editing/EventStormingLabelEditing.js";
+import type EventStormingModeling from "../../src/modeling/EventStormingModeling.js";
 import type EventStormingReadOnly from "../../src/read-only/EventStormingReadOnly.js";
 import type EventStormingSpellingVariants from "../../src/vocabulary/EventStormingSpellingVariants.js";
 import { isEventStormingShape, type EventStormingShape } from "../../src/model/di-types.js";
@@ -145,6 +146,37 @@ describe("the board's vocabulary on the canvas (real browser DOM)", () => {
       elementId: byLabel("Payment Received").id,
       value: "Order",
     });
+  });
+
+  it("offers no other kind's placeholder that a retyped sticky still carries, until it is renamed", async () => {
+    await modeler.importDSL(`title Retyped
+event Domain Event [150, 120] (id evt_new)
+aggregate Domain Model [420, 120] (id agg_model)
+aggregate Order [720, 120] (id agg_order)`);
+    const modeling = modeler.get<EventStormingModeling>("eventStormingModeling");
+    const retyped = registry().get("evt_new") as EventStormingShape;
+    modeling.setStickyKind(retyped, "aggregate");
+    expect([retyped.eventStormingType, retyped.eventStormingLabel]).toEqual([
+      "aggregate",
+      "Domain Event",
+    ]);
+    const editing = modeler.get<EventStormingLabelEditing>("eventStormingLabelEditing");
+    const suggestedFor = (typed: string): string[] => {
+      editing.activate(registry().get("agg_order") as EventStormingShape);
+      const field = container.querySelector<HTMLTextAreaElement>("textarea")!;
+      field.value = typed;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      const options = [...container.querySelectorAll('[role="listbox"] [role="option"]')].map(
+        (option) => option.textContent ?? "",
+      );
+      editing.cancel();
+      return options;
+    };
+
+    expect(suggestedFor("Dom")).toEqual(["Domain Model"]);
+
+    modeling.updateLabel(retyped, "Domain Expert");
+    expect(suggestedFor("Dom")).toEqual(["Domain Expert", "Domain Model"]);
   });
 
   it("Tab takes a suggestion and keeps the focus in the editor", () => {

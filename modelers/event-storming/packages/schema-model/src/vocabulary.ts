@@ -29,6 +29,7 @@ export function isVocabularyStickyKind(kind: string): kind is VocabularyStickyKi
 /**
  * The name the palette and the keys give a new sticky of each kind until it is renamed; the next
  * one of a kind gets a number ("Domain Event 2"). Notes and drawings have none.
+ * `isPlaceholderLabel` reads each of these names as a placeholder on a sticky of every kind.
  */
 export const PLACEHOLDER_LABELS = {
   event: "Domain Event",
@@ -41,21 +42,30 @@ export const PLACEHOLDER_LABELS = {
   hotspot: "Hotspot",
 } as const satisfies Partial<Record<ElementType, string>>;
 
-const PLACEHOLDER_OF: ReadonlyMap<string, string> = new Map(Object.entries(PLACEHOLDER_LABELS));
+const PLACEHOLDER_KINDS: ReadonlySet<string> = new Set(Object.keys(PLACEHOLDER_LABELS));
+const PLACEHOLDER_NAMES: readonly string[] = Object.values(PLACEHOLDER_LABELS);
+
+function isPlaceholderWithOptionalNumber(stored: string, placeholder: string): boolean {
+  if (stored === placeholder) return true;
+  return stored.startsWith(`${placeholder} `) && /^\d+$/.test(stored.slice(placeholder.length + 1));
+}
 
 /**
- * Whether `label` is the placeholder a new sticky of `kind` gets: "Aggregate", "Aggregate 2". It
- * says nothing about the domain, so the label suggestions offer no such name and
+ * Whether `label` is a placeholder on a sticky of `kind`: the name a new sticky of any kind gets
+ * until it is renamed, alone or with a number ("Aggregate", "Domain Event 2"). A sticky keeps its
+ * label when its kind changes, so an aggregate still called "Domain Event" names nothing either.
+ * It says nothing about the domain, so the label suggestions offer no such name and
  * `groupByAggregate` counts no such aggregate. The label is read as a `.storm` file stores it,
  * trimmed, and an empty one as the placeholder the file writes in its place, so a board answers
- * the same before and after it is saved and opened again.
+ * the same before and after it is saved and opened again. Notes and drawings have no placeholder.
  */
 export function isPlaceholderLabel(kind: ElementType, label: string): boolean {
-  const placeholder = PLACEHOLDER_OF.get(kind);
-  if (placeholder === undefined) return false;
+  if (!PLACEHOLDER_KINDS.has(kind)) return false;
   const stored = label.trim();
-  if (stored === "" || stored === placeholder) return true;
-  return stored.startsWith(`${placeholder} `) && /^\d+$/.test(stored.slice(placeholder.length + 1));
+  if (stored === "") return true;
+  return PLACEHOLDER_NAMES.some((placeholder) =>
+    isPlaceholderWithOptionalNumber(stored, placeholder),
+  );
 }
 
 /** A sticky as the vocabulary reads it; every `BoardElement` fits. */

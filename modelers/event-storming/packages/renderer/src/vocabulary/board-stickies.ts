@@ -8,8 +8,8 @@ import { isEventStormingShape } from "../model/di-types.js";
 
 /**
  * The stickies on the canvas as the vocabulary reads them, in the order of the registry: no
- * blank sticky awaiting its kind, no placeholder name, and not the sticky `excludedId` names (the
- * one being renamed).
+ * blank sticky awaiting its kind, no placeholder name of any kind (also "Domain Event" on a sticky
+ * retyped to an aggregate), and not the sticky `excludedId` names (the one being renamed).
  */
 export function boardStickies(
   elementRegistry: ElementRegistry,
