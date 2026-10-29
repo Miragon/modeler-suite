@@ -113,13 +113,26 @@ describe("theme.sync — value-chain.css takes every colour from the roles", () 
     const used = [...withoutComments(css).matchAll(/var\((--cd-[\w-]+)/g)].map((m) => m[1]!);
     expect(used.length).toBeGreaterThan(10);
     for (const token of used) {
-      expect(token).toMatch(/^--cd-(ui-[\w-]+|radius-\w+|shadow-\d|ease(-out)?|motion-\w+)$/);
+      expect(token).toMatch(
+        /^--cd-(ui-[\w-]+|radius-\w+|shadow-\d|ease(-out)?|motion-\w+|shell-(rand|zeile|ziel))$/,
+      );
     }
   });
 
-  it("keeps its own canvas overlays at or below z-index 100 (guide §5.13)", () => {
-    expect(zIndexOf(".vc-container .djs-direct-editing-parent")).toBeLessThanOrEqual(100);
-    expect(withoutComments(css).match(/z-index:\s*(\d+)/g) ?? []).toEqual(["z-index: 100"]);
+  it("takes the palette's measures from the shell tokens, not typed in (guide §5.1)", () => {
+    for (const token of ["--cd-shell-rand", "--cd-shell-zeile", "--cd-shell-ziel"]) {
+      expect(withoutComments(css)).toContain(`var(${token})`);
+    }
+  });
+
+  it("keeps its own canvas overlays at or below z-index 100, its palette above them (guide §5.13)", () => {
+    const overlay = zIndexOf(".vc-container .djs-direct-editing-parent");
+    expect(overlay).toBeLessThanOrEqual(100);
+    expect(zIndexOf('.djs-palette:not([data-chrome="palette"])')).toBeGreaterThan(overlay);
+    expect(withoutComments(css).match(/z-index:\s*(\d+)/g) ?? []).toEqual([
+      "z-index: 110",
+      "z-index: 100",
+    ]);
   });
 
   it("marks hover and selection by the outline only, never by a filter (guide §10.4)", () => {
@@ -128,13 +141,31 @@ describe("theme.sync — value-chain.css takes every colour from the roles", () 
   });
 
   it("scopes every rule of its own palette away from a host chrome skin", () => {
+    const unskinned = '.djs-palette:not([data-chrome="palette"])';
     const paletteSelectors = ruleSelectors(css).filter((selector) =>
       /\.djs-palette(?![\w-])/.test(selector),
     );
-    expect(paletteSelectors.length).toBeGreaterThan(0);
+    expect(paletteSelectors.length).toBeGreaterThan(10);
     for (const selector of paletteSelectors) {
-      expect(selector).toMatch(/^\.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/);
+      expect(selector.split(unskinned).join(""), selector).not.toMatch(/\.djs-palette(?![\w-])/);
     }
+  });
+
+  it("keeps the island's edge, the separators and the armed tool's ring in forced colours (guide §5.14)", () => {
+    const forcedColors = /@media \(forced-colors: active\) \{([\s\S]*?)\n\}/.exec(
+      withoutComments(css),
+    )?.[1];
+    expect(forcedColors).toBeDefined();
+    const selectors = ruleSelectors(forcedColors!);
+    expect(selectors).toEqual(
+      expect.arrayContaining([
+        '.djs-palette:not([data-chrome="palette"])',
+        '.djs-palette:not([data-chrome="palette"]) .group + .group::before',
+        '.djs-palette:not([data-chrome="palette"]) .entry:focus-visible',
+        '.djs-palette:not([data-chrome="palette"]) .entry[aria-pressed="true"]',
+      ]),
+    );
+    expect(forcedColors).toMatch(/box-shadow: inset 0 0 0 2px Highlight;/);
   });
 });
 

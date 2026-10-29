@@ -137,7 +137,7 @@ function release(at: Point): void {
 }
 
 function canvasSvg(): SVGSVGElement {
-  const svg = editor().diagram.container.querySelector<SVGSVGElement>("svg");
+  const svg = editor().diagram.container.querySelector<SVGSVGElement>(".djs-container > svg");
   if (!svg) throw new Error("the canvas has no svg");
   return svg;
 }
