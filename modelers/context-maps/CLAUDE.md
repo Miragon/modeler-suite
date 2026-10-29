@@ -84,13 +84,19 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   level. An import cancels a running gesture first, as Escape does (`CmGestureCancel`; move,
   connect, lasso, palette and context-pad create, and a press below the drag threshold; the armed
   lasso tool waits for its next press and stays armed, and a pan of the canvas is no gesture and
-  runs on), and so does `clear()`. The contract's `importText` called while a gesture ends (a
-  host echoing a drop's change from `onContentChanged`, or importing from `interaction.onChange`
-  after Escape) waits until it has ended, every listener of the release or key included, and its
-  promise settles after that import (#248); the subdomain-type menu of an append follows its
-  context across such an echo by id. The `Modeler`'s own synchronous `importDocument` leaves the
-  drop to finish instead. Pinned by
-  [`import-cancels-gesture.test.ts`](packages/renderer/test/browser/import-cancels-gesture.test.ts).
+  runs on), and so does `clear()`. The contract's `importText` called while a user action runs (a
+  host echoing its own change from `onContentChanged`, or importing from `interaction.onChange`
+  after Escape) waits until the action has finished with the steps it deferred, and its promise
+  settles after that import (#248, #285, #305). `CmGestureCancel.whenActionEnded()` is the one
+  wait: a drop until its release has run every listener, a press that committed a label at its
+  start until the drag it started has ended, a step an action holds (`holdAction`: the
+  subdomain-type menu of an append, the integration-roles menu after a toggle) until it has run,
+  and any other change until its handler has returned. The import reopens the label editor (its
+  element selected again) and those two menus on the element with the same id. The `Modeler`'s
+  own synchronous `importDocument` leaves the drop to finish instead. Pinned by
+  [`import-cancels-gesture.test.ts`](packages/renderer/test/browser/import-cancels-gesture.test.ts)
+  and
+  [`import-waits-for-user-action.test.ts`](packages/renderer/test/browser/import-waits-for-user-action.test.ts).
   Both factories expose the 1.5 surfaces: `interaction` (true from a gesture's start, the first
   move past the threshold or a palette create's preview, until its drop or cancel; false for an
   armed tool and a pan; always false on the viewer) and `appearance` (`themes` is

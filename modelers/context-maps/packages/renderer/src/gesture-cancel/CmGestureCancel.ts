@@ -13,16 +13,21 @@ const BEFORE_THE_DROP = 10_000;
 /** Ahead of every other listener of a drag's move and cleanup, so that they see the new state. */
 const FIRST = 10_000;
 
+/** Behind every other listener of a drag's init: the label commit at a press runs before. */
+const LAST = -10_000;
+
+/** Ahead of the host's change listener, which may import. */
+const BEFORE_THE_HOST = 10_000;
+
 interface Gesture {
   prefix: string;
   active?: boolean;
 }
 
-/** A gesture whose drop or cancel runs, and the promise that settles once it has ended. */
-interface Ending {
-  gesture: Gesture;
-  ended: Promise<void>;
-  finish(): void;
+/** A drag and the release of the user action it keeps running until it has ended. */
+interface HeldDrag {
+  drag: Gesture;
+  release(): void;
 }
 
 export type ActiveListener = (active: boolean) => void;
@@ -46,28 +51,33 @@ function deliver(listener: ActiveListener, active: boolean): void {
   }
 }
 
-function endingOf(gesture: Gesture): Ending {
-  let finish = (): void => undefined;
-  const ended = new Promise<void>((resolve) => {
-    finish = resolve;
-  });
-  return { gesture, ended, finish };
-}
-
 /**
- * The user's gestures on the canvas: a move, connect or lasso drag past the drag threshold, and a
- * create from the palette or the context pad while its preview follows the pointer, also off the
- * canvas. It tells whether one runs, ends one before the canvas is cleared, and tells an import to
- * wait while one ends. A palette tool that only waits for its next press is no gesture, and neither
- * is a pan of the canvas, which runs outside diagram-js's dragging.
+ * The user's gestures on the canvas, and the user actions an import waits for.
+ *
+ * A gesture is a move, connect or lasso drag past the drag threshold, or a create from the palette
+ * or the context pad while its preview follows the pointer, also off the canvas. This service tells
+ * whether one runs and ends one before the canvas is cleared. A palette tool that only waits for its
+ * next press is no gesture, and neither is a pan of the canvas, which runs outside diagram-js's
+ * dragging.
+ *
+ * A user action changes the map, and a host hears that change in its change listener. It runs until
+ * it has finished, with the steps it deferred: a drop until its release has run every listener, a
+ * press that committed a label at its start until the drag it started has ended, a step such as the
+ * subdomain-type menu of an append until it has run (`holdAction`), and any other action until the
+ * handler that made the change has returned. An import that waits for `whenActionEnded()` replaces
+ * no element the action still works on.
  */
 export default class CmGestureCancel {
   static $inject = ["eventBus", "dragging"];
 
-  private ending: Ending | null = null;
+  private ending: HeldDrag | null = null;
+  private press: HeldDrag | null = null;
+  private startingDrag: Gesture | null = null;
   private cancellingForClear = false;
   private active = false;
   private readonly activeListeners = new Set<ActiveListener>();
+  private readonly runningActions = new Set<object>();
+  private actionWaiters: Array<() => void> = [];
 
   constructor(
     eventBus: EventBus,
@@ -79,15 +89,37 @@ export default class CmGestureCancel {
       const gesture = this.runningGesture();
       if (gesture?.active && !isArmedTool(gesture)) this.setActive(true);
     });
+    eventBus.on("drag.init", FIRST, () => {
+      this.startingDrag = this.runningGesture();
+    });
+    eventBus.on("drag.init", LAST, () => {
+      this.startingDrag = null;
+    });
     eventBus.on("drag.end", BEFORE_THE_DROP, () => this.startEnding());
     // Every drag ends in its cleanup: the drop, Escape, an import and an error in a listener alike.
     // It has ended once its release or key has run all its listeners, `drag.ended` and
     // `drag.canceled` included: the microtask comes after the event that ended it.
     eventBus.on("drag.cleanup", FIRST, () => {
       this.startEnding();
+      const drag = this.runningGesture();
       const ending = this.ending;
-      if (ending) queueMicrotask(() => this.finishEnding(ending));
+      const press = this.press?.drag === drag ? this.press : null;
+      if (ending || press) {
+        queueMicrotask(() => {
+          if (ending) this.finishEnding(ending);
+          if (press) this.finishPress(press);
+        });
+      }
+      this.startingDrag = null;
       this.setActive(false);
+    });
+    eventBus.on("commandStack.changed", BEFORE_THE_HOST, () => this.userActionChanged());
+    // The scheduler drops its tasks on destroy: an import waiting for one rejects instead.
+    eventBus.on("diagram.destroy", () => {
+      this.ending = null;
+      this.press = null;
+      this.runningActions.clear();
+      this.settleActions();
     });
   }
 
@@ -103,13 +135,25 @@ export default class CmGestureCancel {
   }
 
   /**
-   * While a gesture ends (its drop, with the command a host imports from, or its cancel): settles
-   * once it has ended and every listener of the event that ended it has run. An import that waits
-   * for it replaces no element a listener of the drop still holds, also not one a listener defers
-   * to later (the type menu after an append).
+   * While a user action runs (a drop, an append, a create, a label commit, with the steps they
+   * deferred): settles once it has finished. An import that waits for it replaces no element the
+   * action still holds; `undefined` while none runs.
    */
-  whenGestureEnded(): Promise<void> | undefined {
-    return this.ending?.ended;
+  whenActionEnded(): Promise<void> | undefined {
+    if (this.runningActions.size === 0) return undefined;
+    return new Promise((resolve) => this.actionWaiters.push(resolve));
+  }
+
+  /**
+   * Keeps the running user action going for a step it deferred to a later task; returns the
+   * release, which ends the action once nothing else holds it.
+   */
+  holdAction(): () => void {
+    const action = {};
+    this.runningActions.add(action);
+    return () => {
+      if (this.runningActions.delete(action)) this.settleActions();
+    };
   }
 
   /**
@@ -123,7 +167,7 @@ export default class CmGestureCancel {
    */
   cancelForClear(): void {
     const gesture = this.runningGesture();
-    if (!gesture || gesture === this.ending?.gesture || isArmedTool(gesture)) return;
+    if (!gesture || gesture === this.ending?.drag || isArmedTool(gesture)) return;
     this.cancellingForClear = true;
     try {
       this.dragging.cancel(false);
@@ -137,15 +181,42 @@ export default class CmGestureCancel {
     return this.cancellingForClear;
   }
 
-  private startEnding(): void {
-    const gesture = this.runningGesture();
-    if (!gesture?.active || isArmedTool(gesture) || this.ending?.gesture === gesture) return;
-    this.ending = endingOf(gesture);
+  /**
+   * A change of the user's: it belongs to the drag diagram-js starts right now when a listener of
+   * the drag's init made it (the label edit a press commits), and to the handler that made it
+   * otherwise. An armed palette tool's drag is no action: an import leaves the tool armed.
+   */
+  private userActionChanged(): void {
+    const starting = this.startingDrag;
+    if (starting && starting === this.runningGesture() && !isArmedTool(starting)) {
+      if (this.press?.drag === starting) return;
+      const replaced = this.press;
+      this.press = { drag: starting, release: this.holdAction() };
+      replaced?.release();
+      return;
+    }
+    queueMicrotask(this.holdAction());
   }
 
-  private finishEnding(ending: Ending): void {
+  private startEnding(): void {
+    const gesture = this.runningGesture();
+    if (!gesture?.active || isArmedTool(gesture) || this.ending?.drag === gesture) return;
+    this.ending = { drag: gesture, release: this.holdAction() };
+  }
+
+  private finishEnding(ending: HeldDrag): void {
     if (this.ending === ending) this.ending = null;
-    ending.finish();
+    ending.release();
+  }
+
+  private finishPress(press: HeldDrag): void {
+    if (this.press === press) this.press = null;
+    press.release();
+  }
+
+  private settleActions(): void {
+    if (this.runningActions.size > 0) return;
+    for (const resolve of this.actionWaiters.splice(0)) resolve();
   }
 
   private setActive(active: boolean): void {
