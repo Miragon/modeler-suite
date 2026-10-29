@@ -10,8 +10,8 @@ export interface PngExportOptions {
    */
   readonly background: string;
   /**
-   * PNG pixels per SVG unit: 2 by default (§10.7), 4 for the transparent variant. Lowered where the
-   * browser would refuse a canvas that large.
+   * PNG pixels per SVG unit: 2 by default (§10.7); pass 4 for the transparent variant. Lowered where
+   * the browser would refuse a canvas that large.
    */
   readonly scale?: number | undefined;
   /** The Geist faces to embed: the page's own (`pageGeistFaces()`) when left out, none with `[]`. */

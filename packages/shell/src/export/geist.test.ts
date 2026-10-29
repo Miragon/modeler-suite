@@ -17,6 +17,18 @@ const FONTSOURCE_FACES: GeistFace[] = [
   { src: fakeFile("latin"), unicodeRange: GEIST_UNICODE_RANGES.latin },
 ];
 
+/** fontsource's `wght-italic.css`, which the Wardley Maps apps load after `wght.css`. */
+const FONTSOURCE_ITALIC_FACES: GeistFace[] = [
+  { src: fakeFile("cyrillic-ext-italic"), unicodeRange: GEIST_UNICODE_RANGES.cyrillicExt },
+  { src: fakeFile("cyrillic-italic"), unicodeRange: GEIST_UNICODE_RANGES.cyrillic },
+  { src: fakeFile("vietnamese-italic"), unicodeRange: GEIST_UNICODE_RANGES.vietnamese },
+  { src: fakeFile("latin-ext-italic"), unicodeRange: GEIST_UNICODE_RANGES.latinExt },
+  { src: fakeFile("latin-italic"), unicodeRange: GEIST_UNICODE_RANGES.latin },
+].map((face) => ({ ...face, style: "italic", weight: "100 900" }));
+
+const UPRIGHT = "font-family:'Geist Variable';font-style:normal;font-weight:100";
+const ITALIC = "font-family:'Geist Variable';font-style:italic;font-weight:100";
+
 function diagram(label: string): string {
   return (
     `<svg xmlns="${SVG_NAMESPACE}" width="200" height="80"><rect width="200" height="80"/>` +
@@ -80,8 +92,8 @@ describe("embedGeist", () => {
     expect(preload?.localName).toBe("g");
     expect(preload?.getAttribute("visibility")).toBe("hidden");
     expect(preloadTexts(root)).toEqual([
-      ["text", "font-family:'Geist Variable'", "Ł"],
-      ["text", "font-family:'Geist Variable'", "C"],
+      ["text", UPRIGHT, "Ł"],
+      ["text", UPRIGHT, "C"],
     ]);
     expect(drawing?.localName).toBe("rect");
     expect(root.querySelector("svg > text")?.textContent).toBe("Cup of Tea from Łódź");
@@ -99,6 +111,27 @@ describe("embedGeist", () => {
     expect(await samples("Чай чай")).toEqual(["Ч", "!"]);
   });
 
+  it("compares a face only with the later faces of its style and weight, and sets its hidden text in them", async () => {
+    const root = parse(
+      await embedGeist(diagram("Kettle from Łódź"), [
+        ...FONTSOURCE_FACES,
+        ...FONTSOURCE_ITALIC_FACES,
+      ]),
+    );
+    expect(fontFaces(root).map((face) => /src:url\("([^"]+)"\)/.exec(face)?.[1])).toEqual([
+      fakeFile("latin-ext"),
+      fakeFile("latin"),
+      fakeFile("latin-ext-italic"),
+      fakeFile("latin-italic"),
+    ]);
+    expect(preloadTexts(root)).toEqual([
+      ["text", UPRIGHT, "Ł"],
+      ["text", UPRIGHT, "K"],
+      ["text", ITALIC, "Ł"],
+      ["text", ITALIC, "K"],
+    ]);
+  });
+
   it("embeds a face without a unicode-range for every text, and gives a data: URL of another type the font type", async () => {
     const root = parse(
       await embedGeist(diagram("Tea"), [{ src: "data:application/octet-stream;base64,AAAA" }]),
@@ -107,18 +140,29 @@ describe("embedGeist", () => {
       "@font-face{font-family:'Geist Variable';font-style:normal;font-weight:100 900;" +
         'font-display:swap;src:url("data:font/woff2;base64,AAAA")}',
     ]);
-    expect(preloadTexts(root)).toEqual([["text", "font-family:'Geist Variable'", "T"]]);
+    expect(preloadTexts(root)).toEqual([["text", UPRIGHT, "T"]]);
   });
 
-  it("keeps the weight and style a face names", async () => {
+  it("keeps the weight and style a face names, and sets its hidden text in their first value", async () => {
     const root = parse(
       await embedGeist(diagram("Tea"), [
         { src: fakeFile("latin"), weight: "400", style: "italic", unicodeRange: "U+0-FF" },
+        { src: fakeFile("latin-bold"), weight: "700", style: "italic", unicodeRange: "U+0-FF" },
+        { src: fakeFile("latin-slanted"), style: " Oblique  0deg 10deg ", unicodeRange: "U+0-FF" },
       ]),
     );
     expect(fontFaces(root)).toEqual([
       "@font-face{font-family:'Geist Variable';font-style:italic;font-weight:400;" +
         `font-display:swap;src:url("${fakeFile("latin")}");unicode-range:U+0-FF}`,
+      "@font-face{font-family:'Geist Variable';font-style:italic;font-weight:700;" +
+        `font-display:swap;src:url("${fakeFile("latin-bold")}");unicode-range:U+0-FF}`,
+      "@font-face{font-family:'Geist Variable';font-style:oblique 0deg 10deg;font-weight:100 900;" +
+        `font-display:swap;src:url("${fakeFile("latin-slanted")}");unicode-range:U+0-FF}`,
+    ]);
+    expect(preloadTexts(root)).toEqual([
+      ["text", "font-family:'Geist Variable';font-style:italic;font-weight:400", "T"],
+      ["text", "font-family:'Geist Variable';font-style:italic;font-weight:700", "T"],
+      ["text", "font-family:'Geist Variable';font-style:oblique 0deg;font-weight:100", "T"],
     ]);
   });
 
