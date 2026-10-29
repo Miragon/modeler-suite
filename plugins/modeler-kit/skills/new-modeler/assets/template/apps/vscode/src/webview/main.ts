@@ -6,6 +6,7 @@ import geistLatin from '@fontsource-variable/geist/files/geist-latin-wght-normal
 import geistLatinExt from '@fontsource-variable/geist/files/geist-latin-ext-wght-normal.woff2?dataurl';
 import {
   COLORS,
+  THEMES,
   createCollaborativeModeler,
   createShortcutsDialog,
   diagramMenu,
@@ -27,7 +28,6 @@ import {
   readShellState,
 } from '@miragon/modeler-shell/vscode/webview';
 import type { HostToWebview, WebviewToHost } from '../protocol.js';
-import { WEBVIEW_THEMES } from '../themes.js';
 
 interface VsCodeApi {
   postMessage(message: WebviewToHost): void;
@@ -67,7 +67,7 @@ const app = document.getElementById('app');
 if (!app) throw new Error('The webview HTML has no #app root.');
 
 const shell = mountVsCodeShell(app, {
-  themes: WEBVIEW_THEMES,
+  themes: THEMES,
   canvas: diagram.container,
   messages: { canvas: DIAGRAM_NAME },
   // In VS Code the file is the document: no text export. No shortcuts key either: every key the

@@ -6,6 +6,7 @@ import MoveModule from 'diagram-js/lib/features/move';
 import OutlineModule from 'diagram-js/lib/features/outline';
 import KeyboardMoveModule from 'diagram-js/lib/navigation/keyboard-move';
 import { NavigatedViewer } from './NavigatedViewer.js';
+import { gesturesModule } from './gestures/index.js';
 import { keyboardModule } from './keyboard/index.js';
 import { labelEditingModule } from './label-editing/index.js';
 import { domainModelingModule } from './modeling/index.js';
@@ -29,6 +30,7 @@ export class Modeler extends NavigatedViewer {
       paletteModule,
       labelEditingModule,
       keyboardModule,
+      gesturesModule,
     ];
   }
 

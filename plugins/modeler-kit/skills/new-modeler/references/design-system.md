@@ -53,8 +53,10 @@ The renderer's stylesheet
 
 ## Light until the joint dark-mode release
 
-All modelers declare `themes: ['light']` in both apps until they flip to `['light', 'dark']` on the
-same day. A light-only modeler stays light under a dark VS Code theme and a dark system setting
+All modelers list `['light']` until they flip to `['light', 'dark']` on the same day, in one
+constant of the renderer, `THEMES`, which the contract's `appearance.themes` and the shell's
+`themes` in both apps read ([contract](contract.md#appearance)). A light-only modeler stays light
+under a dark VS Code theme and a dark system setting
 (the shell resolves it, and its kit checks that nothing turns half-dark); high contrast passes
 through. A DSL directive such as `style dark` round-trips but renders nothing.
 

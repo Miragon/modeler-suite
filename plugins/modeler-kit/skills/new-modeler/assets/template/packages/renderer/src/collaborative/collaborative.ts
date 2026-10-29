@@ -1,11 +1,13 @@
 import {
   MODELER_API_VERSION,
+  type AppearanceSurface,
   type CollaborativeModeler,
   type CollaborativeModelerOptions,
   type ElementBounds,
   type ElementInfo,
   type ElementsSurface,
   type ImportResult,
+  type InteractionSurface,
   type ModelerMeta,
 } from '@miragon/modeler-api';
 import type { ModuleDeclaration } from 'didi';
@@ -14,10 +16,12 @@ import type ElementRegistry from 'diagram-js/lib/core/ElementRegistry';
 import type EventBus from 'diagram-js/lib/core/EventBus';
 import type Selection from 'diagram-js/lib/features/selection/Selection';
 import type { DiagramOptions } from '../BaseViewer.js';
+import type Gestures from '../gestures/Gestures.js';
 import type ContentBounds from '../io/ContentBounds.js';
 import { Modeler } from '../Modeler.js';
 import { NavigatedViewer } from '../NavigatedViewer.js';
 import { isNodeShape, type NodeShape } from '../model/di-types.js';
+import { appearanceOf } from './appearance.js';
 
 /** `meta.notation`: the stable id hosts bind the notation by (Design IQ's `contractNotation`). */
 export const NOTATION = '__NOTATION__';
@@ -34,6 +38,10 @@ export type DiagramElementsSurface = ElementsSurface & Required<Pick<ElementsSur
 /** The contract surface plus the wrapped diagram, for host-specific wiring (menus, exports). */
 export interface CollaborativeDiagram extends CollaborativeModeler {
   readonly elements: DiagramElementsSurface;
+  /** Whether the user holds a gesture (contract 1.5); always false on the viewer. */
+  readonly interaction: InteractionSurface;
+  /** The themes the diagram draws, `THEMES`, and the host's request for one (contract 1.5). */
+  readonly appearance: AppearanceSurface;
   readonly diagram: Modeler | NavigatedViewer;
   /** The tight box of the nodes (contract 1.3), `undefined` on an empty canvas. */
   contentBounds(): ElementBounds | undefined;
@@ -85,9 +93,14 @@ function collaborative(
   const elementRegistry = diagram.get<ElementRegistry>('elementRegistry');
   const selection = diagram.get<Selection>('selection');
   const content = diagram.get<ContentBounds>('contentBounds');
+  // Only the editing mount runs gestures: the viewer has no dragging.
+  const gestures = diagram.getOptional<Gestures>('gestures');
   const contentListeners = new Set<() => void>();
   let destroyed = false;
   let lastExport = '';
+  // The imports called while a drop is applied, in call order: each waits for the drop and for
+  // the one called before it, so an earlier text never lands over a later one.
+  let waitingImports: Promise<unknown> | undefined;
 
   const meta: ModelerMeta = { notation: NOTATION, apiVersion: MODELER_API_VERSION, editable };
 
@@ -127,20 +140,52 @@ function collaborative(
     },
   };
 
+  const interaction: InteractionSurface = {
+    active: () => !destroyed && (gestures?.isActive() ?? false),
+    onChange(callback) {
+      if (!gestures) return () => undefined;
+      return gestures.onChange((active) => {
+        if (!destroyed) callback(active);
+      });
+    },
+  };
+
+  const importNow = (text: string): Promise<ImportResult> => {
+    if (destroyed) return Promise.reject(new Error('The modeler was destroyed.'));
+    try {
+      return Promise.resolve(diagram.importText(text));
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  };
+
   return {
     meta,
     elements,
+    interaction,
+    appearance: appearanceOf(diagram.container, () => destroyed),
     diagram,
     attachTo(host) {
       diagram.attachTo(host as HTMLElement);
     },
+    /**
+     * Imports at once, unless a drop is being applied (a host importing from the change listener
+     * of the drop's command): then it waits until the drop has ended, so no listener the drop runs
+     * finds its elements replaced, and settles after that import.
+     */
     importText(text): Promise<ImportResult> {
-      if (destroyed) return Promise.reject(new Error('The modeler was destroyed.'));
-      try {
-        return Promise.resolve(diagram.importText(text));
-      } catch (error) {
-        return Promise.reject(error instanceof Error ? error : new Error(String(error)));
-      }
+      const before = waitingImports ?? gestures?.dropEnded();
+      if (!before) return importNow(text);
+      const imported = before.then(() => importNow(text));
+      const settled = imported.then(
+        () => undefined,
+        () => undefined,
+      );
+      waitingImports = settled;
+      void settled.then(() => {
+        if (waitingImports === settled) waitingImports = undefined;
+      });
+      return imported;
     },
     exportText() {
       // Asking a destroyed diagram would build a new one on the detached container.

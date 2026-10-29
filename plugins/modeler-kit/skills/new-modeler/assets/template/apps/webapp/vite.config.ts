@@ -2,7 +2,7 @@ import { resolve } from 'node:path';
 import { webHeadMarkup } from '@miragon/modeler-shell/core';
 import { defineConfig, type Plugin } from 'vite';
 import tokens from '../../packages/renderer/src/theme/cd-tokens.generated.json' with { type: 'json' };
-import { THEMES } from './src/themes.ts';
+import { THEMES } from '../../packages/renderer/src/themes.ts';
 
 const fromRoot = (path: string): string => resolve(import.meta.dirname, '../..', path);
 

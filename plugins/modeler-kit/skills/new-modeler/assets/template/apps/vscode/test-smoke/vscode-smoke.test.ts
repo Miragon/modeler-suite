@@ -2,8 +2,8 @@ import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { formatVsCodeSmoke, runVsCodeSmoke } from '@miragon/modeler-shell/testing/vscode-electron';
 import { parseText } from '@miragon/__NOTATION__-dsl';
+import { THEMES } from '@miragon/__NOTATION__-renderer/themes';
 import { EXAMPLE_DIAGRAM } from '../src/examples.js';
-import { WEBVIEW_THEMES } from '../src/themes.js';
 
 /*
  * The built extension in a real VS Code, what the stub of e2e cannot show: the webview inside VS
@@ -27,7 +27,7 @@ it('__DISPLAY_NAME__ in a real VS Code', { timeout: 600_000 }, async () => {
         throw new Error(diagnostics.map(({ line, message }) => `${line}: ${message}`).join('; '));
       }
     },
-    themes: WEBVIEW_THEMES,
+    themes: THEMES,
     name: '__NOTATION__',
     screenshotDir: 'test-results/vscode-smoke',
     vscodeVersion: process.env.VSCODE_VERSION || undefined,

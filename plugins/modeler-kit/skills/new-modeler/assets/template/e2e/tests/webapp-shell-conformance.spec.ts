@@ -1,8 +1,8 @@
 import { test, type Page } from '@playwright/test';
 import { registerShellConformance, type ShellSkip } from '@miragon/modeler-shell/testing';
+import { THEMES } from '@miragon/__NOTATION__-renderer/themes';
 import { EXAMPLE } from '../../apps/webapp/src/example.js';
 import { linkHash } from '../../apps/webapp/src/link.js';
-import { THEMES } from '../../apps/webapp/src/themes.js';
 import { labelEditorHooks } from './support/label-editor.js';
 import { shortcutsDialogHooks } from './support/shortcuts-dialog.js';
 
