@@ -199,11 +199,11 @@ function armTool(): void {
   moveTo({ x: at.x + 60, y: at.y + 60 });
 }
 
-function addNode(): void {
+function addNode(): Shape {
   createdNodes += 1;
   const created = service<NodeFactory>('nodeFactory').createNew(`Node ${createdNodes}`);
   const root = service<Canvas>('canvas').getRootElement() as Shape;
-  service<Modeling>('modeling').createShape(created, { x: 900, y: 500 }, root);
+  return service<Modeling>('modeling').createShape(created, { x: 900, y: 500 }, root);
 }
 
 function recordInteraction(): boolean[] {
@@ -573,6 +573,30 @@ describe('an import called during a user action waits until the action has finis
     });
   }
 
+  it('an import that fails to render reopens the edit it took down, and no later import does', async () => {
+    const labelEditing = service<LabelEditing>('labelEditing');
+    editLabel('pay', 'Typed, not committed');
+    const importer = service<{ import(document: unknown): void }>('importer');
+    const render = importer.import.bind(importer);
+    let failures = 1;
+    importer.import = (document) => {
+      if (failures === 0) return render(document);
+      failures -= 1;
+      throw new Error('render failed');
+    };
+
+    await expect(modeler.importText(payments)).rejects.toThrow('render failed');
+    await nextTask();
+    expect(modeler.exportText()).toBe(orders);
+    expect(labelEditing.openEdit()).toEqual({ elementId: 'pay', text: 'Typed, not committed' });
+
+    labelEditing.cancel();
+    await modeler.importText(orders);
+    await nextTask();
+    expect(labelEditing.openEdit()).toBeUndefined();
+    expect(changes).toBe(0);
+  });
+
   it('a label commit at a press on another node: the import ends the drag the press started', async () => {
     const reimport = echoOnce();
     const watch = countImports();
@@ -613,6 +637,70 @@ describe('an import called during a user action waits until the action has finis
     expect(changes).toBe(1);
     expect(node('pay').elementLabel).toBe('Paid');
     expect(modeler.elements.list()).toHaveLength(3);
+  });
+
+  describe('an import from the selection listener inside a command waits for the command', () => {
+    /**
+     * Runs `command` while a host imports `text` from the first selection change it hears, then
+     * expects the command's one change, the imported text, and a next edit that applies and undoes.
+     */
+    async function expectImportAfterTheCommand(text: string, command: () => void): Promise<void> {
+      let reimport: Promise<unknown> | undefined;
+      modeler.elements.onSelection(() => {
+        reimport ??= modeler.importText(text);
+      });
+      const watch = countImports();
+      changes = 0;
+
+      command();
+      expect(reimport).toBeDefined();
+      expect(watch.rendered).toBe(0);
+      await reimport;
+
+      expect(errors).toEqual([]);
+      expect(changes).toBe(1);
+      expect(modeler.exportText()).toBe(text);
+      expect(canvasSvg().querySelectorAll('.djs-shape')).toHaveLength(
+        modeler.elements.list().length,
+      );
+      addNode();
+      expect(changes).toBe(2);
+      service<CommandStack>('commandStack').undo();
+      expect(modeler.exportText()).toBe(text);
+    }
+
+    it('the Delete key on a selected node', async () => {
+      service<Selection>('selection').select(node('pay'));
+      service<Canvas>('canvas').focus();
+
+      await expectImportAfterTheCommand(orders, () =>
+        canvasSvg().dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }),
+        ),
+      );
+    });
+
+    it('an undo of the create of a selected node', async () => {
+      service<Selection>('selection').select(addNode());
+      await nextTask();
+      const created = modeler.exportText();
+
+      await expectImportAfterTheCommand(created, () =>
+        service<CommandStack>('commandStack').undo(),
+      );
+    });
+
+    it('a redo of the delete of a selected node', async () => {
+      service<Modeling>('modeling').removeShape(node('pay'));
+      service<CommandStack>('commandStack').undo();
+      service<Selection>('selection').select(node('pay'));
+      await nextTask();
+      const restored = modeler.exportText();
+
+      await expectImportAfterTheCommand(restored, () =>
+        service<CommandStack>('commandStack').redo(),
+      );
+    });
   });
 
   it('a step the action scheduled for later holds the import until it has run', async () => {

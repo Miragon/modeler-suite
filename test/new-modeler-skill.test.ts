@@ -915,6 +915,7 @@ const NON_API_NAMES = new Map<string, string>([
   ["createShortcutsDialog", "the template renderer's controller of the shortcuts dialog"],
   ["commandStack.changed", "diagram-js"],
   ["commandStack.clear", "diagram-js"],
+  ["commandStack.preExecute", "diagram-js"],
   ["modeling.moveElements", "diagram-js"],
   ["canvas.viewbox.changing", "diagram-js"],
   ["dragging.cancel", "diagram-js"],

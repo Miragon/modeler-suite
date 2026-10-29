@@ -9,6 +9,13 @@ const FIRST = 100_000;
 const PAN_PREFIX = 'hand.move';
 
 /**
+ * Fired before a command (`preExecute`; `execute` for a redo, which skips it) or an undo
+ * (`revert`) changes anything, also for a command nested in another: a listener a change runs
+ * inside the command, such as the selection's on a removed shape, then already finds the action.
+ */
+const COMMAND_STARTS = ['commandStack.preExecute', 'commandStack.execute', 'commandStack.revert'];
+
+/**
  * The drags that hold no element of the diagram, so they are no gesture (contract 1.5,
  * `InteractionSurface`): a palette tool that only waits for its next press (the lasso, the hand)
  * and the pan of the hand tool, which Space held or Ctrl/Cmd and a press start as well. An import
@@ -45,10 +52,12 @@ export type GestureListener = (active: boolean) => void;
  * runs.
  *
  * A user's action is what the diagram does for one input of the user: a drop, a keyboard create,
- * a label commit, a key's command. It runs from its drop or its first command until the task that
- * handles the input is over, since the handler goes on after the command (a keyboard create
- * selects the new node and opens its label editor, a press that commits the label editor starts a
- * drag), and longer while a step it scheduled for later holds it (`holdAction`).
+ * a label commit, a key's command, an undo or a redo. It runs from its drop or the start of its
+ * first command until the task that handles the input is over, since the command goes on after a
+ * listener it runs (the selection's, when it removes a selected shape) and the handler goes on
+ * after the command (a keyboard create selects the new node and opens its label editor, a press
+ * that commits the label editor starts a drag), and longer while a step it scheduled for later
+ * holds it (`holdAction`).
  */
 export default class Gestures {
   static $inject = ['eventBus', 'dragging', 'canvas'];
@@ -70,8 +79,9 @@ export default class Gestures {
     // listener refused it (a refused start never sets the drag active).
     eventBus.on('drag.move', FIRST, () => this.noticeStart());
     eventBus.on('drag.end', FIRST, () => this.noticeDrop());
-    // First, so the action counts before a host's change listener imports.
-    eventBus.on('commandStack.changed', FIRST, () => this.noticeAction());
+    // First, so the action counts before any listener inside the command (a host's selection
+    // listener on a delete, an undo or a redo) or its change listener imports.
+    eventBus.on(COMMAND_STARTS, FIRST, () => this.noticeAction());
     // First, so a cleanup listener that throws cannot keep the gesture running.
     eventBus.on('drag.cleanup', FIRST, () => this.noticeEnd());
     eventBus.on(['drag.ended', 'drag.canceled'], FIRST, () => {
@@ -130,7 +140,10 @@ export default class Gestures {
   /**
    * Keeps the user's action running for a step it scheduled for later (a popup or a label editor
    * that opens after an append), so an import waits until that step has run; returns the release.
-   * A step that does not run (the user ended the action first) releases it all the same.
+   * The step releases it in a `finally` once it has run, when the popup or the editor has opened,
+   * never for as long as that stays open: a host waits for no popup, and a hold never released
+   * keeps every later import waiting. A step that does not run (the user ended the action first)
+   * releases it all the same.
    */
   holdAction(): () => void {
     const hold = {};

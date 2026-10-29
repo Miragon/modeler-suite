@@ -98,8 +98,11 @@ export abstract class BaseViewer {
     } catch (error) {
       this.render(previous);
       throw error;
+    } finally {
+      // Also after a failed render: a suspended edit never reopened would come back on a later
+      // import instead.
+      labelEditing?.resumeAfterImport();
     }
-    labelEditing?.resumeAfterImport();
   }
 
   exportDocument(): DiagramDocument {
