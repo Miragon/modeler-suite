@@ -114,7 +114,7 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   `data-cd-kontrast="hoch"` on the diagram's container, which carries `color: var(--cd-ui-text)`
   so no colour of the page shows through). Pinned by
   [`contract-surfaces.test.ts`](packages/renderer/test/browser/contract-surfaces.test.ts), which
-  checks them as the kit's planned 1.5 cases will.
+  checks them as the kit's 1.5 cases do.
   A host's view change (`setViewState`, a fit) never commits an open editor,
   `elements.bounds(id)` gives an element's live box and `contentBounds()` (also on every
   `CmBaseViewer`) the tight box around what the canvas draws: the contexts, wider where a team row

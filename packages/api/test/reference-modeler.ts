@@ -9,23 +9,35 @@
  * `attachTo`, it draws a focusable `<svg>` canvas in a container of its own,
  * as diagram-js does; its keys (Delete and Backspace remove the selection,
  * Cmd/Ctrl+Z undoes, Cmd/Ctrl+A selects all, Escape clears the selection)
- * act only on a key aimed at the canvas. It is the
+ * act only on a key aimed at the canvas. The harness holds its gestures, its
+ * pan and its lasso by calls (`holdGesture`, `holdPan`, `armLasso`), which
+ * `interaction` reports as a pointer would; an accepted import cancels a held
+ * gesture, a rejected one and a pan run on, and an import called during a drop
+ * waits for it. Its colours resolve from the page's `data-cd-theme` and
+ * `data-cd-kontrast` until `appearance.set` writes its own on the container,
+ * as on the Miragon design tokens. It is the
  * kit's reference subject, plus deliberately BROKEN variants: one per
  * real-world drift the contract exists to prevent AND one per case in the
- * kit, so the kit's own CI proves every case bites. Each variant must fail exactly its law's case set. Seven
+ * kit, so the kit's own CI proves every case bites. Each variant must fail exactly its law's case set. Eight
  * variants are NOT flaws but legitimate implementation choices the kit must
  * accept (a diagram-js style enriched view-state readback, commands ignored
  * before the first import, an empty name that reads back absent, a content
  * box measured in float32, a content box around a plot drawn without
  * elements, canvas keys taken in the capture phase, a canvas that is a
- * focusable `<div>`) — they must fail nothing. Sixteen variants ignore a
- * RECOMMENDATION — they must fail nothing and advise once.
+ * focusable `<div>`, a modeler that lists and draws dark) — they must fail
+ * nothing. Twenty-four variants ignore a RECOMMENDATION — they must fail
+ * nothing and advise once.
  */
+import type { GestureKind, HeldGesture, HeldPan } from "../src/conformance.js";
 import type {
+  AppearanceContrast,
+  AppearanceSurface,
+  AppearanceTheme,
   CollaborativeModeler,
   ElementBounds,
   ElementsSurface,
   ImportResult,
+  InteractionSurface,
   ModelerMeta,
 } from "../src/index.js";
 import { MODELER_API_VERSION } from "../src/index.js";
@@ -224,6 +236,103 @@ export interface Flaws {
   /** NOT a law violation, a missed recommendation: the viewer (only) pans on an arrow aimed anywhere
    *  and prevents it */
   viewerTakesArrowsAnywhere?: boolean;
+
+  // ── the gesture cancel of L1 (1.5) ─────────────────────────────────────────
+  /** NOT a law violation, a missed recommendation: an accepted import leaves a running gesture
+   *  running, so its drop applies to the imported document, or throws on the element it removed */
+  importKeepsGesture?: boolean;
+  /** NOT a law violation, a missed recommendation: a rejected import ends a running gesture too */
+  rejectedImportEndsGesture?: boolean;
+  /** an accepted import applies a running move before it replaces the document: a change event
+   *  from the import */
+  importDuringGestureEmits?: boolean;
+  /** a drop ends the gesture and applies nothing: no case can tell a cancelled gesture from it */
+  dropsNothing?: boolean;
+
+  // ── an import from the change listener of a drop (1.6, #248) ───────────────
+  /** NOT a law violation, a missed recommendation: an import called during a drop runs at once,
+   *  and the drop's next step, which selects the moved element again, throws on the element the
+   *  import removed (diagram-js's SelectionBehavior) */
+  importDuringDropRunsAtOnce?: boolean;
+  /** NOT a law violation, a missed recommendation: an import called during a drop waits for the
+   *  drop, but its Promise resolves at once */
+  importDuringDropSettlesEarly?: boolean;
+
+  // ── a pan (1.6) ────────────────────────────────────────────────────────────
+  /** NOT a law violation, a missed recommendation: interaction reports a pan as a gesture */
+  panIsGesture?: boolean;
+  /** NOT a law violation, a missed recommendation: an import ends a running pan */
+  importEndsPan?: boolean;
+  /** NOT a law violation, a missed recommendation: a pan keeps the view it started from and puts
+   *  it back on its next step after an import, undoing the import's fit */
+  panJumpsBack?: boolean;
+  /** releasing a pan fires onContentChanged */
+  panEmits?: boolean;
+
+  // ── interaction (1.5) ──────────────────────────────────────────────────────
+  /** interaction.active() is false whatever runs; onChange still fires */
+  interactionNeverActive?: boolean;
+  /** onChange(true) fires twice when a gesture starts */
+  interactionReportsTwice?: boolean;
+  /** onChange runs before active() returns the new value */
+  interactionStaleInListener?: boolean;
+  /** interaction.onChange unsubscribes are ignored */
+  leakyInteractionUnsubscribe?: boolean;
+  /** an armed palette tool counts as a gesture */
+  armedToolIsGesture?: boolean;
+  /** interaction.active() is true until the first import */
+  activeBeforeImport?: boolean;
+  /** Escape ends the gesture without telling onChange */
+  cancelNotReported?: boolean;
+  /** destroy() ends a held gesture and still calls onChange(false) */
+  reportsAfterDestroy?: boolean;
+  /** the viewer's interaction.active() is true */
+  viewerReportsGesture?: boolean;
+
+  // ── appearance (1.5) ───────────────────────────────────────────────────────
+  /** NOT a flaw: the modeler lists and draws dark too */
+  listsDark?: boolean;
+  /** appearance.themes is empty */
+  themesEmpty?: boolean;
+  /** appearance.themes lists light twice */
+  themesDuplicated?: boolean;
+  /** appearance.themes lists a theme the contract does not know */
+  themesUnknown?: boolean;
+  /** appearance.themes is another list on every second read */
+  themesVaryByRead?: boolean;
+  /** the viewer lists other themes than the modeler */
+  viewerThemesDiffer?: boolean;
+  /** appearance.set throws for a theme the contract does not know (an untyped host's) */
+  appearanceThrowsOnUnknown?: boolean;
+  /** appearance.set throws before the first import */
+  appearanceThrowsBeforeImport?: boolean;
+  /** appearance.set fires onContentChanged */
+  appearanceEmits?: boolean;
+  /** exportText() writes the drawn appearance into the document */
+  appearanceInExport?: boolean;
+  /** the SVG export carries the drawn appearance */
+  appearanceInImage?: boolean;
+  /** appearance.set zooms the view */
+  appearanceMovesView?: boolean;
+  /** appearance.set clears the selection */
+  appearanceClearsSelection?: boolean;
+  /** appearance.set erases the undo history */
+  appearanceClearsUndo?: boolean;
+  /** appearance.set commits the open label editor */
+  appearanceCommitsInteraction?: boolean;
+  /** NOT a law violation, a missed recommendation: appearance.set closes the open label editor and
+   *  drops the typed input */
+  appearanceDropsInteraction?: boolean;
+  /** appearance.set does nothing and leaves the roles to the page (a DOM-only failure) */
+  appearanceDoesNothing?: boolean;
+  /** appearance.set draws the requested theme even when themes does not list it */
+  appearanceDrawsUnlistedTheme?: boolean;
+  /** a request for normal contrast leaves the page's high contrast through */
+  appearanceKeepsPageContrast?: boolean;
+  /** an import forgets the drawn appearance, so the page's mode shows through again */
+  appearanceForgottenOnImport?: boolean;
+  /** themes lists dark, but a request for it draws light */
+  listsDarkDrawsLight?: boolean;
 }
 
 export interface ReferenceModeler extends CollaborativeModeler {
@@ -244,6 +353,14 @@ export interface ReferenceModeler extends CollaborativeModeler {
   moveLine(elementId: string, dx: number, dy: number): void;
   /** the focusable element `attachTo` drew to take the keys, while mounted */
   canvasElement(): Element | undefined;
+  /** the pointer holds a gesture: a move of the first element, or a create */
+  holdGesture(kind: GestureKind): HeldGesture;
+  /** the palette's lasso waits for its next press */
+  armLasso(): void;
+  /** the pointer pans the view by one step, and by one more on every move */
+  holdPan(): HeldPan;
+  /** the image export: the document as an SVG */
+  exportSvg(): string;
 }
 
 interface View {
@@ -267,6 +384,31 @@ const AT_SUFFIX = /^(.*\S) @(-?\d+),(-?\d+)$/;
 const ROW_HEIGHT = 40;
 /** what `contentBoundsWithPlot` always draws, wherever the elements are */
 const PLOT: ElementBounds = { x: -20, y: -16, width: 240, height: 180 };
+/** how far one step of a pan scrolls the view */
+const PAN_STEP = 10;
+const KNOWN_THEMES: readonly AppearanceTheme[] = ["light", "dark"];
+
+/**
+ * the reference's colours, the way the design tokens resolve them: from the page's mode while the
+ * root carries none (before the first `appearance.set`), from the root's mode once it does. The
+ * root's rules are the more specific ones, so they win over the page's
+ */
+const REFERENCE_STYLES = `
+html[data-cd-theme="dark"] .reference-canvas { color: rgb(236, 236, 236); background-color: rgb(29, 29, 29); }
+html[data-cd-kontrast="hoch"] .reference-canvas { outline-color: rgb(255, 255, 255); }
+.reference-root[data-cd-theme="light"] .reference-canvas { color: rgb(29, 29, 29); background-color: rgb(249, 247, 247); }
+.reference-root[data-cd-theme="dark"] .reference-canvas { color: rgb(236, 236, 236); background-color: rgb(18, 18, 18); }
+.reference-root[data-cd-kontrast="normal"] .reference-canvas { outline-color: rgb(143, 138, 138); }
+.reference-root[data-cd-kontrast="hoch"] .reference-canvas { outline-color: rgb(29, 29, 29); }
+`;
+
+function addReferenceStyles(doc: Document): void {
+  if (doc.getElementById("reference-modeler-styles")) return;
+  const style = doc.createElement("style");
+  style.id = "reference-modeler-styles";
+  style.textContent = REFERENCE_STYLES;
+  doc.head.append(style);
+}
 
 const float32 = (box: ElementBounds): ElementBounds => ({
   x: Math.fround(box.x),
@@ -300,6 +442,21 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
   let createdCount = 0;
   let labelEditor: { elementId: string; text: string } | undefined;
   const keepsHistory = Boolean(flaws.staleUndo || flaws.staleUndoDelta);
+  /** the gesture the pointer holds; an import or its own end clears it */
+  let gesture: { kind: GestureKind; elementId: string | undefined } | undefined;
+  let pan: { from: number; steps: number } | undefined;
+  let lassoArmed = false;
+  /** a drop runs: an import called now waits for the work below */
+  let dropping = false;
+  const afterTheDrop: Array<() => void> = [];
+  let droppedCount = 0;
+  const interactionListeners = new Set<(active: boolean) => void>();
+  /** what interaction reported last */
+  let reportedActive = Boolean(
+    flaws.activeBeforeImport || (!editable && flaws.viewerReportsGesture),
+  );
+  let drawn: { theme: AppearanceTheme; contrast: AppearanceContrast } | undefined;
+  let mountedRoot: Element | undefined;
 
   let muted = false;
   const emit = (): void => {
@@ -330,7 +487,9 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
   };
   const canonical = (): string => {
     const body = entries.map(lineOf).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-    const out = [...(title ? [`title: ${title}`] : []), ...body];
+    const stamp =
+      flaws.appearanceInExport && drawn ? [`% drawn: ${drawn.theme} ${drawn.contrast}`] : [];
+    const out = [...(title ? [`title: ${title}`] : []), ...body, ...stamp];
     return out.length === 0 ? "" : `${out.join("\n")}\n`;
   };
   const nameOf = (entry: Entry | undefined): string | undefined => {
@@ -494,19 +653,78 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
       select([]);
     }
   };
+  /** tells interaction's listeners that a gesture started or ended */
+  const report = (active: boolean): void => {
+    if (destroyed || active === reportedActive) return;
+    if (!flaws.interactionStaleInListener) reportedActive = active;
+    for (const listener of [...interactionListeners]) {
+      listener(active);
+      if (flaws.interactionReportsTwice && active) listener(active);
+    }
+    reportedActive = active;
+  };
+  const endGesture = (): void => {
+    gesture = undefined;
+    report(false);
+  };
+  /** draws the requested appearance on the root, so the reference's colours resolve there */
+  const paint = (): void => {
+    if (!mountedRoot || !drawn || flaws.appearanceDoesNothing) return;
+    mountedRoot.setAttribute("data-cd-theme", drawn.theme);
+    if (drawn.contrast === "high") mountedRoot.setAttribute("data-cd-kontrast", "hoch");
+    else if (flaws.appearanceKeepsPageContrast) mountedRoot.removeAttribute("data-cd-kontrast");
+    else mountedRoot.setAttribute("data-cd-kontrast", "normal");
+  };
+  /** a held gesture's drop: the move or the create it shows, then what follows it */
+  const drop = (held: NonNullable<typeof gesture>): void => {
+    if (gesture !== held) return;
+    if (flaws.dropsNothing) {
+      endGesture();
+      return;
+    }
+    dropping = true;
+    try {
+      if (held.kind === "move") {
+        const id = held.elementId ?? "";
+        // diagram-js's moveShape on a shape an import removed
+        if (!ids().includes(id))
+          throw new TypeError("Cannot read properties of null (reading 'children')");
+        const selectedBefore = selection.length > 0;
+        modeler.moveLine(id, 40, 24);
+        // the drop selects the moved element again, as diagram-js does once the move has run
+        if (selectedBefore) {
+          if (!ids().includes(id))
+            throw new TypeError("Cannot read properties of undefined (reading 'id')");
+          select([id]);
+        }
+      } else {
+        droppedCount += 1;
+        modeler.addLine(`dropped-${droppedCount}`);
+      }
+    } finally {
+      dropping = false;
+      endGesture();
+      for (const work of afterTheDrop.splice(0)) work();
+    }
+  };
   let mountedCanvas: Element | undefined;
   let pastes = 0;
   /** draws the focusable canvas into the host and binds its keys; returns the teardown */
   const mountCanvas = (host: Element): (() => void) => {
     const doc = host.ownerDocument;
+    addReferenceStyles(doc);
     const container = doc.createElement("div");
+    container.setAttribute("class", "reference-root");
     const canvas = flaws.canvasIsDiv
       ? doc.createElement("div")
       : doc.createElementNS("http://www.w3.org/2000/svg", "svg");
     canvas.setAttribute("tabindex", "0");
+    canvas.setAttribute("class", "reference-canvas");
     container.append(canvas);
     host.append(container);
     mountedCanvas = canvas;
+    mountedRoot = container;
+    paint();
     const takesKey = (target: EventTarget | null): boolean => {
       if (!(target instanceof Node)) return false;
       if (flaws.documentWideKeys || canvas.contains(target)) return true;
@@ -559,6 +777,7 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
       doc.removeEventListener("keydown", stopOutsideCanvas, true);
       container.remove();
       mountedCanvas = undefined;
+      mountedRoot = undefined;
     };
   };
   let unmountCanvas: (() => void) | undefined;
@@ -587,75 +806,172 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     bounds: boundsOf,
   };
 
+  const interaction: InteractionSurface = {
+    active: () => (flaws.interactionNeverActive ? false : reportedActive),
+    onChange: (listener) => {
+      interactionListeners.add(listener);
+      return () => {
+        if (!flaws.leakyInteractionUnsubscribe) interactionListeners.delete(listener);
+      };
+    },
+  };
+
+  const listedThemes: AppearanceTheme[] = flaws.themesEmpty
+    ? []
+    : flaws.themesDuplicated
+      ? ["light", "light"]
+      : flaws.themesUnknown
+        ? ["light", "sepia" as AppearanceTheme]
+        : flaws.listsDark || flaws.listsDarkDrawsLight || (!editable && flaws.viewerThemesDiffer)
+          ? ["light", "dark"]
+          : ["light"];
+  let themeReads = 0;
+  const appearance: AppearanceSurface = {
+    get themes(): readonly AppearanceTheme[] {
+      themeReads += 1;
+      return flaws.themesVaryByRead && themeReads % 2 === 0 ? ["light", "dark"] : listedThemes;
+    },
+    set(request): void {
+      if (flaws.appearanceThrowsBeforeImport && !imported) throw new Error("no canvas to draw on");
+      if (flaws.appearanceThrowsOnUnknown && !KNOWN_THEMES.includes(request.theme)) {
+        throw new Error(`unknown theme ${String(request.theme)}`);
+      }
+      const listed = listedThemes.includes(request.theme);
+      const theme =
+        flaws.appearanceDrawsUnlistedTheme || listed ? request.theme : (listedThemes[0] ?? "light");
+      drawn = {
+        theme: flaws.listsDarkDrawsLight ? "light" : theme,
+        contrast: request.contrast === "high" ? "high" : "normal",
+      };
+      paint();
+      if (flaws.appearanceEmits) emit();
+      if (flaws.appearanceMovesView && view !== undefined) view = { ...view, zoom: view.zoom + 1 };
+      if (flaws.appearanceClearsSelection) select([]);
+      if (flaws.appearanceClearsUndo) {
+        undoStack = [];
+        redoStack = [];
+      }
+      if (flaws.appearanceCommitsInteraction) commitLabel();
+      if (flaws.appearanceDropsInteraction) labelEditor = undefined;
+    },
+  };
+
+  /** the import itself: it throws where importText rejects */
+  const runImport = (text: string): ImportResult => {
+    if (!editable && flaws.viewerImportThrows) throw new Error("No provider for commandStack");
+    if (wedged) throw new Error("lines notation: parser wedged");
+    const foreign = text.includes("%");
+    if (
+      flaws.echoImport ||
+      (flaws.echoOnHistoryOnly && undoStack.length > 0) ||
+      (flaws.echoOnForeignOnly && foreign) ||
+      (!editable && flaws.viewerEmits)
+    ) {
+      emit(); // the drift: engines that emit while importing
+    }
+    const raw = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "");
+    // the toy notation's invalid form: a "!" line — rejected BEFORE any
+    // state changes (L7: a rejected import leaves no trace)
+    if (raw.some((line) => line.startsWith("!"))) {
+      if (flaws.rejectResolves) return { warnings: ["ignored invalid input"] };
+      if (flaws.rejectMutatesDoc) entries = [];
+      if (flaws.rejectClearsUndo) undoStack = [];
+      if (flaws.wedgeAfterReject) {
+        wedged = true;
+        entries = [];
+      }
+      if (flaws.rejectedImportEndsGesture && gesture) endGesture();
+      throw new Error("lines notation: '!' lines are not importable");
+    }
+    // the flawed parser treats a text without its final newline as
+    // truncated — and blanks the canvas before it rejects
+    if (flaws.probeRejectionLeavesTrace && text !== "" && !text.endsWith("\n")) {
+      entries = [];
+      throw new Error("lines notation: truncated input");
+    }
+    // the text passed: a running gesture ends the way Escape ends it, before the
+    // document it holds is replaced (L1, RECOMMENDED); a pan runs on
+    if (gesture) {
+      if (flaws.importDuringGestureEmits) emit();
+      if (!flaws.importKeepsGesture) endGesture();
+    }
+    if (flaws.importEndsPan) pan = undefined;
+    if (flaws.activeBeforeImport && !imported) report(false);
+    const titleLine = raw.find((line) => line.startsWith("title: "));
+    title = titleLine ? titleLine.slice("title: ".length) : "";
+    const body = raw.filter((line) => !line.startsWith("title: "));
+    // foreign content ('%' lines) is preserved as plain lines — unless the
+    // stripping flaw drops what it does not understand
+    const drops = flaws.dropForeign || (!editable && flaws.viewerDropsForeign);
+    entries = (drops ? body.filter((line) => !line.startsWith("%")) : body).map(entryOf);
+    if (!keepsHistory) {
+      undoStack = [];
+      redoStack = [];
+    }
+    // an import fits the view to the content (L5) — unless a flaw keeps it
+    const keeps = flaws.noFitOnImport || (!editable && flaws.viewerKeepsView);
+    if (!keeps || view === undefined) view = { ...fittedView };
+    imported = true;
+    importedBoxes = liveBoxes();
+    importedContent = drawnContent();
+    if (flaws.appearanceForgottenOnImport) {
+      mountedRoot?.removeAttribute("data-cd-theme");
+      mountedRoot?.removeAttribute("data-cd-kontrast");
+    }
+    // the flawed import completes the open label editor once it rendered
+    if (flaws.commitInteractionOnImport) commitLabel();
+    // an import never commits an open label editor (L1): it stays open on
+    // the element with the same id — with that element gone there is
+    // nothing to reopen it on
+    const target = labelEditor?.elementId;
+    if (flaws.dropInteractionOnImport || target === undefined || !ids().includes(target)) {
+      labelEditor = undefined;
+    }
+    return { warnings: [] };
+  };
+
   const modeler: ReferenceModeler = {
     meta,
     elements,
     contentBounds,
+    interaction,
+    appearance,
     attachTo(host: Element): void {
       unmountCanvas?.();
       unmountCanvas = mountCanvas(host);
     },
-    async importText(text: string): Promise<ImportResult> {
-      if (!editable && flaws.viewerImportThrows) throw new Error("No provider for commandStack");
-      if (wedged) throw new Error("lines notation: parser wedged");
-      const foreign = text.includes("%");
-      if (
-        flaws.echoImport ||
-        (flaws.echoOnHistoryOnly && undoStack.length > 0) ||
-        (flaws.echoOnForeignOnly && foreign) ||
-        (!editable && flaws.viewerEmits)
-      ) {
-        emit(); // the drift: engines that emit while importing
-      }
-      const raw = text
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line !== "");
-      // the toy notation's invalid form: a "!" line — rejected BEFORE any
-      // state changes (L7: a rejected import leaves no trace)
-      if (raw.some((line) => line.startsWith("!"))) {
-        if (flaws.rejectResolves) return { warnings: ["ignored invalid input"] };
-        if (flaws.rejectMutatesDoc) entries = [];
-        if (flaws.rejectClearsUndo) undoStack = [];
-        if (flaws.wedgeAfterReject) {
-          wedged = true;
-          entries = [];
+    importText(text: string): Promise<ImportResult> {
+      // an import called during a drop waits until the drop has ended (1.6, RECOMMENDED), so
+      // nothing the drop still does meets the replaced document
+      if (dropping && !flaws.importDuringDropRunsAtOnce) {
+        if (flaws.importDuringDropSettlesEarly) {
+          setTimeout(() => {
+            try {
+              runImport(text);
+            } catch {
+              // the flawed modeler reports nothing: its Promise has resolved already
+            }
+          }, 0);
+          return Promise.resolve({ warnings: [] });
         }
-        throw new Error("lines notation: '!' lines are not importable");
+        return new Promise((resolve, reject) => {
+          afterTheDrop.push(() => {
+            try {
+              resolve(runImport(text));
+            } catch (e) {
+              reject(e instanceof Error ? e : new Error(String(e)));
+            }
+          });
+        });
       }
-      // the flawed parser treats a text without its final newline as
-      // truncated — and blanks the canvas before it rejects
-      if (flaws.probeRejectionLeavesTrace && text !== "" && !text.endsWith("\n")) {
-        entries = [];
-        throw new Error("lines notation: truncated input");
+      try {
+        return Promise.resolve(runImport(text));
+      } catch (e) {
+        return Promise.reject(e instanceof Error ? e : new Error(String(e)));
       }
-      const titleLine = raw.find((line) => line.startsWith("title: "));
-      title = titleLine ? titleLine.slice("title: ".length) : "";
-      const body = raw.filter((line) => !line.startsWith("title: "));
-      // foreign content ('%' lines) is preserved as plain lines — unless the
-      // stripping flaw drops what it does not understand
-      const drops = flaws.dropForeign || (!editable && flaws.viewerDropsForeign);
-      entries = (drops ? body.filter((line) => !line.startsWith("%")) : body).map(entryOf);
-      if (!keepsHistory) {
-        undoStack = [];
-        redoStack = [];
-      }
-      // an import fits the view to the content (L5) — unless a flaw keeps it
-      const keeps = flaws.noFitOnImport || (!editable && flaws.viewerKeepsView);
-      if (!keeps || view === undefined) view = { ...fittedView };
-      imported = true;
-      importedBoxes = liveBoxes();
-      importedContent = drawnContent();
-      // the flawed import completes the open label editor once it rendered
-      if (flaws.commitInteractionOnImport) commitLabel();
-      // an import never commits an open label editor (L1): it stays open on
-      // the element with the same id — with that element gone there is
-      // nothing to reopen it on
-      const target = labelEditor?.elementId;
-      if (flaws.dropInteractionOnImport || target === undefined || !ids().includes(target)) {
-        labelEditor = undefined;
-      }
-      return { warnings: [] };
     },
     exportText(): string {
       touchBeforeImport();
@@ -701,12 +1017,18 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     },
     destroy() {
       if (destroyed && flaws.destroyThrowsTwice) throw new Error("already destroyed");
+      if (flaws.reportsAfterDestroy && gesture) {
+        for (const listener of [...interactionListeners]) listener(false);
+      }
       destroyed = true;
       unmountCanvas?.();
       unmountCanvas = undefined;
       labelEditor = undefined;
+      gesture = undefined;
+      pan = undefined;
       listeners.clear();
       selectionListeners.clear();
+      interactionListeners.clear();
     },
 
     addLine(text: string): void {
@@ -784,6 +1106,56 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     commitLabel,
     canvasElement(): Element | undefined {
       return mountedCanvas;
+    },
+    holdGesture(kind: GestureKind): HeldGesture {
+      if (!editable) throw new Error("a viewer accepts no commands");
+      if (!imported) throw new Error("lines notation: no document to hold a gesture on");
+      const held = { kind, elementId: kind === "move" ? ids()[0] : undefined };
+      gesture = held;
+      report(true);
+      return {
+        drop: () => drop(held),
+        cancel: () => {
+          if (gesture !== held) return;
+          gesture = undefined;
+          if (!flaws.cancelNotReported) report(false);
+        },
+      };
+    },
+    armLasso(): void {
+      lassoArmed = true;
+      if (flaws.armedToolIsGesture) report(lassoArmed);
+    },
+    holdPan(): HeldPan {
+      if (view === undefined) throw new Error("lines notation: no view to pan");
+      const held = { from: view.scrollX, steps: 1 };
+      pan = held;
+      view = { ...view, scrollX: view.scrollX + PAN_STEP };
+      if (flaws.panIsGesture) report(true);
+      return {
+        move: () => {
+          if (pan !== held || view === undefined) return;
+          held.steps += 1;
+          const scrollX = flaws.panJumpsBack
+            ? held.from + held.steps * PAN_STEP
+            : view.scrollX + PAN_STEP;
+          view = { ...view, scrollX };
+        },
+        drop: () => {
+          if (pan !== held) return;
+          pan = undefined;
+          if (flaws.panIsGesture) report(false);
+          if (flaws.panEmits) emit();
+        },
+      };
+    },
+    exportSvg(): string {
+      const drawnAs =
+        flaws.appearanceInImage && drawn
+          ? ` data-cd-theme="${drawn.theme}" data-contrast="${drawn.contrast}"`
+          : "";
+      const text = canonical().replace(/&/g, "&amp;").replace(/</g, "&lt;");
+      return `<svg xmlns="http://www.w3.org/2000/svg"${drawnAs}><text>${text}</text></svg>`;
     },
 
     moveLine(elementId: string, dx: number, dy: number): void {

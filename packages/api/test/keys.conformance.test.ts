@@ -18,27 +18,7 @@ import {
 } from "../src/conformance.js";
 import type { CollaborativeModeler } from "../src/index.js";
 import { createReferenceModeler, type Flaws, type ReferenceModeler } from "./reference-modeler.js";
-import { CASE, harness, runCases } from "./support.js";
-
-/** the reference harness, the modeler and the viewer mounted into attachedHost() */
-function mounted(
-  flaws: Flaws = {},
-  overrides: Partial<ConformanceHarness> = {},
-): ConformanceHarness {
-  return harness(flaws, {
-    create: async () => {
-      const m = createReferenceModeler(flaws);
-      m.attachTo(attachedHost());
-      return m;
-    },
-    createReadonly: async () => {
-      const viewer = createReferenceModeler(flaws, false);
-      viewer.attachTo(attachedHost());
-      return viewer;
-    },
-    ...overrides,
-  });
-}
+import { CASE, harness, mounted, runCases } from "./support.js";
 
 /** the canvas the reference drew, as a harness names it with canvasElement */
 const referenceCanvas = (m: CollaborativeModeler): Element | undefined =>

@@ -8,7 +8,8 @@
  * exactly once — a recommendation must never turn a modeler red.
  *
  * This suite runs without a DOM, which proves every other case needs none;
- * the keys case needs one and runs in keys.conformance.test.ts (jsdom).
+ * the keys case needs one and runs in keys.conformance.test.ts (jsdom), and so
+ * does the colour half of the appearance case (appearance.conformance.test.ts).
  */
 import { describe, expect, expectTypeOf, test, vi } from "vitest";
 
@@ -34,6 +35,7 @@ import {
 import { createReferenceModeler, type Flaws, type ReferenceModeler } from "./reference-modeler.js";
 import {
   advisories,
+  APPEARANCE_WITHOUT_DOM,
   CASE,
   failingCases,
   harness,
@@ -73,10 +75,11 @@ describe("the conforming reference modeler", () => {
     expect(await advisories(harness())).toEqual([]);
   });
 
-  test("without a DOM the keys case reports a skip that names it, and nothing else does", async () => {
+  test("without a DOM the keys case and the colour half of the appearance case report a skip that names it, and nothing else does", async () => {
     expect(typeof document).toBe("undefined");
     const skips = (await runCases(harness())).filter((r) => r.outcome?.skipped !== undefined);
     expect(skips.map((r) => [r.name, r.outcome?.skipped])).toEqual([
+      [CASE.appearance, APPEARANCE_WITHOUT_DOM],
       [CASE.keys, expect.stringMatching(/^no DOM — keys need a document/)],
     ]);
   });
@@ -141,6 +144,39 @@ describe("the conforming reference modeler", () => {
     expect(content?.skipped).toMatch(
       /no elements\.bounds — that the content box covers every element was not verified/,
     );
+  });
+
+  test("a modeler without interaction (optional, 1.5) skips exactly the interaction case, and the gesture, drop and pan cases run without it", async () => {
+    const withoutInteraction = async (): Promise<CollaborativeModeler> => {
+      const { interaction: _dropped, ...m } = createReferenceModeler();
+      return m;
+    };
+    const h = harness({}, { create: withoutInteraction });
+    expect(await failingCases(h)).toEqual([]);
+    expect(await advisories(h)).toEqual([]);
+    expect((await skippedCases(h)).skipped).toEqual([CASE.interaction]);
+  });
+
+  test("a modeler without appearance (optional, 1.5) skips exactly the appearance case", async () => {
+    const withoutAppearance = async (): Promise<CollaborativeModeler> => {
+      const { appearance: _dropped, ...m } = createReferenceModeler();
+      return m;
+    };
+    const h = harness({}, { create: withoutAppearance });
+    expect(await failingCases(h)).toEqual([]);
+    expect((await skippedCases(h)).skipped).toEqual([CASE.appearance]);
+    const outcome = await conformanceCases()
+      .find((c) => c.name === CASE.appearance)
+      ?.run(h);
+    expect(outcome?.skipped).toMatch(
+      /^the modeler exposes no appearance surface \(optional, 1\.5\)/,
+    );
+  });
+
+  test("a modeler that lists dark and draws it fails nothing and advises nothing", async () => {
+    const h = harness({ listsDark: true });
+    expect(await failingCases(h)).toEqual([]);
+    expect(await advisories(h)).toEqual([]);
   });
 
   test("a modeler without contentBounds (optional, 1.3) skips exactly the content-bounds case", async () => {
@@ -242,14 +278,23 @@ describe("the conforming reference modeler", () => {
           openInteraction: undefined,
           interactionState: undefined,
           commitInteraction: undefined,
+          startGesture: undefined,
+          armTool: undefined,
+          startPan: undefined,
+          exportImage: undefined,
         },
       ),
     );
     expect(sparse.ran).toBe(conformanceCases().length);
     expect(sparse.skipped).toEqual(
       [
+        CASE.appearance,
         CASE.bounds,
         CASE.contentBounds,
+        CASE.drop,
+        CASE.interaction,
+        CASE.l1Gesture,
+        CASE.pan,
         CASE.l1Interaction,
         CASE.l2Idempotent,
         CASE.l3Config,
@@ -290,6 +335,33 @@ describe("the conforming reference modeler", () => {
       harness({}, { canonicalTexts: ["alpha\nbeta\ngamma\n"] }),
     );
     expect(single?.skipped).toMatch(/one text — importing a DIFFERENT document/);
+    // and so do the cases that import over a held gesture, a drop or a pan
+    for (const name of [CASE.l1Gesture, CASE.drop, CASE.pan]) {
+      const held = await conformanceCases()
+        .find((c) => c.name === name)
+        ?.run(harness({}, { canonicalTexts: ["alpha\nbeta\ngamma\n"] }));
+      expect(held?.skipped, name).toMatch(
+        /^canonicalTexts holds one text — .* of a DIFFERENT document/,
+      );
+    }
+    // the 1.5 and 1.6 harness fields, one at a time: each skips exactly the cases (or halves) that read it
+    const skippedWithout = async (overrides: Partial<ConformanceHarness>) =>
+      (await skippedCases(harness({}, overrides))).skipped;
+    expect(await skippedWithout({ startGesture: undefined })).toEqual(
+      [CASE.drop, CASE.interaction, CASE.l1Gesture].sort(),
+    );
+    expect(await skippedWithout({ armTool: undefined })).toEqual([CASE.interaction]);
+    expect(await skippedWithout({ startPan: undefined })).toEqual([CASE.pan]);
+    expect(await skippedWithout({ exportImage: undefined })).toEqual([CASE.appearance]);
+    expect(await skippedWithout({ invalidTexts: undefined })).toEqual(
+      [CASE.l1Gesture, CASE.l7NoTrace, CASE.l7Usable].sort(),
+    );
+    expect(await skippedWithout({ openInteraction: undefined })).toEqual(
+      [CASE.appearance, CASE.l1Interaction, CASE.l5Interaction].sort(),
+    );
+    expect(await skippedWithout({ createReadonly: undefined })).toEqual(
+      [CASE.appearance, CASE.viewer].sort(),
+    );
     // an EXPLICIT empty array is a statement, not an omission — no skip
     const explicit = await skippedCases(
       harness(
@@ -339,11 +411,13 @@ describe("broken variants fail exactly their law's case set", () => {
   };
 
   // ── the historical drifts ──────────────────────────────────────────────────
-  test("import echo (the wardley importDSL drift) → every L1 case, the echo inside both L7 rejection cases, the viewer", () =>
+  test("import echo (the wardley importDSL drift) → every L1 case, the import during a pan, the echo inside both L7 rejection cases, the viewer", () =>
     expectFailures({ echoImport: true }, [
       CASE.l1Fresh,
       CASE.l1History,
       CASE.l1Interaction,
+      CASE.l1Gesture,
+      CASE.pan,
       CASE.l7NoTrace,
       CASE.l7Probes,
       CASE.viewer,
@@ -374,8 +448,9 @@ describe("broken variants fail exactly their law's case set", () => {
     expectFailures({ incompatibleApiVersion: true }, [CASE.meta]));
   test("dropping foreign content (a stripping schema) → L6 foreign and the viewer", () =>
     expectFailures({ dropForeign: true }, [CASE.l6Foreign, CASE.viewer]));
-  test("blank + wedged after a rejected import → every L7 case and the viewer", () =>
+  test("blank + wedged after a rejected import → every L7 case, the rejected import during a gesture and the viewer", () =>
     expectFailures({ wedgeAfterReject: true }, [
+      CASE.l1Gesture,
       CASE.l7NoTrace,
       CASE.l7Usable,
       CASE.l7Probes,
@@ -407,15 +482,29 @@ describe("broken variants fail exactly their law's case set", () => {
     expectFailures({ silentMutation: true }, [CASE.l3Mutation, CASE.l7Usable, CASE.preImport]));
   test("setViewState emits → both L5 view cases and the viewer", () =>
     expectFailures({ viewStateEmits: true }, [CASE.l5RoundTrip, CASE.l5Interaction, CASE.viewer]));
-  test("invalid input resolves instead of rejecting → both L7 cases and the viewer", () =>
-    expectFailures({ rejectResolves: true }, [CASE.l7NoTrace, CASE.l7Usable, CASE.viewer]));
-  test("rejected import clears the document → L7 no-trace, the L7 probes (a rejecting probe) and the viewer", () =>
-    expectFailures({ rejectMutatesDoc: true }, [CASE.l7NoTrace, CASE.l7Probes, CASE.viewer]));
+  test("invalid input resolves instead of rejecting → both L7 cases, the rejected import during a gesture and the viewer", () =>
+    expectFailures({ rejectResolves: true }, [
+      CASE.l1Gesture,
+      CASE.l7NoTrace,
+      CASE.l7Usable,
+      CASE.viewer,
+    ]));
+  test("rejected import clears the document → L7 no-trace, the L7 probes (a rejecting probe), the rejected import during a gesture and the viewer", () =>
+    expectFailures({ rejectMutatesDoc: true }, [
+      CASE.l1Gesture,
+      CASE.l7NoTrace,
+      CASE.l7Probes,
+      CASE.viewer,
+    ]));
   test("reveal(unknown id) returns true → the elements case and the viewer", () =>
     expectFailures({ revealUnknownTrue: true }, [CASE.elements, CASE.viewer]));
   test("exportText throws after a command → every case that exports after a mutation", () =>
     expectFailures({ exportThrowsAfterMutate: true }, [
       CASE.preImport,
+      CASE.l1Gesture,
+      CASE.drop,
+      CASE.pan,
+      CASE.appearance,
       CASE.l3Mutation,
       CASE.l3Undo,
       CASE.l4,
@@ -431,9 +520,10 @@ describe("broken variants fail exactly their law's case set", () => {
     expectFailures({ destroyThrowsTwice: true }, [CASE.destroy, CASE.viewer]));
   test("a viewer that emits on import → exactly the viewer case", () =>
     expectFailures({ viewerEmits: true }, [CASE.viewer]));
-  test("a viewer whose importText throws (no command stack) → the viewer case and the viewer legs of the id round-trip and both box cases", () =>
+  test("a viewer whose importText throws (no command stack) → the viewer case and the viewer legs of the id round-trip, both box cases and the interaction case", () =>
     expectFailures({ viewerImportThrows: true }, [
       CASE.viewer,
+      CASE.interaction,
       CASE.elementsRoundTrip,
       CASE.bounds,
       CASE.contentBounds,
@@ -578,6 +668,142 @@ describe("broken variants fail exactly their law's case set", () => {
       commitInteraction: undefined,
     }));
 
+  // ── a gesture, a drop and a pan across an import (contracts 1.5 and 1.6) ────
+  const caseNamed = (name: string) => {
+    const found = conformanceCases().find((c) => c.name === name);
+    if (!found) throw new Error(`the kit has no case "${name}"`);
+    return found;
+  };
+  test("an import that applies a running move before it replaces the document → exactly the L1 gesture case, as an L1 failure", async () => {
+    await expectFailures({ importDuringGestureEmits: true }, [CASE.l1Gesture]);
+    await expect(
+      caseNamed(CASE.l1Gesture).run(harness({ importDuringGestureEmits: true })),
+    ).rejects.toThrow(/during a move gesture fired onContentChanged 1x before the drop/);
+  });
+  test("a drop that applies nothing → the L1 gesture case and the drop case, which would prove nothing", async () => {
+    await expectFailures({ dropsNothing: true }, [CASE.l1Gesture, CASE.drop]);
+    await expect(caseNamed(CASE.l1Gesture).run(harness({ dropsNothing: true }))).rejects.toThrow(
+      /and drop\(\) left the document as it was — the case proves nothing/,
+    );
+    await expect(caseNamed(CASE.drop).run(harness({ dropsNothing: true }))).rejects.toThrow(
+      /fired no onContentChanged — the case proves nothing/,
+    );
+  });
+  test("releasing a pan that fires onContentChanged → exactly the pan case, as an L3 failure", async () => {
+    await expectFailures({ panEmits: true }, [CASE.pan]);
+    await expect(caseNamed(CASE.pan).run(harness({ panEmits: true }))).rejects.toThrow(
+      /releasing a pan fired onContentChanged 1x .* \(L3\)/,
+    );
+  });
+  test("a startPan that moves no view → exactly the pan case, which would prove nothing", async () => {
+    const still = { startPan: () => ({ move: () => undefined, drop: () => undefined }) };
+    await expectFailures({}, [CASE.pan], still);
+    await expect(caseNamed(CASE.pan).run(harness({}, still))).rejects.toThrow(
+      /startPan left the view as the import had fitted it — the case proves nothing/,
+    );
+  });
+
+  // ── interaction (1.5) ──────────────────────────────────────────────────────
+  test.each<[string, Flaws, RegExp]>([
+    [
+      "an active() that is never true",
+      { interactionNeverActive: true },
+      /active\(\) is false while a move gesture is held/,
+    ],
+    [
+      "onChange(true) twice at a gesture's start",
+      { interactionReportsTwice: true },
+      /delivered \[true,true\] when a move gesture started/,
+    ],
+    [
+      "an onChange that runs before active() has changed",
+      { interactionStaleInListener: true },
+      /returned another value than the listener got/,
+    ],
+    [
+      "an onChange unsubscribe that is ignored",
+      { leakyInteractionUnsubscribe: true },
+      /delivered after its unsubscribe/,
+    ],
+    [
+      "an armed palette tool reported as a gesture",
+      { armedToolIsGesture: true },
+      /a palette tool that is only armed counted as a gesture/,
+    ],
+    [
+      "an active() that is true before the first import",
+      { activeBeforeImport: true },
+      /true before the first import/,
+    ],
+    [
+      "an Escape that ends the gesture without telling onChange",
+      { cancelNotReported: true },
+      /still true after the cancel of a move gesture/,
+    ],
+    [
+      "an onChange(false) from destroy()",
+      { reportsAfterDestroy: true },
+      /delivered \[false\] after destroy\(\)/,
+    ],
+    [
+      "a viewer that reports a gesture",
+      { viewerReportsGesture: true },
+      /the viewer's interaction\.active\(\) is true before the first import/,
+    ],
+  ])("%s → exactly the interaction case", async (_variant, flaws, message) => {
+    await expectFailures(flaws, [CASE.interaction]);
+    await expect(caseNamed(CASE.interaction).run(harness(flaws))).rejects.toThrow(message);
+  });
+
+  // ── appearance (1.5): the rules that need no DOM; the colours are checked in jsdom ──
+  test.each<[string, Flaws, RegExp]>([
+    ["no themes", { themesEmpty: true }, /appearance\.themes is \[\] — .* a non-empty list/],
+    ["a theme listed twice", { themesDuplicated: true }, /lists a theme twice/],
+    ["a theme the contract does not know", { themesUnknown: true }, /lists \["sepia"\]/],
+    ["themes that change between reads", { themesVaryByRead: true }, /changed between two reads/],
+    ["a viewer with other themes", { viewerThemesDiffer: true }, /the viewer reports other/],
+    [
+      "a set that throws for a theme no modeler knows",
+      { appearanceThrowsOnUnknown: true },
+      /appearance\.set\(\{ theme: "sepia" \}\) threw/,
+    ],
+    [
+      "a set that throws before the first import",
+      { appearanceThrowsBeforeImport: true },
+      /threw before the first import/,
+    ],
+    ["a set that emits", { appearanceEmits: true }, /fired onContentChanged 1x .* \(L3\)/],
+    [
+      "a set that writes the appearance into the document",
+      { appearanceInExport: true },
+      /changed exportText\(\)/,
+    ],
+    [
+      "a set that writes the appearance into the image export",
+      { appearanceInImage: true },
+      /changed the image export/,
+    ],
+    ["a set that zooms the view", { appearanceMovesView: true }, /changed the view state/],
+    [
+      "a set that clears the selection",
+      { appearanceClearsSelection: true },
+      /changed the selection/,
+    ],
+    [
+      "a set that erases the undo history",
+      { appearanceClearsUndo: true },
+      /the requests changed the undo history/,
+    ],
+    [
+      "a set that commits the open label editor",
+      { appearanceCommitsInteraction: true },
+      /over an open interaction committed it/,
+    ],
+  ])("%s → exactly the appearance case", async (_variant, flaws, message) => {
+    await expectFailures(flaws, [CASE.appearance]);
+    await expect(caseNamed(CASE.appearance).run(harness(flaws))).rejects.toThrow(message);
+  });
+
   test("the contract version constant IS the package version (one identity)", () => {
     expect(MODELER_API_VERSION).toBe(pkg.version);
   });
@@ -630,6 +856,50 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
       },
     );
     expect(advice).toMatch(/did not survive a host's view change \(setViewState closed it\)/);
+  });
+  test("an import that leaves a running gesture running → an advisory from the L1 gesture case, naming the drop that applied and the one that threw", async () => {
+    const advice = await expectAdvisoryOnly({ importKeepsGesture: true }, CASE.l1Gesture);
+    expect(advice).toMatch(/^a running gesture met an import: /);
+    expect(advice).toMatch(
+      /the drop after a different document \(canonicalTexts\[1\]\) imported during a move gesture threw TypeError/,
+    );
+    expect(advice).toMatch(
+      /the drop after the same document \(canonicalTexts\[0\]\) imported during a move gesture applied the move/,
+    );
+    expect(advice).toMatch(/interaction\.active\(\) was still true after/);
+    expect(advice).toMatch(/ — RECOMMENDED \(L1, since 1\.5\): an accepted import first cancels/);
+  });
+  test("a rejected import that ends a running gesture → an advisory from the L1 gesture case", async () => {
+    const advice = await expectAdvisoryOnly({ rejectedImportEndsGesture: true }, CASE.l1Gesture);
+    expect(advice).toMatch(/a rejected import ended a move gesture/);
+  });
+  test("an import from a drop's change listener that runs at once → an advisory from the drop case: the drop threw on the removed element", async () => {
+    const advice = await expectAdvisoryOnly({ importDuringDropRunsAtOnce: true }, CASE.drop);
+    expect(advice).toMatch(/the drop threw TypeError: Cannot read properties of undefined/);
+    expect(advice).toMatch(/replaced the document before the drop had ended/);
+    expect(advice).not.toMatch(/an echo/);
+  });
+  test("an import from a drop's change listener whose Promise settles before the import → an advisory from the drop case", async () => {
+    const advice = await expectAdvisoryOnly({ importDuringDropSettlesEarly: true }, CASE.drop);
+    expect(advice).toMatch(/the Promise settled before the import had run/);
+  });
+  test("a pan reported as a gesture → an advisory from the pan case", async () => {
+    const advice = await expectAdvisoryOnly({ panIsGesture: true }, CASE.pan);
+    expect(advice).toMatch(/interaction\.active\(\) was true during a pan/);
+  });
+  test("an import that ends a running pan → an advisory from the pan case", async () => {
+    const advice = await expectAdvisoryOnly({ importEndsPan: true }, CASE.pan);
+    expect(advice).toMatch(/a pan stopped when .* was imported during it/);
+  });
+  test("a pan that puts the view from before an import back → an advisory from the pan case, for the same document", async () => {
+    const advice = await expectAdvisoryOnly({ panJumpsBack: true }, CASE.pan);
+    expect(advice).toMatch(
+      /after the same document \(canonicalTexts\[0\]\) was imported during it did not go on from the view the import left/,
+    );
+  });
+  test("a request that closes the open label editor → an advisory from the appearance case", async () => {
+    const advice = await expectAdvisoryOnly({ appearanceDropsInteraction: true }, CASE.appearance);
+    expect(advice).toMatch(/did not survive appearance\.set\(.*\) \(the request closed it\)/);
   });
   test("the dropped label editor, seen through the commit alone (no interactionState) → an advisory naming both documents", async () => {
     const advice = await expectAdvisoryOnly(

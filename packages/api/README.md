@@ -31,15 +31,15 @@ modeler's build, not a downstream integration review.
 import type { CollaborativeModeler } from "@miragon/modeler-api";
 ```
 
-| Law | Requirement                                                                                                                                                                                                                                                                                     |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| L1  | `importText` is **silent**: no change events, undo history erased without emitting, also over existing history and foreign content; an interaction open during an import (a label editor with typed input) never commits; RECOMMENDED (1.5): an accepted import first cancels a running gesture |
-| L2  | `exportText` is **canonical**: deterministic, a byte fixpoint on canonical input, idempotent otherwise                                                                                                                                                                                          |
-| L3  | `onContentChanged` fires for **every** user-visible change (element commands, config/axis/title edits, undo/redo) and nothing else; inside a listener `exportText()` already returns the new document                                                                                           |
-| L4  | undo directly after an import is a defined **no-op**, never a stale-history mutation                                                                                                                                                                                                            |
-| L5  | view state survives a re-import; an import leaves the view **fitted** to the content; the readback may be a normalised form of what was set; a host's view change (`setViewState`, a fit) never **commits** an open interaction                                                                 |
-| L6  | `exportText` is total after a successful import; foreign content is **preserved** through import → export, never dropped, never a throw                                                                                                                                                         |
-| L7  | EVERY rejected import leaves no trace (previous document still rendered and exported, no events, undo history untouched), and the modeler **stays usable**                                                                                                                                      |
+| Law | Requirement                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1  | `importText` is **silent**: no change events, undo history erased without emitting, also over existing history and foreign content; an interaction open during an import (a label editor with typed input) never commits; RECOMMENDED (1.5): an accepted import first cancels a running gesture; RECOMMENDED (1.6): an import called during a drop waits until the drop has ended, and a pan runs on through an import |
+| L2  | `exportText` is **canonical**: deterministic, a byte fixpoint on canonical input, idempotent otherwise                                                                                                                                                                                                                                                                                                                 |
+| L3  | `onContentChanged` fires for **every** user-visible change (element commands, config/axis/title edits, undo/redo) and nothing else; inside a listener `exportText()` already returns the new document                                                                                                                                                                                                                  |
+| L4  | undo directly after an import is a defined **no-op**, never a stale-history mutation                                                                                                                                                                                                                                                                                                                                   |
+| L5  | view state survives a re-import; an import leaves the view **fitted** to the content; the readback may be a normalised form of what was set; a host's view change (`setViewState`, a fit) never **commits** an open interaction                                                                                                                                                                                        |
+| L6  | `exportText` is total after a successful import; foreign content is **preserved** through import → export, never dropped, never a throw                                                                                                                                                                                                                                                                                |
+| L7  | EVERY rejected import leaves no trace (previous document still rendered and exported, no events, undo history untouched), and the modeler **stays usable**                                                                                                                                                                                                                                                             |
 
 View state is never part of the document: `setViewState` fires no change
 events and `exportText` is independent of it.
@@ -129,6 +129,24 @@ accepted: it comes after the text passed the modeler's checks. A rejected
 import (L7) leaves a running gesture as it was, since hosts re-import half-typed
 peer text on every sync and would otherwise end the user's drag each time.
 
+An import called while a drop runs waits until the drop has ended (1.6,
+RECOMMENDED): a host that imports from `onContentChanged` does so in the middle
+of the drop, whose command fires the event before the drop's later steps have
+run. diagram-js's `SelectionBehavior`, for one, selects the moved shape again
+after the move, and throws on a shape the import removed when something was
+selected before the drag. So the import runs once the drop has ended, and the
+Promise `importText` returned settles after that import: when it resolves,
+`exportText()` returns the imported document. Nothing of the drop applies to it,
+and the drop's command stays off its fresh undo history (L4).
+
+A pan is no gesture (1.6, RECOMMENDED; 1.5 said a pan MAY count): a drag that
+only moves the view holds nothing an import replaces, and a host that defers its
+re-imports while a gesture runs would hold every remote change while the user
+only looks around. An import leaves a running pan running, and the pan goes on
+from the view the import left: diagram-js's hand tool keeps the diagram point it
+started on under the pointer, so without a new start point its next move puts
+the view from before the import back and undoes the import's fit (L5).
+
 Optional `interaction` (1.5) tells a host whether the user holds a gesture
 right now: `active()`, and `onChange(cb)`, whose listener gets the new value.
 `active()` is true from a gesture's start until its drop or cancel, and false
@@ -136,11 +154,11 @@ otherwise: at rest, during a press that has not reached the drag threshold, and
 while a palette tool (hand, lasso, space, global connect) only waits for its
 next press. An open label editor or popup is no gesture: L1 keeps it across an
 import, and a host that waited for it would hold every remote change while the
-user types. A drag that only pans the view MAY count, since diagram-js's hand
-tool runs on the same dragging service. `onChange` fires once each way and
-never twice in a row with the same value; inside the listener `active()`
-already returns the new value. A viewer has no editing gesture: one that
-exposes the surface reports false, a pan aside. Hosts feature-detect it
+user types. A pan is none either (RECOMMENDED since 1.6, see above), although
+diagram-js's hand tool runs on the same dragging service. `onChange` fires once
+each way and never twice in a row with the same value; inside the listener
+`active()` already returns the new value. A viewer has no editing gesture: one
+that exposes the surface reports false, a pan included. Hosts feature-detect it
 (`modeler.interaction !== undefined`) and defer a remote re-import while a
 gesture runs, instead of reading diagram-js's DOM classes (`djs-drag-active`,
 `djs-dragger`, `djs-cursor-grabbing`) and sending a synthetic Escape after a
@@ -348,6 +366,10 @@ registerConformance(
     interactionState: (m) => readOpenLabelEditor(m), // { elementId, text } | undefined
     commitInteraction: (m) => pressEnterInLabelEditor(m), // optional: commit what openInteraction typed
     canvasElement: (m) => canvasOf(m), // optional: the element that takes the keys, if not diagram-js's focusable <svg>
+    startGesture: (m, kind) => holdGesture(m, kind), // "move" | "create" | "createOffCanvas", held by real pointer events: { drop, cancel }
+    armTool: (m) => armLasso(m), // a palette tool that waits for its next press
+    startPan: (m) => holdPan(m), // a pan moved one step past the drag threshold: { move, drop }
+    exportImage: (m) => saveSvg(m), // the SVG export, as a host saves it
     // engines that debounce change delivery: make this outlast the debounce
     settle: () => new Promise((r) => setTimeout(r, 50)),
   },
@@ -391,7 +413,9 @@ diagram-coordinates half. A modeler without `contentBounds` skips the
 content-bounds case; with it, a harness without `viewState` skips only its
 view half, and a modeler without `elements.bounds` only its covering half.
 Without `openInteraction` or `viewState` the L5 interaction case reports a
-skip; without `commitInteraction` only its commit halves do. The keys case
+skip; without `commitInteraction` only its commit halves do. The cases of the
+1.5 surfaces and the 1.6 gesture rules have their own skips (see
+[their section](#cases-for-the-15-surfaces-and-the-gesture-rules-of-16)). The keys case
 reports a skip without a DOM and when it cannot find the canvas: `create()` or
 `createReadonly()` mounted into no `attachedHost()` holding a focusable `<svg>`
 (or into two), or `canvasElement` names no element or one outside every
@@ -468,9 +492,9 @@ cover those modes.
 
 **Recommendations are advisories.** Where the contract only RECOMMENDS
 (collision-free ids across peers, keep-and-reopen of an open interaction across
-an import, keep-open across a host's view change, keys that stay on the canvas;
-once their cases land, the gesture cancel of 1.5 and keep-open across
-`appearance.set`),
+an import, keep-open across a host's view change and across `appearance.set`,
+keys that stay on the canvas, the gesture cancel of 1.5, and the drop that an
+import waits for and the pan that runs on through an import, both of 1.6),
 the kit reports what it finds as an ADVISORY through `onAdvisory` (`console.warn` by default) and never
 fails: a recommendation becomes a law, with a failing case, only in a major
 release. The collision check imports the same canonical text into two fresh
@@ -520,89 +544,133 @@ variant per historical drift AND per kit case fails exactly the case set that
 encodes the violated law (not every individual assertion has a saboteur;
 every case does), and one variant per recommendation fails nothing and
 advises exactly once. That suite runs without a DOM, which proves the other
-cases need none; the keys case needs one, so a second suite
-([`test/keys.conformance.test.ts`](test/keys.conformance.test.ts), jsdom) mounts
-the reference into `attachedHost()`, runs every case on it, and holds the keys
-saboteurs.
+cases need none; the keys case and the colour half of the appearance case need
+one, so two more suites (jsdom) mount the reference into `attachedHost()`:
+[`test/keys.conformance.test.ts`](test/keys.conformance.test.ts) runs every case
+on it and holds the keys saboteurs,
+[`test/appearance.conformance.test.ts`](test/appearance.conformance.test.ts)
+holds the saboteurs that leave the page's mode through.
 
-### Cases for the 1.5 surfaces (next)
+### Cases for the 1.5 surfaces and the gesture rules of 1.6
 
-The kit checks `interaction`, the gesture cancel and `appearance` once every
-Miragon renderer and the new-modeler template implement them: a case for an
-optional surface reports a skip for a modeler without it, and every Miragon
-harness fails on a skip. So that a renderer can implement against them now,
-these are the cases and the harness fields they read.
+The kit checks `interaction`, the gesture cancel of L1, the drop an import waits
+for, the pan and `appearance` with five cases and four optional harness fields.
 
-New harness fields:
+The harness fields:
 
 - `startGesture(modeler, kind)` holds a gesture on `canonicalTexts[0]`
-  (imported) the way a user does and resolves while it runs, with `drop()`
-  (release the pointer, or click where the preview is) and `cancel()`
-  (Escape). The kinds: `"move"` (a press on an element, moved past the drag
-  threshold), `"create"` (a palette entry that creates an element, its preview
-  held over the canvas) and `"createOffCanvas"` (the same preview held over
-  the palette).
+  (imported) the way a user does, with real pointer events, and resolves while
+  it runs, with `drop()` and `cancel()` (Escape). The kinds: `"move"` (a press
+  on an element, moved past the drag threshold), `"create"` (a palette entry
+  that creates an element, its preview held over free canvas) and
+  `"createOffCanvas"` (the same preview held over the palette). `drop()`
+  releases the gesture where it applies: the moved element lands on a new
+  position, a create on free canvas (the off-canvas preview is brought there
+  first). So a drop the modeler still runs changes the document, and a drop
+  that changes nothing shows a gesture that has ended.
 - `armTool(modeler)` arms a palette tool that waits for its next press (the
   lasso or the hand tool) without pressing.
+- `startPan(modeler)` holds a pan (a press on empty canvas, or the hand tool)
+  moved past the drag threshold by one step, a fixed distance in screen pixels,
+  with `move()`, which moves the pointer by the same step again, and `drop()`.
 - `exportImage(modeler)` returns the modeler's SVG export, as a host saves it.
 
 The cases:
 
-- The L1 gesture case (RECOMMENDED, an advisory): an import cancels a running
-  gesture. For each kind it holds the gesture, imports `canonicalTexts[1]` (the
-  held element is usually gone) and drops; then, on a fresh import of
-  `canonicalTexts[0]`, the same with `canonicalTexts[0]` itself (the element is
-  back under its id, as a new shape). The import, the drop and every handler
-  the drop runs throw nothing (the case listens for the window's `error`
-  event), no change event fires, the export is the imported text, an undo
-  changes nothing (L4) and the next `mutate` applies. A change event before
-  the drop stays an L1 failure; what the drop does is the advisory. With
-  `interaction`, the cancel shows: `active()` is false and `onChange(false)`
-  came once before `importText` resolves; a gesture still active after the
-  import belongs to the advisory, since a modeler without the cancel rightly
-  reports it. With an entry in `invalidTexts`, a rejected import during the
-  gesture leaves it running (advisory): with `interaction`, `active()` stays
-  true and no `onChange` comes until the drop. Resize, connect and lasso drags
-  and the context pad's previews stay with the renderers' own tests.
-- The interaction case (the surface's rules, failures): `active()` follows
-  every gesture. It is false before the first import and at rest; for each
-  kind it is true while the gesture is held, with one `onChange(true)`, and
-  false after `drop()`, with one `onChange(false)`, and the same with
-  `cancel()`. With a tool armed it stays false and the listener is not called.
-  Inside the listener `active()` returns the value the listener got, and the
-  unsubscribe ends delivery.
-- The appearance case (failures, apart from the keep-open advisory): a theme
-  is view state, and an unlisted one falls back to `themes[0]`. `themes` is
-  non-empty, without duplicates, only `"light"` and `"dark"`, and the same on
-  every read and on the viewer; `set` before the first import throws nothing.
-  Then, on `canonicalTexts[0]` with one `mutate`, a revealed element and
-  `setViewState(viewState)`, it requests light, dark, both with high contrast,
-  and a theme no modeler knows: no throw, no change event, `exportText()` and
-  `exportImage()` byte-identical, and the view state readback, the selection
-  and the undo history as they were. In a DOM, the case compares the computed
-  colours of every element in the modeler's `attachedHost()`. The reference is
-  a request for `themes[0]`, once with each contrast, on a page without
+- **The L1 gesture case** (RECOMMENDED since 1.5, an advisory): an import
+  cancels a running gesture. For each kind it first proves that a drop applies:
+  held and dropped without an import, the gesture changes the document. Then it
+  holds the gesture, imports `canonicalTexts[1]` (the held element is usually
+  gone) and drops; and on a fresh import of `canonicalTexts[0]`, the same with
+  `canonicalTexts[0]` itself (the element is back under its id, as a new
+  shape). A change event before the drop fails (L1). The rest is the advisory:
+  the drop and every handler it runs throw nothing (the case listens for the
+  window's `error` and `unhandledrejection` events), fire no change event and
+  leave the imported document as the export, an undo changes nothing (L4) and
+  the next `mutate` applies. With `interaction`, the cancel shows: `active()`
+  is false and `onChange(false)` came once before `importText` resolves. With
+  an entry in `invalidTexts`, a rejected import during the gesture must reject
+  without a trace (L7, a failure), and leaves the gesture running (the
+  advisory): with `interaction`, `active()` stays true and no `onChange`
+  comes, and the drop applies. Resize, connect and lasso drags and the context
+  pad's previews stay with the renderers' own tests.
+- **The drop case** (RECOMMENDED since 1.6, an advisory): an import from the
+  change listener of a drop waits until the drop has ended. On
+  `canonicalTexts[0]`, with the first listed element revealed (a selection
+  held from before the drag, which diagram-js's `SelectionBehavior` brings
+  back after the move), it holds a `"move"`, and its `onContentChanged`
+  listener imports `canonicalTexts[1]` on the first change of the drop; then
+  the same with the drop's own document, read inside the listener (an echo).
+  A drop that fires no change event fails (the case would prove nothing). The
+  advisory: the drop and its handlers throw nothing, `exportText()` right
+  after the call in the listener is still the drop's document (the import has
+  not run yet), the import resolves, and when its Promise settles
+  `exportText()` returns the imported document; afterwards no step of the drop
+  changes it, no change event fires, `interaction.active()` is false, an undo
+  changes nothing (L4) and the next `mutate` applies.
+- **The pan case** (RECOMMENDED since 1.6, an advisory): a pan is no gesture,
+  and it runs on through an import from the view the import left. For
+  `canonicalTexts[1]` and `canonicalTexts[0]` it holds a pan on a fresh import
+  of `canonicalTexts[0]`, imports the text and moves the pan one more step. A
+  `startPan` that leaves the view as it was fails (the case would prove
+  nothing), and so does a change event from the import (L1) or from the pan's
+  release (L3: a pan changes the view, never the document). The advisory:
+  `interaction.active()` stays false and `onChange` is not called, the pan's
+  next step after the import moves the view, and where the import left the view
+  as it was before the pan (the same document fits the same view, L5) that step
+  brings the view where the pan's first step had brought it, up to float noise:
+  a pan that puts the view from before the import back lands one step further.
+  The release throws nothing, the export is the imported document and the next
+  `mutate` applies.
+- **The interaction case** (the surface's rules, failures): `active()` follows
+  every gesture. It is false before the first import and at rest; for each kind
+  it is true while the gesture is held, with one `onChange(true)`, and false
+  after `drop()`, with one `onChange(false)`, and the same with `cancel()`.
+  With a tool armed it stays false and the listener is not called, also through
+  an import. Inside the listener `active()` returns the value the listener got,
+  the unsubscribe ends delivery, and nothing is delivered after `destroy()`,
+  with a gesture held when it comes. A viewer that exposes the surface reports
+  false, before and after an import.
+- **The appearance case** (failures, apart from the keep-open advisory): a
+  theme is view state, and an unlisted one falls back to `themes[0]`. `themes`
+  is non-empty, without duplicates, only `"light"` and `"dark"`, and the same
+  on every read, on a second instance and on the viewer; `set` before the
+  first import throws nothing. Then, on `canonicalTexts[0]` with one `mutate`,
+  a revealed element and `setViewState(viewState)`, it requests light, dark,
+  both with high contrast, a theme no modeler knows and a contrast no modeler
+  knows: no throw, no change event, `exportText()` and `exportImage()`
+  byte-identical, and the view state readback and the selection as they were;
+  an undo afterwards still undoes the `mutate`. In a DOM, the case compares the
+  computed colours of every element in the modeler's `attachedHost()` (on a
+  fresh instance, once its colour transitions have run). The reference is a
+  request for `themes[0]`, once with each contrast, on a page without
   `data-cd-theme`. Then it puts the page into the other mode, with
   `data-cd-theme="dark"` and `data-cd-kontrast="hoch"` on `<html>`, and
   requests a theme `themes` does not list (`"dark"` for a light-only modeler,
   and a theme no modeler knows), once with each contrast: the colours equal the
-  reference of the same contrast, also after a re-import. So a light-only
-  modeler stays light when dark is requested on a dark page, and a request for
-  normal contrast holds on a high-contrast page; a `set` that does nothing and
-  leaves the roles to the page fails. A modeler that lists `"dark"` draws it:
-  on a page without `data-cd-theme`, some computed colour differs from light,
-  while both exports stay byte-identical (guide §13.4: the SVG export in dark
-  mode equals the light one). With `openInteraction`, a `set` over the open
-  interaction commits nothing (a failure), and the keep-open is an advisory of
-  this case, checked as the L5 interaction case checks it after a view change.
+  reference of the same contrast. After a re-import on that page they equal a
+  request for `themes[0]` with the same contrast on the plain page, drawn on the
+  re-imported canvas. So a light-only modeler stays light when dark is requested
+  on a dark page, a request for normal contrast holds on a high-contrast page,
+  and a `set` that does nothing and leaves the roles to the page fails. A
+  modeler that lists `"dark"` draws it: on a page without `data-cd-theme`, some
+  computed colour differs from light, while both exports stay byte-identical
+  (guide §13.4: the SVG export in dark mode equals the light one). With
+  `openInteraction`, a `set` over the open interaction commits nothing (a
+  failure), and the keep-open is an advisory of this case, checked as the L5
+  interaction case checks it after a view change. The page gets its own mode
+  back after the case.
 
 A modeler without `interaction` or `appearance` skips that case. A harness
-without `startGesture` skips the gesture and interaction cases; one without
-`armTool`, `exportImage` or `openInteraction` skips only the half that reads
-it, and one without `createReadonly`, or whose viewer has no `appearance`,
-skips the viewer half of the appearance case. Each case gets its saboteurs,
-the appearance case among them a `set` that does nothing and leaves the roles
-to the page.
+without `startGesture` skips the gesture, drop and interaction cases, one
+without `startPan` the pan case; one without `armTool`, `exportImage` or
+`openInteraction` skips only the half that reads it, and one without
+`createReadonly`, or whose viewer has no `appearance`, skips the viewer half
+of the appearance case. One canonical text skips the legs of another document,
+`invalidTexts` left undefined the rejected leg of the gesture case, and a run
+without a DOM the colour half of the appearance case (the node suite of the
+kit's own CI). Each case has its saboteurs, the appearance case among them a
+`set` that does nothing and leaves the roles to the page.
 
 ## Versioning
 
@@ -639,10 +707,18 @@ that upgrade by its own choice, and the skip names what to add or change.
 
 1.5 follows these rules: `interaction` and `appearance` are optional surfaces
 that hosts feature-detect, and the gesture cancel of L1 is a RECOMMENDATION
-whose case only advises. A 1.4 modeler stays a conforming 1.5 modeler. The
-Miragon renderers, whose harnesses fail on every skip, implement both surfaces
-before the kit gains their cases (see
-[Cases for the 1.5 surfaces](#cases-for-the-15-surfaces-next)).
+whose case only advises. A 1.4 modeler stays a conforming 1.5 modeler.
+
+1.6 follows them too. The kit gains the cases of the 1.5 surfaces (see
+[Cases for the 1.5 surfaces and the gesture rules of 1.6](#cases-for-the-15-surfaces-and-the-gesture-rules-of-16))
+with four optional harness fields, each reported as a skip until a harness
+provides it; their failures enforce only what 1.5 states. Two requirements the
+text did not state ship as RECOMMENDATIONS whose cases only advise: an import
+called during a drop waits until the drop has ended, and a pan is no gesture
+and runs on through an import (1.5 said a pan MAY count). A 1.5 modeler stays a
+conforming 1.6 modeler. The Miragon renderers and the new-modeler template,
+whose harnesses fail on every skip and every advisory, fill the four fields
+with the change that adds the cases.
 
 ### Candidates for 2.0
 
@@ -662,7 +738,7 @@ Recommendations today, proposed as hard laws for the next major:
   interaction is still open with its typed input, and the user's commit writes
   what it would have written without the view change (today: L5 RECOMMENDED,
   advisory in the L5 interaction case; for `appearance.set` RECOMMENDED on
-  `AppearanceSurface`, advisory in the appearance case once it lands).
+  `AppearanceSurface`, advisory in the appearance case).
 - **Keys stay on the canvas:** a key acts only while the canvas holds the
   focus; a key aimed at the host's controls and editors or at `<body>` is left
   alone, and a keydown or keyup without a key throws nothing (today:
@@ -672,20 +748,36 @@ Recommendations today, proposed as hard laws for the next major:
   an accepted import replaces the document is cancelled first, with no change
   event, no exception and nothing applied to a removed element, and a rejected
   import leaves it running (today: L1 RECOMMENDED since 1.5, advisory in the
-  L1 gesture case once it lands). The `interaction` surface stays optional.
+  L1 gesture case). The `interaction` surface stays optional.
+- **An import waits for a running drop:** an `importText` called while a drop
+  runs (from `onContentChanged`, the drop's command firing it) runs once the
+  drop has ended, so no later step of the drop meets the replaced document,
+  and its Promise settles after that import (today: L1 RECOMMENDED since 1.6,
+  advisory in the drop case).
+- **A pan is no gesture of its own:** a drag that only moves the view leaves
+  `interaction.active()` false, an import leaves it running, and it goes on
+  from the view the import left (today: RECOMMENDED since 1.6, advisory in the
+  pan case; 1.5 said a pan MAY count as a gesture).
 
 ## Roadmap
 
 - Next, in wave 4 ([#170](https://github.com/Miragon/modeler-suite/issues/170)):
-  every Miragon renderer and the new-modeler template cancel a running gesture
-  on import and implement `interaction` and `appearance` (`themes: ["light"]`);
-  then the kit gains the
-  [cases for the 1.5 surfaces](#cases-for-the-15-surfaces-next), each with its
-  saboteurs, and designIQ drops the DOM reading of gestures and the synthetic
-  Escape that [Miragon/design-iq#307](https://github.com/Miragon/design-iq/pull/307)
-  added.
+  every Miragon renderer and the new-modeler template implement `interaction`
+  and `appearance` (`themes: ["light"]`) and pass the
+  [cases for the 1.5 surfaces and the gesture rules of 1.6](#cases-for-the-15-surfaces-and-the-gesture-rules-of-16).
+  Then the kit gains a RECOMMENDED case for an import during any action of the
+  user (an append, a keyboard create, a label commit, a delete, an undo or a
+  redo, with the steps they schedule for later), which waits until the action
+  has finished as it waits for a drop, and one for an import from the selection
+  listener at a drag's start
+  ([#336](https://github.com/Miragon/modeler-suite/issues/336)), once every
+  renderer has its fix. designIQ drops the DOM reading of gestures and the
+  synthetic Escape that
+  [Miragon/design-iq#307](https://github.com/Miragon/design-iq/pull/307) added.
 - Dark mode ([#47](https://github.com/Miragon/modeler-suite/issues/47) and
-  its sub-issues): each renderer draws a dark canvas while its `themes` stays
+  its sub-issues), on hold since 2026-10-29 and a topic of its own later
+  ([#331](https://github.com/Miragon/modeler-suite/issues/331) collects what the
+  first attempt found): each renderer draws a dark canvas while its `themes` stays
   `["light"]`; then one release moves all five to `["light", "dark"]` together,
   with the `miragon.<modeler>.colorTheme` setting of each VS Code extension.
 - Dropped from the roadmap:

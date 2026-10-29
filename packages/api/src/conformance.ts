@@ -22,6 +22,9 @@
  */
 import {
   apiVersionsCompatible,
+  type AppearanceRequest,
+  type AppearanceSurface,
+  type AppearanceTheme,
   type CollaborativeModeler,
   type ElementBounds,
   type ElementsSurface,
@@ -791,6 +794,22 @@ export function conformanceCases(): ConformanceCase[] {
           m.destroy();
         }
       },
+    },
+    {
+      name: "L1 (recommended, 1.5): an accepted import cancels a running gesture, its release included, and a rejected one leaves it running",
+      run: importCancelsGestures,
+    },
+    {
+      name: "drop (recommended, 1.6): an import from the change listener of a drop waits until the drop has ended, and its Promise settles after the import",
+      run: importWaitsForTheDrop,
+    },
+    {
+      name: "pan (recommended, 1.6): a pan is no gesture, and it runs on through an import from the view the import left",
+      run: panRunsOnThroughAnImport,
+    },
+    {
+      name: "interaction (when present, 1.5): active() follows every gesture to its drop and its cancel, never an armed tool, and onChange reports each change once",
+      run: interactionFollowsGestures,
     },
     {
       name: "L2: canonical texts are byte fixpoints of import → export",
@@ -1809,6 +1828,10 @@ export function conformanceCases(): ConformanceCase[] {
       },
     },
     {
+      name: "appearance (when present, 1.5): a theme is view state, and a theme the modeler does not list draws themes[0], whatever mode the page shows",
+      run: appearanceIsViewState,
+    },
+    {
       name: "keys (recommended): a key aimed at the host's controls and editors or at <body> is left alone, a keydown or keyup without a key throws nothing, a key on the focused canvas acts",
       run: keysStayOnTheCanvas,
     },
@@ -2360,6 +2383,1198 @@ async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> 
           ],
         }),
   };
+}
+
+const GESTURE_KINDS: readonly GestureKind[] = ["move", "create", "createOffCanvas"];
+
+const doNothing = (): void => undefined;
+
+/** one advisory from a case's findings: the first SHOWN_KEY_FINDINGS spelled out, the rest counted */
+function adviseOn(findings: string[], lead: string, recommendation: string): CaseOutcome {
+  if (findings.length === 0) return {};
+  const more =
+    findings.length > SHOWN_KEY_FINDINGS
+      ? `; and ${findings.length - SHOWN_KEY_FINDINGS} more`
+      : "";
+  return {
+    advisories: [
+      `${lead}: ${findings.slice(0, SHOWN_KEY_FINDINGS).join("; ")}${more} — ${recommendation}`,
+    ],
+  };
+}
+
+/** a case's advisory and what it could not verify, in one outcome */
+const outcomeOf = (advised: CaseOutcome, unverified: string[]): CaseOutcome => ({
+  ...(unverified.length === 0 ? {} : { skipped: unverified.join("; ") }),
+  ...advised,
+});
+
+/** what a harness step threw, or `undefined` */
+async function errorOf(step: () => Promise<void> | void): Promise<string | undefined> {
+  try {
+    await step();
+    return undefined;
+  } catch (e) {
+    return String(e);
+  }
+}
+
+/** errors that reached the window while the kit listened: a throw in a pointer listener reaches no caller */
+interface WindowErrors {
+  readonly errors: string[];
+  stop(): void;
+}
+
+function listenForWindowErrors(): WindowErrors {
+  const errors: string[] = [];
+  if (typeof window === "undefined") return { errors, stop: doNothing };
+  const onError = (event: ErrorEvent): void => {
+    errors.push(String(event.error ?? event.message));
+    event.preventDefault();
+  };
+  const onRejection = (event: PromiseRejectionEvent): void => {
+    errors.push(String(event.reason));
+    event.preventDefault();
+  };
+  window.addEventListener("error", onError);
+  window.addEventListener("unhandledrejection", onRejection);
+  return {
+    errors,
+    stop: () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    },
+  };
+}
+
+/** what `interaction.onChange` delivered while the kit watched */
+interface InteractionWatch {
+  readonly delivered: boolean[];
+  /** deliveries during which `active()` returned another value than the listener got */
+  mismatches: number;
+  stop(): void;
+}
+
+function watchInteraction(m: CollaborativeModeler): InteractionWatch | undefined {
+  const interaction = m.interaction;
+  if (!interaction) return undefined;
+  const watch: InteractionWatch = { delivered: [], mismatches: 0, stop: doNothing };
+  watch.stop = interaction.onChange((active) => {
+    watch.delivered.push(active);
+    if (interaction.active() !== active) watch.mismatches += 1;
+  });
+  return watch;
+}
+
+/** a document the gesture cases import while the user holds something on `canonicalTexts[0]` */
+interface ImportedLeg {
+  text: string;
+  what: string;
+}
+
+/** a different document, which usually removes what the user holds, then the same one again */
+function importedLegs(h: ConformanceHarness): ImportedLeg[] {
+  const second = h.canonicalTexts[1];
+  return [
+    ...(second === undefined
+      ? []
+      : [{ text: second, what: "a different document (canonicalTexts[1])" }]),
+    { text: h.canonicalTexts[0] ?? "", what: "the same document (canonicalTexts[0])" },
+  ];
+}
+
+const oneTextOnly = (h: ConformanceHarness, what: string): string[] =>
+  h.canonicalTexts[1] === undefined
+    ? [
+        `canonicalTexts holds one text — ${what} of a DIFFERENT document was not checked (add a second canonical text)`,
+      ]
+    : [];
+
+/**
+ * two view states alike up to float noise: the same JSON shape, each number within a millionth of
+ * its size. A pan computes the same view along another path of float operations after an import
+ */
+function closeTo(a: unknown, b: unknown): boolean {
+  if (typeof a === "number" && typeof b === "number") {
+    return Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b));
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((value, index) => closeTo(value, b[index]));
+  }
+  if (a !== null && b !== null && typeof a === "object" && typeof b === "object") {
+    const keys = Object.keys(a).sort();
+    if (!same(keys, Object.keys(b).sort())) return false;
+    return keys.every((key) =>
+      closeTo((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
+    );
+  }
+  return a === b;
+}
+
+type GestureStarter = NonNullable<ConformanceHarness["startGesture"]>;
+
+/**
+ * the proof the gesture cases stand on: a drop the modeler still runs changes the document. Without
+ * it, a drop after an import that applied nothing could be a gesture the import cancelled as well
+ * as a harness whose drop never lands
+ */
+async function expectDropApplies(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  startGesture: GestureStarter,
+  kind: GestureKind,
+): Promise<void> {
+  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  await (h.settle ?? defaultSettle)();
+  const doc = exportOrFail(m, "after importing canonicalTexts[0]");
+  const held = await startGesture(m, kind);
+  await held.drop();
+  await (h.settle ?? defaultSettle)();
+  if (exportOrFail(m, `after startGesture(modeler, "${kind}") and its drop`) === doc) {
+    fail(
+      `startGesture(modeler, "${kind}") and drop() left the document as it was — the case proves nothing (drop() releases the gesture where it applies, so a drop the modeler still runs changes the document)`,
+    );
+  }
+}
+
+/** one gesture held over an accepted import of `leg`, then dropped; what the recommendation finds */
+async function importDuringGesture(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  startGesture: GestureStarter,
+  kind: GestureKind,
+  leg: ImportedLeg,
+  expected: string,
+): Promise<string[]> {
+  const settle = h.settle ?? defaultSettle;
+  const during = `${leg.what} imported during a ${kind} gesture`;
+  const findings: string[] = [];
+  const watch = watchInteraction(m);
+  const errors = listenForWindowErrors();
+  try {
+    const held = await startGesture(m, kind);
+    const mark = watch?.delivered.length ?? 0;
+    let beforeResolve: boolean[] = [];
+    const { calls } = await changeEvents(h, m, () =>
+      m.importText(leg.text).then(
+        () => {
+          beforeResolve = watch?.delivered.slice(mark) ?? [];
+        },
+        (e: unknown) =>
+          fail(`importText(${leg.what}) rejected during a ${kind} gesture: ${String(e)}`),
+      ),
+    );
+    if (calls > 0) {
+      fail(
+        `importing ${leg.what} during a ${kind} gesture fired onContentChanged ${calls}x before the drop — an import is silent (L1; if every import emits, see the L1 cases first)`,
+      );
+    }
+    if (m.interaction?.active()) {
+      findings.push(`interaction.active() was still true after ${during}`);
+    } else if (watch && !same(beforeResolve, [false])) {
+      findings.push(
+        `interaction.onChange delivered ${JSON.stringify(beforeResolve)} between the start of a ${kind} gesture and the resolve of an import that ended it (once false)`,
+      );
+    }
+    let thrown: string | undefined;
+    const dropped = await changeEvents(h, m, async () => {
+      thrown = await errorOf(() => held.drop());
+    });
+    if (thrown !== undefined) findings.push(`the drop after ${during} threw ${thrown}`);
+    for (const error of errors.errors) {
+      findings.push(`an error reached the window around ${during} and its drop: ${error}`);
+    }
+    const out = exportOrFail(m, `after the drop that followed ${during}`);
+    if (dropped.calls > 0 || out !== expected) {
+      findings.push(
+        `the drop after ${during} applied the ${kind}${dropped.calls > 0 ? ` (onContentChanged ${dropped.calls}x)` : ""}, so the export is no longer the imported document`,
+      );
+    }
+    if (h.undo && out === expected) {
+      await h.undo(m);
+      await settle();
+      if (exportOrFail(m, `after an undo that followed ${during}`) !== expected) {
+        findings.push(
+          `an undo after the drop that followed ${during} changed the document — the gesture left a command on the fresh undo history (L4)`,
+        );
+      }
+    }
+    const before = exportOrFail(m, `before the next mutate after ${during}`);
+    const next = await changeEvents(h, m, () => h.mutate(m));
+    if (next.calls === 0 || exportOrFail(m, `after the next mutate after ${during}`) === before) {
+      findings.push(
+        `the next mutate after the drop that followed ${during} did not apply (wedged)`,
+      );
+    }
+  } finally {
+    errors.stop();
+    watch?.stop();
+  }
+  return findings;
+}
+
+/** one gesture held over a rejected import, then dropped: it should still apply */
+async function rejectionDuringGesture(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  startGesture: GestureStarter,
+  kind: GestureKind,
+  invalid: string,
+): Promise<string[]> {
+  const findings: string[] = [];
+  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  await (h.settle ?? defaultSettle)();
+  const doc = exportOrFail(m, "after importing canonicalTexts[0]");
+  const watch = watchInteraction(m);
+  const errors = listenForWindowErrors();
+  try {
+    const held = await startGesture(m, kind);
+    const mark = watch?.delivered.length ?? 0;
+    let rejected = false;
+    const { calls } = await changeEvents(h, m, () =>
+      m.importText(invalid).then(
+        () => undefined,
+        () => {
+          rejected = true;
+        },
+      ),
+    );
+    if (!rejected) {
+      fail(
+        `importText(invalidTexts[0]) resolved during a ${kind} gesture — a non-importable input REJECTS (L7)`,
+      );
+    }
+    if (calls > 0) {
+      fail(`a rejected import during a ${kind} gesture fired onContentChanged ${calls}x (L7)`);
+    }
+    if (exportOrFail(m, `after a rejected import during a ${kind} gesture`) !== doc) {
+      fail(`a rejected import during a ${kind} gesture changed the document (L7)`);
+    }
+    let ended = false;
+    if (m.interaction && !m.interaction.active()) {
+      ended = true;
+      findings.push(
+        `a rejected import ended a ${kind} gesture (interaction.active() turned false)`,
+      );
+    } else if (watch && watch.delivered.length > mark) {
+      findings.push(
+        `interaction.onChange delivered ${JSON.stringify(watch.delivered.slice(mark))} during a rejected import while a ${kind} gesture ran`,
+      );
+    }
+    let thrown: string | undefined;
+    const dropped = await changeEvents(h, m, async () => {
+      thrown = await errorOf(() => held.drop());
+    });
+    if (thrown !== undefined) {
+      findings.push(`the drop of a ${kind} gesture after a rejected import threw ${thrown}`);
+    }
+    for (const error of errors.errors) {
+      findings.push(
+        `an error reached the window around a rejected import during a ${kind} gesture and its drop: ${error}`,
+      );
+    }
+    const applied =
+      dropped.calls > 0 && exportOrFail(m, `after the drop of a ${kind} gesture`) !== doc;
+    if (!applied && !ended) {
+      findings.push(
+        `the drop of a ${kind} gesture after a rejected import applied nothing — the rejected import ended the gesture`,
+      );
+    }
+  } finally {
+    errors.stop();
+    watch?.stop();
+  }
+  return findings;
+}
+
+/**
+ * the L1 gesture case: per kind, a gesture held over an accepted import of another document and of
+ * the same one, then dropped, and one held over a rejected import. A change event before the drop
+ * fails (L1, L7); what the drop does, and what `interaction` reports around the import, is one
+ * advisory, since 1.5 only RECOMMENDS the cancel
+ */
+async function importCancelsGestures(h: ConformanceHarness): Promise<CaseOutcome> {
+  if (!h.startGesture) {
+    return skip(
+      "startGesture is undefined — that an import cancels a running gesture (L1, RECOMMENDED since 1.5) was not checked",
+    );
+  }
+  const startGesture = h.startGesture;
+  const first = h.canonicalTexts[0] ?? "";
+  const invalid = h.invalidTexts?.[0];
+  const findings: string[] = [];
+  for (const kind of GESTURE_KINDS) {
+    const m = await h.create();
+    try {
+      await expectDropApplies(h, m, startGesture, kind);
+      for (const leg of importedLegs(h)) {
+        await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
+        // the oracle comes from the modeler's OWN serializer: a non-canonical one fails L2
+        const expected = exportOrFail(m, `after importing ${leg.what}`);
+        await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+        await (h.settle ?? defaultSettle)();
+        findings.push(...(await importDuringGesture(h, m, startGesture, kind, leg, expected)));
+      }
+      if (invalid !== undefined) {
+        findings.push(...(await rejectionDuringGesture(h, m, startGesture, kind, invalid)));
+      }
+    } finally {
+      m.destroy();
+    }
+  }
+  return outcomeOf(
+    adviseOn(
+      findings,
+      "a running gesture met an import",
+      "RECOMMENDED (L1, since 1.5): an accepted import first cancels a running gesture the way Escape does, with no change event and no exception, the release after the import included, nothing applied to an element the import removed, and interaction.active() false with one onChange(false) before importText resolves; a rejected import leaves the gesture running",
+    ),
+    [
+      ...oneTextOnly(h, "an import during a gesture"),
+      ...(h.invalidTexts === undefined
+        ? [
+            "invalidTexts is undefined — that a rejected import leaves a running gesture running was not checked (pass [] if the notation has no non-importable text)",
+          ]
+        : []),
+    ],
+  );
+}
+
+/** a document the drop case imports from the change listener of a drop */
+interface DropLeg {
+  what: string;
+  /** the text, read inside the listener: an echo imports the drop's own document */
+  text(m: CollaborativeModeler): string;
+  /** the modeler's own export of that text, where the kit knows it before the drop */
+  expected?: string;
+}
+
+/** how an import called from the change listener of a drop came out */
+interface DropImportResult {
+  /** `exportText()` when its Promise resolved */
+  exported?: string;
+  rejected?: string;
+  /** it had not settled within PRE_IMPORT_CALL_BOUND_MS */
+  unsettled?: true;
+}
+
+/** a move held on `canonicalTexts[0]` with a selection, dropped, and an import from its change listener */
+async function importFromTheDrop(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  startGesture: GestureStarter,
+  leg: DropLeg,
+): Promise<string[]> {
+  const settle = h.settle ?? defaultSettle;
+  const during = `importing ${leg.what} from the change listener of a drop`;
+  const findings: string[] = [];
+  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  // a selection from before the drag: diagram-js restores it once the move has run, on the
+  // shapes it held, which an import from the listener removes (#248)
+  const selected = m.elements?.list()[0]?.id;
+  if (selected !== undefined) m.elements?.reveal(selected);
+  await settle();
+  let called:
+    | {
+        text: string;
+        before: string;
+        after: string;
+        result: Promise<DropImportResult>;
+      }
+    | undefined;
+  let settled = false;
+  let changesAfterTheImport = 0;
+  const off = m.onContentChanged(() => {
+    if (settled) changesAfterTheImport += 1;
+    if (called !== undefined) return;
+    const before = m.exportText();
+    const text = leg.text(m);
+    const result = m.importText(text).then(
+      () => {
+        settled = true;
+        return { exported: m.exportText() };
+      },
+      (e: unknown) => {
+        settled = true;
+        return { rejected: String(e) };
+      },
+    );
+    called = { text, before, after: m.exportText(), result };
+  });
+  const errors = listenForWindowErrors();
+  try {
+    const held = await startGesture(m, "move");
+    const thrown = await errorOf(() => held.drop());
+    await settle();
+    if (called === undefined) {
+      fail(
+        'the drop of a move gesture fired no onContentChanged — the case proves nothing (startGesture(modeler, "move") and drop() move an element through the modeler\'s own pointer handling)',
+      );
+    }
+    const call = called;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const result = await Promise.race([
+      call.result,
+      new Promise<DropImportResult>((resolve) => {
+        timer = setTimeout(() => resolve({ unsettled: true }), PRE_IMPORT_CALL_BOUND_MS);
+      }),
+    ]);
+    clearTimeout(timer);
+    await settle();
+    if (thrown !== undefined) findings.push(`the drop threw ${thrown} while ${during}`);
+    for (const error of errors.errors) {
+      findings.push(`an error reached the window while ${during}: ${error}`);
+    }
+    if (result.unsettled) {
+      findings.push(
+        `${during} did not settle within ${PRE_IMPORT_CALL_BOUND_MS / 1000} s of the drop — it waits for something the drop never ends`,
+      );
+      return findings;
+    }
+    if (call.after !== call.before) {
+      findings.push(
+        `${during} replaced the document before the drop had ended (exportText() returned the imported document right after the call)`,
+      );
+    }
+    const expected = leg.expected ?? call.text;
+    if (result.rejected !== undefined) {
+      findings.push(`${during} rejected: ${result.rejected}`);
+    } else if (result.exported !== expected) {
+      findings.push(
+        `when the Promise of ${during} settled, exportText() did not return the imported document — the Promise settled before the import had run`,
+      );
+    }
+    const out = exportOrFail(m, `once ${during} had settled`);
+    if (result.exported === expected && out !== expected) {
+      findings.push(`a step of the drop changed the document after ${during}`);
+    }
+    if (changesAfterTheImport > 0) {
+      findings.push(`onContentChanged fired ${changesAfterTheImport}x once ${during} had settled`);
+    }
+    if (m.interaction?.active()) {
+      findings.push(`interaction.active() was still true after the drop and ${during}`);
+    }
+    if (h.undo && result.rejected === undefined) {
+      await h.undo(m);
+      await settle();
+      if (exportOrFail(m, `after an undo that followed ${during}`) !== out) {
+        findings.push(
+          `an undo after ${during} changed the document — the drop's command stayed on the fresh undo history (L4)`,
+        );
+      }
+    }
+    off();
+    const before = exportOrFail(m, `before the next mutate after ${during}`);
+    const next = await changeEvents(h, m, () => h.mutate(m));
+    if (next.calls === 0 || exportOrFail(m, `after the next mutate after ${during}`) === before) {
+      findings.push(`the next mutate after ${during} did not apply (wedged)`);
+    }
+  } finally {
+    off();
+    errors.stop();
+  }
+  return findings;
+}
+
+/**
+ * the drop case: a host that imports from `onContentChanged` meets the drop of a move while the
+ * drop still runs. Its import waits until the drop has ended (#248), and its Promise settles once
+ * the import has run. 1.6 only RECOMMENDS it, so what the case finds is one advisory
+ */
+async function importWaitsForTheDrop(h: ConformanceHarness): Promise<CaseOutcome> {
+  if (!h.startGesture) {
+    return skip(
+      "startGesture is undefined — that an import from the change listener of a drop waits until the drop has ended (RECOMMENDED since 1.6) was not checked",
+    );
+  }
+  const startGesture = h.startGesture;
+  const second = h.canonicalTexts[1];
+  const findings: string[] = [];
+  const m = await h.create();
+  try {
+    const legs: DropLeg[] = [];
+    if (second !== undefined) {
+      await importOrFail(m, second, "importText(canonicalTexts[1]) rejected");
+      legs.push({
+        what: "a different document (canonicalTexts[1])",
+        text: () => second,
+        expected: exportOrFail(m, "after importing canonicalTexts[1]"),
+      });
+    }
+    legs.push({
+      what: "the drop's own document (an echo)",
+      text: (modeler) => modeler.exportText(),
+    });
+    for (const leg of legs) findings.push(...(await importFromTheDrop(h, m, startGesture, leg)));
+    return outcomeOf(
+      adviseOn(
+        findings,
+        "an import met a running drop",
+        "RECOMMENDED (since 1.6): an importText called during a running drop (from onContentChanged, a selection held from before the drag) waits until the drop has ended, so no step of the drop meets a replaced document, and its Promise settles once the import has run",
+      ),
+      [
+        ...oneTextOnly(h, "an import from the change listener of a drop"),
+        ...(m.elements
+          ? []
+          : [
+              "the modeler exposes no elements surface (optional) — the drop ran without a selection from before the drag",
+            ]),
+      ],
+    );
+  } finally {
+    m.destroy();
+  }
+}
+
+/**
+ * the pan case: a pan held over an accepted import of another document and of the same one. The
+ * pan is no gesture, and it runs on from the view the import left: the same document fits the same
+ * view, so the pan's next step must bring the view where its first step had brought it. A change
+ * event fails (L1, L3); the rest is one advisory, since 1.6 only RECOMMENDS it
+ */
+async function panRunsOnThroughAnImport(h: ConformanceHarness): Promise<CaseOutcome> {
+  if (!h.startPan) {
+    return skip(
+      "startPan is undefined — that a pan is no gesture and runs on through an import (RECOMMENDED since 1.6) was not checked",
+    );
+  }
+  const startPan = h.startPan;
+  const settle = h.settle ?? defaultSettle;
+  const first = h.canonicalTexts[0] ?? "";
+  const findings: string[] = [];
+  const m = await h.create();
+  try {
+    for (const leg of importedLegs(h)) {
+      await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
+      const expected = exportOrFail(m, `after importing ${leg.what}`);
+      await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+      await settle();
+      const atRest = m.getViewState();
+      const watch = watchInteraction(m);
+      const errors = listenForWindowErrors();
+      try {
+        const pan = await startPan(m);
+        const panned = m.getViewState();
+        if (closeTo(panned, atRest)) {
+          fail(
+            "startPan left the view as the import had fitted it — the case proves nothing (startPan presses on the canvas and moves past the drag threshold, so the view pans)",
+          );
+        }
+        let activeDuringPan = m.interaction?.active() === true;
+        const { calls } = await changeEvents(h, m, () =>
+          m.importText(leg.text).then(
+            () => undefined,
+            (e: unknown) => fail(`importText(${leg.what}) rejected during a pan: ${String(e)}`),
+          ),
+        );
+        if (calls > 0) {
+          fail(
+            `importing ${leg.what} during a pan fired onContentChanged ${calls}x — an import is silent (L1; if every import emits, see the L1 cases first)`,
+          );
+        }
+        const imported = m.getViewState();
+        const moveThrown = await errorOf(() => pan.move());
+        const after = m.getViewState();
+        activeDuringPan ||= m.interaction?.active() === true;
+        if (closeTo(after, imported)) {
+          findings.push(
+            `a pan stopped when ${leg.what} was imported during it (its next step left the view where the import had put it)`,
+          );
+        } else if (closeTo(imported, atRest) && !closeTo(after, panned)) {
+          findings.push(
+            `a pan's next step after ${leg.what} was imported during it did not go on from the view the import left: it put the view where the pan would have brought the view from before the import`,
+          );
+        }
+        if (moveThrown !== undefined) {
+          findings.push(`a pan's next step after an import of ${leg.what} threw ${moveThrown}`);
+        }
+        let dropThrown: string | undefined;
+        const dropped = await changeEvents(h, m, async () => {
+          dropThrown = await errorOf(() => pan.drop());
+        });
+        if (dropped.calls > 0) {
+          fail(
+            `releasing a pan fired onContentChanged ${dropped.calls}x — a pan changes the view, never the document (L3)`,
+          );
+        }
+        if (dropThrown !== undefined) {
+          findings.push(`releasing a pan after an import of ${leg.what} threw ${dropThrown}`);
+        }
+        for (const error of errors.errors) {
+          findings.push(
+            `an error reached the window during a pan over an import of ${leg.what}: ${error}`,
+          );
+        }
+        if (activeDuringPan) findings.push("interaction.active() was true during a pan");
+        else if (watch && watch.delivered.length > 0) {
+          findings.push(
+            `interaction.onChange delivered ${JSON.stringify(watch.delivered)} during a pan`,
+          );
+        }
+        if (exportOrFail(m, `after a pan over an import of ${leg.what}`) !== expected) {
+          findings.push(`a pan over an import of ${leg.what} changed the document`);
+        }
+        const before = exportOrFail(m, "before the next mutate after a pan");
+        const next = await changeEvents(h, m, () => h.mutate(m));
+        if (next.calls === 0 || exportOrFail(m, "after the next mutate after a pan") === before) {
+          findings.push(
+            `the next mutate after a pan over an import of ${leg.what} did not apply (wedged)`,
+          );
+        }
+      } finally {
+        errors.stop();
+        watch?.stop();
+      }
+    }
+  } finally {
+    m.destroy();
+  }
+  return outcomeOf(
+    adviseOn(
+      findings,
+      "a pan met an import",
+      "RECOMMENDED (since 1.6): a pan is no gesture (interaction.active() stays false and onChange is not called), and an import leaves it running: it goes on from the view the import left and never puts the view from before the import back",
+    ),
+    oneTextOnly(h, "an import during a pan"),
+  );
+}
+
+/**
+ * the interaction case: `active()` and `onChange` follow every kind of gesture to its drop and to
+ * its cancel, stay quiet for an armed tool, stop after the unsubscribe and after `destroy()`, and
+ * the viewer reports no gesture. Every rule is stated by the contract, so each one fails
+ */
+async function interactionFollowsGestures(h: ConformanceHarness): Promise<CaseOutcome | void> {
+  const settle = h.settle ?? defaultSettle;
+  const first = h.canonicalTexts[0] ?? "";
+  const others: CollaborativeModeler[] = [];
+  const m = await h.create();
+  try {
+    const interaction = m.interaction;
+    if (!interaction) {
+      return skip("the modeler exposes no interaction surface (optional, 1.5) — nothing to verify");
+    }
+    if (!h.startGesture) {
+      return skip(
+        "startGesture is undefined — that interaction.active() follows every gesture was not verified",
+      );
+    }
+    const startGesture = h.startGesture;
+    if (interaction.active()) fail("interaction.active() is true before the first import");
+    await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+    await settle();
+    if (interaction.active()) fail("interaction.active() is true at rest after an import");
+    const watch = watchInteraction(m);
+    if (!watch) fail("the interaction surface went away");
+    for (const kind of GESTURE_KINDS) {
+      for (const end of ["drop", "cancel"] as const) {
+        await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+        await settle();
+        const mark = watch.delivered.length;
+        const since = (): string => JSON.stringify(watch.delivered.slice(mark));
+        const held = await startGesture(m, kind);
+        if (!interaction.active()) {
+          fail(`interaction.active() is false while a ${kind} gesture is held`);
+        }
+        if (since() !== "[true]") {
+          fail(
+            `interaction.onChange delivered ${since()} when a ${kind} gesture started — once true`,
+          );
+        }
+        await held[end]();
+        if (interaction.active()) {
+          fail(`interaction.active() is still true after the ${end} of a ${kind} gesture`);
+        }
+        await settle();
+        if (since() !== "[true,false]") {
+          fail(
+            `interaction.onChange delivered ${since()} from the start of a ${kind} gesture to its ${end} — once true, then once false`,
+          );
+        }
+      }
+    }
+    if (watch.mismatches > 0) {
+      fail(
+        `inside an interaction.onChange listener active() returned another value than the listener got (${watch.mismatches}x) — it already returns the new value there`,
+      );
+    }
+    const late: boolean[] = [];
+    const unsubscribe = interaction.onChange((active) => late.push(active));
+    unsubscribe();
+    await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+    const held = await startGesture(m, "move");
+    await held.cancel();
+    await settle();
+    if (late.length > 0) fail("interaction.onChange delivered after its unsubscribe");
+    const unverified: string[] = [];
+    if (h.armTool) {
+      await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+      await settle();
+      const mark = watch.delivered.length;
+      await h.armTool(m);
+      await settle();
+      if (interaction.active() || watch.delivered.length > mark) {
+        fail(
+          `a palette tool that is only armed counted as a gesture (active() ${String(interaction.active())}, onChange delivered ${JSON.stringify(watch.delivered.slice(mark))}) — no gesture runs until its press`,
+        );
+      }
+      await importOrFail(m, first, "importText(canonicalTexts[0]) rejected with a tool armed");
+      await settle();
+      if (interaction.active() || watch.delivered.length > mark) {
+        fail(
+          `an import with a palette tool armed changed interaction (active() ${String(interaction.active())}, onChange delivered ${JSON.stringify(watch.delivered.slice(mark))})`,
+        );
+      }
+    } else {
+      unverified.push(
+        "armTool is undefined — that a palette tool that is only armed is no gesture was not verified",
+      );
+    }
+    const destroyed = await h.create();
+    let afterDestroy: InteractionWatch | undefined;
+    let mark = 0;
+    try {
+      await importOrFail(destroyed, first, "importText(canonicalTexts[0]) rejected");
+      afterDestroy = watchInteraction(destroyed);
+      await startGesture(destroyed, "move");
+      mark = afterDestroy?.delivered.length ?? 0;
+    } finally {
+      destroyed.destroy();
+    }
+    await settle();
+    if (afterDestroy && afterDestroy.delivered.length > mark) {
+      fail(
+        `interaction.onChange delivered ${JSON.stringify(afterDestroy.delivered.slice(mark))} after destroy() — nothing is called after destroy()`,
+      );
+    }
+    if (h.createReadonly) {
+      const viewer = await h.createReadonly();
+      others.push(viewer);
+      if (viewer.interaction?.active()) {
+        fail("the viewer's interaction.active() is true before the first import");
+      }
+      await importOrFail(viewer, first, "the viewer rejected canonicalTexts[0]");
+      if (viewer.interaction?.active()) {
+        fail(
+          "the viewer's interaction.active() is true after an import — a viewer has no editing gesture",
+        );
+      }
+    }
+    if (unverified.length > 0) return skip(unverified.join("; "));
+  } finally {
+    m.destroy();
+    for (const other of others) other.destroy();
+  }
+}
+
+const KNOWN_THEMES: readonly AppearanceTheme[] = ["light", "dark"];
+
+/** a theme and a contrast no modeler knows, as an untyped host may send them */
+const UNKNOWN_THEME = "sepia" as AppearanceTheme;
+const UNKNOWN_CONTRAST = "maximal" as AppearanceRequest["contrast"];
+
+/** `appearance.themes`, checked: non-empty, without duplicates, only "light" and "dark" */
+function themesOf(appearance: AppearanceSurface, who: string): AppearanceTheme[] {
+  const themes: unknown = appearance.themes;
+  if (!Array.isArray(themes) || themes.length === 0) {
+    fail(
+      `${who}appearance.themes is ${JSON.stringify(themes)} — the themes the modeler can draw, a non-empty list`,
+    );
+  }
+  if (new Set(themes).size !== themes.length) {
+    fail(`${who}appearance.themes lists a theme twice: ${JSON.stringify(themes)}`);
+  }
+  const unknown = themes.filter((theme) => !KNOWN_THEMES.includes(theme as AppearanceTheme));
+  if (unknown.length > 0) {
+    fail(`${who}appearance.themes lists ${JSON.stringify(unknown)} — a theme is "light" or "dark"`);
+  }
+  return [...(themes as AppearanceTheme[])];
+}
+
+const describeRequest = (request: AppearanceRequest): string => {
+  const contrast = request.contrast === undefined ? "" : `, contrast: "${request.contrast}"`;
+  return `appearance.set({ theme: "${request.theme}"${contrast} })`;
+};
+
+/** the properties of an element's computed style that hold a colour */
+const COLOUR_PROPERTIES = [
+  "color",
+  "background-color",
+  "background-image",
+  "border-top-color",
+  "border-right-color",
+  "border-bottom-color",
+  "border-left-color",
+  "outline-color",
+  "text-decoration-color",
+  "fill",
+  "stroke",
+  "stop-color",
+  "flood-color",
+  "box-shadow",
+] as const;
+
+interface PaintedElement {
+  element: Element;
+  colours: string[];
+}
+
+/** every element in the host with its computed colours, once the colour transitions have run */
+function paintedIn(host: HTMLElement): PaintedElement[] {
+  // a transition shows the colour it starts from until it has run: a request draws its end
+  const animations =
+    typeof host.getAnimations === "function" ? host.getAnimations({ subtree: true }) : [];
+  for (const animation of animations) {
+    if ("transitionProperty" in animation) animation.finish();
+  }
+  const view = host.ownerDocument.defaultView ?? window;
+  return [...host.querySelectorAll("*")].map((element) => {
+    const style = view.getComputedStyle(element);
+    return {
+      element,
+      colours: COLOUR_PROPERTIES.map((property) => style.getPropertyValue(property)),
+    };
+  });
+}
+
+const describeElement = (element: Element): string => {
+  const classes = (element.getAttribute("class") ?? "")
+    .split(/\s+/)
+    .filter((name) => name !== "")
+    .slice(0, 3)
+    .map((name) => `.${name}`)
+    .join("");
+  return `<${element.tagName.toLowerCase()}>${classes}`;
+};
+
+/** where two paintings of the host differ, or `undefined` */
+function colourDifference(
+  reference: PaintedElement[],
+  painted: PaintedElement[],
+): string | undefined {
+  if (reference.length !== painted.length) {
+    return `the host holds ${painted.length} elements, ${reference.length} in the reference`;
+  }
+  for (const [index, { element, colours }] of painted.entries()) {
+    const expected = reference[index]?.colours ?? [];
+    for (const [position, property] of COLOUR_PROPERTIES.entries()) {
+      if (colours[position] !== expected[position]) {
+        return `${describeElement(element)} has ${property} ${colours[position]}, the reference ${expected[position]}`;
+      }
+    }
+  }
+  return undefined;
+}
+
+/** the attachedHost() a modeler made since `firstSerial` lies in, or why the kit cannot tell */
+function hostOfTheModeler(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  firstSerial: number,
+): HTMLElement | string {
+  const live = attachedHosts.filter((entry) => entry.wrapper.isConnected);
+  if (h.canvasElement) {
+    const named = h.canvasElement(m);
+    const mount = named ? live.find((entry) => entry.host.contains(named)) : undefined;
+    return (
+      mount?.host ??
+      "the canvas canvasElement() names lies in no attachedHost() — the computed colours were not compared"
+    );
+  }
+  const made = live.filter(
+    (entry) => entry.serial >= firstSerial && entry.host.childElementCount > 0,
+  );
+  const [mount] = made;
+  if (mount && made.length === 1) return mount.host;
+  return made.length === 0
+    ? "create() mounted the modeler into no attachedHost() — the computed colours were not compared (mount into attachedHost())"
+    : `create() filled ${made.length} attachedHost() elements — the kit cannot tell which one holds the modeler, so the computed colours were not compared`;
+}
+
+/** puts `<html>` into a mode the way a host page does; `null` removes the attribute */
+function pageMode(theme: string | null, contrast: string | null): void {
+  const root = document.documentElement;
+  for (const [name, value] of [
+    ["data-cd-theme", theme],
+    ["data-cd-kontrast", contrast],
+  ] as const) {
+    if (value === null) root.removeAttribute(name);
+    else root.setAttribute(name, value);
+  }
+}
+
+/**
+ * the appearance case's DOM half: the computed colours of everything in the modeler's
+ * attachedHost(). The reference is a request for `themes[0]` on a page without `data-cd-theme`,
+ * once per contrast; a request for a theme `themes` does not list, on a page in the other mode with
+ * high contrast, must draw the reference of its contrast, also after a re-import. A listed theme
+ * other than `themes[0]` must draw something else. Returns why the colours were not compared
+ */
+async function coloursFollowTheRequest(
+  h: ConformanceHarness,
+  themes: AppearanceTheme[],
+): Promise<string | undefined> {
+  if (typeof document === "undefined") {
+    return "no DOM — the computed colours were not compared (run the kit in a browser, the modeler mounted into attachedHost())";
+  }
+  const root = document.documentElement;
+  const page = {
+    theme: root.getAttribute("data-cd-theme"),
+    contrast: root.getAttribute("data-cd-kontrast"),
+  };
+  const firstSerial = nextHostSerial;
+  const m = await h.create();
+  try {
+    const appearance = m.appearance;
+    if (!appearance) fail("the appearance surface went away on a second instance");
+    const host = hostOfTheModeler(h, m, firstSerial);
+    if (typeof host === "string") return host;
+    const [lead = "light"] = themes;
+    const other: AppearanceTheme = lead === "light" ? "dark" : "light";
+    const first = h.canonicalTexts[0] ?? "";
+    pageMode(null, null);
+    await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+    await (h.settle ?? defaultSettle)();
+    const paintedFor = (contrast: "normal" | "high"): PaintedElement[] => {
+      appearance.set({ theme: lead, contrast });
+      return paintedIn(host);
+    };
+    const reference = { normal: paintedFor("normal"), high: paintedFor("high") };
+    const expectReference = (contrast: "normal" | "high", when: string): void => {
+      const difference = colourDifference(reference[contrast], paintedIn(host));
+      if (difference !== undefined) {
+        fail(
+          `${when}, the modeler drew other colours than for ${describeRequest({ theme: lead, contrast })} on a page without data-cd-theme: ${difference} — a theme themes does not list draws themes[0], and the request's contrast holds, whatever mode the page shows`,
+        );
+      }
+    };
+    pageMode(other, "hoch");
+    const onThePage = `on a page in the other mode (data-cd-theme="${other}" and data-cd-kontrast="hoch" on <html>)`;
+    const unlisted = [...KNOWN_THEMES.filter((theme) => !themes.includes(theme)), UNKNOWN_THEME];
+    for (const theme of unlisted) {
+      for (const contrast of ["normal", "high"] as const) {
+        const request = { theme, contrast };
+        appearance.set(request);
+        expectReference(contrast, `after ${describeRequest(request)} ${onThePage}`);
+      }
+    }
+    // a re-import draws the canvas anew, so the reference for it is drawn again afterwards, on
+    // the same elements
+    for (const contrast of ["normal", "high"] as const) {
+      const request = { theme: unlisted[0] ?? UNKNOWN_THEME, contrast };
+      pageMode(other, "hoch");
+      appearance.set(request);
+      await importOrFail(m, first, "re-importing canonicalTexts[0] rejected");
+      await (h.settle ?? defaultSettle)();
+      const reimported = paintedIn(host);
+      pageMode(null, null);
+      appearance.set({ theme: lead, contrast });
+      const difference = colourDifference(paintedIn(host), reimported);
+      if (difference !== undefined) {
+        fail(
+          `after ${describeRequest(request)} and a re-import ${onThePage}, the modeler drew other colours than for ${describeRequest({ theme: lead, contrast })} on a page without data-cd-theme: ${difference} — a request holds across every later import`,
+        );
+      }
+    }
+    pageMode(null, null);
+    for (const theme of themes.filter((listed) => listed !== lead)) {
+      const doc = exportOrFail(m, "before a request for a listed theme");
+      const image = h.exportImage ? await h.exportImage(m) : undefined;
+      appearance.set({ theme, contrast: "normal" });
+      if (colourDifference(reference.normal, paintedIn(host)) === undefined) {
+        fail(
+          `appearance.themes lists "${theme}", but ${describeRequest({ theme })} drew the colours of "${lead}" — a modeler draws every theme it lists`,
+        );
+      }
+      if (exportOrFail(m, `after ${describeRequest({ theme })}`) !== doc) {
+        fail(`${describeRequest({ theme })} changed exportText() — exports are always light`);
+      }
+      if (h.exportImage && (await h.exportImage(m)) !== image) {
+        fail(`${describeRequest({ theme })} changed the image export — exports are always light`);
+      }
+    }
+    return undefined;
+  } finally {
+    pageMode(page.theme, page.contrast);
+    m.destroy();
+  }
+}
+
+/** the appearance case's interaction half: a request over an open interaction commits nothing */
+async function appearanceOverAnInteraction(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  appearance: AppearanceSurface,
+  themes: AppearanceTheme[],
+): Promise<string | undefined> {
+  const openInteraction = h.openInteraction;
+  if (!openInteraction) return undefined;
+  const settle = h.settle ?? defaultSettle;
+  const first = h.canonicalTexts[0] ?? "";
+  const request: AppearanceRequest = { theme: themes[0] ?? "light", contrast: "high" };
+  await importOrFail(m, first, "re-importing canonicalTexts[0] rejected");
+  appearance.set({ theme: request.theme, contrast: "normal" });
+  const doc = exportOrFail(m, "after importing canonicalTexts[0]");
+  let committed: string | undefined;
+  if (h.commitInteraction) {
+    await openInteraction(m);
+    await settle();
+    await h.commitInteraction(m);
+    await settle();
+    committed = exportOrFail(m, "after committing the interaction");
+    await importOrFail(m, first, "re-importing canonicalTexts[0] after the commit rejected");
+  }
+  await openInteraction(m);
+  await settle();
+  const opened = h.interactionState?.(m);
+  const { calls } = await changeEvents(h, m, () => appearance.set(request));
+  if (
+    calls > 0 ||
+    exportOrFail(m, `after ${describeRequest(request)} over an open interaction`) !== doc
+  ) {
+    fail(
+      `${describeRequest(request)} over an open interaction committed it${calls > 0 ? ` (onContentChanged ${calls}x)` : ""} — like a host's view change, a request never commits an interaction in progress`,
+    );
+  }
+  const after = h.interactionState?.(m);
+  if (
+    opened !== undefined &&
+    (after?.elementId !== opened.elementId || after?.text !== opened.text)
+  ) {
+    const what = after === undefined ? "closed it" : `left ${JSON.stringify(after)} open`;
+    return `an interaction on '${opened.elementId}' did not survive ${describeRequest(request)} (the request ${what}) — RECOMMENDED: keep it open with its typed input, so the user's commit afterwards writes what it would have written without the request`;
+  }
+  if (h.commitInteraction && committed !== undefined && committed !== doc) {
+    await h.commitInteraction(m);
+    await settle();
+    const out = exportOrFail(
+      m,
+      `after committing the interaction after ${describeRequest(request)}`,
+    );
+    if (out !== committed) {
+      return `committing an interaction after ${describeRequest(request)} wrote another document than committing it without one — RECOMMENDED: keep it open with its typed input across a request:\n--- committed without a request\n${committed}\n--- committed after the request\n${out}`;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * the appearance case: `themes` is a fixed, valid list on every instance and the viewer, and every
+ * request (light, dark, high contrast, a theme and a contrast no modeler knows) is view state: no
+ * throw, no change event, both exports, the view, the selection and the undo history as they were.
+ * In a DOM the computed colours follow the request, not the page (coloursFollowTheRequest). Every
+ * rule but the keep-open of an interaction is stated by the contract, so each one fails
+ */
+async function appearanceIsViewState(h: ConformanceHarness): Promise<CaseOutcome> {
+  const settle = h.settle ?? defaultSettle;
+  const first = h.canonicalTexts[0] ?? "";
+  const others: CollaborativeModeler[] = [];
+  const m = await h.create();
+  try {
+    const appearance = m.appearance;
+    if (!appearance) {
+      return skip("the modeler exposes no appearance surface (optional, 1.5) — nothing to verify");
+    }
+    const themes = themesOf(appearance, "");
+    if (!same(themesOf(appearance, "a second read of "), themes)) {
+      fail("appearance.themes changed between two reads — it is fixed before the modeler runs");
+    }
+    const unverified: string[] = [];
+    const another = await h.create();
+    others.push(another);
+    if (!another.appearance || !same(themesOf(another.appearance, "another instance's "), themes)) {
+      fail(
+        "another instance of the modeler reports other appearance.themes — they are the same on every instance",
+      );
+    }
+    if (h.createReadonly) {
+      const viewer = await h.createReadonly();
+      others.push(viewer);
+      if (viewer.appearance) {
+        if (!same(themesOf(viewer.appearance, "the viewer's "), themes)) {
+          fail(
+            "the viewer reports other appearance.themes than the modeler — they are the same on the viewer",
+          );
+        }
+      } else {
+        unverified.push("the viewer exposes no appearance surface — its themes were not compared");
+      }
+    } else {
+      unverified.push("createReadonly is undefined — the viewer's themes were not compared");
+    }
+    const lead = themes[0] ?? "light";
+    const beforeImport = await errorOf(() => appearance.set({ theme: lead }));
+    if (beforeImport !== undefined) {
+      fail(`${describeRequest({ theme: lead })} threw before the first import: ${beforeImport}`);
+    }
+    await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+    const imported = exportOrFail(m, "after importing canonicalTexts[0]");
+    await h.mutate(m);
+    await settle();
+    const revealed = m.elements?.list()[0]?.id;
+    if (revealed !== undefined) m.elements?.reveal(revealed);
+    if (h.viewState !== undefined) m.setViewState(h.viewState);
+    await settle();
+    const doc = exportOrFail(m, "after a user mutation");
+    const image = h.exportImage ? await h.exportImage(m) : undefined;
+    const view = m.getViewState();
+    const selection = selectionOf(m);
+    const requests: AppearanceRequest[] = [
+      { theme: "light" },
+      { theme: "dark" },
+      { theme: "light", contrast: "high" },
+      { theme: "dark", contrast: "high" },
+      { theme: UNKNOWN_THEME },
+      { theme: lead, contrast: UNKNOWN_CONTRAST },
+      { theme: lead, contrast: "normal" },
+    ];
+    for (const request of requests) {
+      const what = describeRequest(request);
+      let thrown: string | undefined;
+      const { calls } = await changeEvents(h, m, async () => {
+        thrown = await errorOf(() => appearance.set(request));
+      });
+      if (thrown !== undefined) fail(`${what} threw: ${thrown} — set never throws`);
+      if (calls > 0) {
+        fail(
+          `${what} fired onContentChanged ${calls}x — the appearance is view state, never document (L3)`,
+        );
+      }
+      if (exportOrFail(m, `after ${what}`) !== doc) fail(`${what} changed exportText()`);
+      if (h.exportImage && (await h.exportImage(m)) !== image) {
+        fail(
+          `${what} changed the image export — exports are always light, whatever the modeler draws`,
+        );
+      }
+      if (!same(m.getViewState(), view)) fail(`${what} changed the view state`);
+      if (selectionOf(m) !== selection) fail(`${what} changed the selection`);
+    }
+    if (h.undo) {
+      await h.undo(m);
+      await settle();
+      if (exportOrFail(m, "after an undo that followed the requests") !== imported) {
+        fail(
+          "an undo after the appearance requests did not undo the user mutation before them — the requests changed the undo history",
+        );
+      }
+    }
+    if (!h.exportImage) {
+      unverified.push(
+        "exportImage is undefined — that the image export stays byte-identical was not verified",
+      );
+    }
+    const advice = await appearanceOverAnInteraction(h, m, appearance, themes);
+    if (!h.openInteraction) {
+      unverified.push(
+        "openInteraction is undefined — that a request never commits an open interaction was not verified",
+      );
+    }
+    const colourGap = await coloursFollowTheRequest(h, themes);
+    if (colourGap !== undefined) unverified.push(colourGap);
+    return outcomeOf(advice === undefined ? {} : { advisories: [advice] }, unverified);
+  } finally {
+    m.destroy();
+    for (const other of others) other.destroy();
+  }
 }
 
 export interface RegisterOptions {
