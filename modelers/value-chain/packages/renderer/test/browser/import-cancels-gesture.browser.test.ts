@@ -550,14 +550,21 @@ describe("an import while a gesture runs cancels the gesture first", () => {
   });
 
   describe("a host that imports from its change listener, while the drop applies", () => {
+    let reimport: Promise<unknown> | undefined;
+
     function importOnFirstChange(): void {
+      reimport = undefined;
       const unsubscribe = editor().onContentChanged(() => {
         unsubscribe();
-        void editor().importText(PEER_EDIT);
+        reimport = editor().importText(PEER_EDIT);
       });
     }
 
-    function expectImportReplacedTheDrop(): void {
+    /** The import waits until the drop has ended (#248), then replaces its result. */
+    async function expectImportReplacedTheDrop(): Promise<void> {
+      expect(reimport).toBeDefined();
+      expect(editor().exportText()).not.toBe(PEER_EDIT);
+      await reimport;
       expect(errors).toEqual([]);
       expect(changes).toBe(1);
       expect(gestureRuns()).toBe(false);
@@ -573,7 +580,7 @@ describe("an import while a gesture runs cancels the gesture first", () => {
       moveTo({ x: start.x + 40, y: start.y });
       release({ x: start.x + 40, y: start.y });
 
-      expectImportReplacedTheDrop();
+      await expectImportReplacedTheDrop();
     });
 
     it("of a create from the palette", async () => {
@@ -584,7 +591,7 @@ describe("an import while a gesture runs cancels the gesture first", () => {
       hover(canvasSvg(), freeSpot);
       release(freeSpot);
 
-      expectImportReplacedTheDrop();
+      await expectImportReplacedTheDrop();
     });
 
     it("of a connect from the context pad", async () => {
@@ -601,7 +608,7 @@ describe("an import while a gesture runs cancels the gesture first", () => {
       hover(graphics(shape("step-delivery")), target);
       release(target);
 
-      expectImportReplacedTheDrop();
+      await expectImportReplacedTheDrop();
     });
   });
 

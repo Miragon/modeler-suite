@@ -8,6 +8,7 @@ import "@miragon/modeler-shell/shell.css";
 import {
   BLANK_DOCUMENT_NAME,
   COLORS,
+  VALUE_CHAIN_THEMES,
   createCollaborativeModeler,
   diagramMenu,
   diagramShortcuts,
@@ -34,7 +35,6 @@ import { EXAMPLE_DOCUMENT } from "./example.js";
 import { diagramFileName, downloadBlob, downloadText, isDefaultName } from "./files.js";
 import { documentHash, hashHoldsDocument, readHashDocument, shareUrl } from "./share.js";
 import { forgetStoredDocument, readStoredDocument, storeDocument } from "./storage.js";
-import { THEMES } from "./themes.js";
 
 interface DiagramElement {
   id: string;
@@ -86,7 +86,7 @@ const shell = mountShell(app, {
   canvas: modeler.container,
   lang: "en",
   platform,
-  themes: THEMES,
+  themes: VALUE_CHAIN_THEMES,
   messages: { canvas: "Value chain diagram" },
   primary: { onSelect: () => share() },
   legal: { links: [{ label: "GitHub", href: REPOSITORY_URL }] },

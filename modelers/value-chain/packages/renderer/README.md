@@ -43,8 +43,8 @@ const { svg } = modeler.saveSVG(); // standalone SVG
 The stylesheet is required. It loads, in this order, the design-system tokens
 (`cd-tokens.generated.css`, in a cascade layer, so a host page's own `--cd-*` tokens win),
 diagram-js' own CSS and `cd-canvas.css`, which maps diagram-js' chrome onto the `--cd-ui-*` roles;
-then it styles the canvas surround, the context pad and the label editor (and the deprecated
-shortcuts dialog) on those roles only. The three design-system files are vendored unchanged from the
+then it styles the canvas surround (its text colour included), the context pad and the label editor
+(and the deprecated shortcuts dialog) on those roles only. The three design-system files are vendored unchanged from the
 `miragon-brand:modeler-tool-design` skill (design system 1.27.0) into `src/theme/`. The diagram
 itself is drawn with SVG presentation values in the light roles of those tokens, so SVG and PNG
 exports stay light in every mode.
@@ -87,9 +87,12 @@ container as in bpmn-js; the feature modules (`vcDrawModule`, `vcRulesModule`, `
   started, as it does without an import: the shapes the import drew under the same ids, without
   the ones it removed.
   The one exception is a press of the connect tool before the pointer has entered a shape the
-  import drew under it: it starts no connect and puts the tool down. A drop already being applied,
-  when a host imports from its change listener, finishes first and the import replaces its result.
-  `clear` ends a running gesture and leaves a pan and an armed tool alone, as an import does. The
+  import drew under it: it starts no connect and puts the tool down. A drop already being applied
+  (a host importing from its change listener) is not cancelled. `importDocument` returns its
+  warnings at once, so it replaces the diagram under the drop's later listeners; a host imports
+  through the collaborative modeler's `importText`, which waits until the drop has ended (see
+  below). `clear` ends a running gesture and leaves a pan and an armed tool alone, as an import
+  does; called while a drop is being applied, it empties the diagram once the drop has ended. The
   `Modeler` does this with `vcGestureModule`; a custom setup adds it to get the same.
 - A label being typed stays open across every view change, a host's fit or restore as much as a
   wheel zoom, and moves along with its element; only Enter, leaving the text box or a click or drag
@@ -146,7 +149,7 @@ modeler.onContentChanged(() => save(modeler.exportText())); // canonical JSON
 ```
 
 `createCollaborativeModeler` and `createCollaborativeViewer` implement the `CollaborativeModeler`
-contract 1.3 (`meta.notation` `"value-chain"`): blank text opens as an empty diagram,
+contract 1.5 (`meta.notation` `"value-chain"`): blank text opens as an empty diagram,
 `onContentChanged` fires for every edit and undo/redo and never for an import, view state is the
 diagram-js viewbox, a host's `setViewState` or fit never commits a label being typed, the
 `elements` surface lists steps and organizational units (name = label) with `reveal`, selection and
@@ -160,6 +163,31 @@ scroll leave the box alone. Both take the contract's factory options `freeArea`,
 `undoRedoKeys` (the viewer ignores the two that need editing). The browser test suite runs the
 contract's conformance kit on every law, with no case skipped and no advisory. `diagram` is the
 wrapped `Modeler` or `NavigatedViewer` for host wiring.
+
+- `importText` ends a running gesture first, as `importDocument` does (above). Called while a drop
+  is being applied, typically from `onContentChanged`, it waits until the drop has ended
+  (`drag.ended` or `drag.canceled`) and then imports; its promise settles after that import, and
+  imports that wait run in the order they came, later ones behind them. So no listener of the drop,
+  diagram-js's own selection or the label editor a dragged append opens, meets a replaced diagram.
+  A text that does not parse rejects at once and leaves the gesture running. Only a drop is waited
+  for: an append by a click on the context pad and a create by Enter or Space on the palette are no
+  drop, and an import from their change listener still runs inside them (#285).
+- `interaction` (contract 1.5): `active()` is true from the start of a gesture until its drop or
+  cancel: a move, resize, connect, bendpoint, lasso or space drag, and a create or append from the
+  palette or the context pad, also while its preview is off the canvas. A press inside the drag
+  threshold, a palette tool that only waits for its next press and a pan (the hand tool, Space held,
+  Ctrl/Cmd and a press) are none. `onChange` reports each change once, also the cancel inside
+  `importText`, and nothing after `destroy()`, also when a listener destroys the modeler or
+  unsubscribes another one during the same delivery; a listener that throws is reported with
+  `reportError` and does not end the gesture. The viewer always reports false.
+- `appearance` (contract 1.5, guide §13.3): `themes` is `VALUE_CHAIN_THEMES`, `["light"]`, the one
+  list the web app, the VS Code webview and its theme bridge read too. `set({ theme, contrast })`
+  writes `data-cd-theme="light"` on `diagram.container`, whatever theme is asked for, and
+  `data-cd-kontrast="hoch"` for `contrast: "high"` (none otherwise), so the canvas stays light on a
+  dark page and its contrast follows the request, not the page. It is view state: no change event,
+  the text and the SVG export stay byte-identical, the view, selection, history and a label being
+  typed stay as they were. It works before `attachTo` and the first import, holds across imports,
+  and never throws.
 
 ## Chrome content for hosts
 

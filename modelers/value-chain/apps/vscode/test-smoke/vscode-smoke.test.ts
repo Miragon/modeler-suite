@@ -8,7 +8,7 @@ import { formatVsCodeSmoke, runVsCodeSmoke } from "@miragon/modeler-shell/testin
 import { parseDocumentJSON } from "@miragon/value-chain-schema-model";
 import { createVSIX } from "@vscode/vsce";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { WEBVIEW_THEMES } from "../src/themes.js";
+import { VALUE_CHAIN_THEMES } from "../../../packages/renderer/src/appearance/themes.js";
 
 const extensionRoot = fileURLToPath(new URL("..", import.meta.url));
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
@@ -47,7 +47,7 @@ it(
         text: await readFile(join(repositoryRoot, "example/porter.vc.json"), "utf8"),
       },
       parse: parseDocumentJSON,
-      themes: WEBVIEW_THEMES,
+      themes: VALUE_CHAIN_THEMES,
       name: "value-chain",
       screenshotDir: join(repositoryRoot, "test-results/vscode-smoke"),
       vscodeVersion: process.env.VSCODE_VERSION || undefined,

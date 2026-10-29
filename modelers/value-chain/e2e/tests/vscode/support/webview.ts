@@ -7,7 +7,7 @@ import type { Appearance } from "@miragon/modeler-shell";
 import { vsCodeStubSearch, type OpenContext } from "@miragon/modeler-shell/testing";
 import { openWebviewBundle } from "@miragon/modeler-shell/testing/webview-bundle";
 import { EXAMPLE_DOCUMENT } from "../../../../apps/vscode/src/examples.js";
-import { WEBVIEW_THEMES } from "../../../../apps/vscode/src/themes.js";
+import { VALUE_CHAIN_THEMES } from "../../../../packages/renderer/src/appearance/themes.js";
 
 export const LIGHT: Appearance = { theme: "light" };
 export const WIDE = { width: 1280, height: 900 } as const;
@@ -88,7 +88,7 @@ export async function openShippedWebview(
     dist: join(appsVscode, "dist"),
     title: "Value Chain Diagram",
     requested,
-    themes: WEBVIEW_THEMES,
+    themes: VALUE_CHAIN_THEMES,
   });
   await waitForPosted(page, "ready");
   await postFromHost(page, { type: "init", text: EXAMPLE_DOCUMENT });
