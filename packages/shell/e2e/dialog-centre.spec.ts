@@ -114,25 +114,29 @@ test.describe("the shell's dialog in an embedding host without a mounted shell",
     await expect(page.locator("dialog.cd-shell-dialog")).toHaveCount(0);
   });
 
-  test("stays in the window's centre where the container has no room for it", async ({ page }) => {
+  test("stays in the window's centre where too little of the container shows", async ({ page }) => {
     await openHost(page);
-    await place(page, { left: 300, top: 120, width: 400, height: 300 });
+    // Of the container, only the 200px strip above the window's bottom edge shows.
+    await place(page, { left: 300, top: 700, width: 800, height: 600 });
 
     await openDialog(page);
 
     await expectCentre(page, WINDOW_CENTRE);
   });
 
-  test("asks for 16px around the dialog in the container", async ({ page }) => {
+  test("asks for 16px around the dialog in the part of the container that shows", async ({
+    page,
+  }) => {
     await openHost(page);
     await place(page, { left: 300, top: 120, width: 800, height: 600 });
     await openDialog(page);
-    const { width, height } = await dialogBox(page);
+    const { height } = await dialogBox(page);
+    const top = WINDOW.height - (height + 2 * 16);
 
-    await place(page, { left: 300, top: 120, width: width + 2 * 16, height: height + 2 * 16 });
-    await expectCentre(page, { x: 300 + (width + 32) / 2, y: 120 + (height + 32) / 2 });
+    await place(page, { left: 300, top, width: 800, height: 600 });
+    await expectCentre(page, { x: 700, y: (top + WINDOW.height) / 2 });
 
-    await place(page, { left: 300, top: 120, width: width + 2 * 16 - 2, height: height + 2 * 16 });
+    await place(page, { left: 300, top: top + 2, width: 800, height: 600 });
     await expectCentre(page, WINDOW_CENTRE);
   });
 
@@ -144,9 +148,51 @@ test.describe("the shell's dialog in an embedding host without a mounted shell",
 
     await openDialog(page);
 
-    // Container units resolve against the content box, inside the 1px border.
+    // The sizes refer to the content box, inside the 1px border.
     expect((await dialogBox(page)).width).toBe(500 - 2 - 32);
     await expectCentre(page, { x: 950, y: 600 });
+  });
+
+  test("takes its width from a side panel narrower than the dialog, without a size container", async ({
+    page,
+  }) => {
+    await openHost(page);
+    await place(page, { left: 800, top: 0, width: 480, height: 900 });
+
+    await openDialog(page);
+
+    expect((await dialogBox(page)).width).toBe(480 - 2 - 32);
+    await expectCentre(page, { x: 1040, y: 450 });
+  });
+
+  test("takes its height from a container lower than the window, without a size container", async ({
+    page,
+  }) => {
+    await openHost(page);
+    await place(page, { left: 300, top: 120, width: 800, height: 600 });
+    await openDialog(page);
+
+    await page.locator(".cd-shell-dialog-body").evaluate((element) => {
+      element.style.height = "auto";
+      const content = document.createElement("div");
+      content.style.height = "1200px";
+      element.append(content);
+    });
+
+    await expect.poll(async () => (await dialogBox(page)).height).toBe(600 - 2 - 32);
+    await expectCentre(page, { x: 700, y: 420 });
+  });
+
+  test("follows the container's content box while it is open", async ({ page }) => {
+    await openHost(page);
+    await place(page, { left: 300, top: 120, width: 800, height: 600 });
+    await openDialog(page);
+    expect((await dialogBox(page)).width).toBe(560);
+
+    await place(page, { left: 300, top: 120, width: 400, height: 600 }, { padding: "0 20px" });
+
+    await expect.poll(async () => (await dialogBox(page)).width).toBe(400 - 2 - 40 - 32);
+    await expectCentre(page, { x: 500, y: 420 });
   });
 
   test("follows a resize of the container and of the window while it is open", async ({ page }) => {
@@ -161,6 +207,45 @@ test.describe("the shell's dialog in an embedding host without a mounted shell",
     // The container reaches 1200px to the right; of it shows 300px to 1000px in the narrower window.
     await page.setViewportSize({ width: 1000, height: 800 });
     await expectCentre(page, { x: 650, y: 370 });
+  });
+
+  test("follows a move of the container that changes no size", async ({ page }) => {
+    await openHost(page);
+    await place(page, { left: 300, top: 120, width: 800, height: 600 });
+    await openDialog(page);
+    await expectCentre(page, { x: 700, y: 420 });
+
+    await place(page, { left: 100, top: 120, width: 800, height: 600 });
+
+    await expectCentre(page, { x: 500, y: 420 });
+  });
+
+  test("follows content that lands above the container in a page as high as the window", async ({
+    page,
+  }) => {
+    await openHost(page);
+    await page.addStyleTag({
+      content:
+        "html, body { height: 100%; } .host-page { min-height: 0; } .host-spacer { display: none; }",
+    });
+    await page.locator("#modeler").evaluate((element) => {
+      Object.assign(element.style, {
+        position: "static",
+        margin: "120px 0 0 300px",
+        width: "800px",
+        height: "600px",
+      });
+    });
+    await openDialog(page);
+    await expectCentre(page, { x: 700, y: 420 });
+
+    await page.evaluate(() => {
+      const banner = document.createElement("div");
+      banner.style.height = "100px";
+      document.querySelector(".host-page")!.prepend(banner);
+    });
+
+    await expectCentre(page, { x: 700, y: 520 });
   });
 
   test("follows a scroll of the page", async ({ page }) => {
@@ -241,6 +326,36 @@ test.describe("the shell's dialog in an embedding host without a mounted shell",
     });
 
     await expectCentre(page, WINDOW_CENTRE);
+  });
+
+  test("follows a panel around the container that shrinks and clips more of it", async ({
+    page,
+  }) => {
+    await openHost(page);
+    await page.evaluate(() => {
+      const modeler = document.getElementById("modeler")!;
+      const panel = document.createElement("div");
+      panel.id = "panel";
+      Object.assign(panel.style, {
+        position: "absolute",
+        left: "100px",
+        top: "120px",
+        width: "1100px",
+        height: "620px",
+        overflow: "hidden",
+      });
+      modeler.replaceWith(panel);
+      panel.append(modeler);
+    });
+    await place(page, { left: 0, top: 0, width: 1100, height: 600 }, { position: "relative" });
+    await openDialog(page);
+    await expectCentre(page, { x: 650, y: 420 });
+
+    await page.locator("#panel").evaluate((element) => {
+      element.style.width = "700px";
+    });
+
+    await expectCentre(page, { x: 450, y: 420 });
   });
 
   test("is not clipped by an unpositioned element around a container that is absolutely positioned", async ({
@@ -329,16 +444,65 @@ test.describe("the shell's dialog in an embedding host without a mounted shell",
     await expectCentre(page, { x: 750, y: 437.5 });
   });
 
-  test("holds against a foreign page that styles every dialog", async ({ page }) => {
+  test("fits a size container in a page that zooms out with CSS", async ({ page }) => {
     await openHost(page);
-    await page.addStyleTag({
-      content: "dialog { position: absolute; inset: auto; margin: 0; translate: 40px 40px; }",
-    });
-    await place(page, { left: 300, top: 120, width: 800, height: 600 });
-    await openDialog(page);
-    await expectCentre(page, { x: 700, y: 420 });
+    await page.addStyleTag({ content: "html { zoom: 0.8; }" });
+    await place(page, { left: 700, top: 400, width: 500, height: 400 }, { containerType: "size" });
 
-    await place(page, { left: 300, top: 120, width: 400, height: 300 });
-    await expectCentre(page, WINDOW_CENTRE);
+    await openDialog(page);
+
+    // The container's rect on the screen: x 560 to 960, y 320 to 640.
+    await expectCentre(page, { x: 760, y: 480 });
   });
+
+  test("centres over the container in a page without a doctype, in quirks mode", async ({
+    page,
+  }) => {
+    await page.setViewportSize(WINDOW);
+    await page.route("**/host.html", async (route) => {
+      const response = await route.fetch();
+      const body = (await response.text()).replace(/^\s*<!doctype html>/i, "");
+      await route.fulfill({ response, body });
+    });
+    await page.goto("/host.html");
+    await page.waitForFunction(() => window.__hostDemo?.ready === true);
+    expect(await page.evaluate(() => document.compatMode)).toBe("BackCompat");
+    await place(page, { left: 300, top: 120, width: 800, height: 600 });
+
+    await openDialog(page);
+
+    await expectCentre(page, { x: 700, y: 420 });
+  });
+
+  for (const [name, rules] of [
+    [
+      "places every dialog",
+      "dialog { position: absolute; inset: auto; top: 50%; left: 50%; margin: 0; translate: 40px 40px; transform: translate(-50%, -50%); }",
+    ],
+    [
+      "scales and turns an open dialog",
+      "dialog[open] { position: absolute; scale: 0.9; rotate: 2deg; transition: translate 1s, width 1s; }",
+    ],
+    ["stretches every dialog over the window", "dialog { min-width: 100%; min-height: 100%; }"],
+    ["makes every dialog wider", "dialog { min-width: 700px; }"],
+    [
+      "sizes an open modal dialog",
+      "dialog:modal { width: 90vw; max-width: 1000px; min-height: 100%; max-height: none; }",
+    ],
+  ] as const) {
+    test(`holds against a foreign page that ${name}`, async ({ page }) => {
+      await openHost(page);
+      await page.addStyleTag({ content: rules });
+      await place(page, { left: 300, top: 120, width: 800, height: 600 });
+      await openDialog(page);
+
+      await expectCentre(page, { x: 700, y: 420 });
+      const { width, height } = await dialogBox(page);
+      expect(width).toBe(560);
+      expect(height).toBeLessThan(600 - 32);
+
+      await place(page, { left: 300, top: 700, width: 800, height: 600 });
+      await expectCentre(page, WINDOW_CENTRE);
+    });
+  }
 });

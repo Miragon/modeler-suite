@@ -3,12 +3,12 @@
  * <dialog> in the top layer. It also opens without a mounted shell, in an embedding host's own
  * page, so its rules need no .cd-shell around them and set every property a foreign page's element
  * styles (dialog, h2, table, th, button, kbd, dialog::backdrop) would otherwise change. Colours
- * only from var(--cd-ui-*). Sizes refer to the modeler's container (guide §5.1, also for §8): cqw
- * and cqh resolve against the shell root even in the top layer, and against the window where no
- * size container is around the dialog; a container larger than the window never makes the dialog
- * larger than the window minus 32px, whose 100% is the viewport of a fixed element. The rules
- * centre it in the window; dialog-centre.ts shifts it from there over the container with an
- * inline translate.
+ * only from var(--cd-ui-*). Sizes refer to the modeler's container (guide §5.1, also for §8):
+ * dialog-centre.ts sets its content box as --modeler-shell-container-width and -height on the
+ * dialog, in a host without a size container too; before that, cqw and cqh stand in for it. A
+ * container larger than the window never makes the dialog larger than the window minus 32px,
+ * whose 100% is the viewport of a fixed element. The rules centre it in the window;
+ * dialog-centre.ts shifts it from there over the container with an inline translate.
  */
 
 .cd-shell-dialog {
@@ -16,14 +16,6 @@
     "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --modeler-shell-font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
   box-sizing: border-box;
-  position: fixed;
-  inset: 0;
-  width: min(560px, 100cqw - 32px, 100% - 32px);
-  max-width: none;
-  height: fit-content;
-  max-height: min(100cqh - 32px, 100% - 32px);
-  margin: auto;
-  translate: none;
   padding: 0;
   overflow: hidden;
   color: var(--cd-ui-text);
@@ -41,10 +33,29 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* Only while open: the UA's display: none keeps a closed dialog out of the page. */
+/*
+ * Only while open: the UA's display: none keeps a closed dialog out of the page. The size is the
+ * container's and the place the top layer's and dialog-centre.ts's alone, and [open] lifts both
+ * over a foreign page's dialog[open] or dialog:modal rule, which would beat a single class.
+ */
 .cd-shell-dialog[open] {
+  position: fixed;
+  inset: 0;
   display: flex;
   flex-direction: column;
+  width: min(560px, var(--modeler-shell-container-width, 100cqw) - 32px, 100% - 32px);
+  min-width: 0;
+  max-width: none;
+  height: fit-content;
+  min-height: 0;
+  max-height: min(var(--modeler-shell-container-height, 100cqh) - 32px, 100% - 32px);
+  margin: auto;
+  translate: none;
+  transform: none;
+  scale: none;
+  rotate: none;
+  transition: none;
+  animation: none;
 }
 
 /* Black over the page in both modes, the colours under it greyed so no blue turns navy (guide §8). */

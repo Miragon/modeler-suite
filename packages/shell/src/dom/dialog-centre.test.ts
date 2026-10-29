@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { FakeResizeObserver, cleanup, installFakes, setBox } from "../../test/support/dom.js";
+import { cleanup, installFakes, setBox } from "../../test/support/dom.js";
 import { centreOverContainer } from "./dialog-centre.js";
 
 beforeEach(installFakes);
@@ -238,80 +238,160 @@ describe("centreOverContainer (guide §5.1, §8)", () => {
     });
   });
 
+  it("measures the window by <body> in quirks mode, where <html> reports its own box", () => {
+    const { element, dialog } = setup({ left: 300, top: 120, width: 800, height: 600 });
+    Object.defineProperty(document, "compatMode", { configurable: true, value: "BackCompat" });
+    setWindow({ width: 1280, height: 3000 });
+    Object.defineProperty(document.body, "clientWidth", { configurable: true, value: 1280 });
+    Object.defineProperty(document.body, "clientHeight", { configurable: true, value: 900 });
+
+    try {
+      centreOverContainer(dialog, element);
+    } finally {
+      Reflect.deleteProperty(document, "compatMode");
+      Reflect.deleteProperty(document.body, "clientWidth");
+      Reflect.deleteProperty(document.body, "clientHeight");
+    }
+
+    // The container's centre is (700, 420), the window's (640, 450).
+    expect(translateOf(dialog)).toBe("60px -30px");
+  });
+
+  it("asks for a band of 16px of the dialog's own pixels under CSS zoom", () => {
+    // Zoom 0.8: a dialog laid out 466 x 300 renders 372.8 x 240, its band 25.6px.
+    const { element, dialog } = setup(
+      { left: 560, top: 320, width: 400, height: 320 },
+      { width: 372.8, height: 240 },
+    );
+    Object.defineProperty(dialog, "offsetWidth", { configurable: true, value: 466 });
+
+    centreOverContainer(dialog, element);
+
+    // The container's centre is (760, 480), the window's (640, 450); the shift is in laid-out px.
+    expect(translateOf(dialog)).toBe("150px 38px");
+  });
+
+  describe("the dialog's size", () => {
+    function sizeOf(dialog: HTMLElement): { width: string; height: string } {
+      return {
+        width: dialog.style.getPropertyValue("--modeler-shell-container-width"),
+        height: dialog.style.getPropertyValue("--modeler-shell-container-height"),
+      };
+    }
+
+    it("hands dialog.css the container's content box, inside its padding", () => {
+      const { element, dialog } = setup({ left: 800, top: 0, width: 480, height: 900 });
+      element.style.padding = "4px 8px";
+      Object.defineProperty(element, "clientWidth", { configurable: true, value: 478 });
+      Object.defineProperty(element, "clientHeight", { configurable: true, value: 898 });
+
+      centreOverContainer(dialog, element);
+
+      expect(sizeOf(dialog)).toEqual({ width: "462px", height: "890px" });
+    });
+
+    it("leaves the size to dialog.css for a container without a box", () => {
+      const { element, dialog } = setup({ left: 0, top: 0, width: 0, height: 0 });
+
+      centreOverContainer(dialog, element);
+
+      expect(sizeOf(dialog)).toEqual({ width: "", height: "" });
+    });
+  });
+
   describe("while it is open", () => {
-    it("follows a resize of the container and of the dialog", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    });
+
+    it("follows a move of the container that changes no size, in the next frame", () => {
+      const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
+      centreOverContainer(dialog, element);
+
+      setBox(element, { left: 0, top: 80, width: 900, height: 700 });
+      expect(translateOf(dialog)).toBe("-90px -20px");
+      vi.advanceTimersToNextFrame();
+
+      expect(translateOf(dialog)).toBe("-190px -20px");
+    });
+
+    it("follows a resize of the container, of the dialog and of the window", () => {
       const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
       centreOverContainer(dialog, element);
 
       setBox(element, { left: 100, top: 80, width: 1000, height: 700 });
-      FakeResizeObserver.resize(element);
+      vi.advanceTimersToNextFrame();
       expect(translateOf(dialog)).toBe("-40px -20px");
 
+      setWindow({ width: 1200, height: 800 });
+      vi.advanceTimersToNextFrame();
+      expect(translateOf(dialog)).toBe("0px 30px");
+
       setBox(dialog, { left: 0, top: 0, width: 560, height: 700 });
-      FakeResizeObserver.resize(dialog);
+      vi.advanceTimersToNextFrame();
       expect(translateOf(dialog)).toBe("");
     });
 
-    it("follows a change of the page's height, as when content lands above the container", () => {
-      const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
-      centreOverContainer(dialog, element);
-
-      setBox(element, { left: 100, top: 140, width: 900, height: 700 });
-      FakeResizeObserver.resize(document.documentElement);
-
-      expect(translateOf(dialog)).toBe("-90px 40px");
-    });
-
-    it("follows a resize of the window", () => {
-      const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
-      centreOverContainer(dialog, element);
-
-      setWindow({ width: 1000, height: 800 });
-      window.dispatchEvent(new Event("resize"));
-
-      expect(translateOf(dialog)).toBe("50px 30px");
-    });
-
-    it("follows a scroll of the page and of an element around the container, not of another", () => {
+    it("follows an element around the container that clips more of it", () => {
       const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
       const panel = document.createElement("section");
+      panel.style.overflowX = "auto";
+      panel.style.overflowY = "auto";
       document.body.append(panel);
       panel.append(element);
-      const aside = document.createElement("aside");
-      document.body.append(aside);
+      setBox(panel, { left: 100, top: 80, width: 900, height: 700 });
+      Object.defineProperty(panel, "clientWidth", { configurable: true, value: 900 });
+      Object.defineProperty(panel, "clientHeight", { configurable: true, value: 700 });
       centreOverContainer(dialog, element);
+      expect(translateOf(dialog)).toBe("-90px -20px");
 
-      setBox(element, { left: 100, top: 40, width: 900, height: 700 });
-      document.dispatchEvent(new Event("scroll"));
-      expect(translateOf(dialog)).toBe("-90px -60px");
+      Object.defineProperty(panel, "clientWidth", { configurable: true, value: 700 });
+      vi.advanceTimersToNextFrame();
 
-      setBox(element, { left: 100, top: 100, width: 900, height: 700 });
-      panel.dispatchEvent(new Event("scroll"));
-      expect(translateOf(dialog)).toBe("-90px 0px");
+      expect(translateOf(dialog)).toBe("-190px -20px");
+    });
 
-      setBox(element, { left: 100, top: 120, width: 900, height: 700 });
-      aside.dispatchEvent(new Event("scroll"));
-      expect(translateOf(dialog)).toBe("-90px 0px");
+    it("writes nothing in a frame that changes nothing", () => {
+      const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
+      centreOverContainer(dialog, element);
+      const writes: MutationRecord[] = [];
+      const observer = new MutationObserver((records) => writes.push(...records));
+      observer.observe(dialog, { attributes: true });
+
+      vi.advanceTimersToNextFrame();
+      vi.advanceTimersToNextFrame();
+      observer.disconnect();
+      writes.push(...observer.takeRecords());
+
+      expect(writes).toEqual([]);
     });
 
     it("stops following when told to", () => {
       const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
       const stop = centreOverContainer(dialog, element);
-      const observer = FakeResizeObserver.instances.at(-1)!;
 
       stop();
       setBox(element, { left: 0, top: 0, ...WINDOW });
-      window.dispatchEvent(new Event("resize"));
-      document.dispatchEvent(new Event("scroll"));
+      vi.advanceTimersToNextFrame();
 
-      expect(observer.disconnected).toBe(true);
       expect(translateOf(dialog)).toBe("-90px -20px");
+      expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("stops following a dialog that left the document without closing", () => {
+      const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
+      centreOverContainer(dialog, element);
+
+      element.remove();
+      vi.advanceTimersToNextFrame();
+
+      expect(vi.getTimerCount()).toBe(0);
     });
   });
 
-  it("works where the browser has no ResizeObserver", () => {
+  it("works where the browser has no requestAnimationFrame", () => {
     const { element, dialog } = setup({ left: 100, top: 80, width: 900, height: 700 });
-    vi.stubGlobal("ResizeObserver", undefined);
+    vi.stubGlobal("requestAnimationFrame", undefined);
 
     const stop = centreOverContainer(dialog, element);
 

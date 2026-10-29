@@ -96,34 +96,47 @@ navigator.platform`), never `process.platform`, which names the remote machine u
 - The shell's dialog is a native `<dialog>` opened with `showModal()`: the browser puts it in the
   top layer, makes the page behind it inert and closes it on Escape (`cancel`). The top layer's
   containing block is the window, so `100%` would size the dialog by the window. Its sizes refer to
-  the modeler's container instead (guide §5.1, also for §8), so it uses `cqw`/`cqh`: container
-  units follow the DOM, not the containing block, and resolve against the shell root even in the
-  top layer (Chromium and WebKit alike), and against the window where no size container is around
-  the dialog. A container taller or wider than the window (an embedded modeler in a long page)
-  would size the dialog past the window, with its header and Close out of reach, so `width` and
-  `max-height` also take `100% - 32px`, which for a fixed element is the window (checked in
-  Chromium and WebKit): the same 16px of backdrop as around a dialog in a small container.
+  the modeler's container instead (guide §5.1, also for §8). Container units would do that only
+  under a size container: they follow the DOM, not the containing block, and resolve against the
+  shell root even in the top layer, but against the window in a host without a mounted shell whose
+  element is no size container, and `container-type: size` would collapse an element sized by its
+  content. So `dialog-centre.ts` measures the content box of the dialog's container
+  (`clientWidth` and `clientHeight` less the padding, what `cqw` and `cqh` measure on the shell
+  root) and sets it as `--modeler-shell-container-width` and `-height` on the `<dialog>`, which
+  `width` and `max-height` read; `cqw` and `cqh` stand in until then and for an element without a
+  box. A container taller or wider than the window (an embedded modeler in a long page) would size
+  the dialog past the window, with its header and Close out of reach, so `width` and `max-height`
+  also take `100% - 32px`, which for a fixed element is the window (checked in Chromium and
+  WebKit): the same 16px of backdrop as around a dialog in a small container.
 - The top layer centres the dialog in the window, which in an embedding host (a designIQ widget, a
   side panel) can lie far from the diagram. So `dialog-centre.ts` shifts it with an inline
   `translate` over the part of its container that shows, as long as it fits there with 16px around
-  it (guide §5.1, §8), and leaves it in the window's centre otherwise. A `translate` moves the
-  box and nothing else: the size stays as `cqw` and `cqh` made it, and the `::backdrop`, a
-  separate box of the top layer, still covers the whole window. The container's visible part is its
-  rect inside the window and inside every ancestor that clips its overflow and has the container
-  in its containing-block chain (a scrolling side panel): an overflow clip applies to a descendant
+  it (guide §5.1, §8), and leaves it in the window's centre otherwise; sized from the container,
+  it always fits one that shows whole. A `translate` moves the box and nothing else: the size
+  stays as the container made it, and the `::backdrop`, a separate box of the top layer, still
+  covers the whole window. The window is the root's client box, in quirks mode `<body>`'s, since
+  `<html>` reports its own box there. The container's visible part is its rect inside the window
+  and inside every ancestor that clips its overflow and has the container in its containing-block
+  chain (a scrolling side panel): an overflow clip applies to a descendant
   through its containing block, so an absolutely positioned container escapes an unpositioned
   ancestor and a fixed one every ancestor but a transformed one (or one with `filter`,
   `perspective`, `contain`, `will-change` of these); `<body>` and `<html>` hand their overflow to
-  the window. It is measured again on a resize (of the container and of the page's `<html>`
-  through a `ResizeObserver`, of the dialog, of the window) and on a scroll heard in the capture
-  phase on the document, which a scroll does not otherwise reach. A move that is none of these is
-  not noticed: nothing reports it, and the page behind a modal dialog is inert, so only the host's
-  own code can cause one without changing the page's size. The shift is divided by the page's CSS
-  `zoom` (the dialog's rendered width over its laid-out one), because a `translate` is scaled by
-  it like the box while the rects are in window pixels.
-- The dialog sets `position: fixed; inset: 0; margin: auto; translate: none` itself, because
-  the centring (the UA's, then the shift) assumes them and a foreign page's `dialog { ... }` rule
-  could otherwise change them.
+  the window. It is measured again once per animation frame while the dialog is open and in the
+  document: no observer reports a move of the container that changes no size, nor an element
+  around it that shrinks and clips more of it, nor content that lands above it in a page as high as
+  the window. A frame reads the rects and the computed styles of the chain and writes to the
+  `<dialog>` only what changed, so an idle frame invalidates nothing. The shift is divided by the
+  page's CSS `zoom` (the dialog's rendered width over its laid-out one), because a `translate` is
+  scaled by it like the box while the rects are in window pixels; for the same reason the 16px
+  band of the fit check is scaled by it, or a dialog sized from its container would never fit it
+  below zoom 1.
+- The dialog sets `position: fixed; inset: 0; margin: auto` and `translate`, `transform`,
+  `scale`, `rotate`, `transition` and `animation` to none itself, because the centring (the UA's,
+  then the shift) assumes them, and `min-width`, `max-width` and `min-height` as well as its own
+  `width`, `height` and `max-height`, because it is sized from its container; a foreign page's
+  `dialog { ... }` rule could otherwise change them (Pico CSS stretches every dialog over the
+  window). Size and place sit on `.cd-shell-dialog[open]`, which beats `dialog[open]` and
+  `dialog:modal` too.
 - `showModal()` keeps Tab inside the page, not inside the dialog: after the last Tab stop the
   browser moves on to its own UI, and in a VS Code webview to the workbench. WebKit's Shift+Tab
   also skips Close (buttons are no Tab stops there by default) and lands on the `<dialog>` itself.

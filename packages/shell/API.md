@@ -786,7 +786,7 @@ function showShortcutsDialog(
   options: ShortcutsDialogOptions,
 ): ShellDialog;
 interface ShortcutsDialogOptions {
-  container: HTMLElement; // where the <dialog> lives: its mode, contrast, language, size container, and what it centres over
+  container: HTMLElement; // where the <dialog> lives: its mode, contrast, language, what its sizes refer to and what it centres over
   messages?: ShellMessageOverrides; // shortcutsTitle and close; default English
   lang?: string; // `lang` on the <dialog>, for a container whose language is not the tool's
   focusFallback?: () => void; // see ShellDialogOptions
@@ -828,30 +828,36 @@ interface ShellDialog {
   keys and Shift+1 rest while it is open (§5.8), and in the IDE host Escape is still kept from VS
   Code. It is built on open and removed on close, so a closed dialog leaves nothing in the DOM.
 - **Panel and backdrop** (§8): the `<dialog>` is the panel, `--cd-ui-flaeche-hoch` with 1px
-  `--cd-ui-linie`, radius `md`, `shadow-3`, `width: min(560px, 100cqw - 32px, 100% - 32px)`
-  and `max-height: min(100cqh - 32px, 100% - 32px)`, its body scrolling. The sizes refer to the
-  modeler's container (§5.1, also for §8): `cqw` and `cqh` resolve against the shell root even in
-  the top layer, and against the window where no size container is around the `<dialog>` (an
-  embedding host without a mounted shell). They are never larger than the window minus 32px
-  either (`100%` of a fixed element is the window), so the panel of a container taller or wider
-  than the window keeps its header and Close in view; header (padding `16px 16px 8px 24px`, title 21px/600) with Close as a 32 × 32
-  ghost icon button (Lucide `x` 16px, `aria-label` "Close"); body padding `8px 24px 24px`; backdrop
+  `--cd-ui-linie`, radius `md`, `shadow-3`, `min(560px, 100% - 32px)` wide and at most
+  `100% - 32px` high of the content box of `container`, its body scrolling. The sizes refer to the
+  modeler's container (§5.1, also for §8) in every host: the shell measures the content box of
+  `container` and hands it to `shell.css` (`--modeler-shell-container-width` and `-height` on the
+  `<dialog>`), so a host without a mounted shell needs no size container around it. They are never
+  larger than the window minus 32px either (`100%` of a fixed element is the window), so the panel
+  of a container taller or wider than the window keeps its header and Close in view; header
+  (padding `16px 16px 8px 24px`, title 21px/600) with Close as a 32 × 32 ghost icon button (Lucide
+  `x` 16px, `aria-label` "Close"); body padding `8px 24px 24px`; backdrop
   `background: var(--cd-ui-backdrop); backdrop-filter: blur(3px) grayscale(1)` in both modes. Every
   rule sets what a foreign page's element styles (`dialog`, `h2`, `table`, `th`, `button`, `kbd`)
-  would change.
+  would change, and the panel's size (`width`, `height` and their `min-` and `max-`) and place
+  (`position`, `inset`, `margin`, `translate`, `transform`, `scale`, `rotate`, `transition`,
+  `animation`) also hold against `dialog[open]` and `dialog:modal`.
 - **Place** (§5.1, §8): the top layer alone centres the panel in the window, which in an embedding
   host (a widget, a side panel) can lie far from the diagram. So the panel is centred over the part
   of `container` that shows (its box inside the window and inside every element that clips its
   overflow and has the container in its containing-block chain: an absolutely positioned container
   escapes an unpositioned element around it, a fixed one every element but a transformed one) as
-  long as it fits there with 16px around it, and else in the window. `container` is the element the `<dialog>` lives in, so the modeler's container: the
-  shell root of a mounted shell, the element that holds the modeler in a host without one. The
-  backdrop covers the whole window either way, a click on it outside the panel closes it, and the
-  focus rules below stay. The shift is a `translate` on the `<dialog>`, so its size never depends on
-  its place (corrected for CSS `zoom` on the page), and it follows the container while the dialog
-  is open: a resize of the container, the panel or the window, a change of the page's height
-  (content that lands above the container), and a scroll of the page or of an element around the
-  container. A move of the container that is none of these shows at the next of them.
+  long as it fits there with 16px around it, and else in the window. As its sizes refer to
+  `container`, it always fits a container that shows whole; it falls back to the window when the
+  page or a panel around the container has scrolled part of it out of view. `container` is the
+  element the `<dialog>` lives in, so the modeler's container: the shell root of a mounted shell,
+  the element that holds the modeler in a host without one. The backdrop covers the whole window
+  either way, a click on it outside the panel closes it, and the focus rules below stay. The shift
+  is a `translate` on the `<dialog>`, so its size never depends on its place (corrected for CSS
+  `zoom` on the page), and it follows the container while the dialog is open: the shell measures
+  again once per animation frame, so a scroll, a move, a resize of the container, the panel or the
+  window, and an element around the container that clips more of it all show in the next frame.
+  It writes to the `<dialog>` only when something changed.
 - **High contrast** (`[data-cd-kontrast="hoch"]` on an ancestor, §6, §5.14): no shadow, border
   `--cd-ui-kontur`, focus ring 3px. **Forced colours** (`@media (forced-colors: active)`): border
   `CanvasText`, focus ring `Highlight`. **Reduced motion**, the OS's or VS Code's: no hover fade.

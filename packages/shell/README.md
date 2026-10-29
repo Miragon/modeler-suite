@@ -364,10 +364,12 @@ modeler passes `problems.onActivate` (an embedding host with a list of its own).
 A page that embeds a modeler without mounting the shell still opens its "Keyboard shortcuts…"
 dialog from the shell (0.7): `showShortcutsDialog(groups, { container })` with the renderer's
 shortcut groups, `container` the element that holds the modeler, inside the page's themed area (its
-mode, contrast and language), and `shell.css` loaded after the tokens. The dialog centres over the
-part of `container` that shows while it fits there, and else in the window; its backdrop covers the
-window. `openShellDialog` opens the same dialog of guide §8 with a body of the host's own. Both are
-the host's to `close()` in its teardown.
+mode, contrast and language), and `shell.css` loaded after the tokens. The dialog takes its sizes
+from the content box of `container`, which needs no `container-type`, and never grows larger than
+the window minus 32px. It centres over the part of `container` that shows while it fits there, and
+else in the window, and follows the container while it is open; its backdrop covers the window.
+`openShellDialog` opens the same dialog of guide §8 with a body of the host's own. Both are the
+host's to `close()` in its teardown.
 
 ## The conformance kit
 
