@@ -1,22 +1,19 @@
 import * as vscode from "vscode";
-import {
-  DIAGRAM_VIEW_TYPE,
-  PNG_VIEW_TYPE,
-  registerSideBySideCommands,
-  registerWebviewCommands,
-} from "./commands.js";
+import { PNG_VIEW_TYPE, registerSideBySideCommands, registerWebviewCommands } from "./commands.js";
 import { DIAGNOSTIC_COLLECTION_NAME } from "./diagnostics.js";
+import { registerDiagramEditor } from "./diagramEditor.js";
+import { DIAGRAM_VIEW_TYPE } from "./diagramEditorOptions.js";
 import { DiagramPanels } from "./diagramPanels.js";
 import { EMPTY_MAP, EXAMPLE_MAP } from "./examples.js";
-import { TtEditorProvider } from "./TtEditorProvider.js";
 import { TtPngEditorProvider } from "./TtPngEditorProvider.js";
 
 export function activate(context: vscode.ExtensionContext): void {
-  const panels = new DiagramPanels(context.extensionUri);
   const diagnostics = vscode.languages.createDiagnosticCollection(DIAGNOSTIC_COLLECTION_NAME);
+  const textDiagrams = registerDiagramEditor(context, diagnostics);
+  const panels = new DiagramPanels(context.extensionUri, textDiagrams);
   context.subscriptions.push(
     diagnostics,
-    TtEditorProvider.register(panels, diagnostics),
+    textDiagrams,
     TtPngEditorProvider.register(panels, diagnostics),
     ...registerWebviewCommands((name) => panels.runCommand(name)),
     ...registerSideBySideCommands(() => panels.revealTextDiagram()),

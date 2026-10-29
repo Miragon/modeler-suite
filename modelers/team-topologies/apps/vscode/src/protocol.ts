@@ -1,43 +1,41 @@
+import type {
+  DocumentHostMessage,
+  DocumentWebviewMessage,
+} from "@miragon/modeler-shell/vscode/extension";
+
 /**
- * Message protocol between the extension host and the webview.
+ * Message protocol between the extension host and the webview: the shell's document plumbing
+ * (`registerModelerEditor` in the extension, `connectDocumentSync` in the webview) plus the export,
+ * the save's flush and the PNG editor's round trip.
  *
- * Data flow (classic CustomTextEditor pattern):
- *  - Host -> webview: `init`/`update` with the current document text (the native JSON document).
- *  - Host -> webview: `problems` with the diagnostics summary for the problems pill.
- *  - Host -> webview: `command` when a Command Palette command targets the focused diagram.
- *  - Webview -> host: `edit` after every graphical change (serialized JSON) -> WorkspaceEdit.
+ *  - Host -> webview: `init`/`update` with the document's text (the native JSON document),
+ *    `problems` for the pill and `command` from the Command Palette or the editor title bar.
+ *  - Webview -> host: `edit` after every graphical change (serialized JSON), written as one minimal
+ *    WorkspaceEdit whose echo is not imported again; `showProblems` (the pill), `insertExample`
+ *    (the empty-file hint) and `error`.
  *  - Webview -> host: `export` (SVG text or Base64 PNG) -> save dialog + write file. A PNG whose
  *    labels came out in the system sans because Geist could not be embedded says so
  *    (`fontFallback`), and the host's notification becomes a warning.
- *  - Webview -> host: `showProblems` (the pill) and `insertExample` (the empty-file hint).
  *  - Host -> webview: `flush` (with a correlation `id`) right before the text document is saved.
  *    The webview commits a field still being typed in (an `edit`), then answers `flushed`, so the
  *    save includes text that is visible but not yet committed.
  *
- * Only for the PNG editor (`*.tt.png`/`*.ttm.png`, binary CustomDocument file):
+ * Only for the PNG editor (`*.tt.png`/`*.ttm.png`, binary CustomDocument file), which speaks the
+ * same `init`, `update`, `problems`, `command`, `edit`, `insertExample` and `showProblems` from a
+ * provider of its own:
  *  - Host -> webview: `requestPng` (with a correlation `id`) when the host needs the fully
- *    rasterized PNG (raster + embedded JSON) for saving/backup — rasterization only works in the browser.
+ *    rasterized PNG (raster + embedded JSON) for saving/backup, since only the browser rasterizes.
  *  - Webview -> host: `pngResponse` (`id` + Base64 PNG OR `error`). A save (not a backup) whose
  *    labels fell back to the system sans says so with `fontFallback`.
  *
- * Echo protection: the host suppresses re-import when a document change exactly matches the JSON
- * last sent by the webview (otherwise every own change would reset the canvas). The webview, in
- * turn, only sends an `edit` when the JSON actually differs from the last known text. The shell's
- * `modelerShell.appearance` messages arrive on the same window; the webview ignores unknown types.
+ * The modeler shell's `modelerShell.appearance` messages arrive on the same window.
  */
 
 /** Diagram actions that exist both in the webview menu and as Command Palette commands. */
 export type WebviewCommand = "fitView" | "exportPng" | "exportSvg";
 
 export type HostToWebview =
-  /** Initial population after `ready`. */
-  | { type: "init"; text: string }
-  /** External document change (text editor, Git, undo, Insert example, …) -> re-import. */
-  | { type: "update"; text: string }
-  /** Diagnostics of the document, for the problems pill. */
-  | { type: "problems"; count: number; errors: number }
-  /** A command from the Command Palette for this diagram. */
-  | { type: "command"; name: WebviewCommand }
+  | DocumentHostMessage
   /**
    * PNG editor: request the current embedded PNG for save/backup (reply: `pngResponse`). With
    * `includeDraft` (a save, not a backup) a draft still being typed in the panels is committed first.
@@ -47,17 +45,10 @@ export type HostToWebview =
   | { type: "flush"; id: number };
 
 export type WebviewToHost =
-  | { type: "ready" }
-  /** Graphical change -> apply to the document as a WorkspaceEdit. */
-  | { type: "edit"; text: string }
+  | DocumentWebviewMessage
   /** Trigger an image export (SVG = text, PNG = Base64). */
   | { type: "export"; format: "svg" | "png"; data: string; fontFallback?: true }
   /** Reply to `requestPng`: Base64 PNG (`data`) OR `error`. `id` correlates with the request. */
   | { type: "pngResponse"; id: number; data?: string; error?: string; fontFallback?: true }
   /** Reply to `flush`: every `edit` it caused was posted before this. */
-  | { type: "flushed"; id: number }
-  | { type: "error"; message: string }
-  /** The problems pill was activated -> open the Problems view. */
-  | { type: "showProblems" }
-  /** "Insert example" of the empty-file hint -> add the example as one document edit. */
-  | { type: "insertExample" };
+  | { type: "flushed"; id: number };

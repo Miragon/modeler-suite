@@ -49,6 +49,24 @@ conformance kit and the 1.5 cases the kit plans run in `npm run team-topologies 
 shell's own conformance kit runs in the e2e projects `webapp` and `vscode-webview`; their WebKit
 twins `webapp-webkit` and `vscode-webview-webkit` run only the focus hand-back cases.
 
+The text editor's document plumbing is the shell's too:
+[`diagramEditor.ts`](apps/vscode/src/diagramEditor.ts) registers the `.tt`/`.ttm.json` editor with
+`registerModelerEditor` of `@miragon/modeler-shell/vscode/extension` (sync, echo suppression,
+minimal line edits, undo through the document, "Insert example", the problems pill), handing it
+`withExampleInserted`, the Problems view's diagnostics with their errors and warnings, the export
+and the save participant that has the webview commit a field still being typed in (`flush`, then
+the edits it queued) before VS Code saves. The webview's half is `connectDocumentSync`, which the
+`.tt.png` editor ([`TtPngEditorProvider.ts`](apps/vscode/src/TtPngEditorProvider.ts), a binary
+custom editor of its own, outside the plumbing as decided in #170) speaks too; `diagramPanels.ts`
+renders its webviews, the same document the plumbing writes for the text editor (a test compares
+the two), and sends the Command Palette commands to the focused diagram of either editor. The
+options that need no `vscode` live in
+[`diagramEditorOptions.ts`](apps/vscode/src/diagramEditorOptions.ts), which the e2e page also
+registers against the shell's host stub (`?host`, `e2e/tests/vscode/document-sync.spec.ts`); the
+unit tests run the extension against the same stub (`apps/vscode/src/vscodeHost.test-support.ts`).
+A canvas change VS Code refuses (a file opened read-only) goes back on the canvas, and the
+plumbing counts the problems after every change, the canvas's own edits included.
+
 **Notation colours:** the team-type and interaction-mode fills and strokes in
 [`packages/schema-model/src/notation.ts`](packages/schema-model/src/notation.ts) are the **official
 notation** (Team-Shape-Templates) and stay as they are, for fidelity to the official templates. A
