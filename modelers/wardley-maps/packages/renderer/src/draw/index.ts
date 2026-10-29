@@ -20,6 +20,8 @@ export {
   movementDeltaX,
   movementLabelPlacement,
   movementLabelSlot,
+  nameLineGrowth,
   normalizeLabelOffset,
   type LabelPlacement,
+  type LineGrowth,
 } from "./label-layout.js";

@@ -56,6 +56,14 @@ changes these factors, not the coordinates; label offsets and note boxes stay th
 - **Links** attach to element centres; a standalone pipeline's links attach to the middle of its
   top edge.
 
+A name with line breaks (`\n`) is as wide as its longest line, and every further line adds 16 px of
+height (≈ `0.025` visibility). Beside a component, submap, accelerator or annotation and at an
+evolve target, the lines are centred on where a one-line name sits, half of the extra height above
+it and half below. Above an anchor or a standalone pipeline, beside an evolving component and beside
+a pipeline's anchor component they grow upward: the last line stays where a one-line name sits,
+clear of the icon, the arrow or the box's top edge. A pipeline child's name grows downward from
+there, so two lines still fit inside the 30 px box. The method word always sits below the last line.
+
 ## The default grid
 
 ```text
@@ -66,7 +74,8 @@ visibility 0.90 – 0.97   anchors, the users
 maturity   0 – 0.17 genesis · 0.17 – 0.40 custom-built · 0.40 – 0.70 product · 0.70 – 1 commodity
 ```
 
-- Keep anchors at or below `0.97`: the anchor's label sits about 30 px above its centre.
+- Keep anchors at or below `0.97`: the anchor's label sits about 30 px above its centre, and every
+  further line of its name 16 px higher, so keep an anchor with a two-line name at or below `0.95`.
 - Keep everything at or above `0.05` visibility, so labels and method words stay on the plot.
 - With four to six levels in the value chain, step `0.12–0.18` visibility per level. A component
   sits **below everything that depends on it**: for every `A -> B`, `visibility(A) > visibility(B)`.
@@ -79,14 +88,14 @@ maturity   0 – 0.17 genesis · 0.17 – 0.40 custom-built · 0.40 – 0.70 pro
 Verified against the renderer's geometry:
 
 - **Same column** (similar maturity): `Δvisibility ≥ 0.06`. At `0.05` the circles are only 4 px
-  apart.
+  apart. Add about `0.025` for every further line of a name between the two.
 - **Same row** (similar visibility): `Δmaturity ≥ (7 × characters of the left name + 40) / 1080`:
   `0.1` for a 10-character name, `0.17` for 20. At `0.08` a 9-character label runs into the next
-  circle.
+  circle. For a name with line breaks, count the characters of its longest line.
 - **Crowded row**: stagger heights by `0.06` rather than pushing components along the maturity
   axis.
 - **Right edge**: a component at maturity `> 0.85` with a long name runs off the plot. Shorten the
-  name or move the label to the left (next section).
+  name, break it into lines with `\n`, or move the label to the left (next section).
 - **Lines**: links are straight. If one passes through an unrelated circle, nudge that component's
   visibility.
 
@@ -129,7 +138,8 @@ pipeline Kettle [0.25, 0.92]
 - Range: from about `0.04` left of the leftmost child to about `0.04` right of the rightmost. Child
   labels may run past the dashed outline; that is fine.
 - Space children like row neighbours (`Δmaturity` rule above).
-- Leave about `0.08` visibility free below the pipeline's height for the box and the child labels.
+- Leave about `0.08` visibility free below the pipeline's height for the box and the child labels,
+  and `0.025` more for every line of a child's name beyond the second.
 - A **standalone** pipeline (no component of that name) needs `(y <visibility>)`; without it, it
   sits at `0.5`. The Modeler then draws a small square with the name on the top edge, and that is
   where links attach.

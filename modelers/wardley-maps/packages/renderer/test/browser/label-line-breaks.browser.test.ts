@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
+import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import { Modeler } from "../../src/index.js";
 import { isWardleyShape, type WardleyShape } from "../../src/model/di-types.js";
 import {
@@ -11,6 +13,7 @@ import {
 } from "../../src/draw/label-layout.js";
 import { FONT } from "../../src/draw/styles.js";
 import type WardleyLabelEditing from "../../src/label-editing/WardleyLabelEditing.js";
+import type WardleyModeling from "../../src/modeling/WardleyModeling.js";
 import "../../src/assets/wardley.css";
 
 const DSL = `title Line breaks
@@ -50,9 +53,31 @@ describe("Line breaks in names (real browser DOM)", () => {
     field.setSelectionRange(field.value.length, field.value.length);
   }
 
+  function shapeOfType(type: WardleyShape["wardleyType"], label: string): WardleyShape {
+    const shape = modeler
+      .get<ElementRegistry>("elementRegistry")
+      .find((el) => isWardleyShape(el) && el.wardleyType === type && el.wardleyLabel === label);
+    if (!shape) throw new Error(`${type} not found: ${label}`);
+    return shape as unknown as WardleyShape;
+  }
+
+  const componentLabeled = (label: string) => shapeOfType("component", label);
+  const pipelineLabeled = (label: string) => shapeOfType("pipeline", label);
+
+  function canvasGraphics(shape: WardleyShape): SVGElement {
+    return modeler.get<Canvas>("canvas").getGraphics(shape);
+  }
+
   function nameText(label: string): SVGTextElement {
-    const gfx = modeler.get<Canvas>("canvas").getGraphics(shapeLabeled(label));
-    return gfx.querySelector<SVGTextElement>(".wardley-name-label")!;
+    return canvasGraphics(shapeLabeled(label)).querySelector<SVGTextElement>(
+      ".wardley-name-label",
+    )!;
+  }
+
+  function componentText(label: string): SVGTextElement {
+    return canvasGraphics(componentLabeled(label)).querySelector<SVGTextElement>(
+      ".wardley-name-label",
+    )!;
   }
 
   function lineBaselines(text: SVGTextElement): number[] {
@@ -211,6 +236,89 @@ describe("Line breaks in names (real browser DOM)", () => {
       expect(shapeLabeled("Plat")).toBeDefined();
     });
 
+    it("writes a backslash before n in a name as a look-alike, so the name survives a reload", async () => {
+      const field = open("Platform");
+      field.select();
+      await userEvent.keyboard("C:\\new{Enter}");
+
+      expect(shapeLabeled("C:∖new")).toBeDefined();
+      const text = modeler.exportDSL();
+      expect(text).toContain("component C:∖new [0.55, 0.62]");
+      await modeler.importDSL(text);
+      expect(shapeLabeled("C:∖new")).toBeDefined();
+      expect(modeler.exportDSL()).toBe(text);
+    });
+
+    it("keeps a typed backslash before n apart from the same name with a line break", async () => {
+      const field = open("Platform");
+      field.select();
+      await userEvent.keyboard("Customer\\nPortal{Enter}");
+
+      expect(document.querySelector(".wardley-label-input")).toBeNull();
+      const text = modeler.exportDSL();
+      expect(text).toContain("anchor Customer\\nPortal [0.95, 0.45]");
+      expect(text).toContain("component Customer∖nPortal [0.55, 0.62]");
+      await modeler.importDSL(text);
+      expect(shapeLabeled("Customer\nPortal").wardleyType).toBe("anchor");
+      expect(shapeLabeled("Customer∖nPortal").wardleyType).toBe("component");
+      expect(modeler.exportDSL()).toBe(text);
+    });
+
+    it("leaves a backslash before n in a note as it is", async () => {
+      const field = open("Remember the budget");
+      field.select();
+      await userEvent.keyboard("C:\\new{Control>}{Enter}{/Control}");
+      expect(shapeLabeled("C:\\new").wardleyType).toBe("note");
+    });
+
+    const WITH_PIPELINE = `${DSL}
+pipeline Platform [0.45, 0.8]
+{
+  component Basic\\nPlan [0.5]
+}`;
+
+    it.each([
+      ["a component", DSL, "component", "Platform", "centered"],
+      ["an anchor", DSL, "anchor", "Customer\nPortal", "up"],
+      ["an evolving component", `${DSL}\nevolve Platform 0.8`, "component", "Platform", "up"],
+      ["the anchor component of a pipeline", WITH_PIPELINE, "component", "Platform", "up"],
+      ["a pipeline's member", WITH_PIPELINE, "component", "Basic\nPlan", "down"],
+    ] as const)(
+      "grows the editor of %s the way its saved label grows",
+      async (_kind, text, type, label, growth) => {
+        await modeler.importDSL(text);
+        // At 100 % the field's line pitch is the label's; zoomed out, the field keeps a legible font.
+        modeler.get<Canvas>("canvas").zoom(1);
+        const labelBox = (name: string) =>
+          canvasGraphics(shapeOfType(type, name))
+            .querySelector(".wardley-name-label")!
+            .getBoundingClientRect();
+        const labelBefore = labelBox(label);
+        modeler.get<WardleyLabelEditing>("wardleyLabelEditing").activate(shapeOfType(type, label));
+        const field = document.querySelector<HTMLTextAreaElement>("textarea.wardley-label-input")!;
+        const fieldBefore = field.getBoundingClientRect();
+        caretToEnd(field);
+        const keptEdge = (box: DOMRect) =>
+          growth === "up" ? box.bottom : growth === "down" ? box.top : box.top + box.height / 2;
+
+        await userEvent.keyboard(`${SHIFT_ENTER}Hub`);
+        const fieldAfter = field.getBoundingClientRect();
+        expect(fieldAfter.height).toBeCloseTo(fieldBefore.height + lineHeightOf(field), 1);
+        expect(keptEdge(fieldAfter)).toBeCloseTo(keptEdge(fieldBefore), 1);
+
+        await userEvent.keyboard("{Enter}");
+        const labelAfter = labelBox(`${label}\nHub`);
+        expect(
+          Math.abs(labelAfter.top - fieldAfter.top - (labelBefore.top - fieldBefore.top)),
+        ).toBeLessThan(1);
+        expect(
+          Math.abs(
+            labelAfter.bottom - fieldAfter.bottom - (labelBefore.bottom - fieldBefore.bottom),
+          ),
+        ).toBeLessThan(1);
+      },
+    );
+
     it("keeps notes as they were: Enter breaks, Cmd or Ctrl+Enter saves", async () => {
       const field = open("Remember the budget");
       caretToEnd(field);
@@ -286,6 +394,63 @@ evolve Two\\nLines 0.8`);
       expect(method.getBoundingClientRect().top).toBeGreaterThanOrEqual(
         lines[1]!.getBoundingClientRect().bottom - 4,
       );
+    });
+
+    it("keeps every line of a pipeline's anchor component and members off the box's top edge", async () => {
+      await modeler.importDSL(`title Pipeline
+component Kettle\\nSystem [0.43, 0.6]
+pipeline Kettle\\nSystem [0.25, 0.92]
+{
+  component Campfire\\nKettle [0.3]
+  component Electric\\nKettle\\nModel [0.82] (buy)
+}`);
+      const pipeline = pipelineLabeled("Kettle\nSystem");
+      for (const name of ["Kettle\nSystem", "Campfire\nKettle", "Electric\nKettle\nModel"]) {
+        const shape = componentLabeled(name);
+        const edgeY = pipeline.y - shape.y;
+        const lines = lineBaselines(componentText(name));
+        expect(lines).toHaveLength(name.split("\n").length);
+        for (const baseline of lines) {
+          const glyphTop = baseline - 0.75 * FONT.label;
+          expect(edgeY < glyphTop || edgeY > baseline, `${name}: line at ${baseline}`).toBe(true);
+        }
+      }
+
+      const anchor = componentLabeled("Kettle\nSystem");
+      expect(pipeline.y).toBe(anchor.y + anchor.height / 2);
+      const anchorLines = lineBaselines(componentText("Kettle\nSystem"));
+      expect(anchorLines.at(-1)).toBe(anchor.height / 2 + componentLabelSlot().y);
+
+      const member = componentLabeled("Campfire\nKettle");
+      const memberLines = lineBaselines(componentText("Campfire\nKettle"));
+      expect(memberLines[0]).toBe(member.height / 2 + componentLabelSlot().y);
+      expect(memberLines.at(-1)!).toBeLessThan(pipeline.y + pipeline.height - member.y);
+    });
+
+    it("redraws a component's lines when a pipeline takes or gives up its name", async () => {
+      await modeler.importDSL(`title Pairing
+component Kettle\\nSystem [0.43, 0.6]
+pipeline Boiler [0.25, 0.92] (y 0.3)`);
+      const component = componentLabeled("Kettle\nSystem");
+      const slotY = component.height / 2 + componentLabelSlot().y;
+      const centred = [slotY - LABEL_LINE_HEIGHT / 2, slotY + LABEL_LINE_HEIGHT / 2];
+      const upward = [slotY - LABEL_LINE_HEIGHT, slotY];
+      const baselines = () => lineBaselines(componentText("Kettle\nSystem"));
+      expect(baselines()).toEqual(centred);
+
+      const pipeline = pipelineLabeled("Boiler");
+      modeler.get<WardleyModeling>("wardleyModeling").updateLabel(pipeline, "Kettle\nSystem");
+      expect(baselines()).toEqual(upward);
+      const commandStack = modeler.get<CommandStack>("commandStack");
+      commandStack.undo();
+      expect(baselines()).toEqual(centred);
+      commandStack.redo();
+      expect(baselines()).toEqual(upward);
+
+      modeler.get<Modeling>("modeling").removeShape(pipeline);
+      expect(baselines()).toEqual(centred);
+      commandStack.undo();
+      expect(baselines()).toEqual(upward);
     });
 
     it("draws a name of one line as before: a text without tspans", () => {

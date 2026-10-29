@@ -64,7 +64,8 @@ typed text across a view change, a scroll, a zoom or a host's fit, and moves wit
 Enter, leaving the field, or a click or drag on the canvas saves it. Shift+Enter breaks the line in
 a name (a note's Enter breaks it, and Cmd/Ctrl+Enter saves); the editor of a name is a `<textarea>`
 that grows with its lines, `textarea.wardley-label-input`. A name's line breaks are drawn as lines
-of the label and written to the DSL as a literal `\n` (`@miragon/wardley-dsl`).
+of the label and written to the DSL as a literal `\n` (`@miragon/wardley-dsl`). A backslash typed
+before an `n` in a name is saved as `∖` (U+2216), because the DSL would read `\n` back as a break.
 
 Options (the names of the `@miragon/modeler-api` 1.2 factory options):
 

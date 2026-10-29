@@ -40,8 +40,10 @@ map.elements[0].label; // "Customer\nPortal"
 ```
 
 Links, `evolve` lines and pipeline blocks refer to the name with its `\n`, and names are unique
-with their breaks (`Customer\nPortal` and `Customer Portal` are two names). A real backslash
-followed by `n` (`C:\new`) reads as a line break too. Other OWM tools may show the `\n` as text.
+with their breaks (`Customer\nPortal` and `Customer Portal` are two names). Breaks at the start or
+the end of a name are dropped without a diagnostic, like the spaces there; a name of nothing but
+breaks gets the type's default name, with a diagnostic. A real backslash followed by `n`
+(`C:\new`) reads as a line break too. Other OWM tools may show the `\n` as text.
 
 ### Writing edits back into hand-written text
 

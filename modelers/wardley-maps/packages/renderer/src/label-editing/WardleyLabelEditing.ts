@@ -13,6 +13,7 @@ import {
 import type WardleyModeling from "../modeling/WardleyModeling.js";
 import type WardleyElementFactory from "../model/WardleyElementFactory.js";
 import { FONT, NOTE_LINE_HEIGHT } from "../draw/styles.js";
+import { nameLineGrowth, type LineGrowth } from "../draw/index.js";
 import { createFieldError } from "./fieldError.js";
 import { isReadOnly } from "../read-only/index.js";
 import {
@@ -120,19 +121,26 @@ export function duplicateNameMessage(name: string): string {
   return `“${name}” already exists. Names must be unique because links refer to them.`;
 }
 
+/** U+2216, the look-alike of `\`, as U+2215 is the DSL's look-alike of `/`. */
+const SET_MINUS = "∖";
+
 /**
  * Defuses DSL metacharacters in labels: in the OWM DSL, names double as references —
  * `->`, `;` and square brackets would corrupt edge/coordinate lines on re-import. Line breaks stay
- * (the DSL writes them as `\n`); leading and trailing ones go with the other whitespace.
+ * (the DSL writes them as `\n`); leading and trailing ones go with the other whitespace. A name's
+ * backslash before "n" (`C:\new`) would read back as a line break and could then collide with a
+ * name that holds a real one, so it becomes a look-alike. Notes and annotations keep it: nothing
+ * refers to them, so a break there only changes how they look.
  */
-function sanitizeLabel(raw: string): string {
-  return raw
+function sanitizeLabel(raw: string, isName: boolean): string {
+  const label = raw
     .replace(/\r\n?/g, "\n")
     .replace(/->/g, "→") // -> would be the edge operator
     .replace(/;/g, ",") // ; separates link annotations
     .replace(/\[/g, "(") // [..] would be a coordinate tuple
     .replace(/\]/g, ")")
     .trim();
+  return isName ? label.replace(/\\(?=n)/g, SET_MINUS) : label;
 }
 
 let measureContext: CanvasRenderingContext2D | null | undefined;
@@ -152,6 +160,8 @@ interface LabelGeometry {
   width: number;
   height: number;
   centered: boolean;
+  /** Lines the label is drawn with. */
+  lineCount: number;
   fontSize: number;
   fontWeight: string;
   fontStyle: string;
@@ -240,6 +250,9 @@ export default class WardleyLabelEditing {
     const labels = this.nameLabelElements(element);
     const classedByFallback = [...labels.classedByFallback];
     let geometry = this.labelGeometry(element, labels.labelElements);
+    const growthOf = (): LineGrowth =>
+      isNote ? "centered" : nameLineGrowth(element, this.elementRegistry);
+    let growth = growthOf();
 
     const lineHeightOf = (fontSize: number) =>
       Math.max(fontSize * FIELD_LINE_HEIGHT, isNote ? NOTE_LINE_HEIGHT * this.canvas.zoom() : 0);
@@ -253,7 +266,13 @@ export default class WardleyLabelEditing {
     const hint = isNote ? createCaption("wardley-label-hint", NOTE_EDIT_HINT) : undefined;
 
     const layout = () => {
-      const { left, top, width, height } = fieldBox(field.value, geometry, lineHeight, isNote);
+      const { left, top, width, height } = fieldBox(
+        field.value,
+        geometry,
+        lineHeight,
+        isNote,
+        growth,
+      );
       Object.assign(field.style, {
         left: `${left}px`,
         top: `${top}px`,
@@ -308,7 +327,7 @@ export default class WardleyLabelEditing {
       if (done) return;
       // Enforce metacharacter protection also on RENAME — the DSL references elements by their
       // name; unescaped `->`, `;` or brackets would corrupt edge/coordinate lines on re-import.
-      const requested = sanitizeLabel(field.value);
+      const requested = sanitizeLabel(field.value, requiresUniqueName);
       if (!requested || requested === element.wardleyLabel) {
         cleanup();
         return;
@@ -365,6 +384,7 @@ export default class WardleyLabelEditing {
       const current = this.nameLabelElements(element);
       classedByFallback.push(...current.classedByFallback);
       geometry = this.labelGeometry(element, current.labelElements);
+      growth = growthOf();
       lineHeight = lineHeightOf(geometry.fontSize);
       Object.assign(field.style, {
         fontSize: `${geometry.fontSize}px`,
@@ -568,10 +588,11 @@ export default class WardleyLabelEditing {
         width: element.width * scale,
         height: element.height * scale,
         centered: true,
+        lineCount: Math.max(1, labelElements.length),
         ...typography,
       };
     }
-    if (labelElements.length) {
+    if (reference) {
       const boxes = labelElements.map((text) => text.getBoundingClientRect());
       const left = Math.min(...boxes.map((box) => box.left));
       const top = Math.min(...boxes.map((box) => box.top));
@@ -581,6 +602,7 @@ export default class WardleyLabelEditing {
         width: Math.max(...boxes.map((box) => box.right)) - left,
         height: Math.max(...boxes.map((box) => box.bottom)) - top,
         centered: referenceStyle?.textAnchor === "middle",
+        lineCount: Math.max(1, reference.querySelectorAll("tspan").length),
         ...typography,
       };
     }
@@ -591,6 +613,7 @@ export default class WardleyLabelEditing {
       width: 0,
       height: fontSize,
       centered: false,
+      lineCount: 1,
       ...typography,
     };
   }
@@ -624,13 +647,16 @@ function createNameField(
 
 /**
  * Field box over the label: as wide as its content (never narrower than a note's own box), centred
- * on centred labels, otherwise starting where the label text starts.
+ * on centred labels, otherwise starting where the label text starts. New lines spread as the saved
+ * label's will: around the label's middle, upward with the field's last line kept on the label's
+ * last, or downward with its first line kept on the label's first.
  */
 function fieldBox(
   value: string,
   geometry: LabelGeometry,
   lineHeight: number,
   isNote: boolean,
+  growth: LineGrowth,
 ): { left: number; top: number; width: number; height: number } {
   const font = `${geometry.fontStyle} ${geometry.fontWeight} ${geometry.fontSize}px ${geometry.fontFamily}`;
   const chrome = 2 * (FIELD_PADDING_X + FIELD_BORDER) + CARET_ROOM;
@@ -643,14 +669,19 @@ function fieldBox(
     geometry.fontSize * 2 + chrome,
     isNote ? geometry.width : 0,
   );
-  const height = Math.max(
-    lines.length * lineHeight + 2 * (FIELD_PADDING_Y + FIELD_BORDER),
-    isNote ? geometry.height : 0,
-  );
+  const chromeHeight = 2 * (FIELD_PADDING_Y + FIELD_BORDER);
+  const height = Math.max(lines.length * lineHeight + chromeHeight, isNote ? geometry.height : 0);
   const left = geometry.centered
     ? geometry.left + geometry.width / 2 - width / 2
     : geometry.left - FIELD_PADDING_X - FIELD_BORDER;
-  const top = geometry.top + geometry.height / 2 - height / 2;
+  const labelMiddle = geometry.top + geometry.height / 2;
+  const drawnLinesHeight = geometry.lineCount * lineHeight + chromeHeight;
+  const top =
+    growth === "up"
+      ? labelMiddle + drawnLinesHeight / 2 - height
+      : growth === "down"
+        ? labelMiddle - drawnLinesHeight / 2
+        : labelMiddle - height / 2;
   return { left, top, width, height };
 }
 

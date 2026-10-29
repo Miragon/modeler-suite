@@ -59,6 +59,15 @@ interface CommandEvent {
   context: GeometryContext;
 }
 
+/** The parts of a create, delete or property update that tell which pairing it may change. */
+interface PairingContext {
+  shape?: unknown;
+  element?: unknown;
+  elements?: unknown[];
+  properties?: Record<string, unknown>;
+  oldProperties?: Record<string, unknown>;
+}
+
 /**
  * Keeps the normalized Wardley coordinates and the pixel geometry consistent across execute, undo
  * AND redo (concept doc §5.3). `EvolutionGrid` is the single source of math (P7).
@@ -160,22 +169,34 @@ export default class EvolutionConstraintBehavior extends CommandInterceptor {
     });
 
     // The pipeline label is suppressed when a same-named component exists — whenever a
-    // component is created/deleted/renamed, re-render the pipelines so labels toggle.
-    const refreshPipelineLabels = (event: {
-      context?: { shape?: unknown; element?: unknown; elements?: unknown[] };
-    }) => {
-      const candidates = [
-        event.context?.shape,
-        event.context?.element,
-        ...(event.context?.elements ?? []),
-      ];
-      if (!candidates.some((element) => isComponent(element))) return;
-      for (const pipeline of this.elementRegistry.filter((element) => isPipeline(element))) {
-        this.eventBus.fire("element.changed", { element: pipeline });
+    // component is created/deleted/renamed, re-render the pipelines so labels toggle. That
+    // component's name grows upward, clear of the box's top edge, so a pipeline created, deleted
+    // or renamed re-renders the components of its old and its new name.
+    const refreshPairedLabels = (event: { context?: PairingContext }) => {
+      const context = event.context;
+      const changed = [context?.shape, context?.element, ...(context?.elements ?? [])];
+      if (changed.some((element) => isComponent(element))) {
+        for (const pipeline of this.elementRegistry.filter((element) => isPipeline(element))) {
+          this.eventBus.fire("element.changed", { element: pipeline });
+        }
+      }
+      const pipelines = changed.filter((element) => isPipeline(element));
+      const nameChanged = !context?.properties || "wardleyLabel" in context.properties;
+      if (!pipelines.length || !nameChanged) return;
+      const pairedNames = new Set<unknown>([
+        ...pipelines.map((pipeline) => pipeline.wardleyLabel),
+        context?.properties?.["wardleyLabel"],
+        context?.oldProperties?.["wardleyLabel"],
+      ]);
+      const pairedComponents = this.elementRegistry.filter(
+        (element) => isComponent(element) && pairedNames.has(element.wardleyLabel),
+      );
+      for (const component of pairedComponents) {
+        this.eventBus.fire("element.changed", { element: component });
       }
     };
-    this.executed(COMPONENT_LABEL_COMMANDS, refreshPipelineLabels);
-    this.reverted(COMPONENT_LABEL_COMMANDS, refreshPipelineLabels);
+    this.executed(COMPONENT_LABEL_COMMANDS, refreshPairedLabels);
+    this.reverted(COMPONENT_LABEL_COMMANDS, refreshPairedLabels);
   }
 
   private isTopLevel(context: GeometryContext): boolean {
