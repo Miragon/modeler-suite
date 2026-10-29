@@ -164,6 +164,17 @@ export interface ElementsSurface {
  *     calls `dragging.cancel(false)` before the import clears the canvas
  *     (`false`: no restore of the drag's previous selection, whose shapes
  *     the import replaces).
+ *     RECOMMENDED (1.6): an `importText` called while a DROP runs (a host
+ *     that imports from `onContentChanged`, which the drop's command fires)
+ *     waits until the drop has ended, so no later step of the drop meets the
+ *     replaced document (diagram-js's `SelectionBehavior` selects the moved
+ *     shape again after the move and throws on one the import removed); its
+ *     Promise settles after that import, nothing of the drop applies to the
+ *     imported document, and the drop's command stays off its fresh undo
+ *     history (L4). A PAN is no gesture: an import leaves a running pan
+ *     running, and the pan goes on from the current view (the one the import
+ *     left, or one the host sets after it, L5), never putting a view from
+ *     before back (`InteractionSurface`).
  *  L2 CANONICAL FIXPOINT — `exportText` is deterministic, and for any text t:
  *     with c = exportText() after importText(t), importText(c) followed by
  *     exportText() returns c byte-for-byte. Canonicalization is idempotent;
@@ -258,7 +269,9 @@ export interface CollaborativeModeler {
    *  This holds for the first import too, whatever was called before it — a
    *  host may export or route a command before its first document arrives.
    *  RECOMMENDED (1.5): an accepted import first cancels a gesture the user
-   *  holds; a rejected one leaves it running (L1) */
+   *  holds; a rejected one leaves it running (L1). RECOMMENDED (1.6): one
+   *  called while a drop runs waits until the drop has ended and settles after
+   *  that import, and one called during a pan leaves the pan running (L1) */
   importText(text: string): Promise<ImportResult>;
 
   /** the canonical serialization of the current document (L2, L6) */
@@ -335,9 +348,13 @@ export interface CollaborativeModeler {
  * that starts its drag starts the gesture), an open label editor or popup
  * (L1 keeps it across an import, and a host that waited for it would hold
  * every remote change while the user types), and keys. A drag that only pans
- * the view MAY count (diagram-js's hand tool runs on the same dragging
- * service), so a host relies on neither reading. A viewer has no editing
- * gesture: one that exposes the surface reports false, a pan aside.
+ * the view is none either (RECOMMENDED since 1.6; 1.5 said it MAY count):
+ * `active()` stays false while the user pans, although diagram-js's hand
+ * tool runs on the same dragging service, and an import leaves the pan
+ * running (L1), going on from the current view: the one the import left, or
+ * one the host sets after it (L5). A viewer has no editing gesture: one that
+ * exposes the surface reports false (RECOMMENDED since 1.6 also during a pan,
+ * which 1.5 left aside).
  *
  * A host that defers re-imports while `active()` is true applies the newest
  * remote state once `onChange` reports false. It may still import during a
@@ -360,8 +377,9 @@ export interface InteractionSurface {
    * (the cancel of L1) or inside a pointer event handler, so a host that
    * imports in response never calls `importText` from the listener: it
    * queues the import behind any import still pending, which a microtask
-   * alone does not do. Returns the unsubscribe; nothing is called after
-   * `destroy()`
+   * alone does not do. Returns the unsubscribe; nothing is called once
+   * `destroy()` has been called, also for a gesture that `destroy()` itself
+   * ends
    */
   onChange(cb: (active: boolean) => void): () => void;
 }

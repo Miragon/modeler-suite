@@ -63,8 +63,10 @@ writes `data-cd-theme` and `data-cd-kontrast` on the map's container; its `theme
 `WARDLEY_THEMES`. Both are pinned by
 [`interaction.browser.test.ts`](packages/renderer/test/browser/interaction.browser.test.ts) and
 [`appearance.browser.test.ts`](packages/renderer/test/browser/appearance.browser.test.ts), which
-follow the contract's planned 1.5 kit cases with the harness fields of
-[`support/gesture-harness.ts`](packages/renderer/test/browser/support/gesture-harness.ts).
+follow the kit's cases (`packages/api/README.md`, "Cases for the 1.5 surfaces and the gesture
+rules of 1.6") with the harness fields of
+[`support/gesture-harness.ts`](packages/renderer/test/browser/support/gesture-harness.ts), which
+the conformance harness reuses.
 The VS Code webview mounts `@miragon/modeler-shell`
 ([`apps/vscode/src/webview/main.ts`](apps/vscode/src/webview/main.ts)), the web app mounts its web
 host ([`apps/webapp/src/main.ts`](apps/webapp/src/main.ts)); the shell's conformance kit runs

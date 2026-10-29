@@ -92,10 +92,10 @@ key acts; in the apps the shell does that for its chrome ([shell](shell.md)).
 Hosts re-import a peer's text whenever it arrives, also while the user drags. diagram-js keeps a
 drag running across a cleared canvas, and its release then applies a command to removed shapes and
 throws half-way. Contract 1.5 RECOMMENDS the cancel below and defines the optional `interaction`
-surface. Its text lets a pan count as a gesture (MAY) and says nothing about the user's actions
-yet; every Miragon renderer and the template go further on both (a pan is none, and an import
-waits for a running user action), and contract 1.6 is to RECOMMEND both, each with a kit case
-that advises (template:
+surface. Contract 1.6 RECOMMENDS that a pan is no gesture and that an import waits for a running
+drop, each with a kit case that advises. Every Miragon renderer and the template go further and
+let an import wait for any running user action, which goes beyond the contract's text so far and
+gets its kit case in a later release (template:
 [`Gestures.ts`](../assets/template/packages/renderer/src/gestures/Gestures.ts), called from
 [`BaseViewer.ts`](../assets/template/packages/renderer/src/BaseViewer.ts) and
 [`collaborative.ts`](../assets/template/packages/renderer/src/collaborative/collaborative.ts)):
@@ -110,7 +110,8 @@ that advises (template:
 - **A drag that holds no element is no gesture** and runs on. A palette tool that only waits for
   its next press stays armed (the lasso, `lasso.selection`, and the hand), as the contract's
   definition of a gesture already implies. A pan of the hand tool (`hand.move`, also with Space
-  held) MAY count under contract 1.5; the Miragon renderers count it as none, so it runs on too.
+  held) is none either: contract 1.6 RECOMMENDS it (1.5 said a pan MAY count), and the kit's pan
+  case checks that it runs on through an import.
   An import's fit and a host's `setViewState` after it (L5) move the view under a running pan, so
   the template moves the pan's starting point to the diagram point under the pointer on every
   `canvas.viewbox.changed` (the canvas runs without `deferUpdate`, so the event comes at once);
@@ -140,11 +141,13 @@ that advises (template:
   import waits whichever listener of that task a host calls it from. End the action with that
   microtask, not with a later event: a drop whose cleanup throws never announces its end, and a flag
   left set would hold every later import. Imports keep their call order, also one called after the
-  action while an earlier one still waits. Outside an action it imports at once. The diagram's own
-  import, which cannot wait, leaves a drop to finish and never cancels it from inside diagram-js's
-  end of it (tell the drop apart by its drag context). Called from a selection listener at a
-  drag's start, it still ends the drag inside `Dragging.move`, which then throws on the cursor, so
-  a host imports there through the contract's `importText`, which waits.
+  action while an earlier one still waits. Outside an action it imports at once. The kit's drop case
+  checks the drop (contract 1.6, RECOMMENDED), with a selection held from before the drag and both a
+  different document and an echo of the drop's own. The diagram's own import, which cannot wait,
+  leaves a drop to finish and never cancels it from inside diagram-js's end of it (tell the drop
+  apart by its drag context). Called from a selection listener at a drag's start, it still ends the
+  drag inside `Dragging.move`, which then throws on the cursor, so a host imports there through the
+  contract's `importText`, which waits.
   - After a keyboard create, the import takes the label editor down and reopens it on the element
     with the same id. An edit the first of several waiting imports takes down stays suspended
     through the next; a render that fails reopens it as well, so no later import brings back an
@@ -161,18 +164,18 @@ that advises (template:
   `finally` once it has run (the popup or the editor has opened), never for as long as that stays
   open, since a host waits for no popup and a hold never released keeps every later import
   waiting. A step that does not run calls it too. The template schedules none.
-- **`interaction`**, an optional surface the kit will check like the cancel: `active()` is true
+- **`interaction`**, an optional surface the kit checks like the cancel: `active()` is true
   from the first `drag.move` of an activated gesture drag, a palette create at once, until
   diagram-js cleans the drag up, so it is still true during the drop's command; `onChange` fires
-  once each way, with `active()` already returning the new value, and never for an armed tool or,
-  in the Miragon renderers, a pan. The listener can run inside `importText` and inside
+  once each way, with `active()` already returning the new value, and never for an armed tool or
+  a pan (contract 1.6 RECOMMENDS the pan). The listener can run inside `importText` and inside
   diagram-js's events, so a listener that throws is reported, not left to break the drag. The
   viewer has no editing gesture and reports false.
 
 The template's
 [`gestures.browser.test.ts`](../assets/template/packages/renderer/test/browser/gestures.browser.test.ts)
-drives all of this with real pointer events, through helpers shaped like the kit's planned harness
-fields (`startGesture`, `armTool`).
+drives all of this with real pointer events, beyond what the kit's cases hold: the conformance
+harness fills the kit's gesture fields (`startGesture`, `armTool`, `startPan`) the same way.
 
 ## Appearance
 
@@ -213,17 +216,15 @@ case moves the focus and aims keys at the one document every mounted instance li
   `foreignTexts` with `mustSurvive`, `probeTexts`, `viewState`, `mutate` (adds, with content that
   differs per call), `configMutations` (`[]` only without document settings), `undo`, `redo`,
   `moveElement`, `openInteraction` (types the same input every time), `interactionState`,
-  `commitInteraction`, `settle`.
+  `commitInteraction`, `settle`, and since contract 1.6 `startGesture` (a move, a create held
+  over the canvas and one held over the palette, by real pointer events; its `drop()` lands where
+  the gesture applies), `armTool`, `startPan` (one step past the drag threshold, and one more
+  per `move()`) and `exportImage` (the renderer's SVG export).
 - Pass `onSkip` that throws: with every hook filled a skip is a gap, and a kit release that adds a
   case names the hook it needs. Collect `onAdvisory` and assert the list is empty after all cases (or throw in it):
   the renderer follows every recommendation, so an advisory is a regression.
 - A case is only as good as the harness: drive real services (the renderer's label editor, the
   command stack, `modeling.moveElements`), not shortcuts around them.
-- The kit's cases for the 1.5 surfaces land once every Miragon renderer and the template implement
-  them (the package README's "Cases for the 1.5 surfaces"), with three new hooks: `startGesture`,
-  `armTool` and `exportImage`. They report skips until the harness fills them, so fill them in the
-  same upgrade: the template's gesture tests already hold the first two in that shape, and the
-  third returns the renderer's SVG export.
 
 ## Versions and upgrades
 

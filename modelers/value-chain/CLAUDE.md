@@ -131,8 +131,9 @@ missing at its other places; the verdict stays the same).
   `data-cd-theme="light"` and `data-cd-kontrast="hoch"` on `diagram.container`; the container sets
   `color` from `--cd-ui-text` and its high-contrast rules key on the nearest carrier, so the
   computed colours equal light on a dark page (`appearance.browser.test.ts`).
-  `test/browser/support/pointer.ts` holds the pointer helpers and the planned 1.5 harness fields
-  (`startGesture`, `armTool`, `exportImage`). A view change never
+  `test/browser/support/pointer.ts` holds the pointer helpers, a `startGesture` on Order to Cash
+  and the kit's harness fields `armTool` and `exportImage`; the conformance harness fills
+  `startGesture` and `startPan` (the hand tool) on the Porter example. A view change never
   commits a label edit: the text box follows the view (`canvas.viewbox.changed`), only Enter,
   blur, `element.mousedown` and `drag.init` commit. The factories take the contract's
   `freeArea`/`fitOnImport`/`undoRedoKeys`. New elements get random ids.

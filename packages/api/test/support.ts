@@ -5,6 +5,7 @@
  * every modeler listens to the one document the keys case aims its keys at.
  */
 import {
+  attachedHost,
   type CaseOutcome,
   type ConformanceHarness,
   conformanceCases,
@@ -46,8 +47,32 @@ export function harness(
     },
     interactionState: (m) => (m as ReferenceModeler).openLabelEditor(),
     commitInteraction: (m) => (m as ReferenceModeler).commitLabel(),
+    startGesture: (m, kind) => (m as ReferenceModeler).holdGesture(kind),
+    armTool: (m) => (m as ReferenceModeler).armLasso(),
+    startPan: (m) => (m as ReferenceModeler).holdPan(),
+    exportImage: (m) => (m as ReferenceModeler).exportSvg(),
     ...overrides,
   };
+}
+
+/** the reference harness, the modeler and the viewer mounted into attachedHost() (a DOM only) */
+export function mounted(
+  flaws: Flaws = {},
+  overrides: Partial<ConformanceHarness> = {},
+): ConformanceHarness {
+  return harness(flaws, {
+    create: async () => {
+      const m = createReferenceModeler(flaws);
+      m.attachTo(attachedHost());
+      return m;
+    },
+    createReadonly: async () => {
+      const viewer = createReferenceModeler(flaws, false);
+      viewer.attachTo(attachedHost());
+      return viewer;
+    },
+    ...overrides,
+  });
 }
 
 export const CASE = {
@@ -56,6 +81,12 @@ export const CASE = {
   l1Fresh: "L1: importText is silent (no change events, for canonical, loose and foreign inputs)",
   l1History: "L1: importText over EXISTING undo history is silent too",
   l1Interaction: "L1: an interaction open during importText never commits",
+  l1Gesture:
+    "L1 (recommended, 1.5): an accepted import cancels a running gesture, its release included, and a rejected one leaves it running",
+  drop: "drop (recommended, 1.6): an import from the change listener of a drop waits until the drop has ended, and its Promise settles after the import",
+  pan: "pan (recommended, 1.6): a pan is no gesture, and it runs on through an import from the view the import left",
+  interaction:
+    "interaction (when present, 1.5): active() follows every gesture to its drop and its cancel, never an armed tool, and onChange reports each change once",
   l2Fixpoint: "L2: canonical texts are byte fixpoints of import → export",
   l2Idempotent: "L2: canonicalization of loose input is idempotent",
   l3Mutation:
@@ -85,13 +116,21 @@ export const CASE = {
   l7Probes: "L7: every rejection of a derived probe leaves no trace",
   viewer:
     "viewer (when shipped): read-only, silent, canonical, fits, reveals, keeps foreign content, unshaken by a rejected import",
+  appearance:
+    "appearance (when present, 1.5): a theme is view state, and a theme the modeler does not list draws themes[0], whatever mode the page shows",
   keys: "keys (recommended): a key aimed at the host's controls and editors or at <body> is left alone, a keydown or keyup without a key throws nothing, a key on the focused canvas acts",
   destroy: "destroy is safe to call twice",
 };
 
-/** whether the keys case skipped for want of a DOM — what it does in the node suite */
+/** the appearance case's skip without a DOM */
+export const APPEARANCE_WITHOUT_DOM =
+  "no DOM — the computed colours were not compared (run the kit in a browser, the modeler mounted into attachedHost())";
+
+/** whether the keys case, or the colour half of the appearance case, skipped for want of a DOM —
+ *  what they do in the node suite */
 export const skippedWithoutDom = (name: string, reason: string): boolean =>
-  name === CASE.keys && reason.startsWith("no DOM");
+  (name === CASE.keys && reason.startsWith("no DOM")) ||
+  (name === CASE.appearance && reason === APPEARANCE_WITHOUT_DOM);
 
 /** all at once (node), or one after the other (jsdom) */
 export type Order = "concurrent" | "sequential";
