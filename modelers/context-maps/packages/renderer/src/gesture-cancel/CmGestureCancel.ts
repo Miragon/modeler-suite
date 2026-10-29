@@ -10,11 +10,21 @@ const ARMED_TOOL_PREFIXES: ReadonlySet<string> = new Set(["lasso.selection"]);
 /** Ahead of every listener of the drop: one of them runs the command a host may import from. */
 const BEFORE_THE_DROP = 10_000;
 
-/** Ahead of every other listener of a drag's move and cleanup, so that they see the new state. */
+/**
+ * Ahead of every other listener of a drag's start, move and cleanup and of a command's start, so
+ * that they see the new state.
+ */
 const FIRST = 10_000;
 
-/** Ahead of the host's change listener, which may import. */
-const BEFORE_THE_HOST = 10_000;
+/** Behind every other listener of a drag's move. */
+const LAST = -10_000;
+
+/**
+ * Fired before a command or a redo (`execute`) and an undo (`revert`) change the map, so before a
+ * listener inside it (the selection's, as diagram-js deselects what it removes) hears anything.
+ * Emptying the history on an import fires neither.
+ */
+const COMMAND_STARTS = ["commandStack.execute", "commandStack.revert"];
 
 interface Gesture {
   prefix: string;
@@ -57,14 +67,16 @@ function deliver(listener: ActiveListener, active: boolean): void {
  * next press is no gesture, and neither is a pan of the canvas, which runs outside diagram-js's
  * dragging.
  *
- * A user action changes the map, and a host hears that change in its change listener. It runs until
- * it has finished, with the steps it deferred: a drop until its release has run every listener, a
- * step such as the subdomain-type menu of an append until it has run (`holdAction`), and any other
- * action until the handler that made the change has returned. An import that waits for
- * `whenActionEnded()` replaces no element the action still works on. The drag that a press starts
- * after it committed a label is a gesture, not part of that action: the import waits until
- * diagram-js's drag init has returned and then ends the drag, as an accepted import ends every
- * running gesture.
+ * A user action changes the map or starts a drag, and a host hears it in a listener: its change
+ * listener, or its selection listener inside a delete, an undo or a redo, or at a drag's start. It
+ * runs until it has finished, with the steps it deferred: a drop until its release has run every
+ * listener, a step such as the subdomain-type menu of an append until it has run (`holdAction`),
+ * any other command, undo or redo from its start until the handler that ran it has returned, and a
+ * drag's activation inside diagram-js's `Dragging.move` until every listener of its first move has
+ * run. An import that waits for `whenActionEnded()` runs a microtask after the action and replaces
+ * no element the action still works on. The drag that a press starts after it committed a label,
+ * and the drag whose activation the import waited for, are gestures, not part of the action: the
+ * import ends them, as an accepted import ends every running gesture.
  */
 export default class CmGestureCancel {
   static $inject = ["eventBus", "dragging"];
@@ -75,6 +87,7 @@ export default class CmGestureCancel {
   private readonly activeListeners = new Set<ActiveListener>();
   private readonly runningActions = new Set<object>();
   private actionWaiters: Array<() => void> = [];
+  private endActivation: () => void = () => undefined;
 
   constructor(
     eventBus: EventBus,
@@ -96,8 +109,23 @@ export default class CmGestureCancel {
       if (ending) queueMicrotask(() => this.finishEnding(ending));
       this.setActive(false);
     });
-    // Any other change of the user's has finished once the handler that made it has returned.
-    eventBus.on("commandStack.changed", BEFORE_THE_HOST, () => queueMicrotask(this.holdAction()));
+    // A command, an undo or a redo runs inside the handler of the user's action, which goes on
+    // after it: it selects the appended context, opens the name editor, lets a press start its
+    // drag. A listener inside the command, the selection's, hears it before the command has
+    // finished. The action has finished once that handler has returned.
+    eventBus.on(COMMAND_STARTS, FIRST, () => queueMicrotask(this.holdAction()));
+    // diagram-js activates a drag inside `Dragging.move`: it fires the start, deselects, which a
+    // host may import from, then fires the first move, whose listener above tells the host that a
+    // gesture runs, and reads the drag's state throughout: an import inside that would end the
+    // drag under it. The activation has finished once every listener of that first move has run,
+    // at the latest once the handler that moved the pointer has returned. An import that waited
+    // for it runs a microtask later, after `move` has returned, and ends the drag like every
+    // running gesture.
+    eventBus.on("drag.start", FIRST, () => {
+      this.endActivation = this.holdAction();
+      queueMicrotask(this.endActivation);
+    });
+    eventBus.on("drag.move", LAST, () => this.endActivation());
     // The scheduler drops its tasks on destroy: an import waiting for one rejects instead.
     eventBus.on("diagram.destroy", () => {
       this.ending = null;
@@ -118,9 +146,10 @@ export default class CmGestureCancel {
   }
 
   /**
-   * While a user action runs (a drop, an append, a create, a label commit, with the steps they
-   * deferred): settles once it has finished. An import that waits for it replaces no element the
-   * action still holds; `undefined` while none runs.
+   * While a user action runs (a drop, an append, a create, a label commit, a delete, an undo, a
+   * redo, a drag's activation, with the steps they deferred): settles once it has finished. An
+   * import that waits for it replaces no element the action still holds; `undefined` while none
+   * runs.
    */
   whenActionEnded(): Promise<void> | undefined {
     if (this.runningActions.size === 0) return undefined;

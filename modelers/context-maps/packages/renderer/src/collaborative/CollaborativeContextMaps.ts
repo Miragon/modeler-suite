@@ -177,7 +177,9 @@ function collaborative(
       // A host that imports from its change listener (an echo of its own change) would replace the
       // elements the user's action still works on: diagram-js's selection after a move, the type
       // menu after an append, the name editor after a keyboard create, diagram-js's drag init
-      // after a press committed a label. The import waits until the action has finished.
+      // after a press committed a label. So would one that imports from its selection listener:
+      // the rest of a delete, an undo or a redo, diagram-js's `Dragging.move` that activates a
+      // drag. The import waits until the action has finished.
       const actionEnded = destroyed ? undefined : gestures?.whenActionEnded();
       return actionEnded ? actionEnded.then(() => importNow(text)) : importNow(text);
     },
