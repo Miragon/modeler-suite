@@ -165,11 +165,24 @@ An import (`importText`, or `importDocument` of the wrapped diagram) that arrive
 drags, such as a peer's text in a live sync, ends the gesture first, as Escape does: a move,
 resize, connect, lasso or palette create, also one whose pointer is still on the palette, applies
 nothing to the replaced elements and fires no change. An armed lasso tool that waits for its press
-stays armed. An `importText` made while a drop runs (from the change listener its command fires,
-for example, by a host that echoes its own change back or answers it with a peer's text) waits until
-the drop has ended and then imports; its promise settles after that import. So no listener of the
-drop sees a replaced diagram, diagram-js's selection behaviour among them. `importDocument` of the
-wrapped diagram cannot wait: called there, it leaves the drop to finish, with its change applied.
+stays armed.
+
+An `importText` made while a user action runs (from the change listener its command fires, for
+example, by a host that echoes its own change back or answers it with a peer's text) waits until the
+action has finished and then imports; its promise settles after that import. A drop has finished
+once diagram-js has cleaned it up. Any other command (an annotation appended from the context pad, a
+create from the palette by keyboard, a label commit, a delete, an undo) has finished once the code
+that ran it has returned. So no part of the action sees a replaced diagram: neither diagram-js's
+selection behaviour after a drop, nor the selection and the label editor that an append or a
+keyboard create opens on its new element (the editor comes back, with what was typed, on the
+imported element with the same id), nor the rest of a command that a selection listener interrupts.
+The label commit that a press on an element or on a resize handle makes counts too: the import comes
+after the press and then ends what the press began, as an accepted import does: the resize that
+diagram-js starts at once on a handle, or the move of a press that has not reached the drag
+threshold yet. A press on the palette blurs the editor first, and the blur commits the label before
+the click: the import runs before the click, so the create the click starts goes on.
+`importDocument` of the wrapped diagram cannot wait: called from the change listener of a drop, it
+leaves the drop to finish, with its change applied.
 
 `interaction` (contract 1.5, modeler and viewer) tells a host whether the user holds a gesture, so
 it can defer a peer's text until the gesture ends instead of reading diagram-js's DOM classes:
