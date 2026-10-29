@@ -3,7 +3,6 @@ import {
   REDUCED_MOTION_CLASS,
   toastLifetime,
   toastToEvict,
-  type ShellHost,
   type ShellMessages,
   type ToastAction,
   type ToastRequest,
@@ -15,8 +14,6 @@ import type { ToastHandle } from "../types.js";
 
 export interface ToasterContext {
   ownerDocument: Document;
-  /** `web`: the stack is a `popover="manual"` raised on every toast; `embedded`: absolute in the root. */
-  host: Exclude<ShellHost, "ide">;
   messages: ShellMessages;
   /** `cd-shell-toast-N`: the prefix of the ids the Close buttons' `aria-describedby` names. */
   idPrefix: string;
@@ -79,10 +76,10 @@ interface LiveToast {
 }
 
 /**
- * The toast stack (guide §8, §9): centred at `bottom` (`toastStackBottom`), `toastStackWidth`
- * wide, column with 8px gap, newest at the bottom, layer 60 (`--cd-shell-ebene-toast`). In the
- * web host the stack is a manual popover, re-shown on every toast, so it stays above a
- * `showModal()` dialog in the top layer; in the embedded host it is absolute inside the root.
+ * The web host's toast stack (guide §8, §9): centred at `bottom` (`toastStackBottom`),
+ * `toastStackWidth` wide, column with 8px gap, newest at the bottom, layer 60
+ * (`--cd-shell-ebene-toast`). The stack is a manual popover, re-shown on every toast that arrives
+ * while a modal dialog is open, so it stays above a `showModal()` dialog in the top layer.
  *
  * A toast: `<div class="cd-shell-toast" data-status>`, opaque `--cd-ui-flaeche-hoch`, 1px
  * `--cd-ui-linie`, a straight 4px bar and an 8px dot in `--cd-ui-<status>`, radius `md`,
@@ -107,11 +104,10 @@ interface LiveToast {
  */
 export function createToaster(context: ToasterContext): Toaster {
   const { ownerDocument, messages } = context;
-  const web = context.host === "web";
   const element = createElement(ownerDocument, "div", {
     class: "cd-shell-toasts",
     "data-chrome": "toasts",
-    popover: web ? "manual" : undefined,
+    popover: "manual",
   });
   const liveRegion = (politeness: "polite" | "assertive"): HTMLElement =>
     createElement(ownerDocument, "div", {
@@ -166,9 +162,7 @@ export function createToaster(context: ToasterContext): Toaster {
   }
 
   function supportsPopover(): boolean {
-    return (
-      web && typeof element.showPopover === "function" && typeof element.hidePopover === "function"
-    );
+    return typeof element.showPopover === "function" && typeof element.hidePopover === "function";
   }
 
   function popoverOpen(): boolean {

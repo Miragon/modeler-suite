@@ -434,7 +434,7 @@ export interface LiveRegionFacts {
 }
 
 export interface ToastsFacts {
-  /** `[data-chrome="toasts"]`; `null` where there is none (the IDE host). */
+  /** `[data-chrome="toasts"]`; `null` where there is none (the IDE and embedded hosts). */
   stack: {
     visible: boolean;
     box: RelativeBox;

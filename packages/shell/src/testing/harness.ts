@@ -60,8 +60,9 @@ export interface ShowHooks<P extends PageLike = PageLike> {
    */
   emptyState?: ((page: P) => Promise<void>) | undefined;
   /**
-   * Web and embedded hosts: shows `toast` through the modeler's `shell.toast`, with
-   * `{ label: toast.actionLabel, onSelect() {} }` as its action when `actionLabel` is given.
+   * Web host: shows `toast` through the modeler's `shell.toast`, with
+   * `{ label: toast.actionLabel, onSelect() {} }` as its action when `actionLabel` is given. The IDE
+   * and embedded hosts need none; where a harness gives it, the kit checks that nothing shows.
    */
   toast?: ((page: P, toast: ToastFixture) => Promise<void>) | undefined;
 }

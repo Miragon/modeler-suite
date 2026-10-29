@@ -144,7 +144,7 @@ async function motionWalk<P extends PageLike>(
     const show = harness.show?.[island];
     if (show) await run({ state: `after show.${island}`, act: () => show(page) });
   }
-  const toast = harness.host === "ide" ? undefined : harness.show?.toast;
+  const toast = harness.host === "web" ? harness.show?.toast : undefined;
   if (toast) await run({ state: "with a toast", act: () => toast(page, MOTION_TOAST) });
 
   await prepare();

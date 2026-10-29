@@ -2134,7 +2134,7 @@ describe("legal line content and the zoom row", () => {
       { distance: 12, width: 1208 },
       { distance: 4, width: 1192 },
     ]);
-    // embedded: no legal line, the zoom panel decides: 2 × (12 + 12 + 173) + 200
+    // without a legal line the zoom panel decides: 2 × (12 + 12 + 173) + 200
     expect(toastLiftProbes(bottomRow({ zoom }, 200))).toEqual([
       { distance: 12, width: 594 },
       { distance: 4, width: 578 },

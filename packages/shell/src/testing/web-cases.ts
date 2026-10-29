@@ -730,22 +730,25 @@ const toastsCase: ShellConformanceCase = {
     const root = harness.root ?? DEFAULT_ROOT;
     const size = sizeOf(harness);
     const show = harness.show?.toast;
-    if (harness.host === "ide") {
+    if (harness.host !== "web") {
+      const host = harness.host === "ide" ? "IDE" : "embedded";
+      const owner =
+        harness.host === "ide"
+          ? "the extension shows the host's notification (guide §13.5)"
+          : "the embedding host shows its own feedback (guide §5.2, §9)";
       await openHarness(page, harness, { size, requested: LIGHT });
       if (show)
-        await show(page, { status: "success", text: "Conformance: a toast in the IDE host" });
+        await show(page, { status: "success", text: `Conformance: a toast in the ${host} host` });
       await settle(page);
       const facts = await toasts(page, root);
       const problems: string[] = [];
       if (facts?.stack) {
         problems.push(
-          'toasts: the IDE host renders a toast stack [data-chrome="toasts"]; it shows no toasts (guide §13.5)',
+          `toasts: the ${host} host renders a toast stack [data-chrome="toasts"]; it shows no toasts, ${owner}`,
         );
       }
       if ((facts?.toasts.length ?? 0) > 0 || (facts?.strays.length ?? 0) > 0) {
-        problems.push(
-          "toasts: show.toast shows a toast in the IDE host; the extension shows the host's notification (guide §13.5)",
-        );
+        problems.push(`toasts: show.toast shows a toast in the ${host} host; ${owner}`);
       }
       return finish("toasts", harness.host, problems, []);
     }
@@ -760,8 +763,8 @@ const toastsCase: ShellConformanceCase = {
       ...(await toastStack(page, root, show)),
       ...(await toastTiming(page, root, show)),
       ...(await toastLift(page, harness, root, show)),
+      ...(await toastAboveModal(page, root, show)),
     ];
-    if (harness.host === "web") problems.push(...(await toastAboveModal(page, root, show)));
     return finish("toasts", harness.host, problems, []);
   },
 };

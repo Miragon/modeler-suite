@@ -1,8 +1,9 @@
 /*
  * Feedback of @miragon/modeler-shell (owned by src/dom/feedback): the toast stack and the problems
  * popover (guide §5.10, §8, §9). Colours only from var(--cd-ui-*), sizes from var(--cd-shell-*).
- * Toasts render in the web and embedded hosts, so their rules also reset what a foreign page's
- * element rules would set (font, colour, letter spacing, text transform), like shell-dom.css.
+ * The problems popover renders in the embedded host too, so these rules also reset what a foreign
+ * page's element rules would set (font, colour, letter spacing, text transform), like
+ * shell-dom.css; the toasts, which only the web host shows, keep the same reset.
  * The toast action is a .cd-shell-button (buttons.css), which resets itself and is left out here.
  * Private helper properties are named --modeler-shell-*, never --cd-*.
  */
@@ -34,9 +35,9 @@
 /* ---- Toast stack (guide §8, §9) ------------------------------------------------------------- */
 
 /*
- * Centred column at the bottom; the script sets `bottom` (toastStackBottom). In the web host it is
- * a manual popover in the top layer, so the UA's popover box (fixed, centred, bordered, padded,
- * Canvas colours) is reset; in the embedded host it is absolute in the root at layer 60.
+ * Centred column at the bottom; the script sets `bottom` (toastStackBottom). It is a manual popover
+ * in the top layer, so the UA's popover box (fixed, centred, bordered, padded, Canvas colours) is
+ * reset; without the popover API it stays absolute in the root at layer 60.
  */
 .cd-shell-toasts {
   position: absolute;

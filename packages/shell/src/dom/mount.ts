@@ -72,7 +72,7 @@ const DEFAULT_THEMES: readonly Theme[] = ["light"];
 /** The legal line's height on the root, which the stack above it (pill, legend, zoom row) adds. */
 const LEGAL_HEIGHT_PROPERTY = "--modeler-shell-legal-height";
 
-/** What `toast()` returns where no toast shows (the IDE host, after `destroy`). */
+/** What `toast()` returns where no toast shows (the IDE and embedded hosts, after `destroy`). */
 const INERT_TOAST: ToastHandle = Object.freeze({ dismiss() {} });
 
 /** What `showShortcutsDialog()` returns after `destroy`. */
@@ -113,7 +113,7 @@ function hostKontrast(root: HTMLElement): "hoch" | null {
  * DOM order of guide §5.14: menu trigger, primary action (web), canvas slot, status box,
  * empty-file hint, empty state (web), inspector, problems pill, legend, legal line (web), zoom
  * panel, then the layer for dropdown, tooltip, problems popover and drop zone, and last the toast
- * stack (web, embedded). Installs the one `keydown` listener (see `ShellOptions.keyScope`) and the
+ * stack (web). Installs the one `keydown` listener (see `ShellOptions.keyScope`) and the
  * root `ResizeObserver`.
  *
  * `root` must get its size from outside (`container-type: size`): `height: 100%` in an own
@@ -400,17 +400,16 @@ function renderShell(
     focusCanvas,
   });
   ledger.defer(() => zoomPanel.destroy());
-  const toaster =
-    host === "ide"
-      ? undefined
-      : createToaster({
-          ownerDocument,
-          host,
-          messages,
-          idPrefix: `cd-shell-toast-${index}`,
-          focusFallback: focusCanvasOrTrigger,
-          onChange: () => updateBottomRow(),
-        });
+  // The IDE and the embedding host own all feedback (guide §5.2, §9, §13.5): no stack, no regions.
+  const toaster = web
+    ? createToaster({
+        ownerDocument,
+        messages,
+        idPrefix: `cd-shell-toast-${index}`,
+        focusFallback: focusCanvasOrTrigger,
+        onChange: () => updateBottomRow(),
+      })
+    : undefined;
   if (toaster) ledger.defer(() => toaster.destroy());
 
   const defined = (element: HTMLElement | undefined): element is HTMLElement =>
@@ -523,7 +522,7 @@ function renderShell(
     placeHint();
   }
 
-  /** Web and embedded: the raised zoom row (legal line) and the toast stack's bottom, from what is visible. */
+  /** Web: the raised zoom row (legal line) and the toast stack's bottom, from what is visible. */
   function updateBottomRow(): void {
     if (ledger.isClosed) return;
     const size = containerSize();

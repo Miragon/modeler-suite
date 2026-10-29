@@ -132,15 +132,16 @@ export async function openHarness<P extends PageLike>(
 }
 
 /**
- * The web column's hooks a case of `host` needs, each with what it would have verified: the start
- * screen in the web app, toasts outside the IDE host.
+ * The web column's hooks a case needs, each with what it would have verified: the start screen and
+ * the toasts, both in the web app only (the IDE and the embedding host own all feedback, guide
+ * §5.2, §13.5).
  */
 export function webHookSkips<P extends PageLike>(
   harness: ShellConformanceHarness<P>,
   hooks: Partial<Record<"toast" | "emptyState", string>>,
 ): ShellSkip[] {
+  if (harness.host !== "web") return [];
   return (Object.entries(hooks) as Array<["toast" | "emptyState", string]>)
-    .filter(([hook]) => (hook === "toast" ? harness.host !== "ide" : harness.host === "web"))
     .filter(([hook]) => unfed(harness, hook))
     .map(([hook, what]) => ({ hook, reason: `show.${hook} is undefined: ${what} not verified` }));
 }
