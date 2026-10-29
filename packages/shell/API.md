@@ -3424,10 +3424,13 @@ The stub above stands in for VS Code; this entry starts the real one. It downloa
 extension, opens a fixture in the custom editor and checks what only a real VS Code can show: the
 webview inside VS Code's two frames, the document's dirty state, save and undo through the
 workbench's keybindings, and the theme bridge under VS Code's four default themes, with a screenshot
-per theme. Opted in (0.7), it also presses the zoom and selection keys and checks that none of them
-reaches VS Code's own bindings; opted in (0.8), it also redoes and undoes the edit and checks that
-the zoomed view and the selection survive both, and runs the workbench steps: VS Code's
-`workbench.reduceMotion`, the editor in a hidden tab and Developer: Reload Window. It runs in Node, from a Vitest or `node:test` file; no Playwright test runner is needed.
+per theme. It also presses the zoom and selection keys and checks that none of them reaches VS
+Code's own bindings (0.7), redoes and undoes the edit and checks that the zoomed view and the
+selection survive both, and runs the workbench steps: VS Code's `workbench.reduceMotion`, the editor
+in a hidden tab and Developer: Reload Window (0.8). The keys, the history and the workbench steps
+started opt-in and run by default since 0.8; `keys`, `history` or `workbench` set to `false`, or
+`VSCODE_SMOKE_SKIP` in the environment, skips them. It runs in Node, from a Vitest or `node:test`
+file; no Playwright test runner is needed.
 The package's command `modeler-shell-vscode-docker` runs such a test in a Linux container, without a
 window on the host ([In Docker](#in-docker-031)).
 
@@ -3477,9 +3480,9 @@ interface VsCodeSmokeOptions {
   settings?: Record<string, unknown>; // more user settings, merged over the driver's
   log?: (line: string) => void; // progress; default silent
   keepTemporaryFiles?: boolean; // keep profile, workspace and VS Code's logs, and log where
-  keys?: boolean; // 0.7: the keys step; default: whether VSCODE_SMOKE_OPT_IN names "keys"
-  history?: boolean; // 0.8: the history step; default: whether VSCODE_SMOKE_OPT_IN names "history"
-  workbench?: boolean; // 0.8: the motion, hidden and reload steps; default: whether VSCODE_SMOKE_OPT_IN names "workbench"
+  keys?: boolean; // 0.7: the keys step; default (0.8): true unless VSCODE_SMOKE_SKIP names "keys"
+  history?: boolean; // 0.8: the history step; default: true unless VSCODE_SMOKE_SKIP names "history"
+  workbench?: boolean; // 0.8: the motion, hidden and reload steps; default: true unless VSCODE_SMOKE_SKIP names "workbench"
 }
 function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCodeSmokeResult>;
 function createFromPalette(context: VsCodeSmokeContext): Promise<void>;
@@ -3503,18 +3506,25 @@ const VSCODE_SMOKE_STEPS: readonly [
   "save",
   "undo",
   "themes",
-  "keys", // 0.7, opt-in
-  "history", // 0.8, opt-in
-  "motion", // 0.8, opt-in as "workbench"
-  "hidden", // 0.8, opt-in as "workbench"
-  "reload", // 0.8, opt-in as "workbench"
+  "keys", // 0.7; skipped as "keys"
+  "history", // 0.8; skipped as "history"
+  "motion", // 0.8; skipped as "workbench"
+  "hidden", // 0.8; skipped as "workbench"
+  "reload", // 0.8; skipped as "workbench"
   "close",
 ];
-// the steps a run takes only when asked to (keys since 0.7, history and workbench since 0.8; workbench
-// names motion, hidden and reload), until every modeler passes them in CI
-const VSCODE_SMOKE_OPT_IN_STEPS: readonly ["keys", "history", "workbench"];
-type VsCodeSmokeOptInStep = (typeof VSCODE_SMOKE_OPT_IN_STEPS)[number];
-// the steps VSCODE_SMOKE_OPT_IN names, separated by commas or spaces; throws for an unknown name
+// 0.8: the steps a run takes unless told to skip them (keys since 0.7, history and workbench since
+// 0.8, all three by default since 0.8; workbench names motion, hidden and reload)
+const VSCODE_SMOKE_SKIPPABLE_STEPS: readonly ["keys", "history", "workbench"];
+type VsCodeSmokeSkippableStep = (typeof VSCODE_SMOKE_SKIPPABLE_STEPS)[number];
+// 0.8: the steps VSCODE_SMOKE_SKIP names, separated by commas or spaces; throws for an unknown name
+function vsCodeSmokeSkip(
+  environment: Record<string, string | undefined>,
+): ReadonlySet<VsCodeSmokeSkippableStep>;
+// deprecated since 0.8.0, removed in 0.9.0 (#350): the same list and type under their opt-in names,
+// and the parser of VSCODE_SMOKE_OPT_IN, which the driver no longer reads
+const VSCODE_SMOKE_OPT_IN_STEPS: typeof VSCODE_SMOKE_SKIPPABLE_STEPS;
+type VsCodeSmokeOptInStep = VsCodeSmokeSkippableStep;
 function vsCodeSmokeOptIn(
   environment: Record<string, string | undefined>,
 ): ReadonlySet<VsCodeSmokeOptInStep>;
@@ -3740,10 +3750,12 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
    after 30.0 s, though the driver wrote the setting 4 times (…)". Every retry is in the log
    ("themes: Default Dark Modern: the workbench still shows … after 2.0 s, writing the setting
    again"). A modeler's own retry of a missed theme switch is no longer needed.
-8. **keys** (0.7, opt-in): runs with `keys: true`, or without the option when the test process's
-   environment has `VSCODE_SMOKE_OPT_IN=keys` (CI's smoke workflow sets it, so every modeler runs
-   the step without a change to its test; an unknown name there throws). It checks the keys of guide
-   §5.8 and §13.5 with the focus on the canvas. The driver adds a recorder to the webview (a
+8. **keys** (0.7, by default since 0.8): runs unless the modeler passes `keys: false` or, without
+   the option, the test process's environment has `VSCODE_SMOKE_SKIP=keys` (a list takes commas or
+   spaces, `keys,workbench`; an unknown name there throws, also when every step's option is given).
+   The option wins over the variable, which lets a modeler or a local run that cannot take a step
+   skip it without a change to its test. It checks the keys of guide §5.8 and §13.5 with the focus
+   on the canvas. The driver adds a recorder to the webview (a
    `keydown` listener on `window` in the capture phase, one on `document` after the shell's and the
    modeler's, one on `window` in the bubble phase), focuses the canvas `<svg>` and presses Shift+1,
    whose fit is the reference (an inspector or a legend opened since the first fit moves it), then
@@ -3770,11 +3782,10 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
    levels and how many elements Cmd/Ctrl+A selected. Its failures read like "keys:
    Control+Shift+Minus reached the webview's window, where VS Code runs its own binding for it" or
    "keys: Control+Digit0 moved VS Code's focus to the side bar". A modeler whose chrome has no zoom
-   panel cannot take the step.
-9. **history** (0.8, opt-in): runs with `history: true`, or without the option when the test
-   process's environment has `VSCODE_SMOKE_OPT_IN=history` (CI's smoke workflow sets
-   `keys,history,workbench`; a list takes commas or spaces). Needs the undo step to have brought
-   the canvas back, else the log says it was skipped. The host owns the document's history (guide
+   panel cannot take the step and passes `keys: false`.
+9. **history** (0.8, by default): runs unless the modeler passes `history: false` or, without the
+   option, `VSCODE_SMOKE_SKIP` names `history`. Needs the undo step to have brought the canvas back,
+   else the log says it was skipped. The host owns the document's history (guide
    §13.5): the key reaches VS Code, VS Code changes the text, the webview imports it, and what the
    user zoomed and selected has to survive that import. The step runs after the themes and the
    keys and before the workbench steps, so the zoom and the selection it leaves are in no
@@ -3798,11 +3809,11 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
    elements before the redo, after it and after the undo. Its failures read like "history:
    Control+y moved the view: zoom 84% at 12, -8 before, zoom 62% at 0, 0 after" or "history:
    Control+z dropped the selection of cmp_tea, cmp_milk, which are still on the canvas".
-10. **motion** (0.8, opt-in as `workbench`): runs with `workbench: true`, or without the option
-    when `VSCODE_SMOKE_OPT_IN` names `workbench` (CI's smoke workflow sets
-    `keys,history,workbench`), with the two steps after it. It writes `workbench.reduceMotion: "on"`
-    into the settings file and waits for `.monaco-workbench` to show it (`reduce-motion` in VS Code
-    1.96, `monaco-reduce-motion` later; a write VS Code missed is written again after 2 s). Then
+10. **motion** (0.8, by default): runs unless the modeler passes `workbench: false` or, without
+    the option, `VSCODE_SMOKE_SKIP` names `workbench`; either skips the two steps after it too. It
+    writes `workbench.reduceMotion: "on"` into the settings file and waits for `.monaco-workbench`
+    to show it (`reduce-motion` in VS Code 1.96, `monaco-reduce-motion` later; a write VS Code
+    missed is written again after 2 s). Then
     the webview's `<body>` has to carry `vscode-reduce-motion` (VS Code's part) and its `<html>`
     `cd-shell-reduce-motion` (the shell's mirror), and Shift+1, after Cmd/Ctrl+= moved the view
     away from the fit, has to jump: the driver records the viewport's matrix on every frame, and
@@ -3811,7 +3822,7 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
     `result.motion` holds both counts. Its failures read like "motion: with workbench.reduceMotion
     "on", the webview's <html> has no cd-shell-reduce-motion, the shell's mirror of
     vscode-reduce-motion".
-11. **hidden** (0.8, opt-in as `workbench`): the editor in a background tab
+11. **hidden** (0.8, by default, skipped as `workbench`): the editor in a background tab
     (`retainContextWhenHidden`). It zooms the canvas away from the fit, so a refit would show,
     presses Cmd/Ctrl+A, so a dropped selection would show, marks the webview's document and records
     its keys and the canvas container's sizes, then presses Cmd/Ctrl+N: an untitled text editor
@@ -3824,9 +3835,9 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
     the container reported while hidden (none in VS Code 1.96 and 1.144, which keep the size, or
     0 × 0). Its failures read like "hidden: after the tab came back, the view moved: zoom 84% at
     12, -8 before, zoom 62% at 0, 0".
-12. **reload** (0.8, opt-in as `workbench`): needs the undo step to have brought the canvas back
-    and the modeler's editor in front again after the hidden step, else the log says it was
-    skipped. It turns `workbench.reduceMotion` on, presses the redo key `undoSteps` times and
+12. **reload** (0.8, by default, skipped as `workbench`): needs the undo step to have brought the
+    canvas back and the modeler's editor in front again after the hidden step, else the log says it
+    was skipped. It turns `workbench.reduceMotion` on, presses the redo key `undoSteps` times and
     saves, so that the document differs from the one VS Code opened at start, fits, zooms away from
     the fit, toggles the legend through its menu entry where there is one (a legend mounted with
     `menuEntry: false` is not checked, and the result says so), and gives the webview 1 s to store
@@ -3850,9 +3861,9 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
 `runVsCodeSmoke` never throws for a failed check: everything broken is in `failures`, prefixed with
 its step. It throws for options it cannot run with (no `package.json`, no custom editor for the
 fixture, an extension whose `main` is not built, that is, `require` would not find it, a fixture
-name with a path or glob characters) and when a peer is missing. `createFromPalette`, the default
-`edit`, is the keyboard path of the shell's palette (guide §5.5): it focuses the first enabled entry
-outside the tools group that is not a `-tool`, presses Enter, waits for one more shape and presses
+name with a path or glob characters, an unknown step in `VSCODE_SMOKE_SKIP`) and when a peer is
+missing. `createFromPalette`, the default `edit`, is the keyboard path of the shell's palette
+(guide §5.5): it focuses the first enabled entry outside the tools group that is not a `-tool`, presses Enter, waits for one more shape and presses
 Escape for the label editor a creation opens. An `edit` of one's own drives `context.webview` with
 locators (`click`, `dblclick`, `fill`) and `context.page.keyboard`, and leaves no label editor open.
 

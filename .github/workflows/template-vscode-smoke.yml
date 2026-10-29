@@ -81,15 +81,11 @@ jobs:
 
       # VS Code needs an X server; -a picks a free display number. The runner is thrown away anyway,
       # so the run keeps VS Code's profile in RUNNER_TEMP, for its logs when it fails.
-      # VSCODE_SMOKE_OPT_IN runs the driver's opt-in steps, as vscode-smoke.yml does for every
-      # modeler: a new modeler gets them as its default with the shell, and this is the one run that
-      # shows the template passing them before then.
       - run: xvfb-run -a npm run test:vscode
         working-directory: ${{ steps.instance.outputs.directory }}
         env:
           VSCODE_VERSION: ${{ steps.vscode.outputs.version }}
           VSCODE_SMOKE_KEEP: "1"
-          VSCODE_SMOKE_OPT_IN: keys,history,workbench
           TMPDIR: ${{ runner.temp }}
 
       - if: always()
