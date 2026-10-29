@@ -11,7 +11,7 @@ export interface Point {
   y: number;
 }
 
-/** The planned 1.5 kit's gesture kinds (`packages/api/README.md`, "Cases for the 1.5 surfaces"). */
+/** The kit's gesture kinds (`packages/api/README.md`, "Cases for the 1.5 surfaces and the gesture rules of 1.6"). */
 export type GestureKind = "move" | "create" | "createOffCanvas";
 
 /** A gesture the pointer holds, released or cancelled with Escape. */
@@ -135,7 +135,7 @@ export class CanvasPointer {
 }
 
 /**
- * The planned harness field `startGesture(modeler, kind)`: holds a gesture the way a user does and
+ * The kit's harness field `startGesture(modeler, kind)`, for this file's fixture: holds a gesture the way a user does and
  * returns while it runs. A move presses the first listed element and moves past the drag
  * threshold; a create picks the palette's step and holds its preview over the canvas, or over the
  * palette (`createOffCanvas`).
@@ -160,12 +160,12 @@ export function startGesture(
   return { drop: () => pointer.release(), cancel: () => pointer.escape() };
 }
 
-/** The planned harness field `armTool(modeler)`: arms the palette's lasso without a press. */
+/** The kit's harness field `armTool(modeler)`: arms the palette's lasso without a press. */
 export function armTool(modeler: CollaborativeValueChainModeler): void {
   new CanvasPointer(modeler).pickFromPalette("lasso-tool");
 }
 
-/** The planned harness field `exportImage(modeler)`: the SVG export a host saves. */
+/** The kit's harness field `exportImage(modeler)`: the SVG export a host saves. */
 export function exportImage(modeler: CollaborativeValueChainModeler): string {
   return modeler.diagram.saveSVG().svg;
 }

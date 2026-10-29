@@ -190,6 +190,65 @@ export interface ConformanceHarness {
    * as skipped
    */
   commitInteraction?(modeler: CollaborativeModeler): Promise<void> | void;
+  /**
+   * hold a GESTURE on `canonicalTexts[0]` (imported, nothing else running) the way a user does,
+   * and resolve while it runs: `"move"` presses an element and moves it past the drag threshold,
+   * `"create"` takes a palette entry that creates an element and holds its preview over free
+   * canvas, `"createOffCanvas"` holds the same preview over the palette. The kit then drops or
+   * cancels it, also after an import (`HeldGesture`). Drive the modeler's own pointer handling
+   * (real DOM events), not its commands: the cases check what an import does to a drag the
+   * modeler runs. `undefined` = the L1 gesture case, the drop case and the interaction case are
+   * reported as skipped
+   */
+  startGesture?(
+    modeler: CollaborativeModeler,
+    kind: GestureKind,
+  ): Promise<HeldGesture> | HeldGesture;
+  /**
+   * arm a palette tool that waits for its next press (the lasso, the hand tool) the way a user
+   * does, without pressing on the canvas. The interaction case requires `interaction.active()` to
+   * stay false. `undefined` = that half of the interaction case is reported as skipped
+   */
+  armTool?(modeler: CollaborativeModeler): Promise<void> | void;
+  /**
+   * hold a PAN on `canonicalTexts[0]` (imported, the view as the import fitted it, nothing else
+   * running) the way a user does (a press on empty canvas, or the hand tool), moved past the drag
+   * threshold by one STEP: a fixed distance in screen pixels. `HeldPan.move()` moves the pointer
+   * by the same step again, in the same direction, so the kit can tell a pan that goes on from the
+   * view an import left from one that puts the view from before the import back. `undefined` = the
+   * pan case is reported as skipped
+   */
+  startPan?(modeler: CollaborativeModeler): Promise<HeldPan> | HeldPan;
+  /**
+   * the modeler's image export as a host saves it (its SVG): the appearance case requires it to
+   * stay byte-identical under every `appearance.set`, since exports are always light. `undefined`
+   * = that half of the appearance case is reported as skipped
+   */
+  exportImage?(modeler: CollaborativeModeler): Promise<string> | string;
+}
+
+/** the gestures `ConformanceHarness.startGesture` holds */
+export type GestureKind = "move" | "create" | "createOffCanvas";
+
+/** a gesture `ConformanceHarness.startGesture` holds, until the kit ends it */
+export interface HeldGesture {
+  /**
+   * release it where it applies, the way the user does: the moved element lands on a new
+   * position, the preview of a create on free canvas (an off-canvas preview is brought there
+   * first, then placed). A drop of a gesture the modeler still runs changes the document: the
+   * cases rely on that to see whether an import left the gesture running
+   */
+  drop(): Promise<void> | void;
+  /** cancel it the way the user does (Escape) */
+  cancel(): Promise<void> | void;
+}
+
+/** a pan `ConformanceHarness.startPan` holds, until the kit releases it */
+export interface HeldPan {
+  /** move the pointer by one more step, as far and in the direction `startPan` moved it */
+  move(): Promise<void> | void;
+  /** release the pointer */
+  drop(): Promise<void> | void;
 }
 
 /** an interaction in progress, as `ConformanceHarness.interactionState` reports it */

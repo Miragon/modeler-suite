@@ -45,7 +45,7 @@ import "../../src/assets/wardley.css";
 
 // The `interaction` surface of contract 1.5, the RECOMMENDED gesture cancel of L1, and an import
 // from the change listener of a drop, which waits until the drop has ended (#248). The first two
-// describe blocks follow the kit's planned cases (packages/api/README.md, "Cases for the 1.5
+// describe blocks follow the kit's cases (packages/api/README.md, "Cases for the 1.5
 // surfaces"), with the harness fields of ./support/gesture-harness.ts.
 
 const mountedModelers: CollaborativeWardleyModeler[] = [];

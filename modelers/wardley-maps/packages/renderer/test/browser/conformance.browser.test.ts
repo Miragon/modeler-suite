@@ -3,6 +3,9 @@ import {
   attachedHost,
   registerConformance,
   type ConformanceHarness,
+  type GestureKind,
+  type HeldGesture,
+  type HeldPan,
 } from "@miragon/modeler-api/conformance";
 import type { CollaborativeModeler } from "@miragon/modeler-api";
 import type Canvas from "diagram-js/lib/core/Canvas";
@@ -19,6 +22,16 @@ import {
 import type WardleyElementFactory from "../../src/model/WardleyElementFactory.js";
 import type WardleyLabelEditing from "../../src/label-editing/WardleyLabelEditing.js";
 import type { WardleyShape } from "../../src/model/di-types.js";
+import {
+  armTool,
+  canvasSvgOf,
+  clientAt,
+  enterCanvas,
+  exportImage,
+  mouse,
+  startGesture as holdGesture,
+  type Point,
+} from "./support/gesture-harness.js";
 import teaShop from "./fixtures/tea-shop.wmap?raw";
 import teaShopLoose from "./fixtures/tea-shop.loose.wmap?raw";
 import teaShopForeign from "./fixtures/tea-shop.foreign.wmap?raw";
@@ -82,6 +95,56 @@ function labelField(modeler: CollaborativeModeler): HTMLTextAreaElement | null {
 function typedHalfway(fragment: string, typedSoFar: string): string {
   if (!teaShop.includes(fragment)) throw new Error(`the fixture lost "${fragment}"`);
   return teaShop.replace(fragment, typedSoFar);
+}
+
+/** Free plot of tea-shop, inside the view an import fits: where a create lands. */
+const FREE_SPOT: Point = { x: 500, y: 330 };
+
+/**
+ * The kit's gestures on tea-shop: a drop lands where it applies, so the preview of a create held
+ * over the palette is brought onto free plot first.
+ */
+async function startGesture(
+  modeler: CollaborativeModeler,
+  kind: GestureKind,
+): Promise<HeldGesture> {
+  const held = await holdGesture(modeler, kind);
+  if (kind !== "createOffCanvas") return held;
+  return {
+    drop() {
+      enterCanvas(modeler);
+      const at = clientAt(modeler, FREE_SPOT);
+      mouse(document, "mousemove", at);
+      mouse(canvasSvgOf(modeler), "mouseup", at);
+    },
+    cancel: held.cancel,
+  };
+}
+
+/** One step of the kit's pan, in screen pixels: past the 15 px drag threshold of MoveCanvas. */
+const PAN_STEP = 40;
+
+/** A press on the empty plot (the canvas root) and a drag past the threshold, one step at a time. */
+function startPan(modeler: CollaborativeModeler): HeldPan {
+  const diagram = diagramOf(modeler);
+  const canvas = diagram.get<Canvas>("canvas");
+  canvasSvgOf(modeler).focus();
+  const start = clientAt(modeler, FREE_SPOT);
+  let steps = 1;
+  const pointerAt = () => ({ x: start.x + steps * PAN_STEP, y: start.y });
+  mouse(
+    diagram.get<ElementRegistry>("elementRegistry").getGraphics(canvas.getRootElement()),
+    "mousedown",
+    start,
+  );
+  mouse(document, "mousemove", pointerAt());
+  return {
+    move() {
+      steps += 1;
+      mouse(document, "mousemove", pointerAt());
+    },
+    drop: () => mouse(document, "mouseup", pointerAt()),
+  };
 }
 
 const harness: ConformanceHarness = {
@@ -150,6 +213,10 @@ const harness: ConformanceHarness = {
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
     );
   },
+  startGesture,
+  armTool,
+  startPan,
+  exportImage,
 };
 
 // No case is inapplicable to Wardley maps: the harness fills every optional hook, and the kit

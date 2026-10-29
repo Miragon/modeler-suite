@@ -3,6 +3,9 @@ import {
   attachedHost,
   registerConformance,
   type ConformanceHarness,
+  type GestureKind,
+  type HeldGesture,
+  type HeldPan,
 } from '@miragon/modeler-api/conformance';
 import type { CollaborativeModeler } from '@miragon/modeler-api';
 import type Canvas from 'diagram-js/lib/core/Canvas';
@@ -67,6 +70,139 @@ function labelField(modeler: CollaborativeModeler): HTMLTextAreaElement {
   return field;
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
+/** Below the nodes of `orders`, inside the view the import fits: where a create lands. */
+const FREE_SPOT: Point = { x: 360, y: 260 };
+
+/** Real pointer events on the canvas of `modeler`, at points in diagram coordinates. */
+function pointerOn(modeler: CollaborativeModeler) {
+  const canvas = diagramOf(modeler).get<Canvas>('canvas');
+  const svg = canvas.getContainer().querySelector<SVGSVGElement>(':scope > svg');
+  if (!svg) throw new Error('the canvas has no svg');
+  const client = (point: Point) => {
+    const rect = canvas.getContainer().getBoundingClientRect();
+    const viewbox = canvas.viewbox();
+    return {
+      clientX: rect.left + (point.x - viewbox.x) * viewbox.scale,
+      clientY: rect.top + (point.y - viewbox.y) * viewbox.scale,
+    };
+  };
+  const fire = (type: string, target: EventTarget, at: Point, init: MouseEventInit = {}): void => {
+    target.dispatchEvent(
+      new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...client(at), ...init }),
+    );
+  };
+  return {
+    svg,
+    client,
+    press: (target: EventTarget, at: Point) => fire('mousedown', target, at),
+    moveTo: (at: Point) => fire('mousemove', document, at),
+    /** The pointer enters the canvas there: diagram-js takes a drop target from the hover events. */
+    hover(at: Point): void {
+      fire('mouseover', svg, at);
+      fire('mousemove', document, at);
+    },
+    release: (at: Point) => fire('mouseup', document, at),
+    /** A pointer click on a palette entry; returns its centre in diagram coordinates. */
+    clickPalette(action: string): Point {
+      const entry = diagramOf(modeler).container.querySelector(
+        `.djs-palette [data-action="${action}"]`,
+      );
+      if (!entry) throw new Error(`no palette entry ${action}`);
+      const box = entry.getBoundingClientRect();
+      const rect = canvas.getContainer().getBoundingClientRect();
+      const viewbox = canvas.viewbox();
+      const at = {
+        x: viewbox.x + (box.left + box.width / 2 - rect.left) / viewbox.scale,
+        y: viewbox.y + (box.top + box.height / 2 - rect.top) / viewbox.scale,
+      };
+      fire('click', entry, at, { detail: 1 });
+      return at;
+    },
+  };
+}
+
+function pressEscape(): void {
+  document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', bubbles: true }));
+}
+
+/**
+ * The kit's gestures on `orders`: a move of the node "order" past the drag threshold, a create
+ * from the palette held over free canvas, or still over the palette. A drop lands where it
+ * applies, so the create held over the palette is brought onto the canvas first.
+ */
+function startGesture(modeler: CollaborativeModeler, kind: GestureKind): HeldGesture {
+  const pointer = pointerOn(modeler);
+  if (kind === 'move') {
+    const node = nodeToEdit(modeler);
+    const start = { x: node.x + node.width / 2, y: node.y + node.height / 2 };
+    const target = { x: start.x + 60, y: start.y + 160 };
+    pointer.press(
+      diagramOf(modeler).get<ElementRegistry>('elementRegistry').getGraphics(node),
+      start,
+    );
+    pointer.moveTo({ x: start.x + 20, y: start.y + 40 });
+    pointer.moveTo({ x: start.x + 40, y: start.y + 80 });
+    return {
+      drop() {
+        pointer.hover(target);
+        pointer.release(target);
+      },
+      cancel: pressEscape,
+    };
+  }
+  const at = pointer.clickPalette('create.node');
+  if (kind === 'create') pointer.hover(FREE_SPOT);
+  else pointer.moveTo({ x: at.x + 4, y: at.y + 4 });
+  return {
+    drop() {
+      pointer.hover(FREE_SPOT);
+      pointer.release(FREE_SPOT);
+    },
+    cancel: pressEscape,
+  };
+}
+
+/** One step of the kit's pan, in screen pixels. */
+const PAN_STEP = 40;
+
+/** A pan with the palette's hand tool, pressed on free canvas and moved one step at a time. */
+function startPan(modeler: CollaborativeModeler): HeldPan {
+  const pointer = pointerOn(modeler);
+  const at = pointer.clickPalette('hand-tool');
+  pointer.hover({ x: at.x + 60, y: at.y + 60 });
+  pointer.hover(FREE_SPOT);
+  const { clientX, clientY } = pointer.client(FREE_SPOT);
+  let steps = 0;
+  const fire = (type: string, target: EventTarget): void => {
+    target.dispatchEvent(
+      new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: clientX + steps * PAN_STEP,
+        clientY,
+      }),
+    );
+  };
+  fire('mousedown', pointer.svg);
+  steps = 1;
+  fire('mousemove', document);
+  return {
+    move() {
+      steps += 1;
+      fire('mousemove', document);
+    },
+    drop() {
+      fire('mouseup', document);
+    },
+  };
+}
+
 const harness: ConformanceHarness = {
   async create() {
     const modeler = createCollaborativeModeler();
@@ -116,6 +252,15 @@ const harness: ConformanceHarness = {
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
     );
   },
+  startGesture,
+  // the palette's lasso, armed and waiting for its next press over the canvas
+  armTool(modeler) {
+    const pointer = pointerOn(modeler);
+    const at = pointer.clickPalette('lasso-tool');
+    pointer.moveTo({ x: at.x + 60, y: at.y + 60 });
+  },
+  startPan,
+  exportImage: (modeler) => diagramOf(modeler).saveSVG().svg,
   settle: () => new Promise((resolve) => setTimeout(resolve, 30)),
 };
 
