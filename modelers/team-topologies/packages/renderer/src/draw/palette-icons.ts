@@ -13,11 +13,7 @@ import {
 import type { InteractionMode, TeamType } from "@miragon/team-topologies-schema-model";
 import { PREMIXED_INTERACTION_FILLS } from "../theme/index.js";
 import { ICON_SQUARE_DASHED_MOUSE_POINTER, iconMarkup } from "./icons.js";
-import {
-  HIGH_CONTRAST_UNDERLAY_CLASS,
-  UNDERLAY_EXTRA_WIDTH,
-  contourOnUnderlay,
-} from "./underlay.js";
+import { UNDERLAY_EXTRA_WIDTH, underlayClass } from "./underlay.js";
 
 /**
  * The lasso is a tool, not notation: a Lucide icon at the guide's tool size (§5.14, 20px with a
@@ -34,18 +30,23 @@ function svg(inner: string): string {
 }
 
 /**
- * A notation preview's fill and contour as the canvas draws them. Guide §10.6 puts the previews
- * in palette and legend under the canvas's exception, so a template contour below 3:1 lies on the
- * high-contrast underlay here too (#213): the fill carries it as a stroke 2px wider, and the
- * contour is drawn above it.
+ * A notation preview's fill and contour as the canvas draws them, on the same underlays. Guide
+ * §10.6 puts the previews in palette and legend under the canvas's exception, so a template
+ * contour below 3:1 lies on the high-contrast underlay here too (#213), and the flow of change,
+ * below 3:1 on the dark chrome as on the dark canvas, on the dark one: the fill carries the
+ * underlay as a stroke 2px wider, and the contour is drawn above it.
  */
 function previewOutline(shape: PreviewShape, fill: string, stroke: string, dash: string): string {
   const dashed = dash ? ` stroke-dasharray="${dash}"` : "";
   const contour = `stroke="${stroke}" stroke-width="${PREVIEW_STROKE_WIDTH}"${dashed}`;
-  if (!contourOnUnderlay(stroke, undefined)) return shape(`fill="${fill}" ${contour}`);
+  const underlay = underlayClass(stroke, undefined);
+  if (!underlay) return shape(`fill="${fill}" ${contour}`);
   const underlayWidth = PREVIEW_STROKE_WIDTH + UNDERLAY_EXTRA_WIDTH;
-  const underlay = `class="${HIGH_CONTRAST_UNDERLAY_CLASS}" fill="${fill}" stroke="none" stroke-width="${underlayWidth}"${dashed}`;
-  return shape(underlay) + shape(`fill="none" ${contour}`);
+  return (
+    shape(
+      `class="${underlay}" fill="${fill}" stroke="none" stroke-width="${underlayWidth}"${dashed}`,
+    ) + shape(`fill="none" ${contour}`)
+  );
 }
 
 export function teamIconSvg(type: TeamType): string {
@@ -69,12 +70,10 @@ function teamShape(shape: (typeof TEAM_TYPE_SPECS)[TeamType]["shape"]): PreviewS
 }
 
 export function flowIconSvg(): string {
-  const dash = dashArray(FLOW_SPEC.strokeStyle, 1.5);
-  return svg(
-    `<g fill="none" stroke="${FLOW_SPEC.stroke}" stroke-width="1.5" stroke-linejoin="round"` +
-      (dash ? ` stroke-dasharray="${dash}"` : "") +
-      `><polygon points="3,9 16,9 16,5 23,13 16,21 16,17 3,17"/></g>`,
-  );
+  const dash = dashArray(FLOW_SPEC.strokeStyle, PREVIEW_STROKE_WIDTH);
+  const arrow: PreviewShape = (attributes) =>
+    `<polygon points="3,9 16,9 16,5 23,13 16,21 16,17 3,17" stroke-linejoin="round" ${attributes}/>`;
+  return svg(previewOutline(arrow, "none", FLOW_SPEC.stroke, dash));
 }
 
 export function annotationIconSvg(): string {

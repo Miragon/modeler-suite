@@ -8,12 +8,14 @@ import type { TtElement } from "../model/di-types.js";
 import vendoredTokens from "../theme/cd-tokens.generated.json";
 import { contrastRatio, interactionPaint, parseHexColour, type Rgb } from "./colour.js";
 import { labelLayout } from "./label-layout.js";
-import { interactionIconSvg, teamIconSvg } from "./palette-icons.js";
+import { flowIconSvg, interactionIconSvg, teamIconSvg } from "./palette-icons.js";
 import { STROKE_MUTED } from "./styles.js";
 import {
+  DARK_UNDERLAY_CLASS,
   HIGH_CONTRAST_UNDERLAY_CLASS,
-  contourOnUnderlay,
+  notationStrokesOnDarkUnderlay,
   templateContoursOnUnderlay,
+  underlayClass,
 } from "./underlay.js";
 
 const TEXT_CONTRAST = 4.5;
@@ -24,6 +26,24 @@ const CANVAS_GROUND = vendoredTokens.hell["--cd-ui-grund"];
 const HIGH_CONTRAST_UNDERLAY = vendoredTokens.hochkontrast.hell["--cd-ui-kontur"];
 /** The glass of palette and legend, opaque under high contrast (guide §5.3, §10.6). */
 const PREVIEW_SURFACE = vendoredTokens.hell["--cd-ui-flaeche-hoch"];
+
+/** The canvas ground of the dark mode, `#1D1D1D`. */
+const DARK_CANVAS_GROUND = vendoredTokens.dunkel["--cd-ui-grund"];
+/** What `cd-c-unterleger` draws in the dark mode, and under `data-cd-kontrast="hoch"` there. */
+const DARK_UNDERLAY = vendoredTokens.dunkel["--cd-ui-kontur"];
+const DARK_HIGH_CONTRAST_UNDERLAY = vendoredTokens.hochkontrast.dunkel["--cd-ui-kontur"];
+/** Palette and legend in the dark mode: their glass is opaque there (guide §5.3, §6). */
+const DARK_PREVIEW_SURFACE = vendoredTokens.dunkel["--cd-ui-flaeche-hoch"];
+
+/** A role as the dark mode resolves it, with or without high contrast. */
+function darkRole(role: string, highContrast = false): string {
+  const name = `--cd-ui-${role}`;
+  const contrastValues = vendoredTokens.hochkontrast.dunkel as Record<string, string>;
+  const darkValues = vendoredTokens.dunkel as Record<string, string>;
+  const value = (highContrast ? contrastValues[name] : undefined) ?? darkValues[name];
+  if (!value) throw new Error(`no dark value for ${name}`);
+  return value;
+}
 
 /**
  * The official Team-Shape-Templates strokes below 3:1 on the canvas ground. They stay as they are
@@ -39,6 +59,16 @@ const OFFICIAL_STROKES_BELOW_NON_TEXT_CONTRAST: Record<string, string> = {
   platform: "#6D9EEB",
   "x-as-a-service": "#999696",
   facilitating: "#78996B",
+};
+
+/**
+ * The notation strokes below 3:1 on the dark canvas ground. Each keeps its colour on the dark
+ * underlay in `--cd-ui-kontur` (guide §10.6 names the flow of change in `#6B6459`), so on the dark
+ * canvas no stroke stays below 3:1 against its surroundings. Pinned like the light exception, so a
+ * new or recoloured stroke below 3:1 on black fails until it gets the underlay.
+ */
+const NOTATION_STROKES_ON_THE_DARK_UNDERLAY: Record<string, string> = {
+  "flow of change": "#6B6459",
 };
 
 function rgb(colour: string): Rgb {
@@ -111,11 +141,11 @@ describe("the exempt strokes under high contrast", () => {
 
   it("lie on the underlay only as the template draws them, never in a colour the user set", () => {
     for (const stroke of exempt) {
-      expect(contourOnUnderlay(stroke, undefined)).toBe(true);
-      expect(contourOnUnderlay(stroke, stroke)).toBe(false);
+      expect(underlayClass(stroke, undefined)).toBe(HIGH_CONTRAST_UNDERLAY_CLASS);
+      expect(underlayClass(stroke, stroke)).toBeUndefined();
     }
-    expect(contourOnUnderlay(FLOW_SPEC.stroke, undefined)).toBe(false);
-    expect(contourOnUnderlay(STROKE_MUTED, undefined)).toBe(false);
+    expect(underlayClass(FLOW_SPEC.stroke, undefined)).not.toBe(HIGH_CONTRAST_UNDERLAY_CLASS);
+    expect(underlayClass(STROKE_MUTED, undefined)).toBeUndefined();
   });
 
   it.each(Object.entries(OFFICIAL_STROKES_BELOW_NON_TEXT_CONTRAST))(
@@ -194,6 +224,140 @@ describe("the notation previews of palette and legend under high contrast", () =
 
   it("on an underlay that reaches 3:1 on the previews' surface", () => {
     expect(contrast(HIGH_CONTRAST_UNDERLAY, PREVIEW_SURFACE)).toBeGreaterThanOrEqual(
+      NON_TEXT_CONTRAST,
+    );
+  });
+});
+
+// Guide §10.6 on the dark canvas: the notation keeps its colours. Its fills stay light, like paper on
+// a dark desk, so the labels on them keep theirs; a notation stroke below 3:1 on black lies on the
+// dark underlay; and what the renderer draws in a role takes the role's dark value.
+describe("strokes on the dark canvas ground", () => {
+  const strokes: ReadonlyArray<readonly [string, string]> = [
+    ...ALL_TEAM_SPECS.map((spec) => [spec.type, spec.stroke] as const),
+    ...ALL_INTERACTION_SPECS.map((spec) => [spec.mode, spec.stroke] as const),
+    ["flow of change", FLOW_SPEC.stroke],
+    ["annotation bracket and association", darkRole("kontur")],
+  ];
+
+  it("lie on the brand black", () => {
+    expect(DARK_CANVAS_GROUND).toBe("#1D1D1D");
+  });
+
+  it("reach 3:1, except exactly the notation strokes on the dark underlay", () => {
+    const below = Object.fromEntries(
+      strokes
+        .filter(([, stroke]) => contrast(stroke, DARK_CANVAS_GROUND) < NON_TEXT_CONTRAST)
+        .map(([name, stroke]) => [name, stroke.toUpperCase()]),
+    );
+    expect(below).toEqual(NOTATION_STROKES_ON_THE_DARK_UNDERLAY);
+  });
+
+  it.each(Object.entries(OFFICIAL_STROKES_BELOW_NON_TEXT_CONTRAST))(
+    "reach 3:1 without an underlay for the light exception's contour: %s",
+    (_name, stroke) => {
+      expect(contrast(stroke, DARK_CANVAS_GROUND)).toBeGreaterThanOrEqual(NON_TEXT_CONTRAST);
+    },
+  );
+});
+
+describe("the dark underlay", () => {
+  const onDarkUnderlay = Object.values(NOTATION_STROKES_ON_THE_DARK_UNDERLAY);
+
+  it("lies under exactly the notation strokes below 3:1 on the dark ground", () => {
+    expect(notationStrokesOnDarkUnderlay().sort()).toEqual([...onDarkUnderlay].sort());
+    for (const stroke of onDarkUnderlay) {
+      expect(underlayClass(stroke, undefined)).toBe(DARK_UNDERLAY_CLASS);
+    }
+  });
+
+  it("never under a contour of the light exception, which keeps its high-contrast underlay", () => {
+    const exempt = templateContoursOnUnderlay();
+    expect(notationStrokesOnDarkUnderlay().filter((stroke) => exempt.includes(stroke))).toEqual([]);
+    for (const stroke of exempt) {
+      expect(underlayClass(stroke, undefined)).toBe(HIGH_CONTRAST_UNDERLAY_CLASS);
+    }
+  });
+
+  it("reaches 3:1 on the dark ground, with and without high contrast", () => {
+    expect(contrast(DARK_UNDERLAY, DARK_CANVAS_GROUND)).toBeGreaterThanOrEqual(NON_TEXT_CONTRAST);
+    expect(contrast(DARK_HIGH_CONTRAST_UNDERLAY, DARK_CANVAS_GROUND)).toBeGreaterThanOrEqual(
+      NON_TEXT_CONTRAST,
+    );
+  });
+});
+
+describe("label text on the dark canvas", () => {
+  it.each(["flow", "annotation"])(
+    "of a %s, on the ground, follows a role that reaches 4.5:1 there, also under high contrast",
+    (ttKind) => {
+      const { role } = labelLayout(element({ ttKind }));
+      expect(role).toBeDefined();
+      expect(contrast(darkRole(role!), DARK_CANVAS_GROUND)).toBeGreaterThanOrEqual(TEXT_CONTRAST);
+      expect(contrast(darkRole(role!, true), DARK_CANVAS_GROUND)).toBeGreaterThanOrEqual(
+        TEXT_CONTRAST,
+      );
+    },
+  );
+
+  // The attribute carries the light value, so the light canvas and the export stay as they were.
+  it.each(["flow", "annotation"])("of a %s is drawn in its role's light value", (ttKind) => {
+    const { role, fill } = labelLayout(element({ ttKind }));
+    const lightRoles = vendoredTokens.hell as Record<string, string>;
+    expect(fill).toBe(lightRoles[`--cd-ui-${role}`]);
+  });
+
+  it.each([
+    ...ALL_TEAM_SPECS.map((spec) => [spec.type, { ttKind: "team", teamType: spec.type }] as const),
+    ...ALL_INTERACTION_SPECS.map(
+      (spec) => [spec.mode, { ttKind: "interaction", mode: spec.mode }] as const,
+    ),
+  ])("on the %s fill, which stays light, keeps its colour in every mode", (_name, fields) => {
+    expect(labelLayout(element(fields)).role).toBeUndefined();
+  });
+});
+
+describe("the notation previews of palette and legend on the dark chrome", () => {
+  const previews: ReadonlyArray<readonly [string, string, string]> = [
+    ...ALL_TEAM_SPECS.map((spec) => [spec.type, spec.stroke, teamIconSvg(spec.type)] as const),
+    ...ALL_INTERACTION_SPECS.map(
+      (spec) => [spec.mode, spec.stroke, interactionIconSvg(spec.mode)] as const,
+    ),
+    ["flow of change", FLOW_SPEC.stroke, flowIconSvg()],
+  ];
+
+  it("reach 3:1 on the dark surface, except exactly the strokes on the dark underlay", () => {
+    const below = Object.fromEntries(
+      previews
+        .filter(([, stroke]) => contrast(stroke, DARK_PREVIEW_SURFACE) < NON_TEXT_CONTRAST)
+        .map(([name, stroke]) => [name, stroke.toUpperCase()]),
+    );
+    expect(below).toEqual(NOTATION_STROKES_ON_THE_DARK_UNDERLAY);
+  });
+
+  it("lay exactly those on the dark underlay", () => {
+    const onDarkUnderlay = Object.fromEntries(
+      previews
+        .filter(([, , markup]) => markup.includes(`class="${DARK_UNDERLAY_CLASS}"`))
+        .map(([name, stroke]) => [name, stroke.toUpperCase()]),
+    );
+    expect(onDarkUnderlay).toEqual(NOTATION_STROKES_ON_THE_DARK_UNDERLAY);
+  });
+
+  it("draw the flow of change above its underlay, 2px wider, with the same dashes and no fill", () => {
+    const [underlay, contour, ...rest] = previewShapes(flowIconSvg());
+    expect(rest).toEqual([]);
+    expect(underlay).toMatchObject({ class: DARK_UNDERLAY_CLASS, fill: "none", stroke: "none" });
+    expect(Number(underlay!["stroke-width"])).toBe(Number(contour!["stroke-width"]) + 2);
+    expect(underlay!["stroke-dasharray"]).toBe(contour!["stroke-dasharray"]);
+    expect(contour).toMatchObject({ fill: "none", stroke: FLOW_SPEC.stroke });
+    expect(contour!.class).toBeUndefined();
+    expect(geometry(underlay!)).toEqual(geometry(contour!));
+  });
+
+  it("on a dark underlay that reaches 3:1 on the dark surface, with and without high contrast", () => {
+    expect(contrast(DARK_UNDERLAY, DARK_PREVIEW_SURFACE)).toBeGreaterThanOrEqual(NON_TEXT_CONTRAST);
+    expect(contrast(DARK_HIGH_CONTRAST_UNDERLAY, DARK_PREVIEW_SURFACE)).toBeGreaterThanOrEqual(
       NON_TEXT_CONTRAST,
     );
   });

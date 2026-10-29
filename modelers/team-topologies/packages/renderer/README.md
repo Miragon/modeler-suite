@@ -197,6 +197,17 @@ coloured has none.
 Without high contrast and in the export the contours stay as the templates draw them: the SVG
 export drops every `cd-c-*` class, so the underlay keeps its `stroke: none`.
 
+The canvas can also draw dark, though `appearance` keeps it light until that joint release: under
+a dark mode carrier (`data-cd-theme="dark"` on the container or the page around it) the ground, the
+dot grid and everything the renderer draws in a role switch to the dark roles through the `cd-c-*`
+classes of `cd-canvas.css` (guide §10.2): the annotation's text, the flow's caption, the annotation
+bracket and its connector, and the label editor of the two. The notation stays as the templates
+define it: team and interaction fills stay light, and their labels and contours keep their colours.
+The flow of change (`#6B6459`) falls below 3:1 on black, so on a dark carrier it lies on an
+underlay in `--cd-ui-kontur` (guide §10.6, the `cd-c-unterleger` class), and so does its preview in
+the palette, the legend rows and the inspector. The export stays light: an SVG or PNG exported from
+a dark canvas is byte-identical to the one from the light canvas.
+
 Options: the contract's `CollaborativeModelerOptions` (1.2) and `additionalModules`:
 
 - `freeArea`: the part of the canvas no host chrome covers, `{ insets: () => shell.fitInsets() }`

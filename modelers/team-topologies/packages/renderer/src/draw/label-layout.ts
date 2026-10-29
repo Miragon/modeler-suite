@@ -14,6 +14,7 @@ import {
   type TtTeam,
 } from "../model/di-types.js";
 import { MIRAGON } from "../theme/index.js";
+import type { CanvasTextRole } from "./canvas-roles.js";
 import { contrastRatio, interactionPaint, parseHexColour } from "./colour.js";
 import { FONT, INK, INK_MUTED } from "./styles.js";
 
@@ -39,7 +40,10 @@ export interface LabelLayout {
   fontSize: number;
   fontWeight: string;
   letterSpacing?: string;
+  /** The light colour, which the SVG and its export carry. */
   fill: string;
+  /** The role a label on the canvas ground follows in every mode; none on a fill. */
+  role?: CanvasTextRole;
 }
 
 /** WCAG AA for body text. */
@@ -86,6 +90,7 @@ export function labelLayout(element: TtElement): LabelLayout {
       fontSize: FONT.annotation,
       fontWeight: "400",
       fill: INK,
+      role: "text",
     };
   }
 
@@ -98,6 +103,7 @@ export function labelLayout(element: TtElement): LabelLayout {
       fontWeight: "600",
       letterSpacing: "0.06em",
       fill: INK_MUTED,
+      role: "text-leise",
     };
   }
 

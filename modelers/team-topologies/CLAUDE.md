@@ -69,6 +69,19 @@ set gets none. The same test checks that the renderer and the icons underlay exa
 strokes and that each reaches 3:1 on its underlay. The design system covers everything else (chrome,
 typography, accent/selection, neutrals, the app icon).
 
+**Dark canvas** (#216, behind `themes: ["light"]` until the joint switch #219): a dark mode carrier
+recolours the canvas through the `cd-c-*` classes of `cd-canvas.css` (guide §10.2). What the
+renderer draws in a role carries its class ([`draw/canvas-roles.ts`](packages/renderer/src/draw/canvas-roles.ts):
+the annotation's text, the flow's caption, the bracket and its connector); the notation fills and
+contours and the labels on them stay as the templates define them (§10.6). The one notation stroke
+below 3:1 on the dark ground `#1D1D1D`, the flow of change `#6B6459`, lies on the dark underlay
+`cd-c-unterleger` in `--cd-ui-kontur`, on the canvas and in its preview; `notation-contrast.test.ts`
+pins that list as exactly as the light exception and checks the labels' dark roles and the previews
+on the dark chrome. [`test/browser/dark-canvas.test.ts`](packages/renderer/test/browser/dark-canvas.test.ts)
+checks the dark rendering with `data-cd-theme="dark"` on the container and that the SVG and PNG
+exports of a dark canvas are byte-identical to the light ones (guide §10.7, §13.4); the e2e
+projects `webapp` and `vscode-webview` repeat the export check through the apps' own exports.
+
 ## Packages
 
 The workspaces are `packages/*`, `apps/*` and `e2e` of this folder. Internal

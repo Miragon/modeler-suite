@@ -249,6 +249,36 @@ test.describe("VS Code webview", () => {
     expect(await pngPixel(page, String(png.data))).toBe(PNG_BACKGROUND);
   });
 
+  // Guide §10.7 and the acceptance test of §13.4: the export is light in every mode. The webview
+  // draws light under every VS Code theme until the joint dark-mode release (#219), so the test
+  // writes dark itself.
+  test("a dark canvas exports the light SVG and PNG, byte for byte", async ({ page }) => {
+    await openWebview(page);
+    const exportsOf = async (format: "svg" | "png") =>
+      (await postedMessages(page)).filter((message) => message.format === format);
+    const exported = async (format: "svg" | "png"): Promise<string> => {
+      const before = (await exportsOf(format)).length;
+      const name = format === "svg" ? "exportSvg" : "exportPng";
+      await postFromHost(page, { type: "command", name });
+      await expect.poll(async () => (await exportsOf(format)).length).toBe(before + 1);
+      return String((await exportsOf(format)).at(-1)!.data);
+    };
+    const svgOfLight = await exported("svg");
+    const pngOfLight = await exported("png");
+
+    await page.evaluate(() => (document.documentElement.dataset.cdTheme = "dark"));
+    await expect(page.locator(".tt-djs-container")).toHaveCSS(
+      "background-color",
+      "rgb(29, 29, 29)",
+    );
+    const svgOfDark = await exported("svg");
+    const pngOfDark = await exported("png");
+
+    expect(svgOfDark).toBe(svgOfLight);
+    expect(svgOfDark).not.toContain("cd-c-");
+    expect(pngOfDark).toBe(pngOfLight);
+  });
+
   test("a PNG save gets the rendered PNG with the document inside", async ({ page }) => {
     await openWebview(page);
     await postFromHost(page, { type: "requestPng", id: 3, includeDraft: true });

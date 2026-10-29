@@ -22,7 +22,7 @@ export const MIRAGON = {
   blau: "#335DE5",
   /** Deeper blue for links / accent text on white (WCAG AA, ~5.5:1). */
   blauLink: "#2B50D4",
-  /** Lightened blue for accents on dark surfaces (unused here — the canvas is light-only). */
+  /** Lightened blue for accents on dark surfaces; the dark canvas takes it through the roles. */
   blauHell: "#6B8AFF",
   /** Accent: key visual, highlights, the brand gradient. Bright — a fill, never text on white. */
   gruen: "#00E676",
@@ -50,7 +50,7 @@ export const MIRAGON = {
   dangerSoft: "#FBEEF0",
   info: "#335DE5",
   infoSoft: "#EEF1FD",
-  /** Each `-hell` is the status colour for dark surfaces (unused here — the canvas is light-only). */
+  /** Each `-hell` is the status colour for dark surfaces; the dark canvas takes it through the roles. */
   successHell: "#00E676",
   warningHell: "#FFB000",
   dangerHell: "#FB6D73",

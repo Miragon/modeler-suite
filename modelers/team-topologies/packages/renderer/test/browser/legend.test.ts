@@ -132,6 +132,26 @@ describe("renderLegend", () => {
     );
   });
 
+  // Guide §10.6: on the dark legend card, as on the dark canvas, the flow of change lies on the
+  // dark underlay in --cd-ui-kontur; the other previews keep 3:1 there without one.
+  test("lays the flow of change on an underlay in --cd-ui-kontur on a dark carrier only", () => {
+    const body = legendBody();
+    body.dataset.cdTheme = "light";
+    renderLegend(body);
+    const underlays = (): Record<string, string> =>
+      Object.fromEntries(
+        [...body.querySelectorAll<SVGElement>(".cd-c-unterleger")].map((underlay) => [
+          underlay.closest(".tt-legend__row")!.querySelector(".tt-legend__label")!.textContent!,
+          getComputedStyle(underlay).stroke,
+        ]),
+      );
+
+    expect(underlays()).toEqual({ "Flow of change": "none" });
+    body.dataset.cdTheme = "dark";
+    // --cd-ui-kontur of the dark mode.
+    expect(underlays()).toEqual({ "Flow of change": "rgb(143, 138, 138)" });
+  });
+
   test("lays the rows out with the renderer's own styles", () => {
     const body = legendBody();
     renderLegend(body);

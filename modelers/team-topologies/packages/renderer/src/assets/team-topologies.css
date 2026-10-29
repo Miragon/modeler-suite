@@ -76,6 +76,15 @@
   stroke: var(--cd-ui-interaktion) !important;
 }
 
+/* A move preview draws every part in diagram-js's dragger colour, with no fill. A role class of
+   cd-canvas.css matches with the same specificity and comes later, so it would keep its role there. */
+.tt-djs-container .djs-dragger .cd-c-stroke-kontur {
+  stroke: var(--element-dragger-color) !important;
+}
+.tt-djs-container .djs-dragger .cd-c-fill-linie {
+  fill: none !important;
+}
+
 /* The bounding frame drawn around a multi-selection. */
 .tt-djs-container .djs-selection-outline {
   stroke-width: 1.5px;

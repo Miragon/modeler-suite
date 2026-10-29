@@ -10,6 +10,9 @@
  *    association connecting an annotation to the element it is attached to.
  *
  * Colours/shapes come from the single notation source (`@miragon/team-topologies-schema-model`).
+ * Everything is drawn in its light value (guide §10.2). What follows a role carries the `cd-c-*`
+ * class of `cd-canvas.css`, so a dark mode carrier turns the canvas dark without a redraw; the
+ * notation colours stay as the templates define them, with an underlay where they are weak.
  */
 
 import BaseRenderer from "diagram-js/lib/draw/BaseRenderer";
@@ -28,13 +31,10 @@ import {
   dashArray,
 } from "@miragon/team-topologies-schema-model";
 import { MIRAGON } from "../theme/index.js";
+import { CANVAS_ROLE_CLASS, textRoleClass } from "./canvas-roles.js";
 import { interactionPaint } from "./colour.js";
 import { FONT, STROKE_MUTED, TT_RENDER_PRIORITY } from "./styles.js";
-import {
-  HIGH_CONTRAST_UNDERLAY_CLASS,
-  UNDERLAY_EXTRA_WIDTH,
-  contourOnUnderlay,
-} from "./underlay.js";
+import { UNDERLAY_EXTRA_WIDTH, underlayClass } from "./underlay.js";
 import {
   LINE_HEIGHT,
   flowHeadWidth,
@@ -78,6 +78,7 @@ export default class TeamTopologiesRenderer extends BaseRenderer {
       height: element.height,
       fill: MIRAGON.linie,
     });
+    svgClasses(rect).add(CANVAS_ROLE_CLASS.fillLinie);
     svgAppend(visuals, rect);
     return rect;
   }
@@ -91,6 +92,7 @@ export default class TeamTopologiesRenderer extends BaseRenderer {
       "stroke-dasharray": "4 4",
       "stroke-linecap": "round",
     });
+    svgClasses(line).add(CANVAS_ROLE_CLASS.strokeKontur);
     svgAppend(visuals, line);
     return line;
   }
@@ -122,7 +124,7 @@ export default class TeamTopologiesRenderer extends BaseRenderer {
         ...(dash ? { "stroke-dasharray": dash } : {}),
         "stroke-linejoin": "round",
       },
-      contourOnUnderlay(spec.stroke, team.stroke),
+      underlayClass(spec.stroke, team.stroke),
     );
     this.appendLabel(visuals, team.ttLabel ?? "", labelLayout(team));
     return outline;
@@ -161,15 +163,16 @@ export default class TeamTopologiesRenderer extends BaseRenderer {
         "stroke-dasharray": dashArray(spec.strokeStyle, sw) || "6 4",
         "stroke-linejoin": "round",
       },
-      contourOnUnderlay(spec.stroke, el.stroke),
+      underlayClass(spec.stroke, el.stroke),
     );
     this.appendLabel(visuals, el.ttLabel ?? "", labelLayout(el));
     return glyph;
   }
 
   /**
-   * The shape's fill and contour as one element, as the templates draw it. A contour on the
-   * high-contrast underlay takes two: the fill, whose stroke is the underlay, and the contour above
+   * The shape's fill and contour as one element, as the templates draw it. A contour on an
+   * underlay (the high-contrast one of the light exception, or the dark one under a notation stroke
+   * below 3:1 on black) takes two: the fill, whose stroke is the underlay, and the contour above
    * it, so the underlay shows on both sides of the contour. The fill stays the visual's first
    * element, which diagram-js's connect and drop markers tint.
    */
@@ -178,23 +181,23 @@ export default class TeamTopologiesRenderer extends BaseRenderer {
     shape: (attrs: Attrs) => SVGElement,
     area: Attrs,
     contour: Attrs,
-    onUnderlay: boolean,
+    underlay: string | undefined,
   ): SVGElement {
-    if (!onUnderlay) {
+    if (!underlay) {
       const outline = shape({ ...area, ...contour });
       svgAppend(visuals, outline);
       return outline;
     }
-    const underlay = shape({
+    const fill = shape({
       ...area,
       ...contour,
       stroke: "none",
       "stroke-width": Number(contour["stroke-width"]) + UNDERLAY_EXTRA_WIDTH,
     });
-    svgClasses(underlay).add(HIGH_CONTRAST_UNDERLAY_CLASS);
-    svgAppend(visuals, underlay);
+    svgClasses(fill).add(underlay);
+    svgAppend(visuals, fill);
     svgAppend(visuals, shape({ fill: "none", ...contour }));
-    return underlay;
+    return fill;
   }
 
   // --- flow of change ------------------------------------------------------
@@ -219,15 +222,18 @@ export default class TeamTopologiesRenderer extends BaseRenderer {
     ]
       .map((p) => p.join(","))
       .join(" ");
-    const arrow = svgAttr(svgCreate("polygon"), {
-      points: pts,
-      fill: "none",
-      stroke: FLOW_SPEC.stroke,
-      "stroke-width": sw,
-      "stroke-dasharray": dashArray(FLOW_SPEC.strokeStyle, sw) || "6 4",
-      "stroke-linejoin": "round",
-    });
-    svgAppend(visuals, arrow);
+    const arrow = this.appendOutline(
+      visuals,
+      (attrs) => svgAttr(svgCreate("polygon"), { points: pts, ...attrs }),
+      { fill: "none" },
+      {
+        stroke: FLOW_SPEC.stroke,
+        "stroke-width": sw,
+        "stroke-dasharray": dashArray(FLOW_SPEC.strokeStyle, sw) || "6 4",
+        "stroke-linejoin": "round",
+      },
+      underlayClass(FLOW_SPEC.stroke, undefined),
+    );
     this.appendLabel(visuals, el.ttLabel ?? "", labelLayout(el));
     return arrow;
   }
@@ -247,6 +253,7 @@ export default class TeamTopologiesRenderer extends BaseRenderer {
       "stroke-width": sw,
       "stroke-linejoin": "round",
     });
+    svgClasses(bracket).add(CANVAS_ROLE_CLASS.strokeKontur);
     svgAppend(visuals, bracket);
     this.appendLabel(visuals, el.ttLabel ?? "", labelLayout(el));
     return bracket;
@@ -276,6 +283,7 @@ export default class TeamTopologiesRenderer extends BaseRenderer {
         "font-weight": layout.fontWeight,
         ...(layout.letterSpacing ? { "letter-spacing": layout.letterSpacing } : {}),
       });
+      if (layout.role) svgClasses(t).add(textRoleClass(layout.role));
       t.textContent = ln;
       svgAppend(visuals, t);
     });

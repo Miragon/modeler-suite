@@ -692,6 +692,32 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     expect(await pngPixel(page, png.base64, 1, 1)).toBe(PNG_BACKGROUND);
   });
 
+  // Guide §10.7 and the acceptance test of §13.4: the export is light in every mode. The page stays
+  // data-cd-theme="light" until the joint dark-mode release (#219), so the test writes dark itself.
+  test("a dark canvas exports the light SVG and PNG, byte for byte", async ({ page }) => {
+    await gotoApp(page);
+    await loadExample(page);
+    const svgOfLight = await readDownload(page, () => chooseMenuEntry(page, "export-svg"));
+    const pngOfLight = await readDownload(page, () => chooseMenuEntry(page, "export-png"));
+
+    await page.evaluate(() => (document.documentElement.dataset.cdTheme = "dark"));
+    await expect(page.locator(".tt-djs-container")).toHaveCSS(
+      "background-color",
+      "rgb(29, 29, 29)",
+    );
+    await expect(page.locator('[data-element-id="ann_fraud_handover"] text').first()).toHaveCSS(
+      "fill",
+      "rgb(255, 255, 255)",
+    );
+    const svgOfDark = await readDownload(page, () => chooseMenuEntry(page, "export-svg"));
+    const pngOfDark = await readDownload(page, () => chooseMenuEntry(page, "export-png"));
+
+    expect(svgOfDark.text).toBe(svgOfLight.text);
+    expect(svgOfDark.text).not.toContain("cd-c-");
+    expect(pngOfDark.base64).toBe(pngOfLight.base64);
+    expect(await pngPixel(page, pngOfDark.base64)).toBe(PNG_BACKGROUND);
+  });
+
   test("the PNG still downloads when Geist cannot be embedded, and says so in a warning", async ({
     page,
   }) => {

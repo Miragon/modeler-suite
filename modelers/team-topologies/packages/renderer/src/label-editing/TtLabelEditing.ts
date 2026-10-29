@@ -28,6 +28,7 @@ import {
 } from "../model/di-types.js";
 import type TtModeling from "../modeling/TtModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type TtReadOnly } from "../read-only/index.js";
+import { textRoleColour } from "../draw/canvas-roles.js";
 import { LINE_HEIGHT, labelLayout } from "../draw/label-layout.js";
 import { FONT } from "../draw/styles.js";
 
@@ -161,7 +162,7 @@ export default class TtLabelEditing {
       fontWeight: layout.fontWeight,
       letterSpacing: layout.letterSpacing ?? "normal",
       lineHeight: String(LINE_HEIGHT),
-      color: layout.fill,
+      color: layout.role ? textRoleColour(layout.role) : layout.fill,
       textAlign: centred ? "center" : "left",
     });
 
