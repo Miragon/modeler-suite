@@ -5,6 +5,7 @@ import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/vscode/s
 import { pngChunks, textChunksWith, textWith } from "../../../apps/vscode/test/pngChunks.js";
 import { PNG_GROUND, pngFacts } from "../support/png.js";
 import {
+  drawCanvasDark,
   failFontEmbeddingOfNextExport,
   openWebview,
   postFromHost,
@@ -83,6 +84,19 @@ test.describe("VS Code webview: the .cm.png editor", () => {
     expect(facts.width).toBeGreaterThan(0);
     expect(facts.height).toBeGreaterThan(0);
     expect(facts.corners).toEqual([PNG_GROUND, PNG_GROUND, PNG_GROUND, PNG_GROUND]);
+  });
+
+  test("a save from a dark canvas writes the light image, byte for byte (guide §10.7, §13.4)", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    const light = await savePng(page, 1);
+
+    await drawCanvasDark(page);
+
+    const dark = await savePng(page, 2);
+    expect(Buffer.from(dark).equals(Buffer.from(light)), "the PNG is byte-identical").toBe(true);
+    expect(reopenedMap(dark)).toBe(EXAMPLE_MAP);
   });
 
   test("a save whose Geist could not be embedded still writes the PNG and tells the host", async ({

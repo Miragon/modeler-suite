@@ -5,6 +5,7 @@
 
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import { isModeClass } from "../draw/canvasRoles.js";
 import { isCmContext } from "../model/di-types.js";
 
 const MARGIN = 40;
@@ -45,6 +46,7 @@ export function saveSVG(canvas: Canvas, elementRegistry: ElementRegistry): { svg
 
   const clone = source.cloneNode(true) as SVGSVGElement;
   for (const attribute of LIVE_CANVAS_ATTRIBUTES) clone.removeAttribute(attribute);
+  removeModeClasses(clone);
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   clone.setAttribute("viewBox", `${x} ${y} ${width} ${height}`);
   clone.setAttribute("width", String(Math.round(width)));
@@ -56,4 +58,18 @@ export function saveSVG(canvas: Canvas, elementRegistry: ElementRegistry): { svg
 
   const svg = new XMLSerializer().serializeToString(clone);
   return { svg: '<?xml version="1.0" encoding="utf-8"?>\n' + svg };
+}
+
+/**
+ * The role and underlay classes switch a colour with the mode of the page around them, and an
+ * export is light in every mode (guide §10.7): an exported SVG placed into a dark page keeps the
+ * light attributes the renderer drew, and its underlays stay `stroke="none"`.
+ */
+function removeModeClasses(clone: SVGSVGElement): void {
+  for (const node of clone.querySelectorAll("[class]")) {
+    const modeClasses = [...node.classList].filter(isModeClass);
+    if (modeClasses.length === 0) continue;
+    node.classList.remove(...modeClasses);
+    if (node.classList.length === 0) node.removeAttribute("class");
+  }
 }

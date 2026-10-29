@@ -31,6 +31,28 @@ export async function openWebview(page: Page, options: OpenOptions = {}): Promis
 }
 
 /**
+ * Draws the map dark, as the joint dark-mode release will (#219), while the renderer's `themes` is
+ * still `["light"]` and no host may ask for it: a dark carrier on the diagram's container. Resolves
+ * once the canvas shows the dark ground and an underlay of the example's weak lines.
+ */
+export async function drawCanvasDark(page: Page): Promise<void> {
+  const container = page.locator(".cm-djs-container");
+  await container.evaluate((element) => {
+    element.dataset.cdTheme = "dark";
+  });
+  const shown = await Promise.all([
+    container.evaluate((element) => getComputedStyle(element).backgroundColor),
+    page
+      .locator(".djs-visual > .cd-c-unterleger")
+      .first()
+      .evaluate((underlay) => getComputedStyle(underlay).stroke),
+  ]);
+  if (shown.join() !== "rgb(29, 29, 29),rgb(143, 138, 138)") {
+    throw new Error(`the canvas does not draw dark: ${shown.join(", ")}`);
+  }
+}
+
+/**
  * Makes the next PNG export lose its fonts: the faces are data: URLs, so nothing is fetched that a
  * test could block, but the shell serialises the SVG with the font rules in as its last step. The
  * serialiser breaks only after `saveSVG`, which needs it to draw the map, and only once, so every

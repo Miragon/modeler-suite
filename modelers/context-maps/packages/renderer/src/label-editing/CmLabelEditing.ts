@@ -18,7 +18,7 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type { Element, ShapeLike } from "diagram-js/lib/model/Types";
-import { contextNameColour, contextTeamColour } from "../draw/contextColours.js";
+import { contextEditorColour } from "../draw/contextColours.js";
 import { CONTEXT_NAME_TOP, CONTEXT_TEAM_RESERVE, FONT } from "../draw/styles.js";
 import { isCmContext, isCmElement, type CmContext, type CmElement } from "../model/di-types.js";
 import type CmModeling from "../modeling/CmModeling.js";
@@ -127,11 +127,11 @@ export default class CmLabelEditing {
       canvas.addMarker(element as unknown as ShapeLike, marker);
       this.activeMarker = { element, marker };
       // The box is transparent over the context's fill, so the text keeps the colour the canvas
-      // draws it in there: white on a dark fill the author set.
+      // draws it in there: white on a dark fill the author set, and the role on the renderer's
+      // own fill, which follows the mode.
       const textbox = directEditing.$textbox;
       if (isCmContext(element) && textbox) {
-        textbox.style.color =
-          this.mode === "team" ? contextTeamColour(element) : contextNameColour(element);
+        textbox.style.color = contextEditorColour(element, this.mode);
       }
     });
     eventBus.on(["directEditing.complete", "directEditing.cancel"], () => {

@@ -443,6 +443,59 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     );
   });
 
+  test("a dark canvas exports the light SVG and PNG, byte for byte (guide §10.7, §13.4)", async ({
+    page,
+  }) => {
+    await openMap(page, {
+      ...SAMPLE_DOCUMENT,
+      title: "Conference Planner",
+      contexts: SAMPLE_DOCUMENT.contexts.map((context, index) =>
+        index === 0 ? { ...context, stroke: "#333333" } : context,
+      ),
+      relationships: [
+        ...SAMPLE_DOCUMENT.relationships,
+        { id: "rel_partnership", from: "ctx_cfp", to: "ctx_schedule", pattern: "partnership" },
+      ],
+    });
+    // By keyboard: diagram-js adds an element's outline on its first hover, and the export carries
+    // it, so a pointer crossing the canvas between two exports would change the second.
+    const downloaded = async (menuId: string) => {
+      await page.locator('[data-chrome="menu"]').press("Enter");
+      const download = page.waitForEvent("download");
+      await page.locator(`.cd-shell-menu[role='menu'] [data-menu-id="${menuId}"]`).press("Enter");
+      const chunks: Buffer[] = [];
+      for await (const chunk of await (await download).createReadStream()) {
+        chunks.push(chunk as Buffer);
+      }
+      return Buffer.concat(chunks);
+    };
+    const exports = async () => ({
+      svg: await downloaded("export-svg"),
+      png: await downloaded("export-png"),
+    });
+    const container = page.locator(".cm-djs-container");
+    const underlays = page.locator(".djs-visual > .cd-c-unterleger");
+    const shown = () =>
+      Promise.all([
+        container.evaluate((element) => getComputedStyle(element).backgroundColor),
+        underlays.evaluateAll((all) => [...new Set(all.map((u) => getComputedStyle(u).stroke))]),
+      ]);
+    expect(await underlays.count()).toBe(7);
+    expect(await shown()).toEqual(["rgb(249, 247, 247)", ["none"]]);
+    const light = await exports();
+
+    await container.evaluate((element) => {
+      element.dataset.cdTheme = "dark";
+    });
+
+    expect(await shown()).toEqual(["rgb(29, 29, 29)", ["rgb(143, 138, 138)"]]);
+    const dark = await exports();
+    expect(light.png.subarray(1, 4).toString("latin1")).toBe("PNG");
+    expect(dark.svg.toString("utf8")).toBe(light.svg.toString("utf8"));
+    expect(dark.png.equals(light.png), "the PNG is byte-identical").toBe(true);
+    expect(light.svg.toString("utf8")).not.toMatch(/\b(cd-c-|cm-c-)/);
+  });
+
   test("a PNG whose Geist files cannot be read still downloads and warns", async ({ page }) => {
     await page.route(/\.woff2(\?.*)?$/, (route) => route.abort());
     await openMap(page, { ...SAMPLE_DOCUMENT, title: "Conference Planner" });

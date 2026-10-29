@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { ALL_SUBDOMAIN_SPECS } from "@miragon/context-maps-schema-model";
 import {
+  contextEditorColour,
   contextFill,
   contextNameColour,
   contextStroke,
@@ -78,6 +79,16 @@ describe("context colours: text on a fill is black or white (guide §10.6)", () 
       expect(readableTextColour(fill), name).toBe(INK);
       expect(contrastRatio(INK, fill), name).toBeGreaterThanOrEqual(4.5);
     }
+  });
+
+  it("lets an editor over the box write as the canvas does, in the role on the renderer's fill", () => {
+    expect(contextEditorColour({}, "name")).toBe("var(--cd-ui-text)");
+    expect(contextEditorColour({}, "team")).toBe("var(--cd-ui-text-leise)");
+    expect(contextEditorColour({ stroke: "#333333" }, "name")).toBe("var(--cd-ui-text)");
+    expect(contextEditorColour({ subdomainType: "core" }, "name")).toBe(INK);
+    expect(contextEditorColour({ subdomainType: "core" }, "team")).toBe(INK_SOFT);
+    expect(contextEditorColour({ fill: "#333333" }, "name")).toBe(MIRAGON.weiss);
+    expect(contextEditorColour({ fill: "#333333" }, "team")).toBe(MIRAGON.weiss);
   });
 
   it("follows a fill the author set, for the name and for the team", () => {

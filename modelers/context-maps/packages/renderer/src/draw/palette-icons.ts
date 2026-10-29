@@ -20,6 +20,13 @@ import type {
   SubdomainTypeSpec,
   UpstreamRole,
 } from "@miragon/context-maps-schema-model";
+import {
+  ROLE_CLASS,
+  UNDERLAY_CLASS,
+  UNDERLAY_EXTRA_WIDTH,
+  classNames,
+  needsDarkUnderlay,
+} from "./canvasRoles.js";
 import { contextBadgeColour } from "./contextColours.js";
 import { markupElement, markupText, type Markup } from "./markup.js";
 import { markFill, markTextColour } from "./relationshipColours.js";
@@ -28,6 +35,7 @@ import { HAND_PATH, STAR_PATH } from "./subdomainGlyphs.js";
 
 const ICON_SIZE = 24;
 const BARE_GLYPH_SIZE = 18;
+const LINE_END_RADIUS = 2.5;
 const DEFAULT_PATTERN: RelationshipPattern = "upstream-downstream";
 
 function subdomainSpec(type: SubdomainType | undefined): SubdomainTypeSpec | undefined {
@@ -54,8 +62,9 @@ function svg(size: number, viewBox: string, ...children: Markup[]): string {
   );
 }
 
-function contextBox(fill: string, stroke: string): Markup {
+function contextBox(fill: string, stroke: string, roleClass?: string): Markup {
   return markupElement("rect", {
+    class: roleClass,
     x: 2,
     y: 4,
     width: 22,
@@ -98,7 +107,17 @@ function subdomainGlyph(
 /** No (or unknown) type → the neutral box an unclassified context gets on the canvas. */
 export function contextIconSvg(type?: SubdomainType): string {
   const spec = subdomainSpec(type);
-  if (!spec) return svg(ICON_SIZE, "0 0 26 26", contextBox(NEUTRAL_FILL, NEUTRAL_STROKE));
+  if (!spec) {
+    return svg(
+      ICON_SIZE,
+      "0 0 26 26",
+      contextBox(
+        NEUTRAL_FILL,
+        NEUTRAL_STROKE,
+        classNames(ROLE_CLASS.fillPlot, ROLE_CLASS.strokeKontur),
+      ),
+    );
+  }
   return svg(
     ICON_SIZE,
     "0 0 26 26",
@@ -116,6 +135,7 @@ export function subdomainIconSvg(type: SubdomainType, size = BARE_GLYPH_SIZE): s
   const glyph =
     !spec || spec.type === "generic"
       ? markupElement("circle", {
+          class: spec ? undefined : ROLE_CLASS.strokeKontur,
           cx: 12,
           cy: 12,
           r: 9,
@@ -158,27 +178,41 @@ export function relationshipIconSvg(
   size = ICON_SIZE,
 ): string {
   const spec = patternSpec(pattern);
+  const strokeWidth = Math.min(spec.strokeWidth, 2.6);
   const lineEnd = (cx: number) =>
-    markupElement("circle", { cx, cy: 13, r: 2.5, fill: spec.stroke, stroke: "none" });
-  return svg(
-    iconSize(size, ICON_SIZE),
-    "0 0 26 26",
-    markupElement(
-      "g",
-      {
-        stroke: spec.stroke,
-        "stroke-width": Math.min(spec.strokeWidth, 2.6),
-        "stroke-linecap": "round",
-      },
-      lineEnd(5),
-      markupElement("line", {
-        x1: 7,
-        y1: 13,
-        x2: 19,
-        y2: 13,
-        "stroke-dasharray": spec.dash || undefined,
-      }),
-      lineEnd(21),
-    ),
+    markupElement("circle", { cx, cy: 13, r: LINE_END_RADIUS, fill: spec.stroke, stroke: "none" });
+  const line = (width?: number) =>
+    markupElement("line", {
+      x1: 7,
+      y1: 13,
+      x2: 19,
+      y2: 13,
+      "stroke-width": width,
+      "stroke-dasharray": spec.dash || undefined,
+    });
+  const drawn = markupElement(
+    "g",
+    { stroke: spec.stroke, "stroke-width": strokeWidth, "stroke-linecap": "round" },
+    lineEnd(5),
+    line(),
+    lineEnd(21),
   );
+  if (!needsDarkUnderlay(spec.stroke)) return svg(iconSize(size, ICON_SIZE), "0 0 26 26", drawn);
+  // The underlay's parts set no stroke of their own: they take the class's from the group.
+  const underlayEnd = (cx: number) =>
+    markupElement("circle", {
+      cx,
+      cy: 13,
+      r: LINE_END_RADIUS,
+      fill: "none",
+      "stroke-width": UNDERLAY_EXTRA_WIDTH,
+    });
+  const underlay = markupElement(
+    "g",
+    { class: UNDERLAY_CLASS, fill: "none", stroke: "none", "stroke-linecap": "round" },
+    underlayEnd(5),
+    line(strokeWidth + UNDERLAY_EXTRA_WIDTH),
+    underlayEnd(21),
+  );
+  return svg(iconSize(size, ICON_SIZE), "0 0 26 26", underlay, drawn);
 }

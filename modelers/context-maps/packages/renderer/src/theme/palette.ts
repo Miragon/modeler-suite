@@ -14,7 +14,9 @@
  *
  * Pure data — no DOM, no imports. The subdomain-type fills and relationship-pattern strokes are the
  * official Context Maps notation and live in `schema-model/notation.ts`; they are NOT part of this
- * brand ramp. The renderer draws light only (the modelers switch to dark together, guide §13.3).
+ * brand ramp. The renderer draws these light values as attributes; a `cd-c-*` class switches a
+ * colour the renderer chooses itself to its role in dark (guide §10.2), and the export keeps the
+ * attributes (§10.7).
  */
 
 /** Raw Miragon brand ramp and status layer — the `fest` values of `cd-tokens.generated.json`. */
@@ -23,7 +25,7 @@ export const MIRAGON = {
   blau: "#335DE5",
   /** Deeper blue for links / accent text on white (WCAG AA, ~5.5:1). */
   blauLink: "#2B50D4",
-  /** Lightened blue for accents on dark surfaces (unused here — the canvas is light-only). */
+  /** Lightened blue for accents on dark surfaces (unused here: the roles carry it in dark). */
   blauHell: "#6B8AFF",
   /** Accent: key visual, highlights, the brand gradient. Bright — a fill, never text on white. */
   gruen: "#00E676",
@@ -49,6 +51,12 @@ export const MIRAGON = {
   /** Signature brand gradient — brand moments only. Use verbatim. */
   gradientBrand: "linear-gradient(120deg, #335DE5 30%, #00E676)",
 } as const;
+
+/**
+ * The ground of the dark canvas (`dunkel['--cd-ui-grund']`, the same as its plot): what a line the
+ * renderer cannot recolour is measured against in dark (guide §10.6).
+ */
+export const DARK_CANVAS_GROUND = MIRAGON.schwarz;
 
 /**
  * Every fixed `--cd-*` token this repo mirrors, mapped to the value it MUST hold in the vendored

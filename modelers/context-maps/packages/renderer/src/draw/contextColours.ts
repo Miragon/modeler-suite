@@ -42,14 +42,29 @@ export function readableTextColour(fill: string): string {
   return onPaper > onInk ? MIRAGON.weiss : INK;
 }
 
+function subdomainSpecOf(context: ContextColouring) {
+  return context.subdomainType ? SUBDOMAIN_TYPE_SPECS[context.subdomainType] : undefined;
+}
+
 export function contextFill(context: ContextColouring): string {
-  const spec = context.subdomainType ? SUBDOMAIN_TYPE_SPECS[context.subdomainType] : undefined;
-  return context.fill ?? spec?.fill ?? NEUTRAL_FILL;
+  return context.fill ?? subdomainSpecOf(context)?.fill ?? NEUTRAL_FILL;
 }
 
 export function contextStroke(context: ContextColouring): string {
-  const spec = context.subdomainType ? SUBDOMAIN_TYPE_SPECS[context.subdomainType] : undefined;
-  return context.stroke ?? spec?.stroke ?? NEUTRAL_STROKE;
+  return context.stroke ?? subdomainSpecOf(context)?.stroke ?? NEUTRAL_STROKE;
+}
+
+/**
+ * Whether the box takes the renderer's own fill, the element fill of guide §10.1, which follows the
+ * mode: neither the subdomain type nor the author colours it. Its name and team follow with it.
+ */
+export function contextFillIsNeutral(context: ContextColouring): boolean {
+  return (context.fill ?? subdomainSpecOf(context)?.fill) === undefined;
+}
+
+/** Whether the box takes the renderer's own outline, which follows the mode. */
+export function contextStrokeIsNeutral(context: ContextColouring): boolean {
+  return (context.stroke ?? subdomainSpecOf(context)?.stroke) === undefined;
 }
 
 /** The context's name, on whatever fill it has. */
@@ -63,6 +78,17 @@ export function contextNameColour(context: ContextColouring): string {
  */
 export function contextTeamColour(context: ContextColouring): string {
   return context.fill ? readableTextColour(context.fill) : INK_SOFT;
+}
+
+/**
+ * What an editor over the box writes a context's name or team in: the colour the canvas draws it in,
+ * as the role where that follows the mode (on the renderer's own fill), else the fixed value.
+ */
+export function contextEditorColour(context: ContextColouring, part: "name" | "team"): string {
+  if (contextFillIsNeutral(context)) {
+    return part === "team" ? "var(--cd-ui-text-leise)" : "var(--cd-ui-text)";
+  }
+  return part === "team" ? contextTeamColour(context) : contextNameColour(context);
 }
 
 /**

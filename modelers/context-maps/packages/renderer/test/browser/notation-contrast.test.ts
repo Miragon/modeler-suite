@@ -10,8 +10,17 @@ import {
   type Rgb,
 } from "../support/contrast.js";
 
-/** Guide §10.6: a line is measured against the resting surface, on the canvas the ground. */
-const CANVAS_GROUND = vendoredTokens.hell["--cd-ui-grund"];
+/**
+ * Guide §10.6: a line is measured against the resting surface, on the canvas the ground, in each
+ * mode the canvas draws: light, and dark under a `data-cd-theme="dark"` carrier (guide §10.1).
+ */
+const MODES = [
+  { mode: "light", ground: vendoredTokens.hell["--cd-ui-grund"] },
+  { mode: "dark", ground: vendoredTokens.dunkel["--cd-ui-grund"] },
+] as const;
+type Mode = (typeof MODES)[number]["mode"];
+
+const UNDERLAY = "cd-c-unterleger";
 
 /** The decided colours (#102), as computed. */
 const COMPUTED = {
@@ -20,8 +29,9 @@ const COMPUTED = {
   textLeise: "rgb(107, 102, 102)",
 };
 
-function mount(): { modeler: Modeler; container: HTMLDivElement } {
+function mount(mode: Mode = "light"): { modeler: Modeler; container: HTMLDivElement } {
   const container = document.createElement("div");
+  if (mode === "dark") container.dataset.cdTheme = "dark";
   container.style.width = "1200px";
   container.style.height = "800px";
   document.body.appendChild(container);
@@ -44,7 +54,10 @@ function context(
   };
 }
 
-/** Every subdomain type, an unclassified and a dark custom context, every pattern and role. */
+/**
+ * Every subdomain type, an unclassified context, one with a dark fill and one with a dark outline
+ * the author set, every pattern and role.
+ */
 function everyNotation(): CmDocument {
   const doc = emptyDocument("Every notation");
   doc.contexts = [
@@ -54,6 +67,7 @@ function everyNotation(): CmDocument {
     context("plain", 40, 400),
     context("dark", 440, 400, { subdomainType: "generic", fill: "#333333" }),
     context("second-core", 840, 400, { subdomainType: "core" }),
+    context("outlined", 40, 700, { stroke: "#333333" }),
   ];
   doc.relationships = [
     { id: "partnership", from: "core", to: "supporting", pattern: "partnership" },
@@ -104,20 +118,34 @@ function surfaceOf(shape: Element, backdrop: string): Rgb {
   return composite(style.fill, Number(style.fillOpacity), backdrop);
 }
 
+/**
+ * A line on the ground: the line itself, or where it is weaker, the underlay it lies on (guide
+ * §10.6), which shows only in dark. A relationship's or a chip's underlay lies under it, a box's
+ * shows as a ring right after it.
+ */
+function lineFailure(name: string, line: Element, ground: string): string | undefined {
+  const own = pairBelow(name, paint(line, "stroke"), ground, NON_TEXT_CONTRAST);
+  if (!own) return undefined;
+  const underlay = [line.previousElementSibling, line.nextElementSibling].find((sibling) =>
+    sibling?.classList.contains(UNDERLAY),
+  );
+  if (!underlay || paint(underlay, "stroke") === "none") return own;
+  return pairBelow(`${name} underlay`, paint(underlay, "stroke"), ground, NON_TEXT_CONTRAST);
+}
+
 /** A context: every text on the box, the subdomain glyph on the box, the outline on the ground. */
-function contextFailures(visual: SVGGElement, id: string): string[] {
+function contextFailures(visual: SVGGElement, id: string, ground: string): string[] {
   const box = visual.querySelector("rect")!;
   const fill = paint(box, "fill");
-  const pairs = [
-    pairBelow(`${id} outline`, paint(box, "stroke"), CANVAS_GROUND, NON_TEXT_CONTRAST),
-  ];
+  const pairs = [lineFailure(`${id} outline`, box, ground)];
   for (const text of visual.querySelectorAll("text")) {
     const name = `${id} text "${text.textContent}"`;
     pairs.push(pairBelow(name, paint(text, "fill"), fill, TEXT_CONTRAST));
   }
-  for (const glyph of visual.querySelectorAll(":scope > g:not(.cm-team)")) {
+  for (const glyph of visual.querySelectorAll(":scope > g")) {
     for (const shape of glyph.querySelectorAll("path, circle")) {
-      const colour = paint(shape, shape.tagName === "circle" ? "stroke" : "fill");
+      const stroked = shape.tagName === "circle" || glyph.classList.contains("cm-team");
+      const colour = paint(shape, stroked ? "stroke" : "fill");
       pairs.push(pairBelow(`${id} glyph`, colour, fill, NON_TEXT_CONTRAST));
     }
   }
@@ -143,14 +171,12 @@ function chipsOf(visual: SVGGElement, kind: keyof typeof CHIP_KINDS): SVGRectEle
  * A relationship: the line and each pattern chip's border on the ground; a chip's text on the chip
  * it sits in (a translucent chip over the line under it), a direction letter on its paper halo.
  */
-function relationshipFailures(visual: SVGGElement, id: string): string[] {
-  const line = visual.querySelector("polyline")!;
+function relationshipFailures(visual: SVGGElement, id: string, ground: string): string[] {
+  const line = visual.querySelector("polyline.cm-relationship-line")!;
   const lineColour = paint(line, "stroke");
-  const pairs = [pairBelow(`${id} line`, lineColour, CANVAS_GROUND, NON_TEXT_CONTRAST)];
+  const pairs = [lineFailure(`${id} line`, line, ground)];
   for (const chip of chipsOf(visual, "pattern")) {
-    pairs.push(
-      pairBelow(`${id} chip border`, paint(chip, "stroke"), CANVAS_GROUND, NON_TEXT_CONTRAST),
-    );
+    pairs.push(lineFailure(`${id} chip border`, chip, ground));
   }
   for (const text of visual.querySelectorAll("text")) {
     const name = `${id} text "${text.textContent}"`;
@@ -166,36 +192,81 @@ function relationshipFailures(visual: SVGGElement, id: string): string[] {
   return pairs.filter((pair): pair is string => pair !== undefined);
 }
 
-test("every text the canvas draws reaches 4.5:1 and every line 3:1, with no exception", () => {
-  const { modeler, container } = mount();
-  try {
-    const doc = everyNotation();
-    modeler.importDocument(doc);
-    const relationships = doc.relationships.map(({ id }) => visualOf(container, id));
-    const count = (kind: keyof typeof CHIP_KINDS) =>
-      relationships.reduce((sum, visual) => sum + chipsOf(visual, kind).length, 0);
-    expect({ pattern: count("pattern"), role: count("role"), frame: count("frame") }).toEqual({
-      pattern: 3,
-      role: 7,
-      frame: 6,
-    });
-    for (const visual of relationships) {
-      expect(visual.querySelectorAll("rect").length, "every box is a known chip").toBe(
-        chipsOf(visual, "pattern").length +
-          chipsOf(visual, "role").length +
-          chipsOf(visual, "frame").length,
-      );
+test.each(MODES)(
+  "every text the canvas draws reaches 4.5:1 and every line 3:1, with no exception ($mode)",
+  ({ mode, ground }) => {
+    const { modeler, container } = mount(mode);
+    try {
+      const doc = everyNotation();
+      modeler.importDocument(doc);
+      const relationships = doc.relationships.map(({ id }) => visualOf(container, id));
+      const count = (kind: keyof typeof CHIP_KINDS) =>
+        relationships.reduce((sum, visual) => sum + chipsOf(visual, kind).length, 0);
+      const underlays = (visual: SVGGElement) => visual.querySelectorAll(`rect.${UNDERLAY}`).length;
+      expect({ pattern: count("pattern"), role: count("role"), frame: count("frame") }).toEqual({
+        pattern: 3,
+        role: 7,
+        frame: 6,
+      });
+      for (const visual of relationships) {
+        expect(visual.querySelectorAll("rect").length, "every box is a known chip").toBe(
+          chipsOf(visual, "pattern").length +
+            chipsOf(visual, "role").length +
+            chipsOf(visual, "frame").length +
+            underlays(visual),
+        );
+      }
+      const failures = [
+        ...doc.contexts.flatMap(({ id }) => contextFailures(visualOf(container, id), id, ground)),
+        ...doc.relationships.flatMap(({ id }) =>
+          relationshipFailures(visualOf(container, id), id, ground),
+        ),
+      ];
+      expect(failures).toEqual([]);
+    } finally {
+      modeler.destroy();
+      container.remove();
     }
-    const failures = [
-      ...doc.contexts.flatMap(({ id }) => contextFailures(visualOf(container, id), id)),
-      ...doc.relationships.flatMap(({ id }) => relationshipFailures(visualOf(container, id), id)),
-    ];
-    expect(failures).toEqual([]);
-  } finally {
-    modeler.destroy();
-    container.remove();
-  }
-});
+  },
+);
+
+test.each(MODES)(
+  "the lines and the outline that would fall below 3:1 in dark lie on an underlay ($mode)",
+  ({ mode, ground }) => {
+    const { modeler, container } = mount(mode);
+    try {
+      modeler.importDocument(everyNotation());
+      const weak = [...container.querySelectorAll(".djs-visual > *")]
+        .filter((element) => !element.classList.contains(UNDERLAY))
+        .filter((element) => /^(rect|polyline)$/.test(element.localName))
+        .filter((element) => paint(element, "stroke") !== "none")
+        .filter((element) => !element.matches(".cm-role-chip, .cm-role-frame"))
+        .filter((element) => {
+          const darkGround = vendoredTokens.dunkel["--cd-ui-grund"];
+          return pairBelow("", paint(element, "stroke"), darkGround, NON_TEXT_CONTRAST);
+        })
+        .map((element) => element.closest("[data-element-id]")!.getAttribute("data-element-id"));
+      expect(weak.sort()).toEqual([
+        "conformist",
+        "outlined",
+        "partnership",
+        "partnership",
+        "upstream-downstream",
+      ]);
+      const drawn = [...container.querySelectorAll(`.djs-visual > .${UNDERLAY}`)];
+      expect(drawn).toHaveLength(weak.length);
+      for (const underlay of drawn) {
+        expect((underlay as SVGElement).style.stroke, "drawn invisible").toBe("none");
+        const shown = paint(underlay, "stroke");
+        if (mode === "light") expect(shown).toBe("none");
+        else expect(pairBelow("underlay", shown, ground, NON_TEXT_CONTRAST)).toBeUndefined();
+      }
+    } finally {
+      modeler.destroy();
+      container.remove();
+    }
+  },
+);
 
 test("the subdomain badge and its glyph are text-leise, black or white on a fill the author set", () => {
   const { modeler, container } = mount();
@@ -257,7 +328,9 @@ test("a symmetric pattern's chip writes in black on paper, bordered in the patte
       const chip = chips[0];
       expect(paint(chip.nextElementSibling!, "fill"), id).toBe(COMPUTED.schwarz);
       expect(paint(chip, "fill"), id).toBe(COMPUTED.weiss);
-      expect(paint(chip, "stroke"), id).toBe(paint(visual.querySelector("polyline")!, "stroke"));
+      expect(paint(chip, "stroke"), id).toBe(
+        paint(visual.querySelector("polyline.cm-relationship-line")!, "stroke"),
+      );
     }
   } finally {
     modeler.destroy();

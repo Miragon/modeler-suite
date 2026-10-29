@@ -4,6 +4,7 @@ import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/vscode/s
 import { PNG_GROUND, pngFacts, rasterisedSvgs, recordRasterisedSvgs } from "../support/png.js";
 import {
   INVALID_MAP,
+  drawCanvasDark,
   failFontEmbeddingOfNextExport,
   openWebview,
   postFromHost,
@@ -313,6 +314,35 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(exports.svg).not.toMatch(/<svg[^>]*role="application"/);
     expect(exports.json).toBe(EXAMPLE_MAP);
     expect(exports.cml).toContain("ContextMap");
+  });
+
+  test("a dark canvas posts the light SVG and PNG, byte for byte (guide §10.7, §13.4)", async ({
+    page,
+  }) => {
+    await openWebview(page);
+    const exported = async () => {
+      const before = (await postedMessages(page)).length;
+      await postFromHost(page, { type: "command", name: "exportSvg" });
+      await postFromHost(page, { type: "command", name: "exportPng" });
+      await expect
+        .poll(async () =>
+          (await postedMessages(page)).slice(before).filter((message) => message.type === "export"),
+        )
+        .toHaveLength(2);
+      return Object.fromEntries(
+        (await postedMessages(page))
+          .slice(before)
+          .filter((message) => message.type === "export")
+          .map((message) => [message.format as string, message.data as string]),
+      );
+    };
+    const light = await exported();
+
+    await drawCanvasDark(page);
+
+    expect(await exported()).toEqual(light);
+    expect(light.png).toMatch(/^iVBORw0KGgo/);
+    expect(light.svg).not.toMatch(/\b(cd-c-|cm-c-)/);
   });
 
   test("the PNG export lies on the light ground with Geist inside and keeps the embedded map", async ({

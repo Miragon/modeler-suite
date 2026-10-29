@@ -284,9 +284,21 @@ badge's text and any text on a fill the author set are black or white, whichever
 A role badge is one filled chip named by its text; the frame around the badges is the decorative
 `--cd-linie`. A symmetric pattern's chip writes black on paper, bordered in the pattern's colour.
 
+The canvas can draw dark, ahead of the Miragon modelers' joint switch: `appearance.themes` stays
+`["light"]`, so only a `data-cd-theme="dark"` carrier a host sets itself around the canvas shows
+it. The SVG carries the light values; a colour the renderer chooses itself (an unclassified box,
+its name and team, the pattern chips, the role badges' frame) also carries a `cd-c-*` role class
+of the Miragon design system's `cd-canvas.css`, which the stylesheet switches with the mode of the
+nearest carrier. The notation's colours and a `fill` / `stroke` the author set keep their values;
+the Partnership and Upstream-Downstream lines, which fall below 3:1 on the dark ground, and an
+outline the author set that does, lie on an underlay that shows only in dark. The direction letters
+keep their paper halo. `saveSVG()` removes every such class, so an export is the light picture in
+every mode.
+
 ## Import / export
 
-The package reads and writes the canonical `CmDocument` (JSON) and exports a standalone **SVG**.
+The package reads and writes the canonical `CmDocument` (JSON) and exports a standalone **SVG**,
+light in every mode and without the canvas's mode classes.
 PNG export and the embedded-scene round-trip (storing the document inside the exported image) live in
 the [web app](../../apps/webapp) and the [VS Code extension](../../apps/vscode). They rasterise the
 SVG with `svgToPng` of `@miragon/modeler-shell/export` (2×, Geist inside the image, on the ground

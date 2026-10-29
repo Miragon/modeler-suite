@@ -47,10 +47,18 @@
   -webkit-user-select: none;
 }
 
-/* Hover and selection: the shape's outline in the interaction role (guide §10.4), never a tint. */
-.cm-djs-container .djs-element.hover .djs-visual > :first-child:not(text),
-.cm-djs-container .djs-element.selected .djs-visual > :first-child:not(text) {
+/* Hover and selection: the shape's outline in the interaction role (guide §10.4), never a tint. An
+   underlay under a relationship line stays as it is. */
+.cm-djs-container .djs-element.hover .djs-visual > :is(.cm-context-box, .cm-relationship-line),
+.cm-djs-container .djs-element.selected .djs-visual > :is(.cm-context-box, .cm-relationship-line) {
   stroke: var(--cd-ui-interaktion) !important;
+}
+
+/* A role class of guide §10.2 that cd-canvas.css lacks: the quiet text role as a stroke, for the
+   stroked team glyph of an unclassified context. Like the cd-c-* classes the canvas draws its light
+   value as the attribute, and the SVG export removes the class. */
+.cm-c-stroke-text-leise {
+  stroke: var(--cd-ui-text-leise) !important;
 }
 
 .cm-djs-container .djs-outline {

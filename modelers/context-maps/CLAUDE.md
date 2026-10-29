@@ -60,6 +60,35 @@ name, team and badge are black or white, whichever has more contrast (guide §10
 `draw/contextColours.ts`). The same rule picks each role chip's text (PL and CF black, OHS and ACL
 white), and a symmetric pattern's chip writes black on paper, bordered in the pattern's colour
 (`draw/relationshipColours.ts`).
+
+**The dark canvas** (guide §10.1, §10.2, §10.6) lies behind `themes: ["light"]` (#217): no host
+asks for it until the joint switch (#219), so only a `data-cd-theme="dark"` carrier set by hand (a
+test) shows it. The renderer draws the light values as attributes, and each colour it chooses
+itself gets one role class per property of `cd-canvas.css` (`draw/canvasRoles.ts`, `ROLE_CLASS`):
+an unclassified context's box `cd-c-fill-plot` and `cd-c-stroke-kontur`, its name
+`cd-c-fill-text`, its team caption `cd-c-fill-text-leise`, a symmetric pattern's chip
+`cd-c-fill-flaeche-hoch` with its text `cd-c-fill-text`, the role chips' frame
+`cd-c-fill-flaeche-hoch` and `cd-c-stroke-linie`, the same in the palette and legend previews. The
+team glyph is stroked, and `cd-canvas.css` has no stroke class for `text-leise`:
+`assets/context-maps.css` adds `cm-c-stroke-text-leise` with the same contract. The notation (the
+typed boxes, the lines, the role chips, the direction letters) and the author's `fill` / `stroke`
+keep their values in every mode; a typed box stays paper on the dark table. A line among them
+below 3:1 on the dark ground `#1D1D1D` lies on an underlay (`cd-c-unterleger`, `stroke="none"`,
+2px wider, `needsDarkUnderlay`): the Partnership `#5a54a8` and Upstream-Downstream `#6b6459` lines,
+the Partnership chip's border, their previews, and a box outline the author set as weak as those. A box's underlay
+is drawn after it as the 1px ring outside, because diagram-js styles a shape's first child; the
+hover and selection outline targets `cm-context-box` and `cm-relationship-line`. The direction
+letters keep their paper halo in dark too: their colours hold 4.5:1 on paper only (3.08 to
+3.56:1 on the dark ground), so the halo is their rim. The chips are opaque (guide §1, no
+translucency on dark). The label editor writes in the role where the canvas does. `saveSVG()`
+removes every role and underlay class (`isModeClass`), so an SVG and PNG from a dark canvas are
+byte-identical to the light ones (§10.7, §13.4).
+[`test/browser/dark-canvas.test.ts`](packages/renderer/test/browser/dark-canvas.test.ts) pins the
+roles, the fixed values, the underlays, a light carrier in a dark page, `system`, high contrast and
+the export; both notation-contrast tests run on the dark ground as well; the e2e suites compare the
+web app's SVG and PNG downloads, the webview's exports and the `.cm.png` editor's image from a
+dark canvas with the light ones byte for byte.
+
 Icons are Lucide (`draw/lucide.ts`), on the canvas too: the team glyph is `users`. The subdomain
 glyphs (a filled star for core, an open hand for supporting, a dotted circle for generic) are
 notation, not function icons, and keep their shapes (guide §3.6, §11); the star and the hand are the

@@ -24,7 +24,7 @@ import {
   RELATIONSHIP_PATTERN_SPECS,
   SUBDOMAIN_TYPE_SPECS,
 } from "@miragon/context-maps-schema-model";
-import type { SubdomainType } from "@miragon/context-maps-schema-model";
+import type { RelationshipPatternSpec, SubdomainType } from "@miragon/context-maps-schema-model";
 import {
   CONTEXT_NAME_TOP,
   CONTEXT_TEAM_RESERVE,
@@ -36,8 +36,10 @@ import {
 import {
   contextBadgeColour,
   contextFill,
+  contextFillIsNeutral,
   contextNameColour,
   contextStroke,
+  contextStrokeIsNeutral,
   contextTeamColour,
 } from "./contextColours.js";
 import {
@@ -46,6 +48,13 @@ import {
   markTextColour,
   patternChipColours,
 } from "./relationshipColours.js";
+import {
+  ROLE_CLASS,
+  UNDERLAY_CLASS,
+  UNDERLAY_EXTRA_WIDTH,
+  classNames,
+  needsDarkUnderlay,
+} from "./canvasRoles.js";
 import { endRoleChipLayout } from "./endRoleChips.js";
 import { LUCIDE, LUCIDE_STROKE_WIDTH } from "./lucide.js";
 import { HAND_PATH, STAR_PATH } from "./subdomainGlyphs.js";
@@ -79,6 +88,7 @@ export default class ContextMapsRenderer extends BaseRenderer {
     svgClear(visuals);
     if (isCmContext(element)) return this.drawContext(visuals, element);
     const rect = svgAttr(svgCreate("rect"), {
+      class: ROLE_CLASS.fillGrund,
       width: element.width,
       height: element.height,
       fill: MIRAGON.grau,
@@ -91,6 +101,7 @@ export default class ContextMapsRenderer extends BaseRenderer {
     svgClear(visuals);
     if (isCmRelationship(connection)) return this.drawRelationship(visuals, connection);
     const line = svgAttr(svgCreate("polyline"), {
+      class: ROLE_CLASS.strokeText,
       points: (connection.waypoints ?? []).map((p) => `${p.x},${p.y}`).join(" "),
       fill: "none",
       stroke: INK,
@@ -118,23 +129,54 @@ export default class ContextMapsRenderer extends BaseRenderer {
     const h = Math.max(ctx.height, 1);
     const sw = 2;
     const i = sw / 2;
+    const rx = 8;
+    const neutralFill = contextFillIsNeutral(ctx);
+    const neutralStroke = contextStrokeIsNeutral(ctx);
+    const stroke = contextStroke(ctx);
     const box = svgAttr(svgCreate("rect"), {
+      class: classNames(
+        "cm-context-box",
+        neutralFill && ROLE_CLASS.fillPlot,
+        neutralStroke && ROLE_CLASS.strokeKontur,
+      ),
       x: i,
       y: i,
       width: w - sw,
       height: h - sw,
-      rx: 8,
-      ry: 8,
+      rx,
+      ry: rx,
       fill: contextFill(ctx),
-      stroke: contextStroke(ctx),
+      stroke,
       "stroke-width": sw,
       "stroke-linejoin": "round",
     });
     svgAppend(visuals, box);
+    if (!neutralStroke && needsDarkUnderlay(stroke)) {
+      // diagram-js and the hover outline style the visual's first child, so the box stays first:
+      // of the underlay only its outer 1px rim would show, so it is drawn after the box as a ring.
+      const rim = UNDERLAY_EXTRA_WIDTH / 2;
+      const offset = sw / 2 + rim / 2;
+      svgAppend(
+        visuals,
+        svgAttr(svgCreate("rect"), {
+          class: UNDERLAY_CLASS,
+          x: i - offset,
+          y: i - offset,
+          width: w - sw + 2 * offset,
+          height: h - sw + 2 * offset,
+          rx: rx + offset,
+          ry: rx + offset,
+          fill: "none",
+          stroke: "none",
+          "stroke-width": rim,
+        }),
+      );
+    }
 
     this.appendLabel(visuals, ctx.cmLabel ?? "", w, h, Boolean(ctx.team), {
       "font-weight": "650",
       fill: contextNameColour(ctx),
+      ...(neutralFill ? { class: classNames("cm-name", ROLE_CLASS.fillText) } : {}),
     });
     if (ctx.subdomainType && spec) {
       // Kaiser subdomain icon at the top-left corner (star / open hand / dotted
@@ -160,11 +202,11 @@ export default class ContextMapsRenderer extends BaseRenderer {
       const row = teamRowLayout(w, h, ctx.team);
       const teamColour = contextTeamColour(ctx);
       const icon = teamGlyph(row.iconCenterX, row.centerY, TEAM_ICON_SIZE, teamColour);
-      svgAttr(icon, { class: "cm-team" });
+      svgAttr(icon, { class: classNames("cm-team", neutralFill && ROLE_CLASS.strokeTextLeise) });
       svgAppend(visuals, icon);
 
       const team = svgAttr(svgCreate("text"), {
-        class: "cm-team",
+        class: classNames("cm-team", neutralFill && ROLE_CLASS.fillTextLeise),
         x: row.textX,
         y: row.centerY,
         "font-family": FONT.family,
@@ -186,14 +228,30 @@ export default class ContextMapsRenderer extends BaseRenderer {
       RELATIONSHIP_PATTERN_SPECS[rel.pattern] ?? RELATIONSHIP_PATTERN_SPECS["upstream-downstream"];
     const wp = (rel.waypoints ?? []) as Point[];
     const dash = spec.dash;
-    const line = svgAttr(svgCreate("polyline"), {
-      points: wp.map((p) => `${p.x},${p.y}`).join(" "),
+    const lineStyle = {
       fill: "none",
-      stroke: spec.stroke,
-      "stroke-width": spec.strokeWidth,
       "stroke-linejoin": "round",
       "stroke-linecap": "round",
       ...(dash ? { "stroke-dasharray": dash } : {}),
+    };
+    if (wp.length >= 2 && needsDarkUnderlay(spec.stroke)) {
+      svgAppend(
+        visuals,
+        svgAttr(svgCreate("path"), {
+          class: UNDERLAY_CLASS,
+          d: wp.map((p, idx) => `${idx === 0 ? "M" : "L"}${p.x},${p.y}`).join(""),
+          ...lineStyle,
+          stroke: "none",
+          "stroke-width": spec.strokeWidth + UNDERLAY_EXTRA_WIDTH,
+        }),
+      );
+    }
+    const line = svgAttr(svgCreate("polyline"), {
+      class: "cm-relationship-line",
+      points: wp.map((p) => `${p.x},${p.y}`).join(" "),
+      ...lineStyle,
+      stroke: spec.stroke,
+      "stroke-width": spec.strokeWidth,
     });
     svgAppend(visuals, line);
 
@@ -207,8 +265,7 @@ export default class ContextMapsRenderer extends BaseRenderer {
         // No direction (SK / P / SW): a single neutral pattern chip in the MIDDLE.
         const mx = (src.x + tgt.x) / 2;
         const my = (src.y + tgt.y) / 2;
-        const chip = patternChipColours(spec);
-        this.chip(visuals, mx, my, spec.abbreviation, chip.fill, chip.text, chip.border);
+        this.patternChip(visuals, mx, my, spec);
       } else {
         // Direction letter sits AT the domain as a plain letter (no box); the
         // integration roles follow as their own coloured boxes. Customer-supplier
@@ -239,7 +296,9 @@ export default class ContextMapsRenderer extends BaseRenderer {
     const ux = dx / len;
     const uy = dy / len;
 
-    // Direction letter: plain bold letter at the domain, white halo for legibility.
+    // Direction letter: plain bold letter at the domain on a paper halo, in both modes. Its notation
+    // colour holds 4.5:1 on paper only (3.08 to 3.56:1 on the dark ground), so the halo keeps its
+    // value like the notation's fills and is the letter's rim in dark.
     const letterDist = 11;
     const dirColor = directionLetterColour(direction);
     const letter = svgAttr(svgCreate("text"), {
@@ -266,7 +325,7 @@ export default class ContextMapsRenderer extends BaseRenderer {
     const cy = center.y;
 
     const parent = svgAttr(svgCreate("rect"), {
-      class: "cm-role-frame",
+      class: classNames("cm-role-frame", ROLE_CLASS.fillFlaecheHoch, ROLE_CLASS.strokeLinie),
       x: box.x,
       y: box.y,
       width: box.width,
@@ -274,7 +333,6 @@ export default class ContextMapsRenderer extends BaseRenderer {
       rx: 6,
       ry: 6,
       fill: PAPER,
-      "fill-opacity": 0.96,
       stroke: MIRAGON.linie,
       "stroke-width": 1,
     });
@@ -325,42 +383,53 @@ export default class ContextMapsRenderer extends BaseRenderer {
     svgAppend(visuals, t);
   }
 
-  /** A single small filled, bordered box (background, text colour, border colour). */
-  private chip(
+  /**
+   * A symmetric pattern's chip mid-line: a chip on the canvas (guide §10.1), its surface and text in
+   * the roles, bordered in the pattern's colour on an underlay where that border is weak in dark.
+   */
+  private patternChip(
     visuals: SVGElement,
     cx: number,
     cy: number,
-    text: string,
-    bgFill: string,
-    textFill: string,
-    border: string,
+    spec: RelationshipPatternSpec,
   ): void {
+    const text = spec.abbreviation;
     if (!text) return;
+    const colours = patternChipColours(spec);
     const padX = 6;
     const charW = FONT.small * 0.64;
     const w = text.length * charW + padX * 2;
     const h = FONT.small + 8;
+    const strokeWidth = 1;
+    const geometry = { x: cx - w / 2, y: cy - h / 2, width: w, height: h, rx: 4, ry: 4 };
+    if (needsDarkUnderlay(colours.border)) {
+      svgAppend(
+        visuals,
+        svgAttr(svgCreate("rect"), {
+          class: UNDERLAY_CLASS,
+          ...geometry,
+          fill: "none",
+          stroke: "none",
+          "stroke-width": strokeWidth + UNDERLAY_EXTRA_WIDTH,
+        }),
+      );
+    }
     const bg = svgAttr(svgCreate("rect"), {
-      class: "cm-pattern-chip",
-      x: cx - w / 2,
-      y: cy - h / 2,
-      width: w,
-      height: h,
-      rx: 4,
-      ry: 4,
-      fill: bgFill,
-      stroke: border,
-      "stroke-width": 1,
-      ...(bgFill === PAPER ? { "fill-opacity": 0.95 } : {}),
+      class: classNames("cm-pattern-chip", ROLE_CLASS.fillFlaecheHoch),
+      ...geometry,
+      fill: colours.fill,
+      stroke: colours.border,
+      "stroke-width": strokeWidth,
     });
     svgAppend(visuals, bg);
     const t = svgAttr(svgCreate("text"), {
+      class: ROLE_CLASS.fillText,
       x: cx,
       y: cy,
       "font-family": FONT.family,
       "font-size": FONT.small,
       "font-weight": "700",
-      fill: textFill,
+      fill: colours.text,
       "text-anchor": "middle",
       "dominant-baseline": "central",
     });

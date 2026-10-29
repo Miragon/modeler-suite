@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { CD_TOKENS, MIRAGON } from "../src/theme/palette.js";
+import { CD_TOKENS, DARK_CANVAS_GROUND, MIRAGON } from "../src/theme/palette.js";
 
 /**
  * Drift guard for the design system (the `miragon-brand:modeler-tool-design` skill; CLAUDE.md
@@ -32,6 +32,7 @@ const RELEASE_1_27_0: Record<keyof typeof vendored, string> = {
 
 interface VendoredTokens {
   hell: Record<string, string>;
+  dunkel: Record<string, string>;
   fest: Record<string, string>;
   shell: Record<string, string>;
 }
@@ -109,6 +110,11 @@ describe("theme.sync — MIRAGON mirrors the vendored tokens", () => {
 
   it("takes the ground of a PNG export (guide §10.7) from the light roles", () => {
     expect(MIRAGON.grau).toBe(tokens.hell["--cd-ui-grund"]);
+  });
+
+  it("takes the dark canvas's ground, the same as its plot, from the dark roles", () => {
+    expect(DARK_CANVAS_GROUND).toBe(tokens.dunkel["--cd-ui-grund"]);
+    expect(DARK_CANVAS_GROUND).toBe(tokens.dunkel["--cd-ui-plot"]);
   });
 });
 
