@@ -36,7 +36,7 @@ import type { FreeArea } from "@miragon/modeler-api";
 import type { FreeRectConfig } from "./free-rect/index.js";
 import { COMMAND_START_EVENTS, PUT_BACK_PRIORITY, type LivePreview } from "./live-preview/index.js";
 import { applyConfigUpdate, type MapConfigUpdate } from "./modeling/cmd/UpdateConfigHandler.js";
-import { ARMED_TOOL_PREFIXES, DROP_MARK_PRIORITY } from "./interaction/index.js";
+import { ACTION_MARK_PRIORITY, ARMED_TOOL_PREFIXES } from "./interaction/index.js";
 
 export interface WardleyViewerOptions {
   /** Host element. If missing, a detached <div> is created (can be attached later via attachTo). */
@@ -205,10 +205,10 @@ export abstract class WardleyBaseViewer {
     const dragging = diagram.get<Dragging | null>("dragging", false);
     if (!dragging) return;
     const eventBus = diagram.get<EventBus>("eventBus");
-    eventBus.on("drag.end", DROP_MARK_PRIORITY, () => {
+    eventBus.on("drag.end", ACTION_MARK_PRIORITY, () => {
       this._dropping = dragging.context() as DragContext;
     });
-    eventBus.on("drag.cleanup", DROP_MARK_PRIORITY, () => {
+    eventBus.on("drag.cleanup", ACTION_MARK_PRIORITY, () => {
       this._dropping = null;
     });
   }
