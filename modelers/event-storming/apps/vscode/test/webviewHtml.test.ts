@@ -9,7 +9,7 @@ function htmlTag(html: string): string {
   return /<html[^>]*>/.exec(html)?.[0] ?? "";
 }
 
-describe("EventStormingEditorProvider — webview HTML", () => {
+describe("the board editor: webview HTML", () => {
   it("writes the CSP with a nonce, and the same nonce on the one script", async () => {
     const h = await openBoard(fakeDocument("/a.storm", "title A\n"));
     const { html } = h.webview;
@@ -62,7 +62,7 @@ describe("EventStormingEditorProvider — webview HTML", () => {
   });
 });
 
-describe("EventStormingEditorProvider — theme bridge", () => {
+describe("the board editor: theme bridge", () => {
   it("posts the resolved appearance on a theme change, light for a light-only board", async () => {
     const h = await openBoard(fakeDocument("/a.storm", "title A\n"));
 

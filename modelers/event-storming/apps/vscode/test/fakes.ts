@@ -8,20 +8,32 @@ import {
   vscodeMock,
   workspace,
 } from "./__mocks__/vscode";
-import { EventStormingEditorProvider } from "../src/EventStormingEditorProvider.js";
+import { activate } from "../src/extension.js";
 import type { HostToWebview, WebviewToHost } from "../src/protocol.js";
 
+/** A TextDocument stand-in with VS Code's line semantics (lineCount, lineAt) and a settable text. */
 export interface FakeDoc {
   uri: Uri;
   getText(): string;
+  readonly lineCount: number;
+  lineAt(line: number): { text: string };
   set(text: string): void;
 }
 
 export function fakeDocument(path: string, text: string): FakeDoc {
   let current = text;
+  const lines = (): string[] => current.split(/\r\n|\n/);
   return {
     uri: Uri.parse(`file:${path}`),
     getText: () => current,
+    get lineCount() {
+      return lines().length;
+    },
+    lineAt: (line: number) => {
+      const lineText = lines()[line];
+      if (lineText === undefined) throw new Error(`Illegal line ${line}`);
+      return { text: lineText };
+    },
     set: (next: string) => (current = next),
   };
 }
@@ -129,20 +141,22 @@ export function fakeWebviewPanel(state: { active?: boolean; visible?: boolean } 
   };
 }
 
-export const context = {
-  extensionUri: Uri.parse("file:/ext"),
-} as unknown as vscode.ExtensionContext;
 export const token = {} as vscode.CancellationToken;
 
-export function newProvider(): EventStormingEditorProvider {
-  EventStormingEditorProvider.register(context);
-  return vscodeMock.lastRegisteredProvider<EventStormingEditorProvider>();
+/**
+ * Activates the extension as VS Code does (the board editor, its diagnostics and its commands) and
+ * returns the provider the board editor registered, which VS Code calls to open a board.
+ */
+export function newProvider(): vscode.CustomTextEditorProvider {
+  const context = { extensionUri: Uri.parse("file:/ext"), subscriptions: [] };
+  activate(context as unknown as vscode.ExtensionContext);
+  return vscodeMock.lastRegisteredProvider<vscode.CustomTextEditorProvider>();
 }
 
 export async function openBoard(
   doc: FakeDoc,
   state: { active?: boolean; visible?: boolean } = {},
-  provider: EventStormingEditorProvider = newProvider(),
+  provider: vscode.CustomTextEditorProvider = newProvider(),
 ): Promise<FakePanel> {
   const h = fakeWebviewPanel(state);
   await provider.resolveCustomTextEditor(doc as unknown as vscode.TextDocument, h.panel, token);
