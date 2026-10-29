@@ -113,17 +113,24 @@ modeler.onContentChanged(() => save(modeler.exportText()));
 
 An import is silent (no content change is reported back), keeps the selection and an open label
 editor and fits the view (unless `fitOnImport: false`); a host's view change (`setViewState`, a fit)
-never saves an open editor either. A gesture that runs during an import (a move, resize, connect or
-lasso drag, a create from the palette or the context pad, the evolve or plot-corner drag, the point
-drag of a drawing) is cancelled first, as Escape cancels it, so its release changes nothing. A tool
-that only waits for the user's next press stays armed: the lasso from the palette or `L`, and the
-draw tool. A drop whose change the host imports over at once, from its change listener, has applied
-and is left to finish, and the name editor of a create then stays closed, since the shape it would
-name is gone. `exportText()` is the committed document, never a live preview:
-while the plot corner is dragged or the size or axis-label popover previews a change, it returns the
-document as it was before, and the change event of the commit brings the new one. A command during a
-size preview (an undo pressed mid-drag, a title the host sets) puts the preview back first, and a
-drag then ends without resizing, so the history stays in step with the document. `elements` names
+never saves an open editor either. A gesture that runs during an import ends first, so its release
+changes nothing: a diagram-js drag (a move, resize, connect or lasso drag, a create from the palette
+or the context pad, the evolve drag the context pad starts, the plot-corner drag) is cancelled as
+Escape cancels it, a drawing's point drag ends when the import removes its drawing, and the drag of
+a component's red evolve target applies nothing on release to a component the import has replaced.
+A tool that only waits for the user's next press stays armed: the lasso from the palette or `L`,
+and the draw tool. An `importText` called from the change listener (a host that echoes its own
+change back through its store) waits until the edit that made the change has returned, a drop
+included, and then keeps what the edit left, as any import does: a create without a pointer (C, a
+palette entry with Enter or Space, the context pad's append with Enter) keeps its new element
+selected and its name editor open. The name editor a create with the pointer opens a task after its
+drop stays closed, since the import has replaced the shape it was handed by then. `exportText()` is
+the committed document, never a live preview: while the plot corner is dragged or the size or
+axis-label popover previews a change, it returns the document as it was before, and the change event
+of the commit brings the new one. A command during a size preview (an undo pressed mid-drag, a title
+the host sets) puts the preview back first, and a drag then ends without resizing, so the history
+stays in step with the document. A drawing's point drag ends the same way, without a commit, when a
+command runs before its release (an undo or an arrow-key nudge pressed mid-drag). `elements` names
 components, anchors, pipelines, submaps and accelerators by the id the document gives them
 (`cmp_kettle`), also right after a canvas edit, and `elements.bounds(id)` gives an element's live
 box in diagram coordinates; `getViewState` and `setViewState` carry the viewbox. `contentBounds()`

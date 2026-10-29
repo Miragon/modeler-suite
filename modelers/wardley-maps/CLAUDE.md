@@ -40,10 +40,13 @@ import fails `npm run wardley-maps lint` and `npm run wardley-maps depcruise`.
 runs in the browser tests
 ([`conformance.browser.test.ts`](packages/renderer/test/browser/conformance.browser.test.ts)), and a
 skipped case fails the run. An import cancels a running diagram-js drag first, as Escape does
-(`cancelGesture` in `WardleyBaseViewer`); a drawing's point drag is the renderer's own and ends when
-its drawing is removed (`shape.remove` in `WardleyDrawingHandles`). The armed lasso
-(`lasso.selection`) stays armed, a drop the host imports over from its change listener is left to
-finish, and the name editor of a create opens only on a shape the import has not replaced (pinned by
+(`cancelGesture` in `WardleyBaseViewer`); a drawing's point drag is the renderer's own and ends
+without a commit when its drawing is removed (`shape.remove` in `WardleyDrawingHandles`) or a
+command starts before its release. The armed lasso (`lasso.selection`) stays armed. An `importText`
+from the change listener waits until the edit that changed the map has returned (`changesReporting`
+in `CollaborativeWardley`), so a create without a pointer keeps its element selected and its name
+editor open across a host's echo; a drop an import runs during is left to finish, and the name
+editor of a create opens only on a shape the import has not replaced (pinned by
 [`import-during-gesture.browser.test.ts`](packages/renderer/test/browser/import-during-gesture.browser.test.ts)).
 The VS Code webview mounts `@miragon/modeler-shell`
 ([`apps/vscode/src/webview/main.ts`](apps/vscode/src/webview/main.ts)), the web app mounts its web

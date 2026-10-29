@@ -13,6 +13,7 @@ import { isWardleyShape, type WardleyShape } from "../model/di-types.js";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
 import { focusCanvasWithoutRing } from "../a11y/index.js";
+import { COMMAND_START_EVENTS, PUT_BACK_PRIORITY } from "../live-preview/index.js";
 
 interface Point {
   x: number;
@@ -55,6 +56,10 @@ export default class WardleyDrawingHandles {
     eventBus.on("shape.remove", (event: { element?: unknown }) => {
       if (this.pointDrag?.shape === event.element) this.endPointDrag();
     });
+    // The release writes back every point as it was when the handle was pressed, which would undo
+    // a command in between (an undo or an arrow-key nudge pressed mid-drag) and cost its redo step:
+    // the drag ends first, without a commit. The release ends the drag before its own command.
+    eventBus.on(COMMAND_START_EVENTS, PUT_BACK_PRIORITY, () => this.endPointDrag());
     eventBus.on(["diagram.clear", "diagram.destroy"], () => {
       this.endPointDrag();
       this.attach(null);
@@ -127,7 +132,7 @@ export default class WardleyDrawingHandles {
   /**
    * Ends a running point drag without committing it. The point drag is this renderer's own gesture,
    * outside diagram-js dragging, so the import's drag cancel does not reach it: the removal of its
-   * drawing ends it.
+   * drawing ends it, and so does any command before the release.
    */
   private endPointDrag(): void {
     const drag = this.pointDrag;

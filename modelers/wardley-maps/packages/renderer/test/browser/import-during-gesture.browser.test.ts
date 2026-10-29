@@ -14,6 +14,7 @@ import {
 } from "../../src/index.js";
 import type EvolutionGrid from "../../src/evolution-grid/EvolutionGrid.js";
 import type WardleyDrawTool from "../../src/draw-tool/WardleyDrawTool.js";
+import type WardleyLabelEditing from "../../src/label-editing/WardleyLabelEditing.js";
 import { isWardleyShape, type WardleyShape } from "../../src/model/di-types.js";
 import "../../src/assets/wardley.css";
 
@@ -173,6 +174,21 @@ function shapeNamed(diagram: Modeler, name: string): WardleyShape {
     .find((element) => isWardleyShape(element) && element.wardleyLabel === name);
   if (!shape) throw new Error(`the map has no ${name}`);
   return shape as WardleyShape;
+}
+
+/** The one component the session added to the map's Kettle, Water and Cup. */
+function theCreatedComponent(diagram: Modeler): WardleyShape {
+  const created = diagram
+    .get<ElementRegistry>("elementRegistry")
+    .filter(
+      (element) =>
+        isWardleyShape(element) &&
+        element.wardleyType === "component" &&
+        !["Kettle", "Water", "Cup"].includes(element.wardleyLabel ?? ""),
+    );
+  if (created.length !== 1)
+    throw new Error(`expected one created component, found ${created.length}`);
+  return created[0] as WardleyShape;
 }
 
 function theDrawing(diagram: Modeler): WardleyShape {
@@ -346,7 +362,7 @@ const KEYBOARD_CREATES: ReadonlyArray<readonly [string, (current: Session) => Pr
 
 describe("an import from inside the change listener of a create without a pointer", () => {
   test.each(KEYBOARD_CREATES)(
-    "opens no name editor on the element %s replaced",
+    "keeps the element %s created selected, with its name editor open",
     async (_, create) => {
       const current = await session();
       const { modeler, diagram, container } = current;
@@ -359,16 +375,62 @@ describe("an import from inside the change listener of a create without a pointe
       await nextTask();
       expect(current.errors).toEqual([]);
       expect(current.changes()).toBe(1);
-      const created = modeler
+      const components = modeler
         .exportText()
         .split("\n")
         .filter((line) => line.startsWith("component "));
-      expect(created).toHaveLength(before.length + 1);
-      expect(container.querySelector(".wardley-label-input")).toBeNull();
+      expect(components).toHaveLength(before.length + 1);
+      const created = theCreatedComponent(diagram);
+      expect(diagram.get<Selection>("selection").get()).toEqual([created]);
       expectNoReplacedElementSelected(diagram);
-      expectTheNextEditReported(current, 1);
+      expect(diagram.get<WardleyLabelEditing>("wardleyLabelEditing").getActiveEdit()).toEqual({
+        elementId: created.id,
+        value: created.wardleyLabel,
+        selection: { start: 0, end: created.wardleyLabel!.length },
+      });
+
+      const field = container.querySelector<HTMLTextAreaElement>(".wardley-label-input")!;
+      expect(document.activeElement).toBe(field);
+      field.value = "Tea";
+      field.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      );
+      expect(current.changes()).toBe(2);
+      expect(modeler.exportText()).toContain("component Tea [");
+      expect(container.querySelector(".wardley-label-input")).toBeNull();
+      expectTheNextEditReported(current, 2);
     },
   );
+});
+
+describe("an import from inside the change listener of an edit", () => {
+  test("runs once the edit has returned: the edit sees its own element", async () => {
+    const current = await session();
+    const { modeler, diagram } = current;
+    const reimport = reimportOnFirstChange(current);
+    const kettle = shapeNamed(diagram, "Kettle");
+    diagram.get<Modeling>("modeling").moveElements([kettle as unknown as Shape], { x: 12, y: 0 });
+    expect(diagram.get<ElementRegistry>("elementRegistry").get(kettle.id)).toBe(kettle);
+
+    await expect(reimport()).resolves.toBeDefined();
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(diagram.get<ElementRegistry>("elementRegistry").get(kettle.id)).not.toBe(kettle);
+    expect(modeler.exportText()).not.toBe(current.initial);
+  });
+
+  test("rejects when the modeler is destroyed before the edit has returned", async () => {
+    const current = await session();
+    const { modeler, diagram } = current;
+    const reimport = reimportOnFirstChange(current);
+    diagram
+      .get<Modeling>("modeling")
+      .moveElements([shapeNamed(diagram, "Kettle") as unknown as Shape], { x: 12, y: 0 });
+    modeler.destroy();
+
+    await expect(reimport()).rejects.toThrow("The modeler was destroyed.");
+    expect(current.errors).toEqual([]);
+  });
 });
 
 describe("an import while the user drags a point of a drawing", () => {
@@ -416,6 +478,86 @@ describe("an import while the user drags a point of a drawing", () => {
     diagram.get<CommandStack>("commandStack").undo();
     expect(modeler.exportText()).toBe(current.initial);
     expect(diagram.get<CommandStack>("commandStack").canUndo()).toBe(false);
+  });
+});
+
+/** A key pressed on the canvas, which has the focus since the handle was pressed. */
+function pressKeyOnCanvas(current: Session, init: KeyboardEventInit): void {
+  const svg = current.container.querySelector<SVGSVGElement>(":scope > svg")!;
+  svg.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
+}
+
+/** Presses the drawing's first handle and moves it: the point drag runs, its preview drawn. */
+function startPointDrag(current: Session): Point {
+  const { diagram, container, pointer } = current;
+  diagram.get<Selection>("selection").select(theDrawing(diagram) as unknown as DiagramElement);
+  const first = at(diagram, 0.85, 0.15);
+  pointer.press(container.querySelector(".wardley-drawing-handle")!, first);
+  pointer.moveTo({ x: first.x + 30, y: first.y + 20 });
+  expect(container.querySelector(POINT_DRAG_PREVIEW)).not.toBeNull();
+  return first;
+}
+
+describe("a command while the user drags a point of a drawing", () => {
+  test("an undo ends the point drag: the release keeps the undone drawing and the redo", async () => {
+    const current = await session();
+    const { modeler, diagram, container, pointer } = current;
+    const commandStack = diagram.get<CommandStack>("commandStack");
+    diagram
+      .get<Modeling>("modeling")
+      .moveElements([theDrawing(diagram) as unknown as Shape], { x: 24, y: 0 });
+    const moved = modeler.exportText();
+    expect(moved).not.toBe(current.initial);
+    const first = startPointDrag(current);
+
+    pressKeyOnCanvas(current, { key: "z", ctrlKey: true });
+    expect(current.changes()).toBe(2);
+    expect(modeler.exportText()).toBe(current.initial);
+    expect(container.querySelector(POINT_DRAG_PREVIEW)).toBeNull();
+    pointer.moveTo({ x: first.x + 60, y: first.y + 40 });
+    pointer.releaseAt({ x: first.x + 60, y: first.y + 40 });
+
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(2);
+    expect(modeler.exportText()).toBe(current.initial);
+    expect(container.querySelector(POINT_DRAG_PREVIEW)).toBeNull();
+    expect(commandStack.canRedo()).toBe(true);
+    commandStack.redo();
+    expect(modeler.exportText()).toBe(moved);
+  });
+
+  test("an arrow-key nudge ends the point drag: the release keeps the nudged drawing", async () => {
+    const current = await session();
+    const { modeler, diagram, container, pointer } = current;
+    const first = startPointDrag(current);
+
+    pressKeyOnCanvas(current, { key: "ArrowRight" });
+    expect(current.changes()).toBe(1);
+    const nudged = modeler.exportText();
+    expect(nudged).not.toBe(current.initial);
+    expect(container.querySelector(POINT_DRAG_PREVIEW)).toBeNull();
+    pointer.moveTo({ x: first.x + 60, y: first.y + 40 });
+    pointer.releaseAt({ x: first.x + 60, y: first.y + 40 });
+
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(modeler.exportText()).toBe(nudged);
+    expect(container.querySelector(POINT_DRAG_PREVIEW)).toBeNull();
+    diagram.get<CommandStack>("commandStack").undo();
+    expect(modeler.exportText()).toBe(current.initial);
+  });
+
+  test("its own release still commits the dragged point as one step", async () => {
+    const current = await session();
+    const { modeler, diagram, pointer } = current;
+    const first = startPointDrag(current);
+    pointer.releaseAt({ x: first.x + 30, y: first.y + 20 });
+
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(modeler.exportText()).not.toBe(current.initial);
+    diagram.get<CommandStack>("commandStack").undo();
+    expect(modeler.exportText()).toBe(current.initial);
   });
 });
 

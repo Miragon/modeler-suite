@@ -146,6 +146,7 @@ function collaborative(
   const livePreview = editable ? diagram.get<LivePreview>("wardleyLivePreview") : undefined;
   const contentListeners = new Set<() => void>();
   let importsRunning = 0;
+  let changesReporting = 0;
   let imported = false;
   let destroyed = false;
   let lastExport = "";
@@ -161,7 +162,12 @@ function collaborative(
   if (editable) {
     eventBus.on("commandStack.changed", () => {
       if (importsRunning > 0) return;
-      for (const listener of [...contentListeners]) listener();
+      changesReporting += 1;
+      try {
+        for (const listener of [...contentListeners]) listener();
+      } finally {
+        changesReporting -= 1;
+      }
     });
   }
 
@@ -216,6 +222,14 @@ function collaborative(
 
   async function importText(text: string): Promise<ImportResult> {
     if (destroyed) throw new Error("The modeler was destroyed.");
+    // A host that echoes its own change back through its store imports from the change listener,
+    // while the edit that made the change still runs: a create without a pointer goes on to select
+    // the new element and open its name editor. Applied there, the import would replace that
+    // element first, so it waits until the edit has returned and then keeps both, as any import does.
+    if (changesReporting > 0) {
+      await Promise.resolve();
+      if (destroyed) throw new Error("The modeler was destroyed.");
+    }
     importsRunning += 1;
     // An open label editor neither commits during the import nor loses what was typed (L1): it
     // is taken down and reopened on the element with the same id.
