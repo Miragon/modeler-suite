@@ -176,8 +176,11 @@ that ran it has returned. So no part of the action sees a replaced diagram: neit
 selection behaviour after a drop, nor the selection and the label editor that an append or a
 keyboard create opens on its new element (the editor comes back, with what was typed, on the
 imported element with the same id), nor the rest of a command that a selection listener interrupts.
-The label commit that a press on the canvas or the palette makes counts too: the import comes after
-the press and then ends the drag the press began, as every import ends a running gesture.
+The label commit that a press on an element or on a resize handle makes counts too: the import comes
+after the press and then ends what the press began, as an accepted import does: the resize that
+diagram-js starts at once on a handle, or the move of a press that has not reached the drag
+threshold yet. A press on the palette blurs the editor first, and the blur commits the label before
+the click: the import runs before the click, so the create the click starts goes on.
 `importDocument` of the wrapped diagram cannot wait: called from the change listener of a drop, it
 leaves the drop to finish, with its change applied.
 

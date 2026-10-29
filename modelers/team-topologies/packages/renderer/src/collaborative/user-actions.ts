@@ -43,10 +43,10 @@ function startAction(): RunningAction {
  *   moved or created (#248). It is over from `drag.cleanup` on, the step before `drag.ended` and
  *   `drag.canceled` that diagram-js always takes.
  * - Every other command, from its start: an annotation appended from the context pad, a create
- *   from the palette by keyboard, a label commit (also the one a press on the canvas or the palette
- *   makes), a delete, an undo. The code that ran it goes on in the same handler and selects the new
- *   element, opens its label editor or starts the drag the press began (#285, #305); the command
- *   itself goes on after a selection listener inside it. It is over once that code has returned,
+ *   from the palette by keyboard, a label commit (also the one a press on an element or on a
+ *   resize handle makes), a delete, an undo. The code that ran it goes on in the same handler and
+ *   selects the new element, opens its label editor or starts the press's drag (#285, #305); the
+ *   command itself goes on after a selection listener inside it. It is over once that code has returned,
  *   in the microtask after the command started. No action of this renderer leaves work on the
  *   diagram to a later task, so that microtask comes after all of it.
  *
