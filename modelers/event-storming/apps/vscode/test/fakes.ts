@@ -70,6 +70,8 @@ export interface FakePanel {
   ): Array<Extract<HostToWebview, { type: T }>>;
   receive(msg: WebviewToHost): Promise<unknown>;
   setViewState(state: { active?: boolean; visible?: boolean }): void;
+  /** Every `reveal(viewColumn, preserveFocus)` call. */
+  revealed: Array<[viewColumn: unknown, preserveFocus: unknown]>;
   dispose(): void;
 }
 
@@ -94,10 +96,14 @@ export function fakeWebviewPanel(state: { active?: boolean; visible?: boolean } 
       });
     },
   };
+  const revealed: Array<[unknown, unknown]> = [];
   const panel = {
     webview,
     active: state.active ?? true,
     visible: state.visible ?? true,
+    reveal: (viewColumn?: unknown, preserveFocus?: unknown) => {
+      revealed.push([viewColumn, preserveFocus]);
+    },
     onDidChangeViewState: viewStateEmitter.event,
     onDidDispose: disposeEmitter.event,
   };
@@ -118,6 +124,7 @@ export function fakeWebviewPanel(state: { active?: boolean; visible?: boolean } 
       if (next.visible !== undefined) panel.visible = next.visible;
       viewStateEmitter.fire({ webviewPanel: panel });
     },
+    revealed,
     dispose: () => disposeEmitter.fire(),
   };
 }

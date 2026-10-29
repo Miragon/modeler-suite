@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { ViewColumn, commands, vscodeMock } from "./__mocks__/vscode";
+import { TabInputCustom, Uri, ViewColumn, commands, vscodeMock } from "./__mocks__/vscode";
 import {
   NO_DIAGRAM_MESSAGE,
   SHOW_SOURCE_COMMAND,
@@ -114,6 +114,123 @@ describe("Open Source to the Side without a resource", () => {
 
     expect(openedBeside()).toEqual([[first.uri, "default", ViewColumn.Beside]]);
     expect(vscodeMock.informationMessages()).toEqual([NO_DIAGRAM_MESSAGE]);
+  });
+});
+
+describe("Open Source to the Side beside the map", () => {
+  it("shows the map focused last and focuses it, so its group is the one the source opens beside", async () => {
+    const provider = newProvider();
+    const doc = fakeDocument("/a.wmap", "title A\n");
+    const h = await openMap(provider, doc);
+    h.setActive(false);
+
+    await commands.executeCommand(SHOW_SOURCE_COMMAND);
+
+    expect(h.revealed).toEqual([[undefined, false]]);
+    expect(openedBeside()).toEqual([[doc.uri, "default", ViewColumn.Beside]]);
+  });
+
+  it("leaves a focused map where it is", async () => {
+    const doc = fakeDocument("/a.wmap", "title A\n");
+    const h = await openMap(newProvider(), doc);
+
+    await commands.executeCommand(SHOW_SOURCE_COMMAND);
+
+    expect(h.revealed).toEqual([]);
+    expect(openedBeside()).toEqual([[doc.uri, "default", ViewColumn.Beside]]);
+  });
+
+  it("opens the resource of an editor title button without showing another map", async () => {
+    const provider = newProvider();
+    const h = await openMap(provider, fakeDocument("/a.wmap", "title A\n"));
+    h.setActive(false);
+    const uri = Uri.file("/b.wmap");
+
+    await commands.executeCommand(SHOW_SOURCE_COMMAND, uri);
+
+    expect(h.revealed).toEqual([]);
+    expect(openedBeside()).toEqual([[uri, "default", ViewColumn.Beside]]);
+  });
+});
+
+describe("Open Source to the Side after a reload", () => {
+  const viewType = WardleyEditorProvider.viewType;
+  const walkthrough = undefined;
+
+  it("shows a map tab VS Code restored but has not resolved, then opens its source beside it", async () => {
+    newProvider();
+    const uri = Uri.file("/a.wmap");
+    vscodeMock.setTabGroups([
+      { inputs: [walkthrough, new TabInputCustom(uri, viewType)], activeTab: 0 },
+    ]);
+
+    await commands.executeCommand(SHOW_SOURCE_COMMAND);
+
+    expect(openedBeside()).toEqual([
+      [uri, viewType, 1],
+      [uri, "default", ViewColumn.Beside],
+    ]);
+    expect(vscodeMock.informationMessages()).toEqual([]);
+  });
+
+  it("prefers a tab of the active group, then the tab a group shows, then any other", async () => {
+    newProvider();
+    const hidden = Uri.file("/hidden.wmap");
+    const shown = Uri.file("/shown.wmap");
+    const besideWalkthrough = Uri.file("/beside-walkthrough.wmap");
+    vscodeMock.setTabGroups([
+      { inputs: [new TabInputCustom(hidden, viewType), walkthrough], activeTab: 1 },
+      { inputs: [new TabInputCustom(shown, viewType)], activeTab: 0 },
+      {
+        inputs: [walkthrough, new TabInputCustom(besideWalkthrough, viewType)],
+        activeTab: 0,
+        active: true,
+      },
+    ]);
+    await commands.executeCommand(SHOW_SOURCE_COMMAND);
+    vscodeMock.setTabGroups([
+      { inputs: [new TabInputCustom(hidden, viewType), walkthrough], activeTab: 1 },
+      { inputs: [new TabInputCustom(shown, viewType)], activeTab: 0 },
+      { inputs: [walkthrough], activeTab: 0, active: true },
+    ]);
+    await commands.executeCommand(SHOW_SOURCE_COMMAND);
+    vscodeMock.setTabGroups([
+      { inputs: [new TabInputCustom(hidden, viewType), walkthrough], activeTab: 1 },
+      { inputs: [walkthrough], activeTab: 0, active: true },
+    ]);
+    await commands.executeCommand(SHOW_SOURCE_COMMAND);
+
+    expect(openedBeside()).toEqual([
+      [besideWalkthrough, viewType, 3],
+      [besideWalkthrough, "default", ViewColumn.Beside],
+      [shown, viewType, 2],
+      [shown, "default", ViewColumn.Beside],
+      [hidden, viewType, 1],
+      [hidden, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("passes over the tabs of other editors", async () => {
+    newProvider();
+    vscodeMock.setTabGroups([
+      { inputs: [new TabInputCustom(Uri.file("/a.png"), "imagePreview.previewEditor")] },
+    ]);
+
+    await commands.executeCommand(SHOW_SOURCE_COMMAND);
+
+    expect(openedBeside()).toEqual([]);
+    expect(vscodeMock.informationMessages()).toEqual([NO_DIAGRAM_MESSAGE]);
+  });
+
+  it("takes an open map over a restored tab", async () => {
+    const provider = newProvider();
+    const doc = fakeDocument("/a.wmap", "title A\n");
+    (await openMap(provider, doc)).setActive(false);
+    vscodeMock.setTabGroups([{ inputs: [new TabInputCustom(Uri.file("/b.wmap"), viewType)] }]);
+
+    await commands.executeCommand(SHOW_SOURCE_COMMAND);
+
+    expect(openedBeside()).toEqual([[doc.uri, "default", ViewColumn.Beside]]);
   });
 });
 

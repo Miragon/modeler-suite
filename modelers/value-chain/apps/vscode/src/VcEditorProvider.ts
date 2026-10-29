@@ -8,6 +8,7 @@ import {
   DIAGRAM_VIEW_TYPE,
   registerSideBySideCommands,
   registerWebviewCommands,
+  revealRestoredTab,
 } from "./commands.js";
 import { DiagramSession } from "./DiagramSession.js";
 import { DIAGNOSTIC_COLLECTION_NAME } from "./diagnostics.js";
@@ -16,6 +17,7 @@ import { WEBVIEW_THEMES } from "./themes.js";
 
 interface OpenDiagram {
   readonly uri: vscode.Uri;
+  readonly panel: vscode.WebviewPanel;
 }
 
 /**
@@ -42,7 +44,7 @@ export class VcEditorProvider implements vscode.CustomTextEditorProvider {
       registration,
       provider.diagnostics,
       ...registerWebviewCommands((name) => provider.runCommand(name)),
-      ...registerSideBySideCommands(() => provider.activeDocumentUri()),
+      ...registerSideBySideCommands(() => provider.revealSourceDiagram()),
     );
   }
 
@@ -56,11 +58,16 @@ export class VcEditorProvider implements vscode.CustomTextEditorProvider {
   private constructor(private readonly context: vscode.ExtensionContext) {}
 
   /**
-   * The document of the focused diagram, else of the open diagram focused last: a link in the
-   * walkthrough takes the focus from the diagram it means.
+   * Shows the diagram Open Source to the Side means without a resource and returns its document: the
+   * focused diagram, else the open diagram focused last (a link in the walkthrough takes the focus from
+   * the diagram it means), else a diagram tab VS Code restored after a reload. Showing it focuses its
+   * group, so the source opens beside the diagram, not beside the walkthrough.
    */
-  public activeDocumentUri(): vscode.Uri | undefined {
-    return this.openDiagrams[0]?.uri;
+  public async revealSourceDiagram(): Promise<vscode.Uri | undefined> {
+    const last = this.openDiagrams[0];
+    if (!last) return revealRestoredTab(DIAGRAM_VIEW_TYPE);
+    if (!last.panel.active) last.panel.reveal(undefined, false);
+    return last.uri;
   }
 
   private forget(diagram: OpenDiagram): void {
@@ -106,7 +113,7 @@ export class VcEditorProvider implements vscode.CustomTextEditorProvider {
 
     const session = new DiagramSession(document, webviewPanel, this.diagnostics);
     const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: WEBVIEW_THEMES });
-    const diagram: OpenDiagram = { uri: document.uri };
+    const diagram: OpenDiagram = { uri: document.uri, panel: webviewPanel };
     if (webviewPanel.active) {
       this.activePanel = webviewPanel;
       this.openDiagrams.unshift(diagram);

@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext): void {
     CmEditorProvider.register(context, panels, diagnostics),
     CmPngEditorProvider.register(context, panels, diagnostics),
     ...registerWebviewCommands((name) => panels.runCommand(name)),
-    ...registerSideBySideCommands(() => panels.activeTextDocumentUri()),
+    ...registerSideBySideCommands(() => panels.revealTextDiagram()),
     vscode.commands.registerCommand("contextMaps.newDiagram", () => createMap(EMPTY_MAP)),
     vscode.commands.registerCommand("contextMaps.newFromExample", () => createMap(EXAMPLE_MAP)),
     vscode.commands.registerCommand("contextMaps.newPngDiagram", () => createPngMap()),

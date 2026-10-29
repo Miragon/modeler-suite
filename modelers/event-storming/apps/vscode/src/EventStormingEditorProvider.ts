@@ -9,6 +9,7 @@ import {
   BOARD_VIEW_TYPE,
   registerSideBySideCommands,
   registerWebviewCommands,
+  revealRestoredTab,
 } from "./commands.js";
 import { DIAGNOSTIC_COLLECTION_NAME } from "./diagnostics.js";
 import type { HostToWebview, WebviewCommand } from "./protocol.js";
@@ -16,6 +17,7 @@ import { WEBVIEW_THEMES } from "./themes.js";
 
 interface OpenBoard {
   readonly uri: vscode.Uri;
+  readonly panel: vscode.WebviewPanel;
 }
 
 /**
@@ -42,7 +44,7 @@ export class EventStormingEditorProvider implements vscode.CustomTextEditorProvi
       registration,
       provider.diagnostics,
       ...registerWebviewCommands((name) => provider.runCommand(name)),
-      ...registerSideBySideCommands(() => provider.activeDocumentUri()),
+      ...registerSideBySideCommands(() => provider.revealSourceBoard()),
     );
   }
 
@@ -56,11 +58,16 @@ export class EventStormingEditorProvider implements vscode.CustomTextEditorProvi
   private constructor(private readonly context: vscode.ExtensionContext) {}
 
   /**
-   * The document of the focused board, else of the open board focused last: a link in the
-   * walkthrough takes the focus from the board it means.
+   * Shows the board Open Source to the Side means without a resource and returns its document: the
+   * focused board, else the open board focused last (a link in the walkthrough takes the focus from
+   * the board it means), else a board tab VS Code restored after a reload. Showing it focuses its
+   * group, so the source opens beside the board, not beside the walkthrough.
    */
-  public activeDocumentUri(): vscode.Uri | undefined {
-    return this.openBoards[0]?.uri;
+  public async revealSourceBoard(): Promise<vscode.Uri | undefined> {
+    const last = this.openBoards[0];
+    if (!last) return revealRestoredTab(BOARD_VIEW_TYPE);
+    if (!last.panel.active) last.panel.reveal(undefined, false);
+    return last.uri;
   }
 
   private forget(board: OpenBoard): void {
@@ -105,7 +112,7 @@ export class EventStormingEditorProvider implements vscode.CustomTextEditorProvi
 
     const session = new BoardSession(document, webviewPanel, this.diagnostics);
     const themeBridge = connectThemeBridge(vscode, webviewPanel, { themes: WEBVIEW_THEMES });
-    const board: OpenBoard = { uri: document.uri };
+    const board: OpenBoard = { uri: document.uri, panel: webviewPanel };
     if (webviewPanel.active) {
       this.activePanel = webviewPanel;
       this.openBoards.unshift(board);

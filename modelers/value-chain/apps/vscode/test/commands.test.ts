@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Uri, ViewColumn, vscodeMock, window } from "./__mocks__/vscode";
+import { TabInputCustom, Uri, ViewColumn, vscodeMock, window } from "./__mocks__/vscode";
 import {
   NO_DIAGRAM_MESSAGE,
   OPEN_DIAGRAM_COMMAND,
@@ -203,5 +203,128 @@ describe("text and diagram side by side", () => {
     ]);
     expect(showInformationMessage).toHaveBeenCalledTimes(1);
     expect(showInformationMessage).toHaveBeenCalledWith(NO_DIAGRAM_MESSAGE);
+  });
+});
+
+describe("Open Source to the Side beside the diagram", () => {
+  it("shows the diagram focused last and focuses it, so its group is the one the source opens beside", async () => {
+    const document = fakeDocument("/a.vc.json", DOC_A);
+    const h = await openDiagram(document);
+    h.setViewState({ active: false });
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(h.revealed).toEqual([[undefined, false]]);
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", document.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("leaves a focused diagram where it is", async () => {
+    const document = fakeDocument("/a.vc.json", DOC_A);
+    const h = await openDiagram(document);
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(h.revealed).toEqual([]);
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", document.uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("opens the resource of an editor title button without showing another diagram", async () => {
+    const h = await openDiagram(fakeDocument("/a.vc.json", DOC_A));
+    h.setViewState({ active: false });
+    const uri = Uri.file("/b.vc.json");
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND, uri);
+
+    expect(h.revealed).toEqual([]);
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", uri, "default", ViewColumn.Beside],
+    ]);
+  });
+});
+
+describe("Open Source to the Side after a reload", () => {
+  const viewType = "valueChain.diagramEditor";
+  const walkthrough = undefined;
+
+  it("shows a diagram tab VS Code restored but has not resolved, then opens its source beside it", async () => {
+    newProvider();
+    const uri = Uri.file("/a.vc.json");
+    vscodeMock.setTabGroups([
+      { inputs: [walkthrough, new TabInputCustom(uri, viewType)], activeTab: 0 },
+    ]);
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", uri, viewType, 1],
+      ["vscode.openWith", uri, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("prefers a tab of the active group, then the tab a group shows, then any other", async () => {
+    newProvider();
+    const hidden = Uri.file("/hidden.vc.json");
+    const shown = Uri.file("/shown.vc.json");
+    const besideWalkthrough = Uri.file("/beside-walkthrough.vc.json");
+    vscodeMock.setTabGroups([
+      { inputs: [new TabInputCustom(hidden, viewType), walkthrough], activeTab: 1 },
+      { inputs: [new TabInputCustom(shown, viewType)], activeTab: 0 },
+      {
+        inputs: [walkthrough, new TabInputCustom(besideWalkthrough, viewType)],
+        activeTab: 0,
+        active: true,
+      },
+    ]);
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+    vscodeMock.setTabGroups([
+      { inputs: [new TabInputCustom(hidden, viewType), walkthrough], activeTab: 1 },
+      { inputs: [new TabInputCustom(shown, viewType)], activeTab: 0 },
+      { inputs: [walkthrough], activeTab: 0, active: true },
+    ]);
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+    vscodeMock.setTabGroups([
+      { inputs: [new TabInputCustom(hidden, viewType), walkthrough], activeTab: 1 },
+      { inputs: [walkthrough], activeTab: 0, active: true },
+    ]);
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", besideWalkthrough, viewType, 3],
+      ["vscode.openWith", besideWalkthrough, "default", ViewColumn.Beside],
+      ["vscode.openWith", shown, viewType, 2],
+      ["vscode.openWith", shown, "default", ViewColumn.Beside],
+      ["vscode.openWith", hidden, viewType, 1],
+      ["vscode.openWith", hidden, "default", ViewColumn.Beside],
+    ]);
+  });
+
+  it("passes over the tabs of other editors", async () => {
+    const showInformationMessage = vi.spyOn(window, "showInformationMessage");
+    newProvider();
+    vscodeMock.setTabGroups([
+      { inputs: [new TabInputCustom(Uri.file("/a.png"), "imagePreview.previewEditor")] },
+    ]);
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([]);
+    expect(showInformationMessage).toHaveBeenCalledWith(NO_DIAGRAM_MESSAGE);
+  });
+
+  it("takes an open diagram over a restored tab", async () => {
+    const document = fakeDocument("/a.vc.json", DOC_A);
+    const h = await openDiagram(document);
+    h.setViewState({ active: false });
+    vscodeMock.setTabGroups([{ inputs: [new TabInputCustom(Uri.file("/b.vc.json"), viewType)] }]);
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(vscodeMock.executedCommands()).toEqual([
+      ["vscode.openWith", document.uri, "default", ViewColumn.Beside],
+    ]);
   });
 });

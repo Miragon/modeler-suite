@@ -19,16 +19,19 @@ function resourceArgument(argument: unknown): vscode.Uri | undefined {
 
 /** Commands for an open map: text/diagram toggle, fit and image export. */
 export function registerEditorCommands(provider: WardleyEditorProvider): vscode.Disposable[] {
-  const showSource = vscode.commands.registerCommand(SHOW_SOURCE_COMMAND, (argument?: unknown) => {
-    const uri = resourceArgument(argument) ?? provider.activeDocumentUri();
-    if (!uri) return void vscode.window.showInformationMessage(NO_DIAGRAM_MESSAGE);
-    return vscode.commands.executeCommand(
-      "vscode.openWith",
-      uri,
-      "default",
-      vscode.ViewColumn.Beside,
-    );
-  });
+  const showSource = vscode.commands.registerCommand(
+    SHOW_SOURCE_COMMAND,
+    async (argument?: unknown) => {
+      const uri = resourceArgument(argument) ?? (await provider.revealSourceMap());
+      if (!uri) return void vscode.window.showInformationMessage(NO_DIAGRAM_MESSAGE);
+      return vscode.commands.executeCommand(
+        "vscode.openWith",
+        uri,
+        "default",
+        vscode.ViewColumn.Beside,
+      );
+    },
+  );
 
   const showDiagram = vscode.commands.registerCommand(
     SHOW_DIAGRAM_COMMAND,

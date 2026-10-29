@@ -4,6 +4,7 @@ import {
   currentAppearance,
   renderWebviewHtml,
 } from "@miragon/modeler-shell/vscode/extension";
+import { DIAGRAM_VIEW_TYPE, revealRestoredTab } from "./commands.js";
 import type { HostToWebview, WebviewCommand } from "./protocol.js";
 import { WEBVIEW_THEMES } from "./themes.js";
 
@@ -89,11 +90,17 @@ export class DiagramPanels {
   }
 
   /**
-   * The text document of the focused diagram, else of the text diagram focused last: a link in the
-   * walkthrough takes the focus from the diagram it means. A focused PNG diagram has no text.
+   * Shows the text diagram Open Source to the Side means without a resource and returns its
+   * document: the focused diagram, else the text diagram focused last (a link in the walkthrough
+   * takes the focus from the diagram it means), else a text diagram tab VS Code restored after a
+   * reload. Showing it focuses its group, so the source opens beside the diagram, not beside the
+   * walkthrough. A focused PNG diagram has no text.
    */
-  activeTextDocumentUri(): vscode.Uri | undefined {
+  async revealTextDiagram(): Promise<vscode.Uri | undefined> {
     if (this.active) return this.active.text ? this.active.uri : undefined;
-    return this.byFocus.find((tracked) => tracked.text)?.uri;
+    const last = this.byFocus.find((tracked) => tracked.text);
+    if (!last) return revealRestoredTab(DIAGRAM_VIEW_TYPE);
+    last.panel.reveal(undefined, false);
+    return last.uri;
   }
 }

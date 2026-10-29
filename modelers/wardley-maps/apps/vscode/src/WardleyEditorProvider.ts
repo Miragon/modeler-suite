@@ -13,11 +13,43 @@ import { WEBVIEW_THEMES } from "./themes.js";
 
 interface OpenMap {
   readonly uri: vscode.Uri;
+  readonly panel: vscode.WebviewPanel;
 }
 
 /** Echo keys ignore the line break style: VS Code writes inserted '\n' as the document's EOL. */
 function echoKey(text: string): string {
   return text.replace(/\r\n/g, "\n");
+}
+
+/**
+ * Shows a map tab VS Code restored after a reload and returns its document. VS Code resolves a
+ * restored tab only once it is shown, so until then the provider knows no panel of it. A tab in the
+ * active group comes first (the walkthrough is restored in front of it), then the tab each group
+ * shows, then any other.
+ */
+async function revealRestoredMapTab(): Promise<vscode.Uri | undefined> {
+  const { activeTabGroup, all } = vscode.window.tabGroups;
+  const tabs = [
+    ...activeTabGroup.tabs,
+    ...all.flatMap((group) => (group.activeTab ? [group.activeTab] : [])),
+    ...all.flatMap((group) => group.tabs),
+  ];
+  for (const tab of tabs) {
+    const input = tab.input;
+    if (
+      input instanceof vscode.TabInputCustom &&
+      input.viewType === WardleyEditorProvider.viewType
+    ) {
+      await vscode.commands.executeCommand(
+        "vscode.openWith",
+        input.uri,
+        WardleyEditorProvider.viewType,
+        tab.group.viewColumn,
+      );
+      return input.uri;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -57,11 +89,16 @@ export class WardleyEditorProvider implements vscode.CustomTextEditorProvider {
   ) {}
 
   /**
-   * The document of the focused map, else of the open map focused last: a link in the walkthrough
-   * takes the focus from the map it means.
+   * Shows the map Open Source to the Side means without a resource and returns its document: the
+   * focused map, else the open map focused last (a link in the walkthrough takes the focus from the
+   * map it means), else a map tab VS Code restored after a reload. Showing it focuses its group, so
+   * the source opens beside the map, not beside the walkthrough.
    */
-  public activeDocumentUri(): vscode.Uri | undefined {
-    return this.openMaps[0]?.uri;
+  public async revealSourceMap(): Promise<vscode.Uri | undefined> {
+    const last = this.openMaps[0];
+    if (!last) return revealRestoredMapTab();
+    if (!last.panel.active) last.panel.reveal(undefined, false);
+    return last.uri;
   }
 
   private forget(map: OpenMap): void {
@@ -111,7 +148,7 @@ export class WardleyEditorProvider implements vscode.CustomTextEditorProvider {
     const post = (msg: HostToWebview): Thenable<boolean> => webview.postMessage(msg);
     const key = document.uri.toString();
     this.panels.set(key, webviewPanel);
-    const map: OpenMap = { uri: document.uri };
+    const map: OpenMap = { uri: document.uri, panel: webviewPanel };
     if (webviewPanel.active) {
       this.activePanelKey = key;
       this.openMaps.unshift(map);
