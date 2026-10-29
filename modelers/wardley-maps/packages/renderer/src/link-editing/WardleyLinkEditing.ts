@@ -5,7 +5,12 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 import type { ComponentElement, MapElement, SubmapElement } from "@miragon/wardley-schema-model";
 import type { WardleyShape } from "../model/di-types.js";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
-import { createFieldError, focusField, type FieldSelection } from "../label-editing/index.js";
+import {
+  createFieldError,
+  focusField,
+  isImeCompositionKey,
+  type FieldSelection,
+} from "../label-editing/index.js";
 import { isAllowedLinkUrl, sanitizeLinkUrl } from "./link-url.js";
 
 interface ActiveLinkEdit {
@@ -176,6 +181,7 @@ export default class WardleyLinkEditing {
       if (!tryCommit()) cleanup();
     };
     const onKey = (event: KeyboardEvent) => {
+      if (isImeCompositionKey(event)) return;
       if (event.key === "Escape") {
         event.preventDefault();
         cleanup();
