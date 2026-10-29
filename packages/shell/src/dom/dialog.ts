@@ -6,12 +6,12 @@ import { iconElement } from "./icons.js";
 export interface ShellDialogOptions {
   /**
    * Where the `<dialog>` lives: the shell root, or the modeler's element in an embedding host, so
-   * the dialog takes its mode (`data-cd-theme`), contrast and language, and its sizes refer to the
-   * size container around it (the shell root; the window without one, guide §5.1), and never
-   * exceed the window minus 32px. It shows in the top layer and is centred over the part of this
-   * element that shows, as long as it fits there with 16px around it, and else in the window; its
-   * backdrop covers the whole window. It follows resizes of the element and of the window, a change
-   * of the page's height and scrolls of the page or of an element around it.
+   * the dialog takes its mode (`data-cd-theme`), contrast and language, and its sizes refer to this
+   * element's content box (guide §5.1; no size container needed), and never exceed the window
+   * minus 32px. It shows in the top layer and is centred over the part of this element that
+   * shows, as long as it fits there with 16px around it, and else in the window; its backdrop
+   * covers the whole window. It follows every change of the element's size or place and of what
+   * shows of it (a scroll, a move, a clipping panel that shrinks) while it is open.
    */
   container: HTMLElement;
   /** The title (21px/600) and the dialog's accessible name. */

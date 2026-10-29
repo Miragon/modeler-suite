@@ -11,17 +11,50 @@ interface Edges {
 /** Guide §8 sizes a dialog at most `100% - 32px`: 16px of backdrop on each side. */
 const BAND_PX = 16;
 
-/** Layout rounds to fractions of a pixel: a dialog `100cqw - 32px` wide fits its container exactly. */
+/** Layout rounds to fractions of a pixel: a dialog 32px smaller than its container fits it exactly. */
 const ROUNDING_PX = 1;
 
-/** The window a fixed element lies in, without scrollbars; `innerWidth` where the root reports none. */
+/** The container's content box, which `dialog.css` sizes the dialog from. */
+const CONTAINER_WIDTH_PROPERTY = "--modeler-shell-container-width";
+const CONTAINER_HEIGHT_PROPERTY = "--modeler-shell-container-height";
+
+/**
+ * The window a fixed element lies in, without scrollbars: `<html>` reports it, in quirks mode
+ * `<body>` (there `<html>` reports its own box); `innerWidth` where neither reports one.
+ */
 function measureWindow(ownerDocument: Document): Size {
-  const root = ownerDocument.documentElement;
+  const viewportElement =
+    ownerDocument.compatMode === "BackCompat" ? ownerDocument.body : ownerDocument.documentElement;
   const view = ownerDocument.defaultView;
   return {
-    width: root.clientWidth || (view?.innerWidth ?? 0),
-    height: root.clientHeight || (view?.innerHeight ?? 0),
+    width: viewportElement?.clientWidth || (view?.innerWidth ?? 0),
+    height: viewportElement?.clientHeight || (view?.innerHeight ?? 0),
   };
+}
+
+/**
+ * The content box of `container`, what `cqw` and `cqh` measure on a size container such as the
+ * shell root; `null` for an element without a box (`display: none` or `contents`).
+ */
+function contentSize(container: HTMLElement, style: CSSStyleDeclaration): Size | null {
+  const { clientWidth, clientHeight } = container;
+  if (clientWidth === 0 && clientHeight === 0) return null;
+  const padding = (side: "Left" | "Right" | "Top" | "Bottom") =>
+    parseFloat(style[`padding${side}`]) || 0;
+  return {
+    width: Math.max(0, clientWidth - padding("Left") - padding("Right")),
+    height: Math.max(0, clientHeight - padding("Top") - padding("Bottom")),
+  };
+}
+
+/** Writes an inline property only when it changes, so a frame that changes nothing writes nothing. */
+function setInline(element: HTMLElement, property: string, value: string | null): void {
+  const current = element.style.getPropertyValue(property);
+  if (value === null) {
+    if (current !== "") element.style.removeProperty(property);
+    return;
+  }
+  if (current !== value) element.style.setProperty(property, value);
 }
 
 function clipsOverflow(overflow: string): boolean {
@@ -122,55 +155,59 @@ function zoomOf(dialog: HTMLElement, renderedWidth: number): number {
  * Centres an open modal `dialog` over the part of `container` that shows, as long as the dialog
  * fits there with the 16px band of guide §8 around it, and else leaves it in the centre of the
  * window, where `dialog.css` puts it. The top layer alone centres it in the window, which in an
- * embedding host (a widget, a side panel) can lie far from the modeler. The shift is a
- * `translate`, so the dialog's size never depends on its place, and its backdrop stays on the
- * whole window. It follows the container while the dialog is open: a resize of the container, the
- * dialog or the window, a change of the page's height (content inserted above the container), and
- * a scroll of the page or of an element around the container. Returns the function that stops
- * following.
+ * embedding host (a widget, a side panel) can lie far from the modeler. It also hands
+ * `dialog.css` the container's content box, so the dialog's sizes refer to the container in every
+ * host (guide §5.1), not only inside a size container. The shift is a `translate`, so the dialog's
+ * size never depends on its place, and its backdrop stays on the whole window. It follows the
+ * container while the dialog is open and connected, measuring once per animation frame: nothing
+ * reports a move of the container or a resize of an element around it that clips it. Returns the
+ * function that stops following.
  */
 export function centreOverContainer(dialog: HTMLDialogElement, container: HTMLElement): () => void {
   const ownerDocument = dialog.ownerDocument;
   const view = ownerDocument.defaultView;
 
+  function size(): void {
+    const room = view ? contentSize(container, view.getComputedStyle(container)) : null;
+    setInline(dialog, CONTAINER_WIDTH_PROPERTY, room ? `${room.width}px` : null);
+    setInline(dialog, CONTAINER_HEIGHT_PROPERTY, room ? `${room.height}px` : null);
+  }
+
   function place(): void {
+    size();
     const windowSize = measureWindow(ownerDocument);
     const shown = shownPart(container, windowSize);
     const { width, height } = dialog.getBoundingClientRect();
+    // The band is 16px of the dialog's own CSS pixels, which CSS zoom scales like its box.
+    const zoom = zoomOf(dialog, width);
+    const band = 2 * BAND_PX * zoom;
     const fits =
       shown !== null &&
-      shown.right - shown.left + ROUNDING_PX >= width + 2 * BAND_PX &&
-      shown.bottom - shown.top + ROUNDING_PX >= height + 2 * BAND_PX;
-    const zoom = zoomOf(dialog, width);
+      shown.right - shown.left + ROUNDING_PX >= width + band &&
+      shown.bottom - shown.top + ROUNDING_PX >= height + band;
     const x = fits ? Math.round((shown.left + shown.right - windowSize.width) / 2 / zoom) : 0;
     const y = fits ? Math.round((shown.top + shown.bottom - windowSize.height) / 2 / zoom) : 0;
-    if (x === 0 && y === 0) {
-      dialog.style.removeProperty("translate");
-      return;
-    }
-    dialog.style.setProperty("translate", `${x}px ${y}px`);
+    setInline(dialog, "translate", x === 0 && y === 0 ? null : `${x}px ${y}px`);
   }
 
-  // A scroll does not bubble, so the capture phase on the document hears the page's and every element's.
-  const onScroll = (event: Event): void => {
-    const target = event.target;
-    if (target === ownerDocument || (target instanceof Node && target.contains(container))) {
-      place();
-    }
-  };
-  const ResizeObserverClass = globalThis.ResizeObserver;
-  const resizeObserver = ResizeObserverClass ? new ResizeObserverClass(place) : undefined;
+  let following = true;
+  let frame: number | undefined;
 
-  ownerDocument.addEventListener("scroll", onScroll, { capture: true, passive: true });
-  view?.addEventListener("resize", place);
-  resizeObserver?.observe(container);
-  resizeObserver?.observe(dialog);
-  resizeObserver?.observe(ownerDocument.documentElement);
+  function follow(): void {
+    frame = undefined;
+    if (!following || !dialog.isConnected) return;
+    place();
+    frame = requestAnimationFrame(follow);
+  }
+
   place();
+  if (typeof requestAnimationFrame === "function") frame = requestAnimationFrame(follow);
 
   return () => {
-    ownerDocument.removeEventListener("scroll", onScroll, { capture: true });
-    view?.removeEventListener("resize", place);
-    resizeObserver?.disconnect();
+    following = false;
+    if (frame !== undefined && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(frame);
+    }
+    frame = undefined;
   };
 }

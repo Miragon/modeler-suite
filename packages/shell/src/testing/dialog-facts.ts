@@ -93,7 +93,10 @@ export interface ShellDialogFacts {
     description: string;
     /** Opened with `showModal()`: in the top layer, the page behind it inert. */
     modal: boolean;
-    /** The window a fixed element lies in: the root's client size, without scrollbars. */
+    /**
+     * The window a fixed element lies in: the root's client size (in quirks mode the body's),
+     * without scrollbars.
+     */
     viewport: Size;
     /**
      * The content box of the modeler's container, the shell root, which the dialog's sizes refer
@@ -215,9 +218,12 @@ export const shellDialogProbe = ({
             parseFloat(rootStyle.paddingBottom),
         }
       : { width: window.innerWidth, height: window.innerHeight };
+  // In quirks mode `<body>` reports the window and `<html>` its own box.
+  const viewportElement =
+    document.compatMode === "BackCompat" ? document.body : document.documentElement;
   const viewport = {
-    width: document.documentElement.clientWidth || window.innerWidth,
-    height: document.documentElement.clientHeight || window.innerHeight,
+    width: viewportElement?.clientWidth || window.innerWidth,
+    height: viewportElement?.clientHeight || window.innerHeight,
   };
   const home = first.parentElement;
   let shown = null as { left: number; top: number; right: number; bottom: number } | null;

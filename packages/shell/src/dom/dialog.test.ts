@@ -281,6 +281,10 @@ describe("openShellDialog (guide §8)", () => {
 });
 
 describe("openShellDialog centres over its container (guide §5.1, §8)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+  });
+
   function openIn(box: { left: number; top: number; width: number; height: number }) {
     Object.defineProperty(document.documentElement, "clientWidth", {
       configurable: true,
@@ -297,7 +301,7 @@ describe("openShellDialog centres over its container (guide §5.1, §8)", () => 
     opened.push(dialog);
     const element = container.querySelector<HTMLDialogElement>("dialog")!;
     setBox(element, { left: 0, top: 0, width: 560, height: 400 });
-    FakeResizeObserver.resize(element);
+    vi.advanceTimersToNextFrame();
     return { container, dialog, element };
   }
 
@@ -306,13 +310,13 @@ describe("openShellDialog centres over its container (guide §5.1, §8)", () => 
     expect(element.style.getPropertyValue("translate")).toBe("-90px -20px");
 
     setBox(container, { left: 100, top: 160, width: 900, height: 700 });
-    FakeResizeObserver.resize(container);
+    vi.advanceTimersToNextFrame();
 
     expect(element.style.getPropertyValue("translate")).toBe("-90px 60px");
   });
 
-  it("leaves it in the window where the container is too small for it", () => {
-    const { element } = openIn({ left: 100, top: 80, width: 400, height: 700 });
+  it("leaves it in the window where too little of the container shows", () => {
+    const { element } = openIn({ left: 100, top: 700, width: 900, height: 700 });
     expect(element.style.getPropertyValue("translate")).toBe("");
   });
 
@@ -337,9 +341,10 @@ describe("openShellDialog centres over its container (guide §5.1, §8)", () => 
     dialog.close();
 
     setBox(container, { left: 0, top: 0, width: 1280, height: 900 });
-    window.dispatchEvent(new Event("resize"));
+    vi.advanceTimersToNextFrame();
 
     expect(element.style.getPropertyValue("translate")).toBe("-90px -20px");
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 
