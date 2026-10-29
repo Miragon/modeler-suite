@@ -24,12 +24,14 @@ import {
   type DiagramJsConnection,
 } from "@miragon/modeler-shell/diagram-js";
 import {
+  connectDocumentSync,
   mountVsCodeShell,
   persistView,
   readShellState,
   writeShellState,
+  type DocumentImportContext,
 } from "@miragon/modeler-shell/vscode/webview";
-import type { ExportFormat, HostToWebview, WebviewCommand, WebviewToHost } from "../protocol.js";
+import type { ExportFormat, WebviewCommand, WebviewToHost } from "../protocol.js";
 import { WEBVIEW_THEMES } from "../themes.js";
 import { blobToBase64, embedSvg, svgToEmbeddedPng } from "./io.js";
 
@@ -121,9 +123,6 @@ persistView(vscode, viewport);
 // Two-way sync with the document
 // ---------------------------------------------------------------------------
 
-let lastText = "";
-let initialized = false;
-
 function post(message: WebviewToHost): void {
   vscode.postMessage(message);
 }
@@ -168,52 +167,26 @@ function showInvalidMap(): void {
  * map the canvas already shows (only its formatting differs, e.g. `insertFinalNewline` on save) is
  * not re-imported at all.
  */
-async function importText(text: string): Promise<void> {
-  const first = !initialized;
+async function importText(text: string, { first }: DocumentImportContext): Promise<boolean> {
   if (!first && canonicalTextOf(text) === collaborative.exportText()) {
-    lastText = text;
     showValidMap();
-    return;
+    return true;
   }
   const keep = first ? undefined : viewport.getViewbox();
   const selected = first ? [] : selectedIds();
   try {
     await collaborative.importText(text);
-    lastText = text;
     showValidMap();
     if (keep) viewport.restore(keep);
     else if (first && storedShellState.view) viewport.setState(storedShellState.view);
     reselect(selected);
     viewport.afterImport();
+    return true;
   } catch {
     showInvalidMap();
-  } finally {
-    initialized = true;
+    return false;
   }
 }
-
-// Strictly serialized: init/update arrive as un-awaited messages, and two quick updates (several
-// undos) must not import concurrently and finish in the wrong order. The PNG save waits for it too.
-let importChain: Promise<void> = Promise.resolve();
-function enqueueImport(text: string): Promise<void> {
-  importChain = importChain
-    .then(() => importText(text))
-    .catch((error: unknown) => console.error("Context Maps import failed", error));
-  return importChain;
-}
-
-/** Graphical change -> canonical JSON and (only on a real difference) report it to the host. */
-function pushEdit(): void {
-  // Before the first import the canvas does not show the document yet; read-only: it shows the
-  // last valid map. Either way an edit would overwrite text the canvas never saw.
-  if (!initialized || shell.isReadOnly()) return;
-  const text = collaborative.exportText();
-  if (text === lastText) return;
-  lastText = text;
-  post({ type: "edit", text });
-}
-
-collaborative.onContentChanged(pushEdit);
 
 // ---------------------------------------------------------------------------
 // Export (the webview rasterizes/serializes; the host shows the save dialog)
@@ -280,7 +253,7 @@ async function exportAs(format: ExportFormat): Promise<void> {
  */
 async function respondPng(id: number): Promise<void> {
   try {
-    await importChain;
+    await sync.imported();
     const { data, fontFallback } = await exportData("png");
     post({ type: "pngResponse", id, data, fontFallback });
   } catch (error) {
@@ -290,7 +263,7 @@ async function respondPng(id: number): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Messages from the extension host
+// The extension host: init, updates, problems, commands and PNG requests in; ready and edits out
 // ---------------------------------------------------------------------------
 
 const COMMANDS: Readonly<Record<WebviewCommand, () => void>> = {
@@ -301,41 +274,22 @@ const COMMANDS: Readonly<Record<WebviewCommand, () => void>> = {
   exportCml: () => void exportAs("cml"),
 };
 
-function isHostMessage(data: unknown): data is HostToWebview {
-  return (
-    typeof data === "object" &&
-    data !== null &&
-    typeof (data as { type?: unknown }).type === "string"
-  );
-}
-
-let firstImportSettled: () => void = () => undefined;
-const ready = new Promise<void>((resolve) => (firstImportSettled = resolve));
-
-window.addEventListener("message", (event: MessageEvent<unknown>) => {
-  if (!isHostMessage(event.data)) return;
-  const message = event.data;
-  switch (message.type) {
-    case "init":
-      void enqueueImport(message.text).then(firstImportSettled);
-      break;
-    case "update":
-      void enqueueImport(message.text);
-      break;
-    case "problems":
-      shell.setProblems({ count: message.count, errors: message.errors });
-      break;
-    case "command":
-      // Only own entries: a name such as "constructor" must not reach Object.prototype.
-      if (Object.hasOwn(COMMANDS, message.name)) COMMANDS[message.name]();
-      break;
-    case "requestPng":
+// Before the first import the canvas does not show the document yet; read-only, it shows the last
+// valid map. Either way an edit would overwrite text the canvas never saw, so the sync writes none.
+const sync = connectDocumentSync({
+  api: vscode,
+  importText,
+  exportText: () => collaborative.exportText(),
+  canWrite: () => !shell.isReadOnly(),
+  onProblems: (counts) => shell.setProblems(counts),
+  commands: COMMANDS,
+  onMessage: (message) => {
+    if (message.type === "requestPng" && typeof message.id === "number") {
       void respondPng(message.id);
-      break;
-  }
+    }
+  },
 });
-
-post({ type: "ready" });
+collaborative.onContentChanged(sync.pushEdit);
 
 /** For test pages: the mounted parts, and `ready` once the first `init` import settled. */
 export const webview: {
@@ -343,4 +297,4 @@ export const webview: {
   modeler: CollaborativeContextMapsModeler;
   connection: DiagramJsConnection;
   ready: Promise<void>;
-} = { shell, modeler: collaborative, connection, ready };
+} = { shell, modeler: collaborative, connection, ready: sync.ready };

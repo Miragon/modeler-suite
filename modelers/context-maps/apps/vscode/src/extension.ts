@@ -1,17 +1,18 @@
 import * as vscode from "vscode";
-import { CmEditorProvider } from "./CmEditorProvider.js";
 import { CmPngEditorProvider } from "./CmPngEditorProvider.js";
 import { ActivePanels, registerSideBySideCommands, registerWebviewCommands } from "./commands.js";
 import { DIAGNOSTIC_COLLECTION_NAME } from "./diagnostics.js";
 import { EMPTY_MAP, EXAMPLE_MAP } from "./examples.js";
 import { newDiagramFromCml } from "./importCml.js";
+import { registerMapEditor } from "./mapEditor.js";
+import { MAP_VIEW_TYPE } from "./mapEditorOptions.js";
 
 export function activate(context: vscode.ExtensionContext): void {
   const panels = new ActivePanels();
   const diagnostics = vscode.languages.createDiagnosticCollection(DIAGNOSTIC_COLLECTION_NAME);
   context.subscriptions.push(
     diagnostics,
-    CmEditorProvider.register(context, panels, diagnostics),
+    registerMapEditor(context, panels, diagnostics),
     CmPngEditorProvider.register(context, panels, diagnostics),
     ...registerWebviewCommands((name) => panels.runCommand(name)),
     ...registerSideBySideCommands(() => panels.revealTextDiagram()),
@@ -40,7 +41,7 @@ async function createMap(initial: string): Promise<void> {
   if (!target) return;
 
   await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(initial));
-  await vscode.commands.executeCommand("vscode.openWith", target, CmEditorProvider.viewType);
+  await vscode.commands.executeCommand("vscode.openWith", target, MAP_VIEW_TYPE);
 }
 
 function defaultMapUri(): vscode.Uri | undefined {

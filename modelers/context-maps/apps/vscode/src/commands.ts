@@ -1,7 +1,8 @@
 import * as vscode from "vscode";
+import type { EditorWebviewPanelLike } from "@miragon/modeler-shell/vscode/extension";
+import { MAP_VIEW_TYPE } from "./mapEditorOptions.js";
 import type { WebviewCommand } from "./protocol.js";
 
-export const MAP_VIEW_TYPE = "contextMaps.editor";
 export const PNG_VIEW_TYPE = "contextMaps.pngEditor";
 
 export const WEBVIEW_COMMANDS: Readonly<Record<WebviewCommand, string>> = {
@@ -98,7 +99,7 @@ export function registerWebviewCommands(
 }
 
 interface TrackedPanel {
-  readonly panel: vscode.WebviewPanel;
+  readonly panel: EditorWebviewPanelLike;
   readonly uri: vscode.Uri;
   /** A text document: it has a source to open beside the diagram. */
   readonly text: boolean;
@@ -116,7 +117,7 @@ export class ActivePanels {
 
   /** Follows `panel` until it is disposed. */
   track(
-    panel: vscode.WebviewPanel,
+    panel: EditorWebviewPanelLike,
     documentUri: vscode.Uri,
     { text }: { text: boolean },
   ): vscode.Disposable {

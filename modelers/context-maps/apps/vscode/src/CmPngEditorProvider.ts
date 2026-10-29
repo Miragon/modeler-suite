@@ -1,14 +1,39 @@
 import * as vscode from "vscode";
-import { connectThemeBridge } from "@miragon/modeler-shell/vscode/extension";
+import {
+  connectThemeBridge,
+  currentAppearance,
+  renderWebviewHtml,
+} from "@miragon/modeler-shell/vscode/extension";
 import { PNG_VIEW_TYPE, type ActivePanels } from "./commands.js";
-import { setWebviewHtml } from "./CmEditorProvider.js";
 import { toDiagnostics } from "./diagnostics.js";
 import { EMPTY_MAP, withExampleInserted } from "./examples.js";
 import { exportToFile, fontFallbackText } from "./exportImage.js";
+import { WEBVIEW_TITLE } from "./mapEditorOptions.js";
 import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "./png.js";
 import { mapProblems, problemCounts } from "./problems.js";
 import type { HostToWebview, WebviewToHost } from "./protocol.js";
 import { WEBVIEW_THEMES } from "./themes.js";
+
+/**
+ * The webview of the `.cm.png` editor, the same document the shell's plumbing writes for the `.cm`
+ * editor, since both run one bundle: the shell's HTML, CSP and appearance around dist/webview.js.
+ */
+function setWebviewHtml(webview: vscode.Webview, extensionUri: vscode.Uri): void {
+  const dist = vscode.Uri.joinPath(extensionUri, "dist");
+  // dist holds the script, the stylesheet and the font files (fonts/), which the CSP allows from
+  // the webview's resource origin.
+  webview.options = { enableScripts: true, localResourceRoots: [dist] };
+  const asset = (file: string): string =>
+    webview.asWebviewUri(vscode.Uri.joinPath(dist, file)).toString();
+  webview.html = renderWebviewHtml({
+    cspSource: webview.cspSource,
+    scriptUri: asset("webview.js"),
+    styleUris: [asset("webview.css")],
+    title: WEBVIEW_TITLE,
+    lang: "en",
+    appearance: currentAppearance(vscode, { themes: WEBVIEW_THEMES }),
+  });
+}
 
 /**
  * How long to wait for the webview's rasterized PNG before the save aborts. Generously sized:

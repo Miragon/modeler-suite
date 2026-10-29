@@ -61,8 +61,11 @@ cannot pass Playwright's flags on (see the suite's
 uses the defaults
 (`E2E_PORT=6201 E2E_WEBVIEW_PORT=6211 npm run context-maps test:e2e`). In the `vscode-webview`
 project the kit's `csp` case builds the production webview bundle and walks it behind the real
-webview CSP. The shell's kit skips WebKit: its tab-order checks need a browser whose Tab reaches
-buttons and links, which WebKit does not do by default. After `npm run context-maps build:webapp`,
+webview CSP. With `?host` the webview test page runs the extension's document plumbing too
+(`registerModelerEditor` with `MAP_EDITOR_OPTIONS`) against the shell's stand-in for VS Code's
+documents, so `document-sync.spec.ts` moves a context and reads the document, and changes, refuses
+or undoes the document and reads the canvas. The shell's kit skips WebKit: its tab-order checks
+need a browser whose Tab reaches buttons and links, which WebKit does not do by default. After `npm run context-maps build:webapp`,
 `npm run check:build -w modelers/context-maps/apps/webapp` checks that the production `index.html`
 carries the mode markup and the bundle keeps the shell's Lucide licence comment. Locally, run
 `npx playwright install chromium webkit` once.

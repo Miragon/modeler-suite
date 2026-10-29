@@ -157,6 +157,22 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   the webview). Every case but the empty-file case opens the example; that case and appearance open
   the empty maps of `documents` (in the web app after "New diagram", in the webview also a file of
   zero bytes), and any skip fails the suite.
+- The `.cm` editor's document plumbing is the shell's:
+  [`mapEditor.ts`](apps/vscode/src/mapEditor.ts) registers it with `registerModelerEditor` of
+  `@miragon/modeler-shell/vscode/extension` (sync, echo suppression, minimal line edits, undo
+  through the document, "Insert example", the problems pill, a refused edit shown as the document
+  again), handing it `withExampleInserted`, the findings of `problems.ts` (with its scanner for a
+  text too deep for jsonc-parser) as `diagnostics.refresh` and `clear`, the export, and an
+  `onDidOpen` that reports the panel to `ActivePanels`. The `.cm.png` editor
+  (`CmPngEditorProvider.ts`, a binary custom document with its own undo, save and backup) stays
+  outside the plumbing (#170), reports to the same `ActivePanels` and speaks the same messages.
+  `ActivePanels`, not the registration's `runCommand` and `revealActiveDocument`, which know only
+  the `.cm` editors, keeps one focus order over both editors: the commands reach the focused
+  diagram of either, and Open Source to the Side passes over a PNG and opens nothing for a focused
+  one. The webview's half is `connectDocumentSync`, whose `onMessage` answers the PNG editor's
+  `requestPng` once the queued imports have settled. The options that need no `vscode` live in
+  [`mapEditorOptions.ts`](apps/vscode/src/mapEditorOptions.ts), which the e2e page also registers
+  against the shell's host stub (`?host`, `e2e/tests/vscode/document-sync.spec.ts`).
 - **Real VS Code.** `npm run context-maps test:vscode` (Vitest project `vscode`, in
   [`apps/vscode/test-smoke/`](apps/vscode/test-smoke)) packs the extension as the release does
   (`vsce package --no-dependencies`), unpacks the VSIX outside the repository and runs the shell's
