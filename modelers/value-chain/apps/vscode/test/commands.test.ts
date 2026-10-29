@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 describe("diagram commands", () => {
-  it("registers fit and export with the provider", () => {
+  it("registers fit and export with the editor", () => {
     newProvider();
 
     expect(vscodeMock.registeredCommandIds()).toEqual(

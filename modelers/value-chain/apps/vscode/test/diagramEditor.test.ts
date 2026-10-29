@@ -7,12 +7,13 @@ import {
   openDiagram,
   resetApplyEdit,
 } from "./fakes";
-import { EMPTY_DOCUMENT } from "../src/examples.js";
+import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "../src/examples.js";
 
 /**
- * The host's side of the document sync: graphical edits the webview produces come back as
- * `onDidChangeTextDocument` and must be swallowed (not re-imported), while genuinely external
- * edits must reach the webview exactly once. Verified black-box via posted messages.
+ * The diagram editor on the shell's document plumbing, from the extension host's side: graphical
+ * edits the webview produces come back as `onDidChangeTextDocument` and must be swallowed (not
+ * re-imported), while genuinely external edits must reach the webview exactly once; the Problems
+ * view and the pill follow the document. Verified black-box via posted messages.
  */
 
 beforeEach(() => vscodeMock.reset());
@@ -23,7 +24,7 @@ afterEach(() => {
 
 const named = (name: string): string => EMPTY_DOCUMENT.replace("New value chain", name);
 
-describe("VcEditorProvider — document sync", () => {
+describe("the diagram editor: document sync", () => {
   it("posts init with the document text on `ready`, then the problem count", async () => {
     const doc = fakeDocument("/a.vc.json", named("A"));
     const h = await openDiagram(doc);
@@ -109,7 +110,18 @@ describe("VcEditorProvider — document sync", () => {
     expect(applyEdit).not.toHaveBeenCalled();
   });
 
-  it("forwards the change when the write failed (it is no echo then)", async () => {
+  it("shows the document again when VS Code refused the edit, since the canvas shows it already", async () => {
+    const doc = fakeDocument("/a.vc.json", named("A"));
+    workspace.applyEdit = (_edit: WorkspaceEdit) => Promise.resolve(false);
+    const h = await openDiagram(doc);
+
+    await h.receive({ type: "edit", text: named("B") });
+
+    expect(doc.getText()).toBe(named("A"));
+    expect(h.updates()).toEqual([named("A")]);
+  });
+
+  it("forwards a later change to the refused text (it is no echo then)", async () => {
     const doc = fakeDocument("/a.vc.json", named("A"));
     workspace.applyEdit = (_edit: WorkspaceEdit) => Promise.resolve(false);
     const h = await openDiagram(doc);
@@ -118,7 +130,7 @@ describe("VcEditorProvider — document sync", () => {
     doc.set(named("B"));
     vscodeMock.fireDidChangeTextDocument(doc);
 
-    expect(h.updates()).toEqual([named("B")]);
+    expect(h.updates()).toEqual([named("A"), named("B")]);
   });
 
   it("posts nothing for a change event without content changes (save, dirty state)", async () => {
@@ -131,7 +143,7 @@ describe("VcEditorProvider — document sync", () => {
   });
 });
 
-describe("VcEditorProvider — problems", () => {
+describe("the diagram editor: problems", () => {
   it("fills the Problems view and the pill while the file is invalid, and clears both after", async () => {
     const doc = fakeDocument("/a.vc.json", named("A"));
     const h = await openDiagram(doc);
@@ -140,14 +152,38 @@ describe("VcEditorProvider — problems", () => {
 
     doc.set('{ "schemaVersion": 1, ');
     vscodeMock.fireDidChangeTextDocument(doc);
-    expect(collection.get(doc.uri)?.length).toBeGreaterThan(0);
-    expect(h.messagesOfType("problems").at(-1)).toMatchObject({ errors: expect.any(Number) });
-    expect(h.messagesOfType("problems").at(-1)!.count).toBeGreaterThan(0);
+    const found = collection.get(doc.uri)?.length ?? 0;
+    expect(found).toBeGreaterThan(0);
+    // Every finding is an error: each one keeps the file from opening on the canvas.
+    expect(h.messagesOfType("problems").at(-1)).toEqual({
+      type: "problems",
+      count: found,
+      errors: found,
+    });
 
     doc.set(named("A"));
     vscodeMock.fireDidChangeTextDocument(doc);
     expect(collection.get(doc.uri)).toEqual([]);
     expect(h.messagesOfType("problems").at(-1)).toEqual({ type: "problems", count: 0, errors: 0 });
+  });
+
+  it("checks the document when the editor opens, before the webview is ready", async () => {
+    const doc = fakeDocument("/a.vc.json", "{");
+    const h = await openDiagram(doc);
+
+    expect(vscodeMock.diagnosticCollections()[0]!.get(doc.uri)?.length).toBeGreaterThan(0);
+    expect(h.messagesOfType("problems")).toEqual([]);
+  });
+
+  it("drops the diagram's problems when its editor closes", async () => {
+    const doc = fakeDocument("/a.vc.json", "{");
+    const h = await openDiagram(doc);
+    const collection = vscodeMock.diagnosticCollections()[0]!;
+    expect(collection.has(doc.uri)).toBe(true);
+
+    h.dispose();
+
+    expect(collection.has(doc.uri)).toBe(false);
   });
 
   it("posts the count again to a webview that reloaded, which forgot it", async () => {
@@ -183,7 +219,7 @@ describe("VcEditorProvider — problems", () => {
   });
 });
 
-describe("VcEditorProvider — Insert example", () => {
+describe("the diagram editor: Insert example", () => {
   it("writes the example as one edit and sends it back as an update, so the canvas fits it", async () => {
     const doc = fakeDocument("/a.vc.json", named("Mine"));
     const applied = installEchoingApplyEdit(doc);
@@ -196,5 +232,19 @@ describe("VcEditorProvider — Insert example", () => {
     expect(JSON.parse(doc.getText())).toMatchObject({ meta: { name: "Mine" } });
     expect(JSON.parse(doc.getText()).elements.length).toBeGreaterThan(0);
     expect(h.updates()).toEqual([doc.getText()]);
+  });
+
+  it("leaves a diagram that gained content meanwhile alone", async () => {
+    const withContent = EXAMPLE_DOCUMENT;
+    const doc = fakeDocument("/a.vc.json", withContent);
+    const applied = installEchoingApplyEdit(doc);
+    const h = await openDiagram(doc);
+
+    await h.receive({ type: "insertExample" });
+    await flushPromises();
+
+    expect(applied).toEqual([]);
+    expect(doc.getText()).toBe(withContent);
+    expect(h.updates()).toEqual([]);
   });
 });

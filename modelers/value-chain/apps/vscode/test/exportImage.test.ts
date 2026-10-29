@@ -15,7 +15,7 @@ afterEach(() => {
 
 const target = Uri.parse("file:/chains/checkout.png");
 
-describe("VcEditorProvider — export", () => {
+describe("the diagram editor: export", () => {
   it("suggests the diagram name next to the file and writes the decoded PNG", async () => {
     const showSaveDialog = vi.spyOn(window, "showSaveDialog").mockResolvedValue(target);
     const writeFile = vi.spyOn(workspace.fs, "writeFile");

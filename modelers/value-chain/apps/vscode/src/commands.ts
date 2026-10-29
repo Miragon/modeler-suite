@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
+import { DIAGRAM_VIEW_TYPE } from "./diagramEditorOptions.js";
 import type { WebviewCommand } from "./protocol.js";
-
-export const DIAGRAM_VIEW_TYPE = "valueChain.diagramEditor";
 
 export const WEBVIEW_COMMANDS: Readonly<Record<WebviewCommand, string>> = {
   fitView: "valueChain.fitView",
@@ -53,7 +52,7 @@ export function registerSideBySideCommands(
 
 /**
  * Shows a tab of `viewType` that VS Code restored after a reload and returns its document. VS Code
- * resolves a restored tab only once it is shown, so until then the provider knows no panel of it. A
+ * resolves a restored tab only once it is shown, so until then the editor knows no panel of it. A
  * tab in the active group comes first (the walkthrough is restored in front of it), then the tab
  * each group shows, then any other.
  */

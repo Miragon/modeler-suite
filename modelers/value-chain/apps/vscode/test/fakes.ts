@@ -8,19 +8,27 @@ import {
   vscodeMock,
   workspace,
 } from "./__mocks__/vscode";
-import { VcEditorProvider } from "../src/VcEditorProvider.js";
+import { registerDiagramEditor } from "../src/diagramEditor.js";
 import type { HostToWebview, WebviewToHost } from "../src/protocol.js";
 
+/** A TextDocument stand-in with VS Code's line semantics and a settable text. */
 export interface FakeDoc {
   uri: Uri;
+  readonly lineCount: number;
+  lineAt(line: number): { text: string };
   getText(): string;
   set(text: string): void;
 }
 
 export function fakeDocument(path: string, text: string): FakeDoc {
   let current = text;
+  const lines = (): string[] => current.split(/\r\n|\n/);
   return {
     uri: Uri.parse(`file:${path}`),
+    get lineCount() {
+      return lines().length;
+    },
+    lineAt: (line: number) => ({ text: lines()[line] ?? "" }),
     getText: () => current,
     set: (next: string) => (current = next),
   };
@@ -134,15 +142,16 @@ export const context = {
 } as unknown as vscode.ExtensionContext;
 export const token = {} as vscode.CancellationToken;
 
-export function newProvider(): VcEditorProvider {
-  VcEditorProvider.register(context);
-  return vscodeMock.lastRegisteredProvider<VcEditorProvider>();
+/** Registers the diagram editor and its commands as `activate` does; returns its provider. */
+export function newProvider(): vscode.CustomTextEditorProvider {
+  registerDiagramEditor(context);
+  return vscodeMock.lastRegisteredProvider<vscode.CustomTextEditorProvider>();
 }
 
 export async function openDiagram(
   doc: FakeDoc,
   state: { active?: boolean; visible?: boolean } = {},
-  provider: VcEditorProvider = newProvider(),
+  provider: vscode.CustomTextEditorProvider = newProvider(),
 ): Promise<FakePanel> {
   const h = fakeWebviewPanel(state);
   await provider.resolveCustomTextEditor(doc as unknown as vscode.TextDocument, h.panel, token);

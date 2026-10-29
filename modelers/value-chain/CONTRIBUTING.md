@@ -30,18 +30,21 @@ Extras: `npm run value-chain dev:webapp` (editor at http://localhost:5181),
   `@miragon/modeler-shell` conformance kit on the web host and the app's own chrome handlers) and
   `vscode-webview` (the VS Code webview from source inside the shell's VS Code stub,
   `E2E_WEBVIEW_PORT`, default 5191; it runs the kit on the IDE host, whose `csp` case walks the
-  production bundle behind the webview CSP). `webapp-webkit` runs two specs of the web app in
-  Safari's engine, on the `webapp` server. `webapp-share.spec.ts` checks that Share calls
-  `clipboard.write` while the click is dispatched, with a ClipboardItem whose value is a promise
-  (Safari drops the user activation at the first `await`; Playwright's WebKit allows a write at
-  any time, so the spec records the call), and confirms with the success toast; it does not read
-  the clipboard back. `webapp-focus-hand-back.spec.ts` checks that Cmd/Ctrl+Z and C (the connect
-  tool) act on the canvas at once after a click on zoom in, zoom out or Share, and that Enter on
-  Share leaves the focus on the button. After the menu's dialog closes it checks that the focus is
-  on the menu trigger and that the keys act once a click on the canvas has given it the focus back.
-  Both run in `webapp` too. Safari gives a clicked button no focus, while Chromium and
-  Playwright's WebKit on Linux (as in CI) focus it, so the focus spec takes the focus off a clicked
-  button as Safari does (`tests/support/safari.ts`). One project:
+  production bundle behind the webview CSP). With `?host` its test page runs the extension's
+  document plumbing too (`registerModelerEditor` with `DIAGRAM_EDITOR_OPTIONS`) against the shell's
+  stand-in for VS Code's documents, so `document-sync.spec.ts` edits the canvas and reads the
+  document, and changes or undoes the document and reads the canvas. `webapp-webkit` runs two
+  specs of the web app in Safari's engine, on the `webapp` server. `webapp-share.spec.ts` checks
+  that Share calls `clipboard.write` while the click is dispatched, with a ClipboardItem whose
+  value is a promise (Safari drops the user activation at the first `await`; Playwright's WebKit
+  allows a write at any time, so the spec records the call), and confirms with the success toast;
+  it does not read the clipboard back. `webapp-focus-hand-back.spec.ts` checks that Cmd/Ctrl+Z
+  and C (the connect tool) act on the canvas at once after a click on zoom in, zoom out or Share,
+  and that Enter on Share leaves the focus on the button. After the menu's dialog closes it checks
+  that the focus is on the menu trigger and that the keys act once a click on the canvas has given
+  it the focus back. Both run in `webapp` too. Safari gives a clicked button no focus, while
+  Chromium and Playwright's WebKit on Linux (as in CI) focus it, so the focus spec takes the focus
+  off a clicked button as Safari does (`tests/support/safari.ts`). One project:
   `npm run test:e2e -w modelers/value-chain/e2e -- --project=vscode-webview`, only the tests whose
   title matches: `-- --grep "<title>"`; the alias `npm run value-chain` cannot pass Playwright's
   flags on (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)). Set both ports
