@@ -30,7 +30,7 @@ interface ClientPoint {
   clientY: number;
 }
 
-/** The kinds of the kit's planned `startGesture` (packages/api README, "Cases for the 1.5 surfaces"). */
+/** The kinds of the kit's `startGesture` (packages/api README, "Cases for the 1.5 surfaces and the gesture rules of 1.6"). */
 type GestureKind = 'move' | 'create' | 'createOffCanvas';
 
 interface HeldGesture {
@@ -165,7 +165,7 @@ function dragPrefix(): string | undefined {
   return (service<Dragging>('dragging').context() as { prefix: string } | null)?.prefix;
 }
 
-/** Holds a gesture on `orders` the way a user does: the kit's planned harness field. */
+/** Holds a gesture on `orders` the way a user does, as the kit's `startGesture` does. */
 function startGesture(kind: GestureKind): HeldGesture {
   if (kind === 'move') {
     const start = centreOf('order');
@@ -193,7 +193,7 @@ function startGesture(kind: GestureKind): HeldGesture {
   };
 }
 
-/** Arms the palette's lasso without pressing: the kit's planned `armTool`. */
+/** Arms the palette's lasso without pressing, as the kit's `armTool` does. */
 function armTool(): void {
   const at = clickPalette('lasso-tool');
   moveTo({ x: at.x + 60, y: at.y + 60 });

@@ -3,6 +3,7 @@ import {
   attachedHost,
   registerConformance,
   type ConformanceHarness,
+  type HeldPan,
 } from "@miragon/modeler-api/conformance";
 import type { CollaborativeModeler } from "@miragon/modeler-api";
 import type Canvas from "diagram-js/lib/core/Canvas";
@@ -23,6 +24,7 @@ import conferencePlannerLoose from "./fixtures/conference-planner.loose.cm?raw";
 import orderFulfilment from "./fixtures/order-fulfilment.cm?raw";
 import orderFulfilmentLoose from "./fixtures/order-fulfilment.loose.cm?raw";
 import orderFulfilmentForeign from "./fixtures/order-fulfilment.foreign.cm?raw";
+import { armTool, exportImage, startGesture } from "./support/gestures.js";
 
 const hostWrappers: HTMLElement[] = [];
 
@@ -77,6 +79,42 @@ function labelEditorField(modeler: CollaborativeModeler): HTMLElement | null {
 function typedHalfway(fragment: string, typedSoFar: string): string {
   if (!conferencePlanner.includes(fragment)) throw new Error(`the fixture lost "${fragment}"`);
   return conferencePlanner.replace(fragment, typedSoFar);
+}
+
+/** One step of the kit's pan, in screen pixels: past the 15 px drag threshold of MoveCanvas. */
+const PAN_STEP = 40;
+
+/** A pan of the canvas (MoveCanvas, which takes a press on the root while the canvas has the focus). */
+function startPan(modeler: CollaborativeModeler): HeldPan {
+  const diagram = diagramOf(modeler);
+  const canvas = diagram.get<Canvas>("canvas");
+  canvas.focus();
+  const rect = canvas.getContainer().getBoundingClientRect();
+  const start = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  let steps = 0;
+  const pointerEvent = (type: string, target: EventTarget) =>
+    target.dispatchEvent(
+      new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: start.x + steps * PAN_STEP,
+        clientY: start.y,
+      }),
+    );
+  const root = diagram.get<ElementRegistry>("elementRegistry").getGraphics(canvas.getRootElement());
+  pointerEvent("mousedown", root);
+  steps = 1;
+  pointerEvent("mousemove", document);
+  return {
+    move() {
+      steps += 1;
+      pointerEvent("mousemove", document);
+    },
+    drop() {
+      pointerEvent("mouseup", document);
+    },
+  };
 }
 
 const harness: ConformanceHarness = {
@@ -151,6 +189,10 @@ const harness: ConformanceHarness = {
     if (!field) throw new Error("no label editor open to commit");
     field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", keyCode: 13, bubbles: true }));
   },
+  startGesture: (modeler, kind) => startGesture(modeler as CollaborativeContextMapsModeler, kind),
+  armTool: (modeler) => armTool(modeler as CollaborativeContextMapsModeler),
+  startPan,
+  exportImage: (modeler) => exportImage(modeler as CollaborativeContextMapsModeler),
 };
 
 // No case is inapplicable to Context Maps: the harness fills every optional hook. A skip is

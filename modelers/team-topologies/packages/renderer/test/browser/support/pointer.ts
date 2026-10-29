@@ -121,7 +121,7 @@ export function previewOf(container: HTMLElement): Element | null {
   return container.querySelector(PREVIEW_SELECTOR);
 }
 
-/** The gestures the contract kit's planned `startGesture` holds (packages/api README, 1.5). */
+/** The gestures the contract kit's `startGesture` holds (packages/api README, 1.5 and 1.6). */
 export type GestureKind = "move" | "create" | "createOffCanvas";
 
 export interface HeldGesture {

@@ -3,6 +3,9 @@ import {
   attachedHost,
   registerConformance,
   type ConformanceHarness,
+  type GestureKind,
+  type HeldGesture,
+  type HeldPan,
   type InteractionState,
 } from "@miragon/modeler-api/conformance";
 import type { CollaborativeModeler } from "@miragon/modeler-api";
@@ -23,6 +26,7 @@ import PORTER from "../../../../example/porter.vc.json?raw";
 import ORDER_TO_CASH from "./fixtures/order-to-cash.vc.json?raw";
 import ORDER_TO_CASH_LOOSE from "./fixtures/order-to-cash.loose.vc.json?raw";
 import ORDER_TO_CASH_FOREIGN from "./fixtures/order-to-cash.foreign.vc.json?raw";
+import { armTool, CanvasPointer, exportImage, type Point } from "./support/pointer.js";
 
 /**
  * The @miragon/modeler-api conformance kit (every law L1–L7, the elements surface with its boxes,
@@ -164,6 +168,79 @@ function moveFirstElement(modeler: CollaborativeModeler): string {
   return first.id;
 }
 
+/** Free canvas of the Porter example, below Marketing: where a create lands and a pan starts. */
+const FREE_SPOT: Point = { x: 800, y: 380 };
+
+/**
+ * The kit's gestures on the Porter example: a move of the first listed element past the drag
+ * threshold, a step from the palette held over free canvas, or still over the palette. A drop lands
+ * where it applies, so the step held over the palette is brought onto the canvas first.
+ */
+function startGesture(modeler: CollaborativeModeler, kind: GestureKind): HeldGesture {
+  const valueChain = modeler as CollaborativeValueChainModeler;
+  const pointer = new CanvasPointer(valueChain);
+  if (kind === "move") {
+    const [first] = valueChain.elements.list();
+    if (!first) throw new Error("the diagram has no element to move");
+    const start = pointer.centreOf(first.id);
+    pointer.press(pointer.graphics(first.id), start);
+    pointer.moveTo({ x: start.x + 20, y: start.y });
+    pointer.moveTo({ x: start.x + 40, y: start.y });
+    return {
+      drop() {
+        pointer.release();
+      },
+      cancel: () => pointer.escape(),
+    };
+  }
+  const { at } = pointer.pickFromPalette("create.step");
+  if (kind === "create") pointer.hover(pointer.canvasSvg(), FREE_SPOT);
+  else pointer.moveTo({ x: at.x, y: at.y + 8 });
+  return {
+    drop() {
+      pointer.hover(pointer.canvasSvg(), FREE_SPOT);
+      pointer.release(FREE_SPOT);
+    },
+    cancel: () => pointer.escape(),
+  };
+}
+
+/** One step of the kit's pan, in screen pixels. */
+const PAN_STEP = 40;
+
+/** A pan with the palette's hand tool, pressed on free canvas and moved one step at a time. */
+function startPan(modeler: CollaborativeModeler): HeldPan {
+  const pointer = new CanvasPointer(modeler as CollaborativeValueChainModeler);
+  const svg = pointer.canvasSvg();
+  pointer.pickFromPalette("hand-tool");
+  pointer.hover(svg, FREE_SPOT);
+  const { clientX, clientY } = pointer.client(FREE_SPOT);
+  let steps = 0;
+  const pointerEvent = (type: string, target: EventTarget): void => {
+    target.dispatchEvent(
+      new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: clientX + steps * PAN_STEP,
+        clientY,
+      }),
+    );
+  };
+  pointerEvent("mousedown", svg);
+  steps = 1;
+  pointerEvent("mousemove", document);
+  return {
+    move() {
+      steps += 1;
+      pointerEvent("mousemove", document);
+    },
+    drop() {
+      pointerEvent("mouseup", document);
+    },
+  };
+}
+
 const harness: ConformanceHarness = {
   async create() {
     const modeler = createCollaborativeModeler();
@@ -201,6 +278,10 @@ const harness: ConformanceHarness = {
   openInteraction: typeIntoLabelEditor,
   interactionState: openLabelEdit,
   commitInteraction: pressEnterInLabelEditor,
+  startGesture,
+  armTool: (modeler) => armTool(modeler as CollaborativeValueChainModeler),
+  startPan,
+  exportImage: (modeler) => exportImage(modeler as CollaborativeValueChainModeler),
 };
 
 describe("@miragon/modeler-api conformance", () => {

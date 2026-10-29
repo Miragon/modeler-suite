@@ -19,7 +19,7 @@ import { diagramOf, exportImage } from "./support/gesture-harness.js";
 import teaShop from "./fixtures/tea-shop.wmap?raw";
 import "../../src/assets/wardley.css";
 
-// The `appearance` surface of contract 1.5, following the kit's planned appearance case
+// The `appearance` surface of contract 1.5, following the kit's appearance case
 // (packages/api/README.md, "Cases for the 1.5 surfaces").
 
 const mountedModelers: CollaborativeWardleyModeler[] = [];

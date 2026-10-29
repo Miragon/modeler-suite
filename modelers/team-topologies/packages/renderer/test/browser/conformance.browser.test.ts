@@ -3,6 +3,9 @@ import {
   attachedHost,
   registerConformance,
   type ConformanceHarness,
+  type GestureKind,
+  type HeldGesture,
+  type HeldPan,
 } from "@miragon/modeler-api/conformance";
 import type { CollaborativeModeler } from "@miragon/modeler-api";
 import type Canvas from "diagram-js/lib/core/Canvas";
@@ -24,6 +27,7 @@ import rideHailing from "../../../../plugins/team-topologies-modeler/skills/tt-f
 import onlineShopLoose from "./fixtures/online-shop.loose.tt?raw";
 import onlineShopV2 from "./fixtures/online-shop.v2.tt?raw";
 import onlineShopForeign from "./fixtures/online-shop.foreign.tt?raw";
+import { holdGesture, paletteEntry, Pointer, type Point } from "./support/pointer.js";
 
 const hostWrappers: HTMLElement[] = [];
 
@@ -88,6 +92,74 @@ function withoutSizeOf(interactionId: string): string {
   );
   if (!sizeOfInteraction.test(onlineShop)) throw new Error(`the fixture lost "${interactionId}"`);
   return onlineShop.replace(sizeOfInteraction, "$1");
+}
+
+/** Free canvas of the online-shop sample, right of the flow: where a create lands. */
+const FREE_SPOT: Point = { x: 1120, y: 120 };
+
+/**
+ * The kit's gestures on the online-shop sample (`holdGesture`). A drop lands where it applies, so
+ * the palette drag held over the palette is brought onto free canvas first.
+ */
+function startGesture(modeler: CollaborativeModeler, kind: GestureKind): HeldGesture {
+  const diagram = modelerOf(modeler);
+  const held = holdGesture(diagram, kind);
+  if (kind !== "createOffCanvas") return held;
+  const pointer = new Pointer(diagram);
+  return {
+    drop() {
+      pointer.enter();
+      pointer.moveTo(FREE_SPOT);
+      pointer.releaseAt(FREE_SPOT);
+    },
+    cancel: held.cancel,
+  };
+}
+
+/** The palette's lasso, armed and waiting for its next press over the canvas. */
+function armTool(modeler: CollaborativeModeler): void {
+  const diagram = modelerOf(modeler);
+  const pointer = new Pointer(diagram);
+  pointer.clickOn(paletteEntry(diagram.get<Canvas>("canvas").getContainer(), "lasso-tool"));
+  pointer.enter();
+  pointer.moveTo({ x: 600, y: 60 });
+  pointer.moveTo({ x: 640, y: 90 });
+}
+
+/** One step of the kit's pan, in screen pixels: past the 15 px drag threshold of MoveCanvas. */
+const PAN_STEP = 40;
+
+/** A pan of the canvas (MoveCanvas, which takes a press on the root while the canvas has the focus). */
+function startPan(modeler: CollaborativeModeler): HeldPan {
+  const diagram = modelerOf(modeler);
+  const canvas = diagram.get<Canvas>("canvas");
+  canvas.focus();
+  const rect = canvas.getContainer().getBoundingClientRect();
+  const start = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  let steps = 0;
+  const pointerEvent = (type: string, target: EventTarget) =>
+    target.dispatchEvent(
+      new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: start.x + steps * PAN_STEP,
+        clientY: start.y,
+      }),
+    );
+  const root = diagram.get<ElementRegistry>("elementRegistry").getGraphics(canvas.getRootElement());
+  pointerEvent("mousedown", root);
+  steps = 1;
+  pointerEvent("mousemove", document);
+  return {
+    move() {
+      steps += 1;
+      pointerEvent("mousemove", document);
+    },
+    drop() {
+      pointerEvent("mouseup", document);
+    },
+  };
 }
 
 const harness: ConformanceHarness = {
@@ -165,6 +237,10 @@ const harness: ConformanceHarness = {
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
     );
   },
+  startGesture,
+  armTool,
+  startPan,
+  exportImage: (modeler) => modelerOf(modeler).saveSVG().svg,
 };
 
 // The harness fills every optional hook, and the kit takes an explicit [] as a declaration, so a
