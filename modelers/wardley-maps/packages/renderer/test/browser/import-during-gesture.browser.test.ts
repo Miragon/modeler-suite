@@ -307,6 +307,38 @@ describe("an import from inside the change listener of a drop", () => {
     expect(dropped.split("\n").filter((line) => line.startsWith("component "))).toHaveLength(4);
   });
 
+  test("by the Modeler's own importDSL, which does not wait, leaves the drop to finish", async () => {
+    const current = await session();
+    const { diagram, pointer, container } = current;
+    let reimport: Promise<unknown> | undefined;
+    // The import clears the command stack, which fires the event again from inside the call.
+    let reimporting = false;
+    diagram.on("commandStack.changed", () => {
+      if (reimporting) return;
+      reimporting = true;
+      reimport = diagram.importDSL(diagram.exportDSL());
+    });
+    const water = shapeNamed(diagram, "Water");
+    const start = middle(water as unknown as Shape);
+    pointer.press(pointer.graphics(water.id), start);
+    pointer.enter();
+    pointer.moveTo({ x: start.x + 20, y: start.y });
+    pointer.moveTo({ x: start.x + 60, y: start.y });
+    pointer.releaseAt({ x: start.x + 60, y: start.y });
+
+    await expect(reimport).resolves.toBeDefined();
+    expect(current.errors).toEqual([]);
+    const dropped = current.modeler.exportText();
+    expect(dropped).toMatch(/^component Water \[/m);
+    expect(dropped).not.toContain("component Water [0.3, 0.3]");
+    expect(diagram.get<Dragging>("dragging").context()).toBeFalsy();
+    expect(container.querySelector(DRAG_PREVIEW)).toBeNull();
+    expect(current.modeler.interaction.active()).toBe(false);
+    expectNoReplacedElementSelected(diagram);
+    expectTheNextEditReported(current, current.changes());
+    expect(current.modeler.exportText()).not.toBe(dropped);
+  });
+
   test("keeps the point a drawing's handle dropped", async () => {
     const current = await session();
     const { container, diagram, pointer } = current;

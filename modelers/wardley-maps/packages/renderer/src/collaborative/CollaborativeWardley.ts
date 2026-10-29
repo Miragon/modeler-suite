@@ -151,8 +151,18 @@ function interactionOf(diagram: Modeler | NavigatedViewer, editable: boolean) {
   const service = editable ? diagram.get<WardleyInteraction>("wardleyInteraction") : undefined;
   const listeners = new Set<(active: boolean) => void>();
   let destroyed = false;
+  // The event fires inside diagram-js's drag handling: a host listener that throws there would
+  // cancel the user's drag and keep the listeners after it from hearing of the change.
   diagram.get<EventBus>("eventBus").on(INTERACTION_CHANGED, (event: InteractionChangedEvent) => {
-    for (const listener of [...listeners]) listener(event.active);
+    for (const listener of [...listeners]) {
+      try {
+        listener(event.active);
+      } catch (error) {
+        queueMicrotask(() => {
+          throw error;
+        });
+      }
+    }
   });
   const surface: InteractionSurface = {
     active: () => !destroyed && service?.isActive() === true,

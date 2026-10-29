@@ -79,8 +79,7 @@ export default class WardleyInteraction {
     try {
       run();
     } finally {
-      this.end(gesture);
-      this.dropEnds();
+      this.endDrop(() => this.end(gesture));
     }
   }
 
@@ -113,11 +112,13 @@ export default class WardleyInteraction {
     const ended = () => {
       const context = ending;
       ending = null;
-      if (context) this.end(context);
-      if (context && context === dropping) {
-        dropping = null;
-        this.dropEnds();
+      if (!context) return;
+      if (context !== dropping) {
+        this.end(context);
+        return;
       }
+      dropping = null;
+      this.endDrop(() => this.end(context));
     };
     this.eventBus.on("drag.cleanup", DROP_MARK_PRIORITY, () => {
       const context = current();
@@ -135,6 +136,16 @@ export default class WardleyInteraction {
 
   private dropStarts(): void {
     this.dropsRunning += 1;
+  }
+
+  // A listener of the gesture's end that throws must not keep the drop marked: every later import
+  // would wait for it.
+  private endDrop(endGesture: () => void): void {
+    try {
+      endGesture();
+    } finally {
+      this.dropEnds();
+    }
   }
 
   // A drop defers some of its own steps by a task (the name editor of a create opens with

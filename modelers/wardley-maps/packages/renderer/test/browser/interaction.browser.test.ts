@@ -12,8 +12,10 @@ import type { Element as DiagramElement, Shape } from "diagram-js/lib/model/Type
 import {
   createCollaborativeModeler,
   createCollaborativeViewer,
+  INTERACTION_CHANGED,
   ROOT_ID,
   type CollaborativeWardleyModeler,
+  type InteractionChangedEvent,
 } from "../../src/index.js";
 import type WardleyElementFactory from "../../src/model/WardleyElementFactory.js";
 import type WardleyLabelEditing from "../../src/label-editing/WardleyLabelEditing.js";
@@ -416,7 +418,32 @@ const WARDLEY_GESTURES: ReadonlyArray<readonly [string, WardleyGesture]> = [
       return releaseAt(modeler, pressAndDrag(handle, centreOf(handle)));
     },
   ],
+  [
+    "a create the quick-create key C starts with the pointer over the canvas",
+    async (modeler) => {
+      const to = diagramPoint(modeler, 0.6, 0.85);
+      mouse(canvasSvgOf(modeler), "mousemove", to);
+      pressCanvasKey(modeler, "c");
+      return releaseAt(modeler, to);
+    },
+  ],
+  [
+    "a connect the key A starts from the selected component",
+    async (modeler) => {
+      select(modeler, shapeNamed(modeler, "Cup"));
+      const to = diagramPoint(modeler, 0.6, 0.85);
+      mouse(canvasSvgOf(modeler), "mousemove", to);
+      pressCanvasKey(modeler, "a");
+      return releaseAt(modeler, to);
+    },
+  ],
 ];
+
+function pressCanvasKey(modeler: CollaborativeWardleyModeler, key: string): void {
+  const svg = canvasSvgOf(modeler);
+  svg.focus();
+  svg.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+}
 
 describe("interaction follows every Wardley gesture", () => {
   test.each(WARDLEY_GESTURES)("%s, from its start to its release", async (_, start) => {
@@ -676,6 +703,58 @@ describe("an import from the change listener of a drop waits until the drop has 
     const waiting = log.reimport();
     modeler.destroy();
     await expect(waiting).rejects.toThrow(/destroyed/);
+  });
+
+  test("a host listener of interaction that throws stops neither the drop, the other listeners nor the waiting import", async () => {
+    const current = await session();
+    const { modeler } = current;
+    const log = importFromChangeListener(current, () => TEA_SHOP_WITHOUT_CUP);
+    const broken = new Error("a broken interaction listener");
+    modeler.interaction.onChange(() => {
+      throw broken;
+    });
+    const later: boolean[] = [];
+    modeler.interaction.onChange((active) => later.push(active));
+    select(modeler, shapeNamed(modeler, "Tea"));
+    const held = await startGesture(modeler, "move");
+    expect(modeler.interaction.active()).toBe(true);
+    expect(later).toEqual([true]);
+
+    held.drop();
+    expect(log.entries).toEqual(["drag.ended"]);
+    await expect(log.reimport()).resolves.toBeDefined();
+    expect(log.entries).toEqual(["drag.ended", "import.done", "settled"]);
+    expect(modeler.exportText()).toBe(TEA_SHOP_WITHOUT_CUP);
+    expect(later).toEqual([true, false]);
+    expect(current.delivered).toEqual([true, false]);
+    expect(errors).toEqual([broken, broken]);
+
+    const next = await startGesture(modeler, "create");
+    next.drop();
+    await settle();
+    expect(later).toEqual([true, false, true, false]);
+    await expect(modeler.importText(teaShop)).resolves.toBeDefined();
+    expect(modeler.exportText()).toBe(teaShop);
+  });
+
+  test("a listener of the interaction event that throws still lets the waiting import run", async () => {
+    const current = await session();
+    const { modeler } = current;
+    const log = importFromChangeListener(current, () => TEA_SHOP_WITHOUT_CUP);
+    const broken = new Error("a broken event listener");
+    diagramOf(modeler)
+      .get<EventBus>("eventBus")
+      .on(INTERACTION_CHANGED, (event: InteractionChangedEvent) => {
+        if (!event.active) throw broken;
+      });
+    const held = await startGesture(modeler, "move");
+
+    held.drop();
+    expect(errors).toEqual([broken]);
+    expect(modeler.interaction.active()).toBe(false);
+    await expect(log.reimport()).resolves.toBeDefined();
+    expect(modeler.exportText()).toBe(TEA_SHOP_WITHOUT_CUP);
+    expect(current.delivered).toEqual([true, false]);
   });
 
   test("a drop whose cleanup throws still lets the waiting import run", async () => {
