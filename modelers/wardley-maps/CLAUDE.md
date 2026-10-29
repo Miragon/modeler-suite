@@ -51,7 +51,7 @@ host ([`apps/webapp/src/main.ts`](apps/webapp/src/main.ts)); the shell's conform
 against both, in the `vscode-webview` Playwright project (`e2e/tests/vscode/`) and in the `webapp`
 project (`e2e/tests/webapp-shell-conformance.spec.ts`).
 
-Both apps hand the shell the dialogs and the PNG: Help › Keyboard shortcuts… opens
+Both apps hand the shell the shortcuts dialog and the PNG: Help › Keyboard shortcuts… opens
 `shell.showShortcutsDialog(mapShortcuts(shell, …))` (the renderer's groups as data; the shell adds
 the chrome's zoom keys), and the PNG exports go through `svgToPng` of `@miragon/modeler-shell/export`
 on `COLORS.plotBackground`, the `--cd-ui-plot` role a notation with a plot lies on (guide §10.7,
@@ -64,7 +64,10 @@ italic) with `?dataurl`, which the `dataurl-imports` plugin of
 `scripts/third-party-notices.mjs`) and of the e2e page's
 [`vite.config.ts`](e2e/webview/vite.config.ts) inline, and a fallback reaches the host as
 `fontFallback` on the `export` message (`pngExportMessage`), which then warns instead of confirming.
-Both apps show their own text when an export fails (guide §2), never the error's message. The
+The `vscode-webview` e2e tests record the SVG each PNG is drawn from and check that every embedded
+face carries the fontsource file of its subset and style. The web app and the webview show their
+own text when the SVG or PNG can't be made (guide §2), never the error's message; when the
+extension host can't write the file, its error names the file-system reason. The
 renderer's `createShortcutsDialog` and `svgToPng` stay exported for designIQ, deprecated since 0.14.0
 and removed in 0.15.0 ([#258](https://github.com/Miragon/modeler-suite/issues/258)); no app uses
 them.

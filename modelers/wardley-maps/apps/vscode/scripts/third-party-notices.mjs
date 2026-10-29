@@ -92,7 +92,10 @@ async function bundledPackages() {
       absWorkingDir: root,
     });
     for (const out of Object.values(result.metafile.outputs)) {
-      for (const [input, info] of Object.entries(out.inputs)) {
+      for (const [namespacedInput, info] of Object.entries(out.inputs)) {
+        // esbuild names a file the dataurl-imports plugin loads `dataurl:<absolute path>`; without
+        // the namespace it finds its package like any other file, whichever output lists it last.
+        const input = namespacedInput.replace(/^dataurl:/, "");
         if (info.bytesInOutput === 0 && !/\.(woff2?|ttf)$/.test(input)) continue;
         const match = /^(.*node_modules\/((?:@[^/]+\/)?[^/]+))\//.exec(input);
         if (match) directories.set(match[2], resolve(root, match[1]));
