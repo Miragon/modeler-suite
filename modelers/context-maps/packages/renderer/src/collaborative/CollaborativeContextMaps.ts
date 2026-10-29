@@ -174,11 +174,12 @@ function collaborative(
       diagram.attachTo(host as HTMLElement);
     },
     importText(text): Promise<ImportResult> {
-      // A host that imports from the change listener of a drop (an echo of its own change) would
-      // replace the elements the drop's later listeners still hold: diagram-js's selection after a
-      // move, the type menu after an append. The import waits until the gesture has ended.
-      const gestureEnded = destroyed ? undefined : gestures?.whenGestureEnded();
-      return gestureEnded ? gestureEnded.then(() => importNow(text)) : importNow(text);
+      // A host that imports from its change listener (an echo of its own change) would replace the
+      // elements the user's action still works on: diagram-js's selection after a move, the type
+      // menu after an append, the name editor after a keyboard create, diagram-js's drag init
+      // after a press committed a label. The import waits until the action has finished.
+      const actionEnded = destroyed ? undefined : gestures?.whenActionEnded();
+      return actionEnded ? actionEnded.then(() => importNow(text)) : importNow(text);
     },
     exportText() {
       // Asking a destroyed diagram would build a new one on the detached container.

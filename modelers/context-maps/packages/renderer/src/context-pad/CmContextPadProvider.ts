@@ -84,6 +84,25 @@ const SUBDOMAIN_MENU = "cm-subdomain-menu";
 const PATTERN_MENU = "cm-pattern-menu";
 const ROLES_MENU = "cm-roles-menu";
 
+/**
+ * The menus a user action leaves open: the subdomain-type menu after an append, so that classifying
+ * is one click away, and the integration roles after a toggle, so that combinations need no new
+ * click on the pad.
+ */
+const FOLLOW_UP_MENUS = {
+  [SUBDOMAIN_MENU]: { padEntry: "subdomain-type", title: "Subdomain type" },
+  [ROLES_MENU]: { padEntry: "roles", title: "Integration roles" },
+} as const;
+
+type FollowUpMenuId = keyof typeof FOLLOW_UP_MENUS;
+
+interface FollowUpMenu {
+  elementId: string;
+  menuId: FollowUpMenuId;
+}
+
+const FOLLOW_UP_MENU_STEP = "cmContextPad#followUpMenu";
+
 /** Marks the entry matching the element's current state (check + accent, CSS). */
 const ACTIVE_CLASS = "cm-popup-active";
 const MENU_GAP = 8;
@@ -148,6 +167,13 @@ export default class CmContextPadProvider implements ContextPadProvider {
   /** The last pad-opened menu, so a roles toggle can re-open it in place. */
   private currentMenu?: { element: CmElement; menuId: string; title: string; position: Point };
 
+  /** The menu a running user action keeps open, until the imports that waited for it have run. */
+  private followUpMenu?: FollowUpMenu;
+  /** The same, taken before an import closed the menu, until the import has run. */
+  private suspendedMenu?: FollowUpMenu;
+  /** Releases the user's action the pending step of a follow-up menu holds. */
+  private releaseMenuStep?: () => void;
+
   constructor(
     private readonly contextPad: ContextPad,
     private readonly popupMenu: PopupMenu,
@@ -165,7 +191,10 @@ export default class CmContextPadProvider implements ContextPadProvider {
     private readonly canvas: Canvas,
     private readonly scheduler: Scheduler,
     private readonly readOnly: Pick<CmReadOnly, "isReadOnly">,
-    private readonly gestureCancel: Pick<CmGestureCancel, "isCancellingForClear">,
+    private readonly gestureCancel: Pick<
+      CmGestureCancel,
+      "isCancellingForClear" | "holdAction" | "whenActionEnded"
+    >,
     private readonly elementRegistry: ElementRegistry,
   ) {
     // Injecting Connect instantiates it so its connect.* drag handlers exist
@@ -187,6 +216,9 @@ export default class CmContextPadProvider implements ContextPadProvider {
       const selected = selection.get() as Element[];
       if (selected.length === 1) contextPad.open(selected[0]!, true);
       else if (selected.length > 1) contextPad.open(selected, true);
+    });
+    eventBus.on("popupMenu.close", () => {
+      this.followUpMenu = undefined;
     });
     popupMenu.registerProvider(SUBDOMAIN_MENU, {
       getPopupMenuEntries: (target: PopupMenuTarget) => this.subdomainMenuEntries(target),
@@ -426,35 +458,91 @@ export default class CmContextPadProvider implements ContextPadProvider {
   /**
    * Open the subdomain-type menu for a freshly appended context, anchored to
    * its pad entry, deferred one task so the pad has been positioned first.
-   * A host that imports its own change back (from the change listener, after
-   * the drop) replaces the context by one with the same id and clears the
-   * selection: the menu follows the context there, as a label edit follows its
-   * element across an import. Not when the import removed it, and not when
-   * something else is selected by then.
+   * The menu is the last step of the user's append: an import a host makes
+   * from the append's change listener waits until it is open, then reopens it
+   * on the context with the same id (`resumeMenu`), as a label edit follows
+   * its element across an import. The Modeler's synchronous `importDocument`
+   * does not wait: when it has replaced the context by the time the menu
+   * opens, the menu follows the context there. Not when the import removed
+   * it, and not when something else is selected by then.
    */
   private openTypeMenu(context: CmContext): void {
-    void this.scheduler.schedule(() => {
-      const current = this.elementRegistry.get(context.id);
-      if (current === context) {
-        this.openTypeMenuOnPad(context);
-        return;
-      }
-      if (!isCmContext(current) || this.readOnly.isReadOnly()) return;
-      if (this.selection.get().length === 0) this.selection.select(current as unknown as Element);
-      void this.scheduler.schedule(
-        () => this.openTypeMenuOnPad(current),
-        "cmContextPad#openTypeMenu",
-      );
-    }, "cmContextPad#openTypeMenu");
+    const menu: FollowUpMenu = { elementId: context.id, menuId: SUBDOMAIN_MENU };
+    this.scheduleMenuStep(() => {
+      const replaced = this.elementRegistry.get(context.id) !== context;
+      if (replaced) this.followMenu(menu);
+      else this.openMenuOnPad(context, menu.menuId);
+    });
   }
 
-  private openTypeMenuOnPad(context: CmContext): void {
-    if (!this.contextPad.isOpen(context)) return;
+  /** Selects the element with the menu's id while nothing is selected, then opens it on its pad. */
+  private followMenu(menu: FollowUpMenu): void {
+    const current = this.elementRegistry.get(menu.elementId);
+    const fits = menu.menuId === SUBDOMAIN_MENU ? isCmContext(current) : isCmRelationship(current);
+    if (!fits || this.readOnly.isReadOnly()) return;
+    if (this.selection.get().length === 0) this.selection.select(current as unknown as Element);
+    this.scheduleMenuStep(() => this.openMenuOnPad(current as CmElement, menu.menuId));
+  }
+
+  /**
+   * One step of a follow-up menu, a task later; a later step replaces it. Until it has run it
+   * holds the user's action, so an import from the action's change listener waits for it.
+   */
+  private scheduleMenuStep(step: () => void): void {
+    const release = this.gestureCancel.holdAction();
+    const replaced = this.releaseMenuStep;
+    this.releaseMenuStep = release;
+    replaced?.();
+    void this.scheduler.schedule(() => {
+      try {
+        step();
+      } finally {
+        if (this.releaseMenuStep === release) this.releaseMenuStep = undefined;
+        release();
+      }
+    }, FOLLOW_UP_MENU_STEP);
+  }
+
+  private openMenuOnPad(element: CmElement, menuId: FollowUpMenuId): void {
+    if (!this.contextPad.isOpen(element as unknown as Element)) return;
+    const { padEntry, title } = FOLLOW_UP_MENUS[menuId];
     const entry = this.canvas
       .getContainer()
-      .querySelector<HTMLElement>('.djs-context-pad.open [data-action="subdomain-type"]');
+      .querySelector<HTMLElement>(`.djs-context-pad.open [data-action="${padEntry}"]`);
     if (!entry) return;
-    this.openMenuBeside(entry.getBoundingClientRect(), context, SUBDOMAIN_MENU, "Subdomain type");
+    this.openMenuBeside(entry.getBoundingClientRect(), element, menuId, title);
+    this.keepOpenAcrossWaitingImports(element, menuId);
+  }
+
+  /**
+   * Lets the imports that wait for the running action reopen the menu it opened. An import that
+   * comes later, a peer's for example, closes it, as it closes every other menu: the user may have
+   * moved on, and a reopened menu would take the keyboard focus back.
+   */
+  private keepOpenAcrossWaitingImports(element: CmElement, menuId: FollowUpMenuId): void {
+    if (!this.popupMenu.isOpen()) return;
+    const menu: FollowUpMenu = { elementId: element.id, menuId };
+    this.followUpMenu = menu;
+    const forget = (): void => {
+      if (this.followUpMenu === menu) this.followUpMenu = undefined;
+    };
+    // An import that waits for the action was called before the menu opened: it settles first and
+    // still finds the menu.
+    const actionEnded = this.gestureCancel.whenActionEnded();
+    if (actionEnded) void actionEnded.then(forget);
+    else forget();
+  }
+
+  /** Remembers the menu a user action keeps open, before an import closes it. */
+  suspendMenu(): void {
+    this.suspendedMenu = this.followUpMenu;
+  }
+
+  /** Reopens the remembered menu on the element the import put under the same id. */
+  resumeMenu(): void {
+    const menu = this.suspendedMenu;
+    this.suspendedMenu = undefined;
+    if (menu) this.scheduleMenuStep(() => this.followMenu(menu));
   }
 
   // --- relationship ---------------------------------------------------------
@@ -686,12 +774,14 @@ export default class CmContextPadProvider implements ContextPadProvider {
   /**
    * Re-open a menu after a command: the command stack's `commandStack.changed`
    * auto-closes any popup, but a multi-select menu (integration roles) should
-   * survive a toggle so combinations don't require re-opening the pad entry.
+   * survive a toggle so combinations don't require re-opening the pad entry,
+   * also across an import a host makes from the toggle's change listener.
    */
-  private reopenMenu(element: CmElement, menuId: string): void {
+  private reopenMenu(element: CmElement, menuId: FollowUpMenuId): void {
     const menu = this.currentMenu;
     if (!menu || menu.menuId !== menuId || menu.element !== element) return;
     this.popupMenu.open(element, menuId, menu.position, { title: menu.title });
+    this.keepOpenAcrossWaitingImports(element, menuId);
   }
 
   // --- popup menus ----------------------------------------------------------

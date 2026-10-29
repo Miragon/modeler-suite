@@ -17,6 +17,7 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element, ShapeLike } from "diagram-js/lib/model/Types";
 import { contextNameColour, contextTeamColour } from "../draw/contextColours.js";
 import { CONTEXT_NAME_TOP, CONTEXT_TEAM_RESERVE, FONT } from "../draw/styles.js";
@@ -76,6 +77,7 @@ export default class CmLabelEditing {
     "cmModeling",
     "elementRegistry",
     "cmReadOnly",
+    "selection",
   ];
 
   /** Which property the CURRENT activation edits (set right before activate). */
@@ -91,6 +93,7 @@ export default class CmLabelEditing {
     private readonly modeling: CmModeling,
     private readonly elementRegistry: ElementRegistry,
     private readonly readOnly: Pick<CmReadOnly, "isReadOnly">,
+    private readonly selection: Selection,
   ) {
     // Registered as a plain object: the provider contract claims the method
     // name `activate` for context creation, while this service keeps
@@ -171,8 +174,10 @@ export default class CmLabelEditing {
 
   /**
    * Reopens a suspended edit on the element with the same id, if the imported document still has
-   * it. Deferred to the next task, after the host has restored its viewbox and selection around the
-   * import, so the editor opens where the element ends up.
+   * it, and selects that element while nothing is selected, as before the import (a keyboard create
+   * leaves its context selected with the editor open). Deferred to the next task, after the host has
+   * restored its viewbox and selection around the import, so the editor opens where the element
+   * ends up.
    */
   resumeAfterImport(): void {
     clearTimeout(this.resumeTimer);
@@ -214,6 +219,8 @@ export default class CmLabelEditing {
     const element = this.elementRegistry.get(edit.elementId);
     if (!isCmElement(element)) return;
     if (edit.mode === "team" && !isCmContext(element)) return;
+    if (this.readOnly.isReadOnly()) return;
+    if (this.selection.get().length === 0) this.selection.select(element as Element);
     this.mode = edit.mode;
     if (!this.directEditing.activate(element as Element)) return;
     const content = this.directEditing.$textbox?.querySelector<HTMLElement>("[contenteditable]");
