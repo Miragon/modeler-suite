@@ -225,6 +225,10 @@ The extension owns file, document, history and mode; the webview shows canvas an
   open menu, keys the canvas already prevented such as Cmd+C or Cmd+A) and lets the rest through.
   The smoke driver's keys step checks it in a real VS Code for the zoom keys, Shift+1, Cmd/Ctrl+A
   and Cmd/Ctrl+C (see below).
+- **Undo and redo keep the view.** The document's text changes, so the webview imports it, and an
+  import resets what it draws. Each webview therefore reads the viewbox and the selected ids before
+  the import and puts both back after it, for the ids the new text still has. The smoke driver's
+  history step checks it in a real VS Code, with the redo and the undo of the edit (see below).
 - **Theme bridge.** The extension writes `data-cd-theme`/`data-cd-kontrast` into the HTML and posts
   changes; re-send when a hidden panel becomes visible. The body classes are only a fallback when
   no extension speaks, and `vscode-high-contrast-light` must be checked before
@@ -302,11 +306,28 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
   animates for 250 ms, though, and on its way from 100 % its readout passes the reference even
   where it heads for another fit, so the driver waits `FIT_ANIMATION_MS` and reads until two reads
   agree before it compares. Where the readout already shows a key's target (a fixture that fits at
-  100 %), the driver zooms in first, or that key would prove nothing. Select all has to select more elements than were selected before it,
-  since an earlier step may have left one selected. The clipboard is only read, never written, so a
-  local run on macOS leaves the user's clipboard alone. CI opts every modeler in with
-  `VSCODE_SMOKE_OPT_IN=keys`; a change to the five smoke tests would make release-please release
-  every extension and Team Topologies for a test change.
+  100 %), the driver zooms in first, or that key would prove nothing. Select all has to select more
+  elements than were selected before it, since an earlier step may have left one selected. The
+  clipboard is only read, never written, so a local run on macOS leaves the user's clipboard alone.
+  CI opts every modeler in with `VSCODE_SMOKE_OPT_IN=keys,history`; a change to the five smoke tests
+  would make release-please release every extension and Team Topologies for a test change.
+- **History (opt-in, 0.8).** The history step runs last, after the keys, so the zoom and the
+  selection it leaves are in no screenshot. The webview's view is not in the page's API, so the
+  driver reads the viewport group's matrix (`.djs-container > svg > .viewport`): scale and
+  translation, which with the container's size are the viewbox. It zooms away from the fit first,
+  or a webview that refits after an import would pass by landing on the same view, and selects
+  every element, or an empty selection would pass. A selection is judged by ids: what was selected
+  and is still drawn has to be selected, and nothing new may be, which leaves out the element the
+  redo brings back and the undo takes away. A modeler that gives every element a new id on an
+  import fails, since a dropped selection would otherwise look like one that was never there. The
+  redo's canvas is compared within two pixels per shape, each shape paired with a partner of its
+  own, since the edit's canvas holds the gesture's positions and the redo's the saved text's,
+  which rounds. An edit that leaves the shapes as they were cannot show the redo on the canvas, so
+  VS Code has to call the document changed after it. The view has to hold for 0.5 s after it
+  matched: a restore or a refit may follow the import. The step presses redo and undo `undoSteps` times each, the same number of document edits
+  as the edit made, and ends with the undo, so the document is the saved one again. It reads the
+  state after the keys step on purpose: nothing in it edits the document, so the redo history of
+  the undo step is still there.
 - **Docker.** `modeler-shell-vscode-docker` runs the same test in a Linux container under
   `xvfb-run`, so no window takes the focus on a Mac. The repository is copied without `node_modules`
   and installed with `npm ci` inside; VS Code and npm caches are shared volumes.

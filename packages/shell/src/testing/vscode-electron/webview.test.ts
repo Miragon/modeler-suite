@@ -6,6 +6,7 @@ import {
   installKeyRecorderProbe,
   selectedElementsProbe,
   takeKeyRecordsProbe,
+  viewFactsProbe,
   workbenchFocusProbe,
   zoomReadoutProbe,
 } from "./webview.js";
@@ -95,6 +96,52 @@ describe("zoomReadoutProbe and selectedElementsProbe", () => {
   it("read nothing without a zoom panel or a selection", () => {
     expect(zoomReadoutProbe()).toBeNull();
     expect(selectedElementsProbe()).toBe(0);
+  });
+});
+
+describe("viewFactsProbe", () => {
+  // happy-dom reads no transform list from the attribute, so the viewport brings the matrix itself.
+  function viewportWithMatrix(matrix: { a: number; e: number; f: number } | null): void {
+    const viewport = document.querySelector(".viewport");
+    Object.defineProperty(viewport, "transform", {
+      value: { baseVal: { consolidate: () => (matrix ? { matrix } : null) } },
+    });
+  }
+
+  it("reads the viewport's scale and translation, the drawn elements and the selected ones", () => {
+    document.body.innerHTML = [
+      '<div class="djs-container"><svg><g class="viewport">',
+      '<g class="djs-group"><g class="djs-element djs-shape selected" data-element-id="shape-b"></g></g>',
+      '<g class="djs-group"><g class="djs-element djs-shape" data-element-id="shape-a"></g></g>',
+      '<g class="djs-group"><g class="djs-element djs-connection selected" data-element-id="conn-1"></g></g>',
+      '<g class="djs-group"><g class="djs-element djs-shape"></g></g>',
+      "</g></svg></div>",
+    ].join("");
+    viewportWithMatrix({ a: 0.84, e: 12.4, f: -8 });
+
+    expect(viewFactsProbe()).toEqual({
+      scale: 0.84,
+      translateX: 12.4,
+      translateY: -8,
+      elements: ["conn-1", "shape-a", "shape-b"],
+      selected: ["conn-1", "shape-b"],
+    });
+  });
+
+  it("falls back to the identity before the viewport has a transform, and to no elements without a canvas", () => {
+    document.body.innerHTML =
+      '<div class="djs-container"><svg><g class="viewport"></g></svg></div>';
+    viewportWithMatrix(null);
+    expect(viewFactsProbe()).toEqual({
+      scale: 1,
+      translateX: 0,
+      translateY: 0,
+      elements: [],
+      selected: [],
+    });
+
+    document.body.replaceChildren();
+    expect(viewFactsProbe().elements).toEqual([]);
   });
 });
 

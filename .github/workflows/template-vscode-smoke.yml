@@ -89,7 +89,7 @@ jobs:
         env:
           VSCODE_VERSION: ${{ steps.vscode.outputs.version }}
           VSCODE_SMOKE_KEEP: "1"
-          VSCODE_SMOKE_OPT_IN: keys
+          VSCODE_SMOKE_OPT_IN: keys,history
           TMPDIR: ${{ runner.temp }}
 
       - if: always()
