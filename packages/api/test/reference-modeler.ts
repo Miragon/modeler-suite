@@ -243,6 +243,9 @@ export interface Flaws {
   importKeepsGesture?: boolean;
   /** NOT a law violation, a missed recommendation: a rejected import ends a running gesture too */
   rejectedImportEndsGesture?: boolean;
+  /** NOT a law violation, a missed recommendation: an import called while a gesture runs waits
+   *  until its drop or its cancel instead of cancelling it */
+  importWaitsForGesture?: boolean;
   /** an accepted import applies a running move before it replaces the document: a change event
    *  from the import */
   importDuringGestureEmits?: boolean;
@@ -257,6 +260,9 @@ export interface Flaws {
   /** NOT a law violation, a missed recommendation: an import called during a drop waits for the
    *  drop, but its Promise resolves at once */
   importDuringDropSettlesEarly?: boolean;
+  /** NOT a law violation, a missed recommendation: an import called during a drop never settles,
+   *  and every later import waits behind it, since imports keep their call order */
+  importDuringDropNeverSettles?: boolean;
 
   // ── a pan (1.6) ────────────────────────────────────────────────────────────
   /** NOT a law violation, a missed recommendation: interaction reports a pan as a gesture */
@@ -268,6 +274,9 @@ export interface Flaws {
   panJumpsBack?: boolean;
   /** releasing a pan fires onContentChanged */
   panEmits?: boolean;
+  /** NOT a law violation, a missed recommendation (1.5 let a pan count as a gesture): an import
+   *  called during a pan waits until the pan's release */
+  importWaitsForPan?: boolean;
 
   // ── interaction (1.5) ──────────────────────────────────────────────────────
   /** interaction.active() is false whatever runs; onChange still fires */
@@ -333,6 +342,9 @@ export interface Flaws {
   appearanceForgottenOnImport?: boolean;
   /** themes lists dark, but a request for it draws light */
   listsDarkDrawsLight?: boolean;
+  /** NOT a flaw: a re-import draws one element more into the container than the first import, as
+   *  Value Chain's canvas does */
+  reimportDrawsOneMore?: boolean;
 }
 
 export interface ReferenceModeler extends CollaborativeModeler {
@@ -449,6 +461,13 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
   /** a drop runs: an import called now waits for the work below */
   let dropping = false;
   const afterTheDrop: Array<() => void> = [];
+  /** imports that wait for the user's gesture or pan to end (the flawed variants) */
+  const afterTheUser: Array<() => void> = [];
+  const runWhatWaitedForTheUser = (): void => {
+    for (const work of afterTheUser.splice(0)) work();
+  };
+  /** an import that never settles holds every later one (importDuringDropNeverSettles) */
+  let importsStuck = false;
   let droppedCount = 0;
   const interactionListeners = new Set<(active: boolean) => void>();
   /** what interaction reported last */
@@ -680,6 +699,7 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     if (gesture !== held) return;
     if (flaws.dropsNothing) {
       endGesture();
+      runWhatWaitedForTheUser();
       return;
     }
     dropping = true;
@@ -704,6 +724,7 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     } finally {
       dropping = false;
       endGesture();
+      runWhatWaitedForTheUser();
       for (const work of afterTheDrop.splice(0)) work();
     }
   };
@@ -914,9 +935,17 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     // an import fits the view to the content (L5) — unless a flaw keeps it
     const keeps = flaws.noFitOnImport || (!editable && flaws.viewerKeepsView);
     if (!keeps || view === undefined) view = { ...fittedView };
+    const reimport = imported;
     imported = true;
     importedBoxes = liveBoxes();
     importedContent = drawnContent();
+    if (flaws.reimportDrawsOneMore && reimport && mountedRoot) {
+      if (mountedRoot.querySelector(".reference-extra") === null) {
+        const extra = mountedRoot.ownerDocument.createElement("span");
+        extra.setAttribute("class", "reference-extra");
+        mountedRoot.append(extra);
+      }
+    }
     if (flaws.appearanceForgottenOnImport) {
       mountedRoot?.removeAttribute("data-cd-theme");
       mountedRoot?.removeAttribute("data-cd-kontrast");
@@ -944,9 +973,14 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
       unmountCanvas = mountCanvas(host);
     },
     importText(text: string): Promise<ImportResult> {
+      if (importsStuck) return new Promise(() => undefined);
       // an import called during a drop waits until the drop has ended (1.6, RECOMMENDED), so
       // nothing the drop still does meets the replaced document
       if (dropping && !flaws.importDuringDropRunsAtOnce) {
+        if (flaws.importDuringDropNeverSettles) {
+          importsStuck = true;
+          return new Promise(() => undefined);
+        }
         if (flaws.importDuringDropSettlesEarly) {
           setTimeout(() => {
             try {
@@ -959,6 +993,17 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
         }
         return new Promise((resolve, reject) => {
           afterTheDrop.push(() => {
+            try {
+              resolve(runImport(text));
+            } catch (e) {
+              reject(e instanceof Error ? e : new Error(String(e)));
+            }
+          });
+        });
+      }
+      if ((flaws.importWaitsForGesture && gesture) || (flaws.importWaitsForPan && pan)) {
+        return new Promise((resolve, reject) => {
+          afterTheUser.push(() => {
             try {
               resolve(runImport(text));
             } catch (e) {
@@ -1119,6 +1164,7 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
           if (gesture !== held) return;
           gesture = undefined;
           if (!flaws.cancelNotReported) report(false);
+          runWhatWaitedForTheUser();
         },
       };
     },
@@ -1146,6 +1192,7 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
           pan = undefined;
           if (flaws.panIsGesture) report(false);
           if (flaws.panEmits) emit();
+          runWhatWaitedForTheUser();
         },
       };
     },

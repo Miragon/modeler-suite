@@ -92,10 +92,10 @@ key acts; in the apps the shell does that for its chrome ([shell](shell.md)).
 Hosts re-import a peer's text whenever it arrives, also while the user drags. diagram-js keeps a
 drag running across a cleared canvas, and its release then applies a command to removed shapes and
 throws half-way. Contract 1.5 RECOMMENDS the cancel below and defines the optional `interaction`
-surface. Its text lets a pan count as a gesture (MAY) and says nothing about the user's actions
-yet; every Miragon renderer and the template go further on both (a pan is none, and an import
-waits for a running user action), and contract 1.6 is to RECOMMEND both, each with a kit case
-that advises (template:
+surface. Contract 1.6 RECOMMENDS that a pan is no gesture and that an import waits for a running
+drop, each with a kit case that advises. Every Miragon renderer and the template go further and
+let an import wait for any running user action, which goes beyond the contract's text so far and
+gets its kit case in a later release (template:
 [`Gestures.ts`](../assets/template/packages/renderer/src/gestures/Gestures.ts), called from
 [`BaseViewer.ts`](../assets/template/packages/renderer/src/BaseViewer.ts) and
 [`collaborative.ts`](../assets/template/packages/renderer/src/collaborative/collaborative.ts)):
@@ -167,8 +167,8 @@ that advises (template:
 - **`interaction`**, an optional surface the kit checks like the cancel: `active()` is true
   from the first `drag.move` of an activated gesture drag, a palette create at once, until
   diagram-js cleans the drag up, so it is still true during the drop's command; `onChange` fires
-  once each way, with `active()` already returning the new value, and never for an armed tool or,
-  in the Miragon renderers, a pan. The listener can run inside `importText` and inside
+  once each way, with `active()` already returning the new value, and never for an armed tool or
+  a pan (contract 1.6 RECOMMENDS the pan). The listener can run inside `importText` and inside
   diagram-js's events, so a listener that throws is reported, not left to break the drag. The
   viewer has no editing gesture and reports false.
 

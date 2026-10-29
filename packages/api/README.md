@@ -143,9 +143,11 @@ A pan is no gesture (1.6, RECOMMENDED; 1.5 said a pan MAY count): a drag that
 only moves the view holds nothing an import replaces, and a host that defers its
 re-imports while a gesture runs would hold every remote change while the user
 only looks around. An import leaves a running pan running, and the pan goes on
-from the view the import left: diagram-js's hand tool keeps the diagram point it
-started on under the pointer, so without a new start point its next move puts
-the view from before the import back and undoes the import's fit (L5).
+from the current view: the one the import left, or one the host sets after it
+(`setViewState`, the restore of L5) or while the pan runs. diagram-js's hand
+tool keeps the diagram point it started on under the pointer, so without a new
+start point its next move puts the view from before back and undoes the
+import's fit or the host's restore.
 
 Optional `interaction` (1.5) tells a host whether the user holds a gesture
 right now: `active()`, and `onChange(cb)`, whose listener gets the new value.
@@ -157,12 +159,14 @@ import, and a host that waited for it would hold every remote change while the
 user types. A pan is none either (RECOMMENDED since 1.6, see above), although
 diagram-js's hand tool runs on the same dragging service. `onChange` fires once
 each way and never twice in a row with the same value; inside the listener
-`active()` already returns the new value. A viewer has no editing gesture: one
-that exposes the surface reports false, a pan included. Hosts feature-detect it
-(`modeler.interaction !== undefined`) and defer a remote re-import while a
-gesture runs, instead of reading diagram-js's DOM classes (`djs-drag-active`,
-`djs-dragger`, `djs-cursor-grabbing`) and sending a synthetic Escape after a
-timeout.
+`active()` already returns the new value, and nothing is called once
+`destroy()` has been called, also for a gesture that `destroy()` itself ends. A
+viewer has no editing gesture: one that exposes the surface reports false
+(RECOMMENDED since 1.6 also during a pan, which 1.5 left aside). Hosts
+feature-detect it (`modeler.interaction !== undefined`) and defer a remote
+re-import while a gesture runs, instead of reading diagram-js's DOM classes
+(`djs-drag-active`, `djs-dragger`, `djs-cursor-grabbing`) and sending a
+synthetic Escape after a timeout.
 
 The listener can run inside `importText` (the cancel above) or inside a
 pointer event handler, so a host never calls `importText` from it. The
@@ -621,7 +625,9 @@ The cases:
   brings the view where the pan's first step had brought it, up to float noise:
   a pan that puts the view from before the import back lands one step further.
   The release throws nothing, the export is the imported document and the next
-  `mutate` applies.
+  `mutate` applies. A view the host sets after the import is not checked yet:
+  that leg follows once every Miragon renderer keeps it
+  ([#310](https://github.com/Miragon/modeler-suite/issues/310)).
 - **The interaction case** (the surface's rules, failures): `active()` follows
   every gesture. It is false before the first import and at rest; for each kind
   it is true while the gesture is held, with one `onChange(true)`, and false
@@ -660,6 +666,13 @@ The cases:
   failure), and the keep-open is an advisory of this case, checked as the L5
   interaction case checks it after a view change. The page gets its own mode
   back after the case.
+
+An import that the gesture, drop or pan case calls while the user holds
+something gets 2 s to settle. One that has not settled by then is waiting for
+the gesture's drop (instead of cancelling the gesture), for the pan's release,
+or for a step the drop never ends. The case advises on it, releases what
+it holds, waits for the import once more and runs no further leg, so such a
+modeler advises instead of hanging the run.
 
 A modeler without `interaction` or `appearance` skips that case. A harness
 without `startGesture` skips the gesture, drop and interaction cases, one
@@ -718,7 +731,7 @@ called during a drop waits until the drop has ended, and a pan is no gesture
 and runs on through an import (1.5 said a pan MAY count). A 1.5 modeler stays a
 conforming 1.6 modeler. The Miragon renderers and the new-modeler template,
 whose harnesses fail on every skip and every advisory, fill the four fields
-with the change that adds the cases.
+before the cases land, and every one of them passes the cases.
 
 ### Candidates for 2.0
 
@@ -755,31 +768,34 @@ Recommendations today, proposed as hard laws for the next major:
   and its Promise settles after that import (today: L1 RECOMMENDED since 1.6,
   advisory in the drop case).
 - **A pan is no gesture of its own:** a drag that only moves the view leaves
-  `interaction.active()` false, an import leaves it running, and it goes on
-  from the view the import left (today: RECOMMENDED since 1.6, advisory in the
+  `interaction.active()` false, on the viewer too; an import leaves it running,
+  and it goes on from the current view: the one the import left, or one the
+  host sets after it under L5 (today: RECOMMENDED since 1.6, advisory in the
   pan case; 1.5 said a pan MAY count as a gesture).
 
 ## Roadmap
 
 - Next, in wave 4 ([#170](https://github.com/Miragon/modeler-suite/issues/170)):
-  every Miragon renderer and the new-modeler template implement `interaction`
-  and `appearance` (`themes: ["light"]`) and pass the
-  [cases for the 1.5 surfaces and the gesture rules of 1.6](#cases-for-the-15-surfaces-and-the-gesture-rules-of-16).
-  Then the kit gains a RECOMMENDED case for an import during any action of the
-  user (an append, a keyboard create, a label commit, a delete, an undo or a
-  redo, with the steps they schedule for later), which waits until the action
-  has finished as it waits for a drop, and one for an import from the selection
+  the kit gains a RECOMMENDED case for an import during any action of the user
+  (an append, a keyboard create, a label commit, a delete, an undo or a redo,
+  with the steps they schedule for later), which waits until the action has
+  finished as it waits for a drop, and one for an import from the selection
   listener at a drag's start
   ([#336](https://github.com/Miragon/modeler-suite/issues/336)), once every
-  renderer has its fix. designIQ drops the DOM reading of gestures and the
-  synthetic Escape that
-  [Miragon/design-iq#307](https://github.com/Miragon/design-iq/pull/307) added.
-- Dark mode ([#47](https://github.com/Miragon/modeler-suite/issues/47) and
-  its sub-issues), on hold since 2026-10-29 and a topic of its own later
-  ([#331](https://github.com/Miragon/modeler-suite/issues/331) collects what the
-  first attempt found): each renderer draws a dark canvas while its `themes` stays
-  `["light"]`; then one release moves all five to `["light", "dark"]` together,
-  with the `miragon.<modeler>.colorTheme` setting of each VS Code extension.
+  renderer has its fix. The pan case gains a leg for a view the host sets after
+  the import, once Value Chain's pan keeps it
+  ([#310](https://github.com/Miragon/modeler-suite/issues/310)). designIQ drops
+  the DOM reading of gestures and the synthetic Escape that
+  [Miragon/design-iq#307](https://github.com/Miragon/design-iq/pull/307) added,
+  once the host snippet under `interaction` no longer reverts the user's own
+  drop ([#287](https://github.com/Miragon/modeler-suite/issues/287)).
+- Dark mode, on hold since 2026-10-29 and a topic of its own later:
+  [#331](https://github.com/Miragon/modeler-suite/issues/331) collects what the
+  first attempt found and how to start again, and is the open tracker (#47 and
+  its sub-issues are closed). Each renderer draws a dark canvas while its
+  `themes` stays `["light"]`; then one release moves all five to
+  `["light", "dark"]` together, with the `miragon.<modeler>.colorTheme` setting
+  of each VS Code extension.
 - Dropped from the roadmap:
   - a channel for messages to the host (an `onNotify` with severity, text and
     action): no renderer produces user messages, and the feedback on an action

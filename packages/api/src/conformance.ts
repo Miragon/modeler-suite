@@ -2387,7 +2387,66 @@ async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> 
 
 const GESTURE_KINDS: readonly GestureKind[] = ["move", "create", "createOffCanvas"];
 
+/**
+ * how long the gesture, drop and pan cases wait for an import called while the user holds
+ * something. A modeler may let that import wait (for the gesture's drop instead of cancelling it,
+ * for the pan's release, or for something a drop never ends): without a bound the case would never
+ * reach the release, and a missed recommendation would hang the run instead of advising
+ */
+const HELD_IMPORT_BOUND_MS = 2000;
+
+/** how a Promise came out within a bound: resolved, rejected with this reason, or not settled yet */
+type BoundedOutcome =
+  { unsettled: true; rejected?: undefined } | { unsettled?: undefined; rejected?: string };
+
+/** the Promise's outcome once it settles, or `unsettled` after `ms` (it may still settle later) */
+async function settledWithin(promise: Promise<unknown>, ms: number): Promise<BoundedOutcome> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bound = new Promise<BoundedOutcome>((resolve) => {
+    timer = setTimeout(() => resolve({ unsettled: true }), ms);
+  });
+  try {
+    return await Promise.race([
+      promise.then(
+        (): BoundedOutcome => ({}),
+        (e: unknown): BoundedOutcome => ({ rejected: String(e) }),
+      ),
+      bound,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** what one leg of the gesture, drop or pan case found */
+interface LegFindings {
+  findings: string[];
+  /** the leg's import waited for the user: the case advises on it and runs no further leg, whose
+   *  imports would queue behind one that may never settle */
+  stop?: true;
+}
+
 const doNothing = (): void => undefined;
+
+/**
+ * `importText(text)` started while the kit counts change events, and waited for up to
+ * HELD_IMPORT_BOUND_MS: the count, the import's Promise (to wait for again after a release) and
+ * how it came out
+ */
+async function importWhileHeld(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  text: string,
+  onResolve: () => void = doNothing,
+): Promise<{ calls: number; importing: Promise<unknown>; outcome: BoundedOutcome }> {
+  let importing: Promise<unknown> = Promise.resolve();
+  let outcome: BoundedOutcome = {};
+  const { calls } = await changeEvents(h, m, async () => {
+    importing = m.importText(text).then(onResolve);
+    outcome = await settledWithin(importing, HELD_IMPORT_BOUND_MS);
+  });
+  return { calls, importing, outcome };
+}
 
 /** one advisory from a case's findings: the first SHOWN_KEY_FINDINGS spelled out, the rest counted */
 function adviseOn(findings: string[], lead: string, recommendation: string): CaseOutcome {
@@ -2545,7 +2604,7 @@ async function importDuringGesture(
   kind: GestureKind,
   leg: ImportedLeg,
   expected: string,
-): Promise<string[]> {
+): Promise<LegFindings> {
   const settle = h.settle ?? defaultSettle;
   const during = `${leg.what} imported during a ${kind} gesture`;
   const findings: string[] = [];
@@ -2555,19 +2614,36 @@ async function importDuringGesture(
     const held = await startGesture(m, kind);
     const mark = watch?.delivered.length ?? 0;
     let beforeResolve: boolean[] = [];
-    const { calls } = await changeEvents(h, m, () =>
-      m.importText(leg.text).then(
-        () => {
-          beforeResolve = watch?.delivered.slice(mark) ?? [];
-        },
-        (e: unknown) =>
-          fail(`importText(${leg.what}) rejected during a ${kind} gesture: ${String(e)}`),
-      ),
-    );
+    const {
+      calls,
+      importing,
+      outcome: imported,
+    } = await importWhileHeld(h, m, leg.text, () => {
+      beforeResolve = watch?.delivered.slice(mark) ?? [];
+    });
     if (calls > 0) {
       fail(
         `importing ${leg.what} during a ${kind} gesture fired onContentChanged ${calls}x before the drop — an import is silent (L1; if every import emits, see the L1 cases first)`,
       );
+    }
+    if (imported.unsettled) {
+      findings.push(
+        `importing ${leg.what} during a ${kind} gesture had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — the import waited for the gesture to end instead of cancelling it`,
+      );
+      const thrown = await errorOf(() => held.drop());
+      if (thrown !== undefined) findings.push(`the drop after ${during} threw ${thrown}`);
+      const released = await settledWithin(importing, HELD_IMPORT_BOUND_MS);
+      if (released.unsettled) {
+        findings.push(
+          `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s after the drop either`,
+        );
+      } else if (released.rejected !== undefined) {
+        fail(`importText(${leg.what}) rejected during a ${kind} gesture: ${released.rejected}`);
+      }
+      return { findings, stop: true };
+    }
+    if (imported.rejected !== undefined) {
+      fail(`importText(${leg.what}) rejected during a ${kind} gesture: ${imported.rejected}`);
     }
     if (m.interaction?.active()) {
       findings.push(`interaction.active() was still true after ${during}`);
@@ -2610,7 +2686,7 @@ async function importDuringGesture(
     errors.stop();
     watch?.stop();
   }
-  return findings;
+  return { findings };
 }
 
 /** one gesture held over a rejected import, then dropped: it should still apply */
@@ -2620,7 +2696,7 @@ async function rejectionDuringGesture(
   startGesture: GestureStarter,
   kind: GestureKind,
   invalid: string,
-): Promise<string[]> {
+): Promise<LegFindings> {
   const findings: string[] = [];
   await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
   await (h.settle ?? defaultSettle)();
@@ -2630,16 +2706,21 @@ async function rejectionDuringGesture(
   try {
     const held = await startGesture(m, kind);
     const mark = watch?.delivered.length ?? 0;
-    let rejected = false;
-    const { calls } = await changeEvents(h, m, () =>
-      m.importText(invalid).then(
-        () => undefined,
-        () => {
-          rejected = true;
-        },
-      ),
-    );
-    if (!rejected) {
+    const { calls, importing, outcome: rejection } = await importWhileHeld(h, m, invalid);
+    if (rejection.unsettled) {
+      findings.push(
+        `importing invalidTexts[0] during a ${kind} gesture had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — the import waited for the gesture to end instead of rejecting and leaving it running`,
+      );
+      await errorOf(() => held.drop());
+      const released = await settledWithin(importing, HELD_IMPORT_BOUND_MS);
+      if (!released.unsettled && released.rejected === undefined) {
+        fail(
+          `importText(invalidTexts[0]) resolved after a ${kind} gesture it waited for — a non-importable input REJECTS (L7)`,
+        );
+      }
+      return { findings, stop: true };
+    }
+    if (rejection.rejected === undefined) {
       fail(
         `importText(invalidTexts[0]) resolved during a ${kind} gesture — a non-importable input REJECTS (L7)`,
       );
@@ -2684,7 +2765,7 @@ async function rejectionDuringGesture(
     errors.stop();
     watch?.stop();
   }
-  return findings;
+  return { findings };
 }
 
 /**
@@ -2703,7 +2784,9 @@ async function importCancelsGestures(h: ConformanceHarness): Promise<CaseOutcome
   const first = h.canonicalTexts[0] ?? "";
   const invalid = h.invalidTexts?.[0];
   const findings: string[] = [];
+  let stopped = false;
   for (const kind of GESTURE_KINDS) {
+    if (stopped) break;
     const m = await h.create();
     try {
       await expectDropApplies(h, m, startGesture, kind);
@@ -2713,10 +2796,15 @@ async function importCancelsGestures(h: ConformanceHarness): Promise<CaseOutcome
         const expected = exportOrFail(m, `after importing ${leg.what}`);
         await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
         await (h.settle ?? defaultSettle)();
-        findings.push(...(await importDuringGesture(h, m, startGesture, kind, leg, expected)));
+        const outcome = await importDuringGesture(h, m, startGesture, kind, leg, expected);
+        findings.push(...outcome.findings);
+        stopped = outcome.stop === true;
+        if (stopped) break;
       }
-      if (invalid !== undefined) {
-        findings.push(...(await rejectionDuringGesture(h, m, startGesture, kind, invalid)));
+      if (!stopped && invalid !== undefined) {
+        const outcome = await rejectionDuringGesture(h, m, startGesture, kind, invalid);
+        findings.push(...outcome.findings);
+        stopped = outcome.stop === true;
       }
     } finally {
       m.destroy();
@@ -2753,7 +2841,7 @@ interface DropImportResult {
   /** `exportText()` when its Promise resolved */
   exported?: string;
   rejected?: string;
-  /** it had not settled within PRE_IMPORT_CALL_BOUND_MS */
+  /** it had not settled within HELD_IMPORT_BOUND_MS */
   unsettled?: true;
 }
 
@@ -2763,7 +2851,7 @@ async function importFromTheDrop(
   m: CollaborativeModeler,
   startGesture: GestureStarter,
   leg: DropLeg,
-): Promise<string[]> {
+): Promise<LegFindings> {
   const settle = h.settle ?? defaultSettle;
   const during = `importing ${leg.what} from the change listener of a drop`;
   const findings: string[] = [];
@@ -2783,7 +2871,8 @@ async function importFromTheDrop(
     | undefined;
   let settled = false;
   let changesAfterTheImport = 0;
-  const off = m.onContentChanged(() => {
+  // the contract does not say that an unsubscribe may be called twice, so the case calls it once
+  let unsubscribe: (() => void) | undefined = m.onContentChanged(() => {
     if (settled) changesAfterTheImport += 1;
     if (called !== undefined) return;
     const before = m.exportText();
@@ -2815,7 +2904,7 @@ async function importFromTheDrop(
     const result = await Promise.race([
       call.result,
       new Promise<DropImportResult>((resolve) => {
-        timer = setTimeout(() => resolve({ unsettled: true }), PRE_IMPORT_CALL_BOUND_MS);
+        timer = setTimeout(() => resolve({ unsettled: true }), HELD_IMPORT_BOUND_MS);
       }),
     ]);
     clearTimeout(timer);
@@ -2826,9 +2915,9 @@ async function importFromTheDrop(
     }
     if (result.unsettled) {
       findings.push(
-        `${during} did not settle within ${PRE_IMPORT_CALL_BOUND_MS / 1000} s of the drop — it waits for something the drop never ends`,
+        `${during} did not settle within ${HELD_IMPORT_BOUND_MS / 1000} s of the drop — it waits for something the drop never ends`,
       );
-      return findings;
+      return { findings, stop: true };
     }
     if (call.after !== call.before) {
       findings.push(
@@ -2862,17 +2951,18 @@ async function importFromTheDrop(
         );
       }
     }
-    off();
+    unsubscribe();
+    unsubscribe = undefined;
     const before = exportOrFail(m, `before the next mutate after ${during}`);
     const next = await changeEvents(h, m, () => h.mutate(m));
     if (next.calls === 0 || exportOrFail(m, `after the next mutate after ${during}`) === before) {
       findings.push(`the next mutate after ${during} did not apply (wedged)`);
     }
   } finally {
-    off();
+    unsubscribe?.();
     errors.stop();
   }
-  return findings;
+  return { findings };
 }
 
 /**
@@ -2904,7 +2994,11 @@ async function importWaitsForTheDrop(h: ConformanceHarness): Promise<CaseOutcome
       what: "the drop's own document (an echo)",
       text: (modeler) => modeler.exportText(),
     });
-    for (const leg of legs) findings.push(...(await importFromTheDrop(h, m, startGesture, leg)));
+    for (const leg of legs) {
+      const outcome = await importFromTheDrop(h, m, startGesture, leg);
+      findings.push(...outcome.findings);
+      if (outcome.stop) break;
+    }
     return outcomeOf(
       adviseOn(
         findings,
@@ -2960,16 +3054,29 @@ async function panRunsOnThroughAnImport(h: ConformanceHarness): Promise<CaseOutc
           );
         }
         let activeDuringPan = m.interaction?.active() === true;
-        const { calls } = await changeEvents(h, m, () =>
-          m.importText(leg.text).then(
-            () => undefined,
-            (e: unknown) => fail(`importText(${leg.what}) rejected during a pan: ${String(e)}`),
-          ),
-        );
+        const { calls, importing, outcome } = await importWhileHeld(h, m, leg.text);
         if (calls > 0) {
           fail(
             `importing ${leg.what} during a pan fired onContentChanged ${calls}x — an import is silent (L1; if every import emits, see the L1 cases first)`,
           );
+        }
+        if (outcome.unsettled) {
+          findings.push(
+            `importing ${leg.what} during a pan had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — the import waited for the pan to end instead of leaving it running`,
+          );
+          await errorOf(() => pan.drop());
+          const released = await settledWithin(importing, HELD_IMPORT_BOUND_MS);
+          if (released.unsettled) {
+            findings.push(
+              `importing ${leg.what} during a pan had not settled ${HELD_IMPORT_BOUND_MS / 1000} s after the pan's release either`,
+            );
+          } else if (released.rejected !== undefined) {
+            fail(`importText(${leg.what}) rejected during a pan: ${released.rejected}`);
+          }
+          break;
+        }
+        if (outcome.rejected !== undefined) {
+          fail(`importText(${leg.what}) rejected during a pan: ${outcome.rejected}`);
         }
         const imported = m.getViewState();
         const moveThrown = await errorOf(() => pan.move());
@@ -3032,7 +3139,7 @@ async function panRunsOnThroughAnImport(h: ConformanceHarness): Promise<CaseOutc
     adviseOn(
       findings,
       "a pan met an import",
-      "RECOMMENDED (since 1.6): a pan is no gesture (interaction.active() stays false and onChange is not called), and an import leaves it running: it goes on from the view the import left and never puts the view from before the import back",
+      "RECOMMENDED (since 1.6): a pan is no gesture (interaction.active() stays false and onChange is not called), and an import leaves it running: it goes on from the current view (the one the import left, or one the host sets after it) and never puts a view from before back",
     ),
     oneTextOnly(h, "an import during a pan"),
   );
@@ -3379,8 +3486,10 @@ async function coloursFollowTheRequest(
     for (const theme of themes.filter((listed) => listed !== lead)) {
       const doc = exportOrFail(m, "before a request for a listed theme");
       const image = h.exportImage ? await h.exportImage(m) : undefined;
+      // the re-imports above drew the canvas anew, so its light reference is drawn again first
+      const leadOnThisCanvas = paintedFor("normal");
       appearance.set({ theme, contrast: "normal" });
-      if (colourDifference(reference.normal, paintedIn(host)) === undefined) {
+      if (colourDifference(leadOnThisCanvas, paintedIn(host)) === undefined) {
         fail(
           `appearance.themes lists "${theme}", but ${describeRequest({ theme })} drew the colours of "${lead}" — a modeler draws every theme it lists`,
         );

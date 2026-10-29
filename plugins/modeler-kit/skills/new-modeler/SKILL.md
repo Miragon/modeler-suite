@@ -123,8 +123,8 @@ known version), and the new repository's Dependabot moves them on.
   hand-tool pan run on, and an import called during a user's action (a drop, the start of a drag,
   a keyboard create, a label commit, a key's command, an undo or a redo, with the steps they
   schedule for later) waits until the action has finished; both mounts expose `interaction` and
-  `appearance`, whose `themes` is the renderer's one `THEMES` constant that both apps read (1.5;
-  the pan and the wait go beyond the contract's text so far,
+  `appearance`, whose `themes` is the renderer's one `THEMES` constant that both apps read (1.5 and
+  1.6; the wait for actions other than a drop goes beyond the contract's text so far,
   [contract](references/contract.md#gestures)).
 - Neither app has chrome of its own: menu, palette skin, zoom, keys, problems, status, empty state,
   toasts and the shortcuts dialog come from the shell, and the menu content and the shortcut rows

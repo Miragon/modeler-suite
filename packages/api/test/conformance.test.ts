@@ -873,6 +873,19 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     const advice = await expectAdvisoryOnly({ rejectedImportEndsGesture: true }, CASE.l1Gesture);
     expect(advice).toMatch(/a rejected import ended a move gesture/);
   });
+  // these variants hold an import until the kit's bound of 2 s has passed, once per run of the cases
+  const HELD_IMPORT_TIMEOUT_MS = 20_000;
+  test(
+    "an import that waits for a running gesture to end instead of cancelling it → an advisory from the L1 gesture case, not a hang",
+    async () => {
+      const advice = await expectAdvisoryOnly({ importWaitsForGesture: true }, CASE.l1Gesture);
+      expect(advice).toMatch(
+        /importing a different document \(canonicalTexts\[1\]\) during a move gesture had not settled 2 s later — the import waited for the gesture to end instead of cancelling it/,
+      );
+      expect(advice.match(/had not settled/g)).toHaveLength(1);
+    },
+    HELD_IMPORT_TIMEOUT_MS,
+  );
   test("an import from a drop's change listener that runs at once → an advisory from the drop case: the drop threw on the removed element", async () => {
     const advice = await expectAdvisoryOnly({ importDuringDropRunsAtOnce: true }, CASE.drop);
     expect(advice).toMatch(/the drop threw TypeError: Cannot read properties of undefined/);
@@ -883,6 +896,17 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     const advice = await expectAdvisoryOnly({ importDuringDropSettlesEarly: true }, CASE.drop);
     expect(advice).toMatch(/the Promise settled before the import had run/);
   });
+  test(
+    "an import from a drop's change listener that never settles, later imports queued behind it → an advisory from the drop case, not a hang",
+    async () => {
+      const advice = await expectAdvisoryOnly({ importDuringDropNeverSettles: true }, CASE.drop);
+      expect(advice).toMatch(
+        /importing a different document \(canonicalTexts\[1\]\) from the change listener of a drop did not settle within 2 s of the drop/,
+      );
+      expect(advice.match(/did not settle/g)).toHaveLength(1);
+    },
+    HELD_IMPORT_TIMEOUT_MS,
+  );
   test("a pan reported as a gesture → an advisory from the pan case", async () => {
     const advice = await expectAdvisoryOnly({ panIsGesture: true }, CASE.pan);
     expect(advice).toMatch(/interaction\.active\(\) was true during a pan/);
@@ -891,6 +915,17 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     const advice = await expectAdvisoryOnly({ importEndsPan: true }, CASE.pan);
     expect(advice).toMatch(/a pan stopped when .* was imported during it/);
   });
+  test(
+    "an import that waits for a running pan to end → an advisory from the pan case, not a hang",
+    async () => {
+      const advice = await expectAdvisoryOnly({ importWaitsForPan: true }, CASE.pan);
+      expect(advice).toMatch(
+        /importing a different document \(canonicalTexts\[1\]\) during a pan had not settled 2 s later — the import waited for the pan to end instead of leaving it running/,
+      );
+      expect(advice.match(/had not settled/g)).toHaveLength(1);
+    },
+    HELD_IMPORT_TIMEOUT_MS,
+  );
   test("a pan that puts the view from before an import back → an advisory from the pan case, for the same document", async () => {
     const advice = await expectAdvisoryOnly({ panJumpsBack: true }, CASE.pan);
     expect(advice).toMatch(

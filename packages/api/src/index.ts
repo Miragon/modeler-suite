@@ -172,8 +172,9 @@ export interface ElementsSurface {
  *     Promise settles after that import, nothing of the drop applies to the
  *     imported document, and the drop's command stays off its fresh undo
  *     history (L4). A PAN is no gesture: an import leaves a running pan
- *     running, and the pan goes on from the view the import left, never
- *     putting the view from before the import back (`InteractionSurface`).
+ *     running, and the pan goes on from the current view (the one the import
+ *     left, or one the host sets after it, L5), never putting a view from
+ *     before back (`InteractionSurface`).
  *  L2 CANONICAL FIXPOINT — `exportText` is deterministic, and for any text t:
  *     with c = exportText() after importText(t), importText(c) followed by
  *     exportText() returns c byte-for-byte. Canonicalization is idempotent;
@@ -350,8 +351,10 @@ export interface CollaborativeModeler {
  * the view is none either (RECOMMENDED since 1.6; 1.5 said it MAY count):
  * `active()` stays false while the user pans, although diagram-js's hand
  * tool runs on the same dragging service, and an import leaves the pan
- * running (L1). A viewer has no editing gesture: one that exposes the surface
- * reports false, a pan included.
+ * running (L1), going on from the current view: the one the import left, or
+ * one the host sets after it (L5). A viewer has no editing gesture: one that
+ * exposes the surface reports false (RECOMMENDED since 1.6 also during a pan,
+ * which 1.5 left aside).
  *
  * A host that defers re-imports while `active()` is true applies the newest
  * remote state once `onChange` reports false. It may still import during a
@@ -374,8 +377,9 @@ export interface InteractionSurface {
    * (the cancel of L1) or inside a pointer event handler, so a host that
    * imports in response never calls `importText` from the listener: it
    * queues the import behind any import still pending, which a microtask
-   * alone does not do. Returns the unsubscribe; nothing is called after
-   * `destroy()`
+   * alone does not do. Returns the unsubscribe; nothing is called once
+   * `destroy()` has been called, also for a gesture that `destroy()` itself
+   * ends
    */
   onChange(cb: (active: boolean) => void): () => void;
 }

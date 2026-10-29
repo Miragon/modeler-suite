@@ -34,6 +34,13 @@ describe("the appearance case in a DOM", () => {
     await expect(runAppearanceCase({ listsDark: true })).resolves.toEqual({});
   });
 
+  test("a modeler whose re-import draws one element more fails nothing, with dark listed or not", async () => {
+    await expect(runAppearanceCase({ reimportDrawsOneMore: true })).resolves.toEqual({});
+    await expect(
+      runAppearanceCase({ listsDark: true, reimportDrawsOneMore: true }),
+    ).resolves.toEqual({});
+  });
+
   test("the page keeps the mode it had, also after a case that failed", async () => {
     document.documentElement.setAttribute("data-cd-theme", "light");
     await runAppearanceCase();
@@ -75,6 +82,11 @@ describe("variants that leave the page's mode through fail exactly the appearanc
     [
       "a modeler that lists dark and draws light for it",
       { listsDarkDrawsLight: true },
+      /appearance\.themes lists "dark", but appearance\.set\(\{ theme: "dark" \}\) drew the colours of "light"/,
+    ],
+    [
+      "a modeler that lists dark and draws light for it, its re-import drawing one element more",
+      { listsDarkDrawsLight: true, reimportDrawsOneMore: true },
       /appearance\.themes lists "dark", but appearance\.set\(\{ theme: "dark" \}\) drew the colours of "light"/,
     ],
   ])("%s", async (_variant, flaws, message) => {
