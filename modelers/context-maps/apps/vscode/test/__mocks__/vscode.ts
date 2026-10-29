@@ -180,6 +180,19 @@ export class MockTextDocument {
   getText(): string {
     return this.text;
   }
+  get lineCount(): number {
+    return this.text.split(/\r\n|\n/).length;
+  }
+  /** The line without its line break, as VS Code reports it; throws past the last line, too. */
+  lineAt(line: number): { text: string } {
+    const text = this.text.split(/\r\n|\n/)[line];
+    if (text === undefined) throw new Error(`Illegal value for \`line\`: ${line}`);
+    return { text };
+  }
+  /** For `vscodeMock.replaceText`, which fires the change event. */
+  set(text: string): void {
+    this.text = text;
+  }
   /** Applies a recorded edit the way VS Code does, '\n' turned into the document's line break. */
   apply(range: Range, inserted: string): void {
     const lineBreak = this.text.includes("\r\n") ? "\r\n" : "\n";
@@ -197,6 +210,7 @@ export class MockTextDocument {
 const documentChanges = new EventEmitter<{ document: unknown; contentChanges: unknown[] }>();
 const documents = new Map<string, MockTextDocument>();
 const appliedEdits: WorkspaceEdit[] = [];
+let editsRefused = false;
 
 export const workspace = {
   workspaceFolders: undefined as ReadonlyArray<{ uri: Uri }> | undefined,
@@ -212,6 +226,7 @@ export const workspace = {
     return { get: () => undefined };
   },
   applyEdit(edit: WorkspaceEdit): Promise<boolean> {
+    if (editsRefused) return Promise.resolve(false);
     appliedEdits.push(edit);
     for (const { uri, range, text } of edit.edits) {
       const document = documents.get(uri.toString());
@@ -309,6 +324,19 @@ export const vscodeMock = {
   appliedEdits(): readonly WorkspaceEdit[] {
     return appliedEdits;
   },
+  /** Whether `applyEdit` refuses every edit from now on, as for a file opened read-only. */
+  refuseEdits(refused: boolean): void {
+    editsRefused = refused;
+  },
+  /** The text editor, Git or a formatter changes the document: one change event, no edit. */
+  replaceText(document: MockTextDocument, text: string): void {
+    document.set(text);
+    documentChanges.fire({ document, contentChanges: [{ text }] });
+  },
+  /** A save: the dirty state changes, the text does not (a change event without content changes). */
+  save(document: MockTextDocument): void {
+    documentChanges.fire({ document, contentChanges: [] });
+  },
   registeredCommandIds(): string[] {
     return [...registeredCommands.keys()];
   },
@@ -347,6 +375,7 @@ export const vscodeMock = {
     activeTabGroupIndex = 0;
     documents.clear();
     appliedEdits.length = 0;
+    editsRefused = false;
     registeredCommands.clear();
     customEditorProviders.clear();
     executedCommands.length = 0;

@@ -12,7 +12,6 @@ import {
   workspace,
 } from "./__mocks__/vscode.js";
 
-vi.mock("../src/CmEditorProvider.js", () => ({ setWebviewHtml: () => undefined }));
 vi.mock("@miragon/modeler-shell/vscode/extension", async (importOriginal) => ({
   ...(await importOriginal<typeof ShellVsCode>()),
   connectThemeBridge: () => ({ dispose: () => undefined }),
@@ -31,6 +30,10 @@ async function openPngEditor(path: string) {
   const received = new EventEmitter<WebviewToHost>();
   const panel = {
     webview: {
+      options: {},
+      html: "",
+      cspSource: "vscode-webview://unit",
+      asWebviewUri: (uri: Uri) => uri,
       onDidReceiveMessage: received.event,
       postMessage(message: HostToWebview): Promise<boolean> {
         posted.push(message);

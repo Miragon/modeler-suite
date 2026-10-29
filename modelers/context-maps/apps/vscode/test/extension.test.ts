@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as vscode from "vscode";
 import type * as ShellVsCode from "@miragon/modeler-shell/vscode/extension";
-import type { CmEditorProvider } from "../src/CmEditorProvider.js";
 import type { CmPngEditorProvider } from "../src/CmPngEditorProvider.js";
 import {
-  MAP_VIEW_TYPE,
   NO_MAP_MESSAGE,
   OPEN_SOURCE_COMMAND,
   PNG_VIEW_TYPE,
@@ -11,6 +10,7 @@ import {
 } from "../src/commands.js";
 import { EMPTY_MAP } from "../src/examples.js";
 import { activate } from "../src/extension.js";
+import { MAP_VIEW_TYPE } from "../src/mapEditorOptions.js";
 import { Disposable, EventEmitter, Uri, ViewColumn, vscodeMock } from "./__mocks__/vscode.js";
 
 vi.mock("@miragon/modeler-shell/vscode/extension", async (importOriginal) => ({
@@ -26,15 +26,18 @@ const NOT_CANCELLED = {
 beforeEach(() => vscodeMock.reset());
 
 interface FakePanel {
-  panel: unknown;
+  panel: { webview: { options: unknown; html: string } };
   posted: unknown[];
   /** Every `reveal(viewColumn, preserveFocus)` call. */
   revealed: unknown[][];
   setActive(active: boolean): void;
+  /** VS Code closes the editor. */
+  close(): void;
 }
 
 function fakePanel(): FakePanel {
   const viewState = new EventEmitter<unknown>();
+  const disposed = new EventEmitter<void>();
   const posted: unknown[] = [];
   const revealed: unknown[][] = [];
   const panel = {
@@ -52,7 +55,7 @@ function fakePanel(): FakePanel {
       },
     },
     onDidChangeViewState: viewState.event,
-    onDidDispose: () => new Disposable(() => undefined),
+    onDidDispose: disposed.event,
     reveal(viewColumn?: unknown, preserveFocus?: unknown) {
       revealed.push([viewColumn, preserveFocus]);
     },
@@ -65,6 +68,7 @@ function fakePanel(): FakePanel {
       panel.active = next;
       viewState.fire({ webviewPanel: panel });
     },
+    close: () => disposed.fire(),
   };
 }
 
@@ -74,7 +78,9 @@ function activateExtension(): {
   openPng(path: string): Promise<FakePanel>;
 } {
   activate({ extensionUri: Uri.file("/extension"), subscriptions: [] } as never);
-  const textEditor = vscodeMock.customEditorProvider(MAP_VIEW_TYPE) as CmEditorProvider;
+  const textEditor = vscodeMock.customEditorProvider(
+    MAP_VIEW_TYPE,
+  ) as vscode.CustomTextEditorProvider;
   const pngEditor = vscodeMock.customEditorProvider(PNG_VIEW_TYPE) as CmPngEditorProvider;
   return {
     async openText(path) {
@@ -149,5 +155,42 @@ describe("the .cm and the .cm.png editor, as the extension registers them", () =
 
     expect(png.posted).toContainEqual({ type: "command", name: "fitView" });
     expect(text.posted).not.toContainEqual({ type: "command", name: "fitView" });
+  });
+
+  it("send fit to the focused .cm diagram, not to a .cm.png focused earlier", async () => {
+    const extension = activateExtension();
+    const png = await extension.openPng("/b.cm.png");
+    png.setActive(false);
+    const text = await extension.openText("/a.cm");
+
+    vscodeMock.runCommand(WEBVIEW_COMMANDS.fitView);
+
+    expect(text.posted).toContainEqual({ type: "command", name: "fitView" });
+    expect(png.posted).not.toContainEqual({ type: "command", name: "fitView" });
+  });
+
+  it("forget a closed .cm diagram", async () => {
+    const extension = activateExtension();
+    const text = await extension.openText("/a.cm");
+    text.setActive(false);
+    text.close();
+
+    await vscodeMock.runCommand(OPEN_SOURCE_COMMAND);
+
+    expect(text.revealed).toEqual([]);
+    expect(openedBeside()).toEqual([]);
+    expect(infoMessages()).toEqual([NO_MAP_MESSAGE]);
+  });
+
+  it("show the same webview document, the .cm editor's from the shell's plumbing", async () => {
+    const extension = activateExtension();
+    const text = await extension.openText("/a.cm");
+    const png = await extension.openPng("/b.cm.png");
+    const withoutNonce = (html: string) =>
+      html.replace(/'nonce-[^']*'/g, "'nonce-…'").replace(/nonce="[^"]*"/g, 'nonce="…"');
+
+    expect(png.panel.webview.options).toEqual(text.panel.webview.options);
+    expect(withoutNonce(png.panel.webview.html)).toBe(withoutNonce(text.panel.webview.html));
+    expect(text.panel.webview.html).toContain("<title>Context Maps Diagram</title>");
   });
 });

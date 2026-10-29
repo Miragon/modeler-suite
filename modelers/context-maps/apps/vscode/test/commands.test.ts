@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   ActivePanels,
-  MAP_VIEW_TYPE,
   NO_MAP_MESSAGE,
   OPEN_SOURCE_COMMAND,
   PNG_VIEW_TYPE,
@@ -9,6 +8,7 @@ import {
   registerSideBySideCommands,
   registerWebviewCommands,
 } from "../src/commands.js";
+import { MAP_VIEW_TYPE } from "../src/mapEditorOptions.js";
 import { EventEmitter, TabInputCustom, Uri, ViewColumn, vscodeMock } from "./__mocks__/vscode.js";
 
 beforeEach(() => vscodeMock.reset());

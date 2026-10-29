@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { parseCml } from "@miragon/context-maps-cml";
 import { parseDocument, serializeDocumentText } from "@miragon/context-maps-schema-model";
-import { MAP_VIEW_TYPE } from "./commands.js";
+import { MAP_VIEW_TYPE } from "./mapEditorOptions.js";
 
 /**
  * "New Diagram from CML…": a Context Mapper `.cml` file becomes a new `.cm` file next to it, which
