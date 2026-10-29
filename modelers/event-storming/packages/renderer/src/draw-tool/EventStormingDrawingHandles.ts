@@ -43,7 +43,7 @@ export default class EventStormingDrawingHandles {
     private readonly canvas: Canvas,
     private readonly modeling: EventStormingModeling,
     private readonly readOnly?: Pick<EventStormingReadOnly, "isReadOnly">,
-    private readonly gestures?: Pick<EventStormingGestures, "beginGesture" | "holdDrop">,
+    private readonly gestures?: Pick<EventStormingGestures, "beginGesture" | "holdAction">,
   ) {
     eventBus.on(READ_ONLY_CHANGED_EVENT, () => this.render());
     eventBus.on("selection.changed", (event: { newSelection?: unknown[] }) => {
@@ -114,7 +114,7 @@ export default class EventStormingDrawingHandles {
     };
     const onUp = (ev: MouseEvent): void => {
       points[index] = this.toCanvasPoint(ev);
-      const endDrop = this.gestures?.holdDrop();
+      const endDrop = this.gestures?.holdAction();
       try {
         this.endPointDrag();
         this.commit(shape, points);

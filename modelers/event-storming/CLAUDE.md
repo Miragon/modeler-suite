@@ -129,22 +129,26 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   annotation font has loaded, imports staying in call order, so every fit on import measures it in
   that font. An import first ends a running drag without applying it (`cancelGesture` in
   `EventStormingBaseViewer`, when called and again after any wait, for the annotation font or
-  for a running drop and the step it scheduled; `clear()` too):
+  for a running user action and the step it scheduled; `clear()` too):
   `dragging.cancel(false)` as Escape does, and the drawing handles' point drag, which also ends on
   `shape.remove`, so no release lands on a removed shape; the palette's armed lasso tool
   (`lasso.selection`) stays armed, and a pan (diagram-js's `MoveCanvas`, outside the dragging
   service) keeps running. `eventStormingGestures`
   ([`packages/renderer/src/gesture/`](packages/renderer/src/gesture/)) knows the gesture, the
-  drag that starts and the drop. A drag whose `drag.init` still runs (an open label editor commits
-  there, and a host may import from that commit's change listener) is refused at the end of that
-  `drag.init` instead of cancelled (`refuseStart`): diagram-js activates a resize, create or append
-  right after its init, which throws on a drag cancelled inside it. A drop runs from `drag.end`
-  until `drag.ended` or `drag.canceled` (a drawing's point drop while its command applies) and
-  while a step it scheduled holds it (`holdDrop`: the append's kind chooser or label editor). An
-  import called during a drop waits for its end (`dropEnded()`), so no listener of the drop, also
-  diagram-js's `SelectionBehavior`, sees a replaced board
-  ([#248](https://github.com/Miragon/modeler-suite/issues/248)); a `clear()` there does not wait,
-  and its drop is never cancelled (diagram-js would throw inside its own end of the drag): it ends
+  drag that starts and the user's action. A drag whose `drag.init` still runs (an open label
+  editor commits there, and a host may import from that commit's change listener) is refused at
+  the end of that `drag.init` instead of cancelled (`refuseStart`): diagram-js activates a resize,
+  create or append right after its init, which throws on a drag cancelled inside it. A user
+  action runs from each command (`commandStack.changed`) until the handler that ran it has
+  returned, a microtask later (a keyboard create selects its sticky and opens its editor after the
+  command, a press that commits a label starts its drag), through a drop, from `drag.end` until
+  `drag.ended` or `drag.canceled` (a drawing's point drop while its command applies), and while a
+  step it scheduled holds it (`holdAction`: the append's kind chooser or label editor). An import
+  called during an action, from a host's change listener, waits for its end (`actionEnded()`), so
+  no step of the action, also diagram-js's `SelectionBehavior` after a drop, sees a replaced board
+  ([#248](https://github.com/Miragon/modeler-suite/issues/248),
+  [#305](https://github.com/Miragon/modeler-suite/issues/305)); a `clear()` does not wait, and a
+  drop is never cancelled by it (diagram-js would throw inside its own end of the drag): it ends
   as a drop unless something was selected before the drag, since the clear removes the moved
   shape, and `SelectionBehavior` then throws and the drag ends as `drag.canceled`. The kind
   chooser an import closes reopens on the sticky with the same id while it is still blank. The

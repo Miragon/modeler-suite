@@ -177,9 +177,9 @@ export abstract class EventStormingBaseViewer {
   /**
    * Load a board into the canvas (replaces existing content). Resolves once the board stands
    * fitted on its final content box: an annotated board waits for its annotations' font first.
-   * Called while a drop runs (a host that imports from the change listener of the drop's command),
-   * it waits until the drop and the step it scheduled (the kind chooser after an append) have run,
-   * so none of them finds its shapes replaced.
+   * Called while a user action runs (a host that imports from the change listener of a drop, a
+   * keyboard create or a label commit), it waits until the action and the step it scheduled (the
+   * kind chooser after an append) have run, so none of them finds its shapes replaced.
    */
   async importMap(board: EventStormingBoard): Promise<{ warnings: ImportWarning[] }> {
     const diagram = this._ensureDiagram();
@@ -190,7 +190,7 @@ export abstract class EventStormingBaseViewer {
     // transforms cannot hold, after the previous board was cleared.
     assertDrawable(board);
     cancelGesture(diagram);
-    const turn = this._importTurn(board, gesturesOf(diagram)?.dropEnded());
+    const turn = this._importTurn(board, gesturesOf(diagram)?.actionEnded());
     let waited = false;
     if (turn) {
       await turn;
@@ -198,13 +198,13 @@ export abstract class EventStormingBaseViewer {
       if (this._waitingImport === turn) this._waitingImport = undefined;
       this._assertNotDestroyed(diagram);
     }
-    // A drop the user finished while the import waited for its turn.
-    let drop = gesturesOf(diagram)?.dropEnded();
-    while (drop) {
-      await drop;
+    // An action the user took while the import waited for its turn.
+    let action = gesturesOf(diagram)?.actionEnded();
+    while (action) {
+      await action;
       waited = true;
       this._assertNotDestroyed(diagram);
-      drop = gesturesOf(diagram)?.dropEnded();
+      action = gesturesOf(diagram)?.actionEnded();
     }
     // A gesture the user started while the import waited.
     if (waited) cancelGesture(diagram);
@@ -241,11 +241,11 @@ export abstract class EventStormingBaseViewer {
    */
   private _importTurn(
     board: EventStormingBoard,
-    dropEnded: Promise<void> | undefined,
+    actionEnded: Promise<void> | undefined,
   ): Promise<unknown> | undefined {
     const waits = [
       this._waitingImport,
-      dropEnded,
+      actionEnded,
       linkLabelFontLoading(annotationTexts(board)),
     ].filter((wait) => wait !== undefined);
     if (waits.length === 0) return undefined;
