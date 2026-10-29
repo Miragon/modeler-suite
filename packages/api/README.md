@@ -613,21 +613,27 @@ The cases:
   changes it, no change event fires, `interaction.active()` is false, an undo
   changes nothing (L4) and the next `mutate` applies.
 - **The pan case** (RECOMMENDED since 1.6, an advisory): a pan is no gesture,
-  and it runs on through an import from the view the import left. For
-  `canonicalTexts[1]` and `canonicalTexts[0]` it holds a pan on a fresh import
-  of `canonicalTexts[0]`, imports the text and moves the pan one more step. A
-  `startPan` that leaves the view as it was fails (the case would prove
-  nothing), and so does a change event from the import (L1) or from the pan's
-  release (L3: a pan changes the view, never the document). The advisory:
-  `interaction.active()` stays false and `onChange` is not called, the pan's
-  next step after the import moves the view, and where the import left the view
-  as it was before the pan (the same document fits the same view, L5) that step
-  brings the view where the pan's first step had brought it, up to float noise:
-  a pan that puts the view from before the import back lands one step further.
-  The release throws nothing, the export is the imported document and the next
-  `mutate` applies. A view the host sets after the import is not checked yet:
-  that leg follows once every Miragon renderer keeps it
-  ([#310](https://github.com/Miragon/modeler-suite/issues/310)).
+  and it runs on through an import from the current view: the one the import
+  left, or the one the host restores after it. For `canonicalTexts[1]` and
+  `canonicalTexts[0]` it holds a pan on a fresh import of `canonicalTexts[0]`,
+  imports the text and moves the pan one more step. Then it does the same as a
+  host that keeps the user's viewport (L5): it takes `getViewState()` during the
+  pan, before the import, and passes it to `setViewState` after the import,
+  before the step. A `startPan` that leaves the view as it was fails (the case
+  would prove nothing), and so does a change event from the import (L1) or from
+  the pan's release (L3: a pan changes the view, never the document). The
+  advisory: `interaction.active()` stays false and `onChange` is not called, the
+  pan's next step after the import moves the view, and where the import left
+  the view as it was before the pan (the same document fits the same view, L5)
+  that step brings the view where the pan's first step had brought it, up to
+  float noise: a pan that puts the view from before the import back lands one
+  step further. After the host's restore, the step moves the restored view as
+  the pan's first step moved the view before the import: each number of the
+  view state's readback changes by as much as it changed in that first step, up
+  to float noise (where the readbacks differ in shape, the step only has to
+  move the view). A pan that only the import re-anchors goes on from the view
+  the import left instead and undoes the restore. The release throws nothing,
+  the export is the imported document and the next `mutate` applies.
 - **The interaction case** (the surface's rules, failures): `active()` follows
   every gesture. It is false before the first import and at rest; for each kind
   it is true while the gesture is held, with one `onChange(true)`, and false
@@ -782,10 +788,8 @@ Recommendations today, proposed as hard laws for the next major:
   finished as it waits for a drop, and one for an import from the selection
   listener at a drag's start
   ([#336](https://github.com/Miragon/modeler-suite/issues/336)), once every
-  renderer has its fix. The pan case gains a leg for a view the host sets after
-  the import, once Value Chain's pan keeps it
-  ([#310](https://github.com/Miragon/modeler-suite/issues/310)). designIQ drops
-  the DOM reading of gestures and the synthetic Escape that
+  renderer has its fix. designIQ drops the DOM reading of gestures and the
+  synthetic Escape that
   [Miragon/design-iq#307](https://github.com/Miragon/design-iq/pull/307) added,
   once the host snippet under `interaction` no longer reverts the user's own
   drop ([#287](https://github.com/Miragon/modeler-suite/issues/287)).

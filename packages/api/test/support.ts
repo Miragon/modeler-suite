@@ -84,7 +84,7 @@ export const CASE = {
   l1Gesture:
     "L1 (recommended, 1.5): an accepted import cancels a running gesture, its release included, and a rejected one leaves it running",
   drop: "drop (recommended, 1.6): an import from the change listener of a drop waits until the drop has ended, and its Promise settles after the import",
-  pan: "pan (recommended, 1.6): a pan is no gesture, and it runs on through an import from the view the import left",
+  pan: "pan (recommended, 1.6): a pan is no gesture, and it runs on through an import from the current view, the one the import left or the one the host restores",
   interaction:
     "interaction (when present, 1.5): active() follows every gesture to its drop and its cancel, never an armed tool, and onChange reports each change once",
   l2Fixpoint: "L2: canonical texts are byte fixpoints of import → export",

@@ -272,6 +272,10 @@ export interface Flaws {
   /** NOT a law violation, a missed recommendation: a pan keeps the view it started from and puts
    *  it back on its next step after an import, undoing the import's fit */
   panJumpsBack?: boolean;
+  /** NOT a law violation, a missed recommendation: a pan goes on from the view an import left, but
+   *  puts back that view on its next step after a host's setViewState (re-anchored by the import
+   *  alone, as Value Chain's was before #310) */
+  panIgnoresHostView?: boolean;
   /** releasing a pan fires onContentChanged */
   panEmits?: boolean;
   /** NOT a law violation, a missed recommendation (1.5 let a pan count as a gesture): an import
@@ -935,6 +939,7 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     // an import fits the view to the content (L5) — unless a flaw keeps it
     const keeps = flaws.noFitOnImport || (!editable && flaws.viewerKeepsView);
     if (!keeps || view === undefined) view = { ...fittedView };
+    if (flaws.panIgnoresHostView && pan) pan.from = view.scrollX - pan.steps * PAN_STEP;
     const reimport = imported;
     imported = true;
     importedBoxes = liveBoxes();
@@ -1182,9 +1187,10 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
         move: () => {
           if (pan !== held || view === undefined) return;
           held.steps += 1;
-          const scrollX = flaws.panJumpsBack
-            ? held.from + held.steps * PAN_STEP
-            : view.scrollX + PAN_STEP;
+          const scrollX =
+            flaws.panJumpsBack || flaws.panIgnoresHostView
+              ? held.from + held.steps * PAN_STEP
+              : view.scrollX + PAN_STEP;
           view = { ...view, scrollX };
         },
         drop: () => {

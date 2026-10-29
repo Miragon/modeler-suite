@@ -932,6 +932,16 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
       /after the same document \(canonicalTexts\[0\]\) was imported during it did not go on from the view the import left/,
     );
   });
+  test("a pan that puts back the view an import left after the host restored its own → an advisory from the pan case, for both documents", async () => {
+    const advice = await expectAdvisoryOnly({ panIgnoresHostView: true }, CASE.pan);
+    expect(advice).toMatch(
+      /after a different document \(canonicalTexts\[1\]\) was imported during it did not go on from the view the host restored after the import/,
+    );
+    expect(advice).toMatch(
+      /after the same document \(canonicalTexts\[0\]\) was imported during it did not go on from the view the host restored after the import/,
+    );
+    expect(advice).not.toMatch(/did not go on from the view the import left/);
+  });
   test("a request that closes the open label editor → an advisory from the appearance case", async () => {
     const advice = await expectAdvisoryOnly({ appearanceDropsInteraction: true }, CASE.appearance);
     expect(advice).toMatch(/did not survive appearance\.set\(.*\) \(the request closed it\)/);
