@@ -174,8 +174,10 @@ one command.
 `eventStormingAggregates` (in the `NavigatedViewer` and the `Modeler`) reads the board's aggregates
 from the canvas through `groupByAggregate` of the schema model, which the package re-exports:
 every aggregate once, however often the timeline repeats it, with the commands whose arrows lead
-into it and the domain events its arrows lead to. `rows()` gives them as the rows of a table,
-one per aggregate, each line a command and the events it leads to (`aggregateTableRows`), and
+into it and the domain events its arrows lead to. An aggregate whose label is still the
+placeholder a new sticky gets ("Aggregate", "Aggregate 2") is left out, as it is no label
+suggestion. `rows()` gives them as the rows of a table, one per aggregate, each line a command
+and the events it leads to (`aggregateTableRows`), and
 `renderAggregateTable(body, rows, { onSelect })` draws that table into a dialog body.
 `showDialog({ container, openDialog })` opens it in a dialog of guide §8, the shell's
 `openShellDialog` passed in structurally, so the renderer never imports the shell:
@@ -194,18 +196,19 @@ const menu = boardMenu({
 });
 ```
 
-`boardMenu` puts "Aggregates…" at the end of the Model group while `hasAggregates()` holds, also
-on a read-only canvas, so a host builds the menu again after every import and command
-(`shell.menu.setGroups(boardMenu(actions))`). A name in the dialog closes it, then selects its
-stickies and brings them into the part of the view the chrome leaves free (`freeArea.insets` as
-the host gives them, the shell's fit insets with their margins; without a host the fit's side
-margin of 24px on every edge): scrolled when they fit at the current zoom, else zoomed out until
+`boardMenu` puts "Aggregates…" at the end of the Model group while `hasAggregates()` holds, that
+is while the board has a named aggregate, also on a read-only canvas, so a host builds the menu
+again after every import and command (`shell.menu.setGroups(boardMenu(actions))`). A name in the
+dialog closes it, then selects its stickies and brings them into the part of the view the chrome
+leaves free (`freeArea.insets` as the host gives them, the shell's fit insets with their margins;
+without a host the fit's side margin of 24px on every edge): scrolled when they fit at the
+current zoom, else zoomed out until
 they do, never in. The focus goes to the canvas, and the second click of a double click, which
 would land on the canvas once the dialog closed, is absorbed. Selecting runs no command, so
 neither the undo history nor the board changes. The open dialog follows every import and
 command, the focus staying on the name that had it, or on the sentence that the board has no
-aggregates once the last one went. `reveal(elementIds)` selects and shows stickies the same way
-without the dialog.
+named aggregates once the last one went. `reveal(elementIds)` selects and shows stickies the same
+way without the dialog.
 
 ### Collaborative hosts
 

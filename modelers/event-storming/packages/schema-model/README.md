@@ -74,6 +74,10 @@ normalizeLabel("Orders") === normalizeLabel("order"); // true
   what is typed, the matches at the start first, then the most used, at most
   `DEFAULT_SUGGESTION_LIMIT` (8). The last word counts as written so far, so `Pay` finds
   `Payment Received`.
+- `isPlaceholderLabel(kind, label)` knows the name a new sticky gets until it is renamed, the
+  kind's entry in `PLACEHOLDER_LABELS` with or without a number (`Domain Event`,
+  `Domain Event 2`). It says nothing about the domain, so an editor offers no such name and
+  `groupByAggregate` counts no such aggregate.
 
 ## Aggregates
 
@@ -95,6 +99,8 @@ for (const { aggregate, commands, events, pairs } of groupByAggregate(board)) {
 ```
 
 - Aggregates whose names `normalizeLabel` reads alike form one group (`Order`, `order`, `Orders`).
+- An aggregate whose label is still a placeholder (`Aggregate`, `Aggregate 2`: `isPlaceholderLabel`)
+  forms no group, so commands and events that reach only such aggregates are in no group either.
 - A command counts through an arrow into one of the group's aggregates, an event through an arrow
   out of one. Arrows the other way, a command's arrow straight to an event, and policies, read
   models, actors, external systems, hotspots and notes leave the groups as they are.

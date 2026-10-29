@@ -3,12 +3,13 @@
  * from the arrows of a design-level board: command → aggregate → event. "Repeat, never reuse"
  * puts an aggregate on the timeline once per step, so its behaviour lies scattered; grouping the
  * aggregates by name brings it back together. Names are compared with `normalizeLabel`, as the
- * vocabulary does, so `Order`, `order` and `Orders` are one aggregate. Derived from the board
- * every time, never stored, so the schema and the DSL stay unchanged.
+ * vocabulary does, so `Order`, `order` and `Orders` are one aggregate, and a placeholder name such
+ * as `Aggregate 2` names none. Derived from the board every time, never stored, so the schema and
+ * the DSL stay unchanged.
  */
 
 import type { Arrow, BoardElement } from "./types.js";
-import { normalizeLabel, type LabelSpelling } from "./vocabulary.js";
+import { isPlaceholderLabel, normalizeLabel, type LabelSpelling } from "./vocabulary.js";
 
 /** A sticky as the grouping reads it; every `BoardElement` fits. */
 export type PlacedSticky = Pick<BoardElement, "id" | "elementType" | "label" | "position">;
@@ -133,6 +134,9 @@ function distinct(named: Iterable<NamedStickies>): NamedStickies[] {
  * - An aggregate without arrows still forms a group, with empty lists. Commands and events that
  *   reach no aggregate are in no group: only arrows join a sticky to an aggregate, never how near
  *   it stands.
+ * - An aggregate whose label is still the placeholder a new sticky gets (`Aggregate`,
+ *   `Aggregate 2`: `isPlaceholderLabel`) is no aggregate of the domain yet and forms no group, so
+ *   commands and events that reach only such aggregates are in no group either.
  * - A label without a word (`?`, an empty sticky) names nothing, so its sticky groups with no
  *   other: each such aggregate is a group of its own, each such command or event an entry of its
  *   own. Its `key` is empty.
@@ -171,7 +175,9 @@ export function groupByAggregate(board: AggregateBoard): AggregateGroup[] {
     }
   }
 
-  const aggregateNames = namesOf(ofKind("aggregate"));
+  const aggregateNames = namesOf(
+    ofKind("aggregate").filter((sticky) => !isPlaceholderLabel(sticky.elementType, sticky.label)),
+  );
   return distinct(aggregateNames.values()).map((aggregate) => {
     const linked = (links: Map<string, Set<string>>): PlacedSticky[] => {
       const ids = new Set(aggregate.elementIds.flatMap((id) => [...(links.get(id) ?? [])]));

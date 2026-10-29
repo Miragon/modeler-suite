@@ -26,6 +26,35 @@ export function isVocabularyStickyKind(kind: string): kind is VocabularyStickyKi
   return (VOCABULARY_STICKY_KINDS as readonly string[]).includes(kind);
 }
 
+/**
+ * The name the palette and the keys give a new sticky of each kind until it is renamed; the next
+ * one of a kind gets a number ("Domain Event 2"). Notes and drawings have none.
+ */
+export const PLACEHOLDER_LABELS = {
+  event: "Domain Event",
+  command: "Command",
+  actor: "Actor",
+  aggregate: "Aggregate",
+  policy: "Policy",
+  readmodel: "Read Model",
+  external: "External System",
+  hotspot: "Hotspot",
+} as const satisfies Partial<Record<ElementType, string>>;
+
+const PLACEHOLDER_OF: ReadonlyMap<string, string> = new Map(Object.entries(PLACEHOLDER_LABELS));
+
+/**
+ * Whether `label` is the placeholder a new sticky of `kind` gets: "Aggregate", "Aggregate 2". It
+ * says nothing about the domain, so the label suggestions offer no such name and
+ * `groupByAggregate` counts no such aggregate.
+ */
+export function isPlaceholderLabel(kind: ElementType, label: string): boolean {
+  const placeholder = PLACEHOLDER_OF.get(kind);
+  if (placeholder === undefined) return false;
+  if (label === placeholder) return true;
+  return label.startsWith(`${placeholder} `) && /^\d+$/.test(label.slice(placeholder.length + 1));
+}
+
 /** A sticky as the vocabulary reads it; every `BoardElement` fits. */
 export interface LabelledSticky {
   readonly id: string;

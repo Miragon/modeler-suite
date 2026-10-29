@@ -33,6 +33,21 @@ export const PLAIN_BOARD = [
   "#cmd_place -> #evt_placed",
 ].join("\n");
 
+/**
+ * A board whose aggregates still carry the placeholders new stickies get: no named aggregate, so
+ * the menu has no "Aggregates…" until one is renamed.
+ */
+export const PLACEHOLDER_BOARD = [
+  "title Placeholders",
+  "command Place Order [150, 220] (id cmd_place)",
+  "aggregate Aggregate [350, 220] (id agg_new)",
+  "event Order Placed [550, 220] (id evt_placed)",
+  "aggregate Aggregate 2 [350, 480] (id agg_next)",
+  "",
+  "#cmd_place -> #agg_new",
+  "#agg_new -> #evt_placed",
+].join("\n");
+
 /** The table's rows as text: per line the cells, the aggregate's only in its first line. */
 export const AGGREGATES_TABLE = [
   ["Place Order", "Order", "Order Placed"],

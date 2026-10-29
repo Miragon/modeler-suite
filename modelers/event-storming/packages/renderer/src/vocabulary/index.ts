@@ -22,4 +22,4 @@ export {
   SPELLING_VARIANT_OVERLAY,
 } from "./EventStormingSpellingVariants.js";
 export { LabelSuggestionList } from "./LabelSuggestionList.js";
-export { boardStickies, isPlaceholderLabel } from "./board-stickies.js";
+export { boardStickies } from "./board-stickies.js";

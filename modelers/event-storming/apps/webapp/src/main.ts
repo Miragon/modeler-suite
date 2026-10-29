@@ -106,7 +106,7 @@ const platform = detectPlatform(navigator);
 const openKey = commandKeyLabel("O", platform, defaultMessages.keyNames);
 const saveKey = commandKeyLabel("S", platform, defaultMessages.keyNames);
 
-// "Aggregates…" shows only while the board has an aggregate: refreshMenu builds the menu again.
+// "Aggregates…" shows only while the board has a named aggregate: refreshMenu rebuilds the menu.
 const menuActions: BoardMenuActions = {
   levels,
   typeCaptions,

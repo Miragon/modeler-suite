@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CURRENT_SCHEMA_VERSION,
   groupByAggregate,
+  normalizeLabel,
   type AggregateGroup,
   type ArrowEnds,
   type ElementType,
@@ -302,6 +303,79 @@ describe("groupByAggregate", () => {
       ["cmd_1"],
       ["cmd_2"],
     ]);
+  });
+
+  it("leaves out placeholder-labelled aggregates and the commands and events only they reach", () => {
+    const groups = groupByAggregate({
+      elements: [
+        sticky("draft", "command", "Draft Order", 0, 0),
+        sticky("aggregate_1", "aggregate", "Aggregate", 200, 0),
+        sticky("drafted", "event", "Order Drafted", 400, 0),
+        sticky("place", "command", "Place Order", 0, 300),
+        sticky("aggregate_2", "aggregate", "Aggregate 2", 200, 300),
+        sticky("order", "aggregate", "Order", 200, 600),
+        sticky("placed", "event", "Order Placed", 400, 300),
+        sticky("confirmed", "event", "Order Confirmed", 400, 600),
+      ],
+      edges: [
+        arrow("draft", "aggregate_1"),
+        arrow("aggregate_1", "drafted"),
+        arrow("place", "aggregate_2"),
+        arrow("aggregate_2", "placed"),
+        arrow("place", "order"),
+        arrow("order", "confirmed"),
+      ],
+    });
+
+    const group = only(groups);
+    expect(group.aggregate.elementIds).toEqual(["order"]);
+    expect(labels(group.commands)).toEqual(["Place Order"]);
+    expect(labels(group.events)).toEqual(["Order Confirmed"]);
+    expect(pairsOf(group)).toEqual(["Place Order -> Order Confirmed"]);
+  });
+
+  it("has no group while every aggregate carries a placeholder, and one once it is renamed", () => {
+    const placeholders = {
+      elements: [
+        sticky("place", "command", "Place Order", 0),
+        sticky("aggregate_1", "aggregate", "Aggregate", 200),
+        sticky("aggregate_2", "aggregate", "Aggregate 2", 400),
+        sticky("aggregate_12", "aggregate", "Aggregate 12", 600),
+      ],
+      edges: [arrow("place", "aggregate_1")],
+    };
+    expect(groupByAggregate(placeholders)).toEqual([]);
+
+    const renamed = {
+      ...placeholders,
+      elements: placeholders.elements.map((element) =>
+        element.id === "aggregate_1" ? { ...element, label: "Order" } : element,
+      ),
+    };
+    const group = only(groupByAggregate(renamed));
+    expect(group.aggregate.elementIds).toEqual(["aggregate_1"]);
+    expect(labels(group.commands)).toEqual(["Place Order"]);
+  });
+
+  it("counts a name that only starts like the placeholder, and never merges a placeholder into it", () => {
+    const groups = groupByAggregate({
+      elements: [
+        sticky("placeholder", "aggregate", "Aggregate", 0),
+        sticky("plural", "aggregate", "Aggregates", 200),
+        sticky("root", "aggregate", "Aggregate Root", 400),
+        sticky("worded", "aggregate", "Aggregate Two", 600),
+        sticky("lettered", "aggregate", "Aggregate 2b", 800),
+      ],
+      edges: [],
+    });
+
+    expect(groups.map((group) => group.aggregate.elementIds)).toEqual([
+      ["plural"],
+      ["root"],
+      ["worded"],
+      ["lettered"],
+    ]);
+    expect(groups[0]!.aggregate.key).toBe(normalizeLabel("Aggregate"));
   });
 
   it("counts a doubled arrow once and leaves out arrows to stickies the board does not hold", () => {

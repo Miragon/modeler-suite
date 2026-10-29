@@ -75,7 +75,8 @@ hosts run the vocabulary specs (`webapp-vocabulary.spec.ts`,
 `vscode/vocabulary.spec.ts`): the label editor's suggestions with their keys, mouse and layer, the
 spelling-variant dots and "Unify spelling" as one undo step, in VS Code one edit of the document.
 Both run the aggregates specs (`webapp-aggregates.spec.ts`, `vscode/aggregates.spec.ts`):
-"Aggregates…" only while the board has an aggregate, the shell's dialog with a row group per
+"Aggregates…" only while the board has a named aggregate (in the web app also absent while every
+aggregate carries a placeholder, until one is renamed), the shell's dialog with a row group per
 aggregate, a name by click, double click or Enter that closes it, selects and reveals its stickies
 and hands the focus to the canvas without an undo step or a change of the board (in VS Code no
 edit, also on the read-only canvas of an invalid file), and Escape back to the menu trigger. The

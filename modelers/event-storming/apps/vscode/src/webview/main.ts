@@ -81,7 +81,7 @@ if (readTypeCaptionsVisible(vscode) === false) typeCaptions.setTypeCaptionsVisib
 const app = document.getElementById("app");
 if (!app) throw new Error("The webview HTML has no #app root.");
 
-// "Aggregates…" shows only while the board has an aggregate: refreshMenu builds the menu again.
+// "Aggregates…" shows only while the board has a named aggregate: refreshMenu rebuilds the menu.
 const menuActions: BoardMenuActions = {
   levels,
   typeCaptions,

@@ -11,7 +11,7 @@ export const AGGREGATES_TABLE_LABEL = "Commands and events by aggregate";
 
 const COLUMN_TITLES = ["Commands", "Aggregate", "Events"] as const;
 const HINT = "Choose a name to select its stickies on the board.";
-const EMPTY = "The board has no aggregates.";
+const EMPTY = "The board has no named aggregates.";
 
 export interface AggregateTableOptions {
   /** A click on a name, also Enter or Space on it (`detail` 0). */
