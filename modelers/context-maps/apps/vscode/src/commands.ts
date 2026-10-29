@@ -28,11 +28,11 @@ function resourceArgument(argument: unknown): vscode.Uri | undefined {
 }
 
 export function registerSideBySideCommands(
-  activeMapUri: () => vscode.Uri | undefined,
+  revealTextDiagram: () => Promise<vscode.Uri | undefined>,
 ): vscode.Disposable[] {
   return [
-    vscode.commands.registerCommand(OPEN_SOURCE_COMMAND, (argument?: unknown) => {
-      const uri = resourceArgument(argument) ?? activeMapUri();
+    vscode.commands.registerCommand(OPEN_SOURCE_COMMAND, async (argument?: unknown) => {
+      const uri = resourceArgument(argument) ?? (await revealTextDiagram());
       if (!uri) return void vscode.window.showInformationMessage(NO_MAP_MESSAGE);
       return vscode.commands.executeCommand(
         "vscode.openWith",
@@ -52,6 +52,34 @@ export function registerSideBySideCommands(
       );
     }),
   ];
+}
+
+/**
+ * Shows a tab of `viewType` that VS Code restored after a reload and returns its document. VS Code
+ * resolves a restored tab only once it is shown, so until then the provider knows no panel of it. A
+ * tab in the active group comes first (the walkthrough is restored in front of it), then the tab
+ * each group shows, then any other.
+ */
+export async function revealRestoredTab(viewType: string): Promise<vscode.Uri | undefined> {
+  const { activeTabGroup, all } = vscode.window.tabGroups;
+  const tabs = [
+    ...activeTabGroup.tabs,
+    ...all.flatMap((group) => (group.activeTab ? [group.activeTab] : [])),
+    ...all.flatMap((group) => group.tabs),
+  ];
+  for (const tab of tabs) {
+    const input = tab.input;
+    if (input instanceof vscode.TabInputCustom && input.viewType === viewType) {
+      await vscode.commands.executeCommand(
+        "vscode.openWith",
+        input.uri,
+        viewType,
+        tab.group.viewColumn,
+      );
+      return input.uri;
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -125,12 +153,18 @@ export class ActivePanels {
   }
 
   /**
-   * The text document of the focused diagram, else of the text diagram focused last: a link in the
-   * walkthrough takes the focus from the diagram it means. A focused PNG diagram has no text.
+   * Shows the text diagram Open Source to the Side means without a resource and returns its
+   * document: the focused diagram, else the text diagram focused last (a link in the walkthrough
+   * takes the focus from the diagram it means), else a text diagram tab VS Code restored after a
+   * reload. Showing it focuses its group, so the source opens beside the diagram, not beside the
+   * walkthrough. A focused PNG diagram has no text.
    */
-  activeTextDocumentUri(): vscode.Uri | undefined {
+  async revealTextDiagram(): Promise<vscode.Uri | undefined> {
     if (this.active) return this.active.text ? this.active.uri : undefined;
-    return this.byFocus.find((tracked) => tracked.text)?.uri;
+    const last = this.byFocus.find((tracked) => tracked.text);
+    if (!last) return revealRestoredTab(MAP_VIEW_TYPE);
+    last.panel.reveal(undefined, false);
+    return last.uri;
   }
 
   /**

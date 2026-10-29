@@ -5,7 +5,7 @@ import {
   renderWebviewHtml,
   revealFileLabel,
 } from '@miragon/modeler-shell/vscode/extension';
-import { DIAGRAM_VIEW_TYPE, registerSideBySideCommands } from './commands.js';
+import { DIAGRAM_VIEW_TYPE, registerSideBySideCommands, revealRestoredTab } from './commands.js';
 import { DIAGNOSTIC_SOURCE, documentDiagnostics } from './diagnostics.js';
 import { DocumentWriter } from './DocumentWriter.js';
 import { withExampleInserted } from './examples.js';
@@ -14,6 +14,7 @@ import { WEBVIEW_THEMES } from './themes.js';
 
 interface OpenDiagram {
   readonly uri: vscode.Uri;
+  readonly panel: vscode.WebviewPanel;
 }
 
 /**
@@ -33,7 +34,7 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
         supportsMultipleEditorsPerDocument: false,
       }),
       provider.diagnostics,
-      ...registerSideBySideCommands(() => provider.activeDocumentUri()),
+      ...registerSideBySideCommands(() => provider.revealSourceDiagram()),
     );
   }
 
@@ -44,11 +45,16 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
   private constructor(private readonly context: vscode.ExtensionContext) {}
 
   /**
-   * The document of the focused diagram, else of the open diagram focused last: a link in the
-   * walkthrough takes the focus from the diagram it means.
+   * Shows the diagram Open Source to the Side means without a resource and returns its document:
+   * the focused diagram, else the open diagram focused last (a link in the walkthrough takes the
+   * focus from the diagram it means), else a diagram tab VS Code restored after a reload. Showing it
+   * focuses its group, so the source opens beside the diagram, not beside the walkthrough.
    */
-  activeDocumentUri(): vscode.Uri | undefined {
-    return this.openDiagrams[0]?.uri;
+  async revealSourceDiagram(): Promise<vscode.Uri | undefined> {
+    const last = this.openDiagrams[0];
+    if (!last) return revealRestoredTab(DIAGRAM_VIEW_TYPE);
+    if (!last.panel.active) last.panel.reveal(undefined, false);
+    return last.uri;
   }
 
   private forget(diagram: OpenDiagram): void {
@@ -83,7 +89,7 @@ export class EditorProvider implements vscode.CustomTextEditorProvider {
     // Disposes itself with the panel; never into context.subscriptions (one per opened editor).
     connectThemeBridge(vscode, panel, { themes: WEBVIEW_THEMES });
 
-    const diagram: OpenDiagram = { uri: document.uri };
+    const diagram: OpenDiagram = { uri: document.uri, panel };
     if (panel.active) this.openDiagrams.unshift(diagram);
     else this.openDiagrams.push(diagram);
 

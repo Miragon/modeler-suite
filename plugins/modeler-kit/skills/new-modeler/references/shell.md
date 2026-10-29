@@ -117,9 +117,11 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
   then Learn. "Open Source to the Side" and "Open Diagram to the Side" sit in the navigation group
   of the editor title with a Codicon, and in the Command Palette only while a diagram or its text
   has the focus. Called without a resource (the Command Palette, the walkthrough's link), "Open
-  Source to the Side" opens the source of the open diagram focused last, since a click on the link
-  moves the focus away from the diagram. There is no keybindings contribution. A unit test pins
-  all of it (template:
+  Source to the Side" takes the open diagram focused last, since a click on the link moves the
+  focus away from the diagram, else a diagram tab of the Tab API that VS Code restored after a
+  reload (it resolves a restored tab only once the tab is shown). It shows that diagram first, so
+  the source opens beside the diagram and not beside the walkthrough. There is no keybindings
+  contribution. A unit test pins all of it (template:
   [`contributions.test.ts`](../assets/template/apps/vscode/test/contributions.test.ts), media in
   [`media/walkthrough/`](../assets/template/apps/vscode/media/walkthrough/)).
 

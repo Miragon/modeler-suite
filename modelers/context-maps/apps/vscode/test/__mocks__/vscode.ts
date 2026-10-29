@@ -113,6 +113,47 @@ export enum ViewColumn {
   Beside = -2,
 }
 
+/** The input of a custom editor's tab. */
+export class TabInputCustom {
+  constructor(
+    readonly uri: Uri,
+    readonly viewType: string,
+  ) {}
+}
+
+interface MockTab {
+  readonly input: unknown;
+  readonly group: MockTabGroup;
+}
+
+interface MockTabGroup {
+  readonly viewColumn: number;
+  readonly tabs: MockTab[];
+  activeTab: MockTab | undefined;
+}
+
+/** The layout `vscodeMock.setTabGroups` describes: one entry per group, in view column order. */
+export interface TabGroupLayout {
+  /** The inputs of the group's tabs; the walkthrough's is none of the API's input types. */
+  readonly inputs: readonly unknown[];
+  /** The index of the tab the group shows. */
+  readonly activeTab?: number;
+  /** The active group (default: the first). */
+  readonly active?: boolean;
+}
+
+function tabGroupsOf(layout: readonly TabGroupLayout[]): MockTabGroup[] {
+  return layout.map((entry, index) => {
+    const group: MockTabGroup = { viewColumn: index + 1, tabs: [], activeTab: undefined };
+    group.tabs.push(...entry.inputs.map((input) => ({ input, group })));
+    group.activeTab = entry.activeTab === undefined ? undefined : group.tabs[entry.activeTab];
+    return group;
+  });
+}
+
+let tabGroups: MockTabGroup[] = tabGroupsOf([{ inputs: [] }]);
+let activeTabGroupIndex = 0;
+
 export class MockDiagnosticCollection {
   private readonly entries = new Map<string, readonly Diagnostic[]>();
   constructor(readonly name: string) {}
@@ -205,6 +246,14 @@ let notificationAnswer: string | undefined;
 export const window = {
   activeColorTheme: { kind: 1 },
   activeTextEditor: undefined as { document: { uri: Uri } } | undefined,
+  tabGroups: {
+    get all(): readonly MockTabGroup[] {
+      return tabGroups;
+    },
+    get activeTabGroup(): MockTabGroup {
+      return tabGroups[activeTabGroupIndex]!;
+    },
+  },
   onDidChangeActiveColorTheme(): Disposable {
     return new Disposable(() => undefined);
   },
@@ -285,7 +334,17 @@ export const vscodeMock = {
   answerNotification(item: string | undefined): void {
     notificationAnswer = item;
   },
+  /** Lays out the editor tabs, such as the ones VS Code restored after a reload. */
+  setTabGroups(layout: readonly TabGroupLayout[]): void {
+    tabGroups = tabGroupsOf(layout);
+    activeTabGroupIndex = Math.max(
+      0,
+      layout.findIndex((entry) => entry.active === true),
+    );
+  },
   reset(): void {
+    tabGroups = tabGroupsOf([{ inputs: [] }]);
+    activeTabGroupIndex = 0;
     documents.clear();
     appliedEdits.length = 0;
     registeredCommands.clear();

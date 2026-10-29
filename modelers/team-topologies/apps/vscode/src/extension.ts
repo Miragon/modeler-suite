@@ -19,7 +19,7 @@ export function activate(context: vscode.ExtensionContext): void {
     TtEditorProvider.register(panels, diagnostics),
     TtPngEditorProvider.register(panels, diagnostics),
     ...registerWebviewCommands((name) => panels.runCommand(name)),
-    ...registerSideBySideCommands(() => panels.activeTextDocumentUri()),
+    ...registerSideBySideCommands(() => panels.revealTextDiagram()),
     vscode.commands.registerCommand("teamTopologies.newDiagram", () => createMap(EMPTY_MAP)),
     vscode.commands.registerCommand("teamTopologies.newFromExample", () => createMap(EXAMPLE_MAP)),
     vscode.commands.registerCommand("teamTopologies.newPngDiagram", () => createPngMap()),
