@@ -1,16 +1,10 @@
 ---
 name: team-topologies
 description: >-
-  Team Topologies expert (Matthew Skelton & Manuel Pais). Explains the four team types
-  (stream-aligned, enabling, complicated-subsystem, platform), the three interaction modes
-  (collaboration, X-as-a-Service, facilitating), cognitive load, Conway's law, fracture planes and
-  how interactions evolve; designs a team topology from a description of an organisation, a system
-  or a codebase; and reviews an existing topology (strengths, weaknesses, next steps), writing the
-  feedback as annotations into the `.tt` file. Use whenever the user wants to model, draw, sketch,
-  design, critique or improve a team structure or org design with Team Topologies, or asks about team
-  types, interaction modes, platform or enabling teams, team cognitive load or the inverse Conway
-  manoeuvre. For the `.tt` / `.ttm.json` file format itself (fields, coordinates, layout, the checker),
-  use the `tt-format` skill.
+  Explains Team Topologies (team types, interaction modes, cognitive load), designs a team topology
+  from an organisation or codebase and reviews one with annotations in the `.tt` file. Use when
+  modelling or improving a team structure with Team Topologies; for the `.tt` file format use the
+  `tt-format` skill.
 ---
 
 # Team Topologies

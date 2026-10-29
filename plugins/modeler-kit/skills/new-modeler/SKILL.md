@@ -1,5 +1,6 @@
 ---
 name: new-modeler
+disable-model-invocation: true
 description: Build a new Miragon modeler end to end, or bring an existing diagram-js modeler onto the Miragon modeler platform - one notation per repository with a DOM-free schema-model and text DSL, a diagram-js renderer that implements the @miragon/modeler-api contract (conformance kit in the browser tests), a web app and a VS Code custom editor on @miragon/modeler-shell (shell conformance kit in e2e), the Miragon design system, exact pins with ranged peers, release-please with npm trusted publishing and the VS Code Marketplace and Open VSX. Use when the user wants to start a modeler for a new notation, scaffold a modeler repository from the template, check a modeler repository against the platform conventions, upgrade one to a new contract or shell release, or prepare a renderer for Design IQ.
 ---
 

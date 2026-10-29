@@ -1,16 +1,10 @@
 ---
 name: owm-dsl
 description: >-
-  The OWM text format for Wardley Maps (`.wmap` / `.owm`) read and written by the Wardley Maps
-  Modeler and `@miragon/wardley-dsl`: full grammar (anchor, component, `->` / `+>` links, evolve,
-  pipeline, note, annotation, pioneers / settlers / townplanners, accelerator, submap, url, axis
-  config), `[visibility, maturity]` coordinates and stage boundaries, the `(build|buy|outsource)`
-  `(market)` `(ecosystem)` `inertia` `(color …)` `label [dx, dy]` suffixes, layout and note
-  colours, parser diagnostics and the few mistakes they do not catch, the round-trip guarantee
-  and web-app share links. Use whenever reading, writing, generating, editing, validating or
-  debugging a `.wmap` / `.owm` file or map text, placing components, building a share link, or
-  calling `parseDSL` / `serializeDSL`. For the mapping _method_ (creating a map from a strategic
-  question, reviews, doctrine, gameplay) use the `wardley-mapping` skill.
+  The OWM text format for Wardley Maps (`.wmap` / `.owm`) used by the Wardley Maps Modeler and
+  `@miragon/wardley-dsl`: grammar, coordinates, suffixes, diagnostics and share links. Use when
+  reading, writing, editing or validating a `.wmap` / `.owm` file; for the mapping method use the
+  `wardley-mapping` skill.
 ---
 
 # The OWM map format (`.wmap` / `.owm`)

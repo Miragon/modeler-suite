@@ -1,17 +1,9 @@
 ---
 name: tt-format
 description: >-
-  The `.tt` / `.ttm.json` file format of the Team Topologies Modeler: the JSON document behind
-  `@miragon/team-topologies-schema-model` (version 3: `nodes`, `interactions`, `flows`,
-  `annotations`): every field, top-left pixel coordinates, default and minimum sizes, how an
-  interaction is drawn as a shape overlapping two teams instead of a line, the X-as-a-Service
-  triangle that always points up at the consumer, stacking order, the canonical form the modeler
-  saves, a layout grid with stream-aligned teams stacked as parallel lanes and the platform below
-  them, and a bundled checker script that validates a file, reads back which teams every interaction
-  connects and flags layout mistakes. Use whenever
-  reading, writing, drawing, generating, editing, laying out, validating or debugging a `.tt` /
-  `.ttm.json` file or a Team Topologies diagram as JSON. For the Team Topologies method itself
-  (choosing team types and interaction modes, reviewing a topology), use the `team-topologies` skill.
+  The `.tt` / `.ttm.json` file format of the Team Topologies Modeler: fields, coordinates, layout
+  conventions and a bundled checker script. Use when reading, writing, laying out or validating a
+  `.tt` / `.ttm.json` file; for the Team Topologies method use the `team-topologies` skill.
 ---
 
 # The `.tt` / `.ttm.json` format

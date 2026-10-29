@@ -1,15 +1,10 @@
 ---
 name: wardley-mapping
 description: >-
-  Wardley Mapping expert. Explains Simon Wardley's method (value chain, evolution stages,
-  climatic patterns, doctrine, gameplay, pioneers/settlers/town planners), creates a Wardley Map
-  from a strategic question, and reviews a user's map (what is good, what is weak, where the
-  potential is) by writing the .wmap/.owm file directly, with colour-coded feedback notes, for
-  the Wardley Maps Modeler (web app, VS Code extension, Miragon AI Design) to render. Use whenever
-  the user asks to create, draft, review, critique, improve or sanity-check a Wardley map, to
-  assess a component's evolution stage, to decide build vs buy vs outsource from a map, or to
-  explain Wardley-mapping concepts. For the OWM text format itself (grammar, coordinates,
-  decorators, diagnostics, round-trip), use the `owm-dsl` skill.
+  Explains Simon Wardley's mapping method, creates Wardley Maps from a strategic question and
+  reviews maps with colour-coded feedback notes in the .wmap/.owm file. Use when creating, reviewing
+  or improving a Wardley map or explaining its concepts; for the OWM text format use the `owm-dsl`
+  skill.
 ---
 
 # Wardley Mapping
