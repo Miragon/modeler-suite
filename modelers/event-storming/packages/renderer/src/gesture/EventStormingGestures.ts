@@ -8,6 +8,12 @@ const FIRST = 100_000;
 const LAST = -100_000;
 
 /**
+ * `execute` comes before each command and each redo changes the board, nested commands included,
+ * `revert` before each undo, `changed` once the outermost of them has run.
+ */
+const COMMAND_EVENTS = ["commandStack.execute", "commandStack.revert", "commandStack.changed"];
+
+/**
  * The drags of a palette tool that only waits for its next press: they hold no element of the
  * board, so they are no gesture, and an import leaves the tool armed.
  */
@@ -21,7 +27,7 @@ export interface DragContext {
 export type GestureListener = (active: boolean) => void;
 
 /**
- * What the user holds on the canvas, and the drop that applies it (modeler-api 1.5).
+ * What the user holds on the canvas, and the action that changes the board (modeler-api 1.5).
  *
  * A gesture runs from the moment diagram-js activates a drag (a move, resize, connect or lasso
  * past the threshold, or at once for a create, an append, a paste and the connect of the context
@@ -29,11 +35,13 @@ export type GestureListener = (active: boolean) => void;
  * while a drawing's point drag moves. A palette tool that only waits for its next press is no
  * gesture, and neither is a pan: diagram-js's `MoveCanvas` pans outside the dragging service.
  *
- * A drop runs from diagram-js's `drag.end` until `drag.ended` or `drag.canceled`, a drawing's
- * point drop while its command applies, and both for as long as a follow-up step the drop
- * scheduled holds it (`holdDrop`: the kind chooser or the label editor that opens after an
- * append). An import called meanwhile waits for `dropEnded()`, so no listener of the drop sees a
- * replaced board.
+ * A user action runs from the start of a command (`commandStack.execute`, or `revert` for an
+ * undo: a keyboard create, a label commit, also one a press makes, a delete, an undo, a redo)
+ * until the handler that ran it has returned, during a drop (from diagram-js's `drag.end` until
+ * `drag.ended` or `drag.canceled`, a drawing's point drop while its command applies), and for as
+ * long as a step it scheduled holds it (`holdAction`: the kind chooser or the label editor that
+ * opens after an append). An import called meanwhile, from a host's change or selection listener,
+ * waits for `actionEnded()`, so no step of the action finds the board replaced (#248, #305).
  *
  * A drag runs its `drag.init` before diagram-js activates it. An import or a clear called from a
  * listener of that init (a host that imports from the change listener of the label editor that
@@ -47,8 +55,9 @@ export default class EventStormingGestures {
   private diagramGesture: DragContext | null = null;
   private readonly ownGestures = new Set<object>();
   private droppingDrag: DragContext | null = null;
-  private readonly dropHolds = new Set<object>();
-  private dropWaiters: (() => void)[] = [];
+  private readonly actionHolds = new Set<object>();
+  private commandHold: (() => void) | undefined;
+  private actionWaiters: (() => void)[] = [];
   private startingDrag: DragContext | null = null;
   private startRefused = false;
 
@@ -97,11 +106,18 @@ export default class EventStormingGestures {
     });
     eventBus.on(["drag.ended", "drag.canceled"], FIRST, () => this.endDiagramDrop());
 
-    // An import waiting for the drop then finds the viewer destroyed and rejects.
+    // A listener inside the command (a selection listener on the removal of a delete or an undo)
+    // runs before the command has finished, and the handler that ran the command goes on after it
+    // (a keyboard create selects its sticky and opens the editor, a press that committed a label
+    // starts its drag). A microtask runs only once that handler has returned.
+    eventBus.on(COMMAND_EVENTS, FIRST, () => this.holdCommand());
+
+    // An import waiting for the action then finds the viewer destroyed and rejects.
     eventBus.on("diagram.destroy", () => {
       this.droppingDrag = null;
-      this.dropHolds.clear();
-      this.settleDrop();
+      this.commandHold = undefined;
+      this.actionHolds.clear();
+      this.settleAction();
     });
   }
 
@@ -142,21 +158,31 @@ export default class EventStormingGestures {
   }
 
   /**
-   * Keeps the drop running for a step it scheduled to run after diagram-js ended it; returns the
-   * release, which ends the drop once nothing else holds it.
+   * Keeps the user's action running for a step it scheduled to run later (after diagram-js ended
+   * its drop, say); returns the release, which ends the action once nothing else holds it.
    */
-  holdDrop(): () => void {
+  holdAction(): () => void {
     const hold = {};
-    this.dropHolds.add(hold);
+    this.actionHolds.add(hold);
     return () => {
-      if (this.dropHolds.delete(hold)) this.settleDrop();
+      if (this.actionHolds.delete(hold)) this.settleAction();
     };
   }
 
-  /** Settles once the running drop has ended; `undefined` while none runs. */
-  dropEnded(): Promise<void> | undefined {
-    if (!this.droppingDrag && this.dropHolds.size === 0) return undefined;
-    return new Promise((resolve) => this.dropWaiters.push(resolve));
+  /** Settles once the running user action has ended; `undefined` while none runs. */
+  actionEnded(): Promise<void> | undefined {
+    if (!this.droppingDrag && this.actionHolds.size === 0) return undefined;
+    return new Promise((resolve) => this.actionWaiters.push(resolve));
+  }
+
+  private holdCommand(): void {
+    if (this.commandHold) return;
+    const release = this.holdAction();
+    this.commandHold = release;
+    queueMicrotask(() => {
+      if (this.commandHold === release) this.commandHold = undefined;
+      release();
+    });
   }
 
   private dragContext(): DragContext | null {
@@ -172,12 +198,12 @@ export default class EventStormingGestures {
   private endDiagramDrop(): void {
     if (!this.droppingDrag) return;
     this.droppingDrag = null;
-    this.settleDrop();
+    this.settleAction();
   }
 
-  private settleDrop(): void {
-    if (this.droppingDrag || this.dropHolds.size > 0) return;
-    for (const resolve of this.dropWaiters.splice(0)) resolve();
+  private settleAction(): void {
+    if (this.droppingDrag || this.actionHolds.size > 0) return;
+    for (const resolve of this.actionWaiters.splice(0)) resolve();
   }
 
   private update(): void {

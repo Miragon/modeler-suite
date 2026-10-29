@@ -14,8 +14,9 @@ import {
   Modeler,
   type CollaborativeEventStormingModeler,
 } from "../../src/index.js";
-import { isEventStormingShape } from "../../src/model/di-types.js";
+import { isEventStormingShape, type EventStormingShape } from "../../src/model/di-types.js";
 import type EventStormingLabelEditing from "../../src/label-editing/EventStormingLabelEditing.js";
+import { noteMarkdownToDom } from "../../src/label-editing/note-editor-dom.js";
 import {
   GESTURE_BOARD as BOARD,
   centre,
@@ -835,6 +836,320 @@ describe("an import from inside the change listener of a drop waits for the drop
     expect(uncaught).toEqual([failure]);
     expect(modeler.interaction.active()).toBe(false);
     expect(modeler.exportText()).toBe(WITHOUT_ORDER_PLACED);
+  });
+});
+
+const paletteEntryOf = (modeler: CollaborativeEventStormingModeler, action: string) =>
+  modeler.diagram.container.querySelector<HTMLElement>(`.djs-palette [data-action="${action}"]`)!;
+
+/**
+ * Enter or Space on a creating palette entry, as the shell synthesises it (a click with no
+ * pointer); returns the sticky it created, the one whose id the board did not have.
+ */
+function createWithEnter(
+  modeler: CollaborativeEventStormingModeler,
+  action: string,
+): EventStormingShape {
+  const registry = service<ElementRegistry>(modeler, "elementRegistry");
+  const before = new Set(registry.getAll().map((element) => element.id));
+  paletteEntryOf(modeler, action).dispatchEvent(
+    new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 }),
+  );
+  return shapeOf(modeler, (shape) => !before.has(shape.id));
+}
+
+// The commit renames the policy, whose id then no longer follows from its name and is written.
+const RENAMED_POLICY = BOARD.replace(
+  "policy Reserve Stock [800, 200]",
+  "policy Reserve More Stock [800, 200] (id policy_reserve_stock)",
+);
+
+const labelField = (modeler: CollaborativeEventStormingModeler) =>
+  modeler.diagram.container.querySelector<HTMLTextAreaElement>(".event-storming-label-input");
+
+function commitWithCtrlEnter(field: HTMLElement): void {
+  field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }));
+}
+
+/** The label editor open on `shape` with `text` typed into it. */
+function typingInto(
+  modeler: CollaborativeEventStormingModeler,
+  shape: EventStormingShape,
+  text: string,
+): HTMLTextAreaElement {
+  service<EventStormingLabelEditing>(modeler, "eventStormingLabelEditing").activate(shape);
+  const field = labelField(modeler)!;
+  field.value = text;
+  return field;
+}
+
+/** Whether each shape is still the one the board holds under its id: no import replaced it. */
+function stickiesOnTheBoard(modeler: CollaborativeEventStormingModeler) {
+  const registry = service<ElementRegistry>(modeler, "elementRegistry");
+  return (...shapes: EventStormingShape[]) =>
+    shapes.every((shape) => registry.get(shape.id) === shape);
+}
+
+describe("an import from inside the change listener of a user action waits for the action (#305)", () => {
+  it("opens the label editor of a keyboard create on the created sticky, then on the echoed one, and keeps the name", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const reimport = reimportOnFirstChange(modeler);
+    const labelEditing = service<EventStormingLabelEditing>(modeler, "eventStormingLabelEditing");
+    const onTheBoard = stickiesOnTheBoard(modeler);
+
+    const created = createWithEnter(modeler, "create.event");
+
+    // The create selected its sticky and opened its editor on the board it changed.
+    expect(reimport()).toBeDefined();
+    expect(onTheBoard(created)).toBe(true);
+    expect(service<Selection>(modeler, "selection").get()).toEqual([created]);
+    expect(labelEditing.openEdit()?.elementId).toBe(created.id);
+
+    await expect(reimport()).resolves.toBeDefined();
+    await nextTask();
+    const echoed = sticky(modeler, created.id);
+    expect(echoed).not.toBe(created);
+    expect(labelEditing.openEdit()?.elementId).toBe(created.id);
+
+    const field = labelField(modeler)!;
+    field.value = "Typed Name";
+    commitWithCtrlEnter(field);
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(2);
+    expect(echoed.eventStormingLabel).toBe("Typed Name");
+    expect(modeler.exportText()).toContain("event Typed Name [");
+  });
+
+  it("keeps the name typed after a keyboard create, with a host that echoes every change", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const echo = echoEveryChange(modeler);
+
+    const created = createWithEnter(modeler, "create.command");
+    await echo.settled();
+    await nextTask();
+    const field = labelField(modeler)!;
+    field.value = "Cancel Order";
+    commitWithCtrlEnter(field);
+    await echo.settled();
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(2);
+    expect(echo.started()).toBe(2);
+    expect(sticky(modeler, created.id).eventStormingLabel).toBe("Cancel Order");
+    expect(modeler.exportText()).toContain("command Cancel Order [");
+  });
+
+  it("imports a label commit once the key that committed it has been handled", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const reimport = reimportOnFirstChange(modeler);
+    const onTheBoard = stickiesOnTheBoard(modeler);
+    const policy = sticky(modeler, "policy_reserve_stock");
+
+    commitWithCtrlEnter(typingInto(modeler, policy, "Reserve More Stock"));
+
+    expect(reimport()).toBeDefined();
+    expect(onTheBoard(policy)).toBe(true);
+    await expect(reimport()).resolves.toBeDefined();
+    await nextTask();
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(1);
+    expect(sticky(modeler, policy.id)).not.toBe(policy);
+    expect(modeler.exportText()).toBe(RENAMED_POLICY);
+    expect(labelField(modeler)).toBe(null);
+    service<Modeling>(modeler, "modeling").moveElements(
+      [sticky(modeler, "policy_reserve_stock") as Shape],
+      { x: 20, y: 0 },
+    );
+    expect(changes()).toBe(2);
+  });
+
+  it("imports once a press on another sticky has committed the label, refusing the move it starts", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const changes = changesOf(modeler);
+    const endings = dragEndingsOf(modeler);
+    const reimport = reimportOnFirstChange(modeler);
+    const onTheBoard = stickiesOnTheBoard(modeler);
+    const policy = sticky(modeler, "policy_reserve_stock");
+    const event = sticky(modeler, "event_order_placed");
+    const start = centre(event);
+    typingInto(modeler, policy, "Reserve More Stock");
+
+    pointer.press(pointer.graphicsOf(event), start);
+    expect(reimport()).toBeDefined();
+    expect(onTheBoard(policy, event)).toBe(true);
+    await expect(reimport()).resolves.toBeDefined();
+    pointer.moveTo(offset(start, 30, 20));
+    pointer.moveTo(offset(start, 60, 40));
+    pointer.release(offset(start, 60, 40));
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(1);
+    expect(endings).toEqual({ ended: 0, canceled: 0 });
+    expect(modeler.exportText()).toBe(RENAMED_POLICY);
+    expect(service<Dragging>(modeler, "dragging").context()).toBeFalsy();
+    expect(modeler.diagram.container.querySelector(".djs-drag-group")).toBe(null);
+
+    const echoed = sticky(modeler, "event_order_placed");
+    pointer.press(pointer.graphicsOf(echoed), start);
+    pointer.moveTo(offset(start, 30, 20));
+    pointer.moveTo(offset(start, 60, 40));
+    pointer.release(offset(start, 60, 40));
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(2);
+    expect(centre(sticky(modeler, "event_order_placed"))).toEqual(offset(start, 60, 40));
+  });
+
+  it("imports once a click on a palette entry has committed the label, refusing the create it starts", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const changes = changesOf(modeler);
+    const reimport = reimportOnFirstChange(modeler);
+    const onTheBoard = stickiesOnTheBoard(modeler);
+    const policy = sticky(modeler, "policy_reserve_stock");
+    const free = { x: 500, y: 360 };
+    typingInto(modeler, policy, "Reserve More Stock");
+
+    pointer.click(paletteEntryOf(modeler, "create.event"), free);
+    expect(reimport()).toBeDefined();
+    expect(onTheBoard(policy)).toBe(true);
+    await expect(reimport()).resolves.toBeDefined();
+    pointer.moveTo(offset(free, -40, -20));
+    pointer.moveTo(free);
+    pointer.press(pointer.svg, free);
+    pointer.release(free);
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).toBe(RENAMED_POLICY);
+    expect(service<Dragging>(modeler, "dragging").context()).toBeFalsy();
+    expect(modeler.interaction.active()).toBe(false);
+
+    pointer.click(paletteEntryOf(modeler, "create.event"), free);
+    pointer.moveTo(offset(free, -40, -20));
+    pointer.moveTo(free);
+    pointer.press(pointer.svg, free);
+    pointer.release(free);
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(2);
+    expect(modeler.exportText()).not.toBe(RENAMED_POLICY);
+  });
+
+  it("keeps the text typed after a keyboard create of a note, whose id the echo changes", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const echo = echoEveryChange(modeler);
+    const labelEditing = service<EventStormingLabelEditing>(modeler, "eventStormingLabelEditing");
+
+    const created = createWithEnter(modeler, "create.note");
+    expect(labelEditing.openEdit()?.elementId).toBe(created.id);
+    await echo.settled();
+    await nextTask();
+    // A note has no id grammar: the import derives its id from its text.
+    expect(service<ElementRegistry>(modeler, "elementRegistry").get(created.id)).toBeUndefined();
+    const echoed = shapeOf(
+      modeler,
+      (shape) => shape.eventStormingType === "note" && shape.id !== "note_agenda",
+    );
+    expect(centre(echoed).x).toBeCloseTo(centre(created).x, 2);
+    expect(centre(echoed).y).toBeCloseTo(centre(created).y, 2);
+    expect(labelEditing.openEdit()?.elementId).toBe(echoed.id);
+
+    const editor = labelField(modeler)!;
+    noteMarkdownToDom(editor, "Remember the milk");
+    commitWithCtrlEnter(editor);
+    await echo.settled();
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(2);
+    expect(echo.started()).toBe(2);
+    expect(labelField(modeler)).toBe(null);
+    expect(modeler.exportText()).toContain("note Remember the milk [");
+  });
+});
+
+/** A host that imports a peer's board as soon as the selection changes, once. */
+function importOnSelection(
+  modeler: CollaborativeEventStormingModeler,
+  text: string,
+): () => Promise<unknown> | undefined {
+  let reimport: Promise<unknown> | undefined;
+  modeler.elements.onSelection(() => {
+    reimport ??= modeler.importText(text);
+  });
+  return () => reimport;
+}
+
+/** The import replaced the board after the command, which left a usable history behind. */
+async function expectTheImportAfterTheCommand(
+  modeler: CollaborativeEventStormingModeler,
+  changes: () => number,
+  reimport: () => Promise<unknown> | undefined,
+): Promise<void> {
+  expect(reimport()).toBeDefined();
+  expect(modeler.exportText()).not.toBe(REMOTE);
+  await expect(reimport()).resolves.toBeDefined();
+  expect(uncaught).toEqual([]);
+  expect(changes()).toBe(1);
+  expect(modeler.exportText()).toBe(REMOTE);
+  const commandStack = service<CommandStack>(modeler, "commandStack");
+  expect(commandStack.canUndo()).toBe(false);
+  expect(commandStack.canRedo()).toBe(false);
+  const policy = sticky(modeler, "policy_reserve_stock");
+  expect(policy.parent).toBeTruthy();
+  service<Modeling>(modeler, "modeling").moveElements([policy as Shape], { x: 20, y: 0 });
+  expect(changes()).toBe(2);
+  commandStack.undo();
+  expect(uncaught).toEqual([]);
+  expect(modeler.exportText()).toBe(REMOTE);
+}
+
+describe("an import from a selection listener inside a command waits for the command", () => {
+  it("imports after a delete of the selected sticky", async () => {
+    const modeler = await editorWithBoard();
+    const event = sticky(modeler, "event_order_placed");
+    service<Selection>(modeler, "selection").select(event);
+    const changes = changesOf(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+
+    service<Modeling>(modeler, "modeling").removeElements([event as Shape]);
+
+    await expectTheImportAfterTheCommand(modeler, changes, reimport);
+  });
+
+  it("imports after an undo that removes the selected sticky", async () => {
+    const modeler = await editorWithBoard();
+    createWithEnter(modeler, "create.event");
+    service<EventStormingLabelEditing>(modeler, "eventStormingLabelEditing").cancel();
+    expect(service<Selection>(modeler, "selection").get()).toHaveLength(1);
+    await nextTask();
+    const changes = changesOf(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+
+    service<CommandStack>(modeler, "commandStack").undo();
+
+    await expectTheImportAfterTheCommand(modeler, changes, reimport);
+  });
+
+  it("imports after a redo that deletes the selected sticky again", async () => {
+    const modeler = await editorWithBoard();
+    const commandStack = service<CommandStack>(modeler, "commandStack");
+    const event = sticky(modeler, "event_order_placed");
+    service<Modeling>(modeler, "modeling").removeElements([event as Shape]);
+    commandStack.undo();
+    service<Selection>(modeler, "selection").select(sticky(modeler, "event_order_placed"));
+    await nextTask();
+    const changes = changesOf(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+
+    commandStack.redo();
+
+    await expectTheImportAfterTheCommand(modeler, changes, reimport);
   });
 });
 

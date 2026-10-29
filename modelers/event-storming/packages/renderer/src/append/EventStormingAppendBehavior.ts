@@ -48,7 +48,7 @@ interface ElementRegistryLike {
 }
 
 interface GesturesLike {
-  holdDrop(): () => void;
+  holdAction(): () => void;
 }
 
 interface CreateEvent {
@@ -81,12 +81,12 @@ const PLACEHOLDER_KIND = "event";
  *     auto-arrow) again.
  * Both only when `context.source` is set; ordinary palette-create stays untouched.
  *
- * The step after the placement belongs to the drop (`eventStormingGestures.holdDrop`): a host that
- * imports from the change listener of the create waits for it, so the popup or the editor opens
- * on the sticky the user placed. The import then replaces that sticky, and the popup reopens on
- * the sticky with its id while that one is still blank (contract L1, keep and reopen). A host
- * that echoes the retype replaces the sticky again before the label editor opens, so the editor
- * opens on the sticky with that id.
+ * The step after the placement belongs to the drop (`eventStormingGestures.holdAction`): a host
+ * that imports from the change listener of the create waits for it, so the popup or the editor
+ * opens on the sticky the user placed. The import then replaces that sticky, and the popup
+ * reopens on the sticky with its id while that one is still blank (contract L1, keep and reopen).
+ * A host that echoes the retype replaces the sticky again before the label editor opens, so the
+ * editor opens on the sticky with that id.
  */
 export default class EventStormingAppendBehavior {
   static $inject = ["injector", "eventBus"];
@@ -220,7 +220,7 @@ export default class EventStormingAppendBehavior {
       const { context } = event;
       if (!context.source || !context.canExecute || !context.shape) return;
       const shape = context.shape;
-      const release = gestures?.holdDrop();
+      const release = gestures?.holdAction();
       const afterDrop = (step: () => void) => () => {
         try {
           step();
