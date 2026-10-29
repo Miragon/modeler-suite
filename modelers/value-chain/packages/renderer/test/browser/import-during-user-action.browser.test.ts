@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
@@ -108,6 +109,19 @@ function startTyping(id: string, text: string): void {
     .graphics(id)
     .dispatchEvent(pointer.event("dblclick", pointer.centreOf(id), { detail: 2 }));
   textBox().innerText = text;
+}
+
+/**
+ * Moves the real pointer off the palette while the modeler still lives, to a spot no later test's
+ * diagram covers: diagram-js's tooltip timer of a hovered entry outlives a destroyed modeler and
+ * throws, and a palette drawn under a resting pointer would start one.
+ */
+async function parkPointerBelowTheDiagrams(): Promise<void> {
+  const spot = document.createElement("div");
+  spot.style.cssText = "position:absolute;left:0;top:860px;width:10px;height:10px";
+  document.body.append(spot);
+  await userEvent.hover(spot);
+  spot.remove();
 }
 
 /** Every microtask has run by then, the import or clear a user action held back included. */
@@ -327,7 +341,9 @@ describe("an import from the change listener of a label commit at a press waits 
       });
 
       pointer.pickFromPalette("create.step");
-      if (!focusMoves) expect(committedAt).toEqual(["drag.init", "committed"]);
+      expect(committedAt).toEqual(
+        focusMoves ? ["committed", "drag.init"] : ["drag.init", "committed"],
+      );
       expect(errors).toEqual([]);
       expect(editor().interaction.active()).toBe(true);
 
@@ -343,6 +359,36 @@ describe("an import from the change listener of a label commit at a press waits 
       expect(errors).toEqual([]);
     },
   );
+
+  it("a real pointer on the palette's Step commits the label at its mousedown: the import runs before the click, and the create the click starts survives", async () => {
+    const committedAt: string[] = [];
+    eventBus().on("drag.init", 100_001, () => {
+      committedAt.push("drag.init");
+    });
+    eventBus().on("commandStack.changed", () => {
+      committedAt.push("committed");
+    });
+    eventBus().on("import.done", () => {
+      committedAt.push("imported");
+    });
+    let reimport: Promise<unknown> | undefined;
+    onFirstChange(() => {
+      reimport = editor().importText(editor().exportText());
+    });
+
+    await userEvent.click(pointer.paletteEntry("create.step").entry);
+    expect(committedAt).toEqual(["committed", "imported", "drag.init"]);
+    await reimport;
+    expect(editor().interaction.active()).toBe(true);
+    pointer.hover(pointer.canvasSvg(), FREE_SPOT);
+    pointer.release(FREE_SPOT);
+
+    expect(exportedElement("step-credit")?.name).toBe(TYPED);
+    expect(editor().elements.list()).toHaveLength(ELEMENT_COUNT + 1);
+    expect(changes).toBe(2);
+    expect(errors).toEqual([]);
+    await parkPointerBelowTheDiagrams();
+  });
 
   it("a press on another step: the import runs once the press has returned and ends the drag it started", async () => {
     const imported = importsDone();
@@ -457,6 +503,65 @@ describe("an import from a listener inside a command, an undo or a redo waits un
       expect(errors).toEqual([]);
     },
   );
+});
+
+describe("importDocument keeps the order of the calls before it", () => {
+  /** A host's own command, such as a rename from its UI: the hold cannot tell it from the user's. */
+  function hostCommand(): void {
+    service<{ updateLabel(element: unknown, label: string): void }>("vcModeling").updateLabel(
+      pointer.shape("step-credit"),
+      "Renamed by the host",
+    );
+  }
+
+  it("a clear() held back by a command, then importDocument in the same task: the import stays", async () => {
+    hostCommand();
+    editor().diagram.clear();
+    editor().diagram.importDocument(parseDocumentJSON(ORDER_TO_CASH));
+
+    expect(editor().elements.list()).toHaveLength(ELEMENT_COUNT);
+    await nextTask();
+    expect(editor().elements.list()).toHaveLength(ELEMENT_COUNT);
+    expect(editor().exportText()).toBe(ORDER_TO_CASH);
+    expect(service<CommandStack>("commandStack").canUndo()).toBe(false);
+    expect(errors).toEqual([]);
+  });
+
+  it("an importText held back by a command, then importDocument in the same task: the later document stays", async () => {
+    const first = parseDocumentJSON(ORDER_TO_CASH);
+    const later = {
+      ...first,
+      elements: first.elements.map((element) =>
+        element.id === "step-order" ? { ...element, name: "The later document" } : element,
+      ),
+    };
+    hostCommand();
+    const held = editor().importText(ORDER_TO_CASH);
+    editor().diagram.importDocument(later);
+
+    await expect(held).resolves.toEqual({ warnings: [] });
+    await nextTask();
+    expect(exportedElement("step-order")?.name).toBe("The later document");
+    expect(editor().elements.list()).toHaveLength(ELEMENT_COUNT);
+    expect(errors).toEqual([]);
+  });
+
+  it("an import that a held importText runs takes nothing else from the queue ahead of it", async () => {
+    const done: string[] = [];
+    hostCommand();
+    const first = editor()
+      .importText(ORDER_TO_CASH)
+      .then(() => done.push("first"));
+    editor().diagram.clear();
+    const second = editor()
+      .importText(ORDER_TO_CASH)
+      .then(() => done.push("second"));
+
+    await Promise.all([first, second]);
+    expect(done).toEqual(["first", "second"]);
+    expect(editor().elements.list()).toHaveLength(ELEMENT_COUNT);
+    expect(errors).toEqual([]);
+  });
 });
 
 describe("clear() outside a user action", () => {

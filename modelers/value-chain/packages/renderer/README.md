@@ -93,8 +93,11 @@ container as in bpmn-js; the feature modules (`vcDrawModule`, `vcRulesModule`, `
   action still does; a host imports through the collaborative modeler's `importText`, which waits
   until the action has finished (see below). `clear` ends a running gesture and leaves a pan and an
   armed tool alone, as an import does; called while a user action runs, it empties the diagram once
-  the action has finished. The `Modeler` does this with `vcGestureModule`; a custom setup adds it
-  to get the same.
+  the action has finished. A command, an undo or a redo counts as such an action until the next
+  microtask, also one the host runs itself: a `clear` right after it empties the diagram a
+  microtask later. A valid document given to `importDocument` first lets an `importText` or a
+  `clear` still waiting run, so the calls take effect in the order they came. The `Modeler` does
+  this with `vcGestureModule`; a custom setup adds it to get the same.
 - A label being typed stays open across every view change, a host's fit or restore as much as a
   wheel zoom, and moves along with its element; only Enter, leaving the text box or a click or drag
   on the canvas commits it.
@@ -173,11 +176,14 @@ wrapped `Modeler` or `NavigatedViewer` for host wiring.
   dragged append opens, meets a replaced diagram. Every other action that runs a command, an undo
   or a redo has finished once the handler that ran it has returned: an append by a click on the
   context pad and a create by Enter or Space on the palette open their label editor on the new
-  element, and the import then reopens it there with the text typed so far; a label committed by a
-  press on the canvas or the palette lets the press start its move or create, which the import then
-  ends as it ends any gesture; a delete, an undo or a redo runs whole. The same holds for an import
-  from any other listener inside the action, such as `elements.onSelection`. A text that does not
-  parse rejects at once and leaves the gesture running.
+  element, and the import then reopens it there with the text typed so far; a label committed
+  inside the handler that starts a drag (a press on the canvas, or a click on a palette entry with
+  no press before it) lets that drag start, and the import then ends it as it ends any gesture,
+  while a pointer press on the palette commits the label at its `mousedown`, so the import runs
+  before the click and the create the click starts survives; a delete, an undo or a redo runs
+  whole. The same holds for an import from any other listener inside the action, such as
+  `elements.onSelection`. A text that does not parse rejects at once and leaves the gesture
+  running.
 - `interaction` (contract 1.5): `active()` is true from the start of a gesture until its drop or
   cancel: a move, resize, connect, bendpoint, lasso or space drag, and a create or append from the
   palette or the context pad, also while its preview is off the canvas. A press inside the drag

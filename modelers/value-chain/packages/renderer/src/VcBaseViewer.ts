@@ -42,6 +42,7 @@ interface PopupMenuLike {
 interface GesturesLike {
   cancel(): void;
   afterUserAction(work: () => void): void;
+  runHeldWork(): void;
 }
 
 /**
@@ -100,10 +101,12 @@ export abstract class VcBaseViewer {
    * synchronous: called while a user action runs (a drop, a click append, a keyboard create, a
    * label commit), it replaces the diagram under what the action still does, so a host imports
    * through the collaborative modeler's `importText`, which waits until the action has finished
-   * (`vcGestures.afterUserAction`).
+   * (`vcGestures.afterUserAction`). A valid document first lets an `importText` or a `clear()`
+   * still waiting run, so the calls take effect in the order they came.
    */
   importDocument(document: ValueChainDocument): ImportWarning[] {
     const valid = validateDocument(document);
+    this.getOptional<GesturesLike>("vcGestures")?.runHeldWork();
     const labelEditing = this.getOptional<VcLabelEditingProvider>("vcLabelEditingProvider");
     const previous = this._currentDocument();
     labelEditing?.suspend();
@@ -147,7 +150,10 @@ export abstract class VcBaseViewer {
    * Empties the diagram. A running gesture ends first, while a pan and an armed tool run on, as in
    * `importDocument`. Called while a user action runs (a drop, a click append, a keyboard create, a
    * label commit, typically from a change listener), it empties the diagram once the action has
-   * finished, so nothing the action still does meets the shapes removed.
+   * finished, so nothing the action still does meets the shapes removed. A command, an undo or a
+   * redo counts as such an action until the next microtask, also one the host runs itself: a
+   * `clear()` right after it empties the diagram a microtask later, and an `importDocument` in
+   * between runs the waiting clear first.
    */
   clear(): void {
     const diagram = this._ensureDiagram();

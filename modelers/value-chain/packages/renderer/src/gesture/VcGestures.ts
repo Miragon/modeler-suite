@@ -68,6 +68,7 @@ export default class VcGestures {
   private dropping: DragContext | null = null;
   private gesture: DragContext | null = null;
   private commandRunning = false;
+  private runningHeldWork = false;
   private readonly afterUserActionQueue: (() => void)[] = [];
   private flushQueued = false;
 
@@ -157,6 +158,16 @@ export default class VcGestures {
   }
 
   /**
+   * Runs the work still held back at once, ahead of a synchronous import: the hold cannot tell a
+   * host's own command from the user's, and a `clear()` or an import held back behind one would
+   * otherwise replace what the later import drew. The import a held `importText` runs takes nothing
+   * else from the queue ahead of its own.
+   */
+  runHeldWork(): void {
+    if (!this.runningHeldWork) this.flushAfterUserAction(true);
+  }
+
+  /**
    * Ends a running gesture the way Escape does, without bringing back a selection of the shapes the
    * import removes. A palette tool that only waits for its next press stays armed, and a pan keeps
    * running where the user's pointer takes it. A drop that is being applied right now is left to
@@ -220,13 +231,19 @@ export default class VcGestures {
     });
   }
 
-  private flushAfterUserAction(): void {
-    while (this.afterUserActionQueue.length > 0 && !this.isUserActionRunning()) {
+  private flushAfterUserAction(evenWhileRunning = false): void {
+    while (
+      this.afterUserActionQueue.length > 0 &&
+      (evenWhileRunning || !this.isUserActionRunning())
+    ) {
       const work = this.afterUserActionQueue.shift();
+      this.runningHeldWork = true;
       try {
         work?.();
       } catch (error) {
         reportError(error);
+      } finally {
+        this.runningHeldWork = false;
       }
     }
   }
