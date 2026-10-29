@@ -1033,8 +1033,8 @@ describe("runVsCodeSmoke, workbench", () => {
         afterReturn: { zoom: 84, selected: 3 },
       });
       expect(result.reload).toEqual({
-        before: { zoom: 84, dirty: true },
-        after: { zoom: 84, dirty: true },
+        before: { zoom: 84, dirty: false },
+        after: { zoom: 84, dirty: false },
         reducedMotionAtStart: true,
       });
       expect(Object.keys(result.timings)).toEqual([
@@ -1054,11 +1054,11 @@ describe("runVsCodeSmoke, workbench", () => {
       ]);
       expect(lines).toContain("motion: a fit showed 2 views under reduced motion, 16 without");
       expect(lines).toContain(
-        "reload: view 84% (unsaved) before, 84% (unsaved) after, with reduced motion at start",
+        "reload: view 84% (saved) before, 84% (saved) after, with reduced motion at start",
       );
       expect(workbench.reloads()).toBe(1);
       expect(workbench.untitledOpen()).toBe(false);
-      // The reload step saves the change it redid, so closing VS Code asks nothing.
+      // The reload step saves the edit it redid before the reload, so closing VS Code asks nothing.
       expect(document.editing.dirty()).toBe(false);
     },
   );
@@ -1071,7 +1071,7 @@ describe("runVsCodeSmoke, workbench", () => {
 
       const optedIn = await smokeWorkbench();
       expect(optedIn.result.failures).toEqual([]);
-      expect(optedIn.result.reload?.after?.dirty).toBe(true);
+      expect(optedIn.result.reload?.after?.dirty).toBe(false);
 
       const optedOut = await smokeWorkbench({ workbench: false });
       expect(optedOut.result.motion).toBeUndefined();
@@ -1113,7 +1113,7 @@ describe("runVsCodeSmoke, workbench", () => {
       expect(result.hidden?.afterReturn).toBeDefined();
       expect(result.reload).toBeUndefined();
       expect(lines).toContain(
-        "reload: skipped, the undo step did not bring the canvas back, so there is no redo for an unsaved change",
+        "reload: skipped, the undo step did not bring the canvas back, so there is no edit to redo",
       );
     },
   );

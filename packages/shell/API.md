@@ -3800,19 +3800,21 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
     84% at 12, -8 before, zoom 62% at 0, 0".
 12. **reload** (0.8, opt-in as `workbench`): needs the undo step to have brought the canvas back,
     else the log says it was skipped. It turns `workbench.reduceMotion` on, presses the redo key
-    `undoSteps` times (the document has an unsaved change again), fits, zooms away from the fit,
-    toggles the legend through its menu entry where there is one, and gives the webview 1 s to
-    store its state. Then Cmd/Ctrl+R, Developer: Reload Window (bound in an extension development
-    host): the driver waits for a new workbench document, the shell's menu and a shape. The
-    webview has to be a new document that starts under reduced motion, VS Code has to still call
-    the document changed (it backs it up across the reload), the canvas has to show the edit, the
-    view has to be the one before, held for 0.5 s (a first fit that wins over the stored view
+    `undoSteps` times and saves, so that the document differs from the one VS Code opened at
+    start, fits, zooms away from the fit, toggles the legend through its menu entry where there is
+    one, and gives the webview 1 s to store its state. Then Cmd/Ctrl+R, Developer: Reload Window
+    (bound in an extension development host): the driver waits for a new workbench document, the
+    shell's menu and a shape. The webview has to be a new document that starts under reduced
+    motion, the canvas has to show the saved edit and VS Code must not call the document changed,
+    the view has to be the one before, held for 0.5 s (a first fit that wins over the stored view
     fails, and says so), the legend has to be as it was and the webview has to show the
-    workbench's theme. The step saves at the end, so that closing VS Code asks nothing.
-    `result.reload` holds the zoom, the dirty state and the legend before and after, and whether
-    the new webview started under reduced motion. Its failures read like "reload: the reload did
-    not restore the view: zoom 84% at -30, -20 before, zoom 62% at 0, 0 after, the fit: the stored
-    view has to win over the first fit".
+    workbench's theme. An unsaved change is not checked across the reload: VS Code keeps no
+    backups for a window with `--extensionDevelopmentPath`, which every smoke run is, so it loses
+    the change there whatever the modeler does (a dirty tab comes back whose document is the file
+    on disk). `result.reload` holds the zoom, the dirty state and the legend before and after,
+    and whether the new webview started under reduced motion. Its failures read like "reload: the
+    reload did not restore the view: zoom 84% at -30, -20 before, zoom 62% at 0, 0 after, the fit:
+    the stored view has to win over the first fit".
 13. **close**: `app.close()`; a VS Code that has not quit after 10 s (a modal dialog) is killed. The
     temporary directory goes, unless `keepTemporaryFiles`, also when Ctrl+C ends the test process
     in the middle of a run.

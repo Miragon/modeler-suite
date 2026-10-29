@@ -255,10 +255,12 @@ The extension owns file, document, history and mode; the webview shows canvas an
   `'unsafe-eval'`; a webview with zod 4 sets `z.config({ jitless: true })` first. Mirror
   `vscode-reduce-motion` as the shell's own class. The smoke driver's motion step checks it in a
   real VS Code when the setting changes, its reload step at start (see below).
-- **State.** `retainContextWhenHidden: true`; a hidden tab reports 0 × 0. Legend state and view go
-  through `vscode.setState` under `modelerShell`, written 250 ms after the view rests; a stored view
-  wins over the first fit. The smoke driver's hidden step checks a background tab in a real VS
-  Code, its reload step Developer: Reload Window (see below).
+- **State.** `retainContextWhenHidden: true`; a hidden tab may report 0 × 0, which the shell skips.
+  With another editor in front in the same group, VS Code 1.96 and 1.144 reported no resize at all:
+  they hide the frame with `visibility: hidden` and keep its size. Legend state and view go through
+  `vscode.setState` under `modelerShell`, written 250 ms after the view rests; a stored view wins
+  over the first fit. The smoke driver's hidden step checks a background tab in a real VS Code, its
+  reload step Developer: Reload Window (see below).
 
 ## PNG export
 
@@ -370,11 +372,15 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
   - _Reload Window._ Cmd/Ctrl+R runs Developer: Reload Window: VS Code binds it in an extension
     development host, which every smoke run is. Playwright keeps the same page across the reload,
     so the driver marks the workbench's document too and waits until a read finds no mark (reads
-    during the reload fail and count as "not yet"). The redo of the edit before it leaves an
-    unsaved change: an extension development host always backs dirty documents up on shutdown, so
-    the change has to come back. `workbench.reduceMotion` is "on" before the reload, so the new
-    webview has to start under reduced motion: that is the "at start" half of the setting, which a
-    change while the webview runs does not show.
+    during the reload fail and count as "not yet"). The step redoes the edit and saves it, so the
+    document after the reload differs from the one VS Code opened at start. It cannot keep the
+    change unsaved: VS Code registers no backup folder for a window with `extensionDevelopmentPath`
+    (`doOpenInBrowserWindow` in the main process), so the backups live in memory and go with the
+    reload. In CI's first run every modeler then came back with a dirty tab over the file on disk,
+    and a save did nothing; a user's window, which has backups, is not affected.
+    `workbench.reduceMotion` is "on" before the reload, so the new webview has to start under
+    reduced motion: that is the "at start" half of the setting, which a change while the webview
+    runs does not show.
 - **Docker.** `modeler-shell-vscode-docker` runs the same test in a Linux container under
   `xvfb-run`, so no window takes the focus on a Mac. The repository is copied without `node_modules`
   and installed with `npm ci` inside; VS Code and npm caches are shared volumes.

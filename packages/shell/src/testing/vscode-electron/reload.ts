@@ -71,14 +71,15 @@ function legendState(open: boolean): string {
 
 /**
  * The reload step (0.8): Developer: Reload Window brings the modeler's editor back as it was.
- * Before the reload the step turns `workbench.reduceMotion` on, redoes the edit so that the
- * document has an unsaved change, fits, zooms away from the fit and toggles the legend where there
- * is one, then gives the webview `stateWriteMs` to store the view and the legend
- * (`vscode.setState`). After the reload the webview has to be a new document that starts under
- * reduced motion, VS Code has to still call the document changed (from its backup), the canvas has
- * to show the edit, the view has to be the stored one and not the first fit, held for `graceMs`,
- * the legend has to be as it was, and the webview has to show the workbench's theme. A document
- * still changed at the end is saved, so that closing VS Code does not wait on a prompt.
+ * Before the reload the step turns `workbench.reduceMotion` on, redoes the edit and saves it, so
+ * that the document differs from the one VS Code opened at start, fits, zooms away from the fit and
+ * toggles the legend where there is one, then gives the webview `stateWriteMs` to store the view
+ * and the legend (`vscode.setState`). After the reload the webview has to be a new document that
+ * starts under reduced motion, the document has to be as saved (the canvas shows the edit, VS Code
+ * does not call it changed), the view has to be the stored one and not the first fit, held for
+ * `graceMs`, the legend has to be as it was, and the webview has to show the workbench's theme.
+ * The edit is saved rather than left unsaved because a smoke run is an extension development host,
+ * for which VS Code keeps no backups: an unsaved change cannot survive the reload there.
  */
 export async function checkReload(
   session: ReloadSession,
@@ -110,7 +111,7 @@ export async function checkReload(
   );
   if (!redone.met) {
     failures.push(
-      `${redoLabel} did not bring the edit back (the canvas shows ${describeCanvas(redone.value)}), so the reload had no unsaved change to restore`,
+      `${redoLabel} did not bring the edit back (the canvas shows ${describeCanvas(redone.value)}), so the reload had no saved edit to show`,
     );
   } else {
     const changed = await pollUntil(
@@ -120,9 +121,16 @@ export async function checkReload(
       options.intervalMs,
     );
     if (!changed.met) {
-      failures.push(
-        `${redoLabel} did not change the document, so the reload had no unsaved change to restore`,
+      failures.push(`${redoLabel} did not change the document, so the reload had no edit to show`);
+    } else {
+      await session.press(save);
+      const clean = await pollUntil(
+        () => session.dirty(),
+        (dirty) => !dirty,
+        options.canvasTimeoutMs,
+        options.intervalMs,
       );
+      if (!clean.met) failures.push(`${save} left the redone edit unsaved before the reload`);
     }
   }
 
@@ -187,22 +195,6 @@ export async function checkReload(
     );
   }
 
-  const dirtyAfter = dirtyBefore
-    ? (
-        await pollUntil(
-          () => session.dirty(),
-          (dirty) => dirty,
-          options.canvasTimeoutMs,
-          options.intervalMs,
-        )
-      ).met
-    : await session.dirty();
-  if (dirtyBefore && !dirtyAfter) {
-    failures.push(
-      "the reload lost the unsaved change: VS Code does not call the document changed any more",
-    );
-  }
-
   const restoredCanvas = await pollUntil(
     () => session.canvas(),
     (facts) => similarCanvas(facts, canvasBefore),
@@ -210,8 +202,18 @@ export async function checkReload(
     options.intervalMs,
   );
   if (!restoredCanvas.met) {
+    const shown = similarCanvas(restoredCanvas.value, options.original)
+      ? "the fixture as VS Code opened it at start"
+      : describeCanvas(restoredCanvas.value);
     failures.push(
-      `after the reload the canvas shows ${describeCanvas(restoredCanvas.value)}, before it ${describeCanvas(canvasBefore)}`,
+      `after the reload the canvas shows ${shown}, not the document as saved before it (${describeCanvas(canvasBefore)})`,
+    );
+  }
+
+  const dirtyAfter = await session.dirty();
+  if (dirtyAfter && !dirtyBefore) {
+    failures.push(
+      "VS Code calls the document changed after the reload, though it was saved before it",
     );
   }
 
@@ -252,16 +254,5 @@ export async function checkReload(
     dirty: dirtyAfter,
     ...(legendAfter === null ? {} : { legendOpen: legendAfter }),
   };
-
-  if (await session.dirty()) {
-    await session.focusCanvas();
-    await session.press(save);
-    await pollUntil(
-      () => session.dirty(),
-      (dirty) => !dirty,
-      options.canvasTimeoutMs,
-      options.intervalMs,
-    );
-  }
   return { result, failures };
 }

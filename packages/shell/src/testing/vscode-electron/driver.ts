@@ -201,8 +201,8 @@ export interface VsCodeSmokeOptions {
   /**
    * Runs the workbench steps (0.8), last: `motion` (the modeler follows `workbench.reduceMotion`),
    * `hidden` (an editor in a background tab keeps its state, takes no key and comes back as it was)
-   * and `reload` (Developer: Reload Window restores the document, its unsaved change, the view and
-   * the legend). Opt-in while they are new; without the option, `VSCODE_SMOKE_OPT_IN=workbench` in
+   * and `reload` (Developer: Reload Window brings back the saved document, the view and the
+   * legend). Opt-in while they are new; without the option, `VSCODE_SMOKE_OPT_IN=workbench` in
    * the environment turns them on.
    */
   workbench?: boolean | undefined;
@@ -846,8 +846,8 @@ async function runSession(run: SessionRun): Promise<void> {
   } else {
     log(
       saved
-        ? "reload: skipped, the undo step did not bring the canvas back, so there is no redo for an unsaved change"
-        : "reload: skipped, the edit was not saved, so there is no redo for an unsaved change",
+        ? "reload: skipped, the undo step did not bring the canvas back, so there is no edit to redo"
+        : "reload: skipped, the edit was not saved, so there is no edit to redo",
     );
   }
 }

@@ -794,10 +794,11 @@ the webview's `<body>` has to follow (VS Code's `vscode-reduce-motion`), the she
 the fit, opens an untitled text file in front of the modeler's editor, presses Shift+1 there and
 switches the theme; the hidden webview must not see the key, and once the untitled editor closes
 the webview has to be the same document with the same canvas, view and selection, under the new
-theme. **reload** turns reduced motion on, redoes the edit (an unsaved change), zooms away from
-the fit and toggles the legend where there is one, then runs Developer: Reload Window: the new
-webview has to start under reduced motion and show the unsaved change, the stored view (not a
-fit), the legend as it was and the workbench's theme. The reload needs the undo step to have
+theme. **reload** turns reduced motion on, redoes and saves the edit, zooms away from the fit and
+toggles the legend where there is one, then runs Developer: Reload Window: the new webview has to
+start under reduced motion and show the saved edit, the stored view (not a fit), the legend as it
+was and the workbench's theme. An unsaved change cannot be checked there: VS Code keeps no backups
+for an extension development host, which every smoke run is. The reload needs the undo step to have
 brought the canvas back, else the log says it was skipped. New steps start opt-in and become the
 default once every modeler passes them in CI.
 Keep the smoke test out of the unit tests' project: it needs a display and the built extension. Add
