@@ -94,10 +94,12 @@ missing at its other places; the verdict stays the same).
   when the import fits (`import.render.done` re-anchors the pan's `localStart`; without it the next
   pointer move would put the old view back), and so does a palette tool that only waits for its
   next press, `lasso.selection`, `hand`, `spaceTool.selection` or `global-connect`, which stays
-  armed; a connect that the connect tool starts from a removed shape is refused at `connect.init`,
-  which also puts the tool down; a drop being applied when a host imports from its change listener
-  finishes first, told apart by its drag context, not a flag; `clear()` treats all of them the
-  same way; `test/browser/import-cancels-gesture.browser.test.ts`). A view change never
+  armed; both bring back the selection they hold when they end, which `import.render.done` maps
+  onto the imported elements by id (diagram-js's `Selection` refuses the removed ones); a connect
+  that the connect tool starts from a removed shape is refused at `connect.init`, which also puts
+  the tool down; a drop being applied when a host imports from its change listener finishes
+  first, told apart by its drag context, not a flag; `clear()` treats all of them the same way;
+  `test/browser/import-cancels-gesture.browser.test.ts`). A view change never
   commits a label edit: the text box follows the view (`canvas.viewbox.changed`), only Enter,
   blur, `element.mousedown` and `drag.init` commit. The factories take the contract's
   `freeArea`/`fitOnImport`/`undoRedoKeys`. New elements get random ids.

@@ -3,6 +3,7 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
+import type { ElementLike } from "diagram-js/lib/core/Types";
 import type { Element } from "diagram-js/lib/model/Types";
 import { toPoint } from "diagram-js/lib/util/Event";
 
@@ -37,7 +38,7 @@ interface DragContext {
   active: boolean;
   globalStart: Point;
   localStart: Point;
-  payload: { originalEvent?: Event };
+  payload: { originalEvent?: Event; previousSelection?: ElementLike[] };
 }
 
 interface ConnectInitEvent {
@@ -58,7 +59,7 @@ export default class VcGestures {
     eventBus: EventBus,
     private readonly dragging: Dragging,
     toolManager: ToolManager,
-    elementRegistry: ElementRegistry,
+    private readonly elementRegistry: ElementRegistry,
     private readonly canvas: Canvas,
   ) {
     eventBus.on("drag.end", FIRST, () => {
@@ -77,7 +78,10 @@ export default class VcGestures {
       if (toolManager.isActive(GLOBAL_CONNECT_TOOL)) toolManager.setActive(null);
       return false;
     });
-    eventBus.on("import.render.done", () => this.anchorPanToView());
+    eventBus.on("import.render.done", () => {
+      this.anchorPanToView();
+      this.holdImportedSelection();
+    });
   }
 
   /**
@@ -112,5 +116,20 @@ export default class VcGestures {
       x: viewbox.x + (pointer.x - container.left) / viewbox.scale,
       y: viewbox.y + (pointer.y - container.top) / viewbox.scale,
     };
+  }
+
+  /**
+   * A drag that runs on across an import, a pan or an armed palette tool, brings back the selection
+   * from before it started when it ends. The import drew new elements under the same ids and the
+   * selection refuses the removed ones, so the drag holds the imported elements instead; one the
+   * import removed is no longer held.
+   */
+  private holdImportedSelection(): void {
+    const drag = this.dragging.context() as DragContext | null;
+    const held = drag?.payload.previousSelection;
+    if (!drag || !held) return;
+    drag.payload.previousSelection = held
+      .map((element) => this.elementRegistry.get(element.id))
+      .filter((element): element is ElementLike => element !== undefined);
   }
 }

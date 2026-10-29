@@ -91,10 +91,12 @@ export abstract class VcBaseViewer {
    * whose pointer has not left its shape yet) ends first, as Escape ends it: its release applies
    * nothing. A pan, with the hand tool, with Space held or with Ctrl/Cmd and a press, is no gesture
    * and keeps running, from the fitted view when the import fits, and so does the hand tool; a
-   * palette tool that only waits for its next press (lasso, hand, space, connect) stays armed. A
-   * press of the connect tool before the pointer has entered a shape the import drew under it
-   * starts no connect and puts the tool down. A drop already being applied (a host importing from
-   * its change listener) finishes, and the import replaces its result (`vcGestures`).
+   * palette tool that only waits for its next press (lasso, hand, space, connect) stays armed.
+   * Either brings back the selection from before it started when it ends, on the shapes the import
+   * drew under the same ids. A press of the connect tool before the pointer has entered a shape
+   * the import drew under it starts no connect and puts the tool down. A drop already being
+   * applied (a host importing from its change listener) finishes, and the import replaces its
+   * result (`vcGestures`).
    */
   importDocument(document: ValueChainDocument): ImportWarning[] {
     const valid = validateDocument(document);
