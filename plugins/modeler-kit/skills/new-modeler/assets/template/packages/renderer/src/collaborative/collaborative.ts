@@ -170,9 +170,9 @@ function collaborative(
     },
     /**
      * Imports at once, unless a user's action is being applied (a host importing from the change
-     * listener of a drop, a keyboard create or a label commit): then it waits until the action
-     * has finished, so nothing the action still does finds its elements replaced, and settles
-     * after that import.
+     * listener of a drop, a keyboard create or a label commit, or from the selection listener
+     * inside a delete or at a drag's start): then it waits until the action has finished, so
+     * nothing the action still does finds its elements replaced, and settles after that import.
      */
     importText(text): Promise<ImportResult> {
       const before = waitingImports ?? gestures?.actionEnded();

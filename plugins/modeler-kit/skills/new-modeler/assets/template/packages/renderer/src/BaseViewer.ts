@@ -73,8 +73,10 @@ export abstract class BaseViewer {
    * touched (contract L7), and a gesture the user holds runs on. Silent (L1): the undo history
    * goes without a `commandStack.changed`, an open label edit is taken down without committing,
    * and an accepted text first ends a running gesture the way Escape does. Called while a drop is
-   * applied (from the change listener of its command), it leaves that drop to finish; the
-   * contract's `importText` waits until the user's action has finished instead.
+   * applied (from the change listener of its command), it leaves that drop to finish. Called from
+   * a selection listener at a drag's start, it ends the drag inside diagram-js's `Dragging.move`,
+   * which then throws on the cursor. The contract's `importText` waits until the user's action has
+   * finished instead, so a host imports through it.
    */
   importText(text: string): ImportOutcome {
     const { document, diagnostics } = parseText(text);

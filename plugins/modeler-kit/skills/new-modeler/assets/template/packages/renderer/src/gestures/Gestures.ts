@@ -51,13 +51,14 @@ export type GestureListener = (active: boolean) => void;
  * up: during the drop's own command, and so in the change listener a host imports from, it still
  * runs.
  *
- * A user's action is what the diagram does for one input of the user: a drop, a keyboard create,
- * a label commit, a key's command, an undo or a redo. It runs from its drop or the start of its
- * first command until the task that handles the input is over, since the command goes on after a
- * listener it runs (the selection's, when it removes a selected shape) and the handler goes on
- * after the command (a keyboard create selects the new node and opens its label editor, a press
- * that commits the label editor starts a drag), and longer while a step it scheduled for later
- * holds it (`holdAction`).
+ * A user's action is what the diagram does for one input of the user: a drop, the start of a drag,
+ * a keyboard create, a label commit, a key's command, an undo or a redo. It runs from its drop,
+ * its drag's start or the start of its first command until the task that handles the input is
+ * over, and longer while a step it scheduled for later holds it (`holdAction`), since the input's
+ * work goes on after a listener a host imports from: the command after the selection's listener
+ * (when it removes a selected shape), diagram-js's start of a drag after it cleared the selection,
+ * and the handler after the command (a keyboard create selects the new node and opens its label
+ * editor, a press that commits the label editor starts a drag).
  */
 export default class Gestures {
   static $inject = ['eventBus', 'dragging', 'canvas'];
@@ -79,6 +80,11 @@ export default class Gestures {
     // listener refused it (a refused start never sets the drag active).
     eventBus.on('drag.move', FIRST, () => this.noticeStart());
     eventBus.on('drag.end', FIRST, () => this.noticeDrop());
+    // diagram-js's `Dragging.move` clears the selection right after this event and then sets the
+    // drag's cursor: an import from a host's selection listener there would end the drag under
+    // it, and the cursor's read throws on the ended drag. First, so a start listener finds the
+    // action as well.
+    eventBus.on('drag.start', FIRST, () => this.noticeAction());
     // First, so the action counts before any listener inside the command (a host's selection
     // listener on a delete, an undo or a redo) or its change listener imports.
     eventBus.on(COMMAND_STARTS, FIRST, () => this.noticeAction());
@@ -128,9 +134,11 @@ export default class Gestures {
    * While a user's action is being applied, a promise that resolves once it has ended; otherwise
    * `undefined`. An import waits for it, so nothing the action still does finds the elements it
    * works on replaced: diagram-js's own `SelectionBehavior` throws on a moved shape the import
-   * removed, a keyboard create would open its label editor on a removed node, and a label commit
-   * at a press would leave diagram-js to start its drag on one. It resolves once the task of the
-   * user's input is over and no step the action scheduled holds it any longer.
+   * removed, a keyboard create would open its label editor on a removed node, a label commit at a
+   * press would leave diagram-js to start its drag on one, and a drag's start would go on with a
+   * drag the import ended. It resolves once the task of the user's input is over and no step the
+   * action scheduled holds it any longer; the import then ends a drag that started, as it ends
+   * any gesture.
    */
   actionEnded(): Promise<void> | undefined {
     if (!this.actionRunning()) return undefined;
@@ -178,10 +186,10 @@ export default class Gestures {
   }
 
   /**
-   * The rest of the task belongs to the action. diagram-js applies a drop, and the command of a
-   * click or a key, inside the handler of the user's input, so a microtask queued now runs once
-   * that handler has returned. Ended there, not by a listener of a later event, which a listener
-   * that throws before it would keep from running.
+   * The rest of the task belongs to the action. diagram-js applies a drop, starts a drag (in
+   * `Dragging.move`), and runs the command of a click or a key inside the handler of the user's
+   * input, so a microtask queued now runs once that handler has returned. Ended there, not by a
+   * listener of a later event, which a listener that throws before it would keep from running.
    */
   private noticeAction(): void {
     if (this.actionInTask) return;
