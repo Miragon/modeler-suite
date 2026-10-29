@@ -257,6 +257,47 @@ function addedContextId(stage: Stage): string {
   return added.id;
 }
 
+/** A peer's text: the map on the canvas right now, with context C renamed. */
+function peerText(stage: Stage): string {
+  const document = exported(stage);
+  document.contexts = document.contexts.map((context) =>
+    context.id === "c" ? { ...context, label: "C by a peer" } : context,
+  );
+  return serializeDocumentText(document);
+}
+
+/** Records each value `interaction` reports, in order. */
+function interactionChanges(stage: Stage): boolean[] {
+  const changes: boolean[] = [];
+  stage.modeler.interaction.onChange((active) => changes.push(active));
+  return changes;
+}
+
+/** Opens the description prompt of context A and types a description, uncommitted. */
+function typeDescriptionOfA(stage: Stage, description: string): HTMLTextAreaElement {
+  const entry = contextPadEntry(stage, "a", "description");
+  pointer(entry, "click", centreOfBox(entry), { detail: 1 });
+  const field = container(stage).querySelector<HTMLTextAreaElement>(".cm-pad-prompt__field");
+  if (!field) throw new Error("no description prompt is open");
+  field.value = description;
+  return field;
+}
+
+/** Presses on context B, then moves it 60 px to the right and releases it. */
+async function pressAndMoveB(
+  stage: Stage,
+  afterPress: () => void = () => undefined,
+): Promise<void> {
+  const start = centreOfShape(stage, "b");
+  pointer(hitArea(stage, "b"), "mousedown", start);
+  afterPress();
+  await nextTasks(1);
+  pointer(document, "mousemove", shifted(start, 20, 0));
+  hoverCanvasAt(stage, shifted(start, 60, 0));
+  pointer(document, "mouseup", shifted(start, 60, 0));
+  await nextTasks();
+}
+
 describe("an import from the change listener of a user action waits until the action has finished", () => {
   test("a click append from the context pad, the subdomain-type menu it opens included", async () => {
     const running = await stage();
@@ -380,37 +421,77 @@ describe("an import from the change listener of a user action waits until the ac
     expect(exported(running).relationships[0]).toMatchObject({ upstreamRoles: ["OHS", "PL"] });
   });
 
-  test("a press on another context that commits the label, then moves that context", async () => {
+  test("a press on another context that commits the label, whose move the import ends", async () => {
     const running = await stage();
     const echoes = echoEach(running);
+    const reported = interactionChanges(running);
     typeNameOfA(running, "Billing");
     running.steps.length = 0;
 
-    const start = centreOfShape(running, "b");
-    pointer(hitArea(running, "b"), "mousedown", start);
-    expect(echoes.calls).toHaveLength(1);
-    expect(running.errors).toEqual([]);
-    pointer(document, "mousemove", shifted(start, 20, 0));
-    hoverCanvasAt(running, shifted(start, 60, 0));
-    expect(running.modeler.interaction.active()).toBe(true);
-    await nextTasks(1);
-    expect(running.steps).toEqual([]);
-    pointer(document, "mouseup", shifted(start, 60, 0));
-    expect(echoes.calls).toHaveLength(2);
+    await pressAndMoveB(running, () => {
+      expect(echoes.calls).toHaveLength(1);
+      expect(running.steps).toEqual([]);
+    });
     await Promise.all(echoes.calls);
 
-    expect(running.steps).toEqual(["import", "import"]);
-    expect(echoes.settled).toEqual([0, 1]);
+    expect(running.steps).toEqual(["import"]);
+    expect(echoes.calls).toHaveLength(1);
     expect(running.errors).toEqual([]);
-    expect(running.changes()).toBe(2);
+    expect(running.changes()).toBe(1);
     expect(exportedContext(running, "a")?.label).toBe("Billing");
-    expect(exportedContext(running, "b")?.position.x).toBeGreaterThan(450);
+    expect(exportedContext(running, "b")?.position.x).toBe(450);
+    expect(service<Dragging>(running, "dragging").context()).toBeFalsy();
+    expect(reported).toEqual([]);
+  });
+
+  test("a press that commits the description prompt, whose move the import ends", async () => {
+    const running = await stage();
+    const echoes = echoEach(running);
+    const field = typeDescriptionOfA(running, "Purpose");
+    expect(document.activeElement).toBe(field);
+    running.steps.length = 0;
+
+    // The browser moves the focus after the press has run, which commits the prompt.
+    await pressAndMoveB(running, () => svg(running).focus());
+    await Promise.all(echoes.calls);
+
+    expect(running.steps).toEqual(["import"]);
+    expect(echoes.calls).toHaveLength(1);
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(1);
+    expect(exportedContext(running, "a")?.description).toBe("Purpose");
+    expect(exportedContext(running, "b")?.position.x).toBe(450);
     expect(service<Dragging>(running, "dragging").context()).toBeFalsy();
   });
 
-  test("a click on a creating palette entry that commits the label, then places the context", async () => {
+  test("a peer's text imported during a press that committed a label ends the press, and nothing is reported after it", async () => {
+    const running = await stage();
+    let lastReported: string | undefined;
+    running.modeler.onContentChanged(() => (lastReported = running.modeler.exportText()));
+    typeNameOfA(running, "Billing");
+    let peerImport: Promise<unknown> | undefined;
+    let peer = "";
+
+    await pressAndMoveB(running, () => {
+      expect(running.changes()).toBe(1);
+      expect(running.modeler.interaction.active()).toBe(false);
+      peer = peerText(running);
+      peerImport = running.modeler.importText(peer);
+    });
+    await peerImport;
+
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(1);
+    expect(lastReported).toBeDefined();
+    expect(running.modeler.exportText()).toBe(peer);
+    expect(exportedContext(running, "b")?.position.x).toBe(450);
+    expect(exportedContext(running, "c")?.label).toBe("C by a peer");
+  });
+
+  test("a click on a creating palette entry that commits the label, whose create the import ends", async () => {
     const running = await stage();
     const echoes = echoEach(running);
+    const reported = interactionChanges(running);
     typeNameOfA(running, "Billing");
 
     const entry = paletteEntry(running, "context.supporting");
@@ -419,19 +500,22 @@ describe("an import from the change listener of a user action waits until the ac
     expect(running.errors).toEqual([]);
     expect(service<Dragging>(running, "dragging").context()?.prefix).toBe("create");
     expect(running.modeler.interaction.active()).toBe(true);
+    await Promise.all(echoes.calls);
+    expect(service<Dragging>(running, "dragging").context()).toBeFalsy();
+    expect(running.modeler.interaction.active()).toBe(false);
 
     const drop = clientPoint(running, FREE_SPOT);
     hoverCanvasAt(running, drop);
     pointer(svg(running), "mousedown", drop);
     pointer(document, "mouseup", drop);
-    expect(echoes.calls).toHaveLength(2);
-    await Promise.all(echoes.calls);
+    await nextTasks();
 
-    expect(echoes.settled).toEqual([0, 1]);
+    expect(echoes.calls).toHaveLength(1);
     expect(running.errors).toEqual([]);
-    expect(running.changes()).toBe(2);
+    expect(running.changes()).toBe(1);
+    expect(reported).toEqual([true, false]);
     expect(exportedContext(running, "a")?.label).toBe("Billing");
-    expect(exported(running).contexts).toHaveLength(4);
+    expect(exported(running).contexts).toHaveLength(3);
   });
 
   test("a click on the lasso tool that commits the label leaves the tool armed", async () => {
@@ -449,6 +533,37 @@ describe("an import from the change listener of a user action waits until the ac
     expect(exportedContext(running, "a")?.label).toBe("Billing");
     expect(service<Dragging>(running, "dragging").context()?.prefix).toBe("lasso.selection");
     expect(running.modeler.interaction.active()).toBe(false);
+  });
+
+  test("a peer's import after the append has finished closes its subdomain-type menu", async () => {
+    const running = await stage();
+    const entry = contextPadEntry(running, "b", "append-context");
+    pointer(entry, "click", centreOfBox(entry), { detail: 1 });
+    await nextTasks();
+    expect(document.querySelector(".djs-popup-title")?.textContent).toBe("Subdomain type");
+
+    await running.modeler.importText(peerText(running));
+    await nextTasks();
+
+    expect(running.steps).toEqual(["menu", "import"]);
+    expect(service<PopupMenu>(running, "popupMenu").isOpen()).toBe(false);
+    expect(exportedContext(running, "c")?.label).toBe("C by a peer");
+  });
+
+  test("a peer's import after a roles toggle has finished closes the integration-roles menu", async () => {
+    const running = await stage();
+    const entry = contextPadEntry(running, "r", "roles");
+    pointer(entry, "click", centreOfBox(entry), { detail: 1 });
+    chooseInMenu("upstream-OHS");
+    await nextTasks();
+    expect(document.querySelector(".djs-popup-title")?.textContent).toBe("Integration roles");
+
+    await running.modeler.importText(peerText(running));
+    await nextTasks();
+
+    expect(running.steps).toEqual(["menu", "menu", "import"]);
+    expect(service<PopupMenu>(running, "popupMenu").isOpen()).toBe(false);
+    expect(exported(running).relationships[0]).toMatchObject({ upstreamRoles: ["OHS"] });
   });
 
   test("an import that waits for the action rejects once the modeler is destroyed", async () => {

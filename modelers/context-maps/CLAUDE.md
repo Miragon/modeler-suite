@@ -88,11 +88,13 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   host echoing its own change from `onContentChanged`, or importing from `interaction.onChange`
   after Escape) waits until the action has finished with the steps it deferred, and its promise
   settles after that import (#248, #285, #305). `CmGestureCancel.whenActionEnded()` is the one
-  wait: a drop until its release has run every listener, a press that committed a label at its
-  start until the drag it started has ended, a step an action holds (`holdAction`: the
-  subdomain-type menu of an append, the integration-roles menu after a toggle) until it has run,
-  and any other change until its handler has returned. The import reopens the label editor (its
-  element selected again) and those two menus on the element with the same id. The `Modeler`'s
+  wait: a drop until its release has run every listener, a step an action holds (`holdAction`:
+  the subdomain-type menu of an append, the integration-roles menu after a toggle) until it has
+  run, and any other change until its handler has returned. A label or description commit at a
+  press is such a change: the import runs once the press has returned and ends the drag the press
+  started, as every accepted import ends a running gesture (contract L1). The import reopens the
+  label editor (its element selected again) on the element with the same id, and the imports that
+  waited for an action reopen those two menus there; a later import closes them. The `Modeler`'s
   own synchronous `importDocument` leaves the drop to finish instead. Pinned by
   [`import-cancels-gesture.test.ts`](packages/renderer/test/browser/import-cancels-gesture.test.ts)
   and

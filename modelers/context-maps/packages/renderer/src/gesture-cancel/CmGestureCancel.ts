@@ -13,9 +13,6 @@ const BEFORE_THE_DROP = 10_000;
 /** Ahead of every other listener of a drag's move and cleanup, so that they see the new state. */
 const FIRST = 10_000;
 
-/** Behind every other listener of a drag's init: the label commit at a press runs before. */
-const LAST = -10_000;
-
 /** Ahead of the host's change listener, which may import. */
 const BEFORE_THE_HOST = 10_000;
 
@@ -24,9 +21,9 @@ interface Gesture {
   active?: boolean;
 }
 
-/** A drag and the release of the user action it keeps running until it has ended. */
-interface HeldDrag {
-  drag: Gesture;
+/** A gesture whose drop or cancel runs, and the release of the user action it keeps running. */
+interface Ending {
+  gesture: Gesture;
   release(): void;
 }
 
@@ -62,17 +59,17 @@ function deliver(listener: ActiveListener, active: boolean): void {
  *
  * A user action changes the map, and a host hears that change in its change listener. It runs until
  * it has finished, with the steps it deferred: a drop until its release has run every listener, a
- * press that committed a label at its start until the drag it started has ended, a step such as the
- * subdomain-type menu of an append until it has run (`holdAction`), and any other action until the
- * handler that made the change has returned. An import that waits for `whenActionEnded()` replaces
- * no element the action still works on.
+ * step such as the subdomain-type menu of an append until it has run (`holdAction`), and any other
+ * action until the handler that made the change has returned. An import that waits for
+ * `whenActionEnded()` replaces no element the action still works on. The drag that a press starts
+ * after it committed a label is a gesture, not part of that action: the import waits until
+ * diagram-js's drag init has returned and then ends the drag, as an accepted import ends every
+ * running gesture.
  */
 export default class CmGestureCancel {
   static $inject = ["eventBus", "dragging"];
 
-  private ending: HeldDrag | null = null;
-  private press: HeldDrag | null = null;
-  private startingDrag: Gesture | null = null;
+  private ending: Ending | null = null;
   private cancellingForClear = false;
   private active = false;
   private readonly activeListeners = new Set<ActiveListener>();
@@ -89,35 +86,21 @@ export default class CmGestureCancel {
       const gesture = this.runningGesture();
       if (gesture?.active && !isArmedTool(gesture)) this.setActive(true);
     });
-    eventBus.on("drag.init", FIRST, () => {
-      this.startingDrag = this.runningGesture();
-    });
-    eventBus.on("drag.init", LAST, () => {
-      this.startingDrag = null;
-    });
     eventBus.on("drag.end", BEFORE_THE_DROP, () => this.startEnding());
     // Every drag ends in its cleanup: the drop, Escape, an import and an error in a listener alike.
     // It has ended once its release or key has run all its listeners, `drag.ended` and
     // `drag.canceled` included: the microtask comes after the event that ended it.
     eventBus.on("drag.cleanup", FIRST, () => {
       this.startEnding();
-      const drag = this.runningGesture();
       const ending = this.ending;
-      const press = this.press?.drag === drag ? this.press : null;
-      if (ending || press) {
-        queueMicrotask(() => {
-          if (ending) this.finishEnding(ending);
-          if (press) this.finishPress(press);
-        });
-      }
-      this.startingDrag = null;
+      if (ending) queueMicrotask(() => this.finishEnding(ending));
       this.setActive(false);
     });
-    eventBus.on("commandStack.changed", BEFORE_THE_HOST, () => this.userActionChanged());
+    // Any other change of the user's has finished once the handler that made it has returned.
+    eventBus.on("commandStack.changed", BEFORE_THE_HOST, () => queueMicrotask(this.holdAction()));
     // The scheduler drops its tasks on destroy: an import waiting for one rejects instead.
     eventBus.on("diagram.destroy", () => {
       this.ending = null;
-      this.press = null;
       this.runningActions.clear();
       this.settleActions();
     });
@@ -167,7 +150,7 @@ export default class CmGestureCancel {
    */
   cancelForClear(): void {
     const gesture = this.runningGesture();
-    if (!gesture || gesture === this.ending?.drag || isArmedTool(gesture)) return;
+    if (!gesture || gesture === this.ending?.gesture || isArmedTool(gesture)) return;
     this.cancellingForClear = true;
     try {
       this.dragging.cancel(false);
@@ -181,37 +164,15 @@ export default class CmGestureCancel {
     return this.cancellingForClear;
   }
 
-  /**
-   * A change of the user's: it belongs to the drag diagram-js starts right now when a listener of
-   * the drag's init made it (the label edit a press commits), and to the handler that made it
-   * otherwise. An armed palette tool's drag is no action: an import leaves the tool armed.
-   */
-  private userActionChanged(): void {
-    const starting = this.startingDrag;
-    if (starting && starting === this.runningGesture() && !isArmedTool(starting)) {
-      if (this.press?.drag === starting) return;
-      const replaced = this.press;
-      this.press = { drag: starting, release: this.holdAction() };
-      replaced?.release();
-      return;
-    }
-    queueMicrotask(this.holdAction());
-  }
-
   private startEnding(): void {
     const gesture = this.runningGesture();
-    if (!gesture?.active || isArmedTool(gesture) || this.ending?.drag === gesture) return;
-    this.ending = { drag: gesture, release: this.holdAction() };
+    if (!gesture?.active || isArmedTool(gesture) || this.ending?.gesture === gesture) return;
+    this.ending = { gesture, release: this.holdAction() };
   }
 
-  private finishEnding(ending: HeldDrag): void {
+  private finishEnding(ending: Ending): void {
     if (this.ending === ending) this.ending = null;
     ending.release();
-  }
-
-  private finishPress(press: HeldDrag): void {
-    if (this.press === press) this.press = null;
-    press.release();
   }
 
   private settleActions(): void {

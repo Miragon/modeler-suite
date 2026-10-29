@@ -116,17 +116,16 @@ An import is **silent**: the previous document's undo history goes without a
 name of a built-in object property as an id throws before anything is removed. It is **lossless**:
 keys the model does not know and relationships whose ends are not on the map come back on export. A
 label edit open during an import is taken down and reopened on the element with the same id, with
-the typed text, and that element is selected again when nothing else is. So is a menu that a user
-action keeps open: the subdomain-type menu of an append and the integration-roles menu after a
-toggle come back beside the pad of the element with the same id. A gesture that runs during an import (a move, a connect, a lasso, a create from the
-palette or the context pad, also while its preview is still off the canvas) is cancelled first, as
-Escape cancels it, and so is a press that has not reached the drag threshold yet: the release
-changes nothing and selects nothing. A palette tool that only waits for its next press is no
-gesture: the lasso tool armed in the palette stays armed, and the drag its next press starts is a
-gesture. Neither is a pan of the canvas: it runs on across the import. `clear()` ends a gesture the
-same way. A drop whose change the host imports over at once, from its change listener, has
-applied and is not cancelled: this synchronous `importDocument` replaces the map at once, while the
-collaborative modeler's `importText` waits for the user's action to finish (see below).
+the typed text, and that element is selected again when nothing else is. A gesture that runs
+during an import (a move, a connect, a lasso, a create from the palette or the context pad, also
+while its preview is still off the canvas) is cancelled first, as Escape cancels it, and so is a
+press that has not reached the drag threshold yet: the release changes nothing and selects
+nothing. A palette tool that only waits for its next press is no gesture: the lasso tool armed in
+the palette stays armed, and the drag its next press starts is a gesture. Neither is a pan of the
+canvas: it runs on across the import. `clear()` ends a gesture the same way. A drop whose change
+the host imports over at once, from its change listener, has applied and is not cancelled: this
+synchronous `importDocument` replaces the map at once, while the collaborative modeler's
+`importText` waits for the user's action to finish (see below).
 
 `contentBounds()` is the tight box around what the canvas draws of the map in diagram coordinates,
 without a margin: the contexts, wider where a team row or a subdomain type's name runs past a
@@ -177,21 +176,22 @@ the order they were called. An action runs from its change until:
 
 - a drop: its release has run every listener, so diagram-js selects the moved context after a move;
 - an append from the context pad, clicked or dragged: its subdomain-type menu is open, which the
-  import then reopens on the context with the same id;
+  import then reopens beside the pad of the context with the same id;
 - a create from the palette with Enter or Space: the context is selected with its name editor
   open, which the import reopens on the context with the same id, selected again;
 - a label commit with Enter or by leaving the field: the editor has closed, so it stays closed;
-- a toggle in the integration-roles menu: the menu has reopened, and the import reopens it on the
-  relationship with the same id;
-- a press that commits a label at the start of a drag (a move, a connect, a lasso, a create from
-  the palette or the context pad): the drag has ended, so the press is not cancelled and its drop
-  applies before the import. A press that arms the lasso tool is no action: the import leaves the
-  tool armed.
+- a toggle in the integration-roles menu: the menu has reopened, and the import reopens it beside
+  the pad of the relationship with the same id;
+- a label or description commit at a press (the press on another context, or on a palette entry
+  that starts a create): the handler of the press has returned, so diagram-js has set up the drag
+  the press starts. The import then ends that drag, as it ends every running gesture: the commit
+  is kept, the release moves or creates nothing, and no step of diagram-js runs on a replaced
+  map. A press that arms the lasso tool leaves the tool armed.
 
-So no step of the action works on a replaced map. An import called while Escape cancels a gesture
-(from `interaction.onChange`) waits for the cancel the same way. An import called while no action
-runs, a peer's text for example, cancels a running gesture as above. An import still waiting when
-the modeler is destroyed rejects.
+So no step of the action works on a replaced map. Only the imports that waited for an action
+reopen the menu it left open; a later import closes it like every other menu. An import called while Escape cancels a gesture (from `interaction.onChange`) waits for
+the cancel the same way. An import called while no action runs, a peer's text for example, cancels
+a running gesture as above. An import still waiting when the modeler is destroyed rejects.
 
 The optional surfaces of contract 1.5 are on both mounts:
 

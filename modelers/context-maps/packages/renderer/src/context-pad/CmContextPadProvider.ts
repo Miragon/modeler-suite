@@ -167,7 +167,7 @@ export default class CmContextPadProvider implements ContextPadProvider {
   /** The last pad-opened menu, so a roles toggle can re-open it in place. */
   private currentMenu?: { element: CmElement; menuId: string; title: string; position: Point };
 
-  /** The menu open right now that a user action keeps open. */
+  /** The menu a running user action keeps open, until the imports that waited for it have run. */
   private followUpMenu?: FollowUpMenu;
   /** The same, taken before an import closed the menu, until the import has run. */
   private suspendedMenu?: FollowUpMenu;
@@ -191,7 +191,10 @@ export default class CmContextPadProvider implements ContextPadProvider {
     private readonly canvas: Canvas,
     private readonly scheduler: Scheduler,
     private readonly readOnly: Pick<CmReadOnly, "isReadOnly">,
-    private readonly gestureCancel: Pick<CmGestureCancel, "isCancellingForClear" | "holdAction">,
+    private readonly gestureCancel: Pick<
+      CmGestureCancel,
+      "isCancellingForClear" | "holdAction" | "whenActionEnded"
+    >,
     private readonly elementRegistry: ElementRegistry,
   ) {
     // Injecting Connect instantiates it so its connect.* drag handlers exist
@@ -508,7 +511,26 @@ export default class CmContextPadProvider implements ContextPadProvider {
       .querySelector<HTMLElement>(`.djs-context-pad.open [data-action="${padEntry}"]`);
     if (!entry) return;
     this.openMenuBeside(entry.getBoundingClientRect(), element, menuId, title);
-    if (this.popupMenu.isOpen()) this.followUpMenu = { elementId: element.id, menuId };
+    this.keepOpenAcrossWaitingImports(element, menuId);
+  }
+
+  /**
+   * Lets the imports that wait for the running action reopen the menu it opened. An import that
+   * comes later, a peer's for example, closes it, as it closes every other menu: the user may have
+   * moved on, and a reopened menu would take the keyboard focus back.
+   */
+  private keepOpenAcrossWaitingImports(element: CmElement, menuId: FollowUpMenuId): void {
+    if (!this.popupMenu.isOpen()) return;
+    const menu: FollowUpMenu = { elementId: element.id, menuId };
+    this.followUpMenu = menu;
+    const forget = (): void => {
+      if (this.followUpMenu === menu) this.followUpMenu = undefined;
+    };
+    // An import that waits for the action was called before the menu opened: it settles first and
+    // still finds the menu.
+    const actionEnded = this.gestureCancel.whenActionEnded();
+    if (actionEnded) void actionEnded.then(forget);
+    else forget();
   }
 
   /** Remembers the menu a user action keeps open, before an import closes it. */
@@ -759,7 +781,7 @@ export default class CmContextPadProvider implements ContextPadProvider {
     const menu = this.currentMenu;
     if (!menu || menu.menuId !== menuId || menu.element !== element) return;
     this.popupMenu.open(element, menuId, menu.position, { title: menu.title });
-    if (this.popupMenu.isOpen()) this.followUpMenu = { elementId: element.id, menuId };
+    this.keepOpenAcrossWaitingImports(element, menuId);
   }
 
   // --- popup menus ----------------------------------------------------------
