@@ -18,14 +18,14 @@ links them to the local workspace because the local version satisfies the pin); 
 to exact pins are the consumer-shared runtime libs declared as ranged `peerDependencies` (see
 Conventions).
 
-| Package                                | Purpose                                                                        | DOM |
-| -------------------------------------- | ------------------------------------------------------------------------------ | --- |
-| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, timeline sort, JSON serialization, vocabulary | no  |
-| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                                | no  |
-| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms (move, …)            | no  |
-| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export, CSS                     | yes |
-| `apps/webapp`                          | Vite demo editor                                                               | yes |
-| `apps/vscode`                          | VS Code extension: custom editor for `.storm`                                  | yes |
+| Package                                | Purpose                                                                                    | DOM |
+| -------------------------------------- | ------------------------------------------------------------------------------------------ | --- |
+| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, timeline sort, JSON serialization, vocabulary, aggregates | no  |
+| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                                            | no  |
+| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms (move, …)                        | no  |
+| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export, CSS                                 | yes |
+| `apps/webapp`                          | Vite demo editor                                                                           | yes |
+| `apps/vscode`                          | VS Code extension: custom editor for `.storm`                                              | yes |
 
 **P1, the DOM boundary:** the DOM-free packages (`schema-model`, `dsl`, `transforms`) must **never**
 import `diagram-js`/DOM libraries (`tiny-svg`, `min-dom`) or use the DOM (`window`/`document`).
@@ -189,13 +189,24 @@ start screen, page-wide drop zone); its `index.html` stays `data-cd-theme="light
 config writes the shell's `webHeadMarkup` (light only: one theme-color and the contrast line).
 Stylesheet order in both: fonts, the renderer (tokens, diagram-js, canvas mapping),
 `@miragon/modeler-shell/shell.css` last; neither app has a stylesheet of its own. Both take the
-board's menu entries (Level, Type captions, the exports, "Keyboard shortcuts…") and its shortcut
-groups from the renderer (`boardMenu`, `boardShortcuts`,
+board's menu entries (Level, Type captions, "Aggregates…", the exports, "Keyboard shortcuts…") and
+its shortcut groups from the renderer (`boardMenu`, `boardShortcuts`,
 [`packages/renderer/src/board-menu/`](packages/renderer/src/board-menu/)), which mirrors the
 shell's types structurally; a sync test in apps/vscode pins the mirror against the shell. The
 shell draws the dialog: "Keyboard shortcuts…" calls `shell.showShortcutsDialog(boardShortcuts(shell))`
 (the web app with `{ fileKeys: true }`), the shell puts its own zoom and fit rows into the View
-group and leaves the renderer's out, and the kit's `shortcutsDialog` case checks the rest. The
+group and leaves the renderer's out, and the kit's `shortcutsDialog` case checks the rest.
+"Aggregates…" ([#116](https://github.com/Miragon/modeler-suite/issues/116)) ends the Model group
+only while the board has an aggregate, also on a read-only canvas (`keepEnabledWhenReadOnly`), so
+both apps build the menu again after every import and command (`shell.menu.setGroups`). It opens
+the shell's `openShellDialog` through the renderer's `eventStormingAggregates.showDialog`
+(`{ container: shell.root, openDialog }`,
+[`packages/renderer/src/aggregates/`](packages/renderer/src/aggregates/)):
+`groupByAggregate` of the schema model (DOM-free, arrows only, names by `normalizeLabel`) as a
+table with a row group per aggregate, each line a command and the events after it, drawn by the
+renderer with its own `.event-storming-aggregates` rules in `event-storming.css`. A name closes
+the dialog, then selects and reveals its stickies inside `freeArea.insets` and focuses the canvas;
+no command runs, so neither the history nor the `.storm` text changes. The
 renderer's own `createShortcutsDialog`, its types and the `.event-storming-shortcuts*` rules of
 `event-storming.css` are `@deprecated` for designIQ, which still uses them; their removal is due
 in renderer 0.9.0 ([#262](https://github.com/Miragon/modeler-suite/issues/262)). The

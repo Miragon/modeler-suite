@@ -54,13 +54,16 @@ export const MIRAGON = {
 } as const;
 
 /**
- * Chrome spacing in px from the `shell` group of `cd-tokens.generated.json` (guide §5.2). `rand`
- * keeps a canvas popup off the container edge and `luecke` parts it from what opened it. Scripts
- * that place a popup read them here and never type their own numbers (guide §13.2).
+ * Chrome spacing in px from the `shell` group of `cd-tokens.generated.json` (guide §5.2, §5.9).
+ * `rand` keeps a canvas popup off the container edge and `luecke` parts it from what opened it;
+ * `einpassenSeite` is the fit's margin at the sides, which a reveal keeps when no host gives its
+ * fit insets. Scripts read them here and never type their own numbers (guide §13.2).
  */
 export const CHROME_SPACING = {
   /** `--cd-shell-rand` */
   rand: 12,
   /** `--cd-shell-luecke` */
   luecke: 8,
+  /** `--cd-shell-einpassen-seite` */
+  einpassenSeite: 24,
 } as const;

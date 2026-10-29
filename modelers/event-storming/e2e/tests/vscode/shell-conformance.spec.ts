@@ -53,9 +53,10 @@ test.describe("VS Code webview: shell conformance", () => {
           window.shell?.destroy();
         });
       },
-      // The webview's Model group holds only the Level radios and the Type captions checkbox;
-      // File actions are VS Code's own (guide §13.5), so no menu action hands the focus to the
-      // canvas.
+      // The webview's Model group holds only toggles and dialog entries (the Level radios, the
+      // Type captions checkbox and "Aggregates…", whose dialog gives the focus back to the menu
+      // trigger, guide §5.4); File actions are VS Code's own (guide §13.5), so no menu action
+      // hands the focus to the canvas.
       absent: ["legend", "inspector", "canvasMenuAction"],
       // A sticky's label editor over the shell's zoom, fit and refit (contract L5): an edit the
       // webview posts is what VS Code would write into the document.

@@ -4,6 +4,7 @@ import {
   commandKeyLabel as shellCommandKeyLabel,
   defaultMessages,
   formatPercent,
+  openShellDialog,
   resolveMessages,
   shortcutLabel,
   type ChromeKey,
@@ -18,6 +19,7 @@ import {
   boardMenu,
   boardShortcuts,
   commandKeyLabel,
+  type AggregatesDialogChrome,
   type BoardMenu,
   type ShortcutsChrome,
 } from "@miragon/event-storming-renderer";
@@ -125,5 +127,27 @@ describe("the board menu and shortcuts against @miragon/modeler-shell", () => {
     expect(groups.model).toHaveLength(2);
     expect(chrome).toBeTypeOf("function");
     expect(showGroups).toBeTypeOf("function");
+  });
+
+  it('"Aggregates…" is a dialog entry the shell takes, and the shell\'s dialog is what it opens', () => {
+    const menu: MenuGroups = boardMenu({
+      levels: { getLevel: () => "design", setLevel: () => undefined },
+      typeCaptions: { typeCaptionsVisible: () => true, setTypeCaptionsVisible: () => undefined },
+      aggregates: { hasAggregates: () => true, showAggregates: () => undefined },
+      exports: { png: { onSelect: () => undefined }, svg: { onSelect: () => undefined } },
+      showKeyboardShortcuts: () => undefined,
+    });
+    const chrome = (shell: ShellHandle): AggregatesDialogChrome => ({
+      container: shell.root,
+      openDialog: openShellDialog,
+    });
+
+    expect(menu.model?.at(-1)).toMatchObject({
+      kind: "dialog",
+      id: "aggregates",
+      label: "Aggregates…",
+      keepEnabledWhenReadOnly: true,
+    });
+    expect(chrome).toBeTypeOf("function");
   });
 });

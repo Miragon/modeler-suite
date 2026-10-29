@@ -75,6 +75,42 @@ normalizeLabel("Orders") === normalizeLabel("order"); // true
   `DEFAULT_SUGGESTION_LIMIT` (8). The last word counts as written so far, so `Pay` finds
   `Payment Received`.
 
+## Aggregates
+
+Each aggregate of a board with the commands it handles and the domain events it leads to, read
+from the arrows of a design-level board (command → aggregate → event). "Repeat, never reuse" puts
+an aggregate on the timeline once per step; `groupByAggregate` brings its behaviour back together.
+Like the vocabulary, it is derived from the board every time and never stored.
+
+```ts
+import { groupByAggregate } from "@miragon/event-storming-schema-model";
+
+for (const { aggregate, commands, events, pairs } of groupByAggregate(board)) {
+  aggregate.label; // "Order", the spelling most of its stickies use
+  aggregate.elementIds; // every "Order" sticky on the board, in timeline order
+  commands; // the commands with an arrow into one of them, once per name
+  events; // the events with an arrow from one of them, once per name
+  pairs; // which command leads to which event: [{ command, event }]
+}
+```
+
+- Aggregates whose names `normalizeLabel` reads alike form one group (`Order`, `order`, `Orders`).
+- A command counts through an arrow into one of the group's aggregates, an event through an arrow
+  out of one. Arrows the other way, a command's arrow straight to an event, and policies, read
+  models, actors, external systems, hotspots and notes leave the groups as they are.
+- Commands and events are listed once per name, with every sticky of that name an arrow joins to
+  the group, so a command that reaches two aggregates is in both groups.
+- A pair needs one and the same aggregate sticky: an arrow from the command into it and one from
+  it to the event. Two steps that repeat the aggregate never pair the command of one with the event
+  of the other.
+- An aggregate without arrows is a group with empty lists; commands and events that reach no
+  aggregate are in no group. Only the arrows join a sticky to an aggregate; how near it stands
+  does not.
+- A label without a word (`?`, an empty sticky) names nothing: such a sticky groups with no other,
+  and its `key` is empty.
+- Groups follow their first aggregate on the timeline (`sortByTimeline`), commands and events do
+  the same within a group.
+
 Part of the [Event Storming Modeler](https://github.com/Miragon/modeler-suite/tree/main/modelers/event-storming) in the [Miragon modeler suite](https://github.com/Miragon/modeler-suite).
 
 ## License

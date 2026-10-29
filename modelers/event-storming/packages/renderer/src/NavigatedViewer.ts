@@ -4,6 +4,7 @@ import ZoomScrollModule from "diagram-js/lib/navigation/zoomscroll";
 import MoveCanvasModule from "diagram-js/lib/navigation/movecanvas";
 import KeyboardModule from "diagram-js/lib/features/keyboard";
 import { Viewer } from "./Viewer.js";
+import { eventStormingAggregatesModule } from "./aggregates/index.js";
 
 /**
  * `keyboard-move-selection` depends on `modeling` and therefore belongs in the (later) Modeler,
@@ -17,6 +18,7 @@ export class NavigatedViewer extends Viewer {
       ZoomScrollModule,
       MoveCanvasModule,
       KeyboardModule,
+      eventStormingAggregatesModule,
     ];
   }
 }

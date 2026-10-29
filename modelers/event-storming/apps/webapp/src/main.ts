@@ -11,6 +11,8 @@ import {
   boardShortcuts,
   importWarningText,
   type BoardLevels,
+  type BoardMenuActions,
+  type EventStormingAggregates,
   type ImportWarning,
   type TypeCaptions,
 } from "@miragon/event-storming-renderer";
@@ -23,6 +25,7 @@ import {
   isTextField,
   isUndoRedoKey,
   mountShell,
+  openShellDialog,
   problemSummary,
   type ToastHandle,
 } from "@miragon/modeler-shell";
@@ -91,6 +94,7 @@ const selection = modeler.get<SelectionLike>("selection");
 const canvas = modeler.get<CanvasLike>("canvas");
 const levels = modeler.get<BoardLevels>("eventStormingModeling");
 const typeCaptions = modeler.get<TypeCaptions>("eventStormingViewOptions");
+const aggregates = modeler.get<EventStormingAggregates>("eventStormingAggregates");
 // A view preference of this browser: applied before the first import, never part of the link.
 if (readTypeCaptionsVisible() === false) typeCaptions.setTypeCaptionsVisible(false);
 Object.assign(globalThis as Record<string, unknown>, {
@@ -101,6 +105,27 @@ Object.assign(globalThis as Record<string, unknown>, {
 const platform = detectPlatform(navigator);
 const openKey = commandKeyLabel("O", platform, defaultMessages.keyNames);
 const saveKey = commandKeyLabel("S", platform, defaultMessages.keyNames);
+
+// "Aggregates…" shows only while the board has an aggregate: refreshMenu builds the menu again.
+const menuActions: BoardMenuActions = {
+  levels,
+  typeCaptions,
+  onTypeCaptionsToggled: writeTypeCaptionsVisible,
+  aggregates: {
+    hasAggregates: () => aggregates.hasAggregates(),
+    showAggregates: () => {
+      aggregates.showDialog({ container: shell.root, openDialog: openShellDialog });
+    },
+  },
+  exports: {
+    png: { onSelect: () => void exportPicture("png") },
+    svg: { onSelect: () => void exportPicture("svg") },
+    transparentPng: { onSelect: () => void exportPicture("png-transparent") },
+    json: { onSelect: () => exportBoardText("json") },
+    storm: { onSelect: () => exportBoardText("storm"), shortcut: saveKey },
+  },
+  showKeyboardShortcuts: () => shell.showShortcutsDialog(boardShortcuts(shell, { fileKeys: true })),
+};
 
 // 2. The chrome around it: the whole web column of guide §5.2.
 const shell = mountShell(app, {
@@ -117,20 +142,7 @@ const shell = mountShell(app, {
     open: { onSelect: () => pickFile(), shortcut: openKey },
     showExample: { onSelect: () => void showExample() },
   },
-  menu: boardMenu({
-    levels,
-    typeCaptions,
-    onTypeCaptionsToggled: writeTypeCaptionsVisible,
-    exports: {
-      png: { onSelect: () => void exportPicture("png") },
-      svg: { onSelect: () => void exportPicture("svg") },
-      transparentPng: { onSelect: () => void exportPicture("png-transparent") },
-      json: { onSelect: () => exportBoardText("json") },
-      storm: { onSelect: () => exportBoardText("storm"), shortcut: saveKey },
-    },
-    showKeyboardShortcuts: () =>
-      shell.showShortcutsDialog(boardShortcuts(shell, { fileKeys: true })),
-  }),
+  menu: boardMenu(menuActions),
   problems: { onSelectItem: (item) => selectElement(item.elementId) },
   // Guide §8 (design system 1.23.0): an empty diagram after the start screen shows the empty-file
   // hint, without "Insert example": the File group's "Show example" opens the example.
@@ -198,7 +210,6 @@ async function openDocument(load: BoardLoad, announce: boolean): Promise<void> {
     viewport.afterImport();
   }
   shell.setEmptyState(false);
-  shell.menu.refresh();
   updateDocumentTitle();
   reportWarnings(warnings, announce);
 }
@@ -479,14 +490,22 @@ const flushUrl = (): void => {
   if (urlTimer !== undefined) syncUrlNow();
 };
 
-modeler.on("import.done", () => onModelChanged());
+/** The level is undoable, and "Aggregates…" comes and goes with the board's aggregates. */
+function refreshMenu(): void {
+  shell.menu.setGroups(boardMenu(menuActions));
+}
+
+modeler.on("import.done", () => {
+  refreshMenu();
+  onModelChanged();
+});
 modeler.on<{ trigger?: string }>("commandStack.changed", (event) => {
   if (event.trigger !== "clear") {
     // The first edit is a start as well; and an edit makes an open undo offer stale.
     shell.setEmptyState(false);
     withdrawReplaceUndo();
   }
-  shell.menu.refresh(); // the level is undoable
+  refreshMenu();
   updateDocumentTitle();
   onModelChanged();
 });

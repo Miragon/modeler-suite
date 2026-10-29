@@ -66,7 +66,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(countOf(messages, "edit")).toBe(0);
   });
 
-  test("the menu holds Model (level, type captions), Export (as in the web app) and Help", async ({
+  test("the menu holds Model (level, type captions, aggregates), Export (as in the web app) and Help", async ({
     page,
   }) => {
     await openWebview(page);
@@ -80,6 +80,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(layout).toEqual([
       "level",
       "type-captions",
+      "aggregates",
       "|",
       "export-png",
       "export-svg",
