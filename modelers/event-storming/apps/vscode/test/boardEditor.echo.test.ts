@@ -1,12 +1,18 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { type WorkspaceEdit, workspace, vscodeMock } from "./__mocks__/vscode";
-import { fakeDocument, installEchoingApplyEdit, openBoard, resetApplyEdit } from "./fakes";
+import {
+  applyRangeEdit,
+  fakeDocument,
+  installEchoingApplyEdit,
+  openBoard,
+  resetApplyEdit,
+} from "./fakes";
 
 /**
  * Characterization of the text-editor host's echo protection: graphical edits the webview produces
  * come back as `onDidChangeTextDocument` and MUST be swallowed (not re-imported), while genuinely
  * external edits MUST reach the webview exactly once. Verified black-box via posted messages, since
- * the pending echoes are private.
+ * the pending echoes are private to the shell's document plumbing.
  */
 
 beforeEach(() => vscodeMock.reset());
@@ -15,7 +21,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("EventStormingEditorProvider — echo protection", () => {
+describe("the board editor: echo protection", () => {
   it("posts init with the document text on `ready`", async () => {
     const doc = fakeDocument("/a.storm", "title A\n");
     const h = await openBoard(doc);
@@ -104,11 +110,52 @@ describe("EventStormingEditorProvider — echo protection", () => {
     const h = await openBoard(doc);
 
     await h.receive({ type: "edit", text: "title B\n" });
+    // The canvas shows B but the document kept A: the webview is shown the document again.
+    expect(h.updates()).toEqual(["title A\n"]);
     // The write failed, so the entry was removed; a later change carrying that text is NOT an echo.
     doc.set("title B\n");
     vscodeMock.fireDidChangeTextDocument(doc);
 
-    expect(h.updates()).toEqual(["title B\n"]);
+    expect(h.updates()).toEqual(["title A\n", "title B\n"]);
+  });
+
+  it("shows the document again when applyEdit rejects, and keeps writing later edits", async () => {
+    const doc = fakeDocument("/a.storm", "title A\n");
+    const applied = installEchoingApplyEdit(doc);
+    let reject = true;
+    workspace.applyEdit = ((original) => (edit: WorkspaceEdit) =>
+      reject ? Promise.reject(new Error("the document changed meanwhile")) : original(edit))(
+      workspace.applyEdit,
+    );
+    const h = await openBoard(doc);
+
+    await h.receive({ type: "edit", text: "title B\n" });
+    reject = false;
+    await h.receive({ type: "edit", text: "title C\n" });
+
+    expect(doc.getText()).toBe("title C\n");
+    expect(applied).toHaveLength(1);
+    expect(h.updates()).toEqual(["title A\n"]);
+  });
+
+  it("leaves a refused edit to the newer edit queued behind it", async () => {
+    const doc = fakeDocument("/a.storm", "title A\n");
+    installEchoingApplyEdit(doc);
+    let refuse = true;
+    workspace.applyEdit = ((original) => (edit: WorkspaceEdit) => {
+      if (!refuse) return original(edit);
+      refuse = false;
+      return Promise.resolve(false);
+    })(workspace.applyEdit);
+    const h = await openBoard(doc);
+
+    await Promise.all([
+      h.receive({ type: "edit", text: "title B\n" }),
+      h.receive({ type: "edit", text: "title C\n" }),
+    ]);
+
+    expect(doc.getText()).toBe("title C\n");
+    expect(h.updates()).toEqual([]);
   });
 
   it("posts nothing for a change event without content changes (save, dirty state)", async () => {
@@ -131,7 +178,7 @@ describe("EventStormingEditorProvider — echo protection", () => {
   });
 });
 
-describe("EventStormingEditorProvider — minimal edits", () => {
+describe("the board editor: minimal edits", () => {
   it("writes ONE WorkspaceEdit per canvas change, touching only the changed lines", async () => {
     const doc = fakeDocument("/a.storm", "title A\n\nevent One [0, 0]\nevent Two [100, 0]\n");
     const applied = installEchoingApplyEdit(doc);
@@ -145,5 +192,37 @@ describe("EventStormingEditorProvider — minimal edits", () => {
       range: { start: { line: 2, character: 0 }, end: { line: 3, character: 0 } },
       text: "event One [40, 0]\n",
     });
+  });
+
+  it("diffs each edit against the document the previous edit left, though VS Code applies it later", async () => {
+    const doc = fakeDocument("/a.storm", "title A\nevent One [0, 0]\n");
+    const pendingWrites: Array<() => void> = [];
+    workspace.applyEdit = (edit: WorkspaceEdit) =>
+      new Promise<boolean>((resolve) => {
+        pendingWrites.push(() => {
+          for (const change of edit.edits)
+            doc.set(applyRangeEdit(doc.getText(), change.range, change.text));
+          vscodeMock.fireDidChangeTextDocument(doc);
+          resolve(true);
+        });
+      });
+    const h = await openBoard(doc);
+
+    const added = "title A\nevent Two [100, 0]\nevent One [0, 0]\n";
+    const moved = "title A\nevent Two [100, 0]\nevent One [40, 0]\n";
+    const nudged = "title A\nevent Two [100, 0]\nevent One [80, 0]\n";
+    let settled = false;
+    void Promise.all([
+      h.receive({ type: "edit", text: added }),
+      h.receive({ type: "edit", text: moved }),
+      h.receive({ type: "edit", text: nudged }),
+    ]).then(() => (settled = true));
+    while (!settled) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      pendingWrites.shift()?.();
+    }
+
+    expect(doc.getText()).toBe(nudged);
+    expect(h.updates()).toEqual([]);
   });
 });

@@ -41,7 +41,8 @@ interface PopupMenuLike {
 
 interface GesturesLike {
   cancel(): void;
-  afterDrop(work: () => void): void;
+  afterUserAction(work: () => void): void;
+  runHeldWork(): void;
 }
 
 /**
@@ -96,13 +97,16 @@ export abstract class VcBaseViewer {
    * Either brings back the selection from before it started when it ends, on the shapes the import
    * drew under the same ids. A press of the connect tool before the pointer has entered a shape
    * the import drew under it starts no connect and puts the tool down. A drop already being
-   * applied (a host importing from its change listener) is not cancelled; this synchronous import
-   * then replaces the diagram under the drop's later listeners, so a host imports through the
-   * collaborative modeler's `importText`, which waits until the drop has ended
-   * (`vcGestures.afterDrop`).
+   * applied (a host importing from its change listener) is not cancelled. This import is
+   * synchronous: called while a user action runs (a drop, a click append, a keyboard create, a
+   * label commit), it replaces the diagram under what the action still does, so a host imports
+   * through the collaborative modeler's `importText`, which waits until the action has finished
+   * (`vcGestures.afterUserAction`). A valid document first lets an `importText` or a `clear()`
+   * still waiting run, so the calls take effect in the order they came.
    */
   importDocument(document: ValueChainDocument): ImportWarning[] {
     const valid = validateDocument(document);
+    this.getOptional<GesturesLike>("vcGestures")?.runHeldWork();
     const labelEditing = this.getOptional<VcLabelEditingProvider>("vcLabelEditingProvider");
     const previous = this._currentDocument();
     labelEditing?.suspend();
@@ -144,8 +148,12 @@ export abstract class VcBaseViewer {
 
   /**
    * Empties the diagram. A running gesture ends first, while a pan and an armed tool run on, as in
-   * `importDocument`. Called while a drop is being applied (from a change listener), it empties the
-   * diagram once the drop has ended, so the drop's own listeners never meet the shapes removed.
+   * `importDocument`. Called while a user action runs (a drop, a click append, a keyboard create, a
+   * label commit, typically from a change listener), it empties the diagram once the action has
+   * finished, so nothing the action still does meets the shapes removed. A command, an undo or a
+   * redo counts as such an action until the next microtask, also one the host runs itself: a
+   * `clear()` right after it empties the diagram a microtask later, and an `importDocument` in
+   * between runs the waiting clear first.
    */
   clear(): void {
     const diagram = this._ensureDiagram();
@@ -156,7 +164,7 @@ export abstract class VcBaseViewer {
       diagram.get<VcImporter>("vcImporter").clear();
       diagram.get<CommandStackLike | null>("commandStack", false)?.clear();
     };
-    if (gestures) gestures.afterDrop(clearNow);
+    if (gestures) gestures.afterUserAction(clearNow);
     else clearNow();
   }
 

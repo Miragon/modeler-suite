@@ -74,7 +74,7 @@ export abstract class BaseViewer {
    * goes without a `commandStack.changed`, an open label edit is taken down without committing,
    * and an accepted text first ends a running gesture the way Escape does. Called while a drop is
    * applied (from the change listener of its command), it leaves that drop to finish; the
-   * contract's `importText` waits for the drop instead.
+   * contract's `importText` waits until the user's action has finished instead.
    */
   importText(text: string): ImportOutcome {
     const { document, diagnostics } = parseText(text);
@@ -98,8 +98,11 @@ export abstract class BaseViewer {
     } catch (error) {
       this.render(previous);
       throw error;
+    } finally {
+      // Also after a failed render: a suspended edit never reopened would come back on a later
+      // import instead.
+      labelEditing?.resumeAfterImport();
     }
-    labelEditing?.resumeAfterImport();
   }
 
   exportDocument(): DiagramDocument {

@@ -89,11 +89,15 @@ container as in bpmn-js; the feature modules (`vcDrawModule`, `vcRulesModule`, `
   The one exception is a press of the connect tool before the pointer has entered a shape the
   import drew under it: it starts no connect and puts the tool down. A drop already being applied
   (a host importing from its change listener) is not cancelled. `importDocument` returns its
-  warnings at once, so it replaces the diagram under the drop's later listeners; a host imports
-  through the collaborative modeler's `importText`, which waits until the drop has ended (see
-  below). `clear` ends a running gesture and leaves a pan and an armed tool alone, as an import
-  does; called while a drop is being applied, it empties the diagram once the drop has ended. The
-  `Modeler` does this with `vcGestureModule`; a custom setup adds it to get the same.
+  warnings at once, so called while a user action runs it replaces the diagram under what the
+  action still does; a host imports through the collaborative modeler's `importText`, which waits
+  until the action has finished (see below). `clear` ends a running gesture and leaves a pan and an
+  armed tool alone, as an import does; called while a user action runs, it empties the diagram once
+  the action has finished. A command, an undo or a redo counts as such an action until the next
+  microtask, also one the host runs itself: a `clear` right after it empties the diagram a
+  microtask later. A valid document given to `importDocument` first lets an `importText` or a
+  `clear` still waiting run, so the calls take effect in the order they came. The `Modeler` does
+  this with `vcGestureModule`; a custom setup adds it to get the same.
 - A label being typed stays open across every view change, a host's fit or restore as much as a
   wheel zoom, and moves along with its element; only Enter, leaving the text box or a click or drag
   on the canvas commits it.
@@ -164,14 +168,22 @@ scroll leave the box alone. Both take the contract's factory options `freeArea`,
 contract's conformance kit on every law, with no case skipped and no advisory. `diagram` is the
 wrapped `Modeler` or `NavigatedViewer` for host wiring.
 
-- `importText` ends a running gesture first, as `importDocument` does (above). Called while a drop
-  is being applied, typically from `onContentChanged`, it waits until the drop has ended
-  (`drag.ended` or `drag.canceled`) and then imports; its promise settles after that import, and
-  imports that wait run in the order they came, later ones behind them. So no listener of the drop,
-  diagram-js's own selection or the label editor a dragged append opens, meets a replaced diagram.
-  A text that does not parse rejects at once and leaves the gesture running. Only a drop is waited
-  for: an append by a click on the context pad and a create by Enter or Space on the palette are no
-  drop, and an import from their change listener still runs inside them (#285).
+- `importText` ends a running gesture first, as `importDocument` does (above). Called while a user
+  action runs, typically from `onContentChanged`, it waits until the action has finished and then
+  imports; its promise settles after that import, and imports that wait run in the order they came,
+  later ones behind them. A drop has finished once its drag has ended (`drag.ended` or
+  `drag.canceled`), so no listener of the drop, diagram-js's own selection or the label editor a
+  dragged append opens, meets a replaced diagram. Every other action that runs a command, an undo
+  or a redo has finished once the handler that ran it has returned: an append by a click on the
+  context pad and a create by Enter or Space on the palette open their label editor on the new
+  element, and the import then reopens it there with the text typed so far; a label committed
+  inside the handler that starts a drag (a press on the canvas, or a click on a palette entry with
+  no press before it) lets that drag start, and the import then ends it as it ends any gesture,
+  while a pointer press on the palette commits the label at its `mousedown`, so the import runs
+  before the click and the create the click starts survives; a delete, an undo or a redo runs
+  whole. The same holds for an import from any other listener inside the action, such as
+  `elements.onSelection`. A text that does not parse rejects at once and leaves the gesture
+  running.
 - `interaction` (contract 1.5): `active()` is true from the start of a gesture until its drop or
   cancel: a move, resize, connect, bendpoint, lasso or space drag, and a create or append from the
   palette or the context pad, also while its preview is off the canvas. A press inside the drag

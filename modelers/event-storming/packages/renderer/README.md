@@ -92,20 +92,29 @@ typed when an import arrives is reopened on the same element afterwards, with th
 drag running when an import is called (a move, resize, connection or lasso, a create from the
 palette or a paste, also with its preview off the canvas, or the drag of a drawing's point) ends
 at once without applying anything, and so does one the user starts while an import waits (for
-the annotation font, or for a running drop and the step it scheduled) and still holds when the
-board is replaced: its release changes nothing and fires no `commandStack.changed`. A diagram-js drag ends as Escape ends it, the drag of a drawing's
+the annotation font, or for a running user action and the step it scheduled) and still holds when
+the board is replaced: its release changes nothing and fires no `commandStack.changed`. A diagram-js drag ends as Escape ends it, the drag of a drawing's
 point (which Escape leaves running) without its commit. `clear()` ends a running drag too. The
 palette's lasso tool, armed but not yet pressed, stays armed, and a pan of the empty canvas keeps
 running. A press that starts a drag (on a resize handle, say) while a label is being typed commits
 the label first; when the host imports from that commit's change listener, the label stays and
-the drag does not start. An import called while a drop runs (a host that imports from the change
-listener of the drop's command) waits until the drop has ended (`drag.ended` or `drag.canceled`,
-a drawing's point drop once its command has applied) and until the step the drop scheduled has run
-(the kind chooser, or the label editor, of an append), and only then replaces the board; its
-Promise settles after that import. So every listener of the drop, also diagram-js's selection
-behaviour, which threw when the import had removed the moved sticky while something was selected
-before the drag ([#248](https://github.com/Miragon/modeler-suite/issues/248)), runs on the board it
-changed. The kind chooser that an import closes reopens on the sticky with the same id while that
+the drag does not start. An import called while a user action runs (a host that imports from the
+change listener of the action's command, or from a selection listener that the command's removal
+of a selected sticky calls) waits until the action has finished, and only then replaces the board;
+its Promise settles after that import. The action is the handler that ran a command, from the
+command's start until that handler has returned (a keyboard create from the palette, which selects
+its sticky and opens its label editor after the create; a label commit, also the one a press on
+the board makes; a delete, an undo or a redo), a drop until it has ended (`drag.ended` or
+`drag.canceled`, a drawing's point drop once its command has applied), and the step a drop
+scheduled (the kind chooser, or the label editor, of an append). So every step of the action runs
+on the board it changed: the label editor of a keyboard create opens on the created sticky, and
+the import reopens it on the sticky with the same id, or a note's on the note in its place (a note
+has no id grammar, so the import gives it the id its text derives), with what was typed
+([#305](https://github.com/Miragon/modeler-suite/issues/305)), and every listener of a drop,
+also diagram-js's selection behaviour, which threw when the import had removed the moved sticky
+while something was selected before the drag
+([#248](https://github.com/Miragon/modeler-suite/issues/248)), runs on the board the drop changed.
+The kind chooser that an import closes reopens on the sticky with the same id while that
 sticky is still blank, and the label editor that follows the kind opens on the sticky with that
 id, also when a host has echoed the retype and so replaced the sticky again. `clear()` from the
 change listener of a drop does not wait (it returns nothing to wait for) and leaves the drop
@@ -154,8 +163,9 @@ active one and still breaks the line while none is active, and a click takes an 
 closes the list and leaves the editor open; the next Escape discards the edit as before. Names are
 compared with `normalizeLabel` of
 [`@miragon/event-storming-schema-model`](https://www.npmjs.com/package/@miragon/event-storming-schema-model)
-(case, whitespace, punctuation, simple plurals and a few spellings), and a placeholder name such as
-"Domain Event 2" is no suggestion.
+(case, whitespace, punctuation, simple plurals and a few spellings), and the placeholder name of
+any kind, such as "Domain Event 2", is no suggestion, also on a sticky retyped to another kind and
+where a board means it as a name (an aggregate called "Policy"; "Insurance Policy" is one).
 
 A name the board writes in more than one way (`Order`, `order`, `Orders`) gets a dot in
 `--cd-ui-warning` on the top right corner of each of its stickies. Its tooltip names the other
@@ -163,8 +173,10 @@ spellings and hides on Escape, and a click on the dot selects the sticky. The do
 import, a re-import of the same board included. The sticky's context pad then offers "Unify
 spelling" (`unify-spelling`): every sticky of that kind and name takes the selected sticky's
 spelling in one command, so one undo takes it back. Different names stay legal, since a real
-language conflict is what a workshop wants to find. The dots are HTML overlays, so no export
-carries them and no host's problems list them, and they hide under the read-only lock.
+language conflict is what a workshop wants to find. A placeholder name, by the same rule as the
+suggestions, gets no dot and keeps its label on "Unify spelling", so an aggregate called "Policy"
+next to one called "Policies" marks neither. The dots are HTML overlays, so no export carries
+them and no host's problems list them, and they hide under the read-only lock.
 `eventStormingSpellingVariants` lists the variants (`variants()`, `variantOf(shape)`) and unifies
 them (`unify(shape)`); `eventStormingModeling.updateLabels(changes)` renames several stickies in
 one command.
@@ -175,9 +187,11 @@ one command.
 from the canvas through `groupByAggregate` of the schema model, which the package re-exports:
 every aggregate once, however often the timeline repeats it, with the commands whose arrows lead
 into it and the domain events its arrows lead to. An aggregate whose label is still the
-placeholder a new sticky gets ("Aggregate", "Aggregate 2") is left out, as it is no label
-suggestion, and so is an empty one, which the `.storm` file stores as "Aggregate". `rows()` gives them as the rows of a table, one per aggregate, each line a command
-and the events it leads to (`aggregateTableRows`), and
+placeholder a new sticky of any kind gets ("Aggregate", "Aggregate 2", or "Domain Event" on a
+sticky retyped to an aggregate) is left out, as it is no label suggestion, also one a board means
+as a name ("Policy"; "Insurance Policy" counts), and so is an empty one, which the `.storm` file
+stores as "Aggregate". `rows()` gives them as the rows of a table, one per aggregate, each line a
+command and the events it leads to (`aggregateTableRows`), and
 `renderAggregateTable(body, rows, { onSelect })` draws that table into a dialog body.
 `showDialog({ container, openDialog })` opens it in a dialog of guide §8, the shell's
 `openShellDialog` passed in structurally, so the renderer never imports the shell:
@@ -240,7 +254,7 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
 - `onContentChanged` fires for every command-stack change, undo and redo included (also the
   workshop level), never for imports, view options (type captions) or the viewport. Only the
   replacement of the board is the import's: an edit or an undo while an import still waits (for
-  a running drop, the step it scheduled or the annotation font) fires it as usual.
+  a running user action, the step it scheduled or the annotation font) fires it as usual.
 - `getViewState()` / `setViewState()` read and set the diagram-js viewbox (`x`, `y`, `width`,
   `height`); an import fits the board, never above 100% and never below 0.1% (a board too wide to
   show whole at 0.1% is centred there instead).

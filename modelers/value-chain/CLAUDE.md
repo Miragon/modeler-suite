@@ -100,14 +100,22 @@ missing at its other places; the verdict stays the same).
   the tool down; a drop being applied is never cancelled, told apart by its drag context, not a
   flag; `clear()` treats all of them the same way;
   `test/browser/import-cancels-gesture.browser.test.ts`). `importText` and `clear()` called while
-  a drop is being applied (a host's change listener) wait until it has ended (#248,
-  `vcGestures.afterDrop`: a queue in call order, flushed in a microtask after `drag.ended` or
-  `drag.canceled`, also when a throwing cleanup listener keeps diagram-js from firing either), so
-  no listener of the drop, diagram-js's `SelectionBehavior` or the label editor a dragged append
-  opens, meets a replaced diagram; the direct `importDocument` cannot wait, it returns its warnings
-  (`test/browser/import-during-drop.browser.test.ts`). Only a drop waits: a click append, a
-  keyboard create and a label commit at a press are no drop, and an import from their change
-  listener still runs inside them (#285). The 1.5 surfaces: `interaction` is
+  a user action runs (from a host's change listener or any other listener inside it) wait until it
+  has finished (`vcGestures.afterUserAction`, one queue in call order). A drop finishes at
+  `drag.ended` or `drag.canceled` (#248; the queue flushes a microtask later, also when a throwing
+  cleanup listener keeps diagram-js from firing either), so no listener of the drop, diagram-js's
+  `SelectionBehavior` or the label editor a dragged append opens, meets a replaced diagram
+  (`test/browser/import-during-drop.browser.test.ts`). Any other action that runs a command, an
+  undo or a redo (a click append, a keyboard create, a label commit at a press, a delete) runs from
+  its first `commandStack.execute` or `commandStack.revert` until the handler that ran it has
+  returned, a microtask later (#285): the selection and label editor of an append or a create open
+  on the live element, and the import reopens the editor there; a handler that commits a label and
+  starts a drag (a press on the canvas, a palette click without a press) still starts it, and the
+  import then ends it as it ends any gesture, while a pointer press on the palette commits at its
+  `mousedown` and its create survives; a command the host runs itself holds `clear()` and
+  `importText` the same microtask (`test/browser/import-during-user-action.browser.test.ts`). The
+  direct `importDocument` cannot wait, it returns its warnings, and it first runs what still waits
+  (`vcGestures.runHeldWork`), so the calls keep their order. The 1.5 surfaces: `interaction` is
   `vcGestures.isActive()` (set on the first `drag.move` of an activated drag that is no armed tool
   and no pan, cleared on `drag.ended`/`drag.canceled`, `GESTURE_CHANGED_EVENT`; the delivery skips
   a listener once the modeler is destroyed or the listener unsubscribed, and a `drag.move` whose
@@ -204,6 +212,18 @@ passed on the VSIX it uploads) is in the suite's
   document (`undoRedoKeys: false`); an invalid file locks the canvas
   (`vcReadOnly` + `shell.setReadOnly`). `apps/vscode/THIRD_PARTY_NOTICES.md` is generated
   (`npm run notices -w modelers/value-chain/apps/vscode`) and checked by a unit test.
+- The extension's document plumbing is the shell's too: `apps/vscode/src/diagramEditor.ts`
+  registers the custom editor with `registerModelerEditor` of
+  `@miragon/modeler-shell/vscode/extension` (sync, echo suppression, minimal line edits, undo
+  through the document, "Insert example", the problems pill), handing it `withExampleInserted`,
+  the findings of `diagnostics.ts` (each one an error on the pill, dropped from the Problems view
+  when the editor closes) and the export, and registers the commands with it (fit and export from
+  an editor title button go to that button's diagram, from the Command Palette to the focused
+  one). The webview's half is `connectDocumentSync`, whose `exportText` writes the canonical JSON,
+  or keeps the document's own text while the canvas shows the diagram it describes, so a formatted
+  file keeps its formatting until the diagram changes. The options that need no `vscode` live in
+  `apps/vscode/src/diagramEditorOptions.ts`, which the e2e page also registers against the shell's
+  host stub (`?host`, `e2e/tests/vscode/document-sync.spec.ts`).
 - Both apps export the PNG through `svgToPng` of `@miragon/modeler-shell/export` with
   `background: COLORS.surround` (guide §10.7, `#F9F7F7`) and `onFontFallback`: the web app then
   toasts a warning ("Exported … in a system font. Geist couldn't be embedded.") instead of the

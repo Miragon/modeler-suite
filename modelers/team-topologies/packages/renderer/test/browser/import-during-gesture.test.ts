@@ -1,16 +1,20 @@
 import { afterEach, describe, expect, test } from "vitest";
+import { page, userEvent } from "vitest/browser";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
-import type { Element as DiagramElement } from "diagram-js/lib/model/Types";
+import type { Element as DiagramElement, Shape } from "diagram-js/lib/model/Types";
 import {
   createCollaborativeModeler,
   parseDocumentText,
   ROOT_ID,
   type CollaborativeTeamTopologiesModeler,
   type Modeler,
+  type TtElement,
+  type TtElementFactory,
+  type TtLabelEditing,
 } from "@miragon/team-topologies-renderer";
 import { serializeDocument } from "@miragon/team-topologies-schema-model";
 import onlineShop from "../../../../example/sample.tt?raw";
@@ -117,12 +121,21 @@ function expectNoReplacedElementSelected(diagram: Modeler): void {
   }
 }
 
+function southEastHandle(container: HTMLElement, team: Shape): SVGElement {
+  const handle = container.querySelector<SVGElement>(
+    `.djs-resizer-${team.id}.djs-resizer-se .djs-resizer-hit`,
+  );
+  if (!handle) throw new Error("the selected team shows no south-east resize handle");
+  return handle;
+}
+
 /** The command stack still reports the next edit: the cancelled gesture left no command open. */
 function expectTheNextEditReported(current: Session, imported: string): void {
+  const changesBefore = current.changes();
   current.diagram
     .get<Modeling>("modeling")
     .moveElements([shape(current.diagram, "team_discovery")], { x: 10, y: 0 });
-  expect(current.changes()).toBe(1);
+  expect(current.changes()).toBe(changesBefore + 1);
   expect(current.modeler.exportText()).not.toBe(imported);
 }
 
@@ -169,12 +182,8 @@ describe("an import while a gesture runs cancels the gesture", () => {
     const { modeler, diagram, container, pointer } = current;
     const team = shape(diagram, "team_fraud");
     diagram.get<Selection>("selection").select(team);
-    const handle = container.querySelector<SVGElement>(
-      `.djs-resizer-${team.id}.djs-resizer-se .djs-resizer-hit`,
-    );
-    if (!handle) throw new Error("the selected team shows no south-east resize handle");
     const corner = { x: team.x + team.width, y: team.y + team.height };
-    pointer.press(handle, corner);
+    pointer.press(southEastHandle(container, team), corner);
     pointer.moveTo({ x: corner.x + 30, y: corner.y + 20 });
     pointer.moveTo({ x: corner.x + 60, y: corner.y + 40 });
     expect(previewOf(container)).not.toBeNull();
@@ -491,6 +500,358 @@ function expectTheImportAfterTheDrop(current: Session, events: DropAndImport, te
   expect(current.changes()).toBe(2);
   expect(modeler.exportText()).not.toBe(text);
 }
+
+/** The open label editor, as the user types into it. */
+function labelEditor(container: HTMLElement): HTMLTextAreaElement {
+  const editor = container.querySelector<HTMLTextAreaElement>("textarea.tt-label-editor");
+  if (!editor) throw new Error("no label editor is open");
+  return editor;
+}
+
+/** Enter in the label editor. */
+function commitTheEdit(container: HTMLElement): void {
+  labelEditor(container).dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+  );
+}
+
+function typeAndCommit(container: HTMLElement, text: string): void {
+  labelEditor(container).value = text;
+  commitTheEdit(container);
+}
+
+/** Opens the label editor on `id` and types `text` into it, without committing. */
+function startTyping(current: Session, id: string, text: string): void {
+  current.diagram
+    .get<TtLabelEditing>("ttLabelEditing")
+    .activate(shape(current.diagram, id) as unknown as TtElement);
+  labelEditor(current.container).value = text;
+}
+
+/** The task after an import, in which the label editor it took down is open again. */
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function contextPadEntry(container: HTMLElement, action: string): HTMLElement {
+  const entry = container.querySelector<HTMLElement>(
+    `.djs-context-pad .entry[data-action="${action}"]`,
+  );
+  if (!entry) throw new Error(`the context pad has no ${action} entry`);
+  return entry;
+}
+
+/** Enter or Space on a palette entry: the chrome's click without a pointer behind it. */
+function keyboardClick(entry: HTMLElement): void {
+  entry.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 }));
+}
+
+function nameOf(current: Session, id: string): string | undefined {
+  return current.modeler.elements.list().find((element) => element.id === id)?.name;
+}
+
+function boundsOf(current: Session, id: string): unknown {
+  return current.modeler.elements.bounds(id);
+}
+
+/**
+ * The action that made the element and opened its label editor ran to its end before the import:
+ * the editor is open again on the imported element with the same id, and the name the user types
+ * there reaches the export, with one change for the action and one for the name.
+ */
+async function expectTheNewElementNamed(
+  current: Session,
+  reimport: Promise<unknown> | undefined,
+  idsBefore: readonly string[],
+  typed: string,
+): Promise<void> {
+  const { diagram, container } = current;
+  await expect(reimport).resolves.toBeDefined();
+  await nextTask();
+  const edit = diagram.get<TtLabelEditing>("ttLabelEditing").openEdit();
+  if (!edit) throw new Error("the import left no label editor open");
+  expect(idsBefore).not.toContain(edit.elementId);
+  const edited = shape(diagram, edit.elementId);
+  expect(diagram.get<Canvas>("canvas").hasMarker(edited, "tt-label-editing")).toBe(true);
+
+  typeAndCommit(container, typed);
+
+  expect(current.errors).toEqual([]);
+  expect(current.changes()).toBe(2);
+  expect(nameOf(current, edit.elementId)).toBe(typed);
+  expect(diagram.get<Dragging>("dragging").context()).toBeFalsy();
+  expectNoReplacedElementSelected(diagram);
+}
+
+function elementIds(current: Session): string[] {
+  return current.modeler.elements.list().map((element) => element.id);
+}
+
+/** The change of a label commit, the start of the drag a press begins and the import, in order. */
+function recordCommitDragAndImport(current: Session): string[] {
+  const order: string[] = [];
+  current.modeler.onContentChanged(() => {
+    order.push("change");
+  });
+  current.diagram.on("drag.init", () => {
+    order.push("drag.init");
+  });
+  current.diagram.on("import.done", () => {
+    order.push("imported");
+  });
+  return order;
+}
+
+// #285, #305: these actions run a command and then go on with the element it made or changed, in
+// the same handler: select it, open its label editor, start a drag. An echoing host imports from
+// the command's change listener, so the rest of the action would hold a replaced element.
+describe("an import from inside the change listener of a user action", () => {
+  for (const by of ["a pointer", "Enter"] as const) {
+    test(`waits for an annotation appended from the context pad by ${by}`, async () => {
+      const current = await session();
+      const { diagram, container, pointer } = current;
+      const reimport = reimportOnFirstChange(current);
+      const idsBefore = elementIds(current);
+      diagram.get<Selection>("selection").select(shape(diagram, "team_checkout"));
+      const entry = contextPadEntry(container, "append-annotation");
+      if (by === "a pointer") pointer.clickOn(entry);
+      else
+        entry.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+        );
+
+      await expectTheNewElementNamed(current, reimport(), idsBefore, "Checkout handover notes");
+    });
+  }
+
+  test("waits for a keyboard create from the palette", async () => {
+    const current = await session();
+    const reimport = reimportOnFirstChange(current);
+    const idsBefore = elementIds(current);
+    keyboardClick(paletteEntry(current.container, "team.platform"));
+
+    await expectTheNewElementNamed(current, reimport(), idsBefore, "Payments platform");
+  });
+
+  test("waits for a keyboard create whose selection makes the host import", async () => {
+    const current = await session();
+    const { modeler } = current;
+    let reimport: Promise<unknown> | undefined;
+    modeler.elements.onSelection(() => {
+      reimport ??= modeler.importText(modeler.exportText());
+    });
+    const idsBefore = elementIds(current);
+    keyboardClick(paletteEntry(current.container, "team.platform"));
+
+    await expectTheNewElementNamed(current, reimport, idsBefore, "Payments platform");
+  });
+
+  test("waits for a label commit by Enter, and the committed editor stays closed", async () => {
+    const current = await session();
+    const { diagram, container } = current;
+    const order = recordCommitDragAndImport(current);
+    const reimport = reimportOnFirstChange(current);
+    startTyping(current, "team_discovery", "Discovery squad");
+    commitTheEdit(container);
+    expect(order).toEqual(["change"]);
+
+    await expect(reimport()).resolves.toBeDefined();
+    await nextTask();
+    expect(order).toEqual(["change", "imported"]);
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(nameOf(current, "team_discovery")).toBe("Discovery squad");
+    expect(diagram.get<TtLabelEditing>("ttLabelEditing").openEdit()).toBeUndefined();
+  });
+
+  // A click with no press before it (assistive technology, a host's synthetic click) leaves the
+  // editor focused, so the label commit comes from `drag.init` inside the create's start.
+  test("waits for the label commit inside a palette create a click without a press starts; the import ends that create", async () => {
+    const current = await session();
+    const { modeler, diagram, container, pointer } = current;
+    const order = recordCommitDragAndImport(current);
+    const reimport = reimportOnFirstChange(current);
+    startTyping(current, "team_discovery", "Discovery squad");
+    pointer.clickOn(paletteEntry(container, "team.platform"));
+
+    await expect(reimport()).resolves.toBeDefined();
+    expect(order).toEqual(["change", "drag.init", "imported"]);
+    expect(current.errors).toEqual([]);
+    expect(diagram.get<Dragging>("dragging").context()).toBeFalsy();
+    expect(previewOf(container)).toBeNull();
+    const imported = modeler.exportText();
+    const drop = { x: 1120, y: 120 };
+    pointer.enter();
+    pointer.moveTo({ x: drop.x - 40, y: drop.y });
+    pointer.moveTo(drop);
+    pointer.releaseAt(drop);
+
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(nameOf(current, "team_discovery")).toBe("Discovery squad");
+    expect(modeler.exportText()).toBe(imported);
+    expectNoReplacedElementSelected(diagram);
+    expectTheNextEditReported(current, imported);
+  });
+
+  test("keeps the palette create of a real click: the editor's blur commits the label before it", async () => {
+    await page.viewport(1280, 800);
+    const current = await session();
+    const { diagram, container, pointer } = current;
+    const order = recordCommitDragAndImport(current);
+    const reimport = reimportOnFirstChange(current);
+    const idsBefore = elementIds(current);
+    startTyping(current, "team_discovery", "Discovery squad");
+    await userEvent.click(paletteEntry(container, "team.platform"));
+
+    await expect(reimport()).resolves.toBeDefined();
+    expect(order).toEqual(["change", "imported", "drag.init"]);
+    expect(diagram.get<Dragging>("dragging").context()).toBeTruthy();
+    const drop = { x: 1120, y: 120 };
+    pointer.enter();
+    pointer.moveTo({ x: drop.x - 40, y: drop.y });
+    pointer.moveTo(drop);
+    pointer.releaseAt(drop);
+
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(2);
+    expect(nameOf(current, "team_discovery")).toBe("Discovery squad");
+    expect(elementIds(current).filter((id) => !idsBefore.includes(id))).toHaveLength(1);
+    expect(diagram.get<Dragging>("dragging").context()).toBeFalsy();
+    expectNoReplacedElementSelected(diagram);
+  });
+
+  test("waits for the label commit of a press on a resize handle; the import ends the resize it started", async () => {
+    const current = await session();
+    const { modeler, diagram, container, pointer } = current;
+    const order = recordCommitDragAndImport(current);
+    const reimport = reimportOnFirstChange(current);
+    const fraudBefore = boundsOf(current, "team_fraud");
+    startTyping(current, "team_discovery", "Discovery squad");
+    const team = shape(diagram, "team_fraud");
+    diagram.get<Selection>("selection").select(team);
+    const corner = { x: team.x + team.width, y: team.y + team.height };
+    pointer.press(southEastHandle(container, team), corner);
+
+    await expect(reimport()).resolves.toBeDefined();
+    expect(order).toEqual(["change", "drag.init", "imported"]);
+    expect(current.errors).toEqual([]);
+    expect(diagram.get<Dragging>("dragging").context()).toBeFalsy();
+    expect(previewOf(container)).toBeNull();
+    const imported = modeler.exportText();
+    pointer.moveTo({ x: corner.x + 30, y: corner.y + 20 });
+    pointer.moveTo({ x: corner.x + 60, y: corner.y + 40 });
+    pointer.releaseAt({ x: corner.x + 60, y: corner.y + 40 });
+
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(nameOf(current, "team_discovery")).toBe("Discovery squad");
+    expect(boundsOf(current, "team_fraud")).toEqual(fraudBefore);
+    expect(previewOf(container)).toBeNull();
+    expectNoReplacedElementSelected(diagram);
+    expectTheNextEditReported(current, imported);
+  });
+
+  test("waits for the label commit of a press on another team; the import ends the move it started", async () => {
+    const current = await session();
+    const { modeler, diagram, container, pointer } = current;
+    const order = recordCommitDragAndImport(current);
+    const reimport = reimportOnFirstChange(current);
+    const checkoutBefore = boundsOf(current, "team_checkout");
+    startTyping(current, "team_discovery", "Discovery squad");
+    const start = middle(shape(diagram, "team_checkout"));
+    pointer.press(pointer.graphics("team_checkout"), start);
+
+    await expect(reimport()).resolves.toBeDefined();
+    expect(order).toEqual(["change", "drag.init", "imported"]);
+    expect(current.errors).toEqual([]);
+    expect(diagram.get<Dragging>("dragging").context()).toBeFalsy();
+    const imported = modeler.exportText();
+    pointer.enter();
+    pointer.moveTo({ x: start.x + 20, y: start.y + 10 });
+    pointer.moveTo({ x: start.x + 60, y: start.y + 30 });
+    pointer.releaseAt({ x: start.x + 60, y: start.y + 30 });
+
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(nameOf(current, "team_discovery")).toBe("Discovery squad");
+    expect(boundsOf(current, "team_checkout")).toEqual(checkoutBefore);
+    expect(previewOf(container)).toBeNull();
+    expectNoReplacedElementSelected(diagram);
+    expectTheNextEditReported(current, imported);
+  });
+
+  test("runs the imports made during an action and right after it in the order they were made", async () => {
+    const current = await session();
+    const { modeler, container } = current;
+    const first = peerMoves("team_platform", 40);
+    const second = peerMoves("team_platform", 80);
+    const settled: string[] = [];
+    let duringTheAction: Promise<unknown> | undefined;
+    modeler.onContentChanged(() => {
+      duringTheAction ??= modeler.importText(first).then(() => settled.push("first"));
+    });
+    keyboardClick(paletteEntry(container, "team.platform"));
+    const afterTheAction = modeler.importText(second).then(() => settled.push("second"));
+
+    await Promise.all([duringTheAction, afterTheAction]);
+    expect(settled).toEqual(["first", "second"]);
+    expect(modeler.exportText()).toBe(second);
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+  });
+
+  // These commands deselect a team while they run, before their change: diagram-js deselects an
+  // element its canvas removes.
+  const deselectingCommands: Record<string, (diagram: Modeler) => () => void> = {
+    "a delete": (diagram) => {
+      diagram.get<Selection>("selection").select(shape(diagram, "team_checkout"));
+      return () =>
+        diagram.get<Modeling>("modeling").removeElements([shape(diagram, "team_checkout")]);
+    },
+    "an undo": (diagram) => {
+      const team = diagram.get<TtElementFactory>("ttElementFactory").createNewTeam("platform");
+      const created = diagram
+        .get<Modeling>("modeling")
+        .createShape(team as unknown as Shape, { x: 1120, y: 120 }, shape(diagram, ROOT_ID));
+      diagram.get<Selection>("selection").select(created);
+      return () => diagram.undo();
+    },
+    "a redo": (diagram) => {
+      diagram.get<Modeling>("modeling").removeElements([shape(diagram, "team_checkout")]);
+      diagram.undo();
+      diagram.get<Selection>("selection").select(shape(diagram, "team_checkout"));
+      return () => diagram.redo();
+    },
+  };
+
+  for (const [name, prepare] of Object.entries(deselectingCommands)) {
+    test(`waits for ${name} whose selection change makes the host import`, async () => {
+      const current = await session();
+      const { modeler, diagram } = current;
+      const imported = peerMoves("team_platform", 40);
+      const run = prepare(diagram);
+      await nextTask();
+      const changesBefore = current.changes();
+      let reimport: Promise<unknown> | undefined;
+      modeler.elements.onSelection(() => {
+        reimport ??= modeler.importText(imported);
+      });
+      run();
+
+      await expect(reimport).resolves.toBeDefined();
+      expect(current.errors).toEqual([]);
+      expect(current.changes()).toBe(changesBefore + 1);
+      expect(modeler.exportText()).toBe(imported);
+      expectNoReplacedElementSelected(diagram);
+      expectTheNextEditReported(current, imported);
+      // An import inside the command would clear the history under it and leave it wedged.
+      diagram.undo();
+      expect(modeler.exportText()).toBe(imported);
+      expect(diagram.canUndo()).toBe(false);
+    });
+  }
+});
 
 describe("an import while a palette tool only waits for its press", () => {
   test("leaves the lasso tool armed, and its next drag selects the imported elements", async () => {

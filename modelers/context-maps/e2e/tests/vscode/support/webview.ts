@@ -18,6 +18,8 @@ export interface OpenOptions {
   map?: "example" | "empty";
   /** Open from the start, as the webview state restores a legend the user left open. */
   legend?: "open";
+  /** Run the extension's document plumbing in the page, so a test edits a real document. */
+  host?: boolean;
 }
 
 /** Opens the webview as VS Code would and resolves once the first `init` import has settled. */
@@ -26,6 +28,7 @@ export async function openWebview(page: Page, options: OpenOptions = {}): Promis
   const search = new URLSearchParams(vsCodeStubSearch(options.requested ?? LIGHT));
   if (options.map === "empty") search.set("map", "empty");
   if (options.legend) search.set("legend", options.legend);
+  if (options.host) search.set("host", "");
   await page.goto(`/webview-test.html?${search.toString()}`);
   await page.waitForFunction(() => window.webviewReady === true);
 }

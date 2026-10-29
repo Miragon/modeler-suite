@@ -32,8 +32,8 @@ import { Modeler } from "../Modeler.js";
 import { NavigatedViewer } from "../NavigatedViewer.js";
 import { isTtElement, type TtElement } from "../model/di-types.js";
 import { appearanceSurface } from "./appearance.js";
-import { watchDrops } from "./drops.js";
 import { trackInteraction } from "./interaction.js";
+import { watchUserActions } from "./user-actions.js";
 
 /** Stable notation id in `meta.notation` of the collaborative-modeler contract. */
 export const TEAM_TOPOLOGIES_NOTATION = "team-topologies";
@@ -124,7 +124,7 @@ function collaborative(
   const dragging =
     diagram.get<Injector>("injector").get<Dragging | null>("dragging", false) ?? null;
   const interaction = trackInteraction(eventBus, dragging);
-  const drops = watchDrops(eventBus);
+  const userActions = watchUserActions(eventBus);
   const contentListeners = new Set<() => void>();
   let importsRunning = 0;
   let destroyed = false;
@@ -156,12 +156,12 @@ function collaborative(
     }
   };
 
-  /** The imports that wait for a drop, each settled before the next one runs. */
+  /** The imports that wait for a user action, each settled before the next one runs. */
   let waitingImports: Promise<unknown> | undefined;
 
-  const importAfterDrop = (document: TtDocument): Promise<ImportResult> => {
+  const importAfterUserAction = (document: TtDocument): Promise<ImportResult> => {
     const imported = (waitingImports ?? Promise.resolve())
-      .then(() => drops.untilNoDropRuns())
+      .then(() => userActions.untilNoActionRuns())
       .then(() => importNow(document));
     const settled = imported.then(
       () => undefined,
@@ -213,7 +213,7 @@ function collaborative(
     async importText(text): Promise<ImportResult> {
       if (destroyed) throw new Error("The modeler was destroyed.");
       const document = parseDocumentText(text);
-      if (drops.running() || waitingImports) return importAfterDrop(document);
+      if (userActions.running() || waitingImports) return importAfterUserAction(document);
       return importNow(document);
     },
     exportText() {
@@ -253,7 +253,7 @@ function collaborative(
       destroyed = true;
       contentListeners.clear();
       interaction.stop();
-      drops.stop();
+      userActions.stop();
       diagram.destroy();
     },
   };

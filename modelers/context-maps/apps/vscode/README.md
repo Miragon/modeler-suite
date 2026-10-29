@@ -67,7 +67,8 @@ A diagram shows bounded contexts and the relationships between them.
   `Cmd/Ctrl+0` shows 100 %, `Shift+1` and the **Fit** button fit the map (never above 100 %).
 - **Undo through the document:** every change on the canvas is one edit of the file, so `Cmd/Ctrl+Z`
   undoes it in VS Code's history, and the view and the selection stay. In the name editor the keys
-  undo only the field.
+  undo only the field. A change VS Code does not write, as in a file opened read-only, goes back on
+  the canvas, which shows the file again.
 - **Text and diagram side by side:** **Open Source to the Side** (editor title of the diagram) and
   **Open Diagram to the Side** (editor title of the text). Edit either one; the other follows.
 - **Problems:** JSON errors and the 13 semantic rules of strategic DDD appear in the Problems view

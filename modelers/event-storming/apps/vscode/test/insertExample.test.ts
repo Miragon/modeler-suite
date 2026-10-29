@@ -6,7 +6,7 @@ import { fakeDocument, installEchoingApplyEdit, openBoard, resetApplyEdit } from
 beforeEach(() => vscodeMock.reset());
 afterEach(() => resetApplyEdit());
 
-describe("EventStormingEditorProvider — Insert example", () => {
+describe("the board editor: Insert example", () => {
   it("writes the example as ONE WorkspaceEdit with one replacement (one undo step)", async () => {
     const doc = fakeDocument("/a.storm", EMPTY_BOARD);
     const applied = installEchoingApplyEdit(doc);

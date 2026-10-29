@@ -18,6 +18,8 @@ export interface OpenOptions {
   size?: { width: number; height: number };
   requested?: Appearance;
   diagram?: TestDiagram;
+  /** Run the extension's document plumbing in the page, so a test edits a real document. */
+  host?: boolean;
 }
 
 /** Opens the webview as VS Code would and resolves once the first `init` import has settled. */
@@ -25,6 +27,7 @@ export async function openWebview(page: Page, options: OpenOptions = {}): Promis
   await page.setViewportSize(options.size ?? WIDE);
   const search = new URLSearchParams(vsCodeStubSearch(options.requested ?? LIGHT));
   if (options.diagram) search.set("diagram", options.diagram);
+  if (options.host) search.set("host", "");
   await page.goto(`/webview-test.html?${search.toString()}`);
   await page.waitForFunction(() => window.webviewReady === true);
 }

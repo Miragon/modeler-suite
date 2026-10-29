@@ -73,8 +73,10 @@ type RootWithMeta = Root & { businessObject?: RootBusinessObject };
 const SMALLEST_FIT_ZOOM = 0.001;
 
 /** Services of the Modeler that hold an edit in progress; the viewers have none of them. */
-interface ContextPadPrompt {
+interface ContextPadEdits {
   cancelPrompt(): void;
+  suspendMenu(): void;
+  resumeMenu(): void;
 }
 
 function sizeToCss(value: number | string): string {
@@ -138,19 +140,23 @@ export abstract class CmBaseViewer {
    * not write the import back. Throws before anything changes when the document cannot be drawn.
    * A gesture that runs ends first, as on Escape, and an armed palette tool stays armed
    * (`CmGestureCancel`). A drop that runs is left to finish; the contract's `importText` waits for
-   * its end, this synchronous import does not.
+   * the end of the user's action, this synchronous import does not. An open label edit and a menu
+   * a user action keeps open (the subdomain-type menu of an append, the integration roles after a
+   * toggle) come back on the element with the same id.
    */
   importDocument(doc: CmDocument): { warnings: ImportWarning[] } {
     const diagram = this._ensureDiagram();
     const eventBus = diagram.get<EventBus>("eventBus");
     const importer = diagram.get<CmImporter>("cmImporter");
     importer.assertImportable(doc);
+    const contextPad = this._optional<ContextPadEdits>("cmContextPadProvider");
+    contextPad?.suspendMenu();
     this._optional<CmGestureCancel>("cmGestureCancel")?.cancelForClear();
     const labelEditing = this._optional<CmLabelEditing>("cmLabelEditing");
     // An edit in progress belongs to an element the import is about to replace: a commit after it
     // (Enter, blur) would land on a removed shape.
     labelEditing?.suspend();
-    this._optional<ContextPadPrompt>("cmContextPadProvider")?.cancelPrompt();
+    contextPad?.cancelPrompt();
     this._optional<PopupMenu>("popupMenu")?.close();
     importer.clear();
     const warnings = importer.import(doc);
@@ -160,6 +166,7 @@ export abstract class CmBaseViewer {
     if (this._options.fitOnImport ?? true) this._fit();
     eventBus.fire("import.done", { warnings });
     labelEditing?.resumeAfterImport();
+    contextPad?.resumeMenu();
     return { warnings };
   }
 

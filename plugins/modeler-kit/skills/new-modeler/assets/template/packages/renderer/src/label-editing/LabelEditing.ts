@@ -110,10 +110,14 @@ export default class LabelEditing {
     this.close();
   }
 
-  /** Takes an open edit down for an import, without committing it (L1). */
+  /**
+   * Takes an open edit down for an import, without committing it (L1). An edit an earlier import
+   * took down and has not reopened yet stays suspended: imports that waited for the user's action
+   * run back to back.
+   */
   suspend(): void {
     clearTimeout(this.resumeTimer);
-    this.suspended = this.openEdit();
+    this.suspended = this.openEdit() ?? this.suspended;
     this.cancel();
   }
 

@@ -39,7 +39,7 @@ export type ShellHost = "ide" | "web" | "embedded";
 /**
  * The `data-chrome` names of the chrome (guide §5.2, §13.4). The web column adds `primary`, `legal`,
  * `toasts`, `empty-state`, `drop-zone` and `problems-popover` (0.2); IDE and embedded hosts never
- * show `primary`, `legal`, `empty-state` and `drop-zone`, the IDE host never `toasts` and
+ * show `primary`, `legal`, `toasts`, `empty-state` and `drop-zone`, the IDE host never
  * `problems-popover`.
  */
 export type ChromeIsland =

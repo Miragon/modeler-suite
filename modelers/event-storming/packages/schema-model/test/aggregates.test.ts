@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CURRENT_SCHEMA_VERSION,
+  PLACEHOLDER_LABELS,
   groupByAggregate,
   normalizeLabel,
   type AggregateGroup,
@@ -379,6 +380,76 @@ describe("groupByAggregate", () => {
     expect(group.aggregate.elementIds).toEqual(["unknown"]);
     expect(group.commands).toEqual([]);
     expect(group.events).toEqual([]);
+  });
+
+  it("leaves out an aggregate retyped from another kind while it carries that kind's placeholder", () => {
+    const groups = groupByAggregate({
+      elements: [
+        sticky("place", "command", "Place Order", 0, 0),
+        sticky("retyped_event", "aggregate", "Domain Event", 200, 0),
+        sticky("placed", "event", "Order Placed", 400, 0),
+        sticky("retyped_command", "aggregate", "Command 2", 200, 300),
+        sticky("retyped_hotspot", "aggregate", " Hotspot ", 200, 600),
+        sticky("retyped_readmodel", "aggregate", "Read Model 3", 200, 900),
+        sticky("store", "aggregate", "Domain Event Store", 200, 1200),
+      ],
+      edges: [
+        arrow("place", "retyped_event"),
+        arrow("retyped_event", "placed"),
+        arrow("place", "retyped_command"),
+      ],
+    });
+
+    const group = only(groups);
+    expect(group.aggregate.elementIds).toEqual(["store"]);
+    expect(group.commands).toEqual([]);
+    expect(group.events).toEqual([]);
+  });
+
+  it("forms no group from the placeholder of any sticky kind, alone or numbered", () => {
+    const elements = Object.values(PLACEHOLDER_LABELS).flatMap((placeholder, index) => [
+      sticky(`plain_${index}`, "aggregate", placeholder, index * 200),
+      sticky(`numbered_${index}`, "aggregate", `${placeholder} ${index + 2}`, index * 200, 300),
+    ]);
+    expect(groupByAggregate({ elements, edges: [] })).toEqual([]);
+
+    const renamed = elements.map((element) =>
+      element.id === "numbered_0" ? { ...element, label: "Order" } : element,
+    );
+    expect(only(groupByAggregate({ elements: renamed, edges: [] })).aggregate.elementIds).toEqual([
+      "numbered_0",
+    ]);
+  });
+
+  it("reads another kind's default name as a placeholder where a board means it as a name", () => {
+    const board = {
+      elements: [
+        sticky("issue", "command", "Issue Policy", 0),
+        sticky("policy", "aggregate", "Policy", 200),
+        sticky("issued", "event", "Policy Issued", 400),
+        sticky("renew", "command", "Renew Policy", 0, 300),
+        sticky("policies", "aggregate", "Policies", 200, 300),
+        sticky("renewed", "event", "Policy Renewed", 400, 300),
+      ],
+      edges: [
+        arrow("issue", "policy"),
+        arrow("policy", "issued"),
+        arrow("renew", "policies"),
+        arrow("policies", "renewed"),
+      ],
+    };
+
+    const group = only(groupByAggregate(board));
+    expect(group.aggregate.elementIds).toEqual(["policies"]);
+    expect(group.aggregate.label).toBe("Policies");
+    expect(pairsOf(group)).toEqual(["Renew Policy -> Policy Renewed"]);
+
+    const specific = board.elements.map((element) =>
+      element.id === "policy" ? { ...element, label: "Insurance Policy" } : element,
+    );
+    expect(
+      groupByAggregate({ elements: specific, edges: board.edges }).map((each) => pairsOf(each)),
+    ).toEqual([["Issue Policy -> Policy Issued"], ["Renew Policy -> Policy Renewed"]]);
   });
 
   it("counts a name that only starts like the placeholder, and never merges a placeholder into it", () => {

@@ -18,6 +18,7 @@ import {
   type EventStormingModeling,
   type EventStormingReadOnly,
   type EventStormingShape,
+  type StickyKind,
   type TypeCaptions,
 } from "../../src/index.js";
 import "../../src/assets/event-storming.css";
@@ -51,6 +52,18 @@ aggregate Aggregate 2 [350, 450] (id agg_next)
 
 #cmd_place -> #agg_new
 #agg_new -> #evt_placed`;
+
+/**
+ * A step whose middle sticky is still a new domain event called "Domain Event", between a command
+ * and an event: retyped to an aggregate, it keeps that label.
+ */
+const RETYPE_BOARD = `title Retyped
+command Place Order [150, 200] (id cmd_place)
+event Domain Event [350, 200] (id evt_new)
+event Order Placed [550, 200] (id evt_placed)
+
+#cmd_place -> #evt_new
+#evt_new -> #evt_placed`;
 
 /** What the shell's chrome covers: the menu row on top, a legend on the left. */
 const INSETS = { top: 64, right: 12, bottom: 64, left: 240 };
@@ -138,6 +151,16 @@ const rename = (diagram: Modeler, id: string, label: string) =>
       label,
     },
   ]);
+
+const retype = (diagram: Modeler, id: string, kind: StickyKind) =>
+  diagram
+    .get<EventStormingModeling>("eventStormingModeling")
+    .setStickyKind(
+      diagram.get<ElementRegistry>("elementRegistry").get(id) as EventStormingShape,
+      kind,
+    );
+const emptySentence = () =>
+  dialog()?.querySelector<HTMLElement>(".event-storming-aggregates-empty")?.textContent;
 
 /** The ids of the Model group as an app builds it after an import or a command. */
 function modelGroupIds(diagram: Modeler): string[] {
@@ -265,6 +288,54 @@ describe("the board's aggregates on the canvas (issue #116, real browser DOM)", 
     expect(modelGroupIds(diagram)).toEqual(["level", "type-captions"]);
 
     rename(diagram, "agg_next", "Aggregate 3");
+    expect(modelGroupIds(diagram)).toEqual(["level", "type-captions"]);
+  });
+
+  it("counts no sticky retyped to an aggregate while it carries another kind's placeholder, in the menu and the open dialog", async () => {
+    const diagram = await mount({ board: RETYPE_BOARD });
+    const aggregates = aggregatesOf(diagram);
+    aggregates.showDialog(dialogChrome(container!));
+
+    retype(diagram, "evt_new", "aggregate");
+
+    const retyped = diagram
+      .get<ElementRegistry>("elementRegistry")
+      .get("evt_new") as EventStormingShape;
+    expect([retyped.eventStormingType, retyped.eventStormingLabel]).toEqual([
+      "aggregate",
+      "Domain Event",
+    ]);
+    expect(aggregates.hasAggregates()).toBe(false);
+    expect(aggregates.rows()).toEqual([]);
+    expect(modelGroupIds(diagram)).toEqual(["level", "type-captions"]);
+    expect(emptySentence()).toBe("The board has no named aggregates.");
+
+    rename(diagram, "evt_new", "Order");
+    expect(modelGroupIds(diagram)).toEqual(["level", "type-captions", "aggregates"]);
+    const table = dialog()!.querySelector("table")!;
+    expect(
+      [...table.tBodies].map((group) =>
+        [...group.rows].map((row) => [...row.cells].map((cell) => cell.textContent)),
+      ),
+    ).toEqual([[["Place Order", "Order", "Order Placed"]]]);
+
+    rename(diagram, "evt_new", "Command 2");
+    expect(aggregates.hasAggregates()).toBe(false);
+    expect(modelGroupIds(diagram)).toEqual(["level", "type-captions"]);
+    expect(emptySentence()).toBe("The board has no named aggregates.");
+  });
+
+  it("still counts no retyped placeholder aggregate after a save and a reopen", async () => {
+    const diagram = await mount({ board: RETYPE_BOARD });
+    retype(diagram, "evt_new", "aggregate");
+
+    const text = diagram.exportDSL();
+    expect(text).toContain("aggregate Domain Event [350, 200]");
+    await diagram.importDSL(text);
+
+    const aggregates = aggregatesOf(diagram);
+    expect(aggregates.hasAggregates()).toBe(false);
+    expect(aggregates.rows()).toEqual([]);
     expect(modelGroupIds(diagram)).toEqual(["level", "type-captions"]);
   });
 

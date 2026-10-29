@@ -145,7 +145,8 @@ function documentIds(diagram: Modeler | NavigatedViewer, eventBus: EventBus) {
 
 /**
  * The contract's `interaction`, read from the Modeler's `wardleyInteraction`; a viewer has no
- * editing gesture and reports none. `afterDrop` is the service's wait for a running drop.
+ * editing gesture and reports none. `afterUserAction` is the service's wait for the user's running
+ * action.
  */
 function interactionOf(diagram: Modeler | NavigatedViewer, editable: boolean) {
   const service = editable ? diagram.get<WardleyInteraction>("wardleyInteraction") : undefined;
@@ -176,7 +177,8 @@ function interactionOf(diagram: Modeler | NavigatedViewer, editable: boolean) {
   };
   return {
     surface,
-    afterDrop: (): Promise<void> | undefined => (destroyed ? undefined : service?.afterDrop()),
+    afterUserAction: (): Promise<void> | undefined =>
+      destroyed ? undefined : service?.afterUserAction(),
     destroy() {
       destroyed = true;
       listeners.clear();
@@ -208,18 +210,35 @@ function appearanceOf(root: HTMLElement, isDestroyed: () => boolean): Appearance
 }
 
 /**
- * Waits for `edit`, then for each drop still running by then, and rejects once the modeler has been
- * destroyed meanwhile.
+ * The wait of each import: behind the imports that waited before it, then until each user action
+ * still running by then has finished; `undefined` when there is nothing to wait for. A wait rejects
+ * once the modeler has been destroyed meanwhile.
  */
-async function untilTheEditHasEnded(
-  edit: Promise<void>,
-  afterDrop: () => Promise<void> | undefined,
+function importTurns(
+  afterUserAction: () => Promise<void> | undefined,
   isDestroyed: () => boolean,
-): Promise<void> {
-  for (let wait: Promise<void> | undefined = edit; wait; wait = afterDrop()) {
-    await wait;
-    if (isDestroyed()) throw new Error("The modeler was destroyed.");
-  }
+): () => Promise<void> | undefined {
+  let lastWaiting: Promise<void> | undefined;
+  const wait = async (ahead: Promise<void> | undefined, action: Promise<void> | undefined) => {
+    if (ahead) await ahead.catch(() => undefined);
+    for (; ; action = afterUserAction()) {
+      if (isDestroyed()) throw new Error("The modeler was destroyed.");
+      if (!action) return;
+      await action;
+    }
+  };
+  return () => {
+    const ahead = lastWaiting;
+    const action = afterUserAction();
+    if (!ahead && !action) return undefined;
+    const turn = wait(ahead, action);
+    lastWaiting = turn;
+    const taken = () => {
+      if (lastWaiting === turn) lastWaiting = undefined;
+    };
+    turn.then(taken, taken);
+    return turn;
+  };
 }
 
 function collaborative(
@@ -236,10 +255,10 @@ function collaborative(
   const interaction = interactionOf(diagram, editable);
   const contentListeners = new Set<() => void>();
   let importsRunning = 0;
-  let changesReporting = 0;
   let imported = false;
   let destroyed = false;
   let lastExport = "";
+  const untilItsTurn = importTurns(interaction.afterUserAction, () => destroyed);
 
   const meta: ModelerMeta = {
     notation: WARDLEY_NOTATION,
@@ -252,12 +271,7 @@ function collaborative(
   if (editable) {
     eventBus.on("commandStack.changed", () => {
       if (importsRunning > 0) return;
-      changesReporting += 1;
-      try {
-        for (const listener of [...contentListeners]) listener();
-      } finally {
-        changesReporting -= 1;
-      }
+      for (const listener of [...contentListeners]) listener();
     });
   }
 
@@ -313,11 +327,12 @@ function collaborative(
   async function importText(text: string): Promise<ImportResult> {
     if (destroyed) throw new Error("The modeler was destroyed.");
     // A host that echoes its own change back through its store imports from the change listener,
-    // while the edit still runs: a create goes on to select its element and open its name editor,
-    // and a drop's later steps, also those it defers by a task, hold the shapes the import would
-    // replace. So the import waits until the edit has returned and a running drop has ended.
-    const edit = changesReporting > 0 ? Promise.resolve() : interaction.afterDrop();
-    if (edit) await untilTheEditHasEnded(edit, interaction.afterDrop, () => destroyed);
+    // while the user's action still runs: a create goes on to select its element and open its name
+    // editor, a press that saved a name goes on to start its drag, and a drop's later steps, also
+    // those it defers by a task, hold the shapes the import would replace. So the import waits
+    // until the action has finished, and after the imports that waited before it.
+    const turn = untilItsTurn();
+    if (turn) await turn;
     importsRunning += 1;
     // An open label editor neither commits during the import nor loses what was typed (L1): it
     // is taken down and reopened on the element with the same id.

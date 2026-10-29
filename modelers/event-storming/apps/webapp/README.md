@@ -10,8 +10,10 @@ and `.txt` files, and the VS Code extension's exports (PNG, SVG, the transparent
 system font, and a warning toast says so. Replacing a board offers it back ("Board replaced · Undo",
 or `Ctrl/Cmd+Z`), the tab names the board, and import findings are listed under the problems pill in
 plain words. While the board has a named aggregate, "Aggregates…" in the menu lists each named
-aggregate once (a placeholder such as "Aggregate 2" is left out), with the commands that lead into
-it and the events that follow, and a name selects its stickies on the board. The demo app for the
+aggregate once (the default name of any kind of sticky is left out: "Aggregate 2", "Domain Event"
+on a sticky retyped to an aggregate, and also "Policy" or "Actor" on an aggregate, while a more
+specific name such as "Insurance Policy" counts), with the commands that lead into it and the
+events that follow, and a name selects its stickies on the board. The demo app for the
 `@miragon/event-storming-*` packages.
 
 **[Live demo](https://event-storming.modeler.miragon.io)**

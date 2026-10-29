@@ -203,8 +203,9 @@ function collaborative(
       } catch (error) {
         return Promise.reject(asError(error));
       }
-      // A host that imports from its change listener does so while the drop that made the change
-      // is still being applied, and the drop's later listeners would meet the replaced diagram.
+      // A host that imports from its change listener does so while the user's action that made the
+      // change still runs: a drop's later listeners, or the selection and label editor of a click
+      // append or a keyboard create, would meet the replaced diagram.
       return new Promise<ImportResult>((resolve, reject) => {
         const importNow = (): void => {
           if (destroyed) {
@@ -218,7 +219,7 @@ function collaborative(
             reject(asError(error));
           }
         };
-        if (gestures) gestures.afterDrop(importNow);
+        if (gestures) gestures.afterUserAction(importNow);
         else importNow();
       });
     },

@@ -129,25 +129,33 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   annotation font has loaded, imports staying in call order, so every fit on import measures it in
   that font. An import first ends a running drag without applying it (`cancelGesture` in
   `EventStormingBaseViewer`, when called and again after any wait, for the annotation font or
-  for a running drop and the step it scheduled; `clear()` too):
+  for a running user action and the step it scheduled; `clear()` too):
   `dragging.cancel(false)` as Escape does, and the drawing handles' point drag, which also ends on
   `shape.remove`, so no release lands on a removed shape; the palette's armed lasso tool
   (`lasso.selection`) stays armed, and a pan (diagram-js's `MoveCanvas`, outside the dragging
   service) keeps running. `eventStormingGestures`
   ([`packages/renderer/src/gesture/`](packages/renderer/src/gesture/)) knows the gesture, the
-  drag that starts and the drop. A drag whose `drag.init` still runs (an open label editor commits
-  there, and a host may import from that commit's change listener) is refused at the end of that
-  `drag.init` instead of cancelled (`refuseStart`): diagram-js activates a resize, create or append
-  right after its init, which throws on a drag cancelled inside it. A drop runs from `drag.end`
-  until `drag.ended` or `drag.canceled` (a drawing's point drop while its command applies) and
-  while a step it scheduled holds it (`holdDrop`: the append's kind chooser or label editor). An
-  import called during a drop waits for its end (`dropEnded()`), so no listener of the drop, also
-  diagram-js's `SelectionBehavior`, sees a replaced board
-  ([#248](https://github.com/Miragon/modeler-suite/issues/248)); a `clear()` there does not wait,
-  and its drop is never cancelled (diagram-js would throw inside its own end of the drag): it ends
+  drag that starts and the user's action. A drag whose `drag.init` still runs (an open label
+  editor commits there, and a host may import from that commit's change listener) is refused at
+  the end of that `drag.init` instead of cancelled (`refuseStart`): diagram-js activates a resize,
+  create or append right after its init, which throws on a drag cancelled inside it. A user
+  action runs from the start of each command (`commandStack.execute`, `revert` for an undo) until
+  the handler that ran it has returned, a microtask later (a selection listener runs inside a
+  delete or an undo, a keyboard create selects its sticky and opens its editor after the command,
+  a press that commits a label starts its drag), through a drop, from `drag.end` until
+  `drag.ended` or `drag.canceled` (a drawing's point drop while its command applies), and while a
+  step it scheduled holds it (`holdAction`: the append's kind chooser or label editor). An import
+  called during an action, from a host's change or selection listener, waits for its end
+  (`actionEnded()`), so
+  no step of the action, also diagram-js's `SelectionBehavior` after a drop, sees a replaced board
+  ([#248](https://github.com/Miragon/modeler-suite/issues/248),
+  [#305](https://github.com/Miragon/modeler-suite/issues/305)); a `clear()` does not wait, and a
+  drop is never cancelled by it (diagram-js would throw inside its own end of the drag): it ends
   as a drop unless something was selected before the drag, since the clear removes the moved
   shape, and `SelectionBehavior` then throws and the drag ends as `drag.canceled`. The kind
-  chooser an import closes reopens on the sticky with the same id while it is still blank. The
+  chooser an import closes reopens on the sticky with the same id while it is still blank; a label
+  editor an import closes reopens on the element with the same id, a note's on the note in its
+  place, since a note created since the last import comes back under the id its text derives. The
   contract's optional `interaction` reads the same service (true from diagram-js's first drag move
   or a point drag's first move until the end; an armed tool, a pan and a line the draw tool holds
   point by point are none, #243), and `appearance` lists `EVENT_STORMING_THEMES` (`["light"]`, in
@@ -196,7 +204,7 @@ more ([`draw/contrast.ts`](packages/renderer/src/draw/contrast.ts), guide §10.6
 ([`apps/vscode/src/webview/main.ts`](apps/vscode/src/webview/main.ts)) mounts the shared Miragon
 modeler chrome on the `ide` host (menu, palette skin, chrome tooltip, zoom panel and keys, fit,
 problems pill, status box, empty-file hint, theme bridge, key interception); the extension host
-uses the shell's webview HTML/CSP and theme bridge. The web app
+runs on the shell's document plumbing (below). The web app
 ([`apps/webapp/src/main.ts`](apps/webapp/src/main.ts)) mounts it on the `web` host: the same chrome
 plus the web column (File group, "Share" as primary action, legal line, toasts, problems list,
 start screen, page-wide drop zone); its `index.html` stays `data-cd-theme="light"` and the Vite
@@ -213,10 +221,12 @@ group and leaves the renderer's out, and the kit's `shortcutsDialog` case checks
 "Aggregates…" ([#116](https://github.com/Miragon/modeler-suite/issues/116)) ends the Model group
 only while the board has a named aggregate, also on a read-only canvas
 (`keepEnabledWhenReadOnly`), so both apps build the menu again after every import and command
-(`shell.menu.setGroups`). An aggregate whose label is still the placeholder a new sticky gets
-("Aggregate", "Aggregate 2") counts for nothing, as it is no label suggestion, and so does an
-empty one, which the `.storm` file stores as "Aggregate" (`isPlaceholderLabel` of the schema
-model, one rule for both). It opens the shell's
+(`shell.menu.setGroups`). An aggregate whose label is still the placeholder a new sticky of any
+kind gets ("Aggregate", "Aggregate 2", or "Domain Event" on a sticky retyped to an aggregate, since
+a retype keeps the label) counts for nothing, as it is no label suggestion, also where a board
+means the name ("Policy" on an aggregate; "Insurance Policy" counts), and so does an empty one,
+which the `.storm` file stores as "Aggregate" (`isPlaceholderLabel` of the schema model, one rule
+for the aggregates, the suggestions and the spelling-variant dots). It opens the shell's
 `openShellDialog` through the renderer's `eventStormingAggregates.showDialog`
 (`{ container: shell.root, openDialog }`,
 [`packages/renderer/src/aggregates/`](packages/renderer/src/aggregates/)):
@@ -239,6 +249,18 @@ fits to the renderer's `contentBounds()` (the webview passes its contract instan
 its `Modeler`); the webview runs on `createCollaborativeModeler` (the tested contract path) and toggles
 the renderer's `eventStormingReadOnly` lock together with `shell.setReadOnly`, the web app keeps
 the canvas's undo keys and replaces a board with an undo toast instead of a confirmation.
+**Document plumbing** is the shell's ([#46](https://github.com/Miragon/modeler-suite/issues/46)):
+[`boardEditor.ts`](apps/vscode/src/boardEditor.ts) registers the custom editor with
+`registerModelerEditor` of `@miragon/modeler-shell/vscode/extension` (the webview HTML and CSP,
+the theme bridge, sync, echo suppression, minimal line edits, undo through the document, "Insert
+example", the problems pill, Show in Problems view), handing it `withExampleInserted`, the
+`BoardDiagnostics` of [`diagnostics.ts`](apps/vscode/src/diagnostics.ts) (the parser's findings as
+warnings, so the pill counts no errors; a board's entry lives only while its board editor is open)
+and the export; the webview's half is `connectDocumentSync`, whose `exportText` is the contract's
+`exportText()`. An edit VS Code refuses (a read-only file) brings the document's text back to the
+canvas. The options that need no `vscode` live in
+[`boardEditorOptions.ts`](apps/vscode/src/boardEditorOptions.ts), which the e2e page also
+registers against the shell's host stub (`?host`, `e2e/tests/vscode/document-sync.spec.ts`).
 **PNG export** is `svgToPng` of `@miragon/modeler-shell/export` in both apps (`boardToPng` in
 `apps/webapp/src/io.ts` and `apps/vscode/src/webview/io.ts`): 2× on `COLORS.paper` (#F9F7F7,
 `hell['--cd-ui-grund']` as guide §10.7 names it for a notation without a plot; both apps' unit

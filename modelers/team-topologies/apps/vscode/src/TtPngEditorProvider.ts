@@ -140,7 +140,7 @@ export class TtPngEditorProvider implements vscode.CustomEditorProvider<TtPngDoc
     _token: vscode.CancellationToken,
   ): Promise<void> {
     const webview = webviewPanel.webview;
-    this.panels.show(webviewPanel, document.uri, { text: false });
+    this.panels.show(webviewPanel);
 
     const binding: PanelBinding = { webview, pending: new Map(), nextId: 1, problemsShown: false };
     this.bindings.set(document, binding);

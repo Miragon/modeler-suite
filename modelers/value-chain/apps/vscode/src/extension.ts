@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
-import { VcEditorProvider } from "./VcEditorProvider.js";
+import { DIAGRAM_VIEW_TYPE, registerDiagramEditor } from "./diagramEditor.js";
 import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "./examples.js";
 
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
-    VcEditorProvider.register(context),
+    registerDiagramEditor(context),
     vscode.commands.registerCommand("valueChain.newDiagram", () => createDiagram(EMPTY_DOCUMENT)),
     vscode.commands.registerCommand("valueChain.newDiagramFromExample", () =>
       createDiagram(EXAMPLE_DOCUMENT),
@@ -35,7 +35,7 @@ async function createDiagram(initial: string): Promise<void> {
     : chosen.with({ path: `${chosen.path.replace(/\.json$/i, "")}.vc.json` });
 
   await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(initial));
-  await vscode.commands.executeCommand("vscode.openWith", target, VcEditorProvider.viewType);
+  await vscode.commands.executeCommand("vscode.openWith", target, DIAGRAM_VIEW_TYPE);
 }
 
 function defaultDiagramUri(): vscode.Uri | undefined {

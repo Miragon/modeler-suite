@@ -62,7 +62,6 @@ function setup(overrides: Partial<ToasterContext> = {}) {
   const focusFallback = vi.fn();
   const toaster = createToaster({
     ownerDocument: document,
-    host: "web",
     messages: defaultMessages,
     idPrefix: "cd-shell-toast-1",
     focusFallback,
@@ -253,8 +252,8 @@ describe("toaster: live regions (guide §8, §12)", () => {
   });
 });
 
-describe("toaster: hosts", () => {
-  it("web: a manual popover, shown once and kept open while no modal dialog opens", () => {
+describe("toaster: the popover in the top layer", () => {
+  it("is a manual popover, shown once and kept open while no modal dialog opens", () => {
     const { toaster, stack, popover } = setup();
     expect(stack.getAttribute("popover")).toBe("manual");
     const first = toaster.show(success("one"));
@@ -269,7 +268,7 @@ describe("toaster: hosts", () => {
     expect(stack.isConnected).toBe(false);
   });
 
-  it("web: shown again with every toast while a modal dialog is open, so it stays above it", () => {
+  it("is shown again with every toast while a modal dialog is open, so it stays above it", () => {
     const { toaster, popover } = setup();
     toaster.show(success("one"));
     popover.calls.length = 0;
@@ -279,7 +278,7 @@ describe("toaster: hosts", () => {
     expect(popover.calls).toEqual(["hide", "show", "hide", "show"]);
   });
 
-  it("web: hides the popover when the last toast is gone", () => {
+  it("is hidden when the last toast is gone", () => {
     const { toaster, popover } = setup();
     toaster.show(success()).dismiss();
     popover.calls.length = 0;
@@ -287,7 +286,7 @@ describe("toaster: hosts", () => {
     expect(popover.calls).toEqual(["hide"]);
   });
 
-  it("web: keeps the focus on a toast while the stack is raised", () => {
+  it("keeps the focus on a toast while the stack is raised", () => {
     const { toaster, stack } = setup();
     // A browser may move the focus out of a popover it hides.
     stubPopover(stack, () => (document.activeElement as HTMLElement | null)?.blur());
@@ -298,10 +297,9 @@ describe("toaster: hosts", () => {
     expect(document.activeElement).toBe(close);
   });
 
-  it("web: still shows toasts where the popover API is missing", () => {
+  it("still shows toasts where the popover API is missing", () => {
     const toaster = createToaster({
       ownerDocument: document,
-      host: "web",
       messages: defaultMessages,
       idPrefix: "cd-shell-toast-2",
       focusFallback() {},
@@ -310,14 +308,6 @@ describe("toaster: hosts", () => {
     document.body.append(toaster.element);
     expect(() => toaster.show(success())).not.toThrow();
     expect(texts(toaster.element)).toEqual(["Link copied"]);
-  });
-
-  it("embedded: absolute in the root, no popover", () => {
-    const { toaster, stack, popover } = setup({ host: "embedded" });
-    expect(stack.hasAttribute("popover")).toBe(false);
-    toaster.show(success());
-    expect(popover.calls).toEqual([]);
-    expect(texts(stack)).toEqual(["Link copied"]);
   });
 });
 

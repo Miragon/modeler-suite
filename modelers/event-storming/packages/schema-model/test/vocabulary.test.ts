@@ -206,39 +206,79 @@ describe("isPlaceholderLabel", () => {
     });
   });
 
-  it.each([
-    ["event", "Domain Event"],
-    ["event", "Domain Event 2"],
-    ["command", "Command 12"],
-    ["aggregate", "Aggregate"],
-    ["aggregate", "Aggregate 2"],
-    ["readmodel", "Read Model 3"],
-    ["external", "External System"],
-    ["hotspot", "Hotspot 4"],
-    ["event", ""],
-    ["aggregate", ""],
-    ["aggregate", " \n "],
-    ["aggregate", " Aggregate 2 "],
-  ] as const)("reads %s %j as a placeholder", (kind, label) => {
-    expect(isPlaceholderLabel(kind, label)).toBe(true);
+  const stickyKinds = Object.keys(PLACEHOLDER_LABELS) as Array<keyof typeof PLACEHOLDER_LABELS>;
+  const placeholders = Object.values(PLACEHOLDER_LABELS);
+  const everyPlaceholderOnEveryKind = stickyKinds.flatMap((kind) =>
+    placeholders.map((placeholder) => [kind, placeholder] as const),
+  );
+
+  it.each(everyPlaceholderOnEveryKind)(
+    "reads %s %j as a placeholder, alone, numbered and padded",
+    (kind, placeholder) => {
+      for (const label of [
+        placeholder,
+        `${placeholder} 2`,
+        `${placeholder} 12`,
+        ` ${placeholder} 3 `,
+        `${placeholder}\n`,
+      ]) {
+        expect(isPlaceholderLabel(kind, label), JSON.stringify(label)).toBe(true);
+      }
+    },
+  );
+
+  it.each(stickyKinds)("reads an empty or blank %s as the placeholder the file stores", (kind) => {
+    expect(isPlaceholderLabel(kind, "")).toBe(true);
+    expect(isPlaceholderLabel(kind, " \n ")).toBe(true);
   });
+
+  it.each(everyPlaceholderOnEveryKind)(
+    "reads a near-miss on %s of %j as a name",
+    (kind, placeholder) => {
+      for (const label of [
+        `${placeholder}s`,
+        `${placeholder} Two`,
+        `${placeholder} Root`,
+        `${placeholder} 2b`,
+        `${placeholder} 2.5`,
+        `${placeholder} -2`,
+        `${placeholder}  2`,
+        `${placeholder}2`,
+        `New ${placeholder}`,
+        placeholder.toLowerCase(),
+        placeholder.toUpperCase(),
+      ]) {
+        expect(isPlaceholderLabel(kind, label), JSON.stringify(label)).toBe(false);
+      }
+    },
+  );
 
   it.each([
     ["event", "Order Placed"],
-    ["event", "Domain Event Two"],
-    ["event", "Domain Event 2b"],
-    ["event", "Domain Event  2"],
-    ["event", "domain event"],
-    ["event", "Domain Events"],
+    ["event", "Domain"],
+    ["event", "DomainEvent"],
+    ["event", "Domain Event 2 3"],
     ["aggregate", "?"],
-    ["aggregate", "Aggregate Root"],
-    ["aggregate", "Domain Event"],
-    ["command", "Aggregate 2"],
-    ["note", "Note"],
-    ["note", ""],
-    ["drawing", ""],
-  ] as const)("reads %s %j as a name, or as no placeholder", (kind, label) => {
+    ["aggregate", "Domain Event Command"],
+    ["command", "Command Aggregate 2"],
+    ["readmodel", "Read"],
+    ["readmodel", "ReadModel"],
+    ["external", "External"],
+    ["hotspot", "Why?"],
+  ] as const)("reads %s %j as a name", (kind, label) => {
     expect(isPlaceholderLabel(kind, label)).toBe(false);
+  });
+
+  it.each(["note", "drawing"] as const)("gives a %s no placeholder, whatever its label", (kind) => {
+    for (const label of [
+      "",
+      " ",
+      "Note",
+      ...placeholders,
+      ...placeholders.map((name) => `${name} 2`),
+    ]) {
+      expect(isPlaceholderLabel(kind, label), JSON.stringify(label)).toBe(false);
+    }
   });
 });
 
@@ -272,7 +312,7 @@ describe("suggestLabels", () => {
     sticky("event", "Payment Received"),
     sticky("event", "Invoice Sent"),
     sticky("command", "Place Order"),
-    sticky("aggregate", "Policy"),
+    sticky("aggregate", "Delivery"),
   ]);
   const labels = (kind: Parameters<typeof suggestLabels>[1], typed: string, limit?: number) =>
     suggestLabels(vocabulary, kind, typed, limit).map((term) => term.label);
@@ -291,7 +331,7 @@ describe("suggestLabels", () => {
   it("reads the last word as written so far and the earlier ones as whole words", () => {
     expect(labels("event", "Pay")).toEqual(["Payment Received"]);
     expect(labels("event", "orders pl")).toEqual(["Order Placed"]);
-    expect(labels("aggregate", "Policies")).toEqual(["Policy"]);
+    expect(labels("aggregate", "Deliveries")).toEqual(["Delivery"]);
     expect(labels("event", "Invoice")).toEqual(["Invoice Sent"]);
   });
 

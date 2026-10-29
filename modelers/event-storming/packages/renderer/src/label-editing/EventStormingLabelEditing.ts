@@ -53,6 +53,11 @@ interface ActiveEdit {
 interface SuspendedEdit {
   elementId: string;
   connection: boolean;
+  /**
+   * The centre of an edited note. A note has no id grammar: the import derives its id from its
+   * text, so a note created since the last import comes back under another id, in the same place.
+   */
+  noteCentre?: { x: number; y: number } | undefined;
   /** The field's raw value (the note editor's markdown), not yet sanitized. */
   value: string;
   selectionStart?: number | undefined;
@@ -147,8 +152,8 @@ export default class EventStormingLabelEditing {
 
   /**
    * Reopens a suspended edit on the element with the same id, if the imported board still has
-   * it. Deferred to the next task, after the host has restored its viewbox around the import, so
-   * the field opens where the element ends up.
+   * it, and a note's edit on the note in its place. Deferred to the next task, after the host has
+   * restored its viewbox around the import, so the field opens where the element ends up.
    */
   resumeAfterImport(): void {
     clearTimeout(this.resumeTimer);
@@ -161,7 +166,7 @@ export default class EventStormingLabelEditing {
   }
 
   private resume(edit: SuspendedEdit): void {
-    const element = this.elementRegistry?.get(edit.elementId);
+    const element = this.elementRegistry?.get(edit.elementId) ?? this.noteAt(edit.noteCentre);
     if (edit.connection) {
       if (!isEventStormingConnection(element)) return;
       this.activateConnection(element);
@@ -185,6 +190,18 @@ export default class EventStormingLabelEditing {
       if (edit.align) this.restoreNoteAlign?.(edit.align);
       placeCaretAtEnd(field);
     }
+  }
+
+  /** The note centred on `centre`, within the rounding of the coordinates the DSL writes. */
+  private noteAt(centre: { x: number; y: number } | undefined): unknown {
+    if (!centre) return undefined;
+    return this.elementRegistry?.find(
+      (element) =>
+        isEventStormingShape(element) &&
+        element.eventStormingType === "note" &&
+        Math.abs(element.x + element.width / 2 - centre.x) < 1 &&
+        Math.abs(element.y + element.height / 2 - centre.y) < 1,
+    );
   }
 
   private restoreNoteAlign: ((align: NoteAlignState) => void) | undefined;
@@ -453,6 +470,7 @@ export default class EventStormingLabelEditing {
     const snapshot = (): SuspendedEdit => ({
       elementId: element.id,
       connection: false,
+      noteCentre: { x: element.x + element.width / 2, y: element.y + element.height / 2 },
       value: domToNoteMarkdown(editor),
       align: { ...align },
     });

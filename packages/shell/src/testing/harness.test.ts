@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { webHookSkips } from "./case-tools.js";
 import {
   registerShellConformance,
   shellConformanceCases,
@@ -445,6 +446,27 @@ describe("registerShellConformance", () => {
       await tests.get(`shell conformance: ${name}`)!({ page: emptyPage() });
     }
     expect(onSkip).not.toHaveBeenCalled();
+  });
+
+  it("needs no toast hook in the embedded host, whose host owns all feedback (guide §5.2)", async () => {
+    const onSkip = vi.fn();
+    const open = vi.fn(async () => {});
+    await register(harness({ host: "embedded", open }), onSkip).get("shell conformance: toasts")!({
+      page: emptyPage(),
+    });
+    expect(onSkip).not.toHaveBeenCalled();
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks only the web host for the toast and start-screen hooks", () => {
+    const hooks = { toast: "the toasts", emptyState: "the start screen" };
+    expect(webHookSkips(harness({ host: "web" }), hooks)).toEqual([
+      { hook: "toast", reason: "show.toast is undefined: the toasts not verified" },
+      { hook: "emptyState", reason: "show.emptyState is undefined: the start screen not verified" },
+    ]);
+    for (const host of ["ide", "embedded"] as const) {
+      expect(webHookSkips(harness({ host }), hooks)).toEqual([]);
+    }
   });
 
   it("fails a harness that gives a web feature it declares absent", async () => {

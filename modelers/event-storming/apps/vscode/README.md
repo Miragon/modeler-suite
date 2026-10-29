@@ -49,7 +49,8 @@ yellow), **Aggregate** (yellow), **Policy** (purple), **Read Model** (green), **
 - **Undo and redo belong to the file.** Every change on the canvas is one edit of the document, so
   `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z` (or **Edit > Undo**) undo it like a text change, and the
   canvas keeps its view and selection. Only the lines that changed are rewritten, so a text editor
-  open beside the board keeps its cursor.
+  open beside the board keeps its cursor. When VS Code refuses a change, as for a file it opened
+  read-only, the board goes back to what the file holds.
 - **Menu** (top left): the workshop **Level** and **Type captions** (the caption on each sticky),
   **Aggregates…** while the board has a named aggregate, **Export as PNG**, **Export as SVG**,
   **Export as PNG (4×, transparent)** (for slides) and **Export as JSON**, the same exports as the
@@ -57,9 +58,11 @@ yellow), **Aggregate** (yellow), **Policy** (purple), **Read Model** (green), **
   embedded, the PNG is still saved, in a system font, and a warning says so. **Aggregates…** lists
   every named aggregate once, however often the timeline repeats it, with the commands that lead
   into it and the domain events that follow, as the arrows connect them; spellings such as `Order`
-  and `Orders` count as one name, and a placeholder such as `Aggregate 2` counts as none. Choose a
-  name to select its stickies on the board: that changes nothing in the file, and it works while
-  the file is invalid too.
+  and `Orders` count as one name, and the default name of any kind of sticky counts as none:
+  `Aggregate 2`, `Domain Event` on a sticky retyped to an aggregate, and also `Policy` or `Actor`
+  on an aggregate (a more specific name such as `Insurance Policy` counts). Choose a name to
+  select its stickies on the board: that changes nothing in the file, and it works while the file
+  is invalid too.
 - **Zoom** (bottom right): zoom out, the current zoom (click for 100%), zoom in and fit. With the
   board focused, `Ctrl/Cmd` + `+`, `-` and `0` zoom the canvas (not the window), `Shift+1` fits.
 - **Problems.** Lines the parser cannot fully use (an arrow to a missing sticky, an unreadable
@@ -80,9 +83,10 @@ yellow), **Aggregate** (yellow), **Policy** (purple), **Read Model** (green), **
   file is kept, but the board follows the theme, not the file.
 - **Self-hosted fonts**: no CDN, offline-capable.
 
-The menu, palette skin, zoom panel, problems pill, status box, empty-board hint and the theme
-bridge come from [`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell),
-the chrome shared by all Miragon modelers.
+The menu, palette skin, zoom panel, problems pill, status box, empty-board hint, the theme
+bridge and the sync between board and file come from
+[`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell), the chrome shared
+by all Miragon modelers.
 
 ## Development
 
