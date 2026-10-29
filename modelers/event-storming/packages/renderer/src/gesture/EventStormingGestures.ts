@@ -37,15 +37,20 @@ export type GestureListener = (active: boolean) => void;
  *
  * A user action runs from the start of a command (`commandStack.execute`, or `revert` for an
  * undo: a keyboard create, a label commit, also one a press makes, a delete, an undo, a redo)
- * until the handler that ran it has returned, during a drop (from diagram-js's `drag.end` until
- * `drag.ended` or `drag.canceled`, a drawing's point drop while its command applies), and for as
- * long as a step it scheduled holds it (`holdAction`: the kind chooser or the label editor that
- * opens after an append). An import called meanwhile, from a host's change or selection listener,
- * waits for `actionEnded()`, so no step of the action finds the board replaced (#248, #305).
+ * until the handler that ran it has returned, while diagram-js activates a drag (from its
+ * `drag.start` until `Dragging.move` has returned), during a drop (from diagram-js's `drag.end`
+ * until `drag.ended` or `drag.canceled`, a drawing's point drop while its command applies), and
+ * for as long as a step it scheduled holds it (`holdAction`: the kind chooser or the label editor
+ * that opens after an append). An import called meanwhile, from a host's change or selection
+ * listener, waits for `actionEnded()`, so no step of the action finds the board replaced (#248,
+ * #305, #336).
  *
  * A drag runs its `drag.init` before diagram-js activates it. An import or a clear called from a
  * listener of that init (a host that imports from the change listener of the label editor that
- * commits there) asks for `refuseStart()`, and the drag ends before it activates.
+ * commits there) asks for `refuseStart()`, and the drag ends before it activates. One called while
+ * the drag activates (from a selection listener: the activation clears the selection) asks for
+ * `endOnceActivated()`, and the drag ends as cancelled at the activation's last step, its first
+ * move.
  */
 export default class EventStormingGestures {
   static $inject = ["eventBus", "dragging"];
@@ -60,19 +65,28 @@ export default class EventStormingGestures {
   private actionWaiters: (() => void)[] = [];
   private startingDrag: DragContext | null = null;
   private startRefused = false;
+  private activatingDrag: DragContext | null = null;
+  private activationEndAsked = false;
 
   constructor(
     eventBus: EventBus,
     private readonly dragging: Dragging,
   ) {
     // The first move of a drag comes right after diagram-js activated it, so a start that a
-    // listener refused never counts.
+    // listener refused never counts. It is the last step of the activation: a drag whose end was
+    // asked meanwhile ends here, and its move reaches no listener, since a clear may have removed
+    // the shapes it holds.
     eventBus.on("drag.move", FIRST, () => {
       const context = this.dragContext();
-      if (!context?.active || ARMED_TOOL_PREFIXES.has(context.prefix)) return;
-      if (this.diagramGesture === context) return;
+      if (context && context === this.activatingDrag && this.finishActivation()) {
+        this.dragging.cancel(false);
+        return false;
+      }
+      if (!context?.active || ARMED_TOOL_PREFIXES.has(context.prefix)) return undefined;
+      if (this.diagramGesture === context) return undefined;
       this.diagramGesture = context;
       this.update();
+      return undefined;
     });
     eventBus.on(["drag.ended", "drag.canceled"], FIRST, () => this.endDiagramGesture());
     // A listener that throws during the cleanup keeps diagram-js from announcing the end.
@@ -96,6 +110,10 @@ export default class EventStormingGestures {
       return refused ? false : undefined;
     });
 
+    // diagram-js clears the selection while it activates a drag, then reads the drag's context
+    // again: a drag ended from a selection listener there makes `Dragging.move` throw.
+    eventBus.on("drag.start", FIRST, () => this.holdActivation());
+
     eventBus.on("drag.end", FIRST, () => {
       const dropping = this.dragContext();
       this.droppingDrag = dropping;
@@ -115,6 +133,8 @@ export default class EventStormingGestures {
     // An import waiting for the action then finds the viewer destroyed and rejects.
     eventBus.on("diagram.destroy", () => {
       this.droppingDrag = null;
+      this.activatingDrag = null;
+      this.activationEndAsked = false;
       this.commandHold = undefined;
       this.actionHolds.clear();
       this.settleAction();
@@ -152,6 +172,16 @@ export default class EventStormingGestures {
     if (this.startingDrag) this.startRefused = true;
   }
 
+  /** Whether `context` is the drag diagram-js activates right now, inside its `Dragging.move`. */
+  isActivating(context: unknown): boolean {
+    return context !== null && context === this.activatingDrag;
+  }
+
+  /** Ends the drag diagram-js activates right now, as cancelled, once its activation has run. */
+  endOnceActivated(): void {
+    if (this.activatingDrag) this.activationEndAsked = true;
+  }
+
   /** Whether `context` is the drag whose drop runs right now. */
   isDropping(context: unknown): boolean {
     return context !== null && context === this.droppingDrag;
@@ -173,6 +203,29 @@ export default class EventStormingGestures {
   actionEnded(): Promise<void> | undefined {
     if (!this.droppingDrag && this.actionHolds.size === 0) return undefined;
     return new Promise((resolve) => this.actionWaiters.push(resolve));
+  }
+
+  /** A microtask runs only once `Dragging.move`, which activated the drag, has returned. */
+  private holdActivation(): void {
+    const activating = this.dragContext();
+    if (!activating || ARMED_TOOL_PREFIXES.has(activating.prefix)) return;
+    const release = this.holdAction();
+    this.activatingDrag = activating;
+    this.activationEndAsked = false;
+    queueMicrotask(() => {
+      // An activation that fired no move (a listener refused the start or threw) is one whose drag
+      // diagram-js has ended already, so only the activation is left to forget.
+      if (this.activatingDrag === activating) this.finishActivation();
+      release();
+    });
+  }
+
+  /** Whether an end was asked during the activation that finishes now. */
+  private finishActivation(): boolean {
+    const endAsked = this.activationEndAsked;
+    this.activatingDrag = null;
+    this.activationEndAsked = false;
+    return endAsked;
   }
 
   private holdCommand(): void {

@@ -142,14 +142,21 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   action runs from the start of each command (`commandStack.execute`, `revert` for an undo) until
   the handler that ran it has returned, a microtask later (a selection listener runs inside a
   delete or an undo, a keyboard create selects its sticky and opens its editor after the command,
-  a press that commits a label starts its drag), through a drop, from `drag.end` until
+  a press that commits a label starts its drag), while diagram-js activates a drag, from
+  `drag.start` until `Dragging.move` has returned, a microtask later (it clears the selection
+  there, then reads the drag once more), through a drop, from `drag.end` until
   `drag.ended` or `drag.canceled` (a drawing's point drop while its command applies), and while a
   step it scheduled holds it (`holdAction`: the append's kind chooser or label editor). An import
   called during an action, from a host's change or selection listener, waits for its end
   (`actionEnded()`), so
   no step of the action, also diagram-js's `SelectionBehavior` after a drop, sees a replaced board
   ([#248](https://github.com/Miragon/modeler-suite/issues/248),
-  [#305](https://github.com/Miragon/modeler-suite/issues/305)); a `clear()` does not wait, and a
+  [#305](https://github.com/Miragon/modeler-suite/issues/305)). An import or a clear called while
+  a drag activates (a host's selection listener, which diagram-js calls at the start of every drag
+  but a lasso, also with nothing selected) asks for `endOnceActivated` instead of
+  cancelling: the drag ends as `drag.canceled` at the activation's own first move, its last step,
+  which then reaches no other listener, and the import runs after the activation
+  ([#336](https://github.com/Miragon/modeler-suite/issues/336)); a `clear()` does not wait, and a
   drop is never cancelled by it (diagram-js would throw inside its own end of the drag): it ends
   as a drop unless something was selected before the drag, since the clear removes the moved
   shape, and `SelectionBehavior` then throws and the drag ends as `drag.canceled`. The kind
@@ -158,7 +165,9 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   place, since a note created since the last import comes back under the id its text derives. The
   contract's optional `interaction` reads the same service (true from diagram-js's first drag move
   or a point drag's first move until the end; an armed tool, a pan and a line the draw tool holds
-  point by point are none, #243), and `appearance` lists `EVENT_STORMING_THEMES` (`["light"]`, in
+  point by point are none, #243, and a drag that an import or a clear from the selection listener
+  ends at its start is never reported, #336), and `appearance` lists `EVENT_STORMING_THEMES`
+  (`["light"]`, in
   [`packages/renderer/src/theme/themes.ts`](packages/renderer/src/theme/themes.ts), the one
   constant both apps and the VS Code theme bridge read) and writes `data-cd-theme="light"` and
   `data-cd-kontrast="hoch"` on the `.event-storming-container`; the renderer's high-contrast rules

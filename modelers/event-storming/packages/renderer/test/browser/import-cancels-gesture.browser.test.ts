@@ -1153,6 +1153,219 @@ describe("an import from a selection listener inside a command waits for the com
   });
 });
 
+/** What the user saw of the drag whose start the selection listener's import ended. */
+function startWatch(modeler: CollaborativeEventStormingModeler) {
+  const reported: boolean[] = [];
+  modeler.interaction.onChange((active) => reported.push(active));
+  return { endings: dragEndingsOf(modeler), reported, onTheBoard: stickiesOnTheBoard(modeler) };
+}
+
+/**
+ * The drag that cleared the selection activated on the board it holds and ended there as
+ * cancelled; the import waits until diagram-js's activation has returned.
+ */
+function expectTheStartEnded(
+  modeler: CollaborativeEventStormingModeler,
+  reimport: () => Promise<unknown> | undefined,
+  watch: ReturnType<typeof startWatch>,
+  ...held: EventStormingShape[]
+): void {
+  expect(uncaught).toEqual([]);
+  expect(reimport()).toBeDefined();
+  expect(modeler.exportText()).toBe(BOARD);
+  expect(watch.onTheBoard(...held)).toBe(true);
+  expect(service<Dragging>(modeler, "dragging").context()).toBeFalsy();
+  expect(watch.endings).toEqual({ ended: 0, canceled: 1 });
+  const container = service<Canvas>(modeler, "canvas").getContainer();
+  expect(container.querySelector(".djs-drag-active")).toBe(null);
+}
+
+async function expectTheImportAfterTheStart(
+  modeler: CollaborativeEventStormingModeler,
+  changes: () => number,
+  reimport: () => Promise<unknown> | undefined,
+  watch: ReturnType<typeof startWatch>,
+  text = REMOTE,
+): Promise<void> {
+  await expect(reimport()).resolves.toBeDefined();
+  expectNothingApplied(modeler, changes, text);
+  expect(watch.endings).toEqual({ ended: 0, canceled: 1 });
+  expect(watch.reported).toEqual([]);
+  expect(modeler.interaction.active()).toBe(false);
+  expectEditsToCount(modeler, changes);
+}
+
+describe("an import from a selection listener at a drag's start waits for the start (#336)", () => {
+  it("ends the move of another sticky than the selected one", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const policy = sticky(modeler, "policy_reserve_stock");
+    service<Selection>(modeler, "selection").select(policy);
+    const changes = changesOf(modeler);
+    const watch = startWatch(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+    const event = sticky(modeler, "event_order_placed");
+    const start = centre(event);
+
+    pointer.press(pointer.graphicsOf(event), start);
+    pointer.moveTo(offset(start, 60, 40));
+
+    expectTheStartEnded(modeler, reimport, watch, event, policy);
+    await expect(reimport()).resolves.toBeDefined();
+    pointer.moveTo(offset(start, 90, 60));
+    pointer.release(offset(start, 90, 60));
+    await expectTheImportAfterTheStart(modeler, changes, reimport, watch);
+  });
+
+  it("ends the move when the moves and the release come before the import could run", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    service<Selection>(modeler, "selection").select(sticky(modeler, "policy_reserve_stock"));
+    const changes = changesOf(modeler);
+    const watch = startWatch(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+    const event = sticky(modeler, "event_order_placed");
+    const start = centre(event);
+
+    pointer.press(pointer.graphicsOf(event), start);
+    pointer.moveTo(offset(start, 30, 20));
+    pointer.moveTo(offset(start, 60, 40));
+    pointer.release(offset(start, 60, 40));
+
+    expectTheStartEnded(modeler, reimport, watch, event);
+    expect(changes()).toBe(0);
+    await expectTheImportAfterTheStart(modeler, changes, reimport, watch);
+  });
+
+  it("ends a create from the palette, which diagram-js activates at the click", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const policy = sticky(modeler, "policy_reserve_stock");
+    service<Selection>(modeler, "selection").select(policy);
+    const changes = changesOf(modeler);
+    const watch = startWatch(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+    const free = { x: 500, y: 360 };
+
+    pointer.click(paletteEntryOf(modeler, "create.event"), free);
+
+    expectTheStartEnded(modeler, reimport, watch, policy);
+    await expect(reimport()).resolves.toBeDefined();
+    pointer.moveTo(offset(free, -40, -20));
+    pointer.moveTo(free);
+    pointer.press(pointer.svg, free);
+    pointer.release(free);
+    await expectTheImportAfterTheStart(modeler, changes, reimport, watch);
+  });
+
+  it("ends the resize of the selected note, which diagram-js activates at the press", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const note = shapeOf(modeler, (shape) => shape.eventStormingType === "note");
+    service<Selection>(modeler, "selection").select(note);
+    const changes = changesOf(modeler);
+    const watch = startWatch(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+    const corner = { x: note.x + note.width, y: note.y + note.height };
+
+    pointer.press(modeler.diagram.container.querySelector(".djs-resizer-se")!, corner);
+
+    expectTheStartEnded(modeler, reimport, watch, note);
+    await expect(reimport()).resolves.toBeDefined();
+    pointer.moveTo(offset(corner, 80, 60));
+    pointer.release(offset(corner, 80, 60));
+    await expectTheImportAfterTheStart(modeler, changes, reimport, watch);
+  });
+
+  it("ends an append from the selected sticky's context pad", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const source = sticky(modeler, "event_order_placed");
+    service<Selection>(modeler, "selection").select(source);
+    const changes = changesOf(modeler);
+    const watch = startWatch(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+    const free = { x: 500, y: 360 };
+
+    pointer.click(appendEntry(modeler), centre(source));
+
+    expectTheStartEnded(modeler, reimport, watch, source);
+    await expect(reimport()).resolves.toBeDefined();
+    pointer.moveTo(free);
+    pointer.press(pointer.svg, free);
+    pointer.release(free);
+    await expectTheImportAfterTheStart(modeler, changes, reimport, watch);
+  });
+
+  it("ends a connect from the selected sticky's context pad once it passes the threshold", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const source = sticky(modeler, "event_order_placed");
+    const target = sticky(modeler, "policy_reserve_stock");
+    service<Selection>(modeler, "selection").select(source);
+    const changes = changesOf(modeler);
+    const watch = startWatch(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+    const entry = modeler.diagram.container.querySelector(
+      '.djs-context-pad [data-action="connect"]',
+    )!;
+
+    pointer.click(entry, centre(source));
+    expect(reimport()).toBeUndefined();
+    pointer.moveTo(offset(centre(source), 60, 0));
+
+    expectTheStartEnded(modeler, reimport, watch, source, target);
+    await expect(reimport()).resolves.toBeDefined();
+    pointer.moveTo(centre(sticky(modeler, "policy_reserve_stock")));
+    pointer.release(centre(sticky(modeler, "policy_reserve_stock")));
+    await expectTheImportAfterTheStart(modeler, changes, reimport, watch);
+  });
+
+  it("ends the drag at its start, though the import then waits for its font", async () => {
+    loadingAnnotationFont();
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    service<Selection>(modeler, "selection").select(sticky(modeler, "policy_reserve_stock"));
+    const changes = changesOf(modeler);
+    const watch = startWatch(modeler);
+    const reimport = importOnSelection(modeler, REMOTE_ANNOTATED);
+    const event = sticky(modeler, "event_order_placed");
+    const start = centre(event);
+
+    pointer.press(pointer.graphicsOf(event), start);
+    pointer.moveTo(offset(start, 60, 40));
+
+    expectTheStartEnded(modeler, reimport, watch, event);
+    await nextTask();
+    pointer.moveTo(offset(start, 90, 60));
+    pointer.release(offset(start, 90, 60));
+    expect(changes()).toBe(0);
+    await expectTheImportAfterTheStart(modeler, changes, reimport, watch, REMOTE_ANNOTATED);
+  });
+
+  it("leaves a drawing's point drag alone, which keeps the selection", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    service<Selection>(modeler, "selection").select(
+      shapeOf(modeler, (shape) => shape.eventStormingType === "drawing"),
+    );
+    const changes = changesOf(modeler);
+    const reimport = importOnSelection(modeler, REMOTE);
+    const handle = modeler.diagram.container.querySelector(".event-storming-drawing-handle")!;
+    const first = { x: 40, y: 480 };
+
+    pointer.press(handle, first);
+    pointer.moveTo(offset(first, 60, -80));
+    pointer.release(offset(first, 60, -80));
+
+    expect(uncaught).toEqual([]);
+    expect(reimport()).toBeUndefined();
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).not.toContain("line [[40, 480], [360, 480], [360, 620]]");
+    expect(modeler.exportText()).toContain("[360, 480], [360, 620]]");
+  });
+});
+
 describe("clearing the board while the user drags a sticky", () => {
   it("ends the drag: the release throws nothing and changes nothing", async () => {
     const host = attachedHost();
@@ -1190,5 +1403,36 @@ describe("clearing the board while the user drags a sticky", () => {
     expect(uncaught).toEqual([]);
     expect(stackChanges).toBe(0);
     expect(modeler.exportDSL()).not.toContain("Order Placed");
+  });
+
+  it("ends the drag at its start when a selection listener clears the board there", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    service<Selection>(modeler, "selection").select(sticky(modeler, "policy_reserve_stock"));
+    const changes = changesOf(modeler);
+    const endings = dragEndingsOf(modeler);
+    let cleared = false;
+    modeler.elements.onSelection(() => {
+      if (cleared) return;
+      cleared = true;
+      modeler.diagram.clear();
+    });
+    const event = sticky(modeler, "event_order_placed");
+    const start = centre(event);
+
+    pointer.press(pointer.graphicsOf(event), start);
+    pointer.moveTo(offset(start, 60, 40));
+    pointer.moveTo(offset(start, 90, 60));
+    pointer.release(offset(start, 90, 60));
+
+    expect(uncaught).toEqual([]);
+    expect(cleared).toBe(true);
+    expect(changes()).toBe(0);
+    expect(endings).toEqual({ ended: 0, canceled: 1 });
+    expect(service<Dragging>(modeler, "dragging").context()).toBeFalsy();
+    expect(modeler.diagram.container.querySelector(".djs-drag-group")).toBe(null);
+    expect(modeler.exportText()).not.toContain("Order Placed");
+    await modeler.importText(BOARD);
+    expect(modeler.exportText()).toBe(BOARD);
   });
 });
