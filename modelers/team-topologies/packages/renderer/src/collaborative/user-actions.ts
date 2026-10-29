@@ -6,13 +6,21 @@ const FIRST = 100_000;
 /**
  * `execute` comes before each command runs, a redo and the commands nested in another included,
  * `revert` before each undo: a selection listener can run inside the command, before `changed`.
+ * `drag.start` comes when diagram-js's `Dragging.move` activates a drag, before it deselects: a
+ * selection listener runs inside that move, which reads the drag again once the listener returns.
  */
-const COMMAND_EVENTS = ["commandStack.execute", "commandStack.revert", "commandStack.changed"];
+const CALL_EVENTS = [
+  "commandStack.execute",
+  "commandStack.revert",
+  "commandStack.changed",
+  "drag.start",
+];
 
 export interface UserActionWatch {
   /**
    * Whether a user action runs now: a drop, from its `drag.end` until diagram-js cleans the drag
-   * up, or the code that runs a command, from the command's start until that code has returned.
+   * up, or the code that runs a command or starts a drag, from that event until the code has
+   * returned.
    */
   running(): boolean;
   /** Settles once no user action runs: at once at rest, after the running ones otherwise. */
@@ -46,15 +54,21 @@ function startAction(): RunningAction {
  *   from the palette by keyboard, a label commit (also the one a press on an element or on a
  *   resize handle makes), a delete, an undo. The code that ran it goes on in the same handler and
  *   selects the new element, opens its label editor or starts the press's drag (#285, #305); the
- *   command itself goes on after a selection listener inside it. It is over once that code has returned,
- *   in the microtask after the command started. No action of this renderer leaves work on the
- *   diagram to a later task, so that microtask comes after all of it.
+ *   command itself goes on after a selection listener inside it.
+ * - The start of a drag: a press moved past the drag threshold, a resize, a palette create or a
+ *   connect. diagram-js's `Dragging.move` deselects after `drag.start` and then reads the drag
+ *   again, which an import in the selection listener would already have ended (#336). The import
+ *   ends the drag afterwards instead, as it ends every running gesture.
  *
- * A waiter resumes in a microtask, so only after the rest of the action has run.
+ * A command or a drag's start is over once the code that made it has returned, in the microtask
+ * after its event. No action of this renderer leaves work on the diagram to a later task, so that
+ * microtask comes after all of it. A waiter resumes in a microtask, so only after the rest of the
+ * action has run.
  */
 export function watchUserActions(eventBus: EventBus): UserActionWatch {
   let drop: RunningAction | undefined;
-  let command: RunningAction | undefined;
+  /** A command or a drag's start, until the code that made it has returned. */
+  let call: RunningAction | undefined;
 
   const endDrop = (): void => {
     const ending = drop;
@@ -62,8 +76,8 @@ export function watchUserActions(eventBus: EventBus): UserActionWatch {
     ending?.end();
   };
 
-  const endCommand = (ending: RunningAction | undefined): void => {
-    if (command === ending) command = undefined;
+  const endCall = (ending: RunningAction | undefined): void => {
+    if (call === ending) call = undefined;
     ending?.end();
   };
 
@@ -71,21 +85,21 @@ export function watchUserActions(eventBus: EventBus): UserActionWatch {
     drop ??= startAction();
   });
   eventBus.on(["drag.cleanup", "drag.ended", "drag.canceled"], FIRST, endDrop);
-  eventBus.on(COMMAND_EVENTS, FIRST, () => {
-    if (command) return;
+  eventBus.on(CALL_EVENTS, FIRST, () => {
+    if (call) return;
     const started = startAction();
-    command = started;
-    queueMicrotask(() => endCommand(started));
+    call = started;
+    queueMicrotask(() => endCall(started));
   });
 
   return {
-    running: () => drop !== undefined || command !== undefined,
+    running: () => drop !== undefined || call !== undefined,
     async untilNoActionRuns() {
-      for (let action = drop ?? command; action; action = drop ?? command) await action.ended;
+      for (let action = drop ?? call; action; action = drop ?? call) await action.ended;
     },
     stop() {
       endDrop();
-      endCommand(command);
+      endCall(call);
     },
   };
 }

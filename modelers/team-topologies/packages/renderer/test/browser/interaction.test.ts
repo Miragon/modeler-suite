@@ -270,6 +270,14 @@ describe("interaction.active() follows every gesture", () => {
   });
 });
 
+/**
+ * A peer's text reaches the host in a task of its own, after the one that started the gesture: an
+ * import in that task would wait until diagram-js's start of the drag has returned (#336).
+ */
+function nextTask(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 describe("an import while a gesture runs (the L1 gesture case of contract 1.5)", () => {
   test.each(KINDS)(
     "%s: the import ends it before it resolves, and the release applies nothing",
@@ -282,6 +290,7 @@ describe("an import while a gesture runs (the L1 gesture case of contract 1.5)",
         const { modeler, diagram, deliveries, changes, errors } = await session(before);
         const gesture = holdGesture(diagram, kind);
         expect(deliveries).toEqual([true]);
+        await nextTask();
 
         const importing = modeler.importText(imported);
         const atResolve = importing.then(() => [...deliveries]);
@@ -299,6 +308,26 @@ describe("an import while a gesture runs (the L1 gesture case of contract 1.5)",
         addTeam(diagram);
         expect(changes()).toBe(1);
       }
+    },
+  );
+
+  test.each(KINDS)(
+    "%s: an import in the task that started it waits until that start has returned, then ends it",
+    async (kind) => {
+      const { modeler, diagram, deliveries, changes, errors } = await session();
+      const gesture = holdGesture(diagram, kind);
+
+      const importing = modeler.importText(rideHailing);
+      const atResolve = importing.then(() => [...deliveries]);
+      expect(modeler.interaction.active()).toBe(true);
+      expect(await atResolve).toEqual([true, false]);
+      gesture.drop();
+
+      expect(errors).toEqual([]);
+      expect(changes()).toBe(0);
+      expect(modeler.exportText()).toBe(rideHailing);
+      addTeam(diagram);
+      expect(changes()).toBe(1);
     },
   );
 

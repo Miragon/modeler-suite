@@ -853,6 +853,132 @@ describe("an import from inside the change listener of a user action", () => {
   }
 });
 
+interface DeselectingGesture {
+  /** The element selected before the gesture, which diagram-js deselects when it starts it. */
+  selected: string;
+  /** Starts the gesture the way a user does; diagram-js deselects inside its start. */
+  start(current: Session): void;
+  /** Moves on and releases the pointer, as the user goes on after the import. */
+  release(current: Session): void;
+}
+
+const NEW_TEAM_DROP = { x: 1120, y: 120 };
+
+function releaseOnCanvasAt(current: Session, drop: { x: number; y: number }): void {
+  current.pointer.enter();
+  current.pointer.moveTo({ x: drop.x - 40, y: drop.y });
+  current.pointer.moveTo(drop);
+  current.pointer.releaseAt(drop);
+}
+
+// #336: diagram-js deselects at a drag's start, inside its `Dragging.move`, and reads the drag right
+// after; an import from the selection listener there ended the drag under it and threw.
+const gesturesThatDeselectAtTheirStart: Record<string, DeselectingGesture> = {
+  "a press on another team moved past the drag threshold": {
+    selected: "team_discovery",
+    start({ diagram, pointer }) {
+      const start = middle(shape(diagram, "team_checkout"));
+      pointer.press(pointer.graphics("team_checkout"), start);
+      pointer.enter();
+      pointer.moveTo({ x: start.x + 60, y: start.y });
+    },
+    release({ diagram, pointer }) {
+      const start = middle(shape(diagram, "team_checkout"));
+      pointer.moveTo({ x: start.x + 80, y: start.y + 20 });
+      pointer.releaseAt({ x: start.x + 80, y: start.y + 20 });
+    },
+  },
+  "a palette create clicked": {
+    selected: "team_discovery",
+    start({ container, pointer }) {
+      pointer.clickOn(paletteEntry(container, "team.platform"));
+    },
+    release: (current) => releaseOnCanvasAt(current, NEW_TEAM_DROP),
+  },
+  "a palette create dragged off its entry": {
+    selected: "team_discovery",
+    start({ container }) {
+      const entry = paletteEntry(container, "team.stream-aligned");
+      entry.dispatchEvent(
+        new DragEvent("dragstart", { bubbles: true, cancelable: true, ...centreOf(entry) }),
+      );
+    },
+    release: (current) => releaseOnCanvasAt(current, NEW_TEAM_DROP),
+  },
+  "a resize from the selected team's handle": {
+    selected: "team_fraud",
+    start({ diagram, container, pointer }) {
+      const team = shape(diagram, "team_fraud");
+      pointer.press(southEastHandle(container, team), {
+        x: team.x + team.width,
+        y: team.y + team.height,
+      });
+    },
+    release({ diagram, pointer }) {
+      const team = shape(diagram, "team_fraud");
+      const corner = { x: team.x + team.width + 60, y: team.y + team.height + 40 };
+      pointer.moveTo(corner);
+      pointer.releaseAt(corner);
+    },
+  },
+  "a connect from the selected annotation's context pad": {
+    selected: "ann_fraud_handover",
+    start({ diagram, container, pointer }) {
+      pointer.clickOn(contextPadEntry(container, "connect"));
+      const target = middle(shape(diagram, "team_fraud"));
+      pointer.moveTo({ x: target.x - 40, y: target.y });
+    },
+    release({ diagram, pointer }) {
+      const target = middle(shape(diagram, "team_fraud"));
+      pointer.enter("team_fraud");
+      pointer.moveTo(target);
+      pointer.releaseAt(target);
+    },
+  },
+};
+
+describe("an import from the selection listener at a drag's start", () => {
+  for (const [name, gesture] of Object.entries(gesturesThatDeselectAtTheirStart)) {
+    test(`${name}: the import waits until diagram-js has started the drag, then ends it`, async () => {
+      const current = await session();
+      const { modeler, diagram, container } = current;
+      const dragging = diagram.get<Dragging>("dragging");
+      diagram.get<Selection>("selection").select(shape(diagram, gesture.selected));
+      const imported = peerMoves("team_platform", 40);
+      const order: string[] = [];
+      let reimport: Promise<unknown> | undefined;
+      modeler.elements.onSelection((ids) => {
+        order.push(`selection ${ids.length}`);
+        reimport ??= modeler.importText(imported);
+      });
+      diagram.on("drag.start", () => {
+        order.push("drag.start");
+      });
+      diagram.on("import.done", () => {
+        order.push("imported");
+      });
+
+      gesture.start(current);
+      expect(order).toEqual(["drag.start", "selection 0"]);
+      expect(dragging.context()).toMatchObject({ active: true });
+
+      await expect(reimport).resolves.toBeDefined();
+      expect(order).toEqual(["drag.start", "selection 0", "imported"]);
+      expect(current.errors).toEqual([]);
+      expect(modeler.exportText()).toBe(imported);
+      expect(dragging.context()).toBeFalsy();
+      expect(previewOf(container)).toBeNull();
+      expect(modeler.interaction.active()).toBe(false);
+
+      gesture.release(current);
+
+      expectNothingApplied(current, imported);
+      expect(modeler.elements.selection()).toEqual([]);
+      expectTheNextEditReported(current, imported);
+    });
+  }
+});
+
 describe("an import while a palette tool only waits for its press", () => {
   test("leaves the lasso tool armed, and its next drag selects the imported elements", async () => {
     const current = await session();

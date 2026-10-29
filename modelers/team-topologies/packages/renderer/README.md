@@ -176,13 +176,18 @@ that ran it has returned. So no part of the action sees a replaced diagram: neit
 selection behaviour after a drop, nor the selection and the label editor that an append or a
 keyboard create opens on its new element (the editor comes back, with what was typed, on the
 imported element with the same id), nor the rest of a command that a selection listener interrupts.
+A drag's start is an action as well, until the code that starts it has returned: diagram-js
+deselects there (a press moved past the drag threshold, a resize, a palette create, a connect) and
+then goes on with the drag, so an import from `elements.onSelection` comes afterwards and ends the
+drag.
 The label commit that a press on an element or on a resize handle makes counts too: the import comes
 after the press and then ends what the press began, as an accepted import does: the resize that
 diagram-js starts at once on a handle, or the move of a press that has not reached the drag
 threshold yet. A press on the palette blurs the editor first, and the blur commits the label before
 the click: the import runs before the click, so the create the click starts goes on.
 `importDocument` of the wrapped diagram cannot wait: called from the change listener of a drop, it
-leaves the drop to finish, with its change applied.
+leaves the drop to finish, with its change applied; called from a selection listener at a drag's
+start, it ends the drag inside diagram-js's start, which then throws.
 
 `interaction` (contract 1.5, modeler and viewer) tells a host whether the user holds a gesture, so
 it can defer a peer's text until the gesture ends instead of reading diagram-js's DOM classes:
