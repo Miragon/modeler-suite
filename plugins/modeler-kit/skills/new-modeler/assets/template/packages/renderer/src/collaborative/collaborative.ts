@@ -98,7 +98,7 @@ function collaborative(
   const contentListeners = new Set<() => void>();
   let destroyed = false;
   let lastExport = '';
-  // The imports called while a drop is applied, in call order: each waits for the drop and for
+  // The imports called during a user's action, in call order: each waits for the action and for
   // the one called before it, so an earlier text never lands over a later one.
   let waitingImports: Promise<unknown> | undefined;
 
@@ -169,12 +169,13 @@ function collaborative(
       diagram.attachTo(host as HTMLElement);
     },
     /**
-     * Imports at once, unless a drop is being applied (a host importing from the change listener
-     * of the drop's command): then it waits until the drop has ended, so no listener the drop runs
-     * finds its elements replaced, and settles after that import.
+     * Imports at once, unless a user's action is being applied (a host importing from the change
+     * listener of a drop, a keyboard create or a label commit): then it waits until the action
+     * has finished, so nothing the action still does finds its elements replaced, and settles
+     * after that import.
      */
     importText(text): Promise<ImportResult> {
-      const before = waitingImports ?? gestures?.dropEnded();
+      const before = waitingImports ?? gestures?.actionEnded();
       if (!before) return importNow(text);
       const imported = before.then(() => importNow(text));
       const settled = imported.then(

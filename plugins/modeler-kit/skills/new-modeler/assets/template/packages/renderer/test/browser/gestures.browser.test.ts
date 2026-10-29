@@ -12,6 +12,8 @@ import {
   createCollaborativeModeler,
   createCollaborativeViewer,
   type CollaborativeDiagram,
+  type Gestures,
+  type LabelEditing,
   type NodeFactory,
   type NodeShape,
 } from '../../src/index.js';
@@ -197,11 +199,11 @@ function armTool(): void {
   moveTo({ x: at.x + 60, y: at.y + 60 });
 }
 
-function addNode(): void {
+function addNode(): Shape {
   createdNodes += 1;
   const created = service<NodeFactory>('nodeFactory').createNew(`Node ${createdNodes}`);
   const root = service<Canvas>('canvas').getRootElement() as Shape;
-  service<Modeling>('modeling').createShape(created, { x: 900, y: 500 }, root);
+  return service<Modeling>('modeling').createShape(created, { x: 900, y: 500 }, root);
 }
 
 function recordInteraction(): boolean[] {
@@ -384,7 +386,7 @@ describe('a drag that holds no element runs on through an import', () => {
   });
 });
 
-describe('an import called while a drop is applied waits until the drop has ended (#248)', () => {
+describe('an import called during a user action waits until the action has finished (#248, #285)', () => {
   /** What the board looked like to every listener of the drop: replaced by an import or not. */
   function watchDrop(): { importsDuringDrop: number; endings: string[] } {
     const watch = { importsDuringDrop: 0, endings: [] as string[] };
@@ -496,9 +498,255 @@ describe('an import called while a drop is applied waits until the drop has ende
     expect(node('order').x).toBe(100);
   });
 
-  it('an import outside a drop runs at once', () => {
+  /** A host that imports its own change back as it is, once; returns that import. */
+  function echoOnce(): () => Promise<unknown> | undefined {
+    let reimport: Promise<unknown> | undefined;
+    modeler.onContentChanged(() => {
+      reimport ??= modeler.importText(modeler.exportText());
+    });
+    return () => reimport;
+  }
+
+  /** How many imports have rendered so far. */
+  function countImports(): { rendered: number } {
+    const count = { rendered: 0 };
+    service<EventBus>('eventBus').on('import.render.start', () => (count.rendered += 1));
+    return count;
+  }
+
+  function labelField(): HTMLTextAreaElement {
+    const field = modeler.diagram.container.querySelector<HTMLTextAreaElement>(
+      'textarea.diagram-label-editor',
+    );
+    if (!field) throw new Error('no label editor is open');
+    return field;
+  }
+
+  function editLabel(id: string, text: string): void {
+    service<LabelEditing>('labelEditing').activate(node(id));
+    labelField().value = text;
+  }
+
+  function commitLabel(text: string): void {
+    labelField().value = text;
+    labelField().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  }
+
+  /** Enter or Space on the palette's creating entry: the shell's synthetic click, detail 0. */
+  function createWithKeyboard(): void {
+    const { entry } = paletteEntry('create.node');
+    entry.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }));
+  }
+
+  /** The task after this one, where an edit an import took down has opened again. */
+  const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  for (const [count, which] of [
+    [1, 'one import'],
+    [2, 'two imports'],
+  ] as const) {
+    it(`a keyboard create: the name typed after ${which} from its change lands`, async () => {
+      const imports: Array<Promise<unknown>> = [];
+      modeler.onContentChanged(() => {
+        if (imports.length > 0) return;
+        const text = modeler.exportText();
+        for (let index = 0; index < count; index += 1) imports.push(modeler.importText(text));
+      });
+      const watch = countImports();
+
+      createWithKeyboard();
+      const opened = service<LabelEditing>('labelEditing').openEdit();
+      expect(imports).toHaveLength(count);
+      expect(watch.rendered).toBe(0);
+      await Promise.all(imports);
+      await nextTask();
+
+      expect(watch.rendered).toBe(count);
+      expect(opened).toBeDefined();
+      expect(service<LabelEditing>('labelEditing').openEdit()?.elementId).toBe(opened?.elementId);
+      commitLabel('Typed name');
+
+      expect(errors).toEqual([]);
+      expect(changes).toBe(2);
+      expect(node(opened?.elementId ?? '').elementLabel).toBe('Typed name');
+      expect(modeler.exportText()).toContain('"Typed name"');
+    });
+  }
+
+  it('an import that fails to render reopens the edit it took down, and no later import does', async () => {
+    const labelEditing = service<LabelEditing>('labelEditing');
+    editLabel('pay', 'Typed, not committed');
+    const importer = service<{ import(document: unknown): void }>('importer');
+    const render = importer.import.bind(importer);
+    let failures = 1;
+    importer.import = (document) => {
+      if (failures === 0) return render(document);
+      failures -= 1;
+      throw new Error('render failed');
+    };
+
+    await expect(modeler.importText(payments)).rejects.toThrow('render failed');
+    await nextTask();
+    expect(modeler.exportText()).toBe(orders);
+    expect(labelEditing.openEdit()).toEqual({ elementId: 'pay', text: 'Typed, not committed' });
+
+    labelEditing.cancel();
+    await modeler.importText(orders);
+    await nextTask();
+    expect(labelEditing.openEdit()).toBeUndefined();
+    expect(changes).toBe(0);
+  });
+
+  it('a label commit at a press on another node: the import ends the drag the press started', async () => {
+    const reimport = echoOnce();
+    const watch = countImports();
+    editLabel('pay', 'Paid');
+
+    const start = centreOf('order');
+    press(graphics('order'), start);
+    expect(reimport()).toBeDefined();
+    expect(watch.rendered).toBe(0);
+    expect(dragPrefix()).toBe('shape.move');
+    await reimport();
+    expect(dragPrefix()).toBeUndefined();
+    moveTo({ x: start.x + 20, y: start.y + 40 });
+    moveTo({ x: start.x + 60, y: start.y + 160 });
+    release({ x: start.x + 60, y: start.y + 160 });
+
+    expect(errors).toEqual([]);
+    expect(changes).toBe(1);
+    expect(node('pay').elementLabel).toBe('Paid');
+    expect(node('order').x).toBe(40);
+    expect(modeler.interaction.active()).toBe(false);
+  });
+
+  it('a label commit at the start of a palette create: the import ends the create, without an error', async () => {
+    const reimport = echoOnce();
+    const watch = countImports();
+    editLabel('pay', 'Paid');
+
+    const gesture = startGesture('create');
+    expect(reimport()).toBeDefined();
+    expect(watch.rendered).toBe(0);
+    expect(modeler.interaction.active()).toBe(true);
+    await reimport();
+    expect(modeler.interaction.active()).toBe(false);
+    gesture.drop();
+
+    expect(errors).toEqual([]);
+    expect(changes).toBe(1);
+    expect(node('pay').elementLabel).toBe('Paid');
+    expect(modeler.elements.list()).toHaveLength(3);
+  });
+
+  describe('an import from the selection listener inside a command waits for the command', () => {
+    /**
+     * Runs `command` while a host imports `text` from the first selection change it hears, then
+     * expects the command's one change, the imported text, and a next edit that applies and undoes.
+     */
+    async function expectImportAfterTheCommand(text: string, command: () => void): Promise<void> {
+      let reimport: Promise<unknown> | undefined;
+      modeler.elements.onSelection(() => {
+        reimport ??= modeler.importText(text);
+      });
+      const watch = countImports();
+      changes = 0;
+
+      command();
+      expect(reimport).toBeDefined();
+      expect(watch.rendered).toBe(0);
+      await reimport;
+
+      expect(errors).toEqual([]);
+      expect(changes).toBe(1);
+      expect(modeler.exportText()).toBe(text);
+      expect(canvasSvg().querySelectorAll('.djs-shape')).toHaveLength(
+        modeler.elements.list().length,
+      );
+      addNode();
+      expect(changes).toBe(2);
+      service<CommandStack>('commandStack').undo();
+      expect(modeler.exportText()).toBe(text);
+    }
+
+    it('the Delete key on a selected node', async () => {
+      service<Selection>('selection').select(node('pay'));
+      service<Canvas>('canvas').focus();
+
+      await expectImportAfterTheCommand(orders, () =>
+        canvasSvg().dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }),
+        ),
+      );
+    });
+
+    it('an undo of the create of a selected node', async () => {
+      service<Selection>('selection').select(addNode());
+      await nextTask();
+      const created = modeler.exportText();
+
+      await expectImportAfterTheCommand(created, () =>
+        service<CommandStack>('commandStack').undo(),
+      );
+    });
+
+    it('a redo of the delete of a selected node', async () => {
+      service<Modeling>('modeling').removeShape(node('pay'));
+      service<CommandStack>('commandStack').undo();
+      service<Selection>('selection').select(node('pay'));
+      await nextTask();
+      const restored = modeler.exportText();
+
+      await expectImportAfterTheCommand(restored, () =>
+        service<CommandStack>('commandStack').redo(),
+      );
+    });
+  });
+
+  it('a step the action scheduled for later holds the import until it has run', async () => {
+    const gestures = service<Gestures>('gestures');
+    let stepFoundItsNode: boolean | undefined;
+    // A follow-up of the drop, the way a popup or a label editor opens after an append.
+    service<EventBus>('eventBus').on('shape.move.end', (event: { shape: NodeShape }) => {
+      const moved = event.shape;
+      const release = gestures.holdAction();
+      setTimeout(() => {
+        stepFoundItsNode = service<ElementRegistry>('elementRegistry').get(moved.id) === moved;
+        release();
+      }, 0);
+    });
+    const reimport = echoOnce();
+
+    startGesture('move').drop();
+    await reimport();
+
+    expect(stepFoundItsNode).toBe(true);
+    expect(errors).toEqual([]);
+    expect(node('order').x).toBe(100);
+  });
+
+  it('an import waiting for a step that never runs rejects once the modeler is destroyed', async () => {
+    service<Gestures>('gestures').holdAction();
+    const imported = modeler.importText(payments);
+    modeler.destroy();
+    await expect(imported).rejects.toThrow('destroyed');
+  });
+
+  it('an import in the task of a command waits for that task, also one called after the command', async () => {
+    addNode();
+    const imported = modeler.importText(payments);
+    expect(modeler.exportText()).not.toBe(payments);
+    await imported;
+    expect(modeler.exportText()).toBe(payments);
+  });
+
+  it('an import outside a user action runs at once, also right after the task of a command', async () => {
     void modeler.importText(payments);
     expect(modeler.exportText()).toBe(payments);
+    addNode();
+    await nextTask();
+    void modeler.importText(orders);
+    expect(modeler.exportText()).toBe(orders);
   });
 });
 

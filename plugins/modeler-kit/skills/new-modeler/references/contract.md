@@ -92,12 +92,13 @@ key acts; in the apps the shell does that for its chrome ([shell](shell.md)).
 Hosts re-import a peer's text whenever it arrives, also while the user drags. diagram-js keeps a
 drag running across a cleared canvas, and its release then applies a command to removed shapes and
 throws half-way. Contract 1.5 RECOMMENDS the cancel below and defines the optional `interaction`
-surface. Its text lets a pan count as a gesture (MAY) and says nothing about a drop yet; every
-Miragon renderer and the template go further on both (a pan is none, and an import waits for a
-running drop), and the contract text for that comes with the kit's cases for the 1.5 surfaces,
-once every Miragon renderer has them (template:
+surface. Its text lets a pan count as a gesture (MAY) and says nothing about the user's actions
+yet; every Miragon renderer and the template go further on both (a pan is none, and an import
+waits for a running user action), and contract 1.6 is to RECOMMEND both, each with a kit case
+that advises (template:
 [`Gestures.ts`](../assets/template/packages/renderer/src/gestures/Gestures.ts), called from
-[`BaseViewer.ts`](../assets/template/packages/renderer/src/BaseViewer.ts)):
+[`BaseViewer.ts`](../assets/template/packages/renderer/src/BaseViewer.ts) and
+[`collaborative.ts`](../assets/template/packages/renderer/src/collaborative/collaborative.ts)):
 
 - **An accepted import ends a running gesture the way Escape does** (contract 1.5): a move,
   resize, connect or lasso drag, a create or append from the palette or the context pad, also
@@ -116,22 +117,42 @@ once every Miragon renderer has them (template:
   without that, the next move would put the view from before back. A renderer that adds
   diagram-js's space or global connect tool adds their waiting drags to that list, and refuses a
   connect whose start shape the import removed, as Value Chain does.
-- **An import called while a drop is applied waits until the drop has ended** (the suite's rule,
-  pending contract text). A host that imports from `onContentChanged` does so inside the drop's own
-  command. The contract's `importText` then returns a promise that settles after the import it
-  runs once the drag has ended (`drag.ended` or `drag.canceled`), so no listener the drop runs in
-  its own task finds its elements replaced (diagram-js's `SelectionBehavior` throws on a moved
-  shape the import removed, when something was selected before the drag). Imports keep their call
-  order, also one called after the drop while an earlier one still waits. Outside a drop it imports
-  at once. The diagram's own import, which cannot wait, leaves the drop to finish and never cancels
-  it from inside diagram-js's end of it. Tell the drop apart by its drag context, never by a flag:
-  a drop whose cleanup throws never announces its end, and a flag left set would hold every later
-  import.
-- **A step the drop schedules for later runs after the waiting import**: the wait ends with the
-  drop's task, before a timer or a popup that opens after a create or an append. Such a step either
-  holds the drop until it has run, so that `dropEnded()` resolves only after it, or looks its shape
-  up again by id and leaves a shape the import replaced alone, as Wardley's name editor after a
-  create does. The template schedules none.
+- **An import called during a user's action waits until the action has finished.** A user's
+  action is what the diagram does for one input: a drop, a keyboard create, a click append, a
+  label commit, the command of a key, an undo or a redo. A host that imports from
+  `onContentChanged` or `elements.onSelection` does so inside the action, which goes on after it.
+  The command goes on after a listener it runs: a delete, an undo or a redo that removes a
+  selected element changes the selection in the middle of the command, and an import there loses
+  elements and breaks the history. The handler goes on after the command: a drop's later
+  listeners run (diagram-js's `SelectionBehavior` throws on a moved shape the import removed, when
+  something was selected before the drag), a keyboard create selects the new element and opens its
+  label editor (on a removed element, the typed name is lost), and a press that commits the label
+  editor then starts its drag (a palette create throws in diagram-js's dragging). The contract's
+  `importText` returns a promise that settles after the import it runs once the action has
+  finished. The template counts an action from its drop (`drag.end`) or the start of its first
+  command (`commandStack.preExecute`, `execute` for a redo, `revert` for an undo) until the task
+  of the user's input is over (a microtask queued there runs once the handler has returned), so
+  an import waits whichever listener of that task a host calls it from. End the action with that
+  microtask, not with a later event: a drop whose cleanup throws never announces its end, and a
+  flag left set would hold every later import. Imports keep their call order, also one called
+  after the action while an earlier one still waits. Outside an action it imports at once. The
+  diagram's own import, which cannot wait, leaves a drop to finish and never cancels it from
+  inside diagram-js's end of it (tell the drop apart by its drag context).
+  - After a keyboard create, the import takes the label editor down and reopens it on the element
+    with the same id. An edit the first of several waiting imports takes down stays suspended
+    through the next; a render that fails reopens it as well, so no later import brings back an
+    edit that is long over.
+  - A press that commits the label editor starts a gesture after its commit. The template's import
+    ends that gesture, as an accepted import ends any: the commit lands with one change, and the
+    move or the create of the press does not happen, without an error. Whether a renderer should
+    instead hold the action until that drag's drop is not decided yet, so the planned kit case
+    leaves this outcome open.
+- **A step the action schedules for later belongs to it.** A timer or a popup that opens after a
+  create or an append runs in a later task, so it holds the action until it has run, and the
+  import waits for it as well: `holdAction()` returns the release, which the step calls in a
+  `finally` once it has run (the popup or the editor has opened), never for as long as that stays
+  open, since a host waits for no popup and a hold never released keeps every later import
+  waiting. A step that does not run calls it too. The template schedules none.
 - **`interaction`**, an optional surface the kit will check like the cancel: `active()` is true
   from the first `drag.move` of an activated gesture drag, a palette create at once, until
   diagram-js cleans the drag up, so it is still true during the drop's command; `onChange` fires
