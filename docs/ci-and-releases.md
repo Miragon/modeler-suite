@@ -37,11 +37,11 @@ names.
 
 - **Shared** (`shared-lint`, `shared-test`, `shared-test-browser`, `shared-e2e`): the type check of
   modeler-api, modeler-shell and the root tests; their unit tests plus `test:plugin` (the
-  repository-level checks in `test/`: the modeler-kit and release-config drift tests, every
-  modeler's boundaries, the Dependabot auto-merge workflow and the path decisions of
-  `ci-paths.sh affected`), build and `publint`; the shell's
-  browser tests (`test:browser:shared`: the PNG export in Chromium and WebKit, in the Playwright
-  image of the root's `playwright` pin); the shell's Playwright suite in four
+  repository-level checks in `test/`: the modeler-kit and release-config drift tests, the manifests
+  and skills of every plugin in the marketplace, every modeler's boundaries, the Dependabot
+  auto-merge workflow and the path decisions of `ci-paths.sh affected`), build and `publint`; the
+  shell's browser tests (`test:browser:shared`: the PNG export in Chromium and WebKit, in the
+  Playwright image of the root's `playwright` pin); the shell's Playwright suite in four
   shards, each of which runs a quarter of the other tests and then a quarter of the saboteurs that
   run the whole kit (sharded together, those all fell into one shard).
 - **Per modeler**, a matrix over the modelers the change reaches, each job named

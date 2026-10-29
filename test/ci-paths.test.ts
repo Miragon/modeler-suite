@@ -29,7 +29,13 @@ describe("the paths a change reaches in CI", () => {
   const sandbox = mkdtempSync(join(tmpdir(), "ci-paths-"));
   const work = join(sandbox, "work");
   const outputFile = join(sandbox, "github-output");
-  const environment = { ...process.env, GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_NOSYSTEM: "1" };
+  // A hook or `git rebase --exec` exports GIT_DIR and GIT_INDEX_FILE of the repository it runs in;
+  // inherited, they would point the sandbox's commits and resets at that repository.
+  const environment = {
+    ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_"))),
+    GIT_CONFIG_GLOBAL: devNull,
+    GIT_CONFIG_NOSYSTEM: "1",
+  };
   const git = (...args: string[]) =>
     execFileSync("git", args, {
       cwd: work,
@@ -107,7 +113,8 @@ describe("the paths a change reaches in CI", () => {
     ["modelers/wardley-maps/README.md", NOTHING],
     ["modelers/wardley-maps/packages/dsl/src/index.ts", modelerOnly("wardley-maps")],
     ["modelers/wardley-maps/packages/dsl/README.md", modelerOnly("wardley-maps")],
-    ["modelers/wardley-maps/package.json", modelerOnly("wardley-maps")],
+    ["modelers/wardley-maps/vitest.config.ts", modelerOnly("wardley-maps")],
+    ["modelers/wardley-maps/packages/renderer/src/plugins/index.ts", modelerOnly("wardley-maps")],
     ["modelers/event-storming/.claude/rules/rule.md", modelerOnly("event-storming")],
     [
       "modelers/wardley-maps/plugins/wardley-maps-modeler/.claude-plugin/plugin.json",
