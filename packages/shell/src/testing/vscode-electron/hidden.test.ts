@@ -40,6 +40,8 @@ interface FakeOptions {
   missesThemeWhileHidden?: boolean | undefined;
   /** VS Code keeps showing the webview over the untitled editor. */
   webviewStaysShown?: boolean | undefined;
+  /** Cmd/Ctrl+A selects nothing. */
+  selectAllDoesNothing?: boolean | undefined;
   /** Cmd/Ctrl+N opens nothing. */
   noNewFile?: boolean | undefined;
   /** The container reports these sizes while its tab is hidden. */
@@ -56,7 +58,7 @@ function fakeVsCode(options: FakeOptions = {}) {
   const fit = 0.62;
   let scale = fit;
   let translate = { x: 12, y: -8 };
-  let selected = ["shape-a", "shape-b"];
+  let selected: string[] = [];
   let untitled: string | undefined;
   let marked = false;
   let workbenchTheme = HIGH_CONTRAST_LIGHT;
@@ -93,6 +95,9 @@ function fakeVsCode(options: FakeOptions = {}) {
         if (chord === `${keys.modifier}+KeyN` && !options.noNewFile) untitled = "";
         else if (chord === `${keys.modifier}+Equal`) scale *= 1.35;
         else if (chord === "Shift+Digit1") scale = fit;
+        else if (chord === `${keys.modifier}+KeyA` && !options.selectAllDoesNothing) {
+          selected = ["shape-a", "shape-b", "shape-c"];
+        }
         return;
       }
       if (chord === "Shift+Digit1") untitled += "!";
@@ -143,10 +148,10 @@ describe("checkHidden", () => {
 
     expect(failures).toEqual([]);
     expect(result).toEqual({
-      before: { zoom: 84, selected: 2 },
+      before: { zoom: 84, selected: 3 },
       theme: LIGHT.name,
       sizesWhileHidden: [],
-      afterReturn: { zoom: 84, selected: 2 },
+      afterReturn: { zoom: 84, selected: 3 },
     });
     expect(vscode.prompts()).toBe(0);
     expect(vscode.untitledOpen()).toBe(false);
@@ -181,7 +186,19 @@ describe("checkHidden", () => {
     ]);
     expect(
       (await checkHidden(fakeVsCode({ dropsSelectionOnReturn: true }).session, OPTIONS)).failures,
-    ).toEqual(["after the tab came back, the selection lost shape-a, shape-b"]);
+    ).toEqual(["after the tab came back, the selection lost shape-a, shape-b, shape-c"]);
+  });
+
+  it("names a select all that selected nothing, which leaves the hidden tab no selection to keep", async () => {
+    const { failures, result } = await checkHidden(
+      fakeVsCode({ selectAllDoesNothing: true }).session,
+      OPTIONS,
+    );
+
+    expect(failures).toEqual([
+      "Control+KeyA selected no element of the canvas, so the hidden tab had no selection to keep",
+    ]);
+    expect(result.before?.selected).toBe(0);
   });
 
   it("fails a webview that comes back as a new document", async () => {

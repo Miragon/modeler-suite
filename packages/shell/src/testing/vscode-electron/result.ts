@@ -109,6 +109,8 @@ export interface VsCodeSmokeReloadResult {
   after?: VsCodeSmokeReloadView | undefined;
   /** The new webview started with reduced motion, as the setting asked; missing when not checked. */
   reducedMotionAtStart?: boolean | undefined;
+  /** The legend has no menu entry (`menuEntry: false`), so its stored state was not checked. */
+  legendWithoutMenuEntry?: boolean | undefined;
 }
 
 export interface VsCodeSmokeResult {
@@ -249,7 +251,10 @@ export function describeReload(reload: VsCodeSmokeReloadResult): string {
     reload.reducedMotionAtStart === undefined
       ? ""
       : `, ${reload.reducedMotionAtStart ? "with" : "without"} reduced motion at start`;
-  return `view ${view(reload.before)} before, ${view(reload.after)} after${motion}`;
+  const legend = reload.legendWithoutMenuEntry
+    ? ", the legend not checked: it has no menu entry"
+    : "";
+  return `view ${view(reload.before)} before, ${view(reload.after)} after${motion}${legend}`;
 }
 
 /** A few lines for the test log: version, timings, every theme and the failures. */

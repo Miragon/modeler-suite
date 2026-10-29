@@ -856,6 +856,8 @@ describe("runVsCodeSmoke, history", () => {
 interface FakeWorkbenchOptions {
   /** The shell does not mirror VS Code's reduced-motion class on `<html>`. */
   noMirror?: boolean | undefined;
+  /** Backspace leaves the untitled text editor's text, so it stays open in front of the modeler's. */
+  untitledKeepsText?: boolean | undefined;
 }
 
 /**
@@ -910,7 +912,8 @@ function fakeWorkbench(
         return false;
       }
       if (chord === "Shift+Digit1") untitled += "!";
-      else if (chord === "Backspace") untitled = untitled.slice(0, -1);
+      else if (chord === "Backspace" && !options.untitledKeepsText)
+        untitled = untitled.slice(0, -1);
       else if (chord === keys.close && untitled === "") untitled = undefined;
       return true;
     },
@@ -1114,6 +1117,27 @@ describe("runVsCodeSmoke, workbench", () => {
       expect(result.reload).toBeUndefined();
       expect(lines).toContain(
         "reload: skipped, the undo step did not bring the canvas back, so there is no edit to redo",
+      );
+    },
+  );
+
+  it(
+    "skips the reload, and says so, when the hidden step left another editor in front",
+    { timeout: 60_000 },
+    async () => {
+      const { result, lines, workbench } = await smokeWorkbench(
+        { workbench: true, timeoutMs: 1_000 },
+        {},
+        { untitledKeepsText: true },
+      );
+
+      expect(result.failures).toEqual([
+        "hidden: the untitled text editor kept the typed text, so the step left it open instead of answering a save prompt",
+      ]);
+      expect(result.reload).toBeUndefined();
+      expect(workbench.reloads()).toBe(0);
+      expect(lines).toContain(
+        "reload: skipped, the hidden step left another editor in front of the modeler's",
       );
     },
   );

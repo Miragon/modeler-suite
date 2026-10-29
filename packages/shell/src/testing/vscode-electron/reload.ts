@@ -75,9 +75,10 @@ function legendState(open: boolean): string {
  * that the document differs from the one VS Code opened at start, fits, zooms away from the fit and
  * toggles the legend where there is one, then gives the webview `stateWriteMs` to store the view
  * and the legend (`vscode.setState`). After the reload the webview has to be a new document that
- * starts under reduced motion, the document has to be as saved (the canvas shows the edit, VS Code
- * does not call it changed), the view has to be the stored one and not the first fit, held for
- * `graceMs`, the legend has to be as it was, and the webview has to show the workbench's theme.
+ * starts under reduced motion, the document has to be as saved (the canvas shows the edit, and VS
+ * Code does not call it changed once `graceMs` has passed), the view has to be the stored one and
+ * not the first fit, held for `graceMs`, the legend has to be as it was (unless it has no menu entry
+ * to toggle it with), and the webview has to show the workbench's theme.
  * The edit is saved rather than left unsaved because a smoke run is an extension development host,
  * for which VS Code keeps no backups: an unsaved change cannot survive the reload there.
  */
@@ -150,7 +151,9 @@ export async function checkReload(
   const legendBefore = await session.legendOpen();
   if (legendBefore !== null) {
     const toggled = await session.toggleLegend();
-    if (toggled === null || toggled === legendBefore) {
+    // A legend without its menu entry (`menuEntry: false`) is the modeler's choice, not a failure.
+    if (toggled === null) result.legendWithoutMenuEntry = true;
+    else if (toggled === legendBefore) {
       failures.push(
         `the legend's menu entry left the legend ${legendState(legendBefore)}, so its stored state was not checked`,
       );
@@ -210,13 +213,6 @@ export async function checkReload(
     );
   }
 
-  const dirtyAfter = await session.dirty();
-  if (dirtyAfter && !dirtyBefore) {
-    failures.push(
-      "VS Code calls the document changed after the reload, though it was saved before it",
-    );
-  }
-
   const restoredView = await pollUntil(
     () => session.view(),
     (view) => sameView(before, view),
@@ -225,6 +221,13 @@ export async function checkReload(
   );
   await delay(options.graceMs);
   const after = restoredView.met ? await session.view() : restoredView.value;
+  // Read after the grace, or a webview that echoes its first import back as an edit would pass.
+  const dirtyAfter = await session.dirty();
+  if (dirtyAfter && !dirtyBefore) {
+    failures.push(
+      "VS Code calls the document changed after the reload, though it was saved before it",
+    );
+  }
   if (!sameView(before, after)) {
     const fitted =
       Math.abs(after.scale - fitScale) <= SCALE_TOLERANCE

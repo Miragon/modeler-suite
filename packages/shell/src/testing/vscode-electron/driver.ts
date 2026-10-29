@@ -774,8 +774,8 @@ async function runSession(run: SessionRun): Promise<void> {
 
   if (run.history && result.undone && editedCanvas) {
     const edited = editedCanvas;
-    // Last, so the zoom and the selection it leaves are in no screenshot, and after the keys, which
-    // leave nothing in the document that would end the redo history.
+    // After the themes, so the zoom and the selection it leaves are in no screenshot, and after the
+    // keys, which leave nothing in the document that would end the redo history.
     await step("history", async () => {
       const checked = await checkHistory(historySession(context), {
         edited,
@@ -800,7 +800,7 @@ async function runSession(run: SessionRun): Promise<void> {
 
   if (!run.workbench) return;
   const settings: SettingsWriter = { writeSettings, writeReduceMotion };
-  // Last, after the history, which needs the redo the undo step left; the reload step redoes it once more.
+  // After the history, which needs the redo the undo step left; the reload step redoes it once more.
   await step("motion", async () => {
     const checked = await checkMotion(motionSession(context, run, settings, "motion"), {
       effectTimeoutMs: Math.min(KEY_EFFECT_TIMEOUT_MS, timeoutMs),
@@ -825,31 +825,40 @@ async function runSession(run: SessionRun): Promise<void> {
     log(`hidden: ${describeHidden(checked.result)}`);
   });
 
-  if (result.undone && editedCanvas) {
-    const edited = editedCanvas;
-    await step("reload", async () => {
-      const checked = await checkReload(reloadSession(context, run, settings, workbenchState), {
-        edited,
-        original: before,
-        steps: options.undoSteps ?? 1,
-        canvasTimeoutMs: timeoutMs,
-        effectTimeoutMs: Math.min(KEY_EFFECT_TIMEOUT_MS, timeoutMs),
-        graceMs: VIEW_SETTLE_MS,
-        stateWriteMs: STATE_WRITE_MS,
-        fitAnimationMs: FIT_ANIMATION_MS,
-        intervalMs: POLL_INTERVAL_MS,
-      });
-      result.reload = checked.result;
-      for (const failure of checked.failures) failures.add("reload", failure);
-      log(`reload: ${describeReload(checked.result)}`);
-    });
-  } else {
+  if (!result.undone || !editedCanvas) {
     log(
       saved
         ? "reload: skipped, the undo step did not bring the canvas back, so there is no edit to redo"
         : "reload: skipped, the edit was not saved, so there is no edit to redo",
     );
+    return;
   }
+  const inFront = await pollUntil(
+    () => modelerEditorInFront(context, run),
+    (shown) => shown,
+    Math.min(KEY_EFFECT_TIMEOUT_MS, timeoutMs),
+  );
+  if (!inFront.met) {
+    log("reload: skipped, the hidden step left another editor in front of the modeler's");
+    return;
+  }
+  const canvasToRedo = editedCanvas;
+  await step("reload", async () => {
+    const checked = await checkReload(reloadSession(context, run, settings, workbenchState), {
+      edited: canvasToRedo,
+      original: before,
+      steps: options.undoSteps ?? 1,
+      canvasTimeoutMs: timeoutMs,
+      effectTimeoutMs: Math.min(KEY_EFFECT_TIMEOUT_MS, timeoutMs),
+      graceMs: VIEW_SETTLE_MS,
+      stateWriteMs: STATE_WRITE_MS,
+      fitAnimationMs: FIT_ANIMATION_MS,
+      intervalMs: POLL_INTERVAL_MS,
+    });
+    result.reload = checked.result;
+    for (const failure of checked.failures) failures.add("reload", failure);
+    log(`reload: ${describeReload(checked.result)}`);
+  });
 }
 
 /** How the workbench steps change the profile's `settings.json`, as a user's settings change would. */
@@ -896,14 +905,29 @@ async function canvasScale(context: VsCodeSmokeContext): Promise<number> {
 /**
  * Focuses the canvas `<svg>`, and first the webview's frame when the workbench's focus is elsewhere
  * (after another editor was in front of it, or a reload), so that the keys after it reach the
- * canvas and not VS Code's own bindings, such as its window zoom. Whether the canvas holds the focus.
+ * canvas and not VS Code's own bindings, such as its window zoom. Whether the frame and the canvas
+ * hold the focus: the `<svg>` takes it inside its own frame even while the workbench's focus is in
+ * another editor.
  */
 async function focusWebviewCanvas(context: VsCodeSmokeContext, run: SessionRun): Promise<boolean> {
   const focus = await context.page.evaluate(workbenchFocusProbe);
-  if (!focus.webview) {
-    await context.page.evaluate(focusFrameProbe, webviewFrameSelector(run.extensionId));
+  if (
+    !focus.webview &&
+    !(await context.page.evaluate(focusFrameProbe, webviewFrameSelector(run.extensionId)))
+  ) {
+    return false;
   }
   return context.webview.locator("html").evaluate(focusCanvasProbe);
+}
+
+/** The modeler's editor is in front: no text editor is active and the workbench shows its frame. */
+async function modelerEditorInFront(
+  context: VsCodeSmokeContext,
+  run: SessionRun,
+): Promise<boolean> {
+  if (await context.page.evaluate(activeTextEditorProbe)) return false;
+  const frameSelector = webviewFrameSelector(run.extensionId);
+  return (await context.page.evaluate(webviewFrameShownProbe, frameSelector)) === true;
 }
 
 /** The motion step's reads and presses in the running VS Code (see `checkMotion`). */

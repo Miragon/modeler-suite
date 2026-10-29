@@ -27,6 +27,8 @@ const OPTIONS: ReloadCheckOptions = {
 interface FakeOptions {
   /** The modeler shows no legend. */
   noLegend?: boolean | undefined;
+  /** The modeler shows its legend without an entry in the menu (`menuEntry: false`). */
+  legendWithoutMenuEntry?: boolean | undefined;
   /** The new webview fits instead of taking the stored view. */
   fitsAfterReload?: boolean | undefined;
   /** The new webview opens the legend as the modeler's default, not as stored. */
@@ -35,6 +37,8 @@ interface FakeOptions {
   showsStartFixture?: boolean | undefined;
   /** VS Code calls the document changed after the reload. */
   dirtyAfterReload?: boolean | undefined;
+  /** VS Code calls the document changed this long after the reload has shown the canvas. */
+  dirtyLateAfterReloadMs?: number | undefined;
   /** The save key writes nothing. */
   saveDoesNothing?: boolean | undefined;
   /** The new webview starts without the reduced-motion classes. */
@@ -100,7 +104,10 @@ function fakeVsCode(options: FakeOptions = {}) {
     },
     webviewMotion: async () => ({ body: motionClasses, html: motionClasses }),
     legendOpen: async () => legend,
-    toggleLegend: async () => (legend = legend === null ? null : !legend),
+    toggleLegend: async () => {
+      if (legend === null || options.legendWithoutMenuEntry) return null;
+      return (legend = !legend);
+    },
     markWebview: async () => {
       marked = true;
     },
@@ -112,6 +119,8 @@ function fakeVsCode(options: FakeOptions = {}) {
       motionClasses = reduceMotion === "on" && !options.startsWithMotion;
       if (options.showsStartFixture) edited = false;
       dirtyAfterReload = options.dirtyAfterReload === true;
+      const late = options.dirtyLateAfterReloadMs;
+      if (late !== undefined) setTimeout(() => (dirtyAfterReload = true), late);
       if (options.fitsAfterReload) {
         scale = fit;
         translate = { x: 0, y: 0 };
@@ -153,6 +162,21 @@ describe("checkReload", () => {
     expect(result.after).toEqual({ zoom: 84, dirty: false });
   });
 
+  it("leaves the legend out, and says so, for a legend without a menu entry", async () => {
+    const { result, failures } = await checkReload(
+      fakeVsCode({ legendWithoutMenuEntry: true }).session,
+      OPTIONS,
+    );
+
+    expect(failures).toEqual([]);
+    expect(result).toEqual({
+      before: { zoom: 84, dirty: false },
+      after: { zoom: 84, dirty: false },
+      reducedMotionAtStart: true,
+      legendWithoutMenuEntry: true,
+    });
+  });
+
   it("fails a first fit that wins over the stored view", async () => {
     const { failures } = await checkReload(fakeVsCode({ fitsAfterReload: true }).session, OPTIONS);
 
@@ -182,6 +206,18 @@ describe("checkReload", () => {
     const { failures, result } = await checkReload(
       fakeVsCode({ dirtyAfterReload: true }).session,
       OPTIONS,
+    );
+
+    expect(failures).toEqual([
+      "VS Code calls the document changed after the reload, though it was saved before it",
+    ]);
+    expect(result.after?.dirty).toBe(true);
+  });
+
+  it("fails a document VS Code calls changed a moment after the reload showed the canvas", async () => {
+    const { failures, result } = await checkReload(
+      fakeVsCode({ dirtyLateAfterReloadMs: 10 }).session,
+      { ...OPTIONS, graceMs: 40 },
     );
 
     expect(failures).toEqual([

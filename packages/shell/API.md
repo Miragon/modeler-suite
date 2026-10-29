@@ -2605,7 +2605,9 @@ function persistView(
   or a fit animation; the returned stop function writes a pending change at once. The legend state
   is written from `legend.onToggle` (see the usage below).
 - The custom editor is registered with `webviewOptions: { retainContextWhenHidden: true }`: a hidden
-  tab keeps document, view and selection, reports a 0 × 0 container and neither fits nor measures.
+  tab keeps document, view and selection, and while its container reports 0 × 0 the shell neither
+  fits nor measures. With another editor in front of it, VS Code 1.96 and 1.144 keep the
+  container's size and report no resize at all.
 
 ### The document sync (0.8)
 
@@ -3546,6 +3548,7 @@ interface VsCodeSmokeReloadResult {
   before?: VsCodeSmokeReloadView; // right before Developer: Reload Window
   after?: VsCodeSmokeReloadView; // missing when the editor did not come back
   reducedMotionAtStart?: boolean; // the new webview started under reduced motion
+  legendWithoutMenuEntry?: boolean; // the legend has no menu entry, so its state was not checked
 }
 interface VsCodeSmokeResult {
   ok: boolean; // failures is empty
@@ -3753,11 +3756,12 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
    panel cannot take the step.
 9. **history** (0.8, opt-in): runs with `history: true`, or without the option when the test
    process's environment has `VSCODE_SMOKE_OPT_IN=history` (CI's smoke workflow sets
-   `keys,history`; a list takes commas or spaces). Needs the undo step to have brought the canvas
-   back, else the log says it was skipped. The host owns the document's history (guide §13.5): the
-   key reaches VS Code, VS Code changes the text, the webview imports it, and what the user zoomed
-   and selected has to survive that import. The step runs last, after the keys, so the zoom and the
-   selection it leaves are in no screenshot. It focuses the canvas `<svg>` and presses
+   `keys,history,workbench`; a list takes commas or spaces). Needs the undo step to have brought
+   the canvas back, else the log says it was skipped. The host owns the document's history (guide
+   §13.5): the key reaches VS Code, VS Code changes the text, the webview imports it, and what the
+   user zoomed and selected has to survive that import. The step runs after the themes and the
+   keys and before the workbench steps, so the zoom and the selection it leaves are in no
+   screenshot. It focuses the canvas `<svg>` and presses
    Cmd/Ctrl+= (Cmd/Ctrl+- where the canvas cannot zoom in further), so the view is not the fit a
    refit would restore, then Cmd/Ctrl+A. It reads the view (the viewport's scale and translation,
    which with the container's size are the viewbox) and `data-element-id` of every drawn and every
@@ -3792,33 +3796,36 @@ A run takes these steps, each timed; a failed step skips what depends on it, nev
     vscode-reduce-motion".
 11. **hidden** (0.8, opt-in as `workbench`): the editor in a background tab
     (`retainContextWhenHidden`). It zooms the canvas away from the fit, so a refit would show,
-    marks the webview's document and records its keys and the canvas container's sizes, then
-    presses Cmd/Ctrl+N: an untitled text editor opens in front of the modeler's, whose frame VS
-    Code hides. There it presses Shift+1, which has to type into the text editor and must not reach
-    the webview, and switches the color theme (the first of another type than the one shown).
-    Backspace empties the untitled file, so Cmd/Ctrl+W closes it without a save prompt. The webview
-    has to come back as the same document (still marked), with the same canvas, view and selection,
-    held for 0.5 s, and with the theme switched while it was hidden. `result.hidden` holds the view
-    before and after, the theme and the sizes the container reported while hidden (none, or VS
-    Code's 0 × 0). Its failures read like "hidden: after the tab came back, the view moved: zoom
-    84% at 12, -8 before, zoom 62% at 0, 0".
-12. **reload** (0.8, opt-in as `workbench`): needs the undo step to have brought the canvas back,
-    else the log says it was skipped. It turns `workbench.reduceMotion` on, presses the redo key
-    `undoSteps` times and saves, so that the document differs from the one VS Code opened at
-    start, fits, zooms away from the fit, toggles the legend through its menu entry where there is
-    one, and gives the webview 1 s to store its state. Then Cmd/Ctrl+R, Developer: Reload Window
-    (bound in an extension development host): the driver waits for a new workbench document, the
-    shell's menu and a shape. The webview has to be a new document that starts under reduced
-    motion, the canvas has to show the saved edit and VS Code must not call the document changed,
-    the view has to be the one before, held for 0.5 s (a first fit that wins over the stored view
-    fails, and says so), the legend has to be as it was and the webview has to show the
-    workbench's theme. An unsaved change is not checked across the reload: VS Code keeps no
-    backups for a window with `--extensionDevelopmentPath`, which every smoke run is, so it loses
-    the change there whatever the modeler does (a dirty tab comes back whose document is the file
-    on disk). `result.reload` holds the zoom, the dirty state and the legend before and after,
-    and whether the new webview started under reduced motion. Its failures read like "reload: the
-    reload did not restore the view: zoom 84% at -30, -20 before, zoom 62% at 0, 0 after, the fit:
-    the stored view has to win over the first fit".
+    presses Cmd/Ctrl+A, so a dropped selection would show, marks the webview's document and records
+    its keys and the canvas container's sizes, then presses Cmd/Ctrl+N: an untitled text editor
+    opens in front of the modeler's, whose frame VS Code hides. There it presses Shift+1, which has
+    to type into the text editor and must not reach the webview, and switches the color theme (the
+    first of another type than the one shown). Backspace empties the untitled file, so Cmd/Ctrl+W
+    closes it without a save prompt. The webview has to come back as the same document (still
+    marked), with the same canvas, view and selection, held for 0.5 s, and with the theme switched
+    while it was hidden. `result.hidden` holds the view before and after, the theme and the sizes
+    the container reported while hidden (none in VS Code 1.96 and 1.144, which keep the size, or
+    0 × 0). Its failures read like "hidden: after the tab came back, the view moved: zoom 84% at
+    12, -8 before, zoom 62% at 0, 0".
+12. **reload** (0.8, opt-in as `workbench`): needs the undo step to have brought the canvas back
+    and the modeler's editor in front again after the hidden step, else the log says it was
+    skipped. It turns `workbench.reduceMotion` on, presses the redo key `undoSteps` times and
+    saves, so that the document differs from the one VS Code opened at start, fits, zooms away from
+    the fit, toggles the legend through its menu entry where there is one (a legend mounted with
+    `menuEntry: false` is not checked, and the result says so), and gives the webview 1 s to store
+    its state. Then Cmd/Ctrl+R, Developer: Reload Window (bound in an extension development host):
+    the driver waits for a new workbench document, the shell's menu and a shape. The webview has to
+    be a new document that starts under reduced motion, the canvas has to show the saved edit, the
+    view has to be the one before, held for 0.5 s (a first fit that wins over the stored view fails,
+    and says so), VS Code must not call the document changed once those 0.5 s have passed (a webview
+    that echoes its first import back as an edit fails), the legend has to be as it was and the
+    webview has to show the workbench's theme. An unsaved change is not checked across the reload:
+    VS Code keeps no backups for a window with `--extensionDevelopmentPath`, which every smoke run
+    is, so it loses the change there whatever the modeler does (a dirty tab comes back whose
+    document is the file on disk). `result.reload` holds the zoom, the dirty state and the legend
+    before and after, and whether the new webview started under reduced motion. Its failures read
+    like "reload: the reload did not restore the view: zoom 84% at -30, -20 before, zoom 62% at 0, 0
+    after, the fit: the stored view has to win over the first fit".
 13. **close**: `app.close()`; a VS Code that has not quit after 10 s (a modal dialog) is killed. The
     temporary directory goes, unless `keepTemporaryFiles`, also when Ctrl+C ends the test process
     in the middle of a run.
@@ -4036,7 +4043,7 @@ import {
 
 const THEMES = ["light"] as const; // until the shared dark-mode release of all modelers
 
-// activate(): a hidden tab keeps document, view and selection (and reports 0 × 0 meanwhile)
+// activate(): a hidden tab keeps document, view and selection (and may report 0 × 0 meanwhile)
 vscode.window.registerCustomEditorProvider(viewType, provider, {
   webviewOptions: { retainContextWhenHidden: true },
 });

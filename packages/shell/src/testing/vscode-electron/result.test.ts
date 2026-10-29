@@ -227,14 +227,14 @@ describe("formatVsCodeSmoke", () => {
       result({
         motion: { reducedFitViews: 9 },
         hidden: { sizesWhileHidden: [{ width: 0, height: 0 }] },
-        reload: { before: { zoom: 62, dirty: false } },
+        reload: { before: { zoom: 62, dirty: false }, legendWithoutMenuEntry: true },
         timings: { total: 12_000 },
       }),
     );
     expect(text.split("\n").slice(3)).toEqual([
       "  motion: a fit showed 9 views under reduced motion, ? without",
       "  hidden: view ?, hidden under ? (resized to 0 × 0), back at ?",
-      "  reload: view 62% (saved) before, ? after",
+      "  reload: view 62% (saved) before, ? after, the legend not checked: it has no menu entry",
     ]);
   });
 

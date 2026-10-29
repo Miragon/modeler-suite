@@ -125,12 +125,14 @@ async function closeUntitled(
 /**
  * The hidden step (0.8): a modeler's editor in a background tab keeps its webview (the extension
  * registers it with `retainContextWhenHidden`), takes no key while hidden and comes back as it was.
- * The step zooms away from the fit, so that a refit would show, and opens a new untitled text file
- * in the same group (Cmd/Ctrl+N). While the modeler's tab is hidden it presses Shift+1, which has to
- * reach the text editor and not the webview, and switches the color theme. Once the untitled editor
- * is closed again, the webview has to be the same document, with the same canvas, view and
+ * The step zooms away from the fit, so that a refit would show, selects every element, so that a
+ * dropped selection would show, and opens a new untitled text file in the same group
+ * (Cmd/Ctrl+N). While the modeler's tab is hidden it presses Shift+1, which has to reach the text
+ * editor and not the webview, and switches the color theme. Once the untitled editor is closed
+ * again, the webview has to be the same document, with the same canvas, view and
  * selection, held for `graceMs`, and has to show the theme switched while it was hidden. The sizes
- * the canvas container reported while hidden (VS Code's 0 × 0, or none) are in the result.
+ * the canvas container reported while hidden (none in VS Code 1.96 and 1.144, which keep the size,
+ * or 0 × 0) are in the result.
  */
 export async function checkHidden(
   session: HiddenSession,
@@ -147,6 +149,19 @@ export async function checkHidden(
   if (!(await zoomAway(session, options))) {
     failures.push(
       `${modifier}+Equal and ${modifier}+Minus left the zoom as it was, so a refit after the tab came back would not show`,
+    );
+  }
+  const selectAll = `${modifier}+KeyA`;
+  await session.press(selectAll);
+  const selected = await pollUntil(
+    () => session.view(),
+    (view) => view.selected.length > 0,
+    options.effectTimeoutMs,
+    options.intervalMs,
+  );
+  if (!selected.met) {
+    failures.push(
+      `${selectAll} selected no element of the canvas, so the hidden tab had no selection to keep`,
     );
   }
   if (!(await session.startWatching())) {

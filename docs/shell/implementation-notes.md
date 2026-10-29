@@ -332,23 +332,23 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
   CI opts every modeler in with `VSCODE_SMOKE_OPT_IN=keys,history,workbench`; a change to the five
   smoke tests would make release-please release every extension and Team Topologies for a test
   change.
-- **History (opt-in, 0.8).** The history step runs last, after the keys, so the zoom and the
-  selection it leaves are in no screenshot. The webview's view is not in the page's API, so the
-  driver reads the viewport group's matrix (`.djs-container > svg > .viewport`): scale and
-  translation, which with the container's size are the viewbox. It zooms away from the fit first,
-  or a webview that refits after an import would pass by landing on the same view, and selects
-  every element, or an empty selection would pass. A selection is judged by ids: what was selected
-  and is still drawn has to be selected, and nothing new may be, which leaves out the element the
-  redo brings back and the undo takes away. A modeler that gives every element a new id on an
-  import fails, since a dropped selection would otherwise look like one that was never there. The
-  redo's canvas is compared within two pixels per shape, each shape paired with a partner of its
-  own, since the edit's canvas holds the gesture's positions and the redo's the saved text's,
-  which rounds. An edit that leaves the shapes as they were cannot show the redo on the canvas, so
-  VS Code has to call the document changed after it. The view has to hold for 0.5 s after it
-  matched: a restore or a refit may follow the import. The step presses redo and undo `undoSteps` times each, the same number of document edits
-  as the edit made, and ends with the undo, so the document is the saved one again. It reads the
-  state after the keys step on purpose: nothing in it edits the document, so the redo history of
-  the undo step is still there.
+- **History (opt-in, 0.8).** The history step runs after the keys and before the workbench steps, so
+  the zoom and the selection it leaves are in no screenshot. The webview's view is not in the page's
+  API, so the driver reads the viewport group's matrix (`.djs-container > svg > .viewport`): scale
+  and translation, which with the container's size are the viewbox. It zooms away from the fit
+  first, or a webview that refits after an import would pass by landing on the same view, and
+  selects every element, or an empty selection would pass. A selection is judged by ids: what was
+  selected and is still drawn has to be selected, and nothing new may be, which leaves out the
+  element the redo brings back and the undo takes away. A modeler that gives every element a new id
+  on an import fails, since a dropped selection would otherwise look like one that was never there.
+  The redo's canvas is compared within two pixels per shape, each shape paired with a partner of its
+  own, since the edit's canvas holds the gesture's positions and the redo's the saved text's, which
+  rounds. An edit that leaves the shapes as they were cannot show the redo on the canvas, so VS Code
+  has to call the document changed after it. The view has to hold for 0.5 s after it matched: a
+  restore or a refit may follow the import. The step presses redo and undo `undoSteps` times each,
+  the same number of document edits as the edit made, and ends with the undo, so the document is the
+  saved one again. It reads the state after the keys step on purpose: nothing in it edits the
+  document, so the redo history of the undo step is still there.
 - **Workbench steps (opt-in, 0.8).** `VSCODE_SMOKE_OPT_IN=workbench` turns on three steps, run last
   in this order: `motion`, `hidden`, `reload`. One name, because they start and become the default
   together; each keeps its own timing, result and failure prefix.
@@ -360,15 +360,16 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
     webview (the viewport's matrix on every `requestAnimationFrame`), as the shell's own
     `reducedMotion` case does with at most 3 views. The views of a fit without reduced motion are
     only reported: a slow runner draws few frames of a glide, and a check would fail for that.
-  - _Hidden tab._ Cmd/Ctrl+N opens an untitled text editor in the same group, in front of the
-    modeler's. VS Code hides a retained webview with `visibility: hidden` on its overlay container,
-    so the frame counts as hidden by `checkVisibility`. Shift+1 then has to type `!` into the text
-    editor: it proves that the key went somewhere, and it is the fit on the canvas, which would
-    move the view if the webview took it. The theme switch while hidden tests that the theme
-    bridge sends again on return. Backspace empties the untitled file before Cmd/Ctrl+W: an empty
-    untitled file is no change, so VS Code closes it without the save prompt, a native dialog that
-    no driver can answer. The step marks the webview's document (a global in its window) and wants
-    the mark back, which tells a retained webview from one VS Code built again.
+  - _Hidden tab._ The step selects every element first, as the history step does, or an empty
+    selection would pass for a kept one. Cmd/Ctrl+N opens an untitled text editor in the same group,
+    in front of the modeler's. VS Code hides a retained webview with `visibility: hidden` on its
+    overlay container, so the frame counts as hidden by `checkVisibility`. Shift+1 then has to type
+    `!` into the text editor: it proves that the key went somewhere, and it is the fit on the
+    canvas, which would move the view if the webview took it. The theme switch while hidden tests
+    that the theme bridge sends again on return. Backspace empties the untitled file before
+    Cmd/Ctrl+W: an empty untitled file is no change, so VS Code closes it without the save prompt, a
+    native dialog that no driver can answer. The step marks the webview's document (a global in its
+    window) and wants the mark back, which tells a retained webview from one VS Code built again.
   - _Reload Window._ Cmd/Ctrl+R runs Developer: Reload Window: VS Code binds it in an extension
     development host, which every smoke run is. Playwright keeps the same page across the reload,
     so the driver marks the workbench's document too and waits until a read finds no mark (reads
@@ -380,7 +381,12 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
     and a save did nothing; a user's window, which has backups, is not affected.
     `workbench.reduceMotion` is "on" before the reload, so the new webview has to start under
     reduced motion: that is the "at start" half of the setting, which a change while the webview
-    runs does not show.
+    runs does not show. The dirty state is read once the restored view has held for 0.5 s, so a
+    webview that echoes its first import back as an edit fails even when VS Code marks the tab a
+    moment late. A legend mounted with `menuEntry: false` has nothing to toggle it, so its state
+    goes unchecked and the result says so. The step runs only with the modeler's editor in front
+    again, so a hidden step that left the untitled editor open fails once, as the hidden step, and
+    not again as the reload.
 - **Docker.** `modeler-shell-vscode-docker` runs the same test in a Linux container under
   `xvfb-run`, so no window takes the focus on a Mac. The repository is copied without `node_modules`
   and installed with `npm ci` inside; VS Code and npm caches are shared volumes.
