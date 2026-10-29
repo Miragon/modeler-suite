@@ -42,7 +42,7 @@ import "../../src/assets/wardley.css";
 // interaction.browser.test.ts, the three creates without a pointer under one echo in
 // import-during-gesture.browser.test.ts; this file holds the click append, the keyboard creates
 // under a host that echoes every change, the saves of a name editor, the presses that save one,
-// and the listeners a command calls while it runs.
+// the listeners a command calls while it runs, and the selection listener at a drag's start (#336).
 
 const MAP = `title Actions
 component Kettle [0.5, 0.5]
@@ -84,7 +84,7 @@ afterEach(() => {
   }
 });
 
-async function session(): Promise<Session> {
+async function session(text: string = MAP): Promise<Session> {
   const host = document.createElement("div");
   host.style.cssText = "position: fixed; left: 0; top: 0; width: 1280px; height: 840px;";
   document.body.append(host);
@@ -94,8 +94,8 @@ async function session(): Promise<Session> {
   const collect = (event: ErrorEvent) => errors.push(event.error ?? event.message);
   window.addEventListener("error", collect);
   mounted.push({ modeler, host, stop: () => window.removeEventListener("error", collect) });
-  await modeler.importText(MAP);
-  expect(modeler.exportText()).toBe(MAP);
+  await modeler.importText(text);
+  expect(modeler.exportText()).toBe(text);
 
   let changes = 0;
   modeler.onContentChanged(() => (changes += 1));
@@ -241,16 +241,26 @@ function expectTheActionFinishedCleanly(current: Session): void {
   expectTheNextEditReported(current);
 }
 
-/** Selects Kettle and waits for its context pad. */
-async function appendEntryOfKettle(current: Session): Promise<HTMLElement> {
-  select(current, shapeNamed(current.modeler, "Kettle"));
+/** Selects the shape `name` and waits for the `action` entry of its context pad. */
+async function contextPadEntry(
+  current: Session,
+  name: string,
+  action: string,
+): Promise<HTMLElement> {
+  const shape = shapeNamed(current.modeler, name);
+  select(current, shape);
   await nextFrame();
   const entry = current.diagram
     .get<ContextPad>("contextPad")
-    .getPad(shapeNamed(current.modeler, "Kettle") as unknown as DiagramElement)
-    .html.querySelector<HTMLElement>('.entry[data-action="append"]');
-  if (!entry) throw new Error("the context pad has no append entry");
+    .getPad(shape as unknown as DiagramElement)
+    .html.querySelector<HTMLElement>(`.entry[data-action="${action}"]`);
+  if (!entry) throw new Error(`the context pad of ${name} has no ${action} entry`);
   return entry;
+}
+
+/** Selects Kettle and waits for its context pad. */
+function appendEntryOfKettle(current: Session): Promise<HTMLElement> {
+  return contextPadEntry(current, "Kettle", "append");
 }
 
 /** A pointer click on the context pad's append entry, then a click where the component goes. */
@@ -693,6 +703,174 @@ describe("an import from a listener a command calls while it runs waits until th
     expect(modeler.exportText()).toBe(PEER_MAP);
     expectAFreshHistory(current, PEER_MAP);
   });
+});
+
+/** The session's map with a region to resize. */
+const DRAG_MAP = MAP.replace("evolve Cup 0.6", "pioneers [0.98, 0.05, 0.75, 0.3]\nevolve Cup 0.6");
+
+const DRAG_PEER_MAP = DRAG_MAP.replace(
+  "component Kettle [0.5, 0.5]",
+  "component Kettle [0.55, 0.45]",
+);
+
+interface DragSteps {
+  /** The input that makes diagram-js activate the drag, which clears the selection. */
+  activate: () => void;
+  /** Moves the pointer on to where the drop would apply, and releases it there. */
+  release: () => void;
+}
+
+/** Moves the pointer 60 px right of `from` and releases it on the canvas there. */
+function releaseRightOf(current: Session, from: Point): () => void {
+  return () => {
+    const to = { x: from.x + 60, y: from.y };
+    mouse(document, "mousemove", to);
+    mouse(current.svg, "mouseup", to);
+  };
+}
+
+/** Presses `target` at `from` and moves the pointer 20 px right, past the drag threshold. */
+function pressAndPassTheThreshold(current: Session, target: EventTarget, from: Point): void {
+  press(target, from);
+  enterCanvas(current.modeler);
+  mouse(document, "mousemove", { x: from.x + 20, y: from.y });
+}
+
+/** A click on a context pad entry, then a move of the pointer onto the canvas. */
+async function startFromTheContextPad(
+  current: Session,
+  name: string,
+  action: string,
+): Promise<DragSteps> {
+  const entry = await contextPadEntry(current, name, action);
+  const from = centreOf(entry);
+  return {
+    activate: () => {
+      mouse(entry, "click", from, { detail: 1 });
+      enterCanvas(current.modeler);
+      mouse(document, "mousemove", { x: from.x + 20, y: from.y + 20 });
+    },
+    release: releaseRightOf(current, { x: from.x + 20, y: from.y + 20 }),
+  };
+}
+
+/** A key on the canvas, with the pointer over it, that starts a drag at the pointer. */
+function startWithAKey(current: Session, key: string, at: Point): DragSteps {
+  mouse(current.svg, "mousemove", at);
+  return {
+    activate: () => {
+      current.svg.focus();
+      pressKey(current.svg, key);
+    },
+    release: releaseRightOf(current, at),
+  };
+}
+
+// Each starts while an element is selected: diagram-js's Dragging.move fires the drag's start,
+// clears the selection and goes on with the drag.
+const DRAGS_THAT_CLEAR_THE_SELECTION: ReadonlyArray<
+  readonly [string, (current: Session) => Promise<DragSteps>]
+> = [
+  [
+    "a move of a component past the drag threshold",
+    async (current) => {
+      select(current, shapeNamed(current.modeler, "Kettle"));
+      const water = shapeNamed(current.modeler, "Water");
+      const from = middleOf(current, water);
+      return {
+        activate: () =>
+          pressAndPassTheThreshold(current, graphicsOf(current.modeler, water.id), from),
+        release: releaseRightOf(current, { x: from.x + 20, y: from.y }),
+      };
+    },
+  ],
+  [
+    "a resize of a region",
+    async (current) => {
+      const region = registryOf(current).find(
+        (element) => isWardleyShape(element) && element.wardleyType === "attitude",
+      );
+      select(current, region);
+      const handle = current.svg.querySelector(".djs-resizer-se .djs-resizer-hit");
+      if (!handle) throw new Error("the region has no resize handle");
+      const from = centreOf(handle);
+      return {
+        activate: () => pressAndPassTheThreshold(current, handle, from),
+        release: releaseRightOf(current, { x: from.x + 20, y: from.y }),
+      };
+    },
+  ],
+  [
+    "a create from the palette, which a pointer click activates at once",
+    async (current) => {
+      select(current, shapeNamed(current.modeler, "Kettle"));
+      const entry = paletteEntry(current.modeler, "create.component");
+      const place = gridPoint(current, 0.35, 0.75);
+      return {
+        activate: () => clickEntry(entry),
+        release: () => {
+          enterCanvas(current.modeler);
+          mouse(document, "mousemove", place);
+          mouse(current.svg, "mouseup", place);
+        },
+      };
+    },
+  ],
+  [
+    "an append from the context pad",
+    (current) => startFromTheContextPad(current, "Kettle", "append"),
+  ],
+  [
+    "a connect from the context pad",
+    (current) => startFromTheContextPad(current, "Kettle", "connect"),
+  ],
+  [
+    "the evolve placement of the context pad",
+    (current) => startFromTheContextPad(current, "Kettle", "evolve"),
+  ],
+  [
+    "a create the quick-create key C starts at the pointer",
+    async (current) => {
+      select(current, shapeNamed(current.modeler, "Kettle"));
+      return startWithAKey(current, "c", gridPoint(current, 0.35, 0.75));
+    },
+  ],
+  [
+    "a connect the key A starts from the selected component",
+    async (current) => {
+      select(current, shapeNamed(current.modeler, "Cup"));
+      return startWithAKey(current, "a", gridPoint(current, 0.35, 0.75));
+    },
+  ],
+];
+
+describe("an import from the selection listener at a drag's start (#336)", () => {
+  test.each(DRAGS_THAT_CLEAR_THE_SELECTION)(
+    "%s: runs once diagram-js has activated the drag, then ends it",
+    async (_, start) => {
+      const current = await session(DRAG_MAP);
+      const { modeler } = current;
+      const steps = await start(current);
+      const reimport = importOnFirstSelection(current, DRAG_PEER_MAP);
+
+      steps.activate();
+      expect(reimport()).toBeDefined();
+      expect(current.errors).toEqual([]);
+      expect(modeler.interaction.active()).toBe(true);
+      expect(current.log).not.toContain("import");
+      await expect(reimport()).resolves.toBeDefined();
+      expect(modeler.exportText()).toBe(DRAG_PEER_MAP);
+      expect(modeler.interaction.active()).toBe(false);
+
+      steps.release();
+      await nextTask();
+      expect(current.changes()).toBe(0);
+      expect(modeler.exportText()).toBe(DRAG_PEER_MAP);
+      expect(current.delivered).toEqual([true, false]);
+      expect(current.labelEditing.getActiveEdit()).toBeNull();
+      expectTheActionFinishedCleanly(current);
+    },
+  );
 });
 
 describe("waiting imports", () => {

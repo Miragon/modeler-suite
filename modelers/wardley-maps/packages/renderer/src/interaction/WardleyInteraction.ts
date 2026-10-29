@@ -34,12 +34,19 @@ type DragContext = { prefix: string } | null;
  * its drop or cancel. A tool that only waits for its next press is none, and neither is a pan.
  *
  * It also marks the user's actions, and `afterUserAction()` lets an import wait until the running
- * one has finished, so that no step of it finds the map replaced under it (#248, #285, #305):
+ * one has finished, so that no step of it finds the map replaced under it (#248, #285, #305, #336):
  * - a drop, from the release until the drop has ended and the follow-ups it deferred to a later task
  *   (the name editor of a create or an append with the pointer) have run;
  * - every other command, an undo or a redo, from its start until the code that ran it has returned:
  *   a create without a pointer, the context pad's append with Enter, the save of a name editor, also
- *   the one a press on the canvas makes. Such an action defers no step: the next microtask ends it.
+ *   the one a press on the canvas makes, a delete, an undo or a redo that deselects what it removes.
+ *   Such an action defers no step: the next microtask ends it;
+ * - the activation of a diagram-js drag (a move, a connect or the evolve placement of the context pad
+ *   past its threshold; a resize, a create from the palette, the context pad or a key, and a connect
+ *   with the key A at once), from its start until diagram-js's `Dragging.move` has returned: it
+ *   clears the selection after the start and goes on with the drag, so an import from the selection
+ *   listener there would cancel the drag under it. The import then ends the drag, as it ends any
+ *   running gesture. The next microtask ends this action too.
  */
 export default class WardleyInteraction {
   static $inject = ["eventBus", "injector"];
@@ -47,7 +54,7 @@ export default class WardleyInteraction {
   private gesture: object | null = null;
   private dropsRunning = 0;
   private settling: ReturnType<typeof setTimeout> | undefined;
-  private commandRunning = false;
+  private handlerRunning = false;
   private readonly waiting: Array<() => void> = [];
 
   constructor(
@@ -56,7 +63,7 @@ export default class WardleyInteraction {
   ) {
     const dragging = injector.get<Dragging | null>("dragging", false);
     if (dragging) this.followDragging(dragging);
-    eventBus.on(COMMAND_START_EVENTS, ACTION_MARK_PRIORITY, () => this.commandStarts());
+    eventBus.on(COMMAND_START_EVENTS, ACTION_MARK_PRIORITY, () => this.handlerRuns());
     eventBus.on("diagram.destroy", () => {
       clearTimeout(this.settling);
       this.settling = undefined;
@@ -95,7 +102,8 @@ export default class WardleyInteraction {
 
   /**
    * Resolves once the user's running action has finished: a drop with the follow-ups it deferred to
-   * a later task, and the code that ran a command; `undefined` while no action runs.
+   * a later task, and the code that ran a command or activated a drag; `undefined` while no action
+   * runs.
    */
   afterUserAction(): Promise<void> | undefined {
     if (!this.actionRunning()) return undefined;
@@ -103,13 +111,16 @@ export default class WardleyInteraction {
   }
 
   private actionRunning(): boolean {
-    return this.dropsRunning > 0 || this.settling !== undefined || this.commandRunning;
+    return this.dropsRunning > 0 || this.settling !== undefined || this.handlerRunning;
   }
 
   private followDragging(dragging: Dragging): void {
     const current = () => dragging.context() as DragContext;
     let dropping: DragContext = null;
     let ending: DragContext = null;
+    // diagram-js's Dragging.move fires the start, then clears the selection, then reads the drag's
+    // context again, which a cancel from a selection listener would have emptied.
+    this.eventBus.on("drag.start", ACTION_MARK_PRIORITY, () => this.handlerRuns());
     // diagram-js fires the first move right after a start, also the start of a create that it
     // activates at once, and never after a start a listener refused.
     this.eventBus.on("drag.move", ACTION_MARK_PRIORITY, () => {
@@ -152,13 +163,14 @@ export default class WardleyInteraction {
     this.dropsRunning += 1;
   }
 
-  // The code that ran the command goes on after it (a create selects its element and opens its name
-  // editor, a press that saved a name starts its drag), and a microtask runs only once it returned.
-  private commandStarts(): void {
-    if (this.commandRunning) return;
-    this.commandRunning = true;
+  // The handler of the user's input goes on after the command it ran (a create selects its element
+  // and opens its name editor, a press that saved a name starts its drag) and after the start of the
+  // drag it activated, and a microtask runs only once it returned.
+  private handlerRuns(): void {
+    if (this.handlerRunning) return;
+    this.handlerRunning = true;
     queueMicrotask(() => {
-      this.commandRunning = false;
+      this.handlerRunning = false;
       this.settleWhenIdle();
     });
   }
