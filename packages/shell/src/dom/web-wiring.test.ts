@@ -54,7 +54,7 @@ describe("web-column wiring (0.2)", () => {
     expect(() => handle.dismiss()).not.toThrow();
   });
 
-  it("keeps the embedded host to toasts and, without onActivate, the problems popover", () => {
+  it("keeps the embedded host to the problems popover without onActivate", () => {
     const withList = mount({ host: "embedded", ...webOptions(), problems: {} });
     expect(chromeNames(withList.root)).toEqual([
       "menu",
@@ -62,10 +62,17 @@ describe("web-column wiring (0.2)", () => {
       "problems",
       "zoom",
       "problems-popover",
-      "toasts",
     ]);
     const withOwnView = mount({ host: "embedded", problems: { onActivate() {} } });
     expect(chromeNames(withOwnView.root)).not.toContain("problems-popover");
+  });
+
+  it("shows no toast in the embedded host: the embedding host owns all feedback (guide §5.2)", () => {
+    const { shell, root } = mount({ host: "embedded", ...webOptions() });
+    const handle = shell.toast({ status: "success", text: "Link copied" });
+    expect(() => handle.dismiss()).not.toThrow();
+    expect(document.querySelector(".cd-shell-toasts, .cd-shell-toast, .cd-shell-live")).toBeNull();
+    expect(root.textContent).not.toContain("Link copied");
   });
 
   it("puts the web column in the tab order of §5.14", () => {

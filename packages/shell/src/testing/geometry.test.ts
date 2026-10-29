@@ -709,6 +709,9 @@ describe("the web column (0.2)", () => {
     expect(geometryProblems(measurement({ islands: { toasts } }), "ide")).toEqual([
       "toasts: visible, but the IDE host shows no toasts; the extension shows the host's notification (guide §13.5)",
     ]);
+    expect(geometryProblems(measurement({ islands: { toasts } }), "embedded")).toEqual([
+      "toasts: visible, but the embedded host shows no toasts; the embedding host shows its own feedback (guide §5.2, §9)",
+    ]);
   });
 
   it("stands the bottom-left stack and the raised zoom panel on a wrapped legal line", () => {

@@ -1499,6 +1499,27 @@ test.describe("saboteurs", () => {
     );
   });
 
+  test("toasts fails for an embedded root that shows a toast of its own", async ({ page }) => {
+    const harness = sabotaged(() => {
+      const stack = document.createElement("div");
+      stack.className = "cd-shell-toasts";
+      stack.dataset.chrome = "toasts";
+      const card = document.createElement("div");
+      card.className = "cd-shell-toast";
+      card.dataset.status = "success";
+      card.textContent = "Saved";
+      stack.append(card);
+      document.querySelector(".cd-shell")?.append(stack);
+    }, "embedded");
+    const failure = await failureOf("toasts", page, harness);
+    expect(failure).toMatch(
+      /toasts: the embedded host renders a toast stack \[data-chrome="toasts"\]; it shows no toasts, the embedding host shows its own feedback \(guide §5\.2, §9\)/,
+    );
+    expect(failure).toMatch(
+      /toasts: show\.toast shows a toast in the embedded host; the embedding host shows its own feedback/,
+    );
+  });
+
   test("keys fails when a handled key reaches a keydown listener on window", async ({ page }) => {
     const harness = sabotaged(() => {
       const ignore = () => {};

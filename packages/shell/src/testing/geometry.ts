@@ -315,16 +315,6 @@ export function chromeExpectations(
     }
     if (islands["drop-zone"])
       boxes["drop-zone"] = { left: edge, top: edge, right: edge, bottom: edge };
-  } else {
-    Object.assign(hidden, WEB_ONLY);
-  }
-
-  if (host === "ide") {
-    hidden.toasts =
-      "the IDE host shows no toasts; the extension shows the host's notification (guide §13.5)";
-    hidden["problems-popover"] =
-      "the IDE host opens its Problems view, never a list of its own (guide §5.10)";
-  } else {
     if (islands.toasts) {
       const obstacles = (["zoom", "legal", "problems"] as const).flatMap((name) => {
         const box = islands[name];
@@ -340,6 +330,18 @@ export function chromeExpectations(
         }),
       };
     }
+  } else {
+    Object.assign(hidden, WEB_ONLY);
+    hidden.toasts =
+      host === "ide"
+        ? "the IDE host shows no toasts; the extension shows the host's notification (guide §13.5)"
+        : "the embedded host shows no toasts; the embedding host shows its own feedback (guide §5.2, §9)";
+  }
+
+  if (host === "ide") {
+    hidden["problems-popover"] =
+      "the IDE host opens its Problems view, never a list of its own (guide §5.10)";
+  } else {
     const pill = islands.problems;
     if (pill) {
       boxes["problems-popover"] = { left: edge, bottom: container.height - pill.top + gap };

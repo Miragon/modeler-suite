@@ -249,10 +249,11 @@ export interface ShellHandle {
   setEmptyState(shown: boolean): void;
   isEmptyStateShown(): boolean;
   /**
-   * Shows a toast (guide §8, §9) in the web and embedded hosts: bottom centre, at most three, the
-   * newest at the bottom, closing by itself after `toastLifetime` unless hovered or focused. In the
-   * `ide` host it shows nothing and returns an inert handle: there the extension shows the host's
-   * notification (§13.5).
+   * Shows a toast (guide §8, §9) in the web host: bottom centre, at most three, the newest at the
+   * bottom, closing by itself after `toastLifetime` unless hovered or focused. In the `ide` and
+   * `embedded` hosts it shows nothing and returns an inert handle: there the extension shows the
+   * host's notification (§13.5), and the embedding host shows the feedback on the actions it runs
+   * itself (§5.2).
    */
   toast(request: ToastRequest): ToastHandle;
   /**
