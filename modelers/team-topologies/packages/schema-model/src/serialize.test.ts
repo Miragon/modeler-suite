@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { foreignFields, TEAM_NODE_FIELDS } from "./foreign";
 import { canonicalize, serializeDocument } from "./serialize";
 import { SAMPLE_DOCUMENT } from "./sample";
 import { parseDocument } from "./schema";
@@ -165,5 +166,123 @@ describe("serialize", () => {
       .split("\n")
       .filter((line, idx) => line !== v2.split("\n")[idx]);
     expect(changed).toEqual([`  "version": ${DOCUMENT_VERSION},`]);
+  });
+});
+
+describe("serialize a value a JavaScript caller puts in several places", () => {
+  /** The document as `parseDocument` accepts it: it keeps the values of unknown fields as they are. */
+  const parsed = (input: unknown): TtDocument => {
+    const result = parseDocument(input);
+    if (!result.ok) throw new Error(result.error);
+    return result.document;
+  };
+  /** The same document with every shared object and array copied, as a parsed file holds it. */
+  const unshared = (document: unknown): unknown => JSON.parse(JSON.stringify(document));
+
+  const expectWrittenAtEachPlace = (input: unknown): void => {
+    const text = serializeDocument(parsed(input));
+    expect(text).toBe(serializeDocument(parsed(unshared(input))));
+    expect(serializeDocument(parsed(JSON.parse(text)))).toBe(text);
+  };
+
+  const [firstNode, ...otherNodes] = SAMPLE_DOCUMENT.nodes;
+  const [firstInteraction, ...otherInteractions] = SAMPLE_DOCUMENT.interactions;
+  const [firstFlow, ...otherFlows] = SAMPLE_DOCUMENT.flows;
+  const [firstAnnotation, ...otherAnnotations] = SAMPLE_DOCUMENT.annotations;
+
+  it("writes an object shared by the document and each kind of element at each place", () => {
+    const shared = { owner: "ops", tags: [{ b: 1, a: 2 }] };
+    expectWrittenAtEachPlace({
+      ...SAMPLE_DOCUMENT,
+      "x-tag": shared,
+      nodes: [{ ...firstNode, "x-tag": shared }, ...otherNodes],
+      interactions: [{ ...firstInteraction, "x-tag": shared }, ...otherInteractions],
+      flows: [{ ...firstFlow, "x-tag": shared }, ...otherFlows],
+      annotations: [{ ...firstAnnotation, "x-tag": shared }, ...otherAnnotations],
+    });
+  });
+
+  it("writes a chain that holds each level twice at each of its places", () => {
+    const leaf = { value: 1 };
+    let chain: unknown = { leaf };
+    for (let level = 0; level < 10; level++) {
+      chain = { left: chain, right: [chain] };
+    }
+    const text = serializeDocument(parsed({ ...SAMPLE_DOCUMENT, "x-chain": chain }));
+    expect(text.match(/"leaf"/g)).toHaveLength(2 ** 10);
+    expectWrittenAtEachPlace({ ...SAMPLE_DOCUMENT, "x-chain": chain });
+  });
+
+  const repeatLimit =
+    "Cannot serialize a document whose shared objects and arrays would repeat more than 1000000 entries.";
+  const numbers = (count: number): number[] => Array.from({ length: count }, (_, index) => index);
+
+  it("refuses a chain that holds each level twice before it exhausts the memory", () => {
+    let chain: unknown = { leaf: 1 };
+    for (let level = 0; level < 40; level++) {
+      chain = { left: chain, right: chain };
+    }
+    const sharing = parsed({ ...SAMPLE_DOCUMENT, "x-chain": chain });
+    expect(() => serializeDocument(sharing)).toThrow(repeatLimit);
+    expect(() => serializeDocument(sharing, false)).toThrow(repeatLimit);
+    expect(() => canonicalize(sharing)).toThrow(repeatLimit);
+  });
+
+  it("refuses a wide array at the end of such a chain before it exhausts the memory", () => {
+    let chain: unknown = numbers(1_000);
+    for (let level = 0; level < 14; level++) {
+      chain = { left: chain, right: chain };
+    }
+    const sharing = parsed({ ...SAMPLE_DOCUMENT, "x-chain": chain });
+    expect(() => serializeDocument(sharing)).toThrow(repeatLimit);
+  });
+
+  it("refuses one wide object held a thousand times before it exhausts the memory", () => {
+    const wide = Object.fromEntries(numbers(2_000).map((index) => [`key-${index}`, index]));
+    const sharing = parsed({ ...SAMPLE_DOCUMENT, "x-many": Array<unknown>(1_000).fill(wide) });
+    expect(() => serializeDocument(sharing)).toThrow(repeatLimit);
+  });
+
+  it("counts the entries of a shared value at every place after its first, all over the document", () => {
+    const wide = numbers(1_000);
+    const holdingAt = (placesOnTheDocument: number): TtDocument =>
+      parsed({
+        ...SAMPLE_DOCUMENT,
+        "x-many": Array<unknown>(placesOnTheDocument).fill(wide),
+        nodes: [{ ...firstNode, "x-value": wide }, ...otherNodes],
+      });
+    const atTheLimit = holdingAt(1_000);
+    expect(serializeDocument(atTheLimit)).toBe(serializeDocument(parsed(unshared(atTheLimit))));
+    expect(() => serializeDocument(holdingAt(1_001))).toThrow(repeatLimit);
+  });
+
+  it("writes a document that shares nothing, even with more than a million objects", () => {
+    const log = numbers(1_000_000).map((index) => ({ entry: index }));
+    const text = serializeDocument(parsed({ ...SAMPLE_DOCUMENT, "x-log": log }));
+    expect(serializeDocument(parsed(JSON.parse(text)))).toBe(text);
+  }, 30_000);
+
+  it("bounds the unknown fields of one element the same way", () => {
+    let chain: unknown = { leaf: 1 };
+    for (let level = 0; level < 40; level++) {
+      chain = { left: chain, right: chain };
+    }
+    expect(() => foreignFields({ ...firstNode, "x-chain": chain }, TEAM_NODE_FIELDS)).toThrow(
+      repeatLimit,
+    );
+  });
+
+  it("still refuses an object or an array that contains itself", () => {
+    const cyclicObject: Record<string, unknown> = { name: "loop" };
+    cyclicObject["self"] = { back: [cyclicObject] };
+    const cyclicArray: unknown[] = [];
+    cyclicArray.push([cyclicArray]);
+    for (const cycle of [cyclicObject, cyclicArray]) {
+      const cyclic = { ...SAMPLE_DOCUMENT, "x-cycle": cycle };
+      expect(parseDocument(cyclic).ok).toBe(false);
+      expect(() => serializeDocument(cyclic as TtDocument)).toThrow(
+        "Cannot serialize a cyclic document.",
+      );
+    }
   });
 });

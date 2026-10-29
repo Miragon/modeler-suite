@@ -5,6 +5,15 @@ import { DEFAULT_MAP_TITLE, type MapConfig, type WardleyMap } from "./types.js";
 /** Number of decimal places for coordinates in serialization (concept doc §7.1). */
 const COORD_PRECISION = 3;
 
+/**
+ * The serializer writes an object or array that sits in several places at each of them. An object
+ * that holds the level below twice would need memory doubling with every level, and a wide object
+ * held a thousand times would need a thousand copies of it. So each time the serializer writes a
+ * container again, it counts that container's entries; no real map repeats this many. A map that
+ * shares nothing counts none, however large it is.
+ */
+const MAX_REPEATED_ENTRIES = 1_000_000;
+
 function round(n: number, digits = COORD_PRECISION): number {
   const f = 10 ** digits;
   return Math.round(n * f) / f;
@@ -52,50 +61,92 @@ export function parseMapJSON(json: string): WardleyMap {
 /**
  * Deterministic serialization: stable (alphabetical) key order, elements/edges sorted by `id`,
  * coordinates rounded to 3 decimal places. Produces clean Git diffs and reliable change
- * detection (concept doc §7.1).
+ * detection (concept doc §7.1). An object or array that sits in several places is written at
+ * each of them, and its entries count at every place after the first: past 1,000,000 such
+ * repeated entries it throws, and so does a value that contains itself. A map that shares
+ * nothing has no such limit.
  */
 export function serializeMap(map: WardleyMap): string {
-  return stableStringify(canonicalize(map));
+  const writeContainer = containerWriter();
+  return stableStringify(canonicalize(map, writeContainer), writeContainer);
 }
 
-function canonicalize(map: WardleyMap): WardleyMap {
+function canonicalize(map: WardleyMap, writeContainer: WriteContainer): WardleyMap {
   const elements = [...map.elements]
     .sort((a, b) => a.id.localeCompare(b.id))
-    .map((el) => roundNumbers(el) as WardleyMap["elements"][number]);
+    .map((el) => roundNumbers(el, writeContainer) as WardleyMap["elements"][number]);
   const edges = [...map.edges].sort((a, b) => a.id.localeCompare(b.id));
   return {
     ...map,
-    config: roundNumbers(map.config) as MapConfig,
+    config: roundNumbers(map.config, writeContainer) as MapConfig,
     elements,
     edges,
   };
 }
 
-function roundNumbers<T>(value: T): T {
-  if (typeof value === "number") return round(value) as unknown as T;
-  if (Array.isArray(value)) return value.map((v) => roundNumbers(v)) as unknown as T;
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = roundNumbers(v);
+/** Writes one object or array at one of its places, by calling `write`. */
+type WriteContainer = <T>(container: object, write: () => T) => T;
+
+/**
+ * One per serialization, shared by the rounded copy and the sorted copy, so a value that sits in
+ * several places of the map counts at every place, whichever copy writes it.
+ */
+function containerWriter(): WriteContainer {
+  // Only the containers on the current path: one object in several places is no cycle.
+  const ancestors = new Set<object>();
+  const writtenContainers = new WeakSet<object>();
+  let repeatedEntries = 0;
+  return (container, write) => {
+    if (ancestors.has(container)) throw new Error("Cyclic reference in WardleyMap.");
+    if (writtenContainers.has(container)) {
+      repeatedEntries += Array.isArray(container)
+        ? container.length
+        : Object.keys(container).length;
+      if (repeatedEntries > MAX_REPEATED_ENTRIES) {
+        throw new Error(
+          `Cannot serialize a map whose shared objects and arrays would repeat more than ${MAX_REPEATED_ENTRIES} entries.`,
+        );
+      }
+    } else {
+      writtenContainers.add(container);
     }
-    return out as T;
+    ancestors.add(container);
+    const written = write();
+    ancestors.delete(container);
+    return written;
+  };
+}
+
+function roundNumbers<T>(value: T, writeContainer: WriteContainer): T {
+  if (typeof value === "number") return round(value) as unknown as T;
+  if (Array.isArray(value)) {
+    return writeContainer(value, () =>
+      value.map((v) => roundNumbers(v, writeContainer)),
+    ) as unknown as T;
+  }
+  if (value && typeof value === "object") {
+    return writeContainer(value, () => {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        out[k] = roundNumbers(v, writeContainer);
+      }
+      return out as T;
+    });
   }
   return value;
 }
 
-function stableStringify(value: unknown): string {
-  const seen = new WeakSet<object>();
+function stableStringify(value: unknown, writeContainer: WriteContainer): string {
   const sortDeep = (v: unknown): unknown => {
-    if (Array.isArray(v)) return v.map(sortDeep);
+    if (Array.isArray(v)) return writeContainer(v, () => v.map(sortDeep));
     if (v && typeof v === "object") {
-      if (seen.has(v as object)) throw new Error("Cyclic reference in WardleyMap.");
-      seen.add(v as object);
-      const out: Record<string, unknown> = {};
-      for (const key of Object.keys(v as Record<string, unknown>).sort()) {
-        out[key] = sortDeep((v as Record<string, unknown>)[key]);
-      }
-      return out;
+      return writeContainer(v, () => {
+        const out: Record<string, unknown> = {};
+        for (const key of Object.keys(v as Record<string, unknown>).sort()) {
+          out[key] = sortDeep((v as Record<string, unknown>)[key]);
+        }
+        return out;
+      });
     }
     return v;
   };
