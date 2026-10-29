@@ -95,6 +95,68 @@ describe("a line break in a name", () => {
     expect(labels(parseDSL(text), "component")).toEqual(["Foo\nBar", "Component"]);
   });
 
+  it("drops the line breaks around a name when read, without a diagnostic, as it drops spaces", () => {
+    const text = [
+      "title T",
+      "anchor \\nCustomer [0.9, 0.5]",
+      "component Foo\\n [0.5, 0.3]",
+      "component \\n\\nBar\\n [0.5, 0.6]",
+      "component Baz \\n [0.4, 0.4]",
+      "pipeline Bar\\n [0.2, 0.8]",
+      "pipeline Qux\\n [0.1, 0.4] (y 0.2)",
+      "{",
+      "  component Child\\n [0.3]",
+      "}",
+      "Customer -> Foo\\n",
+      "Foo -> Bar",
+      "",
+    ].join("\n");
+    const { map, diagnostics } = parseDSLWithDiagnostics(text);
+    expect(diagnostics).toEqual([]);
+    expect(labels(map, "anchor")).toEqual(["Customer"]);
+    expect(labels(map, "component")).toEqual(["Foo", "Bar", "Baz", "Child"]);
+    expect(labels(map, "pipeline")).toEqual(["Bar", "Qux"]);
+    expect(map.edges).toHaveLength(2);
+    const once = serializeDSL(map);
+    expect(once).toContain("component Foo [0.5, 0.3]");
+    expect(once).toContain("Customer -> Foo\n");
+    expect(parseDSLWithDiagnostics(once).diagnostics).toEqual([]);
+    expectFixedPoint(text);
+  });
+
+  it("names a name of nothing but line breaks with the default and says so", () => {
+    const { map, diagnostics } = parseDSLWithDiagnostics(
+      [
+        "title T",
+        "anchor \\n [0.9, 0.5]",
+        "component \\n\\n [0.5, 0.5]",
+        "component \\n [0.5, 0.3]",
+        "pipeline \\n [0.2, 0.8] (y 0.2)",
+      ].join("\n"),
+    );
+    expect(labels(map, "anchor")).toEqual(["User"]);
+    expect(labels(map, "component")).toEqual(["Component", "Component 2"]);
+    expect(labels(map, "pipeline")).toEqual(["Pipeline"]);
+    expect(diagnostics.map((d) => d.message)).toEqual([
+      'Name "\\n" has only line breaks: renamed to "User"',
+      'Name "\\n\\n" has only line breaks: renamed to "Component"',
+      'Name "\\n" has only line breaks: renamed to "Component 2"',
+      'Name "\\n" has only line breaks: renamed to "Pipeline"',
+    ]);
+  });
+
+  it("gives the real cause when a name with a break around it is also escaped", () => {
+    const { map, diagnostics } = parseDSLWithDiagnostics(
+      "title T\ncomponent a->b\\n [0.5, 0.5]\npipeline \\n{x [0.2, 0.8] (y 0.2)",
+    );
+    expect(labels(map, "component")).toEqual(["a→b"]);
+    expect(labels(map, "pipeline")).toEqual(["｛x"]);
+    expect(diagnostics.map((d) => d.message)).toEqual([
+      expect.stringContaining('Name "a->b\\n" renamed to "a→b", because a name cannot hold link'),
+      expect.stringContaining('Name "\\n{x" renamed to "｛x", because a name cannot hold link'),
+    ]);
+  });
+
   it("keeps an empty line inside a name", () => {
     const text = "title T\ncomponent One\\n\\nThree [0.5, 0.5]\n";
     const map = parseDSL(text);

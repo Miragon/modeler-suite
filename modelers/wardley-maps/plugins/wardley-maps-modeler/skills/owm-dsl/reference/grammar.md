@@ -169,16 +169,19 @@ change:
 - `->` becomes `→`;
 - a `+` before `>`, `<` or `'` becomes `＋`;
 - a leading `{` becomes `｛`;
-- a name already taken becomes `Name 2`, `Name 3`.
+- a name already taken becomes `Name 2`, `Name 3`;
+- a name of nothing but line breaks (`component \n [0.5, 0.5]`) becomes the type's default (`User`,
+  `Component`, `Accelerator`, `Submap`, `Pipeline`).
 
 A literal `\n` in a name is a line break, as in a note: the Modeler stores `Customer\nPortal` as
 "Customer", a line break and "Portal", draws the two lines, and writes the break back as `\n`.
-Leading and trailing breaks are dropped like other leading and trailing whitespace. Links, `evolve`
-lines, pipeline blocks and legacy method lines refer to the name with its `\n`
-(`Customer\nPortal -> Payments`), and uniqueness compares names with their breaks: `Customer\nPortal`
-and `Customer Portal` are two names. A real backslash followed by `n` (`C:\new`) cannot be told
-apart, so it reads as a line break as well; keep it out of names. Other OWM tools may show the `\n`
-as text.
+Leading and trailing breaks are dropped without a diagnostic, like the spaces around a name:
+`component Foo\n [0.5, 0.5]` is the component `Foo`. Links, `evolve` lines, pipeline blocks and
+legacy method lines refer to the name with its `\n` (`Customer\nPortal -> Payments`), and uniqueness
+compares names with their breaks: `Customer\nPortal` and `Customer Portal` are two names. A real
+backslash followed by `n` (`C:\new`) cannot be told apart, so it reads as a line break as well; keep
+it out of names. The Modeler's name editor writes such a backslash as `∖` (U+2216), so a name typed
+there keeps its look. Other OWM tools may show the `\n` as text.
 
 ```owm
 title Names with line breaks
@@ -737,6 +740,7 @@ no effect on the map, or part of it was dropped or changed.
 | `"(color …)" after the annotation text is read as part of the text: write it directly after the position` | a colour at the end of an annotation text                                                                                       |
 | `Duplicate name "X": renamed to "X 2"; links bind to the first "X"`                                       | a name used by an earlier anchor, component, child, accelerator or submap                                                       |
 | `Name "A->B" renamed to "A→B", because a name cannot hold link operators …`                               | `->`, `+>`, `+<`, `+'` or a leading `{` in a name                                                                               |
+| `Name "\n" has only line breaks: renamed to "Component"`                                                  | a name of nothing but `\n`; it gets the type's default name                                                                     |
 | `"<text>" read as "<escaped>", because "//" or "/*" there would start a comment once saved`               | a comment marker in a text that only a flow value elsewhere on the line protected                                               |
 | `Pipeline "X" range is empty or reversed: changed to [s, e]`                                              | `end ≤ start`                                                                                                                   |
 | `Ignored "{": a block must directly follow a pipeline line`                                               | a `{` not right after a pipeline line, or a second `{`                                                                          |

@@ -1,6 +1,7 @@
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type { LabelOffset } from "@miragon/wardley-schema-model";
 import { ANCHOR_ICON_SIZE, COMPONENT_RADIUS } from "./styles.js";
-import type { WardleyShape } from "../model/di-types.js";
+import { isPipeline, type WardleyShape } from "../model/di-types.js";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 
 /**
@@ -56,20 +57,55 @@ export function nameLines(text: string | undefined): string[] {
 }
 
 /**
- * How the lines of a name that holds line breaks spread around the slot of its first line:
+ * How the lines of a name that holds line breaks spread around the slot of a one-line name:
  * `centered` keeps the block's middle on the slot (names beside a circle or a symbol), `up` keeps
- * the last line on it (a name above an icon, a pipeline's edge or an evolve arrow, which the lines
- * must stay clear of).
+ * the last line on it (a name above an icon, a pipeline's top edge or an evolve arrow, which the
+ * lines must stay clear of), `down` keeps the first line on it (a name below a pipeline's top edge).
  */
-export type LineGrowth = "centered" | "up";
+export type LineGrowth = "centered" | "up" | "down";
 
 export function firstLineBaseline(slotY: number, lineCount: number, growth: LineGrowth): number {
   const extra = (lineCount - 1) * LABEL_LINE_HEIGHT;
-  return slotY - (growth === "up" ? extra : extra / 2);
+  if (growth === "up") return slotY - extra;
+  if (growth === "down") return slotY;
+  return slotY - extra / 2;
 }
 
 export function lastLineBaseline(slotY: number, lineCount: number, growth: LineGrowth): number {
   return firstLineBaseline(slotY, lineCount, growth) + (lineCount - 1) * LABEL_LINE_HEIGHT;
+}
+
+/**
+ * How the lines of an element's own name grow, shared by the renderer and the name editor. A
+ * pipeline's dashed top edge runs through the centre of its anchor component, whose name grows
+ * upward as it does over an evolve arrow. The edge runs 11 px above the slot of a member's name:
+ * upward, its lines would straddle the edge and run into the anchor component's name, so they grow
+ * downward inside the box.
+ */
+export function nameLineGrowth(
+  shape: WardleyShape,
+  elementRegistry: Pick<ElementRegistry, "find">,
+): LineGrowth {
+  switch (shape.wardleyType) {
+    case "anchor":
+    case "pipeline":
+      return "up";
+    case "component":
+      if (shape.pipelineId !== undefined) return "down";
+      return shape.movement || anchorsPipeline(shape, elementRegistry) ? "up" : "centered";
+    default:
+      return "centered";
+  }
+}
+
+function anchorsPipeline(
+  component: WardleyShape,
+  elementRegistry: Pick<ElementRegistry, "find">,
+): boolean {
+  const pipeline = elementRegistry.find(
+    (element) => isPipeline(element) && element.wardleyLabel === component.wardleyLabel,
+  );
+  return pipeline !== undefined;
 }
 
 /** The canonical OWM slot of a component name — the origin of its `label [dx, dy]`. */

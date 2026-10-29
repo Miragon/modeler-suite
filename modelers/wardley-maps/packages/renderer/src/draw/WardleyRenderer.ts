@@ -25,6 +25,7 @@ import {
   lastLineBaseline,
   movementDeltaX as movementDeltaXOf,
   movementLabelPlacement,
+  nameLineGrowth,
   nameLines,
   type LabelPlacement,
   type LineGrowth,
@@ -199,14 +200,13 @@ export default class WardleyRenderer extends BaseRenderer {
     }
 
     drawComponentSymbols(visuals, cx, cy, tint, dec);
-    // The evolve arrow runs along the circle's centre line, which centred lines would cross.
     drawComponentLabel(
       visuals,
       shape,
       cx,
       cy,
       componentLabelPlacement(shape, movementDeltaX),
-      movementDeltaX === undefined ? "centered" : "up",
+      nameLineGrowth(shape, this.elementRegistry),
     );
     return ring;
   }
@@ -315,7 +315,7 @@ export default class WardleyRenderer extends BaseRenderer {
           ...(shape.color ? { fill: shape.color } : {}),
         },
         true,
-        "up",
+        nameLineGrowth(shape, this.elementRegistry),
       ),
     );
     return icon;
@@ -371,7 +371,7 @@ export default class WardleyRenderer extends BaseRenderer {
             ...(tint ? { fill: tint } : {}),
           },
           true,
-          "up",
+          nameLineGrowth(shape, this.elementRegistry),
         ),
       );
     }
@@ -468,7 +468,7 @@ export default class WardleyRenderer extends BaseRenderer {
           cy + 4,
           { "font-size": 12, fill: COLORS.noteText, class: NAME_LABEL_CLASS },
           true,
-          "centered",
+          nameLineGrowth(shape, this.elementRegistry),
         ),
       );
     }
@@ -497,7 +497,7 @@ export default class WardleyRenderer extends BaseRenderer {
           cy + 5,
           { "font-size": 12, class: NAME_LABEL_CLASS },
           true,
-          "centered",
+          nameLineGrowth(shape, this.elementRegistry),
         ),
       );
     }
@@ -545,7 +545,7 @@ export default class WardleyRenderer extends BaseRenderer {
           ...(shape.color ? { fill: shape.color } : {}),
         },
         true,
-        "centered",
+        nameLineGrowth(shape, this.elementRegistry),
       ),
     );
     return outer;

@@ -607,15 +607,11 @@ class MapReader {
   ): string {
     const base = writtenName(readLineBreaks(sourceName), elementType);
     const name = this.namesInUse.claim(base);
-    if (name !== base) {
-      this.diag(
-        `Duplicate name "${sourceName}": renamed to "${name}"; links bind to the first "${sourceName}"`,
-        atLine,
-        atText,
-      );
-    } else if (name !== sourceName) {
-      this.diag(renamedMessage(sourceName, name), atLine, atText);
-    }
+    const message =
+      name !== base && withoutOuterLineBreaks(sourceName)
+        ? `Duplicate name "${sourceName}": renamed to "${name}"; links bind to the first "${sourceName}"`
+        : renameDiagnostic(sourceName, name);
+    if (message) this.diag(message, atLine, atText);
     return readLineBreaks(name);
   }
 
@@ -1265,7 +1261,8 @@ class MapReader {
         continue;
       }
       for (const message of p.notes) this.diag(message, p.lineNo, p.text);
-      if (label !== p.name) this.diag(renamedMessage(p.name, label), p.lineNo, p.text);
+      const renamed = renameDiagnostic(p.name, label);
+      if (renamed) this.diag(renamed, p.lineNo, p.text);
       const range = widenEmptyRange(writtenRange);
       const widened = range.start !== writtenRange.start || range.end !== writtenRange.end;
       if (widened && !writtenRange.fromChildren) {
@@ -1367,7 +1364,19 @@ class MapReader {
   }
 }
 
-function renamedMessage(sourceName: string, name: string): string {
+/** A name as written, without the line breaks and spaces around it. */
+function withoutOuterLineBreaks(sourceName: string): string {
+  return lineBreaksAsWritten(readLineBreaks(sourceName).trim());
+}
+
+/**
+ * Why the parser changed a name, or nothing when it only dropped the line breaks around it: those
+ * go without a diagnostic, like the spaces around a name.
+ */
+function renameDiagnostic(sourceName: string, name: string): string | undefined {
+  const trimmed = withoutOuterLineBreaks(sourceName);
+  if (!trimmed) return `Name "${sourceName}" has only line breaks: renamed to "${name}"`;
+  if (name === trimmed) return undefined;
   return `Name "${sourceName}" renamed to "${name}", because a name cannot hold link operators ("->", "+>", "+<", "+'"), comment markers or a leading "{"`;
 }
 
