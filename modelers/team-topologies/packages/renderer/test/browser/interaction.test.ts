@@ -163,6 +163,8 @@ describe("interaction.active() follows every gesture", () => {
     if (!handle) throw new Error("the selected team shows no south-east resize handle");
     const corner = { x: team.x + team.width, y: team.y + team.height };
     pointer.press(handle, corner);
+    expect(modeler.interaction.active()).toBe(true);
+    expect(deliveries).toEqual([true]);
     pointer.moveTo({ x: corner.x + 30, y: corner.y + 20 });
     expect(modeler.interaction.active()).toBe(true);
 

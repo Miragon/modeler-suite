@@ -176,7 +176,8 @@ it can defer a peer's text until the gesture ends instead of reading diagram-js'
 `active()` is true from the start of a move, resize, connect, lasso drag or palette create (also
 while its pointer is still on the palette) until its drop or cancel, and `onChange(listener)` reports
 each change once. A press below the drag threshold and the armed lasso tool are no gesture, nor is a
-pan of the viewer or a label editor. The listener runs where the gesture ends, which can be inside
+pan of the view or a label editor. A resize counts from the press on its handle: diagram-js starts
+it at once, with no drag threshold. The listener runs where the gesture ends, which can be inside
 `importText`, so a host queues its next import instead of starting it there (the contract's
 README shows the queue).
 
@@ -190,7 +191,9 @@ use it. The mode is view state: no change event, the text and the SVG export sta
 and an open label editor stays open. Under high contrast, each team or interaction contour that the
 official templates draw below 3:1 on the canvas (stream-aligned, enabling, complicated-subsystem and
 platform teams, X-as-a-Service and facilitating) lies on an underlay in `--cd-ui-kontur` (guide
-§10.6, the `cd-c-unterleger-hoch` class of `cd-canvas.css`); a contour the user coloured has none.
+§10.6, the `cd-c-unterleger-hoch` class of `cd-canvas.css`), and so does its preview in the palette,
+the legend rows and the inspector, which follow the mode of the nearest carrier; a contour the user
+coloured has none.
 Without high contrast and in the export the contours stay as the templates draw them: the SVG
 export drops every `cd-c-*` class, so the underlay keeps its `stroke: none`.
 

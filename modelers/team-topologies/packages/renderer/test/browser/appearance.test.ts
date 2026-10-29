@@ -123,10 +123,12 @@ function pageMode(theme: string, kontrast?: "hoch"): void {
 
 function underlayStrokes(host: HTMLElement): Record<string, string> {
   return Object.fromEntries(
-    [...host.querySelectorAll<SVGElement>(".cd-c-unterleger-hoch")].map((underlay) => [
-      underlay.closest("[data-element-id]")!.getAttribute("data-element-id")!,
-      getComputedStyle(underlay).stroke,
-    ]),
+    [...host.querySelectorAll<SVGElement>("[data-element-id] .cd-c-unterleger-hoch")].map(
+      (underlay) => [
+        underlay.closest("[data-element-id]")!.getAttribute("data-element-id")!,
+        getComputedStyle(underlay).stroke,
+      ],
+    ),
   );
 }
 
@@ -217,6 +219,43 @@ describe("appearance.set", () => {
     diagram.undo();
     expect(changes).toBe(1);
     expect(modeler.exportText()).toBe(beforeTheEdit);
+  });
+
+  test("on the viewer writes the mode on the viewer's own container, as view state", async () => {
+    const viewer = createCollaborativeViewer();
+    viewer.appearance.set({ theme: "dark", contrast: "high" });
+    const { host } = mount(viewer);
+    const diagram = viewer.diagram;
+    const root = diagram.container;
+    expect(root.parentElement).toBe(host);
+    expect([root.dataset.cdTheme, root.dataset.cdKontrast]).toEqual(["light", "hoch"]);
+
+    await viewer.importText(onlineShop);
+    let changes = 0;
+    viewer.onContentChanged(() => (changes += 1));
+    viewer.setViewState(VIEW_STATE);
+    const text = viewer.exportText();
+    const image = diagram.saveSVG().svg;
+    const view = viewer.getViewState();
+    const kontur = Object.fromEntries(ON_UNDERLAY.map((id) => [id, HIGH_CONTRAST_UNDERLAY]));
+    const none = Object.fromEntries(ON_UNDERLAY.map((id) => [id, "none"]));
+    expect(underlayStrokes(host)).toEqual(kontur);
+
+    viewer.appearance.set({ theme: "light" });
+    expect([root.dataset.cdTheme, root.dataset.cdKontrast]).toEqual(["light", undefined]);
+    expect(underlayStrokes(host)).toEqual(none);
+
+    pageMode("dark", "hoch");
+    viewer.appearance.set({ theme: "sepia" as never });
+    expect([root.dataset.cdTheme, root.dataset.cdKontrast]).toEqual(["light", undefined]);
+    expect(underlayStrokes(host)).toEqual(none);
+    viewer.appearance.set({ theme: "dark", contrast: "high" });
+    expect(underlayStrokes(host)).toEqual(kontur);
+
+    expect(changes).toBe(0);
+    expect(viewer.exportText()).toBe(text);
+    expect(diagram.saveSVG().svg).toBe(image);
+    expect(viewer.getViewState()).toEqual(view);
   });
 
   test("commits nothing an open label editor holds, and leaves it open with its input", async () => {
@@ -333,6 +372,37 @@ describe("the template contours on the high-contrast underlay (#213, guide §10.
     expect(contour!.stroke).toBe("rgb(255, 217, 102)");
     expect(contour!.strokeWidth).toBe("2px");
     expect(contour!.fill).toBe("none");
+  });
+
+  test("show the underlay in the palette's previews too, which follow the same carrier", () => {
+    const { modeler, diagram } = mount();
+    const palette = diagram.get<Canvas>("canvas").getContainer();
+    const previewUnderlays = (): Record<string, string> =>
+      Object.fromEntries(
+        [...palette.querySelectorAll<SVGElement>(".djs-palette .cd-c-unterleger-hoch")].map(
+          (underlay) => [
+            underlay.closest(".entry")!.getAttribute("data-action")!,
+            getComputedStyle(underlay).stroke,
+          ],
+        ),
+      );
+    const exempt = [
+      "team.stream-aligned",
+      "team.enabling",
+      "team.complicated-subsystem",
+      "team.platform",
+      "mode.x-as-a-service",
+      "mode.facilitating",
+    ];
+
+    expect(previewUnderlays()).toEqual(Object.fromEntries(exempt.map((entry) => [entry, "none"])));
+    modeler.appearance.set({ theme: "light", contrast: "high" });
+    expect(previewUnderlays()).toEqual(
+      Object.fromEntries(exempt.map((entry) => [entry, HIGH_CONTRAST_UNDERLAY])),
+    );
+    pageMode("dark", "hoch");
+    modeler.appearance.set({ theme: "light" });
+    expect(previewUnderlays()).toEqual(Object.fromEntries(exempt.map((entry) => [entry, "none"])));
   });
 
   test("leave a contour the user coloured as it is stored, without an underlay", async () => {

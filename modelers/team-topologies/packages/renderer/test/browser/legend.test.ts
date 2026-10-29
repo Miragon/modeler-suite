@@ -103,6 +103,35 @@ describe("renderLegend", () => {
     }
   });
 
+  // Guide §10.6: the previews fall under the canvas's exception, the high-contrast underlay too.
+  test("lays the six template contours below 3:1 on an underlay in --cd-ui-kontur under high contrast only", () => {
+    const body = legendBody();
+    body.dataset.cdTheme = "light";
+    renderLegend(body);
+    const underlays = (): Record<string, string> =>
+      Object.fromEntries(
+        [...body.querySelectorAll<SVGElement>(".cd-c-unterleger-hoch")].map((underlay) => [
+          underlay.closest(".tt-legend__row")!.querySelector(".tt-legend__label")!.textContent!,
+          getComputedStyle(underlay).stroke,
+        ]),
+      );
+    const exempt = [
+      "Stream-aligned",
+      "Enabling",
+      "Complicated Subsystem",
+      "Platform",
+      "X-as-a-Service",
+      "Facilitating",
+    ];
+
+    expect(underlays()).toEqual(Object.fromEntries(exempt.map((label) => [label, "none"])));
+    body.dataset.cdKontrast = "hoch";
+    // --cd-ui-kontur of the light high-contrast mode.
+    expect(underlays()).toEqual(
+      Object.fromEntries(exempt.map((label) => [label, "rgb(29, 29, 29)"])),
+    );
+  });
+
   test("lays the rows out with the renderer's own styles", () => {
     const body = legendBody();
     renderLegend(body);

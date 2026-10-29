@@ -62,9 +62,10 @@ least 3:1 on the canvas ground) and lists exactly the exempt official strokes, s
 cannot slip below unnoticed. Under `data-cd-kontrast="hoch"` each exempt stroke lies on an underlay
 in `--cd-ui-kontur` (decided in #213, guide §10.6 since release 1.27.0): the element's fill carries
 it as a 2px wider stroke with the class `cd-c-unterleger-hoch` of `cd-canvas.css`, and the contour
-is drawn above it ([`draw/underlay.ts`](packages/renderer/src/draw/underlay.ts)). Without high
-contrast and in the export (which drops every `cd-c-*` class) the underlay is `stroke: none`; a
-stroke the user set gets none. The same test checks that the renderer underlays exactly the exempt
+is drawn above it ([`draw/underlay.ts`](packages/renderer/src/draw/underlay.ts)), on the canvas and
+in the icons of palette, legend and inspector (`draw/palette-icons.ts`). Without high contrast and
+in the export (which drops every `cd-c-*` class) the underlay is `stroke: none`; a stroke the user
+set gets none. The same test checks that the renderer and the icons underlay exactly the exempt
 strokes and that each reaches 3:1 on its underlay. The design system covers everything else (chrome,
 typography, accent/selection, neutrals, the app icon).
 
