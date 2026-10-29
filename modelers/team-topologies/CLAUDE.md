@@ -43,8 +43,9 @@ the web app's Vite config import the module by its path: it has no runtime impor
 renderer implements the canvas rules it asks for (keyboard creation, the `ttReadOnly` lock, no zoom
 keys, `undoRedoKeys: false` in VS Code) and the `@miragon/modeler-api` contract
 (`createCollaborativeModeler`, with the 1.5 surfaces `interaction` and `appearance`; an `importText`
-made while a user action runs waits until it has finished, #248, #285, #305: a drop, an append, a
-keyboard create, a label commit or any other command, `collaborative/user-actions.ts`; its
+made while a user action runs waits until it has finished, #248, #285, #305, #336: a drop, an
+append, a keyboard create, a label commit or any other command, or the start of a drag,
+`collaborative/user-actions.ts`; its
 conformance kit and the 1.5 cases the kit plans run in `npm run team-topologies test:browser`). The
 shell's own conformance kit runs in the e2e projects `webapp` and `vscode-webview`; their WebKit
 twins `webapp-webkit` and `vscode-webview-webkit` run only the focus hand-back cases.

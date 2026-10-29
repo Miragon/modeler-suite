@@ -40,7 +40,26 @@ interface Mounted {
 
 const mounted: Mounted[] = [];
 
-afterEach(() => {
+/** A spot below the sample's teams, where the real pointer starts no hover tooltip. */
+const EMPTY_CANVAS_SPOT = { x: 640, y: 720 };
+
+let realPointerUsed = false;
+
+/** Clicks with Playwright's real pointer, which `afterEach` moves off the palette again. */
+async function clickWithTheRealPointer(element: Element): Promise<void> {
+  realPointerUsed = true;
+  await userEvent.click(element);
+}
+
+afterEach(async () => {
+  const topmost = mounted.at(-1);
+  if (realPointerUsed && topmost) {
+    // The real pointer stays where it clicked. Over a palette entry, it starts the entry's hover
+    // tooltip in this diagram and in every diagram mounted under it later, and diagram-js's
+    // tooltip timer throws once it outlives its destroyed diagram.
+    await userEvent.hover(topmost.host, { position: EMPTY_CANVAS_SPOT });
+  }
+  realPointerUsed = false;
   for (const { modeler, host, stopCollecting } of mounted.splice(0)) {
     stopCollecting();
     modeler.destroy();
@@ -702,7 +721,7 @@ describe("an import from inside the change listener of a user action", () => {
     const reimport = reimportOnFirstChange(current);
     const idsBefore = elementIds(current);
     startTyping(current, "team_discovery", "Discovery squad");
-    await userEvent.click(paletteEntry(container, "team.platform"));
+    await clickWithTheRealPointer(paletteEntry(container, "team.platform"));
 
     await expect(reimport()).resolves.toBeDefined();
     expect(order).toEqual(["change", "imported", "drag.init"]);
@@ -849,6 +868,132 @@ describe("an import from inside the change listener of a user action", () => {
       diagram.undo();
       expect(modeler.exportText()).toBe(imported);
       expect(diagram.canUndo()).toBe(false);
+    });
+  }
+});
+
+interface DeselectingGesture {
+  /** The element selected before the gesture, which diagram-js deselects when it starts it. */
+  selected: string;
+  /** Starts the gesture the way a user does; diagram-js deselects inside its start. */
+  start(current: Session): void;
+  /** Moves on and releases the pointer, as the user goes on after the import. */
+  release(current: Session): void;
+}
+
+const NEW_TEAM_DROP = { x: 1120, y: 120 };
+
+function releaseOnCanvasAt(current: Session, drop: { x: number; y: number }): void {
+  current.pointer.enter();
+  current.pointer.moveTo({ x: drop.x - 40, y: drop.y });
+  current.pointer.moveTo(drop);
+  current.pointer.releaseAt(drop);
+}
+
+// #336: diagram-js deselects at a drag's start, inside its `Dragging.move`, and reads the drag right
+// after; an import from the selection listener there ended the drag under it and threw.
+const gesturesThatDeselectAtTheirStart: Record<string, DeselectingGesture> = {
+  "a press on another team moved past the drag threshold": {
+    selected: "team_discovery",
+    start({ diagram, pointer }) {
+      const start = middle(shape(diagram, "team_checkout"));
+      pointer.press(pointer.graphics("team_checkout"), start);
+      pointer.enter();
+      pointer.moveTo({ x: start.x + 60, y: start.y });
+    },
+    release({ diagram, pointer }) {
+      const start = middle(shape(diagram, "team_checkout"));
+      pointer.moveTo({ x: start.x + 80, y: start.y + 20 });
+      pointer.releaseAt({ x: start.x + 80, y: start.y + 20 });
+    },
+  },
+  "a palette create clicked": {
+    selected: "team_discovery",
+    start({ container, pointer }) {
+      pointer.clickOn(paletteEntry(container, "team.platform"));
+    },
+    release: (current) => releaseOnCanvasAt(current, NEW_TEAM_DROP),
+  },
+  "a palette create dragged off its entry": {
+    selected: "team_discovery",
+    start({ container }) {
+      const entry = paletteEntry(container, "team.stream-aligned");
+      entry.dispatchEvent(
+        new DragEvent("dragstart", { bubbles: true, cancelable: true, ...centreOf(entry) }),
+      );
+    },
+    release: (current) => releaseOnCanvasAt(current, NEW_TEAM_DROP),
+  },
+  "a resize from the selected team's handle": {
+    selected: "team_fraud",
+    start({ diagram, container, pointer }) {
+      const team = shape(diagram, "team_fraud");
+      pointer.press(southEastHandle(container, team), {
+        x: team.x + team.width,
+        y: team.y + team.height,
+      });
+    },
+    release({ diagram, pointer }) {
+      const team = shape(diagram, "team_fraud");
+      const corner = { x: team.x + team.width + 60, y: team.y + team.height + 40 };
+      pointer.moveTo(corner);
+      pointer.releaseAt(corner);
+    },
+  },
+  "a connect from the selected annotation's context pad": {
+    selected: "ann_fraud_handover",
+    start({ diagram, container, pointer }) {
+      pointer.clickOn(contextPadEntry(container, "connect"));
+      const target = middle(shape(diagram, "team_fraud"));
+      pointer.moveTo({ x: target.x - 40, y: target.y });
+    },
+    release({ diagram, pointer }) {
+      const target = middle(shape(diagram, "team_fraud"));
+      pointer.enter("team_fraud");
+      pointer.moveTo(target);
+      pointer.releaseAt(target);
+    },
+  },
+};
+
+describe("an import from the selection listener at a drag's start", () => {
+  for (const [name, gesture] of Object.entries(gesturesThatDeselectAtTheirStart)) {
+    test(`${name}: the import waits until diagram-js has started the drag, then ends it`, async () => {
+      const current = await session();
+      const { modeler, diagram, container } = current;
+      const dragging = diagram.get<Dragging>("dragging");
+      diagram.get<Selection>("selection").select(shape(diagram, gesture.selected));
+      const imported = peerMoves("team_platform", 40);
+      const order: string[] = [];
+      let reimport: Promise<unknown> | undefined;
+      modeler.elements.onSelection((ids) => {
+        order.push(`selection ${ids.length}`);
+        reimport ??= modeler.importText(imported);
+      });
+      diagram.on("drag.start", () => {
+        order.push("drag.start");
+      });
+      diagram.on("import.done", () => {
+        order.push("imported");
+      });
+
+      gesture.start(current);
+      expect(order).toEqual(["drag.start", "selection 0"]);
+      expect(dragging.context()).toMatchObject({ active: true });
+
+      await expect(reimport).resolves.toBeDefined();
+      expect(order).toEqual(["drag.start", "selection 0", "imported"]);
+      expect(current.errors).toEqual([]);
+      expect(modeler.exportText()).toBe(imported);
+      expect(dragging.context()).toBeFalsy();
+      expect(previewOf(container)).toBeNull();
+      expect(modeler.interaction.active()).toBe(false);
+
+      gesture.release(current);
+
+      expectNothingApplied(current, imported);
+      expect(modeler.elements.selection()).toEqual([]);
+      expectTheNextEditReported(current, imported);
     });
   }
 });
