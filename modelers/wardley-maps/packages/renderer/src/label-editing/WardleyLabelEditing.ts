@@ -228,8 +228,9 @@ export default class WardleyLabelEditing {
    */
   activate(element: WardleyShape, options: ActivateOptions = {}): void {
     if (!isWardleyShape(element) || NOT_EDITABLE.has(element.wardleyType) || this.locked()) return;
-    // A host that re-imports from the change listener of a create has replaced the new shape before
-    // the caller opens the editor, and a name typed into it would commit onto the removed shape.
+    // A host that re-imports from the change listener of a create with the pointer has replaced the
+    // new shape by the time the editor opens after the drop, and a name typed into it would commit
+    // onto the removed shape.
     if (this.elementRegistry.get(element.id) !== element) return;
     this.active?.commit("outside");
 
