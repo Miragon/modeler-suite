@@ -120,8 +120,9 @@ known version), and the new repository's Dependabot moves them on.
   `contentBounds()` (1.3), which the apps and Design IQ fit to, and the canvas acts on a key only
   while it holds the focus (1.4).
 - An accepted import ends a running gesture the way Escape does, while an armed palette tool and a
-  hand-tool pan run on, and an import called during a user's action (a drop, a keyboard create, a
-  label commit, with the steps they schedule for later) waits until the action has finished; both
+  hand-tool pan run on, and an import called during a user's action (a drop, the start of a drag,
+  a keyboard create, a label commit, with the steps they schedule for later) waits until the
+  action has finished; both
   mounts expose `interaction` and `appearance`, whose `themes` is the renderer's one `THEMES`
   constant that both apps read (1.5; the pan and the wait go beyond the contract's text so far,
   [contract](references/contract.md#gestures)).

@@ -54,6 +54,12 @@ function recordError(event: ErrorEvent): void {
   errors.push(event.error);
 }
 
+/**
+ * The next task, where a user's next input comes: the action of the input before has finished, and
+ * an edit an import took down has opened again.
+ */
+const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 beforeEach(async () => {
   modeler = createCollaborativeModeler();
   modeler.attachTo(attachedHost());
@@ -232,6 +238,8 @@ describe('an accepted import ends a running gesture the way Escape does', () => 
     ] as const) {
       it(`${kind}, importing ${which}`, async () => {
         const gesture = startGesture(kind);
+        // A peer's text arrives after the input that started the drag; one in its task waits.
+        await nextTask();
         expect(modeler.interaction.active()).toBe(true);
         const calls = recordInteraction();
 
@@ -538,9 +546,6 @@ describe('an import called during a user action waits until the action has finis
     entry.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }));
   }
 
-  /** The task after this one, where an edit an import took down has opened again. */
-  const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0));
-
   for (const [count, which] of [
     [1, 'one import'],
     [2, 'two imports'],
@@ -700,6 +705,45 @@ describe('an import called during a user action waits until the action has finis
       await expectImportAfterTheCommand(restored, () =>
         service<CommandStack>('commandStack').redo(),
       );
+    });
+  });
+
+  describe("an import from the selection listener at a drag's start runs once the drag has started (#336)", () => {
+    for (const kind of GESTURE_KINDS) {
+      it(`a ${kind} while a node is selected: the import ends it, without an error`, async () => {
+        service<Selection>('selection').select(node('pay'));
+        let reimport: Promise<unknown> | undefined;
+        // diagram-js clears the selection as it starts the drag, inside its own `move`.
+        modeler.elements.onSelection(() => {
+          reimport ??= modeler.importText(modeler.exportText());
+        });
+        const watch = countImports();
+
+        const gesture = startGesture(kind);
+        expect(reimport).toBeDefined();
+        expect(watch.rendered).toBe(0);
+        expect(modeler.interaction.active()).toBe(true);
+        await reimport;
+        expect(watch.rendered).toBe(1);
+        expect(modeler.interaction.active()).toBe(false);
+        expect(dragPrefix()).toBeUndefined();
+        gesture.drop();
+
+        expectImportOnly(orders);
+        expect(modeler.diagram.container.querySelector('.djs-drag-group')).toBeNull();
+      });
+    }
+
+    it('an import in the task that starts a drag waits for that task, then ends the drag', async () => {
+      const gesture = startGesture('move');
+      const imported = modeler.importText(payments);
+      expect(modeler.exportText()).toBe(orders);
+      expect(modeler.interaction.active()).toBe(true);
+      await imported;
+      expect(modeler.interaction.active()).toBe(false);
+      gesture.drop();
+
+      expectImportOnly(payments);
     });
   });
 
