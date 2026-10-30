@@ -104,9 +104,9 @@ picker also one on its swatches); one aimed at the palette, the context pad, a n
 host's field, menu, dialog or overlay, inside the canvas container or next to it, stays with that
 control. While the draw tool holds the points of a line, the single-key tools do nothing until the
 line is finished or cancelled. While a point of a drawing is dragged, the keys that would change the
-drawing under the drag or start a second gesture next to it do nothing until the release: the
-single-key tools, and the arrow keys, paste and duplicate, which the canvas takes with
-`preventDefault()`. Delete still removes the drawing, which ends the drag without a commit.
+drawing under the drag or start a second gesture next to it do nothing until the release, and the
+canvas takes them with `preventDefault()`: the single-key tools, the arrow keys, paste and
+duplicate. Delete still removes the drawing, which ends the drag without a commit.
 
 ## Collaborative hosts
 

@@ -168,7 +168,7 @@ const SURFACES = ["context pad", "palette", "palette tooltip", "settings popup",
 
 const NORMAL_RINGS: Record<string, Ring> = {
   "context pad entry": { width: "2px", offset: "2px" },
-  "palette entry": { width: "2px", offset: "2px" },
+  "palette entry": { width: "2px", offset: "-2px" },
   "settings popup": { width: "2px", offset: "2px" },
   "colour swatch": { width: "2px", offset: "2px" },
   canvas: { width: "2px", offset: "-2px" },
@@ -176,7 +176,7 @@ const NORMAL_RINGS: Record<string, Ring> = {
 
 const HIGH_CONTRAST_RINGS: Record<string, Ring> = {
   "context pad entry": { width: "3px", offset: "2px" },
-  "palette entry": { width: "3px", offset: "2px" },
+  "palette entry": { width: "3px", offset: "-3px" },
   "settings popup": { width: "3px", offset: "2px" },
   "colour swatch": { width: "3px", offset: "2px" },
   canvas: { width: "3px", offset: "-3px" },
