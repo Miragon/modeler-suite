@@ -181,10 +181,29 @@
   outline: 2px solid var(--cd-ui-fokus);
   outline-offset: 2px;
 }
+/* The entries the edit lock refuses (guide §13.5, aria-disabled from VcPaletteToolbar.ts) stay in
+   place and focusable, without hover: tool icons in --cd-ui-text-leise, the notation previews in
+   grey, never by opacity. */
+.vc-container .djs-palette:not([data-chrome="palette"]) .entry[aria-disabled="true"],
+.vc-container .djs-palette:not([data-chrome="palette"]) .entry[aria-disabled="true"]:hover {
+  background: transparent;
+  color: var(--cd-ui-text-leise);
+  cursor: not-allowed;
+}
+.vc-container .djs-palette:not([data-chrome="palette"]) .entry[aria-disabled="true"] > * {
+  filter: grayscale(1);
+}
 
-/* The palette's tooltip (palette/VcPaletteTooltip.ts) below the island, guide §5.6: opaque, 13px
-   with a 20px line, at most min(280px, 100% - 24px) wide, the key as a Geist Mono chip 6px after
-   the name. Placed in the canvas container's coordinates. */
+/* The palette's tooltip (palette/VcPaletteTooltip.ts), below the island or, for a palette a chrome
+   skins, right of its entry: like every label of the chrome it cannot be selected, so a select-all
+   takes none of it (guide §5.14). */
+.vc-container .djs-hover-tooltip {
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Below the island, guide §5.6: opaque, 13px with a 20px line, at most min(280px, 100% - 24px)
+   wide, the key as a Geist Mono chip 6px after the name. Placed in the canvas container's
+   coordinates. */
 .vc-container .djs-hover-tooltip--bottom {
   position: absolute;
   width: max-content;
@@ -341,12 +360,24 @@
 }
 
 /* Forced colours drop box shadows and backgrounds: the island's edge, the separators, the focus
-   and the armed tool's ring stay, in system colours (guide §5.14). The !important answers
-   diagram-js's colour of the highlighted entry. */
+   and the armed tool's ring stay, in system colours (guide §5.14), and the entries the edit lock
+   refuses in GrayText. The !important answers diagram-js's colour of the highlighted entry. The
+   tokens make the glass opaque here only under a data-cd-theme, which a host without the shell
+   need not set, and the browser keeps the alpha of the colour it forces: the island is Canvas
+   without the blur on every page (guide §5.3). */
 @media (forced-colors: active) {
   .vc-container .djs-context-pad.open,
   .vc-container .djs-palette:not([data-chrome="palette"]) {
     border-color: CanvasText;
+  }
+  .vc-container .djs-palette:not([data-chrome="palette"]) {
+    background: Canvas;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .vc-container .djs-palette:not([data-chrome="palette"]) .entry[aria-disabled="true"],
+  .vc-container .djs-palette:not([data-chrome="palette"]) .entry[aria-disabled="true"]:hover {
+    color: GrayText;
   }
   .vc-container .djs-palette:not([data-chrome="palette"]) .group + .group::before {
     forced-color-adjust: none;

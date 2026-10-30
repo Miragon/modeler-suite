@@ -162,8 +162,12 @@ mounts the `Modeler` without a chrome of its own gets the palette of the Miragon
 - hover in `--cd-ui-hover` with the icon in `--cd-ui-interaktion`, the armed tool with
   `aria-pressed="true"`, the hover fill and a 2px inset ring, the keyboard focus as a 2px
   `--cd-ui-fokus` ring; in high contrast no shadow, a `--cd-ui-kontur` edge and a 3px focus ring;
-  under forced colours the edge, the separator, the focus and the armed tool's ring in system
-  colours;
+  under forced colours an opaque island without the blur, on every page, and the edge, the
+  separator, the focus and the armed tool's ring in system colours;
+- under the edit lock (see below) Space, Connect, Step and Organizational unit `aria-disabled`, still
+  focusable and without hover, their icons in `--cd-ui-text-leise` and the previews in grey (in
+  `GrayText` under forced colours), at once with the lock and again after each rebuild of the
+  entries (§13.5);
 - a toolbar named "Tools" ahead of the canvas in the tab order, with one tab stop that roves with
   ← → Home End, Enter or Space to activate an entry (a creating entry places its element in the
   `freeArea`, see above) and `aria-keyshortcuts` on the tools; a press on the island's padding gives
@@ -171,7 +175,12 @@ mounts the `Modeler` without a chrome of its own gets the palette of the Miragon
 - the tooltip (`role="tooltip"`) with the entry's name and key 8px below the palette, centred on its
   entry and 12px from the container's sides: after 300ms of hover, at once on keyboard focus and for
   a neighbour while one is shown, never for touch, hidden on a press, Escape, leaving and blur
-  (§5.6).
+  (§5.6); like every label of the chrome its text cannot be selected (§5.14).
+
+With or without a chrome, a tool shows pressed exactly while it is armed: Enter or Space on the
+armed tool puts it down, Escape puts down a tool the pointer has not moved yet, a click on another
+tool switches without a moment of none, and the hand after a pan and the space tool after making
+space, which diagram-js arms again, stay pressed.
 
 The rules apply inside the renderer's container (`.vc-container`) only, so another diagram-js
 palette on the same page keeps its own look. A chrome that skins the palette marks it
@@ -184,8 +193,8 @@ right of the entry in diagram-js's look, as without this renderer's tooltip.
 
 `modeler.get('vcReadOnly').setReadOnly(true)` locks every edit while the document behind the canvas
 cannot be saved from it (an invalid file in an IDE): no create, move, resize, connect, waypoints,
-delete, align, paste, context pad or label editor, and no space, connect or label keys. Selection,
-lasso, hand, zoom, copy and export keep working.
+delete, align, paste, context pad or label editor, no space, connect or label keys, and no palette
+entry but Lasso and Hand. Selection, lasso, hand, zoom, copy and export keep working.
 
 ## Collaborative modeler (`@miragon/modeler-api`)
 

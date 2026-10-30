@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { cdp, page, userEvent } from "vitest/browser";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
+import type Palette from "diagram-js/lib/features/palette/Palette";
 import type Selection from "diagram-js/lib/features/selection/Selection";
+import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import type { ModuleDeclaration } from "didi";
 import { createEmptyDocument } from "@miragon/value-chain-schema-model";
-import { Modeler, isVcShape, type VcShape } from "../../src/index.js";
+import { Modeler, isVcShape, type VcReadOnly, type VcShape } from "../../src/index.js";
 import "../../src/assets/value-chain.css";
 
 /**
@@ -19,6 +22,15 @@ const CONTAINER = { width: 1024, height: 768 };
 const FREE_AREA_CENTRE = { x: 400, y: 300 };
 const TOOLS = ["lasso-tool", "hand-tool", "space-tool", "global-connect-tool"];
 const CREATORS = ["create.step", "create.org-unit"];
+/** The drag that holds each palette tool armed while it waits for its next press. */
+const ARMED_DRAG: Record<string, string> = {
+  "lasso-tool": "lasso.selection",
+  "hand-tool": "hand",
+  "space-tool": "spaceTool.selection",
+  "global-connect-tool": "global-connect",
+};
+/** The entries the edit lock refuses; Lasso and Hand stay usable (guide §13.5). */
+const LOCKED = ["space-tool", "global-connect-tool", ...CREATORS];
 
 interface Mounted {
   modeler: Modeler;
@@ -27,7 +39,9 @@ interface Mounted {
 
 const mounted: Mounted[] = [];
 
-afterEach(() => {
+afterEach(async () => {
+  await cdp().send("Emulation.setEmulatedMedia", { features: [] });
+  document.documentElement.removeAttribute("data-cd-theme");
   document.documentElement.removeAttribute("data-cd-kontrast");
   for (const { modeler, wrapper } of mounted.splice(0)) {
     modeler.destroy();
@@ -575,6 +589,265 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
   });
 });
 
+function armedDrag(modeler: Modeler): string | null {
+  return modeler.get<Dragging>("dragging").context()?.prefix ?? null;
+}
+
+/** The tool manager's updates from now on: the tool each shows armed, `null` for none. */
+function toolUpdates(modeler: Modeler): (string | null)[] {
+  const updates: (string | null)[] = [];
+  modeler
+    .get<EventBus>("eventBus")
+    .on("tool-manager.update", (event: { tool?: string | null }) =>
+      updates.push(event.tool ?? null),
+    );
+  return updates;
+}
+
+/** A press on the canvas, a move of 100px to the right and a release, at px from its top left. */
+async function dragAcrossCanvas(modeler: Modeler, from = { x: 100, y: 500 }): Promise<void> {
+  const svg = canvasSvg(modeler);
+  await userEvent.hover(svg, { position: from });
+  const box = svg.getBoundingClientRect();
+  const fire = (type: string, x: number) => {
+    const clientX = box.left + x;
+    const clientY = box.top + from.y;
+    document
+      .elementFromPoint(clientX, clientY)!
+      .dispatchEvent(
+        new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX, clientY }),
+      );
+  };
+  fire("mousedown", from.x);
+  fire("mousemove", from.x + 50);
+  fire("mousemove", from.x + 100);
+  fire("mouseup", from.x + 100);
+}
+
+describe("the palette without the shell: a tool is pressed exactly while it is armed (guide §5.5, #458, #462)", () => {
+  let modeler: Modeler;
+
+  beforeEach(() => {
+    modeler = mount();
+  });
+
+  function state(action: string): [string | null, boolean, string | null] {
+    const entry = entryOf(modeler, action);
+    return [
+      entry.getAttribute("aria-pressed"),
+      entry.classList.contains("highlighted-entry"),
+      armedDrag(modeler),
+    ];
+  }
+
+  it.each(TOOLS)(
+    "%s: Space arms it, Space again puts it down, Enter arms it and Escape puts it down",
+    async (action) => {
+      const armed = ["true", true, ARMED_DRAG[action]];
+      const released = ["false", false, null];
+      entryOf(modeler, action).focus();
+
+      await userEvent.keyboard(" ");
+      expect(state(action)).toEqual(armed);
+      await userEvent.keyboard(" ");
+      expect(state(action)).toEqual(released);
+      expect(document.activeElement).toBe(entryOf(modeler, action));
+
+      await userEvent.keyboard("{Enter}");
+      expect(state(action)).toEqual(armed);
+      await userEvent.keyboard("{Escape}");
+      expect(state(action)).toEqual(released);
+
+      await userEvent.keyboard("{Enter}");
+      expect(state(action)).toEqual(armed);
+    },
+  );
+
+  it.each(TOOLS)(
+    "%s: a click arms it and Escape before the pointer moves puts it down",
+    async (action) => {
+      await userEvent.click(entryOf(modeler, action));
+      expect(state(action)).toEqual(["true", true, ARMED_DRAG[action]]);
+
+      await userEvent.keyboard("{Escape}");
+      expect(state(action)).toEqual(["false", false, null]);
+    },
+  );
+
+  it("switches from one armed tool to the next by a click without a moment of none", async () => {
+    await userEvent.click(entryOf(modeler, "lasso-tool"));
+    await userEvent.hover(canvasSvg(modeler), { position: { x: 100, y: 500 } });
+    const updates = toolUpdates(modeler);
+
+    await userEvent.click(entryOf(modeler, "space-tool"));
+    expect(updates).toEqual(["space"]);
+    expect(pressed(modeler)).toMatchObject({ "lasso-tool": "false", "space-tool": "true" });
+    expect(armedDrag(modeler)).toBe("spaceTool.selection");
+  });
+
+  it("arms the tool again on a click after the pointer left its entry, shown pressed", async () => {
+    await userEvent.click(entryOf(modeler, "lasso-tool"));
+    await userEvent.hover(canvasSvg(modeler), { position: { x: 100, y: 500 } });
+
+    await userEvent.click(entryOf(modeler, "lasso-tool"));
+    expect(state("lasso-tool")).toEqual(["true", true, "lasso.selection"]);
+  });
+
+  it.each([
+    ["the hand once it has panned", "hand-tool"],
+    ["the space tool once it has made space", "space-tool"],
+  ])("shows %s still pressed, as diagram-js arms it again", async (_, action) => {
+    await userEvent.click(entryOf(modeler, action));
+    await dragAcrossCanvas(modeler);
+
+    expect(armedDrag(modeler)).toBe(ARMED_DRAG[action]);
+    expect(pressed(modeler)[action]).toBe("true");
+    await userEvent.keyboard("{Escape}");
+    expect(pressed(modeler)[action]).toBe("false");
+  });
+});
+
+describe("the palette without the shell under the edit lock (guide §13.5, #463)", () => {
+  let modeler: Modeler;
+
+  beforeEach(() => {
+    modeler = mount();
+  });
+
+  function lock(readOnly: boolean): void {
+    modeler.get<VcReadOnly>("vcReadOnly").setReadOnly(readOnly);
+  }
+
+  function disabled(): string[] {
+    return entries(modeler)
+      .filter((entry) => entry.getAttribute("aria-disabled") === "true")
+      .map((entry) => entry.getAttribute("data-action")!);
+  }
+
+  /** The entries ease into a new colour (guide §5.14), so a colour is read once that has ended. */
+  async function settledStyle(element: Element): Promise<CSSStyleDeclaration> {
+    await Promise.all(element.getAnimations().map((animation) => animation.finished));
+    return getComputedStyle(element);
+  }
+
+  it("marks the entries that change the diagram aria-disabled, also after a rebuild, and not Lasso and Hand", () => {
+    expect(disabled()).toEqual([]);
+
+    lock(true);
+    expect(disabled()).toEqual(LOCKED);
+    modeler.get<Palette>("palette").registerProvider({ getPaletteEntries: () => ({}) });
+    expect(disabled()).toEqual(LOCKED);
+
+    lock(false);
+    expect(disabled()).toEqual([]);
+  });
+
+  it("draws them muted and without hover: tool icons in --cd-ui-text-leise, previews in grey, never by opacity", async () => {
+    lock(true);
+    const muted = resolved(modeler.container, "color", "var(--cd-ui-text-leise)");
+
+    for (const action of LOCKED) {
+      const entry = entryOf(modeler, action);
+      const style = await settledStyle(entry);
+      expect(style.color, action).toBe(muted);
+      expect(style.opacity, action).toBe("1");
+      const icon = getComputedStyle(entry.firstElementChild!);
+      expect([icon.filter, icon.opacity], action).toEqual(["grayscale(1)", "1"]);
+    }
+    for (const action of ["lasso-tool", "hand-tool"]) {
+      const style = await settledStyle(entryOf(modeler, action));
+      expect(style.color).toBe(resolved(modeler.container, "color", "var(--cd-ui-text)"));
+      expect(getComputedStyle(entryOf(modeler, action).firstElementChild!).filter).toBe("none");
+    }
+
+    const space = entryOf(modeler, "space-tool");
+    await userEvent.hover(space, { force: true });
+    await vi.waitFor(() => expect(space.matches(":hover")).toBe(true));
+    const hovered = await settledStyle(space);
+    expect([hovered.backgroundColor, hovered.color]).toEqual(["rgba(0, 0, 0, 0)", muted]);
+  });
+
+  it("keeps them in the roving tab order, where Enter and Space do nothing, while Lasso and Hand still arm", async () => {
+    lock(true);
+    entryOf(modeler, "hand-tool").focus();
+
+    for (const action of LOCKED) {
+      await userEvent.keyboard("{ArrowRight}");
+      expect(document.activeElement).toBe(entryOf(modeler, action));
+      for (const key of ["{Enter}", " "]) {
+        await userEvent.keyboard(key);
+        expect(armedDrag(modeler), `${key} on ${action}`).toBeNull();
+      }
+    }
+    expect(shapes(modeler)).toEqual([]);
+
+    await userEvent.keyboard("{Home}{Enter}");
+    expect(armedDrag(modeler)).toBe("lasso.selection");
+    await userEvent.keyboard("{ArrowRight}{Enter}");
+    expect(armedDrag(modeler)).toBe("hand");
+  });
+
+  it("arms neither the space tool nor the connect tool on a click", async () => {
+    lock(true);
+
+    for (const action of ["space-tool", "global-connect-tool"]) {
+      await userEvent.click(entryOf(modeler, action), { force: true });
+      expect(armedDrag(modeler), action).toBeNull();
+      expect(pressed(modeler)[action], action).toBe("false");
+    }
+  });
+
+  it("puts down an armed tool it refuses, which shows released", async () => {
+    entryOf(modeler, "space-tool").focus();
+    await userEvent.keyboard("{Enter}");
+    expect(pressed(modeler)["space-tool"]).toBe("true");
+
+    lock(true);
+    expect(armedDrag(modeler)).toBeNull();
+    expect(pressed(modeler)["space-tool"]).toBe("false");
+  });
+
+  it("draws them in GrayText in forced colours", async () => {
+    lock(true);
+    await cdp().send("Emulation.setEmulatedMedia", {
+      features: [{ name: "forced-colors", value: "active" }],
+    });
+    const probe = document.createElement("div");
+    probe.style.cssText = "forced-color-adjust: none; color: GrayText";
+    modeler.container.append(probe);
+    const grayText = getComputedStyle(probe).color;
+    probe.remove();
+
+    expect((await settledStyle(entryOf(modeler, "space-tool"))).color).toBe(grayText);
+    expect((await settledStyle(entryOf(modeler, "lasso-tool"))).color).not.toBe(grayText);
+  });
+});
+
+/** The alpha of a computed `rgb()` or `rgba()` colour. */
+function alphaOf(color: string): number {
+  const channels = color.match(/[\d.]+/g)?.map(Number) ?? [];
+  return channels.length > 3 ? channels[3]! : 1;
+}
+
+describe("the palette's surface without the shell in forced colours (guide §5.3, #459)", () => {
+  // The tokens make glass opaque in forced colours only under a `data-cd-theme`, which a host
+  // without the shell need not set; the browser forces the surface's colour but keeps its alpha.
+  it.each([
+    ["on a page without a theme", () => undefined],
+    ["on a light page", () => document.documentElement],
+  ])("is opaque, without the blur, %s", async (_, carrierOf: () => HTMLElement | undefined) => {
+    const modeler = mount();
+    carrierOf()?.setAttribute("data-cd-theme", "light");
+    await cdp().send("Emulation.setEmulatedMedia", {
+      features: [{ name: "forced-colors", value: "active" }],
+    });
+    const style = getComputedStyle(paletteOf(modeler));
+
+    expect(alphaOf(style.backgroundColor)).toBe(1);
+    expect(style.backdropFilter).toBe("none");
+  });
+});
+
 describe("the palette without the shell: tooltip (guide §5.6)", () => {
   let modeler: Modeler;
 
@@ -712,6 +985,20 @@ describe("the palette without the shell: tooltip (guide §5.6)", () => {
     expect(shownTooltip()).toBeNull();
   });
 
+  it("takes none of its text into a select-all, as no label of the chrome does (guide §5.14, #456)", async () => {
+    const { tooltip } = await hover("create.org-unit");
+    const selection = document.getSelection()!;
+
+    try {
+      selection.selectAllChildren(document.body);
+      expect(selection.toString()).not.toContain("Organizational unit");
+      selection.selectAllChildren(tooltip);
+      expect(selection.toString()).toBe("");
+    } finally {
+      selection.removeAllRanges();
+    }
+  });
+
   it("describes no entry whose name and aria-keyshortcuts say what it shows", async () => {
     modeler.container.parentElement!.querySelector("button")!.focus();
     await userEvent.tab();
@@ -783,5 +1070,59 @@ describe.each([
     expect(document.activeElement).toBe(step);
     await userEvent.keyboard("{Enter}");
     expect(shapes(modeler)).toEqual([]);
+  });
+
+  it.each(TOOLS)(
+    "puts %s down on the second click the chrome sends for Enter or Space, and on Escape",
+    (action) => {
+      const modeler = mount([chromeModule({ asShell })]);
+      const toolManager = modeler.get<ToolManager>("toolManager");
+      const tool = action.slice(0, -"-tool".length);
+      const state = () => [toolManager.isActive(tool), armedDrag(modeler)];
+      const keyboardClick = () =>
+        entryOf(modeler, action).dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true }),
+        );
+
+      keyboardClick();
+      expect(state()).toEqual([true, ARMED_DRAG[action]]);
+      keyboardClick();
+      expect(state()).toEqual([false, null]);
+
+      keyboardClick();
+      document.dispatchEvent(
+        new KeyboardEvent("keyup", { key: "Escape", bubbles: true, cancelable: true }),
+      );
+      expect(state()).toEqual([false, null]);
+    },
+  );
+
+  it("leaves the marks of the edit lock to the chrome", () => {
+    const modeler = mount([chromeModule({ asShell })]);
+    modeler.get<VcReadOnly>("vcReadOnly").setReadOnly(true);
+
+    for (const entry of entries(modeler)) {
+      expect(entry.hasAttribute("aria-disabled")).toBe(false);
+    }
+  });
+});
+
+describe("a palette another chrome skins: the renderer's tooltip right of the entry", () => {
+  it("takes none of its text into a select-all either (#456)", async () => {
+    const modeler = mount([chromeModule({ asShell: false })]);
+    await userEvent.hover(entryOf(modeler, "create.org-unit"));
+    const tooltip = await vi.waitFor(() => {
+      const shown = modeler.container.querySelector<HTMLElement>(".djs-hover-tooltip--right");
+      if (!shown) throw new Error("No tooltip yet.");
+      return shown;
+    });
+    const selection = document.getSelection()!;
+
+    try {
+      selection.selectAllChildren(tooltip);
+      expect(selection.toString()).toBe("");
+    } finally {
+      selection.removeAllRanges();
+    }
   });
 });

@@ -150,10 +150,13 @@ missing at its other places; the verdict stays the same).
   blur, `element.mousedown` and `drag.init` commit. The factories take the contract's
   `freeArea`/`fitOnImport`/`undoRedoKeys`. New elements get random ids.
   `test/browser/conformance.browser.test.ts` runs the kit, where a skip or an advisory fails.
-- `palette/`: `VcPaletteProvider` (the entries, keyboard creation in the `freeArea`) and, for a host
+- `palette/`: `VcPaletteProvider` (the entries, keyboard creation in the `freeArea`, `LOCKED_ENTRIES`
+  that `vcReadOnly` refuses, and the tool manager kept in step with the drag that arms each tool:
+  diagram-js misses the cancel of a drag the pointer has not moved and the re-arm after a pan or
+  making space, #458, #462) and, for a host
   without the shell (designIQ, #252), `VcPaletteToolbar` (`role="toolbar"`, the roving tab stop and
-  its keys, `aria-pressed` from `tool-manager.update`, `aria-keyshortcuts`, the palette ahead of the
-  `<svg>`) and `VcPaletteTooltip` (diagram-js's `paletteTooltip`, its own `role="tooltip"` element
+  its keys, `aria-pressed` from `tool-manager.update`, `aria-keyshortcuts`, `aria-disabled` on
+  `LOCKED_ENTRIES` under the lock, the palette ahead of the `<svg>`) and `VcPaletteTooltip` (diagram-js's `paletteTooltip`, its own `role="tooltip"` element
   8px below the palette with the timing, focus, press, Escape and touch rules of guide §5.6; right
   of the entry for a palette a chrome skins); `value-chain.css` lays out
   `.vc-container .djs-palette:not([data-chrome="palette"])` after guide §5.5 on the roles and the

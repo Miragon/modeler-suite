@@ -1,14 +1,17 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Palette from "diagram-js/lib/features/palette/Palette";
 import type PaletteProvider from "diagram-js/lib/features/palette/PaletteProvider";
 import type Create from "diagram-js/lib/features/create/Create";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type HandTool from "diagram-js/lib/features/hand-tool/HandTool";
 import type LassoTool from "diagram-js/lib/features/lasso-tool/LassoTool";
 import type SpaceTool from "diagram-js/lib/features/space-tool/SpaceTool";
 import type GlobalConnect from "diagram-js/lib/features/global-connect/GlobalConnect";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
+import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
 import type { FreeArea, FreeAreaInsets } from "@miragon/modeler-api";
 import type { Point } from "@miragon/value-chain-schema-model";
@@ -45,9 +48,41 @@ interface EditLock {
 const KEYBOARD_CREATE_OFFSET = 24;
 
 /**
+ * The entries that change the diagram: the edit lock refuses them, and `VcPaletteToolbar` marks them
+ * `aria-disabled` under it (guide §13.5). Lasso and Hand stay usable.
+ */
+export const LOCKED_ENTRIES: ReadonlySet<string> = new Set([
+  "space-tool",
+  "global-connect-tool",
+  "create.step",
+  "create.org-unit",
+]);
+
+/** Each palette tool's name in diagram-js's tool manager, by the drag that holds it armed. */
+const TOOL_BY_ARMED_DRAG: ReadonlyMap<string, string> = new Map([
+  ["lasso.selection", "lasso"],
+  ["hand", "hand"],
+  ["spaceTool.selection", "space"],
+  ["global-connect", "global-connect"],
+]);
+
+const TOOL_ACTION_SUFFIX = "-tool";
+
+/** The input events at which diagram-js ends a drag; a cancel comes from Escape or from code. */
+const DRAG_ENDING_PRESSES: ReadonlySet<string> = new Set(["mousedown", "mouseup", "touchend"]);
+
+/** The ends of the gestures after which diagram-js arms their tool again: a pan, making space. */
+const RE_ARMING_GESTURE_ENDS = ["hand.move.ended", "spaceTool.ended"];
+
+/** After the tool manager's own listener of a drag's end (priority 250). */
+const AFTER_TOOL_MANAGER = 100;
+
+/**
  * Tools first (Lasso, Hand, Space, Connect), then the creating entries. Tool entry keys end in
  * `-tool` in the group `tools`, so the active tool gets highlighted. Titles and shortcuts are
- * separate fields, so a tooltip shows the key as a chip.
+ * separate fields, so a tooltip shows the key as a chip. A tool entry switches its tool (guide
+ * §5.5): Enter or Space on the armed tool puts it down, as on any pressed toggle button, while a
+ * pointer's press has already ended the drag that held the tool, so its click arms the tool again.
  */
 export default class VcPaletteProvider {
   static $inject = [
@@ -66,6 +101,9 @@ export default class VcPaletteProvider {
     "config.vcPalette",
   ];
 
+  private readonly dragging: Dragging;
+  private readonly toolManager: ToolManager;
+
   constructor(
     palette: Palette,
     private readonly create: Create,
@@ -82,11 +120,14 @@ export default class VcPaletteProvider {
     private readonly config: VcPaletteConfig | undefined,
   ) {
     palette.registerProvider(this as unknown as PaletteProvider);
+    this.dragging = injector.get<Dragging>("dragging")!;
+    this.toolManager = injector.get<ToolManager>("toolManager")!;
+    this.keepPressedToolArmed(injector.get<EventBus>("eventBus")!);
   }
 
   getPaletteEntries(): Record<string, PaletteEntry> {
-    const creator = (newShape: () => VcShape) => (event: Event) => {
-      if (this.editLock()?.isReadOnly()) {
+    const creator = (action: string, newShape: () => VcShape) => (event: Event) => {
+      if (this.lockRefuses(action)) {
         return;
       }
       const shape = newShape();
@@ -96,8 +137,8 @@ export default class VcPaletteProvider {
       }
       this.create.start(event as MouseEvent, shape as Shape);
     };
-    const createStep = creator(() => this.factory.createNewStep());
-    const createOrgUnit = creator(() => this.factory.createNewOrgUnit());
+    const createStep = creator("create.step", () => this.factory.createNewStep());
+    const createOrgUnit = creator("create.org-unit", () => this.factory.createNewOrgUnit());
 
     return {
       "lasso-tool": {
@@ -105,14 +146,22 @@ export default class VcPaletteProvider {
         title: "Lasso",
         shortcut: "L",
         html: paletteEntryHtml(ICONS.lassoTool),
-        action: { click: (event) => this.lassoTool.activateSelection(event as MouseEvent, false) },
+        action: {
+          click: this.toolClick("lasso-tool", (event) =>
+            this.lassoTool.activateSelection(event, false),
+          ),
+        },
       },
       "hand-tool": {
         group: "tools",
         title: "Hand",
         shortcut: "H",
         html: paletteEntryHtml(ICONS.handTool),
-        action: { click: (event) => this.handTool.activateHand(event as MouseEvent, false, false) },
+        action: {
+          click: this.toolClick("hand-tool", (event) =>
+            this.handTool.activateHand(event, false, false),
+          ),
+        },
       },
       "space-tool": {
         group: "tools",
@@ -120,7 +169,9 @@ export default class VcPaletteProvider {
         shortcut: "S",
         html: paletteEntryHtml(ICONS.spaceTool),
         action: {
-          click: (event) => this.spaceTool.activateSelection(event as MouseEvent, false, false),
+          click: this.toolClick("space-tool", (event) =>
+            this.spaceTool.activateSelection(event, false, false),
+          ),
         },
       },
       "global-connect-tool": {
@@ -128,7 +179,11 @@ export default class VcPaletteProvider {
         title: "Connect",
         shortcut: "C",
         html: paletteEntryHtml(ICONS.globalConnect),
-        action: { click: (event) => this.globalConnect.start(event as MouseEvent, false) },
+        action: {
+          click: this.toolClick("global-connect-tool", (event) =>
+            this.globalConnect.start(event, false),
+          ),
+        },
       },
       "create.step": {
         group: "value-chain",
@@ -143,6 +198,57 @@ export default class VcPaletteProvider {
         action: { click: createOrgUnit, dragstart: createOrgUnit },
       },
     };
+  }
+
+  private toolClick(action: string, arm: (event: MouseEvent) => void): (event: Event) => void {
+    const tool = action.slice(0, -TOOL_ACTION_SUFFIX.length);
+    return (event) => {
+      if (this.lockRefuses(action)) return;
+      if (this.armedTool() === tool) {
+        if (isKeyboardClick(event)) {
+          this.dragging.cancel(true);
+          return;
+        }
+      } else if (this.toolManager.isActive(tool)) {
+        // The press on this entry ended the drag that held the tool and left the tool shown armed
+        // for this click, which the tool manager would take as putting the tool down.
+        this.toolManager.setActive(null);
+      }
+      arm(event as MouseEvent);
+    };
+  }
+
+  /**
+   * diagram-js's tool manager shows a tool armed from its drag's init until that drag ends or is
+   * cancelled, but hears the cancel only of a drag the pointer has moved, and an init that arms the
+   * tool shown armed shows it put down. So a tool armed from the palette stayed pressed once Escape,
+   * the edit lock or Enter on its entry put it down, and Enter on it a second time showed it released
+   * while its drag armed it again (#458, #462). The tool manager also releases the hand after a pan
+   * and the space tool after making space, in a listener after the one that arms them again.
+   */
+  private keepPressedToolArmed(eventBus: EventBus): void {
+    for (const [drag, tool] of TOOL_BY_ARMED_DRAG) {
+      // A press ends the drag at `<drag>.ended`, where the tool manager decides; it leaves a press on
+      // a tool entry to the click that follows, so a switch to another tool shows no gap.
+      eventBus.on(`${drag}.cleanup`, (event: { originalEvent?: Event }) => {
+        const endsAtPress = DRAG_ENDING_PRESSES.has(event.originalEvent?.type ?? "");
+        if (!endsAtPress && this.toolManager.isActive(tool)) this.toolManager.setActive(null);
+      });
+    }
+    eventBus.on(RE_ARMING_GESTURE_ENDS, AFTER_TOOL_MANAGER, () => {
+      const tool = this.armedTool();
+      if (tool && !this.toolManager.isActive(tool)) this.toolManager.setActive(tool);
+    });
+  }
+
+  /** The tool whose drag waits for its next press, if any. */
+  private armedTool(): string | undefined {
+    const prefix: unknown = this.dragging.context()?.prefix;
+    return typeof prefix === "string" ? TOOL_BY_ARMED_DRAG.get(prefix) : undefined;
+  }
+
+  private lockRefuses(action: string): boolean {
+    return LOCKED_ENTRIES.has(action) && this.editLock()?.isReadOnly() === true;
   }
 
   /**
