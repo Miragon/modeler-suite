@@ -106,16 +106,18 @@
    from a 1px edge, 3px padding and 32px entries 2px apart, the groups 8px, a 1px line and 8px apart. */
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) {
   left: 50%;
-  top: 12px;
+  top: var(--cd-shell-rand);
   z-index: 110;
   transform: translateX(-50%);
   width: max-content; /* diagram-js otherwise sets a fixed 48px (vertical) */
-  /* Never wider than the canvas: narrow hosts scroll the toolbar instead of clipping tools. */
-  max-width: calc(100% - 24px);
+  /* Never wider than the canvas: narrow hosts scroll the toolbar instead of clipping tools, without
+     a visible bar (guide §5.15), which would make the island taller than its 40px. */
+  max-width: calc(100% - 2 * var(--cd-shell-rand));
+  height: var(--cd-shell-zeile);
   box-sizing: border-box;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   display: flex;
   align-items: center;
   padding: 3px;
@@ -124,6 +126,9 @@
   border-radius: var(--cd-radius-md);
   box-shadow: var(--cd-shadow-1);
   color: var(--cd-ui-text);
+}
+.djs-palette.wardley-palette:where(:not([data-chrome="palette"]))::-webkit-scrollbar {
+  display: none;
 }
 /* Safety net: the provider disables diagram-js' vertical two-column collapse, which would squeeze
    the horizontal bar to 94px. */
@@ -144,8 +149,8 @@
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .entry {
   float: none; /* diagram-js uses float:left -> redundant in the flex row */
   flex: none;
-  width: 32px;
-  height: 32px;
+  width: var(--cd-shell-ziel);
+  height: var(--cd-shell-ziel);
   line-height: normal;
   border-radius: var(--cd-radius-sm);
   color: var(--cd-ui-text);
@@ -188,11 +193,11 @@
   line-height: 20px;
   box-shadow: var(--cd-shadow-2);
 }
-/* diagram-js places the palette tooltip 8px right of its entry, on the entry's middle, which in
-   this horizontal toolbar would cover the next tool. Shifted onto the 32px entry's centre (16px
-   plus that 8px) and 8px below the island (16px, the 3px padding and the 1px edge, then 8px). */
-:where(.wardley-container) .djs-hover-tooltip--right {
-  transform: translate(calc(-50% - 24px), 28px);
+/* palette/WardleyPaletteTooltip.ts hangs it 8px below the island at its entry's centre, with a
+   placement diagram-js's sheet has no rule for: a copy of that sheet a host loads later would win
+   a tie with a `--right` rule here and put the tooltip back over the next tools. */
+:where(.wardley-container) .djs-hover-tooltip--bottom {
+  transform: translateX(-50%);
 }
 :where(.wardley-container) .djs-hover-tooltip .djs-palette-tooltip-shortcut {
   padding: 1px 6px;

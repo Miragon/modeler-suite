@@ -3,9 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cdp, page, userEvent } from "vitest/browser";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
+import PaletteModule from "diagram-js/lib/features/palette";
+import type { ModuleDeclaration } from "didi";
 import { Modeler } from "../../src/index.js";
 import type WardleyDrawTool from "../../src/draw-tool/WardleyDrawTool.js";
 import "../../src/assets/wardley.css";
+import diagramJsCss from "diagram-js/assets/diagram-js.css?raw";
 
 /**
  * The renderer's own palette, for a host that mounts the map without the modeler shell: the sizes
@@ -16,6 +19,8 @@ import "../../src/assets/wardley.css";
  */
 
 const HOST = { width: 1024, height: 768 };
+/** Narrower than the palette's content, so it scrolls sideways. */
+const NARROW_HOST = { width: 360, height: 600 };
 const root = document.documentElement;
 
 interface Mounted {
@@ -41,12 +46,12 @@ afterEach(async () => {
   }
 });
 
-async function mount(): Promise<Mounted> {
+async function mount(size = HOST, ModelerType = Modeler): Promise<Mounted> {
   await page.viewport(HOST.width, HOST.height);
   const host = document.createElement("div");
-  host.style.cssText = `position: fixed; left: 0; top: 0; width: ${HOST.width}px; height: ${HOST.height}px;`;
+  host.style.cssText = `position: fixed; left: 0; top: 0; width: ${size.width}px; height: ${size.height}px;`;
   document.body.append(host);
-  const modeler = new Modeler({ container: host, width: HOST.width, height: HOST.height });
+  const modeler = new ModelerType({ container: host, width: size.width, height: size.height });
   await modeler.importDSL("title Ring");
   const result = { host, modeler };
   mounted.push(result);
@@ -251,6 +256,17 @@ describe("the palette's sizes without the shell (guide §5.5, #425)", () => {
     expect(getComputedStyle(palette).boxShadow).toBe(
       resolved(host, "box-shadow", "var(--cd-shadow-1)"),
     );
+  });
+
+  it("stays 40px high where it scrolls in a narrow container, without a visible bar (guide §5.15)", async () => {
+    const { host } = await mount(NARROW_HOST);
+    const palette = paletteOf(host);
+    expect(palette.scrollWidth).toBeGreaterThan(palette.clientWidth);
+
+    expect(boxIn(palette, host).height).toBe(40);
+    expect(palette.clientHeight).toBe(38);
+    expect(getComputedStyle(palette).scrollbarWidth).toBe("none");
+    expect(getComputedStyle(palette, "::-webkit-scrollbar").display).toBe("none");
   });
 
   it("holds 32 × 32 entries 2px apart, with 8px, a 1px line inset 4px, and 8px between the groups", async () => {
@@ -498,6 +514,44 @@ describe("the palette tooltip without the shell (guide §5.6, #425)", () => {
     );
   });
 
+  it("keeps its place when diagram-js's sheet loads again after the renderer's", async () => {
+    const { host } = await mount();
+    const laterSheet = document.createElement("style");
+    laterSheet.textContent = diagramJsCss;
+    document.head.append(laterSheet);
+    hostSheets.push(laterSheet);
+    const component = entry(host, "create.component");
+    const tooltip = await showTooltipOf(host, component);
+
+    const tooltipBox = boxIn(tooltip, host);
+    const entryBox = boxIn(component, host);
+    expect(tooltipBox.top).toBeCloseTo(60, 0);
+    expect(tooltipBox.left + tooltipBox.width / 2).toBeCloseTo(
+      entryBox.left + entryBox.width / 2,
+      0,
+    );
+  });
+
+  it("keeps its place in a modeler that lists diagram-js's palette module after the renderer's", async () => {
+    class PaletteModuleLastModeler extends Modeler {
+      protected override _getModules(): ModuleDeclaration[] {
+        const modules = super._getModules().filter((module) => module !== PaletteModule);
+        return [...modules, PaletteModule];
+      }
+    }
+    const { host } = await mount(HOST, PaletteModuleLastModeler);
+    const component = entry(host, "create.component");
+    const tooltip = await showTooltipOf(host, component);
+
+    const tooltipBox = boxIn(tooltip, host);
+    const entryBox = boxIn(component, host);
+    expect(tooltipBox.top).toBeCloseTo(60, 0);
+    expect(tooltipBox.left + tooltipBox.width / 2).toBeCloseTo(
+      entryBox.left + entryBox.width / 2,
+      0,
+    );
+  });
+
   it("lets a host's own tooltip rule win over the renderer's sheet that loads after it", async () => {
     const { host } = await mount();
     host.classList.add("tooltip-host");
@@ -516,11 +570,15 @@ describe("the palette tooltip without the shell (guide §5.6, #425)", () => {
     const other = document.createElement("div");
     other.className = "bio-theme-parent djs-parent djs-container";
     other.innerHTML =
-      '<div class="djs-hover-tooltip-container"><div class="djs-hover-tooltip djs-hover-tooltip--right">Task</div></div>';
+      '<div class="djs-hover-tooltip-container"><div class="djs-hover-tooltip djs-hover-tooltip--bottom">Task</div></div>';
     document.body.append(other);
     try {
       const style = getComputedStyle(other.querySelector(".djs-hover-tooltip")!);
-      expect([style.padding, style.borderTopStyle]).toEqual(["6px 10px", "none"]);
+      expect([style.padding, style.borderTopStyle, style.transform]).toEqual([
+        "6px 10px",
+        "none",
+        "none",
+      ]);
     } finally {
       other.remove();
     }
