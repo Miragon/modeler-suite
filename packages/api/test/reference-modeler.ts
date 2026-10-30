@@ -15,8 +15,9 @@
  * gesture, a rejected one and a pan run on, and an import called during a drop
  * waits for it. A destroy() from a listener stops every delivery at once, and
  * during a drop or a drag's start it tears the canvas and the gesture down once
- * that action has returned, inside reveal() once its scroll has run. Its
- * colours resolve from the page's `data-cd-theme` and
+ * that action has returned, inside reveal() once its scroll has run; an import
+ * inside which a listener destroyed it rejects. Its colours resolve from the
+ * page's `data-cd-theme` and
  * `data-cd-kontrast` until `appearance.set` writes its own on the container,
  * as on the Miragon design tokens. It is the
  * kit's reference subject, plus deliberately BROKEN variants: one per
@@ -30,7 +31,7 @@
  * focusable `<div>`, waiting imports run by a microtask queued when the
  * action starts, interaction listeners called newest first, a modeler that
  * lists and draws dark, a re-import that draws one element more) — they must
- * fail nothing. Forty-one variants ignore a RECOMMENDATION — they must fail nothing and
+ * fail nothing. Forty-two variants ignore a RECOMMENDATION — they must fail nothing and
  * advise once.
  */
 import type { GestureKind, HeldGesture, HeldPan } from "../src/conformance.js";
@@ -365,6 +366,10 @@ export interface Flaws {
    *  gives up quietly there instead, which the kit cannot tell from a held teardown: the
    *  renderers pin their scroll before the teardown in tests of their own (#415) */
   destroyTearsDownInsideReveal?: boolean;
+  /** NOT a law violation, a missed recommendation: an import inside which a listener called
+   *  destroy() (from interaction.onChange(false), which the import's cancel of a held gesture
+   *  reports) still resolves, as the Miragon renderers' imports did before #443 */
+  destroyedImportResolves?: boolean;
 
   // ── appearance (1.5) ───────────────────────────────────────────────────────
   /** NOT a flaw: the modeler lists and draws dark too */
@@ -1169,9 +1174,19 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     if (!flaws.emitBeforeApply && !flaws.silentMutation) emit();
   };
   const asError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
+  /** the import, which rejects once a listener it called has destroyed the modeler: its resolve
+   *  would report a document shown on a modeler the host has taken down */
+  const runImportUnlessDestroyed = (text: string): ImportResult => {
+    const destroyedBefore = destroyed;
+    const result = runImport(text);
+    if (destroyed && !destroyedBefore && !flaws.destroyedImportResolves) {
+      throw new Error("The modeler was destroyed.");
+    }
+    return result;
+  };
   const importNow = (text: string): Promise<ImportResult> => {
     try {
-      return Promise.resolve(runImport(text));
+      return Promise.resolve(runImportUnlessDestroyed(text));
     } catch (e) {
       return Promise.reject(asError(e));
     }
@@ -1181,7 +1196,7 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     new Promise((resolve, reject) => {
       queue.push(() => {
         try {
-          resolve(runImport(text));
+          resolve(runImportUnlessDestroyed(text));
         } catch (e) {
           reject(asError(e));
         }

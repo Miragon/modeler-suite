@@ -83,9 +83,29 @@ describe("the conforming reference modeler, mounted", () => {
     expect(document.querySelector(".monaco-editor, button, input, textarea, select")).toBeNull();
     expect(document.querySelector("[inert]")).toBeNull();
     const hidden = [...document.body.querySelectorAll<HTMLElement>("body > div")].filter(
-      (wrapper) => wrapper.style.display === "none",
+      (wrapper) => wrapper.style.display === "none" || wrapper.style.visibility === "hidden",
     );
     expect(hidden).toEqual([]);
+  });
+
+  test("the keys case aims keys at <body> while the host hides the modeler with display: none, with visibility: hidden and while it makes it inert", async () => {
+    const hidings = new Set<string>();
+    const record = (event: Event): void => {
+      if (event.target !== document.body) return;
+      for (const wrapper of document.body.querySelectorAll<HTMLElement>("body > div")) {
+        if (wrapper.style.display === "none") hidings.add("display: none");
+        if (wrapper.style.visibility === "hidden") hidings.add("visibility: hidden");
+        if (wrapper.hasAttribute("inert")) hidings.add("inert");
+      }
+    };
+    document.addEventListener("keydown", record, true);
+    try {
+      const outcome = await runKeysCase(mounted());
+      expect(outcome?.advisories).toBeUndefined();
+    } finally {
+      document.removeEventListener("keydown", record, true);
+    }
+    expect([...hidings].sort()).toEqual(["display: none", "inert", "visibility: hidden"]);
   });
 });
 
@@ -112,12 +132,13 @@ describe("variants that miss the recommendation fail nothing and advise exactly 
     expect(advice).toMatch(/; and \d+ more — RECOMMENDED: act on a key only while the canvas/);
   });
 
-  test("keys aimed at <body> taken as the canvas's → an advisory for every <body> variant, the hidden and the inert modeler included", async () => {
+  test("keys aimed at <body> taken as the canvas's → an advisory for every <body> variant, the hidden (display: none, visibility: hidden) and the inert modeler included", async () => {
     const advice = await expectKeysAdvisory({ bodyKeysAreCanvasKeys: true });
     for (const body of [
       "<body> with nothing focused",
       "<body> right after the canvas lost the focus",
       "<body> while the host hides the modeler \\(display: none\\)",
+      "<body> while the host hides the modeler \\(visibility: hidden\\)",
       "<body> while the host makes the modeler inert",
     ]) {
       expect(advice).toMatch(new RegExp(`Backspace on ${body} fired onContentChanged`));

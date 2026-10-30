@@ -72,8 +72,9 @@ Since 1.4 the contract RECOMMENDS that keys stay on the canvas: a key acts only 
 `<svg>` holds the focus (the key's target is the svg or lies inside it), which is where diagram-js
 15 binds its own keyboard. Every other key belongs to the page: a host's buttons and text fields, a
 Monaco or EditContext editor beside the canvas or in one of its overlays, and `<body>` with nothing
-focused, even while the host hides the canvas. The rule holds for the viewer mount too. A renderer
-that adds keys of its own:
+focused, even while the host hides the canvas (`display: none`, since 1.6 also
+`visibility: hidden`) or makes it `inert`; the kit's keys case aims its keys at `<body>` in all
+three. The rule holds for the viewer mount too. A renderer that adds keys of its own:
 
 - binds them through diagram-js's `keyboard`, as the template's
   [`KeyboardBindings.ts`](../assets/template/packages/renderer/src/keyboard/KeyboardBindings.ts)
@@ -295,11 +296,13 @@ fills it; the user-action case and the destroy case's leg inside `reveal()` read
   listener of the delivery in which an earlier one destroyed the modeler (failures);
 - the **destroy** case: a host destroys the modeler from `elements.onSelection` at the start of a
   move and of a palette create, from `onContentChanged` at a drop, from
-  `interaction.onChange(false)` at an Escape, and from `elements.onSelection` inside the host's
-  own `reveal()`, which calls the listener before it scrolls. Nothing throws, also not to the window,
-  no listener is called afterwards, a second `destroy()` throws nothing, and a listener that an
-  earlier one of the same delivery unsubscribed is not called (an advisory; the leg inside
-  `reveal()` needs no `startGesture`);
+  `interaction.onChange(false)` at an Escape and inside the host's own `importText`, whose cancel
+  of a held move reports that end before its Promise settles, and from `elements.onSelection`
+  inside the host's own `reveal()`, which calls the listener before it scrolls. Nothing throws, also
+  not to the window, no listener is called afterwards, that import rejects (with any error, outside
+  L7; the kit reads no export after the destroy), a second `destroy()` throws nothing, and a
+  listener that an earlier one of the same delivery unsubscribed is not called (an advisory; the
+  leg inside `reveal()` needs no `startGesture`);
 - the **appearance** case: `set` draws the requested theme when `themes` lists it and `themes[0]`
   otherwise (a light-only renderer stays light when dark is requested, also on a dark page), the
   contrast always applies, and nothing else changes: no change event, the same exports, history,

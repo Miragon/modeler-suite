@@ -238,6 +238,10 @@ export interface ElementsSurface {
  *     The modeler stays USABLE: the next valid import renders, the next user
  *     command applies. Hosts re-import half-typed peer text on every sync —
  *     "blank (or wedged) until healed" is not an acceptable failure mode.
+ *     One rejection lies outside L7: an import that called the listener from
+ *     which the host destroyed the modeler rejects (RECOMMENDED, 1.6, see
+ *     `destroy`), also when it has drawn the document by then. The instance
+ *     is gone, so every call on it afterwards is undefined behaviour.
  *
  *  View state is NEVER part of the document: `setViewState` fires no change
  *  events and `exportText` is independent of it.
@@ -251,7 +255,8 @@ export interface ElementsSurface {
  *  editor), beside the modeler's container, inside it or next to the canvas
  *  in a host's overlay, and one whose target is `<body>` (nothing focused:
  *  after a load, after a click on page text, while the host hides the canvas
- *  or makes it inert). The modeler leaves such a key alone: no command, no
+ *  (`display: none`, since 1.6 also `visibility: hidden`) or makes it
+ *  inert). The modeler leaves such a key alone: no command, no
  *  change of the document or the selection, no `preventDefault()` and no
  *  `stopPropagation()`, in the capture phase too. A keydown or keyup
  *  without a string `key` (browser autofill dispatches both) is ignored
@@ -281,6 +286,8 @@ export interface CollaborativeModeler {
    *  per L5; resolves when rendered, REJECTS when nothing was imported (L7).
    *  This holds for the first import too, whatever was called before it — a
    *  host may export or route a command before its first document arrives.
+   *  RECOMMENDED (1.6): it also rejects, outside L7, when the host destroyed
+   *  the modeler from a listener it called (`destroy`).
    *  RECOMMENDED (1.5): an accepted import first cancels a gesture the user
    *  holds; a rejected one leaves it running (L1). RECOMMENDED (1.6): one
    *  called during a running user action (a drop, the start of a drag, a
@@ -347,17 +354,23 @@ export interface CollaborativeModeler {
    * RECOMMENDED (1.6): a host may call it from any listener the modeler calls
    * (`onContentChanged`, `elements.onSelection`, `interaction.onChange`), also
    * while the user's input runs (a drag's start, a drop, an Escape, a command)
-   * and inside a method of the contract that calls the listener before it
-   * returns (`elements.reveal`). Neither it nor that input or method throws
-   * there, and no listener of the host is called after it, also not a later
-   * listener of the same delivery. A listener that an earlier listener of the
-   * same delivery unsubscribed is not called either, as with a DOM
-   * `EventTarget`. The modeler may finish removing its DOM once the input
-   * handler or the method that runs has returned: diagram-js reads the drag
-   * again after the listeners of its start, and goes on with a drop after its
-   * change listeners, so a renderer holds the teardown until then. A Promise
-   * the modeler returned before is no listener: an `importText` that still
-   * waits may settle after it
+   * and inside a method of the contract that calls the listener:
+   * `elements.reveal` before it returns, and `importText`, whose cancel of a
+   * held gesture reports `interaction.onChange(false)` and whose clear may
+   * deliver an empty selection, before its Promise settles, also after it
+   * waited for the user's action or an import ahead of it. Neither it nor that
+   * input or method throws there, and no listener of the host is called after
+   * it, also not a later listener of the same delivery. An `importText` that
+   * called the listener rejects, with an error of the modeler's choosing, also
+   * when it has drawn the document by then; that rejection lies outside L7.
+   * A listener that an earlier listener of the same delivery unsubscribed is
+   * not called either, as with a DOM `EventTarget`. The modeler may finish
+   * removing its DOM once the input handler or the method that runs has
+   * returned: diagram-js reads the drag again after the listeners of its
+   * start, and goes on with a drop after its change listeners, so a renderer
+   * holds the teardown until then. A Promise the modeler returned before is no
+   * listener: an `importText` that still waits when a listener it did not call
+   * destroys the modeler may settle after the destroy
    */
   destroy(): void;
 }

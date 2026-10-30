@@ -174,7 +174,7 @@ describe("the conforming reference modeler", () => {
       .find((c) => c.name === CASE.destroyFromListener)
       ?.run(h);
     expect(destroy?.skipped).toBe(
-      "the modeler exposes no interaction surface (optional, 1.5) — a destroy() from interaction.onChange(false) at the cancel (Escape) of a move was not checked; the modeler exposes no interaction surface (optional, 1.5) — that a listener unsubscribed during a delivery is not called was not checked",
+      "the modeler exposes no interaction surface (optional, 1.5) — a destroy() from interaction.onChange(false) at the cancel (Escape) of a move was not checked; the modeler exposes no interaction surface (optional, 1.5) — a destroy() from interaction.onChange(false) inside an importText() that ends a held move was not checked; the modeler exposes no interaction surface (optional, 1.5) — that a listener unsubscribed during a delivery is not called was not checked",
     );
   });
 
@@ -1160,7 +1160,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   test("a harness without startGesture → the destroy case still runs its leg inside reveal(): it skips only the legs at the user's input, and a teardown at once inside reveal() advises", async () => {
     const destroyCase = conformanceCases().find((c) => c.name === CASE.destroyFromListener);
     const withoutStartGesture =
-      "startGesture is undefined — that a host may destroy the modeler from a listener while the user's input runs, and that a listener unsubscribed during a delivery is not called (RECOMMENDED since 1.6), was not checked";
+      "startGesture is undefined — that a host may destroy the modeler from a listener while the user's input runs or inside an import that ends a held gesture, and that a listener unsubscribed during a delivery is not called (RECOMMENDED since 1.6), was not checked";
     const conforming = await destroyCase?.run(harness({}, { startGesture: undefined }));
     expect(conforming?.skipped).toBe(withoutStartGesture);
     expect(conforming?.advisories).toBeUndefined();
@@ -1172,6 +1172,66 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     expect(tearsDownAtOnce?.advisories?.[0]).toMatch(
       /: reveal\(\) threw TypeError: .* once a listener had called destroy\(\) from elements\.onSelection inside reveal\(\) — RECOMMENDED \(since 1\.6\): /,
     );
+  });
+  test("an import that resolves although a listener it called destroyed the modeler → an advisory from the destroy case: the import resolved", async () => {
+    const advice = await expectAdvisoryOnly(
+      { destroyedImportResolves: true },
+      CASE.destroyFromListener,
+    );
+    expect(advice).toMatch(
+      /^a host's listener destroyed the modeler, or unsubscribed another listener, while the user's input or the host's call ran: importText\(\) resolved after destroy\(\) from interaction\.onChange\(false\) inside an importText\(\) that ends a held move — RECOMMENDED \(since 1\.6\): .* an importText\(\) inside which it was called rejects/,
+    );
+    const [found] = advice.split(" — RECOMMENDED");
+    expect(found).not.toMatch(/at the start of|at the drop|Escape|inside reveal\(\)|came after/);
+  });
+  test("an onChange delivered over a copy of its listeners → the destroy case advises that a later listener heard the end at the Escape and inside the import", async () => {
+    const destroy = await conformanceCases()
+      .find((c) => c.name === CASE.destroyFromListener)
+      ?.run(harness({ interactionDeliveryIgnoresDestroy: true }));
+    expect(destroy?.skipped).toBeUndefined();
+    expect(destroy?.advisories).toHaveLength(1);
+    for (const where of [
+      "at the cancel \\(Escape\\) of a move",
+      "inside an importText\\(\\) that ends a held move",
+    ]) {
+      expect(destroy?.advisories?.[0]).toMatch(
+        new RegExp(
+          `interaction\\.onChange\\(false\\) came after destroy\\(\\) from interaction\\.onChange\\(false\\) ${where}`,
+        ),
+      );
+    }
+  });
+  test("an import that leaves a running gesture running → the destroy case reports its leg inside the import as a skip, not a pass", async () => {
+    const destroy = await conformanceCases()
+      .find((c) => c.name === CASE.destroyFromListener)
+      ?.run(harness({ importKeepsGesture: true }));
+    expect(destroy?.skipped).toBe(
+      "interaction.onChange did not report the end of a held move inside importText() — a destroy() from interaction.onChange(false) inside an importText() that ends a held move was not checked",
+    );
+    expect(destroy?.advisories).toBeUndefined();
+  });
+  test("a harness whose startGesture throws in the leg inside an import → its skip names the start of the held move as what threw, not importText()", async () => {
+    let starts = 0;
+    const destroy = await conformanceCases()
+      .find((c) => c.name === CASE.destroyFromListener)
+      ?.run(
+        harness(
+          {},
+          {
+            startGesture: (m, kind) => {
+              starts += 1;
+              // the legs at the start of a move and of a create, at the drop and at the Escape
+              // each start one gesture before it
+              if (starts === 5) throw new Error("the harness could not start the move");
+              return (m as ReferenceModeler).holdGesture(kind);
+            },
+          },
+        ),
+      );
+    expect(destroy?.skipped).toContain(
+      "interaction.onChange did not report the end of a held move inside importText(), and the start of the held move threw Error: the harness could not start the move — a destroy() from interaction.onChange(false) inside an importText() that ends a held move was not checked",
+    );
+    expect(destroy?.skipped).not.toMatch(/importText\(\) threw/);
   });
   test("an onChange that still calls a listener an earlier one of the same delivery unsubscribed → an advisory from the destroy case", async () => {
     const advice = await expectAdvisoryOnly(
