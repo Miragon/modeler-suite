@@ -257,9 +257,8 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
   returns that dialog's groups as data, with a File group (Open… and Export as JSON on Cmd/Ctrl+O
   and S) for a web app that binds those keys; show them with `shell.showShortcutsDialog(groups)`
   of `@miragon/modeler-shell` (0.7), or in a host without a mounted shell with the standalone
-  `showShortcutsDialog(groups, options)` of the same package. The renderer's own copy of that
-  dialog, `createShortcutsDialog(chrome, options)`, is **deprecated** and goes in 0.9.0
-  ([#261](https://github.com/Miragon/modeler-suite/issues/261)).
+  `showShortcutsDialog(groups, options)` of the same package. Since 0.9.0 the renderer draws no
+  shortcuts dialog of its own.
   `createTitleDialog(chrome, { title, setTitle })` renames the map in a modal dialog with one
   field, Cancel and Apply; it lives in the chrome's root and goes with `destroy()`.
 - While a drag runs on the canvas, the chrome's legend island (`[data-chrome="legend"]`) lets the

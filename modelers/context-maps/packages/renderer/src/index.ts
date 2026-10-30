@@ -46,12 +46,11 @@ export type { CmKeyboardConfig } from "./keyboard/index.js";
 export { cmReadOnlyModule, CmReadOnly, READ_ONLY_CHANGED_EVENT } from "./read-only/index.js";
 export { cmZOrderModule, CmZOrder } from "./zorder/index.js";
 
-// The map's part of a host's chrome: menu entries, the keyboard shortcuts and the title dialogs
+// The map's part of a host's chrome: menu entries, the keyboard shortcuts and the title dialog
 export {
   JSON_EXPORT_LABEL,
   contextMapMenu,
   contextMapShortcuts,
-  createShortcutsDialog,
   createTitleDialog,
 } from "./chrome/index.js";
 export type {
@@ -72,8 +71,6 @@ export type {
   ShortcutPlatform,
   ShortcutRow,
   ShortcutsChrome,
-  ShortcutsDialog,
-  ShortcutsDialogChrome,
   TitleDialog,
   TitleDialogChrome,
 } from "./chrome/index.js";

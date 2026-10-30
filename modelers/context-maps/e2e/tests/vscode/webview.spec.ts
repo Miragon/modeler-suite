@@ -392,7 +392,6 @@ test.describe("VS Code webview: protocol and chrome", () => {
     const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveClass(/cd-shell-dialog/);
-    await expect(page.locator("dialog.cm-shortcuts")).toHaveCount(0);
     await expect(dialog.locator("h3")).toHaveText(["View", "Edit", "Tools"]);
     await expect(dialog.locator("[data-chrome-key]")).toHaveCount(4);
     await page.keyboard.press("Escape");

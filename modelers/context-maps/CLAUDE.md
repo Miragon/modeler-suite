@@ -156,10 +156,10 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
 - **Shortcuts dialog and PNG export.** Both apps open the shell's dialog:
   `shell.showShortcutsDialog(contextMapShortcuts(shell, options))`, the web app with
   `{ fileKeys: true }` (Cmd/Ctrl+O and S). The shell puts its zoom and fit keys at the top of the
-  View group and drops the renderer's own View rows for them. The renderer's
-  `createShortcutsDialog` (with `ShortcutsDialog`, `ShortcutsDialogChrome` and the `.cm-shortcuts*`
-  rules) is deprecated for hosts without the shell and goes in 0.9.0
-  ([#261](https://github.com/Miragon/modeler-suite/issues/261)); `createTitleDialog` stays.
+  View group and drops the renderer's own View rows for them. A host without a mounted shell shows
+  the same groups with the shell's standalone `showShortcutsDialog`: the renderer has no
+  shortcuts dialog of its own since 0.9.0 (#261), which `chrome.test.ts` pins for its exports and
+  its stylesheet.
   Both apps rasterise the renderer's `saveSVG()` with `svgToPng` of
   `@miragon/modeler-shell/export`: 2×, on `MIRAGON.grau` (guide §10.7, `hell['--cd-ui-grund']`;
   `theme.sync.test.ts` pins it), Geist inside the image. The web app lets the shell read the page's

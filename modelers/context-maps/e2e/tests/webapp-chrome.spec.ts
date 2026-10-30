@@ -644,7 +644,6 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveClass(/cd-shell-dialog/);
-    await expect(page.locator("dialog.cm-shortcuts")).toHaveCount(0);
     await expect(dialog.locator("h3")).toHaveText(["File", "View", "Edit", "Tools"]);
     await expect(dialog.getByRole("row", { name: /Open…/ })).toContainText(/(⌘|Ctrl\+)O/);
     await expect(dialog.getByRole("row", { name: /Export as JSON/ })).toContainText(/(⌘|Ctrl\+)S/);

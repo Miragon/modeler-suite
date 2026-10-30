@@ -662,7 +662,7 @@
   display: none;
 }
 
-/* --- Dialogs: keyboard shortcuts, map title (guide §5.4, §8) --------------- */
+/* --- Dialogs: map title (guide §5.4, §8) ----------------------------------- */
 /* A modal <dialog> in the chrome's root: showModal() puts it in the top layer, above every island,
    without a layer token. */
 .cm-dialog {
@@ -826,53 +826,6 @@
 /* The map title asks for one field: the narrow width of guide §8's short dialogs. */
 .cm-title-dialog {
   width: min(440px, 100cqw - 32px);
-}
-/* The .cm-shortcuts* rules belong to the deprecated createShortcutsDialog, which the apps no longer
-   open (the shell draws that dialog). They stay for hosts without the shell and go with it in 0.9.0. */
-.cm-shortcuts-body {
-  gap: 16px;
-}
-.cm-shortcuts-group-title {
-  margin: 0 0 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cd-ui-text-leise);
-}
-.cm-shortcuts-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.cm-shortcuts-table tr + tr {
-  border-top: 1px solid var(--cd-ui-linie);
-}
-.cm-shortcuts-action {
-  padding: 6px 12px 6px 0;
-  font-weight: 400;
-  text-align: left;
-}
-.cm-shortcuts-keys {
-  padding: 6px 0;
-  text-align: right;
-  white-space: nowrap;
-}
-/* The chips of the chrome tooltip (guide §5.6), whatever the host styles kbd with. */
-.cm-shortcuts-key {
-  display: inline-block;
-  padding: 1px 6px;
-  font-family:
-    "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 18px;
-  color: var(--cd-ui-text-leise);
-  background: var(--cd-ui-grund);
-  border: 1px solid var(--cd-ui-linie);
-  border-radius: var(--cd-radius-sm);
-  box-shadow: none;
-  vertical-align: baseline;
-}
-.cm-shortcuts-key + .cm-shortcuts-key {
-  margin-left: 6px;
 }
 
 /* --- High contrast and forced colours (guide §5.3, §5.14, §6, §8) -------- */
