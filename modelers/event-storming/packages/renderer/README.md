@@ -276,7 +276,8 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
 - A view change never commits an open label editor: `setViewState`, a host's fit and the user's own
   scroll or zoom leave it open with the typed text, and it moves with its element. A click or a
   drag on the canvas, Cmd/Ctrl+Enter (Enter on an arrow label) or leaving the field commits it;
-  Escape discards it.
+  Escape discards it. The Enter or Escape that confirms or cancels an input method's candidate
+  stays with the composition, also Safari's, which comes after `compositionend` with `keyCode` 229.
 - `elements` lists the stickies with their ids and labels, reveals (selects and scrolls to) one
   and reports the selection. Sticky ids survive a save and a re-open: the DSL writes `(id …)`
   back for every sticky whose id the parser would not derive again from its label at that line (one
