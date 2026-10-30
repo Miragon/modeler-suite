@@ -3859,8 +3859,9 @@ type PanStarter = NonNullable<ConformanceHarness["startPan"]>;
  * one pan held on a fresh import of `canonicalTexts[0]` over an accepted import of `leg`, then
  * moved one step and released; what the recommendation finds. With `hostRestoresView` the host
  * takes `getViewState()` during the pan, before the import, and calls `setViewState` with it after
- * the import, as a host that keeps the user's viewport does (L5): the pan's next step must go on
- * from that view as it went on from the view before the import
+ * the import, as a host that keeps the user's viewport does (L5): the restore must take while the
+ * pan is held, and the pan's next step must go on from that view as it went on from the view before
+ * the import
  */
 async function panOverAnImport(
   h: ConformanceHarness,
@@ -3910,6 +3911,7 @@ async function panOverAnImport(
     if (outcome.rejected !== undefined) {
       fail(`importText(${leg.what}) rejected during a pan: ${outcome.rejected}`);
     }
+    const imported = m.getViewState();
     if (hostRestoresView) m.setViewState(panned);
     const current = m.getViewState();
     const moveThrown = await errorOf(() => pan.move());
@@ -3917,16 +3919,20 @@ async function panOverAnImport(
     activeDuringPan ||= m.interaction?.active() === true;
     if (hostRestoresView) {
       const stepped = shiftedBy(current, atRest, panned);
-      if (stepped === UNFOLLOWED ? closeTo(after, current) : !closeTo(after, stepped)) {
+      if (closeTo(current, imported) && !closeTo(imported, panned)) {
+        findings.push(
+          `setViewState after ${leg.what} was imported during a pan had no effect: getViewState() still read back the view the import left, so the pan went on from that view instead of the one the host restored (L5)`,
+        );
+      } else if (stepped === UNFOLLOWED ? closeTo(after, current) : !closeTo(after, stepped)) {
         findings.push(
           `a pan's next step after ${leg.what} was imported during it did not go on from the view the host restored after the import (setViewState with the view from before the import, L5): the step did not move that view as the pan's first step had moved the view before it`,
         );
       }
-    } else if (closeTo(after, current)) {
+    } else if (closeTo(after, imported)) {
       findings.push(
         `a pan stopped when ${leg.what} was imported during it (its next step left the view where the import had put it)`,
       );
-    } else if (closeTo(current, atRest) && !closeTo(after, panned)) {
+    } else if (closeTo(imported, atRest) && !closeTo(after, panned)) {
       findings.push(
         `a pan's next step after ${leg.what} was imported during it did not go on from the view the import left: it put the view where the pan would have brought the view from before the import`,
       );

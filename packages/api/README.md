@@ -692,13 +692,15 @@ The cases:
   the view as it was before the pan (the same document fits the same view, L5)
   that step brings the view where the pan's first step had brought it, up to
   float noise: a pan that puts the view from before the import back lands one
-  step further. After the host's restore, the step moves the restored view as
-  the pan's first step moved the view before the import: each number of the
-  view state's readback changes by as much as it changed in that first step, up
-  to float noise (where the readbacks differ in shape, the step only has to
-  move the view). A pan that only the import re-anchors goes on from the view
-  the import left instead and undoes the restore. The release throws nothing,
-  the export is the imported document and the next `mutate` applies.
+  step further. The host's restore takes while the pan is held: `getViewState()`
+  no longer reads back the view the import left. After it, the step moves the
+  restored view as the pan's first step moved the view before the import: each
+  number of the view state's readback changes by as much as it changed in that
+  first step, up to float noise (where the readbacks differ in shape, or the
+  first step changes a value that is no number, the step only has to move the
+  view). A pan that only the import re-anchors goes on from the view the import
+  left instead and undoes the restore. The release throws nothing, the export is
+  the imported document and the next `mutate` applies.
 - **The interaction case** (the surface's rules, failures): `active()` follows
   every gesture. It is false before the first import and at rest; for each kind
   it is true while the gesture is held, with one `onChange(true)`, and false

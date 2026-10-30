@@ -303,8 +303,11 @@ export interface Flaws {
   panJumpsBack?: boolean;
   /** NOT a law violation, a missed recommendation: a pan goes on from the view an import left, but
    *  puts back that view on its next step after a host's setViewState (re-anchored by the import
-   *  alone, as Value Chain's was before #310) */
+   *  alone, as Value Chain's was before #353) */
   panIgnoresHostView?: boolean;
+  /** NOT a law violation, a missed recommendation: setViewState does nothing while a pan is held,
+   *  so a pan goes on from the view an import left, not from the one the host restores after it */
+  viewStateIgnoredDuringPan?: boolean;
   /** releasing a pan fires onContentChanged */
   panEmits?: boolean;
   /** NOT a law violation, a missed recommendation (1.5 let a pan count as a gesture): an import
@@ -1213,6 +1216,7 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
       }
       if (flaws.dropInteractionOnViewChange) labelEditor = undefined;
       if (flaws.noopViewState) return;
+      if (flaws.viewStateIgnoredDuringPan && pan) return;
       if (state !== null && typeof state === "object") {
         // the flawed setter only takes the literal shape, never its own readback
         if (flaws.readbackNotSettable && "scale" in state) return;
