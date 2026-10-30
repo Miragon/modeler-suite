@@ -5,8 +5,8 @@ The Value Chain Modeler extension bundles the following third-party software. Ge
 
 ## Lucide (lucide-static 1.59.0)
 
-The palette tool, context pad and dialog icons (`@miragon/value-chain-renderer`) and the chrome
-icons (`@miragon/modeler-shell`) are Lucide icons, copied into the sources.
+The palette tool and context pad icons (`@miragon/value-chain-renderer`) and the chrome icons
+(`@miragon/modeler-shell`) are Lucide icons, copied into the sources.
 
 ISC License
 

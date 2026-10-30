@@ -10,9 +10,9 @@ export function fontFallbackText(fileName: string): string {
 }
 
 /**
- * A map has a plot, so its PNG lies on the plot role of the tokens (guide §10.7), not on the paper
- * the renderer's own rasteriser fills. The renderer's plot background is that role, pinned to
- * `--cd-ui-plot` by its `theme.sync.test.ts`.
+ * A map has a plot, so its PNG lies on the plot role of the tokens (guide §10.7), not on
+ * `COLORS.paper`. The renderer's plot background is that role, pinned to `--cd-ui-plot` by its
+ * `theme.sync.test.ts`.
  */
 export function pngExportOptions(kind: PngKind, onFontFallback: () => void): PngExportOptions {
   return kind === "png"

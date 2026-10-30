@@ -885,15 +885,15 @@ The kit's `shortcutsDialog` case checks all of this in every modeler (see `./tes
 
 #### Modeler dialogs
 
-A dialog the modeler still renders itself (a renderer's `createShortcutsDialog`, "Map title…",
-"Map size…") meets §8 on its own until it moves onto `cd-shell-dialog`:
+A dialog the modeler still renders itself ("Map title…", "Map size…") meets §8 on its own until it
+moves onto `cd-shell-dialog`:
 
 - **Layer.** `z-index: var(--cd-shell-ebene-dialog)` (50) applies only to a dialog outside the top
   layer, inside `shell.root`. A `<dialog>` opened with `showModal()` or an element of the popover API
   lies in the browser's top layer above everything, whatever its `z-index`. The shell's keys count it
   either way: any shown `<dialog>`, `[role="dialog"]` or `[role="alertdialog"]` in the document
   (embedded: in the root) is open, and a modal one blocks the zoom keys.
-- **Look:** panel, backdrop, header, Close, chips, high contrast and forced colours as above. The
+- **Look:** panel, backdrop, header, Close, high contrast and forced colours as above. The
   shell's high-contrast and forced-colours rules match only `cd-shell-*` classes, so they do not
   reach a modeler's dialog; the kit's `forcedColors` case checks its border in `CanvasText`.
 - **Focus, read-only:** as above.

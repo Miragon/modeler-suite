@@ -16,8 +16,8 @@ const output = join(app, "THIRD_PARTY_NOTICES.md");
 // Inlined as geometry (no npm dependency), so not visible in the metafile.
 const LUCIDE = `## Lucide (lucide-static 1.59.0)
 
-The map's lasso, context pad, connect handle and validation marker icons, the dialogs' Close icon
-and the team glyph on the canvas (\`@miragon/context-maps-renderer\`) and the chrome icons
+The map's lasso, context pad, connect handle and validation marker icons, the title dialog's Close
+icon and the team glyph on the canvas (\`@miragon/context-maps-renderer\`) and the chrome icons
 (\`@miragon/modeler-shell\`) are Lucide icons, copied into the sources.
 
 ISC License
