@@ -56,11 +56,11 @@ everything; so does any path no rule names.
   and skills of every plugin in the marketplace, every modeler's boundaries, the Dependabot
   auto-merge workflow, the path decisions of `ci-paths.sh affected` and the skips `ci-ok` accepts
   on their word), build and `publint`; the shell's browser tests (`test:browser:shared`: the PNG
-  export in Chromium and WebKit, in the Playwright image of the root's `playwright` pin); the
-  shell's Playwright suite in four shards, each of which runs a quarter of the other tests and then
-  a quarter of the saboteurs that run the whole kit (sharded together, those all fell into one
-  shard). `shared-test` also runs on its own, for a change of a modeler or of the docs that only
-  `test:plugin` reads.
+  export and the palette skin in Chromium and WebKit, in the Playwright image of the root's
+  `playwright` pin); the shell's Playwright suite in four shards, each of which runs a quarter of
+  the other tests and then a quarter of the saboteurs that run the whole kit (sharded together,
+  those all fell into one shard). `shared-test` also runs on its own, for a change of a modeler or
+  of the docs that only `test:plugin` reads.
 - **Per modeler**, a matrix over the modelers the change reaches, each job named
   `<modeler> / <check>`: `lint` (ESLint, type check, dependency-cruiser), `test` (build, unit tests),
   `test:browser` and `e2e` (in the Playwright image of the root's `playwright` pin), `build` (web app

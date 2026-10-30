@@ -126,8 +126,8 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   [Setup](#setup)).
 - **Browser:** `npm run <modeler> test:browser` runs the renderer's integration tests and the
   contract's conformance kit in Chromium. A skipped kit case or an advisory fails the run.
-  `npm run test:browser:shared` runs the shell's browser tests (the PNG export of `./export`) in
-  Chromium and WebKit.
+  `npm run test:browser:shared` runs the shell's browser tests (the PNG export of `./export`, and
+  the palette skin's focus across a rebuild and its armed tools) in Chromium and WebKit.
 - **e2e:** `npm run <modeler> test:e2e` runs Playwright from the modeler's `e2e/`, each project with
   its own dev server built from source: the web app (`webapp`; `chromium` and `webkit` in Context
   Maps) and the VS Code webview inside the shell's VS Code stub (`vscode-webview`), both held to the
@@ -340,7 +340,8 @@ npm run test:shared               # the kit's own conformance suite (reference m
                                   # the shell's unit tests, then the plugin's drift test
 npm run build:shared              # tsup: dual ESM/CJS + d.ts
 npm run publint                   # the published package shape (exports, types, files)
-npm run test:browser:shared       # the shell's browser tests: the PNG export in Chromium and WebKit
+npm run test:browser:shared       # the shell's browser tests: the PNG export and the palette skin
+                                  # in Chromium and WebKit
 npm run test:e2e:shared           # the shell's conformance kit against its demo (Playwright)
 ```
 

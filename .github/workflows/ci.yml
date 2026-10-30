@@ -83,8 +83,8 @@ jobs:
       # The extension pack as the release packs it: a walkthrough media path that is gone fails here.
       - run: npm run package -w extensions/modeler-collection
 
-  # The shell's DOM code that needs a real browser (the PNG export of ./export), in Chromium and
-  # WebKit.
+  # The shell's DOM code that needs a real browser (the PNG export of ./export, the palette skin's
+  # focus across a rebuild and its armed tools), in Chromium and WebKit.
   shared-test-browser:
     needs: changes
     if: needs.changes.outputs.shared == 'true'
