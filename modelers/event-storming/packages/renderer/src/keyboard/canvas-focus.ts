@@ -7,9 +7,9 @@ export function canvasSvg(canvas: Pick<Canvas, "getContainer">): SVGSVGElement |
 
 /**
  * Hands the focus to the canvas after a pointer action on the modeler's own controls. Without a
- * shell the palette and pad entries take no focus, so the browser may have seen no pointer focus
- * before this script focus (on the first click on the page, or after the keyboard moved the focus)
- * and would draw its ring around the whole canvas although the pointer moved the focus.
+ * shell the pad entries take no focus, so the browser may have seen no pointer focus before this
+ * script focus (on the first click on the page, or after the keyboard moved the focus) and would
+ * draw its ring around the whole canvas although the pointer moved the focus.
  */
 export function focusCanvasWithoutRing(canvas: Pick<Canvas, "getContainer" | "focus">): void {
   const svg = canvasSvg(canvas);

@@ -65,7 +65,7 @@ export const offset = (point: Point, dx: number, dy: number): Point => ({
 /** Synthetic mouse events at board coordinates, as diagram-js receives them from a real pointer. */
 export function pointerOn(modeler: CollaborativeEventStormingModeler) {
   const canvas = service<Canvas>(modeler, "canvas");
-  const svg = canvas.getContainer().querySelector("svg")!;
+  const svg = canvas.getContainer().querySelector<SVGSVGElement>(":scope > svg")!;
   const client = (point: Point) => {
     const rect = canvas.getContainer().getBoundingClientRect();
     const viewbox = canvas.viewbox();

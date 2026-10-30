@@ -19,6 +19,7 @@ import { LEVEL_STICKY_KINDS } from "@miragon/event-storming-schema-model";
 import type EventStormingElementFactory from "../model/EventStormingElementFactory.js";
 import type EventStormingModeling from "../modeling/EventStormingModeling.js";
 import type EventStormingLabelEditing from "../label-editing/EventStormingLabelEditing.js";
+import type EventStormingReadOnly from "../read-only/EventStormingReadOnly.js";
 import {
   ROOT_ID,
   isEventStormingShape,
@@ -143,6 +144,7 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
     "elementRegistry",
     "eventStormingLabelEditing",
     "config.eventStormingPalette",
+    "eventStormingReadOnly",
   ];
 
   constructor(
@@ -159,6 +161,7 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
     private readonly elementRegistry?: ElementRegistry,
     private readonly labelEditing?: EventStormingLabelEditing,
     private readonly config?: EventStormingPaletteConfig,
+    private readonly readOnly?: Pick<EventStormingReadOnly, "isReadOnly">,
   ) {
     palette.registerProvider(this);
 
@@ -201,7 +204,9 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
       title: "Draw",
       html: `<div class="entry event-storming-palette-entry">${PALETTE_ICONS.draw}</div>`,
       action: {
-        click: this.focusingCanvas(() => this.drawTool.toggle()),
+        click: this.focusingCanvas(() => {
+          if (!this.isReadOnly()) this.drawTool.toggle();
+        }),
       },
     };
 
@@ -211,6 +216,7 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
       if (spec.type !== "note" && !allowed.includes(spec.type)) continue;
       const start = this.focusingCanvas(
         this.endingDrawing((event) => {
+          if (this.isReadOnly()) return;
           const shape = this.factory.createNew(spec.type, spec.label);
           if (isKeyboardClick(event) && this.placeInFreeRect(shape)) return;
           this.create.start(event, shape);
@@ -225,6 +231,14 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
       };
     }
     return entries;
+  }
+
+  /**
+   * The lock's rules veto a create that follows the pointer, but not the keyboard's placement in
+   * the free area or a drawing, which go through modeling directly.
+   */
+  private isReadOnly(): boolean {
+    return this.readOnly?.isReadOnly() === true;
   }
 
   /**

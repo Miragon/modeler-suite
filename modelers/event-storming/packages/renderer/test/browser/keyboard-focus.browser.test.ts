@@ -304,7 +304,7 @@ describe("Event Storming keys act only on the focused canvas (no shell)", () => 
     await userEvent.keyboard("{Escape}");
   });
 
-  // Without a shell the entries take no focus, so a plain script focus would ring the canvas.
+  // Without a shell the pad entries take no focus, so a plain script focus would ring the canvas.
   describe("hands the focus over without the keyboard focus ring", () => {
     it("from a palette tool", async () => {
       await tabToTheHostField();

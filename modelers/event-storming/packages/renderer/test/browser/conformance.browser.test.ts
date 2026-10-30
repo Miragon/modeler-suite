@@ -170,7 +170,7 @@ function startPan(modeler: CollaborativeModeler): HeldPan {
         clientY: start.y,
       }),
     );
-  pointerEvent("mousedown", canvas.getContainer().querySelector("svg")!);
+  pointerEvent("mousedown", canvas.getContainer().querySelector<SVGSVGElement>(":scope > svg")!);
   steps = 1;
   pointerEvent("mousemove", document);
   return {

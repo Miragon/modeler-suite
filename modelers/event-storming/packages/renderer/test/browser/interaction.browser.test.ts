@@ -98,7 +98,7 @@ function panOn(modeler: CollaborativeEventStormingModeler) {
     clientX: start.x + dx,
     clientY: start.y,
   });
-  const svg = canvas.getContainer().querySelector("svg")!;
+  const svg = canvas.getContainer().querySelector<SVGSVGElement>(":scope > svg")!;
   return {
     startViewbox,
     press: () => svg.dispatchEvent(new MouseEvent("mousedown", at(0))),
