@@ -251,7 +251,8 @@ export interface ElementsSurface {
  *  editor), beside the modeler's container, inside it or next to the canvas
  *  in a host's overlay, and one whose target is `<body>` (nothing focused:
  *  after a load, after a click on page text, while the host hides the canvas
- *  or makes it inert). The modeler leaves such a key alone: no command, no
+ *  (`display: none`, since 1.6 also `visibility: hidden`) or makes it
+ *  inert). The modeler leaves such a key alone: no command, no
  *  change of the document or the selection, no `preventDefault()` and no
  *  `stopPropagation()`, in the capture phase too. A keydown or keyup
  *  without a string `key` (browser autofill dispatches both) is ignored
@@ -348,11 +349,14 @@ export interface CollaborativeModeler {
    * (`onContentChanged`, `elements.onSelection`, `interaction.onChange`), also
    * while the user's input runs (a drag's start, a drop, an Escape, a command)
    * and inside a method of the contract that calls the listener before it
-   * returns (`elements.reveal`). Neither it nor that input or method throws
-   * there, and no listener of the host is called after it, also not a later
-   * listener of the same delivery. A listener that an earlier listener of the
-   * same delivery unsubscribed is not called either, as with a DOM
-   * `EventTarget`. The modeler may finish removing its DOM once the input
+   * returns (`elements.reveal`; `importText`, whose cancel of a held gesture
+   * reports `interaction.onChange(false)`). Neither it nor that input or
+   * method throws there, and no listener of the host is called after it, also
+   * not a later listener of the same delivery. An `importText` inside which a
+   * listener called it rejects, with an error of the modeler's choosing, also
+   * when it has drawn the document by then. A listener that an earlier
+   * listener of the same delivery unsubscribed is not called either, as with
+   * a DOM `EventTarget`. The modeler may finish removing its DOM once the input
    * handler or the method that runs has returned: diagram-js reads the drag
    * again after the listeners of its start, and goes on with a drop after its
    * change listeners, so a renderer holds the teardown until then. A Promise

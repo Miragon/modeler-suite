@@ -209,12 +209,13 @@ export interface ConformanceHarness {
    * `"create"`, with the first listed element revealed (selected): the start then clears that
    * selection. The destroy case and the interaction case destroy the modeler from a listener while
    * the gesture starts (and then call neither `drop()` nor `cancel()`), and the destroy case also
-   * from a listener inside `drop()` (the drop's change event) and inside `cancel()` (the end that
-   * Escape reports): once the pointer or key events that start, drop or cancel the gesture have
-   * run, read nothing of the modeler after an `await` (the teardown may run once their handler has
-   * returned). `undefined` = the L1 gesture case, the drop case, the drag-start case, the
-   * interaction case and the destroy case's legs at the user's input are reported as skipped (its
-   * leg inside `reveal()` still runs)
+   * from a listener inside `drop()` (the drop's change event), inside `cancel()` (the end that
+   * Escape reports) and inside an `importText` that ends a held `"move"` (its end, which the
+   * import's cancel reports): once the pointer or key events that start, drop or cancel the
+   * gesture have run, read nothing of the modeler after an `await` (the teardown may run once their
+   * handler has returned). `undefined` = the L1 gesture case, the drop case, the drag-start case,
+   * the interaction case and the destroy case's legs at the user's input and inside an import are
+   * reported as skipped (its leg inside `reveal()` still runs)
    */
   startGesture?(
     modeler: CollaborativeModeler,
@@ -837,7 +838,7 @@ export function conformanceCases(): ConformanceCase[] {
       run: interactionFollowsGestures,
     },
     {
-      name: "destroy from a listener (recommended, 1.6): a host may destroy the modeler from its listener at a drag's start, a drop, an Escape or a reveal(), nothing throws and no listener is called afterwards, and a listener unsubscribed during a delivery is not called",
+      name: "destroy from a listener (recommended, 1.6): a host may destroy the modeler from its listener at a drag's start, a drop, an Escape, a reveal() or an import, nothing throws, no listener is called afterwards and that import rejects, and a listener unsubscribed during a delivery is not called",
       run: destroyFromAListener,
     },
     {
@@ -2066,7 +2067,7 @@ function hostControls(parent: HTMLElement, where: string): { targets: KeyTarget[
 }
 
 /** <body> as a key's target: nothing focused, right after the canvas had the focus, and while the
- *  host hides the modeler or makes it inert */
+ *  host hides the modeler (`display: none`, `visibility: hidden`) or makes it inert */
 function bodyTargets(doc: Document, canvas: Element, wrapper: HTMLElement): KeyTarget[] {
   const body = doc.body;
   const hideWith = (hide: () => () => void) => (): (() => void) => {
@@ -2102,6 +2103,17 @@ function bodyTargets(doc: Document, canvas: Element, wrapper: HTMLElement): KeyT
         wrapper.style.display = "none";
         return () => {
           wrapper.style.display = display;
+        };
+      }),
+    },
+    {
+      what: "<body> while the host hides the modeler (visibility: hidden)",
+      element: body,
+      enter: hideWith(() => {
+        const visibility = wrapper.style.visibility;
+        wrapper.style.visibility = "hidden";
+        return () => {
+          wrapper.style.visibility = visibility;
         };
       }),
     },
@@ -4245,8 +4257,13 @@ interface DestroyLeg {
     destroyer: Destroyer,
     selected: string | undefined,
   ): string | undefined;
-  /** the user's input or the host's call that reaches the listener */
-  act(m: CollaborativeModeler, selected: string | undefined): Promise<void> | void;
+  /** the user's input or the host's call that reaches the listener; what it finds of its own
+   *  goes to `destroyer.note` */
+  act(
+    m: CollaborativeModeler,
+    selected: string | undefined,
+    destroyer: Destroyer,
+  ): Promise<void> | void;
 }
 
 /** a listener on every surface the modeler has, behind the destroying one: later listeners of the
@@ -4303,7 +4320,7 @@ async function destroyDuring(h: ConformanceHarness, leg: DestroyLeg): Promise<Ac
     listenBehindTheDestroy(m, destroyer);
     const errors = listenForWindowErrors();
     try {
-      const thrown = await errorOf(() => leg.act(m, selected));
+      const thrown = await errorOf(() => leg.act(m, selected, destroyer));
       // the teardown may wait until the input's handler or the host's call has returned, and a
       // step the input scheduled (a create's name editor) runs a task after it
       await settle();
@@ -4454,6 +4471,47 @@ function destroyInsideReveal(): DestroyLeg {
   };
 }
 
+/**
+ * the interaction listener destroys the modeler inside an `importText` of `canonicalTexts[0]` that
+ * ends a held move: the import's cancel (L1, RECOMMENDED since 1.5) reports the end before the
+ * import returns. The import then rejects, whatever its error: it ran on a modeler the host
+ * destroyed, so its resolve would tell the host a document is shown. What `exportText()` returns
+ * afterwards the leg leaves open, as it calls nothing of the modeler after the destroy
+ */
+function destroyInsideAnImport(startGesture: GestureStarter, text: string): DestroyLeg {
+  const where = "from interaction.onChange(false) inside an importText() that ends a held move";
+  return {
+    where,
+    input: "importText()",
+    unheard: "interaction.onChange did not report the end of a held move inside importText()",
+    startsRevealed: true,
+    listen(m, destroyer) {
+      const interaction = m.interaction;
+      if (!interaction) return "the modeler exposes no interaction surface (optional, 1.5)";
+      interaction.onChange((active) => {
+        if (destroyer.called) {
+          destroyer.heard(`the destroying listener again with ${String(active)}`);
+        } else if (!active) {
+          destroyer.destroy();
+        }
+      });
+      return undefined;
+    },
+    act: async (m, _selected, destroyer) => {
+      await startGesture(m, "move");
+      const outcome = await settledWithin(m.importText(text), HELD_IMPORT_BOUND_MS);
+      if (!destroyer.called) return;
+      if (outcome.unsettled) {
+        destroyer.note(
+          `importText() had not settled ${HELD_IMPORT_BOUND_MS / 1000} s after destroy() ${where}`,
+        );
+      } else if (outcome.rejected === undefined) {
+        destroyer.note(`importText() resolved after destroy() ${where}`);
+      }
+    },
+  };
+}
+
 /** a move held and cancelled while the first `interaction.onChange` listener unsubscribes the
  *  second on the start's true: the second hears nothing after that, as with a DOM `EventTarget`.
  *  The contract orders no delivery, so what the second heard before the unsubscribe counts for
@@ -4514,10 +4572,11 @@ async function unsubscribeDuringADelivery(
 /**
  * the destroy case: a host destroys the modeler from its listener while the user's input still
  * runs, at a drag's start (the selection listener, a move and a palette create), at a drop (the
- * change listener) and at an Escape (the interaction listener), and inside the host's `reveal()`
- * (the selection listener), each on a fresh instance; and a listener unsubscribed by an earlier one
- * of the same delivery. 1.6 only RECOMMENDS all of it, so what the case finds is one advisory. The
- * leg inside `reveal()` needs no `startGesture`
+ * change listener) and at an Escape (the interaction listener), inside the host's `reveal()` (the
+ * selection listener) and inside the host's `importText()` that ends a held move (the interaction
+ * listener), each on a fresh instance; and a listener unsubscribed by an earlier one of the same
+ * delivery. 1.6 only RECOMMENDS all of it, so what the case finds is one advisory. The leg inside
+ * `reveal()` needs no `startGesture`
  */
 async function destroyFromAListener(h: ConformanceHarness): Promise<CaseOutcome> {
   const startGesture = h.startGesture;
@@ -4529,10 +4588,11 @@ async function destroyFromAListener(h: ConformanceHarness): Promise<CaseOutcome>
       ...DRAG_START_KINDS.map((kind) => destroyAtTheStart(startGesture, kind)),
       destroyAtTheDrop(startGesture),
       destroyAtEscape(startGesture),
+      destroyInsideAnImport(startGesture, h.canonicalTexts[0] ?? ""),
     );
   } else {
     unverified.push(
-      "startGesture is undefined — that a host may destroy the modeler from a listener while the user's input runs, and that a listener unsubscribed during a delivery is not called (RECOMMENDED since 1.6), was not checked",
+      "startGesture is undefined — that a host may destroy the modeler from a listener while the user's input runs or inside an import that ends a held gesture, and that a listener unsubscribed during a delivery is not called (RECOMMENDED since 1.6), was not checked",
     );
   }
   legs.push(destroyInsideReveal());
@@ -4549,7 +4609,7 @@ async function destroyFromAListener(h: ConformanceHarness): Promise<CaseOutcome>
     adviseOn(
       findings,
       "a host's listener destroyed the modeler, or unsubscribed another listener, while the user's input or the host's call ran",
-      "RECOMMENDED (since 1.6): a host may call destroy() from any listener the modeler calls, also while a drag starts, drops or is cancelled and inside reveal(); neither destroy() nor the input or reveal() throws there, no listener of the host is called after it, also not a later listener of the same delivery, a listener that an earlier listener of the same delivery unsubscribed is not called, and the modeler may finish its teardown once the input's handler or reveal() has returned",
+      "RECOMMENDED (since 1.6): a host may call destroy() from any listener the modeler calls, also while a drag starts, drops or is cancelled and inside reveal() or importText(); neither destroy() nor the input, reveal() or importText() throws there, no listener of the host is called after it, also not a later listener of the same delivery, an importText() inside which it was called rejects, a listener that an earlier listener of the same delivery unsubscribed is not called, and the modeler may finish its teardown once the input's handler, reveal() or importText() has returned",
     ),
     unverified,
   );
