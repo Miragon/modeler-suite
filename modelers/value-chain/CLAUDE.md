@@ -176,7 +176,9 @@ missing at its other places; the verdict stays the same).
   gesture, so an import ends it); without it, and always for a duplicate, the copy lands
   `PASTE_OFFSET` (20) right and down from the original, the n-th paste after a copy n times as
   far, the first paste after a cut in place unless an original is back (undo, import), as one
-  `elements.create` command, selected unless a change listener destroyed the modeler. Under
+  `elements.create` command, selected (a host's `destroy()` from its change listener tears the
+  canvas down after that, and no host listener hears the selection; a direct `Modeler.destroy()`
+  from a listener of the command leaves it out). Under
   `vcReadOnly` copy works and cut, paste and duplicate do nothing
   (`test/browser/copy-paste.browser.test.ts`).
 - `modeling/VcLayouter` + `CroppingConnectionDocking` crop connections at the chevron
