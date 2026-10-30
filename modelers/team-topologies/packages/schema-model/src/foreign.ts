@@ -53,7 +53,9 @@ export function foreignFields(
 
 /**
  * `known` followed by the foreign fields of `source`. Built from entries, never by assignment, so
- * a field named `__proto__` stays a field instead of replacing the prototype.
+ * a field named `__proto__` stays a field instead of replacing the prototype. A value that sits in
+ * several places of `source` is copied at each of them; past 1,000,000 entries repeated that way
+ * it throws, and so does a value that contains itself.
  */
 export function withForeignFields<T extends object>(
   known: T,

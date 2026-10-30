@@ -13,7 +13,11 @@ import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type { Root } from "diagram-js/lib/model/Types";
 import type { ElementBounds, FreeArea } from "@miragon/modeler-api";
-import { documentIdProblems, type TtDocument } from "@miragon/team-topologies-schema-model";
+import {
+  canonicalize,
+  documentIdProblems,
+  type TtDocument,
+} from "@miragon/team-topologies-schema-model";
 import { isArmedTool, type DragContext } from "./gestures.js";
 import { saveSVG } from "./io/saveSvg.js";
 import type TtImporter from "./io/TtImporter.js";
@@ -186,7 +190,9 @@ export abstract class TtBaseViewer {
    * that drop to finish, with its change applied.
    *
    * Throws, before anything changes, for a document whose ids would collide on the canvas (see
-   * `documentIdProblems`), so a rejected document leaves the previous one in place.
+   * `documentIdProblems`) and for one that `canonicalize` refuses: a field the modeler does not
+   * know whose value contains itself, or whose values the document shares so often that they would
+   * repeat more than 1,000,000 entries. A rejected document leaves the previous one in place.
    */
   importDocument(doc: TtDocument, options: ImportOptions = {}): { warnings: ImportWarning[] } {
     const problems = documentIdProblems(doc);
@@ -195,6 +201,10 @@ export abstract class TtBaseViewer {
         problems.map(({ path, message }) => `${path.join(".")}: ${message}`).join("; "),
       );
     }
+    // Each element on the canvas keeps a copy of its own of a value it shares with others, so the
+    // export shares nothing and the serializer's count never sees the sharing. Copying the whole
+    // document once, as the serializer does, counts it here.
+    canonicalize(doc);
     const diagram = this._ensureDiagram();
     const eventBus = diagram.get<EventBus>("eventBus");
     const importer = diagram.get<TtImporter>("ttImporter");
