@@ -126,6 +126,7 @@ function collaborative(
   const interactionListeners = new Set<(active: boolean) => void>();
   let destroyed = false;
   let lastExport = "";
+  const importsDrawn = drawnImports(eventBus);
   const selections = selectionListeners(eventBus, () => destroyed);
 
   const meta: ModelerMeta = {
@@ -212,11 +213,23 @@ function collaborative(
     },
     async importText(text): Promise<ImportResult> {
       if (destroyed) throw destroyedError();
-      const { warnings } = await diagram.importDSL(text);
+      const drawnBefore = importsDrawn();
+      const importing = diagram.importDSL(text);
+      // An import that waits for nothing has drawn by the time its call returns: a destroy after
+      // that comes from outside it and leaves it resolved, as in the other renderers. One that
+      // waits (for the annotation font, the user's action, an import ahead of it) is still running
+      // until it has drawn.
+      const drewInItsCall = importsDrawn() > drawnBefore;
+      const destroyedInItsCall = destroyed;
+      const { warnings } = await importing.catch((error: unknown) => {
+        // The viewer rejects in words of its own when the board was torn down while the import
+        // waited, also after a listener of the gesture end it began with destroyed the modeler.
+        throw destroyed ? destroyedError() : error;
+      });
       // A listener the import called (the end of a held gesture, the clear of the selection)
       // destroyed the modeler: the import rejects, as one that waits does once the modeler is
       // destroyed.
-      if (destroyed) throw destroyedError();
+      if (drewInItsCall ? destroyedInItsCall : destroyed) throw destroyedError();
       return { warnings: warnings.map(importWarningText) };
     },
     exportText() {
@@ -301,6 +314,15 @@ function selectionListeners(eventBus: EventBus, isDestroyed: () => boolean) {
       };
     },
   };
+}
+
+/** How many imports have drawn so far; an import that waits for nothing draws inside its call. */
+function drawnImports(eventBus: EventBus): () => number {
+  let drawn = 0;
+  eventBus.on("import.done", () => {
+    drawn += 1;
+  });
+  return () => drawn;
 }
 
 function destroyedError(): Error {

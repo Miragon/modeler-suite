@@ -21,7 +21,7 @@ import { Modeler } from "../Modeler.js";
 import { NavigatedViewer } from "../NavigatedViewer.js";
 import type { WardleyViewerOptions } from "../WardleyBaseViewer.js";
 import { WARDLEY_THEMES } from "../appearance/index.js";
-import { restoreEditorState, setAsideEditorState, type EditorState } from "../editor-state.js";
+import { restoreEditorState, setAsideEditorState } from "../editor-state.js";
 import {
   INTERACTION_CHANGED,
   type InteractionChangedEvent,
@@ -380,17 +380,21 @@ function collaborative(
     importsRunning += 1;
     // An open label editor neither commits during the import nor loses what was typed (L1): it
     // is taken down and reopened on the element with the same id.
-    const editorState: EditorState | undefined =
-      editable && imported ? setAsideEditorState(diagram as Modeler) : undefined;
+    const editorState = editable && imported ? setAsideEditorState(diagram as Modeler) : undefined;
     try {
-      const { warnings } = await diagram.importDSL(text);
+      const importing = diagram.importDSL(text);
+      // The map is drawn by the time that call returns: a destroy after it comes from outside the
+      // import and leaves it resolved, as in the other renderers.
+      const destroyedWhenDrawn = destroyed;
+      const { warnings } = await importing;
       imported = true;
       // Reading a destroyed map would build a new one on the detached container.
-      if (editorState && !destroyed) restoreEditorState(diagram as Modeler, editorState);
+      const restoring = editorState !== undefined && !destroyed;
+      if (restoring) restoreEditorState(diagram as Modeler, editorState);
       // A listener the import called (the end of a held gesture, the clear of the selection, the
       // selection it brings back) destroyed the modeler: the import rejects, as one that waits
       // does once the modeler is destroyed.
-      if (destroyed) throw destroyedError();
+      if (restoring ? destroyed : destroyedWhenDrawn) throw destroyedError();
       return { warnings: warnings.map((warning) => warning.message) };
     } catch (error) {
       if (editorState && !destroyed)

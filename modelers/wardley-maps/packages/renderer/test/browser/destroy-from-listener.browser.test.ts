@@ -458,4 +458,24 @@ describe("a destroy from a listener that a host's call reaches (#415)", () => {
     await expectDestroyedCleanly(imported);
     expect(later).toEqual([[]]);
   });
+
+  // A destroy that comes after the import's call has returned, from no listener of the import,
+  // leaves an import that has drawn by then to resolve, as in every other renderer.
+  test("an import that has drawn when its call returns resolves, though the host destroys the modeler right after that call", async () => {
+    modeler.elements.reveal(shapeNamed(modeler, "Cup").id);
+    const steps = recordImportSteps(modeler);
+    const heard: string[][] = [];
+    modeler.elements.onSelection((ids) => heard.push(ids));
+
+    const result = modeler.importText(platformStrategy);
+    expect(steps).toEqual(["drawn"]);
+    modeler.destroy();
+
+    await expect(result).resolves.toEqual({ warnings: [] });
+    await settle();
+    expect(errors).toEqual([]);
+    expect(steps).toEqual(["drawn", "teardown"]);
+    // The selection from before the import is not brought back on the destroyed modeler.
+    expect(heard).toEqual([[]]);
+  });
 });

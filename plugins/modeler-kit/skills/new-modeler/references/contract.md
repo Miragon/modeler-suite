@@ -192,7 +192,8 @@ both (template:
     meantime (`import.done`), so `exportText()` returns the imported document; whatever else runs
     on after the destroy reaches no host, so the text read at the destroy stays. The import's
     Promise rejects with "The modeler was destroyed.", as an import does that waits when the
-    modeler is destroyed (decision 3 of batch 12 on #170).
+    modeler is destroyed. The template decides that once the import has drawn, before its call
+    returns: a `destroy()` after the call comes from outside the import and leaves it resolved.
   - After a keyboard create, the import takes the label editor down and reopens it on the element
     with the same id. An edit the first of several waiting imports takes down stays suspended
     through the next; a render that fails reopens it as well, so no later import brings back an

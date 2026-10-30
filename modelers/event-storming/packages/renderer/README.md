@@ -341,8 +341,12 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
   interaction and selection listeners of an import, which ends a held gesture and empties the
   selection as it clears the canvas. The board is torn down once that call has returned. The
   import still draws its board, which `exportText()` then returns
-  ([#415](https://github.com/Miragon/modeler-suite/issues/415)), and its Promise rejects with
-  "The modeler was destroyed.", as an import does that waits when the modeler is destroyed.
+  ([#415](https://github.com/Miragon/modeler-suite/issues/415)), unless it ends the gesture and
+  then waits (for its annotations' font, the user's action or an import ahead of it): the board is
+  torn down meanwhile and stays as it was at the destroy. Either way its Promise rejects with "The
+  modeler was destroyed.", as every import does that is still running when the modeler is
+  destroyed. An import that has drawn by the time its call returns resolves, though the host
+  destroys the modeler right after that call.
 
 #### Migrating a host
 

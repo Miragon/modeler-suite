@@ -419,4 +419,86 @@ describe("a destroy from a listener that a host's call reaches (#415)", () => {
       expect(later).toEqual([]);
     },
   );
+
+  // The import ends the gesture before it waits for its annotations' font, so the teardown comes
+  // while it waits and it never draws: it rejects with the same error as one that draws.
+  it("an import that ends a held move and then waits for its font, heard by the interaction listener: it draws nothing and rejects as destroyed", async () => {
+    const before = modeler.exportText();
+    const expectDestroyedCleanly = destroyedCleanly();
+    HELD_GESTURES.move();
+    await handlerReturned();
+    expect(modeler.interaction.active()).toBe(true);
+    // No font at all: it fails to load, as a blocked or broken file would.
+    const loadingFont = new FontFace("Geist Variable", "url(data:font/woff2;base64,AAAA)");
+    document.fonts.add(loadingFont);
+    try {
+      const steps = recordImportSteps(modeler);
+      const heard: boolean[] = [];
+      modeler.interaction.onChange((active) => {
+        heard.push(active);
+        modeler.destroy();
+      });
+      const later: unknown[] = [];
+      modeler.interaction.onChange((active) => later.push(active));
+      modeler.elements.onSelection((ids) => later.push(ids));
+      modeler.onContentChanged(() => later.push("change"));
+
+      const result = modeler.importText(orderCheckout);
+
+      expect(steps).toEqual([]);
+      await expect(result).rejects.toThrow("The modeler was destroyed.");
+      expect(heard).toEqual([false]);
+      await expectDestroyedCleanly(before);
+      expect(steps).toEqual(["teardown"]);
+      expect(later).toEqual([]);
+    } finally {
+      document.fonts.delete(loadingFont);
+    }
+  });
+
+  it("an import that waited for its font, whose clear empties the selection: it draws, then rejects as destroyed, and nothing reaches the host afterwards", async () => {
+    const imported = await exportedAfterImporting(orderCheckout);
+    modeler.elements.reveal("event_order_placed");
+    const expectDestroyedCleanly = destroyedCleanly();
+    const loadingFont = new FontFace("Geist Variable", "url(data:font/woff2;base64,AAAA)");
+    document.fonts.add(loadingFont);
+    try {
+      const steps = recordImportSteps(modeler);
+      const heard: string[][] = [];
+      modeler.elements.onSelection((ids) => {
+        heard.push(ids);
+        modeler.destroy();
+      });
+      const later: unknown[] = [];
+      modeler.elements.onSelection((ids) => later.push(ids));
+      modeler.interaction.onChange((active) => later.push(active));
+      modeler.onContentChanged(() => later.push("change"));
+
+      const result = modeler.importText(orderCheckout);
+
+      expect(steps).toEqual([]);
+      await expect(result).rejects.toThrow("The modeler was destroyed.");
+      expect(heard).toEqual([[]]);
+      await expectDestroyedCleanly(imported);
+      expect(steps).toEqual(["drawn", "teardown"]);
+      expect(later).toEqual([]);
+    } finally {
+      document.fonts.delete(loadingFont);
+    }
+  });
+
+  // A destroy that comes after the import's call has returned, from no listener of the import,
+  // leaves an import that has drawn by then to resolve, as in every other renderer.
+  it("an import that has drawn when its call returns resolves, though the host destroys the modeler right after that call", async () => {
+    const steps = recordImportSteps(modeler);
+
+    const result = modeler.importText(orderCheckout);
+    expect(steps).toEqual(["drawn"]);
+    modeler.destroy();
+
+    await expect(result).resolves.toEqual({ warnings: [] });
+    await nextTask();
+    expect(errors).toEqual([]);
+    expect(steps).toEqual(["drawn", "teardown"]);
+  });
 });
