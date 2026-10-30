@@ -20,14 +20,16 @@
  * as on the Miragon design tokens. It is the
  * kit's reference subject, plus deliberately BROKEN variants: one per
  * real-world drift the contract exists to prevent AND one per case in the
- * kit, so the kit's own CI proves every case bites. Each variant must fail exactly its law's case set. Eight
+ * kit, so the kit's own CI proves every case bites. Each variant must fail exactly its law's case set. Eleven
  * variants are NOT flaws but legitimate implementation choices the kit must
  * accept (a diagram-js style enriched view-state readback, commands ignored
  * before the first import, an empty name that reads back absent, a content
  * box measured in float32, a content box around a plot drawn without
  * elements, canvas keys taken in the capture phase, a canvas that is a
- * focusable `<div>`, a modeler that lists and draws dark) — they must fail
- * nothing. Forty variants ignore a RECOMMENDATION — they must fail nothing and
+ * focusable `<div>`, waiting imports run by a microtask queued when the
+ * action starts, interaction listeners called newest first, a modeler that
+ * lists and draws dark, a re-import that draws one element more) — they must
+ * fail nothing. Forty variants ignore a RECOMMENDATION — they must fail nothing and
  * advise once.
  */
 import type { GestureKind, HeldGesture, HeldPan } from "../src/conformance.js";
@@ -336,13 +338,16 @@ export interface Flaws {
   /** interaction.onChange delivers over a copy of its listeners without a destroyed check: a later
    *  listener still hears the change once an earlier one of the same delivery called destroy() */
   interactionDeliveryIgnoresDestroy?: boolean;
+  /** NOT a flaw: interaction.onChange calls its listeners newest first, an order the contract
+   *  leaves open */
+  interactionDeliversNewestFirst?: boolean;
   /** the viewer's interaction.active() is true */
   viewerReportsGesture?: boolean;
 
   // ── a destroy from a listener, and an unsubscribe during a delivery (1.6, #381) ──
   /** NOT a law violation, a missed recommendation: destroy() from a listener tears the gesture
-   *  down at once, so the drag's activation, which reads the drag again after the selection
-   *  listeners, throws (diagram-js's Dragging.move before #370) */
+   *  down at once, so the drag's activation, which reads the drag again after the selection and
+   *  the interaction listeners of its start, throws (diagram-js's Dragging.move before #370) */
   destroyTearsDownInsideTheAction?: boolean;
   /** NOT a law violation, a missed recommendation: onContentChanged delivers over a copy of its
    *  listeners, so a later listener hears a change once an earlier one called destroy() */
@@ -799,7 +804,9 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
   const report = (active: boolean): void => {
     if (destroyed || active === reportedActive) return;
     if (!flaws.interactionStaleInListener) reportedActive = active;
-    for (const listener of [...interactionListeners]) {
+    const delivered = [...interactionListeners];
+    if (flaws.interactionDeliversNewestFirst) delivered.reverse();
+    for (const listener of delivered) {
       if (!flaws.interactionDeliveryIgnoresDestroy) {
         if (destroyed) break;
         const unsubscribed = !interactionListeners.has(listener);
@@ -1339,14 +1346,18 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
       };
       gesture = held;
       // diagram-js activates the drag: it empties the selection, whose listeners may import, and
-      // then reads the drag again
+      // then reads the drag again, also after the listeners of the start it reports
+      const readTheDragAgain = (): void => {
+        if (gesture !== held)
+          throw new TypeError("Cannot read properties of null (reading 'cursor')");
+      };
       asUserAction(() => {
         activating = true;
         try {
           select([]);
-          if (gesture !== held)
-            throw new TypeError("Cannot read properties of null (reading 'cursor')");
+          readTheDragAgain();
           report(true);
+          readTheDragAgain();
         } finally {
           activating = false;
         }

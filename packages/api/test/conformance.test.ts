@@ -250,6 +250,12 @@ describe("the conforming reference modeler", () => {
     );
   });
 
+  test("interaction listeners called newest first, an order the contract leaves open, fail nothing and advise nothing: a listener's call before the destroy or the unsubscribe counts for nothing", async () => {
+    const h = harness({ interactionDeliversNewestFirst: true });
+    expect(await failingCases(h)).toEqual([]);
+    expect(await advisories(h)).toEqual([]);
+  });
+
   test("a modeler that lists dark and draws it fails nothing and advises nothing", async () => {
     const h = harness({ listsDark: true });
     expect(await failingCases(h)).toEqual([]);

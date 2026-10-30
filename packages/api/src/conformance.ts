@@ -208,10 +208,12 @@ export interface ConformanceHarness {
    * modeler runs. The drop case holds a `"move"`, and the drag-start case a `"move"` and a
    * `"create"`, with the first listed element revealed (selected): the start then clears that
    * selection. The destroy case and the interaction case destroy the modeler from a listener while
-   * the gesture starts, and then call neither `drop()` nor `cancel()`: once the pointer events that
-   * start the gesture have run, read nothing of the modeler after an `await` (the teardown may run
-   * once their handler has returned). `undefined` = the L1 gesture case, the drop case, the
-   * drag-start case, the interaction case and the destroy case are reported as skipped
+   * the gesture starts (and then call neither `drop()` nor `cancel()`), and the destroy case also
+   * from a listener inside `drop()` (the drop's change event) and inside `cancel()` (the end that
+   * Escape reports): once the pointer or key events that start, drop or cancel the gesture have
+   * run, read nothing of the modeler after an `await` (the teardown may run once their handler has
+   * returned). `undefined` = the L1 gesture case, the drop case, the drag-start case, the
+   * interaction case and the destroy case are reported as skipped
    */
   startGesture?(
     modeler: CollaborativeModeler,
@@ -249,10 +251,14 @@ export interface HeldGesture {
    * release it where it applies, the way the user does: the moved element lands on a new
    * position, the preview of a create on free canvas (an off-canvas preview is brought there
    * first, then placed). A drop of a gesture the modeler still runs changes the document: the
-   * cases rely on that to see whether an import left the gesture running
+   * cases rely on that to see whether an import left the gesture running. The destroy case
+   * destroys the modeler from the drop's change listener: once the event that drops has run, read
+   * nothing of the modeler after an `await`
    */
   drop(): Promise<void> | void;
-  /** cancel it the way the user does (Escape) */
+  /** cancel it the way the user does (Escape). The destroy case destroys the modeler from the
+   *  listener of the end that Escape reports: once the key event has run, read nothing of the
+   *  modeler after an `await` */
   cancel(): Promise<void> | void;
 }
 
@@ -4135,7 +4141,6 @@ async function interactionFollowsGestures(h: ConformanceHarness): Promise<CaseOu
       );
     }
     const later = await laterListenerAfterADestroy(h, startGesture);
-    await settle();
     if (later.length > 0) {
       fail(
         `interaction.onChange delivered ${JSON.stringify(later)} to a later listener once an earlier listener of the same delivery had called destroy() at the start of a move — nothing is called after destroy()`,
@@ -4163,20 +4168,22 @@ async function interactionFollowsGestures(h: ConformanceHarness): Promise<CaseOu
 
 /**
  * two `interaction.onChange` listeners on a fresh instance, and a move started: the first calls
- * `destroy()` on the start's true. Returns what the second heard, which must be nothing: the
- * contract states since 1.5 that nothing is called once `destroy()` has been called, so a delivery
- * that goes on over a copy of its listeners breaks it
+ * `destroy()` on the start's true. Returns what the second heard after that, which must be nothing:
+ * the contract states since 1.5 that nothing is called once `destroy()` has been called, so a
+ * delivery that goes on over a copy of its listeners breaks it. The contract orders no delivery, so
+ * what the second heard before the destroy counts for nothing
  */
 async function laterListenerAfterADestroy(
   h: ConformanceHarness,
   startGesture: GestureStarter,
 ): Promise<boolean[]> {
+  const settle = h.settle ?? defaultSettle;
   const later: boolean[] = [];
   let destroyed = false;
   const m = await h.create();
   try {
     await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
-    await (h.settle ?? defaultSettle)();
+    await settle();
     const interaction = m.interaction;
     if (!interaction) return later;
     interaction.onChange((active) => {
@@ -4184,11 +4191,20 @@ async function laterListenerAfterADestroy(
       destroyed = true;
       m.destroy();
     });
-    interaction.onChange((active) => later.push(active));
-    // what the start throws once the modeler is gone is the destroy case's advisory, not this law
-    await errorOf(async () => {
-      await startGesture(m, "move");
+    interaction.onChange((active) => {
+      if (destroyed) later.push(active);
     });
+    // what the start throws once the modeler is gone is the destroy case's advisory, not this law:
+    // a pointer handler throws to the window, where a browser's test runner fails the whole run
+    const errors = listenForWindowErrors();
+    try {
+      await errorOf(async () => {
+        await startGesture(m, "move");
+      });
+      await settle();
+    } finally {
+      errors.stop();
+    }
   } finally {
     if (!destroyed) m.destroy();
   }
@@ -4303,7 +4319,7 @@ async function destroyDuring(h: ConformanceHarness, leg: DestroyLeg): Promise<Ac
       }
       if (heardAfter.length > 0) {
         findings.push(
-          `${heardAfter.join(", ")} came after destroy() ${leg.where} (nothing of the host is called after it, also not a later listener of the same delivery)`,
+          `${heardAfter.join(", ")} came after destroy() ${leg.where} (no listener of the host is called after it, also not a later listener of the same delivery)`,
         );
       }
     } finally {
@@ -4395,7 +4411,9 @@ function destroyAtEscape(startGesture: GestureStarter): DestroyLeg {
 }
 
 /** a move held and cancelled while the first `interaction.onChange` listener unsubscribes the
- *  second on the start's true: the second hears nothing, as with a DOM `EventTarget` */
+ *  second on the start's true: the second hears nothing after that, as with a DOM `EventTarget`.
+ *  The contract orders no delivery, so what the second heard before the unsubscribe counts for
+ *  nothing */
 async function unsubscribeDuringADelivery(
   h: ConformanceHarness,
   startGesture: GestureStarter,
@@ -4421,7 +4439,11 @@ async function unsubscribeDuringADelivery(
       started = true;
       unsubscribeTheLaterOne?.();
     });
-    unsubscribeTheLaterOne = once(interaction.onChange((active) => heard.push(active)));
+    unsubscribeTheLaterOne = once(
+      interaction.onChange((active) => {
+        if (started) heard.push(active);
+      }),
+    );
     const held = await startGesture(m, "move");
     await held.cancel();
     await settle();
@@ -4479,7 +4501,7 @@ async function destroyFromAListener(h: ConformanceHarness): Promise<CaseOutcome>
     adviseOn(
       findings,
       "a host's listener destroyed the modeler, or unsubscribed another listener, while the user's input ran",
-      "RECOMMENDED (since 1.6): a host may call destroy() from any listener the modeler calls, also while a drag starts, drops or is cancelled; destroy() throws nothing there, nothing of the host is called after it, also not a later listener of the same delivery, a listener that an earlier listener of the same delivery unsubscribed is not called, and the modeler may finish its teardown once the input's handler has returned",
+      "RECOMMENDED (since 1.6): a host may call destroy() from any listener the modeler calls, also while a drag starts, drops or is cancelled; neither destroy() nor the input throws there, no listener of the host is called after it, also not a later listener of the same delivery, a listener that an earlier listener of the same delivery unsubscribed is not called, and the modeler may finish its teardown once the input's handler has returned",
     ),
     unverified,
   );

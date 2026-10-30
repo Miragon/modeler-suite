@@ -277,18 +277,25 @@ from any listener the modeler calls (`onContentChanged`, `elements.onSelection`,
 `interaction.onChange`), also while the user's input still runs: at a drag's
 start, where diagram-js empties the selection; at a drop, whose command fires
 the change event; at an Escape, which ends the gesture; during any other
-command. `destroy()` throws nothing there, and nothing of the host is called
-after it, also not a later listener of the same delivery: a delivery that loops
-over a copy of its listeners checks for a destroy before each call. A listener
-that an earlier listener of the same delivery unsubscribed is not called either,
-as with a DOM `EventTarget`. The modeler may finish removing its DOM once the
-input handler that runs has returned: diagram-js reads the drag again after the
-selection listeners of its start and goes on with a drop after its change
-listeners (`SelectionBehavior` selects the moved shape again), so a renderer
-that tears the canvas down inside the listener throws from the user's input. A
-second `destroy()` throws nothing, as always. For `interaction.onChange` the
-contract states since 1.5 that nothing is called once `destroy()` has been
-called; 1.6 extends it to every listener as a recommendation.
+command. The same holds inside a method of the contract that calls the listener
+before it returns, such as `elements.reveal`, which delivers the selection.
+Neither `destroy()` nor that input or method throws there, and no listener of
+the host is called after it, also not a later listener of the same delivery: a
+delivery that loops over a copy of its listeners checks for a destroy before
+each call. A listener that an earlier listener of the same delivery
+unsubscribed is not called either, as with a DOM `EventTarget`. The modeler may
+finish removing its DOM once the input handler or the method that runs has
+returned: diagram-js reads the drag again after the selection listeners of its
+start and goes on with a drop after its change listeners (`SelectionBehavior`
+selects the moved shape again), so a renderer that tears the canvas down inside
+the listener throws from the user's input. A Promise the modeler returned
+before is no listener: an `importText` that still waits for the user's action
+may settle after the destroy (the Miragon renderers reject it), so a host
+ignores what settles after its own `destroy()`. A second `destroy()` throws
+nothing, as always. For `interaction.onChange` the contract states since 1.5
+that nothing is called once `destroy()` has been called; 1.6 extends it to
+every listener as a recommendation. The kit's destroy case checks it at the
+user's input; its leg for `elements.reveal` follows.
 
 **Keys stay on the canvas** (1.4, RECOMMENDED). A modeler acts on a key only
 while its canvas holds the focus: the key's target is the focusable element the
@@ -661,7 +668,12 @@ The harness fields:
   releases the gesture where it applies: the moved element lands on a new
   position, a create on free canvas (the off-canvas preview is brought there
   first). So a drop the modeler still runs changes the document, and a drop
-  that changes nothing shows a gesture that has ended.
+  that changes nothing shows a gesture that has ended. The destroy and
+  interaction cases destroy the modeler from a listener at the gesture's start,
+  the destroy case also inside `drop()` (the drop's change event) and inside
+  `cancel()` (the end that Escape reports): once the events that start, drop
+  or cancel the gesture have run, the harness reads nothing of the modeler
+  after an `await`.
 - `armTool(modeler)` arms a palette tool that waits for its next press (the
   lasso or the hand tool) without pressing.
 - `startPan(modeler)` holds a pan (a press on empty canvas, or the hand tool)
@@ -778,8 +790,10 @@ The cases:
   with a gesture held when it comes. Nor is anything delivered to a later
   listener once an earlier one of the same delivery has called `destroy()`: on a
   fresh instance the first of two listeners destroys the modeler on the `true`
-  of a `"move"`'s start, and the second must hear nothing. A viewer that exposes
-  the surface reports false, before and after an import.
+  of a `"move"`'s start, and the second must hear nothing after that (what the
+  start throws once the modeler is gone, also to the window, is the destroy
+  case's advisory). A viewer that exposes the surface reports false, before and
+  after an import.
 - **The destroy case** (RECOMMENDED since 1.6, an advisory): a host may destroy
   the modeler from its listener while the user's input runs. Each leg runs on a
   fresh instance with `canonicalTexts[0]` and its first listed element revealed,
@@ -792,9 +806,13 @@ The cases:
   selection listener hears `[]` and nothing more, no listener is called after
   the destroy, also not a later one of the same delivery, and a second
   `destroy()` throws nothing. After the destroy the case calls nothing of the
-  modeler but that second `destroy()`: no `drop()` and no `cancel()`. Last, on
-  a fresh instance, the first `interaction.onChange` listener unsubscribes the
-  second on the `true` of a `"move"`'s start, and the second must hear nothing.
+  modeler but that second `destroy()`: no `drop()` or `cancel()` after a
+  destroy at the start, nothing after the `drop()` or `cancel()` inside which
+  the listener destroyed it. Last, on a fresh instance, the first
+  `interaction.onChange` listener unsubscribes the second on the `true` of a
+  `"move"`'s start, and the second must hear nothing after that. The contract
+  orders no delivery, so neither this leg nor the interaction case's later
+  listener counts what a listener heard before the unsubscribe or the destroy.
 - **The appearance case** (failures, apart from the keep-open advisory): a
   theme is view state, and an unlisted one falls back to `themes[0]`. `themes`
   is non-empty, without duplicates, only `"light"` and `"dark"`, and the same
@@ -962,12 +980,14 @@ Recommendations today, proposed as hard laws for the next major:
   pan case; 1.5 said a pan MAY count as a gesture).
 - **A destroy from any listener:** `destroy()` called from a listener the
   modeler calls, also while the user's input runs (a drag's start, a drop, an
-  Escape, a command), throws nothing there, and nothing of the host is called
-  after it, also not a later listener of the same delivery; a listener that an
-  earlier listener of the same delivery unsubscribed is not called; the modeler
-  may finish its teardown once the input's handler has returned (today:
-  RECOMMENDED since 1.6, advisory in the destroy case; for `interaction.onChange`
-  nothing after `destroy()` is a law since 1.5).
+  Escape, a command) or inside a method of the contract that calls the listener
+  (`elements.reveal`), throws nothing there, nor does that input or method, and
+  no listener of the host is called after it, also not a later listener of the
+  same delivery; a listener that an earlier listener of the same delivery
+  unsubscribed is not called; the modeler may finish its teardown once the
+  input's handler or the method has returned (today: RECOMMENDED since 1.6,
+  advisory in the destroy case, whose leg for `elements.reveal` follows; for
+  `interaction.onChange` nothing after `destroy()` is a law since 1.5).
 
 ## Roadmap
 
