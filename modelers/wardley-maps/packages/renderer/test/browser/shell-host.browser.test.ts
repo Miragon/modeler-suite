@@ -6,6 +6,7 @@ import { Modeler, type FreeRectInsets, type PanConstraint } from "../../src/inde
 import type EvolutionGrid from "../../src/evolution-grid/EvolutionGrid.js";
 import { fitViewbox } from "../../src/io/fitViewbox.js";
 import type { WardleyShape } from "../../src/model/di-types.js";
+import type WardleyDrawTool from "../../src/draw-tool/WardleyDrawTool.js";
 import "../../src/assets/wardley.css";
 
 /**
@@ -78,16 +79,19 @@ function components(target: Modeler): string[] {
 }
 
 describe("inside a host chrome (the Miragon modeler shell)", () => {
-  it("leaves the palette to the chrome: no native title, no own skin, tab stops or toolbar role", async () => {
+  it("leaves the palette to the chrome: no native title, no own skin, tab stops, pressed state or toolbar role", async () => {
     const target = mount({ shell: true });
     await target.importDSL(MAP);
     const palette = target.container.querySelector<HTMLElement>(".djs-palette")!;
+    target.get<WardleyDrawTool>("wardleyDrawTool").activate();
     expect(palette.classList.contains("wardley-palette")).toBe(false);
     expect(palette.hasAttribute("role")).toBe(false);
     for (const element of palette.querySelectorAll<HTMLElement>(".entry")) {
       expect(element.hasAttribute("title"), element.dataset["action"]).toBe(false);
       expect(element.hasAttribute("tabindex"), element.dataset["action"]).toBe(false);
+      expect(element.hasAttribute("aria-pressed"), element.dataset["action"]).toBe(false);
     }
+    target.get<WardleyDrawTool>("wardleyDrawTool").cancel();
     expect(entry(target, "lasso-tool").getAttribute("aria-label")).toBe("Lasso");
     expect(entry(target, "draw-tool").getAttribute("aria-label")).toBe("Draw");
   });
