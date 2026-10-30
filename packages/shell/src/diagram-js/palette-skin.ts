@@ -203,10 +203,10 @@ export class PaletteSkin {
     if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
       return;
     const entry = this.entryOf(event.target);
-    // The page's key: the browser sends it to an entry the host made inert until its next
+    // The page's key: the browser sends it to an entry the host made inert or hid until its next
     // rendering update, and a draw tool leaves Enter there alone, so activating it would throw
     // away the line the tool holds.
-    if (!entry || entry.closest("[inert]")) return;
+    if (!entry || entry.closest("[inert]") || !isRendered(entry)) return;
     const entries = this.entryElements();
     const index = entries.indexOf(entry);
     const last = entries.length - 1;
@@ -240,6 +240,15 @@ export class PaletteSkin {
     this.applyTabStops(entries);
     next.focus();
   };
+}
+
+/**
+ * The renderers' canvas-key guards ask the same: `checkVisibility()` with its default options, so
+ * `display: none` hides the entry and `visibility: hidden` does not. Without `checkVisibility`
+ * (Safari before 17.4) the browser's focus fixup alone has to do.
+ */
+function isRendered(entry: Element): boolean {
+  return typeof entry.checkVisibility !== "function" || entry.checkVisibility();
 }
 
 function actionOf(entry: Element): string | undefined {

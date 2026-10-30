@@ -28,7 +28,7 @@ export function isKeyAimedAt(event: KeyboardEvent, root: Node | null | undefined
   );
 }
 
-export function liesInInertSubtree(node: Node): boolean {
+function liesInInertSubtree(node: Node): boolean {
   const element = node instanceof Element ? node : node.parentElement;
   return !!element?.closest("[inert]");
 }
