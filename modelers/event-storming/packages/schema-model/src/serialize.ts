@@ -2,6 +2,7 @@ import { eventStormingBoardSchema } from "./schema.js";
 import { migrate, CURRENT_SCHEMA_VERSION } from "./migrations.js";
 import { HOST_STICKY_KINDS } from "./attachments.js";
 import { assertElementsDrawable } from "./drawable.js";
+import { compareCodeUnits } from "./order.js";
 import type { BoardConfig, EventStormingBoard } from "./types.js";
 
 /** Number of decimal places for coordinates in serialization. */
@@ -115,11 +116,12 @@ export function parseBoardJSON(json: string): EventStormingBoard {
 }
 
 /**
- * Deterministic serialization: stable (alphabetical) key order, elements/edges sorted by `id`,
- * coordinates rounded to 3 decimal places. Produces clean Git diffs and reliable change
- * detection. An object or array that sits in several places is written at each of them, and its
- * entries count at every place after the first: past 1,000,000 such repeated entries it throws,
- * and so does a value that contains itself. A board that shares nothing has no such limit.
+ * Deterministic serialization: stable (alphabetical) key order, elements/edges sorted by `id` (by
+ * UTF-16 code unit, not by locale, so in the same order on every machine), coordinates rounded to
+ * 3 decimal places. Produces clean Git diffs and reliable change detection. An object or array
+ * that sits in several places is written at each of them, and its entries count at every place
+ * after the first: past 1,000,000 such repeated entries it throws, and so does a value that
+ * contains itself. A board that shares nothing has no such limit.
  */
 export function serializeBoard(board: EventStormingBoard): string {
   const path = new ContainerPath();
@@ -128,9 +130,9 @@ export function serializeBoard(board: EventStormingBoard): string {
 
 function canonicalize(board: EventStormingBoard, path: ContainerPath): EventStormingBoard {
   const elements = [...board.elements]
-    .sort((a, b) => a.id.localeCompare(b.id))
+    .sort((a, b) => compareCodeUnits(a.id, b.id))
     .map((el) => roundNumbers(el, path) as EventStormingBoard["elements"][number]);
-  const edges = [...board.edges].sort((a, b) => a.id.localeCompare(b.id));
+  const edges = [...board.edges].sort((a, b) => compareCodeUnits(a.id, b.id));
   return {
     ...board,
     config: roundNumbers(board.config, path) as BoardConfig,
