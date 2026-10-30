@@ -1,13 +1,13 @@
 /*! @miragon/value-chain-renderer icon geometry
  * Lucide (lucide-static 1.59.0) @license ISC
  * Copyright (c) 2026 Lucide Icons and Contributors
- * Derived from Feather, as Lucide's LICENSE lists them: trash and x. Feather @license MIT
+ * Derived from Feather, as Lucide's LICENSE lists it: trash. Feather @license MIT
  * Copyright (c) 2013-present Cole Bemis */
 
 /*
- * The Lucide icons of the palette tools, the context pad and the shortcuts dialog, copied
- * unchanged from `icon-nodes.json` so the renderer has no icon runtime dependency. Renderers
- * never import the modeler shell, so they cannot take its copy.
+ * The Lucide icons of the palette tools and the context pad, copied unchanged from
+ * `icon-nodes.json` so the renderer has no icon runtime dependency. Renderers never import the
+ * modeler shell, so they cannot take its copy.
  */
 export const LUCIDE = {
   "square-dashed-mouse-pointer":
@@ -40,7 +40,6 @@ export const LUCIDE = {
   "align-start-vertical":
     '<rect width="9" height="6" x="6" y="14" rx="2"/><rect width="16" height="6" x="6" y="4" rx="2"/>' +
     '<path d="M2 2v20"/>',
-  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
 } as const;
 
 export type LucideIconName = keyof typeof LUCIDE;

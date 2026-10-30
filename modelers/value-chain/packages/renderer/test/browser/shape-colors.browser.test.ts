@@ -4,7 +4,6 @@ import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import {
   COLORS,
   createCollaborativeModeler,
-  svgToPng,
   type CollaborativeValueChainModeler,
   type VcColorPickerProvider,
   type VcRenderer,
@@ -426,19 +425,28 @@ describe("a label that runs past its shape (guide §10.1, §3.7)", () => {
       });
   }
 
+  /** The SVG export drawn at `SCALE` on the surround, as both apps' PNG export draws it (§10.7). */
+  async function rasterized(svg: string): Promise<ImageData> {
+    const image = new Image();
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    await image.decode();
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(image.naturalWidth * SCALE);
+    canvas.height = Math.round(image.naturalHeight * SCALE);
+    const context = canvas.getContext("2d")!;
+    context.fillStyle = COLORS.surround;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return context.getImageData(0, 0, canvas.width, canvas.height);
+  }
+
   async function exportedPng(modeler: CollaborativeValueChainModeler) {
     const { svg } = modeler.diagram.saveSVG();
     const [originX, originY] = /viewBox="(\S+) (\S+)/.exec(svg)!.slice(1).map(Number) as [
       number,
       number,
     ];
-    const bitmap = await createImageBitmap(await svgToPng(svg, SCALE));
-    const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const context = canvas.getContext("2d")!;
-    context.drawImage(bitmap, 0, 0);
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = await rasterized(svg);
     /** The highest contrast any pixel of the region reaches against the given colour. */
     return function strongestContrast(region: Box, against: Rgb): number {
       let strongest = 1;

@@ -33,7 +33,6 @@ export {
   VcExporter,
   type VcImportConfig,
   saveSVG,
-  svgToPng,
   blobToBase64,
   ROOT_ID,
 } from "./io/index.js";
@@ -86,7 +85,6 @@ export { vcGestureModule, VcGestures, GESTURE_CHANGED_EVENT } from "./gesture/in
 export { ICONS } from "./draw/icons.js";
 export {
   JSON_EXPORT_LABEL,
-  createShortcutsDialog,
   diagramMenu,
   diagramShortcuts,
   type DiagramExport,
@@ -102,6 +100,4 @@ export {
   type ShortcutPlatform,
   type ShortcutRow,
   type ShortcutsChrome,
-  type ShortcutsDialog,
-  type ShortcutsDialogChrome,
 } from "./diagram-menu/index.js";
