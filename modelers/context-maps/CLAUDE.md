@@ -97,7 +97,10 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   deselects and fires the first `drag.move` in one call of `Dragging.move`) until every
   `drag.move` listener of that first move has run, at the latest a microtask later (the
   notation's `<prefix>.move` listeners follow; no host listener fires from them). The import that
-  waited for the activation then ends the drag. A label or description commit at a press is such
+  waited for the activation then ends the drag. A `destroy()` from the selection or the
+  interaction listener while the drag activates tears the map down once the handler that
+  activated it has returned (`tearDownAfterActivation`, #346), and the selection the cancelled
+  drag brings back reaches no host listener. A label or description commit at a press is such
   a command: the import runs once the press has returned and ends the drag the press started, as
   every accepted import ends a running gesture (contract L1). The import reopens the
   label editor (its element selected again) on the element with the same id, and the imports that

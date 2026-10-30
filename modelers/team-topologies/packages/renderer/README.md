@@ -179,7 +179,10 @@ imported element with the same id), nor the rest of a command that a selection l
 A drag's start is an action as well, until the code that starts it has returned: diagram-js
 deselects there (a press moved past the drag threshold, a resize, a palette create, a connect) and
 then goes on with the drag, so an import from `elements.onSelection` comes afterwards and ends the
-drag.
+drag. A `destroy()` from `elements.onSelection` there, or from `interaction.onChange` as the drag
+starts, throws nothing either: the diagram is torn down once the code that started the drag has
+returned, and no listener of the host hears anything after `destroy()`, also not the selection the
+cancelled drag brings back ([#346](https://github.com/Miragon/modeler-suite/issues/346)).
 The label commit that a press on an element or on a resize handle makes counts too: the import comes
 after the press and then ends what the press began, as an accepted import does: the resize that
 diagram-js starts at once on a handle, or the move of a press that has not reached the drag

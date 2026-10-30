@@ -317,7 +317,13 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
   `createCollaborativeModeler` and `createCollaborativeViewer` accept the same options:
   `additionalModules`, `fitOnImport`, and for the modeler `undoRedoKeys` and `freeArea` (the
   viewer ignores those two).
-- After `destroy()`, `exportText()` returns the last state and `importText()` rejects.
+- After `destroy()`, `exportText()` returns the last state and `importText()` rejects. A
+  `destroy()` from `elements.onSelection` or `interaction.onChange` while diagram-js starts a drag
+  (it clears the selection there and then reads the drag again), or from `interaction.onChange` as a
+  drawing's point drag starts, throws nothing: the board is torn down once the code that started
+  the drag has returned, and no listener of the host hears anything
+  after `destroy()`, also not the selection the cancelled drag brings back
+  ([#346](https://github.com/Miragon/modeler-suite/issues/346)).
 
 #### Migrating a host
 

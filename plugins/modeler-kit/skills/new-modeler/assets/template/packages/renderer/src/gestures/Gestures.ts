@@ -67,6 +67,8 @@ export default class Gestures {
   /** The drag whose drop is being applied, from its `drag.end` until it has ended. */
   private droppingDrag: DragContext | null = null;
   private actionInTask = false;
+  /** From a drag's `drag.start` until the handler that activated the drag has returned. */
+  private handlerActivatesDrag = false;
   private readonly actionHolds = new Set<object>();
   private actionWaiters: Array<() => void> = [];
   private readonly listeners = new Set<GestureListener>();
@@ -84,7 +86,10 @@ export default class Gestures {
     // drag's cursor: an import from a host's selection listener there would end the drag under
     // it, and the cursor's read throws on the ended drag. First, so a start listener finds the
     // action as well.
-    eventBus.on('drag.start', FIRST, () => this.noticeAction());
+    eventBus.on('drag.start', FIRST, () => {
+      this.noticeAction();
+      this.noticeDragActivation();
+    });
     // First, so the action counts before any listener inside the command (a host's selection
     // listener on a delete, an undo or a redo) or its change listener imports.
     eventBus.on(COMMAND_STARTS, FIRST, () => this.noticeAction());
@@ -162,6 +167,20 @@ export default class Gestures {
   }
 
   /**
+   * Runs `teardown` (the modeler's destroy) at once, or, while diagram-js activates a drag, once
+   * the handler that activates it has returned. diagram-js cancels a running drag on destroy, and
+   * between the drag's start and its first move it clears the selection and then reads the drag's
+   * context again: a destroy from a selection listener there made `Dragging.move` throw on the
+   * cursor. The first move, whose interaction listener may destroy as well, and the rest of the
+   * handler (a palette entry's) still run on the live diagram, which the teardown then takes down
+   * with the drag.
+   */
+  tearDownAfterActivation(teardown: () => void): void {
+    if (this.handlerActivatesDrag) queueMicrotask(teardown);
+    else teardown();
+  }
+
+  /**
    * Told apart by its drag, not by a flag: a drop whose cleanup throws keeps diagram-js from
    * announcing its end, and a flag left set would keep every later import from ending a gesture.
    */
@@ -197,6 +216,15 @@ export default class Gestures {
     queueMicrotask(() => {
       this.actionInTask = false;
       this.settleAction();
+    });
+  }
+
+  /** diagram-js activates a drag inside the handler of the user's input, which a microtask follows. */
+  private noticeDragActivation(): void {
+    if (this.handlerActivatesDrag) return;
+    this.handlerActivatesDrag = true;
+    queueMicrotask(() => {
+      this.handlerActivatesDrag = false;
     });
   }
 
