@@ -308,12 +308,13 @@ guide §8 and removes it with `shell.destroy()`. A host without a mounted shell 
 opens the same dialog with `showShortcutsDialog(groups, { container })`. Content the modeler adds
 to `shell.root` itself (a dialog of its own) is the modeler's: it removes it in its own teardown,
 for example on `diagram.destroy`, since `shell.destroy()` removes only what the shell added. The complete Event
-Storming extension on the document plumbing, including the export notification, is in
+Storming extension on the document plumbing, with its export through `exportToFile`, is in
 [API.md][api]. Since 0.8 the document sync, the undo through the document and the problems pill
 are the shell's (`registerModelerEditor` and `connectDocumentSync`) in the extensions of all five
 modelers, for every editor but the two PNG editors (`.cm.png`, `.tt.png` / `.ttm.png`); the
-modeler keeps its diagnostics. The save dialogs of its exports and "New …" commands can be the
-shell's since 0.9 (`exportToFile`, `registerNewDocumentCommand`).
+modeler keeps its diagnostics. The save dialogs of its exports and "New …" commands are the
+shell's since 0.9 (`exportToFile`, `registerNewDocumentCommand`), in all five extensions since
+[#503](https://github.com/Miragon/modeler-suite/pull/503).
 
 ## Usage in a web app
 
