@@ -10,14 +10,22 @@ import type { BoardElement, EventStormingBoard } from "./types.js";
  */
 export const DEFAULT_BOARD_SIZE = { width: 1080, height: 680 } as const;
 
+export function timelineOrder(
+  first: Pick<BoardElement, "id" | "position">,
+  second: Pick<BoardElement, "id" | "position">,
+): number {
+  return (
+    first.position.x - second.position.x ||
+    first.position.y - second.position.y ||
+    compareCodeUnits(first.id, second.id)
+  );
+}
+
 /**
  * Elements in timeline order: sorted by `position.x`, then `position.y`, then `id` (by UTF-16 code
  * unit, not by locale, so `spreadTimeline` places stickies on the same spot alike on every
  * machine). Pure and deterministic; mirrors how a facilitator reads a board left to right.
  */
 export function sortByTimeline(board: EventStormingBoard): BoardElement[] {
-  return [...board.elements].sort(
-    (a, b) =>
-      a.position.x - b.position.x || a.position.y - b.position.y || compareCodeUnits(a.id, b.id),
-  );
+  return [...board.elements].sort(timelineOrder);
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   ATTACHABLE_STICKY_KINDS,
   CURRENT_SCHEMA_VERSION,
@@ -18,6 +18,12 @@ import {
   type BoardLevel,
   type EventStormingBoard,
 } from "../src/index.js";
+import {
+  CODE_POINT_ORDER,
+  LOCALES,
+  SHUFFLED_IDS,
+  withDefaultLocale,
+} from "./support/default-locale.js";
 
 const sample: EventStormingBoard = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -38,60 +44,6 @@ const sample: EventStormingBoard = {
   ],
   edges: [{ id: "arrow_1", edgeType: "arrow", from: "cmd_place_order", to: "event_order_placed" }],
 };
-
-// Ids that a locale orders otherwise: upper and lower case, `_` against letters and digits, and
-// letters that Estonian (z before t) and Lithuanian (y with i) move.
-const SHUFFLED_IDS = [
-  "z_store",
-  "b",
-  "t_api",
-  "B",
-  "a_1",
-  "y_db",
-  "a1",
-  "_x",
-  "j_app",
-  "a",
-  "Z",
-  "10",
-  "9",
-  "A",
-];
-const CODE_POINT_ORDER = [
-  "10",
-  "9",
-  "A",
-  "B",
-  "Z",
-  "_x",
-  "a",
-  "a1",
-  "a_1",
-  "b",
-  "j_app",
-  "t_api",
-  "y_db",
-  "z_store",
-];
-const LOCALES = ["en-US", "de-DE", "et-EE", "lt-LT", "sv-SE", "tr-TR"];
-
-/** Runs `run` as on a runtime with `locale` as the default locale of `localeCompare`. */
-function withDefaultLocale(locale: string, run: () => void): void {
-  const localeCompare = String.prototype.localeCompare;
-  const asDefault = vi.spyOn(String.prototype, "localeCompare").mockImplementation(function (
-    this: string,
-    that,
-    locales,
-    options,
-  ) {
-    return localeCompare.call(this, that, locales ?? locale, options);
-  });
-  try {
-    run();
-  } finally {
-    asDefault.mockRestore();
-  }
-}
 
 describe("sortByTimeline", () => {
   const board: EventStormingBoard = {
