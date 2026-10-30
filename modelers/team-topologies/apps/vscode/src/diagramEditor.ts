@@ -7,7 +7,7 @@ import {
 import { documentDiagnostics, problemCounts } from "./diagnostics.js";
 import { DIAGRAM_EDITOR_OPTIONS } from "./diagramEditorOptions.js";
 import { withExampleInserted } from "./examples.js";
-import { exportImageToFile } from "./exportImage.js";
+import { exportImage } from "./exportImage.js";
 import type { HostToWebview, WebviewToHost } from "./protocol.js";
 
 /** The open text diagrams: the focused one, the one focused last, and their Command Palette commands. */
@@ -106,9 +106,7 @@ export function registerDiagramEditor(
         case "flushed":
           return flushes.get(editor)?.answered(message.id);
         case "export":
-          return exportImageToFile(editor.document.uri, message.format, message.data, {
-            fontFallback: message.fontFallback === true,
-          });
+          return exportImage(editor.document.uri, message);
         default:
           return undefined;
       }

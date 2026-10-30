@@ -1,5 +1,9 @@
 import * as vscode from "vscode";
-import { registerModelerEditor } from "@miragon/modeler-shell/vscode/extension";
+import {
+  IMAGE_EXPORT_KINDS,
+  exportToFile,
+  registerModelerEditor,
+} from "@miragon/modeler-shell/vscode/extension";
 import {
   registerSideBySideCommands,
   registerWebviewCommands,
@@ -7,7 +11,6 @@ import {
 } from "./commands.js";
 import { DIAGNOSTIC_COLLECTION_NAME, documentDiagnostics } from "./diagnostics.js";
 import { DIAGRAM_EDITOR_OPTIONS, DIAGRAM_VIEW_TYPE } from "./diagramEditorOptions.js";
-import { exportImageToFile } from "./exportImage.js";
 import type { WebviewToHost } from "./protocol.js";
 
 export { DIAGRAM_VIEW_TYPE } from "./diagramEditorOptions.js";
@@ -35,12 +38,16 @@ export function registerDiagramEditor(
     },
     onMessage: (message, editor) =>
       message.type === "export"
-        ? exportImageToFile(
-            editor.document.uri,
-            message.format,
-            message.data,
-            message.fontFallback === true,
-          )
+        ? exportToFile(vscode, {
+            kind: IMAGE_EXPORT_KINDS[message.format],
+            data: message.data,
+            sourceUri: editor.document.uri,
+            // `chain.vc.json` and `chain.vc` suggest `chain.svg`.
+            sourceExtension: /(\.vc)?\.[^./]+$/i,
+            defaultName: "value-chain",
+            fontFallback: message.fontFallback === true,
+            platform: process.platform,
+          })
         : undefined,
   });
   return vscode.Disposable.from(

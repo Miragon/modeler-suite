@@ -1,10 +1,11 @@
 import * as vscode from "vscode";
 import {
+  IMAGE_EXPORT_KINDS,
+  exportToFile,
   registerModelerEditor,
   type ModelerEditorRegistration,
 } from "@miragon/modeler-shell/vscode/extension";
 import type { WardleyDiagnostics } from "./diagnostics.js";
-import { exportImageToFile } from "./exportImage.js";
 import { MAP_EDITOR_OPTIONS } from "./mapEditorOptions.js";
 import type { WebviewToHost } from "./protocol.js";
 
@@ -17,6 +18,8 @@ export type MapEditors = ModelerEditorRegistration<vscode.TextDocument>;
  * The custom editor for `.wmap`/`.owm`, on the shell's document plumbing: the OWM text stays the
  * document, so VS Code keeps dirty state, saving, Git, diff and undo, and every change on the
  * canvas comes back as a minimal line edit that keeps the comments and statement order around it.
+ * An export is a picture beside the map, saved through the shell's dialog; the map stays the
+ * editable original.
  */
 export function registerMapEditor(
   context: Pick<vscode.ExtensionContext, "extensionUri">,
@@ -30,12 +33,14 @@ export function registerMapEditor(
     },
     onMessage: (message, editor) =>
       message.type === "export"
-        ? exportImageToFile(
-            editor.document.uri,
-            message.format,
-            message.data,
-            message.fontFallback === true,
-          )
+        ? exportToFile(vscode, {
+            kind: IMAGE_EXPORT_KINDS[message.format],
+            data: message.data,
+            sourceUri: editor.document.uri,
+            defaultName: "wardley-map",
+            fontFallback: message.fontFallback === true,
+            platform: process.platform,
+          })
         : undefined,
   });
 }

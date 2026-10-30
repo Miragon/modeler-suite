@@ -1,15 +1,28 @@
 import * as vscode from "vscode";
 import {
+  IMAGE_EXPORT_KINDS,
+  exportToFile,
   registerModelerEditor,
+  type ExportKind,
   type ModelerEditorRegistration,
 } from "@miragon/modeler-shell/vscode/extension";
 import { BOARD_EDITOR_OPTIONS } from "./boardEditorOptions.js";
 import type { BoardDiagnostics } from "./diagnostics.js";
-import { exportImageToFile } from "./exportImage.js";
-import type { WebviewToHost } from "./protocol.js";
+import type { ExportFormat, WebviewToHost } from "./protocol.js";
 
 /** The open board editors: the focused one, the one focused last, and their Command Palette commands. */
 export type BoardEditors = ModelerEditorRegistration<vscode.TextDocument>;
+
+/** The same exports and file names as the web app's (guide §5.2: one Export group for both hosts). */
+const EXPORT_KINDS: Readonly<Record<ExportFormat, ExportKind>> = {
+  ...IMAGE_EXPORT_KINDS,
+  json: {
+    title: "Export as JSON",
+    filters: { "JSON board": ["json"] },
+    suffix: ".json",
+    encoding: "text",
+  },
+};
 
 /**
  * The custom editor for `.storm`, on the shell's document plumbing: the Event Storming DSL text
@@ -26,12 +39,14 @@ export function registerBoardEditor(
     diagnostics,
     onMessage: (message, editor) =>
       message.type === "export"
-        ? exportImageToFile(
-            editor.document.uri,
-            message.format,
-            message.data,
-            message.fontFallback === true,
-          )
+        ? exportToFile(vscode, {
+            kind: EXPORT_KINDS[message.format],
+            data: message.data,
+            sourceUri: editor.document.uri,
+            defaultName: "event-storming-board",
+            fontFallback: message.fontFallback === true,
+            platform: process.platform,
+          })
         : undefined,
   });
 }

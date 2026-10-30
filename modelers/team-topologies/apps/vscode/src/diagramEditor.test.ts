@@ -12,9 +12,9 @@ import {
 } from "./vscodeHost.test-support.js";
 
 vi.mock("vscode", async () => (await import("./vscodeHost.test-support.js")).vscodeModule);
-vi.mock("./exportImage.js", () => ({ exportImageToFile: vi.fn(() => Promise.resolve()) }));
+vi.mock("./exportImage.js", () => ({ exportImage: vi.fn(() => Promise.resolve(undefined)) }));
 
-const { exportImageToFile } = await import("./exportImage.js");
+const { exportImage } = await import("./exportImage.js");
 const { FLUSH_TIMEOUT_MS, INSERT_EXAMPLE_FAILED, registerDiagramEditor } =
   await import("./diagramEditor.js");
 const { DIAGRAM_VIEW_TYPE } = await import("./diagramEditorOptions.js");
@@ -75,7 +75,7 @@ const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve,
 
 beforeEach(() => {
   resetVsCodeHost();
-  vi.mocked(exportImageToFile).mockClear();
+  vi.mocked(exportImage).mockClear();
 });
 
 afterEach(() => {
@@ -148,9 +148,9 @@ describe("the diagram editor on the shell's document plumbing", () => {
     await panel.receive({ type: "export", format: "png", data: "iVBO", fontFallback: true });
     await panel.receive({ type: "export", format: "svg", data: "<svg/>" });
 
-    expect(vi.mocked(exportImageToFile).mock.calls).toEqual([
-      [document.uri, "png", "iVBO", { fontFallback: true }],
-      [document.uri, "svg", "<svg/>", { fontFallback: false }],
+    expect(vi.mocked(exportImage).mock.calls).toEqual([
+      [document.uri, { type: "export", format: "png", data: "iVBO", fontFallback: true }],
+      [document.uri, { type: "export", format: "svg", data: "<svg/>" }],
     ]);
   });
 
