@@ -43,7 +43,12 @@ export { cmHoverTooltipModule, CmHoverTooltip, hoverTipFor } from "./hover-toolt
 export { cmLabelEditingModule, CmLabelEditing } from "./label-editing/index.js";
 export { cmKeyboardModule, CmKeyboard } from "./keyboard/index.js";
 export type { CmKeyboardConfig } from "./keyboard/index.js";
-export { cmReadOnlyModule, CmReadOnly, READ_ONLY_CHANGED_EVENT } from "./read-only/index.js";
+export {
+  cmReadOnlyModule,
+  CmReadOnly,
+  READ_ONLY_CHANGED_EVENT,
+  type CmReadOnlyOptions,
+} from "./read-only/index.js";
 export { cmZOrderModule, CmZOrder } from "./zorder/index.js";
 
 // The map's part of a host's chrome: menu entries, the keyboard shortcuts and the title dialog
