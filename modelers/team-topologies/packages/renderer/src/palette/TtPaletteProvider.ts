@@ -7,18 +7,22 @@
  * toolbar semantics and triggers an entry from the keyboard with a click whose `detail` is 0. Such
  * a click on a creating entry places the element in the centre of the free part of the canvas
  * (guide §5.5), 24px further diagonally while that spot is taken, selects it and opens its label
- * editor: diagram-js's create tool follows the pointer and never ends without one. A click or drag
- * with a pointer hands the focus to the canvas, with or without a chrome around the palette, so the
- * canvas keys act on what the tool selects or places (guide §5.8).
+ * editor: diagram-js's create tool follows the pointer and never ends without one. Such a click on
+ * the armed lasso puts it down, as on any pressed toggle button (guide §5.5). A click or drag with a
+ * pointer hands the focus to the canvas, with or without a chrome around the palette, so the canvas
+ * keys act on what the tool selects or places (guide §5.8).
  */
 
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Palette from "diagram-js/lib/features/palette/Palette";
 import type Create from "diagram-js/lib/features/create/Create";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type LassoTool from "diagram-js/lib/features/lasso-tool/LassoTool";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
+import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import type {
   PaletteEntries,
   PaletteEntry,
@@ -54,6 +58,10 @@ const GROUP_GUIDES = "tt-3-guides";
 
 /** Guide §5.5: a keyboard-created element lands this far down-right of one already centred there. */
 const KEYBOARD_CREATE_OFFSET = 24;
+
+/** The lasso's tool name in diagram-js's tool manager, and the drag that holds it armed. */
+const LASSO_TOOL = "lasso";
+const LASSO_SELECTION = "lasso.selection";
 
 export interface Point {
   x: number;
@@ -106,6 +114,7 @@ export default class TtPaletteProvider implements PaletteProvider {
 
   private readonly readOnly: TtReadOnly | undefined;
   private readonly labelEditing: TtLabelEditing | undefined;
+  private readonly dragging: Dragging;
 
   constructor(
     private readonly config: TtPaletteConfig | undefined,
@@ -121,6 +130,13 @@ export default class TtPaletteProvider implements PaletteProvider {
   ) {
     this.readOnly = injector.get<TtReadOnly>("ttReadOnly", false);
     this.labelEditing = injector.get<TtLabelEditing>("ttLabelEditing", false);
+    this.dragging = injector.get<Dragging>("dragging");
+    const toolManager = injector.get<ToolManager>("toolManager");
+    // diagram-js releases a tool when its drag ends, but on a cancel only once the pointer has moved
+    // the drag, so a lasso that only waited, put down by Escape or from its entry, stayed pressed.
+    injector.get<EventBus>("eventBus").on(`${LASSO_SELECTION}.cleanup`, () => {
+      if (toolManager.isActive(LASSO_TOOL)) toolManager.setActive(null);
+    });
     palette.registerProvider(this);
   }
 
@@ -133,6 +149,11 @@ export default class TtPaletteProvider implements PaletteProvider {
       html: entryHtml(lassoIconSvg(), false),
       action: {
         click: (event: Event) => {
+          // A pointer's press has already ended the waiting drag, so its click arms the lasso again.
+          if (isKeyboardClick(event) && this.dragging.context()?.prefix === LASSO_SELECTION) {
+            this.dragging.cancel(false);
+            return;
+          }
           this.lassoTool.activateSelection(event as MouseEvent);
           handFocusToCanvas(this.canvas, event);
         },

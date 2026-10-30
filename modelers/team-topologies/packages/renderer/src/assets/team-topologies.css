@@ -168,7 +168,16 @@
   outline: 2px solid var(--cd-ui-fokus);
   outline-offset: 2px;
 }
+/* diagram-js forces the colour of `highlighted-entry` with !important, and the class goes stale
+   after a rebuild of the entries; the armed tool is the entry with aria-pressed="true", a ring and
+   never a full fill (guide §5.5). */
 :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry {
+  color: var(--cd-ui-text) !important;
+}
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry:hover {
+  color: var(--cd-ui-interaktion) !important;
+}
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry[aria-pressed="true"] {
   background: var(--cd-ui-hover);
   box-shadow: inset 0 0 0 2px var(--cd-ui-interaktion);
 }
@@ -253,7 +262,7 @@
   }
   :where(.tt-djs-container)
     .djs-palette:not([data-chrome="palette"])
-    .entry.highlighted-entry:focus-visible {
+    .entry[aria-pressed="true"]:focus-visible {
     outline-offset: -5px;
   }
   @scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
@@ -264,7 +273,7 @@
     }
     :where(:scope.tt-djs-container, :scope .tt-djs-container)
       .djs-palette:not([data-chrome="palette"])
-      .entry.highlighted-entry:focus-visible {
+      .entry[aria-pressed="true"]:focus-visible {
       outline-offset: -6px;
     }
   }
@@ -407,7 +416,10 @@
   :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
     outline-color: Highlight;
   }
-  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry {
+  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry[aria-pressed="true"],
+  :where(.tt-djs-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry[aria-pressed="true"]:hover {
     forced-color-adjust: none;
     background: Canvas;
     color: CanvasText !important;

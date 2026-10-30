@@ -73,8 +73,9 @@ named "Tools", ahead of the canvas in the tab order, one tab stop that ← → H
 `aria-pressed` on the lasso. Enter or Space trigger an entry with a click whose `detail` is 0, as the
 shell does. On a creating entry that click places the element in the centre of the free part of the
 canvas (`freeArea`, else the centre of the view), 24px further diagonally while that spot is taken,
-selects it and opens its label editor. A key on an entry the host made inert or hid stays with the
-page.
+selects it and opens its label editor. On the lasso it arms the tool, and on the armed lasso puts
+it down again; the lasso shows as pressed only while it is armed, also after Escape. A key on an
+entry the host made inert or hid stays with the page.
 
 **Embedded in a page.** Layout reads the modeler's container, not the page: in a container up to
 760px wide the renderer's own palette takes a second row, whatever the window's width. Its tooltip

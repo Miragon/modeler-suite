@@ -3,8 +3,10 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { cdp, page, userEvent } from "vitest/browser";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Palette from "diagram-js/lib/features/palette/Palette";
 import type Selection from "diagram-js/lib/features/selection/Selection";
+import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import type { PaletteEntries } from "diagram-js/lib/features/palette/PaletteProvider";
 import type { ModuleDeclaration } from "didi";
 import { Modeler } from "@miragon/team-topologies-renderer";
@@ -134,12 +136,26 @@ async function focusFromKeyboard(entry: HTMLElement): Promise<void> {
   expect(entry.matches(":focus-visible")).toBe(true);
 }
 
-/** Arms the lasso tool with a click on its entry; diagram-js marks the armed tool. */
+/** Arms the lasso tool with a click on its entry, which the toolbar then presses. */
 async function armLasso(container: HTMLElement): Promise<HTMLElement> {
   const lasso = entryOf(container, "lasso-tool");
   await userEvent.click(lasso);
-  expect(lasso.classList.contains("highlighted-entry")).toBe(true);
+  expect(lasso.getAttribute("aria-pressed")).toBe("true");
   return lasso;
+}
+
+/**
+ * Has diagram-js build the entries again, as a host's late provider does. diagram-js then marks the
+ * armed tool in the entries it found first, which are gone.
+ */
+function rebuildEntries(modeler: Modeler): void {
+  modeler.get<Palette>("palette").registerProvider({ getPaletteEntries: () => ({}) });
+}
+
+/** The entry's look once its transitions have ended. */
+async function settledStyle(entry: HTMLElement): Promise<CSSStyleDeclaration> {
+  await Promise.all(entry.getAnimations().map((animation) => animation.finished));
+  return getComputedStyle(entry);
 }
 
 function highContrast(container: HTMLElement): void {
@@ -194,30 +210,38 @@ test("drops the shadows of the palette and its tooltip and widens the focus ring
   expect(getComputedStyle(tooltip).boxShadow).toBe("none");
 });
 
-test("puts the focus ring inside the entry in a narrow container, 1px inside the armed tool's ring", async () => {
-  const { container } = mount(600);
-  const lasso = await armLasso(container);
-  const team = entryOf(container, "team.platform");
+test.each([
+  { name: "as built", rebuilt: false },
+  { name: "after a rebuild of the entries", rebuilt: true },
+])(
+  "puts the focus ring inside the entry in a narrow container, 1px inside the armed tool's ring, $name",
+  async ({ rebuilt }) => {
+    const { container, modeler } = mount(600);
+    await armLasso(container);
+    if (rebuilt) rebuildEntries(modeler);
+    const lasso = entryOf(container, "lasso-tool");
+    const team = entryOf(container, "team.platform");
 
-  await focusFromKeyboard(team);
-  expect(getComputedStyle(team).outlineOffset).toBe("-2px");
-  await focusFromKeyboard(lasso);
-  expect(getComputedStyle(lasso).outlineOffset).toBe("-5px");
+    await focusFromKeyboard(team);
+    expect(getComputedStyle(team).outlineOffset).toBe("-2px");
+    await focusFromKeyboard(lasso);
+    expect(getComputedStyle(lasso).outlineOffset).toBe("-5px");
 
-  highContrast(container);
-  const armed = getComputedStyle(lasso);
-  expect([armed.outlineWidth, armed.outlineOffset]).toEqual(["3px", "-6px"]);
-  await focusFromKeyboard(team);
-  const focused = getComputedStyle(team);
-  expect([focused.outlineWidth, focused.outlineOffset]).toEqual(["3px", "-3px"]);
-});
+    highContrast(container);
+    const armed = getComputedStyle(lasso);
+    expect([armed.outlineWidth, armed.outlineOffset]).toEqual(["3px", "-6px"]);
+    await focusFromKeyboard(team);
+    const focused = getComputedStyle(team);
+    expect([focused.outlineWidth, focused.outlineOffset]).toEqual(["3px", "-3px"]);
+  },
+);
 
 test("keeps the island's edge, the separators, the focus and the armed tool's ring in forced colours", async () => {
   await cdp().send("Emulation.setEmulatedMedia", {
     features: [{ name: "forced-colors", value: "active" }],
   });
   try {
-    const { container } = mount();
+    const { container, modeler } = mount();
     const lasso = await armLasso(container);
     const team = entryOf(container, "team.platform");
     await focusFromKeyboard(team);
@@ -233,12 +257,20 @@ test("keeps the island's edge, the separators, the focus and the armed tool's ri
     );
     expect([separator.width, separator.backgroundColor]).toEqual(["1px", canvasText]);
     expect(getComputedStyle(team).outlineColor).toBe(highlight);
-    // The entry eases into its armed look.
-    await Promise.all(lasso.getAnimations().map((animation) => animation.finished));
-    const armed = getComputedStyle(lasso);
-    expect(armed.boxShadow).toBe(`${highlight} 0px 0px 0px 2px inset`);
-    expect(armed.backgroundColor).toBe(resolved(container, "background-color", "Canvas"));
-    expect(armed.color).toBe(canvasText);
+    const armedLook = (style: CSSStyleDeclaration) => [
+      style.boxShadow,
+      style.backgroundColor,
+      style.color,
+    ];
+    const ringed = [
+      `${highlight} 0px 0px 0px 2px inset`,
+      resolved(container, "background-color", "Canvas"),
+      canvasText,
+    ];
+    expect(armedLook(await settledStyle(lasso))).toEqual(ringed);
+
+    rebuildEntries(modeler);
+    expect(armedLook(await settledStyle(entryOf(container, "lasso-tool")))).toEqual(ringed);
   } finally {
     await cdp().send("Emulation.setEmulatedMedia", { features: [] });
   }
@@ -438,6 +470,50 @@ describe("the palette is a toolbar (guide §5.5, §5.14)", () => {
     expect(pressed()).toEqual(released);
   });
 
+  test("releases the armed lasso on a second Enter or Space and on Escape, so it is pressed only while armed", async () => {
+    const { container, modeler } = mount();
+    const dragging = modeler.get<Dragging>("dragging");
+    const lasso = entryOf(container, "lasso-tool");
+    const state = () => [lasso.getAttribute("aria-pressed"), dragging.context()?.prefix ?? null];
+    lasso.focus();
+
+    await userEvent.keyboard(" ");
+    expect(state()).toEqual(["true", "lasso.selection"]);
+    await userEvent.keyboard(" ");
+    expect(state()).toEqual(["false", null]);
+    expect(document.activeElement).toBe(lasso);
+
+    await userEvent.keyboard("{Enter}");
+    expect(state()).toEqual(["true", "lasso.selection"]);
+    await userEvent.keyboard("{Escape}");
+    expect(state()).toEqual(["false", null]);
+
+    await userEvent.keyboard("{Enter}");
+    expect(state()).toEqual(["true", "lasso.selection"]);
+  });
+
+  test("rings the armed tool also once a host's provider has rebuilt the entries", async () => {
+    const { host, container, modeler } = mount();
+    const ring = `${resolved(container, "color", "var(--cd-ui-interaktion)")} 0px 0px 0px 2px inset`;
+    const text = resolved(container, "color", "var(--cd-ui-text)");
+    await armLasso(container);
+    await userEvent.hover(host, {
+      position: { x: host.offsetWidth - 8, y: host.offsetHeight - 8 },
+    });
+    const before = await settledStyle(entryOf(container, "lasso-tool"));
+    expect([before.boxShadow, before.color]).toEqual([ring, text]);
+
+    rebuildEntries(modeler);
+    const lasso = entryOf(container, "lasso-tool");
+    expect(lasso.classList.contains("highlighted-entry")).toBe(false);
+    expect(lasso.getAttribute("aria-pressed")).toBe("true");
+    const after = await settledStyle(lasso);
+    expect([after.boxShadow, after.color]).toEqual([ring, text]);
+    expect(after.backgroundColor).toBe(
+      resolved(container, "background-color", "var(--cd-ui-hover)"),
+    );
+  });
+
   test("creates a team on Enter in the free area, once, selected and in its label editor", async () => {
     const { container, modeler } = mount();
     entryOf(container, "team.platform").focus();
@@ -551,5 +627,21 @@ describe.each([
     expect(document.activeElement).toBe(team);
     await userEvent.keyboard("{Enter}");
     expect(modeler.exportDocument().nodes).toEqual([]);
+  });
+
+  test("puts the armed lasso down on the second click the chrome sends for Enter or Space", () => {
+    const { container, modeler } = mount(HOST.width, [chromeModule({ asShell })]);
+    const toolManager = modeler.get<ToolManager>("toolManager");
+    const dragging = modeler.get<Dragging>("dragging");
+    const state = () => [toolManager.isActive("lasso"), dragging.context()?.prefix ?? null];
+    const keyboardClick = () =>
+      entryOf(container, "lasso-tool").dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      );
+
+    keyboardClick();
+    expect(state()).toEqual([true, "lasso.selection"]);
+    keyboardClick();
+    expect(state()).toEqual([false, null]);
   });
 });
