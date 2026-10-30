@@ -471,7 +471,8 @@
 
 /* High contrast drops every shadow (guide §5.3) and widens the inline editors' focus ring to 3px
    (§8), which keeps its band of the field's surface, a solid edge and no shadow; forced colours
-   keep the island edges visible and the ring in Highlight (§5.14).
+   keep the island edges visible, and an inline editor's ring in Highlight around a band of Canvas
+   (§5.14).
    High contrast is the nearest mode carrier's (guide §13.3): the page's, or the container's once
    a host asked for an appearance (contract 1.5), so normal contrast requested on a high-contrast
    page keeps the shadows and the 2px ring. */
@@ -494,10 +495,31 @@
     outline-width: 3px;
     box-shadow: 0 0 0 2px var(--cd-ui-flaeche-hoch);
   }
+  /* Forced colours turn the surface role into Canvas only below a data-cd-theme: on a page in high
+     contrast without one, the band would stay the light surface around a field drawn in Canvas. */
+  @media (forced-colors: active) {
+    :is(:scope.event-storming-container, :scope .event-storming-container)
+      .event-storming-label-input:focus {
+      box-shadow: 0 0 0 2px Canvas;
+    }
+  }
 }
 @media (forced-colors: active) {
+  /* The browser drops every box shadow here, and with it the band between the field and its ring,
+     while a sticky keeps its fill: the ring's top and bottom would border the fill at under 3:1
+     (the hotspot's 1.8:1 against Dusk's Highlight). So the focused field opts out of the forcing,
+     draws itself in system colours only and keeps its band in Canvas, the ground every contrast
+     theme pairs with Highlight. */
   .event-storming-container .event-storming-label-input:focus {
+    forced-color-adjust: none;
+    color: CanvasText;
+    background: Canvas;
+    border-color: Highlight;
     outline-color: Highlight;
+    box-shadow: 0 0 0 2px Canvas;
+  }
+  .event-storming-container .event-storming-label-input:focus::placeholder {
+    color: GrayText;
   }
   .event-storming-container .djs-context-pad.open,
   .event-storming-container .event-storming-note-toolbar,

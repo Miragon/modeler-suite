@@ -6,6 +6,7 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import {
   Modeler,
+  STICKY_STYLES,
   createCollaborativeModeler,
   type CollaborativeEventStormingModeler,
 } from "../../src/index.js";
@@ -35,6 +36,15 @@ const EDITORS: readonly Editor[] = ["sticky", "note", "arrow label"];
 const CTRL = 2;
 
 const page = document.documentElement;
+
+/**
+ * Forced colours on a dark contrast theme, as Windows' Night sky: Chromium's Canvas is then black,
+ * so a band in the light field surface tells apart from one in Canvas.
+ */
+const DARK_FORCED_COLOURS = [
+  { name: "forced-colors", value: "active" },
+  { name: "prefers-color-scheme", value: "dark" },
+];
 
 function pressKey(target: EventTarget, init: KeyboardEventInit): void {
   target.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
@@ -89,6 +99,17 @@ function focusRing(field: HTMLElement): {
     offset: style.outlineOffset,
     colour: style.outlineColor,
   };
+}
+
+/** A colour as the browser resolves it, read where forced colours do not replace it. */
+function unforcedColour(colour: string): string {
+  const probe = document.createElement("span");
+  probe.style.forcedColorAdjust = "none";
+  probe.style.color = colour;
+  document.body.append(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+  return resolved;
 }
 
 /** The first shadow a field draws, the solid band of its surface right outside its border. */
@@ -312,21 +333,63 @@ describe("the inline label editors of a board", () => {
       );
     });
 
-    it.each(EDITORS)(
-      "draws the ring of the %s editor in Highlight in forced colours",
-      async (editor) => {
-        await cdp().send("Emulation.setEmulatedMedia", {
-          features: [{ name: "forced-colors", value: "active" }],
+    describe("in forced colours (guide §5.14)", () => {
+      beforeEach(async () => {
+        await cdp().send("Emulation.setEmulatedMedia", { features: DARK_FORCED_COLOURS });
+      });
+
+      function expectSystemColours(field: HTMLElement, ringWidth: string): void {
+        const style = getComputedStyle(field);
+        expect(style.forcedColorAdjust).toBe("none");
+        expect(focusRing(field)).toEqual({
+          style: "solid",
+          width: ringWidth,
+          offset: "2px",
+          colour: unforcedColour("Highlight"),
         });
-        const field = open(editor);
-        const highlight = computedColour(document.body, "Highlight");
-        expect(focusRing(field)).toMatchObject({ style: "solid", width: "2px", colour: highlight });
-        // Chromium forces every outline to a system colour by itself; with that forcing off, the
-        // ring shows the stylesheet's own Highlight, which engines that keep author colours draw.
-        field.style.forcedColorAdjust = "none";
-        expect(focusRing(field).colour).toBe(highlight);
-      },
-    );
+        expect(style.boxShadow).toBe(`${unforcedColour("Canvas")} 0px 0px 0px 2px`);
+        expect(style.backgroundColor).toBe(unforcedColour("Canvas"));
+        expect(style.color).toBe(unforcedColour("CanvasText"));
+        expect(style.borderTopColor).toBe(unforcedColour("Highlight"));
+      }
+
+      it.each(EDITORS)(
+        "draws the %s editor in system colours, its ring in Highlight around a band of Canvas",
+        (editor) => {
+          expectSystemColours(open(editor), "2px");
+        },
+      );
+
+      it("shows the arrow label's placeholder in GrayText", () => {
+        const field = open("arrow label");
+        expect(getComputedStyle(field, "::placeholder").color).toBe(unforcedColour("GrayText"));
+      });
+
+      it("keeps the band of Canvas inside the ring where it crosses a hotspot, whose fill stays", () => {
+        modeler.get<Canvas>("canvas").zoom(1);
+        const spot = hotspot();
+        labelEditing().activate(spot);
+        const field = openField();
+        if (!field) throw new Error("the hotspot's editor did not open");
+        const graphics = modeler.get<ElementRegistry>("elementRegistry").getGraphics(spot);
+        const fill = graphics.querySelector("rect");
+        if (!fill) throw new Error("the hotspot draws no fill");
+        expect(getComputedStyle(fill).fill).toBe(unforcedColour(STICKY_STYLES.hotspot.fill));
+        const toScreen = (graphics as unknown as SVGGraphicsElement).getScreenCTM();
+        if (!toScreen) throw new Error("the hotspot is not on the screen");
+        expect(ringBox(field).top).toBeGreaterThan(toScreen.f);
+        expect(ringBox(field).bottom).toBeLessThan(toScreen.f + spot.height * toScreen.d);
+        expectSystemColours(field, "2px");
+      });
+
+      it.each(EDITORS)(
+        "keeps the band of Canvas around the %s editor in high contrast, with the 3px ring",
+        (editor) => {
+          page.setAttribute("data-cd-kontrast", "hoch");
+          expectSystemColours(open(editor), "3px");
+        },
+      );
+    });
   });
 
   describe("the popups of an inline editor (#356, guide §8: no floating chrome over the ring)", () => {
@@ -361,7 +424,8 @@ describe("the focus ring of an inline label editor under a host's appearance (#3
   const modelers: CollaborativeEventStormingModeler[] = [];
   const wrappers: HTMLElement[] = [];
 
-  afterEach(() => {
+  afterEach(async () => {
+    await cdp().send("Emulation.setEmulatedMedia", { features: [] });
     page.removeAttribute("data-cd-theme");
     page.removeAttribute("data-cd-kontrast");
     for (const modeler of modelers.splice(0)) modeler.destroy();
@@ -393,6 +457,20 @@ describe("the focus ring of an inline label editor under a host's appearance (#3
     expect(getComputedStyle(field).boxShadow).toBe(
       `${computedColour(field.parentElement ?? document.body, "var(--cd-ui-flaeche-hoch)")} 0px 0px 0px 2px`,
     );
+  });
+
+  it("keeps the band of Canvas for a request of high contrast in forced colours", async () => {
+    await cdp().send("Emulation.setEmulatedMedia", { features: DARK_FORCED_COLOURS });
+    const modeler = createCollaborativeModeler();
+    modeler.appearance.set({ theme: "light", contrast: "high" });
+    const field = await stickyEditorOf(modeler);
+    expect(focusRing(field)).toEqual({
+      style: "solid",
+      width: "3px",
+      offset: "2px",
+      colour: unforcedColour("Highlight"),
+    });
+    expect(getComputedStyle(field).boxShadow).toBe(`${unforcedColour("Canvas")} 0px 0px 0px 2px`);
   });
 
   it("stays 2px for a request of normal contrast on a high-contrast page", async () => {
