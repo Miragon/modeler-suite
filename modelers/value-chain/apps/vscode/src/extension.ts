@@ -3,7 +3,6 @@ import { registerNewDocumentCommand } from "@miragon/modeler-shell/vscode/extens
 import { DIAGRAM_VIEW_TYPE, registerDiagramEditor } from "./diagramEditor.js";
 import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "./examples.js";
 
-/** The save dialog of "New Empty Value Chain Diagram" and "… from Example". */
 const NEW_DIAGRAM = {
   viewType: DIAGRAM_VIEW_TYPE,
   title: "New Value Chain Diagram",

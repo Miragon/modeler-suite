@@ -6,7 +6,6 @@ import { registerBoardCommands } from "./commands.js";
 import { BoardDiagnostics } from "./diagnostics.js";
 import { EMPTY_BOARD, EXAMPLE_BOARD } from "./examples.js";
 
-/** The save dialog of the commands "New Empty Board" and "New Board from Example". */
 const NEW_BOARD = {
   viewType: BOARD_VIEW_TYPE,
   title: "New Event Storming Board",

@@ -8,7 +8,6 @@ import { DiagramPanels } from "./diagramPanels.js";
 import { EMPTY_MAP, EXAMPLE_MAP } from "./examples.js";
 import { TtPngEditorProvider } from "./TtPngEditorProvider.js";
 
-/** The save dialog of the commands "New Empty Diagram" and "New Diagram from Example". */
 const NEW_DIAGRAM = {
   viewType: DIAGRAM_VIEW_TYPE,
   title: "New Team Topologies Diagram",

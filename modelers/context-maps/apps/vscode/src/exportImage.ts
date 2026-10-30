@@ -6,7 +6,6 @@ import {
 } from "@miragon/modeler-shell/vscode/extension";
 import type { ExportFormat, WebviewToHost } from "./protocol.js";
 
-/** The exports of the menu's Export group: the images, the map's JSON and Context Mapper CML. */
 const EXPORT_KINDS: Readonly<Record<ExportFormat, ExportKind>> = {
   png: IMAGE_EXPORT_KINDS.png,
   svg: IMAGE_EXPORT_KINDS.svg,

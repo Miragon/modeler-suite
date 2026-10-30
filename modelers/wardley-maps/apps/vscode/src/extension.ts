@@ -5,7 +5,6 @@ import { WardleyDiagnostics } from "./diagnostics.js";
 import { registerEditorCommands } from "./commands.js";
 import { EMPTY_MAP, EXAMPLE_MAP } from "./examples.js";
 
-/** The save dialog of the commands "New Empty Map" and "New Map from Example". */
 const NEW_MAP = {
   viewType: MAP_VIEW_TYPE,
   title: "New Wardley Map",

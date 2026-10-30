@@ -8,7 +8,6 @@ import { newDiagramFromCml } from "./importCml.js";
 import { registerMapEditor } from "./mapEditor.js";
 import { MAP_VIEW_TYPE } from "./mapEditorOptions.js";
 
-/** The save dialog of the commands "New Empty Diagram" and "New Diagram from Example". */
 const NEW_DIAGRAM = {
   viewType: MAP_VIEW_TYPE,
   title: "New Context Maps Diagram",
