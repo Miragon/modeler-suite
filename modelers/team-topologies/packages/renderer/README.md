@@ -75,7 +75,9 @@ shell does. On a creating entry that click places the element in the centre of t
 canvas (`freeArea`, else the centre of the view), 24px further diagonally while that spot is taken,
 selects it and opens its label editor. On the lasso it arms the tool, and on the armed lasso puts
 it down again; the lasso shows as pressed only while it is armed, also after Escape. A key on an
-entry the host made inert or hid stays with the page.
+entry the host made inert or hid stays with the page. The entry's tooltip (`role="tooltip"`, name
+and key chip) shows after 300ms of hover, at once on keyboard focus and at once for a neighbour
+while one is shown, never for touch, and hides on a press, Escape, leaving and blur (guide §5.6).
 
 **Embedded in a page.** Layout reads the modeler's container, not the page: in a container up to
 760px wide the renderer's own palette takes a second row, whatever the window's width. Its tooltip
@@ -92,7 +94,11 @@ of `@miragon/modeler-api` 1.2).
 **Read-only lock.** `modeler.get("ttReadOnly").setReadOnly(true)` locks the canvas while the
 document behind it cannot be saved from it (an invalid file in an IDE host): no move, resize,
 create, connect, delete, paste, context pad or label editor; selection, zoom, pan, copy and export
-stay. It fires `READ_ONLY_CHANGED_EVENT` on every change.
+stay. It fires `READ_ONLY_CHANGED_EVENT` on every change. Without a chrome that skins the palette,
+every palette entry but Lasso and Hand is `aria-disabled` and does nothing while the lock holds,
+drawn as guide §13.5 says: no hover, tool icons in `--cd-ui-text-leise`, notation previews grey.
+The marks come and go with the lock, without a delay of their own (the modeler shell shows its
+marks for an invalid file after the guide's 800ms).
 
 All three share a common base (`TtBaseViewer`) with the same import/export and lifecycle API.
 

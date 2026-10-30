@@ -145,7 +145,7 @@ export default class TtPaletteProvider implements PaletteProvider {
 
     entries["lasso-tool"] = {
       group: GROUP_TOOLS,
-      title: "Select several elements",
+      title: "Lasso",
       html: entryHtml(lassoIconSvg(), false),
       action: {
         click: (event: Event) => {

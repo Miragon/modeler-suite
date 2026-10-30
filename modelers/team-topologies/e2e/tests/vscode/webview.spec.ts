@@ -324,6 +324,11 @@ test.describe("VS Code webview", () => {
 
   test("Keyboard shortcuts… opens a modal dialog that hands the focus back", async ({ page }) => {
     await openWebview(page);
+    await expect(
+      page
+        .getByRole("toolbar", { name: "Tools" })
+        .getByRole("button", { name: "Lasso", exact: true }),
+    ).toHaveCount(1);
     const trigger = page.locator('[data-chrome="menu"]');
     await trigger.click();
     await page.getByRole("menuitem", { name: "Keyboard shortcuts…" }).click();
@@ -336,6 +341,8 @@ test.describe("VS Code webview", () => {
     await expect(dialog.getByRole("heading", { level: 3 })).toHaveText(["View", "Edit", "Tools"]);
     // The shell's own zoom rows stand for the renderer's: each action once.
     await expect(dialog.getByRole("table", { name: "View" }).getByRole("row")).toHaveCount(4);
+    // Lasso, the guide's shared term, as in the palette.
+    await expect(dialog.getByRole("table", { name: "Tools" })).toContainText("Lasso by dragging");
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(trigger).toBeFocused();

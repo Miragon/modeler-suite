@@ -9,8 +9,9 @@ import { ttHoverTooltipTeardownModule } from "./TtHoverTooltipTeardown.js";
 
 /**
  * Tool palette (lasso, drag-to-create teams, interactions, flows and annotations), and for a host
- * without the modeler shell its toolbar keys and semantics (`ttPaletteToolbar`). `paletteTooltip`
- * overrides the diagram-js service of that name.
+ * without the modeler shell its toolbar keys, semantics and read-only marks (`ttPaletteToolbar`)
+ * and a tooltip below it. `paletteTooltip` overrides the diagram-js service of that name; the
+ * shell's `shellModule`, loaded after this one, overrides it again with its own.
  */
 export const ttPaletteModule: ModuleDeclaration = {
   __depends__: [PaletteModule, ttHoverTooltipTeardownModule, CreateModule, LassoToolModule],
