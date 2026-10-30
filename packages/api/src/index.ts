@@ -375,13 +375,26 @@ export interface CollaborativeModeler {
  * exposes the surface reports false (RECOMMENDED since 1.6 also during a pan,
  * which 1.5 left aside).
  *
- * A host that defers re-imports while `active()` is true applies the newest
- * remote state once `onChange` reports false. It may still import during a
- * gesture (after a timeout of its own, or for a file the user opens): the
- * RECOMMENDED cancel of L1 then ends the gesture, and that import replaces
- * the remote state the host deferred. The contract defines no imports that
- * overlap (1.6 only RECOMMENDS that a modeler runs them in call order), so a
- * host starts each import once the one before has settled.
+ * A host that defers re-imports while `active()` is true imports the shared
+ * document's current state once `onChange` reports false, read when that
+ * import starts: the remote text it deferred lacks the user's own drop, and
+ * the drop's change event may come after the `onChange` listener. The read
+ * holds the drop when the renderer fires the drop's change event in the
+ * handler that ends the gesture (every Miragon renderer does) and the host
+ * writes each local change into the shared document before its
+ * `onContentChanged` listener returns (a host that writes later, after an
+ * `await` or a debounce, flushes that write before the read). The host
+ * merges every local change into the shared document against the text it
+ * last imported or exported, and never writes the export over it whole: the
+ * export lacks every remote change the canvas has not shown yet, also one
+ * whose text the modeler rejected (L7). The text last imported is that of
+ * the last import whose Promise has resolved: until then the canvas holds
+ * the document before it. It may still import during a gesture
+ * (after a timeout of its own, or for a file the user opens): the
+ * RECOMMENDED cancel of L1 then ends the gesture, and that import takes the
+ * place of the deferred one. The contract defines no imports that overlap
+ * (1.6 only RECOMMENDS that a modeler runs them in call order), so a host
+ * starts each import once the one before has settled.
  */
 export interface InteractionSurface {
   /** true from a gesture's start until its drop or cancel, false otherwise:
