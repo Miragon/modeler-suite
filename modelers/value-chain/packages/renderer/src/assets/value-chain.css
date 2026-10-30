@@ -263,12 +263,18 @@
 }
 
 /* Label editor (diagram-js-direct-editing): an overlay on the canvas, at most at z-index 100 like
-   the context pad (guide §5.13). Fill and border come in through the provider's style. */
+   the context pad (guide §5.13). Fill and border come in through the provider's style. A text
+   field: the accent border plus the focus ring around the box while its content has the focus
+   (guide §8); the content's own outline stays off, so there is one ring. */
 .vc-container .djs-direct-editing-parent {
   z-index: 100;
   color: var(--cd-ui-text);
   border-radius: var(--cd-radius-sm);
   box-shadow: var(--cd-shadow-2);
+}
+.vc-container .djs-direct-editing-parent:focus-within {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
 }
 
 /* Colour and alignment swatches in the popup menu. */
@@ -295,9 +301,13 @@
   .vc-container:not([data-cd-theme])
   .djs-palette:not([data-chrome="palette"])
   .entry:focus-visible,
+:root[data-cd-kontrast="hoch"]
+  .vc-container:not([data-cd-theme])
+  .djs-direct-editing-parent:focus-within,
 .vc-container[data-cd-kontrast="hoch"]
   .djs-palette:not([data-chrome="palette"])
-  .entry:focus-visible {
+  .entry:focus-visible,
+.vc-container[data-cd-kontrast="hoch"] .djs-direct-editing-parent:focus-within {
   outline-width: 3px;
 }
 
@@ -357,7 +367,8 @@
     forced-color-adjust: none;
     background: CanvasText;
   }
-  .vc-container .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
+  .vc-container .djs-palette:not([data-chrome="palette"]) .entry:focus-visible,
+  .vc-container .djs-direct-editing-parent:focus-within {
     outline-color: Highlight;
   }
   .vc-container .djs-palette:not([data-chrome="palette"]) .entry[aria-pressed="true"],

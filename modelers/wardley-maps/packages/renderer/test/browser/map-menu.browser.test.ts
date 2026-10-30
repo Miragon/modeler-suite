@@ -9,6 +9,7 @@ import {
   type PopoverHandle,
   type WardleyReadOnly,
 } from "../../src/index.js";
+import { inputMethod, pressKey } from "./support/input-method.js";
 import "../../src/assets/wardley.css";
 
 const MAP = `title Menu
@@ -339,5 +340,115 @@ describe("the x-axis labels popover", () => {
     document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     expect(popover.isOpen()).toBe(false);
     expect(target.modeler.exportDSL()).toContain("evolution Idea->");
+  });
+
+  it("leaves Enter and Escape to an input method that composes a name, then applies on Enter (#371)", async () => {
+    const target = await mount();
+    const popover = keep(createAxisLabelsPopover(chromeOf(target), target.modeler));
+    popover.open();
+    const [first] = popoverPanel(target, "wardley-axis-labels").querySelectorAll<HTMLInputElement>(
+      "input",
+    );
+    first!.value = "";
+    await inputMethod.compose("きげん");
+    await inputMethod.press("Enter");
+    await inputMethod.press("Escape");
+    expect(popover.isOpen()).toBe(true);
+    expect(first!.value).toBe("きげん");
+
+    await inputMethod.confirm("起源");
+    // Safari sends the keys that confirm or cancel a candidate after compositionend.
+    pressKey(first!, { key: "Enter", keyCode: 229 });
+    pressKey(first!, { key: "Escape", keyCode: 229 });
+    expect(popover.isOpen()).toBe(true);
+    expect(document.activeElement).toBe(first);
+    expect(first!.value).toBe("起源");
+    expect(target.modeler.canUndo()).toBe(false);
+
+    await inputMethod.press("Enter");
+    expect(popover.isOpen()).toBe(false);
+    expect(target.modeler.exportDSL()).toContain("evolution 起源->");
+  });
+});
+
+describe("the popovers and dialogs in high contrast (guide §5.3, §6)", () => {
+  const page = document.documentElement;
+
+  afterEach(() => {
+    page.removeAttribute("data-cd-theme");
+    page.removeAttribute("data-cd-kontrast");
+  });
+
+  function roleColour(scope: HTMLElement, role: string): string {
+    const probe = document.createElement("span");
+    probe.style.color = `var(${role})`;
+    scope.append(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    return resolved;
+  }
+
+  /** The popover with its focused field, then the title dialog with its primary button. */
+  async function chromeIn(mode: (root: HTMLElement) => void) {
+    const target = await mount();
+    mode(target.root);
+    const popover = keep(createAxisLabelsPopover(chromeOf(target), target.modeler));
+    popover.open();
+    const panel = popoverPanel(target, "wardley-axis-labels");
+    const field = panel.querySelector<HTMLInputElement>("input")!;
+    expect(document.activeElement).toBe(field);
+    const popoverLook = {
+      shadow: getComputedStyle(panel).boxShadow,
+      border: getComputedStyle(panel).borderTopColor,
+      focusRing: getComputedStyle(field).outlineWidth,
+    };
+    popover.close();
+
+    const dialog = keep(createTitleDialog(chromeOf(target), target.modeler));
+    dialog.open();
+    const element = target.root.querySelector<HTMLDialogElement>("dialog.wardley-title-dialog")!;
+    const dialogPanel = element.querySelector<HTMLElement>(".wardley-dialog-panel")!;
+    const primary = element.querySelector<HTMLElement>('.wardley-button[data-variant="primary"]')!;
+    return {
+      root: target.root,
+      popover: popoverLook,
+      dialog: {
+        shadow: getComputedStyle(dialogPanel).boxShadow,
+        border: getComputedStyle(dialogPanel).borderTopColor,
+        primaryShadow: getComputedStyle(primary).boxShadow,
+      },
+    };
+  }
+
+  function expectHighContrast(chrome: Awaited<ReturnType<typeof chromeIn>>): void {
+    const contour = roleColour(chrome.root, "--cd-ui-kontur");
+    expect(chrome.popover).toEqual({ shadow: "none", border: contour, focusRing: "3px" });
+    expect(chrome.dialog).toEqual({ shadow: "none", border: contour, primaryShadow: "none" });
+  }
+
+  it("drops the shadows, draws contour borders and widens the focus on a high-contrast page", async () => {
+    page.setAttribute("data-cd-kontrast", "hoch");
+    expectHighContrast(await chromeIn(() => {}));
+  });
+
+  it("follows a high-contrast carrier around the chrome on a page in normal contrast", async () => {
+    expectHighContrast(
+      await chromeIn((root) => {
+        root.setAttribute("data-cd-theme", "light");
+        root.setAttribute("data-cd-kontrast", "hoch");
+      }),
+    );
+  });
+
+  it("keeps normal contrast for a carrier in normal contrast on a high-contrast page", async () => {
+    page.setAttribute("data-cd-theme", "dark");
+    page.setAttribute("data-cd-kontrast", "hoch");
+    const chrome = await chromeIn((root) => root.setAttribute("data-cd-theme", "light"));
+    const line = roleColour(chrome.root, "--cd-ui-linie");
+    expect(chrome.popover).toMatchObject({ border: line, focusRing: "2px" });
+    expect(chrome.popover.shadow).not.toBe("none");
+    expect(chrome.dialog.border).toBe(line);
+    expect(chrome.dialog.shadow).not.toBe("none");
+    expect(chrome.dialog.primaryShadow).not.toBe("none");
   });
 });

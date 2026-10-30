@@ -34,8 +34,22 @@ export default class VcCanvasKeys {
   }
 }
 
+/**
+ * A key inside an `inert` subtree stays the page's too: Chromium moves the focus off an element the
+ * host made inert only at its next rendering update, so until then the key still reaches the
+ * canvas.
+ */
 function isCanvasKey(event: KeyboardEvent): boolean {
-  return typeof event.key === "string" && !event.defaultPrevented && !event.isComposing;
+  return (
+    typeof event.key === "string" &&
+    !event.defaultPrevented &&
+    !event.isComposing &&
+    !liesInInertSubtree(event.target)
+  );
+}
+
+function liesInInertSubtree(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest("[inert]") !== null;
 }
 
 /** Enter or Space on an entry dispatches a click without a pointer, so its detail is 0. */

@@ -131,12 +131,14 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   `EventStormingBaseViewer`, when called and again after any wait, for the annotation font or
   for a running user action and the step it scheduled; `clear()` too):
   `dragging.cancel(false)` as Escape does, and the drawing handles' point drag, which also ends on
-  `shape.remove`, so no release lands on a removed shape, and on Escape aimed at the canvas (which
+  `shape.remove`, so no release lands on a removed shape, on any command before its release (an
+  undo or redo, whose change the release would write over), and on Escape aimed at the canvas (which
   the press on a handle focuses) without a commit, its release's click trapped so the drawing
   stays selected; a line the draw tool holds ends with the tool and without a drawing (`endLine`,
   #243; Escape commits one of two points or more), and while it is held `EventStormingKeyboard`
   takes the keys that start a gesture at the pointer (L, E, C, Cmd/Ctrl+V) without acting
-  (`holdsLine`); the palette's armed lasso tool
+  (`holdsLine`), and while a point drag runs these, the arrow keys and Cmd/Ctrl+D
+  (`isDraggingPoint`, #375); the palette's armed lasso tool
   (`lasso.selection`) and the draw tool before its first point stay armed, and a pan (diagram-js's
   `MoveCanvas`, outside the dragging service) keeps running. `eventStormingGestures`
   ([`packages/renderer/src/gesture/`](packages/renderer/src/gesture/)) knows the gesture, the

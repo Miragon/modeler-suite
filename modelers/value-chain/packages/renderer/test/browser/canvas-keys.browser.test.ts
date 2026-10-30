@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import {
   createCollaborativeModeler,
@@ -111,6 +112,34 @@ describe("keys on the focused canvas", () => {
     (document.activeElement as HTMLElement | SVGElement | null)?.blur();
     press(document.body, { key: "Backspace" });
     expect(has(modeler, STEP)).toBe(true);
+  });
+
+  it("but not once the host made the canvas inert, before the browser moves the focus off it", async () => {
+    const modeler = await mount();
+    select(modeler, STEP);
+    canvasSvg(modeler).focus();
+    modeler.diagram.container.inert = true;
+    expect(document.activeElement).toBe(canvasSvg(modeler));
+    const before = modeler.exportText();
+
+    for (const init of [
+      { key: "Backspace" },
+      { key: "Delete" },
+      { key: "ArrowLeft" },
+      { key: " " },
+      { key: "l" },
+      { key: "h" },
+      { key: "a", ctrlKey: true },
+      { key: "z", ctrlKey: true },
+    ]) {
+      const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
+      canvasSvg(modeler).dispatchEvent(event);
+      expect(event.defaultPrevented, init.key).toBe(false);
+    }
+    expect(modeler.exportText()).toBe(before);
+    expect(has(modeler, STEP)).toBe(true);
+    expect(modeler.diagram.get<Selection>("selection").get()).toHaveLength(1);
+    expect(modeler.diagram.get<Dragging>("dragging").context()).toBeFalsy();
   });
 
   it("leave a key alone that a host has handled already", async () => {

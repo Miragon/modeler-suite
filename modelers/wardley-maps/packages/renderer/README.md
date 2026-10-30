@@ -93,8 +93,9 @@ Enter and Space on a palette tool (lasso, draw) leave the focus on the entry; on
 they place the element and hand the focus to the canvas, or to the new element's name editor; on a
 context-pad action they keep the focus in the pad, and an action that closes or redraws the pad
 (delete, line style, remove evolve) returns it to the canvas. A host that hides the canvas without
-destroying it makes the container `inert`, so the hidden canvas can neither keep the focus nor act
-on a key.
+destroying it makes the container `inert`: the browser moves the focus off the canvas at its next
+rendering update, and a key whose target lies inside the `inert` container stays with the page
+before then too.
 
 Escape on the canvas ends every drag without a change, as it ends a diagram-js drag: also a label
 drag, the point drag of a drawing (the drawing stays selected) and the drag of a component's red
@@ -102,7 +103,10 @@ evolve target. These drags and the colour picker take only an Escape aimed at th
 picker also one on its swatches); one aimed at the palette, the context pad, a name editor or a
 host's field, menu, dialog or overlay, inside the canvas container or next to it, stays with that
 control. While the draw tool holds the points of a line, the single-key tools do nothing until the
-line is finished or cancelled.
+line is finished or cancelled. While a point of a drawing is dragged, the keys that would change the
+drawing under the drag or start a second gesture next to it do nothing until the release: the
+single-key tools, and the arrow keys, paste and duplicate, which the canvas takes with
+`preventDefault()`. Delete still removes the drawing, which ends the drag without a commit.
 
 ## Collaborative hosts
 
@@ -168,7 +172,8 @@ brings the new one ([#347](https://github.com/Miragon/modeler-suite/issues/347))
 size preview (an undo pressed mid-drag, a title the host sets) puts the preview back first, and a
 drag then ends without resizing, so the history stays in step with the document. A drawing's point
 drag, the drag of an evolve target and a label drag end the same way, without a commit, when a
-command runs before their release (an undo or an arrow-key nudge pressed mid-drag).
+command runs before their release (an undo pressed mid-drag, or an arrow-key nudge during the other
+two, since a point drag leaves the arrow keys without effect).
 `elements` names components, anchors, pipelines, submaps and accelerators by the id the document
 gives them (`cmp_kettle`), also right after a canvas edit, and `elements.bounds(id)` gives an
 element's live box in diagram coordinates; `getViewState` and `setViewState` carry the viewbox.
