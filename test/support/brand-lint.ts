@@ -18,6 +18,12 @@ const LINTED_EXTENSIONS = new Set(
 );
 const TEST_FOLDERS = new Set(["test", "test-smoke", "e2e", "fixtures", "__snapshots__"]);
 
+/**
+ * The names of a unit, browser or e2e test, wherever it lies. Each needs its own ignore pattern,
+ * also before the suite has such a file, because the hook lints the first one Claude writes.
+ */
+export const TEST_FILE_ENDINGS = [".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"];
+
 export function readBrandLintConfig(root: string): BrandLintConfig {
   return JSON.parse(readFileSync(join(root, ".miragon/brand.json"), "utf8")) as BrandLintConfig;
 }
@@ -51,7 +57,7 @@ export function writtenByToolsOrTestData(relativePath: string): boolean {
   return (
     name === "CHANGELOG.md" ||
     name === "THIRD_PARTY_NOTICES.md" ||
-    /\.(test|spec)\.tsx?$/.test(name) ||
+    TEST_FILE_ENDINGS.some((ending) => name.endsWith(ending)) ||
     folders.some((folder) => TEST_FOLDERS.has(folder) || folder.endsWith("-snapshots"))
   );
 }

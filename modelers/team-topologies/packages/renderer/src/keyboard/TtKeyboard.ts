@@ -5,10 +5,11 @@
  * They act only while the canvas itself has the focus: the key press targets the canvas `<svg>` or
  * something inside it, as diagram-js 15 binds its own keyboard. diagram-js focuses the svg on
  * mouse-down, and the palette and the context pad hand the focus back to it. `<body>`, host chrome,
- * form fields, the label editor and the palette and context pad themselves never count, so a canvas
- * the host hides cannot take a key, and nothing acts while a modal dialog is open or the canvas is
- * `inert`. A key a closer listener already handled (`defaultPrevented`), part of an IME composition
- * or without a `key` is left alone.
+ * form fields, the label editor and the palette and context pad themselves never count, and
+ * nothing acts while a modal dialog is open or while the host makes the canvas `inert` or hides it
+ * with `display: none`, also before the browser moves the focus off it at its next rendering update.
+ * A key a closer listener already handled (`defaultPrevented`), part of an IME composition or
+ * without a `key` is left alone.
  *
  * Zoom and fit keys are the host chrome's (guide §5.8: only Cmd/Ctrl + `+` `-` `0` and Shift+1,
  * each acting exactly once), so the canvas binds none. A host that owns the history (the VS Code
@@ -53,9 +54,13 @@ function isNode(target: EventTarget | null): target is Node {
 }
 
 function isOnCanvas(target: EventTarget | null, svg: SVGSVGElement): boolean {
-  // A host marks the canvas inert while something else fronts it, e.g. a start screen.
-  if (svg.closest("[inert]")) return false;
-  return isNode(target) && svg.contains(target);
+  // A host marks the canvas inert or hides it while something else fronts it, e.g. a start screen.
+  return isNode(target) && svg.contains(target) && !svg.closest("[inert]") && isRendered(svg);
+}
+
+/** Without `checkVisibility` (Safari before 17.4) the browser's focus fixup alone has to do. */
+function isRendered(element: SVGElement): boolean {
+  return typeof element.checkVisibility !== "function" || element.checkVisibility();
 }
 
 function isShape(element: Element): element is Shape {

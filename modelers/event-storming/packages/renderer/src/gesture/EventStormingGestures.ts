@@ -14,6 +14,19 @@ const LAST = -100_000;
 const COMMAND_EVENTS = ["commandStack.execute", "commandStack.revert", "commandStack.changed"];
 
 /**
+ * The steps after which the handler of the user's input goes on with the board: diagram-js's drag
+ * after its init, start, drop, cancel and cleanup, and the code that ran a command after it.
+ */
+const HANDLER_GOES_ON_EVENTS = [
+  "drag.init",
+  "drag.start",
+  "drag.end",
+  "drag.cancel",
+  "drag.cleanup",
+  ...COMMAND_EVENTS,
+];
+
+/**
  * The drags of a palette tool that only waits for its next press: they hold no element of the
  * board, so they are no gesture, and an import leaves the tool armed.
  */
@@ -67,8 +80,8 @@ export default class EventStormingGestures {
   private startRefused = false;
   private activatingDrag: DragContext | null = null;
   private activationEndAsked = false;
-  /** From a drag's start until the handler that started the drag has returned. */
-  private handlerStartsDrag = false;
+  /** From one of `HANDLER_GOES_ON_EVENTS` or a gesture's start or end until its handler returned. */
+  private handlerGoesOn = false;
 
   constructor(
     eventBus: EventBus,
@@ -114,10 +127,8 @@ export default class EventStormingGestures {
 
     // diagram-js clears the selection while it activates a drag, then reads the drag's context
     // again: a drag ended from a selection listener there makes `Dragging.move` throw.
-    eventBus.on("drag.start", FIRST, () => {
-      this.holdActivation();
-      this.noteDragStart();
-    });
+    eventBus.on("drag.start", FIRST, () => this.holdActivation());
+    eventBus.on(HANDLER_GOES_ON_EVENTS, FIRST, () => this.noteHandlerGoesOn());
 
     eventBus.on("drag.end", FIRST, () => {
       const dropping = this.dragContext();
@@ -161,8 +172,6 @@ export default class EventStormingGestures {
   beginGesture(): () => void {
     const gesture = {};
     this.ownGestures.add(gesture);
-    // The drag's handler reads the canvas after it reported the start, as diagram-js's do.
-    this.noteDragStart();
     this.update();
     return () => {
       if (this.ownGestures.delete(gesture)) this.update();
@@ -190,17 +199,19 @@ export default class EventStormingGestures {
   }
 
   /**
-   * Runs `teardown` (the modeler's destroy) at once, or, while a drag starts, once the handler that
-   * starts it has returned. diagram-js cancels a running drag on destroy, and between the drag's
-   * start and its first move it clears the selection and then reads the drag's context again: a
-   * destroy from a selection listener there made `Dragging.move` throw `Cannot read properties of
-   * null (reading 'cursor')` (#346). The first move, whose interaction listener may destroy as
-   * well, and the rest of the handler (a palette entry's, a context pad entry's) still run on the
-   * live board, which the teardown then takes down with the drag. A drawing's point drag reads the
-   * canvas after it reported its start in the same way.
+   * Runs `teardown` (the modeler's destroy) at once, or, while the handler of the user's input goes
+   * on with the board, once that handler has returned. A host may destroy the modeler from any
+   * listener, and these handlers read the canvas after one: diagram-js's `Dragging.move` clears
+   * the selection after a drag's start and reads the drag again (#346), a drop's command runs
+   * inside `Dragging.end`, whose `SelectionBehavior` then selects the new sticky and whose cleanup
+   * reads the canvas, a cancel cleans the drag up after the listeners of its `drag.cleanup` (#380),
+   * and a keyboard create selects its sticky and opens its editor (#373). A drawing's point drag
+   * reads the canvas after it reported its start or end in the same way. The rest of the handler
+   * runs on the live board, which the teardown then takes down, together with a drag that still
+   * runs.
    */
-  tearDownAfterActivation(teardown: () => void): void {
-    if (this.handlerStartsDrag) queueMicrotask(teardown);
+  tearDownAfterHandler(teardown: () => void): void {
+    if (this.handlerGoesOn) queueMicrotask(teardown);
     else teardown();
   }
 
@@ -242,12 +253,12 @@ export default class EventStormingGestures {
     });
   }
 
-  /** A drag starts inside the handler of the user's input, which a microtask follows. */
-  private noteDragStart(): void {
-    if (this.handlerStartsDrag) return;
-    this.handlerStartsDrag = true;
+  /** A microtask runs only once the handler of the user's input has returned. */
+  private noteHandlerGoesOn(): void {
+    if (this.handlerGoesOn) return;
+    this.handlerGoesOn = true;
     queueMicrotask(() => {
-      this.handlerStartsDrag = false;
+      this.handlerGoesOn = false;
     });
   }
 
@@ -294,6 +305,11 @@ export default class EventStormingGestures {
     const active = this.diagramGesture !== null || this.ownGestures.size > 0;
     if (active === this.reported) return;
     this.reported = active;
-    for (const listener of [...this.listeners]) listener(active);
+    // A drawing's point drag goes on with the canvas after it reported its start or end, as
+    // diagram-js's drags do.
+    this.noteHandlerGoesOn();
+    for (const listener of [...this.listeners]) {
+      if (this.listeners.has(listener)) listener(active);
+    }
   }
 }

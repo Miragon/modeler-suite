@@ -126,6 +126,7 @@ function collaborative(
   const interactionListeners = new Set<(active: boolean) => void>();
   let destroyed = false;
   let lastExport = "";
+  const selections = selectionListeners(eventBus, () => destroyed);
 
   const meta: ModelerMeta = {
     notation: EVENT_STORMING_NOTATION,
@@ -136,7 +137,11 @@ function collaborative(
   if (editable) {
     eventBus.on("commandStack.changed", () => {
       if (isReplacingBoard(diagram)) return;
-      for (const listener of [...contentListeners]) listener();
+      // An earlier listener may destroy the modeler, which drops every listener, or unsubscribe a
+      // later one during the same delivery.
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
 
@@ -156,15 +161,8 @@ function collaborative(
       return true;
     },
     selection: () => (destroyed ? [] : addressableIds(selection.get())),
-    onSelection(callback) {
-      // The teardown cancels a running drag, which brings back the selection from before it.
-      const listener = (event: unknown) => {
-        if (destroyed) return;
-        callback(addressableIds((event as { newSelection?: unknown[] }).newSelection ?? []));
-      };
-      eventBus.on("selection.changed", listener);
-      return () => eventBus.off("selection.changed", listener);
-    },
+    onSelection: (callback) =>
+      selections.subscribe((selected) => callback(addressableIds(selected))),
     bounds(id) {
       if (destroyed) return undefined;
       const element = elementRegistry.get(id);
@@ -174,15 +172,16 @@ function collaborative(
 
   gestures?.onChange((active) => {
     for (const listener of [...interactionListeners]) {
-      // An earlier listener may have destroyed the modeler during the same delivery.
-      if (destroyed) return;
-      listener(active);
+      // An earlier listener may have destroyed the modeler, which drops every listener, or
+      // unsubscribed this one during the same delivery.
+      if (interactionListeners.has(listener)) listener(active);
     }
   });
 
   const interaction: InteractionSurface = {
     active: () => !destroyed && (gestures?.isActive() ?? false),
     onChange(callback) {
+      if (destroyed) return () => undefined;
       interactionListeners.add(callback);
       return () => {
         interactionListeners.delete(callback);
@@ -245,18 +244,67 @@ function collaborative(
     },
     destroy() {
       if (destroyed) return;
-      try {
-        lastExport = diagram.exportDSL();
-      } catch {
-        lastExport = "";
-      }
+      lastExport = textToKeep(diagram);
       destroyed = true;
       contentListeners.clear();
       interactionListeners.clear();
-      if (gestures) gestures.tearDownAfterActivation(() => diagram.destroy());
+      // An import whose listener destroyed the modeler goes on to draw its board, and its Promise
+      // then resolves: the modeler keeps that board (#415). Whatever else runs on after the destroy
+      // reaches no host, so the text read above stays.
+      let imported = false;
+      eventBus.on("import.done", () => {
+        imported = true;
+      });
+      const tearDown = () => {
+        if (imported) lastExport = textToKeep(diagram);
+        diagram.destroy();
+      };
+      if (selections.delivering()) queueMicrotask(tearDown);
+      else if (gestures) gestures.tearDownAfterHandler(tearDown);
       else diagram.destroy();
     },
   };
+}
+
+/**
+ * The host's selection listeners. The code that calls them goes on with the board once they have
+ * returned, also when it is the host's own call: `reveal` scrolls to the sticky it selected, and
+ * an import draws the board after the clear that emptied the selection. A `destroy()` from one of
+ * them waits for that code (`delivering`).
+ */
+function selectionListeners(eventBus: EventBus, isDestroyed: () => boolean) {
+  let deliveries = 0;
+  return {
+    delivering: (): boolean => deliveries > 0,
+    subscribe(callback: (selected: unknown[]) => void): () => void {
+      // The teardown cancels a running drag, which brings back the selection from before it.
+      // diagram-js's event bus still calls a listener that an earlier one unsubscribed during the
+      // same delivery after unsubscribing itself.
+      let subscribed = true;
+      const listener = (event: unknown) => {
+        if (isDestroyed() || !subscribed) return;
+        deliveries += 1;
+        try {
+          callback((event as { newSelection?: unknown[] }).newSelection ?? []);
+        } finally {
+          deliveries -= 1;
+        }
+      };
+      eventBus.on("selection.changed", listener);
+      return () => {
+        subscribed = false;
+        eventBus.off("selection.changed", listener);
+      };
+    },
+  };
+}
+
+function textToKeep(diagram: Modeler | NavigatedViewer): string {
+  try {
+    return diagram.exportDSL();
+  } catch {
+    return "";
+  }
 }
 
 /**

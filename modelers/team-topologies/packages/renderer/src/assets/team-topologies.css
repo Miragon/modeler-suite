@@ -89,8 +89,10 @@
 
 /* --- Palette without host chrome: horizontal floating toolbar, top-centre ---------- */
 /* A host chrome that skins the palette marks it data-chrome="palette" (the modeler shell); every
-   rule here stays off such a palette. 32px entries + 3px padding + 1px border give 40px. */
-.djs-palette:not([data-chrome="palette"]) {
+   rule here stays off such a palette, and off any other diagram-js palette on the page (a bpmn-js
+   editor beside the modeler). `:where` adds the container without adding specificity, so a host's
+   own rule on this palette keeps winning. 32px entries + 3px padding + 1px border give 40px. */
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) {
   left: 50%;
   top: 12px;
   transform: translateX(-50%);
@@ -105,21 +107,21 @@
 }
 /* diagram-js switches to a fixed 94px two-column layout on short viewports (sized for a vertical
    palette); the horizontal palette never needs it. */
-.djs-palette:not([data-chrome="palette"]).two-column.open {
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]).two-column.open {
   width: auto;
 }
 .tt-djs-container .djs-palette:not([data-chrome="palette"]) {
   /* Above canvas overlays such as the context pad and the label editor (guide §5.13). */
   z-index: 110;
 }
-.djs-palette:not([data-chrome="palette"]) .djs-palette-entries,
-.djs-palette:not([data-chrome="palette"]) .group {
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .djs-palette-entries,
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .group {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 2px;
 }
-.djs-palette:not([data-chrome="palette"]) .entry {
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry {
   position: relative;
   float: none;
   flex: none;
@@ -143,29 +145,32 @@
     color var(--cd-motion-fast) var(--cd-ease),
     box-shadow var(--cd-motion-fast) var(--cd-ease);
 }
-.djs-palette:not([data-chrome="palette"]) .entry:hover {
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry:hover {
   background: var(--cd-ui-hover);
   color: var(--cd-ui-interaktion);
 }
-.djs-palette:not([data-chrome="palette"]) .entry:focus {
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry:focus {
   outline: none;
 }
-.djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
+/* The ring stands 2px outside the entry, over the gap and into the neighbour's box; lifted, so a
+   hovered or armed neighbour, painted later, does not cover it (guide §5.14). */
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
+  z-index: 1;
   outline: 2px solid var(--cd-ui-fokus);
   outline-offset: 2px;
 }
-.djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry {
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry {
   background: var(--cd-ui-hover);
   box-shadow: inset 0 0 0 2px var(--cd-ui-interaktion);
 }
 
 /* Vertical divider between the tool groups. */
-.djs-palette:not([data-chrome="palette"]) .group + .group {
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .group + .group {
   position: relative;
   margin-left: 8px;
   padding-left: 8px;
 }
-.djs-palette:not([data-chrome="palette"]) .group + .group::before {
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .group + .group::before {
   content: "";
   position: absolute;
   top: 4px;
@@ -220,7 +225,7 @@
 
 /* Narrow containers: the palette gets its own row below the host's top chrome (guide §5.15). */
 @container team-topologies (max-width: 760px) {
-  .djs-palette:not([data-chrome="palette"]) {
+  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) {
     top: 64px;
     max-width: calc(100% - 24px);
     overflow-x: auto;
@@ -228,11 +233,11 @@
     scroll-padding-inline: 4px;
     scrollbar-width: none;
   }
-  .djs-palette:not([data-chrome="palette"])::-webkit-scrollbar {
+  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"])::-webkit-scrollbar {
     display: none;
   }
   /* The scrolling palette clips anything beyond its 3px padding. */
-  .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
+  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
     outline-offset: -2px;
   }
 }

@@ -79,12 +79,14 @@ that adds keys of its own:
   [`KeyboardBindings.ts`](../assets/template/packages/renderer/src/keyboard/KeyboardBindings.ts)
   does, or, listening on the document, acts only on a key whose target lies in the canvas `<svg>`;
 - skips a keydown or keyup without a string `key` (browser autofill sends both), one already
-  `defaultPrevented` and one of an IME composition (`isComposing`);
-- leaves a key alone whose target lies inside an `inert` subtree: Chromium moves the focus off a
-  canvas the host made inert only at its next rendering update, so until then a key still reaches
-  the `<svg>` (the template's
-  [`CanvasKeys.ts`](../assets/template/packages/renderer/src/keyboard/CanvasKeys.ts) does this for
-  diagram-js's keyboard);
+  `defaultPrevented` and one of an IME composition (`isComposing`, or the `keyCode` 229 with which
+  Safari sends the key that confirms a candidate after the composition ended);
+- leaves a key alone whose target lies inside an `inert` subtree, and one that reaches a canvas
+  `<svg>` an ancestor with `display: none` hides (`checkVisibility()` is false): Chromium moves the
+  focus off a canvas the host made inert or hid only at its next rendering update, so until then a
+  key still reaches the `<svg>` (the template's
+  [`CanvasKeys.ts`](../assets/template/packages/renderer/src/keyboard/CanvasKeys.ts) does this, and
+  skips a handled key and an IME key, for diagram-js's keyboard);
 - never prevents or stops a key it does not act on, in the capture phase too, so a host's text
   field keeps Cmd/Ctrl+C and its buttons keep Enter and Space.
 
@@ -119,9 +121,16 @@ both (template:
   An import's fit and a host's `setViewState` after it (L5) move the view under a running pan, so
   the template moves the pan's starting point to the diagram point under the pointer on every
   `canvas.viewbox.changed` (the canvas runs without `deferUpdate`, so the event comes at once);
-  without that, the next move would put the view from before back. A renderer that adds
+  without that, the next move would put the view from before back. The pan's own scroll is left
+  out: diagram-js rounds each step of a pan to whole diagram units, and a starting point moved
+  after it would add the rounding up, so a slow pan at a zoom above 200 % would not move at all.
+  The template tells that scroll apart by the pan's drag context during `hand.move.move`, not by
+  a flag, which a view listener that throws would leave set. A renderer that adds
   diagram-js's space or global connect tool adds their waiting drags to that list, and refuses a
-  connect whose start shape the import removed, as Value Chain does.
+  connect whose start shape the import removed, as Value Chain does. A renderer that adds
+  diagram-js's AutoScroll keeps it still under a pan (`hand.move`), as Value Chain also does: its
+  scrolls at the canvas edge are view changes the pan did not make, so the re-anchor would keep
+  each of them, and the diagram point would leave the pointer.
 - **An import called during a user's action waits until the action has finished.** A user's action
   is what the diagram does for one input: a drop, the start of a drag, a keyboard create, a click
   append, a label commit, the command of a key, an undo or a redo. A host that imports from
@@ -157,20 +166,32 @@ both (template:
   apart by its drag context). Called from a selection listener at a drag's start, it still ends the
   drag inside `Dragging.move`, which then throws on the cursor, so a host imports there through the
   contract's `importText`, which waits.
-  - A host may destroy the modeler from the selection or the interaction listener at a drag's
-    start. diagram-js cancels a running drag on destroy, so a `destroy()` from the selection
-    listener there had `Dragging.move` read the cancelled drag and throw on the cursor. The
-    template's `destroy()` stops the interaction and selection deliveries at once and tears the
-    diagram down once the handler that started the drag has returned (`tearDownAfterActivation`,
-    from `drag.start` until a microtask later): the first move and the rest of the handler (the
-    palette's) run on the live diagram, also when the interaction listener of that first move
-    destroys. `elements.onSelection` delivers nothing after `destroy()`, so the selection the
-    cancelled drag brings back reaches no host. A drag of the renderer's own that reads the canvas
-    after it reports its start opens the same window when it reports it. The end of a drag is not
-    covered yet: a `destroy()` from the change listener at a drop, or from an interaction listener
-    that hears `false` inside diagram-js's `drag.cleanup` (a drop, Escape), still makes diagram-js
-    throw in its end of the drag, and a change delivery that runs still reaches its later
-    listeners.
+  - A host may destroy the modeler from any listener. diagram-js cancels a running drag on destroy
+    and the canvas drops its root, while the handler of the user's input still goes on with them:
+    a `destroy()` from the selection listener at a drag's start had `Dragging.move` read the
+    cancelled drag and throw on the cursor, one from the change listener at a drop or a keyboard
+    create left diagram-js's `SelectionBehavior` and the palette selecting on the torn-down canvas,
+    and one from an interaction listener that hears `false` inside diagram-js's `drag.cleanup` (a
+    drop, Escape) cancelled the drag a second time from inside its own cleanup. The template's
+    `destroy()` stops the content, interaction and selection deliveries at once and tears the
+    diagram down once the handler of the input has returned (`tearDownAfterHandler`, from
+    `drag.init`, `drag.start`, `drag.end`, `drag.cancel`, `drag.cleanup` or a command's start
+    until a microtask later): the rest of the handler runs on the live diagram. A drag of the
+    renderer's own that reads the canvas after it reports its start or end opens the same window
+    when it reports it, and a step the action deferred past the handler (a timer, a popup) skips
+    itself once `diagram.destroy` has fired. Each delivery skips a listener that an earlier
+    listener of it unsubscribed, as a DOM event target does, and `elements.onSelection` delivers
+    nothing after `destroy()`, so the selection a cancelled drag brings back reaches no host.
+  - A host's own call reaches a listener too: `elements.reveal` calls the selection listener
+    before it scrolls to the node, and an import calls it as its clear empties the selection,
+    before it draws the document. diagram-js's canvas loses its root on destroy, so a teardown
+    there made the import throw half-way. The template's `destroy()` from a selection listener
+    tears the diagram down a microtask later, once that call has returned. An import that ends a
+    held gesture calls the interaction listener inside the drag's cancel, whose window holds the
+    teardown already. A teardown that waits reads the export again when an import drew in the
+    meantime (`import.done`), so the import still resolves with the imported document as
+    `exportText()`; whatever else runs on after the destroy reaches no host, so the text read at
+    the destroy stays.
   - After a keyboard create, the import takes the label editor down and reopens it on the element
     with the same id. An edit the first of several waiting imports takes down stays suspended
     through the next; a render that fails reopens it as well, so no later import brings back an

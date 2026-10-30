@@ -144,7 +144,7 @@ false. `diagramShortcuts()` lists them for a dialog.
   off the original at once. Each is one undo step, and what it placed is selected.
 - A host that hides the canvas without destroying the modeler makes its container `inert` or
   `display: none`, not only transparent: the browser moves the focus off the `<svg>` at its next
-  rendering update, and a key whose target lies inside an `inert` subtree passes before then too.
+  rendering update, and a key that reaches the `<svg>` before then passes too.
 
 ## Palette
 
@@ -247,7 +247,17 @@ wrapped `Modeler` or `NavigatedViewer` for host wiring.
   (it empties the selection there and then reads the drag again) throws nothing: the diagram is
   torn down once the code that started the drag has returned, and no listener of the host hears
   anything after `destroy()`, also not the selection the cancelled drag brings back
-  ([#346](https://github.com/Miragon/modeler-suite/issues/346)).
+  ([#346](https://github.com/Miragon/modeler-suite/issues/346)). The same holds for a `destroy()`
+  from any listener at a drop, at Escape, at a create from the palette or the keyboard and at a
+  paste placed with a click: the diagram is torn down once the handler of that input has returned.
+  No delivery calls a listener that an earlier listener of the same delivery unsubscribed
+  ([#380](https://github.com/Miragon/modeler-suite/issues/380),
+  [#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a
+  listener that a host's own call reaches: the selection listener of `elements.reveal`, or the
+  interaction and selection listeners of an import, which ends a held gesture and empties the
+  selection as it clears the canvas. The diagram is torn down once that call has returned, and the
+  import still resolves, with the imported diagram as `exportText()`
+  ([#415](https://github.com/Miragon/modeler-suite/issues/415)).
 - `appearance` (contract 1.5, guide §13.3): `themes` is `VALUE_CHAIN_THEMES`, `["light"]`, the one
   list the web app, the VS Code webview and its theme bridge read too. `set({ theme, contrast })`
   writes `data-cd-theme="light"` on `diagram.container`, whatever theme is asked for, and

@@ -30,6 +30,7 @@ done < <(awk '/^jobs:/ { in_jobs = 1; next } /^[^ #]/ { in_jobs = 0 } in_jobs &&
 
 changes=$(jq -r '.changes.result // "missing"' <<< "$NEEDS")
 shared=$(jq -r '.changes.outputs.shared // ""' <<< "$NEEDS")
+repository_tests=$(jq -r '.changes.outputs["repository-tests"] // ""' <<< "$NEEDS")
 template=$(jq -r '.changes.outputs.template // ""' <<< "$NEEDS")
 modelers=$(jq -r '.changes.outputs.modelers // ""' <<< "$NEEDS")
 
@@ -42,9 +43,14 @@ skip_reason() {
         echo "it compares a pull request with its base, which a $EVENT_NAME run has not"
       fi
       ;;
-    shared-lint | shared-test | shared-test-browser | shared-e2e)
+    shared-lint | shared-test-browser | shared-e2e)
       if [[ "$changes" == success && "$shared" == false ]]; then
         echo "no path the shared packages depend on changed"
+      fi
+      ;;
+    shared-test)
+      if [[ "$changes" == success && "$shared" == false && "$repository_tests" == false ]]; then
+        echo "no path the shared packages or the repository-level tests depend on changed"
       fi
       ;;
     template)

@@ -13,20 +13,24 @@
  * pan and its lasso by calls (`holdGesture`, `holdPan`, `armLasso`), which
  * `interaction` reports as a pointer would; an accepted import cancels a held
  * gesture, a rejected one and a pan run on, and an import called during a drop
- * waits for it. Its colours resolve from the page's `data-cd-theme` and
+ * waits for it. A destroy() from a listener stops every delivery at once, and
+ * during a drop or a drag's start it tears the canvas and the gesture down once
+ * that action has returned. Its colours resolve from the page's `data-cd-theme` and
  * `data-cd-kontrast` until `appearance.set` writes its own on the container,
  * as on the Miragon design tokens. It is the
  * kit's reference subject, plus deliberately BROKEN variants: one per
  * real-world drift the contract exists to prevent AND one per case in the
- * kit, so the kit's own CI proves every case bites. Each variant must fail exactly its law's case set. Eight
+ * kit, so the kit's own CI proves every case bites. Each variant must fail exactly its law's case set. Eleven
  * variants are NOT flaws but legitimate implementation choices the kit must
  * accept (a diagram-js style enriched view-state readback, commands ignored
  * before the first import, an empty name that reads back absent, a content
  * box measured in float32, a content box around a plot drawn without
  * elements, canvas keys taken in the capture phase, a canvas that is a
- * focusable `<div>`, a modeler that lists and draws dark) — they must fail
- * nothing. Twenty-four variants ignore a RECOMMENDATION — they must fail
- * nothing and advise once.
+ * focusable `<div>`, waiting imports run by a microtask queued when the
+ * action starts, interaction listeners called newest first, a modeler that
+ * lists and draws dark, a re-import that draws one element more) — they must
+ * fail nothing. Forty variants ignore a RECOMMENDATION — they must fail nothing and
+ * advise once.
  */
 import type { GestureKind, HeldGesture, HeldPan } from "../src/conformance.js";
 import type {
@@ -331,8 +335,29 @@ export interface Flaws {
   cancelNotReported?: boolean;
   /** destroy() ends a held gesture and still calls onChange(false) */
   reportsAfterDestroy?: boolean;
+  /** interaction.onChange delivers over a copy of its listeners without a destroyed check: a later
+   *  listener still hears the change once an earlier one of the same delivery called destroy() */
+  interactionDeliveryIgnoresDestroy?: boolean;
+  /** NOT a flaw: interaction.onChange calls its listeners newest first, an order the contract
+   *  leaves open */
+  interactionDeliversNewestFirst?: boolean;
   /** the viewer's interaction.active() is true */
   viewerReportsGesture?: boolean;
+
+  // ── a destroy from a listener, and an unsubscribe during a delivery (1.6, #381) ──
+  /** NOT a law violation, a missed recommendation: destroy() from a listener tears the gesture
+   *  down at once, so the drag's activation, which reads the drag again after the selection and
+   *  the interaction listeners of its start, throws (diagram-js's Dragging.move before #370) */
+  destroyTearsDownInsideTheAction?: boolean;
+  /** NOT a law violation, a missed recommendation: onContentChanged delivers over a copy of its
+   *  listeners, so a later listener hears a change once an earlier one called destroy() */
+  contentDeliveryIgnoresDestroy?: boolean;
+  /** NOT a law violation, a missed recommendation: elements.onSelection delivers over a copy of
+   *  its listeners, so a later listener hears a selection once an earlier one called destroy() */
+  selectionDeliveryIgnoresDestroy?: boolean;
+  /** NOT a law violation, a missed recommendation: interaction.onChange still calls a listener
+   *  that an earlier listener of the same delivery unsubscribed */
+  interactionDeliveryIgnoresUnsubscribe?: boolean;
 
   // ── appearance (1.5) ───────────────────────────────────────────────────────
   /** NOT a flaw: the modeler lists and draws dark too */
@@ -519,6 +544,8 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
   const queueWaitingImports = (): void => {
     if (waitingImports.length > 0) queueTheFlush();
   };
+  /** a destroy() called during the user's action: the teardown waits until the action returns */
+  let tearDownAfterTheAction: (() => void) | undefined;
   const asUserAction = <T>(work: () => T): T => {
     if (actionDepth === 0 && flaws.flushQueuedAtTheActionsStart) queueTheFlush();
     actionDepth += 1;
@@ -526,7 +553,12 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
       return work();
     } finally {
       actionDepth -= 1;
-      if (actionDepth === 0) queueWaitingImports();
+      if (actionDepth === 0) {
+        const tearDown = tearDownAfterTheAction;
+        tearDownAfterTheAction = undefined;
+        tearDown?.();
+        queueWaitingImports();
+      }
     }
   };
   const asCommand = <T>(work: () => T): T =>
@@ -555,15 +587,20 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
   let mountedRoot: Element | undefined;
 
   let muted = false;
+  // a Set's own iteration skips what a listener removed, so destroy() and an unsubscribe during a
+  // delivery reach the rest of it, as with a DOM EventTarget
   const emit = (): void => {
     if (muted) return;
-    for (const cb of listeners) cb();
+    for (const cb of flaws.contentDeliveryIgnoresDestroy ? [...listeners] : listeners) cb();
   };
   const select = (ids: string[]): void => {
     if (JSON.stringify(ids) === JSON.stringify(selection)) return; // engines deduplicate
     selection = ids;
     if (flaws.deadSelection || (!editable && flaws.viewerDeadSelectionEvents)) return;
-    for (const cb of selectionListeners) cb(selection);
+    const delivered = flaws.selectionDeliveryIgnoresDestroy
+      ? [...selectionListeners]
+      : selectionListeners;
+    for (const cb of delivered) cb(selection);
   };
   const lineOf = (entry: Entry): string => {
     const named =
@@ -767,7 +804,14 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
   const report = (active: boolean): void => {
     if (destroyed || active === reportedActive) return;
     if (!flaws.interactionStaleInListener) reportedActive = active;
-    for (const listener of [...interactionListeners]) {
+    const delivered = [...interactionListeners];
+    if (flaws.interactionDeliversNewestFirst) delivered.reverse();
+    for (const listener of delivered) {
+      if (!flaws.interactionDeliveryIgnoresDestroy) {
+        if (destroyed) break;
+        const unsubscribed = !interactionListeners.has(listener);
+        if (unsubscribed && !flaws.interactionDeliveryIgnoresUnsubscribe) continue;
+      }
       listener(active);
       if (flaws.interactionReportsTwice && active) listener(active);
     }
@@ -1230,14 +1274,21 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
         for (const listener of [...interactionListeners]) listener(false);
       }
       destroyed = true;
-      unmountCanvas?.();
-      unmountCanvas = undefined;
-      labelEditor = undefined;
-      gesture = undefined;
-      pan = undefined;
       listeners.clear();
       selectionListeners.clear();
       interactionListeners.clear();
+      const tearDown = (): void => {
+        unmountCanvas?.();
+        unmountCanvas = undefined;
+        labelEditor = undefined;
+        gesture = undefined;
+        pan = undefined;
+      };
+      if (actionDepth > 0 && !flaws.destroyTearsDownInsideTheAction) {
+        tearDownAfterTheAction = tearDown;
+      } else {
+        tearDown();
+      }
     },
 
     addLine(text: string): void {
@@ -1295,14 +1346,18 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
       };
       gesture = held;
       // diagram-js activates the drag: it empties the selection, whose listeners may import, and
-      // then reads the drag again
+      // then reads the drag again, also after the listeners of the start it reports
+      const readTheDragAgain = (): void => {
+        if (gesture !== held)
+          throw new TypeError("Cannot read properties of null (reading 'cursor')");
+      };
       asUserAction(() => {
         activating = true;
         try {
           select([]);
-          if (gesture !== held)
-            throw new TypeError("Cannot read properties of null (reading 'cursor')");
+          readTheDragAgain();
           report(true);
+          readTheDragAgain();
         } finally {
           activating = false;
         }
