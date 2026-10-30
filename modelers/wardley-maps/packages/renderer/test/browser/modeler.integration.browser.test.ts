@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { page } from "vitest/browser";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
@@ -24,7 +25,10 @@ describe("Modeler integration (real browser DOM)", () => {
   let container: HTMLElement;
   let modeler: Modeler;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // The modeler sizes its container to 100%: a page as wide as the container keeps the palette in
+    // its top row, above the map, where a narrower one would move it over the map (guide §5.15).
+    await page.viewport(1024, 768);
     container = document.createElement("div");
     // Explicit pixel size: without it the canvas collapses to 0 height and getBBox boxes are empty.
     container.style.width = "1024px";

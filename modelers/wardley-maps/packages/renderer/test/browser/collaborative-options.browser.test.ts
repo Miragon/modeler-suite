@@ -56,7 +56,7 @@ function canvasOf(modeler: CollaborativeWardleyModeler): Canvas {
 function undoByKey(modeler: CollaborativeWardleyModeler): { prevented: boolean; undone: boolean } {
   const diagram = modeler.diagram as Modeler;
   diagram.setTitle("Edited");
-  const svg = canvasOf(modeler).getContainer().querySelector("svg")!;
+  const svg = canvasOf(modeler).getContainer().querySelector<SVGSVGElement>(":scope > svg")!;
   svg.focus();
   const event = new KeyboardEvent("keydown", {
     key: "z",

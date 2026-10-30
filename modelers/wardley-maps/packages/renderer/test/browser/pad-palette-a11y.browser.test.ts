@@ -660,7 +660,7 @@ describe("canvas accessibility", () => {
   it("names the canvas svg for assistive technology", async () => {
     const target = mount();
     await target.importDSL(TEA_SHOP);
-    const svg = target.container.querySelector("svg")!;
+    const svg = target.container.querySelector(".djs-container > svg")!;
     expect(svg.getAttribute("role")).toBe("application");
     expect(svg.getAttribute("aria-roledescription")).toBe("Wardley map");
     expect(svg.getAttribute("aria-label")).toBe("Map canvas");

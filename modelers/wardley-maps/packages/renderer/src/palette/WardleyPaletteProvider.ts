@@ -203,8 +203,9 @@ export default class WardleyPaletteProvider implements PaletteProvider {
   ];
 
   /**
-   * diagram-js >= 15.28 renders `title` + `shortcut` as a styled tooltip, and the Miragon modeler
-   * shell shows its chrome tooltip instead; only without either does an entry need a native title.
+   * The palette tooltip (`WardleyPaletteTooltip`, or one a host puts in its place) shows `title` and
+   * `shortcut`, and the Miragon modeler shell shows its chrome tooltip instead; only without either
+   * does an entry need a native title.
    */
   private readonly needsNativeTitle: boolean;
 

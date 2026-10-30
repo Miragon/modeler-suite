@@ -85,7 +85,8 @@ interface PlotBounds {
  * Cmd/Ctrl+A (select all), the single-key tools C (component), U (user), N (note), P (pipeline),
  * L (lasso) and A (connect from the selected node), all only while the canvas has the focus.
  * Deliberately a DOM listener (no diagram-js keyboard-service binding needed). While the draw tool
- * holds the points of a line, the single-key tools do nothing, and the canvas takes them. While a
+ * holds the points of a line, the single-key tools and paste do nothing, and the canvas takes them:
+ * a paste attaches its copies to the pointer, where the next press belongs to the line. While a
  * point of a drawing is dragged, the arrow keys, paste, duplicate and the single-key tools do
  * nothing, and the canvas takes them; Escape ends that drag and Delete removes the drawing.
  */
@@ -213,7 +214,7 @@ export default class WardleyKeyboard {
           internalClipboardIsNewest = true;
         }
       } else if (key === "v") {
-        if (this.pointDragged()) e.preventDefault();
+        if (this.pointDragged() || this.drawTool?.holdsLine()) e.preventDefault();
         else pasteFromInternalClipboard(e);
       } else if (key === "d") {
         e.preventDefault();

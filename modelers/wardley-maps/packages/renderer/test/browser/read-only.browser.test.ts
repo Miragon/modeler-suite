@@ -47,7 +47,10 @@ function lock(target: Modeler, readOnly = true): void {
 }
 
 function press(target: Modeler, key: string, modifiers: KeyboardEventInit = {}): void {
-  const svg = target.get<Canvas>("canvas").getContainer().querySelector("svg")!;
+  const svg = target
+    .get<Canvas>("canvas")
+    .getContainer()
+    .querySelector<SVGSVGElement>(":scope > svg")!;
   svg.focus();
   svg.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, ...modifiers }));
 }
