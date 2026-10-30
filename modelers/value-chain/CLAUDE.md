@@ -122,11 +122,13 @@ missing at its other places; the verdict stays the same).
   `drag.move` (#336): diagram-js empties the selection in between and then reads the drag's
   context again, so an import from `elements.onSelection` that cancelled the drag there threw
   `Cannot read properties of null (reading 'cursor')`; held, it runs a microtask later, once
-  `Dragging.move` has returned, and ends the drag (`drag.canceled`). A `destroy()` from the
-  selection or the interaction listener while the drag activates tears the diagram down once the
-  handler that activated it has returned (`vcGestures.tearDownAfterActivation`, #346), and the
-  selection the cancelled drag brings back reaches no host listener
-  (`test/browser/import-during-user-action.browser.test.ts`). The
+  `Dragging.move` has returned, and ends the drag (`drag.canceled`). A `destroy()` from any
+  listener while the handler of the user's input goes on with the diagram (after a drag's init,
+  start, drop, cancel or cleanup, or a command) tears the diagram down once that handler has
+  returned (`vcGestures.tearDownAfterHandler`, #346, #380, #373), and the selection the cancelled
+  drag brings back reaches no host listener; no delivery calls a listener after `destroy()` or one
+  an earlier listener of it unsubscribed (`test/browser/import-during-user-action.browser.test.ts`,
+  `destroy-from-listener.browser.test.ts`). The
   direct `importDocument` cannot wait, it returns its warnings, and it first runs what still waits
   (`vcGestures.runHeldWork`), so the calls keep their order. The 1.5 surfaces: `interaction` is
   `vcGestures.isActive()` (set on the first `drag.move` of an activated drag that is no armed tool

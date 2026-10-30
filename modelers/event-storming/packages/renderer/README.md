@@ -323,7 +323,12 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
   drawing's point drag starts, throws nothing: the board is torn down once the code that started
   the drag has returned, and no listener of the host hears anything
   after `destroy()`, also not the selection the cancelled drag brings back
-  ([#346](https://github.com/Miragon/modeler-suite/issues/346)).
+  ([#346](https://github.com/Miragon/modeler-suite/issues/346)). The same holds for a `destroy()`
+  from any listener at a drop or at Escape, a drawing's point drag included, at a create from the
+  palette or the keyboard and at a paste placed with a click: the board is torn down once the
+  handler of that input has returned. No delivery calls a listener that an earlier listener of the
+  same delivery unsubscribed ([#380](https://github.com/Miragon/modeler-suite/issues/380),
+  [#373](https://github.com/Miragon/modeler-suite/issues/373)).
 
 #### Migrating a host
 

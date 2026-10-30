@@ -139,7 +139,11 @@ function collaborative(
   if (editable) {
     eventBus.on("commandStack.changed", () => {
       if (importsRunning > 0) return;
-      for (const listener of [...contentListeners]) listener();
+      // An earlier listener may destroy the modeler, which drops every listener, or unsubscribe a
+      // later one during the same delivery.
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
 
@@ -257,7 +261,7 @@ function collaborative(
       contentListeners.clear();
       interaction.stop();
       userActions.stop();
-      userActions.tearDownAfterActivation(() => diagram.destroy());
+      userActions.tearDownAfterHandler(() => diagram.destroy());
     },
   };
 }

@@ -106,8 +106,12 @@ function collaborative(
 
   if (editable) {
     // An import clears the history without this event, so every delivery is a user's change (L3).
+    // An earlier listener may destroy the modeler, which drops every listener, or unsubscribe a
+    // later one during the same delivery.
     eventBus.on('commandStack.changed', () => {
-      for (const listener of [...contentListeners]) listener();
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
 
@@ -225,7 +229,7 @@ function collaborative(
       }
       destroyed = true;
       contentListeners.clear();
-      if (gestures) gestures.tearDownAfterActivation(() => diagram.destroy());
+      if (gestures) gestures.tearDownAfterHandler(() => diagram.destroy());
       else diagram.destroy();
     },
   };

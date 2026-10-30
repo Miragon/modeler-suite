@@ -136,7 +136,11 @@ function collaborative(
   if (editable) {
     eventBus.on("commandStack.changed", () => {
       if (isReplacingBoard(diagram)) return;
-      for (const listener of [...contentListeners]) listener();
+      // An earlier listener may destroy the modeler, which drops every listener, or unsubscribe a
+      // later one during the same delivery.
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
 
@@ -174,15 +178,16 @@ function collaborative(
 
   gestures?.onChange((active) => {
     for (const listener of [...interactionListeners]) {
-      // An earlier listener may have destroyed the modeler during the same delivery.
-      if (destroyed) return;
-      listener(active);
+      // An earlier listener may have destroyed the modeler, which drops every listener, or
+      // unsubscribed this one during the same delivery.
+      if (interactionListeners.has(listener)) listener(active);
     }
   });
 
   const interaction: InteractionSurface = {
     active: () => !destroyed && (gestures?.isActive() ?? false),
     onChange(callback) {
+      if (destroyed) return () => undefined;
       interactionListeners.add(callback);
       return () => {
         interactionListeners.delete(callback);
@@ -253,7 +258,7 @@ function collaborative(
       destroyed = true;
       contentListeners.clear();
       interactionListeners.clear();
-      if (gestures) gestures.tearDownAfterActivation(() => diagram.destroy());
+      if (gestures) gestures.tearDownAfterHandler(() => diagram.destroy());
       else diagram.destroy();
     },
   };

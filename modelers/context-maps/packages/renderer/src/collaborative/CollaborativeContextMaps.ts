@@ -106,8 +106,12 @@ function collaborative(
   // An import never touches the command stack (it erases the history without an event), so every
   // `commandStack.changed` is a user-visible change: element commands, the title, undo and redo.
   if (editable) {
+    // An earlier listener may destroy the modeler, which drops every listener, or unsubscribe a
+    // later one during the same delivery.
     eventBus.on("commandStack.changed", () => {
-      for (const listener of [...contentListeners]) listener();
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
   const interaction: InteractionSurface = {
@@ -251,7 +255,7 @@ function collaborative(
       }
       destroyed = true;
       contentListeners.clear();
-      if (gestures) gestures.tearDownAfterActivation(() => diagram.destroy());
+      if (gestures) gestures.tearDownAfterHandler(() => diagram.destroy());
       else diagram.destroy();
     },
   };

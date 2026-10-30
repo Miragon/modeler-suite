@@ -154,7 +154,13 @@ listener there, or from `interaction.onChange` as the drag starts, throws nothin
 the start of the renderer's own drags (a label, a point of a drawing, the evolve target): the map is
 torn down once the code that started the drag has returned, and no listener of the host hears
 anything after `destroy()`, also not the selection the cancelled drag brings back
-([#346](https://github.com/Miragon/modeler-suite/issues/346)). `exportText()` is the
+([#346](https://github.com/Miragon/modeler-suite/issues/346)). The same holds for a `destroy()`
+from any listener at a drop or at Escape, the renderer's own drags included, at a create from the
+palette or the keyboard and at a paste placed with a click: the map is torn down once the handler
+of that input has returned, and the name editor a create opens a task later stays closed. No
+delivery calls a listener that an earlier listener of the same delivery unsubscribed
+([#380](https://github.com/Miragon/modeler-suite/issues/380),
+[#373](https://github.com/Miragon/modeler-suite/issues/373)). `exportText()` is the
 committed document, never a live preview: while the plot corner, an evolve target (its red circle
 or the evolve placement of the context pad) or a label is dragged, or the size or axis-label popover
 previews a change, it returns the document as it was before, and the change event of the commit

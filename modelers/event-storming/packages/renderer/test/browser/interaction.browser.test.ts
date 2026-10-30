@@ -428,6 +428,75 @@ describe("the interaction surface (modeler-api 1.5)", () => {
     },
   );
 
+  // A gesture ends inside the handler of its release or of Escape, which diagram-js and a drawing's
+  // point drag go on with after the drop's command and after they reported the end (#380).
+  describe.each(["drop", "cancel"] as const)("ended by its %s", (ending) => {
+    it.each(GESTURES)(
+      "throws nothing when a listener destroys the modeler at the end of %s, and no later listener hears of it",
+      async (_, hold) => {
+        const modeler = await editorWithBoard();
+        const reports = reportsOf(modeler);
+        const { svg } = pointerOn(modeler);
+        const gesture = hold(modeler);
+        // The release or the key comes in a handler of its own, as it does for a user.
+        await Promise.resolve();
+        let textAtDestroy: string | undefined;
+        modeler.interaction.onChange((active) => {
+          if (active) return;
+          textAtDestroy = modeler.exportText();
+          modeler.destroy();
+        });
+        const later: boolean[] = [];
+        modeler.interaction.onChange((active) => later.push(active));
+
+        if (ending === "drop") gesture.drop();
+        else gesture.cancel?.();
+        expect(svg.isConnected).toBe(true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(uncaught).toEqual([]);
+        expect(svg.isConnected).toBe(false);
+        expect(reports.values()).toEqual([true, false]);
+        expect(later).toEqual([]);
+        expect(textAtDestroy).toBeDefined();
+        expect(modeler.exportText()).toBe(textAtDestroy);
+      },
+    );
+  });
+
+  // The lasso selects, and a create held over the palette drops nothing.
+  it.each(GESTURES.filter(([name]) => !/lasso|over the palette/.test(name)))(
+    "throws nothing when a change listener destroys the modeler at the drop of %s, and no later listener hears of it",
+    async (_, hold) => {
+      const modeler = await editorWithBoard();
+      const reports = reportsOf(modeler);
+      const { svg } = pointerOn(modeler);
+      const gesture = hold(modeler);
+      await Promise.resolve();
+      let textAtDestroy: string | undefined;
+      let reportsAtDestroy = -1;
+      modeler.onContentChanged(() => {
+        textAtDestroy = modeler.exportText();
+        reportsAtDestroy = reports.values().length;
+        modeler.destroy();
+      });
+      let later = 0;
+      modeler.onContentChanged(() => (later += 1));
+
+      gesture.drop();
+      expect(svg.isConnected).toBe(true);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(uncaught).toEqual([]);
+      expect(svg.isConnected).toBe(false);
+      expect(later).toBe(0);
+      expect(reports.values()).toHaveLength(reportsAtDestroy);
+      expect(textAtDestroy).toBeDefined();
+      expect(textAtDestroy).not.toBe(BOARD);
+      expect(modeler.exportText()).toBe(textAtDestroy);
+    },
+  );
+
   it("is false on the viewer, through a pan", async () => {
     const viewer = mount(createCollaborativeViewer());
     const reports = reportsOf(viewer);

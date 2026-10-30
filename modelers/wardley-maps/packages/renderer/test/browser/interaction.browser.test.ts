@@ -563,12 +563,78 @@ describe("interaction follows every Wardley gesture", () => {
       });
 
       pressEscape(modeler);
+      // The teardown waits until the key's handler has returned (#380).
+      expect(svg.isConnected).toBe(true);
+      await Promise.resolve();
       expect(svg.isConnected).toBe(false);
       mouse(document, "mouseup", free);
       mouse(document, "click", free);
       await settle();
       expect(errors).toEqual([]);
       expect(current.delivered).toEqual([true, false]);
+    },
+  );
+
+  // A drop runs inside the release's handler, which diagram-js and the renderer's own drags go on
+  // with after the drop's command and after they reported the end (#380).
+  test.each(WARDLEY_GESTURES)(
+    "%s, whose release a listener destroys the modeler at: nothing throws, and no later listener hears of it",
+    async (_, start) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const svg = canvasSvgOf(modeler);
+      const release = await start(modeler);
+      await settle();
+      let textAtDestroy: string | undefined;
+      modeler.interaction.onChange((active) => {
+        if (active) return;
+        textAtDestroy = modeler.exportText();
+        modeler.destroy();
+      });
+      const later: boolean[] = [];
+      modeler.interaction.onChange((active) => later.push(active));
+
+      release();
+      expect(svg.isConnected).toBe(true);
+      await settle();
+      expect(errors).toEqual([]);
+      expect(svg.isConnected).toBe(false);
+      expect(current.delivered).toEqual([true, false]);
+      expect(later).toEqual([]);
+      expect(textAtDestroy).toBeDefined();
+      expect(modeler.exportText()).toBe(textAtDestroy);
+    },
+  );
+
+  // The table's lassos select, and its connects and quick create release over no target.
+  test.each(WARDLEY_GESTURES.filter(([name]) => !/lasso|connect|quick-create/.test(name)))(
+    "%s, whose change at its release a listener destroys the modeler at: nothing throws, and no later listener hears of it",
+    async (_, start) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const svg = canvasSvgOf(modeler);
+      const before = modeler.exportText();
+      const release = await start(modeler);
+      await settle();
+      let textAtDestroy: string | undefined;
+      modeler.onContentChanged(() => {
+        textAtDestroy = modeler.exportText();
+        modeler.destroy();
+      });
+      let later = 0;
+      modeler.onContentChanged(() => (later += 1));
+
+      release();
+      expect(svg.isConnected).toBe(true);
+      await settle();
+      expect(errors).toEqual([]);
+      expect(svg.isConnected).toBe(false);
+      expect(current.changes()).toBe(1);
+      expect(later).toBe(0);
+      expect(current.delivered).toEqual([true]);
+      expect(textAtDestroy).toBeDefined();
+      expect(textAtDestroy).not.toBe(before);
+      expect(modeler.exportText()).toBe(textAtDestroy);
     },
   );
 });
