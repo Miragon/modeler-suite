@@ -141,9 +141,12 @@ missing at its other places; the verdict stays the same).
 - `palette/`: `VcPaletteProvider` (the entries, keyboard creation in the `freeArea`) and, for a host
   without the shell (designIQ, #252), `VcPaletteToolbar` (`role="toolbar"`, the roving tab stop and
   its keys, `aria-pressed` from `tool-manager.update`, `aria-keyshortcuts`, the palette ahead of the
-  `<svg>`) and `VcPaletteTooltip` (diagram-js's `paletteTooltip`, 8px below the palette, guide
-  §5.6); `value-chain.css` lays out `.djs-palette:not([data-chrome="palette"])` after guide §5.5 on
-  the roles and the `--cd-shell-rand`/`-zeile`/`-ziel` measures. The toolbar does nothing where
+  `<svg>`) and `VcPaletteTooltip` (diagram-js's `paletteTooltip`, its own `role="tooltip"` element
+  8px below the palette with the timing, focus, press, Escape and touch rules of guide §5.6; right
+  of the entry for a palette a chrome skins); `value-chain.css` lays out
+  `.vc-container .djs-palette:not([data-chrome="palette"])` after guide §5.5 on the roles and the
+  `--cd-shell-rand`/`-zeile`/`-ziel`/`-frei` measures, in the second row of §5.15 at a container
+  (`value-chain`, inline size) of at most 760px. The toolbar does nothing where
   `modelerShell` is registered or a chrome marks the palette `data-chrome="palette"`, and
   `shellModule` replaces the tooltip, so the shell's palette stays the shell's
   (`test/browser/palette-without-shell.browser.test.ts`, the apps' e2e for the shell's).

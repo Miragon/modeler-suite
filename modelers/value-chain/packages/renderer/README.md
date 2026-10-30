@@ -141,7 +141,9 @@ mounts the `Modeler` without a chrome of its own gets the palette of the Miragon
 
 - a horizontal glass island at the top centre of the container, 12px from its top and 40px high,
   with 32 × 32 entries 2px apart and a 1px line with 8px on either side between the tools and the
-  creating entries; above the context pad and the label editor (`z-index` 110);
+  creating entries; above the context pad and the label editor (`z-index` 110); in a container at
+  most 760px wide in the second row (64px from the top), at most the container less 12px on either
+  side wide and scrolling sideways, with the focus ring inside the entries (§5.15);
 - hover in `--cd-ui-hover` with the icon in `--cd-ui-interaktion`, the armed tool with
   `aria-pressed="true"`, the hover fill and a 2px inset ring, the keyboard focus as a 2px
   `--cd-ui-fokus` ring; in high contrast no shadow, a `--cd-ui-kontur` edge and a 3px focus ring;
@@ -151,12 +153,17 @@ mounts the `Modeler` without a chrome of its own gets the palette of the Miragon
   ← → Home End, Enter or Space to activate an entry (a creating entry places its element in the
   `freeArea`, see above) and `aria-keyshortcuts` on the tools; a press on the island's padding gives
   the focus to the canvas;
-- the tooltip with the entry's name and key 8px below the palette, centred on its entry and 12px
-  from the container's sides (§5.6).
+- the tooltip (`role="tooltip"`) with the entry's name and key 8px below the palette, centred on its
+  entry and 12px from the container's sides: after 300ms of hover, at once on keyboard focus and for
+  a neighbour while one is shown, never for touch, hidden on a press, Escape, leaving and blur
+  (§5.6).
 
-A chrome that skins the palette marks it `data-chrome="palette"`, as `@miragon/modeler-shell` does:
-then the renderer's rules and keys stay off it and the chrome's own apply alone. The tooltip is the
-diagram-js service `paletteTooltip`, which the shell's `shellModule` replaces with its own.
+The rules apply inside the renderer's container (`.vc-container`) only, so another diagram-js
+palette on the same page keeps its own look. A chrome that skins the palette marks it
+`data-chrome="palette"`, as `@miragon/modeler-shell` does: then the renderer's rules and keys stay
+off it and the chrome's own apply alone. The tooltip is the diagram-js service `paletteTooltip`,
+which the shell's `shellModule` replaces with its own; for a palette another chrome skins, it stands
+right of the entry in diagram-js's look, as without this renderer's tooltip.
 
 ## Edit lock
 

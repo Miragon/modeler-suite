@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
@@ -93,6 +93,25 @@ function opaqueSurface(container: HTMLElement): string {
     "background-color",
     "color-mix(in srgb, var(--cd-ui-flaeche-hoch) 100%, transparent)",
   );
+}
+
+/** `rgb(r, g, b)` as its three channels. */
+function rgbOf(color: string): number[] {
+  return (color.match(/\d+/g) ?? []).slice(0, 3).map(Number);
+}
+
+/** The colour on screen at a point of `element`, in px from its top left. */
+async function pixelOf(element: HTMLElement, x: number, y: number): Promise<number[]> {
+  const base64 = await page.screenshot({ element, save: false });
+  const bitmap = await createImageBitmap(
+    await (await fetch(`data:image/png;base64,${base64}`)).blob(),
+  );
+  const scale = bitmap.width / element.getBoundingClientRect().width;
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const context = canvas.getContext("2d")!;
+  context.drawImage(bitmap, 0, 0);
+  const data = context.getImageData(Math.floor(x * scale), Math.floor(y * scale), 1, 1).data;
+  return [data[0]!, data[1]!, data[2]!];
 }
 
 function shapes(modeler: Modeler): VcShape[] {
@@ -213,6 +232,97 @@ describe("the palette without the shell: layout (guide §5.5)", () => {
         resolved(modeler.container, "color", "var(--cd-ui-interaktion)"),
       );
     });
+  });
+
+  it("leaves another diagram-js palette on the same page as diagram-js lays it out", () => {
+    const other = document.createElement("div");
+    other.style.cssText = "position:relative;width:600px;height:400px";
+    other.innerHTML =
+      '<div class="djs-palette open"><div class="djs-palette-entries"><div class="group">' +
+      '<div class="entry"></div></div></div></div>';
+    document.body.append(other);
+    try {
+      const palette = getComputedStyle(other.querySelector(".djs-palette")!);
+      expect([palette.top, palette.left, palette.transform, palette.zIndex]).toEqual([
+        "20px",
+        "20px",
+        "none",
+        "auto",
+      ]);
+      expect(getComputedStyle(other.querySelector(".entry")!).width).not.toBe("32px");
+    } finally {
+      other.remove();
+    }
+  });
+});
+
+describe("the palette without the shell: a container at most 760px wide (guide §5.15)", () => {
+  let modeler: Modeler;
+
+  beforeEach(() => {
+    modeler = mount();
+  });
+
+  function resize(width: number): void {
+    modeler.container.parentElement!.style.width = `${width}px`;
+    modeler.get<Canvas>("canvas").resized();
+  }
+
+  it("stays in the top row above 760px and moves to the second row at 760px", () => {
+    resize(761);
+    expect(boxIn(paletteOf(modeler), modeler.container).top).toBe(12);
+
+    resize(760);
+    const box = boxIn(paletteOf(modeler), modeler.container);
+    expect(box.top).toBe(64);
+    expect(Math.abs(box.left + box.width / 2 - 380)).toBeLessThanOrEqual(0.5);
+    expect(getComputedStyle(paletteOf(modeler)).overflowX).toBe("auto");
+  });
+
+  it("keeps 12px from both sides and scrolls sideways without a bar in a container narrower than it", async () => {
+    resize(200);
+    const palette = paletteOf(modeler);
+    const box = boxIn(palette, modeler.container);
+
+    expect(box.left).toBeCloseTo(12, 0);
+    expect(box.right).toBeCloseTo(188, 0);
+    expect(palette.scrollWidth).toBeGreaterThan(palette.clientWidth);
+    expect(getComputedStyle(palette).scrollbarWidth).toBe("none");
+    expect(box.height).toBe(40);
+
+    entryOf(modeler, "lasso-tool").focus();
+    await userEvent.keyboard("{End}");
+    const last = boxIn(entryOf(modeler, "create.org-unit"), palette);
+    expect(last.right).toBeLessThanOrEqual(palette.clientWidth);
+  });
+
+  it("puts the focus ring inside the entry, 1px inside the armed tool's ring", async () => {
+    resize(600);
+    entryOf(modeler, "lasso-tool").focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(getComputedStyle(entryOf(modeler, "hand-tool")).outlineOffset).toBe("-2px");
+
+    await userEvent.keyboard("{Enter}");
+    expect(entryOf(modeler, "hand-tool").getAttribute("aria-pressed")).toBe("true");
+    expect(getComputedStyle(entryOf(modeler, "hand-tool")).outlineOffset).toBe("-5px");
+
+    modeler.container.setAttribute("data-cd-theme", "light");
+    modeler.container.setAttribute("data-cd-kontrast", "hoch");
+    const pressedStyle = getComputedStyle(entryOf(modeler, "hand-tool"));
+    expect([pressedStyle.outlineWidth, pressedStyle.outlineOffset]).toEqual(["3px", "-6px"]);
+    await userEvent.keyboard("{ArrowLeft}");
+    const style = getComputedStyle(entryOf(modeler, "lasso-tool"));
+    expect([style.outlineWidth, style.outlineOffset]).toEqual(["3px", "-3px"]);
+  });
+
+  it("shows the tooltip 8px below the palette in the second row, at 112px", async () => {
+    resize(600);
+    modeler.container.parentElement!.querySelector("button")!.focus();
+    await userEvent.tab();
+
+    const tooltip = modeler.container.querySelector<HTMLElement>(".djs-hover-tooltip");
+    expect(tooltip).not.toBeNull();
+    expect(boxIn(tooltip!, modeler.container).top).toBeCloseTo(112, 0);
   });
 });
 
@@ -368,6 +478,24 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
     expect(style.outlineColor).toBe(resolved(modeler.container, "color", "var(--cd-ui-fokus)"));
   });
 
+  it("keeps the focus ring visible beside a pressed neighbour, which paints after it", async () => {
+    entryOf(modeler, "hand-tool").focus();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard("{ArrowLeft}");
+    const lasso = entryOf(modeler, "lasso-tool");
+    const hand = entryOf(modeler, "hand-tool");
+    expect(document.activeElement).toBe(lasso);
+    expect(lasso.matches(":focus-visible")).toBe(true);
+    expect(hand.getAttribute("aria-pressed")).toBe("true");
+    const hoverFill = resolved(modeler.container, "background-color", "var(--cd-ui-hover)");
+    await vi.waitFor(() => expect(getComputedStyle(hand).backgroundColor).toBe(hoverFill));
+
+    const palette = paletteOf(modeler);
+    const lassoBox = boxIn(lasso, palette);
+    const ring = await pixelOf(palette, lassoBox.right + 3, lassoBox.top + lassoBox.height / 2);
+    expect(ring).toEqual(rgbOf(resolved(modeler.container, "color", "var(--cd-ui-fokus)")));
+  });
+
   it("drops the shadow, takes the --cd-ui-kontur edge and a 3px focus in high contrast", async () => {
     modeler.container.setAttribute("data-cd-theme", "light");
     modeler.container.setAttribute("data-cd-kontrast", "hoch");
@@ -465,6 +593,69 @@ describe("the palette without the shell: tooltip (guide §5.6)", () => {
     }
     expect(errors).toEqual([]);
   });
+
+  function shownTooltip(): HTMLElement | null {
+    return modeler.container.querySelector<HTMLElement>(".djs-hover-tooltip");
+  }
+
+  function shownName(): string | null | undefined {
+    return shownTooltip()?.querySelector(".djs-palette-tooltip-label")?.textContent;
+  }
+
+  it("shows at once on keyboard focus, follows the arrow keys and is a role=tooltip", async () => {
+    modeler.container.parentElement!.querySelector("button")!.focus();
+    await userEvent.tab();
+
+    expect(shownName()).toBe("Lasso");
+    expect(shownTooltip()!.getAttribute("role")).toBe("tooltip");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(shownName()).toBe("Hand");
+    expect(modeler.container.querySelectorAll(".djs-hover-tooltip")).toHaveLength(1);
+
+    canvasSvg(modeler).focus();
+    expect(shownTooltip()).toBeNull();
+  });
+
+  it("hides on Escape and on a press, and stays hidden while the pointer rests on the entry", async () => {
+    modeler.container.parentElement!.querySelector("button")!.focus();
+    await userEvent.tab();
+    expect(shownName()).toBe("Lasso");
+    await userEvent.keyboard("{Escape}");
+    expect(shownTooltip()).toBeNull();
+    expect(document.activeElement).toBe(entryOf(modeler, "lasso-tool"));
+
+    const { entry } = await hover("hand-tool");
+    await userEvent.click(entry);
+    expect(shownTooltip()).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(shownTooltip()).toBeNull();
+  });
+
+  it("waits 300ms on hover, then shows a neighbour's at once", async () => {
+    await userEvent.hover(canvasSvg(modeler), { position: { x: 500, y: 500 } });
+    await userEvent.hover(entryOf(modeler, "lasso-tool"));
+    expect(shownTooltip()).toBeNull();
+    await vi.waitFor(() => expect(shownName()).toBe("Lasso"));
+
+    await userEvent.hover(entryOf(modeler, "hand-tool"));
+    expect(shownName()).toBe("Hand");
+  });
+
+  it("shows none for touch", async () => {
+    const entry = entryOf(modeler, "hand-tool");
+    entry.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, pointerType: "touch" }));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    expect(shownTooltip()).toBeNull();
+  });
+
+  it("describes no entry whose name and aria-keyshortcuts say what it shows", async () => {
+    modeler.container.parentElement!.querySelector("button")!.focus();
+    await userEvent.tab();
+
+    expect(shownName()).toBe("Lasso");
+    expect(entryOf(modeler, "lasso-tool").hasAttribute("aria-describedby")).toBe(false);
+  });
 });
 
 /** A chrome that skins the palette as the shell does, without importing the shell. */
@@ -503,6 +694,24 @@ describe.each([
     expect(
       palette.compareDocumentPosition(canvasSvg(modeler)) & Node.DOCUMENT_POSITION_PRECEDING,
     ).toBeTruthy();
+
+    const hand = entryOf(modeler, "hand-tool");
+    await userEvent.hover(hand);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const tooltip = modeler.container.querySelector<HTMLElement>(".djs-hover-tooltip");
+    if (asShell) {
+      expect(tooltip).toBeNull();
+    } else {
+      expect(tooltip?.classList.contains("djs-hover-tooltip--right")).toBe(true);
+      const handBox = hand.getBoundingClientRect();
+      const tooltipBox = tooltip!.getBoundingClientRect();
+      expect(tooltipBox.left).toBeCloseTo(handBox.right + 8, 0);
+      expect(tooltipBox.top + tooltipBox.height / 2).toBeCloseTo(
+        handBox.top + handBox.height / 2,
+        0,
+      );
+    }
+    await userEvent.unhover(hand);
 
     const step = entryOf(modeler, "create.step");
     step.tabIndex = 0;
