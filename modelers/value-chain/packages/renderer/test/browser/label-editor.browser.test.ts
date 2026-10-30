@@ -116,8 +116,9 @@ describe("the label editor's focus ring (#359, guide §8)", () => {
     expect(focusRing(textBox)).toMatchObject({ style: "solid", width: "3px", offset: "2px" });
   });
 
-  // Chromium forces every outline to Highlight under forced colours by itself, so these cases
-  // show that the ring survives there, not the stylesheet's own Highlight for other engines.
+  // Unlike Wardley Maps' inline editors, the ring sits on the box around the focused content, and
+  // Chromium does not turn that box's outline Highlight by itself: these cases check the
+  // stylesheet's own forced-colours rule.
   it.each(LABELLED_SHAPES)("stays in forced colours on %s, in Highlight", async (id) => {
     await cdp().send("Emulation.setEmulatedMedia", {
       features: [{ name: "forced-colors", value: "active" }],

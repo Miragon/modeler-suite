@@ -44,7 +44,7 @@ The stylesheet is required. It loads, in this order, the design-system tokens
 (`cd-tokens.generated.css`, in a cascade layer, so a host page's own `--cd-*` tokens win),
 diagram-js' own CSS and `cd-canvas.css`, which maps diagram-js' chrome onto the `--cd-ui-*` roles;
 then it styles the canvas surround (its text colour included), the context pad, the label editor
-(the accent border and, while it has the focus, the 2px `--cd-ui-fokus` ring, 3px in high contrast),
+(its focus ring: 2px `--cd-ui-fokus`, 3px in high contrast, `Highlight` under forced colours),
 the palette and its tooltip where no chrome skins them (see [Palette](#palette)), and the deprecated
 shortcuts dialog, on those roles only. The three design-system files are vendored unchanged from the
 `miragon-brand:modeler-tool-design` skill (design system 1.27.0) into `src/theme/`. The diagram
