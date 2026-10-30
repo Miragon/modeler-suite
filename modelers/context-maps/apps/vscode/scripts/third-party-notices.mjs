@@ -135,7 +135,8 @@ async function bundledPackages() {
       }
     }
   }
-  return [...directories.entries()].sort(([a], [b]) => a.localeCompare(b));
+  // Not localeCompare: the notices would follow the language of the machine that builds them.
+  return [...directories.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 function licenseText(directory) {
