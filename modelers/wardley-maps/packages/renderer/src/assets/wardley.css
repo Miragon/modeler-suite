@@ -491,9 +491,10 @@
 .wardley-container svg:focus:not(:focus-visible) {
   outline: none;
 }
-/* Inline editors show focus through their own accent border. */
-.wardley-container .wardley-label-input:focus-visible {
-  outline: none;
+/* An inline editor is a text field: its accent border plus the focus ring (guide §8). */
+.wardley-container .wardley-label-input:focus {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -852,6 +853,13 @@
   ):focus-visible {
   outline-width: 3px;
 }
+/* The inline editors take the contrast of the nearest mode carrier, as the roles do: the map's
+   container once a host set its appearance (contract 1.5), the page around it before. So a request
+   for normal contrast holds on a high-contrast page. */
+.wardley-container[data-cd-kontrast="hoch"] .wardley-label-input:focus,
+[data-cd-kontrast="hoch"] .wardley-container:not([data-cd-theme]) .wardley-label-input:focus {
+  outline-width: 3px;
+}
 @media (forced-colors: active) {
   :is(.wardley-popover, .wardley-dialog-panel) {
     border-color: CanvasText;
@@ -865,6 +873,9 @@
     .wardley-popover-link,
     .wardley-dialog-close
   ):focus-visible {
+    outline-color: Highlight;
+  }
+  .wardley-container .wardley-label-input:focus {
     outline-color: Highlight;
   }
 }
