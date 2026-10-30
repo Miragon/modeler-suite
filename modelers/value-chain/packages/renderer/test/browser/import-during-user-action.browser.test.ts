@@ -651,6 +651,83 @@ describe("an import from the selection listener at a drag's start runs once diag
   });
 });
 
+describe("a destroy from a listener at a drag's start throws nothing, and nothing runs on the modeler afterwards (#346)", () => {
+  /** Each starts with a step selected, which diagram-js deselects as it activates the drag. */
+  const starts = [
+    {
+      what: "a press on another step, moved past the drag threshold",
+      activate: () => {
+        const start = pointer.centreOf("step-order");
+        pointer.press(pointer.graphics("step-order"), start);
+        pointer.moveTo({ x: start.x + 60, y: start.y });
+      },
+    },
+    {
+      what: "a click on the palette's Step",
+      activate: () => void pointer.pickFromPalette("create.step"),
+    },
+  ];
+
+  /**
+   * Read before the destroy, which a later read of a service would undo with a fresh diagram: once
+   * the input's handler has returned, the modeler is destroyed, no error reached the window, the
+   * drag and the canvas are gone, the release changes nothing, and the modeler keeps its text.
+   */
+  function destroyedCleanly(): () => Promise<void> {
+    const dragging = service<Dragging>("dragging");
+    const svg = pointer.canvasSvg();
+    const release = pointer.event("mouseup", FREE_SPOT);
+    const before = editor().exportText();
+    return async () => {
+      await nextTask();
+      expect(errors).toEqual([]);
+      expect(dragging.context()).toBeNull();
+      expect(svg.isConnected).toBe(false);
+      document.dispatchEvent(release);
+      await nextTask();
+      expect(errors).toEqual([]);
+      expect(changes).toBe(0);
+      expect(editor().interaction.active()).toBe(false);
+      expect(editor().exportText()).toBe(before);
+    };
+  }
+
+  it.each(starts)(
+    "$what, from the selection listener: the listener hears nothing more",
+    async ({ activate }) => {
+      editor().elements.reveal("step-credit");
+      const expectDestroyedCleanly = destroyedCleanly();
+      const heard: string[][] = [];
+      const delivered: boolean[] = [];
+      editor().interaction.onChange((active) => delivered.push(active));
+      editor().elements.onSelection((ids) => {
+        heard.push(ids);
+        editor().destroy();
+      });
+
+      activate();
+      expect(heard).toEqual([[]]);
+      await expectDestroyedCleanly();
+      expect(heard).toEqual([[]]);
+      expect(delivered).toEqual([]);
+    },
+  );
+
+  it.each(starts)(
+    "$what, from the interaction listener: no later listener hears of it",
+    async ({ activate }) => {
+      const expectDestroyedCleanly = destroyedCleanly();
+      const later: boolean[] = [];
+      editor().interaction.onChange(() => editor().destroy());
+      editor().interaction.onChange((active) => later.push(active));
+
+      activate();
+      await expectDestroyedCleanly();
+      expect(later).toEqual([]);
+    },
+  );
+});
+
 describe("importDocument keeps the order of the calls before it", () => {
   /** A host's own command, such as a rename from its UI: the hold cannot tell it from the user's. */
   function hostCommand(): void {

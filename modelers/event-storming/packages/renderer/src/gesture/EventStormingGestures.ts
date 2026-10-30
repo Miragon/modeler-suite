@@ -67,6 +67,8 @@ export default class EventStormingGestures {
   private startRefused = false;
   private activatingDrag: DragContext | null = null;
   private activationEndAsked = false;
+  /** From a drag's `drag.start` until the handler that activated the drag has returned. */
+  private handlerActivatesDrag = false;
 
   constructor(
     eventBus: EventBus,
@@ -112,7 +114,10 @@ export default class EventStormingGestures {
 
     // diagram-js clears the selection while it activates a drag, then reads the drag's context
     // again: a drag ended from a selection listener there makes `Dragging.move` throw.
-    eventBus.on("drag.start", FIRST, () => this.holdActivation());
+    eventBus.on("drag.start", FIRST, () => {
+      this.holdActivation();
+      this.noteDragActivation();
+    });
 
     eventBus.on("drag.end", FIRST, () => {
       const dropping = this.dragContext();
@@ -182,6 +187,20 @@ export default class EventStormingGestures {
     if (this.activatingDrag) this.activationEndAsked = true;
   }
 
+  /**
+   * Runs `teardown` (the modeler's destroy) at once, or, while diagram-js activates a drag, once
+   * the handler that activates it has returned. diagram-js cancels a running drag on destroy, and
+   * between the drag's start and its first move it clears the selection and then reads the drag's
+   * context again: a destroy from a selection listener there made `Dragging.move` throw `Cannot
+   * read properties of null (reading 'cursor')` (#346). The first move, whose interaction listener
+   * may destroy as well, and the rest of the handler (a palette entry's, a context pad entry's)
+   * still run on the live board, which the teardown then takes down with the drag.
+   */
+  tearDownAfterActivation(teardown: () => void): void {
+    if (this.handlerActivatesDrag) queueMicrotask(teardown);
+    else teardown();
+  }
+
   /** Whether `context` is the drag whose drop runs right now. */
   isDropping(context: unknown): boolean {
     return context !== null && context === this.droppingDrag;
@@ -217,6 +236,15 @@ export default class EventStormingGestures {
       // diagram-js has ended already, so only the activation is left to forget.
       if (this.activatingDrag === activating) this.finishActivation();
       release();
+    });
+  }
+
+  /** diagram-js activates a drag inside the handler of the user's input, which a microtask follows. */
+  private noteDragActivation(): void {
+    if (this.handlerActivatesDrag) return;
+    this.handlerActivatesDrag = true;
+    queueMicrotask(() => {
+      this.handlerActivatesDrag = false;
     });
   }
 

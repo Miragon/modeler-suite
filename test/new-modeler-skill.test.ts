@@ -932,6 +932,7 @@ const NON_API_NAMES = new Map<string, string>([
   ["canvas.viewbox.changed", "diagram-js"],
   ["deferUpdate", "diagram-js, the canvas option that debounces canvas.viewbox.changed"],
   ["holdAction", "the template renderer's gestures service"],
+  ["tearDownAfterActivation", "the template renderer's gestures service"],
   ["THEMES", "the template renderer's themes constant"],
   ["import.parse.start", "the import events a diagram-js renderer fires (bpmn-js's names)"],
   ["import.render.start", "the import events a diagram-js renderer fires (bpmn-js's names)"],

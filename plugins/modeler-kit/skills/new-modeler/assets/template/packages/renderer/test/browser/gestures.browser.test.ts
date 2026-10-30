@@ -887,3 +887,71 @@ describe('interaction (contract 1.5)', () => {
     viewer.destroy();
   });
 });
+
+describe("a destroy from a listener at a drag's start throws nothing, and nothing reaches the host afterwards (#346)", () => {
+  /** The input that makes diagram-js activate the drag, and with it clear the selection. */
+  const activations = [
+    {
+      what: 'a press on a node, moved past the drag threshold',
+      activate: () => {
+        const start = centreOf('order');
+        press(graphics('order'), start);
+        moveTo({ x: start.x + 40, y: start.y + 80 });
+      },
+    },
+    { what: "a click on the palette's node", activate: () => void clickPalette('create.node') },
+  ];
+
+  /**
+   * Read before the destroy, since reading a service afterwards would build a fresh diagram: once
+   * the input's handler has returned, the modeler is destroyed, no error reached the window, the
+   * drag and the canvas are gone, the release changes nothing, and the modeler keeps its text.
+   */
+  function destroyedCleanly(): () => Promise<void> {
+    const dragging = service<Dragging>('dragging');
+    const svg = canvasSvg();
+    const releaseEvent = pointer('mouseup', FREE_SPOT);
+    const before = modeler.exportText();
+    return async () => {
+      await nextTask();
+      expect(errors).toEqual([]);
+      expect(dragging.context()).toBeNull();
+      expect(svg.isConnected).toBe(false);
+      document.dispatchEvent(releaseEvent);
+      await nextTask();
+      expect(errors).toEqual([]);
+      expect(changes).toBe(0);
+      expect(modeler.interaction.active()).toBe(false);
+      expect(modeler.exportText()).toBe(before);
+    };
+  }
+
+  for (const { what, activate } of activations) {
+    it(`${what}, from the selection listener: the listener hears nothing more`, async () => {
+      service<Selection>('selection').select(node('pay'));
+      const expectDestroyedCleanly = destroyedCleanly();
+      const calls = recordInteraction();
+      const heard: string[][] = [];
+      modeler.elements.onSelection((ids) => {
+        heard.push(ids);
+        modeler.destroy();
+      });
+
+      activate();
+      expect(heard).toEqual([[]]);
+      await expectDestroyedCleanly();
+      expect(heard).toEqual([[]]);
+      expect(calls).toEqual([]);
+    });
+
+    it(`${what}, from the interaction listener: no later listener hears of it`, async () => {
+      const expectDestroyedCleanly = destroyedCleanly();
+      modeler.interaction.onChange(() => modeler.destroy());
+      const later = recordInteraction();
+
+      activate();
+      await expectDestroyedCleanly();
+      expect(later).toEqual([]);
+    });
+  }
+});

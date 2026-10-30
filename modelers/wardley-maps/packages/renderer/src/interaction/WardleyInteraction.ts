@@ -55,6 +55,8 @@ export default class WardleyInteraction {
   private dropsRunning = 0;
   private settling: ReturnType<typeof setTimeout> | undefined;
   private handlerRunning = false;
+  /** From a drag's `drag.start` until the handler that activated the drag has returned. */
+  private handlerActivatesDrag = false;
   private readonly waiting: Array<() => void> = [];
 
   constructor(
@@ -110,6 +112,21 @@ export default class WardleyInteraction {
     return new Promise((resolve) => this.waiting.push(resolve));
   }
 
+  /**
+   * Runs `teardown` (the modeler's destroy) at once, or, while diagram-js activates a drag, once
+   * the handler that activates it has returned. diagram-js cancels a running drag on destroy, and
+   * between the drag's start and its first move it clears the selection and then reads the drag's
+   * context again: a destroy from a selection listener there made `Dragging.move` throw `Cannot
+   * read properties of null (reading 'cursor')` (#346). The first move, whose interaction listener
+   * may destroy as well, and the rest of the handler (the palette's, which focuses the canvas after
+   * it started a create) still run on the live map, which the teardown then takes down with the
+   * drag.
+   */
+  tearDownAfterActivation(teardown: () => void): void {
+    if (this.handlerActivatesDrag) queueMicrotask(teardown);
+    else teardown();
+  }
+
   private actionRunning(): boolean {
     return this.dropsRunning > 0 || this.settling !== undefined || this.handlerRunning;
   }
@@ -120,7 +137,10 @@ export default class WardleyInteraction {
     let ending: DragContext = null;
     // diagram-js's Dragging.move fires the start, then clears the selection, then reads the drag's
     // context again, which a cancel from a selection listener would have emptied.
-    this.eventBus.on("drag.start", ACTION_MARK_PRIORITY, () => this.handlerRuns());
+    this.eventBus.on("drag.start", ACTION_MARK_PRIORITY, () => {
+      this.handlerRuns();
+      this.dragActivationRuns();
+    });
     // diagram-js fires the first move right after a start, also the start of a create that it
     // activates at once, and never after a start a listener refused.
     this.eventBus.on("drag.move", ACTION_MARK_PRIORITY, () => {
@@ -157,6 +177,15 @@ export default class WardleyInteraction {
     // After the cleanup, once diagram-js has let go of the drag: a listener that imports from here
     // finds no drag left to cancel.
     this.eventBus.on(["drag.ended", "drag.canceled"], ACTION_MARK_PRIORITY, ended);
+  }
+
+  // diagram-js activates a drag inside the handler of the user's input, which a microtask follows.
+  private dragActivationRuns(): void {
+    if (this.handlerActivatesDrag) return;
+    this.handlerActivatesDrag = true;
+    queueMicrotask(() => {
+      this.handlerActivatesDrag = false;
+    });
   }
 
   private dropStarts(): void {

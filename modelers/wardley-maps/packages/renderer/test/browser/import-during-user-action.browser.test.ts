@@ -873,6 +873,73 @@ describe("an import from the selection listener at a drag's start (#336)", () =>
   );
 });
 
+/** The drag the table names `what`. */
+function dragNamed(what: string): (current: Session) => Promise<DragSteps> {
+  const found = DRAGS_THAT_CLEAR_THE_SELECTION.find(([name]) => name === what);
+  if (!found) throw new Error(`no drag ${what}`);
+  return found[1];
+}
+
+/**
+ * Once the input's handler has returned, the modeler is destroyed: no error reached the window, the
+ * drag and the canvas are gone, the release changes nothing, and the modeler keeps its text.
+ */
+async function expectDestroyedCleanly(
+  current: Session,
+  dragging: Dragging,
+  steps: DragSteps,
+): Promise<void> {
+  await nextTask();
+  expect(current.errors).toEqual([]);
+  expect(dragging.context()).toBeNull();
+  expect(current.svg.isConnected).toBe(false);
+  steps.release();
+  await nextTask();
+  expect(current.errors).toEqual([]);
+  expect(current.changes()).toBe(0);
+  expect(current.modeler.interaction.active()).toBe(false);
+  expect(current.modeler.exportText()).toBe(DRAG_MAP);
+}
+
+describe("a destroy from a listener at a drag's start throws nothing, and nothing reaches the host afterwards (#346)", () => {
+  test.each(DRAGS_THAT_CLEAR_THE_SELECTION)(
+    "%s, from the selection listener: the listener hears nothing more",
+    async (_, start) => {
+      const current = await session(DRAG_MAP);
+      const dragging = current.diagram.get<Dragging>("dragging");
+      const steps = await start(current);
+      const heard: string[][] = [];
+      current.modeler.elements.onSelection((ids) => {
+        heard.push(ids);
+        current.modeler.destroy();
+      });
+
+      steps.activate();
+      expect(heard).toEqual([[]]);
+      await expectDestroyedCleanly(current, dragging, steps);
+      expect(heard).toEqual([[]]);
+      expect(current.delivered).toEqual([]);
+    },
+  );
+
+  test.each([
+    "a move of a component past the drag threshold",
+    "a create from the palette, which a pointer click activates at once",
+  ])("%s, from the interaction listener: no later listener hears of it", async (what) => {
+    const current = await session(DRAG_MAP);
+    const dragging = current.diagram.get<Dragging>("dragging");
+    const steps = await dragNamed(what)(current);
+    const later: boolean[] = [];
+    current.modeler.interaction.onChange(() => current.modeler.destroy());
+    current.modeler.interaction.onChange((active) => later.push(active));
+
+    steps.activate();
+    await expectDestroyedCleanly(current, dragging, steps);
+    expect(current.delivered).toEqual([true]);
+    expect(later).toEqual([]);
+  });
+});
+
 describe("waiting imports", () => {
   test("an import called in the task of a command waits until that task has returned", async () => {
     const current = await session();

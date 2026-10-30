@@ -67,6 +67,8 @@ export default class VcGestures {
 
   private dropping: DragContext | null = null;
   private activating: DragContext | null = null;
+  /** From a drag's `drag.start` until the handler that activated the drag has returned. */
+  private handlerActivatesDrag = false;
   private gesture: DragContext | null = null;
   private commandRunning = false;
   private runningHeldWork = false;
@@ -81,9 +83,9 @@ export default class VcGestures {
     private readonly canvas: Canvas,
   ) {
     // diagram-js fires the first move of a drag right after it has activated the drag, and only
-    // then: a start that a listener refuses never shows as a gesture. A host that destroys the
-    // modeler from its interaction listener ends the drag there, and diagram-js would go on moving
-    // it on a torn-down canvas.
+    // then: a start that a listener refuses never shows as a gesture. A host that clears the
+    // diagram from its interaction listener ends the drag there, and diagram-js would go on moving
+    // it on a cleared canvas; a destroy there waits for the handler (`tearDownAfterActivation`).
     eventBus.on("drag.move", FIRST, () => {
       this.activating = null;
       const drag = this.context();
@@ -96,6 +98,7 @@ export default class VcGestures {
     // in between has taken away (`Cannot read properties of null (reading 'cursor')`, #336).
     eventBus.on("drag.start", FIRST, () => {
       this.activating = this.context();
+      this.noteDragActivation();
     });
     eventBus.on("drag.end", FIRST, () => {
       this.dropping = this.context();
@@ -177,6 +180,20 @@ export default class VcGestures {
   }
 
   /**
+   * Runs `teardown` (the modeler's destroy) at once, or, while diagram-js activates a drag, once
+   * the handler that activates it has returned. diagram-js cancels a running drag on destroy, and
+   * between the drag's start and its first move it empties the selection and then reads the drag's
+   * context again: a destroy from a selection listener there made `Dragging.move` throw `Cannot
+   * read properties of null (reading 'cursor')` (#346). The first move, whose interaction listener
+   * may destroy as well, and the rest of the handler (a palette entry's, a context pad entry's)
+   * still run on the live diagram, which the teardown then takes down with the drag.
+   */
+  tearDownAfterActivation(teardown: () => void): void {
+    if (this.handlerActivatesDrag) queueMicrotask(teardown);
+    else teardown();
+  }
+
+  /**
    * Ends a running gesture the way Escape does, without bringing back a selection of the shapes the
    * import removes. A palette tool that only waits for its next press stays armed, and a pan keeps
    * running where the user's pointer takes it. A drop that is being applied right now is left to
@@ -222,6 +239,15 @@ export default class VcGestures {
   /** A start that a listener refuses ends the drag before any move, so it ends the activation too. */
   private isActivating(): boolean {
     return this.activating !== null && this.context() === this.activating;
+  }
+
+  /** diagram-js activates a drag inside the handler of the user's input, which a microtask follows. */
+  private noteDragActivation(): void {
+    if (this.handlerActivatesDrag) return;
+    this.handlerActivatesDrag = true;
+    queueMicrotask(() => {
+      this.handlerActivatesDrag = false;
+    });
   }
 
   private noteCommand(): void {

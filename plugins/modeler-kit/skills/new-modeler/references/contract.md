@@ -148,6 +148,14 @@ gets its kit case in a later release (template:
   apart by its drag context). Called from a selection listener at a drag's start, it still ends the
   drag inside `Dragging.move`, which then throws on the cursor, so a host imports there through the
   contract's `importText`, which waits.
+  - A host may destroy the modeler from the same listeners. diagram-js cancels a running drag on
+    destroy, so a `destroy()` from the selection listener at a drag's start had `Dragging.move`
+    read the cancelled drag and throw on the cursor. The template's `destroy()` ends every
+    delivery at once and tears the diagram down once the handler that activated the drag has
+    returned (`tearDownAfterActivation`, from `drag.start` until a microtask later): the first move
+    and the rest of the handler (the palette's) run on the live diagram, also when the interaction
+    listener of that first move destroys. `elements.onSelection` delivers nothing after
+    `destroy()`, so the selection the cancelled drag brings back reaches no host.
   - After a keyboard create, the import takes the label editor down and reopens it on the element
     with the same id. An edit the first of several waiting imports takes down stays suspended
     through the next; a render that fails reopens it as well, so no later import brings back an

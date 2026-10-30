@@ -848,3 +848,64 @@ describe("an import from the selection listener at a drag's start runs once diag
     expect(service<Dragging>(running, "dragging").context()).toBeFalsy();
   });
 });
+
+/**
+ * Read before the destroy, since a service read afterwards would build a fresh diagram: once the
+ * input's handler has returned, the modeler is destroyed, no error reached the window, the drag
+ * and the canvas are gone, the release changes nothing, and the modeler keeps its text.
+ */
+function destroyedCleanly(running: Stage): () => Promise<void> {
+  const dragging = service<Dragging>(running, "dragging");
+  const canvas = svg(running);
+  const release = clientPoint(running, FREE_SPOT);
+  const before = running.modeler.exportText();
+  return async () => {
+    await nextTasks(1);
+    expect(running.errors).toEqual([]);
+    expect(dragging.context()).toBeFalsy();
+    expect(canvas.isConnected).toBe(false);
+    pointer(document, "mouseup", release);
+    await nextTasks(1);
+    expect(running.errors).toEqual([]);
+    expect(running.changes()).toBe(0);
+    expect(running.modeler.interaction.active()).toBe(false);
+    expect(running.modeler.exportText()).toBe(before);
+  };
+}
+
+describe("a destroy from a listener at a drag's start throws nothing, and nothing reaches the host afterwards (#346)", () => {
+  test.each(DRAG_STARTS_WHILE_A_IS_SELECTED)(
+    "$what, from the selection listener: the listener hears nothing more",
+    async ({ start }) => {
+      const running = await stage();
+      select(running, "a");
+      const expectDestroyedCleanly = destroyedCleanly(running);
+      const reported = interactionChanges(running);
+      const heard: string[][] = [];
+      running.modeler.elements.onSelection((ids) => {
+        heard.push(ids);
+        running.modeler.destroy();
+      });
+
+      start(running);
+      expect(heard).toEqual([[]]);
+      await expectDestroyedCleanly();
+      expect(heard).toEqual([[]]);
+      expect(reported).toEqual([]);
+    },
+  );
+
+  test.each(DRAG_STARTS_WHILE_A_IS_SELECTED)(
+    "$what, from the interaction listener: no later listener hears of it",
+    async ({ start }) => {
+      const running = await stage();
+      const expectDestroyedCleanly = destroyedCleanly(running);
+      running.modeler.interaction.onChange(() => running.modeler.destroy());
+      const later = interactionChanges(running);
+
+      start(running);
+      await expectDestroyedCleanly();
+      expect(later).toEqual([]);
+    },
+  );
+});
