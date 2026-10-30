@@ -7,8 +7,10 @@ import {
   FakeResizeObserver,
   cleanup,
   click,
+  documentKeyups,
   installFakes,
   keydown,
+  keyup,
   pointer,
   setBox,
 } from "../../test/support/dom.js";
@@ -115,6 +117,21 @@ describe("openShellDialog (guide §8)", () => {
     element.close();
     await closeEvent();
     expect(container.querySelector("dialog")).toBeNull();
+  });
+
+  it("keeps the keyup of the Escape that closes it from document, where diagram-js's dragging would put down an armed tool (#482)", async () => {
+    const { element, opener } = setup();
+    const keyups = documentKeyups();
+
+    keydown(closeButton(element), { key: "Escape" });
+    element.close();
+    await closeEvent();
+    keyup(opener, { key: "Escape" });
+    keydown(opener, { key: "Escape" });
+    keyup(opener, { key: "Escape" });
+    keyups.dispose();
+
+    expect(keyups.seen).toEqual(["Escape"]);
   });
 
   it("hands the focus to the fallback when the element that had it is gone", () => {

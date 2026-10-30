@@ -1,6 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { cleanup, fakeZoomTarget, installFakes, keydown, mount } from "../../test/support/dom.js";
+import type { ShellHost } from "../core/index.js";
+import {
+  cleanup,
+  documentKeyups,
+  fakeZoomTarget,
+  installFakes,
+  keydown,
+  keyup,
+  mount,
+} from "../../test/support/dom.js";
 
 beforeEach(installFakes);
 afterEach(cleanup);
@@ -230,5 +239,71 @@ describe("dialogs a modeler hides through CSS", () => {
     dialog.style.display = "none";
     keydown(document.body, { key: "=", code: "Equal", metaKey: true });
     expect(target.calls).toEqual(["step:1"]);
+  });
+});
+
+describe("the keyup of an Escape that closed the menu (#482)", () => {
+  const MENU = {
+    export: [{ kind: "action" as const, id: "png", label: "Export as PNG", onSelect() {} }],
+  };
+
+  it.each<ShellHost>(["ide", "web", "embedded"])(
+    "%s: stops before document, where diagram-js's dragging would put down an armed tool",
+    (host) => {
+      const { shell } = mount({ host, menu: MENU });
+      shell.menu.open();
+      const keyups = documentKeyups();
+
+      keydown(document.activeElement!, { key: "Escape", code: "Escape" });
+      expect(shell.menu.isOpen()).toBe(false);
+      keyup(document.activeElement!, { key: "Escape", code: "Escape" });
+
+      keydown(document.activeElement!, { key: "Escape", code: "Escape" });
+      keyup(document.activeElement!, { key: "Escape", code: "Escape" });
+      keyups.dispose();
+      expect(keyups.seen).toEqual(["Escape"]);
+    },
+  );
+
+  it("lets the keyups of other keys through and waits through the repeats of a held Escape", () => {
+    const { shell } = mount({ menu: MENU });
+    shell.menu.open();
+    const keyups = documentKeyups();
+
+    keydown(document.activeElement!, { key: "Escape", code: "Escape" });
+    keyup(document.activeElement!, { key: "Shift", code: "ShiftLeft" });
+    keydown(document.activeElement!, { key: "Escape", code: "Escape", repeat: true });
+    keyup(document.activeElement!, { key: "Escape", code: "Escape" });
+    keyups.dispose();
+
+    expect(keyups.seen).toEqual(["Shift"]);
+  });
+
+  it("lets the keyup of the next Escape through when the first one's went elsewhere", () => {
+    const { shell } = mount({ menu: MENU });
+    shell.menu.open();
+    const keyups = documentKeyups();
+
+    keydown(document.activeElement!, { key: "Escape", code: "Escape" });
+    keydown(document.activeElement!, { key: "Escape", code: "Escape" });
+    keyup(document.activeElement!, { key: "Escape", code: "Escape" });
+    keyups.dispose();
+
+    expect(keyups.seen).toEqual(["Escape"]);
+  });
+
+  it("lets the keyup of an Escape through that closed nothing, and one the IME composed", () => {
+    const { shell } = mount({ menu: MENU });
+    const keyups = documentKeyups();
+
+    keydown(shell.menu.trigger, { key: "Escape", code: "Escape" });
+    keyup(shell.menu.trigger, { key: "Escape", code: "Escape" });
+    shell.menu.open();
+    keydown(document.activeElement!, { key: "Escape", code: "Escape", isComposing: true });
+    keyup(document.activeElement!, { key: "Escape", code: "Escape" });
+    keyups.dispose();
+
+    expect(shell.menu.isOpen()).toBe(true);
+    expect(keyups.seen).toEqual(["Escape", "Escape"]);
   });
 });

@@ -2,6 +2,7 @@ import { defaultMessages } from "../core/index.js";
 import { centreOverContainer } from "./dialog-centre.js";
 import { createElement } from "./element.js";
 import { iconElement } from "./icons.js";
+import { stopEscapeKeyup } from "./keys.js";
 
 export interface ShellDialogOptions {
   /**
@@ -236,6 +237,11 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
     if (ownerDocument.activeElement === target) event.preventDefault();
   }
 
+  function onKeydown(event: KeyboardEvent): void {
+    if (event.key === "Escape" && dialog.open) stopEscapeKeyup(ownerDocument);
+    else onTab(event);
+  }
+
   let pressedOnBackdrop = false;
   const onPointerDown = (event: PointerEvent): void => {
     pressedOnBackdrop = event.target === dialog && outside(dialog, event);
@@ -250,7 +256,7 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
   function finish(restoreFocus: boolean): void {
     if (finished) return;
     finished = true;
-    ownerDocument.removeEventListener("keydown", onTab);
+    ownerDocument.removeEventListener("keydown", onKeydown);
     stopCentring?.();
     resizeObserver?.disconnect();
     if (dialog.open) dialog.close();
@@ -273,7 +279,7 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
     throw error;
   }
   stopCentring = centreOverContainer(dialog, container);
-  ownerDocument.addEventListener("keydown", onTab);
+  ownerDocument.addEventListener("keydown", onKeydown);
   resizeObserver?.observe(body);
   updateScrollStop();
 

@@ -173,6 +173,23 @@ export function keydown(target: EventTarget, init: KeyboardEventInit): KeyboardE
   return event;
 }
 
+export function keyup(target: EventTarget, init: KeyboardEventInit): KeyboardEvent {
+  const event = new KeyboardEvent("keyup", { bubbles: true, cancelable: true, ...init });
+  target.dispatchEvent(event);
+  return event;
+}
+
+/**
+ * The keys of the `keyup`s that reach a listener on `document` in the bubble phase, where
+ * diagram-js's dragging cancels a waiting drag on Escape.
+ */
+export function documentKeyups(): { seen: string[]; dispose(): void } {
+  const seen: string[] = [];
+  const listener = (event: KeyboardEvent) => seen.push(event.key);
+  document.addEventListener("keyup", listener);
+  return { seen, dispose: () => document.removeEventListener("keyup", listener) };
+}
+
 export function pointer(
   target: EventTarget,
   type: string,

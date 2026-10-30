@@ -266,8 +266,14 @@
     box-shadow: inset 0 0 0 2px Highlight;
   }
 
-  .djs-palette[data-chrome="palette"] .entry[aria-disabled="true"] {
+  /* Chromium keeps a system colour the stylesheet sets and forces the muted role to CanvasText. */
+  .djs-palette[data-chrome="palette"] .entry[aria-disabled="true"],
+  .djs-palette[data-chrome="palette"] .entry[aria-disabled="true"]:hover {
     color: GrayText;
+  }
+
+  .djs-palette[data-chrome="palette"] .entry.highlighted-entry[aria-disabled="true"] {
+    color: GrayText !important;
   }
 }
 

@@ -42,6 +42,30 @@ export function isModalOpen(scope: ParentNode): boolean {
   return openDialogs(scope).some(isModal);
 }
 
+/**
+ * Keeps the `keyup` of an Escape whose `keydown` closed a layer of the chrome (the menu, a popover,
+ * a dialog) from the page: diagram-js's dragging cancels the drag a tool armed from the palette
+ * waits with on any Escape `keyup` on the document, whatever its target (guide §5.4). The next
+ * press of Escape lets its own `keyup` through, in case the window lost the focus before this
+ * press was released.
+ */
+export function stopEscapeKeyup(ownerDocument: Document): void {
+  const onKeyup = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    release();
+  };
+  const onKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape" && !event.repeat) release();
+  };
+  function release(): void {
+    ownerDocument.removeEventListener("keyup", onKeyup, true);
+    ownerDocument.removeEventListener("keydown", onKeydown, true);
+  }
+  ownerDocument.addEventListener("keyup", onKeyup, true);
+  ownerDocument.addEventListener("keydown", onKeydown, true);
+}
+
 /** The shell's one `keydown` listener (bubble phase): applies `decideKey` (guide §5.8, §13.5). */
 export function createKeyListener(context: KeyListenerContext): (event: KeyboardEvent) => void {
   return (event) => {

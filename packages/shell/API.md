@@ -368,6 +368,10 @@ it. `stopPropagation` is only ever `true` in the `ide` host.
 | everything else                                           | —           | no             | no                      |
 
 - "No modifier" means no Meta, Ctrl, Alt or Shift. During IME composition Escape belongs to the IME.
+- An Escape that closes the menu, the problems popover or a dialog of `openShellDialog` is the
+  chrome's (§5.4), its `keyup` too: the shell stops that `keyup` in the capture phase on `document`,
+  since diagram-js's `Dragging` puts down a tool armed from the palette on any Escape `keyup` there.
+  The next press of Escape reaches the page as before.
 - A text field (§5.8: every input field, select list and editable text) is what `isTextField`
   says: a target that matches `TEXT_FIELD_SELECTOR` or sits inside a match, is
   `isContentEditable`, edits through an `EditContext` (`editContext` is set, as in Chromium's
@@ -4047,8 +4051,9 @@ renderer's paper (Event Storming's dot grid) shows. The paper's colour stays `--
 every mode, the dot grid being a background image in `--cd-ui-linie` (§10.1); the kit's `appearance`
 case checks the painted colour. Palette tool entries set their colour in every
 state (rest and pressed `--cd-ui-text`, hovered `--cd-ui-interaktion`, read-only
-`--cd-ui-text-leise`), and their icons (`> svg`, `::before`) inherit it, so a renderer's or
-diagram-js's rule on the icon or on the stale `highlighted-entry` does not leak in; notation
+`--cd-ui-text-leise`, under forced colours `GrayText`, hovered too), and their icons (`> svg`,
+`::before`) inherit it, so a renderer's or diagram-js's rule on the icon or on the stale
+`highlighted-entry` does not leak in; notation
 previews keep their own colours (§5.5). Private helper properties are named `--modeler-shell-*`.
 
 It is assembled from `dom/shell-dom.css` (0.1 chrome), `dom/buttons.css` (0.2: the buttons of the

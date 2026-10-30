@@ -26,7 +26,7 @@ import { createProblemsPopover, type ProblemsPopover } from "./feedback/problems
 import { createToaster } from "./feedback/toasts.js";
 import { createEmptyHint } from "./hint.js";
 import { createInspector } from "./inspector.js";
-import { createKeyListener, isModalOpen } from "./keys.js";
+import { createKeyListener, isModalOpen, stopEscapeKeyup } from "./keys.js";
 import { Ledger } from "./ledger.js";
 import { createLegend } from "./legend.js";
 import { createMenu, type MenuGroupName } from "./menu.js";
@@ -609,6 +609,7 @@ function renderShell(
     closeMenu() {
       const active = ownerDocument.activeElement;
       menu.close({ restoreFocus: active === menu.trigger || menu.dropdown.contains(active) });
+      stopEscapeKeyup(ownerDocument);
     },
     hideTooltip: () => tooltip.hide(),
     // Behind the start screen the keys reach the browser instead: there is no diagram to zoom.
