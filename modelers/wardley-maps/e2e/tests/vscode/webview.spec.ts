@@ -3,6 +3,7 @@ import { ICONS, type ShellIconName } from "@miragon/modeler-shell";
 import { EMPTY_MAP, EXAMPLE_MAP, withExampleInserted } from "../../../apps/vscode/src/examples.js";
 import { FIT_TOLERANCE, LONG_NAME_DRAWING, LONG_NAME_MAP, overhang } from "../support/fit.js";
 import { PAPER_BACKGROUND, PLOT_BACKGROUND, cornerPixel } from "../support/png.js";
+import { contrast, drawnRightOf, focusChosenColour, ringsOf } from "../support/colour-picker.js";
 import { recordSvgImages, recordedSvgImages } from "../support/svg-images.js";
 import { embeddedGeistFaces, geistFace, type GeistStyle } from "./support/geist.js";
 import {
@@ -573,6 +574,26 @@ test.describe("VS Code webview: canvas", () => {
         canvas: GRUND,
         dark: false,
       });
+    });
+  }
+
+  // Guide §5.5 and §5.14: the shell's ring for a button of its document lay the focus on the chosen
+  // colour's ring, the same Highlight there in forced colours, so the focus did not show (#497).
+  for (const forcedColors of ["none", "active"] as const) {
+    test(`the focus on the chosen colour stands 1px outside its ring (forced colours: ${forcedColors})`, async ({
+      page,
+    }) => {
+      await openWebview(page);
+      await page.emulateMedia({ forcedColors });
+      const chosen = await focusChosenColour(page);
+
+      const rings = await ringsOf(chosen);
+      expect(rings.focusOffset).toBe(rings.stateRingReach + 1);
+      const focusRing = rings.focusOffset + rings.focusWidth / 2;
+      const focused = await drawnRightOf(page, chosen, focusRing);
+      await chosen.evaluate((element) => (element as HTMLElement).blur());
+      const unfocused = await drawnRightOf(page, chosen, focusRing);
+      expect(contrast(focused, unfocused)).toBeGreaterThanOrEqual(3);
     });
   }
 

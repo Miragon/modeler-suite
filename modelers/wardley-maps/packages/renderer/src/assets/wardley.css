@@ -579,8 +579,9 @@
 }
 /* The chosen colour's ring lies 2 to 4px outside its swatch, where the focus ring would lie too,
    in nearly the same blue: the focus stands 1px outside that ring, as guide §5.5 keeps the armed
-   tool's ring and focus apart, at every ring width. */
-:where(.wardley-container) .wardley-cp-active:focus-visible {
+   tool's ring and focus apart, at every ring width. The picker's class outweighs the shell's ring
+   for a button of its document (html.cd-shell-document), which would lay the focus on the ring. */
+:where(.wardley-container) .wardley-color-picker .wardley-cp-active:focus-visible {
   outline-offset: 5px;
 }
 /* The canvas fills its container, so an outer ring would be clipped — draw it inside. */
@@ -971,6 +972,32 @@
     outline-color: Highlight;
   }
   .wardley-container .wardley-label-input:focus {
+    outline-color: Highlight;
+  }
+  /* The swatches show the colours a note can take: they are the content the user picks, as a
+     notation's colours are, so they keep their fills, edged in CanvasText (#497). The browser would
+     turn each into Canvas and drop the chosen colour's ring, a box shadow: it stays in Highlight,
+     and so does the focus ring, 1px outside that ring on the chosen colour (guide §5.14). */
+  :where(.wardley-container) .wardley-color-picker .wardley-cp-swatch {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+  }
+  :where(.wardley-container) .wardley-color-picker .wardley-cp-none {
+    background: Canvas;
+    background-image: linear-gradient(
+      45deg,
+      transparent 44%,
+      CanvasText 45%,
+      CanvasText 55%,
+      transparent 56%
+    );
+  }
+  :where(.wardley-container) .wardley-color-picker .wardley-cp-active {
+    box-shadow:
+      0 0 0 2px Canvas,
+      0 0 0 4px Highlight;
+  }
+  :where(.wardley-container) .wardley-color-picker .wardley-cp-swatch:focus-visible {
     outline-color: Highlight;
   }
   /* The browser drops box shadows and turns backgrounds into Canvas, which would take the armed

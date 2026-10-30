@@ -17,6 +17,7 @@ import {
   waitForViewer,
 } from "./support/viewer.js";
 import { codeEditors, pressIn } from "./support/code-editors.js";
+import { contrast, drawnRightOf, focusChosenColour, ringsOf } from "./support/colour-picker.js";
 import { PAPER_BACKGROUND, PLOT_BACKGROUND, cornerPixel } from "./support/png.js";
 
 /**
@@ -839,6 +840,29 @@ test.describe("the view", () => {
   });
 });
 
+// Guide §5.5 and §5.14: the shell's ring for a button of its document lay the focus on the chosen
+// colour's ring, the same Highlight there in forced colours, so the focus did not show (#497).
+test.describe("the note colour picker", () => {
+  for (const forcedColors of ["none", "active"] as const) {
+    test(`the focus on the chosen colour stands 1px outside its ring (forced colours: ${forcedColors})`, async ({
+      page,
+    }) => {
+      await openApp(page);
+      await openExample(page);
+      await page.emulateMedia({ forcedColors });
+      const chosen = await focusChosenColour(page);
+
+      const rings = await ringsOf(chosen);
+      expect(rings.focusOffset).toBe(rings.stateRingReach + 1);
+      const focusRing = rings.focusOffset + rings.focusWidth / 2;
+      const focused = await drawnRightOf(page, chosen, focusRing);
+      await chosen.evaluate((element) => (element as HTMLElement).blur());
+      const unfocused = await drawnRightOf(page, chosen, focusRing);
+      expect(contrast(focused, unfocused)).toBeGreaterThanOrEqual(3);
+    });
+  }
+});
+
 test.describe("keys and dialogs", () => {
   test("? opens the shell’s keyboard shortcuts, with the web app’s File keys first", async ({
     page,
@@ -984,6 +1008,52 @@ test.describe("keys and dialogs", () => {
       const box = (await canvasSlot(page).boundingBox())!;
       await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.5);
       await expect(page.locator(".layer-wardley-draw-preview *")).toHaveCount(0);
+    });
+  }
+
+  // Issue #498: the map's popovers stop the Escape keydown at their panel, before the shell sees
+  // it, and its keyup went on to diagram-js's dragging, which puts the armed tool down on any
+  // Escape keyup on the document.
+  const mapPopovers = { "map-size": "Map size", "x-axis-labels": "X-axis labels" };
+  for (const [menuId, name] of Object.entries(mapPopovers)) {
+    test(`an Escape that closes ${name}… keeps the lasso armed from the palette`, async ({
+      page,
+    }) => {
+      await startNewMap(page);
+      const lassoEntry = page.locator('[data-chrome="palette"] [data-action="lasso-tool"]');
+      const trigger = page.locator('[data-chrome="menu"]');
+      const armedTool = () =>
+        page.evaluate(
+          () =>
+            (
+              window.__wardleyViewer as unknown as {
+                get(name: "dragging"): { context(): { prefix: string } | null };
+              }
+            )
+              .get("dragging")
+              .context()?.prefix ?? null,
+        );
+      await lassoEntry.focus();
+      await page.keyboard.press("Space");
+      await expect(lassoEntry).toHaveAttribute("aria-pressed", "true");
+
+      await trigger.focus();
+      await page.keyboard.press("Enter");
+      await page.locator(`.cd-shell-menu [data-menu-id="${menuId}"]`).focus();
+      await page.keyboard.press("Enter");
+      const popover = page.getByRole("dialog", { name });
+      await expect(popover).toBeVisible();
+      await page.keyboard.press("Escape");
+
+      await expect(popover).toBeHidden();
+      await expect(trigger).toBeFocused();
+      await expect(lassoEntry).toHaveAttribute("aria-pressed", "true");
+      expect(await armedTool()).toBe("lasso.selection");
+
+      await lassoEntry.focus();
+      await page.keyboard.press("Escape");
+      await expect(lassoEntry).toHaveAttribute("aria-pressed", "false");
+      expect(await armedTool()).toBeNull();
     });
   }
 

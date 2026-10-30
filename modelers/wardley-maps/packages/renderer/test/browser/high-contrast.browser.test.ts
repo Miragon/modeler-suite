@@ -1,6 +1,6 @@
 /// <reference types="@vitest/browser-playwright" />
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { page as browserPage } from "vitest/browser";
+import { cdp, page as browserPage } from "vitest/browser";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
@@ -9,6 +9,7 @@ import type { Element as DiagramElement } from "diagram-js/lib/model/Types";
 import { createCollaborativeModeler, type CollaborativeWardleyModeler } from "../../src/index.js";
 import type { WardleyShape } from "../../src/model/di-types.js";
 import { POPUP_PROVIDER_ID } from "../../src/popup/index.js";
+import { NOTE_COLORS } from "../../src/draw/styles.js";
 import type WardleyColorPicker from "../../src/color-picker/WardleyColorPicker.js";
 import { canvasSvgOf, diagramOf } from "./support/gesture-harness.js";
 import teaShop from "./fixtures/tea-shop.wmap?raw";
@@ -364,4 +365,124 @@ describe("the canvas chrome in high contrast (guide §5.3, §5.14, §6)", () => 
     expect(getComputedStyle(otherTooltip).boxShadow).toBe(diagramJsShadow);
     expect(edgeOf(otherTooltip).style).toBe("none");
   });
+});
+
+/**
+ * What `property: value` computes to next to `element`. The probe keeps its own colours under
+ * forced colours, so a system colour resolves as itself.
+ */
+function computedNextTo(element: HTMLElement, property: string, value: string): string {
+  const probe = document.createElement("span");
+  probe.style.forcedColorAdjust = "none";
+  probe.style.setProperty(property, value);
+  element.after(probe);
+  const computed = getComputedStyle(probe).getPropertyValue(property);
+  probe.remove();
+  return computed;
+}
+
+/** `rgb(r, g, b)` as its three channels. */
+function channelsOf(colour: string): number[] {
+  return (colour.match(/\d+/g) ?? []).slice(0, 3).map(Number);
+}
+
+// Forced colours turned every swatch into Canvas and dropped the chosen colour's ring, a box
+// shadow: nine blank squares (guide §5.14, §12). The case without a theme on the page is the one
+// where the roles keep their own colours, so only the picker's own system colours hold there.
+describe("the note colour picker in forced colours (guide §5.14, #497)", () => {
+  afterEach(async () => {
+    await cdp().send("Emulation.setEmulatedMedia", { features: [] });
+  });
+
+  const FORCED_COLOUR_PAGES: Record<string, Mode> = {
+    "on a page without a theme": {},
+    "on a light page": { page: { theme: "light" } },
+    "on a high-contrast page": { page: { theme: "light", kontrast: "hoch" } },
+  };
+
+  async function forcedPicker(mode: Mode): Promise<HTMLElement> {
+    const picker = openColourPicker(await mapIn(mode));
+    await cdp().send("Emulation.setEmulatedMedia", {
+      features: [{ name: "forced-colors", value: "active" }],
+    });
+    return picker;
+  }
+
+  function swatchesOf(picker: HTMLElement): HTMLElement[] {
+    return [...picker.querySelectorAll<HTMLElement>("button.wardley-cp-swatch")];
+  }
+
+  it.each(Object.entries(FORCED_COLOUR_PAGES))(
+    "keeps each note colour on its swatch, edged in CanvasText, and the diagonal of No color in CanvasText %s",
+    async (_, mode) => {
+      const picker = await forcedPicker(mode);
+      const [noColour, ...coloured] = swatchesOf(picker);
+      const canvasText = computedNextTo(picker, "color", "CanvasText");
+
+      for (const swatch of [noColour!, ...coloured]) {
+        const style = getComputedStyle(swatch);
+        expect(style.forcedColorAdjust, swatch.title).toBe("none");
+        expect(style.borderTopColor, swatch.title).toBe(canvasText);
+      }
+      const fills = coloured.map((swatch) => getComputedStyle(swatch).backgroundColor);
+      expect(fills).toEqual(
+        NOTE_COLORS.map((colour) => computedNextTo(picker, "background-color", colour.value)),
+      );
+      expect(new Set(fills).size).toBe(NOTE_COLORS.length);
+
+      const noColourStyle = getComputedStyle(noColour!);
+      expect(noColour!.title).toBe("No color");
+      expect(noColourStyle.backgroundColor).toBe(
+        computedNextTo(picker, "background-color", "Canvas"),
+      );
+      expect(noColourStyle.backgroundImage).toBe(
+        computedNextTo(
+          picker,
+          "background-image",
+          "linear-gradient(45deg, transparent 44%, CanvasText 45%, CanvasText 55%, transparent 56%)",
+        ),
+      );
+    },
+  );
+
+  it.each(Object.entries(FORCED_COLOUR_PAGES))(
+    "keeps the chosen colour's ring in Highlight around its swatch, and the focus 1px outside it in Highlight %s",
+    async (_, mode) => {
+      const picker = await forcedPicker(mode);
+      const active = within<HTMLElement>(picker, "button.wardley-cp-active");
+      const highlight = computedNextTo(picker, "color", "Highlight");
+      const canvas = computedNextTo(picker, "color", "Canvas");
+
+      expect(getComputedStyle(active).boxShadow).toBe(
+        computedNextTo(picker, "box-shadow", "0 0 0 2px Canvas, 0 0 0 4px Highlight"),
+      );
+      for (const swatch of swatchesOf(picker).filter((other) => other !== active)) {
+        expect(getComputedStyle(swatch).boxShadow, swatch.title).toBe("none");
+      }
+
+      focusFromKeyboard(active);
+      const ring = ringOf(active);
+      expect(ring.offset).toBe("5px");
+      expect(getComputedStyle(active).outlineColor).toBe(highlight);
+      const focused = await drawnColours(picker);
+      active.blur();
+      const unfocused = await drawnColours(picker);
+
+      // Highlight may carry an alpha, so the rings are compared as drawn, not with its value.
+      const swatchBox = boxIn(active, picker);
+      const middle = swatchBox.top + swatchBox.height / 2;
+      const stateRing = swatchBox.right + 3;
+      const focusRing = swatchBox.right + parseFloat(ring.offset) + parseFloat(ring.width) / 2;
+      for (const drawn of [focused, unfocused]) {
+        expect(contrast(drawn(stateRing, middle), channelsOf(canvas))).toBeGreaterThanOrEqual(3);
+      }
+      expect(contrast(focused(stateRing, middle), unfocused(stateRing, middle))).toBeLessThan(1.1);
+      expect(contrast(focused(focusRing, middle), focused(stateRing, middle))).toBeLessThan(1.1);
+      expect(contrast(unfocused(focusRing, middle), channelsOf(canvas))).toBeLessThan(1.1);
+
+      const other = within<HTMLElement>(picker, "button:not(.wardley-cp-active)");
+      focusFromKeyboard(other);
+      expect(getComputedStyle(other).outlineColor).toBe(highlight);
+    },
+  );
 });

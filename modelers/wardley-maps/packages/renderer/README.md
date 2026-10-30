@@ -254,7 +254,8 @@ The map's entries of a chrome menu (Model: "Map title…" where the host passes 
 size…" and "X-axis labels…"; Export; Help) come from `mapMenu(actions)`, in the shape the menu
 groups of [`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell) take.
 `createMapSizePopover(chrome, modeler)` and `createAxisLabelsPopover(chrome, modeler)` build the two
-popovers (a live preview, one undo step when done), `createTitleDialog(chrome, modeler)` the "Map
+popovers (a live preview, one undo step when done; an Escape that closes one keeps a tool armed from
+the palette, as the shell's own layers do), `createTitleDialog(chrome, modeler)` the "Map
 title…" dialog (one undo step on Apply, nothing for an unchanged title),
 `mapShortcuts(chrome, options)` the groups of its "Keyboard shortcuts…" dialog as data. A web app
 that binds Cmd/Ctrl+O, Cmd/Ctrl+S, Cmd/Ctrl+V on the canvas and `?` itself passes
