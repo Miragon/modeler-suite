@@ -3433,8 +3433,10 @@ Code's own bindings (0.7), redoes and undoes the edit and checks that the zoomed
 selection survive both, and runs the workbench steps: VS Code's `workbench.reduceMotion`, the editor
 in a hidden tab and Developer: Reload Window (0.8). The keys, the history and the workbench steps
 started opt-in and run by default since 0.8; `keys`, `history` or `workbench` set to `false`, or
-`VSCODE_SMOKE_SKIP` in the environment, skips them. It runs in Node, from a Vitest or `node:test`
-file; no Playwright test runner is needed.
+`VSCODE_SMOKE_SKIP` in the environment, skips them. 0.9 removed their opt-in names, deprecated
+since 0.8: `VSCODE_SMOKE_SKIPPABLE_STEPS`, `VsCodeSmokeSkippableStep` and `vsCodeSmokeSkip` replace
+`VSCODE_SMOKE_OPT_IN_STEPS`, `VsCodeSmokeOptInStep` and `vsCodeSmokeOptIn`. It runs in Node, from a
+Vitest or `node:test` file; no Playwright test runner is needed.
 The package's command `modeler-shell-vscode-docker` runs such a test in a Linux container, without a
 window on the host ([In Docker](#in-docker-031)).
 
@@ -3525,13 +3527,6 @@ type VsCodeSmokeSkippableStep = (typeof VSCODE_SMOKE_SKIPPABLE_STEPS)[number];
 function vsCodeSmokeSkip(
   environment: Record<string, string | undefined>,
 ): ReadonlySet<VsCodeSmokeSkippableStep>;
-// deprecated since 0.8.0, removed in 0.9.0 (#350): the same list and type under their opt-in names,
-// and the parser of VSCODE_SMOKE_OPT_IN, which the driver no longer reads
-const VSCODE_SMOKE_OPT_IN_STEPS: typeof VSCODE_SMOKE_SKIPPABLE_STEPS;
-type VsCodeSmokeOptInStep = VsCodeSmokeSkippableStep;
-function vsCodeSmokeOptIn(
-  environment: Record<string, string | undefined>,
-): ReadonlySet<VsCodeSmokeOptInStep>;
 type VsCodeSmokeStep = (typeof VSCODE_SMOKE_STEPS)[number];
 type VsCodeSmokeTimings = Partial<Record<VsCodeSmokeStep | "total", number>>; // milliseconds
 type ChromePresence = Partial<Record<ChromeIsland, boolean>>;

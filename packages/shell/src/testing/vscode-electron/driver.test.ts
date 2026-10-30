@@ -633,15 +633,6 @@ describe("runVsCodeSmoke, keys", () => {
       message,
     );
   });
-
-  it("no longer reads VSCODE_SMOKE_OPT_IN, so a value left over neither throws nor skips a step", async () => {
-    vi.stubEnv("VSCODE_SMOKE_SKIP", "");
-    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "history,kyes");
-
-    const result = await smokeUpToKeys();
-
-    expect(result.failures).toContain("keys: the canvas <svg> did not take the focus");
-  });
 });
 
 interface FakeDocumentOptions {
