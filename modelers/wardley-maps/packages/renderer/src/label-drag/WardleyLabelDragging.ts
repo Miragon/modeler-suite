@@ -4,12 +4,17 @@ import { isReadOnly } from "../read-only/index.js";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type Selection from "diagram-js/lib/features/selection/Selection";
-import type { LabelOffset, MapElement, Movement } from "@miragon/wardley-schema-model";
+import type { LabelOffset, MapElement } from "@miragon/wardley-schema-model";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
 import { isWardleyShape, type WardleyShape } from "../model/di-types.js";
 import { focusCanvasWithoutRing, isCanvasKey } from "../a11y/index.js";
 import type { WardleyInteraction } from "../interaction/index.js";
+import {
+  COMMAND_START_EVENTS,
+  PUT_BACK_PRIORITY,
+  type LivePreview,
+} from "../live-preview/index.js";
 import {
   LABEL_HANDLE_CLASS,
   LABEL_ROLE_ATTRIBUTE,
@@ -38,8 +43,6 @@ interface LabelDrag {
   startClient: { x: number; y: number };
   startOffset: LabelOffset;
   homeOffset: LabelOffset;
-  originalOffset: LabelOffset | undefined;
-  originalMovement: Movement | undefined;
   zoom: number;
   latest?: LabelOffset;
   dragging: boolean;
@@ -47,8 +50,9 @@ interface LabelDrag {
 
 /**
  * OWM-style draggable labels: drag a component/anchor name or an evolve target name to store an
- * OWM `label [dx, dy]` offset (integers, clamped to ±200px) as ONE undoable command. A press without
- * movement selects the owner; double-click still edits the name.
+ * OWM `label [dx, dy]` offset (integers, clamped to ±200px) as ONE undoable command; the export holds
+ * back the preview until then (`LivePreview`). A press without movement selects the owner;
+ * double-click still edits the name.
  *
  * Reset paths: Alt+double-click on a label, dropping it back onto its default slot, or
  * `resetLabelOffset(shape, role)`.
@@ -63,6 +67,7 @@ export default class WardleyLabelDragging {
     "evolutionGrid",
     "injector",
     "wardleyInteraction",
+    "wardleyLivePreview",
   ];
 
   private active: LabelDrag | null = null;
@@ -76,6 +81,7 @@ export default class WardleyLabelDragging {
     private readonly grid: EvolutionGrid,
     private readonly injector: Injector,
     private readonly interaction: WardleyInteraction,
+    private readonly livePreview: LivePreview,
   ) {
     const container = canvas.getContainer();
     this.outerContainer().classList.add(ARMED_CLASS);
@@ -86,6 +92,12 @@ export default class WardleyLabelDragging {
     // release would put an invisible offset change on the undo stack.
     eventBus.on("shape.remove", ({ element }: { element: unknown }) => {
       if (this.active?.shape === element) this.cancel();
+    });
+    // The release puts back the offset the drag started from, which would undo a command in between
+    // (an undo pressed mid-drag) and leave the history out of step with the document: a drag that
+    // previews ends first, without a commit. The release puts back before its command.
+    eventBus.on(COMMAND_START_EVENTS, PUT_BACK_PRIORITY, () => {
+      if (this.active && livePreview.previewsShape(this.active.shape)) this.cancel();
     });
     eventBus.on("diagram.destroy", () => {
       this.cancel();
@@ -110,6 +122,9 @@ export default class WardleyLabelDragging {
     if (!target) return;
     event.stopPropagation();
     event.preventDefault();
+    // A drag whose release never reached the document (the window lost focus mid-drag) would keep
+    // its preview, and the export the offset it started from, after the next drag replaces it.
+    this.cancel();
     // preventDefault keeps focus where it is; commit an open inline edit like any other click would,
     // and take focus to the canvas so Delete/Undo act on the map, not on a focused host input.
     const focused = document.activeElement;
@@ -124,8 +139,6 @@ export default class WardleyLabelDragging {
       startClient: { x: event.clientX, y: event.clientY },
       startOffset,
       homeOffset: this.defaultOffset(shape, role, handle),
-      originalOffset: shape.labelOffset,
-      originalMovement: shape.movement,
       zoom: this.canvas.zoom(),
       dragging: false,
     };
@@ -168,7 +181,7 @@ export default class WardleyLabelDragging {
     if (!drag.latest || this.elementRegistry.get(drag.shape.id) !== drag.shape) return;
     const next = this.snapHome(drag.latest, drag.homeOffset);
     const previous =
-      drag.role === "name" ? drag.originalOffset : drag.originalMovement?.labelOffset;
+      drag.role === "name" ? drag.shape.labelOffset : drag.shape.movement?.labelOffset;
     if (!sameOffset(next, previous)) {
       if (drag.role === "name") this.commitNameOffset(drag.shape, next);
       else this.commitMovementOffset(drag.shape, next);
@@ -218,19 +231,13 @@ export default class WardleyLabelDragging {
     document.removeEventListener("mouseup", this.onMouseUp);
     document.removeEventListener("keydown", this.onKeyDown, true);
     this.outerContainer().classList.remove(DRAGGING_CLASS);
-    if (drag.dragging) {
-      if (drag.originalOffset) drag.shape.labelOffset = drag.originalOffset;
-      else delete drag.shape.labelOffset;
-      if (drag.originalMovement) drag.shape.movement = drag.originalMovement;
-      this.eventBus.fire("element.changed", { element: drag.shape });
-    }
+    this.livePreview.putBackShape(drag.shape);
   }
 
   private preview(drag: LabelDrag, offset: LabelOffset): void {
+    const { movement } = this.livePreview.beginShape(drag.shape);
     if (drag.role === "name") drag.shape.labelOffset = offset;
-    else if (drag.originalMovement) {
-      drag.shape.movement = { ...drag.originalMovement, labelOffset: offset };
-    }
+    else if (movement) drag.shape.movement = { ...movement, labelOffset: offset };
     this.eventBus.fire("element.changed", { element: drag.shape });
   }
 

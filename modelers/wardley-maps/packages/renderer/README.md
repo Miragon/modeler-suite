@@ -155,12 +155,14 @@ the start of the renderer's own drags (a label, a point of a drawing, the evolve
 torn down once the code that started the drag has returned, and no listener of the host hears
 anything after `destroy()`, also not the selection the cancelled drag brings back
 ([#346](https://github.com/Miragon/modeler-suite/issues/346)). `exportText()` is the
-committed document, never a live preview: while the plot corner is dragged or the size or
-axis-label popover previews a change, it returns the document as it was before, and the change
-event of the commit brings the new one. A command during a size preview (an undo pressed mid-drag, a
-title the host sets) puts the preview back first, and a drag then ends without resizing, so the
-history stays in step with the document. A drawing's point drag ends the same way, without a
-commit, when a command runs before its release (an undo or an arrow-key nudge pressed mid-drag).
+committed document, never a live preview: while the plot corner, an evolve target (its red circle
+or the evolve placement of the context pad) or a label is dragged, or the size or axis-label popover
+previews a change, it returns the document as it was before, and the change event of the commit
+brings the new one ([#347](https://github.com/Miragon/modeler-suite/issues/347)). A command during a
+size preview (an undo pressed mid-drag, a title the host sets) puts the preview back first, and a
+drag then ends without resizing, so the history stays in step with the document. A drawing's point
+drag, the drag of an evolve target and a label drag end the same way, without a commit, when a
+command runs before their release (an undo or an arrow-key nudge pressed mid-drag).
 `elements` names components, anchors, pipelines, submaps and accelerators by the id the document
 gives them (`cmp_kettle`), also right after a canvas edit, and `elements.bounds(id)` gives an
 element's live box in diagram coordinates; `getViewState` and `setViewState` carry the viewbox.

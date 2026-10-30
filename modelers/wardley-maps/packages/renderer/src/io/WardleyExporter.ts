@@ -9,9 +9,11 @@ import {
   type AnnotationElement,
   type AttitudeElement,
   type ComponentElement,
+  type LabelOffset,
   type MapConfig,
   type MapEdge,
   type MapElement,
+  type Movement,
   type NoteElement,
   type PipelineElement,
   type SubmapElement,
@@ -26,6 +28,12 @@ function compact<T extends Record<string, unknown>>(obj: T): T {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) if (v !== undefined) out[k] = v;
   return out as T;
+}
+
+/** A shape's evolve target and label offset as the document has them. */
+export interface CommittedShapeFields {
+  readonly movement: Movement | undefined;
+  readonly labelOffset: LabelOffset | undefined;
 }
 
 /**
@@ -44,7 +52,11 @@ export default class WardleyExporter {
     private readonly sourceOrder: WardleySourceOrder,
   ) {}
 
-  export(): WardleyMap {
+  /**
+   * `committed` gives the evolve target and label offset the document has for each shape a drag
+   * previews on; the map takes them instead of the ones the canvas shows.
+   */
+  export(committed?: ReadonlyMap<WardleyShape, CommittedShapeFields>): WardleyMap {
     const root = this.canvas.getRootElement() as Root & { businessObject?: RootBusinessObject };
     const meta = root.businessObject;
     const config: MapConfig = meta?.config ?? { title: DEFAULT_MAP_TITLE };
@@ -66,7 +78,7 @@ export default class WardleyExporter {
           );
         }
       } else if (isWardleyShape(el)) {
-        const built = this.buildElement(el);
+        const built = this.buildElement(el, committed?.get(el));
         if (built) unorderedElements.push(built);
       }
     }
@@ -104,9 +116,13 @@ export default class WardleyExporter {
   }
 
   /** Builds a MapElement from the DI properties (common types) or the businessObject (the rest). */
-  private buildElement(el: WardleyShape): MapElement | undefined {
+  private buildElement(
+    el: WardleyShape,
+    committed: CommittedShapeFields | undefined,
+  ): MapElement | undefined {
     const position = { visibility: el.visibility, evolution: el.evolution };
     const bo = el.businessObject;
+    const { movement, labelOffset } = committed ?? el;
 
     switch (el.wardleyType) {
       case "component":
@@ -117,9 +133,9 @@ export default class WardleyExporter {
           position,
           // labelOffset is not editable (yet); without the fallback it would be lost on
           // every export round trip.
-          labelOffset: el.labelOffset ?? (bo as ComponentElement | undefined)?.labelOffset,
+          labelOffset: labelOffset ?? (bo as ComponentElement | undefined)?.labelOffset,
           decorators: el.decorators,
-          movement: el.movement,
+          movement,
           // Membership is geometry-derived runtime truth (set on import, cleared when the box
           // moves away) — deliberately NO businessObject fallback.
           pipelineId: el.pipelineId,
@@ -132,7 +148,7 @@ export default class WardleyExporter {
           elementType: "anchor",
           label: el.wardleyLabel,
           position,
-          labelOffset: el.labelOffset ?? (bo as AnchorElement | undefined)?.labelOffset,
+          labelOffset: labelOffset ?? (bo as AnchorElement | undefined)?.labelOffset,
           color: el.color,
         }) as AnchorElement;
       case "note":

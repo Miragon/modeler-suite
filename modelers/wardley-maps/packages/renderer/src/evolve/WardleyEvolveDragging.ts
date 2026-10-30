@@ -4,13 +4,17 @@ import { isReadOnly } from "../read-only/index.js";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
-import type { Movement } from "@miragon/wardley-schema-model";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
 import type { WardleyShape } from "../model/di-types.js";
 import { MIN_EVOLVE_DELTA } from "./constants.js";
 import { focusCanvasWithoutRing, isCanvasKey } from "../a11y/index.js";
 import type { WardleyInteraction } from "../interaction/index.js";
+import {
+  COMMAND_START_EVENTS,
+  PUT_BACK_PRIORITY,
+  type LivePreview,
+} from "../live-preview/index.js";
 
 const PREFIX = "wardley.evolve";
 /** CSS class of the red target circle (set by the renderer) — direct drag handle. */
@@ -18,9 +22,7 @@ const HANDLE_CLASS = "wardley-evolve-handle";
 
 interface EvolveContext {
   shape: WardleyShape;
-  originalMovement?: Movement;
   target?: number;
-  committed?: boolean;
 }
 
 /** A drag of the evolve target's handle, ended without a commit by `cancel`. */
@@ -35,9 +37,10 @@ function clamp01(n: number): number {
 
 /**
  * Sets a component's evolve target by dragging along the evolution axis (instead of a text field).
- * During the drag a live preview (direct mutation + re-render); on release exactly ONE
- * undoable commit via the commandStack (P4). Escape cancels both the drag of the target's handle and
- * the placement from the context pad, and restores the original state.
+ * During the drag a live preview (direct mutation + re-render) that the export holds back
+ * (`LivePreview`); on release exactly ONE undoable commit via the commandStack (P4). Escape cancels
+ * both the drag of the target's handle and the placement from the context pad, and restores the
+ * original state.
  */
 export default class WardleyEvolveDragging {
   static $inject = [
@@ -49,6 +52,7 @@ export default class WardleyEvolveDragging {
     "elementRegistry",
     "injector",
     "wardleyInteraction",
+    "wardleyLivePreview",
   ];
 
   private handleDrag: HandleDrag | null = null;
@@ -62,10 +66,11 @@ export default class WardleyEvolveDragging {
     elementRegistry: ElementRegistry,
     private readonly injector: Injector,
     interaction: WardleyInteraction,
+    livePreview: LivePreview,
   ) {
-    const preview = (shape: WardleyShape, movement: Movement | undefined) => {
-      if (movement === undefined) delete shape.movement;
-      else shape.movement = movement;
+    const preview = (shape: WardleyShape, target: number) => {
+      const { movement } = livePreview.beginShape(shape);
+      shape.movement = { ...movement, targetEvolution: target };
       eventBus.fire("element.changed", { element: shape });
     };
 
@@ -107,7 +112,6 @@ export default class WardleyEvolveDragging {
 
         this.handleDrag?.cancel();
 
-        const original = shape.movement;
         const cy = shape.y + shape.height / 2;
         let target: number | undefined;
         const stop = () => {
@@ -115,7 +119,7 @@ export default class WardleyEvolveDragging {
           document.removeEventListener("mousemove", onMove);
           document.removeEventListener("mouseup", onUp);
           document.removeEventListener("keydown", onKey, true);
-          preview(shape, original);
+          livePreview.putBackShape(shape);
         };
         const drag: HandleDrag = {
           shape,
@@ -127,7 +131,7 @@ export default class WardleyEvolveDragging {
         const onMove = (e: MouseEvent) => {
           interaction.begin(drag);
           target = forwardTarget(shape, evolutionAtClientX(e.clientX, cy));
-          preview(shape, { ...original, targetEvolution: target });
+          preview(shape, target);
         };
         // The preview is reset first, then ONE undoable commit (P4).
         const onUp = () =>
@@ -159,30 +163,45 @@ export default class WardleyEvolveDragging {
       if (drag && drag.shape === element) drag.cancel();
     });
     eventBus.on("diagram.destroy", () => this.handleDrag?.cancel());
+    // The release puts back the evolve target the drag started from, which would undo a command in
+    // between (an undo pressed mid-drag) and leave the history out of step with the document: a
+    // drag that previews ends first, without a commit. The release puts back before its command.
+    eventBus.on(COMMAND_START_EVENTS, PUT_BACK_PRIORITY, () => {
+      const handleDrag = this.handleDrag;
+      if (handleDrag && livePreview.previewsShape(handleDrag.shape)) handleDrag.cancel();
+      const placement = this.runningPlacement();
+      if (placement && livePreview.previewsShape(placement.shape)) dragging.cancel(true);
+    });
 
     eventBus.on(`${PREFIX}.move`, (event: { context: EvolveContext; x: number }) => {
       const { shape } = event.context;
       const cy = shape.y + shape.height / 2;
       const target = forwardTarget(shape, grid.fromCanvas({ x: event.x, y: cy }).evolution);
       event.context.target = target;
-      preview(shape, { ...event.context.originalMovement, targetEvolution: target });
+      preview(shape, target);
     });
 
     eventBus.on(`${PREFIX}.end`, (event: { context: EvolveContext }) => {
-      const ctx = event.context;
-      const { shape, target } = ctx;
+      const { shape, target } = event.context;
       // Reset the preview, then execute as ONE command (clean undo).
-      preview(shape, ctx.originalMovement);
+      livePreview.putBackShape(shape);
       if (target !== undefined && target > shape.evolution + MIN_EVOLVE_DELTA) {
         modeling.evolveComponent(shape, target);
       }
-      ctx.committed = true;
     });
 
     eventBus.on(`${PREFIX}.cleanup`, (event: { context?: EvolveContext }) => {
-      const ctx = event.context;
-      if (ctx && !ctx.committed) preview(ctx.shape, ctx.originalMovement);
+      if (event.context) livePreview.putBackShape(event.context.shape);
     });
+  }
+
+  /** The evolve drag the context pad started, while it runs. */
+  private runningPlacement(): EvolveContext | undefined {
+    const drag = this.dragging.context() as {
+      prefix?: string;
+      data?: { context?: EvolveContext };
+    } | null;
+    return drag?.prefix === PREFIX ? drag.data?.context : undefined;
   }
 
   /**
@@ -191,10 +210,7 @@ export default class WardleyEvolveDragging {
    */
   start(event: Event, shape: WardleyShape): void {
     if (isReadOnly(this.injector)) return;
-    const context: EvolveContext = {
-      shape,
-      ...(shape.movement ? { originalMovement: shape.movement } : {}),
-    };
+    const context: EvolveContext = { shape };
     this.dragging.init(event as MouseEvent, PREFIX, { cursor: "ew-resize", data: { context } });
   }
 }
