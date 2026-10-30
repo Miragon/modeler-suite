@@ -47,20 +47,7 @@ afterEach(() => {
 });
 
 function chromeOf(target: { root: HTMLElement; trigger: HTMLElement }) {
-  return {
-    root: target.root,
-    menu: { trigger: target.trigger },
-    platform: "mac" as const,
-    lang: "en",
-    messages: {
-      zoomIn: "Zoom in",
-      zoomOut: "Zoom out",
-      zoomToActual: (percent: string) => `Zoom to ${percent}`,
-      fit: "Fit to view",
-      close: "Close",
-      keyNames: { ctrl: "Ctrl", shift: "Shift", plus: "Plus", minus: "Minus" },
-    },
-  };
+  return { root: target.root, menu: { trigger: target.trigger }, messages: { close: "Close" } };
 }
 
 function keep<T extends { destroy(): void }>(handle: T): T {
