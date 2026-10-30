@@ -47,9 +47,9 @@ export interface ConformanceHarness {
    * or 0×0 host yields NaN view state; they also need a real browser
    * (vitest browser mode / Playwright), jsdom has no getBBox. Keep
    * `fitOnImport` at its default: the L5 cases check the modeler's own fit.
-   * The keys case finds the canvas in the host `attachedHost()` made during
-   * this call (or takes the one `canvasElement` names): mount into one, or
-   * that case reports a skip
+   * The keys case and the delete of the user-action case find the canvas
+   * in the host `attachedHost()` made during this call (or take the one
+   * `canvasElement` names): mount into one, or those cases report a skip
    */
   create(): Promise<CollaborativeModeler>;
   /** a fresh READ-ONLY instance (`meta.editable === false`) — the viewer
@@ -61,7 +61,8 @@ export interface ConformanceHarness {
    * the focusable element `modeler` (from `create()` or `createReadonly()`)
    * placed in its host to take its keys: the keys case aims the keys that
    * must act at it, and the host's controls it puts next to it and into the
-   * `attachedHost()` it lies in. `undefined` = the focusable `<svg>` (one
+   * `attachedHost()` it lies in; the user-action case presses Delete on it
+   * to delete a selected element. `undefined` = the focusable `<svg>` (one
    * with a `tabindex`, diagram-js's canvas) in the one `attachedHost()` the
    * call mounted into. A modeler that takes its keys on another element (a
    * `<div>`, a `<canvas>`) names it here; `null` or `undefined` returned, or
@@ -136,7 +137,9 @@ export interface ConformanceHarness {
    * so is a call that never settles (a mutate waiting for the change event
    * of a command the modeler ignores without a document): the kit stops
    * waiting after 2 s — what a command does without a document is the
-   * modeler's choice
+   * modeler's choice. The user-action case calls an import as soon as it
+   * returns, while one from the command's change listener waits: run the
+   * command before the first `await`, as the user's input does
    */
   mutate(modeler: CollaborativeModeler): Promise<void> | void;
   /**
@@ -149,10 +152,12 @@ export interface ConformanceHarness {
    */
   configMutations?: UserMutation[];
   /** trigger the modeler's undo; `undefined` = the notation has no undo
-   *  (the undo cases are reported as skipped) */
+   *  (the undo cases, and the undo and the redo of the user-action case, are
+   *  reported as skipped) */
   undo?(modeler: CollaborativeModeler): Promise<void> | void;
   /** trigger the modeler's redo; `undefined` with `undo` defined = the redo
-   *  half of the undo/redo case is reported as skipped */
+   *  half of the undo/redo case and the redo of the user-action case are
+   *  reported as skipped */
   redo?(modeler: CollaborativeModeler): Promise<void> | void;
   /**
    * move ONE element read from `canonicalTexts[0]` (imported, then one
@@ -200,8 +205,10 @@ export interface ConformanceHarness {
    * canvas, `"createOffCanvas"` holds the same preview over the palette. The kit then drops or
    * cancels it, also after an import (`HeldGesture`). Drive the modeler's own pointer handling
    * (real DOM events), not its commands: the cases check what an import does to a drag the
-   * modeler runs. `undefined` = the L1 gesture case, the drop case and the interaction case are
-   * reported as skipped
+   * modeler runs. The drop case holds a `"move"`, and the drag-start case a `"move"` and a
+   * `"create"`, with the first listed element revealed (selected): the start then clears that
+   * selection. `undefined` = the L1 gesture case, the drop case, the drag-start case and the
+   * interaction case are reported as skipped
    */
   startGesture?(
     modeler: CollaborativeModeler,
@@ -802,6 +809,14 @@ export function conformanceCases(): ConformanceCase[] {
     {
       name: "drop (recommended, 1.6): an import from the change listener of a drop waits until the drop has ended, and its Promise settles after the import",
       run: importWaitsForTheDrop,
+    },
+    {
+      name: "user action (recommended, 1.6): an import from the selection listener of a delete, an undo or a redo waits until the command has finished, and imports keep their call order",
+      run: importWaitsForTheUsersCommand,
+    },
+    {
+      name: "drag start (recommended, 1.6): an import from the selection listener at the start of a move or a palette create runs once the drag has started, and then ends it",
+      run: importAtADragsStart,
     },
     {
       name: "pan (recommended, 1.6): a pan is no gesture, and it runs on through an import from the view the import left",
@@ -2108,22 +2123,23 @@ interface MountedCanvas {
 
 /**
  * the canvas of an instance made after `firstSerial`: the element `canvasElement` names, or else
- * the focusable `<svg>` in the one attachedHost() made since; a string says why the kit cannot tell
+ * the focusable `<svg>` in the one attachedHost() made since; a string says why the kit cannot tell,
+ * ending in what `unverified` names
  */
 function mountedCanvas(
   h: ConformanceHarness,
   m: CollaborativeModeler,
   instance: KeyedInstance,
   firstSerial: number,
+  unverified = "keys were not verified",
 ): MountedCanvas | string {
   const live = attachedHosts.filter((entry) => entry.wrapper.isConnected);
   if (h.canvasElement) {
     const named = h.canvasElement(m);
-    if (!named)
-      return `canvasElement() names no canvas for the ${instance}; keys were not verified`;
+    if (!named) return `canvasElement() names no canvas for the ${instance}; ${unverified}`;
     const mount = live.find((entry) => entry.host.contains(named));
     return mount === undefined
-      ? `the canvas canvasElement() names for the ${instance} lies in no attachedHost() — the kit puts host controls into that host and hides it; keys were not verified`
+      ? `the canvas canvasElement() names for the ${instance} lies in no attachedHost() — the kit puts host controls into that host and hides it; ${unverified}`
       : { canvas: named, host: mount.host, wrapper: mount.wrapper };
   }
   const made = instance === "modeler" ? "create()" : "createReadonly()";
@@ -2136,8 +2152,8 @@ function mountedCanvas(
     return { canvas, host: mount.host, wrapper: mount.wrapper };
   }
   return mount === undefined
-    ? `${made} mounted the ${instance} into no attachedHost() that holds a focusable <svg> (one with a tabindex, diagram-js's canvas) — mount into one, or name the canvas with canvasElement; keys were not verified`
-    : `${made} made ${mounts.length} attachedHost() elements that hold a focusable <svg> — the kit cannot tell which one is the ${instance}'s canvas (run the cases one after another, or name the canvas with canvasElement); keys were not verified`;
+    ? `${made} mounted the ${instance} into no attachedHost() that holds a focusable <svg> (one with a tabindex, diagram-js's canvas) — mount into one, or name the canvas with canvasElement; ${unverified}`
+    : `${made} made ${mounts.length} attachedHost() elements that hold a focusable <svg> — the kit cannot tell which one is the ${instance}'s canvas (run the cases one after another, or name the canvas with canvasElement); ${unverified}`;
 }
 
 /**
@@ -2388,10 +2404,11 @@ async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> 
 const GESTURE_KINDS: readonly GestureKind[] = ["move", "create", "createOffCanvas"];
 
 /**
- * how long the gesture, drop and pan cases wait for an import called while the user holds
- * something. A modeler may let that import wait (for the gesture's drop instead of cancelling it,
- * for the pan's release, or for something a drop never ends): without a bound the case would never
- * reach the release, and a missed recommendation would hang the run instead of advising
+ * how long the gesture, drop, user-action, drag-start and pan cases wait for an import called
+ * while the user holds something or acts. A modeler may let that import wait (for the gesture's
+ * drop instead of cancelling it, for the pan's release, or for something an action never ends):
+ * without a bound the case would never reach the release, and a missed recommendation would hang
+ * the run instead of advising
  */
 const HELD_IMPORT_BOUND_MS = 2000;
 
@@ -2418,7 +2435,7 @@ async function settledWithin(promise: Promise<unknown>, ms: number): Promise<Bou
   }
 }
 
-/** what one leg of the gesture, drop or pan case found */
+/** what one leg of the gesture, drop, user-action, drag-start or pan case found */
 interface LegFindings {
   findings: string[];
   /** the leg's import waited for the user: the case advises on it and runs no further leg, whose
@@ -2836,13 +2853,59 @@ interface DropLeg {
   expected?: string;
 }
 
-/** how an import called from the change listener of a drop came out */
-interface DropImportResult {
+/** how an import a listener called during the user's action came out */
+interface ListenerImportResult {
   /** `exportText()` when its Promise resolved */
   exported?: string;
   rejected?: string;
   /** it had not settled within HELD_IMPORT_BOUND_MS */
   unsettled?: true;
+}
+
+/** the import's outcome, or `unsettled` once HELD_IMPORT_BOUND_MS have passed */
+async function withinTheBound(
+  result: Promise<ListenerImportResult>,
+): Promise<ListenerImportResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      result,
+      new Promise<ListenerImportResult>((resolve) => {
+        timer = setTimeout(() => resolve({ unsettled: true }), HELD_IMPORT_BOUND_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** `exportText()`, or `undefined` where it throws: read in a Promise's callback, where a throw
+ *  would reach no case */
+function exportedNow(m: CollaborativeModeler): string | undefined {
+  try {
+    return m.exportText();
+  } catch {
+    return undefined;
+  }
+}
+
+/** `importText(text)` from a listener, its outcome caught at once: a rejection nobody awaits yet
+ *  would reach the window as an unhandled one */
+function importFromAListener(
+  m: CollaborativeModeler,
+  text: string,
+  onSettled: () => void = doNothing,
+): Promise<ListenerImportResult> {
+  return m.importText(text).then(
+    () => {
+      onSettled();
+      return { exported: exportedNow(m) };
+    },
+    (e: unknown) => {
+      onSettled();
+      return { rejected: String(e) };
+    },
+  );
 }
 
 /** a move held on `canonicalTexts[0]` with a selection, dropped, and an import from its change listener */
@@ -2866,7 +2929,7 @@ async function importFromTheDrop(
         text: string;
         before: string;
         after: string;
-        result: Promise<DropImportResult>;
+        result: Promise<ListenerImportResult>;
       }
     | undefined;
   let settled = false;
@@ -2877,16 +2940,9 @@ async function importFromTheDrop(
     if (called !== undefined) return;
     const before = m.exportText();
     const text = leg.text(m);
-    const result = m.importText(text).then(
-      () => {
-        settled = true;
-        return { exported: m.exportText() };
-      },
-      (e: unknown) => {
-        settled = true;
-        return { rejected: String(e) };
-      },
-    );
+    const result = importFromAListener(m, text, () => {
+      settled = true;
+    });
     called = { text, before, after: m.exportText(), result };
   });
   const errors = listenForWindowErrors();
@@ -2900,14 +2956,7 @@ async function importFromTheDrop(
       );
     }
     const call = called;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const result = await Promise.race([
-      call.result,
-      new Promise<DropImportResult>((resolve) => {
-        timer = setTimeout(() => resolve({ unsettled: true }), HELD_IMPORT_BOUND_MS);
-      }),
-    ]);
-    clearTimeout(timer);
+    const result = await withinTheBound(call.result);
     await settle();
     if (thrown !== undefined) findings.push(`the drop threw ${thrown} while ${during}`);
     for (const error of errors.errors) {
@@ -3017,6 +3066,746 @@ async function importWaitsForTheDrop(h: ConformanceHarness): Promise<CaseOutcome
   } finally {
     m.destroy();
   }
+}
+
+/** what the user-action case reports without a DOM: its delete presses a key on the canvas */
+const USER_ACTION_WITHOUT_DOM =
+  "no DOM — a delete and the redo of a delete were not checked (both press Delete on the focused canvas: run the kit in a browser, the modeler mounted into attachedHost())";
+
+/** what the user-action case could not check when it finds no canvas to press Delete on */
+const NO_DELETE = "a delete and the redo of a delete were not checked";
+
+/** Delete or Backspace on the canvas, as the keys case presses it */
+function pressOn(canvas: Element, key: string): void {
+  const view = canvas.ownerDocument.defaultView ?? window;
+  const init = { key, code: key, bubbles: true, cancelable: true, composed: true };
+  canvas.dispatchEvent(new view.KeyboardEvent("keydown", init));
+  canvas.dispatchEvent(new view.KeyboardEvent("keyup", init));
+}
+
+/** the canvas focused, or why it would not take the focus */
+function focusTheCanvas(canvas: Element): string | undefined {
+  focusOn(canvas);
+  return canvas.ownerDocument.activeElement === canvas
+    ? undefined
+    : `the canvas did not take the focus — ${NO_DELETE}`;
+}
+
+/** an unsubscribe that runs at most once: the contract does not say that a second call is harmless */
+function once(unsubscribe: () => void): () => void {
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    unsubscribe();
+  };
+}
+
+/** what one leg of the user-action or the drag-start case found, and what it could not check */
+interface ActionLegFindings extends LegFindings {
+  unverified?: string;
+}
+
+/** a document a leg imports while the user's action runs, with the modeler's own export of it */
+interface ImportedDocument extends ImportedLeg {
+  expected: string;
+}
+
+/**
+ * imports the document a leg imports later, for the oracle: the modeler's OWN export of it (a
+ * non-canonical one fails L2). A session's own export is no oracle: a renderer may list an element
+ * created in the session elsewhere than the export after importing that text does
+ */
+async function theDocumentToImport(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+): Promise<ImportedDocument> {
+  const [leg = { text: h.canonicalTexts[0] ?? "", what: "canonicalTexts[0]" }] = importedLegs(h);
+  await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
+  return { ...leg, expected: exportOrFail(m, `after importing ${leg.what}`) };
+}
+
+/** a user's action, during which the selection listener imports a document */
+interface ActionLeg {
+  /** the action, as a finding names it */
+  what: string;
+  /** what the listener imports */
+  imported: ImportedDocument;
+  /** the document the action leaves without an import: where it is the imported one, the export
+   *  right after the action cannot tell an import inside the action from the action itself */
+  left: string;
+  /** runs the action, whose synchronous part has run when it returns */
+  act(): Promise<void> | void;
+}
+
+/** the next `mutate` changes the document, and an undo brings it back: no action left anything
+ *  half done */
+async function nextMutateApplies(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  after: string,
+): Promise<string[]> {
+  const settle = h.settle ?? defaultSettle;
+  const before = exportedNow(m);
+  if (before === undefined) return [`exportText() threw after ${after}`];
+  let thrown: string | undefined;
+  const next = await changeEvents(h, m, async () => {
+    thrown = await errorOf(() => h.mutate(m));
+  });
+  if (thrown !== undefined) return [`the next mutate after ${after} threw ${thrown}`];
+  if (next.calls === 0 || exportedNow(m) === before) {
+    return [`the next mutate after ${after} did not apply (wedged)`];
+  }
+  const undo = h.undo;
+  if (!undo) return [];
+  const undoThrown = await errorOf(() => undo(m));
+  await settle();
+  if (undoThrown !== undefined) {
+    return [`an undo of the next mutate after ${after} threw ${undoThrown}`];
+  }
+  return exportedNow(m) === before
+    ? []
+    : [`an undo of the next mutate after ${after} did not bring the document back (wedged)`];
+}
+
+/** an undo right after an import changes nothing (L4): what it found instead */
+async function undoAfterTheImport(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  imported: string,
+  after: string,
+  what: string,
+): Promise<string[]> {
+  const undo = h.undo;
+  if (!undo) return [];
+  const thrown = await errorOf(() => undo(m));
+  await (h.settle ?? defaultSettle)();
+  if (thrown !== undefined) return [`an undo after ${after} threw ${thrown}`];
+  return exportedNow(m) === imported
+    ? []
+    : [
+        `an undo after ${after} changed the document — ${what} stayed on the fresh undo history (L4)`,
+      ];
+}
+
+/**
+ * `leg`'s action on the current document, while the selection listener imports `leg.imported` on
+ * its first delivery: the export tells whether the import has run, and when
+ */
+async function importFromTheSelectionListener(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  elements: ElementsSurface,
+  leg: ActionLeg,
+): Promise<ActionLegFindings> {
+  const settle = h.settle ?? defaultSettle;
+  const { text, expected } = leg.imported;
+  const during = `importing ${leg.imported.what} from the selection listener during ${leg.what}`;
+  const findings: string[] = [];
+  let result: Promise<ListenerImportResult> | undefined;
+  let replacedInTheListener = false;
+  let settled = false;
+  let changesAfterTheImport = 0;
+  const offSelection = once(
+    elements.onSelection(() => {
+      if (result !== undefined) return;
+      const atTheCall = exportedNow(m);
+      result = importFromAListener(m, text, () => {
+        settled = true;
+      });
+      replacedInTheListener = exportedNow(m) !== atTheCall;
+    }),
+  );
+  const offChanges = once(
+    m.onContentChanged(() => {
+      if (settled) changesAfterTheImport += 1;
+    }),
+  );
+  const errors = listenForWindowErrors();
+  try {
+    let heardRightAfter = false;
+    let exportRightAfter: string | undefined;
+    const thrown = await errorOf(async () => {
+      const acting = leg.act();
+      heardRightAfter = result !== undefined;
+      exportRightAfter = exportedNow(m);
+      await acting;
+    });
+    if (result === undefined) {
+      return {
+        findings,
+        unverified: `the selection listener heard nothing during ${leg.what}${thrown === undefined ? "" : `, which threw ${thrown}`} — that an import from it waits until the action has finished was not checked`,
+      };
+    }
+    const outcome = await withinTheBound(result);
+    await settle();
+    if (thrown !== undefined) {
+      findings.push(
+        `${leg.what} threw ${thrown} once its selection listener had called importText(${leg.imported.what})`,
+      );
+    }
+    for (const error of errors.errors) {
+      findings.push(`an error reached the window around ${during}: ${error}`);
+    }
+    if (outcome.unsettled) {
+      findings.push(
+        `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — it waits for something the action never ends`,
+      );
+      return { findings, stop: true };
+    }
+    if (replacedInTheListener) {
+      findings.push(
+        `${during} ran before the action had finished (the importText call in the listener replaced the document at once)`,
+      );
+    } else if (heardRightAfter && leg.left !== expected && exportRightAfter === expected) {
+      // the listener heard the action while it ran, and the action alone leaves another document,
+      // so an export that already shows the imported one means a later step of the action ran it
+      findings.push(
+        `${during} ran before the action had finished (exportText() returned the imported document as soon as the action had returned)`,
+      );
+    }
+    if (outcome.rejected !== undefined) {
+      findings.push(`${during} rejected: ${outcome.rejected}`);
+    } else if (outcome.exported !== expected) {
+      findings.push(
+        `when the Promise of ${during} settled, exportText() did not return the imported document — the Promise settled before the import had run, or the action went on and changed the imported document`,
+      );
+    }
+    const out = exportedNow(m);
+    if (out === undefined) {
+      findings.push(`exportText() threw once ${during} had settled`);
+      return { findings };
+    }
+    if (outcome.exported === expected && out !== expected) {
+      findings.push(`a step of ${leg.what} changed the document after ${during}`);
+    }
+    if (changesAfterTheImport > 0) {
+      findings.push(`onContentChanged fired ${changesAfterTheImport}x once ${during} had settled`);
+    }
+    offChanges();
+    if (outcome.rejected === undefined) {
+      findings.push(...(await undoAfterTheImport(h, m, out, during, "the action")));
+    }
+  } finally {
+    offSelection();
+    offChanges();
+    errors.stop();
+  }
+  findings.push(...(await nextMutateApplies(h, m, during)));
+  return { findings };
+}
+
+/** `canonicalTexts[0]` imported and its first listed element revealed: the element's id, or why
+ *  the case cannot delete it */
+async function revealTheFirstElement(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  elements: ElementsSurface,
+): Promise<string | ActionLegFindings> {
+  const settle = h.settle ?? defaultSettle;
+  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  await settle();
+  const target = elements.list()[0]?.id;
+  if (target === undefined) {
+    return {
+      findings: [],
+      unverified: `elements.list() reports no element after importing canonicalTexts[0] — ${NO_DELETE}`,
+    };
+  }
+  elements.reveal(target);
+  await settle();
+  return target;
+}
+
+/** Delete, or Backspace where Delete does nothing, on the focused canvas with `target` revealed:
+ *  the key that deleted it and the document the delete left, or why the case cannot delete it */
+async function deleteWithAKey(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  canvas: Element,
+  target: string,
+): Promise<{ key: string; left: string } | ActionLegFindings> {
+  const settle = h.settle ?? defaultSettle;
+  const unfocused = focusTheCanvas(canvas);
+  if (unfocused !== undefined) return { findings: [], unverified: unfocused };
+  const before = exportOrFail(m, `with '${target}' revealed`);
+  for (const key of ["Delete", "Backspace"]) {
+    pressOn(canvas, key);
+    await settle();
+    const left = exportOrFail(m, `after ${key} on the focused canvas`);
+    if (left !== before) return { key, left };
+  }
+  return {
+    findings: [],
+    unverified: `Delete and Backspace on the focused canvas left the revealed element '${target}' in place — ${NO_DELETE}`,
+  };
+}
+
+/**
+ * the revealed first element of `canonicalTexts[0]`, deleted with Delete on the focused canvas.
+ * A delete on its own comes first: the document it leaves tells an import that ran inside the
+ * delete from the delete itself, also where the imported document is what the delete leaves
+ */
+async function deleteOfASelectedElement(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  elements: ElementsSurface,
+  canvas: Element,
+): Promise<ActionLegFindings> {
+  const imported = await theDocumentToImport(h, m);
+  const first = await revealTheFirstElement(h, m, elements);
+  if (typeof first !== "string") return first;
+  const alone = await deleteWithAKey(h, m, canvas, first);
+  if (!("key" in alone)) return alone;
+  const target = await revealTheFirstElement(h, m, elements);
+  if (typeof target !== "string") return target;
+  const unfocused = focusTheCanvas(canvas);
+  if (unfocused !== undefined) return { findings: [], unverified: unfocused };
+  return importFromTheSelectionListener(h, m, elements, {
+    what: `a delete of the selected element '${target}' (${alone.key} on the focused canvas)`,
+    imported,
+    left: alone.left,
+    act: () => {
+      pressOn(canvas, alone.key);
+    },
+  });
+}
+
+/** `mutate`'s new element, revealed, and the undo that removes it again */
+async function undoOfASelectedCreate(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  elements: ElementsSurface,
+  undo: NonNullable<ConformanceHarness["undo"]>,
+): Promise<ActionLegFindings> {
+  const settle = h.settle ?? defaultSettle;
+  const imported = await theDocumentToImport(h, m);
+  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  await settle();
+  const left = exportOrFail(m, "before mutate");
+  const listed = new Set(elements.list().map((element) => element.id));
+  await h.mutate(m);
+  await settle();
+  const created = elements.list().find((element) => !listed.has(element.id))?.id;
+  if (created === undefined || !elements.reveal(created)) {
+    return {
+      findings: [],
+      unverified:
+        "elements.list() reports no new element after mutate that reveal() selects — an undo was not checked",
+    };
+  }
+  await settle();
+  return importFromTheSelectionListener(h, m, elements, {
+    what: `an undo of the create of the selected element '${created}'`,
+    imported,
+    left,
+    act: () => undo(m),
+  });
+}
+
+/** the first element of `canonicalTexts[0]` deleted, its delete undone, the element revealed again
+ *  and the delete redone */
+async function redoOfADelete(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  elements: ElementsSurface,
+  canvas: Element,
+  undo: NonNullable<ConformanceHarness["undo"]>,
+  redo: NonNullable<ConformanceHarness["redo"]>,
+): Promise<ActionLegFindings> {
+  const settle = h.settle ?? defaultSettle;
+  const imported = await theDocumentToImport(h, m);
+  const target = await revealTheFirstElement(h, m, elements);
+  if (typeof target !== "string") return target;
+  const deleted = await deleteWithAKey(h, m, canvas, target);
+  if (!("key" in deleted)) return deleted;
+  await undo(m);
+  await settle();
+  // the element back under its id is all the redo needs: the contract leaves the undone document's
+  // bytes to the modeler (an element may come back elsewhere in the text)
+  if (!elements.reveal(target)) {
+    return {
+      findings: [],
+      unverified: `an undo of the delete of '${target}' did not bring it back for reveal() — the redo of a delete was not checked`,
+    };
+  }
+  await settle();
+  return importFromTheSelectionListener(h, m, elements, {
+    what: `a redo of the delete of the selected element '${target}'`,
+    imported,
+    left: deleted.left,
+    act: () => redo(m),
+  });
+}
+
+/**
+ * two imports: the first from the change listener of `mutate`'s command, with the document from
+ * before the command, and the second with an echo of the command's document, called as soon as
+ * `mutate` has returned (or a microtask after that listener, where `mutate` returns before its
+ * command has run). The export tells whether the first still waits when the second is called, and
+ * in which order they ran
+ */
+async function importsKeepTheirCallOrder(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+): Promise<ActionLegFindings> {
+  const settle = h.settle ?? defaultSettle;
+  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  await settle();
+  const text = exportOrFail(m, "before mutate");
+  const during =
+    "two imports, the document from before mutate from the change listener of its command and an echo of the command's document called once the command had returned";
+  const findings: string[] = [];
+  const settledInOrder: string[] = [];
+  let echo: string | undefined;
+  let first: Promise<ListenerImportResult> | undefined;
+  let second: Promise<ListenerImportResult> | undefined;
+  let replacedInTheListener = false;
+  let firstHadRun = false;
+  let settled = false;
+  let changesAfterTheImports = 0;
+  const callTheSecond = (): void => {
+    if (echo === undefined || first === undefined || second !== undefined) return;
+    firstHadRun = exportedNow(m) === text;
+    second = importFromAListener(m, echo, () => settledInOrder.push("the echo"));
+  };
+  const offChanges = once(
+    m.onContentChanged(() => {
+      if (settled) changesAfterTheImports += 1;
+      if (first !== undefined) return;
+      const now = exportedNow(m);
+      if (now === undefined || now === text) return;
+      echo = now;
+      first = importFromAListener(m, text, () => settledInOrder.push("the document from before"));
+      replacedInTheListener = exportedNow(m) !== now;
+      void Promise.resolve().then(callTheSecond);
+    }),
+  );
+  const errors = listenForWindowErrors();
+  try {
+    const mutating = errorOf(() => h.mutate(m));
+    callTheSecond();
+    const thrown = await mutating;
+    await settle();
+    if (first === undefined || second === undefined) {
+      return {
+        findings,
+        unverified:
+          "mutate fired no onContentChanged whose export differed from the document before it — the call order of two imports was not checked",
+      };
+    }
+    const both = await withinTheBound(
+      Promise.all([first, second]).then(([a, b]) => ({ rejected: a.rejected ?? b.rejected })),
+    );
+    settled = true;
+    await settle();
+    if (thrown !== undefined) findings.push(`mutate threw ${thrown} during ${during}`);
+    for (const error of errors.errors) {
+      findings.push(`an error reached the window around ${during}: ${error}`);
+    }
+    if (both.unsettled) {
+      findings.push(
+        `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — they wait for something the command never ends`,
+      );
+      return { findings, stop: true };
+    }
+    if (replacedInTheListener) {
+      findings.push(
+        `${during}: the first ran before the command had finished (the importText call in the change listener replaced the document at once)`,
+      );
+    }
+    if (both.rejected !== undefined) findings.push(`${during}: one rejected: ${both.rejected}`);
+    if (!same(settledInOrder, ["the document from before", "the echo"])) {
+      findings.push(
+        `${during} settled in the order ${JSON.stringify(settledInOrder)}, not in the order they were called`,
+      );
+    }
+    const out = exportedNow(m);
+    if (out === undefined) {
+      findings.push(`exportText() threw once ${during} had settled`);
+      return { findings };
+    }
+    if (both.rejected === undefined && out === text) {
+      findings.push(
+        `${during} did not keep their call order: once both had settled, exportText() returned the document called first, so the echo called second ran before it or not at all`,
+      );
+    }
+    if (changesAfterTheImports > 0) {
+      findings.push(`onContentChanged fired ${changesAfterTheImports}x once ${during} had settled`);
+    }
+    offChanges();
+    if (both.rejected === undefined) {
+      findings.push(...(await undoAfterTheImport(h, m, out, during, "the command")));
+    }
+  } finally {
+    offChanges();
+    errors.stop();
+  }
+  findings.push(...(await nextMutateApplies(h, m, during)));
+  return {
+    findings,
+    ...(firstHadRun && !replacedInTheListener
+      ? {
+          unverified:
+            "the import from the change listener of mutate had already run when the second import was called — that imports keep their call order while the first still waits was not checked",
+        }
+      : {}),
+  };
+}
+
+/**
+ * the user-action case: a host that imports from a listener the user's action calls meets the
+ * action while it runs. From the selection listener of a delete, an undo and a redo that remove a
+ * selected element, the import waits until the command has finished, and so does one from the
+ * change listener of a command, which a second import called once the command has returned does
+ * not overtake. 1.6 only RECOMMENDS it, so what the case finds is one advisory
+ */
+async function importWaitsForTheUsersCommand(h: ConformanceHarness): Promise<CaseOutcome> {
+  const findings: string[] = [];
+  const unverified = oneTextOnly(h, "an import from the selection listener during a command");
+  let stopped = false;
+  /** each leg on an instance of its own: one whose import ran inside the action may be left broken */
+  const onAFreshInstance = async (
+    leg: (m: CollaborativeModeler, firstSerial: number) => Promise<ActionLegFindings>,
+  ): Promise<void> => {
+    if (stopped) return;
+    const firstSerial = nextHostSerial;
+    const m = await h.create();
+    try {
+      const outcome = await leg(m, firstSerial);
+      findings.push(...outcome.findings);
+      if (outcome.unverified !== undefined) unverified.push(outcome.unverified);
+      stopped = outcome.stop === true;
+    } finally {
+      m.destroy();
+    }
+  };
+  const noElements: ActionLegFindings = {
+    findings: [],
+    unverified:
+      "the modeler exposes no elements surface (optional) — imports from the selection listener during a delete, an undo and a redo were not checked",
+  };
+  /** the leg with the modeler's elements and the canvas it takes its keys on */
+  const onTheCanvas =
+    (
+      leg: (
+        m: CollaborativeModeler,
+        elements: ElementsSurface,
+        canvas: Element,
+      ) => Promise<ActionLegFindings>,
+    ) =>
+    async (m: CollaborativeModeler, firstSerial: number): Promise<ActionLegFindings> => {
+      const elements = m.elements;
+      if (!elements) return noElements;
+      await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+      const mount = mountedCanvas(h, m, "modeler", firstSerial, NO_DELETE);
+      if (typeof mount === "string") return { findings: [], unverified: mount };
+      return leg(m, elements, mount.canvas);
+    };
+  const { undo, redo } = h;
+  const withoutDom = typeof document === "undefined";
+  if (withoutDom) unverified.push(USER_ACTION_WITHOUT_DOM);
+  else {
+    await onAFreshInstance(
+      onTheCanvas((m, elements, canvas) => deleteOfASelectedElement(h, m, elements, canvas)),
+    );
+  }
+  if (undo) {
+    await onAFreshInstance((m) =>
+      m.elements ? undoOfASelectedCreate(h, m, m.elements, undo) : Promise.resolve(noElements),
+    );
+  } else {
+    unverified.push("undo is undefined — an undo and the redo of a delete were not checked");
+  }
+  if (undo && redo && !withoutDom) {
+    await onAFreshInstance(
+      onTheCanvas((m, elements, canvas) => redoOfADelete(h, m, elements, canvas, undo, redo)),
+    );
+  } else if (undo && !redo) {
+    unverified.push("redo is undefined — the redo of a delete was not checked");
+  }
+  await onAFreshInstance((m) => importsKeepTheirCallOrder(h, m));
+  return outcomeOf(
+    adviseOn(
+      findings,
+      "an import met the user's running command",
+      "RECOMMENDED (since 1.6): an importText called during a running user action (from the selection listener of a delete, an undo or a redo, from the change listener of a command) waits until the action has finished and settles after that import, and imports keep their call order, also one called once the action has returned while an earlier one still waits",
+    ),
+    [...new Set(unverified)],
+  );
+}
+
+/** the gestures whose start the drag-start case imports at: diagram-js activates a move once the
+ *  press has passed the drag threshold, a palette create at once */
+const DRAG_START_KINDS: readonly GestureKind[] = ["move", "create"];
+
+/** a gesture started with a selection, while the selection listener imports when the start clears it */
+async function importAtTheStart(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  elements: ElementsSurface,
+  startGesture: GestureStarter,
+  kind: GestureKind,
+): Promise<ActionLegFindings> {
+  const settle = h.settle ?? defaultSettle;
+  const first = h.canonicalTexts[0] ?? "";
+  const [leg] = importedLegs(h);
+  if (leg === undefined) return { findings: [] };
+  await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
+  // the oracle comes from the modeler's OWN serializer: a non-canonical one fails L2
+  const expected = exportOrFail(m, `after importing ${leg.what}`);
+  await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+  await settle();
+  // a selection the drag's start clears: diagram-js's Dragging.move empties it while it activates
+  // the drag, and reads the drag again once the selection listeners have run (#336)
+  const selected = elements.list()[0]?.id;
+  if (selected === undefined || !elements.reveal(selected)) {
+    return {
+      findings: [],
+      unverified: `elements.list() reports no element of canonicalTexts[0] that reveal() selects — an import at the start of a ${kind} was not checked`,
+    };
+  }
+  await settle();
+  const during = `importing ${leg.what} from the selection listener at the start of a ${kind}`;
+  const findings: string[] = [];
+  let result: Promise<ListenerImportResult> | undefined;
+  let changes = 0;
+  const offSelection = once(
+    elements.onSelection(() => {
+      if (result === undefined) result = importFromAListener(m, leg.text);
+    }),
+  );
+  const offChanges = once(
+    m.onContentChanged(() => {
+      changes += 1;
+    }),
+  );
+  const errors = listenForWindowErrors();
+  try {
+    let held: HeldGesture | undefined;
+    const thrown = await errorOf(async () => {
+      held = await startGesture(m, kind);
+    });
+    if (result === undefined) {
+      if (held) await errorOf(() => held?.cancel());
+      return {
+        findings,
+        unverified: `the selection listener heard nothing at the start of a ${kind} with '${selected}' revealed${thrown === undefined ? "" : `, and startGesture threw ${thrown}`} — an import at a drag's start was not checked`,
+      };
+    }
+    const outcome = await withinTheBound(result);
+    if (thrown !== undefined)
+      findings.push(`the start of a ${kind} threw ${thrown} while ${during}`);
+    if (outcome.unsettled) {
+      findings.push(
+        `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — the import waited for the drag to end instead of ending it once the drag had started`,
+      );
+      if (held) {
+        const dropThrown = await errorOf(() => held?.drop());
+        if (dropThrown !== undefined) findings.push(`the drop after ${during} threw ${dropThrown}`);
+      }
+      if ((await withinTheBound(result)).unsettled) {
+        findings.push(
+          `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s after the drop either`,
+        );
+      }
+      for (const error of errors.errors) {
+        findings.push(`an error reached the window around ${during}: ${error}`);
+      }
+      return { findings, stop: true };
+    }
+    if (outcome.rejected !== undefined) {
+      findings.push(`${during} rejected: ${outcome.rejected}`);
+    } else if (outcome.exported !== expected) {
+      findings.push(
+        `when the Promise of ${during} settled, exportText() did not return the imported document`,
+      );
+    }
+    if (m.interaction?.active()) {
+      findings.push(
+        `interaction.active() was still true once ${during} had settled — the import did not end the drag`,
+      );
+    }
+    const beforeTheDrop = changes;
+    if (beforeTheDrop > 0) {
+      findings.push(
+        `onContentChanged fired ${beforeTheDrop}x between the start of a ${kind} and its drop while ${during}`,
+      );
+    }
+    if (held) {
+      const dropThrown = await errorOf(() => held?.drop());
+      if (dropThrown !== undefined) findings.push(`the drop after ${during} threw ${dropThrown}`);
+    }
+    await settle();
+    const dropped = changes - beforeTheDrop;
+    for (const error of errors.errors) {
+      findings.push(`an error reached the window around ${during}: ${error}`);
+    }
+    const out = exportedNow(m);
+    if (out === undefined) {
+      findings.push(`exportText() threw after the drop that followed ${during}`);
+      return { findings };
+    }
+    if (outcome.rejected === undefined && (dropped > 0 || out !== expected)) {
+      findings.push(
+        `the drop after ${during} applied the ${kind}${dropped > 0 ? ` (onContentChanged ${dropped}x)` : ""} — the import did not end the drag it met at its start`,
+      );
+    }
+    offChanges();
+    if (out === expected) {
+      findings.push(...(await undoAfterTheImport(h, m, out, during, "the drag")));
+    }
+  } finally {
+    offSelection();
+    offChanges();
+    errors.stop();
+  }
+  findings.push(...(await nextMutateApplies(h, m, during)));
+  return { findings };
+}
+
+/**
+ * the drag-start case: a host that imports from the selection listener meets the start of a drag,
+ * which empties the selection while diagram-js activates the drag. The import waits until the drag
+ * has started, then ends it as an accepted import ends any running gesture (#336). Per kind it first
+ * proves that a drop applies; 1.6 only RECOMMENDS the rest, so what the case finds is one advisory
+ */
+async function importAtADragsStart(h: ConformanceHarness): Promise<CaseOutcome> {
+  if (!h.startGesture) {
+    return skip(
+      "startGesture is undefined — that an import from the selection listener at a drag's start runs once the drag has started and then ends it (RECOMMENDED since 1.6) was not checked",
+    );
+  }
+  const startGesture = h.startGesture;
+  const findings: string[] = [];
+  const unverified = oneTextOnly(h, "an import at a drag's start");
+  for (const kind of DRAG_START_KINDS) {
+    const m = await h.create();
+    try {
+      const elements = m.elements;
+      if (!elements) {
+        unverified.push(
+          "the modeler exposes no elements surface (optional) — an import from the selection listener at a drag's start was not checked",
+        );
+        break;
+      }
+      await expectDropApplies(h, m, startGesture, kind);
+      const outcome = await importAtTheStart(h, m, elements, startGesture, kind);
+      findings.push(...outcome.findings);
+      if (outcome.unverified !== undefined) unverified.push(outcome.unverified);
+      if (outcome.stop) break;
+    } finally {
+      m.destroy();
+    }
+  }
+  return outcomeOf(
+    adviseOn(
+      findings,
+      "an import met the start of a drag",
+      "RECOMMENDED (since 1.6): an importText called while a drag starts (from the selection listener diagram-js calls as it activates a move or a palette create) waits until the drag has started and then ends it as it ends any running gesture: nothing throws, the import applies and settles, interaction.active() is false, and the drop applies nothing",
+    ),
+    unverified,
+  );
 }
 
 /**

@@ -96,6 +96,14 @@ context-pad action they keep the focus in the pad, and an action that closes or 
 destroying it makes the container `inert`, so the hidden canvas can neither keep the focus nor act
 on a key.
 
+Escape on the canvas ends every drag without a change, as it ends a diagram-js drag: also a label
+drag, the point drag of a drawing (the drawing stays selected) and the drag of a component's red
+evolve target. These drags and the colour picker take only an Escape aimed at the canvas (the
+picker also one on its swatches); one aimed at the palette, the context pad, a name editor or a
+host's field, menu, dialog or overlay, inside the canvas container or next to it, stays with that
+control. While the draw tool holds the points of a line, the single-key tools do nothing until the
+line is finished or cancelled.
+
 ## Collaborative hosts
 
 `createCollaborativeModeler()` and `createCollaborativeViewer()` implement the
@@ -119,8 +127,9 @@ changes nothing. A diagram-js drag is cancelled as Escape cancels it: a move, re
 lasso drag, a create from the palette, the context pad or a quick-create key (`C`, `U`, `N`, `P`
 with the pointer over the canvas), a connect started with `A`, the evolve drag the context pad
 starts and the plot-corner drag. A label drag, the point drag of a drawing and the drag of a
-component's red evolve target end when the import removes their element. A tool that only waits for
-the user's next press stays armed: the lasso from the palette or `L`, and the draw tool. An
+component's red evolve target end when the import removes their element. A line the draw tool holds
+ends without a drawing, and the draw tool with it. A tool that only waits for the user's next press
+stays armed: the lasso from the palette or `L`, and the draw tool before its first point. An
 `importText` called while a user's action runs (a host that echoes its own change back through its
 store imports from the action's change listener) waits until the action has finished, then imports,
 and its Promise settles after that import; imports that wait keep their call order. A drop has

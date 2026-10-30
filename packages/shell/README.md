@@ -718,7 +718,10 @@ clean, the file on disk holds still and the modeler's parser accepts it), undoes
 undo key (the canvas and, saved again, the file return), and switches through VS Code's four default
 themes (Default Light Modern, Default Dark Modern, Default High Contrast, Default High Contrast
 Light): the webview has to show what the theme bridge resolves for the modeler's `themes`, and every
-theme gets a screenshot. A run takes about 4 to 6 seconds once VS Code is downloaded.
+theme gets a screenshot. Then it checks the zoom and selection keys, the view and the selection
+across a redo and an undo, reduced motion, a hidden tab and Developer: Reload Window (below). In CI
+a run takes about 25 to 33 seconds once VS Code is downloaded, 17 to 20 of them in these last
+steps.
 
 Its two dependencies are optional peers of the shell, so only a modeler that uses the entry installs
 them, next to the build of its extension. It needs `@vscode/test-electron` 3.1.0 or later (and so
@@ -782,35 +785,39 @@ logs holds.
 A theme switch VS Code does not pick up is retried within the run (0.4.1): the driver writes the
 setting again, then switches through another theme and back, before the theme fails with the theme
 requested and the one VS Code shows. A modeler needs no retry of its own for a missed theme switch.
-Opted in with `keys: true`, or with `VSCODE_SMOKE_OPT_IN=keys` in the environment of the test (0.7),
-a run takes the keys step: with the focus on the canvas it presses every zoom key of guide §5.8
-(the Shift and numpad variants included) and Shift+1, then Cmd/Ctrl+A and C. The readout has to
-follow each key, no key the webview handled may reach the webview's `window` (where VS Code would
-run its own binding, such as the window zoom), VS Code's window zoom level has to stay as it was,
-Cmd/Ctrl+0 must not move VS Code's focus to the side bar, select all has to select more canvas
+The keys step (0.7, by default since 0.8): with the focus on the canvas it presses every zoom key of
+guide §5.8 (the Shift and numpad variants included) and Shift+1, then Cmd/Ctrl+A and C. The readout
+has to follow each key, no key the webview handled may reach the webview's `window` (where VS Code
+would run its own binding, such as the window zoom), VS Code's window zoom level has to stay as it
+was, Cmd/Ctrl+0 must not move VS Code's focus to the side bar, select all has to select more canvas
 elements than were selected before and no text, and the copy has to leave the clipboard alone.
-Opted in with `history: true`, or with `VSCODE_SMOKE_OPT_IN=history` (0.8; a list takes commas or
-spaces, `keys,history,workbench`), a run takes the history step, after the keys: it zooms the canvas
-away from the fit, selects every element, redoes the edit (as often as `undoSteps`) and undoes it
-again, and after each of the two the view (zoom and translation) and the selection have to be what
-they were, the element the history takes away or brings back aside. The document is VS Code's, so
-the webview imports every text a redo or an undo brings; this is where a modeler that refits, loses
-the selection or numbers its elements anew on every import shows.
-Opted in with `workbench: true`, or with `VSCODE_SMOKE_OPT_IN=workbench` (0.8), a run ends with
-three workbench steps. **motion** turns `workbench.reduceMotion` on and off in the settings file:
-the webview's `<body>` has to follow (VS Code's `vscode-reduce-motion`), the shell's mirror on
-`<html>` too, and Shift+1 has to jump under reduced motion. **hidden** zooms the canvas away from
-the fit, selects every element, opens an untitled text file in front of the modeler's editor,
-presses Shift+1 there and switches the theme; the hidden webview must not see the key, and once
-the untitled editor closes the webview has to be the same document with the same canvas, view and
-selection, under the new theme. **reload** turns reduced motion on, redoes and saves the edit,
-zooms away from the fit and toggles the legend through its menu entry where there is one, then
-runs Developer: Reload Window: the new webview has to start under reduced motion and show the
-saved edit, still saved, the stored view (not a fit), the legend as it was and the workbench's
+The history step (0.8), after the keys: it zooms the canvas away from the fit, selects every
+element, redoes the edit (as often as `undoSteps`) and undoes it again, and after each of the two
+the view (zoom and translation) and the selection have to be what they were, the element the history
+takes away or brings back aside. The document is VS Code's, so the webview imports every text a redo
+or an undo brings; this is where a modeler that refits, loses the selection or numbers its elements
+anew on every import shows.
+A run ends with three workbench steps (0.8). **motion** turns `workbench.reduceMotion` on and off in
+the settings file: the webview's `<body>` has to follow (VS Code's `vscode-reduce-motion`), the
+shell's mirror on `<html>` too, and Shift+1 has to jump under reduced motion. **hidden** zooms the
+canvas away from the fit, selects every element, opens an untitled text file in front of the
+modeler's editor, presses Shift+1 there and switches the theme; the hidden webview must not see the
+key, and once the untitled editor closes the webview has to be the same document with the same
+canvas, view and selection, under the new theme. **reload** turns reduced motion on, redoes and
+saves the edit, zooms away from the fit and toggles the legend through its menu entry where there is
+one, then runs Developer: Reload Window: the new webview has to start under reduced motion and show
+the saved edit, still saved, the stored view (not a fit), the legend as it was and the workbench's
 theme. An unsaved change cannot be checked there: VS Code keeps no backups for an extension
 development host, which every smoke run is. The reload needs the undo step to have brought the
-canvas back and the modeler's editor in front again after the hidden step, else the log says it
-was skipped. New steps start opt-in and become the default once every modeler passes them in CI.
+canvas back and the modeler's editor in front again after the hidden step, else the log says it was
+skipped.
+The keys, the history and the workbench steps started opt-in and run by default since 0.8. A
+modeler that cannot take one passes `keys: false`, `history: false` or `workbench: false` (a
+modeler without a zoom panel cannot take the keys step); a local run skips one without a change to
+the test with `VSCODE_SMOKE_SKIP` in the test's environment, which names the steps by those three
+names, separated by commas or spaces (`VSCODE_SMOKE_SKIP=workbench`). The option wins over the
+variable, and an unknown name there throws. New steps start opt-in and become the default once every
+modeler passes them in CI.
 Keep the smoke test out of the unit tests' project: it needs a display and the built extension. Add
 the screenshot directory to `.gitignore`.
 
@@ -835,12 +842,12 @@ downloaded VS Code, fail with hundreds of errors and block every commit behind a
 
 **macOS, locally.** Give the file a script of its own,
 `"test:vscode-smoke": "node --test apps/vscode/test-smoke/vscode-smoke.test.ts"`, build the extension
-and run it; a VS Code window opens for a few seconds and takes the focus (Electron has no headless
-mode on macOS; [in Docker](#in-docker-without-a-window) no window opens). The first run downloads VS
-Code, about 320 to 360 MB depending on the platform (1.143.0: 324 MB for macOS on Apple silicon, 351
-MB for Linux x64) and about 0.9 GB unpacked per version, 25 to 45 s on a fast connection; later runs
-reuse it. The driver dispatches keys by key code, so the run behaves the same on a QWERTZ or any
-other keyboard layout.
+and run it; a VS Code window opens for about half a minute and takes the focus (Electron has no
+headless mode on macOS; [in Docker](#in-docker-without-a-window) no window opens). The first run
+downloads VS Code, about 320 to 360 MB depending on the platform (1.143.0: 324 MB for macOS on Apple
+silicon, 351 MB for Linux x64) and about 0.9 GB unpacked per version, 25 to 45 s on a fast
+connection; later runs reuse it. The driver dispatches keys by key code, so the run behaves the same
+on a QWERTZ or any other keyboard layout.
 
 ```sh
 npm run build && npm run build:vscode
@@ -849,9 +856,10 @@ npm run test:vscode-smoke
 
 **Linux, in CI.** VS Code needs an X server: run the script under `xvfb-run -a` (without one,
 Playwright reports "Unable to open X display"). GitHub's `ubuntu-latest` has the libraries VS Code
-needs, as `@vscode/test-electron`'s own CI recipe relies on; the Event Storming and Wardley Maps
-modelers run the driver there on every pull request that touches their extension. An opt-in job,
-for example on demand and on pull requests with a label:
+needs, as `@vscode/test-electron`'s own CI recipe relies on; the suite's CI runs the driver there
+for every modeler whose extension a pull request can change (a change to the shell reaches all
+five), on the newest stable VS Code and on the oldest that `engines.vscode` accepts. A job of your
+own, for example on demand and on pull requests with a label:
 
 ```yaml
 vscode-smoke:
@@ -880,7 +888,8 @@ On macOS every run starts a VS Code window in the foreground, and several runs i
 the focus from whoever works on the machine. `modeler-shell-vscode-docker`, the shell's one command,
 runs the same test in a Linux container under `xvfb-run -a`, where no window shows. The host needs
 Docker and the shell; the container brings everything else. Validated with Docker Desktop on an
-Apple silicon Mac; on a Linux host the results get the host user's ownership, not root's.
+Apple silicon Mac before 0.8, with the steps up to the themes; on a Linux host the results get the
+host user's ownership, not root's.
 Add the script next to the modeler's smoke script:
 
 ```json
@@ -923,9 +932,10 @@ What it does:
    created it (it carries the marker file `.modeler-shell-vscode-docker`); one with files of its own
    is left as it is. The exit code is the test's.
 
-With the image and VS Code cached a run takes about 10 s on an Apple silicon Mac (Event Storming
-10.4 s, Wardley Maps 9.3 s, `npm ci` included); the very first run about 75 s (the image 38 s, the
-VS Code download 22 s). Paths in the test's own output are the container's (`/work/…`). Runs in
+With the image and VS Code cached a run took about 10 s on an Apple silicon Mac before 0.8 (Event
+Storming 10.4 s, Wardley Maps 9.3 s, `npm ci` included), the very first run about 75 s (the image
+38 s, the VS Code download 22 s); the keys, history and workbench steps, the default since 0.8, add
+17 to 20 s in CI. Paths in the test's own output are the container's (`/work/…`). Runs in
 parallel share the cache volume, also while one of them downloads a new VS Code version, as long as
 every modeler that runs on it uses modeler-shell 0.3.3 or later; one still on 0.3.2 or older can
 break the others while it downloads and be broken by them. `docker

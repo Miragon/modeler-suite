@@ -37,7 +37,7 @@ import {
   resolveExtensionMain,
   vsCodeEnvironment,
   vsCodeLaunchArgs,
-  vsCodeSmokeOptIn,
+  vsCodeSmokeSkip,
   vsCodeUserSettings,
   type ExtensionManifest,
   type PlatformKeys,
@@ -187,23 +187,23 @@ export interface VsCodeSmokeOptions {
   /** Keeps the throwaway profile, workspace and VS Code logs, and logs where they are. */
   keepTemporaryFiles?: boolean | undefined;
   /**
-   * Runs the keys step (0.7): the zoom keys, Shift+1, Cmd/Ctrl+A and C on the canvas, with VS Code's
-   * window zoom, focus and clipboard checked. Opt-in while it is new; without the option,
-   * `VSCODE_SMOKE_OPT_IN=keys` in the environment turns it on.
+   * Runs the keys step (0.7, by default since 0.8): the zoom keys, Shift+1, Cmd/Ctrl+A and C on the
+   * canvas, with VS Code's window zoom, focus and clipboard checked. `false` skips it; without the
+   * option, `VSCODE_SMOKE_SKIP=keys` in the environment does.
    */
   keys?: boolean | undefined;
   /**
-   * Runs the history step (0.8): after the keys, the redo of the edit and the undo that takes it back
-   * again leave the zoomed view and the selection of every element alone. Opt-in while it is new;
-   * without the option, `VSCODE_SMOKE_OPT_IN=history` in the environment turns it on.
+   * Runs the history step (0.8, by default): after the keys, the redo of the edit and the undo that
+   * takes it back again leave the zoomed view and the selection of every element alone. `false`
+   * skips it; without the option, `VSCODE_SMOKE_SKIP=history` in the environment does.
    */
   history?: boolean | undefined;
   /**
-   * Runs the workbench steps (0.8), last: `motion` (the modeler follows `workbench.reduceMotion`),
-   * `hidden` (an editor in a background tab keeps its state, takes no key and comes back as it was)
-   * and `reload` (Developer: Reload Window brings back the saved document, the view and the
-   * legend). Opt-in while they are new; without the option, `VSCODE_SMOKE_OPT_IN=workbench` in
-   * the environment turns them on.
+   * Runs the workbench steps (0.8, by default), last: `motion` (the modeler follows
+   * `workbench.reduceMotion`), `hidden` (an editor in a background tab keeps its state, takes no
+   * key and comes back as it was) and `reload` (Developer: Reload Window brings back the saved
+   * document, the view and the legend). `false` skips them; without the option,
+   * `VSCODE_SMOKE_SKIP=workbench` in the environment does.
    */
   workbench?: boolean | undefined;
 }
@@ -363,12 +363,12 @@ async function closeApplication(app: ElectronApplication): Promise<void> {
 
 /**
  * Starts a real VS Code with the modeler's built extension, opens `fixture` in its custom editor,
- * and checks the shell's chrome, an edit through the canvas, save, undo, and the theme bridge under
- * every color theme, with a screenshot per theme; opted in, also the zoom and selection keys, the
- * view and selection across a redo and an undo, and the workbench steps: reduced motion, a hidden
- * tab and Developer: Reload Window. A failed check never throws: it is in `failures`.
+ * and checks the shell's chrome, an edit through the canvas, save, undo, the theme bridge under
+ * every color theme, with a screenshot per theme, the zoom and selection keys, the view and
+ * selection across a redo and an undo, and the workbench steps: reduced motion, a hidden tab and
+ * Developer: Reload Window. A failed check never throws: it is in `failures`.
  * Throws for unusable options (no manifest, no matching custom editor, an unbuilt extension, a file
- * name with a path, an unknown step in `VSCODE_SMOKE_OPT_IN`) and when the optional peers are
+ * name with a path, an unknown step in `VSCODE_SMOKE_SKIP`) and when the optional peers are
  * missing.
  */
 export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCodeSmokeResult> {
@@ -378,9 +378,10 @@ export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCod
   const islands = options.chrome ?? DEFAULT_CHROME;
   const themes = options.themes ?? ["light"];
   const colorThemes = options.colorThemes ?? VSCODE_COLOR_THEMES;
-  const keys = options.keys ?? vsCodeSmokeOptIn(process.env).has("keys");
-  const history = options.history ?? vsCodeSmokeOptIn(process.env).has("history");
-  const workbench = options.workbench ?? vsCodeSmokeOptIn(process.env).has("workbench");
+  const skipped = vsCodeSmokeSkip(process.env);
+  const keys = options.keys ?? !skipped.has("keys");
+  const history = options.history ?? !skipped.has("history");
+  const workbench = options.workbench ?? !skipped.has("workbench");
   const { fileName } = options.fixture;
   if (!isPlainFileName(fileName)) {
     throw new Error(`runVsCodeSmoke: the fixture needs a plain file name, not "${fileName}"`);

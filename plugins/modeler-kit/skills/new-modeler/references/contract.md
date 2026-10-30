@@ -92,10 +92,9 @@ key acts; in the apps the shell does that for its chrome ([shell](shell.md)).
 Hosts re-import a peer's text whenever it arrives, also while the user drags. diagram-js keeps a
 drag running across a cleared canvas, and its release then applies a command to removed shapes and
 throws half-way. Contract 1.5 RECOMMENDS the cancel below and defines the optional `interaction`
-surface. Contract 1.6 RECOMMENDS that a pan is no gesture and that an import waits for a running
-drop, each with a kit case that advises. Every Miragon renderer and the template go further and
-let an import wait for any running user action, which goes beyond the contract's text so far and
-gets its kit case in a later release (template:
+surface. Contract 1.6 RECOMMENDS that a pan is no gesture and that an import waits for any running
+user action, each with kit cases that advise, and every Miragon renderer and the template follow
+both (template:
 [`Gestures.ts`](../assets/template/packages/renderer/src/gestures/Gestures.ts), called from
 [`BaseViewer.ts`](../assets/template/packages/renderer/src/BaseViewer.ts) and
 [`collaborative.ts`](../assets/template/packages/renderer/src/collaborative/collaborative.ts)):
@@ -141,9 +140,14 @@ gets its kit case in a later release (template:
   import waits whichever listener of that task a host calls it from. End the action with that
   microtask, not with a later event: a drop whose cleanup throws never announces its end, and a flag
   left set would hold every later import. Imports keep their call order, also one called after the
-  action while an earlier one still waits. Outside an action it imports at once. The kit's drop case
-  checks the drop (contract 1.6, RECOMMENDED), with a selection held from before the drag and both a
-  different document and an echo of the drop's own. The diagram's own import, which cannot wait,
+  action while an earlier one still waits. Outside an action it imports at once. The kit checks it
+  in three cases (contract 1.6, RECOMMENDED): the drop case, with a selection held from before the
+  drag and both a different document and an echo of the drop's own; the user-action case, with an
+  import from the selection listener of a delete (Delete on the focused canvas), an undo and a redo
+  of a selected element, and two imports that keep their call order; and the drag-start case, with
+  an import from the selection listener at the start of a move and of a palette create. A click
+  append, a keyboard create and a label commit stay with the renderer's own tests, as in the
+  template's `gestures.browser.test.ts`. The diagram's own import, which cannot wait,
   leaves a drop to finish and never cancels it from inside diagram-js's end of it (tell the drop
   apart by its drag context). Called from a selection listener at a drag's start, it still ends the
   drag inside `Dragging.move`, which then throws on the cursor, so a host imports there through the

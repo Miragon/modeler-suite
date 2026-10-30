@@ -43,8 +43,9 @@ const { svg } = modeler.saveSVG(); // standalone SVG
 The stylesheet is required. It loads, in this order, the design-system tokens
 (`cd-tokens.generated.css`, in a cascade layer, so a host page's own `--cd-*` tokens win),
 diagram-js' own CSS and `cd-canvas.css`, which maps diagram-js' chrome onto the `--cd-ui-*` roles;
-then it styles the canvas surround (its text colour included), the context pad and the label editor
-(and the deprecated shortcuts dialog) on those roles only. The three design-system files are vendored unchanged from the
+then it styles the canvas surround (its text colour included), the context pad, the label editor,
+the palette and its tooltip where no chrome skins them (see [Palette](#palette)), and the deprecated
+shortcuts dialog, on those roles only. The three design-system files are vendored unchanged from the
 `miragon-brand:modeler-tool-design` skill (design system 1.27.0) into `src/theme/`. The diagram
 itself is drawn with SVG presentation values in the light roles of those tokens, so SVG and PNG
 exports stay light in every mode.
@@ -80,9 +81,12 @@ container as in bpmn-js; the feature modules (`vcDrawModule`, `vcRulesModule`, `
   still on the palette, and a press of the armed connect tool whose pointer has not left its shape
   yet) ends first, as Escape ends it, so its release changes nothing. A pan is no gesture: one
   with the hand tool, with Space held or with Ctrl/Cmd and a press keeps running across the
-  import, and the hand tool is still armed when it ends. When the import fits the view, the pan
-  goes on from the fitted view. A palette tool that only waits for its next press (lasso, hand,
-  space, connect) stays armed and highlighted, and its next press works on the imported diagram.
+  import, and the hand tool is still armed when it ends. The pan goes on from the current view:
+  the fitted one when the import fits the view, or one the host sets after the import (restoring
+  its view, L5) or while the pan runs. A pan does not scroll the view on its own at the edge of
+  the canvas, so the diagram stays under the pointer. A palette tool that only waits for its next
+  press (lasso, hand, space, connect) stays armed and highlighted, and its next press works on the
+  imported diagram.
   A pan or an armed tool that ends after the import brings back the selection from before it
   started, as it does without an import: the shapes the import drew under the same ids, without
   the ones it removed.
@@ -128,9 +132,50 @@ false. `diagramShortcuts()` lists them for a dialog.
   so Delete and `Cmd/Ctrl+Z` act at once; a label editor or menu the entry opens takes it from
   there. Enter or Space on an entry leave the focus on it, unless the entry's action left it on
   `<body>`.
+- Copy, cut, paste and duplicate take steps, org units and the relations between them; a relation
+  goes along only with both of its ends, so cut leaves a selected relation on the canvas unless
+  both of its ends are cut with it. A copy gets fresh ids and keeps its label, colour and link;
+  fields beyond the schema (vendor extensions) stay with the original. A paste follows the pointer
+  while it is on the canvas, until a click places it (Escape cancels). Without the pointer there
+  (on the palette, an overlay or off the canvas), the copy lands 20 px to the right of and below
+  the original, one step further with each paste. The first paste after a cut lands where the cut
+  elements were, unless an undo or an import brought them back. Duplicate places its copy 20 px
+  off the original at once. Each is one undo step, and what it placed is selected.
 - A host that hides the canvas without destroying the modeler makes its container `inert` or
   `display: none`, not only transparent: a hidden or inert canvas cannot hold the focus, so no key
   reaches it.
+
+## Palette
+
+Lasso, Hand, Create or remove space and Connect, then Step and Organizational unit. A host that
+mounts the `Modeler` without a chrome of its own gets the palette of the Miragon design guide
+(§5.5) from the renderer:
+
+- a horizontal glass island at the top centre of the container, 12px from its top and 40px high,
+  with 32 × 32 entries 2px apart and a 1px line with 8px on either side between the tools and the
+  creating entries; above the context pad and the label editor (`z-index` 110); in a container at
+  most 760px wide in the second row (64px from the top), at most the container less 12px on either
+  side wide and scrolling sideways, with the focus ring inside the entries (§5.15);
+- hover in `--cd-ui-hover` with the icon in `--cd-ui-interaktion`, the armed tool with
+  `aria-pressed="true"`, the hover fill and a 2px inset ring, the keyboard focus as a 2px
+  `--cd-ui-fokus` ring; in high contrast no shadow, a `--cd-ui-kontur` edge and a 3px focus ring;
+  under forced colours the edge, the separator, the focus and the armed tool's ring in system
+  colours;
+- a toolbar named "Tools" ahead of the canvas in the tab order, with one tab stop that roves with
+  ← → Home End, Enter or Space to activate an entry (a creating entry places its element in the
+  `freeArea`, see above) and `aria-keyshortcuts` on the tools; a press on the island's padding gives
+  the focus to the canvas;
+- the tooltip (`role="tooltip"`) with the entry's name and key 8px below the palette, centred on its
+  entry and 12px from the container's sides: after 300ms of hover, at once on keyboard focus and for
+  a neighbour while one is shown, never for touch, hidden on a press, Escape, leaving and blur
+  (§5.6).
+
+The rules apply inside the renderer's container (`.vc-container`) only, so another diagram-js
+palette on the same page keeps its own look. A chrome that skins the palette marks it
+`data-chrome="palette"`, as `@miragon/modeler-shell` does: then the renderer's rules and keys stay
+off it and the chrome's own apply alone. The tooltip is the diagram-js service `paletteTooltip`,
+which the shell's `shellModule` replaces with its own; for a palette another chrome skins, it stands
+right of the entry in diagram-js's look, as without this renderer's tooltip.
 
 ## Edit lock
 

@@ -3,6 +3,7 @@ import { attachedHost } from "@miragon/modeler-api/conformance";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
+import type Selection from "diagram-js/lib/features/selection/Selection";
 import { parseDocumentJSON, serializeDocument } from "@miragon/value-chain-schema-model";
 import {
   createCollaborativeModeler,
@@ -22,8 +23,8 @@ import {
 
 /**
  * Contract 1.5 `interaction` (`packages/api/README.md`, "Cases for the 1.5 surfaces"): `active()`
- * from a gesture's start until its drop or cancel, `onChange` once each way. An armed palette tool
- * and a pan are no gesture (#170).
+ * from a gesture's start until its drop or cancel, `onChange` once each way. A paste that follows
+ * the pointer is one (#286); an armed palette tool and a pan are none (#170).
  */
 
 const PEER_EDIT = (() => {
@@ -439,6 +440,60 @@ describe("interaction: an import during a gesture", () => {
     pointer.release();
 
     expect(calls).toEqual([]);
+  });
+});
+
+describe("interaction: a paste that follows the pointer (#286)", () => {
+  function pressWithCtrl(key: string): void {
+    pointer
+      .canvasSvg()
+      .dispatchEvent(
+        new KeyboardEvent("keydown", { key, ctrlKey: true, bubbles: true, cancelable: true }),
+      );
+  }
+
+  /** Cmd/Ctrl+C on a step, then Cmd/Ctrl+V with the pointer over the canvas. */
+  function startPaste(): void {
+    editor().diagram.get<Selection>("selection").select(pointer.shape("step-credit"));
+    pointer.canvasSvg().focus();
+    pressWithCtrl("c");
+    pointer.canvasSvg().dispatchEvent(pointer.event("mousemove", FREE_SPOT));
+    pressWithCtrl("v");
+  }
+
+  it("is a gesture from the key until the click places the copy", () => {
+    startPaste();
+    expect(dragPrefix()).toBe("create");
+    expect(active()).toBe(true);
+    expect(calls).toEqual([true]);
+
+    pointer.hover(pointer.canvasSvg(), FREE_SPOT);
+    pointer.release();
+    expect(active()).toBe(false);
+    expect(calls).toEqual([true, false]);
+    expect(editor().elements.list()).toHaveLength(9);
+  });
+
+  it("ends with Escape, without a copy", () => {
+    startPaste();
+
+    pointer.escape();
+    expect(active()).toBe(false);
+    expect(calls).toEqual([true, false]);
+    expect(editor().elements.list()).toHaveLength(8);
+  });
+
+  it("ends with an import, without a change event", async () => {
+    let changes = 0;
+    editor().onContentChanged(() => (changes += 1));
+    startPaste();
+
+    await editor().importText(PEER_EDIT);
+    expect(active()).toBe(false);
+    expect(calls).toEqual([true, false]);
+    pointer.release();
+    expect(changes).toBe(0);
+    expect(editor().exportText()).toBe(PEER_EDIT);
   });
 });
 

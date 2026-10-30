@@ -130,34 +130,66 @@ export function vsCodeEnvironment(
 }
 
 /**
- * The steps a run takes only when asked to (`keys` since 0.7, `history` and `workbench` since 0.8;
- * `workbench` names the three steps `motion`, `hidden` and `reload`): new ones start here and
- * become the default once every modeler passes them in CI.
+ * The steps a run takes unless it is told to skip them (`keys` since 0.7, `history` and `workbench`
+ * since 0.8, all three by default since 0.8; `workbench` names the three steps `motion`, `hidden`
+ * and `reload`). A new step starts opt-in and joins them once every modeler passes it in CI.
  */
-export const VSCODE_SMOKE_OPT_IN_STEPS = ["keys", "history", "workbench"] as const;
+export const VSCODE_SMOKE_SKIPPABLE_STEPS = ["keys", "history", "workbench"] as const;
 
-export type VsCodeSmokeOptInStep = (typeof VSCODE_SMOKE_OPT_IN_STEPS)[number];
+export type VsCodeSmokeSkippableStep = (typeof VSCODE_SMOKE_SKIPPABLE_STEPS)[number];
+
+function stepsNamedIn(
+  variable: "VSCODE_SMOKE_SKIP" | "VSCODE_SMOKE_OPT_IN",
+  environment: Readonly<Record<string, string | undefined>>,
+  noSuchStep: { one: string; several: string },
+): ReadonlySet<VsCodeSmokeSkippableStep> {
+  const names = (environment[variable] ?? "").split(/[\s,]+/).filter(Boolean);
+  const known: readonly string[] = VSCODE_SMOKE_SKIPPABLE_STEPS;
+  const unknown = names.filter((name) => !known.includes(name));
+  if (unknown.length > 0) {
+    const which = unknown.length === 1 ? noSuchStep.one : noSuchStep.several;
+    throw new Error(
+      `runVsCodeSmoke: ${variable} names ${unknown.map((name) => `"${name}"`).join(", ")}, ` +
+        `${which} (${VSCODE_SMOKE_SKIPPABLE_STEPS.join(", ")})`,
+    );
+  }
+  return new Set(names as VsCodeSmokeSkippableStep[]);
+}
 
 /**
- * The opt-in steps that `VSCODE_SMOKE_OPT_IN` names, separated by commas or spaces
- * (`keys,history,workbench`). A CI workflow opts every modeler's smoke in at once this way, without a change
- * to the modelers' tests.
- * Throws for a name that is no opt-in step, so a typo cannot turn a step off unnoticed.
+ * The steps that `VSCODE_SMOKE_SKIP` names, separated by commas or spaces (`history,workbench`). A
+ * modeler or a local run that cannot take a step skips it this way, without a change to its test.
+ * Throws for a name that is no such step, so a typo cannot leave a step running unnoticed.
+ */
+export function vsCodeSmokeSkip(
+  environment: Readonly<Record<string, string | undefined>>,
+): ReadonlySet<VsCodeSmokeSkippableStep> {
+  return stepsNamedIn("VSCODE_SMOKE_SKIP", environment, {
+    one: "which is no step it can skip",
+    several: "which are no steps it can skip",
+  });
+}
+
+/** @deprecated Since 0.8.0, removed in 0.9.0 (#350). Use `VSCODE_SMOKE_SKIPPABLE_STEPS`. */
+export const VSCODE_SMOKE_OPT_IN_STEPS = VSCODE_SMOKE_SKIPPABLE_STEPS;
+
+/** @deprecated Since 0.8.0, removed in 0.9.0 (#350). Use `VsCodeSmokeSkippableStep`. */
+export type VsCodeSmokeOptInStep = VsCodeSmokeSkippableStep;
+
+/**
+ * The steps that `VSCODE_SMOKE_OPT_IN` names, separated by commas or spaces; throws for a name
+ * that is no such step.
+ * @deprecated Since 0.8.0, removed in 0.9.0 (#350). The driver no longer reads
+ * `VSCODE_SMOKE_OPT_IN`: its steps run by default, and `vsCodeSmokeSkip` reads `VSCODE_SMOKE_SKIP`,
+ * which skips one.
  */
 export function vsCodeSmokeOptIn(
   environment: Readonly<Record<string, string | undefined>>,
 ): ReadonlySet<VsCodeSmokeOptInStep> {
-  const names = (environment.VSCODE_SMOKE_OPT_IN ?? "").split(/[\s,]+/).filter(Boolean);
-  const known: readonly string[] = VSCODE_SMOKE_OPT_IN_STEPS;
-  const unknown = names.filter((name) => !known.includes(name));
-  if (unknown.length > 0) {
-    const which = unknown.length === 1 ? "which is no opt-in step" : "which are no opt-in steps";
-    throw new Error(
-      `runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names ${unknown.map((name) => `"${name}"`).join(", ")}, ` +
-        `${which} (${VSCODE_SMOKE_OPT_IN_STEPS.join(", ")})`,
-    );
-  }
-  return new Set(names as VsCodeSmokeOptInStep[]);
+  return stepsNamedIn("VSCODE_SMOKE_OPT_IN", environment, {
+    one: "which is no opt-in step",
+    several: "which are no opt-in steps",
+  });
 }
 
 /**

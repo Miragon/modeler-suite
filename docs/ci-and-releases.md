@@ -19,25 +19,29 @@ commit and decides which jobs it can break:
 | Changed path                                                                                                   | Runs                                                    |
 | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `modelers/<m>/**`                                                                                              | the jobs of modeler `<m>`                               |
+| `modelers/<m>/plugins/**`                                                                                      | the jobs of modeler `<m>` and the shared jobs           |
 | `packages/**`, `.github/**`, root `package.json`, `package-lock.json`, `.npmrc`, any other root file or folder | the shared jobs, the template job and all five modelers |
 | `plugins/modeler-kit/**`                                                                                       | the shared jobs and the template job                    |
 | `plugins/**`, `test/**`, `.claude-plugin/**`                                                                   | the shared jobs                                         |
 | `docs/**`, `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`, `.husky/**`     | nothing but the always-on jobs                          |
 
 Markdown elsewhere is no documentation here: skills under `plugins/` feed drift tests, and a
-package or an extension ships its README. The template job also runs when the design-system files
-it borrows change (`modelers/event-storming/packages/renderer/src/theme/**`). A run without a base
-commit (started by hand, a new branch) and a base that cannot be fetched run everything; so does any
-path no rule names.
+package or an extension ships its README. A modeler's Claude plugin reaches the shared jobs because
+`test:plugin` checks the manifest and the skills of every plugin in the marketplace. The template
+job also runs when the design-system files it borrows change
+(`modelers/event-storming/packages/renderer/src/theme/**`). A run without a base commit (started
+by hand, a new branch) and a base that cannot be fetched run everything; so does any path no rule
+names.
 
 ### Jobs
 
 - **Shared** (`shared-lint`, `shared-test`, `shared-test-browser`, `shared-e2e`): the type check of
   modeler-api, modeler-shell and the root tests; their unit tests plus `test:plugin` (the
-  repository-level checks in `test/`: the modeler-kit and release-config drift tests, every
-  modeler's boundaries and the Dependabot auto-merge workflow), build and `publint`; the shell's
-  browser tests (`test:browser:shared`: the PNG export in Chromium and WebKit, in the Playwright
-  image of the root's `playwright` pin); the shell's Playwright suite in four
+  repository-level checks in `test/`: the modeler-kit and release-config drift tests, the manifests
+  and skills of every plugin in the marketplace, every modeler's boundaries, the Dependabot
+  auto-merge workflow and the path decisions of `ci-paths.sh affected`), build and `publint`; the
+  shell's browser tests (`test:browser:shared`: the PNG export in Chromium and WebKit, in the
+  Playwright image of the root's `playwright` pin); the shell's Playwright suite in four
   shards, each of which runs a quarter of the other tests and then a quarter of the saboteurs that
   run the whole kit (sharded together, those all fell into one shard).
 - **Per modeler**, a matrix over the modelers the change reaches, each job named
@@ -67,11 +71,10 @@ path no rule names.
   modeler: the packaged extension in a real VS Code under `xvfb`, on the newest stable release and on
   the oldest that `engines.vscode` accepts. The workflow decides itself whether the change can reach
   that VSIX (`ci-paths.sh vscode-smoke <modeler>`); when it cannot, a job that succeeds stands in, so
-  the smoke always reports. It sets `VSCODE_SMOKE_OPT_IN=keys,history,workbench`, so every modeler
-  also runs the driver's opt-in steps (the zoom and selection keys, the view and selection across a
-  redo and an undo, and the workbench steps: reduced motion, a hidden tab and Developer: Reload
-  Window) until they become its default; the smoke the release runs on the VSIX it publishes leaves
-  them out.
+  the smoke always reports. Every run takes all of the driver's steps, its default since
+  modeler-shell 0.8: besides open, edit, save, undo and the themes, the zoom and selection keys, the
+  view and selection across a redo and an undo, and the workbench steps (reduced motion, a hidden
+  tab and Developer: Reload Window). So does the smoke the release runs on the VSIX it publishes.
 
 ### `ci-ok`
 
@@ -93,8 +96,7 @@ A skip after a failed or cancelled `changes` is never accepted, and the smoke ne
 [`template-vscode-smoke.yml`](../.github/workflows/template-vscode-smoke.yml) runs the VS Code
 smoke of a modeler created from the template (the instance of the `template` job, its
 `test:vscode` under `xvfb-run -a`) on the newest stable VS Code and on the oldest that the
-template's `engines.vscode` accepts, with `VSCODE_SMOKE_OPT_IN=keys,history,workbench` like the VS
-Code smoke.
+template's `engines.vscode` accepts, with every step of the driver like the VS Code smoke.
 It downloads VS Code twice, so it is no part of `ci-ok`: add the label `template-vscode-smoke` to a
 pull request (it runs again on every push while the label stays; adding another label starts no
 run), or start the workflow by hand on a branch. The label is created once with

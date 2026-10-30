@@ -28,7 +28,7 @@
     "test:e2e": "npm run test:e2e -w e2e --",
     "test:vscode-smoke": "vitest run --config apps/vscode/test-smoke/vitest.config.ts",
     "test:vscode": "npm run build && npm run build:vscode && npm run test:vscode-smoke",
-    "test:vscode:docker": "modeler-shell-vscode-docker --env VSCODE_VERSION --env VSCODE_SMOKE_KEEP",
+    "test:vscode:docker": "modeler-shell-vscode-docker --env VSCODE_VERSION --env VSCODE_SMOKE_KEEP --env VSCODE_SMOKE_SKIP",
     "dev": "npm run dev:webapp",
     "dev:webapp": "npm run dev -w apps/webapp",
     "dev:webapp:plain": "npm run dev:app -w apps/webapp",

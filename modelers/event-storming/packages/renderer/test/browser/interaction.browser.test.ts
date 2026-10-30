@@ -7,8 +7,6 @@ import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Shape } from "diagram-js/lib/model/Types";
-import { parseDSL } from "@miragon/event-storming-dsl";
-import type { EventStormingBoard } from "@miragon/event-storming-schema-model";
 import {
   createCollaborativeModeler,
   createCollaborativeViewer,
@@ -20,6 +18,8 @@ import {
   offset,
   pointerOn,
   pressEscape,
+  pressEscapeOnFocus,
+  rejectedBoard,
   service,
   shapeOf,
   sticky,
@@ -27,18 +27,6 @@ import {
 
 // A peer moved the policy: the import replaces every shape a running gesture holds.
 const REMOTE = BOARD.replace("policy Reserve Stock [800, 200]", "policy Reserve Stock [840, 260]");
-
-/**
- * A board from JSON that the import rejects (L7): its sticky claims the id of the board itself.
- * The DSL reads every text, so only a board that bypasses it reaches a rejection.
- */
-function rejectedBoard(): EventStormingBoard {
-  const board = parseDSL("title Broken\nevent Foo [0, 0]\n");
-  return {
-    ...board,
-    elements: board.elements.map((element) => ({ ...element, id: "event-storming-root" })),
-  };
-}
 
 const FREE = { x: 640, y: 380 };
 
@@ -133,8 +121,6 @@ type GestureKind = [
   name: string,
   hold: (modeler: CollaborativeEventStormingModeler) => HeldGesture,
 ];
-
-const POINT_DRAG = "a point drag of a drawing";
 
 /** The gestures of the board, each held the way a user holds it, with its drop and its cancel. */
 const GESTURES: GestureKind[] = [
@@ -238,7 +224,7 @@ const GESTURES: GestureKind[] = [
     },
   ],
   [
-    POINT_DRAG,
+    "a point drag of a drawing",
     (modeler) => {
       const pointer = pointerOn(modeler);
       service<Selection>(modeler, "selection").select(
@@ -251,7 +237,7 @@ const GESTURES: GestureKind[] = [
       );
       expect(modeler.interaction.active()).toBe(false);
       pointer.moveTo(offset(first, 30, -40));
-      return { drop: () => pointer.release(offset(first, 30, -40)) };
+      return { drop: () => pointer.release(offset(first, 30, -40)), cancel: pressEscapeOnFocus };
     },
   ],
 ];
@@ -281,21 +267,17 @@ describe("the interaction surface (modeler-api 1.5)", () => {
     expect(uncaught).toEqual([]);
   });
 
-  // A drawing's point drag has no Escape yet (#243).
-  it.each(GESTURES.filter(([name]) => name !== POINT_DRAG))(
-    "is false after %s is cancelled with Escape",
-    async (_, hold) => {
-      const modeler = await editorWithBoard();
-      const reports = reportsOf(modeler);
+  it.each(GESTURES)("is false after %s is cancelled with Escape", async (_, hold) => {
+    const modeler = await editorWithBoard();
+    const reports = reportsOf(modeler);
 
-      const gesture = hold(modeler);
-      gesture.cancel?.();
-      expect(modeler.interaction.active()).toBe(false);
-      expect(reports.values()).toEqual([true, false]);
-      expect(reports.consistent()).toBe(true);
-      expect(modeler.exportText()).toBe(BOARD);
-    },
-  );
+    const gesture = hold(modeler);
+    gesture.cancel?.();
+    expect(modeler.interaction.active()).toBe(false);
+    expect(reports.values()).toEqual([true, false]);
+    expect(reports.consistent()).toBe(true);
+    expect(modeler.exportText()).toBe(BOARD);
+  });
 
   it.each(GESTURES)(
     "is false once an import ended %s, before the import resolves",

@@ -980,6 +980,7 @@ const NON_API_NAMES = new Map<string, string>([
   ["VSCODE_VERSION", "the template's VS Code smoke test"],
   ["VSCODE_SMOKE_EXTENSION", "the template's VS Code smoke test"],
   ["VSCODE_SMOKE_KEEP", "the template's VS Code smoke test"],
+  ["VSCODE_SMOKE_SKIP", "the shell's VS Code smoke driver"],
   ["BEGIN_COMMIT_OVERRIDE", "release-please"],
   ["updatePeerDependencies", "release-please"],
   ["END_COMMIT_OVERRIDE", "release-please"],

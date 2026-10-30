@@ -313,6 +313,55 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       service<WardleyColorPicker>("wardleyColorPicker").close();
     });
 
+    it.each([
+      ["a palette entry", "palette"],
+      ["a host button inside the diagram container", "button"],
+      ["a host overlay inside the diagram container", "overlay"],
+    ] as const)(
+      "leaves an Escape on %s to that control while the colour picker is open",
+      async (_name, kind) => {
+        const note = select("Remember the budget");
+        service<WardleyColorPicker>("wardleyColorPicker").open(note, 200, 200);
+        await nextTask();
+        const diagramContainer = service<Canvas>("canvas").getContainer();
+        let target: HTMLElement;
+        if (kind === "palette") {
+          target = diagramContainer.querySelector<HTMLElement>(
+            '.djs-palette .entry[data-action="lasso-tool"]',
+          )!;
+        } else if (kind === "button") {
+          target = document.createElement("button");
+          target.textContent = "Share";
+          diagramContainer.appendChild(target);
+        } else {
+          target = document.createElement("div");
+          target.tabIndex = 0;
+          target.textContent = "2 comments";
+          service<Overlays>("overlays").add(note, { position: { top: 0, left: 0 }, html: target });
+        }
+        const seenByControl: string[] = [];
+        target.addEventListener("keydown", (event) => seenByControl.push(event.key));
+        target.focus();
+        expect(document.activeElement).toBe(target);
+
+        expect(pressKey(target, "Escape").defaultPrevented).toBe(false);
+        expect(seenByControl).toEqual(["Escape"]);
+        expect(container.querySelector(".wardley-color-picker")).not.toBeNull();
+        service<WardleyColorPicker>("wardleyColorPicker").close();
+        if (kind === "button") target.remove();
+      },
+    );
+
+    it("closes an open colour picker on an Escape aimed at the canvas, keeping the selection", async () => {
+      const note = select("Remember the budget");
+      service<WardleyColorPicker>("wardleyColorPicker").open(note, 200, 200);
+      await nextTask();
+
+      expect(pressOnCanvas("Escape").defaultPrevented).toBe(true);
+      expect(container.querySelector(".wardley-color-picker")).toBeNull();
+      expect(service<Selection>("selection").get()).toEqual([note]);
+    });
+
     it("Cmd/Ctrl+A selects every map element instead of page text", () => {
       const event = pressOnCanvas("a", { metaKey: true });
       expect(event.defaultPrevented).toBe(true);
@@ -429,6 +478,27 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
     function drawings(): number {
       return shapeLabels("drawing").length;
     }
+
+    it("leaves the single-key tools without effect while it holds the points of a line", () => {
+      select("Customer");
+      drawTool().activate();
+      placePoint(300, 300);
+      placePoint(420, 360);
+      for (const key of ["c", "u", "n", "p", "a", "l"]) {
+        expect(pressOnCanvas(key).defaultPrevented).toBe(false);
+      }
+
+      expect(service<Dragging>("dragging").context()).toBeFalsy();
+      expect(labelInput()).toBeNull();
+      expect(shapeLabels("component")).toEqual(["Platform"]);
+      expect(shapeLabels("anchor")).toEqual(["Customer"]);
+      expect(shapeLabels("note")).toEqual(["Remember the budget"]);
+      expect(drawTool().holdsLine()).toBe(true);
+      expect(pressOnCanvas("Enter").defaultPrevented).toBe(true);
+      expect(drawings()).toBe(1);
+      expect(pressOnCanvas("c").defaultPrevented).toBe(true);
+      expect(shapeLabels("component")).toEqual(["Platform", "Component"]);
+    });
 
     it("focuses the canvas on the first point, so Enter there finishes the line", () => {
       const title = addHostControl("input");

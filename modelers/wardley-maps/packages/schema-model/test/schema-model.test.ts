@@ -91,6 +91,167 @@ describe("Serialization", () => {
     expect(serializeMap(noisy as WardleyMap)).toContain("0.123");
     expect(serializeMap(noisy as WardleyMap)).toContain("0.988");
   });
+
+  describe("a value a JavaScript caller puts in several places", () => {
+    /** A map with fields the schema does not define, as only an unvalidated map holds them. */
+    const unvalidated = (map: unknown): WardleyMap => map as WardleyMap;
+    /** The same map with every shared object and array copied, as a parsed file holds it. */
+    const unshared = (map: unknown): WardleyMap => JSON.parse(JSON.stringify(map)) as WardleyMap;
+
+    const expectWrittenAtEachPlace = (map: unknown): void => {
+      const text = serializeMap(unvalidated(map));
+      expect(text).toBe(serializeMap(unshared(map)));
+      expect(serializeMap(unshared(JSON.parse(text)))).toBe(text);
+    };
+
+    const first = sample.elements[0]!;
+    const second = sample.elements[1]!;
+    const edge = sample.edges[0]!;
+    const backEdge = { id: "dep_2", edgeType: "dependency", from: "cmp_kettle", to: "anchor_1" };
+
+    it("writes an object shared by two edges at both places", () => {
+      const shared = { owner: "ops" };
+      const sharing = {
+        ...sample,
+        edges: [
+          { ...edge, "x-tag": shared },
+          { ...backEdge, "x-tag": shared },
+        ],
+      };
+      expectWrittenAtEachPlace(sharing);
+      const written = JSON.parse(serializeMap(unvalidated(sharing))) as {
+        edges: Record<string, unknown>[];
+      };
+      expect(written.edges.map((writtenEdge) => writtenEdge["x-tag"])).toEqual([
+        { owner: "ops" },
+        { owner: "ops" },
+      ]);
+    });
+
+    it("writes an array shared by the map, its config, an element and an edge", () => {
+      const shared = ["b", { a: 1.23456 }];
+      expectWrittenAtEachPlace({
+        ...sample,
+        "x-tags": shared,
+        config: { ...sample.config, "x-tags": shared },
+        elements: [{ ...first, "x-tags": shared }, second],
+        edges: [{ ...edge, "x-tags": shared }],
+      });
+    });
+
+    it("writes an object shared at different depths, and a chain that holds each level twice", () => {
+      const leaf = { value: 1 };
+      expectWrittenAtEachPlace({
+        ...sample,
+        "x-shallow": leaf,
+        elements: [
+          { ...first, "x-deep": { first: [leaf, { second: [[leaf]] }], again: leaf } },
+          second,
+        ],
+      });
+
+      let chain: unknown = { leaf };
+      for (let level = 0; level < 10; level++) {
+        chain = { left: chain, right: [chain] };
+      }
+      const text = serializeMap(unvalidated({ ...sample, "x-chain": chain }));
+      expect(text.match(/"leaf"/g)).toHaveLength(2 ** 10);
+      expectWrittenAtEachPlace({ ...sample, "x-chain": chain });
+      expectWrittenAtEachPlace({ ...sample, elements: [{ ...first, "x-chain": chain }, second] });
+    });
+
+    const repeatLimit =
+      "Cannot serialize a map whose shared objects and arrays would repeat more than 1000000 entries.";
+    const numbers = (count: number): number[] => Array.from({ length: count }, (_, index) => index);
+
+    // The rounded copy writes the elements and the config, the sorted copy everything else.
+    describe.each([
+      ["on the map", (value: unknown): WardleyMap => unvalidated({ ...sample, "x-value": value })],
+      [
+        "on an element",
+        (value: unknown): WardleyMap =>
+          unvalidated({ ...sample, elements: [{ ...first, "x-value": value }, second] }),
+      ],
+      [
+        "in the config",
+        (value: unknown): WardleyMap =>
+          unvalidated({ ...sample, config: { ...sample.config, "x-value": value } }),
+      ],
+    ])("%s", (_, holding) => {
+      it("refuses a chain that holds each level twice before it exhausts the memory", () => {
+        let chain: unknown = { leaf: 1 };
+        for (let level = 0; level < 40; level++) {
+          chain = { left: chain, right: chain };
+        }
+        expect(() => serializeMap(holding(chain))).toThrow(repeatLimit);
+      });
+
+      it("refuses a wide array at the end of such a chain before it exhausts the memory", () => {
+        let chain: unknown = numbers(1_000);
+        for (let level = 0; level < 14; level++) {
+          chain = { left: chain, right: chain };
+        }
+        expect(() => serializeMap(holding(chain))).toThrow(repeatLimit);
+      });
+
+      it("refuses one wide object held a thousand times before it exhausts the memory", () => {
+        const wide = Object.fromEntries(numbers(2_000).map((index) => [`key-${index}`, index]));
+        expect(() => serializeMap(holding(Array<unknown>(1_000).fill(wide)))).toThrow(repeatLimit);
+      });
+
+      it("counts the entries of a shared value at every place after its first", () => {
+        const wide = numbers(1_000);
+        const atTheLimit = holding(Array<unknown>(1_001).fill(wide));
+        expect(serializeMap(atTheLimit)).toBe(serializeMap(unshared(atTheLimit)));
+
+        const pastTheLimit = holding(Array<unknown>(1_002).fill(wide));
+        expect(() => serializeMap(pastTheLimit)).toThrow(repeatLimit);
+      });
+    });
+
+    it("counts a value both copies write in one count", () => {
+      const wide = numbers(1_000);
+      const holdingAt = (placesOnTheMap: number): WardleyMap =>
+        unvalidated({
+          ...sample,
+          "x-many": Array<unknown>(placesOnTheMap).fill(wide),
+          elements: [{ ...first, "x-value": wide }, second],
+        });
+      expect(serializeMap(holdingAt(1_000))).toBe(serializeMap(unshared(holdingAt(1_000))));
+      expect(() => serializeMap(holdingAt(1_001))).toThrow(repeatLimit);
+    });
+
+    it("writes a map that shares nothing, even with more than a million objects", () => {
+      const log = numbers(1_000_000).map((index) => ({ entry: index }));
+      const text = serializeMap(
+        unvalidated({ ...sample, config: { ...sample.config, "x-log": log } }),
+      );
+      expect(serializeMap(unshared(JSON.parse(text)))).toBe(text);
+    }, 30_000);
+
+    it("still refuses an object or an array that contains itself", () => {
+      const message = "Cyclic reference in WardleyMap.";
+      const cyclicObject: Record<string, unknown> = { name: "loop" };
+      cyclicObject["self"] = { back: [cyclicObject] };
+      const cyclicArray: unknown[] = [];
+      cyclicArray.push([cyclicArray]);
+      for (const cycle of [cyclicObject, cyclicArray]) {
+        expect(() => serializeMap(unvalidated({ ...sample, "x-cycle": cycle }))).toThrow(message);
+        expect(() =>
+          serializeMap(
+            unvalidated({ ...sample, elements: [{ ...first, "x-cycle": cycle }, second] }),
+          ),
+        ).toThrow(message);
+        expect(() =>
+          serializeMap(unvalidated({ ...sample, config: { ...sample.config, "x-cycle": cycle } })),
+        ).toThrow(message);
+      }
+
+      const element: Record<string, unknown> = { ...first };
+      element["x-owner"] = { element };
+      expect(() => serializeMap(unvalidated({ ...sample, elements: [element] }))).toThrow(message);
+    });
+  });
 });
 
 describe("Validation", () => {

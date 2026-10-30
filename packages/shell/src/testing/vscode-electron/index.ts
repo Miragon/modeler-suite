@@ -19,10 +19,12 @@ export type {
   UserSettingsOptions,
   VsCodeSmokeOptInStep,
   VsCodeSmokePaths,
+  VsCodeSmokeSkippableStep,
 } from "./launch.js";
 export {
   DEFAULT_WINDOW_SIZE,
   VSCODE_SMOKE_OPT_IN_STEPS,
+  VSCODE_SMOKE_SKIPPABLE_STEPS,
   customEditorViewType,
   defaultVsCodeCachePath,
   extensionIdOf,
@@ -32,6 +34,7 @@ export {
   vsCodeEnvironment,
   vsCodeLaunchArgs,
   vsCodeSmokeOptIn,
+  vsCodeSmokeSkip,
   vsCodeUserSettings,
 } from "./launch.js";
 export type {

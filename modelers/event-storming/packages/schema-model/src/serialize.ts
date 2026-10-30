@@ -7,6 +7,15 @@ import type { BoardConfig, EventStormingBoard } from "./types.js";
 /** Number of decimal places for coordinates in serialization. */
 const COORD_PRECISION = 3;
 
+/**
+ * The serializer writes an object or array that sits in several places at each of them. An object
+ * that holds the level below twice would need memory doubling with every level, and a wide object
+ * held a thousand times would need a thousand copies of it. So each time the serializer writes a
+ * container again, it counts that container's entries; no real board repeats this many. A board
+ * that shares nothing counts none, however large it is.
+ */
+const MAX_REPEATED_ENTRIES = 1_000_000;
+
 // The 8 sticky kinds — the only legal arrow endpoints. Notes/drawings are annotations; the
 // renderer's connection rules forbid them and the DSL cannot reference them, so accepting
 // such edges here would mean silent loss on the next DSL round-trip.
@@ -108,52 +117,96 @@ export function parseBoardJSON(json: string): EventStormingBoard {
 /**
  * Deterministic serialization: stable (alphabetical) key order, elements/edges sorted by `id`,
  * coordinates rounded to 3 decimal places. Produces clean Git diffs and reliable change
- * detection.
+ * detection. An object or array that sits in several places is written at each of them, and its
+ * entries count at every place after the first: past 1,000,000 such repeated entries it throws,
+ * and so does a value that contains itself. A board that shares nothing has no such limit.
  */
 export function serializeBoard(board: EventStormingBoard): string {
-  return stableStringify(canonicalize(board));
+  const path = new ContainerPath();
+  return stableStringify(canonicalize(board, path), path);
 }
 
-function canonicalize(board: EventStormingBoard): EventStormingBoard {
+function canonicalize(board: EventStormingBoard, path: ContainerPath): EventStormingBoard {
   const elements = [...board.elements]
     .sort((a, b) => a.id.localeCompare(b.id))
-    .map((el) => roundNumbers(el) as EventStormingBoard["elements"][number]);
+    .map((el) => roundNumbers(el, path) as EventStormingBoard["elements"][number]);
   const edges = [...board.edges].sort((a, b) => a.id.localeCompare(b.id));
   return {
     ...board,
-    config: roundNumbers(board.config) as BoardConfig,
+    config: roundNumbers(board.config, path) as BoardConfig,
     elements,
     edges,
   };
 }
 
-function roundNumbers<T>(value: T): T {
-  if (typeof value === "number") return round(value) as unknown as T;
-  if (Array.isArray(value)) return value.map((v) => roundNumbers(v)) as unknown as T;
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = roundNumbers(v);
+/**
+ * The objects and arrays the serializer is inside of. One per serialization, shared by the rounded
+ * copy and the sorted copy, so a value that sits in several places of the board counts at every
+ * place, whichever copy writes it. Entering and leaving add no call to the walk's recursion, so a
+ * board nests as deep as it did before the count.
+ */
+class ContainerPath {
+  // Only the containers on the current path: one object in several places is no cycle.
+  private readonly ancestors = new Set<object>();
+  private readonly writtenContainers = new WeakSet<object>();
+  private repeatedEntries = 0;
+
+  enter(container: object): void {
+    if (this.ancestors.has(container)) throw new Error("Cyclic reference in EventStormingBoard.");
+    if (this.writtenContainers.has(container)) {
+      this.repeatedEntries += Array.isArray(container)
+        ? container.length
+        : Object.keys(container).length;
+      if (this.repeatedEntries > MAX_REPEATED_ENTRIES) {
+        throw new Error(
+          `Cannot serialize a board whose shared objects and arrays would repeat more than ${MAX_REPEATED_ENTRIES} entries.`,
+        );
+      }
+    } else {
+      this.writtenContainers.add(container);
     }
-    return out as T;
+    this.ancestors.add(container);
   }
-  return value;
+
+  leave(container: object): void {
+    this.ancestors.delete(container);
+  }
 }
 
-function stableStringify(value: unknown): string {
-  const seen = new WeakSet<object>();
-  const sortDeep = (v: unknown): unknown => {
-    if (Array.isArray(v)) return v.map(sortDeep);
-    if (v && typeof v === "object") {
-      if (seen.has(v as object)) throw new Error("Cyclic reference in EventStormingBoard.");
-      seen.add(v as object);
-      const out: Record<string, unknown> = {};
-      for (const key of Object.keys(v as Record<string, unknown>).sort()) {
-        out[key] = sortDeep((v as Record<string, unknown>)[key]);
-      }
-      return out;
+function roundNumbers<T>(value: T, path: ContainerPath): T {
+  if (typeof value === "number") return round(value) as unknown as T;
+  if (!value || typeof value !== "object") return value;
+  path.enter(value);
+  let out: unknown;
+  if (Array.isArray(value)) {
+    out = value.map((v) => roundNumbers(v, path));
+  } else {
+    const record: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      record[k] = roundNumbers(v, path);
     }
-    return v;
+    out = record;
+  }
+  path.leave(value);
+  return out as T;
+}
+
+function stableStringify(value: unknown, path: ContainerPath): string {
+  const sortDeep = (v: unknown): unknown => {
+    if (!v || typeof v !== "object") return v;
+    path.enter(v);
+    let out: unknown;
+    if (Array.isArray(v)) {
+      out = v.map(sortDeep);
+    } else {
+      const record: Record<string, unknown> = {};
+      for (const key of Object.keys(v as Record<string, unknown>).sort()) {
+        record[key] = sortDeep((v as Record<string, unknown>)[key]);
+      }
+      out = record;
+    }
+    path.leave(v);
+    return out;
   };
   return JSON.stringify(sortDeep(value), null, 2) + "\n";
 }

@@ -13,6 +13,8 @@
    page, so a container that carries its own mode (contract 1.5 appearance) keeps it inside. */
 .vc-container {
   position: relative;
+  /* The breakpoints read this container, not the page (guide §5.1, §5.15). */
+  container: value-chain / inline-size;
   overflow: hidden;
   color: var(--cd-ui-text);
   background-color: var(--cd-ui-grund);
@@ -62,17 +64,160 @@
   display: block;
 }
 
-/* The renderer's own palette, where no host chrome skins it (data-chrome="palette"). */
-.djs-palette:not([data-chrome="palette"]) .entry:hover {
+/* The renderer's own palette, for a host without a chrome that skins it (data-chrome="palette", the
+   modeler shell, whose look applies alone there): the toolbar of guide §5.5 at the top centre, a
+   glass island 40px high (1px edge, 3px padding, 32px entries, 2px apart) with a separator between
+   the groups. It lies above the context pad and the label editor (guide §5.13). Its keys and the
+   armed tool's aria-pressed come from palette/VcPaletteToolbar.ts. */
+.vc-container .djs-palette:not([data-chrome="palette"]) {
+  top: var(--cd-shell-rand);
+  left: 50%;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: auto;
+  height: var(--cd-shell-zeile);
+  padding: 3px;
+  color: var(--cd-ui-text);
+  background: color-mix(
+    in srgb,
+    var(--cd-ui-flaeche-hoch) var(--cd-ui-chrome-deckkraft),
+    transparent
+  );
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-md);
+  box-shadow: var(--cd-shadow-1);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* diagram-js collapses a short container's palette into two columns 94px wide, and draws a toggle
+   and a float clearing; the horizontal island has no place for either. */
+.vc-container .djs-palette:not([data-chrome="palette"]).two-column.open {
+  width: auto;
+}
+.vc-container .djs-palette:not([data-chrome="palette"]) .djs-palette-toggle,
+.vc-container .djs-palette:not([data-chrome="palette"]) .djs-palette-entries::after {
+  display: none;
+}
+.vc-container .djs-palette:not([data-chrome="palette"]) .djs-palette-entries,
+.vc-container .djs-palette:not([data-chrome="palette"]):not(.open) .djs-palette-entries {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+.vc-container .djs-palette:not([data-chrome="palette"]) .group {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+/* Guide §5.5: 8px, the 1px line in --cd-ui-linie inset 4px at top and bottom, 8px. */
+.vc-container .djs-palette:not([data-chrome="palette"]) .group + .group {
+  margin-left: 8px;
+  padding-left: 9px;
+}
+.vc-container .djs-palette:not([data-chrome="palette"]) .group + .group::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 1px;
+  background: var(--cd-ui-linie);
+}
+.vc-container .djs-palette:not([data-chrome="palette"]) .entry {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--cd-shell-ziel);
+  height: var(--cd-shell-ziel);
+  margin: 0;
+  padding: 0;
+  float: none;
+  border: 0;
+  border-radius: var(--cd-radius-sm);
+  background: transparent;
+  color: var(--cd-ui-text);
+  line-height: 1;
+  cursor: default;
+  transition:
+    background-color var(--cd-motion-fast) var(--cd-ease),
+    color var(--cd-motion-fast) var(--cd-ease),
+    box-shadow var(--cd-motion-fast) var(--cd-ease);
+}
+.vc-container .djs-palette:not([data-chrome="palette"]) .entry:hover {
+  background: var(--cd-ui-hover);
   color: var(--cd-ui-interaktion);
 }
-.djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry {
+/* diagram-js forces the colour of `highlighted-entry` with !important, and the class goes stale
+   after a rebuild; the armed tool is the entry with aria-pressed="true", a ring and never a full
+   fill (guide §5.5). */
+.vc-container .djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry {
+  color: var(--cd-ui-text) !important;
+}
+.vc-container .djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry:hover {
+  color: var(--cd-ui-interaktion) !important;
+}
+.vc-container .djs-palette:not([data-chrome="palette"]) .entry[aria-pressed="true"] {
   background: var(--cd-ui-hover);
   box-shadow: inset 0 0 0 2px var(--cd-ui-interaktion);
 }
+.vc-container .djs-palette:not([data-chrome="palette"]) .entry:focus {
+  outline: none;
+}
+/* The ring stands 2px outside the entry, over the gap and into the neighbour's box; lifted, so a
+   pressed or hovered neighbour, painted later, does not cover it (guide §5.14). */
+.vc-container .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
+  z-index: 1;
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+
+/* The palette's tooltip (palette/VcPaletteTooltip.ts) below the island, guide §5.6: opaque, 13px
+   with a 20px line, at most min(280px, 100% - 24px) wide, the key as a Geist Mono chip 6px after
+   the name. Placed in the canvas container's coordinates. */
+.vc-container .djs-hover-tooltip--bottom {
+  position: absolute;
+  width: max-content;
+  max-width: min(280px, 100% - 24px);
+  padding: 3px 8px;
+  white-space: normal;
+  color: var(--cd-ui-text);
+  background: var(--cd-ui-flaeche-hoch);
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-sm);
+  box-shadow: var(--cd-shadow-2);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  transform: translateX(-50%);
+}
+.vc-container .djs-hover-tooltip--bottom .djs-palette-tooltip-shortcut {
+  padding: 1px 6px;
+  color: var(--cd-ui-text-leise);
+  background: var(--cd-ui-grund);
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-sm);
+  box-shadow: none;
+  font-family: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 16px;
+  vertical-align: baseline;
+}
 
 /* Context pad: ONE opaque island (guide §8) with 28 × 28 entries, at most three per row, and
-   16px icons. It stays at diagram-js's z-index 100, below a host's palette (guide §5.13). */
+   16px icons. It stays at diagram-js's z-index 100, below the palette (guide §5.13). */
 .vc-container .djs-context-pad.open {
   display: flex;
   flex-wrap: wrap;
@@ -135,15 +280,98 @@
    has asked for an appearance (contract 1.5, data-cd-theme on .vc-container), the page before. */
 :root[data-cd-kontrast="hoch"] .vc-container:not([data-cd-theme]) .djs-context-pad.open,
 :root[data-cd-kontrast="hoch"] .vc-container:not([data-cd-theme]) .djs-direct-editing-parent,
+:root[data-cd-kontrast="hoch"]
+  .vc-container:not([data-cd-theme])
+  .djs-palette:not([data-chrome="palette"]),
+:root[data-cd-kontrast="hoch"] .vc-container:not([data-cd-theme]) .djs-hover-tooltip--bottom,
 .vc-container[data-cd-kontrast="hoch"] .djs-context-pad.open,
-.vc-container[data-cd-kontrast="hoch"] .djs-direct-editing-parent {
+.vc-container[data-cd-kontrast="hoch"] .djs-direct-editing-parent,
+.vc-container[data-cd-kontrast="hoch"] .djs-palette:not([data-chrome="palette"]),
+.vc-container[data-cd-kontrast="hoch"] .djs-hover-tooltip--bottom {
   border-color: var(--cd-ui-kontur);
   box-shadow: none;
 }
+:root[data-cd-kontrast="hoch"]
+  .vc-container:not([data-cd-theme])
+  .djs-palette:not([data-chrome="palette"])
+  .entry:focus-visible,
+.vc-container[data-cd-kontrast="hoch"]
+  .djs-palette:not([data-chrome="palette"])
+  .entry:focus-visible {
+  outline-width: 3px;
+}
 
+/* Guide §5.15: in a container at most 760px wide (--cd-shell-schmal) the palette moves to the second
+   row, at most the container less both edges wide, and scrolls sideways without a visible bar. It
+   would clip a ring outside its entries, so the focus lies inside: 2px within the entry, 1px within
+   the armed tool's ring (guide §5.5), and the 3px ring of high contrast 1px deeper. */
+@container value-chain (max-width: 760px) {
+  .vc-container .djs-palette:not([data-chrome="palette"]) {
+    top: var(--cd-shell-frei);
+    max-width: calc(100% - 2 * var(--cd-shell-rand));
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .vc-container .djs-palette:not([data-chrome="palette"])::-webkit-scrollbar {
+    display: none;
+  }
+  .vc-container .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
+    outline-offset: -2px;
+  }
+  .vc-container
+    .djs-palette:not([data-chrome="palette"])
+    .entry[aria-pressed="true"]:focus-visible {
+    outline-offset: -5px;
+  }
+  :root[data-cd-kontrast="hoch"]
+    .vc-container:not([data-cd-theme])
+    .djs-palette:not([data-chrome="palette"])
+    .entry:focus-visible,
+  .vc-container[data-cd-kontrast="hoch"]
+    .djs-palette:not([data-chrome="palette"])
+    .entry:focus-visible {
+    outline-offset: -3px;
+  }
+  :root[data-cd-kontrast="hoch"]
+    .vc-container:not([data-cd-theme])
+    .djs-palette:not([data-chrome="palette"])
+    .entry[aria-pressed="true"]:focus-visible,
+  .vc-container[data-cd-kontrast="hoch"]
+    .djs-palette:not([data-chrome="palette"])
+    .entry[aria-pressed="true"]:focus-visible {
+    outline-offset: -6px;
+  }
+}
+
+/* Forced colours drop box shadows and backgrounds: the island's edge, the separators, the focus
+   and the armed tool's ring stay, in system colours (guide §5.14). The !important answers
+   diagram-js's colour of the highlighted entry. */
 @media (forced-colors: active) {
-  .vc-container .djs-context-pad.open {
+  .vc-container .djs-context-pad.open,
+  .vc-container .djs-palette:not([data-chrome="palette"]) {
     border-color: CanvasText;
+  }
+  .vc-container .djs-palette:not([data-chrome="palette"]) .group + .group::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  .vc-container .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
+    outline-color: Highlight;
+  }
+  .vc-container .djs-palette:not([data-chrome="palette"]) .entry[aria-pressed="true"],
+  .vc-container .djs-palette:not([data-chrome="palette"]) .entry[aria-pressed="true"]:hover {
+    forced-color-adjust: none;
+    background: Canvas;
+    color: CanvasText !important;
+    box-shadow: inset 0 0 0 2px Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vc-container .djs-palette:not([data-chrome="palette"]) .entry {
+    transition: none;
   }
 }
 

@@ -15,6 +15,7 @@ import {
   type CollaborativeEventStormingModeler,
 } from "../../src/index.js";
 import { isEventStormingShape, type EventStormingShape } from "../../src/model/di-types.js";
+import type EventStormingDrawTool from "../../src/draw-tool/EventStormingDrawTool.js";
 import type EventStormingLabelEditing from "../../src/label-editing/EventStormingLabelEditing.js";
 import { noteMarkdownToDom } from "../../src/label-editing/note-editor-dom.js";
 import {
@@ -22,6 +23,7 @@ import {
   centre,
   offset,
   pointerOn,
+  rejectedBoard,
   service,
   shapeOf,
   sticky,
@@ -113,6 +115,24 @@ function expectEditsToCount(
     { x: 20, y: 0 },
   );
   expect(changes()).toBe(1);
+}
+
+/**
+ * A host's field with the focus, which imports `text` once it loses it (a host that applies a
+ * peer's board when its own field is left): the next press on the canvas moves the focus.
+ */
+function hostFieldImportingOnBlur(
+  modeler: CollaborativeEventStormingModeler,
+  text: string,
+): () => Promise<unknown> | undefined {
+  const field = document.createElement("input");
+  field.setAttribute("aria-label", "Host field");
+  document.body.append(field);
+  wrappers.push(field);
+  let importing: Promise<unknown> | undefined;
+  field.addEventListener("blur", () => (importing ??= modeler.importText(text)));
+  field.focus();
+  return () => importing;
 }
 
 describe("an import while the user drags a sticky", () => {
@@ -380,6 +400,166 @@ describe("an import while the user drags a point of a drawing", () => {
 
     expectNothingApplied(modeler, changes, REMOTE_ANNOTATED);
     expectEditsToCount(modeler, changes);
+  });
+
+  it("starts no drag when the press on a handle moves the focus off a host field that imports", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const changes = changesOf(modeler);
+    service<Selection>(modeler, "selection").select(
+      shapeOf(modeler, (shape) => shape.eventStormingType === "drawing"),
+    );
+    const handle = modeler.diagram.container.querySelector(".event-storming-drawing-handle")!;
+    const preview = ".layer-event-storming-drawing-handles polyline";
+    const first = { x: 40, y: 480 };
+    const imported = hostFieldImportingOnBlur(modeler, REMOTE);
+
+    pointer.press(handle, first);
+    await imported();
+    pointer.moveTo(offset(first, 60, -80));
+    expect(modeler.interaction.active()).toBe(false);
+    pointer.release(offset(first, 60, -80));
+
+    expectNothingApplied(modeler, changes, REMOTE);
+    expect(
+      modeler.diagram.container.querySelector(`.event-storming-drawing-handle, ${preview}`),
+    ).toBe(null);
+    expectEditsToCount(modeler, changes);
+  });
+});
+
+describe("an import while the user draws a line with the draw tool (#243)", () => {
+  const drawPreview = (modeler: CollaborativeEventStormingModeler) =>
+    modeler.diagram.container.querySelector(".layer-event-storming-draw-preview polyline");
+  const drawToolOf = (modeler: CollaborativeEventStormingModeler) =>
+    service<EventStormingDrawTool>(modeler, "eventStormingDrawTool");
+
+  /** The draw tool started from the palette, with a press on the canvas at each point. */
+  function drawPoints(modeler: CollaborativeEventStormingModeler, ...points: Point[]) {
+    const pointer = pointerOn(modeler);
+    pointer.click(paletteEntryOf(modeler, "draw-tool"), points[0] ?? { x: 300, y: 380 });
+    for (const point of points) {
+      pointer.press(pointer.svg, point);
+      pointer.release(point);
+    }
+    return pointer;
+  }
+
+  /** Enter on the canvas, which would finish a line the tool still held. */
+  const pressEnter = (pointer: ReturnType<typeof pointerOn>) =>
+    pointer.svg.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+
+  it("ends the line without a drawing: the next press and Enter add nothing", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const pointer = drawPoints(modeler, { x: 300, y: 380 }, { x: 460, y: 420 });
+    pointer.moveTo({ x: 520, y: 400 });
+    expect(drawPreview(modeler)).not.toBe(null);
+
+    await modeler.importText(REMOTE);
+
+    expectNothingApplied(modeler, changes, REMOTE);
+    expect(drawPreview(modeler)).toBe(null);
+    expect(drawToolOf(modeler).isActive()).toBe(false);
+    expect(modeler.diagram.container.classList.contains("event-storming-draw-mode")).toBe(false);
+    pointer.press(pointer.svg, { x: 600, y: 380 });
+    pointer.release({ x: 600, y: 380 });
+    pressEnter(pointer);
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(0);
+    expect(modeler.exportText()).toBe(REMOTE);
+    expectEditsToCount(modeler, changes);
+  });
+
+  it("ends the line when the import is called, though the import waits for its font", async () => {
+    loadingAnnotationFont();
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const pointer = drawPoints(modeler, { x: 300, y: 380 }, { x: 460, y: 420 });
+
+    const importing = modeler.importText(REMOTE_ANNOTATED);
+    expect(drawPreview(modeler)).toBe(null);
+    expect(drawToolOf(modeler).isActive()).toBe(false);
+    pressEnter(pointer);
+    expect(changes()).toBe(0);
+    expect(modeler.exportText()).toBe(BOARD);
+    await importing;
+
+    expectNothingApplied(modeler, changes, REMOTE_ANNOTATED);
+    expectEditsToCount(modeler, changes);
+  });
+
+  it("keeps the tool armed while it has no point yet, so it draws on the imported board", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const pointer = drawPoints(modeler);
+
+    await modeler.importText(REMOTE);
+    expect(drawToolOf(modeler).isActive()).toBe(true);
+    for (const point of [
+      { x: 300, y: 380 },
+      { x: 460, y: 420 },
+    ]) {
+      pointer.press(pointer.svg, point);
+      pointer.release(point);
+    }
+    pressEnter(pointer);
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(1);
+    const lines = modeler.exportText().split("\n");
+    const drawn = lines.filter((line) => line.startsWith("line ") && !REMOTE.includes(line));
+    expect(drawn).toHaveLength(1);
+    expect(lines.filter((line) => !drawn.includes(line)).join("\n")).toBe(REMOTE);
+  });
+
+  it("ends the line when the press for its next point moves the focus off a host field that imports", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const pointer = drawPoints(modeler, { x: 300, y: 380 }, { x: 460, y: 420 });
+    const imported = hostFieldImportingOnBlur(modeler, REMOTE);
+
+    pointer.press(pointer.svg, { x: 600, y: 300 });
+    pointer.release({ x: 600, y: 300 });
+    await imported();
+    expect(drawToolOf(modeler).isActive()).toBe(false);
+    expect(drawPreview(modeler)).toBe(null);
+    pressEnter(pointer);
+    expectNothingApplied(modeler, changes, REMOTE);
+
+    // Started again, the tool begins a new line with nothing left of the ended one.
+    drawPoints(modeler, { x: 300, y: 380 }, { x: 460, y: 420 });
+    pressEnter(pointer);
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(1);
+    const drawn = modeler
+      .exportText()
+      .split("\n")
+      .filter((line) => line.startsWith("line ") && !REMOTE.includes(line));
+    expect(drawn).toHaveLength(1);
+    expect(drawn[0]!.match(/\[\d/g)).toHaveLength(2);
+    expect(drawPreview(modeler)).toBe(null);
+  });
+
+  it("keeps the line through an import it rejects: Enter still draws it, as one change", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const pointer = drawPoints(modeler, { x: 300, y: 380 }, { x: 460, y: 420 });
+
+    await expect(modeler.diagram.importMap(rejectedBoard())).rejects.toThrow(/reserved/);
+    expect(drawToolOf(modeler).holdsLine()).toBe(true);
+    expect(drawPreview(modeler)).not.toBe(null);
+    pressEnter(pointer);
+
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(1);
+    expect(drawToolOf(modeler).isActive()).toBe(false);
+    const lines = modeler.exportText().split("\n");
+    const drawn = lines.filter((line) => line.startsWith("line ") && !BOARD.includes(line));
+    expect(drawn).toHaveLength(1);
+    expect(lines.filter((line) => !drawn.includes(line)).join("\n")).toBe(BOARD);
   });
 });
 
