@@ -885,8 +885,8 @@ The kit's `shortcutsDialog` case checks all of this in every modeler (see `./tes
 
 #### Modeler dialogs
 
-A dialog the modeler still renders itself (a renderer's `createShortcutsDialog`, "Map title…",
-"Map size…") meets §8 on its own until it moves onto `cd-shell-dialog`:
+A dialog the modeler still renders itself ("Map title…", "Map size…") meets §8 on its own until it
+moves onto `cd-shell-dialog`:
 
 - **Layer.** `z-index: var(--cd-shell-ebene-dialog)` (50) applies only to a dialog outside the top
   layer, inside `shell.root`. A `<dialog>` opened with `showModal()` or an element of the popover API
