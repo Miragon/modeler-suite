@@ -16,11 +16,11 @@ afterEach(async () => {
   }
 });
 
-/** A board without the shell, its palette at the top centre of a 1024 × 768 container. */
-async function mountBoard(): Promise<{ container: HTMLElement; palette: HTMLElement }> {
+/** A board without the shell, its palette at the top centre of a container 1024px wide. */
+async function mountBoard(height = 768): Promise<{ container: HTMLElement; palette: HTMLElement }> {
   const container = document.createElement("div");
   document.body.append(container);
-  const modeler = new Modeler({ container, width: 1024, height: 768, fitOnImport: false });
+  const modeler = new Modeler({ container, width: 1024, height, fitOnImport: false });
   mounted.push({ modeler, container });
   await modeler.importDSL("title Palette");
   return { container, palette: container.querySelector<HTMLElement>(".djs-palette")! };
@@ -118,17 +118,26 @@ test("lets a host's own rules on the palette and its tooltip win over the render
 });
 
 describe("the palette without the shell: the sizes of guide §5.5", () => {
-  test("is an island 40px high at 12px from the top, its entries 4px inside its edge", async () => {
-    const { container, palette } = await mountBoard();
-    const box = boxIn(palette, container);
+  // diagram-js collapses the palette of a board lower than 46px per entry plus 50px into two
+  // columns 94px wide, which its vertical palette needs and the horizontal island does not.
+  test.for([
+    { board: "a board", height: 768, twoColumn: false },
+    { board: "a board too low for diagram-js's vertical palette", height: 360, twoColumn: true },
+  ])(
+    "is an island 40px high at 12px from the top, its entries 4px inside its edge, on $board",
+    async ({ height, twoColumn }) => {
+      const { container, palette } = await mountBoard(height);
+      expect(palette.classList.contains("two-column")).toBe(twoColumn);
+      const box = boxIn(palette, container);
 
-    expect([box.top, box.height]).toEqual([12, 40]);
-    expect(Math.abs(box.left + box.width / 2 - 512)).toBeLessThanOrEqual(0.5);
-    const entries = [...palette.querySelectorAll(".entry")].map((entry) => boxIn(entry, palette));
-    expect(new Set(entries.map((entry) => entry.top))).toEqual(new Set([4]));
-    expect(entries[0]!.left).toBe(4);
-    expect(box.width - entries.at(-1)!.right).toBe(4);
-  });
+      expect([box.top, box.height]).toEqual([12, 40]);
+      expect(Math.abs(box.left + box.width / 2 - 512)).toBeLessThanOrEqual(0.5);
+      const entries = [...palette.querySelectorAll(".entry")].map((entry) => boxIn(entry, palette));
+      expect(new Set(entries.map((entry) => entry.top))).toEqual(new Set([4]));
+      expect(entries[0]!.left).toBe(4);
+      expect(box.width - entries.at(-1)!.right).toBe(4);
+    },
+  );
 
   test("holds 32 × 32 entries 2px apart, with 8px, a 1px line inset 4px, and 8px between the groups", async () => {
     const { container, palette } = await mountBoard();
@@ -156,7 +165,7 @@ describe("the palette without the shell: the sizes of guide §5.5", () => {
     }
   });
 
-  test("hangs the tooltip 8px below the island, at 60px, centred on its entry", async () => {
+  test("hangs the tooltip 8px below the island, at 60px, centred on its entry, the key 6px after the name", async () => {
     const { container, palette } = await mountBoard();
     const entry = entryOf(palette, "create.event");
     await userEvent.hover(entry);
@@ -174,6 +183,9 @@ describe("the palette without the shell: the sizes of guide §5.5", () => {
       entryBox.left + entryBox.width / 2,
       0,
     );
+    const name = tooltip.querySelector(".djs-palette-tooltip-label")!.getBoundingClientRect();
+    const key = tooltip.querySelector(".djs-palette-tooltip-shortcut")!.getBoundingClientRect();
+    expect(key.left - name.right).toBeCloseTo(6, 0);
     await userEvent.unhover(entry);
   });
 });
