@@ -6,11 +6,13 @@ import {
 } from "tiny-svg";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import { install as installClickTrap } from "diagram-js/lib/util/ClickTrap";
 import { COLORS } from "../draw/styles.js";
 import { isDrawing, type EventStormingShape } from "../model/di-types.js";
 import type EventStormingModeling from "../modeling/EventStormingModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type EventStormingReadOnly } from "../read-only/index.js";
 import type { EventStormingGestures } from "../gesture/index.js";
+import { focusCanvasWithoutRing, isUnhandledKey, targetsCanvas } from "../keyboard/index.js";
 
 interface Point {
   x: number;
@@ -20,9 +22,10 @@ interface Point {
 /**
  * Vertex handles for drawings: when exactly one drawing is selected, every point gets a small
  * draggable handle. Dragging shows a live preview; releasing commits the new geometry (points +
- * recomputed bbox) as ONE undoable command. The point drag is a gesture of its own, outside
- * diagram-js's dragging, so it reports itself to `eventStormingGestures` from its first move, and
- * its release holds the drop while the command applies.
+ * recomputed bbox) as ONE undoable command; Escape on the canvas ends the drag without one. The
+ * point drag is a gesture of its own, outside diagram-js's dragging, so it reports itself to
+ * `eventStormingGestures` from its first move, and its release holds the drop while the command
+ * applies.
  */
 export default class EventStormingDrawingHandles {
   static $inject = [
@@ -37,6 +40,7 @@ export default class EventStormingDrawingHandles {
   private group: SVGElement | null = null;
   private dragPreview: SVGElement | null = null;
   private pointDrag: { shape: EventStormingShape; unbind: () => void } | null = null;
+  private releaseTrap: (() => void) | undefined;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -62,6 +66,7 @@ export default class EventStormingDrawingHandles {
     });
     eventBus.on(["diagram.clear", "diagram.destroy"], () => {
       this.endPointDrag();
+      this.dropReleaseTrap();
       this.attach(null);
     });
   }
@@ -99,11 +104,18 @@ export default class EventStormingDrawingHandles {
   }
 
   private startDrag(e: MouseEvent, index: number): void {
-    if (e.button !== 0 || !this.shape) return;
+    const shape = this.shape;
+    if (e.button !== 0 || !shape) return;
     e.preventDefault();
     e.stopPropagation();
+    // The prevented default is the browser's focus move: without it the Escape that ends the drag
+    // would go to whatever held the focus before.
+    focusCanvasWithoutRing(this.canvas);
+    // The focus move blurs a host's field, and a host that imports from its listener has replaced
+    // the drawing by now: the press has no point left to drag.
+    if (this.shape !== shape) return;
     this.endPointDrag();
-    const shape = this.shape;
+    this.dropReleaseTrap();
     const points = this.absolutePoints();
     let endGesture: (() => void) | undefined;
 
@@ -122,13 +134,24 @@ export default class EventStormingDrawingHandles {
         endDrop?.();
       }
     };
+    // As Escape ends a diagram-js drag: nothing is committed and the drawing stays selected. Only
+    // an Escape aimed at the canvas, so a host's field or dialog keeps its own.
+    const onKeyDown = (ev: KeyboardEvent): void => {
+      if (ev.key !== "Escape" || !isUnhandledKey(ev) || !targetsCanvas(ev, this.canvas)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.endPointDrag();
+      this.trapReleaseClick();
+    };
     document.addEventListener("mousemove", onMove, true);
     document.addEventListener("mouseup", onUp, true);
+    document.addEventListener("keydown", onKeyDown, true);
     this.pointDrag = {
       shape,
       unbind: () => {
         document.removeEventListener("mousemove", onMove, true);
         document.removeEventListener("mouseup", onUp, true);
+        document.removeEventListener("keydown", onKeyDown, true);
         endGesture?.();
       },
     };
@@ -140,6 +163,26 @@ export default class EventStormingDrawingHandles {
     this.pointDrag = null;
     drag.unbind();
     this.clearDragPreview();
+  }
+
+  /**
+   * The button is still down when Escape ends the drag, and its release clicks the canvas, which
+   * diagram-js would take for a click on the empty board that clears the selection. The trap goes
+   * once that click came, or a moment after a release that clicked nothing, as diagram-js's own.
+   */
+  private trapReleaseClick(): void {
+    this.dropReleaseTrap();
+    const onRelease = (): void => {
+      this.dropReleaseTrap();
+      setTimeout(installClickTrap(this.eventBus), 400);
+    };
+    document.addEventListener("mouseup", onRelease, true);
+    this.releaseTrap = () => document.removeEventListener("mouseup", onRelease, true);
+  }
+
+  private dropReleaseTrap(): void {
+    this.releaseTrap?.();
+    this.releaseTrap = undefined;
   }
 
   /** New bbox + relative points — ONE undoable updateProperties command. */

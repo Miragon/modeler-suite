@@ -16,7 +16,7 @@ const FIRST = 100_000;
 /** After every other listener of the same event. */
 const LAST = -100_000;
 
-const PAN_PREFIX = "hand.move";
+export const PAN_PREFIX = "hand.move";
 
 /**
  * The drags that are no gesture, since they hold no element of the diagram: the palette's tools
@@ -72,7 +72,7 @@ export default class VcGestures {
   private activating: DragContext | null = null;
   private gesture: DragContext | null = null;
   private commandRunning = false;
-  private panScrolling = false;
+  private scrollingPan: DragContext | null = null;
   private runningHeldWork = false;
   private readonly afterUserActionQueue: (() => void)[] = [];
   private flushQueued = false;
@@ -133,18 +133,21 @@ export default class VcGestures {
       return false;
     });
     // The canvas runs without `deferUpdate`, so this comes at once after each change: the fit of an
-    // import, a host's `setViewState` after it (L5), a fit of the shell's viewport.
+    // import, a host's `setViewState` after it (L5), a fit of the shell's viewport. AutoScroll
+    // stays still under a pan (`PanAwareAutoScroll`), or its scrolls at the edge would be kept.
     eventBus.on("canvas.viewbox.changed", () => {
-      if (!this.panScrolling) this.anchorPanToView();
+      if (this.context() !== this.scrollingPan) this.anchorPanToView();
     });
     // The hand tool scrolls by the distance from the pan's start point, which diagram-js rounds to
     // whole diagram units: moved after each of these scrolls, the start point would add the
-    // rounding up, and at a zoom above 200 % a slow pointer would not pan at all.
+    // rounding up, and at a zoom above 200 % a slow pointer would not pan at all. The scroll is
+    // told apart by its drag, not by a flag: a listener that throws during it ends the pan before
+    // the last listener runs, and a flag left set would keep the next pan from re-anchoring.
     eventBus.on(`${PAN_PREFIX}.move`, FIRST, () => {
-      this.panScrolling = true;
+      this.scrollingPan = this.context();
     });
     eventBus.on(`${PAN_PREFIX}.move`, LAST, () => {
-      this.panScrolling = false;
+      this.scrollingPan = null;
     });
     eventBus.on("import.render.done", () => this.holdImportedSelection());
   }

@@ -5,7 +5,13 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 import type { ComponentElement, MapElement, SubmapElement } from "@miragon/wardley-schema-model";
 import type { WardleyShape } from "../model/di-types.js";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
-import { createFieldError, focusField, type FieldSelection } from "../label-editing/index.js";
+import {
+  createFieldError,
+  FIELD_TO_CAPTION_GAP,
+  focusField,
+  isImeCompositionKey,
+  type FieldSelection,
+} from "../label-editing/index.js";
 import { isAllowedLinkUrl, sanitizeLinkUrl } from "./link-url.js";
 
 interface ActiveLinkEdit {
@@ -22,9 +28,6 @@ const CONTEXT_PAD_CLEARANCE = 72;
 
 /** Below diagram-js's own `shape.changed` listener, which redraws the element. */
 const AFTER_REDRAW_PRIORITY = 500;
-
-/** Screen px between the field and its error caption. */
-const CAPTION_GAP = 4;
 
 const INVALID_HINT = "Use an http(s) or mailto address, or a relative path such as ./other.wmap";
 
@@ -150,7 +153,7 @@ export default class WardleyLinkEditing {
     };
     const placeCaption = (caption: HTMLElement) => {
       caption.style.left = field.style.left;
-      caption.style.top = `${field.offsetTop + field.offsetHeight + CAPTION_GAP}px`;
+      caption.style.top = `${field.offsetTop + field.offsetHeight + FIELD_TO_CAPTION_GAP}px`;
     };
     const error = createFieldError(
       container,
@@ -176,6 +179,7 @@ export default class WardleyLinkEditing {
       if (!tryCommit()) cleanup();
     };
     const onKey = (event: KeyboardEvent) => {
+      if (isImeCompositionKey(event)) return;
       if (event.key === "Escape") {
         event.preventDefault();
         cleanup();

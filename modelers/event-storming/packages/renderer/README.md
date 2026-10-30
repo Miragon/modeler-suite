@@ -79,7 +79,15 @@ there. Every other target keeps them, with no `preventDefault()` and no `stopPro
 other palette entries, the context pad, the label editor and a host's controls, inside the
 container or outside it. A click, Enter or Space on another palette entry first ends the drawing and
 keeps the open line, as Enter on the canvas does, so no second tool starts next to it. Every point
-focuses the canvas. To keep the keys away from a canvas it
+focuses the canvas. Until the line is finished or cancelled, the keys that start a gesture at the
+pointer do nothing: L (the lasso), E and C (a sticky at the pointer) and Cmd/Ctrl+V (the paste
+attaches to the pointer), so none takes the press meant for the line's next point
+([#243](https://github.com/Miragon/modeler-suite/issues/243)); they are taken with
+`preventDefault()`, as the board takes them otherwise. The board's other keys (delete, the arrow
+keys, duplicate, select all, copy, undo and redo) act as they do without a line and leave the line
+as it is. A press on a handle of a selected drawing focuses the canvas too, and Escape aimed at the
+canvas ends the drag of that point without changing the drawing, which stays selected. To keep the
+keys away from a canvas it
 hides without destroying it, a host makes it `inert` (or `display: none`): the browser then moves
 the focus off the `<svg>` at its next rendering update. Cmd/Ctrl+A selects the whole board. An
 import erases the undo history without firing `commandStack.changed`, and fires
@@ -94,9 +102,11 @@ palette or a paste, also with its preview off the canvas, or the drag of a drawi
 at once without applying anything, and so does one the user starts while an import waits (for
 the annotation font, or for a running user action and the step it scheduled) and still holds when
 the board is replaced: its release changes nothing and fires no `commandStack.changed`. A diagram-js drag ends as Escape ends it, the drag of a drawing's
-point (which Escape leaves running) without its commit. `clear()` ends a running drag too. The
-palette's lasso tool, armed but not yet pressed, stays armed, and a pan of the empty canvas keeps
-running. A press that starts a drag (on a resize handle, say) while a label is being typed commits
+point without its commit. The import also ends a line the draw tool holds, and the tool with it,
+without a drawing, where Escape would commit a line of two points or more
+([#243](https://github.com/Miragon/modeler-suite/issues/243)). `clear()` ends a running drag
+and a line too. The palette's lasso tool, armed but not yet pressed, stays armed, so does the draw
+tool before its first point, and a pan of the empty canvas keeps running. A press that starts a drag (on a resize handle, say) while a label is being typed commits
 the label first; when the host imports from that commit's change listener, the label stays and
 the drag does not start. diagram-js clears the selection when any drag but a lasso starts, also
 an empty selection, so the host's selection listener runs at that start; when the host imports
@@ -287,9 +297,9 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
   while a drawing's point drag moves, until the drop or the cancel (Escape, or an import). A drag
   that an import or a clear from the selection listener ends at its start is never reported. A
   palette tool that only waits for its next press (the lasso, the draw tool) and a pan of the empty
-  canvas are no gesture; a line the draw tool holds point by point is not reported either, since
-  what an import does to it is still open
-  ([#243](https://github.com/Miragon/modeler-suite/issues/243)). `onChange(cb)` reports each
+  canvas are no gesture; a line the draw tool holds point by point is not reported either, and an
+  import ends it without a drawing ([#243](https://github.com/Miragon/modeler-suite/issues/243)).
+  `onChange(cb)` reports each
   change once, with `active()` already returning the new value; nothing is reported after
   `destroy()`. The viewer's is always false.
 - `appearance` (contract 1.5) lists the modes the board draws, `themes: ["light"]`

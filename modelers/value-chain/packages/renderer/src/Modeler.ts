@@ -4,7 +4,6 @@ import ModelingModule from "diagram-js/lib/features/modeling";
 import MoveModule from "diagram-js/lib/features/move";
 import OutlineModule from "diagram-js/lib/features/outline";
 import BendpointsModule from "diagram-js/lib/features/bendpoints";
-import AutoScrollModule from "diagram-js/lib/features/auto-scroll";
 import GridSnappingModule from "diagram-js/lib/features/grid-snapping";
 import SnappingModule from "diagram-js/lib/features/snapping";
 import KeyboardMoveSelectionModule from "diagram-js/lib/features/keyboard-move-selection";
@@ -22,7 +21,7 @@ import { vcKeyboardModule } from "./keyboard/index.js";
 import { vcOrderingModule } from "./ordering/index.js";
 import { vcCopyPasteModule } from "./copy-paste/index.js";
 import { vcResizeModule } from "./resize/index.js";
-import { vcGestureModule } from "./gesture/index.js";
+import { vcGestureModule, vcPanAwareAutoScrollModule } from "./gesture/index.js";
 import { vcReadOnlyModule } from "./read-only/index.js";
 
 /**
@@ -38,7 +37,6 @@ export class Modeler extends NavigatedViewer {
       MoveModule,
       OutlineModule,
       BendpointsModule,
-      AutoScrollModule,
       GridSnappingModule,
       SnappingModule,
       KeyboardMoveSelectionModule,
@@ -59,6 +57,7 @@ export class Modeler extends NavigatedViewer {
       vcCopyPasteModule,
       vcResizeModule,
       vcGestureModule,
+      vcPanAwareAutoScrollModule,
     ];
   }
 

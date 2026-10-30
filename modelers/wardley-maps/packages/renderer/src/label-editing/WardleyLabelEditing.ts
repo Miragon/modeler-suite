@@ -14,7 +14,8 @@ import type WardleyModeling from "../modeling/WardleyModeling.js";
 import type WardleyElementFactory from "../model/WardleyElementFactory.js";
 import { FONT, NOTE_LINE_HEIGHT } from "../draw/styles.js";
 import { nameLineGrowth, type LineGrowth } from "../draw/index.js";
-import { createFieldError } from "./fieldError.js";
+import { createFieldError, FIELD_TO_CAPTION_GAP } from "./fieldError.js";
+import { isImeCompositionKey } from "./imeComposition.js";
 import { isReadOnly } from "../read-only/index.js";
 import {
   focusCanvasWithoutRing,
@@ -103,17 +104,8 @@ const FIELD_PADDING_Y = 2;
 const FIELD_BORDER = 1.5;
 const FIELD_LINE_HEIGHT = 1.25;
 const MIN_FONT_SIZE = 11;
-const CAPTION_GAP = 4;
+const BETWEEN_CAPTIONS_GAP = 4;
 const CARET_ROOM = 2;
-
-/**
- * Enter and Escape that confirm or cancel an IME candidate belong to the composition. `isComposing`
- * alone misses Safari: it sends the confirming Enter after `compositionend`, with `isComposing`
- * false and the `keyCode` 229 that every engine gives a key the IME took.
- */
-function isImeCompositionKey(event: KeyboardEvent): boolean {
-  return event.isComposing || event.keyCode === 229;
-}
 
 export const NOTE_EDIT_HINT = "Cmd/Ctrl+Enter to save · Esc to cancel";
 
@@ -283,12 +275,12 @@ export default class WardleyLabelEditing {
       });
       // A new line made the field scroll to the caret before it grew to hold it.
       field.scrollTop = 0;
-      let captionTop = top + height + CAPTION_GAP;
+      let captionTop = top + height + FIELD_TO_CAPTION_GAP;
       for (const caption of [error.caption, hint]) {
         if (!caption) continue;
         caption.style.left = `${left}px`;
         caption.style.top = `${captionTop}px`;
-        captionTop += caption.offsetHeight + CAPTION_GAP;
+        captionTop += caption.offsetHeight + BETWEEN_CAPTIONS_GAP;
       }
     };
 
@@ -464,6 +456,7 @@ export default class WardleyLabelEditing {
       });
     };
     const onKey = (e: KeyboardEvent) => {
+      if (isImeCompositionKey(e)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         cleanup();

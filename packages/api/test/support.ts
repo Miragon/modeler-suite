@@ -84,6 +84,10 @@ export const CASE = {
   l1Gesture:
     "L1 (recommended, 1.5): an accepted import cancels a running gesture, its release included, and a rejected one leaves it running",
   drop: "drop (recommended, 1.6): an import from the change listener of a drop waits until the drop has ended, and its Promise settles after the import",
+  userAction:
+    "user action (recommended, 1.6): an import from the selection listener of a delete, an undo or a redo waits until the command has finished, and imports keep their call order",
+  dragStart:
+    "drag start (recommended, 1.6): an import from the selection listener at the start of a move or a palette create runs once the drag has started, and then ends it",
   pan: "pan (recommended, 1.6): a pan is no gesture, and it runs on through an import from the current view, the one the import left or the one the host restores",
   interaction:
     "interaction (when present, 1.5): active() follows every gesture to its drop and its cancel, never an armed tool, and onChange reports each change once",
@@ -126,11 +130,16 @@ export const CASE = {
 export const APPEARANCE_WITHOUT_DOM =
   "no DOM — the computed colours were not compared (run the kit in a browser, the modeler mounted into attachedHost())";
 
-/** whether the keys case, or the colour half of the appearance case, skipped for want of a DOM —
- *  what they do in the node suite */
+/** the user-action case's skip without a DOM: its delete presses a key on the canvas */
+export const USER_ACTION_WITHOUT_DOM =
+  "no DOM — a delete and the redo of a delete were not checked (both press Delete on the focused canvas: run the kit in a browser, the modeler mounted into attachedHost())";
+
+/** whether the keys case, the colour half of the appearance case or the delete of the user-action
+ *  case skipped for want of a DOM — what they do in the node suite */
 export const skippedWithoutDom = (name: string, reason: string): boolean =>
   (name === CASE.keys && reason.startsWith("no DOM")) ||
-  (name === CASE.appearance && reason === APPEARANCE_WITHOUT_DOM);
+  (name === CASE.appearance && reason === APPEARANCE_WITHOUT_DOM) ||
+  (name === CASE.userAction && reason === USER_ACTION_WITHOUT_DOM);
 
 /** all at once (node), or one after the other (jsdom) */
 export type Order = "concurrent" | "sequential";
