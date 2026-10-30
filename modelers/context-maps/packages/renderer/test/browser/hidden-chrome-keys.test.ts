@@ -122,6 +122,30 @@ describe("the map's own chrome on a map the host hides", () => {
   }
 
   it.each(hostHidings)(
+    "the palette toolbar neither creates a context nor moves the focus once the host $how",
+    ({ hide, show }) => {
+      const create = host.querySelector<HTMLElement>(
+        '.djs-palette .entry[data-action="context.core"]',
+      )!;
+      create.focus();
+      const before = modeler.exportDocument().contexts.length;
+      hide(host);
+      expect(document.activeElement).toBe(create);
+
+      expectLeftToPage(
+        create,
+        ["Enter", " ", "ArrowRight", "ArrowLeft", "Home", "End"].map((key) => ({ key })),
+      );
+      expect(modeler.exportDocument().contexts).toHaveLength(before);
+      expect(document.activeElement).toBe(create);
+
+      show(host);
+      expect(pressKey(create, { key: "Enter" }).defaultPrevented).toBe(true);
+      expect(modeler.exportDocument().contexts).toHaveLength(before + 1);
+    },
+  );
+
+  it.each(hostHidings)(
     "the name editor neither saves nor closes once the host $how",
     ({ hide, show }) => {
       modeler.get<CmLabelEditing>("cmLabelEditing").activate(billing());

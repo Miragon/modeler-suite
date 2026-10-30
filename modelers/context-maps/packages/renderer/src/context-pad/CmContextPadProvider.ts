@@ -230,6 +230,12 @@ export default class CmContextPadProvider implements ContextPadProvider {
     eventBus.on("popupMenu.close", () => {
       this.followUpMenu = undefined;
     });
+    // Before the canvas removes its container (priority 500): that removal blurs the field, and the
+    // blur would commit the typed text to a map being destroyed.
+    eventBus.on("diagram.destroy", () => {
+      this.destroyed = true;
+      this.cancelPrompt();
+    });
     popupMenu.registerProvider(SUBDOMAIN_MENU, {
       getPopupMenuEntries: (target: PopupMenuTarget) => this.subdomainMenuEntries(target),
     });
@@ -644,7 +650,12 @@ export default class CmContextPadProvider implements ContextPadProvider {
    */
   private activePrompt?: { cancel(): void };
 
-  /** Closes an open description prompt without saving it (an import replaces its element). */
+  private destroyed = false;
+
+  /**
+   * Closes an open description prompt without saving it (an import replaces its element, or the
+   * diagram is destroyed).
+   */
   cancelPrompt(): void {
     this.activePrompt?.cancel();
   }
@@ -711,7 +722,8 @@ export default class CmContextPadProvider implements ContextPadProvider {
       this.scheduler.cancel("cmContextPad#placePrompt");
       card.remove();
       this.activePrompt = undefined;
-      (this.canvas as { restoreFocus?: () => void }).restoreFocus?.();
+      // diagram-js runs the restore after a debounce, which would reach a canvas that is gone.
+      if (!this.destroyed) (this.canvas as { restoreFocus?: () => void }).restoreFocus?.();
     };
     const commit = (): void => {
       if (done) return;

@@ -118,7 +118,7 @@ function container(stage: Stage): HTMLElement {
 }
 
 function svg(stage: Stage): SVGSVGElement {
-  return container(stage).querySelector("svg")!;
+  return container(stage).querySelector<SVGSVGElement>(":scope > svg")!;
 }
 
 function shape(stage: Stage, id: string): Shape {

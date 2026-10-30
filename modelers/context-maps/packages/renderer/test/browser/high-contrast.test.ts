@@ -157,10 +157,6 @@ async function shadowsOf(
 
   clickPadEntry(modeler, "description");
   shadows["description editor"] = shadowOf(".cm-pad-prompt");
-  // A destroy blurs an open editor, which commits and restores the focus to a canvas that is gone.
-  within(map, ".cm-pad-prompt__field").dispatchEvent(
-    new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
-  );
   return shadows;
 }
 

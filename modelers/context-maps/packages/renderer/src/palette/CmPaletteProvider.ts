@@ -2,9 +2,9 @@
  * The tool palette: the lasso tool first, then the three subdomain types of bounded context.
  * Relationships are drawn via the context pad's connect arrow, not from the palette. A pointer
  * drags or clicks a context onto the canvas; Enter or Space on an entry (a click without a
- * pointer, `detail === 0`, as the Miragon modeler shell sends it) places it in the centre of the
- * free rectangle instead, selected and with its name editor open (guide §5.5). A pointer on any
- * entry hands the focus to the canvas, also without the shell (guide §5.8).
+ * pointer, `detail === 0`, as the Miragon modeler shell and `CmPaletteToolbar` send it) places it
+ * in the centre of the free rectangle instead, selected and with its name editor open (guide
+ * §5.5). A pointer on any entry hands the focus to the canvas, also without the shell (guide §5.8).
  */
 
 import type Canvas from "diagram-js/lib/core/Canvas";

@@ -1,21 +1,31 @@
 /// <reference types="@vitest/browser-playwright" />
-import { afterEach, expect, test, vi } from "vitest";
-import { cdp } from "vitest/browser";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { cdp, page, userEvent } from "vitest/browser";
+import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
+import type Palette from "diagram-js/lib/features/palette/Palette";
+import type {
+  PaletteEntries,
+  PaletteEntriesCallback,
+} from "diagram-js/lib/features/palette/PaletteProvider";
 import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
 import type Selection from "diagram-js/lib/features/selection/Selection";
-import { Modeler } from "@miragon/context-maps-renderer";
+import type { ModuleDeclaration } from "didi";
+import { Modeler, isCmContext, type CmContext } from "@miragon/context-maps-renderer";
 import { emptyDocument } from "@miragon/context-maps-schema-model";
 
 /**
  * The renderer's palette rules lay out this modeler's palette and no other on the page, and so do
- * its context pad and popup menu rules; the palette follows forced colours and reduced motion.
+ * its context pad and popup menu rules; the palette follows forced colours and reduced motion. For a
+ * host without the modeler shell it is the glass toolbar of guide §5.5 with its keys (#433, #436).
  */
 
 const mounted: { modeler: Modeler; container: HTMLElement }[] = [];
 
 afterEach(async () => {
   await cdp().send("Emulation.setEmulatedMedia", { features: [] });
+  document.documentElement.removeAttribute("data-cd-kontrast");
   for (const { modeler, container } of mounted.splice(0)) {
     modeler.destroy();
     container.remove();
@@ -251,4 +261,363 @@ test("moves nothing under reduced motion: the entries keep no transition (guide 
     const style = getComputedStyle(entry);
     expect([style.transitionProperty, style.transitionDuration]).toEqual(["none", "0s"]);
   }
+});
+
+const TOOLBAR_SIZE = { width: 1024, height: 768 };
+const FREE_AREA_CENTRE = { x: 400, y: 300 };
+const ENTRY_ACTIONS = ["lasso-tool", "context.core", "context.supporting", "context.generic"];
+
+/** A map after a focusable host control, as a page that embeds the renderer has one. */
+function mountToolbar(additionalModules: ModuleDeclaration[] = []): Modeler {
+  const wrapper = document.createElement("div");
+  wrapper.style.cssText = `position:absolute;left:0;top:0;width:${TOOLBAR_SIZE.width}px;height:${TOOLBAR_SIZE.height}px`;
+  const before = document.createElement("button");
+  before.textContent = "Before the map";
+  const container = document.createElement("div");
+  wrapper.append(before, container);
+  document.body.append(wrapper);
+  const modeler = new Modeler({
+    container,
+    freeArea: { center: () => FREE_AREA_CENTRE },
+    additionalModules,
+  });
+  mounted.push({ modeler, container: wrapper });
+  modeler.importDocument(emptyDocument("Toolbar"));
+  return modeler;
+}
+
+function paletteOf(modeler: Modeler): HTMLElement {
+  return modeler.container.querySelector<HTMLElement>(".djs-palette")!;
+}
+
+function entryOf(modeler: Modeler, action: string): HTMLElement {
+  const found = paletteOf(modeler).querySelector<HTMLElement>(`[data-action="${action}"]`);
+  if (!found) throw new Error(`no palette entry ${action}`);
+  return found;
+}
+
+function entriesOf(modeler: Modeler): HTMLElement[] {
+  return [...paletteOf(modeler).querySelectorAll<HTMLElement>(".djs-palette-entries .entry")];
+}
+
+function canvasSvg(modeler: Modeler): SVGSVGElement {
+  return modeler.get<Canvas>("canvas").getContainer().querySelector<SVGSVGElement>(":scope > svg")!;
+}
+
+function hostButton(modeler: Modeler): HTMLButtonElement {
+  return modeler.container.parentElement!.querySelector("button")!;
+}
+
+function contexts(modeler: Modeler): CmContext[] {
+  return modeler.get<ElementRegistry>("elementRegistry").filter(isCmContext) as CmContext[];
+}
+
+function pressed(modeler: Modeler): Record<string, string | null> {
+  return Object.fromEntries(
+    entriesOf(modeler).map((entry) => [
+      entry.getAttribute("data-action"),
+      entry.getAttribute("aria-pressed"),
+    ]),
+  );
+}
+
+/** What `property: value` computes to inside `container`, where the roles are the container's. */
+function resolved(container: HTMLElement, property: string, value: string): string {
+  const probe = document.createElement("div");
+  probe.style.setProperty(property, value);
+  container.append(probe);
+  const computed = getComputedStyle(probe).getPropertyValue(property);
+  probe.remove();
+  return computed;
+}
+
+/** The raised surface without glass, in the colour space the glass mix computes in. */
+function opaqueSurface(container: HTMLElement): string {
+  return resolved(
+    container,
+    "background-color",
+    "color-mix(in srgb, var(--cd-ui-flaeche-hoch) 100%, transparent)",
+  );
+}
+
+function boxIn(element: Element, origin: Element): DOMRect {
+  const box = element.getBoundingClientRect();
+  const originBox = origin.getBoundingClientRect();
+  return new DOMRect(box.left - originBox.left, box.top - originBox.top, box.width, box.height);
+}
+
+/** `rgb(r, g, b)` as its three channels. */
+function rgbOf(color: string): number[] {
+  return (color.match(/\d+/g) ?? []).slice(0, 3).map(Number);
+}
+
+/** The colour on screen at a point of `element`, in px from its top left. */
+async function pixelOf(element: HTMLElement, x: number, y: number): Promise<number[]> {
+  const base64 = await page.screenshot({ element, save: false });
+  const bitmap = await createImageBitmap(
+    await (await fetch(`data:image/png;base64,${base64}`)).blob(),
+  );
+  const scale = bitmap.width / element.getBoundingClientRect().width;
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const context = canvas.getContext("2d")!;
+  context.drawImage(bitmap, 0, 0);
+  const data = context.getImageData(Math.floor(x * scale), Math.floor(y * scale), 1, 1).data;
+  return [data[0]!, data[1]!, data[2]!];
+}
+
+describe("the palette without the shell: glass (guide §5.5, §6, #436)", () => {
+  let modeler: Modeler;
+
+  beforeEach(() => {
+    modeler = mountToolbar();
+  });
+
+  test("is the raised surface at the chrome's opacity with an 8px blur behind it", () => {
+    const palette = getComputedStyle(paletteOf(modeler));
+    const container = modeler.container;
+
+    expect(palette.backgroundColor).toBe(
+      resolved(
+        container,
+        "background-color",
+        "color-mix(in srgb, var(--cd-ui-flaeche-hoch) var(--cd-ui-chrome-deckkraft), transparent)",
+      ),
+    );
+    expect(palette.backgroundColor).not.toBe(opaqueSurface(container));
+    expect(palette.backdropFilter).toBe("blur(8px)");
+  });
+
+  test("is opaque in high contrast", () => {
+    modeler.container.setAttribute("data-cd-theme", "light");
+    modeler.container.setAttribute("data-cd-kontrast", "hoch");
+
+    expect(getComputedStyle(paletteOf(modeler)).backgroundColor).toBe(
+      opaqueSurface(modeler.container),
+    );
+  });
+});
+
+describe("the palette without the shell: toolbar (guide §5.5, §5.14, #433)", () => {
+  let modeler: Modeler;
+
+  beforeEach(() => {
+    modeler = mountToolbar();
+  });
+
+  test("is a toolbar named Tools, ahead of the canvas in the document and the tab order", async () => {
+    const toolbar = paletteOf(modeler).querySelector(".djs-palette-entries")!;
+    expect(toolbar.getAttribute("role")).toBe("toolbar");
+    expect(toolbar.getAttribute("aria-label")).toBe("Tools");
+    expect(
+      paletteOf(modeler).compareDocumentPosition(canvasSvg(modeler)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(entriesOf(modeler).map((entry) => entry.getAttribute("role"))).toEqual(
+      Array(ENTRY_ACTIONS.length).fill("button"),
+    );
+
+    hostButton(modeler).focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(entryOf(modeler, "lasso-tool"));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(canvasSvg(modeler));
+  });
+
+  test("has one tab stop that roves with ← → Home End and stays where the focus left it", async () => {
+    const tabStops = () =>
+      entriesOf(modeler)
+        .filter((entry) => entry.tabIndex === 0)
+        .map((entry) => entry.getAttribute("data-action"));
+    expect(tabStops()).toEqual(["lasso-tool"]);
+    expect(entriesOf(modeler).filter((entry) => entry.tabIndex === -1)).toHaveLength(
+      ENTRY_ACTIONS.length - 1,
+    );
+
+    entryOf(modeler, "lasso-tool").focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(entryOf(modeler, "context.core"));
+    expect(tabStops()).toEqual(["context.core"]);
+
+    await userEvent.keyboard("{End}");
+    expect(document.activeElement).toBe(entryOf(modeler, "context.generic"));
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(entryOf(modeler, "lasso-tool"));
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(document.activeElement).toBe(entryOf(modeler, "context.generic"));
+    await userEvent.keyboard("{Home}");
+    expect(document.activeElement).toBe(entryOf(modeler, "lasso-tool"));
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+    expect(tabStops()).toEqual(["context.supporting"]);
+
+    canvasSvg(modeler).focus();
+    expect(tabStops()).toEqual(["context.supporting"]);
+  });
+
+  test("names an entry's key for assistive technology where it has one, and none where it has none", () => {
+    for (const action of ENTRY_ACTIONS) {
+      expect(entryOf(modeler, action).hasAttribute("aria-keyshortcuts"), action).toBe(false);
+    }
+
+    function lassoKey(palette: Palette): void {
+      palette.registerProvider({
+        getPaletteEntries: (): PaletteEntriesCallback => (entries: PaletteEntries) => ({
+          ...entries,
+          "lasso-tool": { ...entries["lasso-tool"]!, shortcut: "l" },
+        }),
+      });
+    }
+    lassoKey.$inject = ["palette"];
+    const withKey = mountToolbar([{ __init__: [lassoKey] }]);
+    expect(entryOf(withKey, "lasso-tool").getAttribute("aria-keyshortcuts")).toBe("L");
+  });
+
+  test("presses the armed tool only, and none once the press on the canvas has taken it", async () => {
+    expect(pressed(modeler)).toEqual({
+      "lasso-tool": "false",
+      "context.core": null,
+      "context.supporting": null,
+      "context.generic": null,
+    });
+
+    entryOf(modeler, "lasso-tool").focus();
+    await userEvent.keyboard(" ");
+    expect(pressed(modeler)["lasso-tool"]).toBe("true");
+    expect(document.activeElement).toBe(entryOf(modeler, "lasso-tool"));
+
+    await userEvent.click(canvasSvg(modeler), { position: { x: 500, y: 500 } });
+    expect(pressed(modeler)["lasso-tool"]).toBe("false");
+  });
+
+  test("creates a context in the free area on Enter, selected and with its name editor open", async () => {
+    entryOf(modeler, "context.core").focus();
+    await userEvent.keyboard("{Enter}");
+
+    const [created] = contexts(modeler);
+    expect(contexts(modeler)).toHaveLength(1);
+    expect([created!.x + created!.width / 2, created!.y + created!.height / 2]).toEqual([
+      FREE_AREA_CENTRE.x,
+      FREE_AREA_CENTRE.y,
+    ]);
+    expect(modeler.get<Selection>("selection").get()).toEqual([created]);
+    expect(modeler.container.querySelector(".djs-direct-editing-parent")).not.toBeNull();
+  });
+
+  test("leaves Enter with a modifier and a held key's repeats alone", () => {
+    const core = entryOf(modeler, "context.core");
+    core.focus();
+    for (const init of [{ shiftKey: true }, { ctrlKey: true }, { repeat: true }]) {
+      core.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, ...init }),
+      );
+    }
+    expect(contexts(modeler)).toEqual([]);
+  });
+
+  test("hands the focus to the canvas after a press on the island's padding", async () => {
+    entryOf(modeler, "lasso-tool").focus();
+    await userEvent.click(paletteOf(modeler), { position: { x: 2, y: 20 } });
+
+    expect(document.activeElement).toBe(canvasSvg(modeler));
+  });
+
+  test("shows the keyboard focus as a 2px --cd-ui-fokus ring 2px outside the entry", async () => {
+    hostButton(modeler).focus();
+    await userEvent.tab();
+    const lasso = entryOf(modeler, "lasso-tool");
+    const style = getComputedStyle(lasso);
+
+    expect(lasso.matches(":focus-visible")).toBe(true);
+    expect([style.outlineStyle, style.outlineWidth, style.outlineOffset]).toEqual([
+      "solid",
+      "2px",
+      "2px",
+    ]);
+    expect(style.outlineColor).toBe(resolved(modeler.container, "color", "var(--cd-ui-fokus)"));
+  });
+
+  test("keeps the focus ring visible beside a hovered neighbour, which paints after it", async () => {
+    entryOf(modeler, "context.core").focus();
+    await userEvent.keyboard("{ArrowRight}{ArrowLeft}");
+    const core = entryOf(modeler, "context.core");
+    const supporting = entryOf(modeler, "context.supporting");
+    expect(document.activeElement).toBe(core);
+    expect(core.matches(":focus-visible")).toBe(true);
+    await userEvent.hover(supporting);
+    const hoverFill = resolved(modeler.container, "background-color", "var(--cd-ui-hover)");
+    await vi.waitFor(() => expect(getComputedStyle(supporting).backgroundColor).toBe(hoverFill));
+
+    const palette = paletteOf(modeler);
+    const coreBox = boxIn(core, palette);
+    const ring = await pixelOf(palette, coreBox.right + 3, coreBox.top + coreBox.height / 2);
+    expect(ring).toEqual(rgbOf(resolved(modeler.container, "color", "var(--cd-ui-fokus)")));
+  });
+
+  test("widens the focus ring to 3px in high contrast", async () => {
+    modeler.container.setAttribute("data-cd-theme", "light");
+    modeler.container.setAttribute("data-cd-kontrast", "hoch");
+    hostButton(modeler).focus();
+    await userEvent.tab();
+    const lasso = entryOf(modeler, "lasso-tool");
+    const style = getComputedStyle(lasso);
+
+    expect(lasso.matches(":focus-visible")).toBe(true);
+    expect([style.outlineStyle, style.outlineWidth, style.outlineOffset]).toEqual([
+      "solid",
+      "3px",
+      "2px",
+    ]);
+  });
+
+  test("keeps the 2px ring inside a carrier in normal contrast on a high-contrast page (guide §13.3)", async () => {
+    document.documentElement.setAttribute("data-cd-kontrast", "hoch");
+    modeler.container.parentElement!.setAttribute("data-cd-theme", "light");
+    hostButton(modeler).focus();
+    await userEvent.tab();
+    const style = getComputedStyle(entryOf(modeler, "lasso-tool"));
+
+    expect([style.outlineStyle, style.outlineWidth]).toEqual(["solid", "2px"]);
+  });
+});
+
+/** A chrome that skins the palette as the shell does, without importing the shell. */
+function chromeModule(options: { asShell: boolean }): ModuleDeclaration {
+  function markPalette(eventBus: EventBus): void {
+    eventBus.on("palette.create", (event: { container: HTMLElement }) =>
+      event.container.setAttribute("data-chrome", "palette"),
+    );
+  }
+  markPalette.$inject = ["eventBus"];
+  return {
+    __init__: [markPalette],
+    ...(options.asShell ? { modelerShell: ["value", { chrome: true }] } : {}),
+  };
+}
+
+describe.each([
+  { name: "the shell", asShell: true },
+  { name: "another chrome", asShell: false },
+])("a palette $name skins (data-chrome)", ({ asShell }) => {
+  test("keeps none of the renderer's keys or toolbar attributes, and its place after the canvas", async () => {
+    const modeler = mountToolbar([chromeModule({ asShell })]);
+    const palette = paletteOf(modeler);
+    expect(palette.getAttribute("data-chrome")).toBe("palette");
+
+    expect(palette.querySelector(".djs-palette-entries")!.hasAttribute("role")).toBe(false);
+    for (const entry of entriesOf(modeler)) {
+      expect(entry.hasAttribute("tabindex")).toBe(false);
+      expect(entry.hasAttribute("aria-pressed")).toBe(false);
+      expect(entry.hasAttribute("aria-keyshortcuts")).toBe(false);
+    }
+    expect(
+      palette.compareDocumentPosition(canvasSvg(modeler)) & Node.DOCUMENT_POSITION_PRECEDING,
+    ).toBeTruthy();
+
+    const core = entryOf(modeler, "context.core");
+    core.tabIndex = 0;
+    core.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(core);
+    await userEvent.keyboard("{Enter}");
+    expect(contexts(modeler)).toEqual([]);
+  });
 });

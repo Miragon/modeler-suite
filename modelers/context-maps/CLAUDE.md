@@ -146,7 +146,13 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   `cmPalette: { freeArea }`), `fitOnImport` and `undoRedoKeys: false` for hosts that own the
   history. `cmLegendModule` (closed at first on every canvas size; a host's `setOpen()` restores a
   stored state) and the renderer's own palette rules stay for hosts that embed the renderer without
-  the shell. The DOM-free packages take only types from `@miragon/modeler-api`.
+  the shell. So does `palette/CmPaletteToolbar` (#433, a port of Value Chain's `VcPaletteToolbar`:
+  `role="toolbar"`, the roving tab stop and its keys, `aria-pressed`, `aria-keyshortcuts`, the
+  palette moved ahead of the canvas `<svg>`, so a test finds the canvas with `:scope > svg`); it
+  does nothing where `modelerShell` is registered or a chrome marks the palette
+  `data-chrome="palette"` (`palette-without-shell.test.ts`), and leaves a key on a hidden or inert
+  palette to the page (`isKeyOnHiddenTarget`, `hidden-chrome-keys.test.ts`). The DOM-free packages
+  take only types from `@miragon/modeler-api`.
 - **Shortcuts dialog and PNG export.** Both apps open the shell's dialog:
   `shell.showShortcutsDialog(contextMapShortcuts(shell, options))`, the web app with
   `{ fileKeys: true }` (Cmd/Ctrl+O and S). The shell puts its zoom and fit keys at the top of the
