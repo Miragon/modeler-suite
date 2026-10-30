@@ -451,21 +451,31 @@ describe("a command during the point drag of a drawing", () => {
     expect(pointDragPreview(modeler)).toBe(null);
   }
 
+  /**
+   * The button is still down when the command ends the drag, so the browser clicks where the press
+   * and the release meet, the canvas <svg>, as after Escape.
+   */
+  function releaseAndClick(pointer: ReturnType<typeof pointerOn>) {
+    pointer.moveTo(RELEASED_AT);
+    pointer.release(RELEASED_AT);
+    pointer.click(pointer.svg, RELEASED_AT);
+  }
+
   it("ends the drag on an undo: the release keeps the undone drawing and the redo", async () => {
     const { modeler, moved, commandStack } = await aMovedDrawing();
     const changes = changesOf(modeler);
-    const { pointer } = holdFirstPoint(modeler);
+    const { pointer, drawing } = holdFirstPoint(modeler);
 
     await userEvent.keyboard("{Control>}z{/Control}");
     expect(changes()).toBe(1);
     expect(modeler.exportText()).toBe(BOARD);
     expectTheDragEnded(modeler);
 
-    pointer.moveTo(RELEASED_AT);
-    pointer.release(RELEASED_AT);
+    releaseAndClick(pointer);
     expectTheDragEnded(modeler);
     expect(changes()).toBe(1);
     expect(modeler.exportText()).toBe(BOARD);
+    expect(service<Selection>(modeler, "selection").get()).toEqual([drawing]);
     expect(commandStack.canRedo()).toBe(true);
     commandStack.redo();
     expect(modeler.exportText()).toBe(moved);
@@ -475,18 +485,18 @@ describe("a command during the point drag of a drawing", () => {
     const { modeler, moved, commandStack } = await aMovedDrawing();
     commandStack.undo();
     const changes = changesOf(modeler);
-    const { pointer } = holdFirstPoint(modeler);
+    const { pointer, drawing } = holdFirstPoint(modeler);
 
     await userEvent.keyboard("{Control>}{Shift>}z{/Shift}{/Control}");
     expect(changes()).toBe(1);
     expect(modeler.exportText()).toBe(moved);
     expectTheDragEnded(modeler);
 
-    pointer.moveTo(RELEASED_AT);
-    pointer.release(RELEASED_AT);
+    releaseAndClick(pointer);
     expectTheDragEnded(modeler);
     expect(changes()).toBe(1);
     expect(modeler.exportText()).toBe(moved);
+    expect(service<Selection>(modeler, "selection").get()).toEqual([drawing]);
     commandStack.undo();
     expect(modeler.exportText()).toBe(BOARD);
   });
@@ -504,11 +514,42 @@ describe("a command during the point drag of a drawing", () => {
     expect(moved).not.toBe(BOARD);
     expectTheDragEnded(modeler);
 
-    pointer.release(RELEASED_AT);
+    releaseAndClick(pointer);
     expectTheDragEnded(modeler);
     expect(changes()).toBe(1);
     expect(modeler.exportText()).toBe(moved);
+    expect(service<Selection>(modeler, "selection").get()).toEqual([drawing]);
     service<CommandStack>(modeler, "commandStack").undo();
     expect(modeler.exportText()).toBe(BOARD);
   });
+
+  /** The sticky's move leaves the drawing and its pressed handle as they are. */
+  it.each([
+    ["an undo", "{Control>}z{/Control}", false],
+    ["a redo", "{Control>}{Shift>}z{/Shift}{/Control}", true],
+  ] as const)(
+    "keeps the drawing selected when %s of a change elsewhere ends the drag",
+    async (_, key, undoneBefore) => {
+      const modeler = await editorWithBoard();
+      service<Modeling>(modeler, "modeling").moveElements(
+        [sticky(modeler, "policy_reserve_stock") as unknown as Shape],
+        { x: 40, y: 0 },
+      );
+      const moved = modeler.exportText();
+      if (undoneBefore) service<CommandStack>(modeler, "commandStack").undo();
+      const changes = changesOf(modeler);
+      const { pointer, drawing } = holdFirstPoint(modeler);
+
+      await userEvent.keyboard(key);
+      expect(changes()).toBe(1);
+      expect(modeler.exportText()).toBe(undoneBefore ? moved : BOARD);
+      expectTheDragEnded(modeler);
+
+      releaseAndClick(pointer);
+      expectTheDragEnded(modeler);
+      expect(changes()).toBe(1);
+      expect(service<Selection>(modeler, "selection").get()).toEqual([drawing]);
+      expect(handlePositions(modeler)).toEqual(HANDLES_OF_THE_BOARD);
+    },
+  );
 });

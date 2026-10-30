@@ -91,8 +91,8 @@ release, the arrow keys, L, E, C, Cmd/Ctrl+V and Cmd/Ctrl+D do nothing and are t
 `preventDefault()`, since they would nudge or copy the drawing under the drag or start a second
 gesture next to it ([#375](https://github.com/Miragon/modeler-suite/issues/375)). Delete removes
 the drawing, and an undo, a redo or any other command before the release ends the drag without a
-commit, so the release never writes the drawing back over what the command did. To keep the
-keys away from a canvas it
+commit, as Escape does, so the release never writes the drawing back over what the command did.
+To keep the keys away from a canvas it
 hides without destroying it, a host makes it `inert` (or `display: none`): the browser then moves
 the focus off the `<svg>` at its next rendering update, and a key whose target lies inside an
 `inert` subtree stays the page's before then too. Cmd/Ctrl+A selects the whole board. An
@@ -301,7 +301,8 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
 - `interaction` (contract 1.5) tells a host whether the user holds a gesture: `active()` is true
   from the moment diagram-js starts a drag (a move, resize, connect or lasso past the threshold, a
   create, an append or a paste at once, also while its preview is still over the palette) and
-  while a drawing's point drag moves, until the drop or the cancel (Escape, or an import). A drag
+  while a drawing's point drag moves, until the drop or the cancel (Escape, an import, and for a
+  point drag also an undo, a redo or any other command before its release). A drag
   that an import or a clear from the selection listener ends at its start is never reported. A
   palette tool that only waits for its next press (the lasso, the draw tool) and a pan of the empty
   canvas are no gesture; a line the draw tool holds point by point is not reported either, and an

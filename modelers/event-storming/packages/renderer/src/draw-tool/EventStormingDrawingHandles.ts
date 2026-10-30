@@ -82,8 +82,14 @@ export default class EventStormingDrawingHandles {
     // The release writes back every point as the press found it, which would undo a command in
     // between (an undo or a redo pressed mid-drag, a host's edit) and cost its redo step: the drag
     // ends first, without a commit, as Wardley Maps' point drag does. The release ends the drag
-    // before its own command.
-    eventBus.on(COMMAND_START_EVENTS, BEFORE_THE_COMMAND, () => this.endPointDrag());
+    // before its own command. The button is still down, as after Escape; the trap comes first, so
+    // that a host that destroys the board from the interaction listener the end calls drops it
+    // with the board.
+    eventBus.on(COMMAND_START_EVENTS, BEFORE_THE_COMMAND, () => {
+      if (!this.pointDrag) return;
+      this.trapReleaseClick();
+      this.endPointDrag();
+    });
     eventBus.on(["diagram.clear", "diagram.destroy"], () => {
       this.endPointDrag();
       this.dropReleaseTrap();
@@ -191,9 +197,10 @@ export default class EventStormingDrawingHandles {
   }
 
   /**
-   * The button is still down when Escape ends the drag, and its release clicks the canvas, which
-   * diagram-js would take for a click on the empty board that clears the selection. The trap goes
-   * once that click came, or a moment after a release that clicked nothing, as diagram-js's own.
+   * The button is still down when Escape or a command ends the drag, and its release clicks the
+   * canvas, which diagram-js would take for a click on the empty board that clears the selection.
+   * The trap goes once that click came, or a moment after a release that clicked nothing, as
+   * diagram-js's own.
    */
   private trapReleaseClick(): void {
     this.dropReleaseTrap();
