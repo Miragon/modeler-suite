@@ -31,27 +31,45 @@ interface BoardKey {
   readsTheBoard: boolean;
   /**
    * The lasso and the creates at the pointer (E, C and a paste) start a gesture there, which would
-   * take the press meant for the next point of a line the draw tool holds.
+   * take the press meant for the next point of a line the draw tool holds, or end with the release
+   * of a drawing's point drag.
    */
   startsAGesture: boolean;
+  /**
+   * The nudge and the duplicate act on the selection, which during a drawing's point drag is that
+   * drawing: the release writes back every point as the press found it, over a nudge, and a
+   * duplicate would select the copy under the drag.
+   */
+  nudgesOrDuplicates: boolean;
   handle(): void;
 }
 
 const reading = (handle: () => void): BoardKey => ({
   readsTheBoard: true,
   startsAGesture: false,
+  nudgesOrDuplicates: false,
   handle,
 });
 const editing = (handle: () => void): BoardKey => ({
   readsTheBoard: false,
   startsAGesture: false,
+  nudgesOrDuplicates: false,
   handle,
 });
 const startingAGesture = (boardKey: BoardKey): BoardKey => ({ ...boardKey, startsAGesture: true });
+const nudgingOrDuplicating = (boardKey: BoardKey): BoardKey => ({
+  ...boardKey,
+  nudgesOrDuplicates: true,
+});
 
 /** What the keyboard reads of `EventStormingDrawTool`, which imports the key scope from here. */
 interface DrawToolLine {
   holdsLine(): boolean;
+}
+
+/** What the keyboard reads of `EventStormingDrawingHandles`, which imports the key scope too. */
+interface DrawingPointDrag {
+  isDraggingPoint(): boolean;
 }
 
 export interface EventStormingKeyboardConfig {
@@ -69,7 +87,8 @@ export interface EventStormingKeyboardConfig {
  * the canvas has the focus, as diagram-js 15's own keyboard does. Under the read-only lock only
  * select all, copy and the lasso stay. While the draw tool holds a line in progress, the keys that
  * start a gesture at the pointer (L, E, C and paste) do nothing, and Enter and Escape are the
- * tool's.
+ * tool's. While a point of a drawing is dragged, these keys, the arrow keys and duplicate do
+ * nothing; Escape is the drag's, and Delete removes the drawing, which ends the drag.
  */
 export default class EventStormingKeyboard {
   static $inject = [
@@ -109,6 +128,8 @@ export default class EventStormingKeyboard {
 
     // Looked up, not injected: the keyboard module also runs on a diagram without the draw tool.
     const drawTool = () => injector?.get<DrawToolLine | null>("eventStormingDrawTool", false);
+    const drawingHandles = () =>
+      injector?.get<DrawingPointDrag | null>("eventStormingDrawingHandles", false);
 
     // On the document, after every listener closer to the target, so a key one of them handled
     // stays theirs. The label editor's field, the palette and the context pad sit in the container
@@ -121,6 +142,14 @@ export default class EventStormingKeyboard {
       // to it would take the press meant for its next point. Taken without acting, so a host sees
       // the board's key as it does while no line is drawn.
       if (boardKey.startsAGesture && drawTool()?.holdsLine()) {
+        e.preventDefault();
+        return;
+      }
+      // A point drag owns its drawing and the release (#375); its keys are taken the same way.
+      if (
+        (boardKey.startsAGesture || boardKey.nudgesOrDuplicates) &&
+        drawingHandles()?.isDraggingPoint()
+      ) {
         e.preventDefault();
         return;
       }
@@ -177,10 +206,12 @@ export default class EventStormingKeyboard {
         );
       }
       if (cmd && key === "d") {
-        return editing(() => {
-          e.preventDefault();
-          copyPaste.duplicate();
-        });
+        return nudgingOrDuplicating(
+          editing(() => {
+            e.preventDefault();
+            copyPaste.duplicate();
+          }),
+        );
       }
       if (key === "delete" || key === "backspace") {
         return editing(() => {
@@ -208,15 +239,17 @@ export default class EventStormingKeyboard {
         );
       }
       if (key in ARROW_DELTAS && !cmd) {
-        return editing(() => {
-          const sel = selection.get() as Element[];
-          if (sel.length) {
-            e.preventDefault();
-            const step = e.shiftKey ? NUDGE_STEP_COARSE : NUDGE_STEP;
-            const d = ARROW_DELTAS[key]!;
-            modeling.moveElements(sel, { x: d.x * step, y: d.y * step });
-          }
-        });
+        return nudgingOrDuplicating(
+          editing(() => {
+            const sel = selection.get() as Element[];
+            if (sel.length) {
+              e.preventDefault();
+              const step = e.shiftKey ? NUDGE_STEP_COARSE : NUDGE_STEP;
+              const d = ARROW_DELTAS[key]!;
+              modeling.moveElements(sel, { x: d.x * step, y: d.y * step });
+            }
+          }),
+        );
       }
       return undefined;
     };

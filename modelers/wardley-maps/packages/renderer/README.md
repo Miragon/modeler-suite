@@ -102,7 +102,10 @@ evolve target. These drags and the colour picker take only an Escape aimed at th
 picker also one on its swatches); one aimed at the palette, the context pad, a name editor or a
 host's field, menu, dialog or overlay, inside the canvas container or next to it, stays with that
 control. While the draw tool holds the points of a line, the single-key tools do nothing until the
-line is finished or cancelled.
+line is finished or cancelled. While a point of a drawing is dragged, the keys that would change the
+drawing under the drag or start a second gesture next to it do nothing until the release: the
+single-key tools, and the arrow keys, paste and duplicate, which the canvas takes with
+`preventDefault()`. Delete still removes the drawing, which ends the drag without a commit.
 
 ## Collaborative hosts
 
@@ -162,7 +165,8 @@ brings the new one ([#347](https://github.com/Miragon/modeler-suite/issues/347))
 size preview (an undo pressed mid-drag, a title the host sets) puts the preview back first, and a
 drag then ends without resizing, so the history stays in step with the document. A drawing's point
 drag, the drag of an evolve target and a label drag end the same way, without a commit, when a
-command runs before their release (an undo or an arrow-key nudge pressed mid-drag).
+command runs before their release (an undo pressed mid-drag, or an arrow-key nudge during the other
+two, since a point drag leaves the arrow keys without effect).
 `elements` names components, anchors, pipelines, submaps and accelerators by the id the document
 gives them (`cmp_kettle`), also right after a canvas edit, and `elements.bounds(id)` gives an
 element's live box in diagram coordinates; `getViewState` and `setViewState` carry the viewbox.

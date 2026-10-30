@@ -25,7 +25,8 @@ interface Point {
  * recomputed bbox) as ONE undoable command; Escape on the canvas ends the drag without one. The
  * point drag is a gesture of its own, outside diagram-js's dragging, so it reports itself to
  * `eventStormingGestures` from its first move, and its release holds the drop while the command
- * applies.
+ * applies. While it runs, `EventStormingKeyboard` takes the keys that would change the drawing
+ * under it or start a second gesture without acting (`isDraggingPoint`).
  */
 export default class EventStormingDrawingHandles {
   static $inject = [
@@ -155,6 +156,11 @@ export default class EventStormingDrawingHandles {
         endGesture?.();
       },
     };
+  }
+
+  /** True from the press on a handle until the release or the end of the drag. */
+  isDraggingPoint(): boolean {
+    return this.pointDrag !== null;
   }
 
   endPointDrag(): void {

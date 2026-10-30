@@ -50,7 +50,8 @@ stays armed, and so does the draw tool before its first point; a line it holds e
 drawing on the import (`import.render.start` in `WardleyDrawTool`, #243). The renderer's own drags
 (label, point, evolve target) and the colour picker bind Escape themselves and take it only when it
 is aimed at the canvas `<svg>` (`isCanvasKey` in `src/a11y/`), the picker also on its swatches;
-while the draw tool holds points, `WardleyKeyboard` leaves the single-key tools without effect.
+while the draw tool holds points, `WardleyKeyboard` leaves the single-key tools without effect, and
+while a point drag runs also the arrow keys, paste and duplicate (`isDraggingPoint`, #375).
 `wardleyInteraction` ([`src/interaction/`](packages/renderer/src/interaction/)) follows every gesture
 (diagram-js drags past their threshold and the renderer's own label, point and evolve-target drags,
 which report to it) for the contract's `interaction`, and marks the user's actions, the one wait of

@@ -136,7 +136,8 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   stays selected; a line the draw tool holds ends with the tool and without a drawing (`endLine`,
   #243; Escape commits one of two points or more), and while it is held `EventStormingKeyboard`
   takes the keys that start a gesture at the pointer (L, E, C, Cmd/Ctrl+V) without acting
-  (`holdsLine`); the palette's armed lasso tool
+  (`holdsLine`), and while a point drag runs these, the arrow keys and Cmd/Ctrl+D
+  (`isDraggingPoint`, #375); the palette's armed lasso tool
   (`lasso.selection`) and the draw tool before its first point stay armed, and a pan (diagram-js's
   `MoveCanvas`, outside the dragging service) keeps running. `eventStormingGestures`
   ([`packages/renderer/src/gesture/`](packages/renderer/src/gesture/)) knows the gesture, the
