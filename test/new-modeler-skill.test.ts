@@ -944,8 +944,6 @@ const NON_API_NAMES = new Map<string, string>([
   ["canvasClassName", "Design IQ's renderer spec"],
   ["contractNotation", "Design IQ's renderer spec"],
   ["load", "Design IQ's renderer spec"],
-  ["resolveCustomTextEditor", "VS Code"],
-  ["context.subscriptions", "VS Code"],
   ["engines.vscode", "VS Code's package.json"],
   ["retainContextWhenHidden", "VS Code"],
   ["config", "zod"],
