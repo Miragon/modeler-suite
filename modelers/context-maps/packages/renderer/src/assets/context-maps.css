@@ -175,15 +175,19 @@
   }
 }
 /* diagram-js draws the palette's tooltip with a shadow as its only edge, and high contrast drops
-   the shadow: the tooltip's line edge (guide §5.6) keeps it apart from the canvas. */
+   the shadow: the tooltip's line edge (guide §5.6) keeps it apart from the canvas. Like every label
+   of the chrome it cannot be selected, so a select-all takes none of it (guide §5.14). */
 :where(.cm-djs-container) .djs-hover-tooltip {
   border: 1px solid var(--cd-ui-linie);
+  -webkit-user-select: none;
+  user-select: none;
 }
 /* The palette's tooltip (palette/CmPaletteTooltip.ts) below the island, guide §5.6: opaque, 13px
-   with a 20px line, at most min(280px, 100% - 24px) wide, the key as a Geist Mono chip 6px after
-   the name. Placed in the canvas container's coordinates. */
+   with a 20px line, at most min(280px, 100% - 24px) wide with its padding and edge, the key as a
+   Geist Mono chip 6px after the name. Placed in the canvas container's coordinates. */
 :where(.cm-djs-container) .djs-hover-tooltip--bottom {
   position: absolute;
+  box-sizing: border-box;
   width: max-content;
   max-width: min(280px, 100% - 24px);
   padding: 3px 8px;

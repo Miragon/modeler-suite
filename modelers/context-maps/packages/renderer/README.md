@@ -67,8 +67,9 @@ so does Escape before its drag has begun. An entry's tooltip stands 8px below th
 on its entry and 12px from the canvas's sides, as `role="tooltip"`: after 300ms of hover, at once
 on keyboard focus or for a neighbour, never for touch, and hidden on a press or Escape. While
 `cmReadOnly` locks the canvas, every entry but Lasso and Hand is `aria-disabled`, still focusable,
-its preview grey. Where the shell is mounted, or another chrome marks the palette
-`data-chrome="palette"`, the palette is that chrome's alone.
+its preview grey, and a click, a drag or Enter on it does nothing, a host's entry included. Where
+the shell is mounted, or another chrome marks the palette `data-chrome="palette"`, the palette is
+that chrome's alone.
 
 ## API
 

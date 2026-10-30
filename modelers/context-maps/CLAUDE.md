@@ -149,8 +149,8 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   the shell. So does `palette/CmPaletteToolbar` (#433, a port of Value Chain's `VcPaletteToolbar`:
   `role="toolbar"`, the roving tab stop and its keys, `aria-pressed`, `aria-keyshortcuts`, the
   palette moved ahead of the canvas `<svg>`, so a test finds the canvas with `:scope > svg`, and
-  `aria-disabled` under the `cmReadOnly` lock, #463); it does nothing where `modelerShell` is
-  registered or a chrome marks the palette `data-chrome="palette"`
+  `aria-disabled` and a `palette.trigger` veto under the `cmReadOnly` lock, #463); it does nothing
+  where `modelerShell` is registered or a chrome marks the palette `data-chrome="palette"`
   (`palette-without-shell.test.ts`), and leaves a key on a hidden or inert palette to the page
   (`isKeyOnHiddenTarget`, `hidden-chrome-keys.test.ts`). `palette/CmPaletteTooltip` (#457, a port
   of `VcPaletteTooltip`) is diagram-js's `paletteTooltip` replaced by guide §5.6's, below the

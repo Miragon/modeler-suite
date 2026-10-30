@@ -390,6 +390,40 @@ function lassoKeyModule(): ModuleDeclaration {
   return { __init__: [lassoKey] };
 }
 
+const LONG_TITLE = "Generic subdomain: bought, licensed or reused off the shelf without any change";
+
+/** A host's provider that gives the generic subdomain a title too long for one line. */
+function longTitleModule(): ModuleDeclaration {
+  function longTitle(palette: Palette): void {
+    palette.registerProvider({
+      getPaletteEntries: (): PaletteEntriesCallback => (entries: PaletteEntries) => ({
+        ...entries,
+        "context.generic": { ...entries["context.generic"]!, title: LONG_TITLE },
+      }),
+    });
+  }
+  longTitle.$inject = ["palette"];
+  return { __init__: [longTitle] };
+}
+
+/** A host's provider with an entry of its own, which counts its clicks. */
+function hostEntryModule(clicks: { count: number }): ModuleDeclaration {
+  function hostEntry(palette: Palette): void {
+    palette.registerProvider({
+      getPaletteEntries: (): PaletteEntries => ({
+        "host.note": {
+          group: "host",
+          title: "Note",
+          html: '<div class="entry"></div>',
+          action: { click: () => void clicks.count++ },
+        },
+      }),
+    });
+  }
+  hostEntry.$inject = ["palette"];
+  return { __init__: [hostEntry] };
+}
+
 /** A host's hand tool beside the lasso, armed the way diagram-js's `HandTool.activateHand` arms it. */
 function handToolModule(): ModuleDeclaration {
   function handEntry(palette: Palette, toolManager: ToolManager, dragging: Dragging): void {
@@ -806,6 +840,32 @@ describe("the palette without the shell: tooltip (guide §5.6, #457)", () => {
     expect(genericBox.width).toBeLessThanOrEqual(NARROW_WIDTH - 24);
   });
 
+  test("is at most min(280px, 100% - 24px) wide with its padding and edge, and keeps 12px from both sides when its title wraps", async () => {
+    const withLongTitle = mountToolbar([longTitleModule()]);
+    const wide = await hover("context.generic", withLongTitle);
+    expect(shownName(withLongTitle)).toBe(LONG_TITLE);
+    expect(boxIn(wide.tooltip, withLongTitle.container).width).toBeCloseTo(280, 0);
+    await userEvent.unhover(wide.entry);
+    await vi.waitFor(() => expect(shownTooltip(withLongTitle)).toBeNull());
+
+    withLongTitle.container.parentElement!.style.width = `${NARROW_WIDTH}px`;
+    withLongTitle.get<Canvas>("canvas").resized();
+    const narrow = await hover("context.generic", withLongTitle);
+    const narrowBox = boxIn(narrow.tooltip, withLongTitle.container);
+    expect(narrowBox.width).toBeCloseTo(NARROW_WIDTH - 24, 0);
+    expect(narrowBox.left).toBeCloseTo(12, 0);
+    expect(narrowBox.right).toBeCloseTo(NARROW_WIDTH - 12, 0);
+  });
+
+  test("cannot be selected, as no label of the chrome can (guide §5.14)", async () => {
+    hostButton(modeler).focus();
+    await userEvent.tab();
+    const style = getComputedStyle(shownTooltip()!);
+
+    expect(shownName()).toBe("Lasso");
+    expect([style.userSelect, style.webkitUserSelect]).toEqual(["none", "none"]);
+  });
+
   test("throws nothing later when the modeler is destroyed while its tooltip waits to show", async () => {
     const errors: unknown[] = [];
     const collect = (event: ErrorEvent) => errors.push(event.error);
@@ -930,6 +990,41 @@ describe("the palette without the shell: read-only lock (guide §13.5, #463)", (
     ).toBe("Core domain");
     await userEvent.keyboard("{Enter}");
     expect(contexts(modeler)).toEqual([]);
+  });
+
+  test("lets a pointer's click or drag on a disabled entry, a host's included, do nothing, while Lasso and Hand still arm", async () => {
+    const clicks = { count: 0 };
+    const withHostEntry = mountToolbar([handToolModule(), hostEntryModule(clicks)]);
+    const dragging = withHostEntry.get<Dragging>("dragging");
+    const createPreview = () => [
+      dragging.context()?.prefix ?? null,
+      withHostEntry.container.querySelectorAll(".djs-drag-group").length,
+    ];
+    lockCanvas(withHostEntry, true);
+    expect(disabled(withHostEntry)["host.note"]).toBe("true");
+
+    await userEvent.click(entryOf(withHostEntry, "context.core"), { force: true });
+    await userEvent.hover(canvasSvg(withHostEntry), { position: { x: 500, y: 500 } });
+    expect(createPreview()).toEqual([null, 0]);
+    expect(document.activeElement).not.toBe(canvasSvg(withHostEntry));
+
+    const dragstart = new DragEvent("dragstart", { bubbles: true, cancelable: true });
+    entryOf(withHostEntry, "context.supporting").dispatchEvent(dragstart);
+    expect(dragstart.defaultPrevented).toBe(true);
+    expect(createPreview()).toEqual([null, 0]);
+
+    await userEvent.click(entryOf(withHostEntry, "host.note"), { force: true });
+    expect(clicks.count).toBe(0);
+    expect(contexts(withHostEntry)).toEqual([]);
+
+    await userEvent.click(entryOf(withHostEntry, "hand-tool"));
+    expect(dragging.context()?.prefix).toBe("hand");
+    await userEvent.click(entryOf(withHostEntry, "lasso-tool"));
+    expect(lassoState(withHostEntry)).toEqual(LASSO_ARMED);
+
+    lockCanvas(withHostEntry, false);
+    await userEvent.click(entryOf(withHostEntry, "host.note"));
+    expect(clicks.count).toBe(1);
   });
 
   test("draws a disabled entry's icon in --cd-ui-text-leise and its preview grey, never by opacity, without hover", async () => {
