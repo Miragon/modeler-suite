@@ -212,19 +212,26 @@ queued import reads the shared text.
 The host merges every local change into the shared document against the text
 it last imported or exported, which is what the canvas held before the change,
 and never writes the export over the shared text whole: the export lacks every
-remote change the canvas has not shown yet, one a gesture holds back as well as
-one whose import still waits in the queue or for the user's running action to
-finish. While
-nothing waits, the merge writes what a whole write would. One queue for every
-import the host makes, and the merge in its change listener, cover all of this:
+remote change the canvas has not shown yet, one a gesture holds back, one whose
+import still waits in the queue or for the user's running action to finish, and
+one whose text the modeler rejected (L7, a peer's half-typed text). While the
+canvas shows the shared text, the merge writes what a whole write would. One
+queue for every import the host makes, and the merge in its change listener,
+cover all of this:
 
 ```ts
 let remoteWaits = false;
+let base = "";
 let queue: Promise<unknown> = Promise.resolve();
 
 function importNow(readText: () => string): Promise<ImportResult> {
   remoteWaits = false;
-  const result = queue.then(() => modeler.importText(readText()));
+  const result = queue.then(async () => {
+    const text = readText();
+    const imported = await modeler.importText(text);
+    base = text;
+    return imported;
+  });
   queue = result.catch(() => undefined); // a rejected text (L7) keeps the queue going
   return result;
 }
@@ -238,13 +245,22 @@ modeler.interaction?.onChange((active) => {
   if (!active && remoteWaits) importNow(sharedText).catch(reportRejectedText);
 });
 
-modeler.onContentChanged(() => mergeLocalChange(modeler.exportText()));
+modeler.onContentChanged(() => {
+  const exported = modeler.exportText();
+  mergeLocalChange(base, exported);
+  base = exported;
+});
 ```
 
 `applyRemote` runs for each change a peer makes to the shared document,
-`sharedText` returns that document's current text, and `mergeLocalChange`
-merges the export into it as above before it returns. For a file the user
-opens, the host calls `importNow(() => fileText)`.
+`sharedText` returns that document's current text, and
+`mergeLocalChange(base, exported)` merges the change from `base` to `exported`
+into it before it returns. An import moves `base` once its Promise resolves,
+not when it reads the text: until then the canvas holds the document before it
+(an import waits for the user's running action, 1.6), and a change event the
+action fires meanwhile changes that document. A rejected import (L7) leaves
+`base` where it was. For a file the user opens, the host calls
+`importNow(() => fileText)`.
 
 A view change the HOST makes (`setViewState`, or a fit its chrome applies to
 the canvas) never commits an interaction in progress either (L5, since 1.2):
