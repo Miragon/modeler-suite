@@ -10,6 +10,7 @@ import { gesturesModule } from './gestures/index.js';
 import { keyboardModule } from './keyboard/index.js';
 import { labelEditingModule } from './label-editing/index.js';
 import { domainModelingModule } from './modeling/index.js';
+import { hoverTooltipTeardownModule } from './palette/HoverTooltipTeardown.js';
 import { paletteModule } from './palette/index.js';
 import { readOnlyModule } from './read-only/index.js';
 import { rulesModule } from './rules/index.js';
@@ -28,6 +29,7 @@ export class Modeler extends NavigatedViewer {
       domainModelingModule,
       rulesModule,
       paletteModule,
+      hoverTooltipTeardownModule,
       labelEditingModule,
       keyboardModule,
       gesturesModule,

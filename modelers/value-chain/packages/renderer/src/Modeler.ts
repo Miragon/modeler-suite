@@ -14,6 +14,7 @@ import { vcRulesModule } from "./rules/index.js";
 import { vcConnectModule } from "./connect/index.js";
 import { vcAppendModule } from "./append/index.js";
 import { vcPaletteModule } from "./palette/index.js";
+import { vcHoverTooltipTeardownModule } from "./palette/VcHoverTooltipTeardown.js";
 import { vcContextPadModule } from "./context-pad/index.js";
 import { vcLabelEditingModule } from "./label-editing/index.js";
 import { vcAlignMenuModule, vcColorPickerModule } from "./popup/index.js";
@@ -48,6 +49,7 @@ export class Modeler extends NavigatedViewer {
       vcConnectModule,
       vcAppendModule,
       vcPaletteModule,
+      vcHoverTooltipTeardownModule,
       vcContextPadModule,
       vcLabelEditingModule,
       vcColorPickerModule,

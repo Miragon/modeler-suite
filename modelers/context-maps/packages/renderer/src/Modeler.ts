@@ -11,6 +11,7 @@ import { cmModelingModule } from "./modeling/index.js";
 import { cmRulesModule } from "./rules/index.js";
 import { cmBehaviorsModule } from "./behaviors/index.js";
 import { cmPaletteModule } from "./palette/index.js";
+import { cmHoverTooltipTeardownModule } from "./palette/CmHoverTooltipTeardown.js";
 import { cmContextPadModule } from "./context-pad/index.js";
 import { cmLabelEditingModule } from "./label-editing/index.js";
 import { cmKeyboardModule } from "./keyboard/index.js";
@@ -40,6 +41,7 @@ export class Modeler extends NavigatedViewer {
       cmRulesModule,
       cmBehaviorsModule,
       cmPaletteModule,
+      cmHoverTooltipTeardownModule,
       cmContextPadModule,
       cmLabelEditingModule,
       cmKeyboardModule,

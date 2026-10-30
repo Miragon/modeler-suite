@@ -23,6 +23,7 @@ import { wardleyRulesModule } from "./rules/index.js";
 import { evolutionConstraintModule } from "./evolution-grid/index.js";
 import { stageSnappingModule } from "./snapping/index.js";
 import { wardleyPaletteModule } from "./palette/index.js";
+import { wardleyHoverTooltipTeardownModule } from "./palette/WardleyHoverTooltipTeardown.js";
 import { wardleyContextPadModule } from "./context-pad/index.js";
 import { labelEditingModule } from "./label-editing/index.js";
 import { wardleyKeyboardModule } from "./keyboard/index.js";
@@ -73,6 +74,7 @@ export class Modeler extends NavigatedViewer {
       evolutionConstraintModule,
       stageSnappingModule,
       wardleyPaletteModule,
+      wardleyHoverTooltipTeardownModule,
       wardleyContextPadModule,
       labelEditingModule,
       wardleyKeyboardModule,

@@ -34,6 +34,7 @@ export { cmModelingModule, CmModeling } from "./modeling/index.js";
 export { cmRulesModule, CmRules } from "./rules/index.js";
 export { cmBehaviorsModule, CmFlatModelBehavior } from "./behaviors/index.js";
 export { cmPaletteModule, CmPaletteProvider } from "./palette/index.js";
+export { cmHoverTooltipTeardownModule } from "./palette/CmHoverTooltipTeardown.js";
 export type { CmPaletteConfig } from "./palette/index.js";
 export { cmConnectHandlesModule, CmConnectHandles } from "./connect-handles/index.js";
 export { cmContextPadModule, CmContextPadProvider } from "./context-pad/index.js";

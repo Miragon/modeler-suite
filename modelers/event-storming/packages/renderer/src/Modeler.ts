@@ -18,6 +18,7 @@ import { eventStormingLassoModule } from "./lasso/index.js";
 import { eventStormingRulesModule } from "./rules/index.js";
 import { elementSnappingModule } from "./snapping/index.js";
 import { eventStormingPaletteModule } from "./palette/index.js";
+import { eventStormingHoverTooltipTeardownModule } from "./palette/EventStormingHoverTooltipTeardown.js";
 import { eventStormingContextPadModule } from "./context-pad/index.js";
 import { labelEditingModule } from "./label-editing/index.js";
 import { eventStormingKeyboardModule } from "./keyboard/index.js";
@@ -57,6 +58,7 @@ export class Modeler extends NavigatedViewer {
       eventStormingRulesModule,
       elementSnappingModule,
       eventStormingPaletteModule,
+      eventStormingHoverTooltipTeardownModule,
       eventStormingContextPadModule,
       labelEditingModule,
       eventStormingKeyboardModule,

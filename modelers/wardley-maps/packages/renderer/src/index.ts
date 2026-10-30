@@ -74,6 +74,7 @@ export { PanConstraintModule, PanConstraint } from "./pan-constraint/index.js";
 export { freeRectModule, FreeRect } from "./free-rect/index.js";
 export type { FreeRectInsets } from "./free-rect/index.js";
 export { wardleyPaletteModule } from "./palette/index.js";
+export { wardleyHoverTooltipTeardownModule } from "./palette/WardleyHoverTooltipTeardown.js";
 export { wardleyContextPadModule } from "./context-pad/index.js";
 export { labelEditingModule, WardleyLabelEditing } from "./label-editing/index.js";
 export type {

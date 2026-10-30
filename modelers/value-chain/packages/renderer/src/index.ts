@@ -58,6 +58,7 @@ export { vcRulesModule, VcRules } from "./rules/index.js";
 export { vcConnectModule, VcConnect } from "./connect/index.js";
 export { vcAppendModule, VcAppend } from "./append/index.js";
 export { vcPaletteModule, VcPaletteProvider, type VcPaletteConfig } from "./palette/index.js";
+export { vcHoverTooltipTeardownModule } from "./palette/VcHoverTooltipTeardown.js";
 export { vcContextPadModule, VcContextPadProvider } from "./context-pad/index.js";
 export {
   vcLabelEditingModule,

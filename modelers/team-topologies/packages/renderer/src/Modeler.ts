@@ -12,6 +12,7 @@ import { ttModelingModule } from "./modeling/index.js";
 import { ttRulesModule } from "./rules/index.js";
 import { ttBehaviorsModule } from "./behaviors/index.js";
 import { ttPaletteModule } from "./palette/index.js";
+import { ttHoverTooltipTeardownModule } from "./palette/TtHoverTooltipTeardown.js";
 import { ttContextPadModule } from "./context-pad/index.js";
 import { ttLabelEditingModule } from "./label-editing/index.js";
 import { ttKeyboardModule } from "./keyboard/index.js";
@@ -41,6 +42,7 @@ export class Modeler extends NavigatedViewer {
       ttRulesModule,
       ttBehaviorsModule,
       ttPaletteModule,
+      ttHoverTooltipTeardownModule,
       ttContextPadModule,
       ttLabelEditingModule,
       ttKeyboardModule,
