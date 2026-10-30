@@ -95,18 +95,37 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
 
 ## The IDE host (VS Code)
 
-- `resolveCustomTextEditor` sets `webview.html` from `renderWebviewHtml` (CSP with a nonce, the
-  appearance on `<html>` before the first paint via `currentAppearance`, `lang: 'en'`) and calls
-  `connectThemeBridge`, which disposes itself with the panel (never push it into
-  `context.subscriptions`). Register the provider with `retainContextWhenHidden: true`.
-- The document is the source of truth: canvas edits come back as the canonical text, written as
-  **one minimal line edit** per change, one write at a time, and the echo of an own write is
-  recognised regardless of line endings and never re-imported (template:
-  [`DocumentWriter.ts`](../assets/template/apps/vscode/src/DocumentWriter.ts)). Undo is VS Code's.
+The document is the source of truth, and its sync is the shell's document plumbing (modeler-shell
+0.8.0 or later): `registerModelerEditor` in the extension host, `connectDocumentSync` in the
+webview. Neither side keeps a writer, an echo filter or an import queue of its own. Undo is VS
+Code's.
+
+- The extension's half: `registerModelerEditor(vscode, context, options)` registers the custom
+  text editor with `retainContextWhenHidden` and does per editor what each modeler did itself before
+  0.8: `webview.html` from `renderWebviewHtml` around `dist/webview.js` and `dist/webview.css` (CSP
+  with a nonce, the appearance on `<html>` before the first paint, `lang: 'en'`), the theme bridge,
+  `init` for `ready`, every `edit` written as **one minimal line edit**, one write at a time, the
+  echo of an own write recognised regardless of line endings and never imported again, every other
+  change of the document posted as an `update`, and the document shown again when VS Code refuses
+  an edit. The modeler hands it what belongs to the notation: `insertExample`, `diagnostics`
+  (`refresh` fills the Problems view and returns the pill's counts, `clear` drops them when the
+  editor closes) and `onMessage` for the export. The options that need no `vscode` at runtime sit
+  in a module of their own, so the e2e test page registers the same plumbing (template:
+  [`diagramEditorOptions.ts`](../assets/template/apps/vscode/src/diagramEditorOptions.ts) and
+  [`diagramEditor.ts`](../assets/template/apps/vscode/src/diagramEditor.ts)).
+- The webview's half: `connectDocumentSync({ api, importText, exportText, canWrite, onProblems })`
+  is connected last, since it posts `ready` at once. It imports `init` and every `update` strictly
+  one after another; `importText` resolves to `false` when the canvas refused the text. An update
+  that differs from `exportText()` only in its formatting (the line breaks, the final newline a save
+  adds) is not imported again, since an import ends a running drag: `importText` then only shows
+  the file as valid and resolves to `true`. Every content change of the contract calls its
+  `pushEdit`, which posts the canonical text as an `edit` unless it is the text the canvas showed
+  last, or `canWrite: () => !shell.isReadOnly()` holds it back while the file is invalid (template:
+  [`apps/vscode/src/webview/main.ts`](../assets/template/apps/vscode/src/webview/main.ts)).
 - **An invalid file**: when an update cannot be imported, lock the canvas at once (the renderer's
-  own read-only service: rules veto every edit, the label editor stays shut) and call
+  own read-only service: rules veto every edit, the label editor stays shut), call
   `shell.setReadOnly(true, { delayMs: INVALID_STATUS_DELAY_MS })` and `shell.setStatus(…)` with the
-  same delay; the next valid import unlocks.
+  same delay and resolve `importText` to `false`; the next valid import unlocks.
 - `problems: { onActivate }` opens the Problems view; the extension host posts the diagnostics'
   counts for `shell.setProblems`. `emptyHint: { onInsertExample }` lets the host write the example
   as one edit.
@@ -123,11 +142,11 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
   then Learn. "Open Source to the Side" and "Open Diagram to the Side" sit in the navigation group
   of the editor title with a Codicon, and in the Command Palette only while a diagram or its text
   has the focus. Called without a resource (the Command Palette, the walkthrough's link), "Open
-  Source to the Side" takes the open diagram focused last, since a click on the link moves the
-  focus away from the diagram, else a diagram tab of the Tab API that VS Code restored after a
-  reload (it resolves a restored tab only once the tab is shown). It shows that diagram first, so
-  the source opens beside the diagram and not beside the walkthrough. There is no keybindings
-  contribution. A unit test pins all of it (template:
+  Source to the Side" takes the open diagram focused last (`revealActiveDocument()` of the
+  plumbing), since a click on the link moves the focus away from the diagram, else a diagram tab
+  of the Tab API that VS Code restored after a reload (it resolves a restored tab only once the tab
+  is shown). It shows that diagram first, so the source opens beside the diagram and not beside the
+  walkthrough. There is no keybindings contribution. A unit test pins all of it (template:
   [`contributions.test.ts`](../assets/template/apps/vscode/test/contributions.test.ts), media in
   [`media/walkthrough/`](../assets/template/apps/vscode/media/walkthrough/)).
 
@@ -169,7 +188,12 @@ webview CSP, the web column and a clean `destroy`.
 - `ide`: a Vite test page runs the webview's `main.ts` inside `installVsCodeWebviewStub` (with
   `stubOptionsFromSearch`), opened with `vsCodeStubSearch(requested)` and a `doc` key for the
   document it posts in `init`; the page, not the bundle, publishes the handles on `window`.
-  `show.invalid` posts an update the renderer rejects.
+  `show.invalid` posts an update the renderer rejects. With a `host` key the page registers the
+  editor's options with `registerModelerEditor` against `createVsCodeHostStub`, whose plumbing
+  answers `ready` instead: the template's
+  [`document-sync.spec.ts`](../assets/template/e2e/tests/vscode/document-sync.spec.ts) renames and
+  moves a node and reads the one line the edit rewrote, changes the text, undoes and redoes in the
+  document, inserts the example, has VS Code refuse an edit and saves.
 - `web`: the app's own page with its link format. A navigation that only changes the fragment keeps
   the page, so `open` waits for the diagram, not just for the app. With a legend, `open` goes to
   `about:blank` first: the kit's case for the legend's start state (modeler-shell 0.4.0 or later)

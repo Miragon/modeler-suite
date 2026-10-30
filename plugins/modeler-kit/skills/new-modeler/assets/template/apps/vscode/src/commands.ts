@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
-
-export const DIAGRAM_VIEW_TYPE = '__NOTATION__.editor';
+import { DIAGRAM_VIEW_TYPE } from './diagramEditorOptions.js';
 
 /** New Empty and New … from Example (guide §13.5): commands, `file/newFile` and the walkthrough. */
 export const NEW_DIAGRAM_COMMAND = '__NOTATION__.newDiagram';
