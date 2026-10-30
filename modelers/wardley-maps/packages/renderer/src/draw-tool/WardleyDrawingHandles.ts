@@ -75,7 +75,13 @@ export default class WardleyDrawingHandles {
     // a command in between (an undo pressed mid-drag, or a host's edit) and cost its redo step: the
     // drag ends first, without a commit. The release ends the drag before its own command. The
     // keys that would nudge or duplicate the drawing do nothing while it runs (`WardleyKeyboard`).
-    eventBus.on(COMMAND_START_EVENTS, PUT_BACK_PRIORITY, () => this.endPointDrag());
+    // The button is still down, as after Escape; the watch comes first, so that a host that
+    // destroys the map from the interaction listener the end calls drops it with the map (#346).
+    eventBus.on(COMMAND_START_EVENTS, PUT_BACK_PRIORITY, () => {
+      if (!this.pointDrag) return;
+      this.swallowClickOfRelease();
+      this.endPointDrag();
+    });
     eventBus.on(["diagram.clear", "diagram.destroy"], () => {
       this.endPointDrag();
       this.attach(null);
@@ -178,9 +184,10 @@ export default class WardleyDrawingHandles {
   }
 
   /**
-   * After Escape the button is still down on a handle that stays drawn, so the browser sends the
-   * release's click to the canvas, the element under both the press and the release, and a click
-   * there clears the selection. A commit redraws the handles, and then no click comes.
+   * After Escape or a command the button is still down on a handle that stays drawn, so the
+   * browser sends the release's click to the canvas, the element under both the press and the
+   * release, and a click there clears the selection. A commit redraws the handles, and then no
+   * click comes.
    */
   private swallowClickOfRelease(): void {
     this.stopWatchingRelease();

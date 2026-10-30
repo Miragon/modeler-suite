@@ -521,13 +521,13 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       return shapeLabels("drawing").length;
     }
 
-    it("leaves the single-key tools without effect while it holds the points of a line", () => {
+    it("takes the single-key tools without effect while it holds the points of a line", () => {
       select("Customer");
       drawTool().activate();
       placePoint(300, 300);
       placePoint(420, 360);
-      for (const key of ["c", "u", "n", "p", "a", "l"]) {
-        expect(pressOnCanvas(key).defaultPrevented).toBe(false);
+      for (const key of ["c", "u", "n", "p", "a", "l", "C"]) {
+        expect(pressOnCanvas(key).defaultPrevented, key).toBe(true);
       }
 
       expect(service<Dragging>("dragging").context()).toBeFalsy();
@@ -767,6 +767,48 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       expect(pressKey(target, key).defaultPrevented).toBe(true);
       expect(drawTool().isActive()).toBe(false);
       expect(drawings()).toBe(1);
+    });
+
+    // Enter and Space act alike on a palette entry (guide §5.5); the palette's own Space would
+    // toggle the tool off and drop the line (#438).
+    it.each([
+      ["Enter", "Enter"],
+      ["Space", " "],
+    ] as const)(
+      "saves the line with %s on the focused palette entry that starts the tool",
+      (_name, key) => {
+        drawTool().activate();
+        placePoint(300, 300);
+        placePoint(420, 360);
+        const entry = drawEntry(container);
+        entry.focus();
+
+        expect(pressKey(entry, key).defaultPrevented).toBe(true);
+        expect(drawTool().isActive()).toBe(false);
+        expect(drawings()).toBe(1);
+        expect(document.activeElement).toBe(entry);
+      },
+    );
+
+    it("leaves a Space with Ctrl, Alt or Meta on that entry to the page, and keeps the line", () => {
+      drawTool().activate();
+      placePoint(300, 300);
+      placePoint(420, 360);
+      const entry = drawEntry(container);
+      entry.focus();
+
+      for (const modifier of ["ctrlKey", "altKey", "metaKey"] as const) {
+        const space = new KeyboardEvent("keydown", {
+          key: " ",
+          bubbles: true,
+          cancelable: true,
+          [modifier]: true,
+        });
+        entry.dispatchEvent(space);
+        expect(space.defaultPrevented, modifier).toBe(false);
+      }
+      expect(drawTool().holdsLine()).toBe(true);
+      expect(drawings()).toBe(0);
     });
 
     it.each(hostHidings)(

@@ -42,7 +42,8 @@ runs in the browser tests
 skipped case fails the run. An import cancels a running diagram-js drag first, as Escape does
 (`cancelGesture` in `WardleyBaseViewer`); a drawing's point drag is the renderer's own and ends
 without a commit when its drawing is removed (`shape.remove` in `WardleyDrawingHandles`) or a
-command starts before its release. The evolve-target and label drags preview on the shape itself:
+command starts before its release, and after a command or Escape it swallows its release's click,
+so the drawing stays selected (#410). The evolve-target and label drags preview on the shape itself:
 `wardleyLivePreview` keeps the evolve target and label offset the document has
 (`beginShape`/`putBackShape`), so `exportText()` stays the committed document (#347), and a command
 that starts while they preview ends them without a commit too. The armed lasso (`lasso.selection`)
@@ -50,8 +51,10 @@ stays armed, and so does the draw tool before its first point; a line it holds e
 drawing on the import (`import.render.start` in `WardleyDrawTool`, #243). The renderer's own drags
 (label, point, evolve target) and the colour picker bind Escape themselves and take it only when it
 is aimed at the canvas `<svg>` (`isCanvasKey` in `src/a11y/`), the picker also on its swatches;
-while the draw tool holds points, `WardleyKeyboard` leaves the single-key tools without effect, and
-while a point drag runs also the arrow keys, paste and duplicate (`isDraggingPoint`, #375).
+while the draw tool holds points, `WardleyKeyboard` takes the single-key tools without effect
+(`preventDefault`), and while a point drag runs also the arrow keys, paste and duplicate
+(`isDraggingPoint`, #375); Space on the draw tool's own palette entry saves a held line as Enter
+does (#438).
 `wardleyInteraction` ([`src/interaction/`](packages/renderer/src/interaction/)) follows every gesture
 (diagram-js drags past their threshold and the renderer's own label, point and evolve-target drags,
 which report to it) for the contract's `interaction`, and marks the user's actions, the one wait of

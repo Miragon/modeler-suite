@@ -922,6 +922,32 @@ test.describe("keys and dialogs", () => {
     expect(await drawings()).toBe(1);
   });
 
+  // Issue #438: Enter and Space act alike on a palette entry (guide §5.5), so Space on the Draw
+  // entry saves the line it holds instead of toggling the tool off.
+  for (const key of ["Enter", "Space"] as const) {
+    test(`while drawing, ${key} on the Draw entry saves the line`, async ({ page }) => {
+      await startNewMap(page);
+      const drawing = page.locator(".wardley-container.wardley-draw-mode");
+      const drawEntry = page.locator('[data-chrome="palette"] [data-action="draw-tool"]');
+      const drawings = async () =>
+        (await exportMap(page)).elements.filter((element) => element.elementType === "drawing")
+          .length;
+
+      await drawEntry.click();
+      const box = (await canvasSlot(page).boundingBox())!;
+      await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.5);
+      await page.mouse.click(box.x + box.width * 0.55, box.y + box.height * 0.45);
+      await expect(drawing).toHaveCount(1);
+
+      await drawEntry.focus();
+      await page.keyboard.press(key);
+      await expect(drawing).toHaveCount(0);
+      await expect(drawEntry).toHaveAttribute("aria-pressed", "false");
+      await expect(drawEntry).toBeFocused();
+      expect(await drawings()).toBe(1);
+    });
+  }
+
   test("delete and undo work on the canvas again after a click on the chrome", async ({ page }) => {
     await openApp(page);
     await openExample(page);

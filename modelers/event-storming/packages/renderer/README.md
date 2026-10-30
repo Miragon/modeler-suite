@@ -75,13 +75,14 @@ canvas, without the keyboard focus ring. Enter and Space on a tool entry (lasso,
 focus on the entry; on a creating entry they place the sticky in the middle of the free area and
 open its label editor. While a line is drawn, Enter and Escape end it only when aimed at the
 canvas `<svg>` (or inside it) or at the Draw entry, which keeps the focus when Enter starts the tool
-there. Every other target keeps them, with no `preventDefault()` and no `stopPropagation()`: the
-other palette entries, the context pad, the label editor and a host's controls, inside the
-container or outside it. A click, Enter or Space on another palette entry first ends the drawing and
-keeps the open line, as Enter on the canvas does, so no second tool starts next to it. Every point
-focuses the canvas. Until the line is finished or cancelled, the keys that start a gesture at the
-pointer do nothing: L (the lasso), E and C (a sticky at the pointer) and Cmd/Ctrl+V (the paste
-attaches to the pointer), so none takes the press meant for the line's next point
+there; Space on the Draw entry saves the line as Enter does. Every other target keeps them, with no
+`preventDefault()` and no `stopPropagation()`: the other palette entries, the context pad, the
+label editor and a host's controls, inside the container or outside it. A click, Enter or Space on
+another palette entry first ends the drawing and keeps the open line, as Enter on the canvas does,
+so no second tool starts next to it. Every point focuses the canvas. Until the line is finished or
+cancelled, the keys that start a gesture at the pointer do nothing: L (the lasso), E and C (a
+sticky at the pointer) and Cmd/Ctrl+V (the paste attaches to the pointer), so none takes the press
+meant for the line's next point
 ([#243](https://github.com/Miragon/modeler-suite/issues/243)); they are taken with
 `preventDefault()`, as the board takes them otherwise. The board's other keys (delete, the arrow
 keys, duplicate, select all, copy, undo and redo) act as they do without a line and leave the line
