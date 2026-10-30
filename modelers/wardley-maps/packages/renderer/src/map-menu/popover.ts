@@ -35,6 +35,30 @@ export interface PopoverParts {
 }
 
 /**
+ * Keeps the `keyup` of an Escape the popover took from the page: diagram-js's dragging cancels the
+ * drag a tool armed from the palette waits with on any Escape `keyup` on the document, whatever its
+ * target, and the popover stops the `keydown` before the shell's chrome could see it (#498). The next
+ * press of Escape lets its own `keyup` through, in case the window lost the focus before this press
+ * was released.
+ */
+function stopEscapeKeyup(): void {
+  const onKeyup = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    release();
+  };
+  const onKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape" && !event.repeat) release();
+  };
+  function release(): void {
+    document.removeEventListener("keyup", onKeyup, true);
+    document.removeEventListener("keydown", onKeydown, true);
+  }
+  document.addEventListener("keyup", onKeyup, true);
+  document.addEventListener("keydown", onKeydown, true);
+}
+
+/**
  * A popover of guide §5.4: a menu entry that needs the canvas preview opens it at the dropdown's
  * place, without a backdrop, as a non-modal `role="dialog"` labelled by its title. Escape and a
  * click outside close it; the focus returns to the menu trigger after Escape and Done, while a
@@ -56,6 +80,7 @@ export function createPopover(
     event.preventDefault();
     event.stopPropagation();
     end("done", { returnFocus: true });
+    stopEscapeKeyup();
   };
 
   function build(): HTMLElement {

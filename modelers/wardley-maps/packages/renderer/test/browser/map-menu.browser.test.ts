@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import {
   Modeler,
   createAxisLabelsPopover,
@@ -343,6 +345,84 @@ describe("the x-axis labels popover", () => {
     await inputMethod.press("Enter");
     expect(popover.isOpen()).toBe(false);
     expect(target.modeler.exportDSL()).toContain("evolution 起源->");
+  });
+});
+
+// diagram-js's dragging puts down the tool it holds armed on any Escape `keyup` on the document,
+// whatever its target. The popover takes Escape on `keydown` and stops it at its panel, before the
+// shell's chrome sees it, so it keeps the `keyup` from the page itself (guide §5.4, #482).
+describe("Escape in a popover and a tool armed from the palette (#498)", () => {
+  const POPOVERS = {
+    "Map size…": createMapSizePopover,
+    "X-axis labels…": createAxisLabelsPopover,
+  };
+
+  type Mounted = Awaited<ReturnType<typeof mount>>;
+
+  function lassoEntry(target: Mounted): HTMLElement {
+    const found = target.root.querySelector<HTMLElement>(
+      '.djs-palette .entry[data-action="lasso-tool"]',
+    );
+    if (!found) throw new Error("no lasso entry");
+    return found;
+  }
+
+  /** The lasso entry's `aria-pressed` and the drag that holds the lasso armed (null: none). */
+  function lassoState(target: Mounted): [string | null, string | null] {
+    return [
+      lassoEntry(target).getAttribute("aria-pressed"),
+      target.modeler.get<Dragging>("dragging").context()?.prefix ?? null,
+    ];
+  }
+
+  const ARMED_LASSO = ["true", "lasso.selection"];
+  const RELEASED_LASSO = ["false", null];
+
+  function focusLassoEntry(target: Mounted): void {
+    lassoEntry(target).focus({ focusVisible: true } as FocusOptions);
+    expect(document.activeElement).toBe(lassoEntry(target));
+  }
+
+  async function armTheLasso(target: Mounted): Promise<void> {
+    focusLassoEntry(target);
+    await userEvent.keyboard(" ");
+    expect(lassoState(target)).toEqual(ARMED_LASSO);
+  }
+
+  it.each(Object.entries(POPOVERS))(
+    "keeps the lasso armed when Escape closes %s, and the next Escape on its entry puts it down",
+    async (_, create) => {
+      const target = await mount();
+      await armTheLasso(target);
+      target.trigger.focus();
+      const popover = keep(create(chromeOf(target), target.modeler));
+      popover.open();
+      expect(document.activeElement?.closest(".wardley-popover")).not.toBeNull();
+
+      await userEvent.keyboard("{Escape}");
+      expect(popover.isOpen()).toBe(false);
+      expect(document.activeElement).toBe(target.trigger);
+      expect(lassoState(target)).toEqual(ARMED_LASSO);
+
+      focusLassoEntry(target);
+      await userEvent.keyboard("{Escape}");
+      expect(lassoState(target)).toEqual(RELEASED_LASSO);
+    },
+  );
+
+  it("lets the next Escape through when the press that closed the popover was never released", async () => {
+    const target = await mount();
+    await armTheLasso(target);
+    const popover = keep(createMapSizePopover(chromeOf(target), target.modeler));
+    popover.open();
+    // The window lost the focus while the key was down, so no keyup follows this press.
+    pressEscape(popoverPanel(target, "wardley-map-size").querySelector("select")!);
+    expect(popover.isOpen()).toBe(false);
+    expect(lassoState(target)).toEqual(ARMED_LASSO);
+
+    focusLassoEntry(target);
+    await userEvent.keyboard("{Escape}");
+    expect(lassoState(target)).toEqual(RELEASED_LASSO);
   });
 });
 

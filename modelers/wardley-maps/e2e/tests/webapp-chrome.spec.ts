@@ -987,6 +987,52 @@ test.describe("keys and dialogs", () => {
     });
   }
 
+  // Issue #498: the map's popovers stop the Escape keydown at their panel, before the shell sees
+  // it, and its keyup went on to diagram-js's dragging, which puts the armed tool down on any
+  // Escape keyup on the document.
+  const mapPopovers = { "map-size": "Map size", "x-axis-labels": "X-axis labels" };
+  for (const [menuId, name] of Object.entries(mapPopovers)) {
+    test(`an Escape that closes ${name}… keeps the lasso armed from the palette`, async ({
+      page,
+    }) => {
+      await startNewMap(page);
+      const lassoEntry = page.locator('[data-chrome="palette"] [data-action="lasso-tool"]');
+      const trigger = page.locator('[data-chrome="menu"]');
+      const armedTool = () =>
+        page.evaluate(
+          () =>
+            (
+              window.__wardleyViewer as unknown as {
+                get(name: "dragging"): { context(): { prefix: string } | null };
+              }
+            )
+              .get("dragging")
+              .context()?.prefix ?? null,
+        );
+      await lassoEntry.focus();
+      await page.keyboard.press("Space");
+      await expect(lassoEntry).toHaveAttribute("aria-pressed", "true");
+
+      await trigger.focus();
+      await page.keyboard.press("Enter");
+      await page.locator(`.cd-shell-menu [data-menu-id="${menuId}"]`).focus();
+      await page.keyboard.press("Enter");
+      const popover = page.getByRole("dialog", { name });
+      await expect(popover).toBeVisible();
+      await page.keyboard.press("Escape");
+
+      await expect(popover).toBeHidden();
+      await expect(trigger).toBeFocused();
+      await expect(lassoEntry).toHaveAttribute("aria-pressed", "true");
+      expect(await armedTool()).toBe("lasso.selection");
+
+      await lassoEntry.focus();
+      await page.keyboard.press("Escape");
+      await expect(lassoEntry).toHaveAttribute("aria-pressed", "false");
+      expect(await armedTool()).toBeNull();
+    });
+  }
+
   test("delete and undo work on the canvas again after a click on the chrome", async ({ page }) => {
     await openApp(page);
     await openExample(page);

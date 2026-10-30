@@ -973,6 +973,32 @@
   .wardley-container .wardley-label-input:focus {
     outline-color: Highlight;
   }
+  /* The swatches show the colours a note can take: they are the content the user picks, as a
+     notation's colours are, so they keep their fills, edged in CanvasText (#497). The browser would
+     turn each into Canvas and drop the chosen colour's ring, a box shadow: it stays in Highlight,
+     and so does the focus ring, 1px outside that ring on the chosen colour (guide §5.14). */
+  :where(.wardley-container) .wardley-color-picker .wardley-cp-swatch {
+    forced-color-adjust: none;
+    border-color: CanvasText;
+  }
+  :where(.wardley-container) .wardley-color-picker .wardley-cp-none {
+    background: Canvas;
+    background-image: linear-gradient(
+      45deg,
+      transparent 44%,
+      CanvasText 45%,
+      CanvasText 55%,
+      transparent 56%
+    );
+  }
+  :where(.wardley-container) .wardley-color-picker .wardley-cp-active {
+    box-shadow:
+      0 0 0 2px Canvas,
+      0 0 0 4px Highlight;
+  }
+  :where(.wardley-container) .wardley-color-picker .wardley-cp-swatch:focus-visible {
+    outline-color: Highlight;
+  }
   /* The browser drops box shadows and turns backgrounds into Canvas, which would take the armed
      tool's ring and the separators away: they stay in system colours, as the island's edge and the
      focus ring do for an engine that does not force them itself (guide §5.14). The !important
