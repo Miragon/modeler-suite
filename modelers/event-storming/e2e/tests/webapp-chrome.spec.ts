@@ -772,6 +772,37 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     await expect(drawEntry).toBeFocused();
   });
 
+  // Issue #438: Enter and Space act alike on a palette entry (guide §5.5), so Space on the Draw
+  // entry saves the line it holds instead of toggling the tool off.
+  for (const key of ["Enter", "Space"] as const) {
+    test(`${key} on the Draw entry saves the line the tool holds`, async ({ page }) => {
+      await page.goto("/");
+      await waitForViewer(page);
+      await openExample(page);
+      const drawings = async () =>
+        (await exportBoard(page)).elements.filter((element) => element.elementType === "drawing")
+          .length;
+      const before = await drawings();
+      const drawMode = page.locator(".event-storming-container.event-storming-draw-mode");
+      const drawEntry = page.locator('[data-chrome="palette"] [data-action="draw-tool"]');
+
+      await drawEntry.focus();
+      await page.keyboard.press("Enter");
+      await expect(drawMode).toHaveCount(1);
+      const canvas = (await page.locator(".cd-shell-canvas").boundingBox())!;
+      const y = canvas.y + canvas.height - 160;
+      await page.mouse.click(canvas.x + canvas.width / 2 - 60, y);
+      await page.mouse.click(canvas.x + canvas.width / 2 + 60, y - 40);
+
+      await drawEntry.focus();
+      await page.keyboard.press(key);
+      await expect(drawMode).toHaveCount(0);
+      await expect(drawEntry).toHaveAttribute("aria-pressed", "false");
+      await expect(drawEntry).toBeFocused();
+      await expect.poll(drawings).toBe(before + 1);
+    });
+  }
+
   // Issue #180: Enter on another palette entry is that entry's, so it ends the drawing first and
   // only one tool is on.
   for (const [entryName, action, createdEvents] of [

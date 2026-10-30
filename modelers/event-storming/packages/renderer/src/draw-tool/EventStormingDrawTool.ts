@@ -33,11 +33,11 @@ export const DRAW_TOOL_PALETTE_ENTRY = "draw-tool";
 /**
  * Excalidraw-style polyline tool: activate, click point by point (rubber-band preview).
  * Finishing (like Excalidraw): click the LAST point again, double-click, Enter or Escape
- * commits the open line; clicking the FIRST point closes the shape. Escape with fewer than
- * two points cancels. The result is ONE undoable `drawing` shape that moves as a whole. While a
- * line is in progress the board's keys that start a gesture at the pointer do nothing
- * (`EventStormingKeyboard` asks `holdsLine()`), and an import ends it without a drawing
- * (`endLine()`).
+ * commits the open line, and so does Space on the tool's palette entry; clicking the FIRST point
+ * closes the shape. Escape with fewer than two points cancels. The result is ONE undoable
+ * `drawing` shape that moves as a whole. While a line is in progress the board's keys that start a
+ * gesture at the pointer do nothing (`EventStormingKeyboard` asks `holdsLine()`), and an import
+ * ends it without a drawing (`endLine()`).
  */
 export default class EventStormingDrawTool {
   static $inject = ["canvas", "eventBus", "modeling", "selection", "eventStormingElementFactory"];
@@ -190,6 +190,22 @@ export default class EventStormingDrawTool {
     return entry !== null && this.canvas.getContainer().contains(entry) && isRendered(entry);
   }
 
+  /**
+   * Enter and Space act alike on a palette entry (guide §5.5), and Space on this tool's entry would
+   * otherwise toggle the tool off and drop the line it holds, where Enter saves it. A Space with
+   * Alt, Ctrl or Meta activates no entry and stays the page's here too.
+   */
+  private savesWithSpace(e: KeyboardEvent): boolean {
+    return (
+      e.key === " " &&
+      !e.altKey &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      this.holdsLine() &&
+      this.targetsOwnPaletteEntry(e)
+    );
+  }
+
   private readonly onMouseDown = (e: MouseEvent): void => {
     if (e.button !== 0 || this.isChromeTarget(e)) return;
     e.preventDefault();
@@ -239,7 +255,7 @@ export default class EventStormingDrawTool {
       // cancels while no line exists yet.
       if (this.points.length >= 2) this.finish();
       else this.cancel();
-    } else if (e.key === "Enter") {
+    } else if (e.key === "Enter" || this.savesWithSpace(e)) {
       e.preventDefault();
       e.stopPropagation();
       this.finish();

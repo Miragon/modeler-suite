@@ -198,6 +198,52 @@ describe("Event Storming keys act only on the focused canvas (no shell)", () => 
     },
   );
 
+  /** The draw tool holding two points, and its palette entry focused, as the shell's palette does. */
+  async function drawEntryFocusedWithALine(): Promise<HTMLElement> {
+    drawTool().activate();
+    await userEvent.click(svg(), { position: { x: 700, y: 520 } });
+    await userEvent.click(svg(), { position: { x: 800, y: 580 } });
+    const entry = paletteEntry("draw-tool");
+    entry.tabIndex = 0;
+    entry.focus();
+    return entry;
+  }
+
+  // Enter and Space act alike on a palette entry (guide §5.5); the shell's palette would take
+  // Space on the draw entry, toggle the tool off and drop the line (#438).
+  it.each([
+    ["Enter", "Enter"],
+    ["Space", " "],
+  ] as const)("saves the line with %s on its draw entry", async (_name, key) => {
+    const before = shapes().length;
+    const entry = await drawEntryFocusedWithALine();
+
+    const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+    entry.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(drawTool().isActive()).toBe(false);
+    expect(shapes()).toHaveLength(before + 1);
+    expect(document.activeElement).toBe(entry);
+  });
+
+  it("leaves a Space with Ctrl, Alt or Meta on its draw entry to the page, and keeps the line", async () => {
+    const before = shapes().length;
+    const entry = await drawEntryFocusedWithALine();
+
+    for (const modifier of ["ctrlKey", "altKey", "metaKey"] as const) {
+      const space = new KeyboardEvent("keydown", {
+        key: " ",
+        bubbles: true,
+        cancelable: true,
+        [modifier]: true,
+      });
+      entry.dispatchEvent(space);
+      expect(space.defaultPrevented, modifier).toBe(false);
+    }
+    expect(drawTool().holdsLine()).toBe(true);
+    expect(shapes()).toHaveLength(before);
+  });
+
   it("hands the focus to the canvas after a pointer click on a palette tool", async () => {
     await userEvent.click(paletteEntry("lasso-tool"));
     expect(canvasHasFocus()).toBe(true);

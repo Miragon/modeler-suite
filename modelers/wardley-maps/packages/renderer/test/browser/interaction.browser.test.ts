@@ -741,6 +741,74 @@ describe("Escape during the renderer's own drags", () => {
   );
 });
 
+/** A change to Kettle, which leaves the drawing and its handles as they are. */
+function moveKettle(modeler: CollaborativeWardleyModeler): void {
+  diagramOf(modeler)
+    .get<Modeling>("modeling")
+    .moveElements([shapeNamed(modeler, "Kettle") as unknown as Shape], { x: 12, y: 0 });
+}
+
+/** A command that runs before the release of a point drag: what comes before the drag, and it. */
+const COMMANDS_BEFORE_THE_RELEASE: ReadonlyArray<
+  readonly [
+    string,
+    (modeler: CollaborativeWardleyModeler) => void,
+    (modeler: CollaborativeWardleyModeler) => void,
+  ]
+> = [
+  [
+    "an undo of a change elsewhere",
+    moveKettle,
+    (modeler) => pressCanvasKey(modeler, { key: "z", ctrlKey: true }),
+  ],
+  [
+    "a redo of a change elsewhere",
+    (modeler) => {
+      moveKettle(modeler);
+      undo(modeler);
+    },
+    (modeler) => pressCanvasKey(modeler, { key: "z", ctrlKey: true, shiftKey: true }),
+  ],
+  ["a command from elsewhere", () => undefined, moveKettle],
+];
+
+describe("a command before the release of a drawing's point drag (#410)", () => {
+  test.each(COMMANDS_BEFORE_THE_RELEASE)(
+    "%s ends the drag without a commit, and the drawing stays selected through the release's click",
+    async (_, before, command) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      before(modeler);
+      const changesBefore = current.changes();
+      const drawing = theDrawing(modeler);
+      select(modeler, drawing);
+      const handlesBefore = handlePositionsOf(modeler);
+      const handle = inCanvas(modeler, ".wardley-drawing-handle");
+      const to = pressAndDrag(handle, centreOf(handle));
+      expect(modeler.interaction.active()).toBe(true);
+
+      command(modeler);
+      expect(current.changes()).toBe(changesBefore + 1);
+      expect(modeler.interaction.active()).toBe(false);
+      // The command left the drawing as it was, so the pressed handle is still there to click.
+      expect(handle.isConnected).toBe(true);
+      const committed = modeler.exportText();
+
+      releaseWithClick(handle, to);
+      expect(errors).toEqual([]);
+      expect(current.changes()).toBe(changesBefore + 1);
+      expect(modeler.exportText()).toBe(committed);
+      expect(diagramOf(modeler).get<Selection>("selection").get()).toEqual([drawing]);
+      expect(handlePositionsOf(modeler)).toEqual(handlesBefore);
+      expect(current.delivered).toEqual([true, false]);
+
+      await settle();
+      mouse(canvasSvgOf(modeler), "click", to);
+      expect(diagramOf(modeler).get<Selection>("selection").get()).toEqual([]);
+    },
+  );
+});
+
 function handlePositionsOf(modeler: CollaborativeWardleyModeler): number[][] {
   const container = diagramOf(modeler).get<Canvas>("canvas").getContainer();
   return [...container.querySelectorAll(".wardley-drawing-handle")].map((handle) => [
@@ -771,7 +839,6 @@ const KEYS_A_POINT_DRAG_TAKES: ReadonlyArray<readonly [string, KeyboardEventInit
   ["U, a user at the pointer", { key: "u" }, true],
   ["N, a note at the pointer", { key: "n" }, true],
   ["P, a pipeline at the pointer", { key: "p" }, true],
-  ["A, a connection from the selected node", { key: "a" }, true],
   ["L, the lasso", { key: "l" }, true],
   ["Shift+C, a component as well", { key: "C", shiftKey: true }, true],
   ["paste, which attaches to the pointer", { key: "v", ctrlKey: true }, true],
@@ -847,6 +914,30 @@ describe("the canvas keys during a drawing's point drag (#375)", () => {
       expect(modeler.exportText()).toBe(committed);
     },
   );
+
+  /**
+   * The drawing is no node a connection starts from, but a host may select one while the drag runs:
+   * the selection takes the handles off the drawing, and the drag goes on to its release.
+   */
+  test("A starts no connection from a node a host selects during the drag", async () => {
+    const { current, to } = await draggingAPoint();
+    const { modeler } = current;
+    select(modeler, shapeNamed(modeler, "Kettle"));
+
+    expect(pressCanvasKey(modeler, { key: "a" }).defaultPrevented).toBe(true);
+    await settle();
+    expect(errors).toEqual([]);
+    expect(draggingPrefix(modeler)).toBeUndefined();
+    expect(current.changes()).toBe(0);
+    expect(modeler.interaction.active()).toBe(true);
+
+    mouse(document, "mouseup", to);
+    await settle();
+    expect(errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(current.delivered).toEqual([true, false]);
+    expect(draggingPrefix(modeler)).toBeUndefined();
+  });
 
   test("paste does nothing either when the board would wait for the host's paste event", async () => {
     const { current, drawing, committed, to } = await draggingAPoint();

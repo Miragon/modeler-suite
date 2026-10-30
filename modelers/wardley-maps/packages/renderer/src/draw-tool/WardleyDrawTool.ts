@@ -30,9 +30,10 @@ const DRAW_TOOL_ENTRY = '.djs-palette .entry[data-action="draw-tool"]';
 /**
  * Excalidraw-style polyline tool: activate, click point by point (rubber-band preview).
  * Finishing (like Excalidraw): click the LAST point again, double-click, Enter or Escape
- * commits the open line; clicking the FIRST point closes the shape. Escape with fewer than
- * two points cancels. The result is ONE undoable `drawing` shape that moves as a whole. An import
- * cancels a line in progress without committing it and leaves a tool without points armed.
+ * commits the open line, and so does Space on the tool's palette entry; clicking the FIRST point
+ * closes the shape. Escape with fewer than two points cancels. The result is ONE undoable
+ * `drawing` shape that moves as a whole. An import cancels a line in progress without committing
+ * it and leaves a tool without points armed.
  */
 export default class WardleyDrawTool {
   static $inject = [
@@ -226,12 +227,31 @@ export default class WardleyDrawTool {
    * of these.
    */
   private ownsKey(e: KeyboardEvent): boolean {
-    if (isCanvasKey(e, this.canvas)) return true;
+    return isCanvasKey(e, this.canvas) || this.targetsOwnPaletteEntry(e);
+  }
+
+  private targetsOwnPaletteEntry(e: KeyboardEvent): boolean {
     const target = e.target;
     if (!(target instanceof globalThis.Element)) return false;
     // Scoped to this canvas's container: another modeler on the page has its own draw entry.
     const entry = target.closest(DRAW_TOOL_ENTRY);
     return !!entry && this.canvas.getContainer().contains(entry) && isKeyAimedAt(e, entry);
+  }
+
+  /**
+   * Enter and Space act alike on a palette entry (guide §5.5), and Space on this tool's entry would
+   * otherwise toggle the tool off and drop the line it holds, where Enter saves it. A Space with
+   * Alt, Ctrl or Meta activates no entry and stays the page's here too.
+   */
+  private savesWithSpace(e: KeyboardEvent): boolean {
+    return (
+      e.key === " " &&
+      !e.altKey &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      this.holdsLine() &&
+      this.targetsOwnPaletteEntry(e)
+    );
   }
 
   private readonly onKeyDown = (e: KeyboardEvent): void => {
@@ -243,7 +263,7 @@ export default class WardleyDrawTool {
       // cancels while no line exists yet.
       if (this.points.length >= 2) this.finish();
       else this.cancel();
-    } else if (e.key === "Enter") {
+    } else if (e.key === "Enter" || this.savesWithSpace(e)) {
       e.preventDefault();
       e.stopPropagation();
       this.finish();
