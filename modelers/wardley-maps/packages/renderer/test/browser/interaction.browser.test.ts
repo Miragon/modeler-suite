@@ -487,6 +487,114 @@ describe("interaction follows every Wardley gesture", () => {
     expect(modeler.exportText()).toBe(afterImport);
     expect(current.delivered).toEqual([true, false]);
   });
+
+  test.each(WARDLEY_GESTURES)("%s, ended by Escape on the canvas", async (_, start) => {
+    const current = await session(GESTURE_MAP);
+    const { modeler } = current;
+    const before = modeler.exportText();
+    const release = await start(modeler);
+    expect(current.delivered).toEqual([true]);
+
+    pressEscape(modeler);
+    expect(modeler.interaction.active()).toBe(false);
+    expect(current.delivered).toEqual([true, false]);
+    expect(modeler.exportText()).toBe(before);
+
+    release();
+    await settle();
+    expect(errors).toEqual([]);
+    expect(current.changes()).toBe(0);
+    expect(modeler.exportText()).toBe(before);
+    expect(diagramOf(modeler).get<CommandStack>("commandStack").canUndo()).toBe(false);
+    expect(current.delivered).toEqual([true, false]);
+  });
+});
+
+function theDrawing(modeler: CollaborativeWardleyModeler): WardleyShape {
+  const drawing = diagramOf(modeler)
+    .get<ElementRegistry>("elementRegistry")
+    .find((element) => isWardleyShape(element) && element.wardleyType === "drawing");
+  if (!drawing) throw new Error("the map has no drawing");
+  return drawing as WardleyShape;
+}
+
+/**
+ * A release as the browser sends it: the mouseup on the element under the pointer, then the click
+ * on the innermost element that holds both that one and the pressed one.
+ */
+function releaseWithClick(pressed: Element, at: Point): void {
+  const released = document.elementFromPoint(at.x, at.y) ?? document.body;
+  mouse(released, "mouseup", at);
+  let clicked: Element | null = pressed;
+  while (clicked && !clicked.contains(released)) clicked = clicked.parentElement;
+  mouse(clicked ?? document.documentElement, "click", at);
+}
+
+/** The renderer's own drags, outside diagram-js dragging: each binds its own Escape. */
+const OWN_DRAGS = WARDLEY_GESTURES.filter(([name]) =>
+  ["a label drag", "a point drag of a drawing", "a drag of the evolve target"].includes(name),
+);
+
+describe("Escape during the renderer's own drags", () => {
+  test("ends a drawing's point drag without a commit, and the drawing stays selected", async () => {
+    const current = await session(GESTURE_MAP);
+    const { modeler } = current;
+    const drawing = theDrawing(modeler);
+    select(modeler, drawing);
+    const container = diagramOf(modeler).get<Canvas>("canvas").getContainer();
+    const handleCount = container.querySelectorAll(".wardley-drawing-handle").length;
+    expect(handleCount).toBeGreaterThan(0);
+    const handle = inCanvas(modeler, ".wardley-drawing-handle");
+    const to = pressAndDrag(handle, diagramPoint(modeler, 0.85, 0.15));
+    const preview = ".layer-wardley-drawing-handles :is(polyline, polygon)";
+    expect(container.querySelector(preview)).not.toBeNull();
+
+    pressEscape(modeler);
+    expect(container.querySelector(preview)).toBeNull();
+    expect(diagramOf(modeler).get<Selection>("selection").get()).toEqual([drawing]);
+    expect(container.querySelectorAll(".wardley-drawing-handle")).toHaveLength(handleCount);
+
+    releaseWithClick(handle, to);
+    expect(errors).toEqual([]);
+    expect(current.changes()).toBe(0);
+    expect(diagramOf(modeler).get<Selection>("selection").get()).toEqual([drawing]);
+    expect(container.querySelectorAll(".wardley-drawing-handle")).toHaveLength(handleCount);
+
+    await settle();
+    mouse(canvasSvgOf(modeler), "click", to);
+    expect(diagramOf(modeler).get<Selection>("selection").get()).toEqual([]);
+  });
+
+  test.each(OWN_DRAGS)(
+    "%s runs on through an Escape in a host field, which reaches the host",
+    async (_, start) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const release = await start(modeler);
+      const field = document.createElement("input");
+      document.body.append(field);
+      hostWrappers.push(field);
+      const seenByHost: string[] = [];
+      field.addEventListener("keydown", (event) => seenByHost.push(event.key));
+      field.focus();
+
+      const escape = new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      });
+      field.dispatchEvent(escape);
+      expect(escape.defaultPrevented).toBe(false);
+      expect(seenByHost).toEqual(["Escape"]);
+      expect(modeler.interaction.active()).toBe(true);
+
+      release();
+      await settle();
+      expect(errors).toEqual([]);
+      expect(current.changes()).toBe(1);
+      expect(current.delivered).toEqual([true, false]);
+    },
+  );
 });
 
 function gestureNamed(name: string): WardleyGesture {

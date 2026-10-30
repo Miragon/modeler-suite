@@ -113,13 +113,35 @@ describe("theme.sync — value-chain.css takes every colour from the roles", () 
     const used = [...withoutComments(css).matchAll(/var\((--cd-[\w-]+)/g)].map((m) => m[1]!);
     expect(used.length).toBeGreaterThan(10);
     for (const token of used) {
-      expect(token).toMatch(/^--cd-(ui-[\w-]+|radius-\w+|shadow-\d|ease(-out)?|motion-\w+)$/);
+      expect(token).toMatch(
+        /^--cd-(ui-[\w-]+|radius-\w+|shadow-\d|ease(-out)?|motion-\w+|shell-(rand|zeile|ziel|frei))$/,
+      );
     }
   });
 
-  it("keeps its own canvas overlays at or below z-index 100 (guide §5.13)", () => {
-    expect(zIndexOf(".vc-container .djs-direct-editing-parent")).toBeLessThanOrEqual(100);
-    expect(withoutComments(css).match(/z-index:\s*(\d+)/g) ?? []).toEqual(["z-index: 100"]);
+  it("takes the palette's measures from the shell tokens, not typed in (guide §5.1)", () => {
+    for (const token of [
+      "--cd-shell-rand",
+      "--cd-shell-zeile",
+      "--cd-shell-ziel",
+      "--cd-shell-frei",
+    ]) {
+      expect(withoutComments(css)).toContain(`var(${token})`);
+    }
+  });
+
+  it("keeps its own canvas overlays at or below z-index 100, its palette above them (guide §5.13)", () => {
+    const overlay = zIndexOf(".vc-container .djs-direct-editing-parent");
+    expect(overlay).toBeLessThanOrEqual(100);
+    expect(zIndexOf('.vc-container .djs-palette:not([data-chrome="palette"])')).toBeGreaterThan(
+      overlay,
+    );
+    // The 1 lifts a focused entry over its neighbours inside the palette's own stacking context.
+    expect(withoutComments(css).match(/z-index:\s*(\d+)/g) ?? []).toEqual([
+      "z-index: 110",
+      "z-index: 1",
+      "z-index: 100",
+    ]);
   });
 
   it("marks hover and selection by the outline only, never by a filter (guide §10.4)", () => {
@@ -127,14 +149,35 @@ describe("theme.sync — value-chain.css takes every colour from the roles", () 
     expect(ruleSelectors(css)).toContain(".vc-container .djs-shape.hover > .djs-outline");
   });
 
-  it("scopes every rule of its own palette away from a host chrome skin", () => {
+  it("scopes every rule of its own palette to its container and away from a host chrome skin", () => {
+    const unskinned = '.djs-palette:not([data-chrome="palette"])';
     const paletteSelectors = ruleSelectors(css).filter((selector) =>
       /\.djs-palette(?![\w-])/.test(selector),
     );
-    expect(paletteSelectors.length).toBeGreaterThan(0);
+    expect(paletteSelectors.length).toBeGreaterThan(10);
     for (const selector of paletteSelectors) {
-      expect(selector).toMatch(/^\.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/);
+      expect(selector.split(unskinned).join(""), selector).not.toMatch(/\.djs-palette(?![\w-])/);
+      expect(selector.replace(/\s+/g, " "), selector).toMatch(
+        /\.vc-container(\[data-cd-kontrast="hoch"\]|:not\(\[data-cd-theme\]\))? \.djs-palette:not/,
+      );
     }
+  });
+
+  it("keeps the island's edge, the separators and the armed tool's ring in forced colours (guide §5.14)", () => {
+    const forcedColors = /@media \(forced-colors: active\) \{([\s\S]*?)\n\}/.exec(
+      withoutComments(css),
+    )?.[1];
+    expect(forcedColors).toBeDefined();
+    const selectors = ruleSelectors(forcedColors!);
+    expect(selectors).toEqual(
+      expect.arrayContaining([
+        '.vc-container .djs-palette:not([data-chrome="palette"])',
+        '.vc-container .djs-palette:not([data-chrome="palette"]) .group + .group::before',
+        '.vc-container .djs-palette:not([data-chrome="palette"]) .entry:focus-visible',
+        '.vc-container .djs-palette:not([data-chrome="palette"]) .entry[aria-pressed="true"]',
+      ]),
+    );
+    expect(forcedColors).toMatch(/box-shadow: inset 0 0 0 2px Highlight;/);
   });
 });
 

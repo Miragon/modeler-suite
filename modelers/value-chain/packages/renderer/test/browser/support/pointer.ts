@@ -45,7 +45,7 @@ export class CanvasPointer {
   }
 
   canvasSvg(): SVGSVGElement {
-    const svg = this.modeler.diagram.container.querySelector<SVGSVGElement>("svg");
+    const svg = this.modeler.diagram.container.querySelector<SVGSVGElement>(".djs-container > svg");
     if (!svg) throw new Error("the canvas has no svg");
     return svg;
   }

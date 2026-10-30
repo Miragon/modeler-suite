@@ -90,11 +90,16 @@ missing at its other places; the verdict stays the same).
   `fitOnImport: false`, which both apps pass because the shell's viewport fits), keeps an open
   label edit across the import, and ends a running gesture first, as Escape does
   (`gesture/VcGestures`: `dragging.cancel(false)`; a pan, `hand.move`, whether the hand tool, Space
-  held or Ctrl/Cmd and a press started it, is no gesture and keeps running, from the fitted view
-  when the import fits (`import.render.done` re-anchors the pan's `localStart`; without it the next
-  pointer move would put the old view back), and so does a palette tool that only waits for its
-  next press, `lasso.selection`, `hand`, `spaceTool.selection` or `global-connect`, which stays
-  armed; both bring back the selection they hold when they end, which `import.render.done` maps
+  held or Ctrl/Cmd and a press started it, is no gesture and keeps running, from the current view:
+  the fitted one when the import fits, or one a host sets after it (the restore of L5) or while the
+  pan runs (`canvas.viewbox.changed` re-anchors the pan's `localStart`; without it the next pointer
+  move would put the old view back; not during the pan's own scroll, since diagram-js rounds the
+  pan's `dx` to whole diagram units, and moving the start point there would add the rounding up,
+  so a slow pan above 200 % would not move at all, told apart by the pan's drag context, not a
+  flag; diagram-js's AutoScroll does not scroll under a pan, `gesture/PanAwareAutoScroll`, since
+  the pan would keep its scrolls at the canvas edge and lose the diagram point under the pointer),
+  and so does a palette tool that only waits for its next press, `lasso.selection`, `hand`,
+  `spaceTool.selection` or `global-connect`, which stays armed; both bring back the selection they hold when they end, which `import.render.done` maps
   onto the imported elements by id (diagram-js's `Selection` refuses the removed ones); a connect
   that the connect tool starts from a removed shape is refused at `connect.init`, which also puts
   the tool down; a drop being applied is never cancelled, told apart by its drag context, not a
@@ -138,6 +143,18 @@ missing at its other places; the verdict stays the same).
   blur, `element.mousedown` and `drag.init` commit. The factories take the contract's
   `freeArea`/`fitOnImport`/`undoRedoKeys`. New elements get random ids.
   `test/browser/conformance.browser.test.ts` runs the kit, where a skip or an advisory fails.
+- `palette/`: `VcPaletteProvider` (the entries, keyboard creation in the `freeArea`) and, for a host
+  without the shell (designIQ, #252), `VcPaletteToolbar` (`role="toolbar"`, the roving tab stop and
+  its keys, `aria-pressed` from `tool-manager.update`, `aria-keyshortcuts`, the palette ahead of the
+  `<svg>`) and `VcPaletteTooltip` (diagram-js's `paletteTooltip`, its own `role="tooltip"` element
+  8px below the palette with the timing, focus, press, Escape and touch rules of guide §5.6; right
+  of the entry for a palette a chrome skins); `value-chain.css` lays out
+  `.vc-container .djs-palette:not([data-chrome="palette"])` after guide §5.5 on the roles and the
+  `--cd-shell-rand`/`-zeile`/`-ziel`/`-frei` measures, in the second row of §5.15 at a container
+  (`value-chain`, inline size) of at most 760px. The toolbar does nothing where
+  `modelerShell` is registered or a chrome marks the palette `data-chrome="palette"`, and
+  `shellModule` replaces the tooltip, so the shell's palette stays the shell's
+  (`test/browser/palette-without-shell.browser.test.ts`, the apps' e2e for the shell's).
 - `read-only/VcReadOnly` is the edit lock of an invalid file; `diagram-menu/` holds the Export and
   Help entries and the shortcut groups (`diagramShortcuts`) both apps hand the shell, typed
   structurally (renderers never import the shell). Both apps open the dialog with
@@ -146,6 +163,17 @@ missing at its other places; the verdict stays the same).
   ([#257](https://github.com/Miragon/modeler-suite/issues/257)), with the `.vc-shortcuts*` rules of
   `value-chain.css` that only that dialog uses.
 - Mutations funnel through `vcModeling.updateProperties` (one undoable command handler).
+- Copy and paste (#286): `copy-paste/VcCopyPaste` replaces diagram-js's `copyPaste`, `VcRules`
+  allows `element.copy` for steps, org units and relations (diagram-js keeps a relation only
+  with both ends, and its cut removes only what it copied), `VcCopyPasteBehavior` carries
+  `vcType`, `vcLabel`, `color` and `link` (no vendor extensions), and the element factory gives
+  the copies fresh ids. A paste follows the pointer while it is on the canvas `<svg>` (a `create`
+  gesture, so an import ends it); without it, and always for a duplicate, the copy lands
+  `PASTE_OFFSET` (20) right and down from the original, the n-th paste after a copy n times as
+  far, the first paste after a cut in place unless an original is back (undo, import), as one
+  `elements.create` command, selected unless a change listener destroyed the modeler. Under
+  `vcReadOnly` copy works and cut, paste and duplicate do nothing
+  (`test/browser/copy-paste.browser.test.ts`).
 - `modeling/VcLayouter` + `CroppingConnectionDocking` crop connections at the chevron
   contour (via the renderer's `getShapePath`).
 - Connection type during connect/create drags comes from `vcConnect.pendingType`

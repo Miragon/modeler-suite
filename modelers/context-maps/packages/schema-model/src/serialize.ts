@@ -75,9 +75,53 @@ export function canonicalize(doc: CmDocument): CmDocument {
   );
 }
 
-/** Serialises a document to deterministic, pretty-printed JSON. */
+/**
+ * `JSON.stringify` writes an object or array that sits in several places at each of them. A value
+ * of an unknown key that holds the level below twice would need memory doubling with every level,
+ * and a wide one held a thousand times would need a thousand copies of it. So each time the
+ * serializer would write a container again, it counts that container's entries; no real document
+ * repeats this many. A document that shares nothing counts none, however large it is.
+ */
+const MAX_REPEATED_ENTRIES = 1_000_000;
+
+/**
+ * Throws before `JSON.stringify` writes `canonical` when its shared objects and arrays would repeat
+ * more than {@link MAX_REPEATED_ENTRIES} entries. A value that contains itself is left to
+ * `JSON.stringify`, which names the cycle.
+ */
+function refuseTooManyRepeatedEntries(canonical: CmDocument): void {
+  // Only the containers on the current path: one object in several places is no cycle.
+  const ancestors = new Set<object>();
+  const writtenContainers = new WeakSet<object>();
+  let repeatedEntries = 0;
+  const visit = (value: unknown): void => {
+    if (typeof value !== "object" || value === null || ancestors.has(value)) return;
+    if (writtenContainers.has(value)) {
+      repeatedEntries += Array.isArray(value) ? value.length : Object.keys(value).length;
+      if (repeatedEntries > MAX_REPEATED_ENTRIES) {
+        throw new Error(
+          `Cannot serialize a document whose shared objects and arrays would repeat more than ${MAX_REPEATED_ENTRIES} entries.`,
+        );
+      }
+    } else {
+      writtenContainers.add(value);
+    }
+    ancestors.add(value);
+    for (const entry of Array.isArray(value) ? value : Object.values(value)) visit(entry);
+    ancestors.delete(value);
+  };
+  visit(canonical);
+}
+
+/**
+ * Serialises a document to deterministic, pretty-printed JSON. A value of an unknown key that sits
+ * in several places is written at each of them, and its entries count at every place after the
+ * first: past 1,000,000 such repeated entries it throws. A document that shares nothing has no
+ * such limit.
+ */
 export function serializeDocument(doc: CmDocument, pretty = true): string {
   const canonical = canonicalize(doc);
+  refuseTooManyRepeatedEntries(canonical);
   return JSON.stringify(canonical, null, pretty ? 2 : 0);
 }
 

@@ -312,7 +312,18 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
   migration does not overwrite the file.
 - **Failures with a cause.** The driver quotes an activation error from the extension host's log and
   the webview's own uncaught errors, instead of waiting for the timeout.
-- **Key interception (opt-in, 0.7).** The keys step records every `keydown` of the webview with
+- **Steps by default (0.8).** The keys, the history and the workbench steps started opt-in, through
+  `VSCODE_SMOKE_OPT_IN`, which CI's smoke set for every modeler and the template: a change to the
+  five smoke tests would make release-please release every extension and Team Topologies for a
+  test change. Once all five modelers and the template passed them in CI, on the `engines.vscode`
+  minimum and on stable, they became the default, and the driver stopped reading
+  `VSCODE_SMOKE_OPT_IN`. `VSCODE_SMOKE_SKIP` skips one for the same reason the opt-in existed: a
+  modeler's CI or a local run that cannot take a step leaves its test alone. The driver reads the
+  variable before it starts VS Code, also when every step's option is given, so a typo throws
+  instead of passing unseen; the option wins over the variable. Like every `VSCODE_*` variable it
+  stays out of VS Code's environment. A new step starts opt-in again and joins them once every
+  modeler passes it in CI.
+- **Key interception (0.7).** The keys step records every `keydown` of the webview with
   three listeners: on `window` in the capture phase (the key arrived), on `document`, added after
   the shell's and the modeler's, so `defaultPrevented` says whether something handled it, and on
   `window` in the bubble phase (VS Code would see it). A zoom key on `window` is a failure even
@@ -329,10 +340,7 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
   100 %), the driver zooms in first, or that key would prove nothing. Select all has to select more
   elements than were selected before it, since an earlier step may have left one selected. The
   clipboard is only read, never written, so a local run on macOS leaves the user's clipboard alone.
-  CI opts every modeler in with `VSCODE_SMOKE_OPT_IN=keys,history,workbench`; a change to the five
-  smoke tests would make release-please release every extension and Team Topologies for a test
-  change.
-- **History (opt-in, 0.8).** The history step runs after the keys and before the workbench steps, so
+- **History (0.8).** The history step runs after the keys and before the workbench steps, so
   the zoom and the selection it leaves are in no screenshot. The webview's view is not in the page's
   API, so the driver reads the viewport group's matrix (`.djs-container > svg > .viewport`): scale
   and translation, which with the container's size are the viewbox. It zooms away from the fit
@@ -349,9 +357,9 @@ the real one (usage in the [shell README](../../packages/shell/README.md#smoke-t
   the same number of document edits as the edit made, and ends with the undo, so the document is the
   saved one again. It reads the state after the keys step on purpose: nothing in it edits the
   document, so the redo history of the undo step is still there.
-- **Workbench steps (opt-in, 0.8).** `VSCODE_SMOKE_OPT_IN=workbench` turns on three steps, run last
-  in this order: `motion`, `hidden`, `reload`. One name, because they start and become the default
-  together; each keeps its own timing, result and failure prefix.
+- **Workbench steps (0.8).** `workbench` names three steps, run last in this order: `motion`,
+  `hidden`, `reload`. One name, because they started opt-in and became the default together; each
+  keeps its own timing, result and failure prefix.
   - _Reduced motion._ The setting goes into `settings.json`, like a theme, and counts once
     `.monaco-workbench` shows it: `reduce-motion` or `enable-motion` in VS Code 1.96,
     `monaco-reduce-motion` or `monaco-enable-motion` in later releases. A write VS Code missed is

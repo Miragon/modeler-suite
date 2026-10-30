@@ -11,12 +11,12 @@ const ENTRY_TRIGGERS = ["palette.trigger", "contextPad.trigger"];
  * while the canvas holds the focus; on top of that the canvas leaves alone a key a host has handled
  * already, a key of an input method's composition and an event without a key.
  *
- * A pointer on a palette or context pad entry takes the focus off the canvas, and many actions
- * leave it nowhere (Delete, switching a relation's type, connecting, a palette tool in a host
- * without the shell's chrome). The canvas takes it back before the action runs, so the next key
- * acts without another click, while a label editor or popup the action opens still gets it. Enter
- * or Space on an entry (a click without a pointer) leaves the focus where it is, unless the action
- * left it nowhere.
+ * A pointer on a palette or context pad entry takes the focus off the canvas, onto the entry where
+ * it is focusable (a palette toolbar) and else nowhere, and many actions leave it there (Delete,
+ * switching a relation's type, connecting). The canvas takes it back before the action runs, so
+ * the next key acts without another click, while a label editor or popup the action opens still
+ * gets it. Enter or Space on an entry (a click without a pointer) leaves the focus where it is,
+ * unless the action left it nowhere.
  */
 export default class VcCanvasKeys {
   static $inject = ["eventBus", "canvas"];

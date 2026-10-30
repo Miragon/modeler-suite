@@ -9,6 +9,8 @@ export const canvasAccessibilityModule: ModuleDeclaration = {
 export {
   canvasSvg,
   focusCanvasWithoutRing,
+  isCanvasKey,
+  isKeyAimedAt,
   lastInteractionWasPointer,
   trackInputModality,
 } from "./canvasFocus.js";

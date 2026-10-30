@@ -8,7 +8,7 @@ import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
 import type { WardleyShape } from "../model/di-types.js";
 import { MIN_EVOLVE_DELTA } from "./constants.js";
-import { focusCanvasWithoutRing } from "../a11y/index.js";
+import { focusCanvasWithoutRing, isCanvasKey } from "../a11y/index.js";
 import type { WardleyInteraction } from "../interaction/index.js";
 import {
   COMMAND_START_EVENTS,
@@ -39,7 +39,8 @@ function clamp01(n: number): number {
  * Sets a component's evolve target by dragging along the evolution axis (instead of a text field).
  * During the drag a live preview (direct mutation + re-render) that the export holds back
  * (`LivePreview`); on release exactly ONE undoable commit via the commandStack (P4). Escape cancels
- * the context pad's placement and restores the original state.
+ * both the drag of the target's handle and the placement from the context pad, and restores the
+ * original state.
  */
 export default class WardleyEvolveDragging {
   static $inject = [
@@ -117,6 +118,7 @@ export default class WardleyEvolveDragging {
           this.handleDrag = null;
           document.removeEventListener("mousemove", onMove);
           document.removeEventListener("mouseup", onUp);
+          document.removeEventListener("keydown", onKey, true);
           livePreview.putBackShape(shape);
         };
         const drag: HandleDrag = {
@@ -139,8 +141,17 @@ export default class WardleyEvolveDragging {
               modeling.evolveComponent(shape, target);
             }
           });
+        // Escape puts the target back as it ends a diagram-js drag. Only an Escape aimed at the
+        // canvas, which the press focused: a host's field, menu or dialog keeps its own.
+        const onKey = (e: KeyboardEvent) => {
+          if (e.key !== "Escape" || !isCanvasKey(e, canvas)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          drag.cancel();
+        };
         document.addEventListener("mousemove", onMove);
         document.addEventListener("mouseup", onUp);
+        document.addEventListener("keydown", onKey, true);
         this.handleDrag = drag;
       },
       true,

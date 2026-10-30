@@ -14,6 +14,7 @@ import type BoardBounds from "./board-bounds/BoardBounds.js";
 import type { Bounds } from "./board-bounds/BoardBounds.js";
 import type EventStormingLabelEditing from "./label-editing/EventStormingLabelEditing.js";
 import type EventStormingDrawingHandles from "./draw-tool/EventStormingDrawingHandles.js";
+import type EventStormingDrawTool from "./draw-tool/EventStormingDrawTool.js";
 import { ROOT_ID, type ImportWarning } from "./io/types.js";
 import { linkLabelFontLoading } from "./draw/extent.js";
 import type { FreeArea } from "./palette/EventStormingPaletteProvider.js";
@@ -71,7 +72,9 @@ function assertNoEngineIds(board: EventStormingBoard): void {
  * a command to a removed shape: moveShape throws, a create adds a sticky to the new board. Ended
  * here and not on the shapes' removal, since an annotated import waits for its font first and a
  * release during that wait would still commit. Not restoring the selection: it holds shapes the
- * import removes. A palette tool that only waits for its next press stays armed.
+ * import removes. A palette tool that only waits for its next press stays armed, the draw tool
+ * too while it has no point yet; a line it holds ends without a drawing, since no change comes
+ * from an import (#243), where Escape would commit it.
  *
  * A drop that runs is left to finish: its command has applied, and a `clear()` from that command's
  * change listener would otherwise cancel the drag inside diagram-js's own end of it, which then
@@ -90,6 +93,7 @@ function cancelGesture(diagram: Diagram): void {
   diagram
     .get<EventStormingDrawingHandles | null>("eventStormingDrawingHandles", false)
     ?.endPointDrag();
+  diagram.get<EventStormingDrawTool | null>("eventStormingDrawTool", false)?.endLine();
   const dragging = diagram.get<Dragging | null>("dragging", false);
   const gesture = dragging?.context() as DragContext | null | undefined;
   if (!dragging || !gesture || ARMED_TOOL_PREFIXES.has(gesture.prefix)) return;

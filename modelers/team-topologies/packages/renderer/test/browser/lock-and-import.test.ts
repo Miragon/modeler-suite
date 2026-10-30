@@ -6,7 +6,11 @@ import {
   type TtModeling,
   type TtReadOnly,
 } from "@miragon/team-topologies-renderer";
-import { SAMPLE_DOCUMENT, type TtDocument } from "@miragon/team-topologies-schema-model";
+import {
+  SAMPLE_DOCUMENT,
+  serializeDocument,
+  type TtDocument,
+} from "@miragon/team-topologies-schema-model";
 
 const mounted: Array<{ modeler: Modeler; container: HTMLElement }> = [];
 
@@ -159,6 +163,38 @@ test("a document with colliding ids is rejected before the canvas changes", () =
   for (const id of ["team_checkout", "tt-root", "__implicitroot_7", "assoc_ann_fraud_handover"]) {
     expect(() => modeler.importDocument(withId(SAMPLE_DOCUMENT, "flow_main", id)), id).toThrow();
   }
+
+  expect(modeler.exportDocument()).toEqual(before);
+  expect(modeler.canUndo()).toBe(true);
+});
+
+function withSharedOnEveryNode(doc: TtDocument, value: unknown): TtDocument {
+  return { ...doc, nodes: doc.nodes.map((node) => ({ ...node, "x-shared": value })) } as TtDocument;
+}
+
+test("a value shared by the nodes is written at each of them, and too much sharing is rejected before the canvas changes", () => {
+  const { modeler } = mountModeler();
+  const shared = { owner: "ops", tags: ["a", "b"] };
+  modeler.importDocument(withSharedOnEveryNode(SAMPLE_DOCUMENT, shared));
+  const unshared = JSON.parse(JSON.stringify(withSharedOnEveryNode(SAMPLE_DOCUMENT, shared)));
+  expect(serializeDocument(modeler.exportDocument())).toBe(serializeDocument(unshared));
+
+  const { registry } = services(modeler);
+  modeler
+    .get<{ moveElements(shapes: unknown[], delta: unknown): void }>("modeling")
+    .moveElements([registry.get("team_checkout")], { x: 10, y: 0 });
+  const before = modeler.exportDocument();
+  // Six nodes share it: five copies of 250,000 numbers repeat more than 1,000,000 entries.
+  const wide = Array.from({ length: 250_000 }, (_, index) => index);
+  const cyclic: Record<string, unknown> = { name: "loop" };
+  cyclic.self = cyclic;
+
+  expect(() => modeler.importDocument(withSharedOnEveryNode(SAMPLE_DOCUMENT, wide))).toThrow(
+    "Cannot serialize a document whose shared objects and arrays would repeat more than 1000000 entries.",
+  );
+  expect(() =>
+    modeler.importDocument({ ...SAMPLE_DOCUMENT, "x-loop": cyclic } as TtDocument),
+  ).toThrow("Cannot serialize a cyclic document.");
 
   expect(modeler.exportDocument()).toEqual(before);
   expect(modeler.canUndo()).toBe(true);

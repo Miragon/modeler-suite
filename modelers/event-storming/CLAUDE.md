@@ -69,11 +69,11 @@ so a violating import fails `npm run event-storming lint` and `npm run event-sto
   (`vsce package`, which runs `vscode:prepublish`), unpacks the VSIX outside the repo and runs the
   shell's `runVsCodeSmoke` (open `smoke.storm`, palette edit, save, undo, the four default themes,
   screenshots in the gitignored `test-results/vscode-smoke/`); no build needed, on macOS a VS Code
-  window opens for ~5 s and takes the focus, the first run downloads VS Code into the OS cache;
-  `VSCODE_VERSION=1.96.0` for another version, `VSCODE_SMOKE_KEEP=1` keeps VS Code's profile
-  and logs, `VSCODE_SMOKE_VSIX=<file>` smokes a packaged VSIX instead of packing one. The test is
-  not retried: the driver (shell 0.4.1) reads a save only once the tab is clean and repeats a theme
-  switch VS Code missed, so every failure fails the run. When CI runs it is in the suite's
+  window opens for about half a minute and takes the focus, the first run downloads VS Code into
+  the OS cache; `VSCODE_VERSION=1.96.0` for another version, `VSCODE_SMOKE_KEEP=1` keeps VS Code's
+  profile and logs, `VSCODE_SMOKE_VSIX=<file>` smokes a packaged VSIX instead of packing one. The
+  test is not retried: the driver (shell 0.4.1) reads a save only once the tab is clean and repeats
+  a theme switch VS Code missed, so every failure fails the run. When CI runs it is in the suite's
   [docs/ci-and-releases.md](../../docs/ci-and-releases.md); details in
   [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - `npm run event-storming format`: Prettier · `npm run event-storming depcruise`: check the
@@ -131,9 +131,14 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   `EventStormingBaseViewer`, when called and again after any wait, for the annotation font or
   for a running user action and the step it scheduled; `clear()` too):
   `dragging.cancel(false)` as Escape does, and the drawing handles' point drag, which also ends on
-  `shape.remove`, so no release lands on a removed shape; the palette's armed lasso tool
-  (`lasso.selection`) stays armed, and a pan (diagram-js's `MoveCanvas`, outside the dragging
-  service) keeps running. `eventStormingGestures`
+  `shape.remove`, so no release lands on a removed shape, and on Escape aimed at the canvas (which
+  the press on a handle focuses) without a commit, its release's click trapped so the drawing
+  stays selected; a line the draw tool holds ends with the tool and without a drawing (`endLine`,
+  #243; Escape commits one of two points or more), and while it is held `EventStormingKeyboard`
+  takes the keys that start a gesture at the pointer (L, E, C, Cmd/Ctrl+V) without acting
+  (`holdsLine`); the palette's armed lasso tool
+  (`lasso.selection`) and the draw tool before its first point stay armed, and a pan (diagram-js's
+  `MoveCanvas`, outside the dragging service) keeps running. `eventStormingGestures`
   ([`packages/renderer/src/gesture/`](packages/renderer/src/gesture/)) knows the gesture, the
   drag that starts and the user's action. A drag whose `drag.init` still runs (an open label
   editor commits there, and a host may import from that commit's change listener) is refused at

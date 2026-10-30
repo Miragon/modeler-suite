@@ -5,6 +5,7 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
 import type { WardleyShape } from "../model/di-types.js";
 import { NOTE_COLORS } from "../draw/styles.js";
+import { isCanvasKey, isKeyAimedAt } from "../a11y/index.js";
 
 /** Must match `grid-template-columns` of `.wardley-color-picker` (arrow-key navigation). */
 const GRID_COLUMNS = 3;
@@ -31,11 +32,12 @@ export default class WardleyColorPicker {
   private readonly onDocPointer = (e: MouseEvent): void => {
     if (this.popover && !this.popover.contains(e.target as Node)) this.close();
   };
-  // A capture listener on the document: only an Escape aimed at the modeler (the swatches, the
-  // canvas) is the picker's, never one that closes a host's menu or dialog.
+  // A capture listener on the document: only an Escape aimed at the swatches or the canvas `<svg>`
+  // is the picker's. The palette, the context pad, a label field and a host's overlay or menu sit
+  // in the canvas container too, and Escape there belongs to that control.
   private readonly onKey = (e: KeyboardEvent): void => {
-    if (e.key !== "Escape" || !(e.target instanceof Node)) return;
-    if (!this.canvas.getContainer().contains(e.target)) return;
+    if (e.key !== "Escape") return;
+    if (!isKeyAimedAt(e, this.popover) && !isCanvasKey(e, this.canvas)) return;
     e.preventDefault();
     e.stopPropagation();
     this.close({ restoreFocus: true });

@@ -8,7 +8,7 @@ import type { LabelOffset, MapElement } from "@miragon/wardley-schema-model";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
 import { isWardleyShape, type WardleyShape } from "../model/di-types.js";
-import { focusCanvasWithoutRing } from "../a11y/index.js";
+import { focusCanvasWithoutRing, isCanvasKey } from "../a11y/index.js";
 import type { WardleyInteraction } from "../interaction/index.js";
 import {
   COMMAND_START_EVENTS,
@@ -198,8 +198,10 @@ export default class WardleyLabelDragging {
     setTimeout(() => container.removeEventListener("click", swallow, true), 0);
   }
 
+  // Only an Escape aimed at the canvas, which the press focused: a host's field, menu or dialog
+  // keeps its own while a label is dragged.
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== "Escape" || !this.active) return;
+    if (event.key !== "Escape" || !this.active || !isCanvasKey(event, this.canvas)) return;
     event.stopPropagation();
     this.cancel();
   };

@@ -104,7 +104,8 @@ take them for npm's own, and the path `modelers/wardley-maps` would select the w
 too (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)).
 
 `npm run wardley-maps test:vscode` runs the same test on the host; use it to watch VS Code at work (on
-macOS a window opens for a few seconds and takes the focus; on Linux run it under `xvfb-run -a`).
+macOS a window opens for about half a minute and takes the focus; on Linux run it under
+`xvfb-run -a`).
 Like `npm run package -w modelers/wardley-maps/apps/vscode`, the packing writes the production build
 into `apps/vscode/dist`.
 
