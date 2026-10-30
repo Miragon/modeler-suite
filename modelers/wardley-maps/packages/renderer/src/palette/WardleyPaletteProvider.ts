@@ -257,8 +257,9 @@ export default class WardleyPaletteProvider implements PaletteProvider {
       action: {
         click: (event: Event) => {
           // A pointer's press ends the lasso's waiting drag first; without one, that drag would wait
-          // on behind the draw tool and take the canvas's next press as well.
-          if (isKeyboardClick(event)) this.putLassoDown();
+          // on behind the draw tool and take the canvas's next press as well. The lock refuses the
+          // draw tool and leaves the lasso active, so the lasso stays armed then.
+          if (isKeyboardClick(event) && !isReadOnly(this.injector)) this.putLassoDown();
           this.drawTool.toggle();
           this.focusCanvasAfterPointer(event);
         },

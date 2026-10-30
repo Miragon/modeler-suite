@@ -445,6 +445,18 @@ describe("the lasso's pressed state without the shell (guide §5.5, #462, #458)"
     expect(lassoState(mapped)).toEqual(ARMED_LASSO);
   });
 
+  it("keeps a lasso a click armed pressed when the pointer went over the canvas and back before the next click", async () => {
+    const mapped = await mount();
+    const lasso = entry(mapped.host, "lasso-tool");
+
+    await userEvent.click(lasso);
+    await userEvent.hover(mapped.host, { position: { x: 500, y: 500 } });
+    await userEvent.hover(lasso);
+    await userEvent.click(lasso);
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+    expect(mapped.modeler.get<ToolManager>("toolManager").isActive("lasso")).toBe(true);
+  });
+
   it("puts the armed lasso down when Enter or Space arms the draw tool, as the pointer's press on the entry does", async () => {
     const mapped = await mount();
     const { host, modeler } = mapped;
@@ -1203,13 +1215,21 @@ describe("the read-only lock in the palette without the shell (guide §13.5, #46
     expect(getComputedStyle(lasso.firstElementChild!).filter).toBe("none");
   });
 
-  it("draws a marked entry in GrayText in forced colours", async () => {
+  it("draws a marked entry in GrayText in forced colours, also under the pointer", async () => {
     const mapped = await mount();
     lock(mapped);
     await emulateForcedColours();
-    const note = entry(mapped.host, "create.note");
-    await afterTransitions(note);
-    expect(getComputedStyle(note).color).toBe(resolved(mapped.host, "color", "GrayText"));
+    const grayText = resolved(mapped.host, "color", "GrayText");
+
+    for (const action of ["draw-tool", "create.note"]) {
+      const target = entry(mapped.host, action);
+      await afterTransitions(target);
+      expect(getComputedStyle(target).color).toBe(grayText);
+      await userEvent.hover(target);
+      await vi.waitFor(() => expect(target.matches(":hover")).toBe(true));
+      await afterTransitions(target);
+      expect(getComputedStyle(target).color).toBe(grayText);
+    }
   });
 
   it("keeps the marked entries in the tab order, where Enter, Space, a click or a drag changes nothing, and the lasso still arms", async () => {
@@ -1259,4 +1279,40 @@ describe("the read-only lock in the palette without the shell (guide §13.5, #46
     await userEvent.keyboard("{Enter}");
     expect(mapped.modeler.exportDSL()).toBe(before);
   });
+
+  it.each([
+    {
+      where: "Enter or Space on Draw in a palette another chrome skins",
+      modules: [ANOTHER_CHROME],
+      clickDraw: ({ host }: Mounted) => clickWithoutPointer(entry(host, "draw-tool")),
+    },
+    {
+      where: "a host's triggerEntry of Draw",
+      modules: [],
+      clickDraw: ({ modeler }: Mounted) =>
+        modeler.get<Palette>("palette").triggerEntry("draw-tool", "click", new MouseEvent("click")),
+    },
+  ])(
+    "leaves the armed lasso armed when the lock refuses the draw tool: $where",
+    async ({ modules, clickDraw }) => {
+      const mapped = await mount(HOST, Modeler, { additionalModules: modules });
+      const { modeler } = mapped;
+      const lassoArmed = () => [
+        modeler.get<ToolManager>("toolManager").isActive("lasso"),
+        modeler.get<Dragging>("dragging").context()?.prefix ?? null,
+      ];
+      lock(mapped);
+      clickWithoutPointer(entry(mapped.host, "lasso-tool"));
+      expect(lassoArmed()).toEqual([true, "lasso.selection"]);
+
+      clickDraw(mapped);
+      expect(modeler.get<WardleyDrawTool>("wardleyDrawTool").isActive()).toBe(false);
+      expect(lassoArmed()).toEqual([true, "lasso.selection"]);
+    },
+  );
 });
+
+/** The click a chrome or the palette's keyboard sends for Enter or Space: no pointer, `detail` 0. */
+function clickWithoutPointer(target: HTMLElement): void {
+  target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+}
