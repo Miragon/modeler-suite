@@ -119,7 +119,11 @@ both (template:
   An import's fit and a host's `setViewState` after it (L5) move the view under a running pan, so
   the template moves the pan's starting point to the diagram point under the pointer on every
   `canvas.viewbox.changed` (the canvas runs without `deferUpdate`, so the event comes at once);
-  without that, the next move would put the view from before back. A renderer that adds
+  without that, the next move would put the view from before back. The pan's own scroll is left
+  out: diagram-js rounds each step of a pan to whole diagram units, and a starting point moved
+  after it would add the rounding up, so a slow pan at a zoom above 200 % would not move at all.
+  The template tells that scroll apart by the pan's drag context during `hand.move.move`, not by
+  a flag, which a view listener that throws would leave set. A renderer that adds
   diagram-js's space or global connect tool adds their waiting drags to that list, and refuses a
   connect whose start shape the import removed, as Value Chain does.
 - **An import called during a user's action waits until the action has finished.** A user's action
