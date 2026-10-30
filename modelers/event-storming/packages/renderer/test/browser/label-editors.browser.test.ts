@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cdp } from "vitest/browser";
 import { attachedHost } from "@miragon/modeler-api/conformance";
+import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import {
   Modeler,
@@ -23,6 +24,7 @@ command Place Order [200, 300]
 event Order Placed [440, 300]
 event Order Paid [680, 300]
 note Remember the budget [320, 520]
+hotspot Who refunds? [680, 520]
 Place Order -> Order Placed`;
 
 type Editor = "sticky" | "note" | "arrow label";
@@ -89,6 +91,12 @@ function focusRing(field: HTMLElement): {
   };
 }
 
+/** The first shadow a field draws, the solid band of its surface right outside its border. */
+function surfaceBand(field: HTMLElement): string {
+  const [first] = getComputedStyle(field).boxShadow.split(/,(?![^(]*\))/);
+  return first?.trim() ?? "none";
+}
+
 /** The box the focus ring draws around `field`, outside its border. */
 function ringBox(field: HTMLElement): { top: number; bottom: number } {
   const ring = getComputedStyle(field);
@@ -124,6 +132,14 @@ describe("the inline label editors of a board", () => {
       .get<ElementRegistry>("elementRegistry")
       .find((element) => isEventStormingShape(element) && element.eventStormingType === "note");
     if (!shape) throw new Error("no note on the board");
+    return shape as unknown as EventStormingShape;
+  }
+
+  function hotspot(): EventStormingShape {
+    const shape = modeler
+      .get<ElementRegistry>("elementRegistry")
+      .find((element) => isEventStormingShape(element) && element.eventStormingType === "hotspot");
+    if (!shape) throw new Error("no hotspot on the board");
     return shape as unknown as EventStormingShape;
   }
 
@@ -260,10 +276,40 @@ describe("the inline label editors of a board", () => {
       );
     });
 
+    it.each(EDITORS)("keeps the field's surface between the %s editor and its ring", (editor) => {
+      const field = open(editor);
+      expect(surfaceBand(field)).toBe(
+        `${computedColour(container, "var(--cd-ui-flaeche-hoch)")} 0px 0px 0px 2px`,
+      );
+    });
+
+    it("lays the field's surface, not the fill, inside the ring where it crosses a hotspot", () => {
+      modeler.get<Canvas>("canvas").zoom(1);
+      const spot = hotspot();
+      labelEditing().activate(spot);
+      const field = openField();
+      if (!field) throw new Error("the hotspot's editor did not open");
+      const element = modeler.get<ElementRegistry>("elementRegistry").getGraphics(spot);
+      const toScreen = (element as unknown as SVGGraphicsElement).getScreenCTM();
+      if (!toScreen) throw new Error("the hotspot is not on the screen");
+      const spotTop = toScreen.f;
+      const spotBottom = toScreen.f + spot.height * toScreen.d;
+      // The ring's top and bottom rows lie on the hotspot's fill, which the ring reaches only 1.95:1
+      // against: the band of the field's surface gives the ring a neighbour it contrasts with.
+      expect(ringBox(field).top).toBeGreaterThan(spotTop);
+      expect(ringBox(field).bottom).toBeLessThan(spotBottom);
+      expect(surfaceBand(field)).toBe(
+        `${computedColour(container, "var(--cd-ui-flaeche-hoch)")} 0px 0px 0px ${focusRing(field).offset}`,
+      );
+    });
+
     it.each(EDITORS)("widens the ring of the %s editor to 3px in high contrast", (editor) => {
       page.setAttribute("data-cd-kontrast", "hoch");
       const field = open(editor);
       expect(focusRing(field)).toMatchObject({ style: "solid", width: "3px", offset: "2px" });
+      expect(getComputedStyle(field).boxShadow).toBe(
+        `${computedColour(container, "var(--cd-ui-flaeche-hoch)")} 0px 0px 0px 2px`,
+      );
     });
 
     it.each(EDITORS)(
@@ -344,6 +390,9 @@ describe("the focus ring of an inline label editor under a host's appearance (#3
     modeler.appearance.set({ theme: "light", contrast: "high" });
     const field = await stickyEditorOf(modeler);
     expect(focusRing(field)).toMatchObject({ style: "solid", width: "3px", offset: "2px" });
+    expect(getComputedStyle(field).boxShadow).toBe(
+      `${computedColour(field.parentElement ?? document.body, "var(--cd-ui-flaeche-hoch)")} 0px 0px 0px 2px`,
+    );
   });
 
   it("stays 2px for a request of normal contrast on a high-contrast page", async () => {
