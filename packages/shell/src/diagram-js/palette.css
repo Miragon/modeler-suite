@@ -164,7 +164,12 @@
   outline: none;
 }
 
+/*
+ * In the top row the ring stands outside the entry, over the 2px gap and into the next entry's box;
+ * lifted, so a pressed or hovered neighbour, painted later, does not cover it (guide §5.14).
+ */
 .djs-palette[data-chrome="palette"] .entry:focus-visible {
+  z-index: 1;
   outline: var(--modeler-shell-palette-focus-width) solid var(--cd-ui-fokus);
   outline-offset: var(--modeler-shell-palette-focus-offset);
 }

@@ -12,7 +12,12 @@ import type { Element, Shape } from "diagram-js/lib/model/Types";
 import { COLORS, DRAWING_INK } from "../draw/styles.js";
 import type EventStormingElementFactory from "../model/EventStormingElementFactory.js";
 import { READ_ONLY_CHANGED_EVENT } from "../read-only/index.js";
-import { focusCanvasWithoutRing, isUnhandledKey, targetsCanvas } from "../keyboard/index.js";
+import {
+  focusCanvasWithoutRing,
+  isRendered,
+  isUnhandledKey,
+  targetsCanvas,
+} from "../keyboard/index.js";
 
 interface Point {
   x: number;
@@ -171,8 +176,8 @@ export default class EventStormingDrawTool {
    * palette entry, which keeps the focus when Enter starts the tool there (guide §5.5). Every other
    * target keeps them, inside the modeler's container too: a host's buttons and fields, a host's
    * overlay next to the canvas, the zoom panel, the other palette entries, an open menu or dialog,
-   * the label editor and `<body>`. A canvas or an entry the host made `inert` keeps them too, as in
-   * `targetsCanvas`.
+   * the label editor and `<body>`. A canvas or an entry the host made `inert` or hid with
+   * `display: none` keeps them too, as in `targetsCanvas`.
    */
   private ownsKey(e: KeyboardEvent): boolean {
     return isUnhandledKey(e) && (targetsCanvas(e, this.canvas) || this.targetsOwnPaletteEntry(e));
@@ -182,7 +187,7 @@ export default class EventStormingDrawTool {
     const target = e.target;
     if (!(target instanceof Element) || target.closest("[inert]") !== null) return false;
     const entry = target.closest(`.djs-palette [data-action="${DRAW_TOOL_PALETTE_ENTRY}"]`);
-    return entry !== null && this.canvas.getContainer().contains(entry);
+    return entry !== null && this.canvas.getContainer().contains(entry) && isRendered(entry);
   }
 
   private readonly onMouseDown = (e: MouseEvent): void => {

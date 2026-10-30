@@ -88,13 +88,21 @@ export default class WardleyAppendBehavior {
 
     // (2) automatically open the label editor after placing a named element
     if (labelEditing) {
+      // A host may destroy the modeler from the change listener of the drop (#380): the editor
+      // then has no map left to open on.
+      let destroyed = false;
+      eventBus.on("diagram.destroy", () => {
+        destroyed = true;
+      });
       eventBus.on("create.end", AFTER_CREATE, (event: CreateEvent) => {
         const { context } = event;
         const shape = context.shape;
         if (!context.canExecute || !shape || context.wardleyPaste) return;
         if ((context.elements?.length ?? 1) !== 1 || !NAMED_TYPES.has(shape.wardleyType)) return;
         // Activate only after render/cleanup so the editor is positioned correctly.
-        setTimeout(() => labelEditing.activate(shape), 0);
+        setTimeout(() => {
+          if (!destroyed) labelEditing.activate(shape);
+        }, 0);
       });
     }
   }

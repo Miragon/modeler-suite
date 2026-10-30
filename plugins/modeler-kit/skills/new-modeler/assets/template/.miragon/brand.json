@@ -9,6 +9,7 @@
     "*.test.ts",
     "*.test.tsx",
     "*.spec.ts",
+    "*.spec.tsx",
     "e2e/",
     "*/e2e/*",
     "*/__snapshots__/*",

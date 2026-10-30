@@ -75,7 +75,7 @@ interface Session {
   pointer: Pointer;
   /** Change events of the contract since the session started. */
   changes: () => number;
-  /** Errors thrown out of the canvas's DOM listeners since the session started. */
+  /** Errors and unhandled rejections that reached the window since the session started. */
   errors: unknown[];
 }
 
@@ -87,11 +87,16 @@ async function session(): Promise<Session> {
   modeler.attachTo(host);
   const errors: unknown[] = [];
   const collect = (event: ErrorEvent) => errors.push(event.error ?? event.message);
+  const collectRejection = (event: PromiseRejectionEvent) => errors.push(event.reason);
   window.addEventListener("error", collect);
+  window.addEventListener("unhandledrejection", collectRejection);
   mounted.push({
     modeler,
     host,
-    stopCollecting: () => window.removeEventListener("error", collect),
+    stopCollecting: () => {
+      window.removeEventListener("error", collect);
+      window.removeEventListener("unhandledrejection", collectRejection);
+    },
   });
   await modeler.importText(onlineShop);
   let changes = 0;
@@ -1073,6 +1078,85 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
       gesture.start(current);
       await expectDestroyedCleanly();
       expect(later).toEqual([]);
+    });
+  }
+});
+
+// A drag ends inside the handler of its release or of Escape: diagram-js applies the drop's command,
+// selects what it made (`SelectionBehavior`) and cleans the drag up after the listeners heard of it.
+describe("a destroy from a listener at a drag's end throws nothing, and nothing reaches the host afterwards (#380)", () => {
+  /** Ends a drag the user holds, in a handler of its own. */
+  const endings: Record<string, (current: Session, gesture: DeselectingGesture) => void> = {
+    release: (current, gesture) => gesture.release(current),
+    Escape: (current) => current.pointer.escape(),
+  };
+
+  async function heldGesture(gesture: DeselectingGesture): Promise<Session> {
+    const current = await session();
+    current.diagram.get<Selection>("selection").select(shape(current.diagram, gesture.selected));
+    gesture.start(current);
+    await Promise.resolve();
+    return current;
+  }
+
+  for (const [name, gesture] of Object.entries(gesturesThatDeselectAtTheirStart)) {
+    for (const [ending, end] of Object.entries(endings)) {
+      test(`${name}, at its ${ending}, from the interaction listener: no later listener hears of it`, async () => {
+        const current = await heldGesture(gesture);
+        const { modeler, container } = current;
+        const dragging = current.diagram.get<Dragging>("dragging");
+        let textAtDestroy: string | undefined;
+        modeler.interaction.onChange((active) => {
+          if (active) return;
+          textAtDestroy = modeler.exportText();
+          modeler.destroy();
+        });
+        const later: boolean[] = [];
+        modeler.interaction.onChange((active) => later.push(active));
+
+        end(current, gesture);
+        expect(container.isConnected).toBe(true);
+        await nextTask();
+
+        expect(current.errors).toEqual([]);
+        expect(container.isConnected).toBe(false);
+        expect(dragging.context()).toBeFalsy();
+        expect(() => modeler.destroy()).not.toThrow();
+        expect(later).toEqual([]);
+        expect(textAtDestroy).toBeDefined();
+        expect(modeler.exportText()).toBe(textAtDestroy);
+      });
+    }
+
+    test(`${name}, at its release, from the change listener: no later listener hears of it`, async () => {
+      const current = await heldGesture(gesture);
+      const { modeler, container } = current;
+      const dragging = current.diagram.get<Dragging>("dragging");
+      const before = modeler.exportText();
+      const reported: boolean[] = [];
+      modeler.interaction.onChange((active) => reported.push(active));
+      let textAtDestroy: string | undefined;
+      modeler.onContentChanged(() => {
+        textAtDestroy = modeler.exportText();
+        modeler.destroy();
+      });
+      let later = 0;
+      modeler.onContentChanged(() => (later += 1));
+
+      gesture.release(current);
+      expect(container.isConnected).toBe(true);
+      await nextTask();
+
+      expect(current.errors).toEqual([]);
+      expect(container.isConnected).toBe(false);
+      expect(dragging.context()).toBeFalsy();
+      expect(() => modeler.destroy()).not.toThrow();
+      expect(current.changes()).toBe(1);
+      expect(later).toBe(0);
+      expect(reported).toEqual([]);
+      expect(textAtDestroy).toBeDefined();
+      expect(textAtDestroy).not.toBe(before);
+      expect(modeler.exportText()).toBe(textAtDestroy);
     });
   }
 });

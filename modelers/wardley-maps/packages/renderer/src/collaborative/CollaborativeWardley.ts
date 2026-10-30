@@ -156,8 +156,9 @@ function interactionOf(diagram: Modeler | NavigatedViewer, editable: boolean) {
   // cancel the user's drag and keep the listeners after it from hearing of the change.
   diagram.get<EventBus>("eventBus").on(INTERACTION_CHANGED, (event: InteractionChangedEvent) => {
     for (const listener of [...listeners]) {
-      // An earlier listener may have destroyed the modeler during the same delivery.
-      if (destroyed) return;
+      // An earlier listener may have destroyed the modeler, which drops every listener, or
+      // unsubscribed this one during the same delivery.
+      if (!listeners.has(listener)) continue;
       try {
         listener(event.active);
       } catch (error) {
@@ -181,12 +182,48 @@ function interactionOf(diagram: Modeler | NavigatedViewer, editable: boolean) {
     surface,
     afterUserAction: (): Promise<void> | undefined =>
       destroyed ? undefined : service?.afterUserAction(),
-    /** Ends every delivery and runs `teardown`, after a drag diagram-js activates right now. */
-    destroy(teardown: () => void) {
+    /** Ends every delivery. */
+    stop() {
       destroyed = true;
       listeners.clear();
-      if (service) service.tearDownAfterActivation(teardown);
+    },
+    /** Runs `teardown` at once, or after the handler of the user's input that runs. */
+    tearDownAfterHandler(teardown: () => void) {
+      if (service) service.tearDownAfterHandler(teardown);
       else teardown();
+    },
+  };
+}
+
+/**
+ * The host's selection listeners. The code that calls them goes on with the map once they have
+ * returned, also when it is the host's own call: `reveal` scrolls to the element it selected, and
+ * an import draws the map after the clear that emptied the selection. A `destroy()` from one of
+ * them waits for that code (`delivering`).
+ */
+function selectionListeners(eventBus: EventBus, isDestroyed: () => boolean) {
+  let deliveries = 0;
+  return {
+    delivering: (): boolean => deliveries > 0,
+    subscribe(callback: (selected: unknown[]) => void): () => void {
+      // The teardown cancels a running drag, which brings back the selection from before it.
+      // diagram-js's event bus still calls a listener that an earlier one unsubscribed during the
+      // same delivery after unsubscribing itself.
+      let subscribed = true;
+      const listener = (event: unknown) => {
+        if (isDestroyed() || !subscribed) return;
+        deliveries += 1;
+        try {
+          callback((event as { newSelection?: unknown[] }).newSelection ?? []);
+        } finally {
+          deliveries -= 1;
+        }
+      };
+      eventBus.on("selection.changed", listener);
+      return () => {
+        subscribed = false;
+        eventBus.off("selection.changed", listener);
+      };
     },
   };
 }
@@ -263,6 +300,7 @@ function collaborative(
   let imported = false;
   let destroyed = false;
   let lastExport = "";
+  const selections = selectionListeners(eventBus, () => destroyed);
   const untilItsTurn = importTurns(interaction.afterUserAction, () => destroyed);
 
   const meta: ModelerMeta = {
@@ -276,7 +314,11 @@ function collaborative(
   if (editable) {
     eventBus.on("commandStack.changed", () => {
       if (importsRunning > 0) return;
-      for (const listener of [...contentListeners]) listener();
+      // An earlier listener may destroy the modeler, which drops every listener, or unsubscribe a
+      // later one during the same delivery.
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
 
@@ -309,15 +351,8 @@ function collaborative(
       return true;
     },
     selection: () => (destroyed ? [] : documentIdsOf(selection.get())),
-    onSelection(callback) {
-      // The teardown cancels a running drag, which brings back the selection from before it.
-      const listener = (event: unknown) => {
-        if (destroyed) return;
-        callback(documentIdsOf((event as { newSelection?: unknown[] }).newSelection ?? []));
-      };
-      eventBus.on("selection.changed", listener);
-      return () => eventBus.off("selection.changed", listener);
-    },
+    onSelection: (callback) =>
+      selections.subscribe((selected) => callback(documentIdsOf(selected))),
     bounds(id) {
       const element = listedElement(id);
       if (!element) return undefined;
@@ -350,10 +385,11 @@ function collaborative(
     try {
       const { warnings } = await diagram.importDSL(text);
       imported = true;
-      if (editorState) restoreEditorState(diagram as Modeler, editorState);
+      // Reading a destroyed map would build a new one on the detached container.
+      if (editorState && !destroyed) restoreEditorState(diagram as Modeler, editorState);
       return { warnings: warnings.map((warning) => warning.message) };
     } catch (error) {
-      if (editorState)
+      if (editorState && !destroyed)
         restoreEditorState(diagram as Modeler, editorState, { importRejected: true });
       throw error;
     } finally {
@@ -404,16 +440,33 @@ function collaborative(
     },
     destroy() {
       if (destroyed) return;
-      try {
-        lastExport = committedText();
-      } catch {
-        lastExport = "";
-      }
+      lastExport = textToKeep(committedText);
       destroyed = true;
       contentListeners.clear();
-      interaction.destroy(() => diagram.destroy());
+      interaction.stop();
+      // An import whose listener destroyed the modeler goes on to draw its map, and its Promise then
+      // resolves: the modeler keeps that map (#415). Whatever else runs on after the destroy
+      // reaches no host, so the text read above stays.
+      let imported = false;
+      eventBus.on("import.done", () => {
+        imported = true;
+      });
+      const tearDown = () => {
+        if (imported) lastExport = textToKeep(committedText);
+        diagram.destroy();
+      };
+      if (selections.delivering()) queueMicrotask(tearDown);
+      else interaction.tearDownAfterHandler(tearDown);
     },
   };
+}
+
+function textToKeep(committedText: () => string): string {
+  try {
+    return committedText();
+  } catch {
+    return "";
+  }
 }
 
 function isViewState(state: unknown): state is ViewState {

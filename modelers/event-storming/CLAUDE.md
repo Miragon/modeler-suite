@@ -154,10 +154,14 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   there, then reads the drag once more), through a drop, from `drag.end` until
   `drag.ended` or `drag.canceled` (a drawing's point drop while its command applies), and while a
   step it scheduled holds it (`holdAction`: the append's kind chooser or label editor). A
-  `destroy()` from the selection or the interaction listener while a drag activates, or from the
-  interaction listener as a drawing's point drag starts (`beginGesture`), tears the board down once
-  the handler that started the drag has returned (`tearDownAfterActivation`, #346),
-  and the selection the cancelled drag brings back reaches no host listener. An import
+  `destroy()` from any listener while the handler of the user's input goes on with the board
+  (after a diagram-js drag's init, start, drop, cancel or cleanup, a command, or the start or end
+  of a drawing's point drag) tears the board down once that handler has returned
+  (`tearDownAfterHandler`, #346, #380, #373), one from the selection listener that
+  `elements.reveal` or an import's clear calls once that call has returned (`selectionListeners`,
+  #415), and the selection the cancelled drag brings back reaches no host listener; no delivery
+  calls a listener after `destroy()` or one an earlier listener of it unsubscribed
+  (`destroy-from-listener.browser.test.ts`). An import
   called during an action, from a host's change or selection listener, waits for its end
   (`actionEnded()`), so
   no step of the action, also diagram-js's `SelectionBehavior` after a drop, sees a replaced board
@@ -259,8 +263,9 @@ no command runs, so neither the history nor the `.storm` text changes. The
 renderer's own `createShortcutsDialog`, its types and the `.event-storming-shortcuts*` rules of
 `event-storming.css` are `@deprecated` for designIQ, which still uses them; their removal is due
 in renderer 0.9.0 ([#262](https://github.com/Miragon/modeler-suite/issues/262)). The
-renderer's own palette rules apply only to `.djs-palette:not([data-chrome='palette'])`, so a
-shell-skinned palette wears the shell's look alone. **Renderers never import the shell**: only
+renderer's own palette rules apply only to `.djs-palette:not([data-chrome='palette'])` inside
+`.event-storming-container`, so a shell-skinned palette wears the shell's look alone and another
+diagram-js palette on the page keeps its own. **Renderers never import the shell**: only
 the apps (and `e2e/`) do; `packages/*` reaching `@miragon/modeler-shell` fails ESLint and
 dependency-cruiser. Both pass the shell's fit insets as `freeArea: { insets }` (the modeler-api
 factory option, for keyboard creation from the palette) and connect with

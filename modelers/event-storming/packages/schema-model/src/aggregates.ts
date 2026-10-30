@@ -8,6 +8,7 @@
  * the board every time, never stored, so the schema and the DSL stay unchanged.
  */
 
+import { timelineOrder } from "./layout.js";
 import type { Arrow, BoardElement } from "./types.js";
 import { isPlaceholderLabel, normalizeLabel, type LabelSpelling } from "./vocabulary.js";
 
@@ -52,19 +53,6 @@ export interface AggregateGroup {
   readonly events: readonly NamedStickies[];
   /** Which command leads to which event, once per pair of names, in the order of the lists. */
   readonly pairs: readonly CommandEventPair[];
-}
-
-/**
- * Left to right, then top to bottom, then by id in the runtime's locale. Unlike `sortByTimeline`,
- * whose order reaches a file and so compares ids by code unit, this order only reaches the screen,
- * so two stickies on exactly the same spot may come in another order than there.
- */
-function timelineOrder(first: PlacedSticky, second: PlacedSticky): number {
-  return (
-    first.position.x - second.position.x ||
-    first.position.y - second.position.y ||
-    first.id.localeCompare(second.id)
-  );
 }
 
 interface NameDraft {
@@ -148,9 +136,9 @@ function distinct(named: Iterable<NamedStickies>): NamedStickies[] {
  *   of its own. Its `key` is empty.
  *
  * The groups come in the order their first aggregate stands on the timeline (left to right, then
- * top to bottom, as in `sortByTimeline`; stickies on exactly the same spot by their ids in the
- * runtime's locale), the commands and events of a group likewise, and the sticky ids of every name
- * in timeline order. Arrows to stickies the board does not hold are left out.
+ * top to bottom, then by id: the order of `sortByTimeline`), the commands and events of a group
+ * likewise, and the sticky ids of every name in timeline order. Arrows to stickies the board does
+ * not hold are left out.
  */
 export function groupByAggregate(board: AggregateBoard): AggregateGroup[] {
   const stickies = new Map<string, PlacedSticky>();

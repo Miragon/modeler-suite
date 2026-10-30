@@ -94,8 +94,8 @@ the drawing, and an undo, a redo or any other command before the release ends th
 commit, as Escape does, so the release never writes the drawing back over what the command did.
 To keep the keys away from a canvas it
 hides without destroying it, a host makes it `inert` (or `display: none`): the browser then moves
-the focus off the `<svg>` at its next rendering update, and a key whose target lies inside an
-`inert` subtree stays the page's before then too. Cmd/Ctrl+A selects the whole board. An
+the focus off the `<svg>` at its next rendering update, and a key that reaches the `<svg>` before
+then stays the page's too. Cmd/Ctrl+A selects the whole board. An
 import erases the undo history without firing `commandStack.changed`, and fires
 `import.parse.start`, `import.render.start` and `import.done` in that order. It frames the content
 centred at the largest zoom that shows all of it, never above 100%; an empty board shows at 100%. A
@@ -331,7 +331,17 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
   drawing's point drag starts, throws nothing: the board is torn down once the code that started
   the drag has returned, and no listener of the host hears anything
   after `destroy()`, also not the selection the cancelled drag brings back
-  ([#346](https://github.com/Miragon/modeler-suite/issues/346)).
+  ([#346](https://github.com/Miragon/modeler-suite/issues/346)). The same holds for a `destroy()`
+  from any listener at a drop or at Escape, a drawing's point drag included, at a create from the
+  palette or the keyboard and at a paste placed with a click: the board is torn down once the
+  handler of that input has returned. No delivery calls a listener that an earlier listener of the
+  same delivery unsubscribed ([#380](https://github.com/Miragon/modeler-suite/issues/380),
+  [#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a
+  listener that a host's own call reaches: the selection listener of `elements.reveal`, or the
+  interaction and selection listeners of an import, which ends a held gesture and empties the
+  selection as it clears the canvas. The board is torn down once that call has returned, and the
+  import still resolves, with the imported board as `exportText()`
+  ([#415](https://github.com/Miragon/modeler-suite/issues/415)).
 
 #### Migrating a host
 

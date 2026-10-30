@@ -37,9 +37,9 @@ export function trackInteraction(
     if (stopped || now === reported) return;
     reported = now;
     for (const listener of [...listeners]) {
-      // An earlier listener may have destroyed the modeler during the same delivery.
-      if (stopped) return;
-      deliver(listener, now);
+      // An earlier listener may have destroyed the modeler, which drops every listener, or
+      // unsubscribed this one during the same delivery.
+      if (listeners.has(listener)) deliver(listener, now);
     }
   };
 

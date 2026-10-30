@@ -186,6 +186,39 @@ for (const hide of ["display: none", "inert", "nothing"] as const) {
   });
 }
 
+for (const hide of ["inert", "display: none"] as const) {
+  test(`a key that reaches the canvas before the browser moves the focus off it passes, once the host set ${hide} on its container`, () => {
+    const { modeler, container, svg } = mount();
+    try {
+      modeler.get<{ setTitle(title: string): void }>("ttModeling").setTitle("Renamed");
+      select(modeler, "team_a");
+      svg.focus();
+      if (hide === "inert") container.inert = true;
+      else container.style.display = "none";
+      expect(document.activeElement).toBe(svg);
+
+      for (const init of [
+        { key: "Backspace" },
+        { key: "Delete" },
+        { key: "ArrowLeft" },
+        { key: "Escape" },
+        { key: "z", ctrlKey: true },
+        { key: "a", metaKey: true },
+        { key: "c", ctrlKey: true },
+        { key: "v", ctrlKey: true },
+      ]) {
+        expect(press(svg, init).defaultPrevented, init.key).toBe(false);
+      }
+      expect(exists(modeler, "team_a")).toBe(true);
+      expect(modeler.exportDocument().title).toBe("Renamed");
+      expect(modeler.exportDocument().nodes).toHaveLength(2);
+      expect(selectedCount(modeler)).toBe(1);
+    } finally {
+      modeler.destroy();
+    }
+  });
+}
+
 test("an editor inside the canvas container keeps its keys", () => {
   const { modeler, container } = mount();
   try {

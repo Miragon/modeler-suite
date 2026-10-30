@@ -11,6 +11,12 @@ import {
   type NamedStickies,
   type PlacedSticky,
 } from "../src/index.js";
+import {
+  CODE_POINT_ORDER,
+  LOCALES,
+  SHUFFLED_IDS,
+  withDefaultLocale,
+} from "./support/default-locale.js";
 
 function sticky(
   id: string,
@@ -511,6 +517,24 @@ describe("groupByAggregate", () => {
     expect(groupByAggregateLabels(groups)).toEqual(["Payments", "Order", "Stock"]);
     expect(groups[0]!.aggregate.elementIds).toEqual(["payment_early", "payment"]);
   });
+
+  it.each(LOCALES)(
+    "orders stickies on the same spot by the code points of their ids, as sortByTimeline does, also on a machine whose default locale is %s",
+    (locale) => {
+      const nameOf = (id: string): string => `Stock ${SHUFFLED_IDS.indexOf(id)}`;
+      const apart = SHUFFLED_IDS.map((id) => sticky(id, "aggregate", nameOf(id), 200, 120));
+      const alike = SHUFFLED_IDS.map((id) => sticky(id, "aggregate", "Order", 200, 120));
+
+      withDefaultLocale(locale, () => {
+        expect(groupByAggregateLabels(groupByAggregate({ elements: apart, edges: [] }))).toEqual(
+          CODE_POINT_ORDER.map(nameOf),
+        );
+        expect(only(groupByAggregate({ elements: alike, edges: [] })).aggregate.elementIds).toEqual(
+          CODE_POINT_ORDER,
+        );
+      });
+    },
+  );
 
   it("gives the same groups whatever order the board lists its elements and arrows in", () => {
     const shuffled = {

@@ -6,7 +6,7 @@ function rounded(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(rounded);
   if (value && typeof value === "object") {
     const entries = Object.entries(value).filter(([, entry]) => entry !== undefined);
-    entries.sort(([a], [b]) => a.localeCompare(b));
+    entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
     return Object.fromEntries(entries.map(([key, entry]) => [key, rounded(entry)]));
   }
   return value;
