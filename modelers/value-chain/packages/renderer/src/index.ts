@@ -77,7 +77,12 @@ export {
   VcEditorActions,
   type VcKeyboardConfig,
 } from "./keyboard/index.js";
-export { vcReadOnlyModule, VcReadOnly, READ_ONLY_CHANGED_EVENT } from "./read-only/index.js";
+export {
+  vcReadOnlyModule,
+  VcReadOnly,
+  READ_ONLY_CHANGED_EVENT,
+  type VcReadOnlyOptions,
+} from "./read-only/index.js";
 export { vcOrderingModule, VcOrderingProvider } from "./ordering/index.js";
 export { vcCopyPasteModule, VcCopyPasteBehavior } from "./copy-paste/index.js";
 export { vcResizeModule, VcResizeBehavior } from "./resize/index.js";

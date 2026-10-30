@@ -2,6 +2,8 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Palette from "diagram-js/lib/features/palette/Palette";
 import { isKeyOnHiddenTarget } from "../keyboard/VcCanvasKeys.js";
+import { READ_ONLY_CHANGED_EVENT } from "../read-only/VcReadOnly.js";
+import { LOCKED_ENTRIES } from "./VcPaletteProvider.js";
 
 const TOOLBAR_LABEL = "Tools";
 const TOOLS_GROUP = "tools";
@@ -19,13 +21,19 @@ interface OptionalInjector {
   get(name: string, strict?: boolean): unknown;
 }
 
+interface EditLock {
+  isReadOnlyShown(): boolean;
+}
+
 /**
  * The palette as a toolbar (guide §5.5) for a host that mounts the renderer without a chrome that
  * skins it: `role="toolbar"` named "Tools", one tab stop that roves with ← → Home End, Enter or
  * Space as a click without a pointer (a creating entry then places its element in the free area,
  * `VcPaletteProvider`), `aria-pressed` on the tools, `aria-keyshortcuts` on the entries with a key,
- * and the palette ahead of the canvas in the tab order (guide §5.14). The Miragon modeler shell
- * brings all of this itself, and a palette any chrome skins (`data-chrome="palette"`) is left to it.
+ * `aria-disabled` on the entries the edit lock refuses while its marks show (guide §13.5, at once
+ * or after the lock's `delayMs`), and the palette ahead of the canvas in the tab order (guide
+ * §5.14). The Miragon modeler shell brings all of this itself, and a palette any
+ * chrome skins (`data-chrome="palette"`) is left to it.
  */
 export default class VcPaletteToolbar {
   static $inject = ["eventBus", "palette", "canvas", "injector"];
@@ -33,6 +41,7 @@ export default class VcPaletteToolbar {
   private container: HTMLElement | undefined;
   private activeTool: string | null = null;
   private rovingAction: string | undefined;
+  private readonly editLock: EditLock | undefined;
 
   constructor(
     eventBus: EventBus,
@@ -42,6 +51,7 @@ export default class VcPaletteToolbar {
   ) {
     // The shell's palette skin adds the same keys; a second handler would create every element twice.
     if (injector.get("modelerShell", false)) return;
+    this.editLock = (injector.get("vcReadOnly", false) as EditLock | null) ?? undefined;
     eventBus.on("palette.create", (event: { container: HTMLElement }) =>
       this.attach(event.container),
     );
@@ -50,6 +60,7 @@ export default class VcPaletteToolbar {
       this.activeTool = event.tool ?? null;
       this.apply();
     });
+    eventBus.on(READ_ONLY_CHANGED_EVENT, () => this.apply());
   }
 
   // diagram-js builds the entries after `palette.create`, and a chrome marks the palette in its own
@@ -88,6 +99,7 @@ export default class VcPaletteToolbar {
     toolbar?.setAttribute("aria-label", TOOLBAR_LABEL);
     const definitions = this.palette.getEntries() as Record<string, PaletteEntryLike | undefined>;
     const entries = this.entryElements();
+    const locked = this.editLock?.isReadOnlyShown() === true;
     for (const entry of entries) {
       const action = actionOf(entry);
       if (!entry.hasAttribute("role")) entry.setAttribute("role", "button");
@@ -98,6 +110,10 @@ export default class VcPaletteToolbar {
       if (isTool(entry, action)) {
         const tool = action.slice(0, -TOOL_ACTION_SUFFIX.length);
         entry.setAttribute("aria-pressed", String(tool === this.activeTool));
+      }
+      if (action !== undefined && LOCKED_ENTRIES.has(action)) {
+        if (locked) entry.setAttribute("aria-disabled", "true");
+        else entry.removeAttribute("aria-disabled");
       }
     }
     this.applyTabStops(entries);
