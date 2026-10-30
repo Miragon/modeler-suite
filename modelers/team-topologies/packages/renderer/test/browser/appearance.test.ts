@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, test } from "vitest";
+import { userEvent } from "vitest/browser";
 import type { AppearanceRequest } from "@miragon/modeler-api";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
+import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Root, Shape } from "diagram-js/lib/model/Types";
 import {
   TEAM_TOPOLOGIES_THEMES,
@@ -337,6 +340,99 @@ describe("the colours a request draws", () => {
 
     pageMode("light", "hoch");
     expect(computedColours(host)).toEqual(high);
+  });
+});
+
+describe("the chrome's high-contrast rules follow the nearest mode carrier (#401, guide §13.3)", () => {
+  /** What `box-shadow: value` computes to inside `container`, where the roles are the container's. */
+  function shadowIn(container: HTMLElement, value: string): string {
+    const probe = document.createElement("div");
+    probe.style.boxShadow = value;
+    container.append(probe);
+    const shadow = getComputedStyle(probe).boxShadow;
+    probe.remove();
+    return shadow;
+  }
+
+  async function focusFromKeyboard(element: HTMLElement): Promise<void> {
+    element.tabIndex = 0;
+    element.focus();
+    await userEvent.keyboard("{Shift}");
+    expect(element.matches(":focus-visible")).toBe(true);
+  }
+
+  /** The shadows of the palette and the context pad, and the rings of what takes the focus. */
+  async function chromeLook(diagram: Modeler): Promise<Record<string, string>> {
+    const container = diagram.container;
+    const team = diagram.get<ElementRegistry>("elementRegistry").get("team_checkout")!;
+    diagram.get<Selection>("selection").select(team);
+    const pad = container.querySelector<HTMLElement>(".djs-context-pad .group")!;
+    const padEntry = pad.querySelector<HTMLElement>(".entry")!;
+    await focusFromKeyboard(padEntry);
+    const padRing = getComputedStyle(padEntry).outlineWidth;
+    const paletteEntry = container.querySelector<HTMLElement>(
+      '.djs-palette [data-action="team.platform"]',
+    )!;
+    await focusFromKeyboard(paletteEntry);
+    const paletteRing = getComputedStyle(paletteEntry).outlineWidth;
+    diagram.get<TtLabelEditing>("ttLabelEditing").activate(team as unknown as TtElement);
+    const editor = container.querySelector<HTMLElement>("textarea.tt-label-editor")!;
+    expect(document.activeElement).toBe(editor);
+
+    return {
+      paletteShadow: getComputedStyle(container.querySelector(".djs-palette")!).boxShadow,
+      contextPadShadow: getComputedStyle(pad).boxShadow,
+      paletteRing,
+      contextPadRing: padRing,
+      labelEditorRing: getComputedStyle(editor).outlineWidth,
+    };
+  }
+
+  function normalLook(container: HTMLElement): Record<string, string> {
+    return {
+      paletteShadow: shadowIn(container, "var(--cd-shadow-1)"),
+      contextPadShadow: shadowIn(container, "var(--cd-shadow-2)"),
+      paletteRing: "2px",
+      contextPadRing: "2px",
+      labelEditorRing: "2px",
+    };
+  }
+
+  const HIGH_CONTRAST_LOOK = {
+    paletteShadow: "none",
+    contextPadShadow: "none",
+    paletteRing: "3px",
+    contextPadRing: "3px",
+    labelEditorRing: "3px",
+  };
+
+  test("keep the shadows and the 2px rings under a normal-contrast carrier on a high-contrast page", async () => {
+    pageMode("light", "hoch");
+    const { modeler, host, diagram } = mount();
+    host.dataset.cdTheme = "light";
+    await modeler.importText(onlineShop);
+
+    expect(diagram.container.dataset.cdTheme).toBeUndefined();
+    expect(await chromeLook(diagram)).toEqual(normalLook(diagram.container));
+  });
+
+  test("drop the shadows and widen the rings for a request of high contrast inside a normal-contrast carrier", async () => {
+    const { modeler, host, diagram } = mount();
+    host.dataset.cdTheme = "light";
+    modeler.appearance.set({ theme: "light", contrast: "high" });
+    await modeler.importText(onlineShop);
+
+    expect(await chromeLook(diagram)).toEqual(HIGH_CONTRAST_LOOK);
+  });
+
+  test("drop the shadows and widen the rings under a high-contrast carrier nearer than the page", async () => {
+    pageMode("light");
+    const { modeler, host, diagram } = mount();
+    host.dataset.cdTheme = "light";
+    host.dataset.cdKontrast = "hoch";
+    await modeler.importText(onlineShop);
+
+    expect(await chromeLook(diagram)).toEqual(HIGH_CONTRAST_LOOK);
   });
 });
 

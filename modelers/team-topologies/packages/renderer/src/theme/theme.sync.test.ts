@@ -87,13 +87,60 @@ function withoutComments(source: string): string {
 }
 
 /**
- * Every selector of every rule (the text in front of a `{`, split at the commas), on one line as
- * Prettier may break a long one.
+ * Every selector of every rule (the text in front of a `{`, split at the commas outside
+ * parentheses), on one line as Prettier may break a long one.
  */
 function ruleSelectors(source: string): string[] {
-  return [...withoutComments(source).matchAll(/([^{};]+)\{/g)].flatMap((match) =>
-    match[1]!.split(",").map((selector) => selector.trim().replace(/\s+/g, " ")),
-  );
+  return [...withoutComments(source).matchAll(/([^{};]+)\{/g)].flatMap((match) => {
+    const selectors: string[] = [];
+    let depth = 0;
+    let current = "";
+    for (const character of match[1]!) {
+      if (character === "(") depth++;
+      if (character === ")") depth--;
+      if (character === "," && depth === 0) {
+        selectors.push(current);
+        current = "";
+      } else {
+        current += character;
+      }
+    }
+    selectors.push(current);
+    return selectors.map((selector) => selector.trim().replace(/\s+/g, " "));
+  });
+}
+
+/** The one prelude of guide §13.3: high contrast after the nearest mode carrier. */
+const HIGH_CONTRAST_SCOPE =
+  '@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"]))';
+
+/**
+ * The CSS without comments and on one line, split into the rules inside its `HIGH_CONTRAST_SCOPE`
+ * blocks and everything else.
+ */
+function highContrastScopes(source: string): { inside: string; outside: string; count: number } {
+  let rest = withoutComments(source).replace(/\s+/g, " ");
+  let inside = "";
+  let outside = "";
+  let count = 0;
+  let start = rest.indexOf(HIGH_CONTRAST_SCOPE);
+  while (start !== -1) {
+    const open = rest.indexOf("{", start);
+    expect(rest.slice(start + HIGH_CONTRAST_SCOPE.length, open).trim()).toBe("");
+    let depth = 1;
+    let end = open + 1;
+    for (; depth > 0 && end < rest.length; end++) {
+      if (rest[end] === "{") depth++;
+      if (rest[end] === "}") depth--;
+    }
+    expect(depth).toBe(0);
+    outside += rest.slice(0, start);
+    inside += `${rest.slice(open + 1, end - 1)} `;
+    rest = rest.slice(end);
+    count++;
+    start = rest.indexOf(HIGH_CONTRAST_SCOPE);
+  }
+  return { inside, outside: outside + rest, count };
 }
 
 /**
@@ -299,15 +346,30 @@ describe("theme.sync — team-topologies.css takes every colour from the roles",
 
   it("keeps every own palette rule inside its container, its layout at the specificity hosts override, and off a palette the host chrome skins", () => {
     const zIndexRule = '.tt-djs-container .djs-palette:not([data-chrome="palette"])';
-    const paletteSelectors = ruleSelectors(rendererCss).filter(
-      (selector) => /\.djs-palette(?![\w-])/.test(selector) && selector !== zIndexRule,
-    );
-    expect(paletteSelectors.length).toBeGreaterThan(5);
-    for (const selector of paletteSelectors) {
+    const isPaletteSelector = (selector: string): boolean =>
+      /\.djs-palette(?![\w-])/.test(selector) && selector !== zIndexRule;
+    const { inside, outside } = highContrastScopes(rendererCss);
+    const baseSelectors = ruleSelectors(outside).filter(isPaletteSelector);
+    const highContrastSelectors = ruleSelectors(inside).filter(isPaletteSelector);
+    expect(baseSelectors.length).toBeGreaterThan(5);
+    expect(highContrastSelectors.length).toBeGreaterThanOrEqual(4);
+    for (const selector of baseSelectors) {
       expect(selector).toMatch(
-        /^(:where\(\.tt-djs-container\)|\.tt-djs-container\[data-cd-kontrast="hoch"\]|\[data-cd-kontrast="hoch"\] \.tt-djs-container:not\(\[data-cd-theme\]\)) \.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
+        /^:where\(\.tt-djs-container\) \.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
       );
     }
+    for (const selector of highContrastSelectors) {
+      expect(selector).toMatch(
+        /^:where\(:scope\.tt-djs-container, :scope \.tt-djs-container\) \.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
+      );
+    }
+  });
+
+  it("reads high contrast only from the nearest mode carrier, in its @scope blocks (guide §13.3)", () => {
+    const { outside, count } = highContrastScopes(rendererCss);
+    expect(count).toBeGreaterThanOrEqual(3);
+    expect(outside).not.toContain("data-cd-kontrast");
+    expect(outside).not.toContain(":scope");
   });
 
   it("keeps its own overlays inside the canvas at z-index 100 or below (guide §5.13)", () => {

@@ -236,9 +236,28 @@
   :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"])::-webkit-scrollbar {
     display: none;
   }
-  /* The scrolling palette clips anything beyond its 3px padding. */
+  /* The scrolling palette clips anything beyond its 3px padding, so the focus ring lies inside: 2px
+     within the entry, 1px within the armed tool's ring (guide §5.5, §5.14), and the 3px ring of
+     high contrast 1px deeper. */
   :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
     outline-offset: -2px;
+  }
+  :where(.tt-djs-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry.highlighted-entry:focus-visible {
+    outline-offset: -5px;
+  }
+  @scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+    :where(:scope.tt-djs-container, :scope .tt-djs-container)
+      .djs-palette:not([data-chrome="palette"])
+      .entry:focus-visible {
+      outline-offset: -3px;
+    }
+    :where(:scope.tt-djs-container, :scope .tt-djs-container)
+      .djs-palette:not([data-chrome="palette"])
+      .entry.highlighted-entry:focus-visible {
+      outline-offset: -6px;
+    }
   }
 }
 
@@ -333,26 +352,51 @@
   visibility: hidden;
 }
 
-/* --- High contrast (guide §6, §5.14) -------------------------------------------- */
-/* The contrast of the nearest mode carrier, as for the roles: the renderer's own root once a host
-   set its appearance (contract 1.5), the page around it otherwise. So a request for normal
-   contrast holds on a high-contrast page. */
-.tt-djs-container[data-cd-kontrast="hoch"] .djs-context-pad .group,
-.tt-djs-container[data-cd-kontrast="hoch"] .djs-palette:not([data-chrome="palette"]),
-[data-cd-kontrast="hoch"] .tt-djs-container:not([data-cd-theme]) .djs-context-pad .group,
-[data-cd-kontrast="hoch"]
-  .tt-djs-container:not([data-cd-theme])
-  .djs-palette:not([data-chrome="palette"]) {
-  box-shadow: none;
+/* --- High contrast (guide §5.3, §6, §5.14) ----------------------------------------- */
+/* No shadows and a 3px focus ring. High contrast follows the nearest mode carrier, as the roles do
+   (guide §13.3): the renderer's own root once a host set its appearance (contract 1.5), else the
+   nearest ancestor that carries a mode. So a request for normal contrast holds on a high-contrast
+   page, where a selector over any ancestor would reach through that carrier.
+   The palette's rules keep the container in `:where()`, as its base rules do, so a host's own rule
+   on the palette wins in high contrast too; the scope, nearer than none, still puts them over the
+   base rules of equal specificity. */
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  :is(:scope.tt-djs-container, :scope .tt-djs-container) .djs-context-pad .group,
+  :is(:scope.tt-djs-container, :scope .tt-djs-container) .djs-hover-tooltip,
+  :where(:scope.tt-djs-container, :scope .tt-djs-container)
+    .djs-palette:not([data-chrome="palette"]) {
+    box-shadow: none;
+  }
+  :is(:scope.tt-djs-container, :scope .tt-djs-container) .djs-context-pad .entry:focus-visible,
+  :where(:scope.tt-djs-container, :scope .tt-djs-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry:focus-visible,
+  :is(:scope.tt-djs-container, :scope .tt-djs-container) .tt-label-editor:focus {
+    outline-width: 3px;
+  }
 }
-.tt-djs-container[data-cd-kontrast="hoch"] .djs-context-pad .entry:focus-visible,
-.tt-djs-container[data-cd-kontrast="hoch"] .tt-label-editor:focus,
-[data-cd-kontrast="hoch"]
-  .tt-djs-container:not([data-cd-theme])
-  .djs-context-pad
-  .entry:focus-visible,
-[data-cd-kontrast="hoch"] .tt-djs-container:not([data-cd-theme]) .tt-label-editor:focus {
-  outline-width: 3px;
+
+/* --- Forced colours (guide §5.14) ------------------------------------------------- */
+/* They drop shadows and backgrounds: the palette's edge, its separators, the focus and the armed
+   tool's ring stay, in system colours. The !important answers diagram-js's colour of the
+   highlighted entry. */
+@media (forced-colors: active) {
+  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) {
+    border-color: CanvasText;
+  }
+  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .group + .group::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
+    outline-color: Highlight;
+  }
+  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry {
+    forced-color-adjust: none;
+    background: Canvas;
+    color: CanvasText !important;
+    box-shadow: inset 0 0 0 2px Highlight;
+  }
 }
 
 /* --- Reduced motion -------------------------------------------------------- */
@@ -730,23 +774,26 @@
   margin-left: 6px;
 }
 
-/* High contrast (guide §6, §8): no shadow but a contour edge and a 3px ring; forced colours draw
-   the edge in CanvasText and the ring in Highlight. The shell applies these only to its own
-   classes, so the modeler's dialogs repeat them. */
-[data-cd-kontrast="hoch"] .tt-dialog {
-  border-color: var(--cd-ui-kontur);
-  box-shadow: none;
-}
+/* High contrast (guide §6, §8): no shadow but a contour edge and a 3px ring, after the nearest mode
+   carrier as on the canvas (guide §13.3); forced colours draw the edge in CanvasText and the ring
+   in Highlight. The shell applies these only to its own classes, so the modeler's dialogs repeat
+   them. */
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  :scope .tt-dialog {
+    border-color: var(--cd-ui-kontur);
+    box-shadow: none;
+  }
 
-[data-cd-kontrast="hoch"] .tt-dialog__button {
-  box-shadow: none;
-}
+  :scope .tt-dialog__button {
+    box-shadow: none;
+  }
 
-:where([data-cd-kontrast="hoch"])
-  :where(.tt-dialog)
-  :where(button, a[href], summary, [role="button"], [tabindex], input):focus-visible,
-[data-cd-kontrast="hoch"] .tt-dialog__input:focus {
-  outline-width: 3px;
+  :where(:scope)
+    :where(.tt-dialog)
+    :where(button, a[href], summary, [role="button"], [tabindex], input):focus-visible,
+  :scope .tt-dialog__input:focus {
+    outline-width: 3px;
+  }
 }
 
 @media (forced-colors: active) {

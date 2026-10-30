@@ -448,6 +448,81 @@ describe("createTitleDialog", () => {
     expect(new DOMMatrixReadOnly(getComputedStyle(apply).transform).f).toBe(-1);
   });
 
+  describe("in high contrast, which is the nearest mode carrier's (#401, guide §13.3)", () => {
+    /** The panel's edge and shadow, and the rings of the field and of a button. */
+    async function dialogLook(root: HTMLElement): Promise<Record<string, string>> {
+      createTitleDialog({ ...chrome(), root }, titleOf("Payments")).open();
+      const { dialog, field, cancel } = parts(root);
+      const panel = getComputedStyle(dialog);
+      const look = {
+        border: panel.borderTopColor,
+        shadow: panel.boxShadow,
+        fieldRing: getComputedStyle(field).outlineWidth,
+      };
+      cancel.focus();
+      await userEvent.keyboard("{Shift}");
+      expect(cancel.matches(":focus-visible")).toBe(true);
+      return { ...look, buttonRing: getComputedStyle(cancel).outlineWidth };
+    }
+
+    function rootIn(carrier: HTMLElement): HTMLElement {
+      const root = document.createElement("div");
+      carrier.append(root);
+      document.body.append(carrier);
+      cleanups.push(() => carrier.remove());
+      return root;
+    }
+
+    function pageMode(contrast?: "hoch"): void {
+      const page = document.documentElement;
+      page.dataset.cdTheme = "light";
+      if (contrast) page.dataset.cdKontrast = contrast;
+      cleanups.push(() => {
+        delete page.dataset.cdTheme;
+        delete page.dataset.cdKontrast;
+      });
+    }
+
+    /** What `property: value` computes to inside `element`, where the roles are its own. */
+    function resolvedIn(element: HTMLElement, property: string, value: string): string {
+      const probe = document.createElement("span");
+      probe.style.setProperty(property, value);
+      element.append(probe);
+      const computed = getComputedStyle(probe).getPropertyValue(property);
+      probe.remove();
+      return computed;
+    }
+
+    test("keeps the shadow, the edge and the 2px rings under a normal-contrast carrier on a high-contrast page", async () => {
+      pageMode("hoch");
+      const carrier = document.createElement("section");
+      carrier.dataset.cdTheme = "light";
+      const root = rootIn(carrier);
+
+      expect(await dialogLook(root)).toEqual({
+        border: resolvedIn(root, "color", "var(--cd-ui-linie)"),
+        shadow: resolvedIn(root, "box-shadow", "var(--cd-shadow-3)"),
+        fieldRing: "2px",
+        buttonRing: "2px",
+      });
+    });
+
+    test("drops the shadow, draws the contour edge and widens the rings under a high-contrast carrier", async () => {
+      pageMode();
+      const carrier = document.createElement("section");
+      carrier.dataset.cdTheme = "light";
+      carrier.dataset.cdKontrast = "hoch";
+      const root = rootIn(carrier);
+
+      expect(await dialogLook(root)).toEqual({
+        border: resolvedIn(root, "color", "var(--cd-ui-kontur)"),
+        shadow: "none",
+        fieldRing: "3px",
+        buttonRing: "3px",
+      });
+    });
+  });
+
   test("renames a modeler's diagram as one undo step through ttModeling", async () => {
     const container = document.createElement("div");
     container.style.cssText = "width:900px;height:640px";
