@@ -72,6 +72,13 @@ describe("the conforming reference modeler", () => {
     expect(await failingCases(harness({ enrichedViewStateReadback: true }))).toEqual([]);
   });
 
+  test("waiting imports run by a microtask queued when the action starts (as Value Chain does) are NOT a violation: nothing fails, skips or advises", async () => {
+    const h = harness({ flushQueuedAtTheActionsStart: true });
+    expect(await failingCases(h)).toEqual([]);
+    expect(await advisories(h)).toEqual([]);
+    expect((await skippedCases(h)).skipped).toEqual([]);
+  });
+
   test("the conforming reference advises nothing", async () => {
     expect(await advisories(harness())).toEqual([]);
   });
@@ -389,6 +396,7 @@ describe("the conforming reference modeler", () => {
       expect(held?.skipped, name).toMatch(
         /^canonicalTexts holds one text — .* of a DIFFERENT document/,
       );
+      expect(held?.advisories, name).toBeUndefined();
     }
     // the 1.5 and 1.6 harness fields, one at a time: each skips exactly the cases (or halves) that read it
     const skippedWithout = async (overrides: Partial<ConformanceHarness>) =>
@@ -1001,10 +1009,18 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   );
   test("an import called after the action that overtakes one still waiting for it → an advisory from the user-action case", async () => {
     const advice = await expectAdvisoryOnly({ waitingImportsOvertaken: true }, CASE.userAction);
-    expect(advice).toMatch(/settled in the order \["the document from before","the echo"\]/);
+    expect(advice).toMatch(/settled in the order \["the echo","the document from before"\]/);
     expect(advice).toMatch(
-      /did not keep their call order: the echo, called first, replaced the document called second/,
+      /did not keep their call order: once both had settled, exportText\(\) returned the document called first/,
     );
+  });
+  test("an import called after the action that overtakes one still waiting for a flush queued when the action started → an advisory from the user-action case: the second import is called before that flush runs", async () => {
+    const advice = await expectAdvisoryOnly(
+      { waitingImportsOvertaken: true, flushQueuedAtTheActionsStart: true },
+      CASE.userAction,
+    );
+    expect(advice).toMatch(/settled in the order \["the echo","the document from before"\]/);
+    expect(advice).toMatch(/did not keep their call order/);
   });
   test("an import that runs only during a delete at once → nothing without a DOM: the delete presses a key on the canvas", async () => {
     const h = harness({ importDuringDeleteRunsAtOnce: true });

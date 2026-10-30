@@ -281,6 +281,10 @@ export interface Flaws {
   /** NOT a law violation, a missed recommendation: an import called once the user's action has
    *  returned runs at once, ahead of an earlier one that still waits for that action */
   waitingImportsOvertaken?: boolean;
+  /** NOT a flaw, a choice the kit must accept (Value Chain's): the microtask that runs the waiting
+   *  imports is queued when the action starts, so it runs ahead of every microtask a listener
+   *  queues during the action */
+  flushQueuedAtTheActionsStart?: boolean;
   /** NOT a law violation, a missed recommendation: an import called while a drag activates runs at
    *  once, and its cancel takes the drag away under the activation, which then throws (diagram-js's
    *  Dragging.move reads the drag again after the selection listeners) */
@@ -497,15 +501,19 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     while (actionDepth === 0 && waitingImports.length > 0) waitingImports.shift()?.();
   };
   /** like the renderers, the imports run in the microtask after the action, once its code returned */
-  const queueWaitingImports = (): void => {
-    if (flushQueued || waitingImports.length === 0) return;
+  const queueTheFlush = (): void => {
+    if (flushQueued) return;
     flushQueued = true;
     queueMicrotask(() => {
       flushQueued = false;
       runWaitingImports();
     });
   };
+  const queueWaitingImports = (): void => {
+    if (waitingImports.length > 0) queueTheFlush();
+  };
   const asUserAction = <T>(work: () => T): T => {
+    if (actionDepth === 0 && flaws.flushQueuedAtTheActionsStart) queueTheFlush();
     actionDepth += 1;
     try {
       return work();

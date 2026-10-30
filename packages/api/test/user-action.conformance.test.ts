@@ -35,6 +35,14 @@ describe("the user-action case in a DOM", () => {
     await expect(runUserActionCase()).resolves.toEqual({});
   });
 
+  test("a second canonical text that is what the delete and the redo leave → nothing fails, skips or advises: an action that leaves the imported document is no import inside it", async () => {
+    const leftByTheDelete = mounted(
+      {},
+      { canonicalTexts: ["alpha\nbeta\ngamma\n", "beta\ngamma\n", "title: Tea\nalpha\n"] },
+    );
+    await expect(runUserActionCase(leftByTheDelete)).resolves.toEqual({});
+  });
+
   test("an import that runs at once only during a delete → an advisory from the user-action case, naming the delete", async () => {
     const advice = await expectUserActionAdvisory({ importDuringDeleteRunsAtOnce: true });
     expect(advice).toMatch(

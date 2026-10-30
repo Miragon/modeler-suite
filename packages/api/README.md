@@ -641,22 +641,28 @@ The cases:
   each `elements.onSelection` imports `canonicalTexts[1]` on its first
   delivery, in the middle of the command: a delete (on `canonicalTexts[0]`,
   the first listed element revealed, Delete on the focused canvas, Backspace
-  where Delete does nothing), an undo (`mutate`'s new element revealed and the
-  create undone) and a redo (the delete of the first element undone, the
-  element revealed again and the delete redone). The advisory: the action and
-  its handlers throw nothing (the window's `error` and `unhandledrejection`
-  events too), `exportText()` right after the action has returned is not the
-  imported document yet (the import did not run inside the action), the import
-  resolves, and when its Promise settles `exportText()` returns the imported
-  document; afterwards no step of the action changes it, no change event
-  fires, an undo changes nothing (L4), and the next `mutate` applies and an
-  undo takes it back. Last, the call order: the change listener of `mutate`
-  imports an echo of the command's document, and a microtask later, once the
-  command has returned and while the echo may still wait, the case imports the
-  document from before the command. Both settle in the order they were called,
-  and the export is the document called second. A click append, a keyboard
-  create and a label commit stay with the renderers' own tests: the kit has no
-  harness field to drive them.
+  where Delete does nothing; a delete without the listener comes first, and a
+  fresh import of `canonicalTexts[0]` with the element revealed again), an
+  undo (`mutate`'s new element revealed and the create undone) and a redo (the
+  delete of the first element undone, the element revealed again and the
+  delete redone). The advisory: the action and its handlers throw nothing (the
+  window's `error` and `unhandledrejection` events too), `exportText()` right
+  after the `importText` call in the listener is still the action's document,
+  and right after the action has returned it is not the imported document yet,
+  where the action alone leaves another document (the import did not run
+  inside the action); the import resolves, and when its Promise settles
+  `exportText()` returns the imported document; afterwards no step of the
+  action changes it, no change event fires, an undo changes nothing (L4), and
+  the next `mutate` applies and an undo takes it back. Last, the call order:
+  the change listener of `mutate` imports the document from before the
+  command, and as soon as `mutate` has returned (a microtask after that
+  listener, where `mutate` returns before its command has run) the case
+  imports an echo of the command's document, which it read in the listener.
+  The export then tells that the first import still waits. Both settle in the
+  order they were called, and the export is not the document called first. A
+  click append and a keyboard create stay with the renderers' own tests: the
+  kit has no harness field to drive them. A label commit, which
+  `openInteraction` and `commitInteraction` drive, stays there too for now.
 - **The drag-start case** (RECOMMENDED since 1.6, an advisory): an import from
   the selection listener at a drag's start runs once the drag has started, and
   then ends it ([#336](https://github.com/Miragon/modeler-suite/issues/336)).
@@ -746,10 +752,17 @@ redo of the user-action case (the node suite of the kit's own CI). The
 user-action case also skips its legs from the selection listener for a modeler
 without `elements` (the call order still runs), its undo and its redo without
 `undo`, and its redo without `redo`; it reports a skip when it cannot find or
-focus the canvas (as the keys case does), when Delete and Backspace leave the
-revealed element in place, and when the selection listener hears nothing
-during an action. The drag-start case skips for a modeler without `elements`
-and when the selection listener hears nothing at the start. Each case has its
+focus the canvas (as the keys case does), when `elements.list()` reports no
+element of `canonicalTexts[0]`, when Delete and Backspace leave the revealed
+element in place, when the selection listener hears nothing during an action,
+for its undo when `mutate` adds no element that `reveal()` selects, and for
+its redo when an undo of the delete does not bring the element back for
+`reveal()`. Its call order reports a skip when no change event of `mutate`
+comes with an export other than the document from before, and when the first
+import has already run once the second is called. The drag-start case skips
+for a modeler without `elements`, when `reveal()` selects no element of
+`canonicalTexts[0]`, and when the selection listener hears nothing at the
+start. Each case has its
 saboteurs, the appearance case among them a `set` that does nothing and leaves
 the roles to the page.
 
@@ -833,12 +846,15 @@ Recommendations today, proposed as hard laws for the next major:
   L1 gesture case). The `interaction` surface stays optional.
 - **An import waits for the user's running action:** an `importText` called
   during a running user action (a drop, the start of a drag, a click append, a
-  keyboard create, a label commit, a command with an undo or a redo, with the
-  steps it schedules; from `onContentChanged` or `elements.onSelection`) runs
-  once the action has finished, so no later step of the action meets the
-  replaced document; its Promise settles after that import, and imports run in
-  call order (today: L1 RECOMMENDED since 1.6, advisory in the drop, user-action
-  and drag-start cases).
+  keyboard create, a label commit, a press that commits a label, a command with
+  an undo or a redo, with the steps it schedules; from `onContentChanged` or
+  `elements.onSelection`) runs once the action has finished, so no later step
+  of the action meets the replaced document; its Promise settles after that
+  import, and imports run in call order. After a drag's start the import ends
+  the drag, and the drag a press starts after it committed a label ends with
+  the import that commit triggers instead of waiting for its drop (today: L1
+  RECOMMENDED since 1.6, advisory in the drop, user-action and drag-start
+  cases).
 - **A pan is no gesture of its own:** a drag that only moves the view leaves
   `interaction.active()` false, on the viewer too; an import leaves it running,
   and it goes on from the current view: the one the import left, or one the
