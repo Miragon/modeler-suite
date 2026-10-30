@@ -65,6 +65,82 @@ function ruleSelectors(source: string): string[] {
   );
 }
 
+/** A selector list split at the commas outside parentheses, its whitespace collapsed. */
+function selectorList(text: string): string[] {
+  const selectors: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const character of text) {
+    if (character === "(") depth++;
+    if (character === ")") depth--;
+    if (character === "," && depth === 0) {
+      selectors.push(current);
+      current = "";
+    } else {
+      current += character;
+    }
+  }
+  selectors.push(current);
+  return selectors.map((selector) =>
+    selector.trim().replace(/\s+/g, " ").replace(/\( /g, "(").replace(/ \)/g, ")"),
+  );
+}
+
+interface StyleRule {
+  selectors: string[];
+  declarations: string;
+  /** The preludes of the at-rules around it, outermost first. */
+  within: string[];
+}
+
+/** Every style rule of the sheet, with the at-rules it sits in. */
+function styleRules(source: string): StyleRule[] {
+  const rules: StyleRule[] = [];
+  const open: string[] = [];
+  let text = "";
+  for (const character of withoutComments(source)) {
+    if (character === "{") {
+      open.push(text.trim().replace(/\s+/g, " "));
+      text = "";
+    } else if (character === "}") {
+      const prelude = open.pop()!;
+      if (!prelude.startsWith("@")) {
+        rules.push({
+          selectors: selectorList(prelude),
+          declarations: text.trim(),
+          within: open.filter((outer) => outer.startsWith("@")),
+        });
+      }
+      text = "";
+    } else if (character === ";" && open.length === 0) {
+      text = "";
+    } else {
+      text += character;
+    }
+  }
+  return rules;
+}
+
+const HIGH_CONTRAST_SCOPE =
+  '@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"]))';
+const IN_CONTAINER = ":where(.cm-djs-container) ";
+/** The map's container in the high-contrast block: the scope's root itself or below it. */
+const IN_CONTAINER_IN_HIGH_CONTRAST = ":is(:scope.cm-djs-container, :scope .cm-djs-container) ";
+/** The same at no specificity, so a rule there weighs no more than the rule it answers. */
+const WHERE_IN_CONTAINER_IN_HIGH_CONTRAST =
+  ":where(:scope.cm-djs-container, :scope .cm-djs-container) ";
+
+/** What a selector of the high-contrast block styles: its subjects without the scope's prefix. */
+function highContrastSubjects(selector: string): string[] {
+  const prefix = [IN_CONTAINER_IN_HIGH_CONTRAST, WHERE_IN_CONTAINER_IN_HIGH_CONTRAST].find(
+    (container) => selector.startsWith(container),
+  );
+  const subject = prefix ? selector.slice(prefix.length) : selector.replace(/^:scope /, "");
+  return subject.startsWith(":is(") && subject.endsWith(")")
+    ? selectorList(subject.slice(":is(".length, -1))
+    : [subject];
+}
+
 function zIndexOf(selector: string): number {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const rule = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(withoutComments(css));
@@ -172,15 +248,81 @@ describe("theme.sync — context-maps.css", () => {
     expect(zIndexOf(".cm-pad-prompt")).toBeLessThanOrEqual(100);
   });
 
-  it("scopes every rule of its own palette to its container, at no extra specificity, and away from the shell skin", () => {
-    const paletteSelectors = ruleSelectors(css).filter((selector) =>
-      /\.djs-palette(?![\w-])/.test(selector),
+  it("scopes every rule of its palette, context pad and popup menu to its container, at no extra specificity, and the palette away from the shell skin", () => {
+    const unskinned = '.djs-palette:not([data-chrome="palette"])';
+    const selectors = styleRules(css).flatMap((rule) =>
+      rule.selectors
+        .filter((selector) => /\.djs-(palette|context-pad|popup)(?![\w-])/.test(selector))
+        .map((selector) => ({ selector, highContrast: rule.within.includes(HIGH_CONTRAST_SCOPE) })),
     );
-    expect(paletteSelectors.length).toBeGreaterThan(5);
-    for (const selector of paletteSelectors) {
+    expect(selectors.filter(({ selector }) => selector.includes(".djs-palette")).length).toBe(15);
+    expect(selectors.filter(({ selector }) => selector.includes(".djs-context-pad")).length).toBe(
+      14,
+    );
+    expect(selectors.filter(({ selector }) => selector.includes(".djs-popup")).length).toBe(11);
+    for (const { selector, highContrast } of selectors) {
+      expect(selector.split(unskinned).join(""), selector).not.toMatch(/\.djs-palette(?![\w-])/);
+      if (highContrast) {
+        expect(selector.startsWith(WHERE_IN_CONTAINER_IN_HIGH_CONTRAST), selector).toBe(true);
+      } else {
+        // `cm-dragging` is the map's own class, on diagram-js's canvas container inside it.
+        expect(
+          selector.startsWith(IN_CONTAINER) || selector.startsWith(".cm-dragging "),
+          selector,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("keeps every high-contrast rule in one block that follows the nearest mode carrier (guide §13.3)", () => {
+    const rules = styleRules(css);
+    expect(withoutComments(css).match(/@scope/g)).toHaveLength(1);
+    for (const selector of rules.flatMap((rule) => rule.selectors)) {
+      expect(selector).not.toContain("data-cd-kontrast");
+    }
+    const highContrast = rules.filter((rule) => rule.within.includes(HIGH_CONTRAST_SCOPE));
+    expect(highContrast.length).toBeGreaterThan(5);
+    for (const selector of highContrast.flatMap((rule) => rule.selectors)) {
       expect(selector).toMatch(
-        /^:where\(\.cm-djs-container\) \.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
+        /^(:scope |:(is|where)\(:scope\.cm-djs-container, :scope \.cm-djs-container\) )/,
       );
     }
+  });
+
+  it("drops in high contrast every shadow it draws (guide §5.3, §6)", () => {
+    const rules = styleRules(css);
+    const shadowed = new Set(
+      rules
+        .filter((rule) => rule.within.length === 0)
+        .filter((rule) => /box-shadow:\s*var\(--cd-shadow-\d\)/.test(rule.declarations))
+        .flatMap((rule) => rule.selectors)
+        .map((selector) => selector.replace(IN_CONTAINER, "").replace(/:(hover|active)$/, "")),
+    );
+    const dropped = new Set(
+      rules
+        .filter((rule) => rule.within.includes(HIGH_CONTRAST_SCOPE))
+        .filter((rule) => /box-shadow:\s*none/.test(rule.declarations))
+        .flatMap((rule) => rule.selectors.flatMap(highContrastSubjects)),
+    );
+    expect(shadowed.size).toBe(13);
+    for (const subject of shadowed) expect(dropped, subject).toContain(subject);
+  });
+
+  it("keeps the focus rings of the editors, the palette and the legend in Highlight under forced colours", () => {
+    // Chromium itself draws a ring with :focus-visible in Highlight there, so a browser test
+    // cannot tell these rules apart from no rule; other engines need them.
+    const highlighted = styleRules(css)
+      .filter((rule) => rule.within.includes("@media (forced-colors: active)"))
+      .filter((rule) => /outline-color:\s*Highlight/.test(rule.declarations))
+      .flatMap((rule) => rule.selectors);
+    expect(highlighted).toEqual(
+      expect.arrayContaining([
+        `${IN_CONTAINER}.djs-palette:not([data-chrome="palette"]) .entry:focus-visible`,
+        ".cm-djs-container .djs-direct-editing-parent:focus-within",
+        ".cm-djs-container .cm-pad-prompt__field:focus",
+        ".cm-djs-container .cm-legend__close:focus-visible",
+        ".cm-djs-container .cm-legend-toggle:focus-visible",
+      ]),
+    );
   });
 });
