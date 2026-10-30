@@ -49,9 +49,10 @@ skins (`data-chrome="palette"`) is left to that chrome.
 
 The lasso is pressed (`aria-pressed="true"`) only while it is armed, in every host: Enter or Space
 on the armed lasso puts it down, as Escape does, and so does arming the draw tool; a pointer's click
-on the lasso arms it again. One tool is armed at a time: arming the lasso (a click, Enter, Space or
-L) puts the armed draw tool down and saves a line it holds, as Escape does. While the read-only
-lock shows (below), the palette without the shell marks every entry but the lasso
+on the lasso arms it again. One tool is armed at a time: arming the lasso (a click, Enter or Space
+on its entry, or L) puts the armed draw tool down, and a click, Enter or Space on the lasso's entry
+saves a line the draw tool holds, as Escape does; L does nothing while it holds one. While the
+read-only lock shows (below), the palette without the shell marks every entry but the lasso
 `aria-disabled="true"` and mutes it (guide §13.5): it stays focusable, and a click, drag, Enter or
 Space on it does nothing from the lock on.
 

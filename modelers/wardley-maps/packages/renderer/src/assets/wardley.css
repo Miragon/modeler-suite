@@ -424,14 +424,15 @@
 /* Note color picker (bpmn.io style): compact 3x3 grid of small color squares, no text. A transient
    popup, so it may cover the palette while it is open (guide §5.13). Positioned absolutely WITHIN
    .wardley-container (relative reference). The gap and the padding hold the focus ring of the
-   active swatch, which reaches 8px out in high contrast, clear of its neighbours and the border. */
+   active swatch, which reaches 8px out in high contrast and nearly 10px while the hovered swatch
+   grows, clear of its neighbours and the border, on the 4px grid (guide §5.1). */
 .wardley-container .wardley-color-picker {
   position: absolute;
   z-index: 300;
   display: grid;
   grid-template-columns: repeat(3, 22px);
-  gap: 10px;
-  padding: 10px;
+  gap: 12px;
+  padding: 12px;
   background: var(--cd-ui-flaeche-hoch);
   border: 1px solid var(--cd-ui-linie);
   border-radius: var(--cd-radius-md);
