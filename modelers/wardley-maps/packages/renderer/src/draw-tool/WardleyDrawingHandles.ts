@@ -45,6 +45,7 @@ export default class WardleyDrawingHandles {
   private group: SVGElement | null = null;
   private dragPreview: SVGElement | null = null;
   private pointDrag: PointDrag | null = null;
+  private unwatchRelease: (() => void) | null = null;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -78,6 +79,7 @@ export default class WardleyDrawingHandles {
       this.endPointDrag();
       this.attach(null);
     });
+    eventBus.on("diagram.destroy", () => this.stopWatchingRelease());
   }
 
   private attach(shape: WardleyShape | null): void {
@@ -144,6 +146,7 @@ export default class WardleyDrawingHandles {
       ev.preventDefault();
       ev.stopPropagation();
       this.endPointDrag();
+      this.swallowClickOfRelease();
     };
     document.addEventListener("mousemove", onMove, true);
     document.addEventListener("mouseup", onUp, true);
@@ -169,6 +172,36 @@ export default class WardleyDrawingHandles {
   private endPointDrag(): void {
     const drag = this.stopPointDrag();
     if (drag) this.interaction.end(drag);
+  }
+
+  /**
+   * After Escape the button is still down on a handle that stays drawn, so the browser sends the
+   * release's click to the canvas, the element under both the press and the release, and a click
+   * there clears the selection. A commit redraws the handles, and then no click comes.
+   */
+  private swallowClickOfRelease(): void {
+    this.stopWatchingRelease();
+    const container = this.canvas.getContainer();
+    const swallow = (event: MouseEvent): void => event.stopPropagation();
+    const onRelease = (): void => {
+      this.stopWatchingRelease();
+      container.addEventListener("click", swallow, { capture: true, once: true });
+      setTimeout(() => container.removeEventListener("click", swallow, true), 0);
+    };
+    // A press before a release: the page did not see the release, and the press's click is a real
+    // one.
+    const onPress = (): void => this.stopWatchingRelease();
+    document.addEventListener("mouseup", onRelease, true);
+    document.addEventListener("mousedown", onPress, true);
+    this.unwatchRelease = () => {
+      document.removeEventListener("mouseup", onRelease, true);
+      document.removeEventListener("mousedown", onPress, true);
+    };
+  }
+
+  private stopWatchingRelease(): void {
+    this.unwatchRelease?.();
+    this.unwatchRelease = null;
   }
 
   private stopPointDrag(): PointDrag | null {
