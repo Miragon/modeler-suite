@@ -59,23 +59,29 @@ export function parseMapJSON(json: string): WardleyMap {
 }
 
 /**
- * Deterministic serialization: stable (alphabetical) key order, elements/edges sorted by `id`,
- * coordinates rounded to 3 decimal places. Produces clean Git diffs and reliable change
- * detection (concept doc §7.1). An object or array that sits in several places is written at
- * each of them, and its entries count at every place after the first: past 1,000,000 such
- * repeated entries it throws, and so does a value that contains itself. A map that shares
- * nothing has no such limit.
+ * Deterministic serialization: stable (alphabetical) key order, elements/edges sorted by `id` (by
+ * UTF-16 code unit, not by locale, so in the same order on every machine), coordinates rounded to
+ * 3 decimal places. Produces clean Git diffs and reliable change detection (concept doc §7.1). An
+ * object or array that sits in several places is written at each of them, and its entries count at
+ * every place after the first: past 1,000,000 such repeated entries it throws, and so does a value
+ * that contains itself. A map that shares nothing has no such limit.
  */
 export function serializeMap(map: WardleyMap): string {
   const path = new ContainerPath();
   return stableStringify(canonicalize(map, path), path);
 }
 
+// Not localeCompare: its order follows the runtime's locale and ICU data, so two machines would
+// write the same map in different orders.
+function compareCodeUnits(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function canonicalize(map: WardleyMap, path: ContainerPath): WardleyMap {
   const elements = [...map.elements]
-    .sort((a, b) => a.id.localeCompare(b.id))
+    .sort((a, b) => compareCodeUnits(a.id, b.id))
     .map((el) => roundNumbers(el, path) as WardleyMap["elements"][number]);
-  const edges = [...map.edges].sort((a, b) => a.id.localeCompare(b.id));
+  const edges = [...map.edges].sort((a, b) => compareCodeUnits(a.id, b.id));
   return {
     ...map,
     config: roundNumbers(map.config, path) as MapConfig,
