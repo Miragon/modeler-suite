@@ -11,7 +11,8 @@ without a mounted shell (see [Dialogs](#dialogs-07)), and the PNG export of `./e
 [`./export`](#export-png-export-07)), and (0.8) the document plumbing of a VS Code custom text
 editor: two-way sync, minimal line edits, undo through the document and the problems pill (see
 [The document plumbing](#the-document-plumbing-08) and
-[`connectDocumentSync`](#the-document-sync-08)). Planned in
+[`connectDocumentSync`](#the-document-sync-08)), and (0.9) the save dialogs of an extension's
+exports and "New …" commands (see [The file commands](#the-file-commands-09)). Planned in
 [Miragon/modeler-suite#4](https://github.com/Miragon/modeler-suite/issues/4) (Phase 4); the first
 consumer is the Event Storming modeler, in VS Code (0.1, on the document plumbing since 0.8, see
 [Usage: Event Storming in VS Code](#usage-event-storming-in-vs-code)) and in its web app (0.2, see
@@ -47,7 +48,7 @@ consumer is the Event Storming modeler, in VS Code (0.1, on the document plumbin
 | `@miragon/modeler-shell`                         | the chrome (`mountShell`, web chrome included), the dialogs (0.7), icons, plus all of `./core`                         | yes (at call time)             |
 | `@miragon/modeler-shell/core`                    | fit math, keymap, zoom readout, appearance, sizes, messages, shortcut groups, the web host's decisions and head script | no                             |
 | `@miragon/modeler-shell/diagram-js`              | `shellModule`, viewport, `connectDiagramJs`                                                                            | yes                            |
-| `@miragon/modeler-shell/vscode/extension`        | webview HTML, nonce, theme bridge, the document plumbing (0.8) (extension host)                                        | no                             |
+| `@miragon/modeler-shell/vscode/extension`        | webview HTML, nonce, theme bridge, the document plumbing (0.8), the file commands (0.9) (extension host)               | no                             |
 | `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state, the document sync (0.8)                                         | yes                            |
 | `@miragon/modeler-shell/export`                  | the PNG export: `svgToPng` with Geist inside the SVG (0.7)                                                             | yes (at call time)             |
 | `@miragon/modeler-shell/testing`                 | Playwright-driven shell conformance kit                                                                                | runs in Node, drives a browser |
@@ -2527,9 +2528,9 @@ Palette commands to the focused diagram of either editor itself.
   types are the ones the five modelers used before 0.8, so their test pages and protocols keep
   working; a modeler's protocol extends `DocumentHostMessage` and `DocumentWebviewMessage` with its
   own messages.
-- **The modeler keeps** its diagnostics, the export and its save dialog with the notification
-  (`revealFileLabel`), its commands and walkthrough, and any binary custom editor (Team Topologies'
-  and Context Maps' PNG editors).
+- **The modeler keeps** its diagnostics, its exports, commands and walkthrough, and any binary
+  custom editor (Team Topologies' and Context Maps' PNG editors). The save dialogs of an export and
+  of "New …" can be the shell's since 0.9, see [The file commands](#the-file-commands-09).
 
 ```ts
 // apps/vscode/src/mapEditor.ts (Wardley Maps, its options spelled out)
@@ -2557,6 +2558,181 @@ export function registerMapEditor(
         : undefined,
   });
 }
+```
+
+### The file commands (0.9)
+
+```ts
+// The parts of vscode they use, typed structurally: the real namespace and a real Uri are
+// assignable (type test), and `Uri` is inferred as vscode.Uri, which the helpers hand back.
+interface FileUriLike extends UriLike {
+  with(change: { path: string }): this;
+}
+interface SaveDialogOptionsLike<Uri extends FileUriLike = FileUriLike> {
+  title?: string;
+  saveLabel?: string;
+  filters?: { [name: string]: string[] };
+  defaultUri?: Uri;
+}
+interface VsCodeFilesLike<Uri extends FileUriLike = FileUriLike> {
+  readonly window: {
+    showSaveDialog(options: SaveDialogOptionsLike<Uri>): PromiseLike<Uri | undefined>;
+    showInformationMessage(message: string, ...items: string[]): PromiseLike<string | undefined>;
+    showWarningMessage(message: string, ...items: string[]): PromiseLike<string | undefined>;
+    showWarningMessage(
+      message: string,
+      options: { modal?: boolean },
+      ...items: string[]
+    ): PromiseLike<string | undefined>;
+    showErrorMessage(message: string, ...items: string[]): PromiseLike<string | undefined>;
+  };
+  readonly workspace: {
+    readonly workspaceFolders: readonly { readonly uri: Uri }[] | undefined;
+    readonly fs: {
+      writeFile(uri: Uri, content: Uint8Array): PromiseLike<void>;
+      stat(uri: Uri): PromiseLike<unknown>; // rejects when there is no file at uri
+    };
+  };
+  readonly commands: {
+    executeCommand(command: string, ...rest: unknown[]): PromiseLike<unknown>;
+    registerCommand(command: string, callback: () => unknown): DisposableLike;
+  };
+  readonly Uri: { joinPath(base: Uri, ...pathSegments: string[]): Uri };
+}
+
+interface ExportKind {
+  readonly title: string; // the save dialog's title, the menu entry's label: "Export as PNG"
+  readonly filters: { readonly [name: string]: readonly string[] }; // { "PNG image": ["png"] }
+  readonly suffix: string; // after the document's name: ".png", "-transparent@4x.png"
+  readonly encoding: "base64" | "text"; // how the webview posts the file
+}
+const IMAGE_EXPORT_KINDS: Readonly<Record<"png" | "svg" | "png-transparent", ExportKind>>;
+interface ExportToFileOptions<Uri extends FileUriLike = FileUriLike> {
+  readonly kind: ExportKind;
+  readonly data: string; // in the kind's encoding
+  readonly sourceUri?: Uri | undefined; // the exported document
+  readonly sourceExtension?: RegExp | undefined; // dropped from its name; default: last extension
+  readonly defaultName: string; // without a document on disk: "wardley-map"
+  readonly fontFallback?: boolean | undefined; // the PNG's labels are in the system font
+  readonly platform: string; // process.platform
+  readonly messages?: FileCommandMessageOverrides | undefined;
+}
+function exportToFile<Uri extends FileUriLike>(
+  vscode: VsCodeFilesLike<Uri>,
+  options: ExportToFileOptions<Uri>,
+): Promise<Uri | undefined>;
+
+interface NewDocumentOptions {
+  readonly viewType: string; // contributes.customEditors[].viewType
+  readonly text: string; // an empty document or the example
+  readonly title: string; // the save dialog's: "New Wardley Map"
+  readonly saveLabel: string; // "Create map"
+  readonly filters: { readonly [name: string]: readonly string[] };
+  readonly defaultFileName: string; // in the first workspace folder: "wardley-map.wmap"
+  readonly targetPath?: ((chosenPath: string) => string) | undefined; // default: the chosen path
+  readonly messages?: FileCommandMessageOverrides | undefined;
+}
+function createNewDocument<Uri extends FileUriLike>(
+  vscode: VsCodeFilesLike<Uri>,
+  options: NewDocumentOptions,
+): Promise<Uri | undefined>;
+function registerNewDocumentCommand<Uri extends FileUriLike>(
+  vscode: VsCodeFilesLike<Uri>,
+  command: string, // contributes.commands
+  options: NewDocumentOptions,
+): DisposableLike;
+
+interface FileCommandMessages {
+  exportSaveLabel: string; // "Export"
+  exported(fileName: string): string; // "Exported map.png."
+  exportedInSystemFont(fileName: string): string;
+  couldNotExport(fileName: string): string;
+  couldNotCreate(fileName: string): string;
+  alreadyExists(fileName: string): string; // the modal question before targetPath replaces a file
+  replaceLabel: string; // "Replace"
+  revealFile(platform: string): string; // revealFileLabel
+}
+// undefined keeps the default
+type FileCommandMessageOverrides = {
+  [Key in keyof FileCommandMessages]?: FileCommandMessages[Key] | undefined;
+};
+const defaultFileCommandMessages: FileCommandMessages;
+```
+
+The extension host's half of an export and of the commands "New …" and "New … from Example"
+(guide §13.5): the native save dialog, the write and the notification. Up to 0.8 each of the five
+extensions built them alike in its own `exportImage.ts` and `extension.ts`
+([#345](https://github.com/Miragon/modeler-suite/issues/345)). The webview still renders the
+export, and the modeler still names its kinds, its commands and its example.
+
+- **`exportToFile`** opens the save dialog with the kind's `title` and `filters` and the button
+  "Export". It suggests the document's name with the kind's `suffix` beside the document when that
+  is a file (`scheme` `file`), with what `sourceExtension` matches dropped from the name (default
+  the last extension: `checkout.storm` suggests `checkout.png`); otherwise `defaultName` with the
+  suffix in the first workspace folder, without a folder nothing. It writes `data`, decoded from
+  base64 for a `"base64"` kind and as UTF-8 for a `"text"` kind, and then shows "Exported
+  checkout.png." with the action that shows the file, labelled like VS Code
+  (`revealFileLabel(platform)`), which runs `revealFileInOS`. With `fontFallback` the
+  notification is a warning: "Exported checkout.png in a system font. Geist couldn't be embedded."
+  A file it cannot write, or data that is no base64, is an error notification ("Couldn't export
+  checkout.png. Try again, or choose another folder.") and logged with its cause. A dismissed
+  dialog writes and shows nothing. It resolves to the written file once the notification is
+  closed, otherwise to `undefined`.
+- **`IMAGE_EXPORT_KINDS`** are the image exports of guide §2 and §5.4 with the file names of the web
+  apps: `png` (`.png`), `svg` (`.svg`) and `png-transparent` (`-transparent@4x.png`). A modeler
+  adds its own kinds next to them, such as Event Storming's JSON or Context Maps' CML. The dialog
+  gets copies of the filters, so VS Code never holds the modeler's constants.
+- **`createNewDocument`** opens the save dialog with the modeler's `title`, `saveLabel` and
+  `filters`, suggests `defaultFileName` in the first workspace folder (without a folder nothing),
+  writes `text` as UTF-8 and opens the file with `vscode.openWith` in `viewType`. A new diagram is
+  a real file, never an untitled document, which a custom text editor handles most robustly.
+  `targetPath` turns the path the dialog returned into the one written, for a modeler whose editor
+  claims only some names (Value Chain: `chain.json` becomes `chain.vc.json`). The save dialog asked
+  before replacing only the file it returned, so a file already at the other path is replaced only
+  after a modal warning ("chain.vc.json already exists. Do you want to replace it?" with "Replace",
+  guide §9); anything but "Replace" writes and opens nothing. A file it cannot write is an error
+  notification ("Couldn't create chain.vc.json. Try again, or choose another folder."), logged
+  with its cause, and nothing opens. It resolves to the new file, or to `undefined` when the dialog
+  was dismissed, a replace declined or the write failed.
+- **`registerNewDocumentCommand`** registers `command` to run `createNewDocument`; the extension
+  registers it once with the empty document and once with the example, and pushes both
+  disposables into `context.subscriptions`. The commands' titles and their `file/newFile` entries
+  stay in the modeler's `package.json`.
+- **Texts.** Every text that is not the modeler's own comes from `FileCommandMessages`, English by
+  default; a localized modeler overrides them (an `undefined` value keeps the default) and names
+  its kinds in its language.
+- **Runtime.** The entry still imports nothing: the base64 is decoded with the global `atob`, not
+  Node's `Buffer`, so a web extension host can bundle it as well.
+
+```ts
+// apps/vscode/src/extension.ts (Wardley Maps)
+const NEW_MAP = {
+  viewType: MAP_VIEW_TYPE,
+  title: "New Wardley Map",
+  saveLabel: "Create map",
+  filters: { "Wardley Map": ["wmap", "owm"] },
+  defaultFileName: "wardley-map.wmap",
+};
+context.subscriptions.push(
+  registerNewDocumentCommand(vscode, "wardley.newMap", { ...NEW_MAP, text: EMPTY_MAP }),
+  registerNewDocumentCommand(vscode, "wardley.newMapFromExample", {
+    ...NEW_MAP,
+    text: EXAMPLE_MAP,
+  }),
+);
+
+// apps/vscode/src/mapEditor.ts, the export of registerModelerEditor's onMessage
+onMessage: (message, editor) =>
+  message.type === "export"
+    ? exportToFile(vscode, {
+        kind: IMAGE_EXPORT_KINDS[message.format],
+        data: message.data,
+        sourceUri: editor.document.uri,
+        defaultName: "wardley-map",
+        fontFallback: message.fontFallback === true,
+        platform: process.platform,
+      })
+    : undefined,
 ```
 
 ## `./vscode/webview`
@@ -4620,9 +4796,7 @@ Later candidates unless noted:
 
 - **More of the VS Code document plumbing** (0.8 has the sync, the minimal edits, the undo through
   the document, "Insert example" and the pill, and all five modelers' extensions use it,
-  [#46](https://github.com/Miragon/modeler-suite/issues/46)): the export's save dialog and
-  notification and the "New … from Example" command
-  ([#345](https://github.com/Miragon/modeler-suite/issues/345)), and binary custom editors, Team
+  [#46](https://github.com/Miragon/modeler-suite/issues/46)): binary custom editors, Team
   Topologies' `.tt.png` / `.ttm.png` and Context Maps' `.cm.png` editors, the only editors of the
   five that stay outside the plumbing. The modelers keep their own code for these.
 - An ES-module webview bundle (`renderWebviewHtml` writes a classic script; a `scriptType` option).
