@@ -1251,6 +1251,22 @@ describe.each([
     },
   );
 
+  it("keeps the hand shown armed while it pans and after, when the next press pans again (#483)", async () => {
+    const modeler = mount([chromeModule({ asShell })]);
+    const toolManager = modeler.get<ToolManager>("toolManager");
+    await userEvent.click(entryOf(modeler, "hand-tool"));
+    let shownWhilePanning = false;
+    await dragAcrossCanvas(modeler, {
+      during: () => (shownWhilePanning = toolManager.isActive("hand")),
+    });
+
+    expect([shownWhilePanning, toolManager.isActive("hand"), armedDrag(modeler)]).toEqual([
+      true,
+      true,
+      "hand",
+    ]);
+  });
+
   it("shows the lasso released once a press on a tool entry whose click the chrome refuses ended its drag", async () => {
     const modeler = mount([chromeModule({ asShell })]);
     const toolManager = modeler.get<ToolManager>("toolManager");
