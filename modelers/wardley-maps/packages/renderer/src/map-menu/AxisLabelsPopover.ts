@@ -96,11 +96,14 @@ export function createAxisLabelsPopover(chrome: PopoverChrome, modeler: Modeler)
           done();
         });
       }
-      reset.addEventListener("click", () => {
+      reset.addEventListener("click", (event) => {
+        if (isKeyOnHiddenTarget(event)) return;
         fill(DEFAULT_EVOLUTION_LABELS);
         preview();
       });
-      doneButton.addEventListener("click", done);
+      doneButton.addEventListener("click", (event) => {
+        if (!isKeyOnHiddenTarget(event)) done();
+      });
     },
     opened() {
       labelsAtOpen = modeler.exportMap().config.evolutionLabels ?? DEFAULT_EVOLUTION_LABELS;

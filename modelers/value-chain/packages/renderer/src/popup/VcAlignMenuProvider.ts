@@ -3,6 +3,7 @@ import type AlignElements from "diagram-js/lib/features/align-elements/AlignElem
 import type DistributeElements from "diagram-js/lib/features/distribute-elements/DistributeElements";
 import type { Element } from "diagram-js/lib/model/Types";
 import { isVcShape } from "../model/di-types.js";
+import { leaveKeysOnHiddenMenuToPage } from "../keyboard/VcCanvasKeys.js";
 
 export const ALIGN_MENU_PROVIDER_ID = "vc-align-elements";
 
@@ -57,6 +58,7 @@ export default class VcAlignMenuProvider {
     private readonly distributeElements: DistributeElements,
   ) {
     popupMenu.registerProvider(ALIGN_MENU_PROVIDER_ID, this);
+    leaveKeysOnHiddenMenuToPage(popupMenu);
   }
 
   getPopupMenuEntries(target: Element | Element[]): Record<string, PopupMenuEntry> {

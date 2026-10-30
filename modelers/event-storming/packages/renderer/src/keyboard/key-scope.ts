@@ -1,4 +1,5 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
+import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
 import { canvasSvg } from "./canvas-focus.js";
 
 /**
@@ -32,12 +33,27 @@ export function targetsCanvas(event: Event, canvas: Pick<Canvas, "getContainer">
 
 /**
  * Whether a key reaches an element the host made inert or hid, before the browser moved the focus
- * off it. The board's own chrome (the label editors, the colour picker) leaves such a key to the
- * page, as the canvas does.
+ * off it. The board's own chrome (the label editors, the colour picker, the popup menu) leaves such
+ * a key to the page, as the canvas does. The colour picker's swatches ask it of their click too:
+ * Enter on a focused button still clicks it once the host hid it.
  */
 export function isKeyOnHiddenTarget(event: Event): boolean {
   const target = event.target;
   return target instanceof Element && (target.closest("[inert]") !== null || !isRendered(target));
+}
+
+const menusLeavingHiddenKeys = new WeakSet<object>();
+
+/**
+ * diagram-js's popup menu runs its selected entry on Enter, also on one the browser still sends to
+ * a menu the host made inert or hid: such a key picks nothing and goes on to the page unprevented.
+ */
+export function leaveKeysOnHiddenMenuToPage(popupMenu: Pick<PopupMenu, "trigger">): void {
+  if (menusLeavingHiddenKeys.has(popupMenu)) return;
+  menusLeavingHiddenKeys.add(popupMenu);
+  const trigger = popupMenu.trigger.bind(popupMenu);
+  popupMenu.trigger = (event, entry, action) =>
+    isKeyOnHiddenTarget(event) ? undefined : trigger(event, entry, action);
 }
 
 /**

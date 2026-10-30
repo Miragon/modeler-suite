@@ -88,6 +88,7 @@ export default class WardleyColorPicker {
         activeButton = btn;
       }
       btn.addEventListener("click", (ev) => {
+        if (isKeyOnHiddenTarget(ev)) return;
         ev.stopPropagation();
         this.modeling.setColor(shape, s.value);
         this.close({ restoreFocus: true });

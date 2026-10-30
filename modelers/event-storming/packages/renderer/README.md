@@ -96,7 +96,8 @@ To keep the keys away from a canvas it
 hides without destroying it, a host makes it `inert` (or hides it with `display: none` or
 `visibility: hidden`, not only transparent): the browser then moves the focus off the `<svg>` at
 its next rendering update, and a key that reaches the `<svg>`, a palette entry, a label editor or
-the colour picker before then stays the page's too: nothing is saved or closed. Cmd/Ctrl+A selects
+the colour picker (Enter on a swatch included) before then stays the page's too, and the change type
+menu and the kind chooser pick no type: nothing is saved or closed. Cmd/Ctrl+A selects
 the whole board. An
 import erases the undo history without firing `commandStack.changed`, and fires
 `import.parse.start`, `import.render.start` and `import.done` in that order. It frames the content

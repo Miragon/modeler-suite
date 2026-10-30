@@ -1,4 +1,5 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
+import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
 
 /** The focusable canvas svg diagram-js renders into its container. */
 export function canvasSvg(canvas: Canvas): SVGElement | null {
@@ -30,12 +31,27 @@ export function isKeyAimedAt(event: KeyboardEvent, root: Node | null | undefined
 
 /**
  * Whether a key reaches an element the host made inert or hid, before the browser moved the focus
- * off it. The map's own chrome (context pad, editors, popovers, colour picker) leaves such a key to
- * the page, as the canvas and the palette do.
+ * off it. The map's own chrome (context pad, editors, popovers, colour picker, popup menu) leaves
+ * such a key to the page, as the canvas and the palette do. Its buttons ask it of their click too:
+ * Enter on a focused button still clicks it once the host hid it.
  */
 export function isKeyOnHiddenTarget(event: Event): boolean {
   const target = event.target;
   return target instanceof Node && (liesInInertSubtree(target) || !isRendered(target));
+}
+
+const menusLeavingHiddenKeys = new WeakSet<object>();
+
+/**
+ * diagram-js's popup menu runs its selected entry on Enter, also on one the browser still sends to
+ * a menu the host made inert or hid: such a key picks nothing and goes on to the page unprevented.
+ */
+export function leaveKeysOnHiddenMenuToPage(popupMenu: Pick<PopupMenu, "trigger">): void {
+  if (menusLeavingHiddenKeys.has(popupMenu)) return;
+  menusLeavingHiddenKeys.add(popupMenu);
+  const trigger = popupMenu.trigger.bind(popupMenu);
+  popupMenu.trigger = (event, entry, action) =>
+    isKeyOnHiddenTarget(event) ? undefined : trigger(event, entry, action);
 }
 
 function liesInInertSubtree(node: Node): boolean {

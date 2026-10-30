@@ -272,8 +272,9 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
 - A host that hides the canvas without destroying the modeler makes its container `inert` or hides
   it with `display: none` or `visibility: hidden`, not only transparent: the browser moves the
   focus off the `<svg>` at its next rendering update, and a key that reaches the `<svg>`, the name
-  editor or the description editor before then passes too: nothing is saved or closed. There is no
-  separate switch to pause the keyboard.
+  editor or the description editor before then passes too, and the subdomain type, pattern and
+  integration roles menus pick no entry: nothing is saved or closed. There is no separate switch to
+  pause the keyboard.
 
 ### Helpers & types
 

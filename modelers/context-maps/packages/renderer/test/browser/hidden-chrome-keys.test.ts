@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import { Modeler, type CmElement, type CmLabelEditing } from "@miragon/context-maps-renderer";
 import { emptyDocument, type CmDocument } from "@miragon/context-maps-schema-model";
@@ -14,9 +15,25 @@ function mapDocument(): CmDocument {
       position: { x: 100, y: 200 },
       size: { width: 200, height: 110 },
     },
+    {
+      id: "shipping",
+      label: "Shipping",
+      position: { x: 500, y: 200 },
+      size: { width: 200, height: 110 },
+    },
+  ];
+  doc.relationships = [
+    { id: "feed", from: "billing", to: "shipping", pattern: "upstream-downstream" },
   ];
   return doc;
 }
+
+/** The context pad's menus, each on an element it offers to change. */
+const menus = [
+  { name: "subdomain type", id: "cm-subdomain-menu", element: "billing" },
+  { name: "pattern", id: "cm-pattern-menu", element: "feed" },
+  { name: "integration roles", id: "cm-roles-menu", element: "feed" },
+];
 
 /**
  * The ways a host hides a map it keeps. The browser moves the focus off the hidden control only at
@@ -147,6 +164,35 @@ describe("the map's own chrome on a map the host hides", () => {
       expect(pressKey(field, { key: "Enter", ctrlKey: true }).defaultPrevented).toBe(true);
       expect(field.isConnected).toBe(false);
       expect(modeler.exportDocument().contexts[0]?.description).toBe("Sends the invoices");
+    },
+  );
+
+  it.each(menus.flatMap((menu) => hostHidings.map((hiding) => ({ ...menu, ...hiding }))))(
+    "the $name menu changes nothing once the host $how",
+    async ({ id, element, hide, show }) => {
+      const popupMenu = modeler.get<PopupMenu>("popupMenu");
+      const target = modeler.get<ElementRegistry>("elementRegistry").get(element) as CmElement;
+      popupMenu.open(target, id, { x: 200, y: 200 });
+      const focused = document.activeElement as HTMLElement;
+      expect(focused.closest(".djs-popup")).not.toBeNull();
+      // The menu selects its first entry once more after the first paint, as a user sees it.
+      await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+      // Arrow keys pick an entry other than the element's current one, which the menu marks.
+      while (host.querySelector(".djs-popup .entry.selected.cm-popup-active")) {
+        pressKey(focused, { key: "ArrowDown" });
+        await Promise.resolve();
+      }
+      const before = JSON.stringify(modeler.exportDocument());
+      hide(host);
+
+      expectLeftToPage(focused, [{ key: "Enter" }]);
+      expect(JSON.stringify(modeler.exportDocument())).toBe(before);
+      expect(popupMenu.isOpen()).toBe(true);
+      expect(document.activeElement).toBe(focused);
+
+      show(host);
+      expect(pressKey(focused, { key: "Enter" }).defaultPrevented).toBe(true);
+      expect(JSON.stringify(modeler.exportDocument())).not.toBe(before);
     },
   );
 });

@@ -13,5 +13,6 @@ export {
   isKeyAimedAt,
   isKeyOnHiddenTarget,
   lastInteractionWasPointer,
+  leaveKeysOnHiddenMenuToPage,
   trackInputModality,
 } from "./canvasFocus.js";

@@ -41,8 +41,8 @@ function isImeCompositionKey(event: KeyboardEvent): boolean {
 
 /**
  * Whether a key reaches an element the host made inert or hid, before the browser moved the focus
- * off it. The diagram's own chrome (the label editor, the shortcuts key) leaves such a key to the
- * page, as the canvas does.
+ * off it. The diagram's own chrome (the label editor) leaves such a key to the page, as the canvas
+ * does.
  */
 export function isKeyOnHiddenTarget(event: Event): boolean {
   const target = event.target;

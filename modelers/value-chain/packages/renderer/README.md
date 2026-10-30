@@ -145,8 +145,8 @@ false. `diagramShortcuts()` lists them for a dialog.
 - A host that hides the canvas without destroying the modeler makes its container `inert` or hides
   it with `display: none` or `visibility: hidden`, not only transparent: the browser moves the
   focus off the `<svg>` at its next rendering update, and a key that reaches the `<svg>`, the label
-  editor or the palette toolbar before then passes too: nothing is created, saved or closed, and
-  the focus stays where it is.
+  editor or the palette toolbar before then passes too, and the colour and alignment menus pick no
+  entry: nothing is created, saved or closed, and the focus stays where it is.
 
 ## Palette
 

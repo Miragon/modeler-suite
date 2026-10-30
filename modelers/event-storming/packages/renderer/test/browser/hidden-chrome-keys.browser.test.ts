@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
+import type { Element } from "diagram-js/lib/model/Types";
 import { Modeler } from "../../src/index.js";
 import {
   isEventStormingConnection,
@@ -188,6 +191,65 @@ describe("the board's own chrome on a board the host hides", () => {
       show(host);
       pressKey(swatch, { key: "Escape" });
       expect(picker.isConnected).toBe(false);
+    },
+  );
+
+  it.each(hostHidings)(
+    "Enter on a swatch the browser turns into a click picks no colour once the host $how",
+    async ({ hide, show }) => {
+      const event = shapeOfType("event");
+      modeler.get<EventStormingColorPicker>("eventStormingColorPicker").open(event, 200, 200);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const picker = host.querySelector<HTMLElement>(".event-storming-color-picker")!;
+      const swatch = picker.querySelectorAll<HTMLButtonElement>("button")[1]!;
+      swatch.focus();
+
+      // A real key, which the browser turns into a click; the host hides the board before any frame.
+      window.addEventListener("keydown", () => hide(host), { capture: true, once: true });
+      await userEvent.keyboard("{Enter}");
+      expect(event.color).toBeUndefined();
+      expect(picker.isConnected).toBe(true);
+
+      show(host);
+      swatch.focus();
+      await userEvent.keyboard("{Enter}");
+      expect(event.color).toBeDefined();
+      expect(picker.isConnected).toBe(false);
+    },
+  );
+
+  it.each(hostHidings)(
+    "the change type menu picks no type once the host $how",
+    async ({ hide, show }) => {
+      const popupMenu = modeler.get<PopupMenu>("popupMenu");
+      popupMenu.open(
+        shapeOfType("command") as unknown as Element,
+        "event-storming-element-settings",
+        {
+          x: 200,
+          y: 200,
+        },
+      );
+      const focused = document.activeElement as HTMLElement;
+      expect(focused.closest(".djs-popup")).not.toBeNull();
+      // The menu selects its first entry once more after the first paint, as a user sees it.
+      await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+      // Arrow keys pick an entry other than the sticky's own type, which wears the check mark.
+      while (host.querySelector(".djs-popup .entry.selected")?.textContent?.includes("✓")) {
+        pressKey(focused, { key: "ArrowDown" });
+        await Promise.resolve();
+      }
+      const before = modeler.exportDSL();
+      hide(host);
+
+      expectLeftToPage(focused, [{ key: "Enter" }]);
+      expect(modeler.exportDSL()).toBe(before);
+      expect(popupMenu.isOpen()).toBe(true);
+      expect(document.activeElement).toBe(focused);
+
+      show(host);
+      expect(pressKey(focused, { key: "Enter" }).defaultPrevented).toBe(true);
+      expect(modeler.exportDSL()).not.toContain("command Place Order");
     },
   );
 });

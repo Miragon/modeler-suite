@@ -129,6 +129,70 @@ describe("the diagram's own chrome on a diagram the host hides, without the shel
     },
   );
 
+  /** Opens a popup menu of the context pad's and selects its entry at `index`, as arrow keys do. */
+  async function openPopupMenu(
+    target: Element | Element[],
+    provider: string,
+    index: number,
+  ): Promise<HTMLElement> {
+    modeler.diagram
+      .get<{ open(target: unknown, id: string, position: { x: number; y: number }): void }>(
+        "popupMenu",
+      )
+      .open(target, provider, { x: 100, y: 100 });
+    const focused = document.activeElement as HTMLElement;
+    expect(focused.closest(".djs-popup")).not.toBeNull();
+    // The menu selects its first entry once more after the first paint, as a user sees it.
+    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+    for (let entry = 0; entry < index; entry++) {
+      pressKey(focused, { key: "ArrowDown" });
+      // The menu renders its new selection a microtask later, and Enter picks the rendered one.
+      await Promise.resolve();
+    }
+    return focused;
+  }
+
+  function popupMenuIsOpen(): boolean {
+    return modeler.diagram.get<{ isOpen(): boolean }>("popupMenu").isOpen();
+  }
+
+  it.each(hostHidings)(
+    "the colour menu picks no colour once the host $how",
+    async ({ hide, show }) => {
+      const focused = await openPopupMenu(step() as unknown as Element, "vc-color-picker", 1);
+      hide(wrapper);
+
+      expectLeftToPage(focused, [{ key: "Enter" }]);
+      expect(step().color).toBeUndefined();
+      expect(popupMenuIsOpen()).toBe(true);
+      expect(document.activeElement).toBe(focused);
+
+      show(wrapper);
+      expect(pressKey(focused, { key: "Enter" }).defaultPrevented).toBe(true);
+      expect(step().color).toBeDefined();
+    },
+  );
+
+  it.each(hostHidings)(
+    "the alignment menu aligns nothing once the host $how",
+    async ({ hide, show }) => {
+      const steps = shapes().filter((shape) => shape.vcType === "step");
+      const positions = () => steps.map((shape) => `${shape.x},${shape.y}`).join(" ");
+      const before = positions();
+      const focused = await openPopupMenu(steps as unknown as Element[], "vc-align-elements", 0);
+      hide(wrapper);
+
+      expectLeftToPage(focused, [{ key: "Enter" }]);
+      expect(positions()).toBe(before);
+      expect(popupMenuIsOpen()).toBe(true);
+      expect(document.activeElement).toBe(focused);
+
+      show(wrapper);
+      expect(pressKey(focused, { key: "Enter" }).defaultPrevented).toBe(true);
+      expect(positions()).not.toBe(before);
+    },
+  );
+
   it.each(hostHidings)(
     "the label editor neither saves nor closes once the host $how",
     ({ hide, show }) => {

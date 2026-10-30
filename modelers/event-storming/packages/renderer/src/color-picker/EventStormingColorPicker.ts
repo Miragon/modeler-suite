@@ -59,6 +59,7 @@ export default class EventStormingColorPicker {
       if (s.value) btn.style.background = s.value;
       if ((shape.color ?? undefined) === s.value) btn.classList.add("event-storming-cp-active");
       btn.addEventListener("click", (ev) => {
+        if (isKeyOnHiddenTarget(ev)) return;
         ev.stopPropagation();
         this.modeling.setColor(shape, s.value);
         this.close();

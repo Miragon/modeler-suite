@@ -7,6 +7,7 @@ import type {
 } from "diagram-js/lib/features/popup-menu/PopupMenuProvider";
 import { isComponent, type WardleyShape } from "../model/di-types.js";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
+import { isKeyOnHiddenTarget, leaveKeysOnHiddenMenuToPage } from "../a11y/index.js";
 
 export const POPUP_PROVIDER_ID = "wardley-element-settings";
 
@@ -16,10 +17,11 @@ const PROP_GROUP = { id: "props", name: "Properties" };
 
 /**
  * The menu handles its own keys (arrows select, Enter picks), so no listener further up acts on
- * them too. Escape must still bubble: diagram-js closes the menu from a document listener.
+ * them too. Escape must still bubble: diagram-js closes the menu from a document listener. A key
+ * on a menu the host made inert or hid is the page's.
  */
 function keepKeysInsidePopup(event: KeyboardEvent): void {
-  if (event.key !== "Escape") event.stopPropagation();
+  if (event.key !== "Escape" && !isKeyOnHiddenTarget(event)) event.stopPropagation();
 }
 
 function mark(active: boolean, label: string): string {
@@ -40,6 +42,7 @@ export default class WardleyElementSettingsProvider implements PopupMenuProvider
     eventBus: EventBus,
   ) {
     popupMenu.registerProvider(POPUP_PROVIDER_ID, this);
+    leaveKeysOnHiddenMenuToPage(popupMenu);
     eventBus.on("popupMenu.open", () => {
       const container = (popupMenu as unknown as { _current?: { container?: HTMLElement } })
         ._current?.container;

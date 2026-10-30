@@ -97,9 +97,9 @@ destroying it makes the container `inert` or hides it with `display: none` or `v
 not only transparent: the browser moves the focus off the canvas at its next rendering update. A
 key that reaches the canvas or the map's own chrome before then stays with the page, for each way
 of hiding: the canvas acts on no key, the palette triggers no entry and moves no focus, a line the
-draw tool holds stays as it is, and the context pad, the name, annotation and link editors, the
-colour picker and the map menu's popovers take no key: nothing is saved or closed, and the focus
-stays where it is.
+draw tool holds stays as it is, the context pad, the name, annotation and link editors, the colour
+picker and the map menu's popovers take no key, Enter on one of their buttons included, and the
+element settings menu picks no entry: nothing is saved or closed, and the focus stays where it is.
 
 Escape on the canvas ends every drag without a change, as it ends a diagram-js drag: also a label
 drag, the point drag of a drawing (the drawing stays selected) and the drag of a component's red

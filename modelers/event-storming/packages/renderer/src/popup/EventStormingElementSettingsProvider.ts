@@ -14,6 +14,7 @@ import {
 import { STICKY_STYLES } from "../draw/styles.js";
 import { kindSquare } from "../draw/palette-icons.js";
 import type EventStormingModeling from "../modeling/EventStormingModeling.js";
+import { leaveKeysOnHiddenMenuToPage } from "../keyboard/index.js";
 
 export const POPUP_PROVIDER_ID = "event-storming-element-settings";
 
@@ -36,6 +37,7 @@ export default class EventStormingElementSettingsProvider implements PopupMenuPr
     private readonly modeling: EventStormingModeling,
   ) {
     popupMenu.registerProvider(POPUP_PROVIDER_ID, this);
+    leaveKeysOnHiddenMenuToPage(popupMenu);
   }
 
   getPopupMenuEntries(target: PopupMenuTarget): PopupMenuEntries {

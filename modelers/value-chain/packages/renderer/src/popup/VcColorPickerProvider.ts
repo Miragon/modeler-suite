@@ -4,6 +4,7 @@ import { shapeColors } from "../draw/fill.js";
 import { COLOR_OPTIONS, COLORS } from "../draw/styles.js";
 import { isVcShape } from "../model/di-types.js";
 import type VcModeling from "../modeling/VcModeling.js";
+import { leaveKeysOnHiddenMenuToPage } from "../keyboard/VcCanvasKeys.js";
 
 export const COLOR_PICKER_PROVIDER_ID = "vc-color-picker";
 
@@ -31,6 +32,7 @@ export default class VcColorPickerProvider {
     private readonly vcModeling: VcModeling,
   ) {
     popupMenu.registerProvider(COLOR_PICKER_PROVIDER_ID, this);
+    leaveKeysOnHiddenMenuToPage(popupMenu);
   }
 
   getPopupMenuEntries(target: Element | Element[]): Record<string, PopupMenuEntry> {
