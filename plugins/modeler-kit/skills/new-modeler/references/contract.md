@@ -80,6 +80,11 @@ that adds keys of its own:
   does, or, listening on the document, acts only on a key whose target lies in the canvas `<svg>`;
 - skips a keydown or keyup without a string `key` (browser autofill sends both), one already
   `defaultPrevented` and one of an IME composition (`isComposing`);
+- leaves a key alone whose target lies inside an `inert` subtree: Chromium moves the focus off a
+  canvas the host made inert only at its next rendering update, so until then a key still reaches
+  the `<svg>` (the template's
+  [`CanvasKeys.ts`](../assets/template/packages/renderer/src/keyboard/CanvasKeys.ts) does this for
+  diagram-js's keyboard);
 - never prevents or stops a key it does not act on, in the capture phase too, so a host's text
   field keeps Cmd/Ctrl+C and its buttons keep Enter and Space.
 
