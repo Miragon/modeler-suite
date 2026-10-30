@@ -49,6 +49,7 @@ interface Pin {
   version: string;
 }
 
+const byCodePoint = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 const readText = (path: string): string => readFileSync(path, "utf8");
 const readManifest = (path: string): Manifest => JSON.parse(readText(path)) as Manifest;
 const fromTemplate = (path: string): string => relative(TEMPLATE, path).split(sep).join("/");
@@ -94,7 +95,7 @@ const pins: Pin[] = [
       .filter(([name]) => !templatePackages.has(name))
       .map(([name, version]) => [`${name}@${version}`, { name, version }] as const),
   ).values(),
-].sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
+].sort((a, b) => byCodePoint(a.name, b.name) || byCodePoint(a.version, b.version));
 
 const { packages: lockedPaths } = JSON.parse(readText(join(ROOT, "package-lock.json"))) as {
   packages: Record<string, unknown>;
