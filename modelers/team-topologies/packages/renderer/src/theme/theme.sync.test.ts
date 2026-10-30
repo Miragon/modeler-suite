@@ -87,14 +87,32 @@ function withoutComments(source: string): string {
 }
 
 /**
- * Every selector of every rule (the text in front of a `{`, split at the commas), on one line as
- * Prettier may break a long one.
+ * Every selector of every rule (the text in front of a `{`, split at the commas outside
+ * parentheses), on one line as Prettier may break a long one.
  */
 function ruleSelectors(source: string): string[] {
-  return [...withoutComments(source).matchAll(/([^{};]+)\{/g)].flatMap((match) =>
-    match[1]!.split(",").map((selector) => selector.trim().replace(/\s+/g, " ")),
-  );
+  return [...withoutComments(source).matchAll(/([^{};]+)\{/g)].flatMap((match) => {
+    const selectors: string[] = [];
+    let depth = 0;
+    let current = "";
+    for (const character of match[1]!) {
+      if (character === "(") depth++;
+      if (character === ")") depth--;
+      if (character === "," && depth === 0) {
+        selectors.push(current);
+        current = "";
+      } else {
+        current += character;
+      }
+    }
+    selectors.push(current);
+    return selectors.map((selector) => selector.trim().replace(/\s+/g, " "));
+  });
 }
+
+/** The one prelude of guide §13.3: high contrast after the nearest mode carrier. */
+const HIGH_CONTRAST_SCOPE =
+  '@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"]))';
 
 /**
  * Every custom property a stylesheet declares, by the cascade layer it sits in (`""` for none,
@@ -305,9 +323,15 @@ describe("theme.sync — team-topologies.css takes every colour from the roles",
     expect(paletteSelectors.length).toBeGreaterThan(5);
     for (const selector of paletteSelectors) {
       expect(selector).toMatch(
-        /^(:where\(\.tt-djs-container\)|\.tt-djs-container\[data-cd-kontrast="hoch"\]|\[data-cd-kontrast="hoch"\] \.tt-djs-container:not\(\[data-cd-theme\]\)) \.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
+        /^(:where\(\.tt-djs-container\)|:is\(:scope\.tt-djs-container, :scope \.tt-djs-container\)) \.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
       );
     }
+  });
+
+  it("reads high contrast only from the nearest mode carrier, in its @scope blocks (guide §13.3)", () => {
+    const css = withoutComments(rendererCss).replace(/\s+/g, " ");
+    expect(css.split(HIGH_CONTRAST_SCOPE).length - 1).toBeGreaterThanOrEqual(3);
+    expect(css.split(HIGH_CONTRAST_SCOPE).join("")).not.toContain("data-cd-kontrast");
   });
 
   it("keeps its own overlays inside the canvas at z-index 100 or below (guide §5.13)", () => {

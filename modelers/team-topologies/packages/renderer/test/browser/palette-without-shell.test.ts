@@ -1,5 +1,6 @@
+/// <reference types="@vitest/browser-playwright" />
 import { afterEach, expect, test, vi } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { cdp, page, userEvent } from "vitest/browser";
 import { Modeler } from "@miragon/team-topologies-renderer";
 import { emptyDocument } from "@miragon/team-topologies-schema-model";
 
@@ -77,6 +78,33 @@ async function pixelOf(element: HTMLElement, x: number, y: number): Promise<numb
   return [data[0]!, data[1]!, data[2]!];
 }
 
+function entryOf(container: HTMLElement, action: string): HTMLElement {
+  const entry = container.querySelector<HTMLElement>(`.djs-palette [data-action="${action}"]`);
+  if (!entry) throw new Error(`no palette entry ${action}`);
+  return entry;
+}
+
+/** Focuses `entry` as the keyboard would, so that its focus ring shows. */
+async function focusFromKeyboard(entry: HTMLElement): Promise<void> {
+  entry.tabIndex = 0;
+  entry.focus();
+  await userEvent.keyboard("{Shift}");
+  expect(entry.matches(":focus-visible")).toBe(true);
+}
+
+/** Arms the lasso tool with a click on its entry; diagram-js marks the armed tool. */
+async function armLasso(container: HTMLElement): Promise<HTMLElement> {
+  const lasso = entryOf(container, "lasso-tool");
+  await userEvent.click(lasso);
+  expect(lasso.classList.contains("highlighted-entry")).toBe(true);
+  return lasso;
+}
+
+function highContrast(container: HTMLElement): void {
+  container.setAttribute("data-cd-theme", "light");
+  container.setAttribute("data-cd-kontrast", "hoch");
+}
+
 test("keeps the focus ring visible beside a hovered neighbour, which paints after it", async () => {
   await page.viewport(HOST.width, HOST.height);
   const { host, container } = mount();
@@ -99,6 +127,71 @@ test("keeps the focus ring visible beside a hovered neighbour, which paints afte
   const box = boxIn(focused!, host);
   const ring = await pixelOf(host, box.right + 3, box.top + box.height / 2);
   expect(ring).toEqual(rgbOf(resolved(container, "color", "var(--cd-ui-fokus)")));
+});
+
+test("drops the shadow and widens the focus ring to 3px in high contrast", async () => {
+  const { container } = mount();
+  highContrast(container);
+  const entry = entryOf(container, "team.platform");
+  await focusFromKeyboard(entry);
+
+  expect(getComputedStyle(container.querySelector(".djs-palette")!).boxShadow).toBe("none");
+  const style = getComputedStyle(entry);
+  expect([style.outlineStyle, style.outlineWidth, style.outlineOffset]).toEqual([
+    "solid",
+    "3px",
+    "2px",
+  ]);
+});
+
+test("puts the focus ring inside the entry in a narrow container, 1px inside the armed tool's ring", async () => {
+  const { container } = mount(600);
+  const lasso = await armLasso(container);
+  const team = entryOf(container, "team.platform");
+
+  await focusFromKeyboard(team);
+  expect(getComputedStyle(team).outlineOffset).toBe("-2px");
+  await focusFromKeyboard(lasso);
+  expect(getComputedStyle(lasso).outlineOffset).toBe("-5px");
+
+  highContrast(container);
+  const armed = getComputedStyle(lasso);
+  expect([armed.outlineWidth, armed.outlineOffset]).toEqual(["3px", "-6px"]);
+  await focusFromKeyboard(team);
+  const focused = getComputedStyle(team);
+  expect([focused.outlineWidth, focused.outlineOffset]).toEqual(["3px", "-3px"]);
+});
+
+test("keeps the island's edge, the separators, the focus and the armed tool's ring in forced colours", async () => {
+  await cdp().send("Emulation.setEmulatedMedia", {
+    features: [{ name: "forced-colors", value: "active" }],
+  });
+  try {
+    const { container } = mount();
+    const lasso = await armLasso(container);
+    const team = entryOf(container, "team.platform");
+    await focusFromKeyboard(team);
+    const canvasText = resolved(container, "color", "CanvasText");
+    const highlight = resolved(container, "color", "Highlight");
+
+    expect(getComputedStyle(container.querySelector(".djs-palette")!).borderTopColor).toBe(
+      canvasText,
+    );
+    const separator = getComputedStyle(
+      container.querySelector('.djs-palette .group[data-group="tt-1-teams"]')!,
+      "::before",
+    );
+    expect([separator.width, separator.backgroundColor]).toEqual(["1px", canvasText]);
+    expect(getComputedStyle(team).outlineColor).toBe(highlight);
+    // The entry eases into its armed look.
+    await Promise.all(lasso.getAnimations().map((animation) => animation.finished));
+    const armed = getComputedStyle(lasso);
+    expect(armed.boxShadow).toBe(`${highlight} 0px 0px 0px 2px inset`);
+    expect(armed.backgroundColor).toBe(resolved(container, "background-color", "Canvas"));
+    expect(armed.color).toBe(canvasText);
+  } finally {
+    await cdp().send("Emulation.setEmulatedMedia", { features: [] });
+  }
 });
 
 test("leaves another diagram-js palette on the same page as diagram-js lays it out", () => {
