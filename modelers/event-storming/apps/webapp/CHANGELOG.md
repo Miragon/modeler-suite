@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.8.0](https://github.com/Miragon/modeler-suite/compare/event-storming-webapp-v0.7.2...event-storming-webapp-v0.8.0) (2026-10-30)
+
+
+### Features
+
+* **event-storming:** deprecate createShortcutsDialog and its types of event-storming-renderer, removed in event-storming-renderer 0.9.0 ([#262](https://github.com/Miragon/modeler-suite/issues/262)) ([2f9d328](https://github.com/Miragon/modeler-suite/commit/2f9d328a6882ed2b6d534db8c6f16890b4793e10))
+* **event-storming:** implement the contract's interaction and appearance surfaces ([#281](https://github.com/Miragon/modeler-suite/issues/281)) ([59a0dd9](https://github.com/Miragon/modeler-suite/commit/59a0dd962ec70582745183d6d6dc857b11f446b5))
+* **event-storming:** use the shell's shortcuts dialog and PNG export ([#270](https://github.com/Miragon/modeler-suite/issues/270)) ([2f9d328](https://github.com/Miragon/modeler-suite/commit/2f9d328a6882ed2b6d534db8c6f16890b4793e10))
+
+
+### Bug Fixes
+
+* **event-storming:** leave placeholder-labelled aggregates out of the aggregates dialog ([#313](https://github.com/Miragon/modeler-suite/issues/313)) ([909e192](https://github.com/Miragon/modeler-suite/commit/909e192e2d0778d62be02703a3f301a1c7a804de))
+* **event-storming:** let an import called during a drop wait until the drop has ended ([59a0dd9](https://github.com/Miragon/modeler-suite/commit/59a0dd962ec70582745183d6d6dc857b11f446b5))
+* **event-storming:** report an edit made while an import waits for the annotation font ([59a0dd9](https://github.com/Miragon/modeler-suite/commit/59a0dd962ec70582745183d6d6dc857b11f446b5))
+* **event-storming:** treat the default name of any sticky kind as a placeholder ([#323](https://github.com/Miragon/modeler-suite/issues/323)) ([27ebeb9](https://github.com/Miragon/modeler-suite/commit/27ebeb966f8b12732c82821818da1fede09346a9))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/event-storming-dsl bumped from 0.3.3 to 0.3.4
+    * @miragon/event-storming-renderer bumped from 0.7.0 to 0.8.0
+    * @miragon/event-storming-schema-model bumped from 0.3.0 to 0.3.1
+    * @miragon/modeler-shell bumped from 0.7.0 to 0.8.0
+
 ## [0.7.2](https://github.com/Miragon/modeler-suite/compare/event-storming-webapp-v0.7.1...event-storming-webapp-v0.7.2) (2026-10-28)
 
 

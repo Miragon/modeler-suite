@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.8.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.7.0...modeler-shell-v0.8.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **shell:** shell.toast() shows nothing in the embedded host and returns an inert handle, as in the IDE host, and an embedded root renders no toast stack and no live regions (guide 1.27.1, §5.2 and §9). An embedding host shows the outcome of the actions it runs (save, export, share) in its own feedback instead. The conformance kit no longer asks an embedded harness for show.toast and fails an embedded root that shows a toast.
+
+### Features
+
+* **shell:** check reduced motion, Reload Window and a hidden tab in the VS Code smoke driver ([#337](https://github.com/Miragon/modeler-suite/issues/337)) ([415ec3b](https://github.com/Miragon/modeler-suite/commit/415ec3b4c6343f87641efe37e082be0cddd5502d))
+* **shell:** check the view and the selection after undo and redo in the VS Code smoke driver ([#272](https://github.com/Miragon/modeler-suite/issues/272)) ([52209f9](https://github.com/Miragon/modeler-suite/commit/52209f95c38978eb2edafd2edc579c3d2f3c36a2))
+* **shell:** run the key, history and workbench checks of the VS Code smoke driver by default ([#369](https://github.com/Miragon/modeler-suite/issues/369)) ([08bf5ad](https://github.com/Miragon/modeler-suite/commit/08bf5ad49e990ca745bc557fed27c97fafe566d7))
+* **shell:** share the VS Code document plumbing, starting with Wardley Maps ([#282](https://github.com/Miragon/modeler-suite/issues/282)) ([3caa9f3](https://github.com/Miragon/modeler-suite/commit/3caa9f38aab296027722c36f1e27e0602f1f320d))
+* **shell:** show no toasts in the embedded host ([#335](https://github.com/Miragon/modeler-suite/issues/335)) ([0d2ac8f](https://github.com/Miragon/modeler-suite/commit/0d2ac8fb90fee7b57429212be479c6aa65cb2151))
+
+
+### Bug Fixes
+
+* keep a line being drawn when a key reaches the palette right after the host hid the canvas or made it inert ([#413](https://github.com/Miragon/modeler-suite/issues/413)) ([f5471e3](https://github.com/Miragon/modeler-suite/commit/f5471e3757c65576409a67613976ea05364c4e52))
+* keep the palette's focus ring whole, and keep each modeler's palette styles to its own canvas ([#392](https://github.com/Miragon/modeler-suite/issues/392)) ([c620895](https://github.com/Miragon/modeler-suite/commit/c620895610885730b7650480ac1b5bd94f0bb8d8))
+* leave a key to the page when the host hid the modeler, also in its context pads, editors and popovers ([#446](https://github.com/Miragon/modeler-suite/issues/446)) ([0c596f3](https://github.com/Miragon/modeler-suite/commit/0c596f3cd900af2cc3c07da7586e765e878235e0))
+* **shell:** hand the focus back to the canvas after a click on Share ([#269](https://github.com/Miragon/modeler-suite/issues/269)) ([08e5e64](https://github.com/Miragon/modeler-suite/commit/08e5e6492691d7be910e632d042d427e432b3520))
+* **shell:** preload each Geist subset in its own style and weight ([#299](https://github.com/Miragon/modeler-suite/issues/299)) ([d6dc0e0](https://github.com/Miragon/modeler-suite/commit/d6dc0e0211e3ebcf7cee39c2fda2c0de82a3d003))
+* **shell:** read the keys step's fit only once its animation has ended ([#303](https://github.com/Miragon/modeler-suite/issues/303)) ([fbcff68](https://github.com/Miragon/modeler-suite/commit/fbcff68f8af4e898a9b738f9144f006a38bc9726))
+* **shell:** size the shared dialog from its container and follow it in every host ([#309](https://github.com/Miragon/modeler-suite/issues/309)) ([dfd7d00](https://github.com/Miragon/modeler-suite/commit/dfd7d005e607483346c488d457a8a41d2095c067))
+
 ## [0.7.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.6.0...modeler-shell-v0.7.0) (2026-10-28)
 
 

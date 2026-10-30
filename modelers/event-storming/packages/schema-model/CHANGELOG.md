@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.1](https://github.com/Miragon/modeler-suite/compare/event-storming-schema-model-v0.3.0...event-storming-schema-model-v0.3.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **event-storming:** leave placeholder-labelled aggregates out of the aggregates dialog ([#313](https://github.com/Miragon/modeler-suite/issues/313)) ([909e192](https://github.com/Miragon/modeler-suite/commit/909e192e2d0778d62be02703a3f301a1c7a804de))
+* **event-storming:** order the Aggregates dialog's ties the same way on every machine ([#416](https://github.com/Miragon/modeler-suite/issues/416)) ([b23fbe0](https://github.com/Miragon/modeler-suite/commit/b23fbe076134959face9b23250ea6bc3461af4ce))
+* **event-storming:** treat the default name of any sticky kind as a placeholder ([#323](https://github.com/Miragon/modeler-suite/issues/323)) ([27ebeb9](https://github.com/Miragon/modeler-suite/commit/27ebeb966f8b12732c82821818da1fede09346a9))
+* write a shared value at each of its places in JSON, and stop with an error before its copies exhaust the memory ([#363](https://github.com/Miragon/modeler-suite/issues/363)) ([4c324b9](https://github.com/Miragon/modeler-suite/commit/4c324b96386f9739a8243d45a3a47879a26ad10f))
+* write Wardley Maps and Event Storming JSON in the same order on every machine; the first save after the update may reorder a file once ([#388](https://github.com/Miragon/modeler-suite/issues/388)) ([f50e3b9](https://github.com/Miragon/modeler-suite/commit/f50e3b96759bfee8cc72244b9bf43caac87bab7a))
+
 ## [0.3.0](https://github.com/Miragon/modeler-suite/compare/event-storming-schema-model-v0.2.3...event-storming-schema-model-v0.3.0) (2026-10-28)
 
 

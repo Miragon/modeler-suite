@@ -1,6 +1,6 @@
 {
   "name": "@miragon/modeler-shell",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "The shared, framework-free chrome around Miragon diagram-js modelers: menu, palette skin, tooltip, zoom panel, keys, fit, problems pill, status box, legend and inspector slots, the VS Code host plumbing, the web-app chrome (primary action, legal line, toasts, empty state, drop zone) and the PNG export.",
   "license": "MIT",
   "repository": {

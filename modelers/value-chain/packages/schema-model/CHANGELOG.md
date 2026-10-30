@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.3](https://github.com/Miragon/modeler-suite/compare/value-chain-schema-model-v0.7.2...value-chain-schema-model-v0.7.3) (2026-10-30)
+
+
+### Bug Fixes
+
+* **value-chain:** count only the entries a shared value repeats when serializing ([#300](https://github.com/Miragon/modeler-suite/issues/300)) ([0202dd6](https://github.com/Miragon/modeler-suite/commit/0202dd639d977826cfcb522a13f23ef342de9349))
+
 ## [0.7.2](https://github.com/Miragon/modeler-suite/compare/value-chain-schema-model-v0.7.1...value-chain-schema-model-v0.7.2) (2026-10-28)
 
 

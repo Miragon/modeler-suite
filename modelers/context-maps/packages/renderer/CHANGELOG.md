@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.8.0](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.7.1...context-maps-renderer-v0.8.0) (2026-10-30)
+
+
+### Features
+
+* **context-maps:** deprecate createShortcutsDialog of context-maps-renderer, removed in context-maps-renderer 0.9.0 ([7237c9d](https://github.com/Miragon/modeler-suite/commit/7237c9d6ba47860ac76c3087c81fb633518b7075))
+* **context-maps:** implement the contract's interaction and appearance surfaces ([#277](https://github.com/Miragon/modeler-suite/issues/277)) ([00babd9](https://github.com/Miragon/modeler-suite/commit/00babd98158f6980226b7fb1de84ae30083788dd))
+* **context-maps:** use the shell's shortcuts dialog and PNG export ([#268](https://github.com/Miragon/modeler-suite/issues/268)) ([7237c9d](https://github.com/Miragon/modeler-suite/commit/7237c9d6ba47860ac76c3087c81fb633518b7075))
+
+
+### Bug Fixes
+
+* **context-maps:** draw the canvas overlays and the palette by the guide in high contrast, forced colours and reduced motion, and keep the context pad and popup menu styles to the map ([#432](https://github.com/Miragon/modeler-suite/issues/432)) ([a8a17cf](https://github.com/Miragon/modeler-suite/commit/a8a17cf0e795511c54c9f6f619aeab654c0bc0a4))
+* **context-maps:** end a running drag when the canvas is cleared ([00babd9](https://github.com/Miragon/modeler-suite/commit/00babd98158f6980226b7fb1de84ae30083788dd))
+* **context-maps:** let an import from a listener wait until the command or drag start that fired it has finished ([#344](https://github.com/Miragon/modeler-suite/issues/344)) ([970a85c](https://github.com/Miragon/modeler-suite/commit/970a85cd3b8a5b873810bf5972571d2757d08e21))
+* **context-maps:** let an import from the change listener of a drop wait until the drop has ended ([00babd9](https://github.com/Miragon/modeler-suite/commit/00babd98158f6980226b7fb1de84ae30083788dd))
+* **context-maps:** show the name editor's focus ring and keep the description editor open while an input method composes ([#386](https://github.com/Miragon/modeler-suite/issues/386)) ([ad8947b](https://github.com/Miragon/modeler-suite/commit/ad8947b0e4ebb29f8b6fddb198b316062b0864f5))
+* finish an import and keep the imported document when a host destroys the modeler from a listener the import triggers ([d962f54](https://github.com/Miragon/modeler-suite/commit/d962f54216c01f28639ec3253f3d7c580e22f728))
+* keep the palette's focus ring whole, and keep each modeler's palette styles to its own canvas ([#392](https://github.com/Miragon/modeler-suite/issues/392)) ([c620895](https://github.com/Miragon/modeler-suite/commit/c620895610885730b7650480ac1b5bd94f0bb8d8))
+* leave a key to the page when the host hid the canvas, also before the browser moves the focus away ([#424](https://github.com/Miragon/modeler-suite/issues/424)) ([aa03583](https://github.com/Miragon/modeler-suite/commit/aa035831d1a388df4305c54aafc33b7f1641360e))
+* leave a key to the page when the host hid the modeler, also in its context pads, editors and popovers ([#446](https://github.com/Miragon/modeler-suite/issues/446)) ([0c596f3](https://github.com/Miragon/modeler-suite/commit/0c596f3cd900af2cc3c07da7586e765e878235e0))
+* leave a key to the page when the host made the canvas inert, also before the browser moves the focus away ([#390](https://github.com/Miragon/modeler-suite/issues/390)) ([694e9fd](https://github.com/Miragon/modeler-suite/commit/694e9fd8aff1eb562300343e4acf147f5a183340))
+* let a host destroy the modeler from a listener that an import calls ([#443](https://github.com/Miragon/modeler-suite/issues/443)) ([ec807d3](https://github.com/Miragon/modeler-suite/commit/ec807d303d907c73fed9d50044be85719d7469d0))
+* let a host destroy the modeler from any listener when the user drops, presses Escape or creates an element ([#396](https://github.com/Miragon/modeler-suite/issues/396)) ([572a753](https://github.com/Miragon/modeler-suite/commit/572a7537504999fee59a29f3251cc7f4d4a6f85e))
+* let a host destroy the modeler from the selection listener that reveal() triggers ([#426](https://github.com/Miragon/modeler-suite/issues/426)) ([d962f54](https://github.com/Miragon/modeler-suite/commit/d962f54216c01f28639ec3253f3d7c580e22f728))
+* let a host destroy the modeler from the selection listener when the user starts a drag ([#370](https://github.com/Miragon/modeler-suite/issues/370)) ([b2f03e7](https://github.com/Miragon/modeler-suite/commit/b2f03e7faeb01377cb246553c97067eeaaad49a9))
+* let a host destroy the modeler while the pointer rests on a palette entry ([#414](https://github.com/Miragon/modeler-suite/issues/414)) ([94b9c89](https://github.com/Miragon/modeler-suite/commit/94b9c895d12fea430d96a89c7f7472f36df1812b))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/context-maps-schema-model bumped from 0.5.0 to 0.5.1
+    * @miragon/modeler-api bumped from 1.5.0 to 1.6.0
+
 ## [0.7.1](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.7.0...context-maps-renderer-v0.7.1) (2026-10-28)
 
 

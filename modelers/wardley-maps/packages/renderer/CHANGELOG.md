@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.14.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.13.0...wardley-renderer-v0.14.0) (2026-10-30)
+
+
+### Features
+
+* **wardley-maps:** deprecate createShortcutsDialog and svgToPng of @miragon/wardley-renderer, removed in wardley-renderer 0.15.0 ([#258](https://github.com/Miragon/modeler-suite/issues/258)) ([596bca5](https://github.com/Miragon/modeler-suite/commit/596bca5364f700e5073bd14610b3ff4ce2d282ec))
+* **wardley-maps:** export a PNG on the plot's white with Geist embedded, and warn when its labels fall back to a system font ([596bca5](https://github.com/Miragon/modeler-suite/commit/596bca5364f700e5073bd14610b3ff4ce2d282ec))
+* **wardley-maps:** implement the contract's interaction and appearance surfaces ([#276](https://github.com/Miragon/modeler-suite/issues/276)) ([42a5258](https://github.com/Miragon/modeler-suite/commit/42a5258cc70b95d394b8cd8f968b04989e691468))
+* **wardley-maps:** use the shell's shortcuts dialog and PNG export ([#271](https://github.com/Miragon/modeler-suite/issues/271)) ([596bca5](https://github.com/Miragon/modeler-suite/commit/596bca5364f700e5073bd14610b3ff4ce2d282ec))
+
+
+### Bug Fixes
+
+* **event-storming:** keep an undo or a redo made while a point of a drawing is dragged: the drag ends there without a change, and the release no longer writes the drawing back over it ([40961cd](https://github.com/Miragon/modeler-suite/commit/40961cd0c0830e2ac08c6aca9c0e4a01ce0ffac2))
+* finish an import and keep the imported document when a host destroys the modeler from a listener the import triggers ([d962f54](https://github.com/Miragon/modeler-suite/commit/d962f54216c01f28639ec3253f3d7c580e22f728))
+* keep a line being drawn when a key reaches the palette right after the host hid the canvas or made it inert ([#413](https://github.com/Miragon/modeler-suite/issues/413)) ([f5471e3](https://github.com/Miragon/modeler-suite/commit/f5471e3757c65576409a67613976ea05364c4e52))
+* keep the arrow keys, the single-key tools, paste and duplicate from acting while a point of a drawing is dragged ([#391](https://github.com/Miragon/modeler-suite/issues/391)) ([40961cd](https://github.com/Miragon/modeler-suite/commit/40961cd0c0830e2ac08c6aca9c0e4a01ce0ffac2))
+* leave a key to the page when the host hid the canvas, also before the browser moves the focus away ([#424](https://github.com/Miragon/modeler-suite/issues/424)) ([aa03583](https://github.com/Miragon/modeler-suite/commit/aa035831d1a388df4305c54aafc33b7f1641360e))
+* leave a key to the page when the host hid the modeler, also in its context pads, editors and popovers ([#446](https://github.com/Miragon/modeler-suite/issues/446)) ([0c596f3](https://github.com/Miragon/modeler-suite/commit/0c596f3cd900af2cc3c07da7586e765e878235e0))
+* leave a key to the page when the host made the canvas inert, also before the browser moves the focus away ([#390](https://github.com/Miragon/modeler-suite/issues/390)) ([694e9fd](https://github.com/Miragon/modeler-suite/commit/694e9fd8aff1eb562300343e4acf147f5a183340))
+* let a host destroy the modeler from a listener that an import calls ([#443](https://github.com/Miragon/modeler-suite/issues/443)) ([ec807d3](https://github.com/Miragon/modeler-suite/commit/ec807d303d907c73fed9d50044be85719d7469d0))
+* let a host destroy the modeler from any listener when the user drops, presses Escape or creates an element ([#396](https://github.com/Miragon/modeler-suite/issues/396)) ([572a753](https://github.com/Miragon/modeler-suite/commit/572a7537504999fee59a29f3251cc7f4d4a6f85e))
+* let a host destroy the modeler from the selection listener that reveal() triggers ([#426](https://github.com/Miragon/modeler-suite/issues/426)) ([d962f54](https://github.com/Miragon/modeler-suite/commit/d962f54216c01f28639ec3253f3d7c580e22f728))
+* let a host destroy the modeler from the selection listener when the user starts a drag ([#370](https://github.com/Miragon/modeler-suite/issues/370)) ([b2f03e7](https://github.com/Miragon/modeler-suite/commit/b2f03e7faeb01377cb246553c97067eeaaad49a9))
+* let a host destroy the modeler while the pointer rests on a palette entry ([#414](https://github.com/Miragon/modeler-suite/issues/414)) ([94b9c89](https://github.com/Miragon/modeler-suite/commit/94b9c895d12fea430d96a89c7f7472f36df1812b))
+* save the line being drawn with Space on the Draw entry, and in Wardley Maps keep a drawing selected when an undo, a redo or another command ends the drag of one of its points ([#442](https://github.com/Miragon/modeler-suite/issues/442)) ([5bf0daf](https://github.com/Miragon/modeler-suite/commit/5bf0dafd9340cddee9e40c1d235d27e78fd920b9))
+* **wardley-maps:** draw multi-line names clear of pipeline edges and save a typed backslash-n as text ([#307](https://github.com/Miragon/modeler-suite/issues/307)) ([15bd9cb](https://github.com/Miragon/modeler-suite/commit/15bd9cb66d887691d53db6357cb31555d9f1354c))
+* **wardley-maps:** end a point drag on any command, and let an import from the change listener wait for the edit ([#306](https://github.com/Miragon/modeler-suite/issues/306)) ([465d3c7](https://github.com/Miragon/modeler-suite/commit/465d3c7eed8bff1dbfc9b01d05efa827d599717d))
+* **wardley-maps:** give the palette and its tooltip the guide's sizes, forced-colours rules and pressed state ([#441](https://github.com/Miragon/modeler-suite/issues/441)) ([5a6d257](https://github.com/Miragon/modeler-suite/commit/5a6d257b981b3399f36d2f23508b0ec505a93819))
+* **wardley-maps:** keep a dragged evolve target or label out of the exported text until it is released ([#360](https://github.com/Miragon/modeler-suite/issues/360)) ([0dfae07](https://github.com/Miragon/modeler-suite/commit/0dfae07dd3690696519763f37df928b6c3858965))
+* **wardley-maps:** keep IME composition in the link and flow editors, and show a focus ring on every inline editor ([#362](https://github.com/Miragon/modeler-suite/issues/362)) ([90275dc](https://github.com/Miragon/modeler-suite/commit/90275dc2675c19e4b4bfda900ff94849aa6e9d68))
+* **wardley-maps:** keep the axis popover open while an input method composes, and show no shadows and 3px focus rings in high contrast ([#387](https://github.com/Miragon/modeler-suite/issues/387)) ([75a4f30](https://github.com/Miragon/modeler-suite/commit/75a4f30b789e457062c2a6764ce190c811d46886))
+* **wardley-maps:** keep the palette's focus ring whole and visible, and keep the title dialog and single-key tools from acting on an input method's or a point drag's keys ([#421](https://github.com/Miragon/modeler-suite/issues/421)) ([8f311ba](https://github.com/Miragon/modeler-suite/commit/8f311ba9e8eec2700752aff9dbc9385d50b8ff3f))
+* **wardley-maps:** let an import from the change listener of a drop wait until the drop has ended ([42a5258](https://github.com/Miragon/modeler-suite/commit/42a5258cc70b95d394b8cd8f968b04989e691468))
+* **wardley-maps:** let an import wait until the user's action has finished ([#334](https://github.com/Miragon/modeler-suite/issues/334)) ([a64dd0e](https://github.com/Miragon/modeler-suite/commit/a64dd0ef9530171d142872265326ba2ffb91fd7e))
+* **wardley-maps:** let Escape end the evolve and point drags, and keep other keys out of a line being drawn ([#354](https://github.com/Miragon/modeler-suite/issues/354)) ([9ad646b](https://github.com/Miragon/modeler-suite/commit/9ad646bd26db12449f7ed4f0782b2726509f78b3))
+* **wardley-maps:** outline the palette tooltip in high contrast and leave other editors' tooltips alone ([#408](https://github.com/Miragon/modeler-suite/issues/408)) ([2fa7ac9](https://github.com/Miragon/modeler-suite/commit/2fa7ac949fe7fc33fb59a4ffa9b52af131ee9967))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.5.0 to 1.6.0
+    * @miragon/wardley-dsl bumped from 0.8.0 to 0.8.1
+    * @miragon/wardley-schema-model bumped from 0.6.0 to 0.6.1
+
 ## [0.13.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.12.0...wardley-renderer-v0.13.0) (2026-10-28)
 
 

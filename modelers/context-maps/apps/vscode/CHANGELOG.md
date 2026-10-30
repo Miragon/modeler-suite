@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.11.0](https://github.com/Miragon/modeler-suite/compare/context-maps-vscode-v0.10.1...context-maps-vscode-v0.11.0) (2026-10-30)
+
+
+### Features
+
+* **context-maps:** deprecate createShortcutsDialog of context-maps-renderer, removed in context-maps-renderer 0.9.0 ([7237c9d](https://github.com/Miragon/modeler-suite/commit/7237c9d6ba47860ac76c3087c81fb633518b7075))
+* **context-maps:** implement the contract's interaction and appearance surfaces ([#277](https://github.com/Miragon/modeler-suite/issues/277)) ([00babd9](https://github.com/Miragon/modeler-suite/commit/00babd98158f6980226b7fb1de84ae30083788dd))
+* **context-maps:** sync the diagram with its file through the modeler shell ([#330](https://github.com/Miragon/modeler-suite/issues/330)) ([261d301](https://github.com/Miragon/modeler-suite/commit/261d30179cfd91ba9c0dbf1819bc35b788695f5a))
+* **context-maps:** use the shell's shortcuts dialog and PNG export ([#268](https://github.com/Miragon/modeler-suite/issues/268)) ([7237c9d](https://github.com/Miragon/modeler-suite/commit/7237c9d6ba47860ac76c3087c81fb633518b7075))
+
+
+### Bug Fixes
+
+* **context-maps:** end a running drag when the canvas is cleared ([00babd9](https://github.com/Miragon/modeler-suite/commit/00babd98158f6980226b7fb1de84ae30083788dd))
+* **context-maps:** let an import from the change listener of a drop wait until the drop has ended ([00babd9](https://github.com/Miragon/modeler-suite/commit/00babd98158f6980226b7fb1de84ae30083788dd))
+* open the source beside the diagram from the walkthrough, also after a reload ([#308](https://github.com/Miragon/modeler-suite/issues/308)) ([cc4db96](https://github.com/Miragon/modeler-suite/commit/cc4db96f54b2cd4df93e56fa6b28233cd8940d25))
+* say what to do when an exported file can't be written, in every extension ([#295](https://github.com/Miragon/modeler-suite/issues/295)) ([a76a4fd](https://github.com/Miragon/modeler-suite/commit/a76a4fd536b8294ff238850da57f14113cceaa9f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/context-maps-cml bumped from 0.1.7 to 0.1.8
+    * @miragon/context-maps-renderer bumped from 0.7.1 to 0.8.0
+    * @miragon/context-maps-schema-model bumped from 0.5.0 to 0.5.1
+    * @miragon/modeler-shell bumped from 0.7.0 to 0.8.0
+
 ## [0.10.1](https://github.com/Miragon/modeler-suite/compare/context-maps-vscode-v0.10.0...context-maps-vscode-v0.10.1) (2026-10-28)
 
 

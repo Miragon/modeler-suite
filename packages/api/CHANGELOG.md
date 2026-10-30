@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/Miragon/modeler-suite/compare/modeler-api-v1.5.0...modeler-api-v1.6.0) (2026-10-30)
+
+
+### Features
+
+* **api:** check gestures, armed tools, pans, imports during a drop and appearance in the conformance kit ([#349](https://github.com/Miragon/modeler-suite/issues/349)) ([a553282](https://github.com/Miragon/modeler-suite/commit/a553282049804b9efb4c9a8fc5394468201f52c0))
+* **api:** check in the conformance kit that a host may destroy the modeler from the selection listener that reveal() calls ([#444](https://github.com/Miragon/modeler-suite/issues/444)) ([55b1a7e](https://github.com/Miragon/modeler-suite/commit/55b1a7e7ad5154ee0bf483956f57c289a433ace8))
+* **api:** check in the conformance kit that an import waits for the user's running action and for a drag's start ([#374](https://github.com/Miragon/modeler-suite/issues/374)) ([4425c98](https://github.com/Miragon/modeler-suite/commit/4425c98bbd0c362b88d750b6ce3f52cfb2e3b54c))
+* **api:** check that a host may destroy the modeler from a listener an import calls, and name visibility: hidden among the ways to hide the canvas ([#451](https://github.com/Miragon/modeler-suite/issues/451)) ([043059c](https://github.com/Miragon/modeler-suite/commit/043059c5bd7f55f02897f4a447e1365844bcdec6))
+* **api:** check that a pan goes on from the view a host restores after an import ([#367](https://github.com/Miragon/modeler-suite/issues/367)) ([b89914c](https://github.com/Miragon/modeler-suite/commit/b89914c7e4393e8036fd2edde1938c6722fdb67a))
+* **api:** say that a host may destroy the modeler from any listener, and check it in the conformance kit ([#423](https://github.com/Miragon/modeler-suite/issues/423)) ([7234e02](https://github.com/Miragon/modeler-suite/commit/7234e02b58bb527e21b03e9e5bc75e1f99e8d00c))
+
 ## [1.5.0](https://github.com/Miragon/modeler-suite/compare/modeler-api-v1.4.0...modeler-api-v1.5.0) (2026-10-28)
 
 

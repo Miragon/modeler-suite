@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.5](https://github.com/Miragon/modeler-suite/compare/event-storming-transforms-v0.2.4...event-storming-transforms-v0.2.5) (2026-10-30)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/event-storming-schema-model bumped from 0.3.0 to 0.3.1
+
 ## [0.2.4](https://github.com/Miragon/modeler-suite/compare/event-storming-transforms-v0.2.3...event-storming-transforms-v0.2.4) (2026-10-28)
 
 

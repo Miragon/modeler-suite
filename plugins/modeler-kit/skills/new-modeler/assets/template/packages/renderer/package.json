@@ -42,7 +42,7 @@
   "dependencies": {
     "@miragon/__NOTATION__-dsl": "0.0.0",
     "@miragon/__NOTATION__-schema-model": "0.0.0",
-    "@miragon/modeler-api": "1.5.0"
+    "@miragon/modeler-api": "1.6.0"
   },
   "peerDependencies": {
     "diagram-js": "^15.28.0",
