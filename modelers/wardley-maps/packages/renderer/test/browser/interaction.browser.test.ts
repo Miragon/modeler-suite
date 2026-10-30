@@ -696,7 +696,6 @@ const KEYS_A_POINT_DRAG_TAKES: ReadonlyArray<readonly [string, KeyboardEventInit
   ["U, a user at the pointer", { key: "u" }, false],
   ["N, a note at the pointer", { key: "n" }, false],
   ["P, a pipeline at the pointer", { key: "p" }, false],
-  ["A, a connection from the selected node", { key: "a" }, false],
   ["L, the lasso", { key: "l" }, false],
   ["paste, which attaches to the pointer", { key: "v", ctrlKey: true }, true],
   ["duplicate", { key: "d", ctrlKey: true }, true],
@@ -771,6 +770,30 @@ describe("the canvas keys during a drawing's point drag (#375)", () => {
       expect(modeler.exportText()).toBe(committed);
     },
   );
+
+  /**
+   * The drawing is no node a connection starts from, but a host may select one while the drag runs:
+   * the selection takes the handles off the drawing, and the drag goes on to its release.
+   */
+  test("A starts no connection from a node a host selects during the drag", async () => {
+    const { current, to } = await draggingAPoint();
+    const { modeler } = current;
+    select(modeler, shapeNamed(modeler, "Kettle"));
+
+    expect(pressCanvasKey(modeler, { key: "a" }).defaultPrevented).toBe(false);
+    await settle();
+    expect(errors).toEqual([]);
+    expect(draggingPrefix(modeler)).toBeUndefined();
+    expect(current.changes()).toBe(0);
+    expect(modeler.interaction.active()).toBe(true);
+
+    mouse(document, "mouseup", to);
+    await settle();
+    expect(errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(current.delivered).toEqual([true, false]);
+    expect(draggingPrefix(modeler)).toBeUndefined();
+  });
 
   test("paste does nothing either when the board would wait for the host's paste event", async () => {
     const { current, drawing, committed, to } = await draggingAPoint();
