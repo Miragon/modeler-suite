@@ -340,8 +340,21 @@ export interface CollaborativeModeler {
    *  for one (`AppearanceSurface`) */
   readonly appearance?: AppearanceSurface;
 
-  /** tear down DOM + listeners; further calls on the instance are undefined
-   *  behavior, but a second destroy() must not throw */
+  /**
+   * tear down DOM + listeners; further calls on the instance are undefined
+   * behavior, but a second destroy() must not throw.
+   *
+   * RECOMMENDED (1.6): a host may call it from any listener the modeler calls
+   * (`onContentChanged`, `elements.onSelection`, `interaction.onChange`), also
+   * while the user's input runs: a drag's start, a drop, an Escape, a command.
+   * It throws nothing there, and nothing of the host is called after it, also
+   * not a later listener of the same delivery. A listener that an earlier
+   * listener of the same delivery unsubscribed is not called either, as with a
+   * DOM `EventTarget`. The modeler may finish removing its DOM once the input
+   * handler that runs has returned: diagram-js reads the drag again after the
+   * listeners of its start, and goes on with a drop after its change listeners,
+   * so a renderer holds the teardown until then
+   */
   destroy(): void;
 }
 
