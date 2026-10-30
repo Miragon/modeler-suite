@@ -27,8 +27,9 @@ all_modelers() {
   done
 }
 
-# Writes the changed paths, NUL-separated, to the file $1. Fails when there is nothing to compare
-# with: a run without a base commit checks everything.
+# Writes the changed paths, NUL-separated, to the file $1 and, when $2 names a file, the ones the
+# change adds or deletes to $2. Fails when there is nothing to compare with: a run without a base
+# commit checks everything.
 changed_paths() {
   local base
   case "${EVENT_NAME:-}" in
@@ -55,6 +56,10 @@ changed_paths() {
     echo "Cannot compare with the base $base: everything runs."
     return 1
   fi
+  if [[ -n "${2:-}" ]] && ! git diff --no-renames --name-only --diff-filter=AD -z "$base" HEAD > "$2"; then
+    echo "Cannot compare with the base $base: everything runs."
+    return 1
+  fi
   echo "Compared with $base."
 }
 
@@ -63,7 +68,7 @@ changed_paths() {
 classify() {
   local path=$1 modeler rest
   case "$path" in
-    docs/* | .husky/* | LICENSE)
+    docs/* | LICENSE)
       echo none
       return
       ;;
@@ -91,7 +96,8 @@ classify() {
         *) echo "modeler $modeler" ;;
       esac
       ;;
-    plugins/* | test/* | extensions/* | .claude-plugin/*) echo shared ;;
+    # The pre-commit hook runs in no job, but the template drift test (test:plugin) reads it.
+    plugins/* | test/* | extensions/* | .claude-plugin/* | .husky/*) echo shared ;;
     *) echo all ;;
   esac
 }
@@ -107,26 +113,39 @@ reaches_template() {
   esac
 }
 
-# test:plugin (in shared-test) checks the manifest and the skills of every plugin the marketplace
-# lists, the modelers' own plugins included; a modeler's own jobs never read its plugin.json. A `*`
-# of a case pattern also matches `/`, so a regex keeps a plugins/ folder deeper in a modeler out.
-reaches_plugin_tests() {
-  [[ "$1" =~ ^modelers/[^/]+/plugins/ ]]
+# test:plugin (in shared-test) runs the repository-level checks in test/, which hold these files of
+# a modeler against the rest of the suite, as its own jobs never do: its Claude plugin (the
+# manifests and skills of the marketplace), the package.json of the modeler and of each workspace
+# in it (release config, extension pack, boundaries), its ESLint configs (boundaries; the nearest
+# config of a file wins, so at any depth) and its dependency-cruiser config (boundaries), and a
+# .miragon folder at any depth (a second brand-lint config). A `*` of a case pattern also matches
+# `/`, so regexes keep the same names deeper in a modeler out. Which files a modeler has matters
+# too, see affected.
+reaches_repository_tests() {
+  local plugin='^modelers/[^/]+/plugins/'
+  local manifest='^modelers/[^/]+/((packages|apps)/[^/]+/|e2e/)?package\.json$'
+  local eslint_config='^modelers/[^/]+/(.+/)?eslint\.config\.[^/]+$'
+  local dependency_cruiser_config='^modelers/[^/]+/\.dependency-cruiser\.cjs$'
+  local brand_lint_config='^modelers/[^/]+/(.+/)?\.miragon/'
+  [[ "$1" =~ $plugin || "$1" =~ $manifest || "$1" =~ $eslint_config ||
+    "$1" =~ $dependency_cruiser_config || "$1" =~ $brand_lint_config ]]
 }
 
 affected() {
-  local changed reach path everything=false shared=false template=false modelers="" all
+  local changed added_or_deleted reach path all
+  local everything=false shared=false template=false modelers=""
   all=$(all_modelers)
   changed=$(mktemp)
-  if ! changed_paths "$changed"; then
+  added_or_deleted=$(mktemp)
+  if ! changed_paths "$changed" "$added_or_deleted"; then
     everything=true
   else
     while IFS= read -r -d '' path; do
       reach=$(classify "$path")
       echo "$path: $reach"
       if reaches_template "$path"; then template=true; fi
-      if reaches_plugin_tests "$path"; then
-        echo "$path: shared (the plugin tests)"
+      if reaches_repository_tests "$path"; then
+        echo "$path: shared (the repository-level tests)"
         shared=true
       fi
       case "$reach" in
@@ -135,6 +154,15 @@ affected() {
         "modeler "*) modelers+="${reach#modeler }"$'\n' ;;
       esac
     done < "$changed"
+    # The repository-level tests hold the name of every file against the brand-lint config's
+    # ignore list and need some files of a modeler to exist (its schema-model entry, a licence
+    # text), so a file of a modeler that a change adds, deletes or moves reaches them as well.
+    while IFS= read -r -d '' path; do
+      if [[ "$(classify "$path")" == "modeler "* ]]; then
+        echo "$path: shared (added or deleted, the repository-level tests read the file names)"
+        shared=true
+      fi
+    done < "$added_or_deleted"
   fi
   if [[ "$everything" == true ]]; then
     shared=true

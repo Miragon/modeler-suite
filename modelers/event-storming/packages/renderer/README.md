@@ -94,7 +94,8 @@ the drawing, and an undo, a redo or any other command before the release ends th
 commit, so the release never writes the drawing back over what the command did. To keep the
 keys away from a canvas it
 hides without destroying it, a host makes it `inert` (or `display: none`): the browser then moves
-the focus off the `<svg>` at its next rendering update. Cmd/Ctrl+A selects the whole board. An
+the focus off the `<svg>` at its next rendering update, and a key whose target lies inside an
+`inert` subtree stays the page's before then too. Cmd/Ctrl+A selects the whole board. An
 import erases the undo history without firing `commandStack.changed`, and fires
 `import.parse.start`, `import.render.start` and `import.done` in that order. It frames the content
 centred at the largest zoom that shows all of it, never above 100%; an empty board shows at 100%. A
@@ -281,7 +282,8 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
 - A view change never commits an open label editor: `setViewState`, a host's fit and the user's own
   scroll or zoom leave it open with the typed text, and it moves with its element. A click or a
   drag on the canvas, Cmd/Ctrl+Enter (Enter on an arrow label) or leaving the field commits it;
-  Escape discards it.
+  Escape discards it. The Enter or Escape that confirms or cancels an input method's candidate
+  stays with the composition, also Safari's, which comes after `compositionend` with `keyCode` 229.
 - `elements` lists the stickies with their ids and labels, reveals (selects and scrolls to) one
   and reports the selection. Sticky ids survive a save and a re-open: the DSL writes `(id …)`
   back for every sticky whose id the parser would not derive again from its label at that line (one

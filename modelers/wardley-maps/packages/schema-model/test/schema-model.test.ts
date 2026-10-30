@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   evolutionStage,
   CURRENT_SCHEMA_VERSION,
@@ -79,6 +79,106 @@ describe("Serialization", () => {
     const out = serializeMap(sample);
     expect(out.indexOf("anchor_1")).toBeLessThan(out.indexOf("cmp_kettle"));
     expect(serializeMap(parseMapJSON(out))).toBe(out);
+  });
+
+  describe("the order of elements and edges, whatever the machine's locale", () => {
+    // Ids that a locale orders otherwise: upper and lower case, `_` against letters and digits,
+    // and letters that Estonian (z before t) and Lithuanian (y with i) move.
+    const shuffledIds = [
+      "z_store",
+      "b",
+      "t_api",
+      "B",
+      "a_1",
+      "y_db",
+      "a1",
+      "_x",
+      "j_app",
+      "a",
+      "Z",
+      "10",
+      "9",
+      "A",
+    ];
+    const codePointOrder = [
+      "10",
+      "9",
+      "A",
+      "B",
+      "Z",
+      "_x",
+      "a",
+      "a1",
+      "a_1",
+      "b",
+      "j_app",
+      "t_api",
+      "y_db",
+      "z_store",
+    ];
+    const mapOf = (ids: readonly string[]): WardleyMap => ({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      config: { title: "Order" },
+      elements: ids.map((id) => ({
+        id,
+        elementType: "component",
+        label: id,
+        position: { visibility: 0.5, evolution: 0.5 },
+      })),
+      edges: ids.map((id) => ({
+        id: `dep_${id}`,
+        edgeType: "dependency",
+        from: id,
+        to: id === "a" ? "b" : "a",
+      })),
+    });
+    const writtenOrder = (text: string): { elements: string[]; edges: string[] } => {
+      const written = JSON.parse(text) as WardleyMap;
+      return {
+        elements: written.elements.map((element) => element.id),
+        edges: written.edges.map((edge) => edge.id),
+      };
+    };
+    const expectedOrder = {
+      elements: codePointOrder,
+      edges: codePointOrder.map((id) => `dep_${id}`),
+    };
+
+    /** Runs `run` as on a runtime with `locale` as the default locale of `localeCompare`. */
+    const withDefaultLocale = (locale: string, run: () => void): void => {
+      const localeCompare = String.prototype.localeCompare;
+      const asDefault = vi.spyOn(String.prototype, "localeCompare").mockImplementation(function (
+        this: string,
+        that,
+        locales,
+        options,
+      ) {
+        return localeCompare.call(this, that, locales ?? locale, options);
+      });
+      try {
+        run();
+      } finally {
+        asDefault.mockRestore();
+      }
+    };
+
+    it("sorts elements and edges by the code points of their ids", () => {
+      const text = serializeMap(mapOf(shuffledIds));
+      expect(writtenOrder(text)).toEqual(expectedOrder);
+      expect(serializeMap(parseMapJSON(text))).toBe(text);
+    });
+
+    it.each(["en-US", "de-DE", "et-EE", "lt-LT", "sv-SE", "tr-TR"])(
+      "writes the same text on a machine whose default locale is %s",
+      (locale) => {
+        const expectedText = serializeMap(mapOf(shuffledIds));
+        withDefaultLocale(locale, () => {
+          const text = serializeMap(mapOf(shuffledIds));
+          expect(writtenOrder(text)).toEqual(expectedOrder);
+          expect(text).toBe(expectedText);
+        });
+      },
+    );
   });
 
   it("rounds coordinates to 3 decimal places", () => {

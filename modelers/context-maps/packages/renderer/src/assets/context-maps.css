@@ -475,6 +475,27 @@
   /* Words longer than the line hard-break — exactly like the renderer wraps. */
   overflow-wrap: break-word;
 }
+/* A text field shows its accent border plus the focus ring (guide §8). diagram-js-direct-editing
+   writes `outline: none` inline on the box and on its content, which only an important declaration
+   outranks. */
+.cm-djs-container .djs-direct-editing-parent:focus-within {
+  outline: 2px solid var(--cd-ui-fokus) !important;
+  outline-offset: 2px;
+}
+/* The ring widens where the map's container asks for high contrast once a host set its appearance
+   (contract 1.5), and where an ancestor asks for it before. So a host's request for normal
+   contrast holds on a high-contrast page. */
+.cm-djs-container[data-cd-kontrast="hoch"] .djs-direct-editing-parent:focus-within,
+[data-cd-kontrast="hoch"]
+  .cm-djs-container:not([data-cd-theme])
+  .djs-direct-editing-parent:focus-within {
+  outline-width: 3px !important;
+}
+@media (forced-colors: active) {
+  .cm-djs-container .djs-direct-editing-parent:focus-within {
+    outline-color: Highlight !important;
+  }
+}
 
 /* --- Anchored free-text prompt (description via the pad) ------------------ */
 /* An editor like the label editor: it stays open through a pan or zoom and follows its pad entry,

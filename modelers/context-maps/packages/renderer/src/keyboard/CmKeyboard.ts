@@ -25,13 +25,19 @@ export interface CmKeyboardConfig {
   undoRedoKeys?: boolean | undefined;
 }
 
+/**
+ * A canvas inside an `inert` subtree takes no key either: Chromium moves the focus off an element
+ * the host made inert only at its next rendering update, so until then the key still reaches it.
+ */
 function isKeyForCanvas(event: KeyboardEvent, svg: SVGElement | null): boolean {
+  const target = event.target;
   return (
     typeof event.key === "string" &&
     !event.defaultPrevented &&
     !event.isComposing &&
-    event.target instanceof Node &&
-    svg?.contains(event.target) === true
+    target instanceof Element &&
+    svg?.contains(target) === true &&
+    target.closest("[inert]") === null
   );
 }
 

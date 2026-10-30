@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import { getFileInfo as getPrettierFileInfo } from "prettier";
 import ts from "typescript";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { parse as parseYaml } from "yaml";
 import {
   ENGLISH_MODELER_RULES_OFF,
@@ -1470,12 +1470,17 @@ describe("the template's VS Code smoke workflows", () => {
   });
 
   describe("decide from the changed paths whether VS Code runs", () => {
+    // A hook or `git rebase --exec` exports GIT_DIR and GIT_INDEX_FILE of the repository it runs in;
+    // inherited, they would point the sandbox's commits, resets and pushes at that repository.
+    const environment = () => ({
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+      ),
+      GIT_CONFIG_GLOBAL: devNull,
+      GIT_CONFIG_NOSYSTEM: "1",
+    });
     const git = (cwd: string, ...args: string[]) =>
-      execFileSync("git", args, {
-        cwd,
-        encoding: "utf8",
-        env: { ...process.env, GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_NOSYSTEM: "1" },
-      }).trim();
+      execFileSync("git", args, { cwd, encoding: "utf8", env: environment() }).trim();
     const sandbox = mkdtempSync(join(tmpdir(), "modeler-kit-paths-"));
     const work = join(sandbox, "work");
     git(sandbox, "init", "-q", "--bare", "origin.git");
@@ -1575,6 +1580,17 @@ describe("the template's VS Code smoke workflows", () => {
     });
     it.each(["schedule", "workflow_dispatch"])("always runs on %s", (event) => {
       expect(decision(event, "")).toBe("true");
+    });
+    it("keeps the sandbox's commits out of the repository an inherited GIT_DIR names", () => {
+      const elsewhere = join(sandbox, "elsewhere");
+      git(sandbox, "init", "-q", "-b", "main", "elsewhere");
+      vi.stubEnv("GIT_DIR", join(elsewhere, ".git"));
+      try {
+        expect(afterChanging({ "README.md": "c" })).toBe("false");
+      } finally {
+        vi.unstubAllEnvs();
+      }
+      expect(git(elsewhere, "rev-list", "--all")).toBe("");
     });
   });
 });

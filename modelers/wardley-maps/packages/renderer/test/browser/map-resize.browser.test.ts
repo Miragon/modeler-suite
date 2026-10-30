@@ -645,6 +645,23 @@ describe("map resize handles (Modeler)", () => {
     expect(badge?.startsWith(`${size.width} × ${size.height}`)).toBe(true);
   });
 
+  it("shows the size badge without its shadow in high contrast (guide §5.3)", () => {
+    const page = document.documentElement;
+    const start = startDrag("xy");
+    const end = { x: start.x + 180, y: start.y + 110 };
+    try {
+      mouse("mousemove", document, end);
+      const badge = container.querySelector<HTMLElement>(".wardley-map-resize-badge")!;
+      expect(badge.hidden).toBe(false);
+      expect(getComputedStyle(badge).boxShadow).not.toBe("none");
+      page.setAttribute("data-cd-kontrast", "hoch");
+      expect(getComputedStyle(badge).boxShadow).toBe("none");
+    } finally {
+      page.removeAttribute("data-cd-kontrast");
+      mouse("mouseup", document, end);
+    }
+  });
+
   it("snaps an edge drag to 10px steps and keeps the other side", () => {
     const start = startDrag("x");
     mouse("mousemove", document, { x: start.x + 57, y: start.y + 30 });

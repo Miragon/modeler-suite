@@ -18,6 +18,7 @@ import type WardleyLabelEditing from "../../src/label-editing/WardleyLabelEditin
 import type WardleyLinkEditing from "../../src/link-editing/WardleyLinkEditing.js";
 import { linkOf } from "../../src/link-editing/index.js";
 import { diagramOf } from "./support/gesture-harness.js";
+import { inputMethod, pressKey } from "./support/input-method.js";
 import "../../src/assets/wardley.css";
 
 const DSL = `title Inline editors
@@ -39,35 +40,6 @@ const EDITORS: readonly Editor[] = [
 ];
 
 const page = document.documentElement;
-
-function pressKey(target: EventTarget, init: KeyboardEventInit): void {
-  target.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }));
-}
-
-/** An input method composing in the focused field, driven through Chromium's own IME input. */
-const inputMethod = {
-  async compose(text: string): Promise<void> {
-    await cdp().send("Input.imeSetComposition", {
-      text,
-      selectionStart: text.length,
-      selectionEnd: text.length,
-    });
-  },
-  async press(key: "Enter" | "Escape"): Promise<void> {
-    const keyCode = key === "Enter" ? 13 : 27;
-    for (const type of ["rawKeyDown", "keyUp"] as const) {
-      await cdp().send("Input.dispatchKeyEvent", {
-        type,
-        key,
-        code: key,
-        windowsVirtualKeyCode: keyCode,
-      });
-    }
-  },
-  async confirm(text: string): Promise<void> {
-    await cdp().send("Input.insertText", { text });
-  },
-};
 
 /** A colour as the browser computes it, resolved where the editors resolve their roles. */
 function computedColour(scope: HTMLElement, colour: string): string {
@@ -233,13 +205,18 @@ describe("the inline editors of a map", () => {
       expect(getComputedStyle(field).borderTopColor).toBe(
         computedColour(container, "var(--cd-ui-interaktion)"),
       );
+      expect(getComputedStyle(field).boxShadow).not.toBe("none");
     });
 
-    it.each(EDITORS)("widens the ring of the %s editor to 3px in high contrast", (editor) => {
-      page.setAttribute("data-cd-kontrast", "hoch");
-      const field = open(editor);
-      expect(focusRing(field)).toMatchObject({ style: "solid", width: "3px", offset: "2px" });
-    });
+    it.each(EDITORS)(
+      "widens the ring of the %s editor to 3px and drops its shadow in high contrast (#372)",
+      (editor) => {
+        page.setAttribute("data-cd-kontrast", "hoch");
+        const field = open(editor);
+        expect(focusRing(field)).toMatchObject({ style: "solid", width: "3px", offset: "2px" });
+        expect(getComputedStyle(field).boxShadow).toBe("none");
+      },
+    );
 
     // Chromium forces every outline to Highlight under forced colours by itself, so these cases
     // show that the ring survives there, not the stylesheet's own Highlight for other engines.
@@ -291,22 +268,42 @@ describe("the inline editors of a map", () => {
       );
     }
 
+    function captionOf(selector: string): HTMLElement {
+      const caption = container.querySelector<HTMLElement>(selector);
+      if (!caption) throw new Error(`no caption ${selector}`);
+      return caption;
+    }
+
     for (const contrast of ["normal", "high"] as const) {
       it.each(CAPTIONS)(
         `keeps $caption clear of the focus ring in ${contrast} contrast`,
         ({ show, selector }) => {
           if (contrast === "high") page.setAttribute("data-cd-kontrast", "hoch");
           const field = show();
-          const caption = container.querySelector<HTMLElement>(selector);
-          if (!caption) throw new Error(`no caption ${selector}`);
-          expect(caption.getBoundingClientRect().top).toBeGreaterThan(ringBottom(field));
+          expect(captionOf(selector).getBoundingClientRect().top).toBeGreaterThan(
+            ringBottom(field),
+          );
         },
       );
     }
+
+    it.each(CAPTIONS)(
+      "drops the shadow of $caption and its field in high contrast only (#372)",
+      ({ show, selector }) => {
+        const field = show();
+        const caption = captionOf(selector);
+        expect(getComputedStyle(caption).boxShadow).not.toBe("none");
+        expect(getComputedStyle(field).boxShadow).not.toBe("none");
+
+        page.setAttribute("data-cd-kontrast", "hoch");
+        expect(getComputedStyle(caption).boxShadow).toBe("none");
+        expect(getComputedStyle(field).boxShadow).toBe("none");
+      },
+    );
   });
 });
 
-describe("the focus ring of an inline editor under a host's appearance (#256)", () => {
+describe("the focus ring and the shadows of an inline editor under a host's appearance (#256, #372)", () => {
   const modelers: CollaborativeWardleyModeler[] = [];
   const wrappers: HTMLElement[] = [];
 
@@ -333,19 +330,32 @@ describe("the focus ring of an inline editor under a host's appearance (#256)", 
     return field;
   }
 
-  it("is 3px for a request of high contrast, also on a page in normal contrast", async () => {
+  /** Refuses a name the map already has, so the error caption shows under the field. */
+  function errorCaptionUnder(field: HTMLElement): HTMLElement {
+    (field as HTMLInputElement).value = "Customer";
+    pressKey(field, { key: "Enter" });
+    const caption = document.getElementById(field.getAttribute("aria-describedby") ?? "");
+    if (!caption) throw new Error("no error caption under the name editor");
+    return caption;
+  }
+
+  it("is 3px without shadows for a request of high contrast, also on a page in normal contrast", async () => {
     const modeler = createCollaborativeModeler();
     modeler.appearance.set({ theme: "light", contrast: "high" });
     const field = await nameEditorOf(modeler);
     expect(focusRing(field)).toMatchObject({ style: "solid", width: "3px", offset: "2px" });
+    expect(getComputedStyle(field).boxShadow).toBe("none");
+    expect(getComputedStyle(errorCaptionUnder(field)).boxShadow).toBe("none");
   });
 
-  it("stays 2px for a request of normal contrast on a high-contrast page", async () => {
+  it("stays 2px with shadows for a request of normal contrast on a high-contrast page", async () => {
     page.setAttribute("data-cd-theme", "dark");
     page.setAttribute("data-cd-kontrast", "hoch");
     const modeler = createCollaborativeModeler();
     modeler.appearance.set({ theme: "light", contrast: "normal" });
     const field = await nameEditorOf(modeler);
     expect(focusRing(field)).toMatchObject({ style: "solid", width: "2px", offset: "2px" });
+    expect(getComputedStyle(field).boxShadow).not.toBe("none");
+    expect(getComputedStyle(errorCaptionUnder(field)).boxShadow).not.toBe("none");
   });
 });
