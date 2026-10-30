@@ -625,6 +625,27 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       expect(drawTool().isActive()).toBe(false);
     });
 
+    it("keeps the line it holds when Enter, Space or Escape reach its palette entry once the host made it inert", () => {
+      const entry = drawEntry(container);
+      drawTool().activate();
+      placePoint(300, 300);
+      placePoint(420, 360);
+      entry.focus();
+      container.setAttribute("inert", "");
+      expect(document.activeElement).toBe(entry);
+
+      for (const key of ["Enter", " ", "Escape"]) {
+        expect(pressKey(entry, key).defaultPrevented, key).toBe(false);
+      }
+      expect(drawTool().holdsLine()).toBe(true);
+      expect(drawings()).toBe(0);
+
+      container.removeAttribute("inert");
+      expect(pressKey(entry, "Escape").defaultPrevented).toBe(true);
+      expect(drawTool().isActive()).toBe(false);
+      expect(drawings()).toBe(1);
+    });
+
     function drawEntry(root: ParentNode): HTMLElement {
       return root.querySelector<HTMLElement>('.djs-palette .entry[data-action="draw-tool"]')!;
     }

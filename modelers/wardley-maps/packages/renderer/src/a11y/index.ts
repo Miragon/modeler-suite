@@ -12,5 +12,6 @@ export {
   isCanvasKey,
   isKeyAimedAt,
   lastInteractionWasPointer,
+  liesInInertSubtree,
   trackInputModality,
 } from "./canvasFocus.js";

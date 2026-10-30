@@ -223,6 +223,29 @@ describe("palette", () => {
     stopTools(target);
   });
 
+  it("leaves its keys to the page once the host made it inert, before the browser moves the focus", async () => {
+    const target = mount();
+    await target.importDSL(TEA_SHOP);
+    const entry = target.container.querySelector<HTMLElement>(
+      '.djs-palette .entry[data-action="create.component"]',
+    )!;
+    entry.focus();
+    container!.setAttribute("inert", "");
+    expect(document.activeElement).toBe(entry);
+    const before = target.exportDSL();
+
+    for (const key of ["Enter", " ", "ArrowRight", "ArrowLeft", "Home", "End"]) {
+      expect(pressKey(entry, key).defaultPrevented, key).toBe(false);
+    }
+    expect(target.exportDSL()).toBe(before);
+    expect(target.get<Selection>("selection").get()).toEqual([]);
+    expect(document.activeElement).toBe(entry);
+
+    container!.removeAttribute("inert");
+    expect(pressKey(entry, "ArrowRight").defaultPrevented).toBe(true);
+    expect(document.activeElement).not.toBe(entry);
+  });
+
   it("keeps the focus on the entry for Enter, as a toolbar does", async () => {
     const target = mount();
     await target.importDSL(TEA_SHOP);

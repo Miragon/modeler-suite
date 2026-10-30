@@ -1989,7 +1989,9 @@ registers one internal didi service named `modelerShell` (a modeler does not reu
   `two-column` class is ignored. `separator` entries become vertical rules.
 - Palette keys, without modifiers: ← and → move and wrap, Home and End jump, Enter and Space trigger
   the entry once (repeats ignored). They are stopped at the palette, so a modeler's document listener
-  and VS Code never see them; chrome keys still bubble to the shell.
+  and VS Code never see them; chrome keys still bubble to the shell. A key on an entry inside an
+  `inert` subtree passes untouched: the browser moves the focus off an entry the host made inert
+  only at its next rendering update, and until then the key still reaches it.
 - Enter and Space trigger through a synthetic `click`, and that click is a contract: a `MouseEvent`
   with `detail === 0` (a pointer click has 1 or more), `clientX`/`clientY` at the entry's centre,
   bubbling and cancelable, dispatched on the entry. It goes through diagram-js's click delegate and

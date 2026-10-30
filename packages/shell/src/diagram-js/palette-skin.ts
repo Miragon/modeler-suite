@@ -203,7 +203,10 @@ export class PaletteSkin {
     if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
       return;
     const entry = this.entryOf(event.target);
-    if (!entry) return;
+    // The page's key: the browser sends it to an entry the host made inert until its next
+    // rendering update, and a draw tool leaves Enter there alone, so activating it would throw
+    // away the line the tool holds.
+    if (!entry || entry.closest("[inert]")) return;
     const entries = this.entryElements();
     const index = entries.indexOf(entry);
     const last = entries.length - 1;

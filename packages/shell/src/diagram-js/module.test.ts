@@ -276,6 +276,23 @@ describe("palette skin", () => {
     expect(clicks).toEqual(["click:box", "click:box"]);
   });
 
+  it("leaves the keys of an entry the host made inert to the page, before the focus moves off it", () => {
+    const diagram = createDiagram();
+    const box = entry(diagram, "create.box");
+    box.focus();
+    const container = diagram.get<{ getContainer(): HTMLElement }>("canvas").getContainer();
+    container.setAttribute("inert", "");
+    for (const key of ["Enter", " ", "ArrowRight", "ArrowLeft", "Home", "End"]) {
+      expect(press(box, key).defaultPrevented, key).toBe(false);
+    }
+    expect(clicks).toEqual([]);
+    expect(entries(diagram).filter((element) => element.tabIndex === 0)).toEqual([box]);
+
+    container.removeAttribute("inert");
+    expect(press(box, "Enter").defaultPrevented).toBe(true);
+    expect(clicks).toEqual(["click:box"]);
+  });
+
   it("activates with a synthetic click: detail 0, at the centre of the entry (guide §5.5)", () => {
     const received: MouseEvent[] = [];
     const diagram = createDiagram([
