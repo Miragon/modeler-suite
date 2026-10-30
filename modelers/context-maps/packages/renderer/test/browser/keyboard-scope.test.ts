@@ -141,30 +141,33 @@ for (const hide of ["display: none", "inert", "nothing"] as const) {
   });
 }
 
-test("a key that reaches the canvas before the browser moves the focus off it passes, once the host made it inert", () => {
-  const { modeler, container, svg } = mount();
-  try {
-    modeler.setMeta({ title: "Renamed" });
-    select(modeler, "a");
-    svg.focus();
-    container.inert = true;
-    expect(document.activeElement).toBe(svg);
+for (const hide of ["inert", "display: none"] as const) {
+  test(`a key that reaches the canvas before the browser moves the focus off it passes, once the host set ${hide} on its container`, () => {
+    const { modeler, container, svg } = mount();
+    try {
+      modeler.setMeta({ title: "Renamed" });
+      select(modeler, "a");
+      svg.focus();
+      if (hide === "inert") container.inert = true;
+      else container.style.display = "none";
+      expect(document.activeElement).toBe(svg);
 
-    for (const init of [
-      { key: "Backspace" },
-      { key: "Delete" },
-      { key: "z", ctrlKey: true },
-      { key: "a", metaKey: true },
-    ]) {
-      expect(press(svg, init).defaultPrevented, init.key).toBe(false);
+      for (const init of [
+        { key: "Backspace" },
+        { key: "Delete" },
+        { key: "z", ctrlKey: true },
+        { key: "a", metaKey: true },
+      ]) {
+        expect(press(svg, init).defaultPrevented, init.key).toBe(false);
+      }
+      expect(exists(modeler, "a")).toBe(true);
+      expect(modeler.exportDocument().title).toBe("Renamed");
+      expect(modeler.get<{ get(): unknown[] }>("selection").get()).toHaveLength(1);
+    } finally {
+      modeler.destroy();
     }
-    expect(exists(modeler, "a")).toBe(true);
-    expect(modeler.exportDocument().title).toBe("Renamed");
-    expect(modeler.get<{ get(): unknown[] }>("selection").get()).toHaveLength(1);
-  } finally {
-    modeler.destroy();
-  }
-});
+  });
+}
 
 test("an editor inside the canvas container keeps its keys", () => {
   const { modeler, container } = mount();

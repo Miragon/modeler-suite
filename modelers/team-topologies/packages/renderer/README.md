@@ -62,8 +62,9 @@ Cmd/Ctrl + `+` `-` `0` and Shift+1, each acting exactly once), so the canvas bin
 them together with the zoom panel.
 
 A host that hides the canvas without destroying the modeler makes its container `inert` or
-`display: none`, not only transparent: a hidden or inert canvas cannot hold the focus, so no key
-reaches it. There is no separate switch to pause the keyboard.
+`display: none`, not only transparent: the browser moves the focus off the `<svg>` at its next
+rendering update, and a key that reaches the `<svg>` before then passes too. There is no separate
+switch to pause the keyboard.
 
 **Palette from the keyboard.** A host chrome that makes the palette a toolbar (the modeler shell)
 triggers an entry with a click whose `detail` is 0. On a creating entry that click places the
