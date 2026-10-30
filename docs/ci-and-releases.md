@@ -19,25 +19,29 @@ commit and decides which jobs it can break:
 | Changed path                                                                                                   | Runs                                                    |
 | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `modelers/<m>/**`                                                                                              | the jobs of modeler `<m>`                               |
+| `modelers/<m>/plugins/**`                                                                                      | the jobs of modeler `<m>` and the shared jobs           |
 | `packages/**`, `.github/**`, root `package.json`, `package-lock.json`, `.npmrc`, any other root file or folder | the shared jobs, the template job and all five modelers |
 | `plugins/modeler-kit/**`                                                                                       | the shared jobs and the template job                    |
 | `plugins/**`, `test/**`, `.claude-plugin/**`                                                                   | the shared jobs                                         |
 | `docs/**`, `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`, `.husky/**`     | nothing but the always-on jobs                          |
 
 Markdown elsewhere is no documentation here: skills under `plugins/` feed drift tests, and a
-package or an extension ships its README. The template job also runs when the design-system files
-it borrows change (`modelers/event-storming/packages/renderer/src/theme/**`). A run without a base
-commit (started by hand, a new branch) and a base that cannot be fetched run everything; so does any
-path no rule names.
+package or an extension ships its README. A modeler's Claude plugin reaches the shared jobs because
+`test:plugin` checks the manifest and the skills of every plugin in the marketplace. The template
+job also runs when the design-system files it borrows change
+(`modelers/event-storming/packages/renderer/src/theme/**`). A run without a base commit (started
+by hand, a new branch) and a base that cannot be fetched run everything; so does any path no rule
+names.
 
 ### Jobs
 
 - **Shared** (`shared-lint`, `shared-test`, `shared-test-browser`, `shared-e2e`): the type check of
   modeler-api, modeler-shell and the root tests; their unit tests plus `test:plugin` (the
-  repository-level checks in `test/`: the modeler-kit and release-config drift tests, every
-  modeler's boundaries and the Dependabot auto-merge workflow), build and `publint`; the shell's
-  browser tests (`test:browser:shared`: the PNG export in Chromium and WebKit, in the Playwright
-  image of the root's `playwright` pin); the shell's Playwright suite in four
+  repository-level checks in `test/`: the modeler-kit and release-config drift tests, the manifests
+  and skills of every plugin in the marketplace, every modeler's boundaries, the Dependabot
+  auto-merge workflow and the path decisions of `ci-paths.sh affected`), build and `publint`; the
+  shell's browser tests (`test:browser:shared`: the PNG export in Chromium and WebKit, in the
+  Playwright image of the root's `playwright` pin); the shell's Playwright suite in four
   shards, each of which runs a quarter of the other tests and then a quarter of the saboteurs that
   run the whole kit (sharded together, those all fell into one shard).
 - **Per modeler**, a matrix over the modelers the change reaches, each job named
