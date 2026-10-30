@@ -145,8 +145,10 @@ export default class WardleyDrawingHandles {
       if (ev.key !== "Escape" || !isCanvasKey(ev, this.canvas)) return;
       ev.preventDefault();
       ev.stopPropagation();
-      this.endPointDrag();
+      // The watch comes first: a host that destroys the modeler from the interaction listener the
+      // end calls has it removed with the map, not left on the document without a canvas (#346).
       this.swallowClickOfRelease();
+      this.endPointDrag();
     };
     document.addEventListener("mousemove", onMove, true);
     document.addEventListener("mouseup", onUp, true);

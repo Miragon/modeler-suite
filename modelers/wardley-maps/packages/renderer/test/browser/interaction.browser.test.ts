@@ -538,6 +538,33 @@ describe("interaction follows every Wardley gesture", () => {
       expect(later).toEqual([]);
     },
   );
+
+  // The renderer's own drags take Escape in their own key listener, which goes on after it
+  // reported the end (#346).
+  test.each(WARDLEY_GESTURES)(
+    "%s, ended by Escape on the canvas whose end a listener destroys the modeler at: nothing throws",
+    async (_, start) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const svg = canvasSvgOf(modeler);
+      const box = svg.getBoundingClientRect();
+      const free = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+      await start(modeler);
+      await settle();
+      expect(current.delivered).toEqual([true]);
+      modeler.interaction.onChange((active) => {
+        if (!active) modeler.destroy();
+      });
+
+      pressEscape(modeler);
+      expect(svg.isConnected).toBe(false);
+      mouse(document, "mouseup", free);
+      mouse(document, "click", free);
+      await settle();
+      expect(errors).toEqual([]);
+      expect(current.delivered).toEqual([true, false]);
+    },
+  );
 });
 
 function theDrawing(modeler: CollaborativeWardleyModeler): WardleyShape {
