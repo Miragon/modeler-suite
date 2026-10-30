@@ -1,15 +1,50 @@
 /// <reference types="@vitest/browser-playwright" />
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { cdp, userEvent } from "vitest/browser";
+import { cdp, page, userEvent } from "vitest/browser";
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
+import type Selection from "diagram-js/lib/features/selection/Selection";
+import type { ModuleDeclaration } from "didi";
 import { Modeler } from "../../src/index.js";
+import { isEventStormingShape, type EventStormingShape } from "../../src/model/di-types.js";
 import "../../src/assets/event-storming.css";
 
-/** The renderer's palette and tooltip rules lay out this modeler's palette and no other on the page. */
+/**
+ * The palette a host gets that mounts the renderer without the modeler shell (designIQ, any page):
+ * the toolbar of guide §5.5 at the top centre, its keys and pressed tools, and the tooltip below
+ * it. The renderer's palette and tooltip rules lay out this modeler's palette and no other on the
+ * page, and a palette a chrome skins (`data-chrome="palette"`) stays that chrome's alone.
+ */
+
+const FREE_AREA_CENTRE = { x: 400, y: 300 };
+/** The entries of a board at the default level, "design", in the palette's order. */
+const ENTRIES = [
+  "lasso-tool",
+  "draw-tool",
+  "create.event",
+  "create.command",
+  "create.actor",
+  "create.aggregate",
+  "create.policy",
+  "create.readmodel",
+  "create.external",
+  "create.hotspot",
+  "create.note",
+];
+
+interface Board {
+  modeler: Modeler;
+  container: HTMLElement;
+  palette: HTMLElement;
+  /** A host's button in front of the board in the tab order. */
+  before: HTMLButtonElement;
+}
 
 const mounted: { modeler: Modeler; container: HTMLElement }[] = [];
 
 afterEach(async () => {
   await cdp().send("Emulation.setEmulatedMedia", { features: [] });
+  document.documentElement.removeAttribute("data-cd-kontrast");
   for (const { modeler, container } of mounted.splice(0)) {
     modeler.destroy();
     container.remove();
@@ -17,13 +52,75 @@ afterEach(async () => {
 });
 
 /** A board without the shell, its palette at the top centre of a container 1024px wide. */
-async function mountBoard(height = 768): Promise<{ container: HTMLElement; palette: HTMLElement }> {
+async function mountBoard(
+  options: { width?: number; height?: number; additionalModules?: ModuleDeclaration[] } = {},
+): Promise<Board> {
+  const wrapper = document.createElement("div");
+  const before = document.createElement("button");
+  before.textContent = "Before the board";
   const container = document.createElement("div");
-  document.body.append(container);
-  const modeler = new Modeler({ container, width: 1024, height, fitOnImport: false });
-  mounted.push({ modeler, container });
+  wrapper.append(before, container);
+  document.body.append(wrapper);
+  const modeler = new Modeler({
+    container,
+    width: options.width ?? 1024,
+    height: options.height ?? 768,
+    fitOnImport: false,
+    freeArea: { center: () => FREE_AREA_CENTRE },
+    additionalModules: options.additionalModules ?? [],
+  });
+  mounted.push({ modeler, container: wrapper });
   await modeler.importDSL("title Palette");
-  return { container, palette: container.querySelector<HTMLElement>(".djs-palette")! };
+  // The pointer of an earlier case may rest where an entry of this board lies, which would hover it.
+  await userEvent.hover(before);
+  return {
+    modeler,
+    container,
+    palette: container.querySelector<HTMLElement>(".djs-palette")!,
+    before,
+  };
+}
+
+function canvasSvg(container: HTMLElement): SVGSVGElement {
+  return container.querySelector<SVGSVGElement>(".djs-container > svg")!;
+}
+
+function paletteEntries(palette: HTMLElement): HTMLElement[] {
+  return [...palette.querySelectorAll<HTMLElement>(".djs-palette-entries .entry")];
+}
+
+function stickies(modeler: Modeler): EventStormingShape[] {
+  return modeler
+    .get<ElementRegistry>("elementRegistry")
+    .filter(isEventStormingShape) as EventStormingShape[];
+}
+
+/** The raised surface without glass, in the colour space the glass mix computes in. */
+function opaqueSurface(container: HTMLElement): string {
+  return resolved(
+    container,
+    "background-color",
+    "color-mix(in srgb, var(--cd-ui-flaeche-hoch) 100%, transparent)",
+  );
+}
+
+/** `rgb(r, g, b)` as its three channels. */
+function rgbOf(color: string): number[] {
+  return (color.match(/\d+/g) ?? []).slice(0, 3).map(Number);
+}
+
+/** The colour on screen at a point of `element`, in px from its top left. */
+async function pixelOf(element: HTMLElement, x: number, y: number): Promise<number[]> {
+  const base64 = await page.screenshot({ element, save: false });
+  const bitmap = await createImageBitmap(
+    await (await fetch(`data:image/png;base64,${base64}`)).blob(),
+  );
+  const scale = bitmap.width / element.getBoundingClientRect().width;
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const context = canvas.getContext("2d")!;
+  context.drawImage(bitmap, 0, 0);
+  const data = context.getImageData(Math.floor(x * scale), Math.floor(y * scale), 1, 1).data;
+  return [data[0]!, data[1]!, data[2]!];
 }
 
 function entryOf(palette: HTMLElement, action: string): HTMLElement {
@@ -78,7 +175,12 @@ test("leaves another diagram-js palette and its tooltip on the same page as diag
     ]);
     expect(getComputedStyle(other.querySelector(".entry")!).width).toBe("46px");
     const tooltip = getComputedStyle(other.querySelector(".djs-hover-tooltip")!);
-    expect([tooltip.padding, tooltip.transform]).toEqual(["6px 10px", "none"]);
+    expect([tooltip.padding, tooltip.transform, tooltip.position, tooltip.whiteSpace]).toEqual([
+      "6px 10px",
+      "none",
+      "fixed",
+      "nowrap",
+    ]);
   } finally {
     other.remove();
   }
@@ -126,7 +228,7 @@ describe("the palette without the shell: the sizes of guide §5.5", () => {
   ])(
     "is an island 40px high at 12px from the top, its entries 4px inside its edge, on $board",
     async ({ height, twoColumn }) => {
-      const { container, palette } = await mountBoard(height);
+      const { container, palette } = await mountBoard({ height });
       expect(palette.classList.contains("two-column")).toBe(twoColumn);
       const box = boxIn(palette, container);
 
@@ -245,5 +347,498 @@ describe("the palette without the shell: reduced motion (guide §5.14, §7)", ()
     await emulateMedia("prefers-reduced-motion", "reduce");
     const style = getComputedStyle(entry);
     expect([style.transitionProperty, style.transitionDuration]).toEqual(["none", "0s"]);
+  });
+});
+
+describe("the palette without the shell: glass (guide §5.3, §5.5, §6)", () => {
+  test("is the raised surface at --cd-ui-chrome-deckkraft over an 8px blur, not opaque", async () => {
+    const { container, palette } = await mountBoard();
+    const style = getComputedStyle(palette);
+
+    expect(style.backgroundColor).toBe(
+      resolved(
+        container,
+        "background-color",
+        "color-mix(in srgb, var(--cd-ui-flaeche-hoch) var(--cd-ui-chrome-deckkraft), transparent)",
+      ),
+    );
+    expect(style.backgroundColor).not.toBe(opaqueSurface(container));
+    expect(style.backdropFilter).toBe("blur(8px)");
+  });
+
+  test("turns opaque in high contrast, on the page and on the board's own carrier", async () => {
+    const { container, palette } = await mountBoard();
+    document.documentElement.setAttribute("data-cd-kontrast", "hoch");
+    expect(getComputedStyle(palette).backgroundColor).toBe(opaqueSurface(container));
+
+    document.documentElement.removeAttribute("data-cd-kontrast");
+    container.setAttribute("data-cd-theme", "light");
+    container.setAttribute("data-cd-kontrast", "hoch");
+    expect(getComputedStyle(palette).backgroundColor).toBe(opaqueSurface(container));
+  });
+
+  test("stays glass in a carrier in normal contrast on a high-contrast page", async () => {
+    const { container, palette } = await mountBoard();
+    document.documentElement.setAttribute("data-cd-kontrast", "hoch");
+    container.setAttribute("data-cd-theme", "light");
+
+    expect(getComputedStyle(palette).backgroundColor).not.toBe(opaqueSurface(container));
+  });
+});
+
+describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
+  function tabStops(palette: HTMLElement): (string | null)[] {
+    return paletteEntries(palette)
+      .filter((entry) => entry.tabIndex === 0)
+      .map((entry) => entry.getAttribute("data-action"));
+  }
+
+  function pressed(palette: HTMLElement): Record<string, string | null> {
+    return Object.fromEntries(
+      paletteEntries(palette).map((entry) => [
+        entry.getAttribute("data-action"),
+        entry.getAttribute("aria-pressed"),
+      ]),
+    );
+  }
+
+  test("is a toolbar named Tools, ahead of the canvas in the document and the tab order", async () => {
+    const { container, palette, before } = await mountBoard();
+    const toolbar = palette.querySelector(".djs-palette-entries")!;
+    expect(toolbar.getAttribute("role")).toBe("toolbar");
+    expect(toolbar.getAttribute("aria-label")).toBe("Tools");
+    expect(
+      palette.compareDocumentPosition(canvasSvg(container)) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(paletteEntries(palette).map((entry) => entry.getAttribute("data-action"))).toEqual(
+      ENTRIES,
+    );
+    expect(paletteEntries(palette).map((entry) => entry.getAttribute("role"))).toEqual(
+      ENTRIES.map(() => "button"),
+    );
+
+    before.focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(entryOf(palette, "lasso-tool"));
+    await userEvent.tab();
+    expect(document.activeElement).toBe(canvasSvg(container));
+  });
+
+  test("has one tab stop that roves with ← → Home End and stays where the focus left it", async () => {
+    const { container, palette } = await mountBoard();
+    expect(tabStops(palette)).toEqual(["lasso-tool"]);
+    expect(paletteEntries(palette).filter((entry) => entry.tabIndex === -1)).toHaveLength(
+      ENTRIES.length - 1,
+    );
+
+    entryOf(palette, "lasso-tool").focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(entryOf(palette, "draw-tool"));
+    expect(tabStops(palette)).toEqual(["draw-tool"]);
+
+    await userEvent.keyboard("{End}");
+    expect(document.activeElement).toBe(entryOf(palette, "create.note"));
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(entryOf(palette, "lasso-tool"));
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(document.activeElement).toBe(entryOf(palette, "create.note"));
+    await userEvent.keyboard("{Home}");
+    expect(document.activeElement).toBe(entryOf(palette, "lasso-tool"));
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+    expect(tabStops(palette)).toEqual(["create.event"]);
+
+    canvasSvg(container).focus();
+    expect(tabStops(palette)).toEqual(["create.event"]);
+  });
+
+  test("keeps one tab stop when a level switch rebuilds the entries", async () => {
+    const { modeler, palette } = await mountBoard();
+    entryOf(palette, "lasso-tool").focus();
+    await userEvent.keyboard("{End}");
+    expect(tabStops(palette)).toEqual(["create.note"]);
+
+    await modeler.importDSL("title Palette\nlevel big-picture");
+    expect(paletteEntries(palette)).toHaveLength(7);
+    expect(tabStops(palette)).toEqual(["create.note"]);
+    expect(paletteEntries(palette).filter((entry) => entry.tabIndex === -1)).toHaveLength(6);
+  });
+
+  test("names the keys of the lasso, the domain event and the command, and of no other entry", async () => {
+    const { palette } = await mountBoard();
+    expect(
+      Object.fromEntries(
+        paletteEntries(palette)
+          .filter((entry) => entry.hasAttribute("aria-keyshortcuts"))
+          .map((entry) => [
+            entry.getAttribute("data-action"),
+            entry.getAttribute("aria-keyshortcuts"),
+          ]),
+      ),
+    ).toEqual({ "lasso-tool": "L", "create.event": "E", "create.command": "C" });
+  });
+
+  test("presses the armed tool only, also when a key on the canvas arms it", async () => {
+    const { container, palette } = await mountBoard();
+    expect(pressed(palette)).toEqual({
+      ...Object.fromEntries(ENTRIES.map((action) => [action, null])),
+      "lasso-tool": "false",
+      "draw-tool": "false",
+    });
+
+    entryOf(palette, "draw-tool").focus();
+    await userEvent.keyboard(" ");
+    expect(pressed(palette)).toMatchObject({ "lasso-tool": "false", "draw-tool": "true" });
+    expect(document.activeElement).toBe(entryOf(palette, "draw-tool"));
+
+    await userEvent.keyboard("{Enter}");
+    expect(pressed(palette)).toMatchObject({ "lasso-tool": "false", "draw-tool": "false" });
+
+    canvasSvg(container).focus();
+    await userEvent.keyboard("l");
+    expect(pressed(palette)).toMatchObject({ "lasso-tool": "true", "draw-tool": "false" });
+  });
+
+  test("creates a domain event in the free area on Enter, selected and in edit", async () => {
+    const { modeler, container, palette } = await mountBoard();
+    entryOf(palette, "create.event").focus();
+    await userEvent.keyboard("{Enter}");
+
+    const [created] = stickies(modeler);
+    expect(created?.eventStormingType).toBe("event");
+    expect([created!.x + created!.width / 2, created!.y + created!.height / 2]).toEqual([
+      FREE_AREA_CENTRE.x,
+      FREE_AREA_CENTRE.y,
+    ]);
+    expect(modeler.get<Selection>("selection").get()).toEqual([created]);
+    expect(container.querySelector(".event-storming-label-input")).not.toBeNull();
+    expect(stickies(modeler)).toHaveLength(1);
+  });
+
+  test("leaves Enter with a modifier and a held key's repeats alone", async () => {
+    const { modeler, palette } = await mountBoard();
+    const event = entryOf(palette, "create.event");
+    event.focus();
+    for (const init of [
+      { shiftKey: true },
+      { ctrlKey: true },
+      { altKey: true },
+      { metaKey: true },
+      { repeat: true },
+    ]) {
+      const key = new KeyboardEvent("keydown", {
+        key: "Enter",
+        bubbles: true,
+        cancelable: true,
+        ...init,
+      });
+      event.dispatchEvent(key);
+      expect(key.defaultPrevented, JSON.stringify(init)).toBe(!!init.repeat);
+    }
+    expect(stickies(modeler)).toEqual([]);
+  });
+
+  test("hands the focus to the canvas after a press on the island's padding", async () => {
+    const { container, palette } = await mountBoard();
+    entryOf(palette, "lasso-tool").focus();
+    await userEvent.click(palette, { position: { x: 2, y: 20 } });
+
+    expect(document.activeElement).toBe(canvasSvg(container));
+    expect(canvasSvg(container).matches(":focus-visible")).toBe(false);
+  });
+
+  // The browser scrolls the canvas container to show a focused entry past its side, and diagram-js
+  // maps the pointer as if it never scrolled.
+  test("keeps the board in place when the keyboard reaches an entry past the side of a narrower container", async () => {
+    const { container, palette, before } = await mountBoard({ width: 300 });
+    const canvasContainer = container.querySelector<HTMLElement>(".djs-container")!;
+    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    before.focus();
+    await userEvent.tab();
+    entryOf(palette, "lasso-tool").dispatchEvent(
+      new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true }),
+    );
+    expect(document.activeElement).toBe(entryOf(palette, "create.note"));
+    expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]);
+    await nextFrame();
+    expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]);
+
+    before.focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(entryOf(palette, "create.note"));
+    await vi.waitFor(() =>
+      expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]),
+    );
+    await nextFrame();
+    await nextFrame();
+    expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]);
+  });
+
+  test("shows the keyboard focus as a 2px --cd-ui-fokus ring 2px outside the entry, none for a press", async () => {
+    const { container, palette, before } = await mountBoard();
+    before.focus();
+    await userEvent.tab();
+    const lasso = entryOf(palette, "lasso-tool");
+    const style = getComputedStyle(lasso);
+
+    expect(lasso.matches(":focus-visible")).toBe(true);
+    expect([style.outlineStyle, style.outlineWidth, style.outlineOffset]).toEqual([
+      "solid",
+      "2px",
+      "2px",
+    ]);
+    expect(style.outlineColor).toBe(resolved(container, "color", "var(--cd-ui-fokus)"));
+
+    const draw = entryOf(palette, "draw-tool");
+    draw.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    draw.focus({ focusVisible: false });
+    expect(getComputedStyle(draw).outlineStyle).toBe("none");
+  });
+
+  // The armed tool's own ring, in --cd-ui-interaktion, lies on the same 2px as the focus ring. The
+  // island is 425px wide, so an odd container width puts it, and both rings, on whole pixels.
+  test("keeps the focus ring visible beside an armed neighbour, which paints after it", async () => {
+    const { container, palette } = await mountBoard({ width: 1023 });
+    const lasso = entryOf(palette, "lasso-tool");
+    const draw = entryOf(palette, "draw-tool");
+    draw.focus();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(document.activeElement).toBe(lasso);
+    expect(lasso.matches(":focus-visible")).toBe(true);
+    expect(draw.getAttribute("aria-pressed")).toBe("true");
+    const hoverFill = resolved(container, "background-color", "var(--cd-ui-hover)");
+    await vi.waitFor(() => expect(getComputedStyle(draw).backgroundColor).toBe(hoverFill));
+
+    const lassoBox = boxIn(lasso, palette);
+    const ring = await pixelOf(palette, lassoBox.right + 3, lassoBox.top + lassoBox.height / 2);
+    expect(ring).toEqual(rgbOf(resolved(container, "color", "var(--cd-ui-fokus)")));
+  });
+
+  test("widens the focus ring to 3px in high contrast, on the page and on the board's own carrier", async () => {
+    const { container, palette, before } = await mountBoard();
+    before.focus();
+    await userEvent.tab();
+    const lasso = entryOf(palette, "lasso-tool");
+
+    document.documentElement.setAttribute("data-cd-kontrast", "hoch");
+    expect(getComputedStyle(lasso).outlineWidth).toBe("3px");
+    document.documentElement.removeAttribute("data-cd-kontrast");
+    container.setAttribute("data-cd-theme", "light");
+    container.setAttribute("data-cd-kontrast", "hoch");
+    expect(getComputedStyle(lasso).outlineWidth).toBe("3px");
+  });
+
+  test("keeps the 2px ring in a carrier in normal contrast on a high-contrast page", async () => {
+    const { container, palette, before } = await mountBoard();
+    document.documentElement.setAttribute("data-cd-kontrast", "hoch");
+    container.setAttribute("data-cd-theme", "light");
+    before.focus();
+    await userEvent.tab();
+
+    expect(getComputedStyle(entryOf(palette, "lasso-tool")).outlineWidth).toBe("2px");
+  });
+});
+
+describe("the palette without the shell: tooltip (guide §5.6)", () => {
+  function shownTooltip(container: HTMLElement): HTMLElement | null {
+    return container.querySelector<HTMLElement>(".djs-hover-tooltip");
+  }
+
+  function shownName(container: HTMLElement): string | null | undefined {
+    return shownTooltip(container)?.querySelector(".djs-palette-tooltip-label")?.textContent;
+  }
+
+  /** The keyboard focus on the palette's first entry, then `keys`, from a fresh board. */
+  async function focusFromTheKeyboard(board: Board, keys = ""): Promise<HTMLElement> {
+    board.before.focus();
+    await userEvent.tab();
+    if (keys) await userEvent.keyboard(keys);
+    const tooltip = shownTooltip(board.container);
+    if (!tooltip) throw new Error("No tooltip on keyboard focus.");
+    return tooltip;
+  }
+
+  test("shows at once on keyboard focus, follows the arrow keys and is a role=tooltip", async () => {
+    const board = await mountBoard();
+    const { container } = board;
+    const tooltip = await focusFromTheKeyboard(board);
+
+    expect(shownName(container)).toBe("Lasso");
+    expect(tooltip.getAttribute("role")).toBe("tooltip");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(shownName(container)).toBe("Draw");
+    expect(container.querySelectorAll(".djs-hover-tooltip")).toHaveLength(1);
+
+    canvasSvg(container).focus();
+    expect(shownTooltip(container)).toBeNull();
+  });
+
+  test("hides on Escape and on a press, and stays hidden while the pointer rests on the entry", async () => {
+    const board = await mountBoard();
+    const { container, palette } = board;
+    await focusFromTheKeyboard(board);
+    expect(shownName(container)).toBe("Lasso");
+    await userEvent.keyboard("{Escape}");
+    expect(shownTooltip(container)).toBeNull();
+    expect(document.activeElement).toBe(entryOf(palette, "lasso-tool"));
+
+    const command = entryOf(palette, "create.command");
+    await userEvent.hover(command);
+    await vi.waitFor(() => expect(shownName(container)).toBe("Command"));
+    await userEvent.click(command);
+    expect(shownTooltip(container)).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(shownTooltip(container)).toBeNull();
+  });
+
+  test("waits 300ms on hover, then shows a neighbour's at once", async () => {
+    const { container, palette } = await mountBoard();
+    await userEvent.hover(canvasSvg(container), { position: { x: 500, y: 500 } });
+    await userEvent.hover(entryOf(palette, "create.event"));
+    expect(shownTooltip(container)).toBeNull();
+    await vi.waitFor(() => expect(shownName(container)).toBe("Domain event"));
+
+    await userEvent.hover(entryOf(palette, "create.command"));
+    expect(shownName(container)).toBe("Command");
+  });
+
+  test("shows none for touch", async () => {
+    const { container, palette } = await mountBoard();
+    entryOf(palette, "create.event").dispatchEvent(
+      new PointerEvent("pointerover", { bubbles: true, pointerType: "touch" }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    expect(shownTooltip(container)).toBeNull();
+  });
+
+  test("describes no entry whose name and aria-keyshortcuts say what it shows", async () => {
+    const board = await mountBoard();
+    await focusFromTheKeyboard(board);
+
+    expect(shownName(board.container)).toBe("Lasso");
+    expect(entryOf(board.palette, "lasso-tool").hasAttribute("aria-describedby")).toBe(false);
+  });
+
+  // In a container 430px wide the palette (425px at the level "design") reaches within 3px of its
+  // sides, so a tooltip centred on an outer entry would come closer than 12px or pass them.
+  test.for([
+    { side: "left", keys: "", name: "Lasso" },
+    { side: "right", keys: "{End}", name: "Note" },
+  ])(
+    "keeps 12px from the container's $side side, shifted off the centre of its entry",
+    async ({ side, keys, name }) => {
+      const board = await mountBoard({ width: 430 });
+      const tooltip = await focusFromTheKeyboard(board, keys);
+      expect(shownName(board.container)).toBe(name);
+      const tooltipBox = boxIn(tooltip, board.container);
+      const entryBox = boxIn(document.activeElement!, board.container);
+      const centred = entryBox.left + entryBox.width / 2;
+
+      if (side === "left") {
+        expect(centred - tooltipBox.width / 2).toBeLessThan(12);
+        expect(tooltipBox.left).toBeCloseTo(12, 0);
+      } else {
+        expect(centred + tooltipBox.width / 2).toBeGreaterThan(430 - 12);
+        expect(tooltipBox.right).toBeCloseTo(430 - 12, 0);
+      }
+      expect(tooltipBox.top).toBeCloseTo(boxIn(board.palette, board.container).bottom + 8, 0);
+    },
+  );
+
+  test("is at most the container less 12px on either side wide, and wraps its name", async () => {
+    const board = await mountBoard({ width: 120 });
+    const tooltip = await focusFromTheKeyboard(board, "{End}{ArrowLeft}{ArrowLeft}");
+    expect(shownName(board.container)).toBe("External system");
+    const tooltipBox = boxIn(tooltip, board.container);
+
+    expect(tooltipBox.width).toBeLessThanOrEqual(120 - 24);
+    expect(tooltipBox.left).toBeGreaterThanOrEqual(12 - 0.5);
+    expect(tooltipBox.right).toBeLessThanOrEqual(120 - 12 + 0.5);
+    expect(tooltipBox.height).toBeGreaterThan(28);
+    expect(getComputedStyle(tooltip).maxWidth).toBe("min(280px, 100% - 24px)");
+  });
+
+  test("throws nothing later when the modeler is destroyed while its tooltip waits to show", async () => {
+    const { modeler, palette } = await mountBoard();
+    const errors: unknown[] = [];
+    const collect = (event: ErrorEvent) => errors.push(event.error);
+    window.addEventListener("error", collect);
+    try {
+      await userEvent.hover(entryOf(palette, "create.event"));
+      const { container: wrapper } = mounted.pop()!;
+      modeler.destroy();
+      wrapper.remove();
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    } finally {
+      window.removeEventListener("error", collect);
+    }
+    expect(errors).toEqual([]);
+  });
+});
+
+/** A chrome that skins the palette as the shell does, without importing the shell. */
+function chromeModule(options: { asShell: boolean }): ModuleDeclaration {
+  function markPalette(eventBus: EventBus): void {
+    eventBus.on("palette.create", (event: { container: HTMLElement }) =>
+      event.container.setAttribute("data-chrome", "palette"),
+    );
+  }
+  markPalette.$inject = ["eventBus"];
+  return {
+    __init__: [markPalette],
+    ...(options.asShell
+      ? { modelerShell: ["value", { chrome: true }], paletteTooltip: ["value", null] }
+      : {}),
+  };
+}
+
+describe.each([
+  { name: "the shell", asShell: true },
+  { name: "another chrome", asShell: false },
+])("a palette $name skins (data-chrome)", ({ asShell }) => {
+  test("keeps none of the renderer's layout, keys or toolbar attributes", async () => {
+    const { modeler, container, palette } = await mountBoard({
+      additionalModules: [chromeModule({ asShell })],
+    });
+    expect(palette.getAttribute("data-chrome")).toBe("palette");
+
+    const style = getComputedStyle(palette);
+    expect([style.top, style.width, style.zIndex]).toEqual(["20px", "48px", "auto"]);
+    expect(palette.querySelector(".djs-palette-entries")!.hasAttribute("role")).toBe(false);
+    for (const entry of paletteEntries(palette)) {
+      expect(entry.hasAttribute("tabindex")).toBe(false);
+      expect(entry.hasAttribute("aria-pressed")).toBe(false);
+      expect(entry.hasAttribute("aria-keyshortcuts")).toBe(false);
+    }
+    expect(
+      palette.compareDocumentPosition(canvasSvg(container)) & Node.DOCUMENT_POSITION_PRECEDING,
+    ).toBeTruthy();
+
+    const draw = entryOf(palette, "draw-tool");
+    await userEvent.hover(draw);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    const tooltip = container.querySelector<HTMLElement>(".djs-hover-tooltip");
+    if (asShell) {
+      expect(tooltip).toBeNull();
+    } else {
+      expect(tooltip?.classList.contains("djs-hover-tooltip--right")).toBe(true);
+      const drawBox = draw.getBoundingClientRect();
+      const tooltipBox = tooltip!.getBoundingClientRect();
+      expect(tooltipBox.left).toBeCloseTo(drawBox.right + 8, 0);
+      expect(tooltipBox.top + tooltipBox.height / 2).toBeCloseTo(
+        drawBox.top + drawBox.height / 2,
+        0,
+      );
+    }
+    await userEvent.unhover(draw);
+
+    const event = entryOf(palette, "create.event");
+    event.tabIndex = 0;
+    event.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(event);
+    await userEvent.keyboard("{Enter}");
+    expect(stickies(modeler)).toEqual([]);
   });
 });

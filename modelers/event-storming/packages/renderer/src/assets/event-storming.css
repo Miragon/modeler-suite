@@ -65,7 +65,9 @@
    any other diagram-js palette on the page (a bpmn-js editor beside the board) keeps its own.
    `:where` adds the container without adding specificity, so a host's own rule on this palette or
    its tooltip keeps winning. The sizes are guide §5.5's: 40px high from a 1px edge, 3px padding
-   and 32px entries 2px apart, the groups 8px, a 1px line and 8px apart. */
+   and 32px entries 2px apart, the groups 8px, a 1px line and 8px apart. A glass island (guide §6),
+   opaque where the mode's --cd-ui-chrome-deckkraft is 100% (dark, high contrast). Its keys, tab
+   stop and the tools' aria-pressed come from palette/EventStormingPaletteToolbar.ts. */
 :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) {
   left: 50%;
   top: 12px;
@@ -75,7 +77,13 @@
   display: flex;
   align-items: center;
   padding: 3px;
-  background: var(--cd-ui-flaeche-hoch);
+  background: color-mix(
+    in srgb,
+    var(--cd-ui-flaeche-hoch) var(--cd-ui-chrome-deckkraft),
+    transparent
+  );
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--cd-ui-linie);
   border-radius: var(--cd-radius-md);
   box-shadow: var(--cd-shadow-1);
@@ -118,6 +126,16 @@
   background: var(--cd-ui-hover);
   box-shadow: inset 0 0 0 2px var(--cd-ui-interaktion);
 }
+:where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) .entry:focus {
+  outline: none;
+}
+/* The ring stands 2px outside the entry, over the gap and into the neighbour's box; lifted, so an
+   armed or hovered neighbour, painted later, does not cover it (guide §5.14). */
+:where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
+  z-index: 1;
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
 
 /* Subtle vertical separator between the groups (diagram-js does not separate groups on its own). */
 :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) .group + .group {
@@ -138,10 +156,11 @@
   background: var(--cd-ui-linie);
 }
 
-/* Palette tooltip: diagram-js' hover tooltip, hung 8px BELOW the island and centred on its entry by
-   EventStormingPaletteTooltip (the stock right-hand placement would cover the next entry of the
-   horizontal bar). Opaque, with the name and a shortcut chip in diagram-js's 6px flex gap (guide
-   §5.6). diagram-js mounts it in the canvas container. */
+/* Palette tooltip (palette/EventStormingPaletteTooltip.ts), guide §5.6: opaque, with the name and a
+   shortcut chip in diagram-js's 6px flex gap. It hangs 8px below the island, centred on its entry
+   and shifted to keep 12px from the container's sides (the stock right-hand placement would cover
+   the next entry of the horizontal bar), at most min(280px, 100% - 24px) wide, placed in the canvas
+   container's coordinates. */
 :where(.event-storming-container) .djs-hover-tooltip {
   padding: 3px 8px;
   border: 1px solid var(--cd-ui-linie);
@@ -155,6 +174,11 @@
   box-shadow: var(--cd-shadow-2);
 }
 :where(.event-storming-container) .djs-hover-tooltip--bottom {
+  position: absolute;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(280px, 100% - 24px);
+  white-space: normal;
   transform: translateX(-50%);
 }
 :where(.event-storming-container) .djs-hover-tooltip .djs-palette-tooltip-shortcut {
@@ -371,7 +395,7 @@
   border-radius: 5px;
   border: 1px solid var(--cd-ui-linie);
   cursor: pointer;
-  transition: transform 0.08s ease;
+  transition: transform var(--cd-motion-fast) var(--cd-ease);
 }
 .event-storming-container .event-storming-cp-swatch:hover {
   transform: scale(1.1);
@@ -483,10 +507,11 @@
   -webkit-user-select: none;
 }
 
-/* High contrast drops every shadow (guide §5.3) and widens the inline editors' focus ring to 3px
-   (§8), which keeps its band of the field's surface, a solid edge and no shadow; forced colours
-   keep the island edges visible, and an inline editor's ring in Highlight around a band of Canvas
-   (§5.14).
+/* High contrast drops every shadow (guide §5.3) and widens the focus ring of the palette and of
+   the inline editors to 3px (§5.14, §8); an inline editor's keeps its band of the field's surface,
+   a solid edge and no shadow. The palette's glass turns opaque through --cd-ui-chrome-deckkraft.
+   Forced colours keep the island edges visible, and an inline editor's ring in Highlight around a
+   band of Canvas (§5.14).
    High contrast is the nearest mode carrier's (guide §13.3): the page's, or the container's once
    a host asked for an appearance (contract 1.5), so normal contrast requested on a high-contrast
    page keeps the shadows and the 2px ring. */
@@ -508,6 +533,11 @@
     .event-storming-label-input:focus {
     outline-width: 3px;
     box-shadow: 0 0 0 2px var(--cd-ui-flaeche-hoch);
+  }
+  :is(:scope.event-storming-container, :scope .event-storming-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry:focus-visible {
+    outline-width: 3px;
   }
   /* Forced colours turn the surface role into Canvas only below a data-cd-theme: on a page in high
      contrast without one, the band would stay the light surface around a field drawn in Canvas. */
@@ -584,9 +614,20 @@
     box-shadow: inset 0 0 0 2px Highlight;
   }
 }
+/* No movement under reduced motion (guide §5.14, §7): no hover fades in the palette, the context
+   pad, the note toolbar and the label suggestions, and no growing colour swatch. */
 @media (prefers-reduced-motion: reduce) {
   :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) .entry {
     transition: none;
+  }
+  .event-storming-container .djs-context-pad .entry.event-storming-cp-entry,
+  .event-storming-container .event-storming-note-toolbar button,
+  .event-storming-container .event-storming-label-suggestion,
+  .event-storming-container .event-storming-cp-swatch {
+    transition: none;
+  }
+  .event-storming-container .event-storming-cp-swatch:hover {
+    transform: none;
   }
 }
 

@@ -1655,7 +1655,7 @@ describe("clearing the board while the user drags a sticky", () => {
         clientY: rect.top + (point.y - viewbox.y) * viewbox.scale,
       };
     };
-    const svg = canvas.getContainer().querySelector("svg")!;
+    const svg = canvas.getContainer().querySelector<SVGSVGElement>(":scope > svg")!;
     const graphics = modeler.get<ElementRegistry>("elementRegistry").getGraphics(event);
 
     graphics.dispatchEvent(new MouseEvent("mousedown", at(start)));

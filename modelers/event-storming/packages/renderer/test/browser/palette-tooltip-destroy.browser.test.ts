@@ -1,17 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ModuleDeclaration } from "didi";
-import { attachedHost } from "@miragon/modeler-api/conformance";
-import {
-  Modeler,
-  createCollaborativeModeler,
-  type CollaborativeEventStormingModeler,
-} from "../../src/index.js";
+import PaletteTooltip from "diagram-js/lib/features/palette/PaletteTooltip";
+import { Modeler } from "../../src/index.js";
 import "../../src/assets/event-storming.css";
 import { eventStormingPaletteModule } from "../../src/palette/index.js";
 import { eventStormingHoverTooltipTeardownModule } from "../../src/palette/EventStormingHoverTooltipTeardown.js";
 
-// diagram-js's hover tooltip shows a palette entry's tooltip 300ms after the pointer enters it; a
-// host may destroy the modeler before that (#400).
+// The palette's own tooltip (`EventStormingPaletteTooltip`) cancels its timer on `diagram.destroy`,
+// but diagram-js's hover tooltip, which comes with its palette, does not: a host that brings
+// diagram-js's palette tooltip back gets its tooltip 300ms after the pointer enters an entry, and
+// may destroy the modeler before that (#400).
 
 const BOARD = `title Palette tooltip
 command Place Order [200, 300]
@@ -20,41 +18,51 @@ event Order Placed [440, 300]`;
 const SHOW_DELAY_MS = 300;
 const PAST_THE_DELAY_MS = SHOW_DELAY_MS + 300;
 
-/** A host that leaves out diagram-js's hover tooltip, and the palette tooltip that would use it. */
+/** A host that leaves out diagram-js's hover tooltip; `EventStormingPaletteTooltip` does not use it. */
 const WITHOUT_HOVER_TOOLTIP: ModuleDeclaration = {
   hoverTooltip: ["value", null],
-  paletteTooltip: ["value", null],
 };
 
 function withDependencies(module: ModuleDeclaration): ModuleDeclaration[] {
   return [module, ...(module.__depends__ ?? []).flatMap(withDependencies)];
 }
 
+/** diagram-js's own palette tooltip, under a name of its own beside `EventStormingPaletteTooltip`. */
+const diagramJsPaletteTooltipModule: ModuleDeclaration = {
+  __init__: ["diagramJsPaletteTooltip"],
+  diagramJsPaletteTooltip: ["type", PaletteTooltip],
+};
+
 interface Mounted {
-  modeler: CollaborativeEventStormingModeler;
-  host: HTMLElement;
+  modeler: Modeler;
+  container: HTMLElement;
 }
 
 const mounted: Mounted[] = [];
 
 afterEach(() => {
-  for (const { modeler, host } of mounted.splice(0)) {
+  for (const { modeler, container } of mounted.splice(0)) {
     modeler.destroy();
-    host.parentElement?.remove();
+    container.remove();
   }
 });
 
 async function mount(): Promise<Mounted> {
-  const modeler = createCollaborativeModeler();
-  const host = attachedHost();
-  modeler.attachTo(host);
-  mounted.push({ modeler, host });
-  await modeler.importText(BOARD);
-  return { modeler, host };
+  const container = document.createElement("div");
+  document.body.append(container);
+  const modeler = new Modeler({
+    container,
+    width: 1024,
+    height: 768,
+    additionalModules: [diagramJsPaletteTooltipModule],
+  });
+  mounted.push({ modeler, container });
+  await modeler.importDSL(BOARD);
+  return { modeler, container };
 }
 
-function hoverPaletteEntry(host: HTMLElement): void {
-  const entry = host.querySelector('.djs-palette-entries .entry[data-action="lasso-tool"]');
+function hoverPaletteEntry(container: HTMLElement): void {
+  const entry = container.querySelector('.djs-palette-entries .entry[data-action="lasso-tool"]');
   if (!entry) throw new Error("the palette has no lasso entry");
   entry.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
 }
@@ -85,21 +93,21 @@ function listenForWindowErrors(): { errors: string[]; stop(): void } {
   };
 }
 
-describe("the palette's hover tooltip", () => {
+describe("diagram-js's hover tooltip on the palette", () => {
   it("shows a hovered entry's tooltip after the delay", async () => {
-    const { host } = await mount();
-    hoverPaletteEntry(host);
-    expect(host.querySelector(".djs-hover-tooltip")).toBeNull();
-    await vi.waitFor(() => expect(host.querySelector(".djs-hover-tooltip")).not.toBeNull(), {
+    const { container } = await mount();
+    hoverPaletteEntry(container);
+    expect(container.querySelector(".djs-hover-tooltip")).toBeNull();
+    await vi.waitFor(() => expect(container.querySelector(".djs-hover-tooltip")).not.toBeNull(), {
       timeout: 5000,
     });
   });
 
   it("lets the host destroy the modeler before the tooltip shows", async () => {
-    const { modeler, host } = await mount();
+    const { modeler, container } = await mount();
     const watch = listenForWindowErrors();
     try {
-      hoverPaletteEntry(host);
+      hoverPaletteEntry(container);
       modeler.destroy();
       await wait(PAST_THE_DELAY_MS);
     } finally {

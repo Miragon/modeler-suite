@@ -164,6 +164,29 @@ element in the centre of `freeArea` (the container minus the margins a host's ch
 centre the host names; without it the container's centre), 24px down and right while that spot is
 taken, selects it and opens its label editor.
 
+A host that mounts the renderer without the modeler shell gets the palette of the Miragon design
+guide (§5.5, §5.6) from the renderer:
+
+- a horizontal glass island at the top centre of the container, 12px from its top and 40px high,
+  opaque in dark mode and in high contrast;
+- a toolbar named "Tools" ahead of the canvas in the tab order, with one tab stop that roves with
+  ← → Home End, Enter or Space to activate an entry (a creating entry places its sticky in the
+  `freeArea`, see above), `aria-pressed` on the lasso and the draw tool and `aria-keyshortcuts` on
+  the entries with a key; the keyboard focus is a 2px `--cd-ui-fokus` ring, 3px in high contrast,
+  and a press on the island's padding gives the focus to the canvas;
+- the tooltip (`role="tooltip"`) with the entry's name and key 8px below the palette, centred on its
+  entry and 12px from the container's sides, at most `min(280px, 100% - 24px)` wide: after 300ms of
+  hover, at once on keyboard focus and for a neighbour while one is shown, never for touch, hidden
+  on a press, Escape, leaving and blur.
+
+The rules apply inside the renderer's container only, so another diagram-js palette on the same
+page keeps its own look. A chrome that skins the palette marks it `data-chrome="palette"`, as
+`@miragon/modeler-shell` does: then the renderer's rules and keys stay off it. The tooltip is the
+diagram-js service `paletteTooltip`, which the shell's `shellModule` replaces with its own; for a
+palette another chrome skins, it stands right of the entry, as diagram-js places it. Under
+`prefers-reduced-motion` the palette, the context pad, the note toolbar, the label suggestions and
+the colour picker drop their hover transitions.
+
 `eventStormingReadOnly` locks every edit while a host cannot save from the canvas (an invalid file
 in an IDE): `diagram.get('eventStormingReadOnly').setReadOnly(true)` vetoes moves, resizes,
 creates, connections and deletes through the diagram-js rules, and the keyboard, context pad, label
