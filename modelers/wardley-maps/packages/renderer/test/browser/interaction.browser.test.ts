@@ -499,12 +499,16 @@ describe("interaction follows every Wardley gesture", () => {
     expect(modeler.interaction.active()).toBe(false);
     expect(current.delivered).toEqual([true, false]);
     expect(modeler.exportText()).toBe(before);
+    // exportText() holds a running preview back (#347), so only the canvas shows that Escape
+    // put the evolve target or label back.
+    expect(diagramOf(modeler).exportDSL()).toBe(before);
 
     release();
     await settle();
     expect(errors).toEqual([]);
     expect(current.changes()).toBe(0);
     expect(modeler.exportText()).toBe(before);
+    expect(diagramOf(modeler).exportDSL()).toBe(before);
     expect(diagramOf(modeler).get<CommandStack>("commandStack").canUndo()).toBe(false);
     expect(current.delivered).toEqual([true, false]);
   });
@@ -729,6 +733,30 @@ describe("the export is the committed document while a gesture runs", () => {
       expect(current.delivered).toEqual([true, false]);
       undo(modeler);
       expect(modeler.exportText()).toBe(committed);
+    },
+  );
+
+  test.each(SHAPE_PREVIEWS)(
+    "%s: Escape before the release ends it without a commit and puts the canvas back",
+    async (_, start) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const committed = modeler.exportText();
+      const release = await start(modeler);
+      expect(diagramOf(modeler).exportDSL()).not.toBe(committed);
+
+      pressEscape(modeler);
+      expect(modeler.interaction.active()).toBe(false);
+      expect(diagramOf(modeler).exportDSL()).toBe(committed);
+      expect(modeler.exportText()).toBe(committed);
+
+      release();
+      await settle();
+      expect(errors).toEqual([]);
+      expect(current.changes()).toBe(0);
+      expect(diagramOf(modeler).exportDSL()).toBe(committed);
+      expect(modeler.exportText()).toBe(committed);
+      expect(current.delivered).toEqual([true, false]);
     },
   );
 
