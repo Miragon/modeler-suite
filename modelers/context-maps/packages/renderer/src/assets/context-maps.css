@@ -145,6 +145,30 @@
   outline: 2px solid var(--cd-ui-fokus);
   outline-offset: 2px;
 }
+/* Read-only lock (guide §13.5): CmPaletteToolbar marks the entries it refuses aria-disabled. Tool
+   icons in the quiet text role, notation previews grey, never by opacity; no hover. */
+:where(.cm-djs-container) .djs-palette:not([data-chrome="palette"]) .entry[aria-disabled="true"],
+:where(.cm-djs-container)
+  .djs-palette:not([data-chrome="palette"])
+  .entry[aria-disabled="true"]:hover {
+  background: transparent;
+  color: var(--cd-ui-text-leise);
+  cursor: not-allowed;
+}
+:where(.cm-djs-container)
+  .djs-palette:not([data-chrome="palette"])
+  .entry.highlighted-entry[aria-disabled="true"] {
+  color: var(--cd-ui-text-leise) !important;
+}
+:where(.cm-djs-container)
+  .djs-palette:not([data-chrome="palette"])
+  .entry[aria-disabled="true"]
+  > *,
+:where(.cm-djs-container)
+  .djs-palette:not([data-chrome="palette"])
+  .entry[aria-disabled="true"]::before {
+  filter: grayscale(1);
+}
 @media (prefers-reduced-motion: reduce) {
   :where(.cm-djs-container) .djs-palette:not([data-chrome="palette"]) .entry {
     transition: none;
@@ -154,6 +178,38 @@
    the shadow: the tooltip's line edge (guide §5.6) keeps it apart from the canvas. */
 :where(.cm-djs-container) .djs-hover-tooltip {
   border: 1px solid var(--cd-ui-linie);
+}
+/* The palette's tooltip (palette/CmPaletteTooltip.ts) below the island, guide §5.6: opaque, 13px
+   with a 20px line, at most min(280px, 100% - 24px) wide, the key as a Geist Mono chip 6px after
+   the name. Placed in the canvas container's coordinates. */
+:where(.cm-djs-container) .djs-hover-tooltip--bottom {
+  position: absolute;
+  width: max-content;
+  max-width: min(280px, 100% - 24px);
+  padding: 3px 8px;
+  white-space: normal;
+  color: var(--cd-ui-text);
+  background: var(--cd-ui-flaeche-hoch);
+  border-radius: var(--cd-radius-sm);
+  box-shadow: var(--cd-shadow-2);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  transform: translateX(-50%);
+}
+:where(.cm-djs-container) .djs-hover-tooltip--bottom .djs-palette-tooltip-shortcut {
+  padding: 1px 6px;
+  color: var(--cd-ui-text-leise);
+  background: var(--cd-ui-grund);
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-sm);
+  box-shadow: none;
+  font-family: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 16px;
+  vertical-align: baseline;
 }
 
 .cm-palette-svg {
@@ -846,6 +902,7 @@
   :where(:scope.cm-djs-container, :scope .cm-djs-container)
     :is(
       .djs-hover-tooltip,
+      .djs-hover-tooltip--bottom,
       .djs-popup,
       .cm-connect-handle,
       .cm-legend,
@@ -905,6 +962,12 @@
     background: Canvas;
     color: CanvasText !important;
     box-shadow: inset 0 0 0 2px Highlight;
+  }
+  :where(.cm-djs-container) .djs-palette:not([data-chrome="palette"]) .entry[aria-disabled="true"],
+  :where(.cm-djs-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry[aria-disabled="true"]:hover {
+    color: GrayText;
   }
   .cm-djs-container .djs-direct-editing-parent:focus-within {
     outline-color: Highlight !important;

@@ -62,8 +62,13 @@ modeler.redo();
 On a page without the Miragon modeler shell, the palette is a glass toolbar at the top centre of
 the canvas: `role="toolbar"` named "Tools", one tab stop ahead of the canvas `<svg>` (the palette
 moves before it in the DOM) that roves with ← → Home End, Enter or Space to arm a tool or create a
-context, and `aria-pressed` on the armed tool. Where the shell is mounted, or another chrome marks
-the palette `data-chrome="palette"`, the palette is that chrome's alone.
+context, and `aria-pressed` on the armed tool. Enter or Space on the armed lasso puts it down, and
+so does Escape before its drag has begun. An entry's tooltip stands 8px below the palette, centred
+on its entry and 12px from the canvas's sides, as `role="tooltip"`: after 300ms of hover, at once
+on keyboard focus or for a neighbour, never for touch, and hidden on a press or Escape. While
+`cmReadOnly` locks the canvas, every entry but Lasso and Hand is `aria-disabled`, still focusable,
+its preview grey. Where the shell is mounted, or another chrome marks the palette
+`data-chrome="palette"`, the palette is that chrome's alone.
 
 ## API
 
@@ -265,7 +270,9 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
   pointer through, so a connect drag released on a context behind it still connects.
 - `cmReadOnly` (part of the `Modeler`) locks every edit while a host cannot take edits from the
   canvas, an invalid file in an IDE: no context pad, move, create, connect, delete or label editor;
-  selection, zoom, pan, select all and export stay.
+  selection, zoom, pan, select all and export stay. The renderer's own palette marks the entries
+  it refuses `aria-disabled` as soon as the lock holds; the shell's palette shows them after its
+  delay.
 - The keyboard acts only while the canvas itself has the focus, as diagram-js 15's own keyboard
   does: on keys whose target is the canvas `<svg>` or inside it. Keys with nothing focused
   (`<body>`), on a host's chrome, on the palette, the context pad or an editor in the canvas

@@ -9,11 +9,14 @@ import { cmLabelEditingModule } from "../label-editing/index.js";
 import { cmReadOnlyModule } from "../read-only/index.js";
 import CmPaletteProvider from "./CmPaletteProvider.js";
 import CmPaletteToolbar from "./CmPaletteToolbar.js";
+import CmPaletteTooltip from "./CmPaletteTooltip.js";
 import { cmPaletteHoverTooltipTeardownModule } from "./CmPaletteHoverTooltipTeardown.js";
 
 /**
  * Tool palette: lasso tool + create contexts (drag, click or Enter/Space), and for a host without
- * the modeler shell its toolbar keys and semantics (`cmPaletteToolbar`).
+ * the modeler shell its toolbar keys and semantics (`cmPaletteToolbar`) and a tooltip below it.
+ * `paletteTooltip` overrides the diagram-js service of that name; the shell's `shellModule`, loaded
+ * after this one, overrides it again with its own.
  */
 export const cmPaletteModule: ModuleDeclaration = {
   __depends__: [
@@ -27,9 +30,10 @@ export const cmPaletteModule: ModuleDeclaration = {
     cmLabelEditingModule,
     cmReadOnlyModule,
   ],
-  __init__: ["cmPaletteProvider", "cmPaletteToolbar"],
+  __init__: ["cmPaletteProvider", "cmPaletteToolbar", "paletteTooltip"],
   cmPaletteProvider: ["type", CmPaletteProvider],
   cmPaletteToolbar: ["type", CmPaletteToolbar],
+  paletteTooltip: ["type", CmPaletteTooltip],
 };
 
 export { default as CmPaletteProvider } from "./CmPaletteProvider.js";

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ModuleDeclaration } from "didi";
+import PaletteTooltip from "diagram-js/lib/features/palette/PaletteTooltip";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import {
   Modeler,
@@ -10,16 +11,23 @@ import orderFulfilment from "./fixtures/order-fulfilment.cm?raw";
 import { cmPaletteModule } from "../../src/palette/index.js";
 import { cmPaletteHoverTooltipTeardownModule } from "../../src/palette/CmPaletteHoverTooltipTeardown.js";
 
-// diagram-js's hover tooltip shows a palette entry's tooltip 300ms after the pointer enters it; a
-// host may destroy the modeler before that (#400).
+// The palette's own tooltip (`CmPaletteTooltip`) cancels its timer on `diagram.destroy`, but
+// diagram-js's hover tooltip, which comes with its palette, does not: a host that brings
+// diagram-js's palette tooltip back gets its tooltip 300ms after the pointer enters an entry, and
+// may destroy the modeler before that (#400).
 
 const SHOW_DELAY_MS = 300;
 const PAST_THE_DELAY_MS = SHOW_DELAY_MS + 300;
 
-/** A host that leaves out diagram-js's hover tooltip, and the palette tooltip that would use it. */
+/** A host that leaves out diagram-js's hover tooltip; `CmPaletteTooltip` does not use it. */
 const WITHOUT_HOVER_TOOLTIP: ModuleDeclaration = {
   hoverTooltip: ["value", null],
-  paletteTooltip: ["value", null],
+};
+
+/** diagram-js's own palette tooltip, under a name of its own beside `CmPaletteTooltip`. */
+const diagramJsPaletteTooltipModule: ModuleDeclaration = {
+  __init__: ["diagramJsPaletteTooltip"],
+  diagramJsPaletteTooltip: ["type", PaletteTooltip],
 };
 
 function withDependencies(module: ModuleDeclaration): ModuleDeclaration[] {
@@ -41,7 +49,9 @@ afterEach(() => {
 });
 
 async function mount(): Promise<Mounted> {
-  const modeler = createCollaborativeModeler();
+  const modeler = createCollaborativeModeler({
+    additionalModules: [diagramJsPaletteTooltipModule],
+  });
   const host = attachedHost();
   modeler.attachTo(host);
   mounted.push({ modeler, host });
@@ -81,7 +91,7 @@ function listenForWindowErrors(): { errors: string[]; stop(): void } {
   };
 }
 
-describe("the palette's hover tooltip", () => {
+describe("diagram-js's hover tooltip on the palette", () => {
   it("shows a hovered entry's tooltip after the delay", async () => {
     const { host } = await mount();
     hoverPaletteEntry(host);
