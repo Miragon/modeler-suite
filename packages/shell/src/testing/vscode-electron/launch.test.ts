@@ -5,6 +5,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import {
   VSCODE_SMOKE_OPT_IN_STEPS,
+  VSCODE_SMOKE_SKIPPABLE_STEPS,
   customEditorViewType,
   defaultVsCodeCachePath,
   extensionIdOf,
@@ -15,6 +16,7 @@ import {
   vsCodeEnvironment,
   vsCodeLaunchArgs,
   vsCodeSmokeOptIn,
+  vsCodeSmokeSkip,
   vsCodeUserSettings,
   type ExtensionManifest,
 } from "./launch.js";
@@ -128,12 +130,49 @@ describe("vsCodeEnvironment", () => {
     ).toEqual({ PATH: "/usr/bin", HOME: "/home/ci" });
   });
 
-  it("keeps VSCODE_SMOKE_OPT_IN, which only the test process reads, away from VS Code", () => {
-    expect(vsCodeEnvironment({ VSCODE_SMOKE_OPT_IN: "keys" })).toEqual({});
+  it("keeps VSCODE_SMOKE_SKIP, which only the test process reads, away from VS Code", () => {
+    expect(vsCodeEnvironment({ VSCODE_SMOKE_SKIP: "keys", VSCODE_SMOKE_OPT_IN: "keys" })).toEqual(
+      {},
+    );
   });
 });
 
-describe("vsCodeSmokeOptIn", () => {
+describe("vsCodeSmokeSkip", () => {
+  it("reads the steps VSCODE_SMOKE_SKIP names, by comma or space", () => {
+    expect([...vsCodeSmokeSkip({ VSCODE_SMOKE_SKIP: "workbench" })]).toEqual(["workbench"]);
+    expect([...vsCodeSmokeSkip({ VSCODE_SMOKE_SKIP: " keys, keys " })]).toEqual(["keys"]);
+    expect([...vsCodeSmokeSkip({ VSCODE_SMOKE_SKIP: "history,workbench" })]).toEqual([
+      "history",
+      "workbench",
+    ]);
+    expect([...vsCodeSmokeSkip({ VSCODE_SMOKE_SKIP: "workbench keys" })]).toEqual([
+      "workbench",
+      "keys",
+    ]);
+    expect(VSCODE_SMOKE_SKIPPABLE_STEPS).toEqual(["keys", "history", "workbench"]);
+  });
+
+  it("is empty without the variable or with an empty one, so every step runs", () => {
+    expect(vsCodeSmokeSkip({}).size).toBe(0);
+    expect(vsCodeSmokeSkip({ VSCODE_SMOKE_SKIP: "" }).size).toBe(0);
+    expect(vsCodeSmokeSkip({ VSCODE_SMOKE_SKIP: " , " }).size).toBe(0);
+  });
+
+  it("throws for a name that is no step it can skip, so a typo leaves no step running unnoticed", () => {
+    expect(() => vsCodeSmokeSkip({ VSCODE_SMOKE_SKIP: "keys,kyes" })).toThrow(
+      'runVsCodeSmoke: VSCODE_SMOKE_SKIP names "kyes", which is no step it can skip (keys, history, workbench)',
+    );
+    expect(() => vsCodeSmokeSkip({ VSCODE_SMOKE_SKIP: "reload themes" })).toThrow(
+      'runVsCodeSmoke: VSCODE_SMOKE_SKIP names "reload", "themes", which are no steps it can skip (keys, history, workbench)',
+    );
+  });
+
+  it("ignores VSCODE_SMOKE_OPT_IN", () => {
+    expect(vsCodeSmokeSkip({ VSCODE_SMOKE_OPT_IN: "keys,kyes" }).size).toBe(0);
+  });
+});
+
+describe("vsCodeSmokeOptIn, deprecated", () => {
   it("reads the opt-in steps VSCODE_SMOKE_OPT_IN names, by comma or space", () => {
     expect([...vsCodeSmokeOptIn({ VSCODE_SMOKE_OPT_IN: "keys" })]).toEqual(["keys"]);
     expect([...vsCodeSmokeOptIn({ VSCODE_SMOKE_OPT_IN: " keys, keys " })]).toEqual(["keys"]);
@@ -150,7 +189,7 @@ describe("vsCodeSmokeOptIn", () => {
       "history",
       "workbench",
     ]);
-    expect(VSCODE_SMOKE_OPT_IN_STEPS).toEqual(["keys", "history", "workbench"]);
+    expect(VSCODE_SMOKE_OPT_IN_STEPS).toBe(VSCODE_SMOKE_SKIPPABLE_STEPS);
   });
 
   it("is empty without the variable or with an empty one", () => {

@@ -127,9 +127,10 @@ them.
   `runVsCodeSmoke` of `@miragon/modeler-shell/testing/vscode-electron` in a real VS Code (open, evolve
   a component, save, undo, four themes; screenshots in `test-results/vscode-smoke/`). Opt-in, not in
   `npm test`; no package build needed; a failed run is not retried. On macOS it opens a VS Code
-  window for ~5 s that takes the focus; Linux: `xvfb-run -a npm run wardley-maps test:vscode`;
-  `VSCODE_VERSION=1.96.0` picks a version, `VSCODE_SMOKE_KEEP=1` keeps VS Code's logs,
-  `VSCODE_SMOKE_VSIX=<path>` smokes a packed VSIX instead of packing one (the release does).
+  window for about half a minute that takes the focus; Linux:
+  `xvfb-run -a npm run wardley-maps test:vscode`; `VSCODE_VERSION=1.96.0` picks a version,
+  `VSCODE_SMOKE_KEEP=1` keeps VS Code's logs, `VSCODE_SMOKE_VSIX=<path>` smokes a packed VSIX
+  instead of packing one (the release does).
 - `npm run wardley-maps test:vscode:docker`: the local way to run that smoke test, without a VS Code
   window: `modeler-shell-vscode-docker` of `@miragon/modeler-shell` runs `npm run test:vscode`
   under `xvfb-run -a` in a Linux container (needs Docker; it copies the suite in, runs `npm ci`

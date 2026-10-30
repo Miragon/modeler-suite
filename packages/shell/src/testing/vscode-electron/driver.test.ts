@@ -45,6 +45,7 @@ import {
   workbenchClassesProbe,
   workbenchFocusProbe,
   workbenchWebviewsProbe,
+  zoomReadoutProbe,
   type CanvasFacts,
   type ViewFacts,
 } from "./webview.js";
@@ -231,6 +232,7 @@ function fakeVsCode(options: FakeVsCodeOptions) {
         if (probe === canvasFactsProbe) return options.editing.canvas();
         if (probe === viewFactsProbe) return options.editing.view();
         if (probe === focusCanvasProbe) return true;
+        if (probe === zoomReadoutProbe) return null;
       }
       if (probe === canvasFactsProbe) {
         return {
@@ -566,13 +568,17 @@ describe("runVsCodeSmoke, keys", () => {
           throw new Error("the test skips the edit");
         },
         colorThemes: [],
+        // This fake has no workbench to drive.
+        workbench: false,
         ...overrides,
       }),
     );
   }
 
-  it("runs the keys step after the themes when the modeler opts in", async () => {
-    const result = await smokeUpToKeys({ keys: true });
+  it("runs the keys step after the themes by default", async () => {
+    vi.stubEnv("VSCODE_SMOKE_SKIP", "");
+
+    const result = await smokeUpToKeys();
 
     expect(result.failures).toEqual([
       "edit: the test skips the edit",
@@ -595,33 +601,46 @@ describe("runVsCodeSmoke, keys", () => {
     ]);
   });
 
-  it("runs it for VSCODE_SMOKE_OPT_IN=keys, unless the modeler passes keys: false", async () => {
-    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "keys");
+  it("skips it for VSCODE_SMOKE_SKIP=keys, unless the modeler passes keys: true", async () => {
+    vi.stubEnv("VSCODE_SMOKE_SKIP", "keys");
 
-    expect((await smokeUpToKeys()).failures).toContain(
+    const skipped = await smokeUpToKeys();
+    expect(skipped.failures).toEqual(["edit: the test skips the edit"]);
+    expect(skipped.keys).toBeUndefined();
+    expect(skipped.timings.keys).toBeUndefined();
+    expect((await smokeUpToKeys({ keys: true })).failures).toContain(
       "keys: the canvas <svg> did not take the focus",
     );
-    const optedOut = await smokeUpToKeys({ keys: false });
-    expect(optedOut.keys).toBeUndefined();
-    expect(optedOut.timings.keys).toBeUndefined();
   });
 
-  it("skips it by default", async () => {
-    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "");
+  it("skips it when the modeler passes keys: false", async () => {
+    vi.stubEnv("VSCODE_SMOKE_SKIP", "");
 
-    const result = await smokeUpToKeys();
+    const result = await smokeUpToKeys({ keys: false });
 
     expect(result.failures).toEqual(["edit: the test skips the edit"]);
     expect(result.keys).toBeUndefined();
     expect(result.timings.keys).toBeUndefined();
   });
 
-  it("throws before it starts VS Code for an unknown step in VSCODE_SMOKE_OPT_IN", async () => {
-    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "key");
+  it("throws before it starts VS Code for an unknown step in VSCODE_SMOKE_SKIP", async () => {
+    vi.stubEnv("VSCODE_SMOKE_SKIP", "key");
+    const message =
+      'runVsCodeSmoke: VSCODE_SMOKE_SKIP names "key", which is no step it can skip (keys, history, workbench)';
 
-    await expect(smokeUpToKeys()).rejects.toThrow(
-      'runVsCodeSmoke: VSCODE_SMOKE_OPT_IN names "key", which is no opt-in step (keys, history, workbench)',
+    await expect(smokeUpToKeys()).rejects.toThrow(message);
+    await expect(smokeUpToKeys({ keys: true, history: true, workbench: true })).rejects.toThrow(
+      message,
     );
+  });
+
+  it("no longer reads VSCODE_SMOKE_OPT_IN, so a value left over neither throws nor skips a step", async () => {
+    vi.stubEnv("VSCODE_SMOKE_SKIP", "");
+    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "history,kyes");
+
+    const result = await smokeUpToKeys();
+
+    expect(result.failures).toContain("keys: the canvas <svg> did not take the focus");
   });
 });
 
@@ -712,6 +731,9 @@ describe("runVsCodeSmoke, history", () => {
         colorThemes: [],
         timeoutMs: 2_000,
         log: (line) => lines.push(line),
+        // This fake has no zoom panel for the keys step and no workbench.
+        keys: false,
+        workbench: false,
         ...overrides,
       }),
     );
@@ -753,17 +775,23 @@ describe("runVsCodeSmoke, history", () => {
   );
 
   it(
-    "runs it for VSCODE_SMOKE_OPT_IN=history, unless the modeler passes history: false",
+    "skips it for VSCODE_SMOKE_SKIP=history or history: false, unless the modeler passes history: true",
     { timeout: 30_000 },
     async () => {
-      vi.stubEnv("VSCODE_SMOKE_OPT_IN", "history");
+      vi.stubEnv("VSCODE_SMOKE_SKIP", "history");
 
-      const optedIn = await smokeEditing(fakeDocument("board"));
-      expect(optedIn.history?.afterUndo).toEqual({ zoom: 84, selected: 3 });
+      const skipped = await smokeEditing(fakeDocument("board"));
+      expect(skipped.failures).toEqual([]);
+      expect(skipped.history).toBeUndefined();
+      expect(skipped.timings.history).toBeUndefined();
 
-      const optedOut = await smokeEditing(fakeDocument("board"), { history: false });
-      expect(optedOut.history).toBeUndefined();
-      expect(optedOut.timings.history).toBeUndefined();
+      const kept = await smokeEditing(fakeDocument("board"), { history: true });
+      expect(kept.history?.afterUndo).toEqual({ zoom: 84, selected: 3 });
+
+      vi.stubEnv("VSCODE_SMOKE_SKIP", "");
+      const switchedOff = await smokeEditing(fakeDocument("board"), { history: false });
+      expect(switchedOff.history).toBeUndefined();
+      expect(switchedOff.timings.history).toBeUndefined();
     },
   );
 
@@ -783,14 +811,14 @@ describe("runVsCodeSmoke, history", () => {
     },
   );
 
-  it("skips it by default", { timeout: 30_000 }, async () => {
-    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "");
+  it("runs it by default", { timeout: 30_000 }, async () => {
+    vi.stubEnv("VSCODE_SMOKE_SKIP", "");
 
     const result = await smokeEditing(fakeDocument("board"));
 
     expect(result.failures).toEqual([]);
-    expect(result.history).toBeUndefined();
-    expect(result.timings.history).toBeUndefined();
+    expect(result.history?.afterUndo).toEqual({ zoom: 84, selected: 3 });
+    expect(result.timings.history).toBeGreaterThanOrEqual(0);
   });
 
   it("fails the history step with a redo that changes nothing", { timeout: 30_000 }, async () => {
@@ -1012,6 +1040,8 @@ describe("runVsCodeSmoke, workbench", () => {
         colorThemes: [],
         timeoutMs: 2_000,
         log: (line) => lines.push(line),
+        // This fake has no zoom panel for the keys step.
+        keys: false,
         ...overrides,
       }),
     );
@@ -1019,15 +1049,17 @@ describe("runVsCodeSmoke, workbench", () => {
   }
 
   it(
-    "runs the motion, hidden and reload steps last, after the history, when the modeler opts in",
+    "runs every step by default, the motion, hidden and reload steps last",
     { timeout: 60_000 },
     async () => {
-      const { result, lines, document, workbench } = await smokeWorkbench({
-        history: true,
-        workbench: true,
-      });
+      vi.stubEnv("VSCODE_SMOKE_SKIP", "");
 
-      expect(result.failures).toEqual([]);
+      const { result, lines, document, workbench } = await smokeWorkbench({ keys: undefined });
+
+      // Without a zoom panel the keys step ends at its first readout; the steps after it run all
+      // the same.
+      expect(result.failures).toEqual(["keys: the zoom panel shows no readout"]);
+      expect(result.history?.afterUndo).toEqual({ zoom: 84, selected: 3 });
       expect(result.motion).toEqual({ reducedFitViews: 2, enabledFitViews: 16 });
       expect(result.hidden).toEqual({
         before: { zoom: 84, selected: 3 },
@@ -1048,6 +1080,7 @@ describe("runVsCodeSmoke, workbench", () => {
         "save",
         "undo",
         "themes",
+        "keys",
         "history",
         "motion",
         "hidden",
@@ -1067,30 +1100,52 @@ describe("runVsCodeSmoke, workbench", () => {
   );
 
   it(
-    "runs them for VSCODE_SMOKE_OPT_IN=workbench, unless the modeler passes workbench: false",
+    "skips them for VSCODE_SMOKE_SKIP=workbench, unless the modeler passes workbench: true",
     { timeout: 60_000 },
     async () => {
-      vi.stubEnv("VSCODE_SMOKE_OPT_IN", "workbench");
+      vi.stubEnv("VSCODE_SMOKE_SKIP", "workbench");
 
-      const optedIn = await smokeWorkbench();
-      expect(optedIn.result.failures).toEqual([]);
-      expect(optedIn.result.reload?.after?.dirty).toBe(false);
+      const { result } = await smokeWorkbench();
+      expect(result.failures).toEqual([]);
+      expect(result.history?.afterUndo).toEqual({ zoom: 84, selected: 3 });
+      expect(result.motion).toBeUndefined();
+      expect(result.hidden).toBeUndefined();
+      expect(result.reload).toBeUndefined();
+      expect(result.timings.motion).toBeUndefined();
 
-      const optedOut = await smokeWorkbench({ workbench: false });
-      expect(optedOut.result.motion).toBeUndefined();
-      expect(optedOut.result.timings.reload).toBeUndefined();
+      const kept = await smokeWorkbench({ workbench: true });
+      expect(kept.result.failures).toEqual([]);
+      expect(kept.result.reload?.after?.dirty).toBe(false);
     },
   );
 
-  it("skips them by default", { timeout: 30_000 }, async () => {
-    vi.stubEnv("VSCODE_SMOKE_OPT_IN", "");
+  it("skips them when the modeler passes workbench: false", { timeout: 30_000 }, async () => {
+    vi.stubEnv("VSCODE_SMOKE_SKIP", "");
 
-    const { result } = await smokeWorkbench();
+    const { result } = await smokeWorkbench({ workbench: false });
 
     expect(result.failures).toEqual([]);
     expect(result.motion).toBeUndefined();
-    expect(result.hidden).toBeUndefined();
-    expect(result.reload).toBeUndefined();
+    expect(result.timings.reload).toBeUndefined();
+  });
+
+  it("skips every step VSCODE_SMOKE_SKIP names", { timeout: 30_000 }, async () => {
+    vi.stubEnv("VSCODE_SMOKE_SKIP", "keys history, workbench");
+
+    const { result } = await smokeWorkbench({ keys: undefined });
+
+    expect(result.failures).toEqual([]);
+    expect(Object.keys(result.timings)).toEqual([
+      "resolve",
+      "launch",
+      "open",
+      "edit",
+      "save",
+      "undo",
+      "themes",
+      "close",
+      "total",
+    ]);
   });
 
   it("prefixes a failure with its step", { timeout: 60_000 }, async () => {

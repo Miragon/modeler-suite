@@ -69,11 +69,11 @@ so a violating import fails `npm run event-storming lint` and `npm run event-sto
   (`vsce package`, which runs `vscode:prepublish`), unpacks the VSIX outside the repo and runs the
   shell's `runVsCodeSmoke` (open `smoke.storm`, palette edit, save, undo, the four default themes,
   screenshots in the gitignored `test-results/vscode-smoke/`); no build needed, on macOS a VS Code
-  window opens for ~5 s and takes the focus, the first run downloads VS Code into the OS cache;
-  `VSCODE_VERSION=1.96.0` for another version, `VSCODE_SMOKE_KEEP=1` keeps VS Code's profile
-  and logs, `VSCODE_SMOKE_VSIX=<file>` smokes a packaged VSIX instead of packing one. The test is
-  not retried: the driver (shell 0.4.1) reads a save only once the tab is clean and repeats a theme
-  switch VS Code missed, so every failure fails the run. When CI runs it is in the suite's
+  window opens for about half a minute and takes the focus, the first run downloads VS Code into
+  the OS cache; `VSCODE_VERSION=1.96.0` for another version, `VSCODE_SMOKE_KEEP=1` keeps VS Code's
+  profile and logs, `VSCODE_SMOKE_VSIX=<file>` smokes a packaged VSIX instead of packing one. The
+  test is not retried: the driver (shell 0.4.1) reads a save only once the tab is clean and repeats
+  a theme switch VS Code missed, so every failure fails the run. When CI runs it is in the suite's
   [docs/ci-and-releases.md](../../docs/ci-and-releases.md); details in
   [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - `npm run event-storming format`: Prettier · `npm run event-storming depcruise`: check the

@@ -8,13 +8,17 @@ import { EXAMPLE_DIAGRAM } from '../src/examples.js';
 /*
  * The built extension in a real VS Code, what the stub of e2e cannot show: the webview inside VS
  * Code's frames, a canvas edit that dirties the tab, save and undo through VS Code's keybindings,
- * and the theme bridge under VS Code's four default themes, with a screenshot each. The first run
- * downloads VS Code into the OS's cache directory (about 350 MB, 0.9 GB unpacked).
+ * and the theme bridge under VS Code's four default themes, with a screenshot each. Since
+ * modeler-shell 0.8 the driver also checks the zoom and selection keys, the view and selection
+ * across a redo and an undo, reduced motion, a hidden tab and Developer: Reload Window. The first
+ * run downloads VS Code into the OS's cache directory (about 350 MB, 0.9 GB unpacked).
  *
  * VSCODE_VERSION picks the VS Code (`stable`, `1.96.0`; default the newest stable release that
  * satisfies engines.vscode), so CI runs the engines floor too. VSCODE_SMOKE_EXTENSION points at
  * another build of the extension: the release smoke-tests the unpacked VSIX it is about to upload.
  * VSCODE_SMOKE_KEEP=1 keeps VS Code's profile, so CI can upload VS Code's logs of a failed run.
+ * VSCODE_SMOKE_SKIP names the steps to skip (keys, history, workbench) without a change here; the
+ * driver reads it itself.
  */
 it('__DISPLAY_NAME__ in a real VS Code', { timeout: 600_000 }, async () => {
   const result = await runVsCodeSmoke({
