@@ -605,6 +605,11 @@ function renderShell(
     host,
     ownerDocument,
     dialogScope: keyTarget,
+    isChrome: (node) =>
+      node !== root &&
+      root.contains(node) &&
+      !canvas.contains(node) &&
+      !(palette?.registration.element.contains(node) ?? false),
     menuOpen: () => menu.isOpen(),
     startScreen: () => emptyState?.isShown() ?? false,
     closeMenu() {

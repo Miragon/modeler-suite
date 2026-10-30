@@ -428,5 +428,6 @@ These notes rely on internals:
   that was active; the drag's context is still set during `drag.cleanup`; a drag that waits
   binds `keyup` on `document` (bubble phase) and cancels on Escape whatever its target and
   `defaultPrevented`, so the shell stops the `keyup` of an Escape the chrome took (its menu, a
-  popover or a dialog, a modeler's own included).
+  popover or a dialog, a modeler's own included) and of one aimed at the shell root outside the
+  canvas slot and the palette.
 - `Keyboard`: bound to the canvas `<svg>`, `preventDefault()` without `stopPropagation()`.
