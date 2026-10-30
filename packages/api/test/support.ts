@@ -88,7 +88,7 @@ export const CASE = {
     "user action (recommended, 1.6): an import from the selection listener of a delete, an undo or a redo waits until the command has finished, and imports keep their call order",
   dragStart:
     "drag start (recommended, 1.6): an import from the selection listener at the start of a move or a palette create runs once the drag has started, and then ends it",
-  pan: "pan (recommended, 1.6): a pan is no gesture, and it runs on through an import from the view the import left",
+  pan: "pan (recommended, 1.6): a pan is no gesture, and it runs on through an import from the current view, the one the import left or the one the host restores",
   interaction:
     "interaction (when present, 1.5): active() follows every gesture to its drop and its cancel, never an armed tool, and onChange reports each change once",
   l2Fixpoint: "L2: canonical texts are byte fixpoints of import → export",
