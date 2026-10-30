@@ -144,7 +144,7 @@ false. `diagramShortcuts()` lists them for a dialog.
   off the original at once. Each is one undo step, and what it placed is selected.
 - A host that hides the canvas without destroying the modeler makes its container `inert` or
   `display: none`, not only transparent: the browser moves the focus off the `<svg>` at its next
-  rendering update, and a key whose target lies inside an `inert` subtree passes before then too.
+  rendering update, and a key that reaches the `<svg>` before then passes too.
 
 ## Palette
 

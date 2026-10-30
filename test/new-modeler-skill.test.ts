@@ -951,6 +951,8 @@ const NON_API_NAMES = new Map<string, string>([
   ["looseObject", "zod"],
   ["var", "CSS"],
   ["CanvasText", "CSS, a system colour of forced colours"],
+  ["checkVisibility", "the DOM, Element's check whether the browser renders it"],
+  ["keyCode", "the DOM, KeyboardEvent's legacy key code (229 for a key an IME took)"],
   ["Intl", "JavaScript"],
   ["comments.legal", "Vite's build options"],
   ["legalComments", "esbuild"],
