@@ -231,7 +231,12 @@ one: it downloads VS Code, starts it with the built extension on a throwaway pro
 fixture in the custom editor, edits through the canvas, saves (the file on disk changes and the
 modeler's parser accepts it), undoes (the canvas and, saved again, the file are the fixture again)
 and switches through VS Code's four default themes, where the webview has to show what the theme
-bridge resolves for the modeler's `themes`, with a screenshot each. Template:
+bridge resolves for the modeler's `themes`, with a screenshot each. Since modeler-shell 0.8 it then
+also checks, by default, the zoom and selection keys, the view and selection across a redo and an
+undo, reduced motion, a hidden tab and Developer: Reload Window. A notation that cannot take one of
+these passes `keys: false`, `history: false` or `workbench: false` (one without the shell's zoom
+panel cannot take the keys), and `VSCODE_SMOKE_SKIP` skips them in a run without a change to the
+test (`keys`, `history`, `workbench`, separated by commas or spaces). Template:
 [`vscode-smoke.test.ts`](../assets/template/apps/vscode/test-smoke/vscode-smoke.test.ts), run by
 `npm run test:vscode-smoke` after `npm run build` and `npm run build:vscode`; `npm run test:vscode`
 runs all three.
@@ -239,17 +244,17 @@ runs all three.
 - **On a developer machine, in Docker:** `npm run test:vscode:docker` runs `test:vscode` in a Linux
   container under `xvfb-run -a` through the shell's `modeler-shell-vscode-docker` (modeler-shell
   0.3.1 or later), so no VS Code window opens and takes the focus. It needs Node and Docker, passes
-  `VSCODE_VERSION` and `VSCODE_SMOKE_KEEP` into the container and copies the screenshots back to
-  `test-results/vscode-smoke` (with VS Code's logs under `vscode-logs/` when kept). CI runs
-  `test:vscode-smoke` under `xvfb-run -a` directly.
+  `VSCODE_VERSION`, `VSCODE_SMOKE_KEEP` and `VSCODE_SMOKE_SKIP` into the container and copies the
+  screenshots back to `test-results/vscode-smoke` (with VS Code's logs under `vscode-logs/` when
+  kept). CI runs `test:vscode-smoke` under `xvfb-run -a` directly.
 
 - Its two peers, `playwright-core` and `@vscode/test-electron` 3.1.0 or later (earlier releases
   cannot start a current VS Code on macOS), are exact devDependencies of `apps/vscode`; nothing
   else installs them. `test-smoke/**` is in `.vscodeignore`, so the VSIX does not ship it.
 - It has its own Vitest config with `fileParallelism: false`, outside `npm test`: it needs a
-  display and the built extension, and outside Docker a window opens for a few seconds. The first run downloads
-  VS Code (about 350 MB) into the OS's cache directory, outside the repository and shared by every
-  modeler on the machine, so neither `.gitignore` nor ESLint needs an entry.
+  display and the built extension, and outside Docker a window opens for about half a minute. The
+  first run downloads VS Code (about 350 MB) into the OS's cache directory, outside the repository
+  and shared by every modeler on the machine, so neither `.gitignore` nor ESLint needs an entry.
 - `VSCODE_VERSION` picks the VS Code (`stable`, `1.96.0`; default the newest stable release that
   satisfies `engines.vscode`), `VSCODE_SMOKE_EXTENSION` another build of the extension, such as an
   unpacked VSIX, and `VSCODE_SMOKE_KEEP=1` passes `keepTemporaryFiles`, so VS Code's profile and

@@ -154,8 +154,8 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   `VSCODE_SMOKE_VSIX=<file>` smokes a packed VSIX instead of packing one. The fixture and the edit
   differ per modeler; its `CONTRIBUTING.md` names them.
 
-  On macOS `test:vscode` opens a VS Code window for a few seconds that takes the focus; on Linux
-  run it under `xvfb-run -a`. The first run downloads VS Code (about 330 MB) into
+  On macOS `test:vscode` opens a VS Code window for about half a minute that takes the focus; on
+  Linux run it under `xvfb-run -a`. The first run downloads VS Code (about 330 MB) into
   `~/Library/Caches/miragon-modeler-shell/vscode-test` (`~/.cache/…` on Linux), shared by every
   modeler. **Locally, run it in Docker instead**, where no window opens:
 

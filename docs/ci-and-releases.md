@@ -67,10 +67,10 @@ path no rule names.
   modeler: the packaged extension in a real VS Code under `xvfb`, on the newest stable release and on
   the oldest that `engines.vscode` accepts. The workflow decides itself whether the change can reach
   that VSIX (`ci-paths.sh vscode-smoke <modeler>`); when it cannot, a job that succeeds stands in, so
-  the smoke always reports. Every run takes all of the driver's steps, its default since modeler-shell
-  0.8: besides open, edit, save, undo and the themes, the zoom and selection keys, the view and
-  selection across a redo and an undo, and the workbench steps (reduced motion, a hidden tab and
-  Developer: Reload Window). So does the smoke the release runs on the VSIX it publishes.
+  the smoke always reports. Every run takes all of the driver's steps, its default since
+  modeler-shell 0.8: besides open, edit, save, undo and the themes, the zoom and selection keys, the
+  view and selection across a redo and an undo, and the workbench steps (reduced motion, a hidden
+  tab and Developer: Reload Window). So does the smoke the release runs on the VSIX it publishes.
 
 ### `ci-ok`
 

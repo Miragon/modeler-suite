@@ -720,7 +720,7 @@ themes (Default Light Modern, Default Dark Modern, Default High Contrast, Defaul
 Light): the webview has to show what the theme bridge resolves for the modeler's `themes`, and every
 theme gets a screenshot. Then it checks the zoom and selection keys, the view and the selection
 across a redo and an undo, reduced motion, a hidden tab and Developer: Reload Window (below). In CI
-a run takes about 26 to 33 seconds once VS Code is downloaded, about 18 of them in these last
+a run takes about 25 to 33 seconds once VS Code is downloaded, 17 to 20 of them in these last
 steps.
 
 Its two dependencies are optional peers of the shell, so only a modeler that uses the entry installs
@@ -842,12 +842,12 @@ downloaded VS Code, fail with hundreds of errors and block every commit behind a
 
 **macOS, locally.** Give the file a script of its own,
 `"test:vscode-smoke": "node --test apps/vscode/test-smoke/vscode-smoke.test.ts"`, build the extension
-and run it; a VS Code window opens for a few seconds and takes the focus (Electron has no headless
-mode on macOS; [in Docker](#in-docker-without-a-window) no window opens). The first run downloads VS
-Code, about 320 to 360 MB depending on the platform (1.143.0: 324 MB for macOS on Apple silicon, 351
-MB for Linux x64) and about 0.9 GB unpacked per version, 25 to 45 s on a fast connection; later runs
-reuse it. The driver dispatches keys by key code, so the run behaves the same on a QWERTZ or any
-other keyboard layout.
+and run it; a VS Code window opens for about half a minute and takes the focus (Electron has no
+headless mode on macOS; [in Docker](#in-docker-without-a-window) no window opens). The first run
+downloads VS Code, about 320 to 360 MB depending on the platform (1.143.0: 324 MB for macOS on Apple
+silicon, 351 MB for Linux x64) and about 0.9 GB unpacked per version, 25 to 45 s on a fast
+connection; later runs reuse it. The driver dispatches keys by key code, so the run behaves the same
+on a QWERTZ or any other keyboard layout.
 
 ```sh
 npm run build && npm run build:vscode
@@ -888,7 +888,8 @@ On macOS every run starts a VS Code window in the foreground, and several runs i
 the focus from whoever works on the machine. `modeler-shell-vscode-docker`, the shell's one command,
 runs the same test in a Linux container under `xvfb-run -a`, where no window shows. The host needs
 Docker and the shell; the container brings everything else. Validated with Docker Desktop on an
-Apple silicon Mac; on a Linux host the results get the host user's ownership, not root's.
+Apple silicon Mac before 0.8, with the steps up to the themes; on a Linux host the results get the
+host user's ownership, not root's.
 Add the script next to the modeler's smoke script:
 
 ```json
@@ -931,9 +932,10 @@ What it does:
    created it (it carries the marker file `.modeler-shell-vscode-docker`); one with files of its own
    is left as it is. The exit code is the test's.
 
-With the image and VS Code cached a run takes about 10 s on an Apple silicon Mac (Event Storming
-10.4 s, Wardley Maps 9.3 s, `npm ci` included); the very first run about 75 s (the image 38 s, the
-VS Code download 22 s). Paths in the test's own output are the container's (`/work/…`). Runs in
+With the image and VS Code cached a run took about 10 s on an Apple silicon Mac before 0.8 (Event
+Storming 10.4 s, Wardley Maps 9.3 s, `npm ci` included), the very first run about 75 s (the image
+38 s, the VS Code download 22 s); the keys, history and workbench steps, the default since 0.8, add
+17 to 20 s in CI. Paths in the test's own output are the container's (`/work/…`). Runs in
 parallel share the cache volume, also while one of them downloads a new VS Code version, as long as
 every modeler that runs on it uses modeler-shell 0.3.3 or later; one still on 0.3.2 or older can
 break the others while it downloads and be broken by them. `docker

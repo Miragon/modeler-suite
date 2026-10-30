@@ -150,7 +150,7 @@ would take them for npm's own, and the path `modelers/event-storming` would sele
 beneath it too (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)).
 
 On the host, `unzip` must be on the `PATH` (it is on macOS and Ubuntu); a VS Code window opens for
-about 5 seconds and takes the focus, so leave it alone until it closes.
+about half a minute and takes the focus, so leave it alone until it closes.
 
 Either way the log names each step, then the VS Code version, the timings and every theme with its
 screenshot; a failure names its step (`open: …`, `save: …`), and a failed open leaves

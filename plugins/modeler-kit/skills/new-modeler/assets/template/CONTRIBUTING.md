@@ -13,7 +13,8 @@ The Husky pre-commit hook runs lint-staged and `npm run lint` only; run `npm tes
 extension or the webview `npm run test:vscode:docker`, which builds and opens the extension in a
 real VS Code inside a Linux container, so no window takes your focus (it needs Docker;
 `VSCODE_VERSION=1.96.0` picks another VS Code, `VSCODE_SMOKE_KEEP=1` keeps VS Code's logs in
-`test-results/vscode-smoke/vscode-logs`; CI runs the smoke test when a change touches the
+`test-results/vscode-smoke/vscode-logs`, `VSCODE_SMOKE_SKIP=keys,history,workbench` skips the
+driver's steps it names; CI runs the smoke test when a change touches the
 extension, see [CI and the merge gate](#ci-and-the-merge-gate)). Every commit is signed
 (`git commit -S`).
 

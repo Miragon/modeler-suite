@@ -3863,9 +3863,10 @@ its step. It throws for options it cannot run with (no `package.json`, no custom
 fixture, an extension whose `main` is not built, that is, `require` would not find it, a fixture
 name with a path or glob characters, an unknown step in `VSCODE_SMOKE_SKIP`) and when a peer is
 missing. `createFromPalette`, the default `edit`, is the keyboard path of the shell's palette
-(guide §5.5): it focuses the first enabled entry outside the tools group that is not a `-tool`, presses Enter, waits for one more shape and presses
-Escape for the label editor a creation opens. An `edit` of one's own drives `context.webview` with
-locators (`click`, `dblclick`, `fill`) and `context.page.keyboard`, and leaves no label editor open.
+(guide §5.5): it focuses the first enabled entry outside the tools group that is not a `-tool`,
+presses Enter, waits for one more shape and presses Escape for the label editor a creation opens.
+An `edit` of one's own drives `context.webview` with locators (`click`, `dblclick`, `fill`) and
+`context.page.keyboard`, and leaves no label editor open.
 
 ```ts
 // apps/vscode/test-smoke/vscode-smoke.test.ts
