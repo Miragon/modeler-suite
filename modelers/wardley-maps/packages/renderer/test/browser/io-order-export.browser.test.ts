@@ -4,7 +4,7 @@ import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import { parseDSLWithDiagnostics, serializeDSL } from "@miragon/wardley-dsl";
-import { COLORS, type EvolutionGrid, Modeler, blobToBase64, svgToPng } from "../../src/index.js";
+import { type EvolutionGrid, Modeler, blobToBase64 } from "../../src/index.js";
 import {
   isWardleyConnection,
   isWardleyShape,
@@ -54,21 +54,6 @@ function changedLines(before: string, after: string): number {
   const afterLines = after.split("\n");
   expect(afterLines).toHaveLength(beforeLines.length);
   return beforeLines.filter((line, index) => line !== afterLines[index]).length;
-}
-
-async function pixelAt(png: Blob, x: number, y: number): Promise<Uint8ClampedArray> {
-  const bitmap = await createImageBitmap(png);
-  const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  const context = canvas.getContext("2d")!;
-  context.drawImage(bitmap, 0, 0);
-  return context.getImageData(x, y, 1, 1).data;
-}
-
-function hexToRgb(hex: string): [number, number, number] {
-  const value = Number.parseInt(hex.replace("#", ""), 16);
-  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
 // Deliberately NOT in serializer order (attitudes, pipelines, notes and lines are mixed in between
@@ -247,51 +232,7 @@ Kettle -> Power`);
     });
   });
 
-  describe("PNG rasterizer", () => {
-    it("rasterizes at the requested scale with a paper background", async () => {
-      await modeler.importDSL(`title PNG
-component Content Delivery Network Service [0.5, 0.97]`);
-      const { svg } = await modeler.saveSVG();
-      const viewBox = exportedViewBox(svg);
-
-      const png = await svgToPng(svg);
-      expect(png.type).toBe("image/png");
-      const bitmap = await createImageBitmap(png);
-      expect(bitmap.width).toBe(viewBox.width * 2);
-      expect(bitmap.height).toBe(viewBox.height * 2);
-
-      const [red, green, blue, alpha] = await pixelAt(png, 1, 1);
-      expect([red, green, blue]).toEqual(hexToRgb(COLORS.paper));
-      expect(alpha).toBe(255);
-    });
-
-    it("leaves the background transparent on request and honours the scale", async () => {
-      await modeler.importDSL(`title PNG
-component Platform [0.5, 0.5]`);
-      const { svg } = await modeler.saveSVG();
-      const viewBox = exportedViewBox(svg);
-
-      const png = await svgToPng(svg, { scale: 4, transparent: true });
-      const bitmap = await createImageBitmap(png);
-      expect(bitmap.width).toBe(viewBox.width * 4);
-      expect(bitmap.height).toBe(viewBox.height * 4);
-      expect((await pixelAt(png, 1, 1))[3]).toBe(0);
-    });
-
-    it("sizes by the root element, not by the first nested width attribute", async () => {
-      const svg =
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20" width="100%">' +
-        '<rect width="7" height="5" fill="red"/></svg>';
-      const bitmap = await createImageBitmap(await svgToPng(svg, { scale: 1 }));
-      expect([bitmap.width, bitmap.height]).toEqual([30, 20]);
-    });
-
-    it("rejects a non-positive scale", async () => {
-      await expect(
-        svgToPng('<svg xmlns="http://www.w3.org/2000/svg"/>', { scale: 0 }),
-      ).rejects.toThrow(RangeError);
-    });
-
+  describe("blobToBase64", () => {
     it("encodes a blob as base64 without the data-URL prefix", async () => {
       const base64 = await blobToBase64(new Blob(["wardley"], { type: "text/plain" }));
       expect(base64).toBe(btoa("wardley"));

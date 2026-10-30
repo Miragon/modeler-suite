@@ -39,11 +39,10 @@ export {
   WardleySourceOrder,
   saveSVG,
   exportBounds,
-  svgToPng,
   blobToBase64,
   ROOT_ID,
 } from "./io/index.js";
-export type { SvgBounds, SvgToPngOptions } from "./io/index.js";
+export type { SvgBounds } from "./io/index.js";
 export { wardleyModelingModule, WardleyModeling } from "./modeling/index.js";
 export { wardleyLayoutModule, WardleyLayouter } from "./layout/index.js";
 export type { EvolveOptions, MapConfigUpdate } from "./modeling/index.js";
@@ -105,7 +104,6 @@ export {
   createAxisLabelsPopover,
   createMapDialog,
   createMapSizePopover,
-  createShortcutsDialog,
   createTitleDialog,
   dialogButton,
   mapMenu,
@@ -133,8 +131,6 @@ export type {
   ShortcutPlatform,
   ShortcutRow,
   ShortcutsChrome,
-  ShortcutsDialog,
-  ShortcutsDialogChrome,
 } from "./map-menu/index.js";
 export type { EditorState, RestoreOptions } from "./editor-state.js";
 export { wardleyKeyboardModule } from "./keyboard/index.js";

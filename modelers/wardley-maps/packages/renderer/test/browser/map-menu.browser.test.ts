@@ -3,7 +3,6 @@ import {
   Modeler,
   createAxisLabelsPopover,
   createMapSizePopover,
-  createShortcutsDialog,
   createTitleDialog,
   type EvolutionGrid,
   type PopoverHandle,
@@ -84,53 +83,6 @@ function pressEscape(element: Element): void {
 function plotSize(target: Modeler) {
   return target.get<EvolutionGrid>("evolutionGrid").getPlotSize();
 }
-
-describe("the keyboard shortcuts dialog", () => {
-  it("is a modal dialog in the chrome root, with a Close button and focus return", async () => {
-    const target = await mount();
-    const dialog = keep(createShortcutsDialog(chromeOf(target)));
-    target.trigger.focus();
-    dialog.open();
-    const element = target.root.querySelector<HTMLDialogElement>("dialog.wardley-shortcuts")!;
-    expect(element.open).toBe(true);
-    expect(element.matches(":modal")).toBe(true);
-    const title = document.getElementById(element.getAttribute("aria-labelledby")!);
-    expect(title?.textContent).toBe("Keyboard shortcuts");
-    expect(element.querySelector(".wardley-dialog-close")?.getAttribute("aria-label")).toBe(
-      "Close",
-    );
-    expect([...element.querySelectorAll("h4")].map((heading) => heading.textContent)).toEqual([
-      "View",
-      "Edit",
-      "Tools",
-      "Map",
-    ]);
-    element.close();
-    expect(document.activeElement).toBe(target.trigger);
-  });
-});
-
-describe("the shortcuts dialog of a web app", () => {
-  it("leads with the File keys the app binds itself", async () => {
-    const target = await mount();
-    const dialog = keep(
-      createShortcutsDialog(chromeOf(target), { fileKeys: true, shortcutsKey: "?" }),
-    );
-    dialog.open();
-    const element = target.root.querySelector<HTMLDialogElement>("dialog.wardley-shortcuts")!;
-    expect([...element.querySelectorAll("h4")].map((heading) => heading.textContent)).toEqual([
-      "File",
-      "View",
-      "Edit",
-      "Tools",
-      "Map",
-    ]);
-    expect(element.querySelector("table")?.textContent).toBe(
-      "Open…⌘OExport as .wmap⌘SPaste OWM text or a share link⌘V",
-    );
-    dialog.close();
-  });
-});
 
 describe("the map title dialog", () => {
   function titleOf(target: Modeler): string | undefined {
