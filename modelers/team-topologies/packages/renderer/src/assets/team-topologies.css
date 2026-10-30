@@ -181,6 +181,28 @@
   background: var(--cd-ui-hover);
   box-shadow: inset 0 0 0 2px var(--cd-ui-interaktion);
 }
+/* The read-only lock (guide §13.5): the entries it disables (aria-disabled, from
+   palette/TtPaletteToolbar.ts) take no hover, tool icons turn --cd-ui-text-leise and notation
+   previews grey, never by opacity. */
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry[aria-disabled="true"],
+:where(.tt-djs-container)
+  .djs-palette:not([data-chrome="palette"])
+  .entry[aria-disabled="true"]:hover {
+  background: transparent;
+  color: var(--cd-ui-text-leise);
+  cursor: not-allowed;
+}
+:where(.tt-djs-container)
+  .djs-palette:not([data-chrome="palette"])
+  .entry.highlighted-entry[aria-disabled="true"] {
+  color: var(--cd-ui-text-leise) !important;
+}
+:where(.tt-djs-container)
+  .djs-palette:not([data-chrome="palette"])
+  .entry[aria-disabled="true"]
+  > * {
+  filter: grayscale(1);
+}
 
 /* Vertical divider between the tool groups. */
 :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .group + .group {
@@ -403,8 +425,8 @@
 
 /* --- Forced colours (guide §5.14) ------------------------------------------------- */
 /* They drop shadows and backgrounds: the palette's edge, its separators, the focus and the armed
-   tool's ring stay, in system colours. The !important answers diagram-js's colour of the
-   highlighted entry. */
+   tool's ring stay, in system colours, and an entry the read-only lock disables is GrayText. The
+   !important answers diagram-js's colour of the highlighted entry. */
 @media (forced-colors: active) {
   :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) {
     border-color: CanvasText;
@@ -424,6 +446,9 @@
     background: Canvas;
     color: CanvasText !important;
     box-shadow: inset 0 0 0 2px Highlight;
+  }
+  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry[aria-disabled="true"] {
+    color: GrayText;
   }
 }
 

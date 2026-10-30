@@ -151,7 +151,7 @@ export function diagramShortcuts(
     {
       title: "Tools",
       rows: [
-        { action: "Select several elements", keys: keys.shiftDrag },
+        { action: "Lasso by dragging", keys: keys.shiftDrag },
         { action: "Add to or remove from the selection", keys: keys.shiftClick },
         { action: "Add the palette element in the middle", keys: ["Enter", "Space"] },
         { action: "Edit a name or text", keys: ["Double-click"] },

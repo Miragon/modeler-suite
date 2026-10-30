@@ -190,6 +190,13 @@ describe("diagramShortcuts", () => {
     ]);
   });
 
+  test("names the lasso Lasso, the guide's shared term, in the Tools rows", () => {
+    const tools = (platform: "mac" | "other") =>
+      diagramShortcuts(chrome(platform)).find((group) => group.title === "Tools");
+    expect(tools("mac")?.rows[0]).toEqual({ action: "Lasso by dragging", keys: ["⇧ Drag"] });
+    expect(tools("other")?.rows[0]).toEqual({ action: "Lasso by dragging", keys: ["Shift+Drag"] });
+  });
+
   test("leads with the web app's File keys and lists its dialog key under View when asked", () => {
     const host = chrome("other");
     expect(diagramShortcuts(host).map((group) => group.title)).toEqual(["View", "Edit", "Tools"]);

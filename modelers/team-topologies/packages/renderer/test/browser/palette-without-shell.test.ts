@@ -9,7 +9,7 @@ import type Selection from "diagram-js/lib/features/selection/Selection";
 import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import type { PaletteEntries } from "diagram-js/lib/features/palette/PaletteProvider";
 import type { ModuleDeclaration } from "didi";
-import { Modeler } from "@miragon/team-topologies-renderer";
+import { Modeler, type TtReadOnly } from "@miragon/team-topologies-renderer";
 import { emptyDocument } from "@miragon/team-topologies-schema-model";
 
 /**
@@ -492,6 +492,44 @@ describe("the palette is a toolbar (guide §5.5, §5.14)", () => {
     expect(state()).toEqual(["true", "lasso.selection"]);
   });
 
+  // diagram-js keeps a tool active on a cancel that looks like a click on the palette, and until
+  // the pointer moves, the armed lasso's drag still carries the click that armed it (#458).
+  test.each([
+    { by: "a pointer's click", arm: (lasso: HTMLElement) => userEvent.click(lasso) },
+    {
+      by: "Space, with the focus then on the canvas",
+      arm: async (lasso: HTMLElement, modeler: Modeler) => {
+        lasso.focus();
+        await userEvent.keyboard(" ");
+        canvasSvg(modeler).focus();
+      },
+    },
+  ])(
+    "puts the lasso armed by $by down on Escape before the pointer moves, pressed and highlighted no more",
+    async ({ arm }) => {
+      const { container, modeler } = mount();
+      const toolManager = modeler.get<ToolManager>("toolManager");
+      const dragging = modeler.get<Dragging>("dragging");
+      const lasso = entryOf(container, "lasso-tool");
+      const state = () => ({
+        active: toolManager.isActive("lasso"),
+        drag: dragging.context()?.prefix ?? null,
+        pressed: lasso.getAttribute("aria-pressed"),
+        highlighted: lasso.classList.contains("highlighted-entry"),
+      });
+
+      await arm(lasso, modeler);
+      expect(state()).toEqual({
+        active: true,
+        drag: "lasso.selection",
+        pressed: "true",
+        highlighted: true,
+      });
+      await userEvent.keyboard("{Escape}");
+      expect(state()).toEqual({ active: false, drag: null, pressed: "false", highlighted: false });
+    },
+  );
+
   test("rings the armed tool also once a host's provider has rebuilt the entries", async () => {
     const { host, container, modeler } = mount();
     const ring = `${resolved(container, "color", "var(--cd-ui-interaktion)")} 0px 0px 0px 2px inset`;
@@ -585,6 +623,284 @@ describe("the palette is a toolbar (guide §5.5, §5.14)", () => {
   });
 });
 
+function shownTooltip(container: HTMLElement): HTMLElement | null {
+  return container.querySelector<HTMLElement>(".djs-hover-tooltip");
+}
+
+function shownName(container: HTMLElement): string | null | undefined {
+  return shownTooltip(container)?.querySelector(".djs-palette-tooltip-label")?.textContent;
+}
+
+function titleOf(modeler: Modeler, action: string): string | undefined {
+  return modeler.get<Palette>("palette").getEntries()[action]?.title;
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+describe("the palette's tooltip (guide §5.6)", () => {
+  test("names the lasso Lasso, the guide's shared term, in its entry and its tooltip", async () => {
+    const { host, container } = mount();
+    expect(entryOf(container, "lasso-tool").getAttribute("aria-label")).toBe("Lasso");
+
+    buttonBefore(host).focus();
+    await userEvent.tab();
+    expect(shownName(container)).toBe("Lasso");
+  });
+
+  test("shows at once on keyboard focus, follows the arrow keys and is a role=tooltip", async () => {
+    const { host, container, modeler } = mount();
+    buttonBefore(host).focus();
+    await userEvent.tab();
+
+    expect(shownName(container)).toBe("Lasso");
+    expect(shownTooltip(container)?.getAttribute("role")).toBe("tooltip");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(shownName(container)).toBe(titleOf(modeler, actions(container)[1]!));
+    expect(container.querySelectorAll(".djs-hover-tooltip")).toHaveLength(1);
+
+    canvasSvg(modeler).focus();
+    expect(shownTooltip(container)).toBeNull();
+  });
+
+  test("hides on Escape and on a press, and stays hidden while the pointer rests on the entry", async () => {
+    const { host, container } = mount();
+    buttonBefore(host).focus();
+    await userEvent.tab();
+    const lasso = entryOf(container, "lasso-tool");
+    expect(shownName(container)).toBe("Lasso");
+    await userEvent.keyboard("{Escape}");
+    expect(shownTooltip(container)).toBeNull();
+    expect(document.activeElement).toBe(lasso);
+
+    await userEvent.hover(lasso);
+    await vi.waitFor(() => expect(shownName(container)).toBe("Lasso"));
+    await userEvent.click(lasso);
+    expect(shownTooltip(container)).toBeNull();
+    await wait(400);
+    expect(shownTooltip(container)).toBeNull();
+    await userEvent.keyboard("{Escape}");
+  });
+
+  test("waits 300ms on hover, then shows a neighbour's at once", async () => {
+    const { host, container, modeler } = mount();
+    await userEvent.hover(host, { position: { x: 500, y: 500 } });
+    await userEvent.hover(entryOf(container, "team.platform"));
+    expect(shownTooltip(container)).toBeNull();
+    await vi.waitFor(() => expect(shownName(container)).toBe(titleOf(modeler, "team.platform")));
+
+    const neighbour = actions(container)[actions(container).indexOf("team.platform") + 1]!;
+    await userEvent.hover(entryOf(container, neighbour));
+    expect(shownName(container)).toBe(titleOf(modeler, neighbour));
+  });
+
+  // A tap brings the touch's pointerover and then the mouse events a browser fires for
+  // compatibility, so a tooltip shown on mouseover would show for a tap.
+  test("shows none for touch", async () => {
+    const { container } = mount();
+    const entry = entryOf(container, "team.platform");
+    entry.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, pointerType: "touch" }));
+    entry.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    entry.dispatchEvent(new MouseEvent("mouseenter"));
+    await wait(400);
+
+    expect(shownTooltip(container)).toBeNull();
+  });
+
+  test("describes an entry only when it says more than the entry's name and key names", async () => {
+    class HostPaletteProvider {
+      static $inject = ["palette"];
+      constructor(palette: Palette) {
+        palette.registerProvider(this);
+      }
+      getPaletteEntries(): PaletteEntries {
+        const entry = (title: string, shortcut: string) => ({
+          group: "host",
+          title,
+          shortcut,
+          action: { click: () => undefined },
+        });
+        return { "host.note": entry("Note", "n"), "host.export": entry("Export", "Ctrl+E") };
+      }
+    }
+    const { host, container } = mount(HOST.width, [
+      { __init__: ["hostPaletteProvider"], hostPaletteProvider: ["type", HostPaletteProvider] },
+    ]);
+    buttonBefore(host).focus();
+    await userEvent.tab();
+    const describedBy = (action: string) =>
+      entryOf(container, action).getAttribute("aria-describedby");
+
+    expect(describedBy("lasso-tool")).toBeNull();
+    await userEvent.keyboard("{End}{ArrowLeft}");
+    expect(shownName(container)).toBe("Note");
+    expect(describedBy("host.note")).toBeNull();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(describedBy("host.export")).toBe(shownTooltip(container)!.id);
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(describedBy("host.export")).toBeNull();
+  });
+
+  test("throws nothing later when the modeler is destroyed while its tooltip waits to show", async () => {
+    const { modeler, host, container } = mount();
+    const errors: unknown[] = [];
+    const collect = (event: ErrorEvent) => errors.push(event.error);
+    window.addEventListener("error", collect);
+    try {
+      await userEvent.hover(entryOf(container, "team.platform"));
+      mounted.splice(
+        mounted.findIndex((each) => each.modeler === modeler),
+        1,
+      );
+      modeler.destroy();
+      host.remove();
+      await wait(400);
+    } finally {
+      window.removeEventListener("error", collect);
+    }
+    expect(errors).toEqual([]);
+  });
+});
+
+describe("the read-only lock marks the entries it disables (guide §13.5)", () => {
+  function lock(modeler: Modeler, locked: boolean): void {
+    modeler.get<TtReadOnly>("ttReadOnly").setReadOnly(locked);
+  }
+
+  function disabledMarks(container: HTMLElement): Record<string, string | null> {
+    return Object.fromEntries(
+      entries(container).map((entry) => [
+        entry.getAttribute("data-action"),
+        entry.getAttribute("aria-disabled"),
+      ]),
+    );
+  }
+
+  function marksOnAllBut(container: HTMLElement, value: string | null, active: string) {
+    return Object.fromEntries(
+      actions(container).map((action) => [action, action === active ? null : value]),
+    );
+  }
+
+  test("marks every entry but the lasso aria-disabled, also after a rebuild, and drops the marks with the lock", () => {
+    const { container, modeler } = mount();
+    expect(disabledMarks(container)).toEqual(marksOnAllBut(container, null, "lasso-tool"));
+
+    lock(modeler, true);
+    expect(disabledMarks(container)).toEqual(marksOnAllBut(container, "true", "lasso-tool"));
+    rebuildEntries(modeler);
+    expect(disabledMarks(container)).toEqual(marksOnAllBut(container, "true", "lasso-tool"));
+
+    lock(modeler, false);
+    expect(disabledMarks(container)).toEqual(marksOnAllBut(container, null, "lasso-tool"));
+  });
+
+  test("keeps a host entry's own aria-disabled once the lock ends", () => {
+    class HostPaletteProvider {
+      static $inject = ["palette"];
+      constructor(palette: Palette) {
+        palette.registerProvider(this);
+      }
+      getPaletteEntries(): PaletteEntries {
+        return {
+          "host.soon": {
+            group: "host",
+            title: "Coming soon",
+            html: '<div class="entry" aria-disabled="true"></div>',
+            action: { click: () => undefined },
+          },
+        };
+      }
+    }
+    const { container, modeler } = mount(HOST.width, [
+      { __init__: ["hostPaletteProvider"], hostPaletteProvider: ["type", HostPaletteProvider] },
+    ]);
+    lock(modeler, true);
+    lock(modeler, false);
+
+    expect(entryOf(container, "host.soon").getAttribute("aria-disabled")).toBe("true");
+    expect(entryOf(container, "team.platform").hasAttribute("aria-disabled")).toBe(false);
+  });
+
+  test("keeps a disabled entry focusable with its tooltip, and lets neither the keys nor the pointer create, while the lasso still arms", async () => {
+    const { host, container, modeler } = mount();
+    const dragging = modeler.get<Dragging>("dragging");
+    lock(modeler, true);
+    buttonBefore(host).focus();
+    await userEvent.tab();
+    await userEvent.keyboard("{ArrowRight}");
+    const second = actions(container)[1]!;
+    expect(document.activeElement).toBe(entryOf(container, second));
+    expect(shownName(container)).toBe(titleOf(modeler, second));
+
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard(" ");
+    const team = entryOf(container, "team.platform");
+    // Playwright waits for an aria-disabled element to become enabled before it clicks.
+    await userEvent.click(team, { force: true });
+    expect(dragging.context()?.prefix ?? null).toBeNull();
+    const dragStart = new DragEvent("dragstart", { bubbles: true, cancelable: true });
+    team.dispatchEvent(dragStart);
+    expect(dragStart.defaultPrevented).toBe(true);
+    expect(dragging.context()?.prefix ?? null).toBeNull();
+    expect(modeler.exportDocument().nodes).toEqual([]);
+
+    const lasso = entryOf(container, "lasso-tool");
+    lasso.focus();
+    await userEvent.keyboard(" ");
+    expect([lasso.getAttribute("aria-pressed"), dragging.context()?.prefix]).toEqual([
+      "true",
+      "lasso.selection",
+    ]);
+    await userEvent.keyboard("{Escape}");
+  });
+
+  test("draws a disabled entry without a hover, in --cd-ui-text-leise and its preview grey, never by opacity", async () => {
+    const { container, modeler } = mount();
+    lock(modeler, true);
+    const team = entryOf(container, "team.platform");
+    await userEvent.hover(team);
+    const style = await settledStyle(team);
+
+    expect([style.backgroundColor, style.color, style.cursor, style.opacity]).toEqual([
+      "rgba(0, 0, 0, 0)",
+      resolved(container, "color", "var(--cd-ui-text-leise)"),
+      "not-allowed",
+      "1",
+    ]);
+    const preview = getComputedStyle(team.querySelector("svg")!);
+    expect([preview.filter, preview.opacity]).toEqual(["grayscale(1)", "1"]);
+
+    const lasso = entryOf(container, "lasso-tool");
+    await userEvent.hover(lasso);
+    const active = await settledStyle(lasso);
+    expect([active.backgroundColor, active.color]).toEqual([
+      resolved(container, "background-color", "var(--cd-ui-hover)"),
+      resolved(container, "color", "var(--cd-ui-interaktion)"),
+    ]);
+    expect(active.cursor).not.toBe("not-allowed");
+    expect(getComputedStyle(lasso.querySelector("svg")!).filter).toBe("none");
+  });
+
+  test("draws a disabled entry in GrayText in forced colours", async () => {
+    await cdp().send("Emulation.setEmulatedMedia", {
+      features: [{ name: "forced-colors", value: "active" }],
+    });
+    try {
+      const { container, modeler } = mount();
+      lock(modeler, true);
+
+      const grayText = resolved(container, "color", "GrayText");
+
+      expect((await settledStyle(entryOf(container, "team.platform"))).color).toBe(grayText);
+      expect((await settledStyle(entryOf(container, "lasso-tool"))).color).not.toBe(grayText);
+    } finally {
+      await cdp().send("Emulation.setEmulatedMedia", { features: [] });
+    }
+  });
+});
+
 /** A chrome that skins the palette as the shell does, without importing the shell. */
 function chromeModule(options: { asShell: boolean }): ModuleDeclaration {
   function markPalette(eventBus: EventBus): void {
@@ -627,6 +943,21 @@ describe.each([
     expect(document.activeElement).toBe(team);
     await userEvent.keyboard("{Enter}");
     expect(modeler.exportDocument().nodes).toEqual([]);
+  });
+
+  test("leaves the read-only marks and the veto on its entries to the chrome", () => {
+    const { container, modeler } = mount(HOST.width, [chromeModule({ asShell })]);
+    const dragging = modeler.get<Dragging>("dragging");
+    modeler.get<TtReadOnly>("ttReadOnly").setReadOnly(true);
+
+    for (const entry of entries(container)) {
+      expect(entry.hasAttribute("aria-disabled")).toBe(false);
+    }
+    entryOf(container, "team.platform").dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }),
+    );
+    expect(dragging.context()?.prefix).toBe("create");
+    dragging.cancel(false);
   });
 
   test("puts the armed lasso down on the second click the chrome sends for Enter or Space", () => {

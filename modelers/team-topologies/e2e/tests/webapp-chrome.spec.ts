@@ -613,6 +613,11 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
   }) => {
     await gotoApp(page);
     await loadExample(page);
+    await expect(
+      page
+        .getByRole("toolbar", { name: "Tools" })
+        .getByRole("button", { name: "Lasso", exact: true }),
+    ).toHaveCount(1);
 
     await chooseMenuEntry(page, "keyboard-shortcuts");
 
@@ -629,6 +634,8 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     ]);
     // The shell's own zoom rows stand for the renderer's: each action once, then this app's "?".
     await expect(dialog.getByRole("table", { name: "View" }).getByRole("row")).toHaveCount(5);
+    // Lasso, the guide's shared term, as in the palette.
+    await expect(dialog.getByRole("table", { name: "Tools" })).toContainText("Lasso by dragging");
 
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();
