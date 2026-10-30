@@ -86,7 +86,12 @@ attaches to the pointer), so none takes the press meant for the line's next poin
 `preventDefault()`, as the board takes them otherwise. The board's other keys (delete, the arrow
 keys, duplicate, select all, copy, undo and redo) act as they do without a line and leave the line
 as it is. A press on a handle of a selected drawing focuses the canvas too, and Escape aimed at the
-canvas ends the drag of that point without changing the drawing, which stays selected. To keep the
+canvas ends the drag of that point without changing the drawing, which stays selected. Until the
+release, the arrow keys, L, E, C, Cmd/Ctrl+V and Cmd/Ctrl+D do nothing and are taken with
+`preventDefault()`, since they would nudge or copy the drawing under the drag or start a second
+gesture next to it ([#375](https://github.com/Miragon/modeler-suite/issues/375)). Delete removes
+the drawing, and an undo, a redo or any other command before the release ends the drag without a
+commit, so the release never writes the drawing back over what the command did. To keep the
 keys away from a canvas it
 hides without destroying it, a host makes it `inert` (or `display: none`): the browser then moves
 the focus off the `<svg>` at its next rendering update, and a key whose target lies inside an

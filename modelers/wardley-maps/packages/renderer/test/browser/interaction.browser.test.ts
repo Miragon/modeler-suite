@@ -441,10 +441,16 @@ const WARDLEY_GESTURES: ReadonlyArray<readonly [string, WardleyGesture]> = [
   ],
 ];
 
-function pressCanvasKey(modeler: CollaborativeWardleyModeler, key: string): void {
+function pressCanvasKey(
+  modeler: CollaborativeWardleyModeler,
+  key: string | KeyboardEventInit,
+): KeyboardEvent {
   const svg = canvasSvgOf(modeler);
   svg.focus();
-  svg.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+  const init = typeof key === "string" ? { key } : key;
+  const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
+  svg.dispatchEvent(event);
+  return event;
 }
 
 describe("interaction follows every Wardley gesture", () => {
@@ -658,6 +664,192 @@ describe("Escape during the renderer's own drags", () => {
       expect(current.delivered).toEqual([true, false]);
     },
   );
+});
+
+function handlePositionsOf(modeler: CollaborativeWardleyModeler): number[][] {
+  const container = diagramOf(modeler).get<Canvas>("canvas").getContainer();
+  return [...container.querySelectorAll(".wardley-drawing-handle")].map((handle) => [
+    Number(handle.getAttribute("cx")),
+    Number(handle.getAttribute("cy")),
+  ]);
+}
+
+function shapeCount(modeler: CollaborativeWardleyModeler): number {
+  return diagramOf(modeler).get<ElementRegistry>("elementRegistry").filter(isWardleyShape).length;
+}
+
+const POINT_DRAG_PREVIEW = ".layer-wardley-drawing-handles :is(polyline, polygon)";
+
+/**
+ * The canvas keys that would change the drawing under a point drag or start a second gesture next
+ * to it, with whether the canvas takes them (`preventDefault`): a nudge or a duplicate is a command,
+ * which ends the point drag, and a create, a connection, the lasso or a paste would end with the
+ * drag's release. The single-key tools are left without effect as while the draw tool holds a line.
+ */
+const KEYS_A_POINT_DRAG_TAKES: ReadonlyArray<readonly [string, KeyboardEventInit, boolean]> = [
+  ["ArrowRight, a nudge of the drawing", { key: "ArrowRight" }, true],
+  ["Shift+ArrowRight, a coarse nudge", { key: "ArrowRight", shiftKey: true }, true],
+  ["ArrowLeft", { key: "ArrowLeft" }, true],
+  ["ArrowUp", { key: "ArrowUp" }, true],
+  ["Shift+ArrowDown", { key: "ArrowDown", shiftKey: true }, true],
+  ["C, a component at the pointer", { key: "c" }, false],
+  ["U, a user at the pointer", { key: "u" }, false],
+  ["N, a note at the pointer", { key: "n" }, false],
+  ["P, a pipeline at the pointer", { key: "p" }, false],
+  ["A, a connection from the selected node", { key: "a" }, false],
+  ["L, the lasso", { key: "l" }, false],
+  ["paste, which attaches to the pointer", { key: "v", ctrlKey: true }, true],
+  ["duplicate", { key: "d", ctrlKey: true }, true],
+];
+
+describe("the canvas keys during a drawing's point drag (#375)", () => {
+  /**
+   * Kettle copied from the keyboard, so that a paste has something to attach to the pointer, then
+   * the first point of the drawing pressed and dragged over the canvas, where a create attaches.
+   */
+  async function draggingAPoint(): Promise<{
+    current: Session;
+    drawing: WardleyShape;
+    handle: Element;
+    committed: string;
+    handlesBefore: number[][];
+    to: Point;
+  }> {
+    const current = await session(GESTURE_MAP);
+    const { modeler } = current;
+    select(modeler, shapeNamed(modeler, "Kettle"));
+    expect(pressCanvasKey(modeler, { key: "c", ctrlKey: true }).defaultPrevented).toBe(true);
+    const committed = modeler.exportText();
+    const drawing = theDrawing(modeler);
+    select(modeler, drawing);
+    const handlesBefore = handlePositionsOf(modeler);
+    const handle = inCanvas(modeler, ".wardley-drawing-handle");
+    const from = centreOf(handle);
+    mouse(handle, "mousedown", from);
+    const svg = canvasSvgOf(modeler);
+    mouse(svg, "mousemove", { x: from.x + 20, y: from.y + 10 });
+    const to = { x: from.x + 40, y: from.y + 20 };
+    mouse(svg, "mousemove", to);
+    expect(modeler.interaction.active()).toBe(true);
+    expect(inCanvas(modeler, POINT_DRAG_PREVIEW)).toBeTruthy();
+    return { current, drawing, handle, committed, handlesBefore, to };
+  }
+
+  function expectTheDragRunningOn(current: Session, drawing: WardleyShape, committed: string) {
+    const { modeler } = current;
+    expect(errors).toEqual([]);
+    expect(draggingPrefix(modeler)).toBeUndefined();
+    expect(document.querySelector(".wardley-label-input")).toBeNull();
+    expect(current.changes()).toBe(0);
+    expect(modeler.exportText()).toBe(committed);
+    expect(diagramOf(modeler).get<Selection>("selection").get()).toEqual([drawing]);
+    expect(modeler.interaction.active()).toBe(true);
+    expect(inCanvas(modeler, POINT_DRAG_PREVIEW)).toBeTruthy();
+  }
+
+  test.each(KEYS_A_POINT_DRAG_TAKES)(
+    "%s does nothing, and the release moves the dragged point alone",
+    async (_, init, taken) => {
+      const { current, drawing, committed, handlesBefore, to } = await draggingAPoint();
+      const { modeler } = current;
+      const shapes = shapeCount(modeler);
+
+      expect(pressCanvasKey(modeler, init).defaultPrevented).toBe(taken);
+      await settle();
+      expectTheDragRunningOn(current, drawing, committed);
+
+      mouse(document, "mouseup", to);
+      await settle();
+      expect(errors).toEqual([]);
+      expect(current.changes()).toBe(1);
+      expect(current.delivered).toEqual([true, false]);
+      const handlesAfter = handlePositionsOf(modeler);
+      expect(handlesAfter[0]).not.toEqual(handlesBefore[0]);
+      expect(handlesAfter.slice(1)).toEqual(handlesBefore.slice(1));
+      expect(shapeCount(modeler)).toBe(shapes);
+      undo(modeler);
+      expect(modeler.exportText()).toBe(committed);
+    },
+  );
+
+  test("paste does nothing either when the board would wait for the host's paste event", async () => {
+    const { current, drawing, committed, to } = await draggingAPoint();
+    const { modeler } = current;
+    document.dispatchEvent(new Event("copy"));
+
+    expect(pressCanvasKey(modeler, { key: "v", ctrlKey: true }).defaultPrevented).toBe(true);
+    await settle();
+    expectTheDragRunningOn(current, drawing, committed);
+
+    mouse(document, "mouseup", to);
+    await settle();
+    expect(errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(draggingPrefix(modeler)).toBeUndefined();
+  });
+
+  test("Escape still ends the drag without a commit after the keys it took", async () => {
+    const { current, drawing, handle, committed, handlesBefore, to } = await draggingAPoint();
+    const { modeler } = current;
+    pressCanvasKey(modeler, { key: "ArrowRight" });
+    pressCanvasKey(modeler, { key: "c" });
+
+    pressEscape(modeler);
+    expect(modeler.interaction.active()).toBe(false);
+    expect(
+      diagramOf(modeler).get<Canvas>("canvas").getContainer().querySelector(POINT_DRAG_PREVIEW),
+    ).toBeNull();
+
+    releaseWithClick(handle, to);
+    await settle();
+    expect(errors).toEqual([]);
+    expect(current.changes()).toBe(0);
+    expect(modeler.exportText()).toBe(committed);
+    expect(diagramOf(modeler).get<Selection>("selection").get()).toEqual([drawing]);
+    expect(handlePositionsOf(modeler)).toEqual(handlesBefore);
+  });
+
+  test("Delete still removes the drawing, which ends the drag without a commit", async () => {
+    const { current, drawing, to } = await draggingAPoint();
+    const { modeler } = current;
+
+    expect(pressCanvasKey(modeler, { key: "Delete" }).defaultPrevented).toBe(true);
+    expect(current.changes()).toBe(1);
+    expect(
+      diagramOf(modeler).get<ElementRegistry>("elementRegistry").get(drawing.id),
+    ).toBeUndefined();
+    expect(modeler.interaction.active()).toBe(false);
+
+    mouse(document, "mouseup", to);
+    await settle();
+    expect(errors).toEqual([]);
+    expect(current.changes()).toBe(1);
+    expect(current.delivered).toEqual([true, false]);
+  });
+
+  test("the keys act again once the release has ended the drag", async () => {
+    const { current, handlesBefore, to } = await draggingAPoint();
+    const { modeler } = current;
+    pressCanvasKey(modeler, { key: "ArrowRight" });
+    mouse(document, "mouseup", to);
+    await settle();
+    expect(current.changes()).toBe(1);
+    const released = handlePositionsOf(modeler);
+    expect(released[0]).not.toEqual(handlesBefore[0]);
+    expect(released.slice(1)).toEqual(handlesBefore.slice(1));
+
+    expect(pressCanvasKey(modeler, { key: "ArrowDown", shiftKey: true }).defaultPrevented).toBe(
+      true,
+    );
+    expect(current.changes()).toBe(2);
+    handlePositionsOf(modeler).forEach(([x, y], index) => {
+      expect(x).toBeCloseTo(released[index]![0]!, 5);
+      expect(y).toBeCloseTo(released[index]![1]! + 10, 5);
+    });
+
+    expect(pressCanvasKey(modeler, { key: "l" }).defaultPrevented).toBe(true);
+    expect(draggingPrefix(modeler)).toBe("lasso.selection");
+  });
 });
 
 function gestureNamed(name: string): WardleyGesture {
