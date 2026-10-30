@@ -173,19 +173,15 @@ describe("Escape during the point drag of a drawing (#243)", () => {
   });
 });
 
-/** The keys the board acts on, each pressed while the draw tool holds the points of a line. */
-const BOARD_KEYS = [
+/**
+ * The keys that start a gesture at the pointer, which would take the press meant for the next point
+ * of the line the draw tool holds.
+ */
+const GESTURE_KEYS = [
   ["L, the lasso", "l"],
   ["E, a domain event at the pointer", "e"],
   ["C, a command at the pointer", "c"],
-  ["Delete", "{Delete}"],
-  ["Backspace", "{Backspace}"],
-  ["an arrow key", "{ArrowRight}"],
-  ["select all", "{Control>}a{/Control}"],
-  ["paste", "{Control>}v{/Control}"],
-  ["duplicate", "{Control>}d{/Control}"],
-  ["undo", "{Control>}z{/Control}"],
-  ["redo", "{Control>}{Shift>}z{/Shift}{/Control}"],
+  ["paste, which attaches to the pointer", "{Control>}v{/Control}"],
 ] as const;
 
 /** Each key as the page sees it after the modeler: whether a listener took it. */
@@ -237,7 +233,7 @@ describe("the board's keys while the draw tool holds a line (#243)", () => {
     return { modeler, pointer, policy, edited, changes, drawTool };
   }
 
-  it.each(BOARD_KEYS)("does nothing with %s, and keeps it from the page", async (_, key) => {
+  it.each(GESTURE_KEYS)("does nothing with %s, and keeps it from the page", async (_, key) => {
     const { modeler, policy, edited, changes, drawTool } = await drawingALine();
     const commandStack = service<CommandStack>(modeler, "commandStack");
     const keys = keysReachingThePage();
@@ -253,6 +249,28 @@ describe("the board's keys while the draw tool holds a line (#243)", () => {
     expect(commandStack.canRedo()).toBe(true);
     expect(service<Selection>(modeler, "selection").get()).toEqual([policy]);
     expect(drawTool.holdsLine()).toBe(true);
+  });
+
+  it("acts on the keys that start no gesture as without a line, and the line goes on", async () => {
+    const { modeler, policy, changes, drawTool } = await drawingALine();
+    const commandStack = service<CommandStack>(modeler, "commandStack");
+
+    await userEvent.keyboard("{Delete}");
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).not.toContain("Reserve Stock");
+    expect(drawTool.holdsLine()).toBe(true);
+
+    await userEvent.keyboard("{Control>}z{/Control}");
+    expect(changes()).toBe(2);
+    expect(modeler.exportText()).toContain("policy Reserve Stock [820, 200]");
+    expect(commandStack.canRedo()).toBe(true);
+    expect(drawTool.holdsLine()).toBe(true);
+
+    await userEvent.keyboard("{Enter}");
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(3);
+    expect(modeler.exportText().match(/^line /gm)).toHaveLength(2);
+    expect(sticky(modeler, policy.id)).toBeDefined();
   });
 
   it("leaves undo and redo to a host that owns the history, and the keys the board has none for", async () => {

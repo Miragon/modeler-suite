@@ -79,13 +79,15 @@ there. Every other target keeps them, with no `preventDefault()` and no `stopPro
 other palette entries, the context pad, the label editor and a host's controls, inside the
 container or outside it. A click, Enter or Space on another palette entry first ends the drawing and
 keeps the open line, as Enter on the canvas does, so no second tool starts next to it. Every point
-focuses the canvas. Until the line is finished or cancelled, the board's other keys do nothing (L,
-E and C, paste and duplicate, delete, the arrow keys, select all, copy, undo and redo), so no lasso
-or create starts next to it ([#243](https://github.com/Miragon/modeler-suite/issues/243)); they
-are taken with `preventDefault()`, so neither the browser nor the host runs them instead, apart
-from undo and redo with `undoRedoKeys: false`, which stay the host's. A press on a handle of a
-selected drawing focuses the canvas too, and Escape aimed at the canvas ends the drag of that point
-without changing the drawing, which stays selected. To keep the keys away from a canvas it
+focuses the canvas. Until the line is finished or cancelled, the keys that start a gesture at the
+pointer do nothing: L (the lasso), E and C (a sticky at the pointer) and Cmd/Ctrl+V (the paste
+attaches to the pointer), so none takes the press meant for the line's next point
+([#243](https://github.com/Miragon/modeler-suite/issues/243)); they are taken with
+`preventDefault()`, as the board takes them otherwise. The board's other keys (delete, the arrow
+keys, duplicate, select all, copy, undo and redo) act as they do without a line and leave the line
+as it is. A press on a handle of a selected drawing focuses the canvas too, and Escape aimed at the
+canvas ends the drag of that point without changing the drawing, which stays selected. To keep the
+keys away from a canvas it
 hides without destroying it, a host makes it `inert` (or `display: none`): the browser then moves
 the focus off the `<svg>` at its next rendering update. Cmd/Ctrl+A selects the whole board. An
 import erases the undo history without firing `commandStack.changed`, and fires

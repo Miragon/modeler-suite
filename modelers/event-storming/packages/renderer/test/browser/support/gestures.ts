@@ -1,6 +1,8 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
+import { parseDSL } from "@miragon/event-storming-dsl";
+import type { EventStormingBoard } from "@miragon/event-storming-schema-model";
 import type { CollaborativeEventStormingModeler } from "../../../src/index.js";
 import { isEventStormingShape, type EventStormingShape } from "../../../src/model/di-types.js";
 
@@ -14,6 +16,18 @@ policy Reserve Stock [800, 200]
 note Agenda [560, 520] (size 200x120)
 Place Order -> Order Placed
 `;
+
+/**
+ * A board from JSON that the import rejects (L7): its sticky claims the id of the board itself.
+ * The DSL reads every text, so only a board that bypasses it reaches a rejection.
+ */
+export function rejectedBoard(): EventStormingBoard {
+  const board = parseDSL("title Broken\nevent Foo [0, 0]\n");
+  return {
+    ...board,
+    elements: board.elements.map((element) => ({ ...element, id: "event-storming-root" })),
+  };
+}
 
 export interface Point {
   x: number;

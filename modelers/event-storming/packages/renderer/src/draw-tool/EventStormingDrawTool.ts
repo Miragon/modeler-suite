@@ -30,8 +30,9 @@ export const DRAW_TOOL_PALETTE_ENTRY = "draw-tool";
  * Finishing (like Excalidraw): click the LAST point again, double-click, Enter or Escape
  * commits the open line; clicking the FIRST point closes the shape. Escape with fewer than
  * two points cancels. The result is ONE undoable `drawing` shape that moves as a whole. While a
- * line is in progress the board's other keys do nothing (`EventStormingKeyboard` asks
- * `holdsLine()`), and an import ends it without a drawing (`endLine()`).
+ * line is in progress the board's keys that start a gesture at the pointer do nothing
+ * (`EventStormingKeyboard` asks `holdsLine()`), and an import ends it without a drawing
+ * (`endLine()`).
  */
 export default class EventStormingDrawTool {
   static $inject = ["canvas", "eventBus", "modeling", "selection", "eventStormingElementFactory"];
@@ -58,7 +59,7 @@ export default class EventStormingDrawTool {
     return this.active;
   }
 
-  /** Whether the tool holds the points of a line in progress, which own the canvas keys. */
+  /** Whether the tool holds the points of a line in progress, which own the presses on the canvas. */
   holdsLine(): boolean {
     return this.active && this.points.length > 0;
   }
@@ -190,6 +191,9 @@ export default class EventStormingDrawTool {
     // The prevented default is the browser's focus move: without it Enter and Escape would go to
     // whatever held the focus before.
     focusCanvasWithoutRing(this.canvas);
+    // The focus move blurs a host's field or commits an open label, and a host that imports from
+    // either has ended the line and the tool with it: the press belongs to no line any more.
+    if (!this.active) return;
     const p = this.toCanvasPoint(e);
     const first = this.points[0];
     if (first && this.points.length >= 3 && distance(p, first) <= CLOSE_RADIUS) {

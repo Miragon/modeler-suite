@@ -104,15 +104,18 @@ export default class EventStormingDrawingHandles {
   }
 
   private startDrag(e: MouseEvent, index: number): void {
-    if (e.button !== 0 || !this.shape) return;
+    const shape = this.shape;
+    if (e.button !== 0 || !shape) return;
     e.preventDefault();
     e.stopPropagation();
     // The prevented default is the browser's focus move: without it the Escape that ends the drag
     // would go to whatever held the focus before.
     focusCanvasWithoutRing(this.canvas);
+    // The focus move blurs a host's field, and a host that imports from its listener has replaced
+    // the drawing by now: the press has no point left to drag.
+    if (this.shape !== shape) return;
     this.endPointDrag();
     this.dropReleaseTrap();
-    const shape = this.shape;
     const points = this.absolutePoints();
     let endGesture: (() => void) | undefined;
 

@@ -29,11 +29,25 @@ const ARROW_DELTAS: Record<string, { x: number; y: number }> = {
 
 interface BoardKey {
   readsTheBoard: boolean;
+  /**
+   * The lasso and the creates at the pointer (E, C and a paste) start a gesture there, which would
+   * take the press meant for the next point of a line the draw tool holds.
+   */
+  startsAGesture: boolean;
   handle(): void;
 }
 
-const reading = (handle: () => void): BoardKey => ({ readsTheBoard: true, handle });
-const editing = (handle: () => void): BoardKey => ({ readsTheBoard: false, handle });
+const reading = (handle: () => void): BoardKey => ({
+  readsTheBoard: true,
+  startsAGesture: false,
+  handle,
+});
+const editing = (handle: () => void): BoardKey => ({
+  readsTheBoard: false,
+  startsAGesture: false,
+  handle,
+});
+const startingAGesture = (boardKey: BoardKey): BoardKey => ({ ...boardKey, startsAGesture: true });
 
 /** What the keyboard reads of `EventStormingDrawTool`, which imports the key scope from here. */
 interface DrawToolLine {
@@ -53,8 +67,9 @@ export interface EventStormingKeyboardConfig {
  * of the selection, plus the single-key tools E (domain event), C (command) and L (lasso).
  * Deliberately a DOM listener (no diagram-js keyboard-service binding needed) that acts only while
  * the canvas has the focus, as diagram-js 15's own keyboard does. Under the read-only lock only
- * select all, copy and the lasso stay; while the draw tool holds a line in progress none does,
- * and Enter and Escape are the tool's.
+ * select all, copy and the lasso stay. While the draw tool holds a line in progress, the keys that
+ * start a gesture at the pointer (L, E, C and paste) do nothing, and Enter and Escape are the
+ * tool's.
  */
 export default class EventStormingKeyboard {
   static $inject = [
@@ -102,10 +117,10 @@ export default class EventStormingKeyboard {
       if (!isUnhandledKey(e) || !targetsCanvas(e, canvas)) return;
       const boardKey = boardKeyOf(e);
       if (!boardKey) return;
-      // A line in progress owns the board's keys as it owns the pointer (#243): a lasso or a create
-      // started next to it would take the presses meant for its next point. Taken without acting,
-      // so neither the browser nor the host runs them instead (Cmd+D would bookmark the page).
-      if (drawTool()?.holdsLine()) {
+      // A line in progress owns the presses on the canvas (#243): a lasso or a create started next
+      // to it would take the press meant for its next point. Taken without acting, so a host sees
+      // the board's key as it does while no line is drawn.
+      if (boardKey.startsAGesture && drawTool()?.holdsLine()) {
         e.preventDefault();
         return;
       }
@@ -138,11 +153,13 @@ export default class EventStormingKeyboard {
         });
       }
       if (!cmd && !e.altKey && key === "l") {
-        return reading(() => {
-          e.preventDefault();
-          const lastMove = mouse.getLastMoveEvent();
-          lassoTool.activateSelection((lastMove ?? e) as MouseEvent, !!lastMove);
-        });
+        return startingAGesture(
+          reading(() => {
+            e.preventDefault();
+            const lastMove = mouse.getLastMoveEvent();
+            lassoTool.activateSelection((lastMove ?? e) as MouseEvent, !!lastMove);
+          }),
+        );
       }
       if (isUndo || isRedo) {
         if (!undoRedoKeys) return undefined;
@@ -153,9 +170,11 @@ export default class EventStormingKeyboard {
         });
       }
       if (cmd && key === "v") {
-        return editing(() => {
-          if (copyPaste.paste()) e.preventDefault();
-        });
+        return startingAGesture(
+          editing(() => {
+            if (copyPaste.paste()) e.preventDefault();
+          }),
+        );
       }
       if (cmd && key === "d") {
         return editing(() => {
@@ -174,17 +193,19 @@ export default class EventStormingKeyboard {
       }
       if (!cmd && !e.altKey && (key === "e" || key === "c")) {
         // Quick create: the new sticky attaches to the cursor (like palette create).
-        return editing(() => {
-          const lastMove = mouse.getLastMoveEvent();
-          if (lastMove) {
-            e.preventDefault();
-            const shape =
-              key === "e"
-                ? factory.createNew("event", STICKY_STYLES.event.label)
-                : factory.createNew("command", STICKY_STYLES.command.label);
-            create.start(lastMove, shape as unknown as Element);
-          }
-        });
+        return startingAGesture(
+          editing(() => {
+            const lastMove = mouse.getLastMoveEvent();
+            if (lastMove) {
+              e.preventDefault();
+              const shape =
+                key === "e"
+                  ? factory.createNew("event", STICKY_STYLES.event.label)
+                  : factory.createNew("command", STICKY_STYLES.command.label);
+              create.start(lastMove, shape as unknown as Element);
+            }
+          }),
+        );
       }
       if (key in ARROW_DELTAS && !cmd) {
         return editing(() => {

@@ -5,8 +5,6 @@ import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Shape } from "diagram-js/lib/model/Types";
-import { parseDSL } from "@miragon/event-storming-dsl";
-import type { EventStormingBoard } from "@miragon/event-storming-schema-model";
 import {
   createCollaborativeModeler,
   createCollaborativeViewer,
@@ -19,6 +17,7 @@ import {
   pointerOn,
   pressEscape,
   pressEscapeOnFocus,
+  rejectedBoard,
   service,
   shapeOf,
   sticky,
@@ -26,18 +25,6 @@ import {
 
 // A peer moved the policy: the import replaces every shape a running gesture holds.
 const REMOTE = BOARD.replace("policy Reserve Stock [800, 200]", "policy Reserve Stock [840, 260]");
-
-/**
- * A board from JSON that the import rejects (L7): its sticky claims the id of the board itself.
- * The DSL reads every text, so only a board that bypasses it reaches a rejection.
- */
-function rejectedBoard(): EventStormingBoard {
-  const board = parseDSL("title Broken\nevent Foo [0, 0]\n");
-  return {
-    ...board,
-    elements: board.elements.map((element) => ({ ...element, id: "event-storming-root" })),
-  };
-}
 
 const FREE = { x: 640, y: 380 };
 
