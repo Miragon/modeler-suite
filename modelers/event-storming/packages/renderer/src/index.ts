@@ -74,7 +74,6 @@ export type {
 export { eventStormingRulesModule, EventStormingRules } from "./rules/index.js";
 export { elementSnappingModule } from "./snapping/index.js";
 export { eventStormingPaletteModule } from "./palette/index.js";
-export { eventStormingHoverTooltipTeardownModule } from "./palette/EventStormingHoverTooltipTeardown.js";
 export { eventStormingContextPadModule } from "./context-pad/index.js";
 export { labelEditingModule, EventStormingLabelEditing } from "./label-editing/index.js";
 export { eventStormingKeyboardModule } from "./keyboard/index.js";

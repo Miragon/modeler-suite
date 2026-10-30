@@ -14,18 +14,19 @@ const BEFORE_CANVAS_TEARDOWN = 1500;
 
 /**
  * diagram-js's palette brings its hover tooltip along, which `VcPaletteTooltip` does not use, but a
- * host may (diagram-js's own palette tooltip, say). That tooltip (15.28.1, diagram-js's latest
- * release) shows 300ms after the pointer enters an entry and cancels that only when the pointer
- * leaves, never on `diagram.destroy`: the timer then renders into the destroyed canvas and throws a
- * TypeError in the host's page. HoverTooltip has no public way to cancel a show, so this
- * clears its timer and the content it would render.
+ * host may (diagram-js's own palette tooltip, say). That tooltip (checked up to 15.28.1) shows
+ * 300ms after the pointer enters an entry and cancels that only when the pointer leaves, never on
+ * `diagram.destroy`: the timer then renders into the destroyed canvas and throws a TypeError in the
+ * host's page. HoverTooltip has no public way to cancel a show, so this clears its timer and the
+ * content it would render. A host that replaced the service with `null` has nothing to cancel.
  */
 export default class VcHoverTooltipTeardown {
   static $inject = ["eventBus", "hoverTooltip"];
 
-  constructor(eventBus: EventBus, hoverTooltip: HoverTooltip) {
+  constructor(eventBus: EventBus, hoverTooltip: HoverTooltip | null) {
+    if (!hoverTooltip) return;
+    const pending = hoverTooltip as unknown as PendingTooltip;
     eventBus.on("diagram.destroy", BEFORE_CANVAS_TEARDOWN, () => {
-      const pending = hoverTooltip as unknown as PendingTooltip;
       clearTimeout(pending._showTimer ?? undefined);
       pending._showTimer = null;
       pending._current = null;

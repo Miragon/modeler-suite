@@ -40,7 +40,6 @@ export {
   TtAssociationBehavior,
 } from "./behaviors/index.js";
 export { ttPaletteModule, TtPaletteProvider } from "./palette/index.js";
-export { ttHoverTooltipTeardownModule } from "./palette/TtHoverTooltipTeardown.js";
 export type { TtPaletteConfig, Point } from "./palette/TtPaletteProvider.js";
 export { ttContextPadModule, TtContextPadProvider } from "./context-pad/index.js";
 export { ttLabelEditingModule, TtLabelEditing } from "./label-editing/index.js";

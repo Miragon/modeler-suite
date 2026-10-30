@@ -158,6 +158,10 @@ missing at its other places; the verdict stays the same).
   `modelerShell` is registered or a chrome marks the palette `data-chrome="palette"`, and
   `shellModule` replaces the tooltip, so the shell's palette stays the shell's
   (`test/browser/palette-without-shell.browser.test.ts`, the apps' e2e for the shell's).
+  `VcHoverTooltipTeardown`, which `vcPaletteModule` brings along, cancels a show of diagram-js's
+  `hoverTooltip` on `diagram.destroy`. `VcPaletteTooltip` does not use that service, but a host that
+  brings diagram-js's palette tooltip back does, and its tooltip would otherwise render into the
+  destroyed canvas (#400, `test/browser/palette-tooltip-destroy.browser.test.ts`).
 - `read-only/VcReadOnly` is the edit lock of an invalid file; `diagram-menu/` holds the Export and
   Help entries and the shortcut groups (`diagramShortcuts`) both apps hand the shell, typed
   structurally (renderers never import the shell). Both apps open the dialog with

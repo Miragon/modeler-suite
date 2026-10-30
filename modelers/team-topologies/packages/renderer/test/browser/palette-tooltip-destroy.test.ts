@@ -1,16 +1,30 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ModuleDeclaration } from "didi";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import {
+  Modeler,
   createCollaborativeModeler,
   type CollaborativeTeamTopologiesModeler,
 } from "@miragon/team-topologies-renderer";
 import sample from "../../../../example/sample.tt?raw";
+import { ttPaletteModule } from "../../src/palette/index.js";
+import { ttHoverTooltipTeardownModule } from "../../src/palette/TtHoverTooltipTeardown.js";
 
 // diagram-js's hover tooltip shows a palette entry's tooltip 300ms after the pointer enters it; a
 // host may destroy the modeler before that (#400).
 
 const SHOW_DELAY_MS = 300;
 const PAST_THE_DELAY_MS = SHOW_DELAY_MS + 300;
+
+/** A host that leaves out diagram-js's hover tooltip, and the palette tooltip that would use it. */
+const WITHOUT_HOVER_TOOLTIP: ModuleDeclaration = {
+  hoverTooltip: ["value", null],
+  paletteTooltip: ["value", null],
+};
+
+function withDependencies(module: ModuleDeclaration): ModuleDeclaration[] {
+  return [module, ...(module.__depends__ ?? []).flatMap(withDependencies)];
+}
 
 interface Mounted {
   modeler: CollaborativeTeamTopologiesModeler;
@@ -88,5 +102,21 @@ describe("the palette's hover tooltip", () => {
       watch.stop();
     }
     expect(watch.errors).toEqual([]);
+  });
+
+  it("lets a host that leaves out diagram-js's hover tooltip destroy the modeler", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const modeler = new Modeler({ container, additionalModules: [WITHOUT_HOVER_TOOLTIP] });
+    try {
+      modeler.get("canvas");
+      expect(() => modeler.destroy()).not.toThrow();
+    } finally {
+      container.remove();
+    }
+  });
+
+  it("comes with the palette module, for a host that builds its own modeler from it", () => {
+    expect(withDependencies(ttPaletteModule)).toContain(ttHoverTooltipTeardownModule);
   });
 });

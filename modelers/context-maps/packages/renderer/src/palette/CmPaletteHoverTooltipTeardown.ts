@@ -13,18 +13,20 @@ interface PendingTooltip {
 const BEFORE_CANVAS_TEARDOWN = 1500;
 
 /**
- * diagram-js's hover tooltip (15.28.1, its latest release) shows a palette entry's tooltip 300ms
- * after the pointer enters the entry and cancels that only when the pointer leaves, never on
- * `diagram.destroy`: the timer then renders into the destroyed canvas and throws a TypeError in the
- * host's page. HoverTooltip has no public way to cancel a show, so this clears its timer and
- * the content it would render.
+ * diagram-js's hover tooltip (checked up to 15.28.1; not the elements' `cmHoverTooltip`) shows a
+ * palette entry's tooltip 300ms after the pointer enters the entry and cancels that only when the
+ * pointer leaves, never on `diagram.destroy`: the timer then renders into the destroyed canvas and
+ * throws a TypeError in the host's page. HoverTooltip has no public way to cancel a show, so this
+ * clears its timer and the content it would render. A host that replaced the service with `null`
+ * has nothing to cancel.
  */
-export default class CmHoverTooltipTeardown {
+export default class CmPaletteHoverTooltipTeardown {
   static $inject = ["eventBus", "hoverTooltip"];
 
-  constructor(eventBus: EventBus, hoverTooltip: HoverTooltip) {
+  constructor(eventBus: EventBus, hoverTooltip: HoverTooltip | null) {
+    if (!hoverTooltip) return;
+    const pending = hoverTooltip as unknown as PendingTooltip;
     eventBus.on("diagram.destroy", BEFORE_CANVAS_TEARDOWN, () => {
-      const pending = hoverTooltip as unknown as PendingTooltip;
       clearTimeout(pending._showTimer ?? undefined);
       pending._showTimer = null;
       pending._current = null;
@@ -33,8 +35,8 @@ export default class CmHoverTooltipTeardown {
 }
 
 /** Cancels the palette tooltip that waits to show when the modeler is destroyed. */
-export const cmHoverTooltipTeardownModule: ModuleDeclaration = {
+export const cmPaletteHoverTooltipTeardownModule: ModuleDeclaration = {
   __depends__: [HoverTooltipModule],
-  __init__: ["cmHoverTooltipTeardown"],
-  cmHoverTooltipTeardown: ["type", CmHoverTooltipTeardown],
+  __init__: ["cmPaletteHoverTooltipTeardown"],
+  cmPaletteHoverTooltipTeardown: ["type", CmPaletteHoverTooltipTeardown],
 };

@@ -4,6 +4,8 @@ import PaletteTooltip from "diagram-js/lib/features/palette/PaletteTooltip";
 import { createEmptyDocument } from "@miragon/value-chain-schema-model";
 import { Modeler } from "../../src/index.js";
 import "../../src/assets/value-chain.css";
+import { vcPaletteModule } from "../../src/palette/index.js";
+import { vcHoverTooltipTeardownModule } from "../../src/palette/VcHoverTooltipTeardown.js";
 
 // The palette's own tooltip (`VcPaletteTooltip`) cancels its timer on `diagram.destroy`, but
 // diagram-js's hover tooltip, which comes with its palette, does not: a host that brings
@@ -12,6 +14,15 @@ import "../../src/assets/value-chain.css";
 
 const SHOW_DELAY_MS = 300;
 const PAST_THE_DELAY_MS = SHOW_DELAY_MS + 300;
+
+/** A host that leaves out diagram-js's hover tooltip; `VcPaletteTooltip` does not use it. */
+const WITHOUT_HOVER_TOOLTIP: ModuleDeclaration = {
+  hoverTooltip: ["value", null],
+};
+
+function withDependencies(module: ModuleDeclaration): ModuleDeclaration[] {
+  return [module, ...(module.__depends__ ?? []).flatMap(withDependencies)];
+}
 
 /** diagram-js's own palette tooltip, under a name of its own beside `VcPaletteTooltip`. */
 const diagramJsPaletteTooltipModule: ModuleDeclaration = {
@@ -102,5 +113,21 @@ describe("diagram-js's hover tooltip on the palette", () => {
       watch.stop();
     }
     expect(watch.errors).toEqual([]);
+  });
+
+  it("lets a host that leaves out diagram-js's hover tooltip destroy the modeler", () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const modeler = new Modeler({ container, additionalModules: [WITHOUT_HOVER_TOOLTIP] });
+    try {
+      modeler.get("canvas");
+      expect(() => modeler.destroy()).not.toThrow();
+    } finally {
+      container.remove();
+    }
+  });
+
+  it("comes with the palette module, for a host that builds its own modeler from it", () => {
+    expect(withDependencies(vcPaletteModule)).toContain(vcHoverTooltipTeardownModule);
   });
 });
