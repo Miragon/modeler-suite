@@ -46,6 +46,7 @@ export { ttLabelEditingModule, TtLabelEditing } from "./label-editing/index.js";
 export { ttKeyboardModule, TtKeyboard } from "./keyboard/index.js";
 export type { TtKeyboardConfig } from "./keyboard/index.js";
 export { ttReadOnlyModule, TtReadOnly, READ_ONLY_CHANGED_EVENT } from "./read-only/index.js";
+export type { TtReadOnlyOptions } from "./read-only/index.js";
 export { ttZOrderModule, TtZOrder } from "./zorder/index.js";
 
 // Runtime types & guards

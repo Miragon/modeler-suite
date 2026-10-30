@@ -94,11 +94,17 @@ of `@miragon/modeler-api` 1.2).
 **Read-only lock.** `modeler.get("ttReadOnly").setReadOnly(true)` locks the canvas while the
 document behind it cannot be saved from it (an invalid file in an IDE host): no move, resize,
 create, connect, delete, paste, context pad or label editor; selection, zoom, pan, copy and export
-stay. It fires `READ_ONLY_CHANGED_EVENT` on every change. Without a chrome that skins the palette,
-every palette entry but Lasso and Hand is `aria-disabled` and does nothing while the lock holds,
-drawn as guide §13.5 says: no hover, tool icons in `--cd-ui-text-leise`, notation previews grey.
-The marks come and go with the lock, without a delay of their own (the modeler shell shows its
-marks for an invalid file after the guide's 800ms).
+stay. It fires `READ_ONLY_CHANGED_EVENT` (`{ readOnly, shown }`) on every change of the lock and
+once more when delayed marks show. Without a chrome that skins the palette, every palette entry but
+Lasso and Hand does nothing while the lock holds and is `aria-disabled` while its marks show, drawn
+as guide §13.5 says: no hover, tool icons in `--cd-ui-text-leise`, notation previews grey.
+
+Guide §13.5 shows the lock of an invalid file only after 800ms without a valid one, so typing in the
+text editor beside the canvas does not flicker. `setReadOnly(true, { delayMs: 800 })` locks at once
+and marks the palette's entries once the delay has passed, as the modeler shell's `setReadOnly`
+does; a call while the delay runs keeps its timer, and `setReadOnly(false)` unlocks and takes the
+marks off at once. `isReadOnlyShown()` tells whether the marks show. Without `delayMs` the marks
+come with the lock.
 
 All three share a common base (`TtBaseViewer`) with the same import/export and lifecycle API.
 

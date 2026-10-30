@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import {
   Modeler,
   READ_ONLY_CHANGED_EVENT,
@@ -84,6 +84,43 @@ test("the lock vetoes every edit rule and announces itself", () => {
   readOnly.setReadOnly(false);
   expect(rules.allowed("shape.resize", { shape: team })).toBe(true);
   expect(changes).toEqual([true, false]);
+});
+
+test("a lock with delayMs vetoes at once and announces its marks once the delay has passed (#484)", () => {
+  const { modeler, container } = mountModeler();
+  modeler.importDocument(SAMPLE_DOCUMENT);
+  const { registry, rules, readOnly, eventBus } = services(modeler);
+  const team = registry.get("team_checkout")!;
+  const changes: unknown[] = [];
+  eventBus.on(READ_ONLY_CHANGED_EVENT, (event) => {
+    const { readOnly: locked, shown } = event as { readOnly: boolean; shown: boolean };
+    changes.push({ readOnly: locked, shown });
+  });
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    readOnly.setReadOnly(true, { delayMs: 800 });
+    expect(rules.allowed("shape.resize", { shape: team })).toBe(false);
+    readOnly.setReadOnly(true);
+    vi.advanceTimersByTime(799);
+    expect(changes).toEqual([{ readOnly: true, shown: false }]);
+    vi.advanceTimersByTime(1);
+    expect(changes).toEqual([
+      { readOnly: true, shown: false },
+      { readOnly: true, shown: true },
+    ]);
+
+    readOnly.setReadOnly(false);
+    changes.length = 0;
+    readOnly.setReadOnly(true, { delayMs: 800 });
+    mounted.splice(0);
+    modeler.destroy();
+    container.remove();
+    vi.advanceTimersByTime(800);
+    expect(changes).toEqual([{ readOnly: true, shown: false }]);
+    expect(readOnly.isReadOnlyShown()).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test("under the lock the keyboard only reads: select all and copy, no delete, paste or nudge", () => {
