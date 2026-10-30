@@ -5,8 +5,6 @@ export interface KeyListenerContext {
   ownerDocument: Document;
   /** Where dialogs and popovers count: the document in an own document, else the shell root. */
   dialogScope: ParentNode;
-  /** A node inside the shell root that lies neither on the canvas nor in the palette. */
-  isChrome(node: Node): boolean;
   menuOpen(): boolean;
   /** The web app's start screen shows: the zoom keys belong to the browser (`KeyContext.startScreen`). */
   startScreen?: (() => boolean) | undefined;
@@ -87,11 +85,20 @@ function isLayerEscape(event: KeyboardEvent, dialogs: readonly Element[]): boole
 
 /**
  * Only an Escape on the canvas or in the palette puts down a tool the palette armed, as canvas keys
- * act only on the focused canvas: one aimed at the rest of the chrome (the menu trigger, the zoom
- * panel, the problems pill) is never the canvas's, also when it closes nothing.
+ * act only on the focused canvas: one aimed at the rest of the shell root (the menu trigger, the
+ * zoom panel, the problems pill, a modeler's popover there) is never the canvas's, also when it
+ * closes nothing. The target alone decides, so this listens in the capture phase on the root, where
+ * a part of the chrome that stops the key on its way up cannot keep it from the shell.
  */
-function isChromeEscape(event: KeyboardEvent, context: KeyListenerContext): boolean {
-  return event.key === "Escape" && isNode(event.target) && context.isChrome(event.target);
+export function createChromeEscapeListener(
+  ownerDocument: Document,
+  isChrome: (node: Node) => boolean,
+): (event: KeyboardEvent) => void {
+  return (event) => {
+    if (event.key === "Escape" && isNode(event.target) && isChrome(event.target)) {
+      stopEscapeKeyup(ownerDocument);
+    }
+  };
 }
 
 /** The shell's one `keydown` listener (bubble phase): applies `decideKey` (guide §5.8, §13.5). */
@@ -99,9 +106,7 @@ export function createKeyListener(context: KeyListenerContext): (event: Keyboard
   return (event) => {
     if (event.key === "Escape") context.hideTooltip();
     const dialogs = openDialogs(context.dialogScope);
-    if (isLayerEscape(event, dialogs) || isChromeEscape(event, context)) {
-      stopEscapeKeyup(context.ownerDocument);
-    }
+    if (isLayerEscape(event, dialogs)) stopEscapeKeyup(context.ownerDocument);
     const decision = decideKey(event, {
       host: context.host,
       inTextField: isTextField(event.target),

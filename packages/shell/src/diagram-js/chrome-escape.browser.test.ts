@@ -272,4 +272,40 @@ describe("a tool armed from the palette, when Escape is aimed at the chrome and 
       expect(lasso(diagram, shell)).toEqual(PUT_DOWN);
     },
   );
+
+  // As Wardley Maps' "Map size…" and "X-axis labels…" are: a popover in the root that closes on the
+  // Escape keydown at its panel and stops it there, so the shell's bubble listener never sees it.
+  it.each<[ShellHost, "document" | "root" | undefined]>([
+    ["ide", undefined],
+    ["web", undefined],
+    ["embedded", undefined],
+    ["ide", "root"],
+  ])(
+    "stays armed when a modeler's popover in the root stops the Escape keydown itself (%s host, key scope %s)",
+    async (host, keyScope) => {
+      const { diagram, shell } = mountModeler(host, keyScope);
+      await armLassoBySpace(diagram, shell);
+
+      const popover = shell.root.appendChild(document.createElement("div"));
+      popover.setAttribute("role", "dialog");
+      const field = popover.appendChild(document.createElement("input"));
+      popover.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        popover.hidden = true;
+        shell.menu.trigger.focus();
+      });
+      field.focus();
+      await userEvent.keyboard("{Escape}");
+
+      expect(popover.hidden).toBe(true);
+      expect(document.activeElement).toBe(shell.menu.trigger);
+      expect(lasso(diagram, shell)).toEqual(ARMED);
+
+      lassoEntry(shell).focus();
+      await userEvent.keyboard("{Escape}");
+      expect(lasso(diagram, shell)).toEqual(PUT_DOWN);
+    },
+  );
 });

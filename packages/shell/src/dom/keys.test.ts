@@ -460,4 +460,42 @@ describe("the keyup of an Escape aimed at the chrome, which closes nothing", () 
       expect(keyups.seen).toEqual(["Escape", "Escape"]);
     },
   );
+
+  // As Wardley Maps' "Map size…" popover does: it closes on the keydown at its panel and stops it.
+  it.each<[ShellHost, "document" | "root" | undefined]>([
+    ["ide", undefined],
+    ["web", undefined],
+    ["embedded", undefined],
+    ["ide", "root"],
+  ])(
+    "%s host (key scope %s): stops it also when a part of the chrome stops the keydown on its way up, unlike one on the canvas or in the palette",
+    (host, keyScope) => {
+      const { shell, root } = mount({ host, keyScope });
+      const palette = fakePalette();
+      root.append(palette.element);
+      shell.registerPalette(palette);
+      const entry = palette.entry("lasso-tool", { label: "Lasso" });
+      const popover = root.appendChild(document.createElement("div"));
+      popover.setAttribute("role", "dialog");
+      const field = popover.appendChild(document.createElement("input"));
+      const canvasField = shell.canvas.appendChild(document.createElement("input"));
+      for (const swallowing of [popover, entry, canvasField]) {
+        swallowing.addEventListener("keydown", (event) => {
+          if (event.key !== "Escape") return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (swallowing === popover) popover.hidden = true;
+        });
+      }
+      const keyups = documentKeyups();
+
+      press(field);
+      press(entry);
+      press(canvasField);
+      keyups.dispose();
+
+      expect(popover.hidden).toBe(true);
+      expect(keyups.seen).toEqual(["Escape", "Escape"]);
+    },
+  );
 });

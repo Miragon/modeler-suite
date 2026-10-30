@@ -429,5 +429,5 @@ These notes rely on internals:
   binds `keyup` on `document` (bubble phase) and cancels on Escape whatever its target and
   `defaultPrevented`, so the shell stops the `keyup` of an Escape the chrome took (its menu, a
   popover or a dialog, a modeler's own included) and of one aimed at the shell root outside the
-  canvas slot and the palette.
+  canvas slot and the palette; one from outside the root (a host page's) still cancels it.
 - `Keyboard`: bound to the canvas `<svg>`, `preventDefault()` without `stopPropagation()`.

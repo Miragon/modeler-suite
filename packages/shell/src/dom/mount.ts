@@ -26,7 +26,12 @@ import { createProblemsPopover, type ProblemsPopover } from "./feedback/problems
 import { createToaster } from "./feedback/toasts.js";
 import { createEmptyHint } from "./hint.js";
 import { createInspector } from "./inspector.js";
-import { createKeyListener, isModalOpen, stopEscapeKeyup } from "./keys.js";
+import {
+  createChromeEscapeListener,
+  createKeyListener,
+  isModalOpen,
+  stopEscapeKeyup,
+} from "./keys.js";
 import { Ledger } from "./ledger.js";
 import { createLegend } from "./legend.js";
 import { createMenu, type MenuGroupName } from "./menu.js";
@@ -113,8 +118,8 @@ function hostKontrast(root: HTMLElement): "hoch" | null {
  * DOM order of guide §5.14: menu trigger, primary action (web), canvas slot, status box,
  * empty-file hint, empty state (web), inspector, problems pill, legend, legal line (web), zoom
  * panel, then the layer for dropdown, tooltip, problems popover and drop zone, and last the toast
- * stack (web). Installs the one `keydown` listener (see `ShellOptions.keyScope`) and the
- * root `ResizeObserver`.
+ * stack (web). Installs the one `keydown` listener (see `ShellOptions.keyScope`), one in the
+ * capture phase on the root for an Escape aimed at the chrome, and the root `ResizeObserver`.
  *
  * `root` must get its size from outside (`container-type: size`): `height: 100%` in an own
  * document, an explicitly sized element in a foreign page. When rendering throws (a modeler's
@@ -605,11 +610,6 @@ function renderShell(
     host,
     ownerDocument,
     dialogScope: keyTarget,
-    isChrome: (node) =>
-      node !== root &&
-      root.contains(node) &&
-      !canvas.contains(node) &&
-      !(palette?.registration.element.contains(node) ?? false),
     menuOpen: () => menu.isOpen(),
     startScreen: () => emptyState?.isShown() ?? false,
     closeMenu() {
@@ -625,6 +625,15 @@ function renderShell(
   });
   keyTarget.addEventListener("keydown", onKeydown as EventListener);
   ledger.defer(() => keyTarget.removeEventListener("keydown", onKeydown as EventListener));
+  const onChromeEscape = createChromeEscapeListener(
+    ownerDocument,
+    (node) =>
+      node !== root &&
+      !canvas.contains(node) &&
+      !(palette?.registration.element.contains(node) ?? false),
+  );
+  root.addEventListener("keydown", onChromeEscape, true);
+  ledger.defer(() => root.removeEventListener("keydown", onChromeEscape, true));
 
   function readOnlyState(): PaletteReadOnlyState {
     return { locked: readOnly, shown: readOnlyShown };
