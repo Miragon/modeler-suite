@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.9.0](https://github.com/Miragon/modeler-suite/compare/context-maps-webapp-v0.8.2...context-maps-webapp-v0.9.0) (2026-10-30)
+
+
+### Features
+
+* **context-maps:** deprecate createShortcutsDialog of context-maps-renderer, removed in context-maps-renderer 0.9.0 ([7237c9d](https://github.com/Miragon/modeler-suite/commit/7237c9d6ba47860ac76c3087c81fb633518b7075))
+* **context-maps:** implement the contract's interaction and appearance surfaces ([#277](https://github.com/Miragon/modeler-suite/issues/277)) ([00babd9](https://github.com/Miragon/modeler-suite/commit/00babd98158f6980226b7fb1de84ae30083788dd))
+* **context-maps:** use the shell's shortcuts dialog and PNG export ([#268](https://github.com/Miragon/modeler-suite/issues/268)) ([7237c9d](https://github.com/Miragon/modeler-suite/commit/7237c9d6ba47860ac76c3087c81fb633518b7075))
+
+
+### Bug Fixes
+
+* **context-maps:** end a running drag when the canvas is cleared ([00babd9](https://github.com/Miragon/modeler-suite/commit/00babd98158f6980226b7fb1de84ae30083788dd))
+* **context-maps:** let an import from the change listener of a drop wait until the drop has ended ([00babd9](https://github.com/Miragon/modeler-suite/commit/00babd98158f6980226b7fb1de84ae30083788dd))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/context-maps-cml bumped from 0.1.7 to 0.1.8
+    * @miragon/context-maps-renderer bumped from 0.7.1 to 0.8.0
+    * @miragon/context-maps-schema-model bumped from 0.5.0 to 0.5.1
+    * @miragon/modeler-shell bumped from 0.7.0 to 0.8.0
+
 ## [0.8.2](https://github.com/Miragon/modeler-suite/compare/context-maps-webapp-v0.8.1...context-maps-webapp-v0.8.2) (2026-10-28)
 
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.1](https://github.com/Miragon/modeler-suite/compare/wardley-dsl-v0.8.0...wardley-dsl-v0.8.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **wardley-maps:** draw multi-line names clear of pipeline edges and save a typed backslash-n as text ([#307](https://github.com/Miragon/modeler-suite/issues/307)) ([15bd9cb](https://github.com/Miragon/modeler-suite/commit/15bd9cb66d887691d53db6357cb31555d9f1354c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/wardley-schema-model bumped from 0.6.0 to 0.6.1
+
 ## [0.8.0](https://github.com/Miragon/modeler-suite/compare/wardley-dsl-v0.7.1...wardley-dsl-v0.8.0) (2026-10-28)
 
 

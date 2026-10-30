@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.8.0](https://github.com/Miragon/modeler-suite/compare/event-storming-renderer-v0.7.0...event-storming-renderer-v0.8.0) (2026-10-30)
+
+
+### Features
+
+* **event-storming:** deprecate createShortcutsDialog and its types of event-storming-renderer, removed in event-storming-renderer 0.9.0 ([#262](https://github.com/Miragon/modeler-suite/issues/262)) ([2f9d328](https://github.com/Miragon/modeler-suite/commit/2f9d328a6882ed2b6d534db8c6f16890b4793e10))
+* **event-storming:** implement the contract's interaction and appearance surfaces ([#281](https://github.com/Miragon/modeler-suite/issues/281)) ([59a0dd9](https://github.com/Miragon/modeler-suite/commit/59a0dd962ec70582745183d6d6dc857b11f446b5))
+* **event-storming:** use the shell's shortcuts dialog and PNG export ([#270](https://github.com/Miragon/modeler-suite/issues/270)) ([2f9d328](https://github.com/Miragon/modeler-suite/commit/2f9d328a6882ed2b6d534db8c6f16890b4793e10))
+
+
+### Bug Fixes
+
+* **event-storming:** end a drag cleanly when an import comes from the selection listener at its start ([#342](https://github.com/Miragon/modeler-suite/issues/342)) ([700350a](https://github.com/Miragon/modeler-suite/commit/700350ab8bd022c05d073970b88574cd95eeaf17))
+* **event-storming:** end a line being drawn, without a drawing, when a board is imported ([ebd7cea](https://github.com/Miragon/modeler-suite/commit/ebd7cea600f86320a35a3d0d91f9a5cdbd1bab58))
+* **event-storming:** give the palette the guide's sizes and its rules for forced colours and reduced motion ([#430](https://github.com/Miragon/modeler-suite/issues/430)) ([0a43243](https://github.com/Miragon/modeler-suite/commit/0a4324318b9ad4116d6ab65e9bc8eeebc7f85adf))
+* **event-storming:** keep a drawing selected when an undo, a redo or another command ends the drag of one of its points ([#412](https://github.com/Miragon/modeler-suite/issues/412)) ([674e05b](https://github.com/Miragon/modeler-suite/commit/674e05b6c678881de1e7e1c0154deb3b98e59921))
+* **event-storming:** keep an undo or a redo made while a point of a drawing is dragged: the drag ends there without a change, and the release no longer writes the drawing back over it ([40961cd](https://github.com/Miragon/modeler-suite/commit/40961cd0c0830e2ac08c6aca9c0e4a01ce0ffac2))
+* **event-storming:** keep the label editors open while an input method composes, and show their focus ring ([#389](https://github.com/Miragon/modeler-suite/issues/389)) ([146e62d](https://github.com/Miragon/modeler-suite/commit/146e62dbc3b58a22fe20b1d8b531786a0d907ea8))
+* **event-storming:** keep the label editors' focus ring visible on a sticky in Windows contrast themes ([#411](https://github.com/Miragon/modeler-suite/issues/411)) ([775ed5e](https://github.com/Miragon/modeler-suite/commit/775ed5ef31ddec801761a2d68f38deedb8514751))
+* **event-storming:** leave placeholder-labelled aggregates out of the aggregates dialog ([#313](https://github.com/Miragon/modeler-suite/issues/313)) ([909e192](https://github.com/Miragon/modeler-suite/commit/909e192e2d0778d62be02703a3f301a1c7a804de))
+* **event-storming:** let an import called during a drop wait until the drop has ended ([59a0dd9](https://github.com/Miragon/modeler-suite/commit/59a0dd962ec70582745183d6d6dc857b11f446b5))
+* **event-storming:** let an import wait until the user's action has finished ([#315](https://github.com/Miragon/modeler-suite/issues/315)) ([58b1c5d](https://github.com/Miragon/modeler-suite/commit/58b1c5dc0707a745b21747f0d2bce55118eb538d))
+* **event-storming:** let Escape end a drawing's point drag, and start no lasso, sticky or paste next to a line being drawn ([#366](https://github.com/Miragon/modeler-suite/issues/366)) ([ebd7cea](https://github.com/Miragon/modeler-suite/commit/ebd7cea600f86320a35a3d0d91f9a5cdbd1bab58))
+* **event-storming:** report an edit made while an import waits for the annotation font ([59a0dd9](https://github.com/Miragon/modeler-suite/commit/59a0dd962ec70582745183d6d6dc857b11f446b5))
+* **event-storming:** survive an import from the change listener while a drag starts ([#304](https://github.com/Miragon/modeler-suite/issues/304)) ([f789c39](https://github.com/Miragon/modeler-suite/commit/f789c39d4bdc74ffd9c86c1d0659cfc3c2a2fc84))
+* **event-storming:** treat the default name of any sticky kind as a placeholder ([#323](https://github.com/Miragon/modeler-suite/issues/323)) ([27ebeb9](https://github.com/Miragon/modeler-suite/commit/27ebeb966f8b12732c82821818da1fede09346a9))
+* finish an import and keep the imported document when a host destroys the modeler from a listener the import triggers ([d962f54](https://github.com/Miragon/modeler-suite/commit/d962f54216c01f28639ec3253f3d7c580e22f728))
+* keep the arrow keys, the single-key tools, paste and duplicate from acting while a point of a drawing is dragged ([#391](https://github.com/Miragon/modeler-suite/issues/391)) ([40961cd](https://github.com/Miragon/modeler-suite/commit/40961cd0c0830e2ac08c6aca9c0e4a01ce0ffac2))
+* keep the palette's focus ring whole, and keep each modeler's palette styles to its own canvas ([#392](https://github.com/Miragon/modeler-suite/issues/392)) ([c620895](https://github.com/Miragon/modeler-suite/commit/c620895610885730b7650480ac1b5bd94f0bb8d8))
+* leave a key to the page when the host hid the canvas, also before the browser moves the focus away ([#424](https://github.com/Miragon/modeler-suite/issues/424)) ([aa03583](https://github.com/Miragon/modeler-suite/commit/aa035831d1a388df4305c54aafc33b7f1641360e))
+* leave a key to the page when the host hid the modeler, also in its context pads, editors and popovers ([#446](https://github.com/Miragon/modeler-suite/issues/446)) ([0c596f3](https://github.com/Miragon/modeler-suite/commit/0c596f3cd900af2cc3c07da7586e765e878235e0))
+* leave a key to the page when the host made the canvas inert, also before the browser moves the focus away ([#390](https://github.com/Miragon/modeler-suite/issues/390)) ([694e9fd](https://github.com/Miragon/modeler-suite/commit/694e9fd8aff1eb562300343e4acf147f5a183340))
+* let a host destroy the modeler from a listener that an import calls ([#443](https://github.com/Miragon/modeler-suite/issues/443)) ([ec807d3](https://github.com/Miragon/modeler-suite/commit/ec807d303d907c73fed9d50044be85719d7469d0))
+* let a host destroy the modeler from any listener when the user drops, presses Escape or creates an element ([#396](https://github.com/Miragon/modeler-suite/issues/396)) ([572a753](https://github.com/Miragon/modeler-suite/commit/572a7537504999fee59a29f3251cc7f4d4a6f85e))
+* let a host destroy the modeler from the selection listener that reveal() triggers ([#426](https://github.com/Miragon/modeler-suite/issues/426)) ([d962f54](https://github.com/Miragon/modeler-suite/commit/d962f54216c01f28639ec3253f3d7c580e22f728))
+* let a host destroy the modeler from the selection listener when the user starts a drag ([#370](https://github.com/Miragon/modeler-suite/issues/370)) ([b2f03e7](https://github.com/Miragon/modeler-suite/commit/b2f03e7faeb01377cb246553c97067eeaaad49a9))
+* let a host destroy the modeler while the pointer rests on a palette entry ([#414](https://github.com/Miragon/modeler-suite/issues/414)) ([94b9c89](https://github.com/Miragon/modeler-suite/commit/94b9c895d12fea430d96a89c7f7472f36df1812b))
+* save the line being drawn with Space on the Draw entry, and in Wardley Maps keep a drawing selected when an undo, a redo or another command ends the drag of one of its points ([#442](https://github.com/Miragon/modeler-suite/issues/442)) ([5bf0daf](https://github.com/Miragon/modeler-suite/commit/5bf0dafd9340cddee9e40c1d235d27e78fd920b9))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/event-storming-dsl bumped from 0.3.3 to 0.3.4
+    * @miragon/event-storming-schema-model bumped from 0.3.0 to 0.3.1
+    * @miragon/modeler-api bumped from 1.5.0 to 1.6.0
+
 ## [0.7.0](https://github.com/Miragon/modeler-suite/compare/event-storming-renderer-v0.6.0...event-storming-renderer-v0.7.0) (2026-10-28)
 
 

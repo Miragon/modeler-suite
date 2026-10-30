@@ -19,7 +19,7 @@
  *  release (release-please-config.json `extra-files`), and the kit's own
  *  test pins it to package.json exactly. Modelers pin the npm package; the
  *  constant is what travels in `meta`. */
-export const MODELER_API_VERSION = "1.5.0"; // x-release-please-version
+export const MODELER_API_VERSION = "1.6.0"; // x-release-please-version
 
 /**
  * apiVersion compatibility: same major — and, while the contract is 0.x,

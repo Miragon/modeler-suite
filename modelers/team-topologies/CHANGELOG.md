@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.16.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.15.1...team-topologies-v0.16.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **team-topologies:** saveSVG() no longer draws a white sheet (rect.tt-export-paper) behind the diagram, so an exported SVG is transparent like the other notations' exports. A host that embeds the SVG on a coloured or dark background lays its own background under it; a PNG takes the guide's §10.7 background from the shell's svgToPng.
+
+### Features
+
+* **team-topologies:** deprecate createShortcutsDialog and the Geist helpers of team-topologies-renderer, removed in team-topologies 0.17.0 ([07a069c](https://github.com/Miragon/modeler-suite/commit/07a069c17ef66a4add377e03955767d7e14c5c0c))
+* **team-topologies:** draw the template contours below 3:1 on an underlay in high contrast ([beb60d1](https://github.com/Miragon/modeler-suite/commit/beb60d1807cb6af98c7587afe8e30387c912a532))
+* **team-topologies:** implement the contract's interaction and appearance surfaces ([#278](https://github.com/Miragon/modeler-suite/issues/278)) ([beb60d1](https://github.com/Miragon/modeler-suite/commit/beb60d1807cb6af98c7587afe8e30387c912a532))
+* **team-topologies:** sync the diagram with its file through the modeler shell ([#333](https://github.com/Miragon/modeler-suite/issues/333)) ([bfff410](https://github.com/Miragon/modeler-suite/commit/bfff4104c61c7637e0a839613a021baa2a9d0f2d))
+* **team-topologies:** use the shell's shortcuts dialog and PNG export, and drop the export sheet ([#267](https://github.com/Miragon/modeler-suite/issues/267)) ([07a069c](https://github.com/Miragon/modeler-suite/commit/07a069c17ef66a4add377e03955767d7e14c5c0c))
+
+
+### Bug Fixes
+
+* finish an import and keep the imported document when a host destroys the modeler from a listener the import triggers ([d962f54](https://github.com/Miragon/modeler-suite/commit/d962f54216c01f28639ec3253f3d7c580e22f728))
+* keep the palette's focus ring whole, and keep each modeler's palette styles to its own canvas ([#392](https://github.com/Miragon/modeler-suite/issues/392)) ([c620895](https://github.com/Miragon/modeler-suite/commit/c620895610885730b7650480ac1b5bd94f0bb8d8))
+* leave a key to the page when the host hid the canvas, also before the browser moves the focus away ([#424](https://github.com/Miragon/modeler-suite/issues/424)) ([aa03583](https://github.com/Miragon/modeler-suite/commit/aa035831d1a388df4305c54aafc33b7f1641360e))
+* leave a key to the page when the host hid the modeler, also in its context pads, editors and popovers ([#446](https://github.com/Miragon/modeler-suite/issues/446)) ([0c596f3](https://github.com/Miragon/modeler-suite/commit/0c596f3cd900af2cc3c07da7586e765e878235e0))
+* let a host destroy the modeler from a listener that an import calls ([#443](https://github.com/Miragon/modeler-suite/issues/443)) ([ec807d3](https://github.com/Miragon/modeler-suite/commit/ec807d303d907c73fed9d50044be85719d7469d0))
+* let a host destroy the modeler from any listener when the user drops, presses Escape or creates an element ([#396](https://github.com/Miragon/modeler-suite/issues/396)) ([572a753](https://github.com/Miragon/modeler-suite/commit/572a7537504999fee59a29f3251cc7f4d4a6f85e))
+* let a host destroy the modeler from the selection listener that reveal() triggers ([#426](https://github.com/Miragon/modeler-suite/issues/426)) ([d962f54](https://github.com/Miragon/modeler-suite/commit/d962f54216c01f28639ec3253f3d7c580e22f728))
+* let a host destroy the modeler from the selection listener when the user starts a drag ([#370](https://github.com/Miragon/modeler-suite/issues/370)) ([b2f03e7](https://github.com/Miragon/modeler-suite/commit/b2f03e7faeb01377cb246553c97067eeaaad49a9))
+* let a host destroy the modeler while the pointer rests on a palette entry ([#414](https://github.com/Miragon/modeler-suite/issues/414)) ([94b9c89](https://github.com/Miragon/modeler-suite/commit/94b9c895d12fea430d96a89c7f7472f36df1812b))
+* open the source beside the diagram from the walkthrough, also after a reload ([#308](https://github.com/Miragon/modeler-suite/issues/308)) ([cc4db96](https://github.com/Miragon/modeler-suite/commit/cc4db96f54b2cd4df93e56fa6b28233cd8940d25))
+* say what to do when an exported file can't be written, in every extension ([#295](https://github.com/Miragon/modeler-suite/issues/295)) ([a76a4fd](https://github.com/Miragon/modeler-suite/commit/a76a4fd536b8294ff238850da57f14113cceaa9f))
+* **team-topologies:** draw no white sheet behind an exported diagram, so an SVG is transparent and a PNG fills the guide's background ([07a069c](https://github.com/Miragon/modeler-suite/commit/07a069c17ef66a4add377e03955767d7e14c5c0c))
+* **team-topologies:** draw the palette's focus ring by the guide in high contrast, in a narrow canvas and in forced colours ([#431](https://github.com/Miragon/modeler-suite/issues/431)) ([855e50a](https://github.com/Miragon/modeler-suite/commit/855e50aed9a3ba7dfa8121b6d728877d4eab56dd))
+* **team-topologies:** drop the shadow of the palette's tooltip in high contrast ([855e50a](https://github.com/Miragon/modeler-suite/commit/855e50aed9a3ba7dfa8121b6d728877d4eab56dd))
+* **team-topologies:** end a drag cleanly when an import comes from the selection listener at its start ([#343](https://github.com/Miragon/modeler-suite/issues/343)) ([10cdc58](https://github.com/Miragon/modeler-suite/commit/10cdc58ec99038cac2ddebe75282c03b46fceae7))
+* **team-topologies:** keep the shadows and the 2px focus rings where a host asks for normal contrast on a high-contrast page ([855e50a](https://github.com/Miragon/modeler-suite/commit/855e50aed9a3ba7dfa8121b6d728877d4eab56dd))
+* **team-topologies:** let an import made during a drop wait until the drop has ended ([beb60d1](https://github.com/Miragon/modeler-suite/commit/beb60d1807cb6af98c7587afe8e30387c912a532))
+* **team-topologies:** let an import wait until the user's action has finished ([#316](https://github.com/Miragon/modeler-suite/issues/316)) ([4fa091a](https://github.com/Miragon/modeler-suite/commit/4fa091a0d106d601eb0dfda455a906234ff73236))
+* write a shared value at each of its places in JSON, and stop with an error before its copies exhaust the memory ([#363](https://github.com/Miragon/modeler-suite/issues/363)) ([4c324b9](https://github.com/Miragon/modeler-suite/commit/4c324b96386f9739a8243d45a3a47879a26ad10f))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @miragon/modeler-shell bumped from 0.7.0 to 0.8.0
+
 ## [0.15.1](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.15.0...team-topologies-v0.15.1) (2026-10-28)
 
 

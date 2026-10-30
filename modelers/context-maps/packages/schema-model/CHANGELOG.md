@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/Miragon/modeler-suite/compare/context-maps-schema-model-v0.5.0...context-maps-schema-model-v0.5.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* write a shared value at each of its places in JSON, and stop with an error before its copies exhaust the memory ([#363](https://github.com/Miragon/modeler-suite/issues/363)) ([4c324b9](https://github.com/Miragon/modeler-suite/commit/4c324b96386f9739a8243d45a3a47879a26ad10f))
+
 ## [0.5.0](https://github.com/Miragon/modeler-suite/compare/context-maps-schema-model-v0.4.1...context-maps-schema-model-v0.5.0) (2026-10-28)
 
 

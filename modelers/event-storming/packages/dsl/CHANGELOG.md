@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.4](https://github.com/Miragon/modeler-suite/compare/event-storming-dsl-v0.3.3...event-storming-dsl-v0.3.4) (2026-10-30)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/event-storming-schema-model bumped from 0.3.0 to 0.3.1
+
 ## [0.3.3](https://github.com/Miragon/modeler-suite/compare/event-storming-dsl-v0.3.2...event-storming-dsl-v0.3.3) (2026-10-28)
 
 

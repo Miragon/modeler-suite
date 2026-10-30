@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.9.0](https://github.com/Miragon/modeler-suite/compare/value-chain-vscode-v0.8.1...value-chain-vscode-v0.9.0) (2026-10-30)
+
+
+### Features
+
+* **value-chain:** deprecate createShortcutsDialog and svgToPng of value-chain-renderer, removed in value-chain-renderer 0.10.0 ([f7ee57f](https://github.com/Miragon/modeler-suite/commit/f7ee57f2d6baf027d8a07f4d9b202f611b9abb21))
+* **value-chain:** export the PNG on the canvas ground #F9F7F7 instead of white, set its labels in Geist, and warn when Geist couldn't be embedded ([f7ee57f](https://github.com/Miragon/modeler-suite/commit/f7ee57f2d6baf027d8a07f4d9b202f611b9abb21))
+* **value-chain:** implement the contract's interaction and appearance surfaces ([#275](https://github.com/Miragon/modeler-suite/issues/275)) ([c9e91eb](https://github.com/Miragon/modeler-suite/commit/c9e91ebefc50e360cf09b0d7711327c434b6d8c4))
+* **value-chain:** sync the diagram with its file through the modeler shell and take back an edit VS Code refuses ([#329](https://github.com/Miragon/modeler-suite/issues/329)) ([3d93f42](https://github.com/Miragon/modeler-suite/commit/3d93f42d37b8240b5cc33034be15f28317346324))
+* **value-chain:** use the shell's shortcuts dialog and PNG export ([#265](https://github.com/Miragon/modeler-suite/issues/265)) ([f7ee57f](https://github.com/Miragon/modeler-suite/commit/f7ee57f2d6baf027d8a07f4d9b202f611b9abb21))
+
+
+### Bug Fixes
+
+* open the source beside the diagram from the walkthrough, also after a reload ([#308](https://github.com/Miragon/modeler-suite/issues/308)) ([cc4db96](https://github.com/Miragon/modeler-suite/commit/cc4db96f54b2cd4df93e56fa6b28233cd8940d25))
+* say what to do when an exported file can't be written, in every extension ([#295](https://github.com/Miragon/modeler-suite/issues/295)) ([a76a4fd](https://github.com/Miragon/modeler-suite/commit/a76a4fd536b8294ff238850da57f14113cceaa9f))
+* **value-chain:** let an import from the change listener of a drop wait until the drop has ended ([c9e91eb](https://github.com/Miragon/modeler-suite/commit/c9e91ebefc50e360cf09b0d7711327c434b6d8c4))
+* **value-chain:** let clear() from the change listener of a drop wait until the drop has ended ([c9e91eb](https://github.com/Miragon/modeler-suite/commit/c9e91ebefc50e360cf09b0d7711327c434b6d8c4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.7.0 to 0.8.0
+    * @miragon/value-chain-renderer bumped from 0.8.1 to 0.9.0
+    * @miragon/value-chain-schema-model bumped from 0.7.2 to 0.7.3
+
 ## [0.8.1](https://github.com/Miragon/modeler-suite/compare/value-chain-vscode-v0.8.0...value-chain-vscode-v0.8.1) (2026-10-28)
 
 

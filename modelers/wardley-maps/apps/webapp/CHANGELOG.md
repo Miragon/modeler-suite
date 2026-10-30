@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.13.0](https://github.com/Miragon/modeler-suite/compare/wardley-webapp-v0.12.2...wardley-webapp-v0.13.0) (2026-10-30)
+
+
+### Features
+
+* **shell:** share the VS Code document plumbing, starting with Wardley Maps ([#282](https://github.com/Miragon/modeler-suite/issues/282)) ([3caa9f3](https://github.com/Miragon/modeler-suite/commit/3caa9f38aab296027722c36f1e27e0602f1f320d))
+* **wardley-maps:** deprecate createShortcutsDialog and svgToPng of @miragon/wardley-renderer, removed in wardley-renderer 0.15.0 ([#258](https://github.com/Miragon/modeler-suite/issues/258)) ([596bca5](https://github.com/Miragon/modeler-suite/commit/596bca5364f700e5073bd14610b3ff4ce2d282ec))
+* **wardley-maps:** export a PNG on the plot's white with Geist embedded, and warn when its labels fall back to a system font ([596bca5](https://github.com/Miragon/modeler-suite/commit/596bca5364f700e5073bd14610b3ff4ce2d282ec))
+* **wardley-maps:** implement the contract's interaction and appearance surfaces ([#276](https://github.com/Miragon/modeler-suite/issues/276)) ([42a5258](https://github.com/Miragon/modeler-suite/commit/42a5258cc70b95d394b8cd8f968b04989e691468))
+* **wardley-maps:** use the shell's shortcuts dialog and PNG export ([#271](https://github.com/Miragon/modeler-suite/issues/271)) ([596bca5](https://github.com/Miragon/modeler-suite/commit/596bca5364f700e5073bd14610b3ff4ce2d282ec))
+
+
+### Bug Fixes
+
+* **wardley-maps:** let an import from the change listener of a drop wait until the drop has ended ([42a5258](https://github.com/Miragon/modeler-suite/commit/42a5258cc70b95d394b8cd8f968b04989e691468))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.7.0 to 0.8.0
+    * @miragon/wardley-dsl bumped from 0.8.0 to 0.8.1
+    * @miragon/wardley-renderer bumped from 0.13.0 to 0.14.0
+    * @miragon/wardley-schema-model bumped from 0.6.0 to 0.6.1
+
 ## [0.12.2](https://github.com/Miragon/modeler-suite/compare/wardley-webapp-v0.12.1...wardley-webapp-v0.12.2) (2026-10-28)
 
 
