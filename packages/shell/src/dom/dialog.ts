@@ -2,6 +2,7 @@ import { defaultMessages } from "../core/index.js";
 import { centreOverContainer } from "./dialog-centre.js";
 import { createElement } from "./element.js";
 import { iconElement } from "./icons.js";
+import { stopEscapeKeyup } from "./keys.js";
 
 export interface ShellDialogOptions {
   /**
@@ -236,6 +237,12 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
     if (ownerDocument.activeElement === target) event.preventDefault();
   }
 
+  // In the capture phase, so a listener that stops the key on its way up (the shell's own in the
+  // IDE host, a host page's) cannot keep it from here.
+  function onEscape(event: KeyboardEvent): void {
+    if (event.key === "Escape" && dialog.open) stopEscapeKeyup(ownerDocument);
+  }
+
   let pressedOnBackdrop = false;
   const onPointerDown = (event: PointerEvent): void => {
     pressedOnBackdrop = event.target === dialog && outside(dialog, event);
@@ -251,6 +258,7 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
     if (finished) return;
     finished = true;
     ownerDocument.removeEventListener("keydown", onTab);
+    ownerDocument.removeEventListener("keydown", onEscape, true);
     stopCentring?.();
     resizeObserver?.disconnect();
     if (dialog.open) dialog.close();
@@ -274,6 +282,7 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
   }
   stopCentring = centreOverContainer(dialog, container);
   ownerDocument.addEventListener("keydown", onTab);
+  ownerDocument.addEventListener("keydown", onEscape, true);
   resizeObserver?.observe(body);
   updateScrollStop();
 

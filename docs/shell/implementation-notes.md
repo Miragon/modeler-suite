@@ -425,5 +425,8 @@ These notes rely on internals:
 - `PaletteTooltip` registered as `paletteTooltip`.
 - `ToolManager` and `Dragging`: a tool is put down on `<tool>.ended` and `.canceled` unless the
   event's `originalEvent` lies in `.group[data-group="tools"]`; `canceled` fires only for a drag
-  that was active; the drag's context is still set during `drag.cleanup`.
+  that was active; the drag's context is still set during `drag.cleanup`; a drag that waits
+  binds `keyup` on `document` (bubble phase) and cancels on Escape whatever its target and
+  `defaultPrevented`, so the shell stops the `keyup` of an Escape the chrome took (its menu, a
+  popover or a dialog, a modeler's own included).
 - `Keyboard`: bound to the canvas `<svg>`, `preventDefault()` without `stopPropagation()`.

@@ -2,6 +2,7 @@ import { decideKey, isTextField, type ChromeKey, type ShellHost } from "../core/
 
 export interface KeyListenerContext {
   host: ShellHost;
+  ownerDocument: Document;
   /** Where dialogs and popovers count: the document in an own document, else the shell root. */
   dialogScope: ParentNode;
   menuOpen(): boolean;
@@ -42,11 +43,51 @@ export function isModalOpen(scope: ParentNode): boolean {
   return openDialogs(scope).some(isModal);
 }
 
+/**
+ * Keeps the `keyup` of an Escape that a layer of the chrome took (the menu, a popover, a dialog)
+ * from the page: diagram-js's dragging cancels the drag a tool armed from the palette waits with on
+ * any Escape `keyup` on the document, whatever its target (guide §5.4). The next press of Escape
+ * lets its own `keyup` through, in case the window lost the focus before this press was released.
+ */
+export function stopEscapeKeyup(ownerDocument: Document): void {
+  const onKeyup = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    release();
+  };
+  const onKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape" && !event.repeat) release();
+  };
+  function release(): void {
+    ownerDocument.removeEventListener("keyup", onKeyup, true);
+    ownerDocument.removeEventListener("keydown", onKeydown, true);
+  }
+  ownerDocument.addEventListener("keyup", onKeyup, true);
+  ownerDocument.addEventListener("keydown", onKeydown, true);
+}
+
+function isNode(target: EventTarget | null): target is Node {
+  return typeof (target as Partial<Node> | null)?.nodeType === "number";
+}
+
+/**
+ * An Escape pressed in an open dialog or popover, or while a modal one makes the page behind it
+ * inert, is that layer's and never the canvas's (guide §5.4), also when a field in it takes the
+ * key. A modeler's own dialog ("Map title…") leaves Escape to the browser, so the shell keeps its
+ * `keyup` from the page for it.
+ */
+function isLayerEscape(event: KeyboardEvent, dialogs: readonly Element[]): boolean {
+  if (event.key !== "Escape") return false;
+  const target = event.target;
+  return dialogs.some((dialog) => isModal(dialog) || (isNode(target) && dialog.contains(target)));
+}
+
 /** The shell's one `keydown` listener (bubble phase): applies `decideKey` (guide §5.8, §13.5). */
 export function createKeyListener(context: KeyListenerContext): (event: KeyboardEvent) => void {
   return (event) => {
     if (event.key === "Escape") context.hideTooltip();
     const dialogs = openDialogs(context.dialogScope);
+    if (isLayerEscape(event, dialogs)) stopEscapeKeyup(context.ownerDocument);
     const decision = decideKey(event, {
       host: context.host,
       inTextField: isTextField(event.target),

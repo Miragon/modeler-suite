@@ -1,6 +1,7 @@
 import { matchChromeKey, type ProblemItem, type ShellMessages } from "../../core/index.js";
 import { createElement } from "../element.js";
 import { iconElement } from "../icons.js";
+import { stopEscapeKeyup } from "../keys.js";
 
 export interface ProblemsPopoverContext {
   ownerDocument: Document;
@@ -248,6 +249,7 @@ export function createProblemsPopover(context: ProblemsPopoverContext): Problems
       case "Escape":
         consume(event);
         close({ restoreFocus: true });
+        stopEscapeKeyup(ownerDocument);
         return;
       case "Tab": {
         // Without a row the popover itself holds the focus and is first and last at once.

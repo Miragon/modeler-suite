@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { defaultMessages, type ProblemItem } from "../../core/index.js";
+import { documentKeyups, keyup } from "../../../test/support/dom.js";
 import {
   createProblemsPopover,
   type ProblemsPopover,
@@ -198,6 +199,21 @@ describe("problems popover: opening and closing", () => {
     expect(onDocument).not.toHaveBeenCalled();
     expect(popover.isOpen()).toBe(false);
     expect(document.activeElement).toBe(pill);
+  });
+
+  it("Escape keeps its keyup from document, where diagram-js's dragging would put down an armed tool (#482)", () => {
+    const { popover, element, pill } = setup();
+    popover.setItems(ITEMS);
+    popover.open();
+    const keyups = documentKeyups();
+
+    keydown(rowButtons(element)[0]!, { key: "Escape" });
+    keyup(pill, { key: "Escape" });
+    keydown(pill, { key: "Escape" });
+    keyup(pill, { key: "Escape" });
+    keyups.dispose();
+
+    expect(keyups.seen).toEqual(["Escape"]);
   });
 
   it("Tab out of the last row closes back to the pill and lets the browser move on", () => {
