@@ -4,6 +4,7 @@ import type Palette from "diagram-js/lib/features/palette/Palette";
 import type { PaletteEntries } from "diagram-js/lib/features/palette/PaletteProvider";
 
 const ENTRY_SELECTOR = ".djs-palette-entries .entry";
+const PRESS_KEYS = new Set(["Enter", " "]);
 /** Guide §5.6: the hover delay, the gap to the palette and the distance to the container's sides. */
 const SHOW_DELAY_MS = 300;
 const PALETTE_GAP = 8;
@@ -27,8 +28,8 @@ interface Shown {
  * shifted to keep 12px from the sides of the canvas container, in the container's coordinates, so
  * a map in a part of a wide page shows it at its entry, also with the palette in the second row of
  * a narrow container (§5.15). It shows after 300ms of hover, at once on keyboard focus and at once
- * for a neighbour while one is shown, never for touch, and hides on a press, Escape, leaving and
- * blur; `role="tooltip"`. Surface, type and key chip are §5.6 too (wardley.css). A palette a chrome
+ * for a neighbour while one is shown, never for touch, and hides on a press (a click, or Enter or
+ * Space on the focused entry), Escape, leaving and blur; `role="tooltip"`. Surface, type and key chip are §5.6 too (wardley.css). A palette a chrome
  * skins (`data-chrome="palette"`) keeps diagram-js's place right of the entry.
  */
 export default class WardleyPaletteTooltip {
@@ -69,7 +70,8 @@ export default class WardleyPaletteTooltip {
     paletteContainer.addEventListener("focusout", this.onFocusOut);
     paletteContainer.addEventListener("pointerdown", this.onPress);
     paletteContainer.addEventListener("click", this.onPress);
-    // Escape hides the tooltip wherever the focus is, and leaves the key to whoever handles it.
+    // Escape hides the tooltip wherever the focus is, and leaves the key to whoever handles it. The
+    // capture phase also sees Enter and Space before the toolbar or the draw tool takes them.
     paletteContainer.ownerDocument.addEventListener("keydown", this.onKeydown, true);
   }
 
@@ -133,8 +135,20 @@ export default class WardleyPaletteTooltip {
   };
 
   private readonly onKeydown = (event: KeyboardEvent): void => {
-    if (event.key === "Escape") this.hide();
+    if (event.key === "Escape" || this.pressesEntry(event)) this.hide();
   };
+
+  // Enter and Space press the focused entry as a click does (guide §5.5, §5.6), but the toolbar and
+  // the draw tool act on them without dispatching a click, so the click listener never sees them.
+  private pressesEntry(event: KeyboardEvent): boolean {
+    return (
+      PRESS_KEYS.has(event.key) &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      this.entryOf(event.target) !== undefined
+    );
+  }
 
   private enter(entry: HTMLElement, event: PointerEvent): void {
     if (event.pointerType === "touch" || this.pressed === entry) return;

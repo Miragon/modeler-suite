@@ -758,6 +758,89 @@ describe("the palette tooltip without the shell: when it shows and hides (guide 
     modeler.get<WardleyDrawTool>("wardleyDrawTool").cancel();
   });
 
+  // Enter and Space press the focused entry as a click does (guide §5.5), and a click hides the
+  // tooltip (§5.6), as in Value Chain and the shell, whose toolbars dispatch that click.
+  it.each([
+    ["Enter", "lasso-tool", "{Enter}"],
+    ["Space", "lasso-tool", " "],
+    ["Enter", "draw-tool", "{Enter}"],
+    ["Space", "draw-tool", " "],
+  ] as const)(
+    "hides on %s, which presses the focused %s entry, and the entry keeps the focus",
+    async (_name, action, key) => {
+      const { host, modeler } = await mount();
+      const pressedEntry = entry(host, action);
+      focusFromKeyboard(pressedEntry);
+      expect(shownTooltip(host)).not.toBeNull();
+
+      await userEvent.keyboard(key);
+
+      expect(pressedEntry.getAttribute("aria-pressed")).toBe("true");
+      expect(shownTooltip(host)).toBeNull();
+      expect(document.activeElement).toBe(pressedEntry);
+      modeler.get<WardleyDrawTool>("wardleyDrawTool").cancel();
+      modeler.get<Dragging>("dragging").cancel(true);
+    },
+  );
+
+  it.each([
+    ["Enter", "{Enter}"],
+    ["Space", " "],
+  ] as const)(
+    "hides on %s that creates an element at the free centre from a focused entry",
+    async (_name, key) => {
+      const { host } = await mount();
+      const component = entry(host, "create.component");
+      focusFromKeyboard(component);
+      expect(shownName(host)).toBe("Component");
+      const elementsBefore = host.querySelectorAll(".djs-shape").length;
+
+      await userEvent.keyboard(key);
+
+      expect(host.querySelectorAll(".djs-shape").length).toBe(elementsBefore + 1);
+      expect(shownTooltip(host)).toBeNull();
+    },
+  );
+
+  it.each([
+    ["Enter", "{Enter}"],
+    ["Space", " "],
+  ] as const)(
+    "hides on %s that saves the line the draw tool holds from its focused entry",
+    async (_name, key) => {
+      const mapped = await mount();
+      const { host, modeler } = mapped;
+      const drawTool = modeler.get<WardleyDrawTool>("wardleyDrawTool");
+      const draw = await armDrawTool(mapped);
+      const svg = canvasSvg(mapped);
+      const svgBox = svg.getBoundingClientRect();
+      for (const [x, y] of [
+        [300, 300],
+        [420, 360],
+      ] as const) {
+        svg.dispatchEvent(
+          new MouseEvent("mousedown", {
+            bubbles: true,
+            cancelable: true,
+            button: 0,
+            clientX: svgBox.left + x,
+            clientY: svgBox.top + y,
+          }),
+        );
+      }
+      expect(drawTool.holdsLine()).toBe(true);
+      focusFromKeyboard(draw);
+      expect(shownName(host)).toBe("Draw");
+
+      await userEvent.keyboard(key);
+
+      expect(drawTool.holdsLine()).toBe(false);
+      expect(drawTool.isActive()).toBe(false);
+      expect(shownTooltip(host)).toBeNull();
+      expect(document.activeElement).toBe(draw);
+    },
+  );
+
   it("waits 300ms on hover, then shows a neighbour's at once", async () => {
     const { host } = await mount();
     const lasso = entry(host, "lasso-tool");
