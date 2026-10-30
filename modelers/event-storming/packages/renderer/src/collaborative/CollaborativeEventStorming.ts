@@ -136,7 +136,11 @@ function collaborative(
   if (editable) {
     eventBus.on("commandStack.changed", () => {
       if (isReplacingBoard(diagram)) return;
-      for (const listener of [...contentListeners]) listener();
+      // An earlier listener may destroy the modeler, which drops every listener, or unsubscribe a
+      // later one during the same delivery.
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
 
@@ -158,12 +162,18 @@ function collaborative(
     selection: () => (destroyed ? [] : addressableIds(selection.get())),
     onSelection(callback) {
       // The teardown cancels a running drag, which brings back the selection from before it.
+      // diagram-js's event bus still calls a listener that an earlier one unsubscribed during the
+      // same delivery after unsubscribing itself.
+      let subscribed = true;
       const listener = (event: unknown) => {
-        if (destroyed) return;
+        if (destroyed || !subscribed) return;
         callback(addressableIds((event as { newSelection?: unknown[] }).newSelection ?? []));
       };
       eventBus.on("selection.changed", listener);
-      return () => eventBus.off("selection.changed", listener);
+      return () => {
+        subscribed = false;
+        eventBus.off("selection.changed", listener);
+      };
     },
     bounds(id) {
       if (destroyed) return undefined;
@@ -174,15 +184,16 @@ function collaborative(
 
   gestures?.onChange((active) => {
     for (const listener of [...interactionListeners]) {
-      // An earlier listener may have destroyed the modeler during the same delivery.
-      if (destroyed) return;
-      listener(active);
+      // An earlier listener may have destroyed the modeler, which drops every listener, or
+      // unsubscribed this one during the same delivery.
+      if (interactionListeners.has(listener)) listener(active);
     }
   });
 
   const interaction: InteractionSurface = {
     active: () => !destroyed && (gestures?.isActive() ?? false),
     onChange(callback) {
+      if (destroyed) return () => undefined;
       interactionListeners.add(callback);
       return () => {
         interactionListeners.delete(callback);
@@ -253,7 +264,7 @@ function collaborative(
       destroyed = true;
       contentListeners.clear();
       interactionListeners.clear();
-      if (gestures) gestures.tearDownAfterActivation(() => diagram.destroy());
+      if (gestures) gestures.tearDownAfterHandler(() => diagram.destroy());
       else diagram.destroy();
     },
   };
