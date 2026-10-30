@@ -64,6 +64,8 @@ const REACH_OF_AN_EDIT: [string, Reach][] = [
   ["modelers/wardley-maps/packages/dsl/.dependency-cruiser.cjs", modelerOnly("wardley-maps")],
   ["modelers/event-storming/.miragon/brand.json", modelerAndShared("event-storming")],
   ["modelers/wardley-maps/packages/renderer/.miragon/brand.json", modelerAndShared("wardley-maps")],
+  ["modelers/wardley-maps/docs/.miragon/brand.json", SHARED],
+  ["docs/.miragon/brand.json", SHARED],
   [
     "modelers/event-storming/packages/renderer/src/theme/cd-canvas.css",
     { ...modelerOnly("event-storming"), template: true },
@@ -177,7 +179,8 @@ describe("the paths a change reaches in CI", () => {
     ["modelers/event-storming/apps/vscode/scripts/licence.txt", modelerAndShared("event-storming")],
     ["modelers/wardley-maps/docs/added.md", NOTHING],
     ["modelers/wardley-maps/ADDED.md", NOTHING],
-    ["docs/added.md", NOTHING],
+    ["docs/added.md", SHARED],
+    ["docs/.vitepress/theme/Badge.spec.tsx", SHARED],
   ])("adding %s", (path, reach) => {
     expect(afterChanging(path)).toEqual(reach);
   });
@@ -185,8 +188,13 @@ describe("the paths a change reaches in CI", () => {
   it.each<[string, Reach]>([
     ["modelers/wardley-maps/packages/schema-model/src/index.ts", modelerAndShared("wardley-maps")],
     ["modelers/wardley-maps/docs/guide.md", NOTHING],
+    ["docs/guide.md", SHARED],
   ])("deleting %s", (path, reach) => {
     expect(afterCommitting({ [path]: null })).toEqual(reach);
+  });
+
+  it("moving a page of the root docs", () => {
+    expect(afterCommitting({ "docs/guide.md": null, "docs/guide/index.md": "a" })).toEqual(SHARED);
   });
 
   it("moving a file of a modeler", () => {
