@@ -37,6 +37,15 @@ describe("THIRD_PARTY_NOTICES.md", () => {
     await expect(promisify(execFile)(process.execPath, [script, "--check"])).resolves.toBeDefined();
   }, 60_000);
 
+  // Estonian sorts z between s and t, so a locale's order would put zod before tiny-svg.
+  it("lists them in the same order whatever the language of the machine that builds it", async () => {
+    await expect(
+      promisify(execFile)(process.execPath, [script, "--check"], {
+        env: { ...process.env, LC_ALL: "et_EE.UTF-8" },
+      }),
+    ).resolves.toBeDefined();
+  }, 60_000);
+
   // Copied icon paths are no npm dependency, so the metafile cannot list them.
   it("has a section for every icon set the renderer copies into its sources", () => {
     const sources = rendererSourceText();
