@@ -10,13 +10,17 @@
  */
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { attachedHost } from "@miragon/modeler-api/conformance";
+import type Canvas from "diagram-js/lib/core/Canvas";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import {
   createCollaborativeModeler,
+  createCollaborativeViewer,
   type CollaborativeContextMapsModeler,
 } from "@miragon/context-maps-renderer";
 import { parseDocumentText } from "@miragon/context-maps-schema-model";
 import conferencePlanner from "./fixtures/conference-planner.cm?raw";
+import orderFulfilment from "./fixtures/order-fulfilment.cm?raw";
 import {
   canvasContainer,
   MOVED_CONTEXT,
@@ -61,20 +65,21 @@ const handlerReturned = () => Promise.resolve();
 /**
  * Read before the destroy, since a service read afterwards would build a fresh diagram. Once the
  * input's handler has returned: no error reached the window, the drag and the canvas are gone, a
- * second destroy throws nothing, and the modeler keeps the text it had when it was destroyed.
+ * second destroy throws nothing, and the modeler keeps the text of the map it tore down: the one
+ * it had at the destroy, or the one drawn by the host's call that reached the listener.
  */
-function destroyedCleanly(): (textAtDestroy: string | undefined) => Promise<void> {
+function destroyedCleanly(): (textKept: string | undefined) => Promise<void> {
   const dragging = service<Dragging>(modeler, "dragging");
   const container = canvasContainer(modeler);
-  return async (textAtDestroy) => {
+  return async (textKept) => {
     await nextTask();
     expect(errors).toEqual([]);
-    expect(textAtDestroy).toBeDefined();
+    expect(textKept).toBeDefined();
     expect(dragging.context()).toBeFalsy();
     expect(container.isConnected).toBe(false);
     expect(() => modeler.destroy()).not.toThrow();
     expect(modeler.interaction.active()).toBe(false);
-    expect(modeler.exportText()).toBe(textAtDestroy);
+    expect(modeler.exportText()).toBe(textKept);
   };
 }
 
@@ -238,4 +243,107 @@ test("no later selection listener hears of a selection whose first listener dest
 
   await expectDestroyedCleanly(text);
   expect(later).toEqual([]);
+});
+
+// #415: a host's own call that reaches a listener goes on with the map once the listener has
+// returned. `reveal` scrolls to the element after its selection listener, and an import draws the
+// map after it ended a held gesture and after the clear that empties the selection, so a destroy()
+// from those listeners tears the map down once the call has returned.
+describe("a destroy from a listener that a host's call reaches (#415)", () => {
+  test.each([
+    { mount: "modeler", create: createCollaborativeModeler },
+    { mount: "viewer", create: createCollaborativeViewer },
+  ])(
+    "reveal on the $mount: it scrolls to the element first, and nothing reaches the host afterwards",
+    async ({ create }) => {
+      const revealHost = attachedHost();
+      const revealing = create();
+      revealing.attachTo(revealHost);
+      await revealing.importText(conferencePlanner);
+      const { x, y, width, height } = service<Canvas>(revealing, "canvas").viewbox();
+      revealing.setViewState({ x: x + 5000, y: y + 5000, width, height });
+      const steps: string[] = [];
+      const eventBus = service<EventBus>(revealing, "eventBus");
+      eventBus.on("canvas.viewbox.changing", () => steps.push("scroll"));
+      eventBus.on("diagram.destroy", () => steps.push("teardown"));
+      const container = canvasContainer(revealing);
+      const text = revealing.exportText();
+      revealing.elements.onSelection(() => revealing.destroy());
+      const later: unknown[] = [];
+      revealing.elements.onSelection((ids) => later.push(ids));
+      revealing.interaction.onChange((active) => later.push(active));
+      revealing.onContentChanged(() => later.push("change"));
+
+      try {
+        expect(revealing.elements.reveal(MOVED_CONTEXT)).toBe(true);
+        expect(steps).toEqual(["scroll"]);
+        await nextTask();
+        expect(errors).toEqual([]);
+        expect(steps).toEqual(["scroll", "teardown"]);
+        expect(container.isConnected).toBe(false);
+        expect(later).toEqual([]);
+        expect(() => revealing.destroy()).not.toThrow();
+        expect(revealing.exportText()).toBe(text);
+      } finally {
+        revealHost.parentElement?.remove();
+      }
+    },
+  );
+
+  test("an import, whose clear empties the selection: it resolves, and the modeler keeps the imported map", async () => {
+    const referenceHost = attachedHost();
+    const reference = createCollaborativeViewer();
+    reference.attachTo(referenceHost);
+    const result = await reference.importText(orderFulfilment);
+    const imported = reference.exportText();
+    reference.destroy();
+    referenceHost.parentElement?.remove();
+    modeler.elements.reveal(MOVED_CONTEXT);
+    const expectDestroyedCleanly = destroyedCleanly();
+    const heard: string[][] = [];
+    modeler.elements.onSelection((ids) => {
+      heard.push(ids);
+      modeler.destroy();
+    });
+    const later: string[][] = [];
+    modeler.elements.onSelection((ids) => later.push(ids));
+
+    await expect(modeler.importText(orderFulfilment)).resolves.toEqual(result);
+
+    expect(heard).toEqual([[]]);
+    await expectDestroyedCleanly(imported);
+    expect(later).toEqual([]);
+  });
+
+  test.each(KINDS)(
+    "an import that ends $what, heard by the interaction listener: it resolves, and the modeler keeps the imported map",
+    async ({ kind }) => {
+      const referenceHost = attachedHost();
+      const reference = createCollaborativeViewer();
+      reference.attachTo(referenceHost);
+      const result = await reference.importText(orderFulfilment);
+      const imported = reference.exportText();
+      reference.destroy();
+      referenceHost.parentElement?.remove();
+      const expectDestroyedCleanly = destroyedCleanly();
+      startGesture(modeler, kind);
+      await handlerReturned();
+      expect(modeler.interaction.active()).toBe(true);
+      const heard: boolean[] = [];
+      modeler.interaction.onChange((active) => {
+        heard.push(active);
+        modeler.destroy();
+      });
+      const later: unknown[] = [];
+      modeler.interaction.onChange((active) => later.push(active));
+      modeler.elements.onSelection((ids) => later.push(ids));
+      modeler.onContentChanged(() => later.push("change"));
+
+      await expect(modeler.importText(orderFulfilment)).resolves.toEqual(result);
+
+      expect(heard).toEqual([false]);
+      await expectDestroyedCleanly(imported);
+      expect(later).toEqual([]);
+    },
+  );
 });

@@ -180,6 +180,16 @@ both (template:
     itself once `diagram.destroy` has fired. Each delivery skips a listener that an earlier
     listener of it unsubscribed, as a DOM event target does, and `elements.onSelection` delivers
     nothing after `destroy()`, so the selection a cancelled drag brings back reaches no host.
+  - A host's own call reaches a listener too: `elements.reveal` calls the selection listener
+    before it scrolls to the node, and an import calls it as its clear empties the selection,
+    before it draws the document. diagram-js's canvas loses its root on destroy, so a teardown
+    there made the import throw half-way. The template's `destroy()` from a selection listener
+    tears the diagram down a microtask later, once that call has returned. An import that ends a
+    held gesture calls the interaction listener inside the drag's cancel, whose window holds the
+    teardown already. A teardown that waits reads the export again when an import drew in the
+    meantime (`import.done`), so the import still resolves with the imported document as
+    `exportText()`; whatever else runs on after the destroy reaches no host, so the text read at
+    the destroy stays.
   - After a keyboard create, the import takes the label editor down and reopens it on the element
     with the same id. An edit the first of several waiting imports takes down stays suspended
     through the next; a render that fails reopens it as well, so no later import brings back an

@@ -100,9 +100,11 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   waited for the activation then ends the drag. A `destroy()` from any listener while the handler
   of the user's input goes on with the map (after a drag's init, start, drop, cancel or cleanup,
   where `interaction.onChange` hears the end, or a command) tears the map down once that handler
-  has returned (`tearDownAfterHandler`, #346, #380, #373), and the selection the cancelled drag
-  brings back reaches no host listener; no delivery calls a listener after `destroy()` or one an
-  earlier listener of it unsubscribed (`destroy-from-listener.test.ts`). A label or description
+  has returned (`tearDownAfterHandler`, #346, #380, #373), one from the selection listener that
+  `elements.reveal` or an import's clear calls once that call has returned (`selectionListeners`,
+  #415), and the selection the cancelled drag brings back reaches no host listener; no delivery
+  calls a listener after `destroy()` or one an earlier listener of it unsubscribed
+  (`destroy-from-listener.test.ts`). A label or description
   commit at a press is such
   a command: the import runs once the press has returned and ends the drag the press started, as
   every accepted import ends a running gesture (contract L1). The import reopens the

@@ -1205,3 +1205,122 @@ describe('no delivery reaches a listener that an earlier listener of it unsubscr
     expect(later).toEqual([]);
   });
 });
+
+// #415: a host's own call that reaches a listener goes on with the diagram once the listener has
+// returned. `reveal` scrolls to the node after its selection listener, and an import draws the
+// diagram after it ended a held gesture and after the clear that empties the selection, so a
+// destroy() from those listeners tears the diagram down once the call has returned.
+describe("a destroy from a listener that a host's call reaches (#415)", () => {
+  let rejections: unknown[] = [];
+  const recordRejection = (event: PromiseRejectionEvent) => rejections.push(event.reason);
+
+  beforeEach(() => {
+    rejections = [];
+    window.addEventListener('unhandledrejection', recordRejection);
+  });
+
+  afterEach(() => {
+    window.removeEventListener('unhandledrejection', recordRejection);
+  });
+
+  const mounts = [
+    { mount: 'modeler', create: createCollaborativeModeler },
+    { mount: 'viewer', create: createCollaborativeViewer },
+  ];
+
+  for (const { mount, create } of mounts) {
+    it(`reveal on the ${mount}: it scrolls to the node first, and nothing reaches the host afterwards`, async () => {
+      const revealing = create();
+      revealing.attachTo(attachedHost());
+      await revealing.importText(orders);
+      const { x, y, width, height } = revealing.diagram.get<Canvas>('canvas').viewbox();
+      revealing.setViewState({ x: x + 5000, y: y + 5000, width, height });
+      const steps: string[] = [];
+      const eventBus = revealing.diagram.get<EventBus>('eventBus');
+      eventBus.on('canvas.viewbox.changing', () => steps.push('scroll'));
+      eventBus.on('diagram.destroy', () => steps.push('teardown'));
+      const container = revealing.diagram.get<Canvas>('canvas').getContainer();
+      const text = revealing.exportText();
+      revealing.elements.onSelection(() => revealing.destroy());
+      const later: unknown[] = [];
+      revealing.elements.onSelection((ids) => later.push(ids));
+      revealing.interaction.onChange((active) => later.push(active));
+      revealing.onContentChanged(() => later.push('change'));
+
+      expect(revealing.elements.reveal('pay')).toBe(true);
+      expect(steps).toEqual(['scroll']);
+      await nextTask();
+      expect(errors).toEqual([]);
+      expect(rejections).toEqual([]);
+      expect(steps).toEqual(['scroll', 'teardown']);
+      expect(container.isConnected).toBe(false);
+      expect(later).toEqual([]);
+      expect(() => revealing.destroy()).not.toThrow();
+      expect(revealing.exportText()).toBe(text);
+    });
+  }
+
+  it('an import, whose clear empties the selection: it resolves, and the modeler keeps the imported diagram', async () => {
+    const reference = createCollaborativeViewer();
+    reference.attachTo(attachedHost());
+    const result = await reference.importText(payments);
+    const imported = reference.exportText();
+    reference.destroy();
+    modeler.elements.reveal('pay');
+    const container = service<Canvas>('canvas').getContainer();
+    const heard: string[][] = [];
+    modeler.elements.onSelection((ids) => {
+      heard.push(ids);
+      modeler.destroy();
+    });
+    const later: string[][] = [];
+    modeler.elements.onSelection((ids) => later.push(ids));
+
+    await expect(modeler.importText(payments)).resolves.toEqual(result);
+
+    expect(heard).toEqual([[]]);
+    await nextTask();
+    expect(errors).toEqual([]);
+    expect(rejections).toEqual([]);
+    expect(container.isConnected).toBe(false);
+    expect(later).toEqual([]);
+    expect(() => modeler.destroy()).not.toThrow();
+    expect(modeler.exportText()).toBe(imported);
+  });
+
+  for (const kind of GESTURE_KINDS) {
+    it(`an import that ends a held ${kind}, heard by the interaction listener: it resolves, and the modeler keeps the imported diagram`, async () => {
+      const reference = createCollaborativeViewer();
+      reference.attachTo(attachedHost());
+      const result = await reference.importText(payments);
+      const imported = reference.exportText();
+      reference.destroy();
+      const dragging = service<Dragging>('dragging');
+      const container = service<Canvas>('canvas').getContainer();
+      startGesture(kind);
+      await Promise.resolve();
+      expect(modeler.interaction.active()).toBe(true);
+      const heard: boolean[] = [];
+      modeler.interaction.onChange((active) => {
+        heard.push(active);
+        modeler.destroy();
+      });
+      const later: unknown[] = [];
+      modeler.interaction.onChange((active) => later.push(active));
+      modeler.elements.onSelection((ids) => later.push(ids));
+      modeler.onContentChanged(() => later.push('change'));
+
+      await expect(modeler.importText(payments)).resolves.toEqual(result);
+
+      expect(heard).toEqual([false]);
+      await nextTask();
+      expect(errors).toEqual([]);
+      expect(rejections).toEqual([]);
+      expect(dragging.context()).toBeFalsy();
+      expect(container.isConnected).toBe(false);
+      expect(later).toEqual([]);
+      expect(() => modeler.destroy()).not.toThrow();
+      expect(modeler.exportText()).toBe(imported);
+    });
+  }
+});

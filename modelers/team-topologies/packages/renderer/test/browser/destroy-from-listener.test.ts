@@ -1,15 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import type Canvas from "diagram-js/lib/core/Canvas";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import {
   createCollaborativeModeler,
+  createCollaborativeViewer,
   parseDocumentText,
   type CollaborativeTeamTopologiesModeler,
   type Modeler,
 } from "@miragon/team-topologies-renderer";
 import onlineShop from "../../../../example/sample.tt?raw";
-import { Pointer, middle, paletteEntry, shape } from "./support/pointer.js";
+import onlineShopVersion2 from "./fixtures/online-shop.v2.tt?raw";
+import { Pointer, holdGesture, middle, paletteEntry, shape } from "./support/pointer.js";
 
 // #380, #373: a host may destroy the modeler from any listener (#170). A destroy from the change
 // listener at a keyboard create or at a paste placed with a click tore the diagram down while the
@@ -56,20 +59,21 @@ const FREE_SPOT = { x: 1120, y: 120 };
 /**
  * Read before the destroy, since a service read afterwards would build a fresh diagram. Once the
  * input's handler has returned: no error reached the window, the drag and the canvas are gone, a
- * second destroy throws nothing, and the modeler keeps the text it had when it was destroyed.
+ * second destroy throws nothing, and the modeler keeps the text of the diagram it tore down: the
+ * one it had at the destroy, or the one drawn by the host's call that reached the listener.
  */
-function destroyedCleanly(): (textAtDestroy: string | undefined) => Promise<void> {
+function destroyedCleanly(): (textKept: string | undefined) => Promise<void> {
   const dragging = diagram.get<Dragging>("dragging");
   const container = diagram.get<Canvas>("canvas").getContainer();
-  return async (textAtDestroy) => {
+  return async (textKept) => {
     await nextTask();
     expect(errors).toEqual([]);
-    expect(textAtDestroy).toBeDefined();
+    expect(textKept).toBeDefined();
     expect(dragging.context()).toBeFalsy();
     expect(container.isConnected).toBe(false);
     expect(() => modeler.destroy()).not.toThrow();
     expect(modeler.interaction.active()).toBe(false);
-    expect(modeler.exportText()).toBe(textAtDestroy);
+    expect(modeler.exportText()).toBe(textKept);
   };
 }
 
@@ -227,4 +231,114 @@ test("no later selection listener hears of a selection whose first listener dest
 
   await expectDestroyedCleanly(text);
   expect(later).toEqual([]);
+});
+
+// #415: a host's own call that reaches a listener goes on with the diagram once the listener has
+// returned. `reveal` scrolls to the element after its selection listener, and an import draws the
+// diagram after it ended a held gesture and after the clear that empties the selection, so a
+// destroy() from those listeners tears the diagram down once the call has returned.
+describe("a destroy from a listener that a host's call reaches (#415)", () => {
+  function hostOfItsOwn(): HTMLElement {
+    const element = document.createElement("div");
+    element.style.cssText = "position: fixed; left: 0; top: 0; width: 1280px; height: 800px;";
+    document.body.append(element);
+    return element;
+  }
+
+  test.each([
+    { mount: "modeler", create: createCollaborativeModeler },
+    { mount: "viewer", create: createCollaborativeViewer },
+  ])(
+    "reveal on the $mount: it scrolls to the element first, and nothing reaches the host afterwards",
+    async ({ create }) => {
+      const revealHost = hostOfItsOwn();
+      const revealing = create();
+      revealing.attachTo(revealHost);
+      await revealing.importText(onlineShop);
+      const { x, y, width, height } = revealing.diagram.get<Canvas>("canvas").viewbox();
+      revealing.setViewState({ x: x + 5000, y: y + 5000, width, height });
+      const steps: string[] = [];
+      const eventBus = revealing.diagram.get<EventBus>("eventBus");
+      eventBus.on("canvas.viewbox.changing", () => steps.push("scroll"));
+      eventBus.on("diagram.destroy", () => steps.push("teardown"));
+      const container = revealing.diagram.get<Canvas>("canvas").getContainer();
+      const text = revealing.exportText();
+      revealing.elements.onSelection(() => revealing.destroy());
+      const later: unknown[] = [];
+      revealing.elements.onSelection((ids) => later.push(ids));
+      revealing.interaction.onChange((active) => later.push(active));
+      revealing.onContentChanged(() => later.push("change"));
+
+      try {
+        expect(revealing.elements.reveal("team_discovery")).toBe(true);
+        expect(steps).toEqual(["scroll"]);
+        await nextTask();
+        expect(errors).toEqual([]);
+        expect(steps).toEqual(["scroll", "teardown"]);
+        expect(container.isConnected).toBe(false);
+        expect(later).toEqual([]);
+        expect(() => revealing.destroy()).not.toThrow();
+        expect(revealing.exportText()).toBe(text);
+      } finally {
+        revealHost.remove();
+      }
+    },
+  );
+
+  test("an import, whose clear empties the selection: it resolves, and the modeler keeps the imported diagram", async () => {
+    const referenceHost = hostOfItsOwn();
+    const reference = createCollaborativeViewer();
+    reference.attachTo(referenceHost);
+    const result = await reference.importText(onlineShopVersion2);
+    const imported = reference.exportText();
+    reference.destroy();
+    referenceHost.remove();
+    modeler.elements.reveal("team_discovery");
+    const expectDestroyedCleanly = destroyedCleanly();
+    const heard: string[][] = [];
+    modeler.elements.onSelection((ids) => {
+      heard.push(ids);
+      modeler.destroy();
+    });
+    const later: string[][] = [];
+    modeler.elements.onSelection((ids) => later.push(ids));
+
+    await expect(modeler.importText(onlineShopVersion2)).resolves.toEqual(result);
+
+    expect(heard).toEqual([[]]);
+    await expectDestroyedCleanly(imported);
+    expect(later).toEqual([]);
+  });
+
+  test.each(["move", "create", "createOffCanvas"] as const)(
+    "an import that ends a held %s, heard by the interaction listener: it resolves, and the modeler keeps the imported diagram",
+    async (kind) => {
+      const referenceHost = hostOfItsOwn();
+      const reference = createCollaborativeViewer();
+      reference.attachTo(referenceHost);
+      const result = await reference.importText(onlineShopVersion2);
+      const imported = reference.exportText();
+      reference.destroy();
+      referenceHost.remove();
+      const expectDestroyedCleanly = destroyedCleanly();
+      holdGesture(diagram, kind);
+      await nextTask();
+      expect(modeler.interaction.active()).toBe(true);
+      const heard: boolean[] = [];
+      modeler.interaction.onChange((active) => {
+        heard.push(active);
+        modeler.destroy();
+      });
+      const later: unknown[] = [];
+      modeler.interaction.onChange((active) => later.push(active));
+      modeler.elements.onSelection((ids) => later.push(ids));
+      modeler.onContentChanged(() => later.push("change"));
+
+      await expect(modeler.importText(onlineShopVersion2)).resolves.toEqual(result);
+
+      expect(heard).toEqual([false]);
+      await expectDestroyedCleanly(imported);
+      expect(later).toEqual([]);
+    },
+  );
 });

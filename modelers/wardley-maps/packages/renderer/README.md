@@ -164,7 +164,12 @@ palette or the keyboard and at a paste placed with a click: the map is torn down
 of that input has returned, and the name editor a create opens a task later stays closed. No
 delivery calls a listener that an earlier listener of the same delivery unsubscribed
 ([#380](https://github.com/Miragon/modeler-suite/issues/380),
-[#373](https://github.com/Miragon/modeler-suite/issues/373)). `exportText()` is the
+[#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a listener
+that a host's own call reaches: the selection listener of `elements.reveal`, or the interaction and
+selection listeners of an import, which ends a held gesture and empties the selection as it clears
+the canvas. The map is torn down once that call has returned, and the import still resolves, with
+the imported map as `exportText()`
+([#415](https://github.com/Miragon/modeler-suite/issues/415)). `exportText()` is the
 committed document, never a live preview: while the plot corner, an evolve target (its red circle
 or the evolve placement of the context pad) or a label is dragged, or the size or axis-label popover
 previews a change, it returns the document as it was before, and the change event of the commit

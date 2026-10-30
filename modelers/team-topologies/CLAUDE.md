@@ -48,8 +48,10 @@ append, a keyboard create, a label commit or any other command, or the start of 
 `collaborative/user-actions.ts`; a `destroy()` from any listener while the handler of the user's
 input goes on with the diagram (after a drag's init, start, drop, cancel or cleanup, or a command)
 tears the diagram down once that handler has returned (`tearDownAfterHandler`, #346, #380, #373),
-the selection the cancelled drag brings back reaches no host listener, and no delivery calls a
-listener after `destroy()` or one an earlier listener of it unsubscribed; its
+one from the selection listener that `elements.reveal` or an import's clear calls once that call
+has returned (`selectionListeners`, #415), the selection the cancelled drag brings back reaches no
+host listener, and no delivery calls a listener after `destroy()` or one an earlier listener of it
+unsubscribed; its
 conformance kit and the 1.5 cases the kit plans run in `npm run team-topologies test:browser`). The
 shell's own conformance kit runs in the e2e projects `webapp` and `vscode-webview`; their WebKit
 twins `webapp-webkit` and `vscode-webview-webkit` run only the focus hand-back cases.

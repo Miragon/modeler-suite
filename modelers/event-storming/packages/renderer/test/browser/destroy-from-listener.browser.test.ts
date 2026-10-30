@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type Canvas from "diagram-js/lib/core/Canvas";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import {
   createCollaborativeModeler,
+  createCollaborativeViewer,
   type CollaborativeEventStormingModeler,
 } from "../../src/index.js";
+import orderCheckout from "./fixtures/order-checkout.storm?raw";
 import {
   GESTURE_BOARD as BOARD,
   centre,
@@ -61,20 +64,21 @@ const handlerReturned = () => Promise.resolve();
 /**
  * Read before the destroy, since reading a service afterwards would build a fresh diagram. Once
  * the input's handler has returned: no error reached the window, the drag and the canvas are gone,
- * a second destroy throws nothing, and the modeler keeps the text it had when it was destroyed.
+ * a second destroy throws nothing, and the modeler keeps the text of the board it tore down: the
+ * one it had at the destroy, or the one drawn by the host's call that reached the listener.
  */
-function destroyedCleanly(): (textAtDestroy: string | undefined) => Promise<void> {
+function destroyedCleanly(): (textKept: string | undefined) => Promise<void> {
   const dragging = service<Dragging>(modeler, "dragging");
   const { svg } = pointerOn(modeler);
-  return async (textAtDestroy) => {
+  return async (textKept) => {
     await nextTask();
     expect(errors).toEqual([]);
-    expect(textAtDestroy).toBeDefined();
+    expect(textKept).toBeDefined();
     expect(dragging.context()).toBeFalsy();
     expect(svg.isConnected).toBe(false);
     expect(() => modeler.destroy()).not.toThrow();
     expect(modeler.interaction.active()).toBe(false);
-    expect(modeler.exportText()).toBe(textAtDestroy);
+    expect(modeler.exportText()).toBe(textKept);
   };
 }
 
@@ -247,4 +251,124 @@ it("no later selection listener hears of a selection whose first listener destro
 
   await expectDestroyedCleanly(BOARD);
   expect(later).toEqual([]);
+});
+
+// #415: a host's own call that reaches a listener goes on with the board once the listener has
+// returned. `reveal` scrolls to the sticky after its selection listener, and an import draws the
+// board after it ended a held gesture and after the clear that empties the selection, so a
+// destroy() from those listeners tears the board down once the call has returned.
+describe("a destroy from a listener that a host's call reaches (#415)", () => {
+  it.each([
+    { mount: "modeler", create: createCollaborativeModeler },
+    { mount: "viewer", create: createCollaborativeViewer },
+  ])(
+    "reveal on the $mount: it scrolls to the sticky first, and nothing reaches the host afterwards",
+    async ({ create }) => {
+      const revealHost = attachedHost();
+      const revealing = create();
+      revealing.attachTo(revealHost);
+      await revealing.importText(BOARD);
+      const { x, y, width, height } = service<Canvas>(revealing, "canvas").viewbox();
+      revealing.setViewState({ x: x + 5000, y: y + 5000, width, height });
+      const steps: string[] = [];
+      const eventBus = service<EventBus>(revealing, "eventBus");
+      eventBus.on("canvas.viewbox.changing", () => steps.push("scroll"));
+      eventBus.on("diagram.destroy", () => steps.push("teardown"));
+      const { svg } = pointerOn(revealing);
+      revealing.elements.onSelection(() => revealing.destroy());
+      const later: unknown[] = [];
+      revealing.elements.onSelection((ids) => later.push(ids));
+      revealing.interaction.onChange((active) => later.push(active));
+      revealing.onContentChanged(() => later.push("change"));
+
+      try {
+        expect(revealing.elements.reveal("event_order_placed")).toBe(true);
+        expect(steps).toEqual(["scroll"]);
+        await nextTask();
+        expect(errors).toEqual([]);
+        expect(steps).toEqual(["scroll", "teardown"]);
+        expect(svg.isConnected).toBe(false);
+        expect(later).toEqual([]);
+        expect(() => revealing.destroy()).not.toThrow();
+        expect(revealing.exportText()).toBe(BOARD);
+      } finally {
+        (revealHost.parentElement ?? revealHost).remove();
+      }
+    },
+  );
+
+  it("an import, whose clear empties the selection: it resolves, and the modeler keeps the imported board", async () => {
+    const referenceHost = attachedHost();
+    const reference = createCollaborativeViewer();
+    reference.attachTo(referenceHost);
+    await reference.importText(orderCheckout);
+    const imported = reference.exportText();
+    reference.destroy();
+    (referenceHost.parentElement ?? referenceHost).remove();
+    modeler.elements.reveal("event_order_placed");
+    const expectDestroyedCleanly = destroyedCleanly();
+    const heard: string[][] = [];
+    modeler.elements.onSelection((ids) => {
+      heard.push(ids);
+      modeler.destroy();
+    });
+    const later: string[][] = [];
+    modeler.elements.onSelection((ids) => later.push(ids));
+
+    await expect(modeler.importText(orderCheckout)).resolves.toEqual({ warnings: [] });
+
+    expect(heard).toEqual([[]]);
+    await expectDestroyedCleanly(imported);
+    expect(later).toEqual([]);
+  });
+
+  /** A move of Order Placed past the drag threshold, or a create held over free board. */
+  const HELD_GESTURES = {
+    move: () => {
+      const pointer = pointerOn(modeler);
+      const moved = sticky(modeler, "event_order_placed");
+      const start = centre(moved);
+      pointer.press(pointer.graphicsOf(moved), start);
+      pointer.moveTo(offset(start, 30, 20));
+      pointer.moveTo(offset(start, 60, 40));
+    },
+    create: () => {
+      const pointer = pointerOn(modeler);
+      pointer.click(paletteEntry("create.event"), FREE);
+      pointer.moveTo(offset(FREE, -40, -20));
+      pointer.moveTo(FREE);
+    },
+  };
+
+  it.each(["move", "create"] as const)(
+    "an import that ends a held %s, heard by the interaction listener: it resolves, and the modeler keeps the imported board",
+    async (kind) => {
+      const referenceHost = attachedHost();
+      const reference = createCollaborativeViewer();
+      reference.attachTo(referenceHost);
+      await reference.importText(orderCheckout);
+      const imported = reference.exportText();
+      reference.destroy();
+      (referenceHost.parentElement ?? referenceHost).remove();
+      const expectDestroyedCleanly = destroyedCleanly();
+      HELD_GESTURES[kind]();
+      await handlerReturned();
+      expect(modeler.interaction.active()).toBe(true);
+      const heard: boolean[] = [];
+      modeler.interaction.onChange((active) => {
+        heard.push(active);
+        modeler.destroy();
+      });
+      const later: unknown[] = [];
+      modeler.interaction.onChange((active) => later.push(active));
+      modeler.elements.onSelection((ids) => later.push(ids));
+      modeler.onContentChanged(() => later.push("change"));
+
+      await expect(modeler.importText(orderCheckout)).resolves.toEqual({ warnings: [] });
+
+      expect(heard).toEqual([false]);
+      await expectDestroyedCleanly(imported);
+      expect(later).toEqual([]);
+    },
+  );
 });

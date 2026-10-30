@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { attachedHost } from "@miragon/modeler-api/conformance";
+import type Canvas from "diagram-js/lib/core/Canvas";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import { parseDocumentJSON } from "@miragon/value-chain-schema-model";
 import {
   createCollaborativeModeler,
+  createCollaborativeViewer,
   type CollaborativeValueChainModeler,
 } from "../../src/index.js";
 import "../../src/assets/value-chain.css";
+import PORTER from "../../../../example/porter.vc.json?raw";
 import ORDER_TO_CASH from "./fixtures/order-to-cash.vc.json?raw";
 import { CanvasPointer, FREE_SPOT, startGesture, type Point } from "./support/pointer.js";
 
@@ -73,20 +77,21 @@ afterEach(() => {
 /**
  * Read before the destroy, since reading a service afterwards would build a fresh diagram. Once
  * the input's handler has returned: no error reached the window, the drag and the canvas are gone,
- * a second destroy throws nothing, and the modeler keeps the text it had when it was destroyed.
+ * a second destroy throws nothing, and the modeler keeps the text of the diagram it tore down: the
+ * one it had at the destroy, or the one drawn by the host's call that reached the listener.
  */
-function destroyedCleanly(): (textAtDestroy: string | undefined) => Promise<void> {
+function destroyedCleanly(): (textKept: string | undefined) => Promise<void> {
   const dragging = editor().diagram.get<Dragging>("dragging");
   const svg = pointer.canvasSvg();
-  return async (textAtDestroy) => {
+  return async (textKept) => {
     await nextTask();
     expect(errors).toEqual([]);
-    expect(textAtDestroy).toBeDefined();
+    expect(textKept).toBeDefined();
     expect(dragging.context()).toBeFalsy();
     expect(svg.isConnected).toBe(false);
     expect(() => editor().destroy()).not.toThrow();
     expect(editor().interaction.active()).toBe(false);
-    expect(editor().exportText()).toBe(textAtDestroy);
+    expect(editor().exportText()).toBe(textKept);
   };
 }
 
@@ -305,4 +310,107 @@ it("no later selection listener hears of a selection whose first listener destro
 
   await expectDestroyedCleanly(text);
   expect(later).toEqual([]);
+});
+
+// #415: a host's own call that reaches a listener goes on with the diagram once the listener has
+// returned. `reveal` scrolls to the element after its selection listener, and an import draws the
+// diagram after it ended a held gesture and after the clear that empties the selection, so a
+// destroy() from those listeners tears the diagram down once the call has returned.
+describe("a destroy from a listener that a host's call reaches (#415)", () => {
+  it.each([
+    { mount: "modeler", create: createCollaborativeModeler },
+    { mount: "viewer", create: createCollaborativeViewer },
+  ])(
+    "reveal on the $mount: it scrolls to the element first, and nothing reaches the host afterwards",
+    async ({ create }) => {
+      const revealHost = attachedHost(1000, 700);
+      const revealing = create();
+      revealing.attachTo(revealHost);
+      await revealing.importText(ORDER_TO_CASH);
+      const { x, y, width, height } = revealing.diagram.get<Canvas>("canvas").viewbox();
+      revealing.setViewState({ x: x + 5000, y: y + 5000, width, height });
+      const steps: string[] = [];
+      const eventBus = revealing.diagram.get<EventBus>("eventBus");
+      eventBus.on("canvas.viewbox.changing", () => steps.push("scroll"));
+      eventBus.on("diagram.destroy", () => steps.push("teardown"));
+      const svg = new CanvasPointer(revealing).canvasSvg();
+      const text = revealing.exportText();
+      revealing.elements.onSelection(() => revealing.destroy());
+      const later: unknown[] = [];
+      revealing.elements.onSelection((ids) => later.push(ids));
+      revealing.interaction.onChange((active) => later.push(active));
+      revealing.onContentChanged(() => later.push("change"));
+
+      try {
+        expect(revealing.elements.reveal("step-credit")).toBe(true);
+        expect(steps).toEqual(["scroll"]);
+        await nextTask();
+        expect(errors).toEqual([]);
+        expect(steps).toEqual(["scroll", "teardown"]);
+        expect(svg.isConnected).toBe(false);
+        expect(later).toEqual([]);
+        expect(() => revealing.destroy()).not.toThrow();
+        expect(revealing.exportText()).toBe(text);
+      } finally {
+        revealHost.parentElement?.remove();
+      }
+    },
+  );
+
+  it("an import, whose clear empties the selection: it resolves, and the modeler keeps the imported diagram", async () => {
+    const referenceHost = attachedHost(1000, 700);
+    const reference = createCollaborativeViewer();
+    reference.attachTo(referenceHost);
+    const result = await reference.importText(PORTER);
+    const imported = reference.exportText();
+    reference.destroy();
+    referenceHost.parentElement?.remove();
+    editor().elements.reveal("step-credit");
+    const expectDestroyedCleanly = destroyedCleanly();
+    const heard: string[][] = [];
+    editor().elements.onSelection((ids) => {
+      heard.push(ids);
+      editor().destroy();
+    });
+    const later: string[][] = [];
+    editor().elements.onSelection((ids) => later.push(ids));
+
+    await expect(editor().importText(PORTER)).resolves.toEqual(result);
+
+    expect(heard).toEqual([[]]);
+    await expectDestroyedCleanly(imported);
+    expect(later).toEqual([]);
+  });
+
+  it.each(["move", "create"] as const)(
+    "an import that ends a held %s, heard by the interaction listener: it resolves, and the modeler keeps the imported diagram",
+    async (kind) => {
+      const referenceHost = attachedHost(1000, 700);
+      const reference = createCollaborativeViewer();
+      reference.attachTo(referenceHost);
+      const result = await reference.importText(PORTER);
+      const imported = reference.exportText();
+      reference.destroy();
+      referenceHost.parentElement?.remove();
+      const expectDestroyedCleanly = destroyedCleanly();
+      startGesture(editor(), kind);
+      await handlerReturned();
+      expect(editor().interaction.active()).toBe(true);
+      const heard: boolean[] = [];
+      editor().interaction.onChange((active) => {
+        heard.push(active);
+        editor().destroy();
+      });
+      const later: unknown[] = [];
+      editor().interaction.onChange((active) => later.push(active));
+      editor().elements.onSelection((ids) => later.push(ids));
+      editor().onContentChanged(() => later.push("change"));
+
+      await expect(editor().importText(PORTER)).resolves.toEqual(result);
+
+      expect(heard).toEqual([false]);
+      await expectDestroyedCleanly(imported);
+      expect(later).toEqual([]);
+    },
+  );
 });
