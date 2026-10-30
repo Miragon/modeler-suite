@@ -199,6 +199,31 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       expect(service<Selection>("selection").get()).toEqual([platform]);
     });
 
+    it("leaves a key alone that reaches the focused canvas before the browser moves the focus off the inert canvas", () => {
+      const platform = select("Platform");
+      pressOnCanvas("ArrowRight");
+      const before = modeler.exportDSL();
+      container.setAttribute("inert", "");
+      expect(document.activeElement).toBe(svg());
+
+      for (const [key, modifiers] of [
+        ["Backspace", {}],
+        ["Delete", {}],
+        ["ArrowLeft", {}],
+        ["Escape", {}],
+        ["c", {}],
+        ["l", {}],
+        ["a", { metaKey: true }],
+        ["z", { metaKey: true }],
+        ["d", { metaKey: true }],
+      ] as const) {
+        expect(pressKey(svg(), key, modifiers).defaultPrevented, key).toBe(false);
+      }
+      expect(modeler.exportDSL()).toBe(before);
+      expect(service<Selection>("selection").get()).toEqual([platform]);
+      expect(service<Dragging>("dragging").context()).toBeFalsy();
+    });
+
     it("takes a real key on the focused canvas while the host shows it", async () => {
       select("Platform");
       svg().focus();
@@ -682,6 +707,23 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
 
       expect(pressKey(target, key).defaultPrevented).toBe(true);
       expect(drawTool().isActive()).toBe(false);
+      expect(drawings()).toBe(1);
+    });
+
+    it("leaves Enter and Escape on the focused canvas to the page once the host made it inert", () => {
+      drawTool().activate();
+      placePoint(300, 300);
+      placePoint(420, 360);
+      svg().focus();
+      container.setAttribute("inert", "");
+      expect(document.activeElement).toBe(svg());
+
+      expect(pressKey(svg(), "Enter").defaultPrevented).toBe(false);
+      expect(pressKey(svg(), "Escape").defaultPrevented).toBe(false);
+      expect(drawTool().isActive()).toBe(true);
+      expect(drawings()).toBe(0);
+      container.removeAttribute("inert");
+      expect(pressOnCanvas("Enter").defaultPrevented).toBe(true);
       expect(drawings()).toBe(1);
     });
 

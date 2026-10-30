@@ -120,6 +120,32 @@ describe("Event Storming keys act only on the focused canvas (no shell)", () => 
     }
   });
 
+  it("leaves a key alone that reaches the canvas before the browser moves the focus off it, once the host made it inert", () => {
+    const placeOrder = shapeLabelled("Place Order");
+    select(placeOrder);
+    svg().focus();
+    container.inert = true;
+    expect(canvasHasFocus()).toBe(true);
+    const before = modeler.exportDSL();
+
+    for (const init of [
+      { key: "Delete" },
+      { key: "Backspace" },
+      { key: "ArrowLeft" },
+      { key: "Escape" },
+      { key: "l" },
+      { key: "a", metaKey: true },
+      { key: "z", ctrlKey: true },
+      { key: "d", ctrlKey: true },
+    ]) {
+      const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
+      svg().dispatchEvent(event);
+      expect(event.defaultPrevented, init.key).toBe(false);
+    }
+    expect(modeler.exportDSL()).toBe(before);
+    expect(modeler.get<Selection>("selection").get()).toEqual([placeOrder]);
+  });
+
   it("hands the focus to the canvas after a pointer click on a palette tool", async () => {
     await userEvent.click(paletteEntry("lasso-tool"));
     expect(canvasHasFocus()).toBe(true);

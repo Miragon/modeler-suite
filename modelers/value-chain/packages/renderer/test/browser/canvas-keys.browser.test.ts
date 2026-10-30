@@ -113,6 +113,33 @@ describe("keys on the focused canvas", () => {
     expect(has(modeler, STEP)).toBe(true);
   });
 
+  it("but not once the host made the canvas inert, before the browser moves the focus off it", async () => {
+    const modeler = await mount();
+    select(modeler, STEP);
+    canvasSvg(modeler).focus();
+    modeler.diagram.container.inert = true;
+    expect(document.activeElement).toBe(canvasSvg(modeler));
+    const before = modeler.exportText();
+
+    for (const init of [
+      { key: "Backspace" },
+      { key: "Delete" },
+      { key: "ArrowLeft" },
+      { key: " " },
+      { key: "l" },
+      { key: "h" },
+      { key: "a", ctrlKey: true },
+      { key: "z", ctrlKey: true },
+    ]) {
+      const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
+      canvasSvg(modeler).dispatchEvent(event);
+      expect(event.defaultPrevented, init.key).toBe(false);
+    }
+    expect(modeler.exportText()).toBe(before);
+    expect(has(modeler, STEP)).toBe(true);
+    expect(modeler.diagram.get<Selection>("selection").get()).toHaveLength(1);
+  });
+
   it("leave a key alone that a host has handled already", async () => {
     const modeler = await mount();
     select(modeler, STEP);
