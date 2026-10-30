@@ -104,6 +104,43 @@ async function showPaletteTooltip(modeler: CollaborativeWardleyModeler): Promise
   return vi.waitFor(() => within(diagramOf(modeler).container, ".djs-hover-tooltip"));
 }
 
+interface Edge {
+  style: string;
+  width: string;
+  color: string;
+}
+
+function edgeOf(surface: HTMLElement): Edge {
+  const style = getComputedStyle(surface);
+  return { style: style.borderTopStyle, width: style.borderTopWidth, color: style.borderTopColor };
+}
+
+/** The colour a role resolves to where the surface lies, under its nearest mode carrier. */
+function roleColourAt(surface: HTMLElement, role: string): string {
+  const probe = document.createElement("span");
+  probe.style.color = `var(${role})`;
+  surface.after(probe);
+  const colour = getComputedStyle(probe).color;
+  probe.remove();
+  return colour;
+}
+
+/** A tooltip of another diagram-js editor on the same page, outside every map. */
+function foreignTooltip(): HTMLElement {
+  const diagramContainer = document.createElement("div");
+  diagramContainer.className = "bio-theme-parent djs-parent djs-container";
+  const mount = document.createElement("div");
+  mount.className = "djs-hover-tooltip-container";
+  const tooltip = document.createElement("div");
+  tooltip.className = "djs-hover-tooltip djs-hover-tooltip--right";
+  tooltip.textContent = "Create task";
+  mount.append(tooltip);
+  diagramContainer.append(mount);
+  document.body.append(diagramContainer);
+  wrappers.push(diagramContainer);
+  return tooltip;
+}
+
 /** The shadow of every surface the chrome lays over the canvas, each open in turn. */
 async function shadowsOf(modeler: CollaborativeWardleyModeler): Promise<Record<string, string>> {
   const shadowOf = (surface: HTMLElement) => getComputedStyle(surface).boxShadow;
@@ -220,4 +257,27 @@ describe("the canvas chrome in high contrast (guide §5.3, §5.14, §6)", () => 
       expect(await focusRingsOf(await mapIn(mode))).toEqual(HIGH_CONTRAST_RINGS);
     },
   );
+
+  it.each(Object.entries({ ...NORMAL_CONTRAST, ...HIGH_CONTRAST }))(
+    "outlines the palette tooltip with the line role (guide §5.6) %s",
+    async (_, mode) => {
+      const tooltip = await showPaletteTooltip(await mapIn(mode));
+      const lineColour = roleColourAt(tooltip, "--cd-ui-linie");
+      expect(edgeOf(tooltip)).toEqual({ style: "solid", width: "1px", color: lineColour });
+      expect(lineColour).not.toBe(getComputedStyle(tooltip).backgroundColor);
+    },
+  );
+
+  it("leaves the tooltip of another editor on a high-contrast page as diagram-js draws it", async () => {
+    const tooltip = await showPaletteTooltip(await mapIn({ page: { theme: "light" } }));
+    const otherTooltip = foreignTooltip();
+    const diagramJsShadow = getComputedStyle(otherTooltip).boxShadow;
+    expect(diagramJsShadow).not.toBe("none");
+
+    page.setAttribute("data-cd-kontrast", "hoch");
+
+    expect(getComputedStyle(tooltip).boxShadow).toBe("none");
+    expect(getComputedStyle(otherTooltip).boxShadow).toBe(diagramJsShadow);
+    expect(edgeOf(otherTooltip).style).toBe("none");
+  });
 });

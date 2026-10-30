@@ -163,6 +163,11 @@
   color: var(--cd-ui-interaktion) !important;
 }
 
+/* diagram-js gives its tooltip no border, and its surface is the canvas's white: in high contrast,
+   which drops the shadow, only the border of guide §5.6 still outlines it. */
+.wardley-container .djs-hover-tooltip {
+  border: 1px solid var(--cd-ui-linie);
+}
 /* diagram-js palette tooltip: it is placed to the right of an entry, which in this horizontal
    toolbar would cover the neighbouring tool — shift it below the 40px entry instead. */
 .wardley-container .djs-hover-tooltip--right {
@@ -850,13 +855,13 @@
   }
   :scope .wardley-button[data-variant="primary"],
   :scope .djs-palette.wardley-palette:where(:not([data-chrome="palette"])),
-  :scope .djs-hover-tooltip,
   :scope .djs-popup.wardley-element-settings {
     box-shadow: none;
   }
   :is(:scope.wardley-container, :scope .wardley-container)
     :is(
       .djs-context-pad.open,
+      .djs-hover-tooltip,
       .wardley-label-input,
       .wardley-label-caption,
       .wardley-color-picker,
