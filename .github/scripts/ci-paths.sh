@@ -118,17 +118,17 @@ reaches_template() {
 # a modeler against the rest of the suite, as its own jobs never do: its Claude plugin (the
 # manifests and skills of the marketplace), the package.json of the modeler and of each workspace
 # in it (release config, extension pack, boundaries), its ESLint configs (boundaries; the nearest
-# config of a file wins, so at any depth) and its dependency-cruiser config (boundaries), and a
-# .miragon folder at any depth (a second brand-lint config). A `*` of a case pattern also matches
-# `/`, so regexes keep the same names deeper in a modeler out. Which files a modeler has matters
-# too, see affected. No other shared job reads a modeler's files, so these paths start shared-test
-# alone.
+# config of a file wins, so at any depth) and its dependency-cruiser config (boundaries). A
+# .miragon folder anywhere, the docs included, is a second brand-lint config, which the brand-lint
+# config check rejects. A `*` of a case pattern also matches `/`, so regexes keep the same names
+# deeper in a modeler out. Which files a modeler and the docs have matters too, see affected. No
+# other shared job reads these files, so these paths start shared-test alone.
 reaches_repository_tests() {
   local plugin='^modelers/[^/]+/plugins/'
   local manifest='^modelers/[^/]+/((packages|apps)/[^/]+/|e2e/)?package\.json$'
   local eslint_config='^modelers/[^/]+/(.+/)?eslint\.config\.[^/]+$'
   local dependency_cruiser_config='^modelers/[^/]+/\.dependency-cruiser\.cjs$'
-  local brand_lint_config='^modelers/[^/]+/(.+/)?\.miragon/'
+  local brand_lint_config='(^|/)\.miragon/'
   [[ "$1" =~ $plugin || "$1" =~ $manifest || "$1" =~ $eslint_config ||
     "$1" =~ $dependency_cruiser_config || "$1" =~ $brand_lint_config ]]
 }
@@ -157,10 +157,11 @@ affected() {
       esac
     done < "$changed"
     # The repository-level tests hold the name of every file against the brand-lint config's
-    # ignore list and need some files of a modeler to exist (its schema-model entry, a licence
-    # text), so a file of a modeler that a change adds, deletes or moves reaches them as well.
+    # ignore list and need some files to exist (a modeler's schema-model entry, a licence text, the
+    # pages of the root docs the modeler kit links to), so a file of a modeler or of the root docs
+    # that a change adds, deletes or moves reaches them as well.
     while IFS= read -r -d '' path; do
-      if [[ "$(classify "$path")" == "modeler "* ]]; then
+      if [[ "$(classify "$path")" == "modeler "* || "$path" == docs/* ]]; then
         echo "$path: the repository-level tests (added or deleted, they read the file names)"
         repository_tests=true
       fi

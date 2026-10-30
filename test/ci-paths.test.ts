@@ -28,6 +28,7 @@ interface Reach {
 
 const NOTHING: Reach = { shared: false, repositoryTests: false, template: false, modelers: [] };
 const SHARED: Reach = { ...NOTHING, shared: true, repositoryTests: true };
+const REPOSITORY_TESTS: Reach = { ...NOTHING, repositoryTests: true };
 const EVERYTHING: Reach = {
   shared: true,
   repositoryTests: true,
@@ -84,6 +85,8 @@ const REACH_OF_AN_EDIT: [string, Reach][] = [
     "modelers/wardley-maps/packages/renderer/.miragon/brand.json",
     modelerAndRepositoryTests("wardley-maps"),
   ],
+  ["modelers/wardley-maps/docs/.miragon/brand.json", REPOSITORY_TESTS],
+  ["docs/.miragon/brand.json", REPOSITORY_TESTS],
   [
     "modelers/event-storming/packages/renderer/src/theme/cd-canvas.css",
     { ...modelerOnly("event-storming"), template: true },
@@ -206,7 +209,8 @@ describe("the paths a change reaches in CI", () => {
     ],
     ["modelers/wardley-maps/docs/added.md", NOTHING],
     ["modelers/wardley-maps/ADDED.md", NOTHING],
-    ["docs/added.md", NOTHING],
+    ["docs/added.md", REPOSITORY_TESTS],
+    ["docs/.vitepress/theme/Badge.spec.tsx", REPOSITORY_TESTS],
   ])("adding %s", (path, reach) => {
     expect(afterChanging(path)).toEqual(reach);
   });
@@ -217,8 +221,15 @@ describe("the paths a change reaches in CI", () => {
       modelerAndRepositoryTests("wardley-maps"),
     ],
     ["modelers/wardley-maps/docs/guide.md", NOTHING],
+    ["docs/guide.md", REPOSITORY_TESTS],
   ])("deleting %s", (path, reach) => {
     expect(afterCommitting({ [path]: null })).toEqual(reach);
+  });
+
+  it("moving a page of the root docs", () => {
+    expect(afterCommitting({ "docs/guide.md": null, "docs/guide/index.md": "a" })).toEqual(
+      REPOSITORY_TESTS,
+    );
   });
 
   it("moving a file of a modeler", () => {

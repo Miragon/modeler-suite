@@ -64,8 +64,8 @@ jobs:
       - uses: ./.github/actions/setup
       - run: npm run typecheck:shared
 
-  # Also the one shared job for a change of a modeler that only the repository-level tests read
-  # (repository-tests, which every shared change sets too).
+  # Also the one shared job for a change of a modeler or of the docs that only the repository-level
+  # tests read (repository-tests, which every shared change sets too).
   shared-test:
     needs: changes
     if: needs.changes.outputs.repository-tests == 'true'

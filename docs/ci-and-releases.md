@@ -22,27 +22,31 @@ commit and decides which jobs it can break:
 | `modelers/<m>/plugins/**`, the manifests and configs of `<m>` named below, a file added to or deleted from `<m>` | the jobs of modeler `<m>` and `shared-test`             |
 | `packages/**`, `.github/**`, root `package.json`, `package-lock.json`, `.npmrc`, any other root file or folder   | the shared jobs, the template job and all five modelers |
 | `plugins/modeler-kit/**`                                                                                         | the shared jobs and the template job                    |
-| `plugins/**`, `test/**`, `.claude-plugin/**`, `.husky/**`                                                        | the shared jobs                                         |
-| `docs/**`, `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`                    | nothing but the always-on jobs                          |
+| `plugins/**`, `test/**`, `extensions/**`, `.claude-plugin/**`, `.husky/**`                                       | the shared jobs                                         |
+| a `.miragon/` folder in `docs/**` or `modelers/<m>/docs/**`, a file added to or deleted from `docs/`             | `shared-test`                                           |
+| `docs/**` (an edit), `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`          | nothing but the always-on jobs                          |
 
 Markdown elsewhere is no documentation here: skills under `plugins/` feed drift tests, and a
 package or an extension ships its README. A modeler's Claude plugin reaches `shared-test` because
 `test:plugin` checks the manifest and the skills of every plugin in the marketplace. Other checks
 in `test:plugin` read these files of a modeler, so they reach `shared-test` too: the
 `package.json` of the modeler and of each of its workspaces (`packages/*`, `apps/*`, `e2e`), read
-by the release config, extension pack and boundary checks; every `eslint.config.*` in it (the
-nearest one of a file wins) and its `.dependency-cruiser.cjs`, read by the boundary checks; and a
-`.miragon/` folder at any depth, which would replace the suite's one brand-lint config. Those
-checks also read which files a modeler has: the brand-lint config check holds the name of every
-file against its ignore list, and the template and third-party text checks need some files to
-exist. So a file of a modeler that a change adds, deletes or moves reaches `shared-test` as well,
-its documentation aside. No other shared job reads a modeler's files, so these paths start
-`shared-test` alone: `changes` reports them as `repository-tests`, not as `shared`, which starts all
-four shared jobs. Every shared change sets `repository-tests` too. `.husky/**` runs in no job, but
-the template check reads the pre-commit hook. The template job also runs when the design-system
-files it borrows change (`modelers/event-storming/packages/renderer/src/theme/**`). A run without a
-base commit (started by hand, a new branch) and a base that cannot be fetched run everything; so
-does any path no rule names.
+by the release config, extension pack and boundary checks; and every `eslint.config.*` in it (the
+nearest one of a file wins) and its `.dependency-cruiser.cjs`, read by the boundary checks. A
+`.miragon/` folder anywhere, the docs included, reaches `shared-test` as well, because it would
+replace the suite's one brand-lint config. Those checks also read which files a modeler has: the
+brand-lint config check holds the name of every file against its ignore list, and the template and
+third-party text checks need some files to exist. So a file of a modeler that a change adds,
+deletes or moves reaches `shared-test` as well, its documentation aside. The same holds for a file
+of the root `docs/`, because the modeler kit links to pages there. Adding, deleting or moving a
+page of a modeler's docs or a Markdown file at the root or at the top of a modeler runs nothing but
+the always-on jobs, as an edit of one does. No other shared job reads these files, so these paths
+add only `shared-test`: `changes` reports them as `repository-tests`, not as `shared`, which starts
+all four shared jobs. Every shared change sets `repository-tests` too. `.husky/**` runs in no job,
+but the template check reads the pre-commit hook. The template job also runs when the
+design-system files it borrows change (`modelers/event-storming/packages/renderer/src/theme/**`).
+A run without a base commit (started by hand, a new branch) and a base that cannot be fetched run
+everything; so does any path no rule names.
 
 ### Jobs
 
@@ -55,8 +59,8 @@ does any path no rule names.
   export in Chromium and WebKit, in the Playwright image of the root's `playwright` pin); the
   shell's Playwright suite in four shards, each of which runs a quarter of the other tests and then
   a quarter of the saboteurs that run the whole kit (sharded together, those all fell into one
-  shard). `shared-test` also runs on its own, for a change of a modeler that only `test:plugin`
-  reads.
+  shard). `shared-test` also runs on its own, for a change of a modeler or of the docs that only
+  `test:plugin` reads.
 - **Per modeler**, a matrix over the modelers the change reaches, each job named
   `<modeler> / <check>`: `lint` (ESLint, type check, dependency-cruiser), `test` (build, unit tests),
   `test:browser` and `e2e` (in the Playwright image of the root's `playwright` pin), `build` (web app
