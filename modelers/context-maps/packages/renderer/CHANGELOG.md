@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.9.0](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.8.0...context-maps-renderer-v0.9.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **context-maps:** @miragon/context-maps-renderer no longer exports createShortcutsDialog, ShortcutsDialog or ShortcutsDialogChrome, and its stylesheet has no .cm-shortcuts rules. A host shows the groups of contextMapShortcuts(chrome, options) with shell.showShortcutsDialog(groups) of @miragon/modeler-shell, or with its standalone showShortcutsDialog(groups, { container }) when it has no mounted shell.
+
+### Features
+
+* **context-maps:** remove the deprecated keyboard shortcuts dialog of the renderer ([#466](https://github.com/Miragon/modeler-suite/issues/466)) ([30fcf93](https://github.com/Miragon/modeler-suite/commit/30fcf9370aa4ba52a906657a551be40b5c27917d))
+
+
+### Bug Fixes
+
+* **context-maps:** give the palette without the shell a keyboard path and glass, and close the description editor without a commit when the modeler is destroyed ([#452](https://github.com/Miragon/modeler-suite/issues/452)) ([4f26ecb](https://github.com/Miragon/modeler-suite/commit/4f26ecbc20cf102f1d87b2f998a3c18662a98724))
+* **context-maps:** give the palette without the shell the guide's tooltip, keep its tools' pressed state true, and mark the entries the read-only lock disables ([#473](https://github.com/Miragon/modeler-suite/issues/473)) ([8bb6d05](https://github.com/Miragon/modeler-suite/commit/8bb6d056360ac6c606878d54cd5d94eeedac5ff1))
+* **context-maps:** let a host without the shell delay the palette's read-only marks ([#488](https://github.com/Miragon/modeler-suite/issues/488)) ([3753485](https://github.com/Miragon/modeler-suite/commit/37534855d3bd620166bfed7d0ecb0f998d645c3c))
+* **context-maps:** put the armed lasso down with Enter or Space, and show it as pressed only while it is armed, also in the web app and VS Code ([8bb6d05](https://github.com/Miragon/modeler-suite/commit/8bb6d056360ac6c606878d54cd5d94eeedac5ff1))
+
 ## [0.8.0](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.7.1...context-maps-renderer-v0.8.0) (2026-10-30)
 
 

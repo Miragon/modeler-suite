@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.9.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.8.0...modeler-shell-v0.9.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **shell:** @miragon/modeler-shell/testing/vscode-electron no longer exports VSCODE_SMOKE_OPT_IN_STEPS, VsCodeSmokeOptInStep or vsCodeSmokeOptIn, deprecated since 0.8.0. Use VSCODE_SMOKE_SKIPPABLE_STEPS, VsCodeSmokeSkippableStep and vsCodeSmokeSkip, which reads VSCODE_SMOKE_SKIP. The driver has not read VSCODE_SMOKE_OPT_IN since 0.8.0 and takes every step unless an option or VSCODE_SMOKE_SKIP skips it.
+
+### Features
+
+* **shell:** remove the deprecated opt-in names of the VS Code smoke driver ([#470](https://github.com/Miragon/modeler-suite/issues/470)) ([3503c8a](https://github.com/Miragon/modeler-suite/commit/3503c8aaccec8dd063dbb43d9498e4501bd0e206))
+* **shell:** share the VS Code export save dialog and the New … from Example command ([#495](https://github.com/Miragon/modeler-suite/issues/495)) ([74a7a87](https://github.com/Miragon/modeler-suite/commit/74a7a87fc82b90fbed9afface5a6551bc06e48c8))
+
+
+### Bug Fixes
+
+* **shell:** keep an armed tool when Escape closes the menu, a popover or a dialog, and keep a disabled palette entry grey under the pointer in forced colours ([#496](https://github.com/Miragon/modeler-suite/issues/496)) ([fd92e84](https://github.com/Miragon/modeler-suite/commit/fd92e84544deee28031bedc246202f1f6a1ebdab))
+* **shell:** keep the keyboard focus in the palette when it rebuilds ([#478](https://github.com/Miragon/modeler-suite/issues/478)) ([036e4ce](https://github.com/Miragon/modeler-suite/commit/036e4ce36cd4ffdc961b3ddbbf4617448bde48e6))
+* **shell:** put down an armed tool only on an Escape aimed at the canvas or the palette ([#502](https://github.com/Miragon/modeler-suite/issues/502)) ([cb80b80](https://github.com/Miragon/modeler-suite/commit/cb80b807bf35a6a75bd9a081b7f31005740e1a30))
+* **shell:** show a tool armed from the palette as released once Escape puts it down before the pointer moves ([036e4ce](https://github.com/Miragon/modeler-suite/commit/036e4ce36cd4ffdc961b3ddbbf4617448bde48e6))
+
 ## [0.8.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.7.0...modeler-shell-v0.8.0) (2026-10-30)
 
 

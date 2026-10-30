@@ -1,6 +1,6 @@
 {
   "name": "@miragon/team-topologies-modeler-workspace",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "private": true,
   "description": "A web-based modeler and VS Code extension for the Team Topologies notation (team types & interaction modes).",
   "license": "MIT",
@@ -35,7 +35,7 @@
     "check:release-notes": "node scripts/release-notes/check-pull-request.mjs"
   },
   "devDependencies": {
-    "@miragon/modeler-shell": "0.8.0",
+    "@miragon/modeler-shell": "0.9.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vscode/test-electron": "3.1.0",

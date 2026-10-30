@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.12.0](https://github.com/Miragon/modeler-suite/compare/context-maps-vscode-v0.11.0...context-maps-vscode-v0.12.0) (2026-10-30)
+
+
+### Features
+
+* export images and create new diagrams from an example through the shared dialogs, and ask before replacing an existing file ([#503](https://github.com/Miragon/modeler-suite/issues/503)) ([f4f719c](https://github.com/Miragon/modeler-suite/commit/f4f719c581f21c79b0d1c8cdbb35bf98fa398f89))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/context-maps-renderer bumped from 0.8.0 to 0.9.0
+    * @miragon/modeler-shell bumped from 0.8.0 to 0.9.0
+
 ## [0.11.0](https://github.com/Miragon/modeler-suite/compare/context-maps-vscode-v0.10.1...context-maps-vscode-v0.11.0) (2026-10-30)
 
 

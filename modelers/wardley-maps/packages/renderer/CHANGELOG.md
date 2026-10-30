@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.15.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.14.0...wardley-renderer-v0.15.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **wardley-maps:** The Wardley renderer no longer exports `createShortcutsDialog` with its types `ShortcutsDialog` and `ShortcutsDialogChrome`, nor `svgToPng` with its type `SvgToPngOptions`, all deprecated since 0.14.0, and `assets/wardley.css` drops the dialog's `.wardley-shortcuts*` rules. Open the dialog with `shell.showShortcutsDialog(mapShortcuts(shell, options))` of `@miragon/modeler-shell`, or with its standalone `showShortcutsDialog(mapShortcuts(chrome, options), { container })` in a host without a mounted shell, and draw the PNG with `svgToPng(svg, { background: COLORS.plotBackground })` of `@miragon/modeler-shell/export`.
+
+### Features
+
+* **wardley-maps:** let a host lock the canvas at once and show the palette's read-only marks after a delay, as the modeler shell does ([652bbcb](https://github.com/Miragon/modeler-suite/commit/652bbcb6909d82d4e3c37c29b41b914b88fa0391))
+* **wardley-maps:** remove the deprecated keyboard shortcuts dialog and PNG export of the renderer ([#467](https://github.com/Miragon/modeler-suite/issues/467)) ([77399d4](https://github.com/Miragon/modeler-suite/commit/77399d4465c29969652c07d9f66625abd81d067e))
+
+
+### Bug Fixes
+
+* **wardley-maps:** create nothing from the palette's keyboard while the map is read-only ([a63e5de](https://github.com/Miragon/modeler-suite/commit/a63e5de0baed875073a9b7daa62bb7386b8f4859))
+* **wardley-maps:** keep the lasso's pressed state true in the palette without the shell, and mark the entries the read-only lock disables ([#474](https://github.com/Miragon/modeler-suite/issues/474)) ([a63e5de](https://github.com/Miragon/modeler-suite/commit/a63e5de0baed875073a9b7daa62bb7386b8f4859))
+* **wardley-maps:** keep the note colours and the chosen colour visible in forced colours, and keep an armed tool when Escape closes a map popover ([#501](https://github.com/Miragon/modeler-suite/issues/501)) ([23f4f90](https://github.com/Miragon/modeler-suite/commit/23f4f90e88a0f5b39d7a945406b6206e5d0bd99e))
+* **wardley-maps:** keep the palette tooltip on its entry, let a host delay the read-only marks, arm one tool at a time, and keep the focus ring of the chosen colour visible ([#492](https://github.com/Miragon/modeler-suite/issues/492)) ([652bbcb](https://github.com/Miragon/modeler-suite/commit/652bbcb6909d82d4e3c37c29b41b914b88fa0391))
+* **wardley-maps:** keep the tooltip of the palette without the shell on its entry when the narrow palette scrolls sideways, and hide it once the entry has left the view ([652bbcb](https://github.com/Miragon/modeler-suite/commit/652bbcb6909d82d4e3c37c29b41b914b88fa0391))
+* **wardley-maps:** put the armed draw tool down when the lasso is armed from its entry or with L, so one tool is armed and shown pressed, with or without the modeler shell, and save the line it holds when the lasso's entry is clicked or pressed with Enter or Space, as Escape does ([652bbcb](https://github.com/Miragon/modeler-suite/commit/652bbcb6909d82d4e3c37c29b41b914b88fa0391))
+* **wardley-maps:** put the palette without the shell before the canvas, give it the guide's tooltip, glass and narrow layout, and keep a held line from a paste ([#453](https://github.com/Miragon/modeler-suite/issues/453)) ([b02d3d3](https://github.com/Miragon/modeler-suite/commit/b02d3d3d0668f3a692767715e7fa1e08efae9341))
+* **wardley-maps:** show the keyboard focus on the chosen colour in a note's colour picker outside the ring that marks it ([652bbcb](https://github.com/Miragon/modeler-suite/commit/652bbcb6909d82d4e3c37c29b41b914b88fa0391))
+* **wardley-maps:** show the lasso as pressed only while it is armed in the modeler shell's palette too, and put it down with Enter or Space ([a63e5de](https://github.com/Miragon/modeler-suite/commit/a63e5de0baed875073a9b7daa62bb7386b8f4859))
+
 ## [0.14.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.13.0...wardley-renderer-v0.14.0) (2026-10-30)
 
 
