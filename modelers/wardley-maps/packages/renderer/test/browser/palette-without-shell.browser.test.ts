@@ -533,6 +533,21 @@ describe("the palette tooltip without the shell (guide §5.6, #425)", () => {
     );
   });
 
+  it("takes none of its text into a select-all, as no label of the chrome does (guide §5.14)", async () => {
+    const { host } = await mount();
+    const tooltip = await showTooltipOf(host, entry(host, "create.component"));
+    const selection = document.getSelection()!;
+
+    try {
+      selection.selectAllChildren(document.body);
+      expect(selection.toString()).not.toContain("Component");
+      selection.selectAllChildren(tooltip);
+      expect(selection.toString()).toBe("");
+    } finally {
+      selection.removeAllRanges();
+    }
+  });
+
   it("keeps its place when diagram-js's sheet loads again after the renderer's", async () => {
     const { host } = await mount();
     const laterSheet = document.createElement("style");

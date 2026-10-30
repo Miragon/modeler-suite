@@ -189,6 +189,7 @@
 /* diagram-js's hover tooltip, which it mounts in the canvas container, as the palette tooltip of
    guide §5.6: opaque, a 1px line edge that still outlines it in high contrast, where the shadow
    goes, 13px type on a 20px line, and the key as a Geist Mono chip in diagram-js's 6px flex gap.
+   Like every label of the chrome it cannot be selected, so a select-all takes none of it (§5.14).
    `:where` adds the container without adding specificity, so a host's own tooltip rule wins. */
 :where(.wardley-container) .djs-hover-tooltip {
   padding: 3px 8px;
@@ -201,6 +202,8 @@
   font-weight: 400;
   line-height: 20px;
   box-shadow: var(--cd-shadow-2);
+  -webkit-user-select: none;
+  user-select: none;
 }
 /* palette/WardleyPaletteTooltip.ts hangs it 8px below the island at its entry's centre, in the
    canvas container's coordinates and at least 12px from its sides, with a placement diagram-js's
