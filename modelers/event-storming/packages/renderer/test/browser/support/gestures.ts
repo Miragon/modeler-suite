@@ -1,6 +1,8 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
+import { parseDSL } from "@miragon/event-storming-dsl";
+import type { EventStormingBoard } from "@miragon/event-storming-schema-model";
 import type { CollaborativeEventStormingModeler } from "../../../src/index.js";
 import { isEventStormingShape, type EventStormingShape } from "../../../src/model/di-types.js";
 
@@ -14,6 +16,18 @@ policy Reserve Stock [800, 200]
 note Agenda [560, 520] (size 200x120)
 Place Order -> Order Placed
 `;
+
+/**
+ * A board from JSON that the import rejects (L7): its sticky claims the id of the board itself.
+ * The DSL reads every text, so only a board that bypasses it reaches a rejection.
+ */
+export function rejectedBoard(): EventStormingBoard {
+  const board = parseDSL("title Broken\nevent Foo [0, 0]\n");
+  return {
+    ...board,
+    elements: board.elements.map((element) => ({ ...element, id: "event-storming-root" })),
+  };
+}
 
 export interface Point {
   x: number;
@@ -89,4 +103,17 @@ export function pointerOn(modeler: CollaborativeEventStormingModeler) {
 /** Escape as diagram-js's dragging listens for it: a keyup on the document. */
 export function pressEscape(): void {
   document.dispatchEvent(new KeyboardEvent("keyup", { key: "Escape", bubbles: true }));
+}
+
+/**
+ * Escape as the keyboard sends it, to the element with the focus: the press on a drawing's handle
+ * focuses the canvas, and the point drag takes an Escape aimed at it.
+ */
+export function pressEscapeOnFocus(): void {
+  const focused = document.activeElement ?? document.body;
+  for (const type of ["keydown", "keyup"]) {
+    focused.dispatchEvent(
+      new KeyboardEvent(type, { key: "Escape", bubbles: true, cancelable: true }),
+    );
+  }
 }
