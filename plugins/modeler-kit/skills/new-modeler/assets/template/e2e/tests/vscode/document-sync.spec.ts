@@ -112,6 +112,35 @@ test.describe('VS Code webview: the document both ways', () => {
     expect(await appliedEdits(page)).toEqual([]);
   });
 
+  test('a change of formatting only leaves the canvas as it is, and a running drag goes on', async ({
+    page,
+  }) => {
+    await openInHost(page);
+    const box = (await node(page, 'pick').boundingBox())!;
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 40, { steps: 4 });
+    await expect.poll(() => page.evaluate(() => window.modeler!.interaction.active())).toBe(true);
+
+    // A formatter drops the final newline while the user drags.
+    await page.evaluate((text) => {
+      const { host, document } = window.vscodeHost!;
+      host.replaceText(document, text);
+    }, EXAMPLE_DIAGRAM.trimEnd());
+    await expect.poll(() => postedTypes(page)).toContain('update');
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 100)));
+    expect(await page.evaluate(() => window.modeler!.interaction.active())).toBe(true);
+
+    await page.mouse.move(x, y + 80, { steps: 4 });
+    await page.mouse.up();
+
+    await expect.poll(() => canvasText(page)).not.toBe(EXAMPLE_DIAGRAM);
+    expect(await canvasText(page)).not.toContain('node pick "Pick items" [520, 40]');
+    await expect.poll(() => documentText(page)).toBe(await canvasText(page));
+  });
+
   test('undo and redo in VS Code take the canvas back and forth, one canvas change per step', async ({
     page,
   }) => {

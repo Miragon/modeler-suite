@@ -115,10 +115,12 @@ Code's.
   [`diagramEditor.ts`](../assets/template/apps/vscode/src/diagramEditor.ts)).
 - The webview's half: `connectDocumentSync({ api, importText, exportText, canWrite, onProblems })`
   is connected last, since it posts `ready` at once. It imports `init` and every `update` strictly
-  one after another; `importText` resolves to `false` when the canvas refused the text. Every
-  content change of the contract calls its `pushEdit`, which posts the canonical text as an `edit`
-  unless it is the text the canvas showed last, or `canWrite: () => !shell.isReadOnly()` holds it
-  back while the file is invalid (template:
+  one after another; `importText` resolves to `false` when the canvas refused the text. An update
+  that differs from `exportText()` only in its formatting (the line breaks, the final newline a save
+  adds) is not imported again, since an import ends a running drag: `importText` then only shows
+  the file as valid and resolves to `true`. Every content change of the contract calls its
+  `pushEdit`, which posts the canonical text as an `edit` unless it is the text the canvas showed
+  last, or `canWrite: () => !shell.isReadOnly()` holds it back while the file is invalid (template:
   [`apps/vscode/src/webview/main.ts`](../assets/template/apps/vscode/src/webview/main.ts)).
 - **An invalid file**: when an update cannot be imported, lock the canvas at once (the renderer's
   own read-only service: rules veto every edit, the label editor stays shut), call

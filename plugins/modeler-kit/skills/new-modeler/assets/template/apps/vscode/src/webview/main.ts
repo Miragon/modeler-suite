@@ -112,12 +112,23 @@ function showInvalid(): void {
   );
 }
 
+/** Two texts of one diagram: only the line breaks and the whitespace at either end differ. */
+function sameDiagramText(a: string, b: string): boolean {
+  return a.replace(/\r\n/g, '\n').trim() === b.replace(/\r\n/g, '\n').trim();
+}
+
 /**
  * The first import takes the stored view (or fits); every later one (an undo in VS Code, the text
  * editor, Git) keeps view and selection, as the contract's view state survives a re-import (L5).
- * False when the canvas refused the text: it then shows the file as invalid and read-only.
+ * False when the canvas refused the text: it then shows the file as invalid and read-only. A text
+ * the canvas already shows, but for its formatting (`insertFinalNewline` on a save, a formatter), is
+ * not imported again: an import ends the drag the user may be in the middle of.
  */
 async function importText(text: string, { first }: DocumentImportContext): Promise<boolean> {
+  if (!first && sameDiagramText(text, modeler.exportText())) {
+    showValid();
+    return true;
+  }
   const keep = first ? undefined : viewport.getViewbox();
   const selected = modeler.elements.selection();
   try {
