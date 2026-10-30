@@ -198,7 +198,8 @@ the colour picker drop their hover transitions.
 `eventStormingReadOnly` locks every edit while a host cannot save from the canvas (an invalid file
 in an IDE): `diagram.get('eventStormingReadOnly').setReadOnly(true)` vetoes moves, resizes,
 creates, connections and deletes through the diagram-js rules, and the keyboard, palette, context
-pad, label editor and drawing handles stop editing. Selection, zoom, pan, copy and export stay.
+pad, label editor and drawing handles stop editing: a drawing's point drag that runs when the lock
+arrives ends without a change. Selection, zoom, pan, copy and export stay.
 
 Guide §13.5 shows the lock of an invalid file only after 800ms without a valid one, so typing in the
 text editor beside the canvas does not flicker. `setReadOnly(true, { delayMs: 800 })` locks at once
@@ -345,7 +346,8 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
   from the moment diagram-js starts a drag (a move, resize, connect or lasso past the threshold, a
   create, an append or a paste at once, also while its preview is still over the palette) and
   while a drawing's point drag moves, until the drop or the cancel (Escape, an import, and for a
-  point drag also an undo, a redo or any other command before its release). A drag
+  point drag also an undo, a redo or any other command before its release, and the read-only
+  lock). A drag
   that an import or a clear from the selection listener ends at its start is never reported. A
   palette tool that only waits for its next press (the lasso, the draw tool) and a pan of the empty
   canvas are no gesture; a line the draw tool holds point by point is not reported either, and an

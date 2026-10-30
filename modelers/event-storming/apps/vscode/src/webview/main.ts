@@ -151,9 +151,10 @@ function showValidBoard(): void {
 }
 
 function showInvalidBoard(): void {
-  // Locked at once; the marks and the status box follow after 800ms without a valid import, so
-  // typing in the text editor neither flickers nor re-announces the alert (guide §13.5).
-  canvasLock.setReadOnly(true);
+  // Locked at once; the marks (the hidden spelling-variant dots among them) and the status box
+  // follow after 800ms without a valid import, so typing in the text editor neither flickers nor
+  // re-announces the alert (guide §13.5).
+  canvasLock.setReadOnly(true, { delayMs: INVALID_STATUS_DELAY_MS });
   shell.setReadOnly(true, { delayMs: INVALID_STATUS_DELAY_MS });
   shell.setStatus(
     { severity: "danger", text: shell.messages.invalidFile(BOARD_NAME) },

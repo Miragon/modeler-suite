@@ -426,6 +426,38 @@ describe("an import while the user drags a point of a drawing", () => {
     ).toBe(null);
     expectEditsToCount(modeler, changes);
   });
+
+  /** The drag reports its start from inside its first move, which goes on after the listeners. */
+  it("ends the point drag when a host imports as the drag starts: the interaction ends and no preview stays", async () => {
+    const modeler = await editorWithBoard();
+    const pointer = pointerOn(modeler);
+    const changes = changesOf(modeler);
+    service<Selection>(modeler, "selection").select(
+      shapeOf(modeler, (shape) => shape.eventStormingType === "drawing"),
+    );
+    const handle = modeler.diagram.container.querySelector(".event-storming-drawing-handle")!;
+    const preview = ".layer-event-storming-drawing-handles polyline";
+    const first = { x: 40, y: 480 };
+    const reports: boolean[] = [];
+    let importing: Promise<unknown> | undefined;
+    modeler.interaction.onChange((active) => {
+      reports.push(active);
+      if (active) importing ??= modeler.importText(REMOTE);
+    });
+
+    pointer.press(handle, first);
+    pointer.moveTo(offset(first, 30, -40));
+    expect(reports).toEqual([true, false]);
+    expect(modeler.interaction.active()).toBe(false);
+    expect(modeler.diagram.container.querySelector(preview)).toBe(null);
+    await importing;
+    pointer.moveTo(offset(first, 60, -80));
+    pointer.release(offset(first, 60, -80));
+
+    expect(reports).toEqual([true, false]);
+    expectNothingApplied(modeler, changes, REMOTE);
+    expectEditsToCount(modeler, changes);
+  });
 });
 
 describe("an import while the user draws a line with the draw tool (#243)", () => {

@@ -132,10 +132,10 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   for a running user action and the step it scheduled; `clear()` too):
   `dragging.cancel(false)` as Escape does, and the drawing handles' point drag, which also ends on
   `shape.remove`, so no release lands on a removed shape, on any command before its release (an
-  undo or redo, whose change the release would write over), and on Escape aimed at the canvas (which
-  the press on a handle focuses) without a commit, and after a command or Escape it traps its
-  release's click, so the drawing stays selected; a line the draw tool holds ends with the tool and
-  without a drawing
+  undo or redo, whose change the release would write over), on Escape aimed at the canvas (which
+  the press on a handle focuses) and on the read-only lock (#493) without a commit, and after a
+  command, Escape or the lock it traps its release's click, so the drawing stays selected; a line
+  the draw tool holds ends with the tool and without a drawing
   (`endLine`, #243; Escape commits one of two points or more), and while it is held
   `EventStormingKeyboard` takes the keys that start a gesture at the pointer (L, E, C, Cmd/Ctrl+V)
   without acting (`holdsLine`), and while a point drag runs these, the arrow keys and Cmd/Ctrl+D
@@ -274,8 +274,10 @@ factory option, for keyboard creation from the palette) and connect with
 `connectDiagramJs(shell, diagram, { modeler, isEmpty })`, so the shell
 fits to the renderer's `contentBounds()` (the webview passes its contract instance, the web app
 its `Modeler`); the webview runs on `createCollaborativeModeler` (the tested contract path) and toggles
-the renderer's `eventStormingReadOnly` lock together with `shell.setReadOnly`, the web app keeps
-the canvas's undo keys and replaces a board with an undo toast instead of a confirmation.
+the renderer's `eventStormingReadOnly` lock together with `shell.setReadOnly`, both with the
+shell's `INVALID_STATUS_DELAY_MS` for an invalid file (the spelling-variant dots stay while the
+text is typed, #494), the web app keeps the canvas's undo keys and replaces a board with an undo
+toast instead of a confirmation.
 **Document plumbing** is the shell's ([#46](https://github.com/Miragon/modeler-suite/issues/46)):
 [`boardEditor.ts`](apps/vscode/src/boardEditor.ts) registers the custom editor with
 `registerModelerEditor` of `@miragon/modeler-shell/vscode/extension` (the webview HTML and CSP,
