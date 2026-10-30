@@ -276,6 +276,49 @@ describe("palette skin", () => {
     expect(clicks).toEqual(["click:box", "click:box"]);
   });
 
+  it.each([
+    {
+      how: "made it inert",
+      hide: (container: HTMLElement) => container.setAttribute("inert", ""),
+      show: (container: HTMLElement) => container.removeAttribute("inert"),
+    },
+    {
+      how: "hid it with display: none",
+      hide: (container: HTMLElement) => (container.style.display = "none"),
+      show: (container: HTMLElement) => container.style.removeProperty("display"),
+    },
+  ])(
+    "leaves the keys of an entry to the page once the host $how, before the focus moves off it",
+    ({ hide, show }) => {
+      const diagram = createDiagram();
+      const box = entry(diagram, "create.box");
+      box.focus();
+      const container = diagram.get<{ getContainer(): HTMLElement }>("canvas").getContainer();
+      hide(container);
+      for (const key of ["Enter", " ", "ArrowRight", "ArrowLeft", "Home", "End"]) {
+        expect(press(box, key).defaultPrevented, key).toBe(false);
+      }
+      expect(clicks).toEqual([]);
+      expect(entries(diagram).filter((element) => element.tabIndex === 0)).toEqual([box]);
+
+      show(container);
+      expect(press(box, "Enter").defaultPrevented).toBe(true);
+      expect(clicks).toEqual(["click:box"]);
+    },
+  );
+
+  it("takes the keys of an entry the host hid with visibility: hidden, as the canvas-key guards do", () => {
+    const diagram = createDiagram();
+    const box = entry(diagram, "create.box");
+    box.focus();
+    diagram
+      .get<{ getContainer(): HTMLElement }>("canvas")
+      .getContainer()
+      .style.setProperty("visibility", "hidden");
+    expect(press(box, "Enter").defaultPrevented).toBe(true);
+    expect(clicks).toEqual(["click:box"]);
+  });
+
   it("activates with a synthetic click: detail 0, at the centre of the entry (guide §5.5)", () => {
     const received: MouseEvent[] = [];
     const diagram = createDiagram([

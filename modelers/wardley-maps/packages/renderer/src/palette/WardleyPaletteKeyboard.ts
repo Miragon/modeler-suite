@@ -1,6 +1,7 @@
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Palette from "diagram-js/lib/features/palette/Palette";
 import type { Injector } from "didi";
+import { isKeyAimedAt } from "../a11y/index.js";
 import type WardleyPaletteProvider from "./WardleyPaletteProvider.js";
 
 const ENTRY_SELECTOR = ".djs-palette-entries .entry";
@@ -81,6 +82,10 @@ export default class WardleyPaletteKeyboard {
   private onKeydown(event: KeyboardEvent): void {
     const entry = this.entryOf(event.target);
     if (!entry || event.altKey || event.ctrlKey || event.metaKey) return;
+    // The draw tool's check on its entry: a key it leaves to the page (Chromium sends it to an entry
+    // the host made inert or hid until its next rendering update) would otherwise activate the draw
+    // entry and throw away the line the tool holds.
+    if (!isKeyAimedAt(event, entry)) return;
     const entries = this.entries();
     const index = entries.indexOf(entry);
 

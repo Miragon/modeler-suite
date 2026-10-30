@@ -223,6 +223,52 @@ describe("palette", () => {
     stopTools(target);
   });
 
+  it.each([
+    {
+      how: "made it inert",
+      hide: (host: HTMLElement) => host.setAttribute("inert", ""),
+      show: (host: HTMLElement) => host.removeAttribute("inert"),
+    },
+    {
+      how: "hid it with display: none",
+      hide: (host: HTMLElement) => (host.style.display = "none"),
+      show: (host: HTMLElement) => host.style.removeProperty("display"),
+    },
+  ])(
+    "leaves its keys to the page once the host $how, before the browser moves the focus",
+    async ({ hide, show }) => {
+      const target = mount();
+      await target.importDSL(TEA_SHOP);
+      const entry = target.container.querySelector<HTMLElement>(
+        '.djs-palette .entry[data-action="create.component"]',
+      )!;
+      entry.focus();
+      hide(container!);
+      expect(document.activeElement).toBe(entry);
+      const before = target.exportDSL();
+
+      for (const key of [
+        "Enter",
+        " ",
+        "ArrowRight",
+        "ArrowLeft",
+        "ArrowUp",
+        "ArrowDown",
+        "Home",
+        "End",
+      ]) {
+        expect(pressKey(entry, key).defaultPrevented, key).toBe(false);
+      }
+      expect(target.exportDSL()).toBe(before);
+      expect(target.get<Selection>("selection").get()).toEqual([]);
+      expect(document.activeElement).toBe(entry);
+
+      show(container!);
+      expect(pressKey(entry, "ArrowRight").defaultPrevented).toBe(true);
+      expect(document.activeElement).not.toBe(entry);
+    },
+  );
+
   it("keeps the focus on the entry for Enter, as a toolbar does", async () => {
     const target = mount();
     await target.importDSL(TEA_SHOP);
