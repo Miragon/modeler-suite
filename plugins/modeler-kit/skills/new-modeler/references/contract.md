@@ -125,7 +125,10 @@ both (template:
   The template tells that scroll apart by the pan's drag context during `hand.move.move`, not by
   a flag, which a view listener that throws would leave set. A renderer that adds
   diagram-js's space or global connect tool adds their waiting drags to that list, and refuses a
-  connect whose start shape the import removed, as Value Chain does.
+  connect whose start shape the import removed, as Value Chain does. A renderer that adds
+  diagram-js's AutoScroll keeps it still under a pan (`hand.move`), as Value Chain also does: its
+  scrolls at the canvas edge are view changes the pan did not make, so the re-anchor would keep
+  each of them, and the diagram point would leave the pointer.
 - **An import called during a user's action waits until the action has finished.** A user's action
   is what the diagram does for one input: a drop, the start of a drag, a keyboard create, a click
   append, a label commit, the command of a key, an undo or a redo. A host that imports from
