@@ -4,12 +4,15 @@ export type {
   CustomTextEditorProviderLike,
   DisposableLike,
   EditorWebviewPanelLike,
+  FileUriLike,
   PositionLike,
   RangeLike,
+  SaveDialogOptionsLike,
   TextDocumentChangeEventLike,
   TextDocumentLike,
   UriLike,
   VsCodeEditorLike,
+  VsCodeFilesLike,
   VsCodeLike,
   WebviewLike,
   WebviewPanelLike,
@@ -20,6 +23,20 @@ export { createNonce, renderWebviewHtml } from "./html.js";
 export type { ThemeBridgeOptions } from "./theme-bridge.js";
 export { connectThemeBridge, currentAppearance } from "./theme-bridge.js";
 export { revealFileLabel } from "./reveal.js";
+export type {
+  ExportKind,
+  ExportToFileOptions,
+  FileCommandMessageOverrides,
+  FileCommandMessages,
+  NewDocumentOptions,
+} from "./file-commands.js";
+export {
+  IMAGE_EXPORT_KINDS,
+  createNewDocument,
+  defaultFileCommandMessages,
+  exportToFile,
+  registerNewDocumentCommand,
+} from "./file-commands.js";
 export type { LineEdit } from "./text-lines.js";
 export { minimalLineEdit, splitLines } from "./text-lines.js";
 export type {

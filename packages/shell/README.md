@@ -44,8 +44,9 @@ The modeler brings what the shell styles against and draws into:
 - **the fonts** Geist and Geist Mono, bundled locally, for example `@fontsource-variable/geist` and
   `@fontsource-variable/geist-mono` (no CDN);
 - for `./vscode/extension`: **VS Code 1.90 or later**, whose extension host runs Node 20 (the global
-  `crypto` that `createNonce` uses; the types are tested against `@types/vscode` 1.96). Declare
-  `engines.vscode` accordingly and target `node20` in the extension-host bundle.
+  `crypto` that `createNonce` uses and the global `atob` of `exportToFile`; the types are tested
+  against `@types/vscode` 1.96). Declare `engines.vscode` accordingly and target `node20` in the
+  extension-host bundle.
 
 Stylesheets, in this order. The tokens come first, unless the renderer's stylesheet already imports
 them (Event Storming's does), and are never loaded twice:
@@ -78,7 +79,7 @@ expect(Object.keys(vendoredTokens.shell)).toEqual(
 | `@miragon/modeler-shell`                         | `mountShell`, the dialogs, icons, and everything of `./core`                        |
 | `@miragon/modeler-shell/core`                    | DOM-free: fit math, keymap, zoom readout, appearance, sizes                         |
 | `@miragon/modeler-shell/diagram-js`              | `shellModule`, the viewport, `connectDiagramJs`                                     |
-| `@miragon/modeler-shell/vscode/extension`        | webview HTML with CSP and nonce, theme bridge, the document plumbing (0.8)          |
+| `@miragon/modeler-shell/vscode/extension`        | webview HTML with CSP and nonce, theme bridge, document plumbing, file commands     |
 | `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state, document sync (0.8)          |
 | `@miragon/modeler-shell/export`                  | the PNG export: `svgToPng`, its labels in Geist                                     |
 | `@miragon/modeler-shell/testing`                 | the Playwright-driven shell conformance kit                                         |
@@ -101,7 +102,12 @@ own.
 
 ```ts
 import * as vscode from "vscode";
-import { registerModelerEditor } from "@miragon/modeler-shell/vscode/extension";
+import {
+  IMAGE_EXPORT_KINDS,
+  exportToFile,
+  registerModelerEditor,
+  registerNewDocumentCommand,
+} from "@miragon/modeler-shell/vscode/extension";
 
 // activate(): the custom text editor, its HTML, theme bridge, document sync and problems pill
 const editors = registerModelerEditor(vscode, context, {
@@ -114,10 +120,31 @@ const editors = registerModelerEditor(vscode, context, {
     refresh: (document: vscode.TextDocument) => ({ count: refresh(document), errors: 0 }),
   },
   onMessage: (message, editor) => {
-    if (message.type === "export") return exportToFile(editor.document.uri, message);
+    // 0.9: the save dialog beside the map, the write and "Exported map.png." with Reveal in Finder
+    if (message.type === "export") {
+      return exportToFile(vscode, {
+        kind: IMAGE_EXPORT_KINDS[message.format],
+        data: message.data,
+        sourceUri: editor.document.uri,
+        defaultName: "wardley-map",
+        fontFallback: message.fontFallback === true,
+        platform: process.platform,
+      });
+    }
   },
 });
-context.subscriptions.push(editors);
+context.subscriptions.push(
+  editors,
+  // 0.9: "New Wardley Map from Example" saves the example as a new file and opens it in the editor
+  registerNewDocumentCommand(vscode, "wardley.newMapFromExample", {
+    viewType: "wardley.mapEditor",
+    text: EXAMPLE_MAP,
+    title: "New Wardley Map",
+    saveLabel: "Create map",
+    filters: { "Wardley Map": ["wmap", "owm"] },
+    defaultFileName: "wardley-map.wmap",
+  }),
+);
 // Command Palette: editors.runCommand("fitView") posts to the focused editor;
 // editors.revealActiveDocument() shows the one focused last (Open Source to the Side)
 ```
@@ -133,6 +160,14 @@ as well (`createDocumentWriter`, `minimalLineEdit`, `renderWebviewHtml`, `connec
 an editor the plumbing does not cover, such as a PNG editor. A bridge's disposable is only for ending
 it before the panel closes; never push it into `context.subscriptions`, which would keep one dead
 bridge per opened editor until the extension deactivates.
+
+The file commands (0.9) are the save dialogs around the editor (guide §13.5). `exportToFile`
+suggests the document's name beside it, writes the file the webview rendered and names it in a
+notification with the action that shows it, labelled like VS Code ("Reveal in Finder"), or reports
+a file it cannot write. `registerNewDocumentCommand` registers "New …" or "New … from Example": a
+save dialog in the first workspace folder, the empty document or the example written as a real
+file, opened with `vscode.openWith` in the modeler. The modeler names its export kinds (the image
+kinds are `IMAGE_EXPORT_KINDS`), its commands and its example.
 
 Bundle the fonts as files next to the webview bundle, not as data URLs: with esbuild
 `loader: { ".woff2": "file", ".woff": "file" }` and `assetNames: "fonts/[name]-[hash]"` the browser
@@ -267,7 +302,8 @@ Storming extension on the document plumbing, including the export notification, 
 [API.md][api]. Since 0.8 the document sync, the undo through the document and the problems pill
 are the shell's (`registerModelerEditor` and `connectDocumentSync`) in the extensions of all five
 modelers, for every editor but the two PNG editors (`.cm.png`, `.tt.png` / `.ttm.png`); the
-modeler keeps its diagnostics and the export's save dialog.
+modeler keeps its diagnostics. The save dialogs of its exports and "New …" commands can be the
+shell's since 0.9 (`exportToFile`, `registerNewDocumentCommand`).
 
 ## Usage in a web app
 
