@@ -27,10 +27,18 @@ function tooltipHarness(initialEntries: PaletteEntries) {
   };
 }
 
-function paletteEntryElement(action: string, rect: Partial<DOMRect> = {}): HTMLElement {
+function paletteEntryElement(
+  action: string,
+  rect: Partial<DOMRect> = {},
+  island: Partial<DOMRect> | null = null,
+): HTMLElement {
   return {
     getAttribute: (name: string) => (name === "data-action" ? action : null),
     getBoundingClientRect: () => rect,
+    closest: (selector: string) =>
+      island && selector === '.djs-palette:not([data-chrome="palette"])'
+        ? { getBoundingClientRect: () => island }
+        : null,
   } as unknown as HTMLElement;
 }
 
@@ -52,19 +60,34 @@ describe("EventStormingPaletteTooltip", () => {
   });
 
   // The palette is a horizontal bar: diagram-js' default right-hand placement would cover the
-  // neighbouring entry, so the tooltip hangs below, centred on the hovered entry.
-  it("places the tooltip below the hovered entry, horizontally centred", () => {
+  // neighbouring entry, so the tooltip hangs 8px below the island, centred on the hovered entry
+  // (guide §5.6: at 60px, the island ending at 52px and its entries 4px higher).
+  it("places the tooltip 8px below the palette's island, centred on the hovered entry", () => {
+    const { config } = tooltipHarness(ENTRIES);
+    const entry = paletteEntryElement(
+      "create.event",
+      { left: 100, width: 32, top: 16, height: 32, bottom: 48 },
+      { top: 12, height: 40, bottom: 52 },
+    );
+    expect(config.getPosition(entry)).toEqual({
+      x: 116,
+      y: 52 + PALETTE_TOOLTIP_GAP,
+      placement: "bottom",
+    });
+  });
+
+  it("places the tooltip below the entry itself in a palette a chrome skins", () => {
     const { config } = tooltipHarness(ENTRIES);
     const entry = paletteEntryElement("create.event", {
-      left: 100,
-      width: 40,
-      top: 12,
-      height: 40,
-      bottom: 52,
+      left: 20,
+      width: 46,
+      top: 66,
+      height: 46,
+      bottom: 112,
     });
     expect(config.getPosition(entry)).toEqual({
-      x: 120,
-      y: 52 + PALETTE_TOOLTIP_GAP,
+      x: 43,
+      y: 112 + PALETTE_TOOLTIP_GAP,
       placement: "bottom",
     });
   });
