@@ -19,7 +19,7 @@ commit and decides which jobs it can break:
 | Changed path                                                                                                   | Runs                                                    |
 | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | `modelers/<m>/**`                                                                                              | the jobs of modeler `<m>`                               |
-| `modelers/<m>/plugins/**`                                                                                      | the jobs of modeler `<m>` and the shared jobs           |
+| `modelers/<m>/plugins/**`, the manifests and configs of `<m>` named below                                      | the jobs of modeler `<m>` and the shared jobs           |
 | `packages/**`, `.github/**`, root `package.json`, `package-lock.json`, `.npmrc`, any other root file or folder | the shared jobs, the template job and all five modelers |
 | `plugins/modeler-kit/**`                                                                                       | the shared jobs and the template job                    |
 | `plugins/**`, `test/**`, `.claude-plugin/**`                                                                   | the shared jobs                                         |
@@ -27,7 +27,12 @@ commit and decides which jobs it can break:
 
 Markdown elsewhere is no documentation here: skills under `plugins/` feed drift tests, and a
 package or an extension ships its README. A modeler's Claude plugin reaches the shared jobs because
-`test:plugin` checks the manifest and the skills of every plugin in the marketplace. The template
+`test:plugin` checks the manifest and the skills of every plugin in the marketplace. So do the files
+of a modeler that the other repository-level checks hold against the rest of the suite: the
+`package.json` of the modeler and of each of its workspaces (`packages/*`, `apps/*`, `e2e`), read
+by the release config, extension pack and boundary checks; every `eslint.config.*` in it (the
+nearest one of a file wins) and its `.dependency-cruiser.cjs`, read by the boundary checks; and a
+`.miragon/` folder at any depth, which would replace the suite's one brand-lint config. The template
 job also runs when the design-system files it borrows change
 (`modelers/event-storming/packages/renderer/src/theme/**`). A run without a base commit (started
 by hand, a new branch) and a base that cannot be fetched run everything; so does any path no rule

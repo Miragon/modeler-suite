@@ -107,11 +107,21 @@ reaches_template() {
   esac
 }
 
-# test:plugin (in shared-test) checks the manifest and the skills of every plugin the marketplace
-# lists, the modelers' own plugins included; a modeler's own jobs never read its plugin.json. A `*`
-# of a case pattern also matches `/`, so a regex keeps a plugins/ folder deeper in a modeler out.
-reaches_plugin_tests() {
-  [[ "$1" =~ ^modelers/[^/]+/plugins/ ]]
+# test:plugin (in shared-test) runs the repository-level checks in test/, which hold these files of
+# a modeler against the rest of the suite, as its own jobs never do: its Claude plugin (the
+# manifests and skills of the marketplace), the package.json of the modeler and of each workspace
+# in it (release config, extension pack, boundaries), its ESLint configs (boundaries; the nearest
+# config of a file wins, so at any depth) and its dependency-cruiser config (boundaries), and a
+# .miragon folder at any depth (a second brand-lint config). A `*` of a case pattern also matches
+# `/`, so regexes keep the same names deeper in a modeler out.
+reaches_repository_tests() {
+  local plugin='^modelers/[^/]+/plugins/'
+  local manifest='^modelers/[^/]+/((packages|apps)/[^/]+/|e2e/)?package\.json$'
+  local eslint_config='^modelers/[^/]+/(.+/)?eslint\.config\.[^/]+$'
+  local dependency_cruiser_config='^modelers/[^/]+/\.dependency-cruiser\.cjs$'
+  local brand_lint_config='^modelers/[^/]+/(.+/)?\.miragon/'
+  [[ "$1" =~ $plugin || "$1" =~ $manifest || "$1" =~ $eslint_config ||
+    "$1" =~ $dependency_cruiser_config || "$1" =~ $brand_lint_config ]]
 }
 
 affected() {
@@ -125,8 +135,8 @@ affected() {
       reach=$(classify "$path")
       echo "$path: $reach"
       if reaches_template "$path"; then template=true; fi
-      if reaches_plugin_tests "$path"; then
-        echo "$path: shared (the plugin tests)"
+      if reaches_repository_tests "$path"; then
+        echo "$path: shared (the repository-level tests)"
         shared=true
       fi
       case "$reach" in
