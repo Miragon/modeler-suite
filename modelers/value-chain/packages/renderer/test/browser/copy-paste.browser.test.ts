@@ -167,8 +167,8 @@ function pointAt(at: Point): void {
 
 /** The pointer leaves the canvas, so a paste has no pointer to follow (the keyboard alone). */
 function leaveCanvas(): void {
-  service<Canvas>("canvas")
-    .getContainer()
+  pointer
+    .canvasSvg()
     .dispatchEvent(new MouseEvent("mouseleave", { bubbles: false, cancelable: false }));
 }
 
@@ -442,6 +442,49 @@ describe("where a paste lands", () => {
     expect(selectedIds()).toEqual(["step-credit"]);
   });
 
+  it.each([
+    ["an undo", (): void => void press("Undo")],
+    ["an import", (): Promise<unknown> => editor().importText(ORDER_TO_CASH)],
+  ])(
+    "after a cut that %s took back, a paste lands one offset off the original, not on it",
+    async (_, takeBack) => {
+      const before = exported();
+      select(["step-delivery"]);
+      press("Cut");
+
+      await takeBack();
+      pointer.canvasSvg().focus();
+      leaveCanvas();
+      press("Paste");
+      press("Paste");
+
+      const delivery = named(before.elements, "Delivery");
+      expect(has("step-delivery")).toBe(true);
+      const offsets = addedSince(before)
+        .elements.map((copy) => copy.bounds.x - delivery.bounds.x)
+        .sort((left, right) => left - right);
+      expect(offsets).toEqual([PASTE_OFFSET, 2 * PASTE_OFFSET]);
+    },
+  );
+
+  it("with the pointer resting on the palette, a paste lands next to the original", async () => {
+    const before = exported();
+    select(["step-credit"]);
+    press("Copy");
+    await userEvent.hover(pointer.canvasSvg(), { position: { x: 500, y: 400 } });
+    await userEvent.hover(editor().diagram.container.querySelector(".djs-palette")!);
+    pointer.canvasSvg().focus();
+
+    press("Paste");
+
+    expect(editor().interaction.active()).toBe(false);
+    expect(changes).toBe(1);
+    const [credit] = addedSince(before).elements;
+    expect(credit).toEqual(
+      shifted(named(before.elements, "Credit check"), PASTE_OFFSET, credit!.id),
+    );
+  });
+
   it("Cmd/Ctrl+D and X typed on the real keyboard act as the dispatched keys do", async () => {
     const before = exported();
     select(["step-stock"]);
@@ -513,6 +556,30 @@ describe("imports", () => {
       expect(selectedWhenImported.length).toBe(action === "Cut" ? 0 : 3);
       expect(changes).toBe(1);
       expect(canUndo()).toBe(false);
+    },
+  );
+});
+
+describe("a host that destroys the modeler", () => {
+  it.each<EditAction>(["Paste", "Duplicate", "Cut"])(
+    "from the change listener of %s gets no error and the document the keys made",
+    (action) => {
+      const before = exported();
+      select(["step-credit", "step-delivery", "seq-2"]);
+      press("Copy");
+      leaveCanvas();
+      let atDestroy: ValueChainDocument | undefined;
+      editor().onContentChanged(() => {
+        atDestroy = exported();
+        editor().destroy();
+      });
+
+      expect(press(action).defaultPrevented).toBe(true);
+
+      expect(changes).toBe(1);
+      const shapesMore = action === "Cut" ? -2 : 2;
+      expect(atDestroy?.elements).toHaveLength(before.elements.length + shapesMore);
+      expect(parseDocumentJSON(editor().exportText())).toEqual(atDestroy);
     },
   );
 });

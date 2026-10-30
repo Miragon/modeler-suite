@@ -148,11 +148,13 @@ missing at its other places; the verdict stays the same).
 - Mutations funnel through `vcModeling.updateProperties` (one undoable command handler).
 - Copy and paste (#286): `copy-paste/VcCopyPaste` replaces diagram-js's `copyPaste`, `VcRules`
   allows `element.copy` for steps, org units and relations (diagram-js keeps a relation only
-  with both ends), `VcCopyPasteBehavior` carries `vcType`, `vcLabel`, `color` and `link`, and the
-  element factory gives the copies fresh ids. A paste follows the pointer while it is on the
-  canvas (a `create` gesture, so an import ends it); without it, and always for a duplicate, the
-  copy lands `PASTE_OFFSET` (20) right and down from the original, the n-th paste after a copy n
-  times as far, the first paste after a cut in place, as one `elements.create` command, selected. Under
+  with both ends, and its cut removes only what it copied), `VcCopyPasteBehavior` carries
+  `vcType`, `vcLabel`, `color` and `link` (no vendor extensions), and the element factory gives
+  the copies fresh ids. A paste follows the pointer while it is on the canvas `<svg>` (a `create`
+  gesture, so an import ends it); without it, and always for a duplicate, the copy lands
+  `PASTE_OFFSET` (20) right and down from the original, the n-th paste after a copy n times as
+  far, the first paste after a cut in place unless an original is back (undo, import), as one
+  `elements.create` command, selected unless a change listener destroyed the modeler. Under
   `vcReadOnly` copy works and cut, paste and duplicate do nothing
   (`test/browser/copy-paste.browser.test.ts`).
 - `modeling/VcLayouter` + `CroppingConnectionDocking` crop connections at the chevron

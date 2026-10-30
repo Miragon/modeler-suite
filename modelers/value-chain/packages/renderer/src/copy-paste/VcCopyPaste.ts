@@ -5,6 +5,7 @@ import CopyPaste, {
 } from "diagram-js/lib/features/copy-paste/CopyPaste";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementFactory from "diagram-js/lib/core/ElementFactory";
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Clipboard from "diagram-js/lib/features/clipboard/Clipboard";
 import type Create from "diagram-js/lib/features/create/Create";
@@ -24,6 +25,7 @@ export const PASTE_OFFSET = 20;
 
 /** A copied element as diagram-js keeps it in the clipboard. */
 interface Descriptor {
+  id?: string;
   x?: number;
   y?: number;
   width?: number;
@@ -38,7 +40,8 @@ interface Descriptor {
  * - A paste follows the pointer while it is on the canvas, until a click places it (Escape ends
  *   it). Without the pointer there (the keyboard alone) the copy lands next to what was copied,
  *   one offset further with each paste, and the first paste after a cut lands where the cut
- *   elements were.
+ *   elements were, unless they are back (an undo or an import), so a copy never hides under its
+ *   original.
  * - A duplicate always lands next to the original, so it never waits for a click.
  * - What a paste or a duplicate places is selected.
  */
@@ -53,10 +56,12 @@ export default class VcCopyPaste extends CopyPaste {
     "mouse",
     "rules",
     "selection",
+    "elementRegistry",
   ];
 
   private pointerOnCanvas = false;
   private offsetsOfNextPaste = 1;
+  private destroyed = false;
 
   constructor(
     private readonly diagramCanvas: Canvas,
@@ -68,6 +73,7 @@ export default class VcCopyPaste extends CopyPaste {
     mouse: Mouse,
     rules: Rules,
     private readonly selection: Selection,
+    private readonly elementRegistry: ElementRegistry,
   ) {
     super(
       diagramCanvas,
@@ -79,10 +85,10 @@ export default class VcCopyPaste extends CopyPaste {
       mouse,
       rules,
     );
-    // diagram-js's mouse remembers only the last move over the canvas, also once the pointer has
-    // left it, and makes up one at the page's corner before the first.
-    const container = diagramCanvas.getContainer();
-    const svg = container.querySelector<SVGSVGElement>(":scope > svg");
+    // diagram-js's mouse remembers only the last move over the canvas <svg>, also once the pointer
+    // has left it for the palette, an overlay or the page, and makes up one at the page's corner
+    // before the first.
+    const svg = diagramCanvas.getContainer().querySelector<SVGSVGElement>(":scope > svg");
     const onPointerMove = (): void => {
       this.pointerOnCanvas = true;
     };
@@ -90,10 +96,11 @@ export default class VcCopyPaste extends CopyPaste {
       this.pointerOnCanvas = false;
     };
     svg?.addEventListener("mousemove", onPointerMove);
-    container.addEventListener("mouseleave", onPointerLeave);
+    svg?.addEventListener("mouseleave", onPointerLeave);
     eventBus.on("diagram.destroy", () => {
+      this.destroyed = true;
       svg?.removeEventListener("mousemove", onPointerMove);
-      container.removeEventListener("mouseleave", onPointerLeave);
+      svg?.removeEventListener("mouseleave", onPointerLeave);
     });
   }
 
@@ -112,8 +119,11 @@ export default class VcCopyPaste extends CopyPaste {
   override paste(context: PasteContext = {}): Element[] {
     if (isDirect(context) || this.pointerOnCanvas) return super.paste(context);
     const tree: Tree = context.tree ?? this.elementClipboard.get();
-    const pasted = this.pasteNextTo(tree, this.offsetsOfNextPaste, context.hints);
-    if (pasted) this.offsetsOfNextPaste += 1;
+    const offsets = this.isAnyOriginalOnCanvas(tree)
+      ? Math.max(this.offsetsOfNextPaste, 1)
+      : this.offsetsOfNextPaste;
+    const pasted = this.pasteNextTo(tree, offsets, context.hints);
+    if (pasted) this.offsetsOfNextPaste = offsets + 1;
     return pasted as Element[];
   }
 
@@ -143,8 +153,16 @@ export default class VcCopyPaste extends CopyPaste {
     const pasted = super.paste({ tree, hints: { ...hints }, element, point }) as
       Element[] | undefined;
     if (!pasted?.length) return undefined;
-    this.selection.select(pasted);
+    // A host may destroy the modeler from its change listener, which the paste's command calls.
+    if (!this.destroyed) this.selection.select(pasted);
     return pasted;
+  }
+
+  private isAnyOriginalOnCanvas(tree: Tree): boolean {
+    return descriptorsOf(tree).some(
+      (descriptor) =>
+        descriptor.id !== undefined && this.elementRegistry.get(descriptor.id) !== undefined,
+    );
   }
 }
 
