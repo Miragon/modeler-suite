@@ -35,9 +35,9 @@ export default class VcCanvasKeys {
 }
 
 /**
- * A key inside an `inert` subtree or below an ancestor with `display: none` stays the page's too:
- * Chromium moves the focus off an element the host made inert or hid only at its next rendering
- * update, so until then the key still reaches the canvas.
+ * A key inside an `inert` subtree or below an ancestor with `display: none` or `visibility: hidden`
+ * stays the page's too: Chromium moves the focus off an element the host made inert or hid only at
+ * its next rendering update, so until then the key still reaches the canvas.
  */
 function isCanvasKey(event: KeyboardEvent, canvasContainer: HTMLElement): boolean {
   return (
@@ -53,9 +53,25 @@ function liesInInertSubtree(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest("[inert]") !== null;
 }
 
-/** Without `checkVisibility` (Safari before 17.4) the browser's focus fixup alone has to do. */
+/**
+ * Whether a key reaches an element the host made inert or hid, before the browser moved the focus
+ * off it. The diagram's own chrome (the label editor, the palette toolbar) leaves such a key to the
+ * page, as the canvas does.
+ */
+export function isKeyOnHiddenTarget(event: Event): boolean {
+  const target = event.target;
+  return liesInInertSubtree(target) || (target instanceof Element && !isRendered(target));
+}
+
+/**
+ * `opacity: 0` keeps the focus and the keys. Without `checkVisibility` (Safari before 17.4) the
+ * browser's focus fixup alone has to do.
+ */
 function isRendered(element: Element): boolean {
-  return typeof element.checkVisibility !== "function" || element.checkVisibility();
+  return (
+    typeof element.checkVisibility !== "function" ||
+    element.checkVisibility({ visibilityProperty: true })
+  );
 }
 
 /** Enter or Space on an entry dispatches a click without a pointer, so its detail is 0. */

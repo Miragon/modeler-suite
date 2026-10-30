@@ -186,7 +186,7 @@ for (const hide of ["display: none", "inert", "nothing"] as const) {
   });
 }
 
-for (const hide of ["inert", "display: none"] as const) {
+for (const hide of ["inert", "display: none", "visibility: hidden"] as const) {
   test(`a key that reaches the canvas before the browser moves the focus off it passes, once the host set ${hide} on its container`, () => {
     const { modeler, container, svg } = mount();
     try {
@@ -194,7 +194,8 @@ for (const hide of ["inert", "display: none"] as const) {
       select(modeler, "team_a");
       svg.focus();
       if (hide === "inert") container.inert = true;
-      else container.style.display = "none";
+      else if (hide === "display: none") container.style.display = "none";
+      else container.style.visibility = "hidden";
       expect(document.activeElement).toBe(svg);
 
       for (const init of [

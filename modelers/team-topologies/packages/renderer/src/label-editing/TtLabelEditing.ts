@@ -30,6 +30,7 @@ import type TtModeling from "../modeling/TtModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type TtReadOnly } from "../read-only/index.js";
 import { LINE_HEIGHT, labelLayout } from "../draw/label-layout.js";
 import { FONT } from "../draw/styles.js";
+import { isKeyOnHiddenTarget } from "../keyboard/TtKeyboard.js";
 
 /** Canvas marker that hides the rendered label while its editor is open. */
 const EDITING_MARKER = "tt-label-editing";
@@ -218,7 +219,7 @@ export default class TtLabelEditing {
     };
     // Removing the focused editor would drop focus to the page; keep keyboard users on the canvas.
     const onKey = (e: KeyboardEvent) => {
-      if (isImeCompositionKey(e)) return;
+      if (isImeCompositionKey(e) || isKeyOnHiddenTarget(e)) return;
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         commit();

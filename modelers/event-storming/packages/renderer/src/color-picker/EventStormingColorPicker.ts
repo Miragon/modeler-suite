@@ -3,6 +3,7 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 import type EventStormingModeling from "../modeling/EventStormingModeling.js";
 import { STICKY_KINDS, type EventStormingShape } from "../model/di-types.js";
 import { STICKY_STYLES } from "../draw/styles.js";
+import { isKeyOnHiddenTarget } from "../keyboard/index.js";
 
 /** The 8 swatches = the 8 sticky fills (recolor any element into another kind's tone). */
 const SWATCHES: ReadonlyArray<{ value: string; title: string }> = STICKY_KINDS.map((kind) => ({
@@ -25,7 +26,7 @@ export default class EventStormingColorPicker {
     if (this.popover && !this.popover.contains(e.target as Node)) this.close();
   };
   private readonly onKey = (e: KeyboardEvent): void => {
-    if (e.key === "Escape") this.close();
+    if (e.key === "Escape" && !isKeyOnHiddenTarget(e)) this.close();
   };
 
   constructor(

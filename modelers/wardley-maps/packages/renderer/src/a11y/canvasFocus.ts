@@ -12,8 +12,8 @@ export function canvasSvg(canvas: Canvas): SVGElement | null {
  * Whether a keydown is aimed at `root` or an element inside it and still free to act on. A keydown
  * without a key (autofill), one a listener before this one took, and IME composition stay with the
  * page, and so does a key inside an `inert` subtree or on a `root` that an ancestor with
- * `display: none` hides: Chromium moves the focus off an element the host made inert or hid only at
- * its next rendering update, so until then the key still reaches it.
+ * `display: none` or `visibility: hidden` hides: Chromium moves the focus off an element the host
+ * made inert or hid only at its next rendering update, so until then the key still reaches it.
  */
 export function isKeyAimedAt(event: KeyboardEvent, root: Node | null | undefined): boolean {
   const target = event.target;
@@ -26,6 +26,16 @@ export function isKeyAimedAt(event: KeyboardEvent, root: Node | null | undefined
     !liesInInertSubtree(target) &&
     isRendered(root)
   );
+}
+
+/**
+ * Whether a key reaches an element the host made inert or hid, before the browser moved the focus
+ * off it. The map's own chrome (context pad, editors, popovers, colour picker) leaves such a key to
+ * the page, as the canvas and the palette do.
+ */
+export function isKeyOnHiddenTarget(event: Event): boolean {
+  const target = event.target;
+  return target instanceof Node && (liesInInertSubtree(target) || !isRendered(target));
 }
 
 function liesInInertSubtree(node: Node): boolean {
@@ -43,12 +53,15 @@ export function isCanvasKey(event: KeyboardEvent, canvas: Canvas): boolean {
   return isKeyAimedAt(event, canvasSvg(canvas));
 }
 
-/** Without `checkVisibility` (Safari before 17.4) the browser's focus fixup alone has to do. */
+/**
+ * `opacity: 0` keeps the focus and the keys. Without `checkVisibility` (Safari before 17.4) the
+ * browser's focus fixup alone has to do.
+ */
 function isRendered(node: Node): boolean {
   return (
     !(node instanceof Element) ||
     typeof node.checkVisibility !== "function" ||
-    node.checkVisibility()
+    node.checkVisibility({ visibilityProperty: true })
   );
 }
 

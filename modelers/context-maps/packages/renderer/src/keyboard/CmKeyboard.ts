@@ -26,9 +26,9 @@ export interface CmKeyboardConfig {
 }
 
 /**
- * A canvas inside an `inert` subtree or below an ancestor with `display: none` takes no key either:
- * Chromium moves the focus off an element the host made inert or hid only at its next rendering
- * update, so until then the key still reaches it.
+ * A canvas inside an `inert` subtree or below an ancestor with `display: none` or
+ * `visibility: hidden` takes no key either: Chromium moves the focus off an element the host made
+ * inert or hid only at its next rendering update, so until then the key still reaches it.
  */
 function isKeyForCanvas(event: KeyboardEvent, svg: SVGElement | null): boolean {
   const target = event.target;
@@ -43,9 +43,28 @@ function isKeyForCanvas(event: KeyboardEvent, svg: SVGElement | null): boolean {
   );
 }
 
-/** Without `checkVisibility` (Safari before 17.4) the browser's focus fixup alone has to do. */
-function isRendered(element: SVGElement): boolean {
-  return typeof element.checkVisibility !== "function" || element.checkVisibility();
+/**
+ * Whether a key reaches an element the host made inert or hid, before the browser moved the focus
+ * off it. The map's own chrome (the label editor, the context pad's description field) leaves such
+ * a key to the page, as the canvas does.
+ */
+export function isKeyOnHiddenTarget(event: Event): boolean {
+  const target = event.target;
+  return (
+    target instanceof globalThis.Element &&
+    (target.closest("[inert]") !== null || !isRendered(target))
+  );
+}
+
+/**
+ * `opacity: 0` keeps the focus and the keys. Without `checkVisibility` (Safari before 17.4) the
+ * browser's focus fixup alone has to do.
+ */
+function isRendered(element: globalThis.Element): boolean {
+  return (
+    typeof element.checkVisibility !== "function" ||
+    element.checkVisibility({ visibilityProperty: true })
+  );
 }
 
 export default class CmKeyboard {

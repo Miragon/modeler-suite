@@ -41,6 +41,7 @@ import type TtLabelEditing from "../label-editing/TtLabelEditing.js";
 import type TtModeling from "../modeling/TtModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type TtReadOnly } from "../read-only/index.js";
 import { handFocusToCanvas, watchDroppedFocus } from "../keyboard/canvasFocus.js";
+import { isKeyOnHiddenTarget } from "../keyboard/TtKeyboard.js";
 import {
   ICON_LINK,
   ICON_MESSAGE_SQUARE_PLUS,
@@ -152,7 +153,8 @@ export default class TtContextPadProvider implements ContextPadProvider {
   }
 
   private onEntryKeyDown(event: KeyboardEvent): void {
-    if ((event.key !== "Enter" && event.key !== " ") || event.repeat) return;
+    if ((event.key !== "Enter" && event.key !== " ") || event.repeat || isKeyOnHiddenTarget(event))
+      return;
     const entry = (event.target as HTMLElement | null)?.closest?.(ENTRY_SELECTOR);
     const action = entry?.getAttribute("data-action");
     if (!action) return;

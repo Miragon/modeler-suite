@@ -1,6 +1,7 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Palette from "diagram-js/lib/features/palette/Palette";
+import { isKeyOnHiddenTarget } from "../keyboard/VcCanvasKeys.js";
 
 const TOOLBAR_LABEL = "Tools";
 const TOOLS_GROUP = "tools";
@@ -129,7 +130,7 @@ export default class VcPaletteToolbar {
     if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
       return;
     const entry = this.entryOf(event.target);
-    if (!entry || this.skinnedByChrome()) return;
+    if (!entry || this.skinnedByChrome() || isKeyOnHiddenTarget(event)) return;
     const entries = this.entryElements();
     const index = entries.indexOf(entry);
     const last = entries.length - 1;

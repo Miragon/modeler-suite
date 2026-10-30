@@ -5,6 +5,7 @@ import type { Injector } from 'didi';
 import { isNodeShape, type NodeShape } from '../model/di-types.js';
 import type DomainModeling from '../modeling/DomainModeling.js';
 import { FONT } from '../draw/styles.js';
+import { isKeyOnHiddenTarget } from '../keyboard/CanvasKeys.js';
 
 /** A label edit open right now: the element's id and the text typed so far, not yet committed. */
 export interface OpenLabelEdit {
@@ -64,6 +65,7 @@ export default class LabelEditing {
     field.setAttribute('aria-label', 'Label');
     field.value = element.elementLabel;
     field.addEventListener('keydown', (event) => {
+      if (isKeyOnHiddenTarget(event)) return;
       event.stopPropagation();
       if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
         event.preventDefault();

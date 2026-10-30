@@ -5,7 +5,7 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
 import type { WardleyShape } from "../model/di-types.js";
 import { NOTE_COLORS } from "../draw/styles.js";
-import { isCanvasKey, isKeyAimedAt } from "../a11y/index.js";
+import { isCanvasKey, isKeyAimedAt, isKeyOnHiddenTarget } from "../a11y/index.js";
 
 /** Must match `grid-template-columns` of `.wardley-color-picker` (arrow-key navigation). */
 const GRID_COLUMNS = 3;
@@ -135,6 +135,7 @@ export default class WardleyColorPicker {
   }
 
   private onGridKeydown(event: KeyboardEvent, buttons: HTMLButtonElement[]): void {
+    if (isKeyOnHiddenTarget(event)) return;
     const step = GRID_STEPS[event.key];
     const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
     let next: number | undefined;

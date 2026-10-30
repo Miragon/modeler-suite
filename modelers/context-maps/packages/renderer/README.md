@@ -269,10 +269,11 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
   focus to the canvas, so Delete and `Cmd/Ctrl+Z` act at once; Enter or Space leave it on the entry,
   unless the entry goes away with its action. Append opens the subdomain-type menu, which takes the
   focus and hands it to the canvas when it closes.
-- A host that hides the canvas without destroying the modeler makes its container `inert` or
-  `display: none`, not only transparent: the browser moves the focus off the `<svg>` at its next
-  rendering update, and a key that reaches the `<svg>` before then passes too. There is no separate
-  switch to pause the keyboard.
+- A host that hides the canvas without destroying the modeler makes its container `inert` or hides
+  it with `display: none` or `visibility: hidden`, not only transparent: the browser moves the
+  focus off the `<svg>` at its next rendering update, and a key that reaches the `<svg>`, the name
+  editor or the description editor before then passes too: nothing is saved or closed. There is no
+  separate switch to pause the keyboard.
 
 ### Helpers & types
 

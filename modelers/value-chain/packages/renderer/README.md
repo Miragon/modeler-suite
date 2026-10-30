@@ -142,9 +142,11 @@ false. `diagramShortcuts()` lists them for a dialog.
   the original, one step further with each paste. The first paste after a cut lands where the cut
   elements were, unless an undo or an import brought them back. Duplicate places its copy 20 px
   off the original at once. Each is one undo step, and what it placed is selected.
-- A host that hides the canvas without destroying the modeler makes its container `inert` or
-  `display: none`, not only transparent: the browser moves the focus off the `<svg>` at its next
-  rendering update, and a key that reaches the `<svg>` before then passes too.
+- A host that hides the canvas without destroying the modeler makes its container `inert` or hides
+  it with `display: none` or `visibility: hidden`, not only transparent: the browser moves the
+  focus off the `<svg>` at its next rendering update, and a key that reaches the `<svg>`, the label
+  editor or the palette toolbar before then passes too: nothing is created, saved or closed, and
+  the focus stays where it is.
 
 ## Palette
 
