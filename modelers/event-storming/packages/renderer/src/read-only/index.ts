@@ -12,4 +12,5 @@ export const eventStormingReadOnlyModule: ModuleDeclaration = {
 export {
   default as EventStormingReadOnly,
   READ_ONLY_CHANGED_EVENT,
+  type EventStormingReadOnlyOptions,
 } from "./EventStormingReadOnly.js";

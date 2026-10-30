@@ -178,9 +178,9 @@ guide (§5.5, §5.6) from the renderer:
   tool while it is armed and `aria-keyshortcuts` on the entries with a key; the keyboard focus is a
   2px `--cd-ui-fokus` ring, 3px in high contrast, and a press on the island's padding gives the
   focus to the canvas;
-- under the read-only lock (below), `aria-disabled` on every entry but the lasso (guide §13.5):
-  still in the tab order, without a hover, the tool icons in `--cd-ui-text-leise` and the sticky
-  previews grey;
+- under the read-only lock (below), once its marks show, `aria-disabled` on every entry but the
+  lasso (guide §13.5): still in the tab order, without a hover, the tool icons in
+  `--cd-ui-text-leise` and the sticky previews grey;
 - the tooltip (`role="tooltip"`) with the entry's name and key 8px below the palette, centred on its
   entry and 12px from the container's sides, at most `min(280px, 100% - 24px)` wide: after 300ms of
   hover, at once on keyboard focus and for a neighbour while one is shown, never for touch, hidden
@@ -199,6 +199,13 @@ the colour picker drop their hover transitions.
 in an IDE): `diagram.get('eventStormingReadOnly').setReadOnly(true)` vetoes moves, resizes,
 creates, connections and deletes through the diagram-js rules, and the keyboard, palette, context
 pad, label editor and drawing handles stop editing. Selection, zoom, pan, copy and export stay.
+
+Guide §13.5 shows the lock of an invalid file only after 800ms without a valid one, so typing in the
+text editor beside the canvas does not flicker. `setReadOnly(true, { delayMs: 800 })` locks at once
+and marks the palette's entries once the delay has passed, as the shell's `setReadOnly` does; a call
+while the delay runs keeps its timer, and `setReadOnly(false)` unlocks and takes the marks off at
+once. `setReadOnly(true)` without the option marks at once. `isReadOnlyShown()` tells whether the
+marks show; `READ_ONLY_CHANGED_EVENT` carries `{ readOnly, shown }` and fires again when they show.
 
 The DSL's `style dark` directive stays in the board config, so the text round-trips, but the
 renderer paints nothing for it: the page's design-system mode (or a host's request through the

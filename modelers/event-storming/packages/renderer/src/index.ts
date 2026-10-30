@@ -91,6 +91,7 @@ export {
   eventStormingReadOnlyModule,
   EventStormingReadOnly,
   READ_ONLY_CHANGED_EVENT,
+  type EventStormingReadOnlyOptions,
 } from "./read-only/index.js";
 export type { FreeArea, FreeRectInsets } from "./palette/EventStormingPaletteProvider.js";
 
