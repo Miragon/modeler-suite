@@ -79,12 +79,16 @@ afterEach(() => {
   }
 });
 
-function mountModeler(host: ShellHost): { diagram: Diagram; shell: ShellHandle } {
+function mountModeler(
+  host: ShellHost,
+  keyScope?: "document" | "root",
+): { diagram: Diagram; shell: ShellHandle } {
   const root = document.createElement("div");
   root.style.cssText = "position:absolute;left:0;top:0;width:1000px;height:700px";
   document.body.append(root);
   const shell = mountShell(root, {
     host,
+    keyScope,
     menu: { export: [{ kind: "action", id: "png", label: "Export as PNG", onSelect() {} }] },
     problems: {},
   });
@@ -136,7 +140,7 @@ async function shiftTabToMenuTrigger(shell: ShellHandle): Promise<void> {
 
 describe("a tool armed from the palette, when Escape closes a layer of the chrome (#482)", () => {
   it.each<ShellHost>(["ide", "web", "embedded"])(
-    "stays armed when Escape closes the menu (%s host), and goes down on the next Escape",
+    "stays armed when Escape closes the menu (%s host), and goes down on the next Escape on its entry",
     async (host) => {
       const { diagram, shell } = mountModeler(host);
       await armLassoBySpace(diagram, shell);
@@ -150,6 +154,7 @@ describe("a tool armed from the palette, when Escape closes a layer of the chrom
       expect(document.activeElement).toBe(shell.menu.trigger);
       expect(lasso(diagram, shell)).toEqual(ARMED);
 
+      lassoEntry(shell).focus();
       await userEvent.keyboard("{Escape}");
       expect(lasso(diagram, shell)).toEqual(PUT_DOWN);
     },
@@ -179,10 +184,15 @@ describe("a tool armed from the palette, when Escape closes a layer of the chrom
     },
   );
 
-  it.each<ShellHost>(["ide", "web", "embedded"])(
-    "stays armed when Escape closes a dialog (%s host), and goes down on the next Escape",
-    async (host) => {
-      const { diagram, shell } = mountModeler(host);
+  it.each<[ShellHost, "document" | "root" | undefined]>([
+    ["ide", undefined],
+    ["web", undefined],
+    ["embedded", undefined],
+    ["ide", "root"],
+  ])(
+    "stays armed when Escape closes a dialog (%s host, key scope %s), and goes down on the next Escape",
+    async (host, keyScope) => {
+      const { diagram, shell } = mountModeler(host, keyScope);
       await armLassoBySpace(diagram, shell);
 
       const dialog = shell.showShortcutsDialog([]);
@@ -193,6 +203,30 @@ describe("a tool armed from the palette, when Escape closes a layer of the chrom
       expect(document.activeElement).toBe(lassoEntry(shell));
       expect(lasso(diagram, shell)).toEqual(ARMED);
 
+      await userEvent.keyboard("{Escape}");
+      expect(lasso(diagram, shell)).toEqual(PUT_DOWN);
+    },
+  );
+
+  // As Team Topologies' "Diagram title…" and Context Maps' and Wardley Maps' "Map title…" are: a
+  // native modal <dialog> in the root that leaves Escape to the browser.
+  it.each<ShellHost>(["ide", "web", "embedded"])(
+    "stays armed when Escape closes a modeler's own dialog (%s host)",
+    async (host) => {
+      const { diagram, shell } = mountModeler(host);
+      await armLassoBySpace(diagram, shell);
+
+      const dialog = document.createElement("dialog");
+      const field = dialog.appendChild(document.createElement("input"));
+      shell.root.append(dialog);
+      dialog.showModal();
+      field.focus();
+      await userEvent.keyboard("{Escape}");
+
+      await expect.poll(() => dialog.open).toBe(false);
+      expect(lasso(diagram, shell)).toEqual(ARMED);
+
+      lassoEntry(shell).focus();
       await userEvent.keyboard("{Escape}");
       expect(lasso(diagram, shell)).toEqual(PUT_DOWN);
     },

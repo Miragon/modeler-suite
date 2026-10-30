@@ -603,6 +603,7 @@ function renderShell(
   const keyTarget: HTMLElement | Document = keyScope === "root" ? root : ownerDocument;
   const onKeydown = createKeyListener({
     host,
+    ownerDocument,
     dialogScope: keyTarget,
     menuOpen: () => menu.isOpen(),
     startScreen: () => emptyState?.isShown() ?? false,

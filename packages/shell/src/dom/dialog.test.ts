@@ -134,6 +134,20 @@ describe("openShellDialog (guide §8)", () => {
     expect(keyups.seen).toEqual(["Escape"]);
   });
 
+  it("keeps that keyup from document also when a listener on the way up stops the Escape (#482)", async () => {
+    const { container, element, opener } = setup();
+    container.addEventListener("keydown", (event) => event.stopPropagation());
+    const keyups = documentKeyups();
+
+    keydown(closeButton(element), { key: "Escape" });
+    element.close();
+    await closeEvent();
+    keyup(opener, { key: "Escape" });
+    keyups.dispose();
+
+    expect(keyups.seen).toEqual([]);
+  });
+
   it("hands the focus to the fallback when the element that had it is gone", () => {
     const fallback = document.createElement("button");
     document.body.append(fallback);

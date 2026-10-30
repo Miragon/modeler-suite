@@ -237,9 +237,10 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
     if (ownerDocument.activeElement === target) event.preventDefault();
   }
 
-  function onKeydown(event: KeyboardEvent): void {
+  // In the capture phase, so a listener that stops the key on its way up (the shell's own in the
+  // IDE host, a host page's) cannot keep it from here.
+  function onEscape(event: KeyboardEvent): void {
     if (event.key === "Escape" && dialog.open) stopEscapeKeyup(ownerDocument);
-    else onTab(event);
   }
 
   let pressedOnBackdrop = false;
@@ -256,7 +257,8 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
   function finish(restoreFocus: boolean): void {
     if (finished) return;
     finished = true;
-    ownerDocument.removeEventListener("keydown", onKeydown);
+    ownerDocument.removeEventListener("keydown", onTab);
+    ownerDocument.removeEventListener("keydown", onEscape, true);
     stopCentring?.();
     resizeObserver?.disconnect();
     if (dialog.open) dialog.close();
@@ -279,7 +281,8 @@ export function openOwnedShellDialog(options: ShellDialogOptions): OwnedShellDia
     throw error;
   }
   stopCentring = centreOverContainer(dialog, container);
-  ownerDocument.addEventListener("keydown", onKeydown);
+  ownerDocument.addEventListener("keydown", onTab);
+  ownerDocument.addEventListener("keydown", onEscape, true);
   resizeObserver?.observe(body);
   updateScrollStop();
 

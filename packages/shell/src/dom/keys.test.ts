@@ -307,3 +307,63 @@ describe("the keyup of an Escape that closed the menu (#482)", () => {
     expect(keyups.seen).toEqual(["Escape", "Escape"]);
   });
 });
+
+describe("the keyup of an Escape in a modeler's dialog or popover (#482)", () => {
+  function layer(root: HTMLElement, modal: boolean): { element: HTMLElement; field: HTMLElement } {
+    const element = root.appendChild(document.createElement("div"));
+    element.setAttribute("role", "dialog");
+    if (modal) element.setAttribute("aria-modal", "true");
+    const field = element.appendChild(document.createElement("input"));
+    return { element, field };
+  }
+
+  it.each<[ShellHost, "document" | "root" | undefined]>([
+    ["ide", undefined],
+    ["web", undefined],
+    ["embedded", undefined],
+    ["ide", "root"],
+  ])(
+    "%s host (key scope %s): stops the keyup of the Escape that closes a modal dialog the browser closes",
+    (host, keyScope) => {
+      const { root } = mount({ host, keyScope });
+      const dialog = layer(root, true);
+      const keyups = documentKeyups();
+
+      keydown(dialog.field, { key: "Escape", code: "Escape" });
+      dialog.element.hidden = true;
+      keyup(document.body, { key: "Escape", code: "Escape" });
+
+      keydown(document.body, { key: "Escape", code: "Escape" });
+      keyup(document.body, { key: "Escape", code: "Escape" });
+      keyups.dispose();
+      expect(keyups.seen).toEqual(["Escape"]);
+    },
+  );
+
+  it("stops the keyup of an Escape in a popover, also when a field in it took the key", () => {
+    const { root } = mount({ host: "web" });
+    const popover = layer(root, false);
+    popover.field.addEventListener("keydown", (event) => event.preventDefault());
+    const keyups = documentKeyups();
+
+    keydown(popover.field, { key: "Escape", code: "Escape", isComposing: true });
+    keyup(popover.field, { key: "Escape", code: "Escape" });
+    keyups.dispose();
+
+    expect(popover.element.hidden).toBe(false);
+    expect(keyups.seen).toEqual([]);
+  });
+
+  it("lets the keyup of an Escape aimed at the canvas through while a popover is open", () => {
+    const { root } = mount({ host: "web" });
+    layer(root, false);
+    const canvas = root.querySelector(".cd-shell-canvas")!;
+    const keyups = documentKeyups();
+
+    keydown(canvas, { key: "Escape", code: "Escape" });
+    keyup(canvas, { key: "Escape", code: "Escape" });
+    keyups.dispose();
+
+    expect(keyups.seen).toEqual(["Escape"]);
+  });
+});
