@@ -128,12 +128,15 @@ const NEIGHBOURS = {
   },
 };
 
+/** How far a ring at the guide's usual `outline-offset: 2px` and 2px width reaches out (§8). */
+const OUTSIDE_RING_REACH = 4;
+
 describe("the palette's focus ring without the shell (#397, guide §5.14)", () => {
-  it("leaves the entries edge to edge, so a ring outside one would lie in its neighbour", async () => {
+  it("sets the entries closer than an outside ring reaches, so that ring would lie in the neighbour", async () => {
     const { host } = await mount();
     const lasso = boxIn(entry(host, "lasso-tool"), host);
     const draw = boxIn(entry(host, "draw-tool"), host);
-    expect(draw.left - lasso.right).toBe(0);
+    expect(draw.left - lasso.right).toBeLessThan(OUTSIDE_RING_REACH);
   });
 
   it.each(Object.entries(NEIGHBOURS))(
@@ -146,10 +149,11 @@ describe("the palette's focus ring without the shell (#397, guide §5.14)", () =
       focusFromKeyboard(lasso);
 
       const box = boxIn(lasso, host);
+      const neighbour = boxIn(entry(host, "draw-tool"), host);
       const middle = box.top + box.height / 2;
       expect(await pixelOf(host, box.right - 1, middle)).toEqual(role(host, "--cd-ui-fokus"));
       expect(await pixelOf(host, box.left + 1, middle)).toEqual(role(host, "--cd-ui-fokus"));
-      expect(await pixelOf(host, box.right + 3, middle)).toEqual(role(host, "--cd-ui-hover"));
+      expect(await pixelOf(host, neighbour.left + 3, middle)).toEqual(role(host, "--cd-ui-hover"));
     },
   );
 
