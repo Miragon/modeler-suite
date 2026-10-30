@@ -361,9 +361,23 @@ describe("the chrome's high-contrast rules follow the nearest mode carrier (#401
     expect(element.matches(":focus-visible")).toBe(true);
   }
 
+  /** The canvas's ring once Tab gave it the focus: its width and offset. */
+  function canvasRingFromKeyboard(diagram: Modeler): string {
+    const svg = diagram
+      .get<Canvas>("canvas")
+      .getContainer()
+      .querySelector<SVGSVGElement>(":scope > svg")!;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    svg.focus();
+    expect(svg.classList.contains("tt-canvas-keyboard-focus")).toBe(true);
+    const ring = getComputedStyle(svg);
+    return `${ring.outlineWidth} ${ring.outlineOffset}`;
+  }
+
   /** The shadows of the palette and the context pad, and the rings of what takes the focus. */
   async function chromeLook(diagram: Modeler): Promise<Record<string, string>> {
     const container = diagram.container;
+    const canvasRing = canvasRingFromKeyboard(diagram);
     const team = diagram.get<ElementRegistry>("elementRegistry").get("team_checkout")!;
     diagram.get<Selection>("selection").select(team);
     const pad = container.querySelector<HTMLElement>(".djs-context-pad .group")!;
@@ -382,6 +396,7 @@ describe("the chrome's high-contrast rules follow the nearest mode carrier (#401
     return {
       paletteShadow: getComputedStyle(container.querySelector(".djs-palette")!).boxShadow,
       contextPadShadow: getComputedStyle(pad).boxShadow,
+      canvasRing,
       paletteRing,
       contextPadRing: padRing,
       labelEditorRing: getComputedStyle(editor).outlineWidth,
@@ -392,15 +407,18 @@ describe("the chrome's high-contrast rules follow the nearest mode carrier (#401
     return {
       paletteShadow: shadowIn(container, "var(--cd-shadow-1)"),
       contextPadShadow: shadowIn(container, "var(--cd-shadow-2)"),
+      canvasRing: "2px -2px",
       paletteRing: "2px",
       contextPadRing: "2px",
       labelEditorRing: "2px",
     };
   }
 
+  // The container clips the canvas at its edges, so the 3px ring lies inside as well (guide §5.14).
   const HIGH_CONTRAST_LOOK = {
     paletteShadow: "none",
     contextPadShadow: "none",
+    canvasRing: "3px -3px",
     paletteRing: "3px",
     contextPadRing: "3px",
     labelEditorRing: "3px",

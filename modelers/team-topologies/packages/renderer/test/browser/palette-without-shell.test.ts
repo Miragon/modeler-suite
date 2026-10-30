@@ -1,6 +1,12 @@
 /// <reference types="@vitest/browser-playwright" />
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { cdp, page, userEvent } from "vitest/browser";
+import type Canvas from "diagram-js/lib/core/Canvas";
+import type EventBus from "diagram-js/lib/core/EventBus";
+import type Palette from "diagram-js/lib/features/palette/Palette";
+import type Selection from "diagram-js/lib/features/selection/Selection";
+import type { PaletteEntries } from "diagram-js/lib/features/palette/PaletteProvider";
+import type { ModuleDeclaration } from "didi";
 import { Modeler } from "@miragon/team-topologies-renderer";
 import { emptyDocument } from "@miragon/team-topologies-schema-model";
 
@@ -18,8 +24,10 @@ interface Mounted {
 }
 
 const mounted: Mounted[] = [];
+const cleanups: Array<() => void> = [];
 
 afterEach(async () => {
+  for (const cleanup of cleanups.splice(0)) cleanup();
   for (const { modeler, host } of mounted.splice(0)) {
     // Off the palette first: diagram-js's tooltip would otherwise show on the destroyed diagram.
     await userEvent.hover(host, {
@@ -30,13 +38,13 @@ afterEach(async () => {
   }
 });
 
-function mount(width = HOST.width): Mounted {
+function mount(width = HOST.width, additionalModules: ModuleDeclaration[] = []): Mounted {
   const host = document.createElement("div");
   host.style.cssText = `position: fixed; left: 0; top: 0; width: ${width}px; height: ${HOST.height}px;`;
   const container = document.createElement("div");
   host.append(container);
   document.body.append(host);
-  const modeler = new Modeler({ container });
+  const modeler = new Modeler({ container, additionalModules });
   modeler.importDocument(emptyDocument("Palette"));
   const result = { host, container, modeler };
   mounted.push(result);
@@ -59,6 +67,15 @@ function resolved(container: HTMLElement, property: string, value: string): stri
   return computed;
 }
 
+/** The raised surface without glass, in the colour space the glass mix computes in. */
+function opaqueSurface(container: HTMLElement): string {
+  return resolved(
+    container,
+    "background-color",
+    "color-mix(in srgb, var(--cd-ui-flaeche-hoch) 100%, transparent)",
+  );
+}
+
 /** `rgb(r, g, b)` as its three channels. */
 function rgbOf(color: string): number[] {
   return (color.match(/\d+/g) ?? []).slice(0, 3).map(Number);
@@ -76,6 +93,31 @@ async function pixelOf(element: HTMLElement, x: number, y: number): Promise<numb
   context.drawImage(bitmap, 0, 0);
   const data = context.getImageData(Math.floor(x * scale), Math.floor(y * scale), 1, 1).data;
   return [data[0]!, data[1]!, data[2]!];
+}
+
+function paletteOf(container: HTMLElement): HTMLElement {
+  return container.querySelector<HTMLElement>(".djs-palette")!;
+}
+
+function entries(container: HTMLElement): HTMLElement[] {
+  return [...paletteOf(container).querySelectorAll<HTMLElement>(".djs-palette-entries .entry")];
+}
+
+function actions(container: HTMLElement): string[] {
+  return entries(container).map((entry) => entry.getAttribute("data-action")!);
+}
+
+function canvasSvg(modeler: Modeler): SVGSVGElement {
+  return modeler.get<Canvas>("canvas").getContainer().querySelector<SVGSVGElement>(":scope > svg")!;
+}
+
+/** A control of the page in front of the modeler, where Tab starts. */
+function buttonBefore(host: HTMLElement): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.textContent = "Before the modeler";
+  host.before(button);
+  cleanups.push(() => button.remove());
+  return button;
 }
 
 function entryOf(container: HTMLElement, action: string): HTMLElement {
@@ -266,4 +308,248 @@ test("lets a host's own focus ring on the palette win in high contrast too", asy
   } finally {
     hostSheet.remove();
   }
+});
+
+describe("the island is glass (guide §5.3, §6)", () => {
+  function glassIn(container: HTMLElement): string {
+    return resolved(
+      container,
+      "background-color",
+      "color-mix(in srgb, var(--cd-ui-flaeche-hoch) var(--cd-ui-chrome-deckkraft), transparent)",
+    );
+  }
+
+  test("lets the canvas show through --cd-ui-flaeche-hoch at --cd-ui-chrome-deckkraft, under an 8px blur", () => {
+    const { container } = mount();
+    const palette = getComputedStyle(paletteOf(container));
+
+    expect(palette.backgroundColor).toBe(glassIn(container));
+    expect(palette.backgroundColor).not.toBe(opaqueSurface(container));
+    expect(palette.backdropFilter).toBe("blur(8px)");
+  });
+
+  test("is opaque in high contrast, and glass again under a normal-contrast carrier on a high-contrast page", () => {
+    const { host, container } = mount();
+    highContrast(container);
+    expect(getComputedStyle(paletteOf(container)).backgroundColor).toBe(opaqueSurface(container));
+
+    container.removeAttribute("data-cd-theme");
+    container.removeAttribute("data-cd-kontrast");
+    const page = document.documentElement;
+    page.setAttribute("data-cd-kontrast", "hoch");
+    cleanups.push(() => page.removeAttribute("data-cd-kontrast"));
+    expect(getComputedStyle(paletteOf(container)).backgroundColor).toBe(opaqueSurface(container));
+    host.setAttribute("data-cd-theme", "light");
+    expect(getComputedStyle(paletteOf(container)).backgroundColor).toBe(glassIn(container));
+    expect(glassIn(container)).not.toBe(opaqueSurface(container));
+  });
+});
+
+describe("the palette is a toolbar (guide §5.5, §5.14)", () => {
+  test("named Tools, with button entries, ahead of the canvas in the document and the tab order", async () => {
+    const { host, container, modeler } = mount();
+    const toolbar = paletteOf(container).querySelector(".djs-palette-entries")!;
+    expect(toolbar.getAttribute("role")).toBe("toolbar");
+    expect(toolbar.getAttribute("aria-label")).toBe("Tools");
+    expect(entries(container).every((entry) => entry.getAttribute("role") === "button")).toBe(true);
+    expect(
+      paletteOf(container).compareDocumentPosition(canvasSvg(modeler)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    buttonBefore(host).focus();
+    await userEvent.tab();
+    const lasso = entryOf(container, "lasso-tool");
+    expect(document.activeElement).toBe(lasso);
+    expect(lasso.matches(":focus-visible")).toBe(true);
+    const ring = getComputedStyle(lasso);
+    expect([ring.outlineStyle, ring.outlineWidth, ring.outlineOffset]).toEqual([
+      "solid",
+      "2px",
+      "2px",
+    ]);
+    await userEvent.tab();
+    expect(document.activeElement).toBe(canvasSvg(modeler));
+  });
+
+  test("has one tab stop that roves with ← → Home End and stays where the focus left it", async () => {
+    const { container, modeler } = mount();
+    const all = actions(container);
+    const tabStops = () =>
+      entries(container)
+        .filter((entry) => entry.tabIndex === 0)
+        .map((entry) => entry.getAttribute("data-action"));
+    expect(tabStops()).toEqual(["lasso-tool"]);
+    expect(entries(container).filter((entry) => entry.tabIndex === -1)).toHaveLength(
+      all.length - 1,
+    );
+
+    entryOf(container, "lasso-tool").focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(entryOf(container, all[1]!));
+    expect(tabStops()).toEqual([all[1]]);
+
+    await userEvent.keyboard("{End}");
+    expect(document.activeElement).toBe(entryOf(container, "annotation"));
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(entryOf(container, "lasso-tool"));
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(document.activeElement).toBe(entryOf(container, "annotation"));
+    await userEvent.keyboard("{Home}");
+    expect(document.activeElement).toBe(entryOf(container, "lasso-tool"));
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+    expect(tabStops()).toEqual([all[2]]);
+
+    canvasSvg(modeler).focus();
+    expect(tabStops()).toEqual([all[2]]);
+  });
+
+  test("presses the armed lasso only, and releases it once its drag on the canvas has selected", async () => {
+    const { container, modeler } = mount();
+    const pressed = () =>
+      Object.fromEntries(
+        entries(container).map((entry) => [
+          entry.getAttribute("data-action"),
+          entry.getAttribute("aria-pressed"),
+        ]),
+      );
+    const released = Object.fromEntries(
+      actions(container).map((action) => [action, action === "lasso-tool" ? "false" : null]),
+    );
+    expect(pressed()).toEqual(released);
+
+    const lasso = entryOf(container, "lasso-tool");
+    lasso.focus();
+    await userEvent.keyboard(" ");
+    expect(pressed()).toEqual({ ...released, "lasso-tool": "true" });
+    expect(document.activeElement).toBe(lasso);
+
+    const svg = canvasSvg(modeler);
+    const box = svg.getBoundingClientRect();
+    for (const [type, x] of [
+      ["mousemove", 300],
+      ["mousemove", 400],
+      ["mouseup", 400],
+    ] as const) {
+      svg.dispatchEvent(
+        new MouseEvent(type, { bubbles: true, clientX: box.left + x, clientY: box.top + 300 }),
+      );
+    }
+    expect(pressed()).toEqual(released);
+  });
+
+  test("creates a team on Enter in the free area, once, selected and in its label editor", async () => {
+    const { container, modeler } = mount();
+    entryOf(container, "team.platform").focus();
+    await userEvent.keyboard("{Enter}");
+
+    const nodes = modeler.exportDocument().nodes;
+    expect(nodes).toEqual([expect.objectContaining({ type: "platform" })]);
+    expect(
+      modeler
+        .get<Selection>("selection")
+        .get()
+        .map((element) => element.id),
+    ).toEqual([nodes[0]!.id]);
+    expect(document.activeElement).toBe(container.querySelector("textarea.tt-label-editor"));
+  });
+
+  test("leaves Enter with a modifier and a held key's repeats alone", () => {
+    const { container, modeler } = mount();
+    const team = entryOf(container, "team.platform");
+    team.focus();
+    for (const init of [{ shiftKey: true }, { ctrlKey: true }, { repeat: true }]) {
+      team.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, ...init }),
+      );
+    }
+    expect(modeler.exportDocument().nodes).toEqual([]);
+  });
+
+  test("hands the focus to the canvas after a press on the island's padding", async () => {
+    const { container, modeler } = mount();
+    entryOf(container, "lasso-tool").focus();
+    await userEvent.click(paletteOf(container), { position: { x: 2, y: 20 } });
+
+    expect(document.activeElement).toBe(canvasSvg(modeler));
+  });
+
+  test("names a single key of an entry for assistive technology, and its own entries none", () => {
+    class HostPaletteProvider {
+      static $inject = ["palette"];
+      constructor(palette: Palette) {
+        palette.registerProvider(this);
+      }
+      getPaletteEntries(): PaletteEntries {
+        const entry = (title: string, shortcut: string) => ({
+          group: "host",
+          title,
+          shortcut,
+          action: { click: () => undefined },
+        });
+        return { "host.note": entry("Note", "n"), "host.export": entry("Export", "Ctrl+E") };
+      }
+    }
+    const { container } = mount(HOST.width, [
+      { __init__: ["hostPaletteProvider"], hostPaletteProvider: ["type", HostPaletteProvider] },
+    ]);
+
+    expect(
+      Object.fromEntries(
+        entries(container).map((entry) => [
+          entry.getAttribute("data-action"),
+          entry.getAttribute("aria-keyshortcuts"),
+        ]),
+      ),
+    ).toEqual(
+      Object.fromEntries(
+        actions(container).map((action) => [action, action === "host.note" ? "N" : null]),
+      ),
+    );
+  });
+});
+
+/** A chrome that skins the palette as the shell does, without importing the shell. */
+function chromeModule(options: { asShell: boolean }): ModuleDeclaration {
+  function markPalette(eventBus: EventBus): void {
+    eventBus.on("palette.create", (event: { container: HTMLElement }) =>
+      event.container.setAttribute("data-chrome", "palette"),
+    );
+  }
+  markPalette.$inject = ["eventBus"];
+  return {
+    __init__: [markPalette],
+    ...(options.asShell
+      ? { modelerShell: ["value", { chrome: true }], paletteTooltip: ["value", null] }
+      : {}),
+  };
+}
+
+describe.each([
+  { name: "the shell", asShell: true },
+  { name: "another chrome", asShell: false },
+])("a palette $name skins (data-chrome)", ({ asShell }) => {
+  test("keeps none of the renderer's toolbar attributes, keys or place in the tab order", async () => {
+    const { container, modeler } = mount(HOST.width, [chromeModule({ asShell })]);
+    const palette = paletteOf(container);
+    expect(palette.getAttribute("data-chrome")).toBe("palette");
+
+    expect(palette.querySelector(".djs-palette-entries")!.hasAttribute("role")).toBe(false);
+    for (const entry of entries(container)) {
+      expect(entry.hasAttribute("tabindex")).toBe(false);
+      expect(entry.hasAttribute("aria-pressed")).toBe(false);
+      expect(entry.hasAttribute("aria-keyshortcuts")).toBe(false);
+    }
+    expect(
+      palette.compareDocumentPosition(canvasSvg(modeler)) & Node.DOCUMENT_POSITION_PRECEDING,
+    ).toBeTruthy();
+
+    const team = entryOf(container, "team.platform");
+    team.tabIndex = 0;
+    team.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(team);
+    await userEvent.keyboard("{Enter}");
+    expect(modeler.exportDocument().nodes).toEqual([]);
+  });
 });

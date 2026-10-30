@@ -3,13 +3,13 @@
  * types, the three interaction-mode glyphs (placed over team boundaries), the flow-of-change arrow
  * and the text annotation.
  *
- * A host's chrome (the modeler shell) lays the palette out, gives it its toolbar semantics and
- * triggers an entry from the keyboard with a click whose `detail` is 0. Such a click on a creating
- * entry places the element in the centre of the free part of the canvas (guide §5.5), 24px further
- * diagonally while that spot is taken, selects it and opens its label editor: diagram-js's create
- * tool follows the pointer and never ends without one. A click or drag with a pointer hands the
- * focus to the canvas, with or without a chrome around the palette, so the canvas keys act on what
- * the tool selects or places (guide §5.8).
+ * A host's chrome (the modeler shell), or `TtPaletteToolbar` without one, gives the palette its
+ * toolbar semantics and triggers an entry from the keyboard with a click whose `detail` is 0. Such
+ * a click on a creating entry places the element in the centre of the free part of the canvas
+ * (guide §5.5), 24px further diagonally while that spot is taken, selects it and opens its label
+ * editor: diagram-js's create tool follows the pointer and never ends without one. A click or drag
+ * with a pointer hands the focus to the canvas, with or without a chrome around the palette, so the
+ * canvas keys act on what the tool selects or places (guide §5.8).
  */
 
 import type Canvas from "diagram-js/lib/core/Canvas";

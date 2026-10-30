@@ -449,10 +449,10 @@ describe("createTitleDialog", () => {
   });
 
   describe("in high contrast, which is the nearest mode carrier's (#401, guide §13.3)", () => {
-    /** The panel's edge and shadow, and the rings of the field and of a button. */
+    /** The panel's edge and shadow, the rings of the field and of a button, the hovered Apply's shadow. */
     async function dialogLook(root: HTMLElement): Promise<Record<string, string>> {
       createTitleDialog({ ...chrome(), root }, titleOf("Payments")).open();
-      const { dialog, field, cancel } = parts(root);
+      const { dialog, field, cancel, apply } = parts(root);
       const panel = getComputedStyle(dialog);
       const look = {
         border: panel.borderTopColor,
@@ -462,7 +462,11 @@ describe("createTitleDialog", () => {
       cancel.focus();
       await userEvent.keyboard("{Shift}");
       expect(cancel.matches(":focus-visible")).toBe(true);
-      return { ...look, buttonRing: getComputedStyle(cancel).outlineWidth };
+      const buttonRing = getComputedStyle(cancel).outlineWidth;
+      await userEvent.hover(apply);
+      await Promise.all(apply.getAnimations().map((animation) => animation.finished));
+      expect(apply.matches(":hover")).toBe(true);
+      return { ...look, buttonRing, hoveredPrimaryShadow: getComputedStyle(apply).boxShadow };
     }
 
     function rootIn(carrier: HTMLElement): HTMLElement {
@@ -493,7 +497,7 @@ describe("createTitleDialog", () => {
       return computed;
     }
 
-    test("keeps the shadow, the edge and the 2px rings under a normal-contrast carrier on a high-contrast page", async () => {
+    test("keeps the shadows, the edge and the 2px rings under a normal-contrast carrier on a high-contrast page", async () => {
       pageMode("hoch");
       const carrier = document.createElement("section");
       carrier.dataset.cdTheme = "light";
@@ -504,10 +508,11 @@ describe("createTitleDialog", () => {
         shadow: resolvedIn(root, "box-shadow", "var(--cd-shadow-3)"),
         fieldRing: "2px",
         buttonRing: "2px",
+        hoveredPrimaryShadow: resolvedIn(root, "box-shadow", "var(--cd-shadow-2)"),
       });
     });
 
-    test("drops the shadow, draws the contour edge and widens the rings under a high-contrast carrier", async () => {
+    test("drops the shadows, also of a hovered Apply, draws the contour edge and widens the rings under a high-contrast carrier", async () => {
       pageMode();
       const carrier = document.createElement("section");
       carrier.dataset.cdTheme = "light";
@@ -519,6 +524,7 @@ describe("createTitleDialog", () => {
         shadow: "none",
         fieldRing: "3px",
         buttonRing: "3px",
+        hoveredPrimaryShadow: "none",
       });
     });
   });

@@ -92,6 +92,27 @@ async function settle(): Promise<void> {
 
 describe("the diagram's own chrome on a diagram the host hides", () => {
   test.each(hostHidings)(
+    "the palette toolbar neither triggers an entry nor moves the focus once the host $how",
+    ({ hide, show }) => {
+      const { modeler: target, host: page } = mount();
+      const create = page.querySelector<HTMLElement>(
+        '.djs-palette .entry[data-action="team.platform"]',
+      )!;
+      create.focus();
+      hide(page);
+      expect(document.activeElement).toBe(create);
+
+      expectLeftToPage(create, ["Enter", " ", "ArrowRight", "ArrowLeft", "Home", "End"]);
+      expect(target.exportDocument().nodes).toHaveLength(1);
+      expect(document.activeElement).toBe(create);
+
+      show(page);
+      expect(press(create, "Enter").defaultPrevented).toBe(true);
+      expect(target.exportDocument().nodes).toHaveLength(2);
+    },
+  );
+
+  test.each(hostHidings)(
     "the context pad leaves Enter and Space to the page once the host $how",
     async ({ hide, show }) => {
       const { modeler: target, host: page } = mount();
