@@ -5,6 +5,10 @@ import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Palette from "diagram-js/lib/features/palette/Palette";
+import type {
+  PaletteEntries,
+  PaletteEntriesCallback,
+} from "diagram-js/lib/features/palette/PaletteProvider";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import type { ModuleDeclaration } from "didi";
@@ -127,6 +131,22 @@ async function pixelOf(element: HTMLElement, x: number, y: number): Promise<numb
   context.drawImage(bitmap, 0, 0);
   const data = context.getImageData(Math.floor(x * scale), Math.floor(y * scale), 1, 1).data;
   return [data[0]!, data[1]!, data[2]!];
+}
+
+const LONG_TITLE = "Lasso: select every step and organizational unit inside the frame you draw";
+
+/** A host's provider that gives the lasso a title too long for one line. */
+function longTitleModule(): ModuleDeclaration {
+  function longTitle(palette: Palette): void {
+    palette.registerProvider({
+      getPaletteEntries: (): PaletteEntriesCallback => (entries: PaletteEntries) => ({
+        ...entries,
+        "lasso-tool": { ...entries["lasso-tool"]!, title: LONG_TITLE },
+      }),
+    });
+  }
+  longTitle.$inject = ["palette"];
+  return { __init__: [longTitle] };
 }
 
 function shapes(modeler: Modeler): VcShape[] {
@@ -362,6 +382,42 @@ describe("the palette without the shell: a container at most 760px wide (guide �
     const tooltip = modeler.container.querySelector<HTMLElement>(".djs-hover-tooltip");
     expect(tooltip).not.toBeNull();
     expect(boxIn(tooltip!, modeler.container).top).toBeCloseTo(112, 0);
+  });
+
+  // A trackpad or Shift and the wheel scroll the palette under a tooltip the keyboard focus shows.
+  it("takes the tooltip along when the palette scrolls, and away once its entry has left the view (#481)", async () => {
+    resize(160);
+    const palette = paletteOf(modeler);
+    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const centreOf = (element: HTMLElement) => {
+      const box = boxIn(element, modeler.container);
+      return box.left + box.width / 2;
+    };
+    modeler.container.parentElement!.querySelector("button")!.focus();
+    await userEvent.tab();
+    await userEvent.keyboard("{ArrowRight}");
+    const hand = entryOf(modeler, "hand-tool");
+    expect(document.activeElement).toBe(hand);
+    expect(palette.scrollLeft).toBe(0);
+    const tooltip = modeler.container.querySelector<HTMLElement>(".djs-hover-tooltip")!;
+    expect(tooltip.textContent).toContain("Hand");
+    const shownAt = centreOf(tooltip);
+    expect(shownAt).toBeCloseTo(centreOf(hand), 0);
+
+    palette.scrollLeft = 8;
+    await nextFrame();
+    await nextFrame();
+    expect(palette.scrollLeft).toBe(8);
+    expect(tooltip.isConnected).toBe(true);
+    expect(centreOf(tooltip)).toBeCloseTo(shownAt - 8, 0);
+    expect(centreOf(tooltip)).toBeCloseTo(centreOf(hand), 0);
+
+    palette.scrollLeft = palette.scrollWidth;
+    await nextFrame();
+    await nextFrame();
+    expect(boxIn(hand, palette).right).toBeLessThanOrEqual(palette.clientLeft);
+    expect(modeler.container.querySelector(".djs-hover-tooltip")).toBeNull();
+    expect(document.activeElement).toBe(hand);
   });
 });
 
@@ -1137,6 +1193,23 @@ describe("the palette without the shell: tooltip (guide §5.6)", () => {
     await new Promise((resolve) => setTimeout(resolve, 400));
 
     expect(shownTooltip()).toBeNull();
+  });
+
+  it("is at most min(280px, 100% - 24px) wide with its padding and edge, and keeps 12px from both sides when its title wraps (#479)", async () => {
+    modeler = mount([longTitleModule()]);
+    const wide = await hover("lasso-tool");
+    expect(shownName()).toBe(LONG_TITLE);
+    expect(boxIn(wide.tooltip, modeler.container).width).toBeCloseTo(280, 0);
+    await userEvent.unhover(wide.entry);
+    await vi.waitFor(() => expect(shownTooltip()).toBeNull());
+
+    modeler.container.parentElement!.style.width = "180px";
+    modeler.get<Canvas>("canvas").resized();
+    const narrow = await hover("lasso-tool");
+    const box = boxIn(narrow.tooltip, modeler.container);
+    expect(box.width).toBeCloseTo(156, 0);
+    expect(box.left).toBeCloseTo(12, 0);
+    expect(box.right).toBeCloseTo(168, 0);
   });
 
   it("takes none of its text into a select-all, as no label of the chrome does (guide §5.14, #456)", async () => {
