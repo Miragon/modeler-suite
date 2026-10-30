@@ -259,6 +259,21 @@ describe("appearance: the computed colours", () => {
 
     expect(computedColours()).not.toEqual(expected);
   });
+
+  it("follow the nearest carrier without a request: one in normal contrast on a high-contrast page, one in high contrast on a page in normal contrast (#401)", () => {
+    const normal = reference("normal");
+    const high = reference("high");
+    editor().diagram.container.removeAttribute("data-cd-theme");
+    editor().diagram.container.removeAttribute("data-cd-kontrast");
+
+    pageMode(null, "hoch");
+    host.setAttribute("data-cd-theme", "light");
+    expect(computedColours()).toEqual(normal);
+
+    pageMode(null, null);
+    host.setAttribute("data-cd-kontrast", "hoch");
+    expect(computedColours()).toEqual(high);
+  });
 });
 
 describe("appearance: a label being typed", () => {

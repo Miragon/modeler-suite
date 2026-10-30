@@ -28,6 +28,7 @@ interface Mounted {
 const mounted: Mounted[] = [];
 
 afterEach(() => {
+  document.documentElement.removeAttribute("data-cd-kontrast");
   for (const { modeler, wrapper } of mounted.splice(0)) {
     modeler.destroy();
     wrapper.remove();
@@ -315,6 +316,30 @@ describe("the palette without the shell: a container at most 760px wide (guide �
     expect([style.outlineWidth, style.outlineOffset]).toEqual(["3px", "-3px"]);
   });
 
+  it("takes that ring from the nearest carrier: normal contrast on a high-contrast page, high contrast on a page in normal contrast (#401)", async () => {
+    resize(600);
+    const carrier = modeler.container.parentElement!;
+    const ring = (action: string) => {
+      const style = getComputedStyle(entryOf(modeler, action));
+      return [style.outlineWidth, style.outlineOffset];
+    };
+    document.documentElement.setAttribute("data-cd-kontrast", "hoch");
+    carrier.setAttribute("data-cd-theme", "light");
+    entryOf(modeler, "lasso-tool").focus();
+    await userEvent.keyboard("{ArrowRight}");
+    await userEvent.keyboard("{Enter}");
+    expect(entryOf(modeler, "hand-tool").getAttribute("aria-pressed")).toBe("true");
+    expect(ring("hand-tool")).toEqual(["2px", "-5px"]);
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(ring("lasso-tool")).toEqual(["2px", "-2px"]);
+
+    document.documentElement.removeAttribute("data-cd-kontrast");
+    carrier.setAttribute("data-cd-kontrast", "hoch");
+    expect(ring("lasso-tool")).toEqual(["3px", "-3px"]);
+    await userEvent.keyboard("{ArrowRight}");
+    expect(ring("hand-tool")).toEqual(["3px", "-6px"]);
+  });
+
   it("shows the tooltip 8px below the palette in the second row, at 112px", async () => {
     resize(600);
     modeler.container.parentElement!.querySelector("button")!.focus();
@@ -509,6 +534,44 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
     );
     expect(palette.backgroundColor).toBe(opaqueSurface(modeler.container));
     expect(getComputedStyle(entryOf(modeler, "lasso-tool")).outlineWidth).toBe("3px");
+  });
+
+  /** The island, its first entry and that entry's tooltip, once the keyboard has focused the entry. */
+  async function focusedLook(): Promise<{ island: string[]; ring: string; tooltip: string[] }> {
+    modeler.container.parentElement!.querySelector("button")!.focus();
+    await userEvent.tab();
+    const island = getComputedStyle(paletteOf(modeler));
+    const tooltip = getComputedStyle(modeler.container.querySelector(".djs-hover-tooltip")!);
+    return {
+      island: [island.boxShadow, island.borderTopColor],
+      ring: getComputedStyle(entryOf(modeler, "lasso-tool")).outlineWidth,
+      tooltip: [tooltip.boxShadow, tooltip.borderTopColor],
+    };
+  }
+
+  it("keeps the shadows, the --cd-ui-linie edges and a 2px focus inside a carrier in normal contrast on a high-contrast page (#401)", async () => {
+    document.documentElement.setAttribute("data-cd-kontrast", "hoch");
+    modeler.container.parentElement!.setAttribute("data-cd-theme", "light");
+    const line = resolved(modeler.container, "border-top-color", "var(--cd-ui-linie)");
+
+    expect(await focusedLook()).toEqual({
+      island: [resolved(modeler.container, "box-shadow", "var(--cd-shadow-1)"), line],
+      ring: "2px",
+      tooltip: [resolved(modeler.container, "box-shadow", "var(--cd-shadow-2)"), line],
+    });
+  });
+
+  it("drops the shadows, takes the --cd-ui-kontur edges and a 3px focus inside a high-contrast carrier that is not the page (#401)", async () => {
+    const carrier = modeler.container.parentElement!;
+    carrier.setAttribute("data-cd-theme", "light");
+    carrier.setAttribute("data-cd-kontrast", "hoch");
+    const contour = resolved(modeler.container, "border-top-color", "var(--cd-ui-kontur)");
+
+    expect(await focusedLook()).toEqual({
+      island: ["none", contour],
+      ring: "3px",
+      tooltip: ["none", contour],
+    });
   });
 });
 

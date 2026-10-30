@@ -282,33 +282,24 @@
   display: block;
 }
 
-/* High contrast follows the nearest carrier of the mode (guide §13.3): the container once a host
-   has asked for an appearance (contract 1.5, data-cd-theme on .vc-container), the page before. */
-:root[data-cd-kontrast="hoch"] .vc-container:not([data-cd-theme]) .djs-context-pad.open,
-:root[data-cd-kontrast="hoch"] .vc-container:not([data-cd-theme]) .djs-direct-editing-parent,
-:root[data-cd-kontrast="hoch"]
-  .vc-container:not([data-cd-theme])
-  .djs-palette:not([data-chrome="palette"]),
-:root[data-cd-kontrast="hoch"] .vc-container:not([data-cd-theme]) .djs-hover-tooltip--bottom,
-.vc-container[data-cd-kontrast="hoch"] .djs-context-pad.open,
-.vc-container[data-cd-kontrast="hoch"] .djs-direct-editing-parent,
-.vc-container[data-cd-kontrast="hoch"] .djs-palette:not([data-chrome="palette"]),
-.vc-container[data-cd-kontrast="hoch"] .djs-hover-tooltip--bottom {
-  border-color: var(--cd-ui-kontur);
-  box-shadow: none;
-}
-:root[data-cd-kontrast="hoch"]
-  .vc-container:not([data-cd-theme])
-  .djs-palette:not([data-chrome="palette"])
-  .entry:focus-visible,
-:root[data-cd-kontrast="hoch"]
-  .vc-container:not([data-cd-theme])
-  .djs-direct-editing-parent:focus-within,
-.vc-container[data-cd-kontrast="hoch"]
-  .djs-palette:not([data-chrome="palette"])
-  .entry:focus-visible,
-.vc-container[data-cd-kontrast="hoch"] .djs-direct-editing-parent:focus-within {
-  outline-width: 3px;
+/* High contrast follows the nearest carrier of the mode (guide §13.3): the page, the container once
+   a host has asked for an appearance (contract 1.5, data-cd-theme on .vc-container), or a carrier
+   between them. A carrier that asks for normal contrast ends the scope, so its request holds on a
+   high-contrast page, where a selector over any ancestor would reach through it. */
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  :is(:scope.vc-container, :scope .vc-container) .djs-context-pad.open,
+  :is(:scope.vc-container, :scope .vc-container) .djs-direct-editing-parent,
+  :is(:scope.vc-container, :scope .vc-container) .djs-palette:not([data-chrome="palette"]),
+  :is(:scope.vc-container, :scope .vc-container) .djs-hover-tooltip--bottom {
+    border-color: var(--cd-ui-kontur);
+    box-shadow: none;
+  }
+  :is(:scope.vc-container, :scope .vc-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry:focus-visible,
+  :is(:scope.vc-container, :scope .vc-container) .djs-direct-editing-parent:focus-within {
+    outline-width: 3px;
+  }
 }
 
 /* Guide §5.15: in a container at most 760px wide (--cd-shell-schmal) the palette moves to the second
@@ -335,23 +326,17 @@
     .entry[aria-pressed="true"]:focus-visible {
     outline-offset: -5px;
   }
-  :root[data-cd-kontrast="hoch"]
-    .vc-container:not([data-cd-theme])
-    .djs-palette:not([data-chrome="palette"])
-    .entry:focus-visible,
-  .vc-container[data-cd-kontrast="hoch"]
-    .djs-palette:not([data-chrome="palette"])
-    .entry:focus-visible {
-    outline-offset: -3px;
-  }
-  :root[data-cd-kontrast="hoch"]
-    .vc-container:not([data-cd-theme])
-    .djs-palette:not([data-chrome="palette"])
-    .entry[aria-pressed="true"]:focus-visible,
-  .vc-container[data-cd-kontrast="hoch"]
-    .djs-palette:not([data-chrome="palette"])
-    .entry[aria-pressed="true"]:focus-visible {
-    outline-offset: -6px;
+  @scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+    :is(:scope.vc-container, :scope .vc-container)
+      .djs-palette:not([data-chrome="palette"])
+      .entry:focus-visible {
+      outline-offset: -3px;
+    }
+    :is(:scope.vc-container, :scope .vc-container)
+      .djs-palette:not([data-chrome="palette"])
+      .entry[aria-pressed="true"]:focus-visible {
+      outline-offset: -6px;
+    }
   }
 }
 
@@ -511,14 +496,17 @@
 
 /* High contrast (guide §6, §8): no shadow but a --cd-ui-kontur edge, and a 3px focus ring; forced
    colours draw the edge in CanvasText and the ring in Highlight. The chrome applies these rules
-   only to its own classes, so the modeler's dialog carries them itself. */
-:root[data-cd-kontrast="hoch"] .vc-shortcuts {
-  border-color: var(--cd-ui-kontur);
-  box-shadow: none;
-}
+   only to its own classes, so the modeler's dialog carries them itself. The nearest carrier of the
+   mode decides, as on the canvas (guide §13.3). */
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  :scope .vc-shortcuts {
+    border-color: var(--cd-ui-kontur);
+    box-shadow: none;
+  }
 
-:root[data-cd-kontrast="hoch"] .vc-shortcuts-close:focus-visible {
-  outline-width: 3px;
+  :scope .vc-shortcuts-close:focus-visible {
+    outline-width: 3px;
+  }
 }
 
 @media (forced-colors: active) {
