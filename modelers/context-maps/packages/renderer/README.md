@@ -257,9 +257,8 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
   returns that dialog's groups as data, with a File group (Open… and Export as JSON on Cmd/Ctrl+O
   and S) for a web app that binds those keys; show them with `shell.showShortcutsDialog(groups)`
   of `@miragon/modeler-shell` (0.7), or in a host without a mounted shell with the standalone
-  `showShortcutsDialog(groups, options)` of the same package. The renderer's own copy of that
-  dialog, `createShortcutsDialog(chrome, options)`, is **deprecated** and goes in 0.9.0
-  ([#261](https://github.com/Miragon/modeler-suite/issues/261)).
+  `showShortcutsDialog(groups, options)` of the same package. Since 0.9.0 the renderer draws no
+  shortcuts dialog of its own.
   `createTitleDialog(chrome, { title, setTitle })` renames the map in a modal dialog with one
   field, Cancel and Apply; it lives in the chrome's root and goes with `destroy()`.
 - While a drag runs on the canvas, the chrome's legend island (`[data-chrome="legend"]`) lets the
@@ -360,10 +359,11 @@ npm run context-maps typecheck
 ## License
 
 [MIT](../../LICENSE). diagram-js and its dependencies are MIT / ISC / Apache-2.0. The icons of the
-context pad, the connect handles, the validation markers, the lasso, the shortcuts dialog and the
-team glyph on the canvas are [Lucide](https://lucide.dev) icons (lucide-static 1.59.0, ISC, © Lucide
-Icons and Contributors), copied into `src/draw/lucide.ts`; `arrow-right`, `circle-x`, `trash`,
-`triangle-alert` and `x` derive from [Feather](https://feathericons.com) (MIT, © Cole Bemis). The
-star and the open hand that mark core and supporting subdomains are notation glyphs, the paths of
+context pad, the connect handles, the validation markers, the lasso, the Close buttons of the title
+dialog and the legend, and the team glyph on the canvas are [Lucide](https://lucide.dev) icons
+(lucide-static 1.59.0, ISC, © Lucide Icons and Contributors), copied into `src/draw/lucide.ts`;
+`arrow-right`, `circle-x`, `trash`, `triangle-alert` and `x` derive from
+[Feather](https://feathericons.com) (MIT, © Cole Bemis). The star and the open hand that mark core
+and supporting subdomains are notation glyphs, the paths of
 [Material Icons](https://github.com/google/material-design-icons) `star` and `pan_tool` (Apache-2.0,
 © Google LLC), copied into `src/draw/subdomainGlyphs.ts`.

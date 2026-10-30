@@ -18,8 +18,6 @@ export type {
   ShortcutRow,
   ShortcutsChrome,
 } from "./shortcuts.js";
-export { createShortcutsDialog } from "./ShortcutsDialog.js";
-export type { ShortcutsDialog, ShortcutsDialogChrome } from "./ShortcutsDialog.js";
 export { createTitleDialog } from "./TitleDialog.js";
 export type { MapTitle, TitleDialog, TitleDialogChrome } from "./TitleDialog.js";
 export type { ChromeDialog, DialogChrome } from "./dialog.js";

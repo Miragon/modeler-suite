@@ -2,10 +2,11 @@ import { afterEach, expect, test } from "vitest";
 import {
   Modeler,
   contextMapMenu,
-  createShortcutsDialog,
+  contextMapShortcuts,
   createTitleDialog,
   hoverTipFor,
 } from "@miragon/context-maps-renderer";
+import * as renderer from "@miragon/context-maps-renderer";
 import { SAMPLE_DOCUMENT } from "@miragon/context-maps-schema-model";
 
 const cleanups: Array<() => void> = [];
@@ -58,7 +59,7 @@ test("a title entry joins the Model group when the host can rename the map", () 
   expect(opened).toEqual(["title"]);
 });
 
-/** A chrome root with a menu trigger, as the shell hands it to the dialogs. */
+/** A chrome root with a menu trigger, as the shell hands it to the title dialog. */
 function chromeRoot(): { root: HTMLElement; trigger: HTMLButtonElement } {
   const root = document.createElement("div");
   const trigger = document.createElement("button");
@@ -73,56 +74,46 @@ const SHORTCUT_MESSAGES = {
   zoomOut: "Zoom out",
   zoomToActual: (percent: string) => `Zoom to ${percent}`,
   fit: "Fit to view",
-  close: "Close",
   keyNames: { ctrl: "Ctrl", shift: "Shift", plus: "Plus", minus: "Minus" },
 };
 
-test("the shortcuts dialog opens modal in the chrome root and gives the focus back on close", async () => {
-  const { root, trigger } = chromeRoot();
-  const dialog = createShortcutsDialog({
-    root,
+test("the shortcuts dialog's groups name the zoom keys as the chrome's tooltips do", () => {
+  const groups = contextMapShortcuts({
     platform: "other",
     lang: "en",
-    menu: { trigger },
     messages: SHORTCUT_MESSAGES,
   });
-  dialog.open();
-  const element = root.querySelector<HTMLDialogElement>("dialog.cm-shortcuts")!;
-  expect(element.open).toBe(true);
-  expect(element.matches(":modal")).toBe(true);
-  expect([...element.querySelectorAll("h4")].map((heading) => heading.textContent)).toEqual([
-    "View",
-    "Edit",
-    "Tools",
-  ]);
-  expect(element.textContent).toContain("Ctrl+Plus");
-  expect(element.textContent).toContain("Zoom to 100%");
-  element.querySelector<HTMLButtonElement>(".cm-dialog-close")!.click();
-  expect(dialog.isOpen()).toBe(false);
-  // the dialog's close event arrives in a task of its own
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  expect(document.activeElement).toBe(trigger);
-  dialog.destroy();
-  expect(root.querySelector("dialog")).toBeNull();
+  expect(groups.map((group) => group.title)).toEqual(["View", "Edit", "Tools"]);
+  expect(groups[0]!.rows).toContainEqual({ action: "Zoom in", keys: ["Ctrl+Plus"] });
+  expect(groups[0]!.rows).toContainEqual({ action: "Zoom to 100%", keys: ["Ctrl+0"] });
 });
 
-test("the web app's file keys lead the shortcuts dialog", () => {
-  const { root, trigger } = chromeRoot();
-  const dialog = createShortcutsDialog(
-    { root, platform: "mac", lang: "en", menu: { trigger }, messages: SHORTCUT_MESSAGES },
+test("the web app's file keys lead the shortcuts dialog's groups", () => {
+  const groups = contextMapShortcuts(
+    { platform: "mac", lang: "en", messages: SHORTCUT_MESSAGES },
     { fileKeys: true },
   );
-  dialog.open();
-  const element = root.querySelector<HTMLDialogElement>("dialog.cm-shortcuts")!;
-  expect([...element.querySelectorAll("h4")].map((heading) => heading.textContent)).toEqual([
-    "File",
-    "View",
-    "Edit",
-    "Tools",
+  expect(groups.map((group) => group.title)).toEqual(["File", "View", "Edit", "Tools"]);
+  expect(groups[0]!.rows).toEqual([
+    { action: "Open…", keys: ["⌘O"] },
+    { action: "Export as JSON", keys: ["⌘S"] },
   ]);
-  const fileRows = [...element.querySelectorAll("table")[0]!.rows].map((row) => row.textContent);
-  expect(fileRows).toEqual(["Open…⌘O", "Export as JSON⌘S"]);
-  dialog.close();
+});
+
+/** Every selector of the page's style sheets, the ones inside `@layer`, `@media` and `@scope` too. */
+function selectorsOf(rules: CSSRuleList): string[] {
+  return [...rules].flatMap((rule) => [
+    ...(rule instanceof CSSStyleRule ? [rule.selectorText] : []),
+    ...("cssRules" in rule ? selectorsOf((rule as CSSGroupingRule).cssRules) : []),
+  ]);
+}
+
+test("the renderer leaves the keyboard shortcuts dialog to the shell: no dialog of its own, no rules for one", () => {
+  expect(Object.keys(renderer)).not.toContain("createShortcutsDialog");
+  expect(Object.keys(renderer)).toContain("contextMapShortcuts");
+  const selectors = [...document.styleSheets].flatMap((sheet) => selectorsOf(sheet.cssRules));
+  expect(selectors).toContain(".cm-title-dialog");
+  expect(selectors.filter((selector) => selector.includes("cm-shortcuts"))).toEqual([]);
 });
 
 test("the title dialog edits the map title in a field and applies it once", async () => {
@@ -174,6 +165,38 @@ test("the title dialog edits the map title in a field and applies it once", asyn
   expect(written).toEqual(["Conference 2026"]);
   dialog.destroy();
   expect(root.querySelector("dialog")).toBeNull();
+});
+
+test("the Close button in the dialog's header discards the edit and gives the focus back", async () => {
+  const { root, trigger } = chromeRoot();
+  const written: string[] = [];
+  const dialog = createTitleDialog(
+    { root, menu: { trigger }, messages: { close: "Close dialog" } },
+    {
+      title: () => "Conference",
+      setTitle: (next) => {
+        written.push(next);
+      },
+    },
+  );
+
+  dialog.open();
+  const element = root.querySelector<HTMLDialogElement>("dialog.cm-title-dialog")!;
+  element.querySelector("input")!.value = "Discarded";
+  const close = element.querySelector<HTMLButtonElement>(".cm-dialog-header .cm-dialog-close")!;
+  expect(close.type).toBe("button");
+  expect(close.getAttribute("aria-label")).toBe("Close dialog");
+  expect(close.querySelector("svg")).not.toBeNull();
+
+  const closed = new Promise((resolve) =>
+    element.addEventListener("close", resolve, { once: true }),
+  );
+  close.click();
+  expect(dialog.isOpen()).toBe(false);
+  await closed;
+  expect(written).toEqual([]);
+  expect(document.activeElement).toBe(trigger);
+  dialog.destroy();
 });
 
 test("hovering an element shows its own data in a tooltip inside the canvas", () => {
