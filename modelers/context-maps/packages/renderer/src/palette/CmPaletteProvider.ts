@@ -4,12 +4,15 @@
  * drags or clicks a context onto the canvas; Enter or Space on an entry (a click without a
  * pointer, `detail === 0`, as the Miragon modeler shell and `CmPaletteToolbar` send it) places it
  * in the centre of the free rectangle instead, selected and with its name editor open (guide
+ * §5.5). Such a click on the armed lasso puts it down, as on any pressed toggle button (guide
  * §5.5). A pointer on any entry hands the focus to the canvas, also without the shell (guide §5.8).
  */
 
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Create from "diagram-js/lib/features/create/Create";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type LassoTool from "diagram-js/lib/features/lasso-tool/LassoTool";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Palette from "diagram-js/lib/features/palette/Palette";
@@ -18,6 +21,7 @@ import type {
   default as PaletteProvider,
 } from "diagram-js/lib/features/palette/PaletteProvider";
 import type Selection from "diagram-js/lib/features/selection/Selection";
+import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
 import type { Point } from "diagram-js/lib/util/Types";
 import type { FreeArea } from "@miragon/modeler-api";
@@ -34,6 +38,10 @@ import { freeAreaInsets } from "./freeArea.js";
 /** diagram-js highlights tools only inside the group named exactly `tools`. */
 const GROUP_TOOLS = "tools";
 const GROUP_CONTEXTS = "cm-1-contexts";
+
+/** The lasso's tool name in diagram-js's tool manager, and the drag that holds it armed. */
+const LASSO_TOOL = "lasso";
+const LASSO_SELECTION = "lasso.selection";
 
 /** Guide §5.5: a keyboard-created element lands this far down-right of one already centred there. */
 const KEYBOARD_CREATE_OFFSET = 24;
@@ -71,6 +79,9 @@ export default class CmPaletteProvider implements PaletteProvider {
     "cmLabelEditing",
     "cmReadOnly",
     "config.cmPalette",
+    "eventBus",
+    "dragging",
+    "toolManager",
   ];
 
   constructor(
@@ -85,7 +96,15 @@ export default class CmPaletteProvider implements PaletteProvider {
     private readonly labelEditing: CmLabelEditing,
     private readonly readOnly: Pick<CmReadOnly, "isReadOnly">,
     private readonly config: CmPaletteConfig | undefined,
+    eventBus: EventBus,
+    private readonly dragging: Dragging,
+    toolManager: ToolManager,
   ) {
+    // diagram-js releases a tool when its drag ends, but on a cancel only once the pointer has moved
+    // the drag, so a lasso that only waited, put down by Escape or from its entry, stayed pressed.
+    eventBus.on(`${LASSO_SELECTION}.cleanup`, () => {
+      if (toolManager.isActive(LASSO_TOOL)) toolManager.setActive(null);
+    });
     palette.registerProvider(this);
   }
 
@@ -100,6 +119,11 @@ export default class CmPaletteProvider implements PaletteProvider {
       html: entryHtml(toolIcon("square-dashed-mouse-pointer"), false),
       action: {
         click: (event: Event) => {
+          // A pointer's press has already ended the waiting drag, so its click arms the lasso again.
+          if (isKeyboardClick(event) && this.dragging.context()?.prefix === LASSO_SELECTION) {
+            this.dragging.cancel(false);
+            return;
+          }
           this.lassoTool.activateSelection(event as MouseEvent);
           handFocusToCanvas(this.canvas, event);
         },

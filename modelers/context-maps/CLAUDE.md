@@ -148,11 +148,16 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   stored state) and the renderer's own palette rules stay for hosts that embed the renderer without
   the shell. So does `palette/CmPaletteToolbar` (#433, a port of Value Chain's `VcPaletteToolbar`:
   `role="toolbar"`, the roving tab stop and its keys, `aria-pressed`, `aria-keyshortcuts`, the
-  palette moved ahead of the canvas `<svg>`, so a test finds the canvas with `:scope > svg`); it
-  does nothing where `modelerShell` is registered or a chrome marks the palette
-  `data-chrome="palette"` (`palette-without-shell.test.ts`), and leaves a key on a hidden or inert
-  palette to the page (`isKeyOnHiddenTarget`, `hidden-chrome-keys.test.ts`). The DOM-free packages
-  take only types from `@miragon/modeler-api`.
+  palette moved ahead of the canvas `<svg>`, so a test finds the canvas with `:scope > svg`, and
+  `aria-disabled` and a `palette.trigger` veto under the `cmReadOnly` lock, #463); it does nothing
+  where `modelerShell` is registered or a chrome marks the palette `data-chrome="palette"`
+  (`palette-without-shell.test.ts`), and leaves a key on a hidden or inert palette to the page
+  (`isKeyOnHiddenTarget`, `hidden-chrome-keys.test.ts`). `palette/CmPaletteTooltip` (#457, a port
+  of `VcPaletteTooltip`) is diagram-js's `paletteTooltip` replaced by guide §5.6's, below the
+  island; the shell's `shellModule` replaces it in turn, and a palette another chrome skins keeps
+  diagram-js's place right of the entry. `CmPaletteProvider` releases the lasso whenever its
+  waiting drag goes, and Enter or Space on the armed lasso puts it down (#458, #462, as Team
+  Topologies' #450). The DOM-free packages take only types from `@miragon/modeler-api`.
 - **Shortcuts dialog and PNG export.** Both apps open the shell's dialog:
   `shell.showShortcutsDialog(contextMapShortcuts(shell, options))`, the web app with
   `{ fileKeys: true }` (Cmd/Ctrl+O and S). The shell puts its zoom and fit keys at the top of the

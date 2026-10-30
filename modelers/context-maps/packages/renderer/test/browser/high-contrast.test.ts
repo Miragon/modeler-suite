@@ -121,10 +121,10 @@ function clickPadEntry(modeler: CollaborativeContextMapsModeler, action: string)
   ).dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
 }
 
-/** diagram-js shows the palette's tooltip a moment after the pointer enters an entry. */
+/** The palette shows its tooltip a moment after a mouse enters an entry. */
 async function showPaletteTooltip(map: HTMLElement): Promise<HTMLElement> {
   within(map, '.djs-palette-entries .entry[data-action="lasso-tool"]').dispatchEvent(
-    new MouseEvent("mouseover", { bubbles: true }),
+    new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse" }),
   );
   return vi.waitFor(() => within(map, ".djs-hover-tooltip"), { timeout: 5000 });
 }
@@ -215,7 +215,7 @@ describe("the overlays on the canvas in high contrast (guide §5.3, §6, §13.3)
     expect(shadows).toEqual(Object.fromEntries(OVERLAYS.map((overlay) => [overlay, "none"])));
   });
 
-  // diagram-js draws the palette's tooltip with a shadow as its only edge (guide §5.6).
+  // diagram-js draws its tooltip with a shadow as its only edge; guide §5.6 gives it a line.
   it.each(Object.entries({ ...NORMAL_CONTRAST, ...HIGH_CONTRAST }))(
     "give the palette's tooltip a line edge %s",
     async (_, mode) => {

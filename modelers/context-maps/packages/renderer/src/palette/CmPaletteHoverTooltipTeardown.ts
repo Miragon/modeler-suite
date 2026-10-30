@@ -13,12 +13,13 @@ interface PendingTooltip {
 const BEFORE_CANVAS_TEARDOWN = 1500;
 
 /**
- * diagram-js's hover tooltip (checked up to 15.28.1; not the elements' `cmHoverTooltip`) shows a
- * palette entry's tooltip 300ms after the pointer enters the entry and cancels that only when the
- * pointer leaves, never on `diagram.destroy`: the timer then renders into the destroyed canvas and
- * throws a TypeError in the host's page. HoverTooltip has no public way to cancel a show, so this
- * clears its timer and the content it would render. A host that replaced the service with `null`
- * has nothing to cancel.
+ * diagram-js's palette brings its hover tooltip along (not the elements' `cmHoverTooltip`), which
+ * `CmPaletteTooltip` does not use, but a host may (diagram-js's own palette tooltip, say). That
+ * tooltip (checked up to 15.28.1) shows 300ms after the pointer enters an entry and cancels that
+ * only when the pointer leaves, never on `diagram.destroy`: the timer then renders into the
+ * destroyed canvas and throws a TypeError in the host's page. HoverTooltip has no public way to
+ * cancel a show, so this clears its timer and the content it would render. A host that replaced
+ * the service with `null` has nothing to cancel.
  */
 export default class CmPaletteHoverTooltipTeardown {
   static $inject = ["eventBus", "hoverTooltip"];
@@ -34,7 +35,7 @@ export default class CmPaletteHoverTooltipTeardown {
   }
 }
 
-/** Cancels the palette tooltip that waits to show when the modeler is destroyed. */
+/** Cancels a diagram-js hover tooltip that waits to show when the modeler is destroyed. */
 export const cmPaletteHoverTooltipTeardownModule: ModuleDeclaration = {
   __depends__: [HoverTooltipModule],
   __init__: ["cmPaletteHoverTooltipTeardown"],

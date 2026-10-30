@@ -2,6 +2,7 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Palette from "diagram-js/lib/features/palette/Palette";
 import { isKeyOnHiddenTarget } from "../keyboard/CmKeyboard.js";
+import { READ_ONLY_CHANGED_EVENT, type CmReadOnly } from "../read-only/index.js";
 
 const TOOLBAR_LABEL = "Tools";
 const TOOLS_GROUP = "tools";
@@ -10,9 +11,19 @@ const ENTRIES_SELECTOR = ".djs-palette-entries";
 const ENTRY_SELECTOR = ".entry";
 /** A shortcut on one letter or digit names the same key on every layout (guide §5.6). */
 const SINGLE_KEY_SHORTCUT = /^[a-z0-9]$/i;
+/** The entries that stay active under the read-only lock (guide §13.5: Lasso and Hand). */
+const READ_ONLY_ACTIONS: ReadonlySet<string> = new Set(["lasso-tool", "hand-tool"]);
+/** Ahead of every default-priority `palette.trigger` listener, so the lock's veto comes first. */
+const TRIGGER_PRIORITY = 2000;
 
 interface PaletteEntryLike {
   shortcut?: string;
+  group?: string;
+}
+
+interface PaletteTriggerEvent {
+  entry?: PaletteEntryLike;
+  event?: Event & { delegateTarget?: EventTarget };
 }
 
 interface OptionalInjector {
@@ -24,8 +35,10 @@ interface OptionalInjector {
  * skins it: `role="toolbar"` named "Tools", one tab stop that roves with ← → Home End, Enter or
  * Space as a click without a pointer (a creating entry then places its context in the free area,
  * `CmPaletteProvider`), `aria-pressed` on the tools, `aria-keyshortcuts` on the entries with a key,
- * and the palette ahead of the canvas in the tab order (guide §5.14). The Miragon modeler shell
- * brings all of this itself, and a palette any chrome skins (`data-chrome="palette"`) is left to it.
+ * `aria-disabled` on the entries the read-only lock refuses, which then do nothing (guide §13.5;
+ * they stay focusable), and the palette ahead of the canvas in the tab order (guide §5.14). The
+ * Miragon modeler shell brings all of this itself, and a palette any chrome skins
+ * (`data-chrome="palette"`) is left to it.
  */
 export default class CmPaletteToolbar {
   static $inject = ["eventBus", "palette", "canvas", "injector"];
@@ -33,6 +46,9 @@ export default class CmPaletteToolbar {
   private container: HTMLElement | undefined;
   private activeTool: string | null = null;
   private rovingAction: string | undefined;
+  private readonly readOnly: Pick<CmReadOnly, "isReadOnly"> | undefined;
+  /** The `aria-disabled` an entry had before the lock marked it (`null`: none). */
+  private readonly disabledEntries = new WeakMap<Element, string | null>();
 
   constructor(
     eventBus: EventBus,
@@ -42,10 +58,13 @@ export default class CmPaletteToolbar {
   ) {
     // The shell's palette skin adds the same keys; a second handler would create every context twice.
     if (injector.get("modelerShell", false)) return;
+    this.readOnly = injector.get("cmReadOnly", false) as Pick<CmReadOnly, "isReadOnly"> | undefined;
     eventBus.on("palette.create", (event: { container: HTMLElement }) =>
       this.attach(event.container),
     );
     eventBus.on("palette.changed", () => this.apply());
+    eventBus.on(READ_ONLY_CHANGED_EVENT, () => this.apply());
+    eventBus.on("palette.trigger", TRIGGER_PRIORITY, this.onTrigger);
     eventBus.on("tool-manager.update", (event: { tool?: string | null }) => {
       this.activeTool = event.tool ?? null;
       this.apply();
@@ -99,9 +118,43 @@ export default class CmPaletteToolbar {
         const tool = action.slice(0, -TOOL_ACTION_SUFFIX.length);
         entry.setAttribute("aria-pressed", String(tool === this.activeTool));
       }
+      this.applyDisabled(entry);
     }
     this.applyTabStops(entries);
   }
+
+  private locked(): boolean {
+    return this.readOnly?.isReadOnly() === true;
+  }
+
+  private applyDisabled(entry: HTMLElement): void {
+    if (this.locked() && !staysActive(entry)) {
+      if (!this.disabledEntries.has(entry)) {
+        this.disabledEntries.set(entry, entry.getAttribute("aria-disabled"));
+      }
+      entry.setAttribute("aria-disabled", "true");
+      return;
+    }
+    if (!this.disabledEntries.has(entry)) return;
+    const previous = this.disabledEntries.get(entry);
+    this.disabledEntries.delete(entry);
+    if (previous === null || previous === undefined) entry.removeAttribute("aria-disabled");
+    else entry.setAttribute("aria-disabled", previous);
+  }
+
+  // The provider refuses a context only once it would change the map, so a pointer on a disabled
+  // entry would still start a create preview, and a host's entry would run its action.
+  private readonly onTrigger = (event: PaletteTriggerEvent): false | undefined => {
+    if (!this.locked() || !this.container || this.skinnedByChrome() || !event.entry) {
+      return undefined;
+    }
+    const element = this.entryOf(event.event?.delegateTarget ?? event.event?.target ?? null);
+    const vetoed = element ? !staysActive(element) : event.entry.group !== TOOLS_GROUP;
+    if (!vetoed) return undefined;
+    // A vetoed dragstart would otherwise still start the browser's native drag of the entry.
+    event.event?.preventDefault();
+    return false;
+  };
 
   private applyTabStops(entries: readonly HTMLElement[]): void {
     const stop = entries.find((entry) => actionOf(entry) === this.rovingAction) ?? entries[0];
@@ -176,6 +229,11 @@ export default class CmPaletteToolbar {
 
 function actionOf(entry: Element): string | undefined {
   return entry.getAttribute("data-action") ?? undefined;
+}
+
+function staysActive(entry: Element): boolean {
+  const action = actionOf(entry);
+  return action !== undefined && READ_ONLY_ACTIONS.has(action);
 }
 
 function isTool(entry: Element, action: string | undefined): action is string {

@@ -255,7 +255,7 @@ describe("theme.sync — context-maps.css", () => {
         .filter((selector) => /\.djs-(palette|context-pad|popup)(?![\w-])/.test(selector))
         .map((selector) => ({ selector, highContrast: rule.within.includes(HIGH_CONTRAST_SCOPE) })),
     );
-    expect(selectors.filter(({ selector }) => selector.includes(".djs-palette")).length).toBe(18);
+    expect(selectors.filter(({ selector }) => selector.includes(".djs-palette")).length).toBe(25);
     expect(selectors.filter(({ selector }) => selector.includes(".djs-context-pad")).length).toBe(
       14,
     );
@@ -304,7 +304,7 @@ describe("theme.sync — context-maps.css", () => {
         .filter((rule) => /box-shadow:\s*none/.test(rule.declarations))
         .flatMap((rule) => rule.selectors.flatMap(highContrastSubjects)),
     );
-    expect(shadowed.size).toBe(13);
+    expect(shadowed.size).toBe(14);
     for (const subject of shadowed) expect(dropped, subject).toContain(subject);
   });
 
