@@ -322,3 +322,193 @@ describe("the board's keys while the draw tool holds a line (#243)", () => {
     expect(service<Dragging>(modeler, "dragging").context()?.prefix).toBe("create");
   });
 });
+
+/**
+ * The keys that would change the drawing under a point drag or start a second gesture next to it.
+ * The release writes back every point as the press found it, over a nudge, a duplicate selects
+ * the copy, and a lasso, a create or a paste would end with the same release.
+ */
+const KEYS_A_POINT_DRAG_TAKES = [
+  ["ArrowRight, a nudge of the drawing", "{ArrowRight}"],
+  ["Shift+ArrowRight, a coarse nudge", "{Shift>}{ArrowRight}{/Shift}"],
+  ["ArrowLeft", "{ArrowLeft}"],
+  ["ArrowUp", "{ArrowUp}"],
+  ["Shift+ArrowDown", "{Shift>}{ArrowDown}{/Shift}"],
+  ...GESTURE_KEYS,
+  ["duplicate", "{Control>}d{/Control}"],
+] as const;
+
+describe("the board's keys during the point drag of a drawing (#375)", () => {
+  /** A sticky copied, so that a paste has something to attach to the pointer, then the drag. */
+  async function draggingAPoint() {
+    const modeler = await editorWithBoard();
+    service<Selection>(modeler, "selection").select(sticky(modeler, "policy_reserve_stock"));
+    service<EventStormingCopyPaste>(modeler, "eventStormingCopyPaste").copy();
+    const changes = changesOf(modeler);
+    const { pointer, drawing } = holdFirstPoint(modeler);
+    return { modeler, pointer, drawing, changes };
+  }
+
+  const RELEASED_AT = offset(FIRST_POINT, 60, -80);
+
+  it.each(KEYS_A_POINT_DRAG_TAKES)(
+    "does nothing with %s, and the release moves the dragged point alone",
+    async (_, key) => {
+      const { modeler, pointer, drawing, changes } = await draggingAPoint();
+      const keys = keysReachingThePage();
+
+      await userEvent.keyboard(key);
+
+      expect(keys().map(({ taken }) => taken)).toEqual([true]);
+      expect(uncaught).toEqual([]);
+      expect(service<Dragging>(modeler, "dragging").context()).toBeFalsy();
+      expect(changes()).toBe(0);
+      expect(modeler.exportText()).toBe(BOARD);
+      expect(service<Selection>(modeler, "selection").get()).toEqual([drawing]);
+      expect(modeler.interaction.active()).toBe(true);
+      expect(pointDragPreview(modeler)).not.toBe(null);
+
+      pointer.release(RELEASED_AT);
+      expect(uncaught).toEqual([]);
+      expect(changes()).toBe(1);
+      expectTheFirstPointMovedTo(modeler, RELEASED_AT);
+      expect(handlePositions(modeler).slice(1)).toEqual(HANDLES_OF_THE_BOARD.slice(1));
+      service<CommandStack>(modeler, "commandStack").undo();
+      expect(modeler.exportText()).toBe(BOARD);
+    },
+  );
+
+  it("keeps Escape, which ends the drag without a commit after the keys it took", async () => {
+    const { modeler, pointer, drawing, changes } = await draggingAPoint();
+
+    await userEvent.keyboard("{ArrowRight}e");
+    await userEvent.keyboard("{Escape}");
+    expect(modeler.interaction.active()).toBe(false);
+    expect(pointDragPreview(modeler)).toBe(null);
+
+    pointer.release(RELEASED_AT);
+    pointer.click(pointer.svg, RELEASED_AT);
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(0);
+    expect(modeler.exportText()).toBe(BOARD);
+    expect(service<Selection>(modeler, "selection").get()).toEqual([drawing]);
+    expect(handlePositions(modeler)).toEqual(HANDLES_OF_THE_BOARD);
+  });
+
+  it("keeps Delete, which removes the drawing and ends the drag without a commit", async () => {
+    const { modeler, pointer, changes } = await draggingAPoint();
+
+    await userEvent.keyboard("{Delete}");
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).not.toMatch(/^line /m);
+    expect(modeler.interaction.active()).toBe(false);
+    expect(pointDragPreview(modeler)).toBe(null);
+
+    pointer.release(RELEASED_AT);
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).not.toMatch(/^line /m);
+  });
+
+  it("acts on the keys again once the release has ended the drag", async () => {
+    const { modeler, pointer, changes } = await draggingAPoint();
+    await userEvent.keyboard("{ArrowRight}");
+    pointer.release(RELEASED_AT);
+    expect(changes()).toBe(1);
+
+    await userEvent.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    expect(changes()).toBe(2);
+    expectTheFirstPointMovedTo(modeler, offset(RELEASED_AT, 10, 0));
+
+    await userEvent.keyboard("l");
+    expect(service<Dragging>(modeler, "dragging").context()?.prefix).toBe("lasso.selection");
+  });
+});
+
+/**
+ * The release writes back every point as the press found it, so a command between the press and the
+ * release would be undone by it, and its redo step lost: the command ends the drag first, without a
+ * commit, as in Wardley Maps.
+ */
+describe("a command during the point drag of a drawing", () => {
+  const RELEASED_AT = offset(FIRST_POINT, 60, -80);
+
+  /** The drawing moved by one command, so that an undo or a redo has a step to take. */
+  async function aMovedDrawing() {
+    const modeler = await editorWithBoard();
+    service<Modeling>(modeler, "modeling").moveElements([drawingOf(modeler) as unknown as Shape], {
+      x: 10,
+      y: 0,
+    });
+    const moved = modeler.exportText();
+    expect(moved).not.toBe(BOARD);
+    return { modeler, moved, commandStack: service<CommandStack>(modeler, "commandStack") };
+  }
+
+  function expectTheDragEnded(modeler: CollaborativeEventStormingModeler) {
+    expect(uncaught).toEqual([]);
+    expect(modeler.interaction.active()).toBe(false);
+    expect(pointDragPreview(modeler)).toBe(null);
+  }
+
+  it("ends the drag on an undo: the release keeps the undone drawing and the redo", async () => {
+    const { modeler, moved, commandStack } = await aMovedDrawing();
+    const changes = changesOf(modeler);
+    const { pointer } = holdFirstPoint(modeler);
+
+    await userEvent.keyboard("{Control>}z{/Control}");
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).toBe(BOARD);
+    expectTheDragEnded(modeler);
+
+    pointer.moveTo(RELEASED_AT);
+    pointer.release(RELEASED_AT);
+    expectTheDragEnded(modeler);
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).toBe(BOARD);
+    expect(commandStack.canRedo()).toBe(true);
+    commandStack.redo();
+    expect(modeler.exportText()).toBe(moved);
+  });
+
+  it("ends the drag on a redo: the release keeps the redone drawing", async () => {
+    const { modeler, moved, commandStack } = await aMovedDrawing();
+    commandStack.undo();
+    const changes = changesOf(modeler);
+    const { pointer } = holdFirstPoint(modeler);
+
+    await userEvent.keyboard("{Control>}{Shift>}z{/Shift}{/Control}");
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).toBe(moved);
+    expectTheDragEnded(modeler);
+
+    pointer.moveTo(RELEASED_AT);
+    pointer.release(RELEASED_AT);
+    expectTheDragEnded(modeler);
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).toBe(moved);
+    commandStack.undo();
+    expect(modeler.exportText()).toBe(BOARD);
+  });
+
+  it("ends the drag on a command from elsewhere: the release keeps what it changed", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const { pointer, drawing } = holdFirstPoint(modeler);
+
+    service<Modeling>(modeler, "modeling").moveElements([drawing as unknown as Shape], {
+      x: 10,
+      y: 0,
+    });
+    const moved = modeler.exportText();
+    expect(moved).not.toBe(BOARD);
+    expectTheDragEnded(modeler);
+
+    pointer.release(RELEASED_AT);
+    expectTheDragEnded(modeler);
+    expect(changes()).toBe(1);
+    expect(modeler.exportText()).toBe(moved);
+    service<CommandStack>(modeler, "commandStack").undo();
+    expect(modeler.exportText()).toBe(BOARD);
+  });
+});

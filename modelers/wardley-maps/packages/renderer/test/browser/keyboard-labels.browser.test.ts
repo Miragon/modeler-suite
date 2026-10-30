@@ -121,6 +121,20 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
     for (const control of hostChrome.splice(0)) control.remove();
   });
 
+  /** The two ways a host hides a canvas it keeps; the focus leaves it at the next rendering update. */
+  const hostHidings = [
+    {
+      how: "made it inert",
+      hide: () => container.setAttribute("inert", ""),
+      show: () => container.removeAttribute("inert"),
+    },
+    {
+      how: "hid it with display: none",
+      hide: () => (container.style.display = "none"),
+      show: () => container.style.removeProperty("display"),
+    },
+  ];
+
   describe("focus scoping", () => {
     it("leaves keys alone while a host select or button has focus", () => {
       select("Platform");
@@ -199,30 +213,33 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       expect(service<Selection>("selection").get()).toEqual([platform]);
     });
 
-    it("leaves a key alone that reaches the focused canvas before the browser moves the focus off the inert canvas", () => {
-      const platform = select("Platform");
-      pressOnCanvas("ArrowRight");
-      const before = modeler.exportDSL();
-      container.setAttribute("inert", "");
-      expect(document.activeElement).toBe(svg());
+    it.each(hostHidings)(
+      "leaves a key alone that reaches the focused canvas before the browser moves the focus off it, once the host $how",
+      ({ hide }) => {
+        const platform = select("Platform");
+        pressOnCanvas("ArrowRight");
+        const before = modeler.exportDSL();
+        hide();
+        expect(document.activeElement).toBe(svg());
 
-      for (const [key, modifiers] of [
-        ["Backspace", {}],
-        ["Delete", {}],
-        ["ArrowLeft", {}],
-        ["Escape", {}],
-        ["c", {}],
-        ["l", {}],
-        ["a", { metaKey: true }],
-        ["z", { metaKey: true }],
-        ["d", { metaKey: true }],
-      ] as const) {
-        expect(pressKey(svg(), key, modifiers).defaultPrevented, key).toBe(false);
-      }
-      expect(modeler.exportDSL()).toBe(before);
-      expect(service<Selection>("selection").get()).toEqual([platform]);
-      expect(service<Dragging>("dragging").context()).toBeFalsy();
-    });
+        for (const [key, modifiers] of [
+          ["Backspace", {}],
+          ["Delete", {}],
+          ["ArrowLeft", {}],
+          ["Escape", {}],
+          ["c", {}],
+          ["l", {}],
+          ["a", { metaKey: true }],
+          ["z", { metaKey: true }],
+          ["d", { metaKey: true }],
+        ] as const) {
+          expect(pressKey(svg(), key, modifiers).defaultPrevented, key).toBe(false);
+        }
+        expect(modeler.exportDSL()).toBe(before);
+        expect(service<Selection>("selection").get()).toEqual([platform]);
+        expect(service<Dragging>("dragging").context()).toBeFalsy();
+      },
+    );
 
     it("takes a real key on the focused canvas while the host shows it", async () => {
       select("Platform");
@@ -610,20 +627,23 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       expect(drawTool().isActive()).toBe(false);
     });
 
-    it("leaves Escape on the palette entry that started it to the page once the host made it inert", () => {
-      const entry = drawEntry(container);
-      entry.focus();
-      pressKey(entry, "Enter");
-      expect(drawTool().isActive()).toBe(true);
-      container.setAttribute("inert", "");
-      expect(document.activeElement).toBe(entry);
+    it.each(hostHidings)(
+      "leaves Escape on the palette entry that started it to the page once the host $how",
+      ({ hide, show }) => {
+        const entry = drawEntry(container);
+        entry.focus();
+        pressKey(entry, "Enter");
+        expect(drawTool().isActive()).toBe(true);
+        hide();
+        expect(document.activeElement).toBe(entry);
 
-      expect(pressKey(entry, "Escape").defaultPrevented).toBe(false);
-      expect(drawTool().isActive()).toBe(true);
-      container.removeAttribute("inert");
-      expect(pressKey(entry, "Escape").defaultPrevented).toBe(true);
-      expect(drawTool().isActive()).toBe(false);
-    });
+        expect(pressKey(entry, "Escape").defaultPrevented).toBe(false);
+        expect(drawTool().isActive()).toBe(true);
+        show();
+        expect(pressKey(entry, "Escape").defaultPrevented).toBe(true);
+        expect(drawTool().isActive()).toBe(false);
+      },
+    );
 
     it("keeps the line it holds when Enter, Space or Escape reach its palette entry once the host made it inert", () => {
       const entry = drawEntry(container);
@@ -746,22 +766,25 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       expect(drawings()).toBe(1);
     });
 
-    it("leaves Enter and Escape on the focused canvas to the page once the host made it inert", () => {
-      drawTool().activate();
-      placePoint(300, 300);
-      placePoint(420, 360);
-      svg().focus();
-      container.setAttribute("inert", "");
-      expect(document.activeElement).toBe(svg());
+    it.each(hostHidings)(
+      "leaves Enter and Escape on the focused canvas to the page once the host $how",
+      ({ hide, show }) => {
+        drawTool().activate();
+        placePoint(300, 300);
+        placePoint(420, 360);
+        svg().focus();
+        hide();
+        expect(document.activeElement).toBe(svg());
 
-      expect(pressKey(svg(), "Enter").defaultPrevented).toBe(false);
-      expect(pressKey(svg(), "Escape").defaultPrevented).toBe(false);
-      expect(drawTool().isActive()).toBe(true);
-      expect(drawings()).toBe(0);
-      container.removeAttribute("inert");
-      expect(pressOnCanvas("Enter").defaultPrevented).toBe(true);
-      expect(drawings()).toBe(1);
-    });
+        expect(pressKey(svg(), "Enter").defaultPrevented).toBe(false);
+        expect(pressKey(svg(), "Escape").defaultPrevented).toBe(false);
+        expect(drawTool().isActive()).toBe(true);
+        expect(drawings()).toBe(0);
+        show();
+        expect(pressOnCanvas("Enter").defaultPrevented).toBe(true);
+        expect(drawings()).toBe(1);
+      },
+    );
 
     it("leaves Enter and Escape on another entry of its own palette to the palette", () => {
       drawTool().activate();

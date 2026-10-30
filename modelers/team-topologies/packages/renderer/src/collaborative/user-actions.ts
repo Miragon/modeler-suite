@@ -3,6 +3,9 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 /** Ahead of every other listener, so that every listener of the action finds it marked. */
 const FIRST = 100_000;
 
+/** Ahead of the interaction's report at `FIRST`, which may call a host that destroys the modeler. */
+const BEFORE_THE_REPORT = FIRST + 1;
+
 /**
  * `execute` comes before each command runs, a redo and the commands nested in another included,
  * `revert` before each undo: a selection listener can run inside the command, before `changed`.
@@ -14,6 +17,20 @@ const CALL_EVENTS = [
   "commandStack.revert",
   "commandStack.changed",
   "drag.start",
+];
+
+/**
+ * The steps after which the handler of the user's input goes on with the diagram: diagram-js's
+ * drag after its init, start, drop, cancel and cleanup, and the code that ran a command after it.
+ */
+const HANDLER_GOES_ON_EVENTS = [
+  "drag.init",
+  "drag.start",
+  "drag.end",
+  "drag.cancel",
+  "drag.cleanup",
+  "commandStack.execute",
+  "commandStack.revert",
 ];
 
 export interface UserActionWatch {
@@ -28,15 +45,17 @@ export interface UserActionWatch {
   /** Lets every waiter go (destroy), so none waits for an action that never ends. */
   stop(): void;
   /**
-   * Runs `teardown` (the modeler's destroy) at once, or, while diagram-js activates a drag, once
-   * the handler that activates it has returned. diagram-js cancels a running drag on destroy, and
-   * between the drag's start and its first move it deselects and then reads the drag's context
-   * again: a destroy from a selection listener there made `Dragging.move` throw `Cannot read
-   * properties of null (reading 'cursor')` (#346). The first move, whose interaction listener may
-   * destroy as well, and the rest of the handler still run on the live diagram, which the teardown
-   * then takes down with the drag.
+   * Runs `teardown` (the modeler's destroy) at once, or, while the handler of the user's input goes
+   * on with the diagram, once that handler has returned. A host may destroy the modeler from any
+   * listener, and these handlers read the canvas after one: diagram-js's `Dragging.move` deselects
+   * after a drag's start and reads the drag again (#346), a drop's command runs inside
+   * `Dragging.end`, whose `SelectionBehavior` then selects the new element and whose cleanup reads
+   * the canvas, a cancel cleans the drag up after the listeners of its `drag.cleanup` (#380), and a
+   * keyboard create selects its element and opens its label editor (#373). The rest of the handler
+   * runs on the live diagram, which the teardown then takes down, together with a drag that still
+   * runs.
    */
-  tearDownAfterActivation(teardown: () => void): void;
+  tearDownAfterHandler(teardown: () => void): void;
 }
 
 interface RunningAction {
@@ -79,8 +98,8 @@ export function watchUserActions(eventBus: EventBus): UserActionWatch {
   let drop: RunningAction | undefined;
   /** A command or a drag's start, until the code that made it has returned. */
   let call: RunningAction | undefined;
-  /** From a drag's `drag.start` until the handler that activated the drag has returned. */
-  let handlerActivatesDrag = false;
+  /** From one of `HANDLER_GOES_ON_EVENTS` until the handler of the user's input has returned. */
+  let handlerGoesOn = false;
 
   const endDrop = (): void => {
     const ending = drop;
@@ -103,11 +122,11 @@ export function watchUserActions(eventBus: EventBus): UserActionWatch {
     call = started;
     queueMicrotask(() => endCall(started));
   });
-  eventBus.on("drag.start", FIRST, () => {
-    if (handlerActivatesDrag) return;
-    handlerActivatesDrag = true;
+  eventBus.on(HANDLER_GOES_ON_EVENTS, BEFORE_THE_REPORT, () => {
+    if (handlerGoesOn) return;
+    handlerGoesOn = true;
     queueMicrotask(() => {
-      handlerActivatesDrag = false;
+      handlerGoesOn = false;
     });
   });
 
@@ -120,8 +139,8 @@ export function watchUserActions(eventBus: EventBus): UserActionWatch {
       endDrop();
       endCall(call);
     },
-    tearDownAfterActivation(teardown) {
-      if (handlerActivatesDrag) queueMicrotask(teardown);
+    tearDownAfterHandler(teardown) {
+      if (handlerGoesOn) queueMicrotask(teardown);
       else teardown();
     },
   };

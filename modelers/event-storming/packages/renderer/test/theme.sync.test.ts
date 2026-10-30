@@ -118,6 +118,29 @@ function ruleSelectors(source: string): string[] {
   );
 }
 
+/** Every selector of every rule, split at the commas outside parentheses, spaces collapsed. */
+function topLevelSelectors(source: string): string[] {
+  return [...withoutComments(source).matchAll(/([^{};]+)\{/g)].flatMap((match) => {
+    const selectors: string[] = [];
+    let depth = 0;
+    let current = "";
+    for (const character of match[1]!) {
+      if (character === "(") depth++;
+      if (character === ")") depth--;
+      if (character === "," && depth === 0) {
+        selectors.push(current);
+        current = "";
+      } else {
+        current += character;
+      }
+    }
+    selectors.push(current);
+    return selectors.map((selector) =>
+      selector.trim().replace(/\s+/g, " ").replace(/\( /g, "(").replace(/ \)/g, ")"),
+    );
+  });
+}
+
 describe("theme.sync — event-storming.css takes every colour from the roles", () => {
   it("declares no colour literal: no hex, rgb() or hsl() value", () => {
     expect(withoutComments(css)).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
@@ -145,7 +168,9 @@ describe("theme.sync — event-storming.css takes every colour from the roles", 
       );
       return Number(/z-index:\s*(\d+)/.exec(rule?.[1] ?? "")?.[1]);
     };
-    expect(zIndexOf('.djs-palette:not([data-chrome="palette"])')).toBe(110);
+    expect(
+      zIndexOf(':where(.event-storming-container) .djs-palette:not([data-chrome="palette"])'),
+    ).toBe(110);
     for (const overlay of [
       ".event-storming-container .event-storming-note-toolbar",
       ".event-storming-container .event-storming-color-picker",
@@ -195,15 +220,17 @@ describe("theme.sync — event-storming.css wires the vendored design-system fil
     );
   });
 
-  it("scopes every rule of its own palette away from the shell skin", () => {
-    const paletteSelectors = ruleSelectors(css).filter((selector) =>
-      /\.djs-palette(?![\w-])/.test(selector),
+  it("scopes every rule of its own palette and its tooltip to its container, at no extra specificity outside high contrast, away from the shell skin", () => {
+    const unskinned = '.djs-palette:not([data-chrome="palette"])';
+    const insideContainer =
+      /^(:where\(\.event-storming-container\)|:is\(:scope\.event-storming-container, :scope \.event-storming-container\)) /;
+    const selectors = topLevelSelectors(css).filter((selector) =>
+      /\.djs-(palette|hover-tooltip)(?![\w-])/.test(selector),
     );
-    expect(paletteSelectors.length).toBeGreaterThan(5);
-    for (const selector of paletteSelectors) {
-      expect(selector).toMatch(
-        /^(:scope )?\.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
-      );
+    expect(selectors.length).toBeGreaterThan(8);
+    for (const selector of selectors) {
+      expect(selector.split(unskinned).join(""), selector).not.toMatch(/\.djs-palette(?![\w-])/);
+      expect(selector, selector).toMatch(insideContainer);
     }
   });
 });

@@ -120,6 +120,7 @@ function collaborative(
   const interactionListeners = new Set<(active: boolean) => void>();
   let destroyed = false;
   let lastExport = "";
+  const selections = selectionListeners(eventBus, () => destroyed);
 
   const meta: ModelerMeta = {
     notation: VALUE_CHAIN_NOTATION,
@@ -128,9 +129,13 @@ function collaborative(
   };
 
   if (editable) {
-    // Imports erase the history without this event, so every delivery is a user's change.
+    // Imports erase the history without this event, so every delivery is a user's change. An
+    // earlier listener may destroy the modeler, which drops every listener, or unsubscribe a later
+    // one during the same delivery.
     eventBus.on("commandStack.changed", () => {
-      for (const listener of [...contentListeners]) listener();
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
 
@@ -170,15 +175,7 @@ function collaborative(
       return true;
     },
     selection: () => (destroyed ? [] : shapeIds(selection.get())),
-    onSelection(callback) {
-      // The teardown cancels a running drag, which brings back the selection from before it.
-      const listener = (event: unknown) => {
-        if (destroyed) return;
-        callback(shapeIds((event as { newSelection?: unknown[] }).newSelection ?? []));
-      };
-      eventBus.on("selection.changed", listener);
-      return () => eventBus.off("selection.changed", listener);
-    },
+    onSelection: (callback) => selections.subscribe((selected) => callback(shapeIds(selected))),
     bounds(id): ElementBounds | undefined {
       if (destroyed) return undefined;
       const element = elementRegistry.get(id);
@@ -256,16 +253,66 @@ function collaborative(
     },
     destroy() {
       if (destroyed) return;
-      try {
-        lastExport = serializeDocument(diagram.exportDocument());
-      } catch {
-        lastExport = "";
-      }
+      lastExport = textToKeep(diagram);
       destroyed = true;
       contentListeners.clear();
       interactionListeners.clear();
-      if (gestures) gestures.tearDownAfterActivation(() => diagram.destroy());
+      // An import whose listener destroyed the modeler goes on to draw its document, and its Promise
+      // then resolves: the modeler keeps that document (#415). Whatever else runs on after the
+      // destroy reaches no host, so the text read above stays.
+      let imported = false;
+      eventBus.on("import.done", () => {
+        imported = true;
+      });
+      const tearDown = () => {
+        if (imported) lastExport = textToKeep(diagram);
+        diagram.destroy();
+      };
+      if (selections.delivering()) queueMicrotask(tearDown);
+      else if (gestures) gestures.tearDownAfterHandler(tearDown);
       else diagram.destroy();
+    },
+  };
+}
+
+function textToKeep(diagram: Modeler | NavigatedViewer): string {
+  try {
+    return serializeDocument(diagram.exportDocument());
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * The host's selection listeners, each called with every new selection until its unsubscribe or
+ * the modeler's destroy. The code that calls them goes on with the diagram once they have
+ * returned, also when it is the host's own call: `reveal` scrolls to the element it selected, and
+ * an import draws the diagram after the clear that emptied the selection. A `destroy()` from one
+ * of them waits for that code (`delivering`).
+ */
+function selectionListeners(eventBus: EventBus, isDestroyed: () => boolean) {
+  let deliveries = 0;
+  return {
+    delivering: (): boolean => deliveries > 0,
+    subscribe(callback: (selected: readonly unknown[]) => void): () => void {
+      // The teardown cancels a running drag, which brings back the selection from before it.
+      // diagram-js's event bus still calls a listener that an earlier one unsubscribed during the
+      // same delivery after unsubscribing itself.
+      let subscribed = true;
+      const listener = (event: unknown) => {
+        if (isDestroyed() || !subscribed) return;
+        deliveries += 1;
+        try {
+          callback((event as { newSelection?: unknown[] }).newSelection ?? []);
+        } finally {
+          deliveries -= 1;
+        }
+      };
+      eventBus.on("selection.changed", listener);
+      return () => {
+        subscribed = false;
+        eventBus.off("selection.changed", listener);
+      };
     },
   };
 }

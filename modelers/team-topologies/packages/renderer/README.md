@@ -62,8 +62,9 @@ Cmd/Ctrl + `+` `-` `0` and Shift+1, each acting exactly once), so the canvas bin
 them together with the zoom panel.
 
 A host that hides the canvas without destroying the modeler makes its container `inert` or
-`display: none`, not only transparent: a hidden or inert canvas cannot hold the focus, so no key
-reaches it. There is no separate switch to pause the keyboard.
+`display: none`, not only transparent: the browser moves the focus off the `<svg>` at its next
+rendering update, and a key that reaches the `<svg>` before then passes too. There is no separate
+switch to pause the keyboard.
 
 **Palette from the keyboard.** A host chrome that makes the palette a toolbar (the modeler shell)
 triggers an entry with a click whose `detail` is 0. On a creating entry that click places the
@@ -183,6 +184,16 @@ drag. A `destroy()` from `elements.onSelection` there, or from `interaction.onCh
 starts, throws nothing either: the diagram is torn down once the code that started the drag has
 returned, and no listener of the host hears anything after `destroy()`, also not the selection the
 cancelled drag brings back ([#346](https://github.com/Miragon/modeler-suite/issues/346)).
+The same holds for a `destroy()` from any listener at a drop, at Escape, at a create from the
+palette or the keyboard and at a paste placed with a click: the diagram is torn down once the
+handler of that input has returned. No delivery calls a listener that an earlier listener of the
+same delivery unsubscribed ([#380](https://github.com/Miragon/modeler-suite/issues/380),
+[#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a listener
+that a host's own call reaches: the selection listener of `elements.reveal`, or the interaction and
+selection listeners of an import, which ends a held gesture and empties the selection as it clears
+the canvas. The diagram is torn down once that call has returned, and the import still resolves,
+with the imported diagram as `exportText()`
+([#415](https://github.com/Miragon/modeler-suite/issues/415)).
 The label commit that a press on an element or on a resize handle makes counts too: the import comes
 after the press and then ends what the press began, as an accepted import does: the resize that
 diagram-js starts at once on a handle, or the move of a press that has not reached the drag

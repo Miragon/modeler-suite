@@ -327,13 +327,20 @@ describe('a drag that holds no element runs on through an import', () => {
     expect(modeler.interaction.active()).toBe(false);
   });
 
-  /** Presses the hand tool on the canvas and pans by 60 px; returns where the pointer is. */
-  function startPan(): ClientPoint {
+  /** Arms the hand tool and presses it on the canvas at `start`; the pan waits for the threshold. */
+  function pressPan(start: Point): ClientPoint {
     const at = clickPalette('hand-tool');
-    const start = { x: 300, y: 200 };
     hover(canvasSvg(), { x: at.x + 60, y: at.y + 60 });
     hover(canvasSvg(), start);
     press(canvasSvg(), start);
+    expect(dragPrefix()).toBe('hand.move');
+    return client(start);
+  }
+
+  /** Presses the hand tool on the canvas and pans by 60 px; returns where the pointer is. */
+  function startPan(): ClientPoint {
+    const start = { x: 300, y: 200 };
+    pressPan(start);
     moveTo({ x: start.x + 30, y: start.y });
     const pointerAt = client({ x: start.x + 60, y: start.y });
     panTo(pointerAt);
@@ -391,6 +398,60 @@ describe('a drag that holds no element runs on through an import', () => {
 
     expect(panned.x).toBeCloseTo(changed.x - 40 / changed.scale, 3);
     expect(panned.y).toBeCloseTo(changed.y - 20 / changed.scale, 3);
+  });
+
+  // diagram-js rounds each step of a pan to whole diagram units, so at 300 % a 1 px step rounds to
+  // none: the pan keeps its start point under the pointer, and only that point makes up for it.
+  it('a slow pan at a zoom above 200 % keeps the diagram under the pointer (#382)', () => {
+    const canvas = service<Canvas>('canvas');
+    const rect = canvas.getContainer().getBoundingClientRect();
+    const { x, y } = canvas.viewbox();
+    modeler.setViewState({ x, y, width: rect.width / 3, height: rect.height / 3 });
+    const zoomed = canvas.viewbox();
+    expect(zoomed.scale).toBeCloseTo(3, 3);
+    const start = pressPan({ x: x + zoomed.width / 2, y: y + zoomed.height / 2 });
+
+    for (let moved = 1; moved <= 30; moved += 1) {
+      panTo({ clientX: start.clientX + moved, clientY: start.clientY });
+    }
+
+    expect(dragPrefix()).toBe('hand.move');
+    expect(Math.abs(canvas.viewbox().x - (zoomed.x - 30 / zoomed.scale))).toBeLessThanOrEqual(0.5);
+    expect(canvas.viewbox().y).toBeCloseTo(zoomed.y, 3);
+  });
+
+  it('a view listener that fails during a pan ends it, and the next pan goes on from a view the host sets', () => {
+    const eventBus = service<EventBus>('eventBus');
+    const dragging = service<Dragging>('dragging');
+    const failingListener = (): never => {
+      eventBus.off('canvas.viewbox.changed', failingListener);
+      throw new Error('view listener failed');
+    };
+    const { clientX, clientY } = startPan();
+    eventBus.on('canvas.viewbox.changed', failingListener);
+    expect(() =>
+      dragging.move(
+        new MouseEvent('mousemove', {
+          bubbles: true,
+          cancelable: true,
+          clientX: clientX + 30,
+          clientY,
+        }),
+        false,
+      ),
+    ).toThrow('view listener failed');
+    expect(dragPrefix()).toBeUndefined();
+
+    const start = pressPan({ x: 300, y: 200 });
+    const { x, y, width, height } = service<Canvas>('canvas').viewbox();
+    modeler.setViewState({ x: x + 500, y, width, height });
+    const changed = service<Canvas>('canvas').viewbox();
+    panTo({ clientX: start.clientX + 40, clientY: start.clientY });
+    const panned = service<Canvas>('canvas').viewbox();
+
+    expect(dragPrefix()).toBe('hand.move');
+    expect(panned.x).toBeCloseTo(changed.x - 40 / changed.scale, 3);
+    expect(panned.y).toBeCloseTo(changed.y, 3);
   });
 });
 
@@ -958,6 +1019,308 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
       activate();
       await expectDestroyedCleanly();
       expect(later).toEqual([]);
+    });
+  }
+});
+
+// A gesture ends inside the handler of its release or of Escape, and a keyboard create runs its
+// command inside the handler of Enter or Space: diagram-js and the palette go on with the canvas
+// after the host heard of it, so the teardown waits until that handler has returned.
+describe('a destroy from a listener at a drop, at Escape or at a keyboard create throws nothing, and nothing reaches the host afterwards', () => {
+  let rejections: unknown[] = [];
+  const recordRejection = (event: PromiseRejectionEvent) => rejections.push(event.reason);
+
+  beforeEach(() => {
+    rejections = [];
+    window.addEventListener('unhandledrejection', recordRejection);
+  });
+
+  afterEach(() => {
+    window.removeEventListener('unhandledrejection', recordRejection);
+  });
+
+  /**
+   * Read before the destroy, since reading a service afterwards would build a fresh diagram. Once
+   * the input's handler has returned: no error reached the window, the drag and the canvas are
+   * gone, a second destroy throws nothing, and the modeler keeps the text it had when destroyed.
+   */
+  function destroyedCleanly(): (textAtDestroy: string | undefined) => Promise<void> {
+    const dragging = service<Dragging>('dragging');
+    const svg = canvasSvg();
+    return async (textAtDestroy) => {
+      await nextTask();
+      expect(errors).toEqual([]);
+      expect(rejections).toEqual([]);
+      expect(textAtDestroy).toBeDefined();
+      expect(dragging.context()).toBeFalsy();
+      expect(svg.isConnected).toBe(false);
+      expect(() => modeler.destroy()).not.toThrow();
+      expect(modeler.interaction.active()).toBe(false);
+      expect(modeler.exportText()).toBe(textAtDestroy);
+    };
+  }
+
+  const nodeCount = (text: string) =>
+    text.split('\n').filter((line) => line.startsWith('node ')).length;
+
+  /** The release or the key comes in a handler of its own, as it does for a user. */
+  const handlerReturned = () => Promise.resolve();
+
+  for (const kind of GESTURE_KINDS) {
+    for (const ending of ['drop', 'cancel'] as const) {
+      it(`a ${kind} at its ${ending}, from the interaction listener: no later listener hears of it`, async () => {
+        const expectDestroyedCleanly = destroyedCleanly();
+        let textAtDestroy: string | undefined;
+        modeler.interaction.onChange((active) => {
+          if (active) return;
+          textAtDestroy = modeler.exportText();
+          modeler.destroy();
+        });
+        const later = recordInteraction();
+
+        const gesture = startGesture(kind);
+        await handlerReturned();
+        gesture[ending]();
+
+        expect(later).toEqual([true]);
+        await expectDestroyedCleanly(textAtDestroy);
+        expect(later).toEqual([true]);
+        expect(changes).toBe(ending === 'drop' ? 1 : 0);
+      });
+    }
+  }
+
+  /** Each makes one change; the change comes in the handler of the input's last step. */
+  const changesMade: { what: string; nodes: number; make: () => Promise<void> }[] = [
+    ...GESTURE_KINDS.map((kind) => ({
+      what: `the drop of a ${kind}`,
+      nodes: kind === 'move' ? 0 : 1,
+      make: async () => {
+        const gesture = startGesture(kind);
+        await handlerReturned();
+        gesture.drop();
+      },
+    })),
+    {
+      what: "Enter or Space on the palette's node (a click without a pointer)",
+      nodes: 1,
+      make: async () => {
+        paletteEntry('create.node').entry.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }),
+        );
+      },
+    },
+  ];
+
+  for (const { what, nodes, make } of changesMade) {
+    it(`${what}, from the change listener: neither a later change listener nor the selection listener hears more`, async () => {
+      const expectDestroyedCleanly = destroyedCleanly();
+      const before = modeler.exportText();
+      const selections: string[][] = [];
+      modeler.elements.onSelection((ids) => selections.push(ids));
+      let textAtDestroy: string | undefined;
+      let selectionsAtDestroy = -1;
+      modeler.onContentChanged(() => {
+        textAtDestroy = modeler.exportText();
+        selectionsAtDestroy = selections.length;
+        modeler.destroy();
+      });
+      let later = 0;
+      modeler.onContentChanged(() => (later += 1));
+
+      await make();
+
+      await expectDestroyedCleanly(textAtDestroy);
+      expect(later).toBe(0);
+      expect(selections).toHaveLength(selectionsAtDestroy);
+      expect(textAtDestroy).not.toBe(before);
+      expect(nodeCount(textAtDestroy ?? before)).toBe(nodeCount(before) + nodes);
+    });
+  }
+
+  it('no later selection listener hears of a selection whose first listener destroyed the modeler', async () => {
+    service<Selection>('selection').select(node('pay'));
+    const expectDestroyedCleanly = destroyedCleanly();
+    const text = modeler.exportText();
+    modeler.elements.onSelection(() => modeler.destroy());
+    const later: string[][] = [];
+    modeler.elements.onSelection((ids) => later.push(ids));
+
+    // diagram-js clears the selection as it activates the move.
+    startGesture('move');
+
+    await expectDestroyedCleanly(text);
+    expect(later).toEqual([]);
+  });
+});
+
+describe('no delivery reaches a listener that an earlier listener of it unsubscribed', () => {
+  it('of a change', () => {
+    let unsubscribeLater: () => void = () => undefined;
+    modeler.onContentChanged(() => unsubscribeLater());
+    let later = 0;
+    unsubscribeLater = modeler.onContentChanged(() => (later += 1));
+
+    startGesture('move').drop();
+
+    expect(later).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
+  it('of the interaction', () => {
+    let unsubscribeLater: () => void = () => undefined;
+    modeler.interaction.onChange(() => unsubscribeLater());
+    const later: boolean[] = [];
+    unsubscribeLater = modeler.interaction.onChange((active) => later.push(active));
+
+    startGesture('move').cancel();
+
+    expect(later).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  it('of the selection', () => {
+    let unsubscribeLater: () => void = () => undefined;
+    modeler.elements.onSelection(() => unsubscribeLater());
+    const later: string[][] = [];
+    unsubscribeLater = modeler.elements.onSelection((ids) => later.push(ids));
+
+    modeler.elements.reveal('pay');
+
+    expect(later).toEqual([]);
+  });
+
+  it('of the selection, also when the earlier listener unsubscribed itself first', () => {
+    const unsubscribes: (() => void)[] = [];
+    unsubscribes.push(
+      modeler.elements.onSelection(() => {
+        for (const unsubscribe of unsubscribes) unsubscribe();
+      }),
+    );
+    const later: string[][] = [];
+    unsubscribes.push(modeler.elements.onSelection((ids) => later.push(ids)));
+
+    modeler.elements.reveal('pay');
+
+    expect(later).toEqual([]);
+  });
+});
+
+// #415: a host's own call that reaches a listener goes on with the diagram once the listener has
+// returned. `reveal` scrolls to the node after its selection listener, and an import draws the
+// diagram after it ended a held gesture and after the clear that empties the selection, so a
+// destroy() from those listeners tears the diagram down once the call has returned.
+describe("a destroy from a listener that a host's call reaches (#415)", () => {
+  let rejections: unknown[] = [];
+  const recordRejection = (event: PromiseRejectionEvent) => rejections.push(event.reason);
+
+  beforeEach(() => {
+    rejections = [];
+    window.addEventListener('unhandledrejection', recordRejection);
+  });
+
+  afterEach(() => {
+    window.removeEventListener('unhandledrejection', recordRejection);
+  });
+
+  const mounts = [
+    { mount: 'modeler', create: createCollaborativeModeler },
+    { mount: 'viewer', create: createCollaborativeViewer },
+  ];
+
+  for (const { mount, create } of mounts) {
+    it(`reveal on the ${mount}: it scrolls to the node first, and nothing reaches the host afterwards`, async () => {
+      const revealing = create();
+      revealing.attachTo(attachedHost());
+      await revealing.importText(orders);
+      const { x, y, width, height } = revealing.diagram.get<Canvas>('canvas').viewbox();
+      revealing.setViewState({ x: x + 5000, y: y + 5000, width, height });
+      const steps: string[] = [];
+      const eventBus = revealing.diagram.get<EventBus>('eventBus');
+      eventBus.on('canvas.viewbox.changing', () => steps.push('scroll'));
+      eventBus.on('diagram.destroy', () => steps.push('teardown'));
+      const container = revealing.diagram.get<Canvas>('canvas').getContainer();
+      const text = revealing.exportText();
+      revealing.elements.onSelection(() => revealing.destroy());
+      const later: unknown[] = [];
+      revealing.elements.onSelection((ids) => later.push(ids));
+      revealing.interaction.onChange((active) => later.push(active));
+      revealing.onContentChanged(() => later.push('change'));
+
+      expect(revealing.elements.reveal('pay')).toBe(true);
+      expect(steps).toEqual(['scroll']);
+      await nextTask();
+      expect(errors).toEqual([]);
+      expect(rejections).toEqual([]);
+      expect(steps).toEqual(['scroll', 'teardown']);
+      expect(container.isConnected).toBe(false);
+      expect(later).toEqual([]);
+      expect(() => revealing.destroy()).not.toThrow();
+      expect(revealing.exportText()).toBe(text);
+    });
+  }
+
+  it('an import, whose clear empties the selection: it resolves, and the modeler keeps the imported diagram', async () => {
+    const reference = createCollaborativeViewer();
+    reference.attachTo(attachedHost());
+    const result = await reference.importText(payments);
+    const imported = reference.exportText();
+    reference.destroy();
+    modeler.elements.reveal('pay');
+    const container = service<Canvas>('canvas').getContainer();
+    const heard: string[][] = [];
+    modeler.elements.onSelection((ids) => {
+      heard.push(ids);
+      modeler.destroy();
+    });
+    const later: string[][] = [];
+    modeler.elements.onSelection((ids) => later.push(ids));
+
+    await expect(modeler.importText(payments)).resolves.toEqual(result);
+
+    expect(heard).toEqual([[]]);
+    await nextTask();
+    expect(errors).toEqual([]);
+    expect(rejections).toEqual([]);
+    expect(container.isConnected).toBe(false);
+    expect(later).toEqual([]);
+    expect(() => modeler.destroy()).not.toThrow();
+    expect(modeler.exportText()).toBe(imported);
+  });
+
+  for (const kind of GESTURE_KINDS) {
+    it(`an import that ends a held ${kind}, heard by the interaction listener: it resolves, and the modeler keeps the imported diagram`, async () => {
+      const reference = createCollaborativeViewer();
+      reference.attachTo(attachedHost());
+      const result = await reference.importText(payments);
+      const imported = reference.exportText();
+      reference.destroy();
+      const dragging = service<Dragging>('dragging');
+      const container = service<Canvas>('canvas').getContainer();
+      startGesture(kind);
+      await Promise.resolve();
+      expect(modeler.interaction.active()).toBe(true);
+      const heard: boolean[] = [];
+      modeler.interaction.onChange((active) => {
+        heard.push(active);
+        modeler.destroy();
+      });
+      const later: unknown[] = [];
+      modeler.interaction.onChange((active) => later.push(active));
+      modeler.elements.onSelection((ids) => later.push(ids));
+      modeler.onContentChanged(() => later.push('change'));
+
+      await expect(modeler.importText(payments)).resolves.toEqual(result);
+
+      expect(heard).toEqual([false]);
+      await nextTask();
+      expect(errors).toEqual([]);
+      expect(rejections).toEqual([]);
+      expect(dragging.context()).toBeFalsy();
+      expect(container.isConnected).toBe(false);
+      expect(later).toEqual([]);
+      expect(() => modeler.destroy()).not.toThrow();
+      expect(modeler.exportText()).toBe(imported);
     });
   }
 });

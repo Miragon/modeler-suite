@@ -6,6 +6,7 @@ import {
   ignoredByBrandLint,
   lintedByBrandLint,
   readBrandLintConfig,
+  TEST_FILE_ENDINGS,
   writtenByToolsOrTestData,
 } from "./support/brand-lint";
 
@@ -64,6 +65,18 @@ describe("the suite's brand-lint config", () => {
     );
     expect({ wronglyIgnored, wronglyLinted }).toEqual({ wronglyIgnored: [], wronglyLinted: [] });
     expect(linted.filter((file) => file.endsWith("/CHANGELOG.md")).length).toBeGreaterThan(0);
+  });
+
+  it("ignores a test file of every name form, also one the suite does not have yet", () => {
+    const config = readBrandLintConfig(ROOT);
+    const testFilesOutsideTestFolders = TEST_FILE_ENDINGS.flatMap((ending) => [
+      `Probe${ending}`,
+      `modelers/any-modeler/packages/any-package/src/Probe${ending}`,
+    ]);
+    const wronglyLinted = testFilesOutsideTestFolders.filter(
+      (file) => !ignoredByBrandLint(config, file),
+    );
+    expect(wronglyLinted).toEqual([]);
   });
 
   it("names third-party texts that exist", () => {

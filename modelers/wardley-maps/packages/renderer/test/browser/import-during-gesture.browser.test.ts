@@ -562,12 +562,16 @@ describe("a command while the user drags a point of a drawing", () => {
     expect(modeler.exportText()).toBe(moved);
   });
 
-  test("an arrow-key nudge ends the point drag: the release keeps the nudged drawing", async () => {
+  // The arrow keys themselves do nothing during a point drag (#375): this nudge is a command that
+  // comes from elsewhere, as a host's edit does.
+  test("a nudge by a command ends the point drag: the release keeps the nudged drawing", async () => {
     const current = await session();
     const { modeler, diagram, container, pointer } = current;
     const first = startPointDrag(current);
 
-    pressKeyOnCanvas(current, { key: "ArrowRight" });
+    diagram
+      .get<Modeling>("modeling")
+      .moveElements([theDrawing(diagram) as unknown as Shape], { x: 2, y: 0 });
     expect(current.changes()).toBe(1);
     const nudged = modeler.exportText();
     expect(nudged).not.toBe(current.initial);

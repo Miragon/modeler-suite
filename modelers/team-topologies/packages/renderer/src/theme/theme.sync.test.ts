@@ -297,14 +297,15 @@ describe("theme.sync — team-topologies.css takes every colour from the roles",
     );
   });
 
-  it("keeps every own palette rule off a palette the host chrome skins", () => {
-    const paletteSelectors = ruleSelectors(rendererCss).filter((selector) =>
-      /\.djs-palette(?![\w-])/.test(selector),
+  it("keeps every own palette rule inside its container, its layout at the specificity hosts override, and off a palette the host chrome skins", () => {
+    const zIndexRule = '.tt-djs-container .djs-palette:not([data-chrome="palette"])';
+    const paletteSelectors = ruleSelectors(rendererCss).filter(
+      (selector) => /\.djs-palette(?![\w-])/.test(selector) && selector !== zIndexRule,
     );
     expect(paletteSelectors.length).toBeGreaterThan(5);
     for (const selector of paletteSelectors) {
       expect(selector).toMatch(
-        /^(\[data-cd-kontrast="hoch"\] )?(\.tt-djs-container(\[data-cd-kontrast="hoch"\]|:not\(\[data-cd-theme\]\))? )?\.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
+        /^(:where\(\.tt-djs-container\)|\.tt-djs-container\[data-cd-kontrast="hoch"\]|\[data-cd-kontrast="hoch"\] \.tt-djs-container:not\(\[data-cd-theme\]\)) \.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
       );
     }
   });

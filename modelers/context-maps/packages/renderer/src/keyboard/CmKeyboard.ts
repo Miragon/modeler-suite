@@ -26,8 +26,9 @@ export interface CmKeyboardConfig {
 }
 
 /**
- * A canvas inside an `inert` subtree takes no key either: Chromium moves the focus off an element
- * the host made inert only at its next rendering update, so until then the key still reaches it.
+ * A canvas inside an `inert` subtree or below an ancestor with `display: none` takes no key either:
+ * Chromium moves the focus off an element the host made inert or hid only at its next rendering
+ * update, so until then the key still reaches it.
  */
 function isKeyForCanvas(event: KeyboardEvent, svg: SVGElement | null): boolean {
   const target = event.target;
@@ -37,8 +38,14 @@ function isKeyForCanvas(event: KeyboardEvent, svg: SVGElement | null): boolean {
     !event.isComposing &&
     target instanceof Element &&
     svg?.contains(target) === true &&
-    target.closest("[inert]") === null
+    target.closest("[inert]") === null &&
+    isRendered(svg)
   );
+}
+
+/** Without `checkVisibility` (Safari before 17.4) the browser's focus fixup alone has to do. */
+function isRendered(element: SVGElement): boolean {
+  return typeof element.checkVisibility !== "function" || element.checkVisibility();
 }
 
 export default class CmKeyboard {

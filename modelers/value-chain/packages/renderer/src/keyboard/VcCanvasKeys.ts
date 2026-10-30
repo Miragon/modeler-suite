@@ -23,7 +23,7 @@ export default class VcCanvasKeys {
 
   constructor(eventBus: EventBus, canvas: Canvas) {
     eventBus.on("keyboard.keydown", GUARD_PRIORITY, (event: { keyEvent: KeyboardEvent }) =>
-      isCanvasKey(event.keyEvent) ? undefined : false,
+      isCanvasKey(event.keyEvent, canvas.getContainer()) ? undefined : false,
     );
     eventBus.on(ENTRY_TRIGGERS, (event: { event?: Event }) => {
       const type = event.event?.type;
@@ -35,21 +35,27 @@ export default class VcCanvasKeys {
 }
 
 /**
- * A key inside an `inert` subtree stays the page's too: Chromium moves the focus off an element the
- * host made inert only at its next rendering update, so until then the key still reaches the
- * canvas.
+ * A key inside an `inert` subtree or below an ancestor with `display: none` stays the page's too:
+ * Chromium moves the focus off an element the host made inert or hid only at its next rendering
+ * update, so until then the key still reaches the canvas.
  */
-function isCanvasKey(event: KeyboardEvent): boolean {
+function isCanvasKey(event: KeyboardEvent, canvasContainer: HTMLElement): boolean {
   return (
     typeof event.key === "string" &&
     !event.defaultPrevented &&
     !event.isComposing &&
-    !liesInInertSubtree(event.target)
+    !liesInInertSubtree(event.target) &&
+    isRendered(canvasContainer)
   );
 }
 
 function liesInInertSubtree(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest("[inert]") !== null;
+}
+
+/** Without `checkVisibility` (Safari before 17.4) the browser's focus fixup alone has to do. */
+function isRendered(element: Element): boolean {
+  return typeof element.checkVisibility !== "function" || element.checkVisibility();
 }
 
 /** Enter or Space on an entry dispatches a click without a pointer, so its detail is 0. */

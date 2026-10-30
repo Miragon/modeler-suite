@@ -26,6 +26,19 @@ const LAST = -10_000;
  */
 const COMMAND_STARTS = ["commandStack.execute", "commandStack.revert"];
 
+/**
+ * The steps after which the handler of the user's input goes on with the map: diagram-js's drag
+ * after its init, start, drop, cancel and cleanup, and the code that ran a command after it.
+ */
+const HANDLER_GOES_ON_EVENTS = [
+  "drag.init",
+  "drag.start",
+  "drag.end",
+  "drag.cancel",
+  "drag.cleanup",
+  ...COMMAND_STARTS,
+];
+
 interface Gesture {
   prefix: string;
   active?: boolean;
@@ -89,13 +102,16 @@ export default class CmGestureCancel {
   private readonly runningActions = new Set<object>();
   private actionWaiters: Array<() => void> = [];
   private endActivation: () => void = () => undefined;
-  /** From a drag's `drag.start` until the handler that activated the drag has returned. */
-  private handlerActivatesDrag = false;
+  /** From one of `HANDLER_GOES_ON_EVENTS` until the handler of the user's input has returned. */
+  private handlerGoesOn = false;
 
   constructor(
     eventBus: EventBus,
     private readonly dragging: Dragging,
   ) {
+    // Registered first, so it runs ahead of the cleanup's listener below, which tells the host
+    // that the gesture ended.
+    eventBus.on(HANDLER_GOES_ON_EVENTS, FIRST, () => this.noteHandlerGoesOn());
     // diagram-js activates a drag in its first move past the threshold, or at once for a create
     // from the palette, and fires that move in the same call.
     eventBus.on("drag.move", FIRST, () => {
@@ -128,7 +144,6 @@ export default class CmGestureCancel {
     eventBus.on("drag.start", FIRST, () => {
       this.endActivation = this.holdAction();
       queueMicrotask(this.endActivation);
-      this.noteDragActivation();
     });
     eventBus.on("drag.move", LAST, () => this.endActivation());
     // The scheduler drops its tasks on destroy: an import waiting for one rejects instead.
@@ -174,16 +189,20 @@ export default class CmGestureCancel {
   }
 
   /**
-   * Runs `teardown` (the modeler's destroy) at once, or, while diagram-js activates a drag, once
-   * the handler that activates it has returned. diagram-js cancels a running drag on destroy, and
-   * between the drag's start and its first move it deselects and then reads the drag's context
-   * again: a destroy from a selection listener there made `Dragging.move` throw `Cannot read
-   * properties of null (reading 'cursor')`. The first move, whose interaction listener may destroy
-   * as well, and the rest of the handler (a palette entry's, a context pad entry's) still run on
-   * the live map, which the teardown then takes down with the drag.
+   * Runs `teardown` (the modeler's destroy) at once, or, while the handler of the user's input goes
+   * on with the map, once that handler has returned. A host may destroy the modeler from any
+   * listener, and these handlers read the canvas after one: diagram-js's `Dragging.move` deselects
+   * after a drag's start and reads the drag again, a drop's command runs inside `Dragging.end`,
+   * whose `SelectionBehavior` then selects the new context and whose cleanup reads the canvas, the
+   * cleanup's listener above tells the host that the gesture ended before diagram-js has let go of
+   * the drag, and a keyboard create selects its context and opens its name editor. The teardown
+   * fires `diagram.destroy`, on which diagram-js cancels a running drag a second time from inside
+   * its own cleanup (`reading 'trapClick'`) and the canvas drops its root (`reading 'length'`).
+   * The rest of the handler runs on the live map, which the teardown then takes down, together
+   * with a drag that still runs.
    */
-  tearDownAfterActivation(teardown: () => void): void {
-    if (this.handlerActivatesDrag) queueMicrotask(teardown);
+  tearDownAfterHandler(teardown: () => void): void {
+    if (this.handlerGoesOn) queueMicrotask(teardown);
     else teardown();
   }
 
@@ -212,12 +231,12 @@ export default class CmGestureCancel {
     return this.cancellingForClear;
   }
 
-  /** diagram-js activates a drag inside the handler of the user's input, which a microtask follows. */
-  private noteDragActivation(): void {
-    if (this.handlerActivatesDrag) return;
-    this.handlerActivatesDrag = true;
+  /** A microtask runs only once the handler of the user's input has returned. */
+  private noteHandlerGoesOn(): void {
+    if (this.handlerGoesOn) return;
+    this.handlerGoesOn = true;
     queueMicrotask(() => {
-      this.handlerActivatesDrag = false;
+      this.handlerGoesOn = false;
     });
   }
 
@@ -240,7 +259,10 @@ export default class CmGestureCancel {
   private setActive(active: boolean): void {
     if (this.active === active) return;
     this.active = active;
-    for (const listener of [...this.activeListeners]) deliver(listener, active);
+    // An earlier listener may have unsubscribed this one during the same delivery.
+    for (const listener of [...this.activeListeners]) {
+      if (this.activeListeners.has(listener)) deliver(listener, active);
+    }
   }
 
   private runningGesture(): Gesture | null {

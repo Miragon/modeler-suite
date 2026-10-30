@@ -9,7 +9,7 @@ import {
   type PopoverHandle,
   type WardleyReadOnly,
 } from "../../src/index.js";
-import { inputMethod, pressKey } from "./support/input-method.js";
+import { inputMethod, pressKey, typeKey } from "./support/input-method.js";
 import "../../src/assets/wardley.css";
 
 const MAP = `title Menu
@@ -205,6 +205,42 @@ describe("the map title dialog", () => {
     target.modeler.get<WardleyReadOnly>("wardleyReadOnly").setReadOnly(true);
     expect(element.open).toBe(false);
     expect(titleOf(target.modeler)).toBe("Menu");
+  });
+
+  it("leaves Enter and Escape to an input method that composes the title, then applies on Enter (#403)", async () => {
+    const { target, element, field } = await opened();
+    field.value = "";
+    await inputMethod.compose("ちず");
+    await inputMethod.press("Enter");
+    await inputMethod.press("Escape");
+    expect(element.open).toBe(true);
+    expect(field.value).toBe("ちず");
+
+    await inputMethod.confirm("地図");
+    // Chromium follows Safari's confirming Enter with the keypress that submits the form.
+    await inputMethod.keyAfterComposition("Enter");
+    await inputMethod.keyAfterComposition("Escape");
+    expect(element.open).toBe(true);
+    expect(document.activeElement).toBe(field);
+    expect(field.value).toBe("地図");
+    expect(target.modeler.canUndo()).toBe(false);
+
+    await typeKey("Enter");
+    expect(element.open).toBe(false);
+    expect(titleOf(target.modeler)).toBe("地図");
+    expect(undoDepth(target.modeler)).toBe(1);
+  });
+
+  it("still closes without writing on an Escape after the composition", async () => {
+    const { target, element, field } = await opened();
+    field.value = "";
+    await inputMethod.compose("ちず");
+    await inputMethod.confirm("地図");
+
+    await typeKey("Escape");
+    expect(element.open).toBe(false);
+    expect(titleOf(target.modeler)).toBe("Menu");
+    expect(target.modeler.canUndo()).toBe(false);
   });
 });
 

@@ -11,8 +11,9 @@ export function canvasSvg(canvas: Canvas): SVGElement | null {
 /**
  * Whether a keydown is aimed at `root` or an element inside it and still free to act on. A keydown
  * without a key (autofill), one a listener before this one took, and IME composition stay with the
- * page, and so does a key inside an `inert` subtree: Chromium moves the focus off an element the
- * host made inert only at its next rendering update, so until then the key still reaches it.
+ * page, and so does a key inside an `inert` subtree or on a `root` that an ancestor with
+ * `display: none` hides: Chromium moves the focus off an element the host made inert or hid only at
+ * its next rendering update, so until then the key still reaches it.
  */
 export function isKeyAimedAt(event: KeyboardEvent, root: Node | null | undefined): boolean {
   const target = event.target;
@@ -22,7 +23,8 @@ export function isKeyAimedAt(event: KeyboardEvent, root: Node | null | undefined
     !event.isComposing &&
     target instanceof Node &&
     !!root?.contains(target) &&
-    !liesInInertSubtree(target)
+    !liesInInertSubtree(target) &&
+    isRendered(root)
   );
 }
 
@@ -35,10 +37,19 @@ export function liesInInertSubtree(node: Node): boolean {
  * A key is the canvas's only while the canvas `<svg>` has the focus, as with diagram-js' own
  * keyboard: the svg holds no editor, palette, context pad or popup, so they keep their keys, and so
  * do a host's controls inside the container or next to it, a page with nothing focused and a canvas
- * the host made inert.
+ * the host made inert or hid.
  */
 export function isCanvasKey(event: KeyboardEvent, canvas: Canvas): boolean {
   return isKeyAimedAt(event, canvasSvg(canvas));
+}
+
+/** Without `checkVisibility` (Safari before 17.4) the browser's focus fixup alone has to do. */
+function isRendered(node: Node): boolean {
+  return (
+    !(node instanceof Element) ||
+    typeof node.checkVisibility !== "function" ||
+    node.checkVisibility()
+  );
 }
 
 /**

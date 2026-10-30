@@ -481,6 +481,19 @@
   outline: 2px solid var(--cd-ui-fokus);
   outline-offset: 2px;
 }
+/* The palette scrolls sideways and its entries sit edge to edge, so the ring lies inside the entry,
+   where neither the scroll nor a neighbour cuts it, and on the armed tool 1px inside its ring (guide
+   §5.5, §5.14). Lifted too: a neighbour paints after the entry and would cover a ring a host lays
+   outside again. */
+.djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
+  :where(.entry, [role="button"], [tabindex]):focus-visible {
+  z-index: 1;
+  outline-offset: -2px;
+}
+.djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
+  .entry.highlighted-entry:focus-visible {
+  outline-offset: -5px;
+}
 /* The canvas fills its container, so an outer ring would be clipped — draw it inside. */
 .wardley-container svg:focus-visible {
   outline: 2px solid var(--cd-ui-fokus);
@@ -879,6 +892,16 @@
   :scope .djs-popup.wardley-element-settings :where(.entry, [tabindex]):focus-visible,
   :scope .djs-popup.wardley-element-settings:has(.djs-popup-results:focus-visible) {
     outline-width: 3px;
+  }
+  :scope
+    .djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
+    :where(.entry, [role="button"], [tabindex]):focus-visible {
+    outline-offset: -3px;
+  }
+  :scope
+    .djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
+    .entry.highlighted-entry:focus-visible {
+    outline-offset: -6px;
   }
   :is(:scope.wardley-container, :scope .wardley-container) .wardley-label-input:focus {
     outline-width: 3px;

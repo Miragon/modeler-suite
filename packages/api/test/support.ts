@@ -91,6 +91,8 @@ export const CASE = {
   pan: "pan (recommended, 1.6): a pan is no gesture, and it runs on through an import from the current view, the one the import left or the one the host restores",
   interaction:
     "interaction (when present, 1.5): active() follows every gesture to its drop and its cancel, never an armed tool, and onChange reports each change once",
+  destroyFromListener:
+    "destroy from a listener (recommended, 1.6): a host may destroy the modeler from its listener at a drag's start, a drop or an Escape, nothing throws and no listener is called afterwards, and a listener unsubscribed during a delivery is not called",
   l2Fixpoint: "L2: canonical texts are byte fixpoints of import → export",
   l2Idempotent: "L2: canonicalization of loose input is idempotent",
   l3Mutation:
