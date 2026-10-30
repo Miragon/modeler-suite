@@ -129,7 +129,7 @@ test("keeps the focus ring visible beside a hovered neighbour, which paints afte
   expect(ring).toEqual(rgbOf(resolved(container, "color", "var(--cd-ui-fokus)")));
 });
 
-test("drops the shadow and widens the focus ring to 3px in high contrast", async () => {
+test("drops the shadows of the palette and its tooltip and widens the focus ring to 3px in high contrast", async () => {
   const { container } = mount();
   highContrast(container);
   const entry = entryOf(container, "team.platform");
@@ -142,6 +142,14 @@ test("drops the shadow and widens the focus ring to 3px in high contrast", async
     "3px",
     "2px",
   ]);
+
+  await userEvent.hover(entry);
+  const tooltip = await vi.waitFor(() => {
+    const shown = container.querySelector<HTMLElement>(".djs-hover-tooltip");
+    if (!shown) throw new Error("No tooltip yet.");
+    return shown;
+  });
+  expect(getComputedStyle(tooltip).boxShadow).toBe("none");
 });
 
 test("puts the focus ring inside the entry in a narrow container, 1px inside the armed tool's ring", async () => {
@@ -230,6 +238,31 @@ test("lets a host's own rule on the palette win over the renderer's sheet that l
   document.head.prepend(hostSheet);
   try {
     expect(getComputedStyle(palette).top).toBe("12px");
+  } finally {
+    hostSheet.remove();
+  }
+});
+
+test("lets a host's own focus ring on the palette win in high contrast too", async () => {
+  const hostSheet = document.createElement("style");
+  hostSheet.textContent =
+    '.palette-host .djs-palette:not([data-chrome="palette"]) .entry:focus-visible { outline-width: 4px; outline-offset: 1px; }';
+  document.head.prepend(hostSheet);
+  try {
+    for (const width of [HOST.width, 600]) {
+      const { host, container } = mount(width);
+      host.classList.add("palette-host");
+      const entry = entryOf(container, "team.platform");
+      await focusFromKeyboard(entry);
+      const ring = (): string[] => {
+        const style = getComputedStyle(entry);
+        return [style.outlineWidth, style.outlineOffset];
+      };
+
+      expect(ring()).toEqual(["4px", "1px"]);
+      highContrast(container);
+      expect(ring()).toEqual(["4px", "1px"]);
+    }
   } finally {
     hostSheet.remove();
   }

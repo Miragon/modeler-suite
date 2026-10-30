@@ -248,12 +248,12 @@
     outline-offset: -5px;
   }
   @scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
-    :is(:scope.tt-djs-container, :scope .tt-djs-container)
+    :where(:scope.tt-djs-container, :scope .tt-djs-container)
       .djs-palette:not([data-chrome="palette"])
       .entry:focus-visible {
       outline-offset: -3px;
     }
-    :is(:scope.tt-djs-container, :scope .tt-djs-container)
+    :where(:scope.tt-djs-container, :scope .tt-djs-container)
       .djs-palette:not([data-chrome="palette"])
       .entry.highlighted-entry:focus-visible {
       outline-offset: -6px;
@@ -356,14 +356,19 @@
 /* No shadows and a 3px focus ring. High contrast follows the nearest mode carrier, as the roles do
    (guide §13.3): the renderer's own root once a host set its appearance (contract 1.5), else the
    nearest ancestor that carries a mode. So a request for normal contrast holds on a high-contrast
-   page, where a selector over any ancestor would reach through that carrier. */
+   page, where a selector over any ancestor would reach through that carrier.
+   The palette's rules keep the container in `:where()`, as its base rules do, so a host's own rule
+   on the palette wins in high contrast too; the scope, nearer than none, still puts them over the
+   base rules of equal specificity. */
 @scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
   :is(:scope.tt-djs-container, :scope .tt-djs-container) .djs-context-pad .group,
-  :is(:scope.tt-djs-container, :scope .tt-djs-container) .djs-palette:not([data-chrome="palette"]) {
+  :is(:scope.tt-djs-container, :scope .tt-djs-container) .djs-hover-tooltip,
+  :where(:scope.tt-djs-container, :scope .tt-djs-container)
+    .djs-palette:not([data-chrome="palette"]) {
     box-shadow: none;
   }
   :is(:scope.tt-djs-container, :scope .tt-djs-container) .djs-context-pad .entry:focus-visible,
-  :is(:scope.tt-djs-container, :scope .tt-djs-container)
+  :where(:scope.tt-djs-container, :scope .tt-djs-container)
     .djs-palette:not([data-chrome="palette"])
     .entry:focus-visible,
   :is(:scope.tt-djs-container, :scope .tt-djs-container) .tt-label-editor:focus {
