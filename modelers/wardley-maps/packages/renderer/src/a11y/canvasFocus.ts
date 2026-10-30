@@ -9,6 +9,31 @@ export function canvasSvg(canvas: Canvas): SVGElement | null {
 }
 
 /**
+ * Whether a keydown is aimed at `root` or an element inside it and still free to act on. A keydown
+ * without a key (autofill), one a listener before this one took, and IME composition stay with the
+ * page.
+ */
+export function isKeyAimedAt(event: KeyboardEvent, root: Node | null | undefined): boolean {
+  const target = event.target;
+  return (
+    typeof event.key === "string" &&
+    !event.defaultPrevented &&
+    !event.isComposing &&
+    target instanceof Node &&
+    !!root?.contains(target)
+  );
+}
+
+/**
+ * A key is the canvas's only while the canvas `<svg>` has the focus, as with diagram-js' own
+ * keyboard: the svg holds no editor, palette, context pad or popup, so they keep their keys, and so
+ * do a host's controls inside the container or next to it and a page with nothing focused.
+ */
+export function isCanvasKey(event: KeyboardEvent, canvas: Canvas): boolean {
+  return isKeyAimedAt(event, canvasSvg(canvas));
+}
+
+/**
  * Moves keyboard focus to the canvas after a pointer gesture or an editor commit. Pointer work
  * must not light up the keyboard focus ring around the whole viewport, and a press that suppressed
  * the browser's own focus change must still take focus away from host inputs (title, size

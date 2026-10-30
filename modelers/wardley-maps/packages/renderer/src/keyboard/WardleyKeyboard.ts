@@ -17,10 +17,11 @@ import type WardleyCopyPaste from "../modeling/WardleyCopyPaste.js";
 import type WardleyElementFactory from "../model/WardleyElementFactory.js";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyDrawTool from "../draw-tool/WardleyDrawTool.js";
+import type WardleyDrawingHandles from "../draw-tool/WardleyDrawingHandles.js";
 import type WardleyLabelEditing from "../label-editing/WardleyLabelEditing.js";
 import type { FreeRect } from "../free-rect/index.js";
 import { isReadOnly } from "../read-only/index.js";
-import { canvasSvg } from "../a11y/index.js";
+import { isCanvasKey } from "../a11y/index.js";
 import {
   isWardleyConnection,
   isWardleyShape,
@@ -75,23 +76,6 @@ interface PlotBounds {
 }
 
 /**
- * A key is the canvas's only while the canvas `<svg>` has the focus, as with diagram-js' own
- * keyboard: the svg holds no editor, palette, context pad or popup, so they keep their keys,
- * and so do a host's controls and a page with nothing focused. A keydown without a key (autofill)
- * or one a listener before this one took stays with the page, and so does IME composition.
- */
-function isCanvasKey(event: KeyboardEvent, svg: SVGElement | null): boolean {
-  const target = event.target;
-  return (
-    typeof event.key === "string" &&
-    !event.defaultPrevented &&
-    !event.isComposing &&
-    target instanceof Node &&
-    !!svg?.contains(target)
-  );
-}
-
-/**
  * Keyboard binding: undo/redo, delete, copy/paste/duplicate, arrow-key nudge, Escape (deselect),
  * Cmd/Ctrl+A (select all), the single-key tools C (component), U (user), N (note), P (pipeline),
  * L (lasso) and A (connect from the selected node), all only while the canvas has the focus.
@@ -141,11 +125,14 @@ export default class WardleyKeyboard {
     const rules = injector.get<Rules | null>("rules", false);
     const popupMenu = injector.get<PopupMenu | null>("popupMenu", false);
     const drawTool = injector.get<WardleyDrawTool | null>("wardleyDrawTool", false);
+    const drawingHandles = injector.get<WardleyDrawingHandles | null>(
+      "wardleyDrawingHandles",
+      false,
+    );
     this.labelEditing =
       injector.get<WardleyLabelEditing | null>("wardleyLabelEditing", false) ?? null;
     this.grid = injector.get<EvolutionGrid | null>("evolutionGrid", false) ?? null;
     this.freeRect = injector.get<FreeRect | null>("wardleyFreeRect", false) ?? null;
-    const svg = canvasSvg(canvas);
 
     // getLastMoveEvent() never returns null (it fabricates an event at 0,0), so whether the
     // pointer really is over the canvas has to be tracked here.
@@ -162,6 +149,7 @@ export default class WardleyKeyboard {
       escapeOwnedByOverlay =
         !!dragging?.context() ||
         !!drawTool?.isActive() ||
+        !!drawingHandles?.isDraggingPoint() ||
         !!popupMenu?.isOpen() ||
         !!container.querySelector(".wardley-color-picker");
     };
@@ -227,7 +215,9 @@ export default class WardleyKeyboard {
     };
 
     const onPlainKey = (e: KeyboardEvent, key: string) => {
-      const toolKey = !e.altKey;
+      // While the draw tool holds the points of a line, it owns the canvas keys as it owns the
+      // presses: a tool started next to it would take the next press as well.
+      const toolKey = !e.altKey && !drawTool?.holdsLine();
       if (locked() && key !== "escape" && key !== "l") return;
       if (key === "escape") {
         if (!escapeOwnedByOverlay && selection.get().length) selection.select(null);
@@ -259,7 +249,7 @@ export default class WardleyKeyboard {
     // On the document, not the svg: a listener on the way up (a host's wrapper around the canvas)
     // runs first and can take a key (defaultPrevented) before the canvas acts on it.
     const onKeydown = (e: KeyboardEvent) => {
-      if (!isCanvasKey(e, svg)) return;
+      if (!isCanvasKey(e, canvas)) return;
       const key = e.key.toLowerCase();
       if (e.ctrlKey || e.metaKey) onModifierShortcut(e, key);
       else onPlainKey(e, key);

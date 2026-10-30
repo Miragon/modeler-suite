@@ -12,7 +12,7 @@ import { COLORS } from "../draw/styles.js";
 import { isWardleyShape, type WardleyShape } from "../model/di-types.js";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyModeling from "../modeling/WardleyModeling.js";
-import { focusCanvasWithoutRing } from "../a11y/index.js";
+import { focusCanvasWithoutRing, isCanvasKey } from "../a11y/index.js";
 import { COMMAND_START_EVENTS, PUT_BACK_PRIORITY } from "../live-preview/index.js";
 import type { WardleyInteraction } from "../interaction/index.js";
 
@@ -29,7 +29,7 @@ interface PointDrag {
 /**
  * Vertex handles for drawings: when exactly one drawing is selected, every point gets a small
  * draggable handle. Dragging shows a live preview; releasing commits the new geometry (points +
- * recomputed bbox) as ONE undoable command.
+ * recomputed bbox) as ONE undoable command, and Escape ends the drag without one.
  */
 export default class WardleyDrawingHandles {
   static $inject = [
@@ -45,6 +45,7 @@ export default class WardleyDrawingHandles {
   private group: SVGElement | null = null;
   private dragPreview: SVGElement | null = null;
   private pointDrag: PointDrag | null = null;
+  private unwatchRelease: (() => void) | null = null;
 
   constructor(
     private readonly eventBus: EventBus,
@@ -78,6 +79,7 @@ export default class WardleyDrawingHandles {
       this.endPointDrag();
       this.attach(null);
     });
+    eventBus.on("diagram.destroy", () => this.stopWatchingRelease());
   }
 
   private attach(shape: WardleyShape | null): void {
@@ -136,23 +138,70 @@ export default class WardleyDrawingHandles {
         this.commit(shape, points);
       });
     };
+    // Escape ends the drag as it ends a diagram-js drag, and the drawing stays selected. Only an
+    // Escape aimed at the canvas, which the press focused: a host's field, menu or dialog keeps its
+    // own.
+    const onKey = (ev: KeyboardEvent): void => {
+      if (ev.key !== "Escape" || !isCanvasKey(ev, this.canvas)) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.endPointDrag();
+      this.swallowClickOfRelease();
+    };
     document.addEventListener("mousemove", onMove, true);
     document.addEventListener("mouseup", onUp, true);
+    document.addEventListener("keydown", onKey, true);
     drag.unbind = () => {
       document.removeEventListener("mousemove", onMove, true);
       document.removeEventListener("mouseup", onUp, true);
+      document.removeEventListener("keydown", onKey, true);
     };
     this.pointDrag = drag;
+  }
+
+  /** True from the press on a handle until the drag's release or its end. */
+  isDraggingPoint(): boolean {
+    return this.pointDrag !== null;
   }
 
   /**
    * Ends a running point drag without committing it. The point drag is this renderer's own gesture,
    * outside diagram-js dragging, so the import's drag cancel does not reach it: the removal of its
-   * drawing ends it, and so does any command before the release.
+   * drawing ends it, Escape does, and so does any command before the release.
    */
   private endPointDrag(): void {
     const drag = this.stopPointDrag();
     if (drag) this.interaction.end(drag);
+  }
+
+  /**
+   * After Escape the button is still down on a handle that stays drawn, so the browser sends the
+   * release's click to the canvas, the element under both the press and the release, and a click
+   * there clears the selection. A commit redraws the handles, and then no click comes.
+   */
+  private swallowClickOfRelease(): void {
+    this.stopWatchingRelease();
+    const container = this.canvas.getContainer();
+    const swallow = (event: MouseEvent): void => event.stopPropagation();
+    const onRelease = (): void => {
+      this.stopWatchingRelease();
+      container.addEventListener("click", swallow, { capture: true, once: true });
+      setTimeout(() => container.removeEventListener("click", swallow, true), 0);
+    };
+    // A press before a release: the page did not see the release, and the press's click is a real
+    // one.
+    const onPress = (): void => this.stopWatchingRelease();
+    document.addEventListener("mouseup", onRelease, true);
+    document.addEventListener("mousedown", onPress, true);
+    this.unwatchRelease = () => {
+      document.removeEventListener("mouseup", onRelease, true);
+      document.removeEventListener("mousedown", onPress, true);
+    };
+  }
+
+  private stopWatchingRelease(): void {
+    this.unwatchRelease?.();
+    this.unwatchRelease = null;
   }
 
   private stopPointDrag(): PointDrag | null {
