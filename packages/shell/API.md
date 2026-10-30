@@ -371,13 +371,24 @@ it. `stopPropagation` is only ever `true` in the `ide` host.
 - "No modifier" means no Meta, Ctrl, Alt or Shift. During IME composition Escape belongs to the IME.
 - An Escape the chrome takes is the chrome's (§5.4), its `keyup` too: the shell stops that `keyup`
   in the capture phase on `document`, since diagram-js's `Dragging` puts down a tool armed from the
-  palette on any Escape `keyup` there. The chrome takes an Escape that closes the menu, any Escape
-  pressed in an open popover or dialog in the shell's scope (the problems popover, a dialog of
-  `openShellDialog`, a modeler's own dialog such as "Map title…"), also one a field in it or the IME
-  keeps for itself, and any Escape while a modal dialog is open. An Escape aimed at the canvas while
-  a popover is open, and one with nothing open, pass untouched. The next press of Escape reaches
-  the page as before. A popover that stops the Escape `keydown` itself before the shell's listener
-  sees it stops its `keyup` itself, as the problems popover does.
+  palette on any Escape `keyup` there. So of the shell root, only the canvas and the palette put that
+  tool down with Escape, as canvas keys act only on the focused canvas. The chrome takes an Escape
+  that closes the menu; any Escape aimed at the rest of the shell root (the menu trigger, the zoom
+  panel, the problems pill, the inspector, the legend, a modeler's popover there), also one that
+  closes nothing or that a part of the chrome stops on its way up, since the shell decides it by its
+  target in the capture phase on the root; any Escape pressed in an open popover or dialog in the
+  shell's scope (the problems popover, a dialog of `openShellDialog`, a modeler's own dialog such as
+  "Map title…"), also one a field in it or the IME keeps for itself; and any Escape while a modal
+  dialog is open. An Escape on the canvas slot or in the registered palette passes untouched unless
+  it closes the menu or a modal dialog is open, also while a popover is open. So does one aimed at
+  no part of the chrome, which still puts the tool down: one on `<body>` or on the root itself when
+  no element has the focus, and one in the host page, whose keys the shell never stops. Each press is
+  decided on its own target: the next one on the canvas or in the palette reaches the page as
+  before. A dialog or popover outside the root that stops the Escape `keydown` itself before the
+  shell's listener sees it stops its `keyup` itself.
+- In the `ide` host the `keyup` of an Escape the chrome takes stays in the webview also when its
+  `keydown` goes on to VS Code because nothing was open (§13.5): VS Code reads keys on the window,
+  behind the `document` where the shell stops that `keyup`.
 - A text field (§5.8: every input field, select list and editable text) is what `isTextField`
   says: a target that matches `TEXT_FIELD_SELECTOR` or sits inside a match, is
   `isContentEditable`, edits through an `EditContext` (`editContext` is set, as in Chromium's
@@ -653,7 +664,8 @@ in an own document a root that is a direct child of `<body>` gets `height: 100%`
 (a zero-specificity rule), any other root and an embedded one need an explicit size. In the `ide` and
 `web` hosts `<html>` gets `cd-shell-document` (own-document reset). The shell observes the root and
 the registered palette with a `ResizeObserver` (palette row; 0 × 0 is skipped)
-and installs exactly one `keydown` listener (bubble phase) on `document` or on the root.
+and installs exactly one `keydown` listener (bubble phase) on `document` or on the root, plus one
+in the capture phase on the root for the `keyup` of an Escape aimed at the chrome (see the key rules).
 
 `lang` is the tool's UI language for `Intl` (guide §2: one language per tool). Default in an own
 document (`ide`, `web`): the closest `[lang]` of the root (the `<html lang>` the host wrote), else

@@ -44,10 +44,11 @@ export function isModalOpen(scope: ParentNode): boolean {
 }
 
 /**
- * Keeps the `keyup` of an Escape that a layer of the chrome took (the menu, a popover, a dialog)
- * from the page: diagram-js's dragging cancels the drag a tool armed from the palette waits with on
- * any Escape `keyup` on the document, whatever its target (guide §5.4). The next press of Escape
- * lets its own `keyup` through, in case the window lost the focus before this press was released.
+ * Keeps the `keyup` of an Escape that is the chrome's (one a layer took: the menu, a popover, a
+ * dialog; one aimed at the chrome) from the page: diagram-js's dragging cancels the drag a tool
+ * armed from the palette waits with on any Escape `keyup` on the document, whatever its target
+ * (guide §5.4). The next press of Escape lets its own `keyup` through, in case the window lost the
+ * focus before this press was released.
  */
 export function stopEscapeKeyup(ownerDocument: Document): void {
   const onKeyup = (event: KeyboardEvent): void => {
@@ -80,6 +81,24 @@ function isLayerEscape(event: KeyboardEvent, dialogs: readonly Element[]): boole
   if (event.key !== "Escape") return false;
   const target = event.target;
   return dialogs.some((dialog) => isModal(dialog) || (isNode(target) && dialog.contains(target)));
+}
+
+/**
+ * Only an Escape on the canvas or in the palette puts down a tool the palette armed, as canvas keys
+ * act only on the focused canvas: one aimed at the rest of the shell root (the menu trigger, the
+ * zoom panel, the problems pill, a modeler's popover there) is never the canvas's, also when it
+ * closes nothing. The target alone decides, so this listens in the capture phase on the root, where
+ * a part of the chrome that stops the key on its way up cannot keep it from the shell.
+ */
+export function createChromeEscapeListener(
+  ownerDocument: Document,
+  isChrome: (node: Node) => boolean,
+): (event: KeyboardEvent) => void {
+  return (event) => {
+    if (event.key === "Escape" && isNode(event.target) && isChrome(event.target)) {
+      stopEscapeKeyup(ownerDocument);
+    }
+  };
 }
 
 /** The shell's one `keydown` listener (bubble phase): applies `decideKey` (guide §5.8, §13.5). */

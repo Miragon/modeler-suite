@@ -15,9 +15,10 @@ import { shellModule } from "./module.js";
 import type { ModuleDeclarationLike } from "./types.js";
 
 /**
- * An Escape that closes a layer of the chrome is the chrome's (guide §5.4, #482): diagram-js's
- * dragging cancels the drag a palette tool waits with on any Escape `keyup` on the document, so
- * only real keys in a real browser show whether the `keyup` still reaches it.
+ * An Escape that closes a layer of the chrome is the chrome's (guide §5.4, #482), and so is one
+ * aimed at the chrome that closes nothing: diagram-js's dragging cancels the drag a palette tool
+ * waits with on any Escape `keyup` on the document, so only real keys in a real browser show
+ * whether the `keyup` still reaches it.
  */
 
 interface Diagram {
@@ -224,6 +225,82 @@ describe("a tool armed from the palette, when Escape closes a layer of the chrom
       await userEvent.keyboard("{Escape}");
 
       await expect.poll(() => dialog.open).toBe(false);
+      expect(lasso(diagram, shell)).toEqual(ARMED);
+
+      lassoEntry(shell).focus();
+      await userEvent.keyboard("{Escape}");
+      expect(lasso(diagram, shell)).toEqual(PUT_DOWN);
+    },
+  );
+});
+
+describe("a tool armed from the palette, when Escape is aimed at the chrome and closes nothing", () => {
+  it.each<[ShellHost, "document" | "root" | undefined]>([
+    ["ide", undefined],
+    ["web", undefined],
+    ["embedded", undefined],
+    ["ide", "root"],
+  ])(
+    "stays armed on the menu trigger, the zoom panel and the problems pill (%s host, key scope %s), and goes down on the canvas",
+    async (host, keyScope) => {
+      const { diagram, shell } = mountModeler(host, keyScope);
+      shell.setProblems({
+        count: 1,
+        errors: 1,
+        items: [{ severity: "error", message: "Unknown box type." }],
+      });
+      await armLassoBySpace(diagram, shell);
+
+      await shiftTabToMenuTrigger(shell);
+      await userEvent.keyboard("{Escape}");
+      expect(shell.menu.isOpen()).toBe(false);
+      expect(lasso(diagram, shell)).toEqual(ARMED);
+
+      for (const selector of [
+        '[data-chrome="zoom"] [data-zoom="in"]',
+        '[data-chrome="problems"]',
+      ]) {
+        const target = shell.root.querySelector<HTMLElement>(selector)!;
+        target.focus();
+        expect(document.activeElement).toBe(target);
+        await userEvent.keyboard("{Escape}");
+        expect(lasso(diagram, shell), selector).toEqual(ARMED);
+      }
+
+      shell.canvas.querySelector<SVGElement>("svg[tabindex]")!.focus();
+      await userEvent.keyboard("{Escape}");
+      expect(lasso(diagram, shell)).toEqual(PUT_DOWN);
+    },
+  );
+
+  // As Wardley Maps' "Map size…" and "X-axis labels…" are: a popover in the root that closes on the
+  // Escape keydown at its panel and stops it there, so the shell's bubble listener never sees it.
+  it.each<[ShellHost, "document" | "root" | undefined]>([
+    ["ide", undefined],
+    ["web", undefined],
+    ["embedded", undefined],
+    ["ide", "root"],
+  ])(
+    "stays armed when a modeler's popover in the root stops the Escape keydown itself (%s host, key scope %s)",
+    async (host, keyScope) => {
+      const { diagram, shell } = mountModeler(host, keyScope);
+      await armLassoBySpace(diagram, shell);
+
+      const popover = shell.root.appendChild(document.createElement("div"));
+      popover.setAttribute("role", "dialog");
+      const field = popover.appendChild(document.createElement("input"));
+      popover.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        popover.hidden = true;
+        shell.menu.trigger.focus();
+      });
+      field.focus();
+      await userEvent.keyboard("{Escape}");
+
+      expect(popover.hidden).toBe(true);
+      expect(document.activeElement).toBe(shell.menu.trigger);
       expect(lasso(diagram, shell)).toEqual(ARMED);
 
       lassoEntry(shell).focus();

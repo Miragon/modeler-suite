@@ -4,6 +4,7 @@ import type { ShellHost } from "../core/index.js";
 import {
   cleanup,
   documentKeyups,
+  fakePalette,
   fakeZoomTarget,
   installFakes,
   keydown,
@@ -258,8 +259,8 @@ describe("the keyup of an Escape that closed the menu (#482)", () => {
       expect(shell.menu.isOpen()).toBe(false);
       keyup(document.activeElement!, { key: "Escape", code: "Escape" });
 
-      keydown(document.activeElement!, { key: "Escape", code: "Escape" });
-      keyup(document.activeElement!, { key: "Escape", code: "Escape" });
+      keydown(shell.canvas, { key: "Escape", code: "Escape" });
+      keyup(shell.canvas, { key: "Escape", code: "Escape" });
       keyups.dispose();
       expect(keyups.seen).toEqual(["Escape"]);
     },
@@ -285,22 +286,22 @@ describe("the keyup of an Escape that closed the menu (#482)", () => {
     const keyups = documentKeyups();
 
     keydown(document.activeElement!, { key: "Escape", code: "Escape" });
-    keydown(document.activeElement!, { key: "Escape", code: "Escape" });
-    keyup(document.activeElement!, { key: "Escape", code: "Escape" });
+    keydown(shell.canvas, { key: "Escape", code: "Escape" });
+    keyup(shell.canvas, { key: "Escape", code: "Escape" });
     keyups.dispose();
 
     expect(keyups.seen).toEqual(["Escape"]);
   });
 
-  it("lets the keyup of an Escape through that closed nothing, and one the IME composed", () => {
+  it("lets the keyup of an Escape on the canvas through that closed nothing, and one the IME composed", () => {
     const { shell } = mount({ menu: MENU });
     const keyups = documentKeyups();
 
-    keydown(shell.menu.trigger, { key: "Escape", code: "Escape" });
-    keyup(shell.menu.trigger, { key: "Escape", code: "Escape" });
+    keydown(shell.canvas, { key: "Escape", code: "Escape" });
+    keyup(shell.canvas, { key: "Escape", code: "Escape" });
     shell.menu.open();
-    keydown(document.activeElement!, { key: "Escape", code: "Escape", isComposing: true });
-    keyup(document.activeElement!, { key: "Escape", code: "Escape" });
+    keydown(shell.canvas, { key: "Escape", code: "Escape", isComposing: true });
+    keyup(shell.canvas, { key: "Escape", code: "Escape" });
     keyups.dispose();
 
     expect(shell.menu.isOpen()).toBe(true);
@@ -366,4 +367,135 @@ describe("the keyup of an Escape in a modeler's dialog or popover (#482)", () =>
 
     expect(keyups.seen).toEqual(["Escape"]);
   });
+});
+
+describe("the keyup of an Escape aimed at the chrome, which closes nothing", () => {
+  const MENU = {
+    export: [{ kind: "action" as const, id: "png", label: "Export as PNG", onSelect() {} }],
+  };
+  const ESCAPE = { key: "Escape", code: "Escape" };
+
+  function press(target: Element, init: KeyboardEventInit = ESCAPE): void {
+    keydown(target, init);
+    keyup(target, init);
+  }
+
+  it.each<[ShellHost, "document" | "root" | undefined]>([
+    ["ide", undefined],
+    ["web", undefined],
+    ["embedded", undefined],
+    ["ide", "root"],
+  ])(
+    "%s host (key scope %s): stops it on the menu trigger, the zoom panel, the problems pill and in the inspector",
+    (host, keyScope) => {
+      const { shell } = mount({
+        host,
+        keyScope,
+        menu: MENU,
+        problems: {},
+        inspector: { label: "Properties" },
+      });
+      shell.setProblems({ count: 1, errors: 1 });
+      shell.inspector!.open();
+      const field = shell.inspector!.element.appendChild(document.createElement("input"));
+      field.addEventListener("keydown", (event) => event.preventDefault());
+      const keyups = documentKeyups();
+
+      press(shell.menu.trigger);
+      press(shell.menu.trigger, { ...ESCAPE, shiftKey: true });
+      press(shell.root.querySelector('[data-chrome="zoom"] [data-zoom="in"]')!);
+      press(shell.root.querySelector('[data-chrome="problems"]')!);
+      press(field);
+      press(shell.canvas);
+      keyups.dispose();
+
+      expect(shell.menu.isOpen()).toBe(false);
+      expect(keyups.seen).toEqual(["Escape"]);
+    },
+  );
+
+  it("stops it in the open menu also when the IME composed it, which leaves the menu open", () => {
+    const { shell } = mount({ menu: MENU });
+    shell.menu.open();
+    const keyups = documentKeyups();
+
+    press(document.activeElement!, { ...ESCAPE, isComposing: true });
+    keyups.dispose();
+
+    expect(shell.menu.isOpen()).toBe(true);
+    expect(keyups.seen).toEqual([]);
+  });
+
+  it.each<ShellHost>(["ide", "web", "embedded"])(
+    "%s: lets it through on the canvas and in the palette, also one the shell root holds beside the canvas",
+    (host) => {
+      const { shell, root } = mount({ host });
+      const palette = fakePalette();
+      root.append(palette.element);
+      shell.registerPalette(palette);
+      const entry = palette.entry("lasso-tool", { label: "Lasso" });
+      const canvasPalette = fakePalette();
+      shell.canvas.append(canvasPalette.element);
+      const keyups = documentKeyups();
+
+      press(entry);
+      press(canvasPalette.entry("hand-tool", { label: "Hand" }));
+      press(shell.canvas);
+      keyups.dispose();
+
+      expect(keyups.seen).toEqual(["Escape", "Escape", "Escape"]);
+    },
+  );
+
+  it.each<ShellHost>(["ide", "web"])(
+    "%s: lets it through from outside the shell root and from the root itself, where no element has the focus",
+    (host) => {
+      const { root } = mount({ host });
+      const keyups = documentKeyups();
+
+      press(document.body);
+      press(root);
+      keyups.dispose();
+
+      expect(keyups.seen).toEqual(["Escape", "Escape"]);
+    },
+  );
+
+  // As Wardley Maps' "Map size…" popover does: it closes on the keydown at its panel and stops it.
+  it.each<[ShellHost, "document" | "root" | undefined]>([
+    ["ide", undefined],
+    ["web", undefined],
+    ["embedded", undefined],
+    ["ide", "root"],
+  ])(
+    "%s host (key scope %s): stops it also when a part of the chrome stops the keydown on its way up, unlike one on the canvas or in the palette",
+    (host, keyScope) => {
+      const { shell, root } = mount({ host, keyScope });
+      const palette = fakePalette();
+      root.append(palette.element);
+      shell.registerPalette(palette);
+      const entry = palette.entry("lasso-tool", { label: "Lasso" });
+      const popover = root.appendChild(document.createElement("div"));
+      popover.setAttribute("role", "dialog");
+      const field = popover.appendChild(document.createElement("input"));
+      const canvasField = shell.canvas.appendChild(document.createElement("input"));
+      for (const swallowing of [popover, entry, canvasField]) {
+        swallowing.addEventListener("keydown", (event) => {
+          if (event.key !== "Escape") return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (swallowing === popover) popover.hidden = true;
+        });
+      }
+      const keyups = documentKeyups();
+
+      press(field);
+      press(entry);
+      press(canvasField);
+      keyups.dispose();
+
+      expect(popover.hidden).toBe(true);
+      expect(keyups.seen).toEqual(["Escape", "Escape"]);
+    },
+  );
 });
