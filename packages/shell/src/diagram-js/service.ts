@@ -39,6 +39,23 @@ interface PaletteTriggerEvent {
   event?: Event;
 }
 
+/** diagram-js's `dragging`, as far as the shell reads it. */
+interface DraggingLike {
+  context(): { prefix?: string } | null;
+}
+
+/** diagram-js's `toolManager`, as far as the shell calls it. */
+interface ToolManagerLike {
+  isActive(tool: string): boolean;
+  setActive(tool: string | null): void;
+}
+
+/** An armed tool whose drag went without a drop: put down unless another step arms a tool. */
+interface DroppedTool {
+  tool: string;
+  prefix: string;
+}
+
 /**
  * The diagram-side half of `shellModule`: the palette skin, the chrome-key guard on the diagram-js
  * keyboard and the buffer that holds the palette until `connectDiagramJs` hands it to a shell.
@@ -51,6 +68,9 @@ export class ShellDiagramService {
   private canvasOriginals: Map<string, string | null> | undefined;
   private skin: PaletteSkin | undefined;
   private activeTool: string | null = null;
+  /** The prefix of the drag that waits for the active tool's next press. */
+  private armedPrefix: string | undefined;
+  private droppedTool: DroppedTool | undefined;
   private shell: ShellHandle | undefined;
   private unregisterPalette: (() => void) | undefined;
   private readonly subscriptions: Array<readonly [string, DiagramEventListener]> = [];
@@ -70,7 +90,15 @@ export class ShellDiagramService {
     this.subscribe("palette.changed", () => this.skin?.refresh());
     this.subscribe("tool-manager.update", (event: { tool?: string | null }) => {
       this.activeTool = event.tool ?? null;
+      this.armedPrefix = this.activeTool === null ? undefined : this.dragPrefix();
+      this.droppedTool = undefined;
       this.skin?.setActiveTool(this.activeTool);
+    });
+    this.subscribe("drag.cleanup", () => this.onDragCleanup());
+    // The tool manager decides on the end of a drag itself; a press on another tool's entry ends
+    // the armed drag on purpose and keeps the tool pressed until that entry's click arms the next.
+    this.subscribe("drag.ended", () => {
+      this.droppedTool = undefined;
     });
     this.subscribe("palette.trigger", this.onPaletteTrigger, TRIGGER_PRIORITY);
     this.subscribe("diagram.destroy", () => this.destroy());
@@ -171,6 +199,34 @@ export class ShellDiagramService {
     return canvas?.getContainer();
   }
 
+  private dragPrefix(): string | undefined {
+    const dragging = this.injector.get("dragging", false) as DraggingLike | null;
+    return dragging?.context()?.prefix;
+  }
+
+  /**
+   * diagram-js's tool manager puts a tool down when its drag ends, but on a cancel only for a drag
+   * the pointer has moved and not from the palette's tools group: Escape on a tool the palette armed
+   * before the pointer moved left it pressed (guide §5.5: pressed only while armed). The armed drag
+   * also goes when another tool's drag replaces it, whose init follows in the same task, so the
+   * decision waits until that task is over.
+   */
+  private onDragCleanup(): void {
+    const prefix = this.dragPrefix();
+    const tool = this.activeTool;
+    if (prefix === undefined || prefix !== this.armedPrefix || tool === null) return;
+    const dropped: DroppedTool = { tool, prefix };
+    this.droppedTool = dropped;
+    queueMicrotask(() => {
+      if (this.droppedTool !== dropped) return;
+      this.droppedTool = undefined;
+      const toolManager = this.injector.get("toolManager", false) as ToolManagerLike | null;
+      // A tool that arms itself again while active (`reactivate`) brings no `tool-manager.update`.
+      if (!toolManager?.isActive(tool) || this.dragPrefix() === prefix) return;
+      toolManager.setActive(null);
+    });
+  }
+
   private readonly onPaletteTrigger = (event: PaletteTriggerEvent): false | undefined => {
     if (!event.entry || !this.skin?.vetoes(event.entry, event.event)) return undefined;
     // A vetoed dragstart would otherwise still start the browser's native drag of the entry.
@@ -209,6 +265,7 @@ export class ShellDiagramService {
     this.skin?.destroy();
     this.skin = undefined;
     this.svg = undefined;
+    this.droppedTool = undefined;
     for (const [name, listener] of this.subscriptions.splice(0)) this.eventBus.off(name, listener);
   }
 }

@@ -26,15 +26,20 @@ export default defineConfig({
             "src/vscode/**/*.test.ts",
             "src/testing/**/*.test.ts",
           ],
-          exclude: [...configDefaults.exclude, "src/testing/vscode-electron/**"],
+          exclude: [
+            ...configDefaults.exclude,
+            "src/testing/vscode-electron/**",
+            "src/**/*.browser.test.ts",
+          ],
         },
       },
       {
         // happy-dom neither loads an SVG as an image nor draws on a canvas, and the font loading
-        // the PNG export works around differs between Chromium and WebKit.
+        // the PNG export works around differs between Chromium and WebKit. It also moves no focus
+        // off an element the page removes, which Chromium reports as a focusout before the removal.
         test: {
           name: "browser",
-          include: ["src/export/**/*.test.ts"],
+          include: ["src/export/**/*.test.ts", "src/**/*.browser.test.ts"],
           browser: {
             enabled: true,
             provider: playwright(),

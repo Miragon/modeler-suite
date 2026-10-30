@@ -39,6 +39,13 @@ If a note and the guide disagree, the guide wins.
   re-applies `role="toolbar"`, the roving `tabindex`, `aria-pressed` and `aria-keyshortcuts`.
 - The active tool comes from `tool-manager.update`, not from `highlighted-entry`: diagram-js caches
   the tools group once and marks detached entries after a rebuild.
+- The tool manager keeps a tool armed from the palette when Escape cancels its drag before the
+  pointer moved. The shell puts it down once the task that cancelled the drag is over and no tool
+  was armed in it, so a switch to another tool inside that task keeps it pressed.
+- Chromium reports the removal of the focused entry as a `focusout` while it is still connected,
+  in the task of the rebuild: the skin forgets the entry only a microtask later, after
+  `palette.changed` has focused its replacement (or the tab stop, when the rebuilt palette no
+  longer offers the entry).
 - Enter and Space dispatch a synthetic `click` with `detail === 0`. Creating entries must branch on
   it: `create.start` never ends without a pointer, so keyboard creation places the shape at
   `freeArea` instead.
@@ -409,4 +416,7 @@ These notes rely on internals:
 - `Palette`: appended after the `<svg>`, `palette.create` with `{ container }`, full rebuild on
   `palette.changed`, the cached tools group.
 - `PaletteTooltip` registered as `paletteTooltip`.
+- `ToolManager` and `Dragging`: a tool is put down on `<tool>.ended` and `.canceled` unless the
+  event's `originalEvent` lies in `.group[data-group="tools"]`; `canceled` fires only for a drag
+  that was active; the drag's context is still set during `drag.cleanup`.
 - `Keyboard`: bound to the canvas `<svg>`, `preventDefault()` without `stopPropagation()`.
