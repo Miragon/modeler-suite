@@ -168,9 +168,9 @@ describe("theme.sync — event-storming.css takes every colour from the roles", 
       );
       return Number(/z-index:\s*(\d+)/.exec(rule?.[1] ?? "")?.[1]);
     };
-    expect(zIndexOf('.event-storming-container .djs-palette:not([data-chrome="palette"])')).toBe(
-      110,
-    );
+    expect(
+      zIndexOf(':where(.event-storming-container) .djs-palette:not([data-chrome="palette"])'),
+    ).toBe(110);
     for (const overlay of [
       ".event-storming-container .event-storming-note-toolbar",
       ".event-storming-container .event-storming-color-picker",
@@ -220,10 +220,10 @@ describe("theme.sync — event-storming.css wires the vendored design-system fil
     );
   });
 
-  it("scopes every rule of its own palette and its tooltip to its container, away from the shell skin", () => {
+  it("scopes every rule of its own palette and its tooltip to its container, at no extra specificity outside high contrast, away from the shell skin", () => {
     const unskinned = '.djs-palette:not([data-chrome="palette"])';
     const insideContainer =
-      /^(\.event-storming-container|:is\(:scope\.event-storming-container, :scope \.event-storming-container\)) /;
+      /^(:where\(\.event-storming-container\)|:is\(:scope\.event-storming-container, :scope \.event-storming-container\)) /;
     const selectors = topLevelSelectors(css).filter((selector) =>
       /\.djs-(palette|hover-tooltip)(?![\w-])/.test(selector),
     );

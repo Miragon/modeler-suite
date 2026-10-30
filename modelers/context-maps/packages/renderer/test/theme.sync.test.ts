@@ -164,20 +164,22 @@ describe("theme.sync — context-maps.css", () => {
   });
 
   it("keeps its persistent canvas overlays at or below z-index 100 (guide §5.13)", () => {
-    expect(zIndexOf('.cm-djs-container .djs-palette:not([data-chrome="palette"])')).toBe(110);
+    expect(zIndexOf(':where(.cm-djs-container) .djs-palette:not([data-chrome="palette"])')).toBe(
+      110,
+    );
     expect(zIndexOf(".cm-djs-container .djs-direct-editing-parent")).toBeLessThanOrEqual(100);
     // The description prompt stays open through a pan or zoom, like the label editor.
     expect(zIndexOf(".cm-pad-prompt")).toBeLessThanOrEqual(100);
   });
 
-  it("scopes every rule of its own palette to its container and away from the shell skin", () => {
+  it("scopes every rule of its own palette to its container, at no extra specificity, and away from the shell skin", () => {
     const paletteSelectors = ruleSelectors(css).filter((selector) =>
       /\.djs-palette(?![\w-])/.test(selector),
     );
     expect(paletteSelectors.length).toBeGreaterThan(5);
     for (const selector of paletteSelectors) {
       expect(selector).toMatch(
-        /^\.cm-djs-container \.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
+        /^:where\(\.cm-djs-container\) \.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
       );
     }
   });

@@ -21,15 +21,17 @@ const mounted: Mounted[] = [];
 afterEach(async () => {
   for (const { modeler, host } of mounted.splice(0)) {
     // Off the palette first: diagram-js's tooltip would otherwise show on the destroyed diagram.
-    await userEvent.hover(host, { position: { x: HOST.width - 8, y: HOST.height - 8 } });
+    await userEvent.hover(host, {
+      position: { x: host.offsetWidth - 8, y: host.offsetHeight - 8 },
+    });
     modeler.destroy();
     host.remove();
   }
 });
 
-function mount(): Mounted {
+function mount(width = HOST.width): Mounted {
   const host = document.createElement("div");
-  host.style.cssText = `position: fixed; left: 0; top: 0; width: ${HOST.width}px; height: ${HOST.height}px;`;
+  host.style.cssText = `position: fixed; left: 0; top: 0; width: ${width}px; height: ${HOST.height}px;`;
   const container = document.createElement("div");
   host.append(container);
   document.body.append(host);
@@ -120,5 +122,22 @@ test("leaves another diagram-js palette on the same page as diagram-js lays it o
     expect(getComputedStyle(other.querySelector(".entry")!).width).toBe("46px");
   } finally {
     other.remove();
+  }
+});
+
+test("lets a host's own rule on the palette win over the renderer's sheet that loads after it", () => {
+  const { host, container } = mount(600);
+  host.classList.add("palette-host");
+  const palette = container.querySelector(".djs-palette")!;
+  expect(getComputedStyle(palette).top).toBe("64px");
+
+  // designIQ keeps the palette at the top of a narrow canvas, which has no host chrome above it.
+  const hostSheet = document.createElement("style");
+  hostSheet.textContent = '.palette-host .djs-palette:not([data-chrome="palette"]) { top: 12px; }';
+  document.head.prepend(hostSheet);
+  try {
+    expect(getComputedStyle(palette).top).toBe("12px");
+  } finally {
+    hostSheet.remove();
   }
 });

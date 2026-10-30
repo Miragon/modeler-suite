@@ -44,3 +44,36 @@ test("leaves another diagram-js palette and its tooltip on the same page as diag
     other.remove();
   }
 });
+
+test("lets a host's own rules on the palette and its tooltip win over the renderer's sheet that loads after it", async () => {
+  const host = document.createElement("div");
+  host.className = "palette-host";
+  const container = document.createElement("div");
+  host.append(container);
+  document.body.append(host);
+  const modeler = new Modeler({ container, width: 1024, height: 768, fitOnImport: false });
+  mounted.push({ modeler, container: host });
+  await modeler.importDSL("title Palette");
+  const palette = container.querySelector(".djs-palette")!;
+  const tooltip = document.createElement("div");
+  tooltip.className = "djs-hover-tooltip djs-hover-tooltip--bottom";
+  container.querySelector(".djs-container")!.append(tooltip);
+  expect([getComputedStyle(palette).top, getComputedStyle(tooltip).padding]).toEqual([
+    "12px",
+    "3px 8px",
+  ]);
+
+  const hostSheet = document.createElement("style");
+  hostSheet.textContent =
+    '.palette-host .djs-palette:not([data-chrome="palette"]) { top: 30px; }' +
+    ".palette-host .djs-hover-tooltip { padding: 1px 2px; }";
+  document.head.prepend(hostSheet);
+  try {
+    expect([getComputedStyle(palette).top, getComputedStyle(tooltip).padding]).toEqual([
+      "30px",
+      "1px 2px",
+    ]);
+  } finally {
+    hostSheet.remove();
+  }
+});
