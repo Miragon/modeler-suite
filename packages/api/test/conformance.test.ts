@@ -1157,6 +1157,22 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     const [found] = advice.split(" — RECOMMENDED");
     expect(found).not.toMatch(/at the start of|at the drop|Escape|came after destroy\(\)/);
   });
+  test("a harness without startGesture → the destroy case still runs its leg inside reveal(): it skips only the legs at the user's input, and a teardown at once inside reveal() advises", async () => {
+    const destroyCase = conformanceCases().find((c) => c.name === CASE.destroyFromListener);
+    const withoutStartGesture =
+      "startGesture is undefined — that a host may destroy the modeler from a listener while the user's input runs, and that a listener unsubscribed during a delivery is not called (RECOMMENDED since 1.6), was not checked";
+    const conforming = await destroyCase?.run(harness({}, { startGesture: undefined }));
+    expect(conforming?.skipped).toBe(withoutStartGesture);
+    expect(conforming?.advisories).toBeUndefined();
+    const tearsDownAtOnce = await destroyCase?.run(
+      harness({ destroyTearsDownInsideReveal: true }, { startGesture: undefined }),
+    );
+    expect(tearsDownAtOnce?.skipped).toBe(withoutStartGesture);
+    expect(tearsDownAtOnce?.advisories).toHaveLength(1);
+    expect(tearsDownAtOnce?.advisories?.[0]).toMatch(
+      /: reveal\(\) threw TypeError: .* once a listener had called destroy\(\) from elements\.onSelection inside reveal\(\) — RECOMMENDED \(since 1\.6\): /,
+    );
+  });
   test("an onChange that still calls a listener an earlier one of the same delivery unsubscribed → an advisory from the destroy case", async () => {
     const advice = await expectAdvisoryOnly(
       { interactionDeliveryIgnoresUnsubscribe: true },

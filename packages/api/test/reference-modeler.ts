@@ -361,7 +361,9 @@ export interface Flaws {
   interactionDeliveryIgnoresUnsubscribe?: boolean;
   /** NOT a law violation, a missed recommendation: destroy() from the selection listener that
    *  reveal() calls tears the canvas down at once, so reveal's scroll, which comes after the
-   *  selection's listeners, throws on the torn-down canvas (#415) */
+   *  selection's listeners and reads the canvas, throws. diagram-js 15.28.1's scrollToElement
+   *  gives up quietly there instead, which the kit cannot tell from a held teardown: the
+   *  renderers pin their scroll before the teardown in tests of their own (#415) */
   destroyTearsDownInsideReveal?: boolean;
 
   // ── appearance (1.5) ───────────────────────────────────────────────────────
@@ -968,7 +970,8 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
         revealDepth += 1;
         try {
           select([id]);
-          // diagram-js scrolls to the element once the selection's listeners have run
+          // the scroll comes once the selection's listeners have run, as in diagram-js, and reads
+          // the canvas, as a scroll that measures the viewport would
           if (tornDown) throw new TypeError("Cannot read properties of null (reading 'viewbox')");
         } finally {
           revealDepth -= 1;

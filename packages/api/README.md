@@ -805,7 +805,12 @@ The cases:
   `"move"` cancelled with Escape. One more leg starts from the selection the
   import left and reveals the first listed element itself:
   `elements.onSelection` destroys the modeler inside the delivery of that
-  `reveal()` (diagram-js scrolls to the element after it). The advisory:
+  `reveal()` (diagram-js scrolls to the element after it). That leg sees what
+  reaches the host, not whether the scroll ran before the teardown: diagram-js
+  15.28.1's `scrollToElement` gives up quietly on a torn-down canvas, so a
+  renderer that tears down at once passes the leg too. The Miragon renderers and
+  the template pin the scroll before the teardown in a test of their own. The
+  advisory:
   `destroy()` and the input or `reveal()` throw nothing (the window's `error`
   and `unhandledrejection` events too), the selection listener hears `[]` at a
   drag's start and nothing more, no listener is called after the destroy, also

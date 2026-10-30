@@ -4425,7 +4425,8 @@ function destroyAtEscape(startGesture: GestureStarter): DestroyLeg {
 }
 
 /** the selection listener destroys the modeler inside the delivery that the host's `reveal()`
- *  calls before it returns: diagram-js scrolls to the element after the selection's listeners */
+ *  calls before it returns: diagram-js scrolls to the element after the selection's listeners.
+ *  The leg sees what reaches the host, not whether that scroll ran before the teardown */
 function destroyInsideReveal(): DestroyLeg {
   return {
     where: "from elements.onSelection inside reveal()",

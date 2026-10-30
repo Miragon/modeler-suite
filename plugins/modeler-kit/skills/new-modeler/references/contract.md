@@ -270,8 +270,10 @@ case moves the focus and aims keys at the one document every mounted instance li
 - A case is only as good as the harness: drive real services (the renderer's label editor, the
   command stack, `modeling.moveElements`), not shortcuts around them.
 
-Contract 1.6's kit adds eight cases, each reported as a skip until the harness fills the hook it
-reads (every leg is in the package README's
+Contract 1.6's kit adds eight cases. A case, or the half or leg of one, that reads one of the four
+new hooks (`startGesture`, `armTool`, `startPan`, `exportImage`) reports a skip until the harness
+fills it; the user-action case and the destroy case's leg inside `reveal()` read none of them
+(every leg is in the package README's
 [cases of 1.6](https://github.com/Miragon/modeler-suite/blob/main/packages/api/README.md#cases-for-the-15-surfaces-and-the-gesture-rules-of-16)):
 
 - the **L1 gesture** case: an accepted import ends a running move or create, so its drop throws
@@ -292,9 +294,10 @@ reads (every leg is in the package README's
   no listener is called afterwards, a second `destroy()` throws nothing, and a listener that an
   earlier one of the same delivery unsubscribed is not called (an advisory; the leg inside
   `reveal()` needs no `startGesture`);
-- the **appearance** case: a requested theme and contrast change the colours and nothing else: no
-  change event, the same exports, history, view state and selection (failures; an open label
-  editor that stays open is an advisory).
+- the **appearance** case: `set` draws the requested theme when `themes` lists it and `themes[0]`
+  otherwise (a light-only renderer stays light when dark is requested, also on a dark page), the
+  contrast always applies, and nothing else changes: no change event, the same exports, history,
+  view state and selection (failures; an open label editor that stays open is an advisory).
 
 ## Versions and upgrades
 
