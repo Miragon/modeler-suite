@@ -61,7 +61,8 @@ Build the packages before the tests: workspace dependencies resolve to `dist`.
   on, and the contract's `importText` waits until a user's action being applied (a drop, the
   start of a drag, a keyboard create, a label commit, a key's command, an undo or a redo) has
   finished; a `destroy()` from any listener, also while a drag starts, drops or is cancelled or a
-  command runs, tears the diagram down once the handler of that input has returned, and no
+  command runs, tears the diagram down once the handler of that input has returned, or the
+  host's call that reached the listener (`elements.reveal`, an import's clear), and no
   delivery calls a listener after `destroy()` or one an earlier listener of it unsubscribed. `THEMES`
   ([`themes.ts`](packages/renderer/src/themes.ts), for Node code
   `@miragon/__NOTATION__-renderer/themes`) is the one list of themes: the contract's `appearance`,

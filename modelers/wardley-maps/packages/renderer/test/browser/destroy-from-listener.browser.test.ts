@@ -1,9 +1,15 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { attachedHost } from "@miragon/modeler-api/conformance";
+import type Canvas from "diagram-js/lib/core/Canvas";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element as DiagramElement } from "diagram-js/lib/model/Types";
-import { createCollaborativeModeler, type CollaborativeWardleyModeler } from "../../src/index.js";
+import {
+  createCollaborativeModeler,
+  createCollaborativeViewer,
+  type CollaborativeWardleyModeler,
+} from "../../src/index.js";
 import {
   canvasSvgOf,
   centreOf,
@@ -16,6 +22,7 @@ import {
   startGesture,
   type Point,
 } from "./support/gesture-harness.js";
+import platformStrategy from "./fixtures/platform-strategy.wmap?raw";
 import teaShop from "./fixtures/tea-shop.wmap?raw";
 import "../../src/assets/wardley.css";
 
@@ -273,4 +280,77 @@ test("no later selection listener hears of a selection whose first listener dest
 
   await expectDestroyedCleanly(text);
   expect(later).toEqual([]);
+});
+
+// #415: a host's own call that reaches a listener goes on with the map once the listener has
+// returned. `reveal` scrolls to the element after its selection listener, and an import draws the
+// map after the clear that empties the selection, so a destroy() from that listener tears the map
+// down once the call has returned.
+describe("a destroy from the selection listener that a host's call reaches (#415)", () => {
+  test.each([
+    { mount: "modeler", create: createCollaborativeModeler },
+    { mount: "viewer", create: createCollaborativeViewer },
+  ])(
+    "reveal on the $mount: it scrolls to the element first, and nothing reaches the host afterwards",
+    async ({ create }) => {
+      const revealHost = attachedHost();
+      const revealing = create();
+      revealing.attachTo(revealHost);
+      await revealing.importText(teaShop);
+      const { x, y, width, height } = diagramOf(revealing).get<Canvas>("canvas").viewbox();
+      revealing.setViewState({ x: x + 5000, y: y + 5000, width, height });
+      const steps: string[] = [];
+      const eventBus = diagramOf(revealing).get<EventBus>("eventBus");
+      eventBus.on("canvas.viewbox.changing", () => steps.push("scroll"));
+      eventBus.on("diagram.destroy", () => steps.push("teardown"));
+      const svg = canvasSvgOf(revealing);
+      const text = revealing.exportText();
+      revealing.elements.onSelection(() => revealing.destroy());
+      const later: unknown[] = [];
+      revealing.elements.onSelection((ids) => later.push(ids));
+      revealing.interaction.onChange((active) => later.push(active));
+      revealing.onContentChanged(() => later.push("change"));
+
+      try {
+        expect(revealing.elements.reveal(shapeNamed(revealing, "Cup").id)).toBe(true);
+        expect(steps).toEqual(["scroll"]);
+        await settle();
+        expect(errors).toEqual([]);
+        expect(steps).toEqual(["scroll", "teardown"]);
+        expect(svg.isConnected).toBe(false);
+        expect(later).toEqual([]);
+        expect(() => revealing.destroy()).not.toThrow();
+        expect(revealing.exportText()).toBe(text);
+      } finally {
+        (revealHost.parentElement ?? revealHost).remove();
+      }
+    },
+  );
+
+  test("an import, whose clear empties the selection: it resolves, and the modeler keeps the imported map", async () => {
+    const referenceHost = attachedHost();
+    const reference = createCollaborativeViewer();
+    reference.attachTo(referenceHost);
+    await reference.importText(platformStrategy);
+    const imported = reference.exportText();
+    reference.destroy();
+    (referenceHost.parentElement ?? referenceHost).remove();
+    modeler.elements.reveal(shapeNamed(modeler, "Cup").id);
+    const expectDestroyedCleanly = destroyedCleanly();
+    const heard: string[][] = [];
+    modeler.elements.onSelection((ids) => {
+      heard.push(ids);
+      modeler.destroy();
+    });
+    const later: string[][] = [];
+    modeler.elements.onSelection((ids) => later.push(ids));
+
+    await expect(modeler.importText(platformStrategy)).resolves.toEqual({ warnings: [] });
+
+    expect(heard).toEqual([[]]);
+    await expectDestroyedCleanly(imported);
+    expect(later).toEqual([]);
+    // The selection the import brings back after it has drawn the map built no new one.
+    expect(modeler.diagram.container.querySelector(".djs-container")).toBeNull();
+  });
 });

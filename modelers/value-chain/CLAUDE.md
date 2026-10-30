@@ -125,9 +125,11 @@ missing at its other places; the verdict stays the same).
   `Dragging.move` has returned, and ends the drag (`drag.canceled`). A `destroy()` from any
   listener while the handler of the user's input goes on with the diagram (after a drag's init,
   start, drop, cancel or cleanup, or a command) tears the diagram down once that handler has
-  returned (`vcGestures.tearDownAfterHandler`, #346, #380, #373), and the selection the cancelled
-  drag brings back reaches no host listener; no delivery calls a listener after `destroy()` or one
-  an earlier listener of it unsubscribed (`test/browser/import-during-user-action.browser.test.ts`,
+  returned (`vcGestures.tearDownAfterHandler`, #346, #380, #373), one from the selection listener
+  that `elements.reveal` or an import's clear calls once that call has returned
+  (`selectionListeners`, #415), and the selection the cancelled drag brings back reaches no host
+  listener; no delivery calls a listener after `destroy()` or one an earlier listener of it
+  unsubscribed (`test/browser/import-during-user-action.browser.test.ts`,
   `destroy-from-listener.browser.test.ts`). The
   direct `importDocument` cannot wait, it returns its warnings, and it first runs what still waits
   (`vcGestures.runHeldWork`), so the calls keep their order. The 1.5 surfaces: `interaction` is

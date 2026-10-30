@@ -68,9 +68,11 @@ selection listener there runs once `Dragging.move` has returned and then ends th
 `destroy()` from any listener while the handler of the user's input goes on with the map (after a
 diagram-js drag's init, start, drop, cancel or cleanup, a command, or the start or end of one of
 the renderer's own drags) tears the map down once that handler has returned
-(`tearDownAfterHandler`, #346, #380, #373), the name editor a create opens a task later stays
-closed, and the selection the cancelled drag brings back reaches no host listener; no delivery
-calls a listener after `destroy()` or one an earlier listener of it unsubscribed
+(`tearDownAfterHandler`, #346, #380, #373), one from the selection listener that
+`elements.reveal` or an import's clear calls once that call has returned (`selectionListeners`,
+#415), the name editor a create opens a task later stays closed, and the selection the cancelled
+drag brings back reaches no host listener; no delivery calls a listener after `destroy()` or one
+an earlier listener of it unsubscribed
 (`destroy-from-listener.browser.test.ts`). Pinned by
 [`import-during-user-action.browser.test.ts`](packages/renderer/test/browser/import-during-user-action.browser.test.ts),
 [`import-during-gesture.browser.test.ts`](packages/renderer/test/browser/import-during-gesture.browser.test.ts)

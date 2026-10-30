@@ -129,6 +129,7 @@ function collaborative(
   let importsRunning = 0;
   let destroyed = false;
   let lastExport = "";
+  const selections = selectionListeners(eventBus, () => destroyed);
 
   const meta: ModelerMeta = {
     notation: TEAM_TOPOLOGIES_NOTATION,
@@ -148,6 +149,14 @@ function collaborative(
   }
 
   const exportText = (): string => serializeDocument(diagram.exportDocument());
+
+  const textToKeep = (): string => {
+    try {
+      return exportText();
+    } catch {
+      return "";
+    }
+  };
 
   const importNow = (document: TtDocument): ImportResult => {
     if (destroyed) throw new Error("The modeler was destroyed.");
@@ -190,21 +199,7 @@ function collaborative(
       return true;
     },
     selection: () => (destroyed ? [] : elementIds(selection.get())),
-    onSelection(callback) {
-      // The teardown cancels a running drag, which brings back the selection from before it.
-      // diagram-js's event bus still calls a listener that an earlier one unsubscribed during the
-      // same delivery after unsubscribing itself.
-      let subscribed = true;
-      const listener = (event: unknown) => {
-        if (destroyed || !subscribed) return;
-        callback(elementIds((event as { newSelection?: unknown[] }).newSelection ?? []));
-      };
-      eventBus.on("selection.changed", listener);
-      return () => {
-        subscribed = false;
-        eventBus.off("selection.changed", listener);
-      };
-    },
+    onSelection: (callback) => selections.subscribe((selected) => callback(elementIds(selected))),
     bounds(id) {
       if (destroyed) return undefined;
       const element = elementRegistry.get(id);
@@ -258,16 +253,54 @@ function collaborative(
     },
     destroy() {
       if (destroyed) return;
-      try {
-        lastExport = exportText();
-      } catch {
-        lastExport = "";
-      }
+      lastExport = textToKeep();
       destroyed = true;
       contentListeners.clear();
       interaction.stop();
       userActions.stop();
-      userActions.tearDownAfterHandler(() => diagram.destroy());
+      if (!selections.delivering()) {
+        userActions.tearDownAfterHandler(() => diagram.destroy());
+        return;
+      }
+      // Once the code that called the selection listener has returned (#415), with the diagram it
+      // left: an import's, whose Promise then resolves.
+      queueMicrotask(() => {
+        lastExport = textToKeep();
+        diagram.destroy();
+      });
+    },
+  };
+}
+
+/**
+ * The host's selection listeners. The code that calls them goes on with the diagram once they have
+ * returned, also when it is the host's own call: `reveal` scrolls to the element it selected, and
+ * an import draws the diagram after the clear that emptied the selection. A `destroy()` from one
+ * of them waits for that code (`delivering`).
+ */
+function selectionListeners(eventBus: EventBus, isDestroyed: () => boolean) {
+  let deliveries = 0;
+  return {
+    delivering: (): boolean => deliveries > 0,
+    subscribe(callback: (selected: unknown[]) => void): () => void {
+      // The teardown cancels a running drag, which brings back the selection from before it.
+      // diagram-js's event bus still calls a listener that an earlier one unsubscribed during the
+      // same delivery after unsubscribing itself.
+      let subscribed = true;
+      const listener = (event: unknown) => {
+        if (isDestroyed() || !subscribed) return;
+        deliveries += 1;
+        try {
+          callback((event as { newSelection?: unknown[] }).newSelection ?? []);
+        } finally {
+          deliveries -= 1;
+        }
+      };
+      eventBus.on("selection.changed", listener);
+      return () => {
+        subscribed = false;
+        eventBus.off("selection.changed", listener);
+      };
     },
   };
 }

@@ -187,7 +187,11 @@ The same holds for a `destroy()` from any listener at a drop, at Escape, at a cr
 palette or the keyboard and at a paste placed with a click: the diagram is torn down once the
 handler of that input has returned. No delivery calls a listener that an earlier listener of the
 same delivery unsubscribed ([#380](https://github.com/Miragon/modeler-suite/issues/380),
-[#373](https://github.com/Miragon/modeler-suite/issues/373)).
+[#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from the
+selection listener that a host's own call reaches: `elements.reveal`, or an import, which empties
+the selection as it clears the canvas. The diagram is torn down once that call has returned, and
+the import still resolves, with the imported diagram as `exportText()`
+([#415](https://github.com/Miragon/modeler-suite/issues/415)).
 The label commit that a press on an element or on a resize handle makes counts too: the import comes
 after the press and then ends what the press began, as an accepted import does: the resize that
 diagram-js starts at once on a handle, or the move of a press that has not reached the drag

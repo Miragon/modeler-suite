@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type Canvas from "diagram-js/lib/core/Canvas";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import {
   createCollaborativeModeler,
+  createCollaborativeViewer,
   type CollaborativeEventStormingModeler,
 } from "../../src/index.js";
+import orderCheckout from "./fixtures/order-checkout.storm?raw";
 import {
   GESTURE_BOARD as BOARD,
   centre,
@@ -247,4 +250,74 @@ it("no later selection listener hears of a selection whose first listener destro
 
   await expectDestroyedCleanly(BOARD);
   expect(later).toEqual([]);
+});
+
+// #415: a host's own call that reaches a listener goes on with the board once the listener has
+// returned. `reveal` scrolls to the sticky after its selection listener, and an import draws the
+// board after the clear that empties the selection, so a destroy() from that listener tears the
+// board down once the call has returned.
+describe("a destroy from the selection listener that a host's call reaches (#415)", () => {
+  it.each([
+    { mount: "modeler", create: createCollaborativeModeler },
+    { mount: "viewer", create: createCollaborativeViewer },
+  ])(
+    "reveal on the $mount: it scrolls to the sticky first, and nothing reaches the host afterwards",
+    async ({ create }) => {
+      const revealHost = attachedHost();
+      const revealing = create();
+      revealing.attachTo(revealHost);
+      await revealing.importText(BOARD);
+      const { x, y, width, height } = service<Canvas>(revealing, "canvas").viewbox();
+      revealing.setViewState({ x: x + 5000, y: y + 5000, width, height });
+      const steps: string[] = [];
+      const eventBus = service<EventBus>(revealing, "eventBus");
+      eventBus.on("canvas.viewbox.changing", () => steps.push("scroll"));
+      eventBus.on("diagram.destroy", () => steps.push("teardown"));
+      const { svg } = pointerOn(revealing);
+      revealing.elements.onSelection(() => revealing.destroy());
+      const later: unknown[] = [];
+      revealing.elements.onSelection((ids) => later.push(ids));
+      revealing.interaction.onChange((active) => later.push(active));
+      revealing.onContentChanged(() => later.push("change"));
+
+      try {
+        expect(revealing.elements.reveal("event_order_placed")).toBe(true);
+        expect(steps).toEqual(["scroll"]);
+        await nextTask();
+        expect(errors).toEqual([]);
+        expect(steps).toEqual(["scroll", "teardown"]);
+        expect(svg.isConnected).toBe(false);
+        expect(later).toEqual([]);
+        expect(() => revealing.destroy()).not.toThrow();
+        expect(revealing.exportText()).toBe(BOARD);
+      } finally {
+        (revealHost.parentElement ?? revealHost).remove();
+      }
+    },
+  );
+
+  it("an import, whose clear empties the selection: it resolves, and the modeler keeps the imported board", async () => {
+    const referenceHost = attachedHost();
+    const reference = createCollaborativeViewer();
+    reference.attachTo(referenceHost);
+    await reference.importText(orderCheckout);
+    const imported = reference.exportText();
+    reference.destroy();
+    (referenceHost.parentElement ?? referenceHost).remove();
+    modeler.elements.reveal("event_order_placed");
+    const expectDestroyedCleanly = destroyedCleanly();
+    const heard: string[][] = [];
+    modeler.elements.onSelection((ids) => {
+      heard.push(ids);
+      modeler.destroy();
+    });
+    const later: string[][] = [];
+    modeler.elements.onSelection((ids) => later.push(ids));
+
+    await expect(modeler.importText(orderCheckout)).resolves.toEqual({ warnings: [] });
+
+    expect(heard).toEqual([[]]);
+    await expectDestroyedCleanly(imported);
+    expect(later).toEqual([]);
+  });
 });

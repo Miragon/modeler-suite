@@ -157,9 +157,11 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   `destroy()` from any listener while the handler of the user's input goes on with the board
   (after a diagram-js drag's init, start, drop, cancel or cleanup, a command, or the start or end
   of a drawing's point drag) tears the board down once that handler has returned
-  (`tearDownAfterHandler`, #346, #380, #373), and the selection the cancelled drag brings back
-  reaches no host listener; no delivery calls a listener after `destroy()` or one an earlier
-  listener of it unsubscribed (`destroy-from-listener.browser.test.ts`). An import
+  (`tearDownAfterHandler`, #346, #380, #373), one from the selection listener that
+  `elements.reveal` or an import's clear calls once that call has returned (`selectionListeners`,
+  #415), and the selection the cancelled drag brings back reaches no host listener; no delivery
+  calls a listener after `destroy()` or one an earlier listener of it unsubscribed
+  (`destroy-from-listener.browser.test.ts`). An import
   called during an action, from a host's change or selection listener, waits for its end
   (`actionEnded()`), so
   no step of the action, also diagram-js's `SelectionBehavior` after a drop, sees a replaced board
