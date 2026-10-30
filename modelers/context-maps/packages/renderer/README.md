@@ -209,9 +209,10 @@ the same delivery unsubscribed ([#380](https://github.com/Miragon/modeler-suite/
 [#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a listener
 that a host's own call reaches: the selection listener of `elements.reveal`, or the interaction and
 selection listeners of an import, which ends a held gesture and empties the selection as it clears
-the canvas. The map is torn down once that call has returned, and the import still resolves, with
-the imported map as `exportText()`
-([#415](https://github.com/Miragon/modeler-suite/issues/415)).
+the canvas. The map is torn down once that call has returned. The import still draws its map,
+which `exportText()` then returns ([#415](https://github.com/Miragon/modeler-suite/issues/415)),
+and its Promise rejects with "The modeler was destroyed.", as an import does that waits when the
+modeler is destroyed.
 
 So no step of the action works on a replaced map. Only the imports that waited for an action
 reopen the menu it left open; a later import closes it like every other menu. An import called while Escape cancels a gesture (from `interaction.onChange`) waits for

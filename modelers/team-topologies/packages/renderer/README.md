@@ -191,9 +191,10 @@ same delivery unsubscribed ([#380](https://github.com/Miragon/modeler-suite/issu
 [#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a listener
 that a host's own call reaches: the selection listener of `elements.reveal`, or the interaction and
 selection listeners of an import, which ends a held gesture and empties the selection as it clears
-the canvas. The diagram is torn down once that call has returned, and the import still resolves,
-with the imported diagram as `exportText()`
-([#415](https://github.com/Miragon/modeler-suite/issues/415)).
+the canvas. The diagram is torn down once that call has returned. The import still draws its
+diagram, which `exportText()` then returns
+([#415](https://github.com/Miragon/modeler-suite/issues/415)), and its Promise rejects with "The
+modeler was destroyed.", as an import does that waits when the modeler is destroyed.
 The label commit that a press on an element or on a resize handle makes counts too: the import comes
 after the press and then ends what the press began, as an accepted import does: the resize that
 diagram-js starts at once on a handle, or the move of a press that has not reached the drag

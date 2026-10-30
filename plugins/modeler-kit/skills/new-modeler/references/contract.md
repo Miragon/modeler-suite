@@ -189,9 +189,10 @@ both (template:
     tears the diagram down a microtask later, once that call has returned. An import that ends a
     held gesture calls the interaction listener inside the drag's cancel, whose window holds the
     teardown already. A teardown that waits reads the export again when an import drew in the
-    meantime (`import.done`), so the import still resolves with the imported document as
-    `exportText()`; whatever else runs on after the destroy reaches no host, so the text read at
-    the destroy stays.
+    meantime (`import.done`), so `exportText()` returns the imported document; whatever else runs
+    on after the destroy reaches no host, so the text read at the destroy stays. The import's
+    Promise rejects with "The modeler was destroyed.", as an import does that waits when the
+    modeler is destroyed (decision 3 of batch 12 on #170).
   - After a keyboard create, the import takes the label editor down and reopens it on the element
     with the same id. An edit the first of several waiting imports takes down stays suspended
     through the next; a render that fails reopens it as well, so no later import brings back an

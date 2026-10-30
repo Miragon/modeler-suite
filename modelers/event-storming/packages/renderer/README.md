@@ -339,9 +339,10 @@ const viewer = createCollaborativeViewer(); // meta.editable: false, never chang
   [#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a
   listener that a host's own call reaches: the selection listener of `elements.reveal`, or the
   interaction and selection listeners of an import, which ends a held gesture and empties the
-  selection as it clears the canvas. The board is torn down once that call has returned, and the
-  import still resolves, with the imported board as `exportText()`
-  ([#415](https://github.com/Miragon/modeler-suite/issues/415)).
+  selection as it clears the canvas. The board is torn down once that call has returned. The
+  import still draws its board, which `exportText()` then returns
+  ([#415](https://github.com/Miragon/modeler-suite/issues/415)), and its Promise rejects with
+  "The modeler was destroyed.", as an import does that waits when the modeler is destroyed.
 
 #### Migrating a host
 

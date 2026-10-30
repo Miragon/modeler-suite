@@ -264,7 +264,7 @@ function importTurns(
   const wait = async (ahead: Promise<void> | undefined, action: Promise<void> | undefined) => {
     if (ahead) await ahead.catch(() => undefined);
     for (; ; action = afterUserAction()) {
-      if (isDestroyed()) throw new Error("The modeler was destroyed.");
+      if (isDestroyed()) throw destroyedError();
       if (!action) return;
       await action;
     }
@@ -369,7 +369,7 @@ function collaborative(
   };
 
   async function importText(text: string): Promise<ImportResult> {
-    if (destroyed) throw new Error("The modeler was destroyed.");
+    if (destroyed) throw destroyedError();
     // A host that echoes its own change back through its store imports from the change listener,
     // while the user's action still runs: a create goes on to select its element and open its name
     // editor, a press that saved a name goes on to start its drag, and a drop's later steps, also
@@ -387,6 +387,10 @@ function collaborative(
       imported = true;
       // Reading a destroyed map would build a new one on the detached container.
       if (editorState && !destroyed) restoreEditorState(diagram as Modeler, editorState);
+      // A listener the import called (the end of a held gesture, the clear of the selection, the
+      // selection it brings back) destroyed the modeler: the import rejects, as one that waits
+      // does once the modeler is destroyed.
+      if (destroyed) throw destroyedError();
       return { warnings: warnings.map((warning) => warning.message) };
     } catch (error) {
       if (editorState && !destroyed)
@@ -444,8 +448,8 @@ function collaborative(
       destroyed = true;
       contentListeners.clear();
       interaction.stop();
-      // An import whose listener destroyed the modeler goes on to draw its map, and its Promise then
-      // resolves: the modeler keeps that map (#415). Whatever else runs on after the destroy
+      // An import whose listener destroyed the modeler goes on to draw its map before its Promise
+      // rejects: the modeler keeps that map (#415). Whatever else runs on after the destroy
       // reaches no host, so the text read above stays.
       let imported = false;
       eventBus.on("import.done", () => {
@@ -459,6 +463,10 @@ function collaborative(
       else interaction.tearDownAfterHandler(tearDown);
     },
   };
+}
+
+function destroyedError(): Error {
+  return new Error("The modeler was destroyed.");
 }
 
 function textToKeep(committedText: () => string): string {
