@@ -46,8 +46,9 @@ function isKeyForCanvas(event: KeyboardEvent, svg: SVGElement | null): boolean {
 
 /**
  * Whether a key reaches an element the host made inert or hid, before the browser moved the focus
- * off it. The map's own chrome (the label editor, the context pad's description field and menus)
- * leaves such a key to the page, as the canvas does.
+ * off it. The map's own chrome (the label editor, the context pad's description field and menus,
+ * the palette toolbar of a host without the shell) leaves such a key to the page, as the canvas
+ * does.
  */
 export function isKeyOnHiddenTarget(event: Event): boolean {
   const target = event.target;

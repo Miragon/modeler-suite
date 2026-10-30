@@ -59,6 +59,12 @@ modeler.redo();
 > (it also pulls in `diagram-js`'s own stylesheet). Without it the palette, context pad and label
 > editor are unstyled.
 
+On a page without the Miragon modeler shell, the palette is a glass toolbar at the top centre of
+the canvas: `role="toolbar"` named "Tools", one tab stop ahead of the canvas `<svg>` (the palette
+moves before it in the DOM) that roves with ← → Home End, Enter or Space to arm a tool or create a
+context, and `aria-pressed` on the armed tool. Where the shell is mounted, or another chrome marks
+the palette `data-chrome="palette"`, the palette is that chrome's alone.
+
 ## API
 
 ### Constructor: `CmViewerOptions`
@@ -273,9 +279,9 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
 - A host that hides the canvas without destroying the modeler makes its container `inert` or hides
   it with `display: none` or `visibility: hidden`, not only transparent: the browser moves the
   focus off the `<svg>` at its next rendering update, and a key that reaches the `<svg>`, the name
-  editor or the description editor before then passes too, and the subdomain type, pattern and
-  integration roles menus pick no entry: nothing is saved or closed. There is no separate switch to
-  pause the keyboard.
+  editor, the description editor or the palette toolbar before then passes too, and the subdomain
+  type, pattern and integration roles menus pick no entry: nothing is saved, created or closed.
+  There is no separate switch to pause the keyboard.
 
 ### Helpers & types
 

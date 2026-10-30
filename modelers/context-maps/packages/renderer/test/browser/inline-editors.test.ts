@@ -121,18 +121,6 @@ async function focusTheFrame(): Promise<void> {
   expect(document.hasFocus()).toBe(true);
 }
 
-/**
- * Escape on an open description editor: a destroy blurs it, which commits and restores the focus to
- * a canvas that is gone.
- */
-function closeDescription(): void {
-  document
-    .querySelector(".cm-pad-prompt__field")
-    ?.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
-    );
-}
-
 /** The text box of the open name or team editor, once its content has the focus. */
 function editorBox(scope: HTMLElement): HTMLElement {
   const box = scope.querySelector<HTMLElement>(".djs-direct-editing-parent");
@@ -192,7 +180,6 @@ describe("the inline editors of a map", () => {
   afterEach(async () => {
     await cdp().send("Emulation.setEmulatedMedia", { features: [] });
     page.removeAttribute("data-cd-kontrast");
-    closeDescription();
     modeler.destroy();
     container.remove();
   });
@@ -364,7 +351,6 @@ describe("the editors under a host's appearance and the nearest mode carrier (#3
   afterEach(() => {
     page.removeAttribute("data-cd-theme");
     page.removeAttribute("data-cd-kontrast");
-    closeDescription();
     for (const modeler of modelers.splice(0)) modeler.destroy();
     for (const wrapper of wrappers.splice(0)) wrapper.remove();
   });

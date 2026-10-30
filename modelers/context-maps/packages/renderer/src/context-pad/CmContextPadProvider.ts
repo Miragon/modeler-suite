@@ -230,6 +230,10 @@ export default class CmContextPadProvider implements ContextPadProvider {
     eventBus.on("popupMenu.close", () => {
       this.followUpMenu = undefined;
     });
+    // Before the canvas removes its container (priority 500): that removal blurs the field, and the
+    // blur would commit the typed text to a map being destroyed. The canvas's teardown then cancels
+    // the focus restore that the prompt's cleanup schedules.
+    eventBus.on("diagram.destroy", () => this.cancelPrompt());
     popupMenu.registerProvider(SUBDOMAIN_MENU, {
       getPopupMenuEntries: (target: PopupMenuTarget) => this.subdomainMenuEntries(target),
     });
@@ -644,7 +648,10 @@ export default class CmContextPadProvider implements ContextPadProvider {
    */
   private activePrompt?: { cancel(): void };
 
-  /** Closes an open description prompt without saving it (an import replaces its element). */
+  /**
+   * Closes an open description prompt without saving it (an import replaces its element, or the
+   * diagram is destroyed).
+   */
   cancelPrompt(): void {
     this.activePrompt?.cancel();
   }
