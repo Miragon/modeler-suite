@@ -467,13 +467,18 @@ describe("where a paste lands", () => {
     },
   );
 
-  it("with the pointer resting on the palette, a paste lands next to the original", async () => {
+  it("with the pointer moved on to the palette, a paste lands next to the original", () => {
     const before = exported();
     select(["step-credit"]);
     press("Copy");
-    await userEvent.hover(pointer.canvasSvg(), { position: { x: 500, y: 400 } });
-    await userEvent.hover(editor().diagram.container.querySelector(".djs-palette")!);
-    pointer.canvasSvg().focus();
+    pointAt(EMPTY_STRETCH);
+    // The events a browser fires when the pointer moves from the canvas on to a palette entry,
+    // without the entry's `mouseover`: its tooltip would render after the modeler is destroyed.
+    const { entry, at } = pointer.paletteEntry("create.step");
+    pointer
+      .canvasSvg()
+      .dispatchEvent(pointer.event("mouseleave", at, { bubbles: false, relatedTarget: entry }));
+    entry.dispatchEvent(pointer.event("mousemove", at));
 
     press("Paste");
 
