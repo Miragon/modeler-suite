@@ -21,14 +21,15 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which modelers, whether the shared packages and whether the new-modeler template a change reaches
-  # (.github/scripts/ci-paths.sh).
+  # Which modelers, and whether the shared packages, the repository-level tests and the new-modeler
+  # template a change reaches (.github/scripts/ci-paths.sh).
   # A path filter on the trigger is no way out: ci-ok has to report on every run.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       shared: ${{ steps.paths.outputs.shared }}
+      repository-tests: ${{ steps.paths.outputs.repository-tests }}
       template: ${{ steps.paths.outputs.template }}
       modelers: ${{ steps.paths.outputs.modelers }}
       all-modelers: ${{ steps.paths.outputs.all-modelers }}
@@ -63,9 +64,11 @@ jobs:
       - uses: ./.github/actions/setup
       - run: npm run typecheck:shared
 
+  # Also the one shared job for a change of a modeler that only the repository-level tests read
+  # (repository-tests, which every shared change sets too).
   shared-test:
     needs: changes
-    if: needs.changes.outputs.shared == 'true'
+    if: needs.changes.outputs.repository-tests == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
