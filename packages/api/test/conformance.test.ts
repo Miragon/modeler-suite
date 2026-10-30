@@ -159,7 +159,7 @@ describe("the conforming reference modeler", () => {
     );
   });
 
-  test("a modeler without interaction (optional, 1.5) skips exactly the interaction case, and the gesture, drop and pan cases run without it", async () => {
+  test("a modeler without interaction (optional, 1.5) skips exactly the interaction case and the destroy case's legs that listen to it, and the gesture, drop and pan cases run without it", async () => {
     const withoutInteraction = async (): Promise<CollaborativeModeler> => {
       const { interaction: _dropped, ...m } = createReferenceModeler();
       return m;
@@ -167,7 +167,15 @@ describe("the conforming reference modeler", () => {
     const h = harness({}, { create: withoutInteraction });
     expect(await failingCases(h)).toEqual([]);
     expect(await advisories(h)).toEqual([]);
-    expect((await skippedCases(h)).skipped).toEqual([CASE.interaction]);
+    expect((await skippedCases(h)).skipped).toEqual(
+      [CASE.destroyFromListener, CASE.interaction].sort(),
+    );
+    const destroy = await conformanceCases()
+      .find((c) => c.name === CASE.destroyFromListener)
+      ?.run(h);
+    expect(destroy?.skipped).toBe(
+      "the modeler exposes no interaction surface (optional, 1.5) — a destroy() from interaction.onChange(false) at the cancel (Escape) of a move was not checked; the modeler exposes no interaction surface (optional, 1.5) — that a listener unsubscribed during a delivery is not called was not checked",
+    );
   });
 
   test("a modeler without elements (optional) skips the imports from the selection listener, and the user-action case still checks the call order", async () => {
@@ -191,6 +199,16 @@ describe("the conforming reference modeler", () => {
       /the modeler exposes no elements surface \(optional\) — an import from the selection listener at a drag's start was not checked/,
     );
     expect(dragStart?.advisories).toBeUndefined();
+    const destroy = await run(CASE.destroyFromListener);
+    expect(destroy?.skipped).toBe(
+      ["move", "create"]
+        .map(
+          (kind) =>
+            `the modeler exposes no elements surface (optional) — a destroy() from elements.onSelection at the start of a ${kind} was not checked`,
+        )
+        .join("; "),
+    );
+    expect(destroy?.advisories).toBeUndefined();
   });
 
   test("a selection listener that hears nothing during the user's action reports a skip, not a pass", async () => {
@@ -207,6 +225,13 @@ describe("the conforming reference modeler", () => {
     expect(dragStart?.skipped).toMatch(
       /the selection listener heard nothing at the start of a move with 'alpha' revealed — an import at a drag's start was not checked/,
     );
+    const destroy = await conformanceCases()
+      .find((c) => c.name === CASE.destroyFromListener)
+      ?.run(deaf);
+    expect(destroy?.skipped).toMatch(
+      /the selection listener heard nothing at the start of a create with an element revealed — a destroy\(\) from elements\.onSelection at the start of a create was not checked/,
+    );
+    expect(destroy?.advisories).toBeUndefined();
   });
 
   test("a modeler without appearance (optional, 1.5) skips exactly the appearance case", async () => {
@@ -223,6 +248,12 @@ describe("the conforming reference modeler", () => {
     expect(outcome?.skipped).toMatch(
       /^the modeler exposes no appearance surface \(optional, 1\.5\)/,
     );
+  });
+
+  test("interaction listeners called newest first, an order the contract leaves open, fail nothing and advise nothing: a listener's call before the destroy or the unsubscribe counts for nothing", async () => {
+    const h = harness({ interactionDeliversNewestFirst: true });
+    expect(await failingCases(h)).toEqual([]);
+    expect(await advisories(h)).toEqual([]);
   });
 
   test("a modeler that lists dark and draws it fails nothing and advises nothing", async () => {
@@ -343,6 +374,7 @@ describe("the conforming reference modeler", () => {
         CASE.appearance,
         CASE.bounds,
         CASE.contentBounds,
+        CASE.destroyFromListener,
         CASE.drop,
         CASE.dragStart,
         CASE.interaction,
@@ -406,7 +438,13 @@ describe("the conforming reference modeler", () => {
     const skippedWithout = async (overrides: Partial<ConformanceHarness>) =>
       (await skippedCases(harness({}, overrides))).skipped;
     expect(await skippedWithout({ startGesture: undefined })).toEqual(
-      [CASE.drop, CASE.dragStart, CASE.interaction, CASE.l1Gesture].sort(),
+      [
+        CASE.destroyFromListener,
+        CASE.drop,
+        CASE.dragStart,
+        CASE.interaction,
+        CASE.l1Gesture,
+      ].sort(),
     );
     expect(await skippedWithout({ undo: undefined })).toEqual(
       [CASE.l3Undo, CASE.l4, CASE.userAction].sort(),
@@ -810,6 +848,11 @@ describe("broken variants fail exactly their law's case set", () => {
       /delivered \[false\] after destroy\(\)/,
     ],
     [
+      "an onChange delivered over a copy of its listeners, without a destroyed check",
+      { interactionDeliveryIgnoresDestroy: true },
+      /delivered \[true\] to a later listener once an earlier listener of the same delivery had called destroy\(\) at the start of a move/,
+    ],
+    [
       "a viewer that reports a gesture",
       { viewerReportsGesture: true },
       /the viewer's interaction\.active\(\) is true before the first import/,
@@ -1056,6 +1099,56 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     },
     HELD_IMPORT_TIMEOUT_MS,
   );
+  test("a destroy() from a listener that tears the gesture down inside the drag's activation → an advisory from the destroy case: the start threw", async () => {
+    const advice = await expectAdvisoryOnly(
+      { destroyTearsDownInsideTheAction: true },
+      CASE.destroyFromListener,
+    );
+    expect(advice).toMatch(
+      /^a host's listener destroyed the modeler, or unsubscribed another listener, while the user's input ran: /,
+    );
+    for (const kind of ["move", "create"]) {
+      expect(advice).toMatch(
+        new RegExp(
+          `the input threw TypeError: Cannot read properties of null \\(reading 'cursor'\\) once a listener had called destroy\\(\\) from elements\\.onSelection at the start of a ${kind}`,
+        ),
+      );
+    }
+    expect(advice).not.toMatch(/at the drop|Escape|unsubscribed had/);
+    expect(advice).toMatch(/ — RECOMMENDED \(since 1\.6\): a host may call destroy\(\) from any/);
+  });
+  test("a change delivered over a copy of its listeners → an advisory from the destroy case: a later listener heard the drop", async () => {
+    const advice = await expectAdvisoryOnly(
+      { contentDeliveryIgnoresDestroy: true },
+      CASE.destroyFromListener,
+    );
+    expect(advice).toMatch(
+      /onContentChanged came after destroy\(\) from onContentChanged at the drop of a move/,
+    );
+  });
+  test("a selection delivered over a copy of its listeners → an advisory from the destroy case: a later listener heard the start", async () => {
+    const advice = await expectAdvisoryOnly(
+      { selectionDeliveryIgnoresDestroy: true },
+      CASE.destroyFromListener,
+    );
+    for (const kind of ["move", "create"]) {
+      expect(advice).toMatch(
+        new RegExp(
+          `elements\\.onSelection\\(\\[\\]\\) came after destroy\\(\\) from elements\\.onSelection at the start of a ${kind}`,
+        ),
+      );
+    }
+  });
+  test("an onChange that still calls a listener an earlier one of the same delivery unsubscribed → an advisory from the destroy case", async () => {
+    const advice = await expectAdvisoryOnly(
+      { interactionDeliveryIgnoresUnsubscribe: true },
+      CASE.destroyFromListener,
+    );
+    expect(advice).toMatch(
+      /interaction\.onChange delivered \[true\] to a listener that an earlier listener of the start's delivery had unsubscribed/,
+    );
+    expect(advice).not.toMatch(/came after destroy\(\)/);
+  });
   test("a pan reported as a gesture → an advisory from the pan case", async () => {
     const advice = await expectAdvisoryOnly({ panIsGesture: true }, CASE.pan);
     expect(advice).toMatch(/interaction\.active\(\) was true during a pan/);
