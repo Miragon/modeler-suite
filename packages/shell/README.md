@@ -94,11 +94,11 @@ every optional input field accepts `undefined`, so a modeler compiling with
 ## Usage in a VS Code webview
 
 Extension host (0.8). The extensions of all five modelers register their text editors this way:
-Wardley Maps (`apps/vscode/src/mapEditor.ts`, shown here), Event Storming (`boardEditor.ts`), Team
-Topologies (`diagramEditor.ts`), Context Maps (`mapEditor.ts`) and Value Chain
-(`diagramEditor.ts`). Only the PNG editors, Context Maps' `.cm.png` and Team Topologies'
-`.tt.png` / `.ttm.png`, stay outside the plumbing: binary custom editors with a document of their
-own.
+Wardley Maps (`apps/vscode/src/mapEditor.ts`, shown here with the file commands of 0.9 in place of
+its own export and "New …" code), Event Storming (`boardEditor.ts`), Team Topologies
+(`diagramEditor.ts`), Context Maps (`mapEditor.ts`) and Value Chain (`diagramEditor.ts`). Only the
+PNG editors, Context Maps' `.cm.png` and Team Topologies' `.tt.png` / `.ttm.png`, stay outside the
+plumbing: binary custom editors with a document of their own.
 
 ```ts
 import * as vscode from "vscode";
@@ -107,10 +107,21 @@ import {
   exportToFile,
   registerModelerEditor,
   registerNewDocumentCommand,
+  type DocumentWebviewMessage,
 } from "@miragon/modeler-shell/vscode/extension";
 
+// the webview's messages: the shell's document sync plus the modeler's export
+type WebviewToHost =
+  | DocumentWebviewMessage
+  | {
+      type: "export";
+      format: "png" | "svg" | "png-transparent";
+      data: string;
+      fontFallback?: boolean;
+    };
+
 // activate(): the custom text editor, its HTML, theme bridge, document sync and problems pill
-const editors = registerModelerEditor(vscode, context, {
+const editors = registerModelerEditor<vscode.TextDocument, WebviewToHost>(vscode, context, {
   viewType: "wardley.mapEditor", // contributes.customEditors
   title: "Wardley Map",
   themes: ["light"], // until the shared dark-mode release of the modelers
@@ -119,19 +130,18 @@ const editors = registerModelerEditor(vscode, context, {
     // the notation finds its own problems, fills its DiagnosticCollection and counts them
     refresh: (document: vscode.TextDocument) => ({ count: refresh(document), errors: 0 }),
   },
-  onMessage: (message, editor) => {
-    // 0.9: the save dialog beside the map, the write and "Exported map.png." with Reveal in Finder
-    if (message.type === "export") {
-      return exportToFile(vscode, {
-        kind: IMAGE_EXPORT_KINDS[message.format],
-        data: message.data,
-        sourceUri: editor.document.uri,
-        defaultName: "wardley-map",
-        fontFallback: message.fontFallback === true,
-        platform: process.platform,
-      });
-    }
-  },
+  // 0.9: the save dialog beside the map, the write and "Exported map.png." with Reveal in Finder
+  onMessage: (message, editor) =>
+    message.type === "export"
+      ? exportToFile(vscode, {
+          kind: IMAGE_EXPORT_KINDS[message.format],
+          data: message.data,
+          sourceUri: editor.document.uri,
+          defaultName: "wardley-map",
+          fontFallback: message.fontFallback === true,
+          platform: process.platform,
+        })
+      : undefined,
 });
 context.subscriptions.push(
   editors,

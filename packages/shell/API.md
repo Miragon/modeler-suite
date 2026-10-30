@@ -2579,11 +2579,19 @@ interface VsCodeFilesLike<Uri extends FileUriLike = FileUriLike> {
     showSaveDialog(options: SaveDialogOptionsLike<Uri>): PromiseLike<Uri | undefined>;
     showInformationMessage(message: string, ...items: string[]): PromiseLike<string | undefined>;
     showWarningMessage(message: string, ...items: string[]): PromiseLike<string | undefined>;
+    showWarningMessage(
+      message: string,
+      options: { modal?: boolean },
+      ...items: string[]
+    ): PromiseLike<string | undefined>;
     showErrorMessage(message: string, ...items: string[]): PromiseLike<string | undefined>;
   };
   readonly workspace: {
     readonly workspaceFolders: readonly { readonly uri: Uri }[] | undefined;
-    readonly fs: { writeFile(uri: Uri, content: Uint8Array): PromiseLike<void> };
+    readonly fs: {
+      writeFile(uri: Uri, content: Uint8Array): PromiseLike<void>;
+      stat(uri: Uri): PromiseLike<unknown>; // rejects when there is no file at uri
+    };
   };
   readonly commands: {
     executeCommand(command: string, ...rest: unknown[]): PromiseLike<unknown>;
@@ -2602,12 +2610,12 @@ const IMAGE_EXPORT_KINDS: Readonly<Record<"png" | "svg" | "png-transparent", Exp
 interface ExportToFileOptions<Uri extends FileUriLike = FileUriLike> {
   readonly kind: ExportKind;
   readonly data: string; // in the kind's encoding
-  readonly sourceUri?: Uri; // the exported document
-  readonly sourceExtension?: RegExp; // dropped from its name; default the last extension
+  readonly sourceUri?: Uri | undefined; // the exported document
+  readonly sourceExtension?: RegExp | undefined; // dropped from its name; default: last extension
   readonly defaultName: string; // without a document on disk: "wardley-map"
-  readonly fontFallback?: boolean; // the PNG's labels are in the system font
+  readonly fontFallback?: boolean | undefined; // the PNG's labels are in the system font
   readonly platform: string; // process.platform
-  readonly messages?: FileCommandMessageOverrides;
+  readonly messages?: FileCommandMessageOverrides | undefined;
 }
 function exportToFile<Uri extends FileUriLike>(
   vscode: VsCodeFilesLike<Uri>,
@@ -2621,8 +2629,8 @@ interface NewDocumentOptions {
   readonly saveLabel: string; // "Create map"
   readonly filters: { readonly [name: string]: readonly string[] };
   readonly defaultFileName: string; // in the first workspace folder: "wardley-map.wmap"
-  readonly targetPath?: (chosenPath: string) => string; // default: the chosen path
-  readonly messages?: FileCommandMessageOverrides;
+  readonly targetPath?: ((chosenPath: string) => string) | undefined; // default: the chosen path
+  readonly messages?: FileCommandMessageOverrides | undefined;
 }
 function createNewDocument<Uri extends FileUriLike>(
   vscode: VsCodeFilesLike<Uri>,
@@ -2640,10 +2648,13 @@ interface FileCommandMessages {
   exportedInSystemFont(fileName: string): string;
   couldNotExport(fileName: string): string;
   couldNotCreate(fileName: string): string;
+  alreadyExists(fileName: string): string; // the modal question before targetPath replaces a file
+  replaceLabel: string; // "Replace"
   revealFile(platform: string): string; // revealFileLabel
 }
+// undefined keeps the default
 type FileCommandMessageOverrides = {
-  [Key in keyof FileCommandMessages]?: FileCommandMessages[Key]; // undefined keeps the default
+  [Key in keyof FileCommandMessages]?: FileCommandMessages[Key] | undefined;
 };
 const defaultFileCommandMessages: FileCommandMessages;
 ```
@@ -2676,10 +2687,13 @@ export, and the modeler still names its kinds, its commands and its example.
   writes `text` as UTF-8 and opens the file with `vscode.openWith` in `viewType`. A new diagram is
   a real file, never an untitled document, which a custom text editor handles most robustly.
   `targetPath` turns the path the dialog returned into the one written, for a modeler whose editor
-  claims only some names (Value Chain: `chain.json` becomes `chain.vc.json`). A file it cannot
-  write is an error notification ("Couldn't create chain.vc.json. Try again, or choose another
-  folder."), logged with its cause, and nothing opens. It resolves to the new file, or to
-  `undefined` when the dialog was dismissed or the write failed.
+  claims only some names (Value Chain: `chain.json` becomes `chain.vc.json`). The save dialog asked
+  before replacing only the file it returned, so a file already at the other path is replaced only
+  after a modal warning ("chain.vc.json already exists. Do you want to replace it?" with "Replace",
+  guide §9); anything but "Replace" writes and opens nothing. A file it cannot write is an error
+  notification ("Couldn't create chain.vc.json. Try again, or choose another folder."), logged
+  with its cause, and nothing opens. It resolves to the new file, or to `undefined` when the dialog
+  was dismissed, a replace declined or the write failed.
 - **`registerNewDocumentCommand`** registers `command` to run `createNewDocument`; the extension
   registers it once with the empty document and once with the example, and pushes both
   disposables into `context.subscriptions`. The commands' titles and their `file/newFile` entries
