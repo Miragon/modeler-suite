@@ -10,6 +10,8 @@ import {
   createCollaborativeModeler,
   type CollaborativeEventStormingModeler,
   type CollaborativeEventStormingOptions,
+  type EventStormingReadOnly,
+  type EventStormingReadOnlyOptions,
 } from "../../src/index.js";
 import type EventStormingDrawTool from "../../src/draw-tool/EventStormingDrawTool.js";
 import type EventStormingCopyPaste from "../../src/modeling/EventStormingCopyPaste.js";
@@ -550,6 +552,53 @@ describe("a command during the point drag of a drawing", () => {
       expect(changes()).toBe(1);
       expect(service<Selection>(modeler, "selection").get()).toEqual([drawing]);
       expect(handlePositions(modeler)).toEqual(HANDLES_OF_THE_BOARD);
+    },
+  );
+});
+
+/**
+ * The release commits its points through `modeling`, past the lock's rules, so the lock ends the
+ * drag first, without a commit, as Escape and a command do (#493). An IDE host locks the board of
+ * an invalid file at once and shows the lock's marks only after 800ms.
+ */
+describe("the read-only lock during the point drag of a drawing (#493)", () => {
+  const RELEASED_AT = offset(FIRST_POINT, 60, -80);
+
+  it.each<[string, EventStormingReadOnlyOptions | undefined]>([
+    ["at once", undefined],
+    ["with its marks delayed", { delayMs: 800 }],
+  ])(
+    "ends the drag when the lock arrives %s: the release leaves the points and the history",
+    async (_, options) => {
+      const modeler = await editorWithBoard();
+      const changes = changesOf(modeler);
+      const commandStack = service<CommandStack>(modeler, "commandStack");
+      const lock = service<EventStormingReadOnly>(modeler, "eventStormingReadOnly");
+      const { pointer, drawing } = holdFirstPoint(modeler);
+
+      lock.setReadOnly(true, options);
+      expect(modeler.interaction.active()).toBe(false);
+      expect(pointDragPreview(modeler)).toBe(null);
+      expect(handlesOf(modeler)).toEqual([]);
+
+      pointer.moveTo(RELEASED_AT);
+      pointer.release(RELEASED_AT);
+      // The button is still down when the lock ends the drag, so the browser clicks the canvas.
+      pointer.click(pointer.svg, RELEASED_AT);
+
+      expect(uncaught).toEqual([]);
+      expect(changes()).toBe(0);
+      expect(modeler.exportText()).toBe(BOARD);
+      expect(commandStack.canUndo()).toBe(false);
+      expect(service<Selection>(modeler, "selection").get()).toEqual([drawing]);
+
+      lock.setReadOnly(false);
+      expect(handlePositions(modeler)).toEqual(HANDLES_OF_THE_BOARD);
+      holdFirstPoint(modeler);
+      pointer.release(RELEASED_AT);
+      expect(changes()).toBe(1);
+      expectTheFirstPointMovedTo(modeler, RELEASED_AT);
+      expect(commandStack.canUndo()).toBe(true);
     },
   );
 });

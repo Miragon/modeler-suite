@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { INVALID_STATUS_DELAY_MS } from "@miragon/modeler-shell/core";
+import type { EventStormingReadOnly } from "@miragon/event-storming-renderer";
 import {
   VARIANT_IDS,
   VOCABULARY_BOARD,
@@ -122,5 +124,88 @@ test.describe("VS Code webview: label suggestions and spelling variants", () => 
 
     await postFromHost(page, { type: "update", text: VOCABULARY_BOARD });
     await expect(variantDots(page)).toHaveCount(3);
+  });
+});
+
+/** Whether the canvas refuses edits, which it does from the failed import on. */
+function canvasLocked(page: Page): Promise<boolean> {
+  return page.evaluate(() =>
+    window
+      .modeler!.diagram.get<Pick<EventStormingReadOnly, "isReadOnly">>("eventStormingReadOnly")
+      .isReadOnly(),
+  );
+}
+
+/**
+ * An update whose import fails, as an invalid file's does while someone types it: the canvas keeps
+ * its board and locks. The DSL reads every text today, so the test makes one import fail.
+ */
+async function typeAnInvalidFile(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const modeler = window.modeler!;
+    const importText = modeler.importText.bind(modeler);
+    modeler.importText = () => {
+      modeler.importText = importText;
+      return Promise.reject(new Error("not importable"));
+    };
+  });
+  await postFromHost(page, { type: "update", text: "title Broken\n" });
+  await expect.poll(() => canvasLocked(page)).toBe(true);
+}
+
+async function typeAValidFile(page: Page, text: string): Promise<void> {
+  await postFromHost(page, { type: "update", text });
+  await expect.poll(() => canvasLocked(page)).toBe(false);
+}
+
+/**
+ * Issue #494: guide §13.5 shows the lock of an invalid file only after 800ms without a valid
+ * import, so typing in the text editor beside the board does not flicker, and guide §8 counts the
+ * hidden dots among the lock's marks. The page's clock stands still between the steps, so a slow
+ * machine cannot stretch the 800ms.
+ */
+test.describe("VS Code webview: the spelling-variant dots while the file is typed", () => {
+  const MOVED_BOARD = VOCABULARY_BOARD.replace("[200, 220]", "[200, 300]");
+
+  test.beforeEach(async ({ page }) => {
+    await page.clock.install();
+    await openWebview(page, { text: VOCABULARY_BOARD });
+    await expect(variantDots(page)).toHaveCount(3);
+    const now = await page.evaluate(() => Date.now());
+    await page.clock.pauseAt(now + 1000);
+  });
+
+  async function expectAllDots(page: Page): Promise<void> {
+    await expect(variantDots(page)).toHaveCount(3);
+    for (const id of VARIANT_IDS) await expect(variantDot(page, id)).toBeVisible();
+  }
+
+  test("keeps the dots through an invalid file that turns valid within 800ms", async ({ page }) => {
+    await typeAnInvalidFile(page);
+    await expectAllDots(page);
+    await page.clock.runFor(INVALID_STATUS_DELAY_MS - 1);
+    await expectAllDots(page);
+
+    await typeAValidFile(page, MOVED_BOARD);
+    await page.clock.runFor(INVALID_STATUS_DELAY_MS);
+    await expectAllDots(page);
+    await expect(page.locator('[data-chrome="status"]')).toBeHidden();
+    expect(await edits(page)).toEqual([]);
+  });
+
+  test("hides the dots 800ms after an invalid file, and brings them back with a valid one", async ({
+    page,
+  }) => {
+    await typeAnInvalidFile(page);
+    await page.clock.runFor(INVALID_STATUS_DELAY_MS - 1);
+    await expectAllDots(page);
+
+    await page.clock.runFor(1);
+    await expect(variantDots(page)).toHaveCount(0);
+    await expect(page.locator('[data-chrome="status"]')).toBeVisible();
+
+    await typeAValidFile(page, MOVED_BOARD);
+    await expectAllDots(page);
+    expect(await edits(page)).toEqual([]);
   });
 });

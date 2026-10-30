@@ -36,11 +36,11 @@ const BEFORE_THE_COMMAND = 10_000;
  * Vertex handles for drawings: when exactly one drawing is selected, every point gets a small
  * draggable handle. Dragging shows a live preview; releasing commits the new geometry (points +
  * recomputed bbox) as ONE undoable command; Escape on the canvas ends the drag without one, and so
- * does any command before the release. The point drag is a gesture of its own, outside
- * diagram-js's dragging, so it reports itself to `eventStormingGestures` from its first move, and
- * its release holds the drop while the command applies. While it runs, `EventStormingKeyboard`
- * takes the keys that would nudge or duplicate the drawing or start a second gesture without acting
- * (`isDraggingPoint`).
+ * do any command before the release and the read-only lock. The point drag is a gesture of its
+ * own, outside diagram-js's dragging, so it reports itself to `eventStormingGestures` from its
+ * first move, and its release holds the drop while the command applies. While it runs,
+ * `EventStormingKeyboard` takes the keys that would nudge or duplicate the drawing or start a
+ * second gesture without acting (`isDraggingPoint`).
  */
 export default class EventStormingDrawingHandles {
   static $inject = [
@@ -64,7 +64,15 @@ export default class EventStormingDrawingHandles {
     private readonly readOnly?: Pick<EventStormingReadOnly, "isReadOnly">,
     private readonly gestures?: Pick<EventStormingGestures, "beginGesture" | "holdAction">,
   ) {
-    eventBus.on(READ_ONLY_CHANGED_EVENT, () => this.render());
+    // The release would commit its points straight through `modeling`, past the lock's rules: the
+    // lock ends the drag first, without a commit, as Escape and a command do.
+    eventBus.on(READ_ONLY_CHANGED_EVENT, (event: { readOnly?: boolean }) => {
+      if (event.readOnly && this.pointDrag) {
+        this.trapReleaseClick();
+        this.endPointDrag();
+      }
+      this.render();
+    });
     eventBus.on("selection.changed", (event: { newSelection?: unknown[] }) => {
       const sel = event.newSelection ?? [];
       const only = sel.length === 1 ? sel[0] : null;
@@ -197,10 +205,10 @@ export default class EventStormingDrawingHandles {
   }
 
   /**
-   * The button is still down when Escape or a command ends the drag, and its release clicks the
-   * canvas, which diagram-js would take for a click on the empty board that clears the selection.
-   * The trap goes once that click came, or a moment after a release that clicked nothing, as
-   * diagram-js's own.
+   * The button is still down when Escape, a command or the lock ends the drag, and its release
+   * clicks the canvas, which diagram-js would take for a click on the empty board that clears the
+   * selection. The trap goes once that click came, or a moment after a release that clicked
+   * nothing, as diagram-js's own.
    */
   private trapReleaseClick(): void {
     this.dropReleaseTrap();
