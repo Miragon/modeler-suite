@@ -35,14 +35,17 @@ const wrappers: HTMLElement[] = [];
 let uncaught: unknown[] = [];
 
 const recordUncaught = (event: ErrorEvent) => uncaught.push(event.error ?? event.message);
+const recordRejection = (event: PromiseRejectionEvent) => uncaught.push(event.reason);
 
 beforeEach(() => {
   uncaught = [];
   window.addEventListener("error", recordUncaught);
+  window.addEventListener("unhandledrejection", recordRejection);
 });
 
 afterEach(() => {
   window.removeEventListener("error", recordUncaught);
+  window.removeEventListener("unhandledrejection", recordRejection);
   for (const modeler of mounted.splice(0)) modeler.destroy();
   for (const wrapper of wrappers.splice(0)) wrapper.remove();
 });
@@ -440,6 +443,7 @@ describe("the interaction surface (modeler-api 1.5)", () => {
         const gesture = hold(modeler);
         // The release or the key comes in a handler of its own, as it does for a user.
         await Promise.resolve();
+        const dragging = service<Dragging>(modeler, "dragging");
         let textAtDestroy: string | undefined;
         modeler.interaction.onChange((active) => {
           if (active) return;
@@ -456,6 +460,8 @@ describe("the interaction surface (modeler-api 1.5)", () => {
 
         expect(uncaught).toEqual([]);
         expect(svg.isConnected).toBe(false);
+        expect(dragging.context()).toBeFalsy();
+        expect(() => modeler.destroy()).not.toThrow();
         expect(reports.values()).toEqual([true, false]);
         expect(later).toEqual([]);
         expect(textAtDestroy).toBeDefined();
@@ -473,6 +479,7 @@ describe("the interaction surface (modeler-api 1.5)", () => {
       const { svg } = pointerOn(modeler);
       const gesture = hold(modeler);
       await Promise.resolve();
+      const dragging = service<Dragging>(modeler, "dragging");
       let textAtDestroy: string | undefined;
       let reportsAtDestroy = -1;
       modeler.onContentChanged(() => {
@@ -489,6 +496,8 @@ describe("the interaction surface (modeler-api 1.5)", () => {
 
       expect(uncaught).toEqual([]);
       expect(svg.isConnected).toBe(false);
+      expect(dragging.context()).toBeFalsy();
+      expect(() => modeler.destroy()).not.toThrow();
       expect(later).toBe(0);
       expect(reports.values()).toHaveLength(reportsAtDestroy);
       expect(textAtDestroy).toBeDefined();

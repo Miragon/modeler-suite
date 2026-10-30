@@ -54,14 +54,17 @@ const mountedModelers: CollaborativeWardleyModeler[] = [];
 const hostWrappers: HTMLElement[] = [];
 const errors: unknown[] = [];
 const collectError = (event: ErrorEvent) => errors.push(event.error ?? event.message);
+const collectRejection = (event: PromiseRejectionEvent) => errors.push(event.reason);
 
 beforeEach(() => {
   errors.length = 0;
   window.addEventListener("error", collectError);
+  window.addEventListener("unhandledrejection", collectRejection);
 });
 
 afterEach(() => {
   window.removeEventListener("error", collectError);
+  window.removeEventListener("unhandledrejection", collectRejection);
   for (const modeler of mountedModelers.splice(0)) modeler.destroy();
   for (const wrapper of hostWrappers.splice(0)) wrapper.remove();
 });
@@ -585,6 +588,7 @@ describe("interaction follows every Wardley gesture", () => {
       const svg = canvasSvgOf(modeler);
       const release = await start(modeler);
       await settle();
+      const dragging = diagramOf(modeler).get<Dragging>("dragging");
       let textAtDestroy: string | undefined;
       modeler.interaction.onChange((active) => {
         if (active) return;
@@ -599,6 +603,8 @@ describe("interaction follows every Wardley gesture", () => {
       await settle();
       expect(errors).toEqual([]);
       expect(svg.isConnected).toBe(false);
+      expect(dragging.context()).toBeFalsy();
+      expect(() => modeler.destroy()).not.toThrow();
       expect(current.delivered).toEqual([true, false]);
       expect(later).toEqual([]);
       expect(textAtDestroy).toBeDefined();
@@ -616,6 +622,7 @@ describe("interaction follows every Wardley gesture", () => {
       const before = modeler.exportText();
       const release = await start(modeler);
       await settle();
+      const dragging = diagramOf(modeler).get<Dragging>("dragging");
       let textAtDestroy: string | undefined;
       modeler.onContentChanged(() => {
         textAtDestroy = modeler.exportText();
@@ -629,6 +636,8 @@ describe("interaction follows every Wardley gesture", () => {
       await settle();
       expect(errors).toEqual([]);
       expect(svg.isConnected).toBe(false);
+      expect(dragging.context()).toBeFalsy();
+      expect(() => modeler.destroy()).not.toThrow();
       expect(current.changes()).toBe(1);
       expect(later).toBe(0);
       expect(current.delivered).toEqual([true]);

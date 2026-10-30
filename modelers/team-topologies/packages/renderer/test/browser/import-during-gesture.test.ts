@@ -75,7 +75,7 @@ interface Session {
   pointer: Pointer;
   /** Change events of the contract since the session started. */
   changes: () => number;
-  /** Errors thrown out of the canvas's DOM listeners since the session started. */
+  /** Errors and unhandled rejections that reached the window since the session started. */
   errors: unknown[];
 }
 
@@ -87,11 +87,16 @@ async function session(): Promise<Session> {
   modeler.attachTo(host);
   const errors: unknown[] = [];
   const collect = (event: ErrorEvent) => errors.push(event.error ?? event.message);
+  const collectRejection = (event: PromiseRejectionEvent) => errors.push(event.reason);
   window.addEventListener("error", collect);
+  window.addEventListener("unhandledrejection", collectRejection);
   mounted.push({
     modeler,
     host,
-    stopCollecting: () => window.removeEventListener("error", collect),
+    stopCollecting: () => {
+      window.removeEventListener("error", collect);
+      window.removeEventListener("unhandledrejection", collectRejection);
+    },
   });
   await modeler.importText(onlineShop);
   let changes = 0;
@@ -1099,6 +1104,7 @@ describe("a destroy from a listener at a drag's end throws nothing, and nothing 
       test(`${name}, at its ${ending}, from the interaction listener: no later listener hears of it`, async () => {
         const current = await heldGesture(gesture);
         const { modeler, container } = current;
+        const dragging = current.diagram.get<Dragging>("dragging");
         let textAtDestroy: string | undefined;
         modeler.interaction.onChange((active) => {
           if (active) return;
@@ -1114,6 +1120,8 @@ describe("a destroy from a listener at a drag's end throws nothing, and nothing 
 
         expect(current.errors).toEqual([]);
         expect(container.isConnected).toBe(false);
+        expect(dragging.context()).toBeFalsy();
+        expect(() => modeler.destroy()).not.toThrow();
         expect(later).toEqual([]);
         expect(textAtDestroy).toBeDefined();
         expect(modeler.exportText()).toBe(textAtDestroy);
@@ -1123,6 +1131,7 @@ describe("a destroy from a listener at a drag's end throws nothing, and nothing 
     test(`${name}, at its release, from the change listener: no later listener hears of it`, async () => {
       const current = await heldGesture(gesture);
       const { modeler, container } = current;
+      const dragging = current.diagram.get<Dragging>("dragging");
       const before = modeler.exportText();
       const reported: boolean[] = [];
       modeler.interaction.onChange((active) => reported.push(active));
@@ -1140,6 +1149,8 @@ describe("a destroy from a listener at a drag's end throws nothing, and nothing 
 
       expect(current.errors).toEqual([]);
       expect(container.isConnected).toBe(false);
+      expect(dragging.context()).toBeFalsy();
+      expect(() => modeler.destroy()).not.toThrow();
       expect(current.changes()).toBe(1);
       expect(later).toBe(0);
       expect(reported).toEqual([]);
