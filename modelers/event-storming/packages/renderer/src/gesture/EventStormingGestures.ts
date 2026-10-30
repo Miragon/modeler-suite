@@ -67,6 +67,8 @@ export default class EventStormingGestures {
   private startRefused = false;
   private activatingDrag: DragContext | null = null;
   private activationEndAsked = false;
+  /** From a drag's start until the handler that started the drag has returned. */
+  private handlerStartsDrag = false;
 
   constructor(
     eventBus: EventBus,
@@ -112,7 +114,10 @@ export default class EventStormingGestures {
 
     // diagram-js clears the selection while it activates a drag, then reads the drag's context
     // again: a drag ended from a selection listener there makes `Dragging.move` throw.
-    eventBus.on("drag.start", FIRST, () => this.holdActivation());
+    eventBus.on("drag.start", FIRST, () => {
+      this.holdActivation();
+      this.noteDragStart();
+    });
 
     eventBus.on("drag.end", FIRST, () => {
       const dropping = this.dragContext();
@@ -156,6 +161,8 @@ export default class EventStormingGestures {
   beginGesture(): () => void {
     const gesture = {};
     this.ownGestures.add(gesture);
+    // The drag's handler reads the canvas after it reported the start, as diagram-js's do.
+    this.noteDragStart();
     this.update();
     return () => {
       if (this.ownGestures.delete(gesture)) this.update();
@@ -180,6 +187,21 @@ export default class EventStormingGestures {
   /** Ends the drag diagram-js activates right now, as cancelled, once its activation has run. */
   endOnceActivated(): void {
     if (this.activatingDrag) this.activationEndAsked = true;
+  }
+
+  /**
+   * Runs `teardown` (the modeler's destroy) at once, or, while a drag starts, once the handler that
+   * starts it has returned. diagram-js cancels a running drag on destroy, and between the drag's
+   * start and its first move it clears the selection and then reads the drag's context again: a
+   * destroy from a selection listener there made `Dragging.move` throw `Cannot read properties of
+   * null (reading 'cursor')` (#346). The first move, whose interaction listener may destroy as
+   * well, and the rest of the handler (a palette entry's, a context pad entry's) still run on the
+   * live board, which the teardown then takes down with the drag. A drawing's point drag reads the
+   * canvas after it reported its start in the same way.
+   */
+  tearDownAfterActivation(teardown: () => void): void {
+    if (this.handlerStartsDrag) queueMicrotask(teardown);
+    else teardown();
   }
 
   /** Whether `context` is the drag whose drop runs right now. */
@@ -217,6 +239,15 @@ export default class EventStormingGestures {
       // diagram-js has ended already, so only the activation is left to forget.
       if (this.activatingDrag === activating) this.finishActivation();
       release();
+    });
+  }
+
+  /** A drag starts inside the handler of the user's input, which a microtask follows. */
+  private noteDragStart(): void {
+    if (this.handlerStartsDrag) return;
+    this.handlerStartsDrag = true;
+    queueMicrotask(() => {
+      this.handlerStartsDrag = false;
     });
   }
 

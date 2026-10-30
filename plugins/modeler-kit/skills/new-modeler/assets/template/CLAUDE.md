@@ -60,7 +60,8 @@ Build the packages before the tests: workspace dependencies resolve to `dist`.
   ([`gestures/`](packages/renderer/src/gestures/)); an armed palette tool and a hand-tool pan run
   on, and the contract's `importText` waits until a user's action being applied (a drop, the
   start of a drag, a keyboard create, a label commit, a key's command, an undo or a redo) has
-  finished. `THEMES`
+  finished; a `destroy()` while a drag starts tears the diagram down once the handler that started
+  it has returned. `THEMES`
   ([`themes.ts`](packages/renderer/src/themes.ts), for Node code
   `@miragon/__NOTATION__-renderer/themes`) is the one list of themes: the contract's `appearance`,
   the shell in both apps and the theme bridge read it.

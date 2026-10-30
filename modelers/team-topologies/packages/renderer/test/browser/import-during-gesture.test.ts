@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
@@ -994,6 +995,84 @@ describe("an import from the selection listener at a drag's start", () => {
       expectNothingApplied(current, imported);
       expect(modeler.elements.selection()).toEqual([]);
       expectTheNextEditReported(current, imported);
+    });
+  }
+});
+
+/**
+ * Read before the destroy, since a service read afterwards would build a fresh diagram: once the
+ * input's handler has returned, the modeler is destroyed, no error reached the window, the drag
+ * and the canvas are gone, the release runs no command, and the modeler keeps its text.
+ */
+function destroyedCleanly(current: Session): () => Promise<void> {
+  const { modeler, diagram, container } = current;
+  const dragging = diagram.get<Dragging>("dragging");
+  let commands = 0;
+  diagram.get<EventBus>("eventBus").on("commandStack.changed", () => (commands += 1));
+  const box = container.getBoundingClientRect();
+  const release = new MouseEvent("mouseup", {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+    clientX: box.left + box.width / 2,
+    clientY: box.top + box.height / 2,
+  });
+  const before = modeler.exportText();
+  return async () => {
+    await nextTask();
+    expect(current.errors).toEqual([]);
+    expect(dragging.context()).toBeFalsy();
+    expect(container.isConnected).toBe(false);
+    document.dispatchEvent(release);
+    await nextTask();
+    expect(current.errors).toEqual([]);
+    expect(commands).toBe(0);
+    expect(modeler.interaction.active()).toBe(false);
+    expect(modeler.exportText()).toBe(before);
+  };
+}
+
+describe("a destroy from a listener at a drag's start throws nothing, and nothing reaches the host afterwards (#346)", () => {
+  for (const [name, gesture] of Object.entries(gesturesThatDeselectAtTheirStart)) {
+    test(`${name}, from the selection listener: the listener hears nothing more`, async () => {
+      const current = await session();
+      const { modeler, diagram } = current;
+      diagram.get<Selection>("selection").select(shape(diagram, gesture.selected));
+      const expectDestroyedCleanly = destroyedCleanly(current);
+      const reported: boolean[] = [];
+      modeler.interaction.onChange((active) => reported.push(active));
+      const heard: string[][] = [];
+      modeler.elements.onSelection((ids) => {
+        heard.push(ids);
+        modeler.destroy();
+      });
+
+      gesture.start(current);
+      expect(heard).toEqual([[]]);
+      await expectDestroyedCleanly();
+      expect(heard).toEqual([[]]);
+      expect(reported).toEqual([]);
+    });
+  }
+
+  for (const name of [
+    "a press on another team moved past the drag threshold",
+    "a palette create clicked",
+  ]) {
+    test(`${name}, from the interaction listener: no later listener hears of it`, async () => {
+      const gesture = gesturesThatDeselectAtTheirStart[name];
+      if (!gesture) throw new Error(`no gesture ${name}`);
+      const current = await session();
+      const { modeler, diagram } = current;
+      diagram.get<Selection>("selection").select(shape(diagram, gesture.selected));
+      const expectDestroyedCleanly = destroyedCleanly(current);
+      const later: boolean[] = [];
+      modeler.interaction.onChange(() => modeler.destroy());
+      modeler.interaction.onChange((active) => later.push(active));
+
+      gesture.start(current);
+      await expectDestroyedCleanly();
+      expect(later).toEqual([]);
     });
   }
 });

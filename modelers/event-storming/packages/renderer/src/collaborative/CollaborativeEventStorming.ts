@@ -157,8 +157,11 @@ function collaborative(
     },
     selection: () => (destroyed ? [] : addressableIds(selection.get())),
     onSelection(callback) {
-      const listener = (event: unknown) =>
+      // The teardown cancels a running drag, which brings back the selection from before it.
+      const listener = (event: unknown) => {
+        if (destroyed) return;
         callback(addressableIds((event as { newSelection?: unknown[] }).newSelection ?? []));
+      };
       eventBus.on("selection.changed", listener);
       return () => eventBus.off("selection.changed", listener);
     },
@@ -170,8 +173,11 @@ function collaborative(
   };
 
   gestures?.onChange((active) => {
-    if (destroyed) return;
-    for (const listener of [...interactionListeners]) listener(active);
+    for (const listener of [...interactionListeners]) {
+      // An earlier listener may have destroyed the modeler during the same delivery.
+      if (destroyed) return;
+      listener(active);
+    }
   });
 
   const interaction: InteractionSurface = {
@@ -247,7 +253,8 @@ function collaborative(
       destroyed = true;
       contentListeners.clear();
       interactionListeners.clear();
-      diagram.destroy();
+      if (gestures) gestures.tearDownAfterActivation(() => diagram.destroy());
+      else diagram.destroy();
     },
   };
 }

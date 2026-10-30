@@ -129,8 +129,11 @@ function collaborative(
     },
     selection: () => (destroyed ? [] : shapeIds(selection.get())),
     onSelection(callback) {
-      const listener = (event: unknown) =>
+      // The teardown cancels a running drag, which brings back the selection from before it.
+      const listener = (event: unknown) => {
+        if (destroyed) return;
         callback(shapeIds((event as { newSelection?: unknown[] }).newSelection ?? []));
+      };
       eventBus.on('selection.changed', listener);
       return () => eventBus.off('selection.changed', listener);
     },
@@ -222,7 +225,8 @@ function collaborative(
       }
       destroyed = true;
       contentListeners.clear();
-      diagram.destroy();
+      if (gestures) gestures.tearDownAfterActivation(() => diagram.destroy());
+      else diagram.destroy();
     },
   };
 }

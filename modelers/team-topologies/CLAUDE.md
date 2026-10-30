@@ -45,7 +45,9 @@ keys, `undoRedoKeys: false` in VS Code) and the `@miragon/modeler-api` contract
 (`createCollaborativeModeler`, with the 1.5 surfaces `interaction` and `appearance`; an `importText`
 made while a user action runs waits until it has finished, #248, #285, #305, #336: a drop, an
 append, a keyboard create, a label commit or any other command, or the start of a drag,
-`collaborative/user-actions.ts`; its
+`collaborative/user-actions.ts`; a `destroy()` from the selection or the interaction listener while
+a drag activates tears the diagram down once the code that activated it has returned, #346, and the
+selection the cancelled drag brings back reaches no host listener; its
 conformance kit and the 1.5 cases the kit plans run in `npm run team-topologies test:browser`). The
 shell's own conformance kit runs in the e2e projects `webapp` and `vscode-webview`; their WebKit
 twins `webapp-webkit` and `vscode-webview-webkit` run only the focus hand-back cases.

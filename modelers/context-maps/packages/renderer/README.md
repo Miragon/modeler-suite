@@ -198,7 +198,10 @@ A drag's start is an action as well: diagram-js activates the drag (the first mo
 threshold, or at once for a create from the palette or the context pad) by firing its start,
 deselecting and firing its first move in one call. An import from the selection or interaction
 listener there runs once that call has returned, and then ends the drag like any running gesture,
-so the release moves or creates nothing.
+so the release moves or creates nothing. A `destroy()` from either listener there throws nothing
+either: the map is torn down once the code that started the drag has returned, and no listener of
+the host hears anything after `destroy()`, also not the selection the cancelled drag brings back
+([#346](https://github.com/Miragon/modeler-suite/issues/346)).
 
 So no step of the action works on a replaced map. Only the imports that waited for an action
 reopen the menu it left open; a later import closes it like every other menu. An import called while Escape cancels a gesture (from `interaction.onChange`) waits for

@@ -242,6 +242,11 @@ wrapped `Modeler` or `NavigatedViewer` for host wiring.
   `importText`, and nothing after `destroy()`, also when a listener destroys the modeler or
   unsubscribes another one during the same delivery; a listener that throws is reported with
   `reportError` and does not end the gesture. The viewer always reports false.
+- `destroy()` from `elements.onSelection` or `interaction.onChange` while diagram-js starts a drag
+  (it empties the selection there and then reads the drag again) throws nothing: the diagram is
+  torn down once the code that started the drag has returned, and no listener of the host hears
+  anything after `destroy()`, also not the selection the cancelled drag brings back
+  ([#346](https://github.com/Miragon/modeler-suite/issues/346)).
 - `appearance` (contract 1.5, guide §13.3): `themes` is `VALUE_CHAIN_THEMES`, `["light"]`, the one
   list the web app, the VS Code webview and its theme bridge read too. `set({ theme, contrast })`
   writes `data-cd-theme="light"` on `diagram.container`, whatever theme is asked for, and

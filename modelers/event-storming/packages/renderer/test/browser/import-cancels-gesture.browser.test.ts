@@ -1546,6 +1546,92 @@ describe("an import from a selection listener at a drag's start waits for the st
   });
 });
 
+describe("a destroy from a listener at a drag's start throws nothing, and nothing reaches the host afterwards (#346)", () => {
+  /** The input that makes diagram-js activate the drag, and with it clear the selection. */
+  const activations = [
+    {
+      what: "a press on a sticky, moved past the drag threshold",
+      activate: (modeler: CollaborativeEventStormingModeler) => {
+        const pointer = pointerOn(modeler);
+        const event = sticky(modeler, "event_order_placed");
+        const start = centre(event);
+        pointer.press(pointer.graphicsOf(event), start);
+        pointer.moveTo(offset(start, 60, 40));
+      },
+    },
+    {
+      what: "a click on the palette's event",
+      activate: (modeler: CollaborativeEventStormingModeler) =>
+        pointerOn(modeler).click(paletteEntryOf(modeler, "create.event"), { x: 500, y: 360 }),
+    },
+  ];
+
+  /**
+   * Read before the destroy, which takes the canvas the pointer reads: once the input's handler
+   * has returned, the modeler is destroyed, no error reached the window, the drag and the canvas
+   * are gone, the release runs no command, and the modeler keeps its text.
+   */
+  function destroyedCleanly(modeler: CollaborativeEventStormingModeler): () => Promise<void> {
+    const dragging = service<Dragging>(modeler, "dragging");
+    let commands = 0;
+    service<EventBus>(modeler, "eventBus").on("commandStack.changed", () => (commands += 1));
+    const { svg } = pointerOn(modeler);
+    const box = svg.getBoundingClientRect();
+    const release = new MouseEvent("mouseup", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: box.left + box.width / 2,
+      clientY: box.top + box.height / 2,
+    });
+    return async () => {
+      await nextTask();
+      expect(uncaught).toEqual([]);
+      expect(dragging.context()).toBeFalsy();
+      expect(svg.isConnected).toBe(false);
+      document.dispatchEvent(release);
+      await nextTask();
+      expect(uncaught).toEqual([]);
+      expect(commands).toBe(0);
+      expect(modeler.interaction.active()).toBe(false);
+      expect(modeler.exportText()).toBe(BOARD);
+    };
+  }
+
+  for (const { what, activate } of activations) {
+    it(`${what}, from the selection listener: the listener hears nothing more`, async () => {
+      const modeler = await editorWithBoard();
+      service<Selection>(modeler, "selection").select(sticky(modeler, "policy_reserve_stock"));
+      const expectDestroyedCleanly = destroyedCleanly(modeler);
+      const reported: boolean[] = [];
+      modeler.interaction.onChange((active) => reported.push(active));
+      const heard: string[][] = [];
+      modeler.elements.onSelection((ids) => {
+        heard.push(ids);
+        modeler.destroy();
+      });
+
+      activate(modeler);
+      expect(heard).toEqual([[]]);
+      await expectDestroyedCleanly();
+      expect(heard).toEqual([[]]);
+      expect(reported).toEqual([]);
+    });
+
+    it(`${what}, from the interaction listener: no later listener hears of it`, async () => {
+      const modeler = await editorWithBoard();
+      const expectDestroyedCleanly = destroyedCleanly(modeler);
+      const later: boolean[] = [];
+      modeler.interaction.onChange(() => modeler.destroy());
+      modeler.interaction.onChange((active) => later.push(active));
+
+      activate(modeler);
+      await expectDestroyedCleanly();
+      expect(later).toEqual([]);
+    });
+  }
+});
+
 describe("clearing the board while the user drags a sticky", () => {
   it("ends the drag: the release throws nothing and changes nothing", async () => {
     const host = attachedHost();

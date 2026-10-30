@@ -149,7 +149,12 @@ action too, until diagram-js has activated the drag: the start clears the select
 from the selection listener at the start of a move, a resize, a connect, the evolve placement or a
 create from the palette, the context pad or a quick-create key runs right after it and then ends
 that drag, without an error and without a change
-([#336](https://github.com/Miragon/modeler-suite/issues/336)). `exportText()` is the
+([#336](https://github.com/Miragon/modeler-suite/issues/336)). A `destroy()` from the selection
+listener there, or from `interaction.onChange` as the drag starts, throws nothing either, also at
+the start of the renderer's own drags (a label, a point of a drawing, the evolve target): the map is
+torn down once the code that started the drag has returned, and no listener of the host hears
+anything after `destroy()`, also not the selection the cancelled drag brings back
+([#346](https://github.com/Miragon/modeler-suite/issues/346)). `exportText()` is the
 committed document, never a live preview: while the plot corner is dragged or the size or
 axis-label popover previews a change, it returns the document as it was before, and the change
 event of the commit brings the new one. A command during a size preview (an undo pressed mid-drag, a

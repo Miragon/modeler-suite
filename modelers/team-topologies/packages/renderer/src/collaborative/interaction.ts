@@ -36,7 +36,11 @@ export function trackInteraction(
     const now = active();
     if (stopped || now === reported) return;
     reported = now;
-    for (const listener of [...listeners]) deliver(listener, now);
+    for (const listener of [...listeners]) {
+      // An earlier listener may have destroyed the modeler during the same delivery.
+      if (stopped) return;
+      deliver(listener, now);
+    }
   };
 
   if (dragging) eventBus.on(CHANGING_EVENTS, FIRST, report);
