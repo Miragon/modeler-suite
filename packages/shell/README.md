@@ -94,8 +94,8 @@ every optional input field accepts `undefined`, so a modeler compiling with
 ## Usage in a VS Code webview
 
 Extension host (0.8). The extensions of all five modelers register their text editors this way:
-Wardley Maps (`apps/vscode/src/mapEditor.ts`, shown here with the file commands of 0.9 in place of
-its own export and "New …" code), Event Storming (`boardEditor.ts`), Team Topologies
+Wardley Maps (`apps/vscode/src/mapEditor.ts` and `extension.ts`, shown here in one piece, its export
+and "New …" on the file commands of 0.9), Event Storming (`boardEditor.ts`), Team Topologies
 (`diagramEditor.ts`), Context Maps (`mapEditor.ts`) and Value Chain (`diagramEditor.ts`). Only the
 PNG editors, Context Maps' `.cm.png` and Team Topologies' `.tt.png` / `.ttm.png`, stay outside the
 plumbing: binary custom editors with a document of their own.

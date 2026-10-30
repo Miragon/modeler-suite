@@ -1,4 +1,4 @@
-# @miragon/modeler-shell 0.8: public API
+# @miragon/modeler-shell 0.9: public API
 
 The shared, framework-free implementation of everything around a Miragon diagram-js modeler: menu
 button with dropdown, horizontal palette skin, chrome tooltip, zoom panel, zoom and fit keys, fit,
@@ -389,6 +389,16 @@ it. `stopPropagation` is only ever `true` in the `ide` host.
 - In the `ide` host the `keyup` of an Escape the chrome takes stays in the webview also when its
   `keydown` goes on to VS Code because nothing was open (§13.5): VS Code reads keys on the window,
   behind the `document` where the shell stops that `keyup`.
+- A known limit of the `embedded` host
+  ([#505](https://github.com/Miragon/modeler-suite/issues/505)): an Escape typed in the host page's
+  own UI, such as a button or a field of the page while the focus is not in the modeler, may still
+  put down a tool armed from the palette. While the tool waits, diagram-js's `Dragging` listens for
+  the Escape `keyup` on `document` and cancels on any Escape, whatever its target, and an embedded
+  modeler shares `document` with the host page, whose keys the shell never stops. So the rule that
+  only the canvas and the palette put the tool down holds inside the shell root only. Scoping it
+  would mean replacing diagram-js's private cancel in every renderer, for a small effect (the user
+  arms the tool again); it is taken up again if a host reports it or diagram-js scopes its key
+  listener.
 - A text field (§5.8: every input field, select list and editable text) is what `isTextField`
   says: a target that matches `TEXT_FIELD_SELECTOR` or sits inside a match, is
   `isContentEditable`, edits through an `EditContext` (`editContext` is set, as in Chromium's
@@ -686,7 +696,7 @@ draws a theme its `themes` does not list as `themes[0]`, so the root of a light-
 the mode its canvas draws whatever the host requests. A host that requests high contrast shows it on
 its page as well (`data-cd-kontrast="hoch"` on the nearest mode carrier above the root), where the
 root takes it from. For a modeler whose `themes` lists `"dark"` the root does not follow the
-request yet (see [Out of scope for 0.8](#out-of-scope-for-08)). In the `ide` host the
+request yet (see [Out of scope for 0.9](#out-of-scope-for-09)). In the `ide` host the
 host writes the mode on `<html>` and `themes` is not read; in the `web` host the page's head script
 writes it before the first paint and `themes` decides whether the shell renders the Appearance
 group (see [Mode](#mode-133)). An empty `themes` throws before anything is mounted.
@@ -800,7 +810,7 @@ The dialog of guide §8 (`cd-shell-dialog`) and, on it, the "Keyboard shortcuts�
 group (§5.4). Both also open without a mounted shell, in an embedding host's own page (designIQ):
 they need only `shell.css` after the tokens. The §9 confirmation of a destructive action, the
 popovers of §5.4 and a modeler's form dialogs ("Map title…", "Map size…") are later candidates on the
-same dialog (see [Out of scope for 0.8](#out-of-scope-for-08)).
+same dialog (see [Out of scope for 0.9](#out-of-scope-for-09)).
 
 ```ts
 // on the handle (see Handle)
@@ -2551,7 +2561,9 @@ Palette commands to the focused diagram of either editor itself.
   own messages.
 - **The modeler keeps** its diagnostics, its exports, commands and walkthrough, and any binary
   custom editor (Team Topologies' and Context Maps' PNG editors). The save dialogs of an export and
-  of "New …" can be the shell's since 0.9, see [The file commands](#the-file-commands-09).
+  of "New …" are the shell's since 0.9, in all five extensions since
+  [#503](https://github.com/Miragon/modeler-suite/pull/503), see
+  [The file commands](#the-file-commands-09).
 
 ```ts
 // apps/vscode/src/mapEditor.ts (Wardley Maps, its options spelled out)
@@ -2568,14 +2580,17 @@ export function registerMapEditor(
     diagnostics: diagnostics && {
       refresh: (document) => ({ count: diagnostics.refresh(document), errors: 0 }),
     },
+    // the save dialog, the write and the notification of the file commands (0.9)
     onMessage: (message, editor) =>
       message.type === "export"
-        ? exportImageToFile(
-            editor.document.uri,
-            message.format,
-            message.data,
-            message.fontFallback === true,
-          )
+        ? exportToFile(vscode, {
+            kind: IMAGE_EXPORT_KINDS[message.format],
+            data: message.data,
+            sourceUri: editor.document.uri,
+            defaultName: "wardley-map",
+            fontFallback: message.fontFallback === true,
+            platform: process.platform,
+          })
         : undefined,
   });
 }
@@ -2683,8 +2698,9 @@ const defaultFileCommandMessages: FileCommandMessages;
 The extension host's half of an export and of the commands "New …" and "New … from Example"
 (guide §13.5): the native save dialog, the write and the notification. Up to 0.8 each of the five
 extensions built them alike in its own `exportImage.ts` and `extension.ts`
-([#345](https://github.com/Miragon/modeler-suite/issues/345)). The webview still renders the
-export, and the modeler still names its kinds, its commands and its example.
+([#345](https://github.com/Miragon/modeler-suite/issues/345)); since
+[#503](https://github.com/Miragon/modeler-suite/pull/503) all five call these helpers. The webview
+still renders the export, and the modeler still names its kinds, its commands and its example.
 
 - **`exportToFile`** opens the save dialog with the kind's `title` and `filters` and the button
   "Export". It suggests the document's name with the kind's `suffix` beside the document when that
@@ -4266,9 +4282,11 @@ The shell bundles no font: the modeler loads Geist and Geist Mono (`@fontsource-
 
 The Event Storming extension, the pilot of 0.1, on the [document plumbing](#the-document-plumbing-08)
 of 0.8 like the extensions of the other four modelers. The extension hands `registerModelerEditor`
-what belongs to the notation: its options, its diagnostics and the export. The webview HTML with
-its CSP, the theme bridge, the sync with its echo suppression and minimal line edits, the undo
-through the document, "Insert example" and the problems pill are the shell's.
+what belongs to the notation: its options, its diagnostics and the export with its kinds. The
+webview HTML with its CSP, the theme bridge, the sync with its echo suppression and minimal line
+edits, the undo through the document, "Insert example" and the problems pill are the shell's, and
+so are, since 0.9, the save dialogs of the exports and of "New …" (see
+[The file commands](#the-file-commands-09)).
 
 Extension host (`apps/vscode/src/`):
 
@@ -4291,11 +4309,25 @@ export const BOARD_EDITOR_OPTIONS = {
 // boardEditor.ts
 import * as vscode from "vscode";
 import {
+  IMAGE_EXPORT_KINDS,
+  exportToFile,
   registerModelerEditor,
+  type ExportKind,
   type ModelerEditorRegistration,
 } from "@miragon/modeler-shell/vscode/extension";
 
 export type BoardEditors = ModelerEditorRegistration<vscode.TextDocument>;
+
+// the web app's exports and file names: the image kinds and the board as JSON
+const EXPORT_KINDS: Readonly<Record<ExportFormat, ExportKind>> = {
+  ...IMAGE_EXPORT_KINDS,
+  json: {
+    title: "Export as JSON",
+    filters: { "JSON board": ["json"] },
+    suffix: ".json",
+    encoding: "text",
+  },
+};
 
 export function registerBoardEditor(
   context: Pick<vscode.ExtensionContext, "extensionUri">,
@@ -4306,21 +4338,43 @@ export function registerBoardEditor(
     diagnostics, // refresh(document) and clear(document), see diagnostics.ts
     onMessage: (message, editor) =>
       message.type === "export"
-        ? exportImageToFile(
-            editor.document.uri,
-            message.format,
-            message.data,
-            message.fontFallback === true,
-          )
+        ? exportToFile(vscode, {
+            kind: EXPORT_KINDS[message.format],
+            data: message.data,
+            sourceUri: editor.document.uri,
+            defaultName: "event-storming-board",
+            fontFallback: message.fontFallback === true,
+            platform: process.platform,
+          })
         : undefined,
   });
 }
 
 // extension.ts
+const NEW_BOARD = {
+  viewType: BOARD_VIEW_TYPE,
+  title: "New Event Storming Board",
+  saveLabel: "Create board",
+  filters: { "Event Storming Board": ["storm"] },
+  defaultFileName: "untitled.storm",
+};
+
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = new BoardDiagnostics();
   const editors = registerBoardEditor(context, diagnostics);
-  context.subscriptions.push(diagnostics, editors, ...registerBoardCommands(editors));
+  context.subscriptions.push(
+    diagnostics,
+    editors,
+    ...registerBoardCommands(editors),
+    registerNewDocumentCommand(vscode, "eventStorming.newBoard", {
+      ...NEW_BOARD,
+      text: EMPTY_BOARD,
+    }),
+    registerNewDocumentCommand(vscode, "eventStorming.newBoardFromExample", {
+      ...NEW_BOARD,
+      text: EXAMPLE_BOARD,
+    }),
+  );
 }
 ```
 
@@ -4348,16 +4402,11 @@ export class BoardDiagnostics implements vscode.Disposable {
 ```
 
 ```ts
-// protocol.ts: the shell's messages and the export
+// protocol.ts: the shell's messages and the export (SVG and JSON as text, the PNGs in Base64)
+export type ExportFormat = "svg" | "png" | "png-transparent" | "json";
 export type WebviewToHost =
   | DocumentWebviewMessage
   | { type: "export"; format: ExportFormat; data: string; fontFallback?: boolean };
-
-// exportImage.ts, once the save dialog's file is written: the notification of §13.5
-const reveal = revealFileLabel(process.platform);
-if ((await vscode.window.showInformationMessage(`Exported ${fileName}.`, reveal)) === reveal) {
-  void vscode.commands.executeCommand("revealFileInOS", target);
-}
 ```
 
 `registerBoardCommands` (`commands.ts`) registers the Command Palette commands. Fit and the exports
@@ -4812,7 +4861,7 @@ Storming board." and keeps the board. `pickFile` opens the hidden file input wit
 element order (the importer stacks overlapping stickies by it). The web app's own `style.css`,
 `toast.ts` and the hand-written menu, zoom, fit and legal markup go away.
 
-## Out of scope for 0.8
+## Out of scope for 0.9
 
 Later candidates unless noted:
 
