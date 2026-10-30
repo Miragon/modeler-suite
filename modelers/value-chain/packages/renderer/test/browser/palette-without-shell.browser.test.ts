@@ -604,24 +604,45 @@ function toolUpdates(modeler: Modeler): (string | null)[] {
   return updates;
 }
 
-/** A press on the canvas, a move of 100px to the right and a release, at px from its top left. */
-async function dragAcrossCanvas(modeler: Modeler, from = { x: 100, y: 500 }): Promise<void> {
+function fireMouse(target: Element, type: string, clientX: number, clientY: number): void {
+  target.dispatchEvent(
+    new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX, clientY }),
+  );
+}
+
+function centreOf(element: Element): { x: number; y: number } {
+  const box = element.getBoundingClientRect();
+  return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+}
+
+/**
+ * A press on the canvas at 100, 500 px from its top left and a move of 100px to the right, then
+ * `during`, then a release there, or over `releaseOver` after a move onto it.
+ */
+async function dragAcrossCanvas(
+  modeler: Modeler,
+  options: { releaseOver?: Element; during?: () => void } = {},
+): Promise<void> {
+  const from = { x: 100, y: 500 };
   const svg = canvasSvg(modeler);
   await userEvent.hover(svg, { position: from });
   const box = svg.getBoundingClientRect();
   const fire = (type: string, x: number) => {
     const clientX = box.left + x;
     const clientY = box.top + from.y;
-    document
-      .elementFromPoint(clientX, clientY)!
-      .dispatchEvent(
-        new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX, clientY }),
-      );
+    fireMouse(document.elementFromPoint(clientX, clientY)!, type, clientX, clientY);
   };
   fire("mousedown", from.x);
   fire("mousemove", from.x + 50);
   fire("mousemove", from.x + 100);
-  fire("mouseup", from.x + 100);
+  options.during?.();
+  if (!options.releaseOver) {
+    fire("mouseup", from.x + 100);
+    return;
+  }
+  const over = centreOf(options.releaseOver);
+  fireMouse(options.releaseOver, "mousemove", over.x, over.y);
+  fireMouse(options.releaseOver, "mouseup", over.x, over.y);
 }
 
 describe("the palette without the shell: a tool is pressed exactly while it is armed (guide §5.5, #458, #462)", () => {
@@ -694,16 +715,100 @@ describe("the palette without the shell: a tool is pressed exactly while it is a
   });
 
   it.each([
-    ["the hand once it has panned", "hand-tool"],
-    ["the space tool once it has made space", "space-tool"],
-  ])("shows %s still pressed, as diagram-js arms it again", async (_, action) => {
+    ["the hand while it pans and once it has panned", "hand-tool", "hand.move"],
+    ["the space tool while it makes space and once it has", "space-tool", "spaceTool"],
+  ])("shows %s still pressed, as diagram-js arms it again", async (_, action, gesture) => {
     await userEvent.click(entryOf(modeler, action));
-    await dragAcrossCanvas(modeler);
+    const updates = toolUpdates(modeler);
+    let during: unknown[] = [];
+    await dragAcrossCanvas(modeler, {
+      during: () => (during = [armedDrag(modeler), pressed(modeler)[action]]),
+    });
 
+    expect(during).toEqual([gesture, "true"]);
     expect(armedDrag(modeler)).toBe(ARMED_DRAG[action]);
     expect(pressed(modeler)[action]).toBe("true");
+    expect(updates.at(-1)).toBe(action.slice(0, -"-tool".length));
     await userEvent.keyboard("{Escape}");
     expect(pressed(modeler)[action]).toBe("false");
+  });
+
+  it.each([
+    ["the hand after a pan", "hand-tool"],
+    ["the space tool after making space", "space-tool"],
+  ])(
+    "puts %s released over the tool entries down on Escape and on Enter on its entry, at once",
+    async (_, action) => {
+      const putDownBy = {
+        Escape: () =>
+          document.dispatchEvent(
+            new KeyboardEvent("keyup", { key: "Escape", bubbles: true, cancelable: true }),
+          ),
+        Enter: () =>
+          entryOf(modeler, action).dispatchEvent(
+            new MouseEvent("click", { bubbles: true, cancelable: true }),
+          ),
+      };
+      for (const [key, putDown] of Object.entries(putDownBy)) {
+        await userEvent.click(entryOf(modeler, action));
+        await dragAcrossCanvas(modeler, { releaseOver: entryOf(modeler, "lasso-tool") });
+        expect(state(action), key).toEqual(["true", true, ARMED_DRAG[action]]);
+
+        putDown();
+        expect(state(action), key).toEqual(["false", false, null]);
+      }
+    },
+  );
+
+  it.each([
+    ["the hand", "hand-tool"],
+    ["the space tool", "space-tool"],
+  ])(
+    "shows %s released once Escape ends its gesture over the tool entries, which puts it down",
+    async (_, action) => {
+      await userEvent.click(entryOf(modeler, action));
+      await dragAcrossCanvas(modeler, {
+        during: () => {
+          const lasso = entryOf(modeler, "lasso-tool");
+          const { x, y } = centreOf(lasso);
+          fireMouse(lasso, "mousemove", x, y);
+          expect(pressed(modeler)[action]).toBe("true");
+          document.dispatchEvent(
+            new KeyboardEvent("keyup", { key: "Escape", bubbles: true, cancelable: true }),
+          );
+        },
+      });
+
+      expect(state(action)).toEqual(["false", false, null]);
+    },
+  );
+
+  /** Lasso armed and the pointer on the canvas: the lasso's drag waits for the next press. */
+  async function armLassoAndLeave(): Promise<void> {
+    await userEvent.click(entryOf(modeler, "lasso-tool"));
+    await userEvent.hover(canvasSvg(modeler), { position: { x: 100, y: 500 } });
+    expect(state("lasso-tool")).toEqual(["true", true, "lasso.selection"]);
+  }
+
+  it("shows the lasso released once a right click on another tool's entry ended its drag", async () => {
+    await armLassoAndLeave();
+
+    await userEvent.click(entryOf(modeler, "hand-tool"), { button: "right" });
+    await vi.waitFor(() => expect(state("lasso-tool")).toEqual(["false", false, null]));
+    expect(pressed(modeler)["hand-tool"]).toBe("false");
+  });
+
+  it("shows the lasso released once a press on another tool's entry, released off it, ended its drag", async () => {
+    await armLassoAndLeave();
+    const hand = entryOf(modeler, "hand-tool");
+    await userEvent.hover(hand);
+    const { x, y } = centreOf(hand);
+
+    fireMouse(hand, "mousedown", x, y);
+    expect(state("lasso-tool")[2]).toBeNull();
+    fireMouse(modeler.container, "mouseup", x, y + 200);
+    await vi.waitFor(() => expect(state("lasso-tool")).toEqual(["false", false, null]));
+    expect(pressed(modeler)["hand-tool"]).toBe("false");
   });
 });
 
@@ -743,6 +848,7 @@ describe("the palette without the shell under the edit lock (guide §13.5, #463)
   });
 
   it("draws them muted and without hover: tool icons in --cd-ui-text-leise, previews in grey, never by opacity", async () => {
+    await userEvent.hover(canvasSvg(modeler), { position: { x: 500, y: 500 } });
     lock(true);
     const muted = resolved(modeler.container, "color", "var(--cd-ui-text-leise)");
 
@@ -805,6 +911,54 @@ describe("the palette without the shell under the edit lock (guide §13.5, #463)
     lock(true);
     expect(armedDrag(modeler)).toBeNull();
     expect(pressed(modeler)["space-tool"]).toBe("false");
+  });
+
+  it("shows the lasso released once a click on an entry it refuses ended the lasso's drag", async () => {
+    lock(true);
+    await userEvent.click(entryOf(modeler, "lasso-tool"));
+    await userEvent.hover(canvasSvg(modeler), { position: { x: 100, y: 500 } });
+    expect(pressed(modeler)["lasso-tool"]).toBe("true");
+
+    await userEvent.click(entryOf(modeler, "space-tool"), { force: true });
+    expect(armedDrag(modeler)).toBeNull();
+    await vi.waitFor(() => expect(pressed(modeler)["lasso-tool"]).toBe("false"));
+    expect(entryOf(modeler, "lasso-tool").classList.contains("highlighted-entry")).toBe(false);
+  });
+
+  it("shows the marks after the delay a host gives, while the lock refuses from the start, and takes them off at once", () => {
+    const readOnly = modeler.get<VcReadOnly>("vcReadOnly");
+    const keyboardClick = (action: string) =>
+      entryOf(modeler, action).dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      );
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      vi.advanceTimersByTime(400);
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      vi.advanceTimersByTime(399);
+      expect([readOnly.isReadOnly(), readOnly.isReadOnlyShown(), disabled()]).toEqual([
+        true,
+        false,
+        [],
+      ]);
+      keyboardClick("space-tool");
+      expect(armedDrag(modeler)).toBeNull();
+
+      vi.advanceTimersByTime(1);
+      expect(disabled()).toEqual(LOCKED);
+      readOnly.setReadOnly(false);
+      expect(disabled()).toEqual([]);
+
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      readOnly.setReadOnly(false);
+      vi.advanceTimersByTime(800);
+      expect([readOnly.isReadOnly(), disabled()]).toEqual([false, []]);
+      keyboardClick("space-tool");
+      expect(armedDrag(modeler)).toBe("spaceTool.selection");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("draws them in GrayText in forced colours", async () => {
@@ -1096,6 +1250,23 @@ describe.each([
       expect(state()).toEqual([false, null]);
     },
   );
+
+  it("shows the lasso released once a press on a tool entry whose click the chrome refuses ended its drag", async () => {
+    const modeler = mount([chromeModule({ asShell })]);
+    const toolManager = modeler.get<ToolManager>("toolManager");
+    modeler
+      .get<EventBus>("eventBus")
+      .on("palette.trigger", 2000, (event: { entry: { title?: string } }) =>
+        event.entry.title === "Space" ? false : undefined,
+      );
+    await userEvent.click(entryOf(modeler, "lasso-tool"));
+    await userEvent.hover(canvasSvg(modeler), { position: { x: 500, y: 500 } });
+    expect(toolManager.isActive("lasso")).toBe(true);
+
+    await userEvent.click(entryOf(modeler, "space-tool"));
+    expect(armedDrag(modeler)).toBeNull();
+    await vi.waitFor(() => expect(toolManager.isActive("lasso")).toBe(false));
+  });
 
   it("leaves the marks of the edit lock to the chrome", () => {
     const modeler = mount([chromeModule({ asShell })]);

@@ -22,7 +22,7 @@ interface OptionalInjector {
 }
 
 interface EditLock {
-  isReadOnly(): boolean;
+  isReadOnlyShown(): boolean;
 }
 
 /**
@@ -30,9 +30,9 @@ interface EditLock {
  * skins it: `role="toolbar"` named "Tools", one tab stop that roves with ← → Home End, Enter or
  * Space as a click without a pointer (a creating entry then places its element in the free area,
  * `VcPaletteProvider`), `aria-pressed` on the tools, `aria-keyshortcuts` on the entries with a key,
- * `aria-disabled` on the entries the edit lock refuses while it holds (guide §13.5, at once, since
- * the renderer's lock has no delay of its own), and the palette ahead of the canvas in the tab
- * order (guide §5.14). The Miragon modeler shell brings all of this itself, and a palette any
+ * `aria-disabled` on the entries the edit lock refuses while its marks show (guide §13.5, at once
+ * or after the lock's `delayMs`), and the palette ahead of the canvas in the tab order (guide
+ * §5.14). The Miragon modeler shell brings all of this itself, and a palette any
  * chrome skins (`data-chrome="palette"`) is left to it.
  */
 export default class VcPaletteToolbar {
@@ -99,7 +99,7 @@ export default class VcPaletteToolbar {
     toolbar?.setAttribute("aria-label", TOOLBAR_LABEL);
     const definitions = this.palette.getEntries() as Record<string, PaletteEntryLike | undefined>;
     const entries = this.entryElements();
-    const locked = this.editLock?.isReadOnly() === true;
+    const locked = this.editLock?.isReadOnlyShown() === true;
     for (const entry of entries) {
       const action = actionOf(entry);
       if (!entry.hasAttribute("role")) entry.setAttribute("role", "button");

@@ -9,4 +9,8 @@ export const vcReadOnlyModule: ModuleDeclaration = {
   vcReadOnly: ["type", VcReadOnly],
 };
 
-export { default as VcReadOnly, READ_ONLY_CHANGED_EVENT } from "./VcReadOnly.js";
+export {
+  default as VcReadOnly,
+  READ_ONLY_CHANGED_EVENT,
+  type VcReadOnlyOptions,
+} from "./VcReadOnly.js";

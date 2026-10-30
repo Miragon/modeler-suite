@@ -166,8 +166,8 @@ mounts the `Modeler` without a chrome of its own gets the palette of the Miragon
   separator, the focus and the armed tool's ring in system colours;
 - under the edit lock (see below) Space, Connect, Step and Organizational unit `aria-disabled`, still
   focusable and without hover, their icons in `--cd-ui-text-leise` and the previews in grey (in
-  `GrayText` under forced colours), at once with the lock and again after each rebuild of the
-  entries (§13.5);
+  `GrayText` under forced colours), with the lock or after the delay it was given (see below), and
+  again after each rebuild of the entries (§13.5);
 - a toolbar named "Tools" ahead of the canvas in the tab order, with one tab stop that roves with
   ← → Home End, Enter or Space to activate an entry (a creating entry places its element in the
   `freeArea`, see above) and `aria-keyshortcuts` on the tools; a press on the island's padding gives
@@ -179,8 +179,10 @@ mounts the `Modeler` without a chrome of its own gets the palette of the Miragon
 
 With or without a chrome, a tool shows pressed exactly while it is armed: Enter or Space on the
 armed tool puts it down, Escape puts down a tool the pointer has not moved yet, a click on another
-tool switches without a moment of none, and the hand after a pan and the space tool after making
-space, which diagram-js arms again, stay pressed.
+tool switches without a moment of none, a press on a tool's entry whose click arms nothing (a right
+click, a release off the entry, an entry the lock refuses) shows the tool it put down released, and
+the hand while it pans and the space tool while it makes space stay pressed, since diagram-js arms
+them again after it.
 
 The rules apply inside the renderer's container (`.vc-container`) only, so another diagram-js
 palette on the same page keeps its own look. A chrome that skins the palette marks it
@@ -195,6 +197,12 @@ right of the entry in diagram-js's look, as without this renderer's tooltip.
 cannot be saved from it (an invalid file in an IDE): no create, move, resize, connect, waypoints,
 delete, align, paste, context pad or label editor, no space, connect or label keys, and no palette
 entry but Lasso and Hand. Selection, lasso, hand, zoom, copy and export keep working.
+
+Guide §13.5 shows the lock of an invalid file only after 800ms without a valid one, so typing in the
+text editor beside the canvas does not flicker. `setReadOnly(true, { delayMs: 800 })` locks at once
+and marks the palette's entries once the delay has passed, as the shell's `setReadOnly` does; a call
+while the delay runs keeps its timer, and `setReadOnly(false)` unlocks and takes the marks off at
+once. `isReadOnlyShown()` tells whether the marks show.
 
 ## Collaborative modeler (`@miragon/modeler-api`)
 

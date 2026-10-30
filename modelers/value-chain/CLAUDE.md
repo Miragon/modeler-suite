@@ -152,8 +152,9 @@ missing at its other places; the verdict stays the same).
   `test/browser/conformance.browser.test.ts` runs the kit, where a skip or an advisory fails.
 - `palette/`: `VcPaletteProvider` (the entries, keyboard creation in the `freeArea`, `LOCKED_ENTRIES`
   that `vcReadOnly` refuses, and the tool manager kept in step with the drag that arms each tool:
-  diagram-js misses the cancel of a drag the pointer has not moved and the re-arm after a pan or
-  making space, #458, #462) and, for a host
+  diagram-js misses the cancel of a drag the pointer has not moved, keeps a tool shown after a press
+  on a tool entry whose click arms nothing, and shows the hand and the space tool released during
+  and after a pan or making space, #458, #462) and, for a host
   without the shell (designIQ, #252), `VcPaletteToolbar` (`role="toolbar"`, the roving tab stop and
   its keys, `aria-pressed` from `tool-manager.update`, `aria-keyshortcuts`, `aria-disabled` on
   `LOCKED_ENTRIES` under the lock, the palette ahead of the `<svg>`) and `VcPaletteTooltip` (diagram-js's `paletteTooltip`, its own `role="tooltip"` element
@@ -169,7 +170,9 @@ missing at its other places; the verdict stays the same).
   `hoverTooltip` on `diagram.destroy`. `VcPaletteTooltip` does not use that service, but a host that
   brings diagram-js's palette tooltip back does, and its tooltip would otherwise render into the
   destroyed canvas (#400, `test/browser/palette-tooltip-destroy.browser.test.ts`).
-- `read-only/VcReadOnly` is the edit lock of an invalid file; `diagram-menu/` holds the Export and
+- `read-only/VcReadOnly` is the edit lock of an invalid file (`setReadOnly(true, { delayMs })` locks
+  at once and shows the palette's marks after the delay, as the shell's does, guide §13.5);
+  `diagram-menu/` holds the Export and
   Help entries and the shortcut groups (`diagramShortcuts`) both apps hand the shell, typed
   structurally (renderers never import the shell). Both apps open the dialog with
   `shell.showShortcutsDialog(diagramShortcuts(shell, …))`; the dialog and the PNG export are the
