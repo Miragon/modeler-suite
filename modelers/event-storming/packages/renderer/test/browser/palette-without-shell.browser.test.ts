@@ -14,6 +14,7 @@ import type EventStormingDrawTool from "../../src/draw-tool/EventStormingDrawToo
 import { isEventStormingShape, type EventStormingShape } from "../../src/model/di-types.js";
 import type EventStormingModeling from "../../src/modeling/EventStormingModeling.js";
 import type EventStormingReadOnly from "../../src/read-only/EventStormingReadOnly.js";
+import { READ_ONLY_CHANGED_EVENT } from "../../src/read-only/index.js";
 import "../../src/assets/event-storming.css";
 
 /**
@@ -909,6 +910,97 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
 
       readOnly.setReadOnly(false);
       expect(Object.values(disabled(palette))).toEqual(paletteEntries(palette).map(() => null));
+    });
+
+    // Guide §13.5 shows the lock of an invalid import only after 800ms without a valid one, so
+    // typing in a text editor beside the canvas does not flicker; the lock holds from the start.
+    test("after the delay a host gives, while the lock refuses from the start, and takes them off at once (#484)", async () => {
+      const { modeler, palette } = await mountBoard();
+      const readOnly = modeler.get<EventStormingReadOnly>("eventStormingReadOnly");
+      const drawTool = modeler.get<EventStormingDrawTool>("eventStormingDrawTool");
+      const unmarked = ENTRIES.map(() => null);
+      const pressEnter = (action: string) =>
+        entryOf(palette, action).dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+        );
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        readOnly.setReadOnly(true, { delayMs: 800 });
+        vi.advanceTimersByTime(400);
+        readOnly.setReadOnly(true, { delayMs: 800 });
+        vi.advanceTimersByTime(399);
+        expect([readOnly.isReadOnly(), readOnly.isReadOnlyShown()]).toEqual([true, false]);
+        expect(Object.values(disabled(palette))).toEqual(unmarked);
+        pressEnter("create.event");
+        pressEnter("draw-tool");
+        expect(stickies(modeler)).toEqual([]);
+        expect(drawTool.isActive()).toBe(false);
+
+        vi.advanceTimersByTime(1);
+        expect(readOnly.isReadOnlyShown()).toBe(true);
+        expect(disabled(palette)).toEqual(locked(ENTRIES));
+        readOnly.setReadOnly(false);
+        expect(readOnly.isReadOnlyShown()).toBe(false);
+        expect(Object.values(disabled(palette))).toEqual(unmarked);
+
+        readOnly.setReadOnly(true, { delayMs: 800 });
+        readOnly.setReadOnly(false);
+        vi.advanceTimersByTime(800);
+        expect([readOnly.isReadOnly(), readOnly.isReadOnlyShown()]).toEqual([false, false]);
+        expect(Object.values(disabled(palette))).toEqual(unmarked);
+        pressEnter("draw-tool");
+        expect(drawTool.isActive()).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    test("at once without a delay, also when a later call gives one", async () => {
+      const { modeler, palette } = await mountBoard();
+      const readOnly = modeler.get<EventStormingReadOnly>("eventStormingReadOnly");
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        readOnly.setReadOnly(true);
+        expect(disabled(palette)).toEqual(locked(ENTRIES));
+        readOnly.setReadOnly(true, { delayMs: 800 });
+        expect(readOnly.isReadOnlyShown()).toBe(true);
+        expect(disabled(palette)).toEqual(locked(ENTRIES));
+        vi.advanceTimersByTime(800);
+        expect(disabled(palette)).toEqual(locked(ENTRIES));
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    test("announces the lock at once and its marks once they show, and nothing after a destroy", async () => {
+      const { modeler } = await mountBoard();
+      const readOnly = modeler.get<EventStormingReadOnly>("eventStormingReadOnly");
+      const changes: [boolean, boolean][] = [];
+      modeler
+        .get<EventBus>("eventBus")
+        .on(READ_ONLY_CHANGED_EVENT, (event: { readOnly: boolean; shown: boolean }) => {
+          changes.push([event.readOnly, event.shown]);
+        });
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        readOnly.setReadOnly(true, { delayMs: 800 });
+        vi.advanceTimersByTime(800);
+        readOnly.setReadOnly(false);
+        expect(changes).toEqual([
+          [true, false],
+          [true, true],
+          [false, false],
+        ]);
+
+        changes.length = 0;
+        readOnly.setReadOnly(true, { delayMs: 800 });
+        modeler.destroy();
+        vi.advanceTimersByTime(800);
+        expect(changes).toEqual([[true, false]]);
+        expect(readOnly.isReadOnlyShown()).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     test("keeps them in the tab order and the arrow keys' path", async () => {

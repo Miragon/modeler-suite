@@ -86,7 +86,7 @@ function variantsHarness(shapes: EventStormingShape[]) {
     overlayService,
     selection,
     modeling,
-    { isReadOnly: () => readOnly },
+    { isReadOnlyShown: () => readOnly },
   );
   const setReadOnly = (value: boolean) => {
     readOnly = value;
@@ -166,7 +166,7 @@ describe("EventStormingSpellingVariants", () => {
     expect(harness.variants.markedIds()).toHaveLength(4);
   });
 
-  it("hides the dots under the read-only lock", () => {
+  it("hides the dots while the read-only lock shows", () => {
     harness.fire("import.done");
     harness.setReadOnly(true);
     expect(harness.overlays).toEqual([]);

@@ -178,9 +178,9 @@ guide (§5.5, §5.6) from the renderer:
   tool while it is armed and `aria-keyshortcuts` on the entries with a key; the keyboard focus is a
   2px `--cd-ui-fokus` ring, 3px in high contrast, and a press on the island's padding gives the
   focus to the canvas;
-- under the read-only lock (below), `aria-disabled` on every entry but the lasso (guide §13.5):
-  still in the tab order, without a hover, the tool icons in `--cd-ui-text-leise` and the sticky
-  previews grey;
+- under the read-only lock (below), once its marks show, `aria-disabled` on every entry but the
+  lasso (guide §13.5): still in the tab order, without a hover, the tool icons in
+  `--cd-ui-text-leise` and the sticky previews grey;
 - the tooltip (`role="tooltip"`) with the entry's name and key 8px below the palette, centred on its
   entry and 12px from the container's sides, at most `min(280px, 100% - 24px)` wide: after 300ms of
   hover, at once on keyboard focus and for a neighbour while one is shown, never for touch, hidden
@@ -199,6 +199,14 @@ the colour picker drop their hover transitions.
 in an IDE): `diagram.get('eventStormingReadOnly').setReadOnly(true)` vetoes moves, resizes,
 creates, connections and deletes through the diagram-js rules, and the keyboard, palette, context
 pad, label editor and drawing handles stop editing. Selection, zoom, pan, copy and export stay.
+
+Guide §13.5 shows the lock of an invalid file only after 800ms without a valid one, so typing in the
+text editor beside the canvas does not flicker. `setReadOnly(true, { delayMs: 800 })` locks at once
+and shows the lock's marks once the delay has passed, as the shell's `setReadOnly` does: the
+palette's entries turn `aria-disabled` and the spelling-variant dots (below) hide. A call while the
+delay runs keeps its timer, and `setReadOnly(false)` unlocks and takes the marks off at once.
+`setReadOnly(true)` without the option marks at once. `isReadOnlyShown()` tells whether the marks
+show; `READ_ONLY_CHANGED_EVENT` carries `{ readOnly, shown }` and fires again when they show.
 
 The DSL's `style dark` directive stays in the board config, so the text round-trips, but the
 renderer paints nothing for it: the page's design-system mode (or a host's request through the
@@ -232,7 +240,7 @@ spelling in one command, so one undo takes it back. Different names stay legal, 
 language conflict is what a workshop wants to find. A placeholder name, by the same rule as the
 suggestions, gets no dot and keeps its label on "Unify spelling", so an aggregate called "Policy"
 next to one called "Policies" marks neither. The dots are HTML overlays, so no export carries
-them and no host's problems list them, and they hide under the read-only lock.
+them and no host's problems list them, and they hide while the read-only lock's marks show.
 `eventStormingSpellingVariants` lists the variants (`variants()`, `variantOf(shape)`) and unifies
 them (`unify(shape)`); `eventStormingModeling.updateLabels(changes)` renames several stickies in
 one command.

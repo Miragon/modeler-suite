@@ -28,9 +28,10 @@ interface OptionalInjector {
  * Space as a click without a pointer (a creating entry then places its sticky in the free area,
  * `EventStormingPaletteProvider`), `aria-pressed` on the tools (the lasso and the draw tool),
  * `aria-keyshortcuts` on the entries with a key, `aria-disabled` on the entries the read-only lock
- * disables (guide §13.5), and the palette ahead of the canvas in the tab order (guide §5.14). A key
- * on an entry the host made inert or hid stays the page's. The Miragon modeler shell brings all of
- * this itself, and a palette any chrome skins (`data-chrome="palette"`) is left to it.
+ * disables while its marks show (guide §13.5, at once or after the lock's `delayMs`), and the
+ * palette ahead of the canvas in the tab order (guide §5.14). A key on an entry the host made inert
+ * or hid stays the page's. The Miragon modeler shell brings all of this itself, and a palette any
+ * chrome skins (`data-chrome="palette"`) is left to it.
  */
 export default class EventStormingPaletteToolbar {
   static $inject = ["eventBus", "palette", "canvas", "injector"];
@@ -40,7 +41,7 @@ export default class EventStormingPaletteToolbar {
   private rovingAction: string | undefined;
   private focusedEntry: HTMLElement | undefined;
   private paletteScrollLeft = 0;
-  private readonly readOnly: Pick<EventStormingReadOnly, "isReadOnly"> | undefined;
+  private readonly readOnly: Pick<EventStormingReadOnly, "isReadOnlyShown"> | undefined;
   /** The entries this toolbar marked `aria-disabled`, with the value each had before. */
   private readonly disabledEntries = new WeakMap<Element, string | null>();
 
@@ -51,7 +52,7 @@ export default class EventStormingPaletteToolbar {
     injector: OptionalInjector,
   ) {
     this.readOnly = injector.get("eventStormingReadOnly", false) as
-      Pick<EventStormingReadOnly, "isReadOnly"> | undefined;
+      Pick<EventStormingReadOnly, "isReadOnlyShown"> | undefined;
     // The shell's palette skin adds the same keys; a second handler would create every sticky twice.
     if (injector.get("modelerShell", false)) return;
     eventBus.on("palette.create", (event: { container: HTMLElement }) =>
@@ -126,7 +127,7 @@ export default class EventStormingPaletteToolbar {
   // does nothing and a pointer user sees entries that look usable. The entry keeps its tab stop.
   private applyDisabled(entry: HTMLElement, action: string | undefined): void {
     const staysActive = action !== undefined && READ_ONLY_ACTIONS.has(action);
-    if (this.readOnly?.isReadOnly() && !staysActive) {
+    if (this.readOnly?.isReadOnlyShown() && !staysActive) {
       if (!this.disabledEntries.has(entry)) {
         this.disabledEntries.set(entry, entry.getAttribute("aria-disabled"));
       }
