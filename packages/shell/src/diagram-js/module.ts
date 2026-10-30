@@ -7,7 +7,8 @@ import type { ModuleDeclarationLike } from "./types.js";
  *   chrome tooltip takes over;
  * - the palette skin: on `palette.create` it sets `data-chrome="palette"` and moves the palette
  *   before the canvas `<svg>`; after every `palette.changed` it re-applies `role="toolbar"`,
- *   `aria-label`, roving `tabindex` and `aria-pressed` (from `tool-manager.update`);
+ *   `aria-label`, roving `tabindex` and `aria-pressed` (from `tool-manager.update`), and it puts
+ *   down a tool whose armed drag a cancel ended without arming another (Escape before a move);
  * - `keyboard.addListener(2000, …)` returning `true` for every chrome key, so `KeyboardBindings` and
  *   the modeler's keyboard modules (priority 1000) never act on them.
  * It buffers the palette until `connectDiagramJs` hands it to a shell, so the diagram may be

@@ -1983,10 +1983,18 @@ registers one internal didi service named `modelerShell` (a modeler does not reu
   `.djs-palette-entries`, `role="button"` on every entry, `aria-keyshortcuts` from the entry's
   `ariaKeyShortcuts` or `ariaKeyShortcutsFromLabel(shortcut)` (§5.6; split the shortcut off the
   title: `title: "Domain event", shortcut: "E"`), roving `tabindex` (the last focused entry keeps the
-  tab stop across rebuilds) and `aria-pressed` for the tool of the last
+  tab stop across rebuilds, and the keyboard focus while it held it: a rebuild under a focused
+  entry focuses its replacement, also in Chromium, which reports the removal as a `focusout` first)
+  and `aria-pressed` for the tool of the last
   `tool-manager.update` (group `tools`, `data-action="<tool>-tool"`), styled through
   `[aria-pressed="true"]`: diagram-js's `highlighted-entry` goes stale after a rebuild, and its
   `two-column` class is ignored. `separator` entries become vertical rules.
+- Armed tools (§5.5: pressed only while armed): diagram-js's tool manager puts a tool down when its
+  drag ends, but on a cancel only for a drag the pointer has moved, and not when the event lies in
+  the tools group. So when the drag that waits for an armed tool's next press goes without an end
+  (Escape before the pointer moved, a drag that replaces it) and no tool is armed by the end of the
+  task, the shell calls `toolManager.setActive(null)`, and `aria-pressed` and `highlighted-entry`
+  follow. A press on another tool's entry still keeps the tool pressed until that entry's click.
 - Palette keys, without modifiers: ← and → move and wrap, Home and End jump, Enter and Space trigger
   the entry once (repeats ignored). They are stopped at the palette, so a modeler's document listener
   and VS Code never see them; chrome keys still bubble to the shell. A key on an entry inside an
@@ -2104,7 +2112,8 @@ fits (§5.9), and a legend that starts closed is not watched.
   `canFit()` false and `getViewbox()`/`getState()` `undefined`, so a shell still bound to it never
   calls into a destroyed canvas.
 - diagram-js events used: `canvas.init`, `palette.create`, `palette.changed`, `tool-manager.update`,
-  `palette.trigger`, `keyboard.keydown` (through `keyboard.addListener`), `canvas.viewbox.changing`,
+  `drag.cleanup`, `drag.ended`, `palette.trigger`, `keyboard.keydown` (through
+  `keyboard.addListener`), `canvas.viewbox.changing`,
   `canvas.viewbox.changed`, `elements.changed`, `shape.added`, `shape.removed`, `connection.added`,
   `connection.removed`, `diagram.clear`, `import.parse.start`, `import.render.start`, `import.done`,
   `diagram.destroy`. The shell fires no events of its own.

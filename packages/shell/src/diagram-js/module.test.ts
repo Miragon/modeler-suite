@@ -1,7 +1,9 @@
 import DiagramExport from "diagram-js";
 import CommandExport from "diagram-js/lib/command/index.js";
 import EditorActionsExport from "diagram-js/lib/features/editor-actions/index.js";
+import HandToolExport from "diagram-js/lib/features/hand-tool/index.js";
 import KeyboardExport from "diagram-js/lib/features/keyboard/index.js";
+import LassoToolExport from "diagram-js/lib/features/lasso-tool/index.js";
 import PaletteExport from "diagram-js/lib/features/palette/index.js";
 import ZoomScrollExport from "diagram-js/lib/navigation/zoomscroll/index.js";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
@@ -31,7 +33,9 @@ function esDefault<T>(module: unknown): T {
 const Diagram = esDefault<DiagramConstructor>(DiagramExport);
 const CommandModule = esDefault<ModuleDeclarationLike>(CommandExport);
 const EditorActionsModule = esDefault<ModuleDeclarationLike>(EditorActionsExport);
+const HandToolModule = esDefault<ModuleDeclarationLike>(HandToolExport);
 const KeyboardModule = esDefault<ModuleDeclarationLike>(KeyboardExport);
+const LassoToolModule = esDefault<ModuleDeclarationLike>(LassoToolExport);
 const PaletteModule = esDefault<ModuleDeclarationLike>(PaletteExport);
 const ZoomScrollModule = esDefault<ModuleDeclarationLike>(ZoomScrollExport);
 
@@ -237,6 +241,35 @@ describe("palette skin", () => {
     ).toEqual([]);
   });
 
+  it("keeps the focus in the palette across a rebuild whose removal reports a focusout first, as Chromium's does (#461)", () => {
+    const diagram = createDiagram();
+    const box = entry(diagram, "create.box");
+    box.focus();
+    eventBus(diagram).on("i18n.changed", 1500, () => {
+      box.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+
+    rebuild(diagram);
+
+    expect(entry(diagram, "create.box")).not.toBe(box);
+    expect(document.activeElement).toBe(entry(diagram, "create.box"));
+  });
+
+  it("leaves a focus that left the palette where it went when the palette rebuilds later", async () => {
+    const diagram = createDiagram();
+    const box = entry(diagram, "create.box");
+    box.focus();
+    box.blur();
+    await Promise.resolve();
+
+    rebuild(diagram);
+
+    expect(document.activeElement).toBe(document.body);
+    expect(entries(diagram).filter((element) => element.tabIndex === 0)).toEqual([
+      entry(diagram, "create.box"),
+    ]);
+  });
+
   it("moves the tab stop with ← → Home End and wraps", () => {
     const diagram = createDiagram();
     const all = entries(diagram);
@@ -399,6 +432,179 @@ describe("palette skin", () => {
     });
     expect(registration?.entryTooltip(entry(diagram, "create.box"))).toEqual({ label: "Box" });
     expect(registration?.entryTooltip(entry(diagram, "create.untitled"))).toBeNull();
+  });
+});
+
+describe("armed tools (#458)", () => {
+  interface ToolManagerService {
+    isActive(tool: string): boolean;
+  }
+
+  interface ToolOptions {
+    autoActivate?: boolean;
+    reactivate?: boolean;
+  }
+
+  function toolsDiagram({ autoActivate = false, reactivate = false }: ToolOptions = {}): Diagram {
+    class ToolPaletteProvider {
+      static $inject = ["palette", "lassoTool", "handTool"];
+      constructor(
+        palette: PaletteService,
+        private readonly lassoTool: {
+          activateSelection(event: Event, autoActivate?: boolean): void;
+        },
+        private readonly handTool: {
+          activateHand(event: Event, autoActivate?: boolean, reactivate?: boolean): void;
+        },
+      ) {
+        palette.registerProvider(this);
+      }
+      getPaletteEntries(): Record<string, TestEntry> {
+        return {
+          "lasso-tool": {
+            group: "tools",
+            title: "Lasso",
+            action: { click: (event) => this.lassoTool.activateSelection(event, autoActivate) },
+          },
+          "hand-tool": {
+            group: "tools",
+            title: "Hand",
+            action: {
+              click: (event) => this.handTool.activateHand(event, autoActivate, reactivate),
+            },
+          },
+          "create.box": { group: "shapes", title: "Box", action: action("box") },
+        };
+      }
+    }
+    const diagram = createDiagram([
+      PaletteModule,
+      LassoToolModule,
+      HandToolModule,
+      {
+        __init__: ["toolPaletteProvider"],
+        toolPaletteProvider: ["type", ToolPaletteProvider],
+      },
+      shellModule,
+    ]);
+    // A drag maps the pointer through `canvas.viewbox()`, which reads an SVG transform list that
+    // happy-dom does not implement.
+    vi.spyOn(diagram.get<{ viewbox(): unknown }>("canvas"), "viewbox").mockReturnValue({
+      x: 0,
+      y: 0,
+      scale: 1,
+    });
+    return diagram;
+  }
+
+  function updates(diagram: Diagram): Array<string | null> {
+    const tools: Array<string | null> = [];
+    eventBus(diagram).on("tool-manager.update", 500, (event: { tool: string | null }) => {
+      tools.push(event.tool);
+    });
+    return tools;
+  }
+
+  function arm(diagram: Diagram, actionName: string): HTMLElement {
+    const element = entry(diagram, actionName);
+    element.focus();
+    press(element, "Enter");
+    return element;
+  }
+
+  function escape(): void {
+    document.dispatchEvent(new KeyboardEvent("keyup", { key: "Escape", bubbles: true }));
+  }
+
+  function mouse(type: string, target: EventTarget, at = { x: 0, y: 0 }): void {
+    target.dispatchEvent(
+      new MouseEvent(type, { bubbles: true, cancelable: true, clientX: at.x, clientY: at.y }),
+    );
+  }
+
+  it.each([
+    { tool: "lasso", autoActivate: false },
+    { tool: "lasso", autoActivate: true },
+    { tool: "hand", autoActivate: false },
+    { tool: "hand", autoActivate: true },
+  ])(
+    "puts down the $tool the palette armed (autoActivate $autoActivate) when Escape cancels it before the pointer moves",
+    async ({ tool, autoActivate }) => {
+      const diagram = toolsDiagram({ autoActivate });
+      const toolManager = diagram.get<ToolManagerService>("toolManager");
+      const element = arm(diagram, `${tool}-tool`);
+      expect(element.getAttribute("aria-pressed")).toBe("true");
+      expect(toolManager.isActive(tool)).toBe(true);
+
+      escape();
+      await Promise.resolve();
+
+      expect(diagram.get<{ context(): unknown }>("dragging").context()).toBeNull();
+      expect(toolManager.isActive(tool)).toBe(false);
+      expect(element.getAttribute("aria-pressed")).toBe("false");
+      expect(element.classList.contains("highlighted-entry")).toBe(false);
+    },
+  );
+
+  it("switches to the next tool by keys without putting the first down in between", async () => {
+    const diagram = toolsDiagram();
+    const tools = updates(diagram);
+    arm(diagram, "lasso-tool");
+    arm(diagram, "hand-tool");
+    await Promise.resolve();
+
+    expect(tools).toEqual(["lasso", "hand"]);
+    expect(entry(diagram, "hand-tool").getAttribute("aria-pressed")).toBe("true");
+    expect(entry(diagram, "lasso-tool").getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("keeps the armed tool pressed from the press on the next tool's entry until its click", async () => {
+    const diagram = toolsDiagram();
+    const tools = updates(diagram);
+    const lasso = entry(diagram, "lasso-tool");
+    const hand = entry(diagram, "hand-tool");
+    lasso.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+    mouse("mousemove", hand, { x: 40, y: 0 });
+
+    mouse("mousedown", hand, { x: 40, y: 0 });
+    await Promise.resolve();
+    expect(lasso.getAttribute("aria-pressed")).toBe("true");
+
+    mouse("mouseup", hand, { x: 40, y: 0 });
+    hand.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+    await Promise.resolve();
+    expect(tools).toEqual(["lasso", "hand"]);
+    expect(hand.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("keeps a tool pressed that arms itself again, and puts it down on Escape after that", async () => {
+    const diagram = toolsDiagram({ reactivate: true });
+    const toolManager = diagram.get<ToolManagerService>("toolManager");
+    const hand = arm(diagram, "hand-tool");
+    press(hand, "Enter");
+    await Promise.resolve();
+    expect(toolManager.isActive("hand")).toBe(true);
+    expect(hand.getAttribute("aria-pressed")).toBe("true");
+
+    escape();
+    await Promise.resolve();
+    expect(toolManager.isActive("hand")).toBe(false);
+    expect(hand.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("leaves the tool manager alone once the diagram is destroyed", async () => {
+    const diagram = toolsDiagram();
+    const toolManager = diagram.get<ToolManagerService & { setActive(tool: null): void }>(
+      "toolManager",
+    );
+    arm(diagram, "lasso-tool");
+    const setActive = vi.spyOn(toolManager, "setActive");
+    escape();
+    diagram.destroy();
+    diagrams.splice(diagrams.indexOf(diagram), 1);
+    await Promise.resolve();
+
+    expect(setActive).not.toHaveBeenCalled();
   });
 });
 

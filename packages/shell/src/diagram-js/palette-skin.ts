@@ -192,11 +192,20 @@ export class PaletteSkin {
     this.applyTabStops(this.entryElements());
   };
 
+  // A focus that leaves the palette is not brought back by a later rebuild. Chromium reports the
+  // removal of the focused entry as a focusout too, while the entry is still in the document, and
+  // the rebuild's `palette.changed` follows in the same task: so the entry counts as left only once
+  // that task is over and the focus has not come back to it.
   private readonly onFocusOut = (event: FocusEvent): void => {
     const entry = this.entryOf(event.target);
-    if (!entry || entry !== this.focusedEntry || !entry.isConnected) return;
+    if (!entry || entry !== this.focusedEntry) return;
     const next = event.relatedTarget;
-    if (!(next instanceof Node) || !this.element.contains(next)) this.focusedEntry = undefined;
+    if (next instanceof Node && this.element.contains(next)) return;
+    queueMicrotask(() => {
+      if (this.focusedEntry === entry && entry.ownerDocument.activeElement !== entry) {
+        this.focusedEntry = undefined;
+      }
+    });
   };
 
   private readonly onKeydown = (event: KeyboardEvent): void => {
