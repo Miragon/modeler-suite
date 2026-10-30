@@ -132,6 +132,11 @@
     transition: none;
   }
 }
+/* diagram-js draws the palette's tooltip with a shadow as its only edge, and high contrast drops
+   the shadow: the tooltip's line edge (guide §5.6) keeps it apart from the canvas. */
+:where(.cm-djs-container) .djs-hover-tooltip {
+  border: 1px solid var(--cd-ui-linie);
+}
 
 .cm-palette-svg {
   display: block;
@@ -295,6 +300,10 @@
   :where(.cm-djs-container) .djs-popup {
     animation: none;
   }
+  .cm-connect-handle,
+  :where(.cm-djs-container) .djs-context-pad .entry.cm-pad-entry {
+    transition: none;
+  }
 }
 
 /* --- Notation legend card (opt-in cmLegendModule, hosts without the modeler shell) --- */
@@ -398,6 +407,11 @@
 .cm-legend-toggle:hover {
   background: var(--cd-ui-hover);
   color: var(--cd-ui-interaktion);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-legend-toggle {
+    transition: none;
+  }
 }
 .cm-legend-item {
   position: relative;
@@ -850,13 +864,17 @@
    container once a host set its appearance (contract 1.5). So a carrier that asks for normal
    contrast holds on a high-contrast page, where a selector over any ancestor would reach through
    it. The shell applies its own rules only to its own classes, so the modeler's dialogs repeat
-   them. */
+   them. An overlay's shadow goes at the specificity of the rule that draws it (the container
+   inside `:where`, one rule per weight), so a host's own, more specific rule keeps winning here
+   too; at equal weight the scope's proximity puts these rules above the ones they answer. */
 @scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
-  :is(:scope.cm-djs-container, :scope .cm-djs-container)
+  :where(:scope.cm-djs-container, :scope .cm-djs-container)
+    :is(.djs-palette:not([data-chrome="palette"]), .djs-context-pad.open) {
+    box-shadow: none;
+  }
+  :where(:scope.cm-djs-container, :scope .cm-djs-container)
     :is(
-      .djs-palette:not([data-chrome="palette"]),
       .djs-hover-tooltip,
-      .djs-context-pad.open,
       .djs-popup,
       .cm-connect-handle,
       .cm-legend,
@@ -872,7 +890,12 @@
   :is(:scope.cm-djs-container, :scope .cm-djs-container) .djs-direct-editing-parent:focus-within {
     outline-width: 3px !important;
   }
-  :is(:scope.cm-djs-container, :scope .cm-djs-container) .cm-pad-prompt__field:focus {
+  :is(:scope.cm-djs-container, :scope .cm-djs-container)
+    :is(
+      .cm-pad-prompt__field:focus,
+      .cm-legend__close:focus-visible,
+      .cm-legend-toggle:focus-visible
+    ) {
     outline-width: 3px;
   }
   :scope .cm-dialog {
@@ -886,14 +909,15 @@
     outline-width: 3px;
   }
 }
-/* Forced colours drop shadows and backgrounds, so the palette's separator and the armed tool's
-   ring stay in system colours, the island keeps its edge and every focus ring is Highlight
-   (guide §5.14). The !important answers diagram-js's colour of the highlighted entry. */
+/* Forced colours drop shadows and backgrounds, so the separators of the palette and the legend and
+   the armed tool's ring stay in system colours, the island keeps its edge and every focus ring is
+   Highlight (guide §5.14). The !important answers diagram-js's colour of the highlighted entry. */
 @media (forced-colors: active) {
   :where(.cm-djs-container) .djs-palette:not([data-chrome="palette"]) {
     border-color: CanvasText;
   }
-  :where(.cm-djs-container) .djs-palette:not([data-chrome="palette"]) .group + .group::before {
+  :where(.cm-djs-container) .djs-palette:not([data-chrome="palette"]) .group + .group::before,
+  .cm-legend__divider {
     forced-color-adjust: none;
     background: CanvasText;
   }
@@ -909,7 +933,9 @@
   .cm-djs-container .djs-direct-editing-parent:focus-within {
     outline-color: Highlight !important;
   }
-  .cm-djs-container .cm-pad-prompt__field:focus {
+  .cm-djs-container .cm-pad-prompt__field:focus,
+  .cm-djs-container .cm-legend__close:focus-visible,
+  .cm-djs-container .cm-legend-toggle:focus-visible {
     outline-color: Highlight;
   }
   .cm-dialog {

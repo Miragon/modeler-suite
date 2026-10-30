@@ -99,6 +99,65 @@ test("lets a host's own rule on the palette win over the renderer's sheet that l
   }
 });
 
+test("lets a host's own shadow on the palette, the context pad and the popup menu win, also in high contrast", () => {
+  const host = document.createElement("div");
+  host.className = "overlay-host";
+  const container = document.createElement("div");
+  container.style.cssText = "width: 900px; height: 640px;";
+  host.append(container);
+  document.body.append(host);
+  const modeler = new Modeler({ container });
+  mounted.push({ modeler, container: host });
+  const doc = emptyDocument("Palette");
+  doc.contexts = [
+    { id: "a", label: "A", position: { x: 100, y: 200 }, size: { width: 200, height: 110 } },
+  ];
+  modeler.importDocument(doc);
+  modeler
+    .get<Selection>("selection")
+    .select(modeler.get<ElementRegistry>("elementRegistry").get("a")!);
+  container
+    .querySelector('.djs-context-pad.open [data-action="subdomain-type"]')!
+    .dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+  const overlays = {
+    palette: container.querySelector(".djs-palette")!,
+    "context pad": container.querySelector(".djs-context-pad.open")!,
+    "popup menu": container.querySelector(".djs-popup")!,
+  };
+  const hostShadow = document.createElement("span");
+  hostShadow.style.boxShadow = "var(--cd-shadow-3)";
+  container.append(hostShadow);
+
+  // Each one step more specific than the renderer's own rule for that overlay.
+  const hostSheet = document.createElement("style");
+  hostSheet.textContent =
+    '.overlay-host .djs-palette:not([data-chrome="palette"]), .overlay-host .djs-context-pad.open, ' +
+    ".overlay-host .djs-popup { box-shadow: var(--cd-shadow-3); }";
+  document.head.prepend(hostSheet);
+  const page = document.documentElement;
+  try {
+    const shadows = (): Record<string, string> =>
+      Object.fromEntries(
+        Object.entries(overlays).map(([overlay, element]) => [
+          overlay,
+          getComputedStyle(element).boxShadow,
+        ]),
+      );
+    const theHostsShadow = Object.fromEntries(
+      Object.keys(overlays).map((overlay) => [overlay, getComputedStyle(hostShadow).boxShadow]),
+    );
+    expect(shadows()).toEqual(theHostsShadow);
+    page.setAttribute("data-cd-theme", "light");
+    page.setAttribute("data-cd-kontrast", "hoch");
+    expect(shadows()).toEqual(theHostsShadow);
+  } finally {
+    hostSheet.remove();
+    page.removeAttribute("data-cd-theme");
+    page.removeAttribute("data-cd-kontrast");
+    modeler.get<PopupMenu>("popupMenu").close();
+  }
+});
+
 test("leaves another diagram-js context pad and popup menu on the same page as diagram-js lays them out (#398)", () => {
   const { modeler, container } = mountMap();
   const context = modeler.get<ElementRegistry>("elementRegistry").get("a")!;

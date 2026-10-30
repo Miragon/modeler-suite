@@ -1,5 +1,6 @@
+/// <reference types="@vitest/browser-playwright" />
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { userEvent } from "vitest/browser";
+import { cdp, userEvent } from "vitest/browser";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type { AppearanceRequest } from "@miragon/modeler-api";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
@@ -20,9 +21,10 @@ import {
 } from "@miragon/context-maps-schema-model";
 
 // The overlays the renderer lays over the canvas and its dialogs in high contrast (guide §5.3, §6,
-// §8, §12): no shadow, under the nearest mode carrier (guide §13.3). The focus rings of the name
-// and description editors are in inline-editors.test.ts, the palette's forced colours in
-// palette-without-shell.test.ts.
+// §8, §12): no shadow, an edge and the 3px focus ring, under the nearest mode carrier (guide
+// §13.3); and the overlays under forced colours and reduced motion (guide §5.14, §7). The focus
+// rings of the name and description editors are in inline-editors.test.ts, the palette's forced
+// colours and reduced motion in palette-without-shell.test.ts.
 
 const page = document.documentElement;
 const modelers: CollaborativeContextMapsModeler[] = [];
@@ -215,6 +217,95 @@ describe("the overlays on the canvas in high contrast (guide §5.3, §6, §13.3)
   it.each(Object.entries(HIGH_CONTRAST))("drop every shadow %s", async (_, mode) => {
     const shadows = await shadowsOf(await mapIn(mode));
     expect(shadows).toEqual(Object.fromEntries(OVERLAYS.map((overlay) => [overlay, "none"])));
+  });
+
+  // diagram-js draws the palette's tooltip with a shadow as its only edge (guide §5.6).
+  it.each(Object.entries({ ...NORMAL_CONTRAST, ...HIGH_CONTRAST }))(
+    "give the palette's tooltip a line edge %s",
+    async (_, mode) => {
+      const map = (await mapIn(mode)).diagram.container;
+      const tooltip = getComputedStyle(await showPaletteTooltip(map));
+      expect([tooltip.borderTopStyle, tooltip.borderTopWidth, tooltip.borderTopColor]).toEqual([
+        "solid",
+        "1px",
+        colourIn(map, "var(--cd-ui-linie)"),
+      ]);
+    },
+  );
+});
+
+/** The focus ring of the legend's two buttons, each focused by the keyboard's rules. */
+function legendRings(modeler: CollaborativeContextMapsModeler): Record<string, string> {
+  const map = modeler.diagram.container;
+  const ringOf = (selector: string): string => {
+    const button = within(map, selector);
+    button.focus();
+    expect(button.matches(":focus-visible"), selector).toBe(true);
+    const style = getComputedStyle(button);
+    return `${style.outlineStyle} ${style.outlineWidth}`;
+  };
+  const rings: Record<string, string> = { "legend button": ringOf(".cm-legend-toggle") };
+  within(map, ".cm-legend-toggle").click();
+  rings["close legend"] = ringOf(".cm-legend__close");
+  return rings;
+}
+
+describe("the legend's buttons (guide §5.14, §8, §13.3)", () => {
+  it.each(Object.entries(NORMAL_CONTRAST))("show a 2px focus ring %s", async (_, mode) => {
+    expect(legendRings(await mapIn(mode))).toEqual({
+      "legend button": "solid 2px",
+      "close legend": "solid 2px",
+    });
+  });
+
+  it.each(Object.entries(HIGH_CONTRAST))("show a 3px focus ring %s", async (_, mode) => {
+    expect(legendRings(await mapIn(mode))).toEqual({
+      "legend button": "solid 3px",
+      "close legend": "solid 3px",
+    });
+  });
+});
+
+describe("the overlays under forced colours and reduced motion (guide §5.14, §7)", () => {
+  afterEach(async () => {
+    await cdp().send("Emulation.setEmulatedMedia", { features: [] });
+  });
+
+  it("keeps the legend's separator in CanvasText, also on a page without a mode carrier", async () => {
+    const map = (await mapIn({})).diagram.container;
+    within(map, ".cm-legend-toggle").click();
+    await cdp().send("Emulation.setEmulatedMedia", {
+      features: [{ name: "forced-colors", value: "active" }],
+    });
+    expect(getComputedStyle(within(map, ".cm-legend__divider")).backgroundColor).toBe(
+      colourIn(map, "CanvasText"),
+    );
+  });
+
+  it("keeps no transition on the context pad's entries, the connect handles and the legend button", async () => {
+    const modeler = await mapIn({});
+    const map = modeler.diagram.container;
+    selectBilling(modeler);
+    const overlays = {
+      "context pad entry": within(map, ".djs-context-pad.open .entry.cm-pad-entry"),
+      "connect handle": within(map, ".cm-connect-handle"),
+      "legend button": within(map, ".cm-legend-toggle"),
+    };
+    const transitions = (): Record<string, string> =>
+      Object.fromEntries(
+        Object.entries(overlays).map(([overlay, element]) => {
+          const style = getComputedStyle(element);
+          return [overlay, `${style.transitionProperty} ${style.transitionDuration}`];
+        }),
+      );
+    for (const transition of Object.values(transitions())) expect(transition).not.toMatch(/ 0s$/);
+
+    await cdp().send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+    });
+    expect(transitions()).toEqual(
+      Object.fromEntries(Object.keys(overlays).map((overlay) => [overlay, "none 0s"])),
+    );
   });
 });
 

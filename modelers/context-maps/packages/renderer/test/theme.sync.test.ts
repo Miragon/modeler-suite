@@ -124,13 +124,18 @@ function styleRules(source: string): StyleRule[] {
 const HIGH_CONTRAST_SCOPE =
   '@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"]))';
 const IN_CONTAINER = ":where(.cm-djs-container) ";
+/** The map's container in the high-contrast block: the scope's root itself or below it. */
 const IN_CONTAINER_IN_HIGH_CONTRAST = ":is(:scope.cm-djs-container, :scope .cm-djs-container) ";
+/** The same at no specificity, so a rule there weighs no more than the rule it answers. */
+const WHERE_IN_CONTAINER_IN_HIGH_CONTRAST =
+  ":where(:scope.cm-djs-container, :scope .cm-djs-container) ";
 
 /** What a selector of the high-contrast block styles: its subjects without the scope's prefix. */
 function highContrastSubjects(selector: string): string[] {
-  const subject = selector.startsWith(IN_CONTAINER_IN_HIGH_CONTRAST)
-    ? selector.slice(IN_CONTAINER_IN_HIGH_CONTRAST.length)
-    : selector.replace(/^:scope /, "");
+  const prefix = [IN_CONTAINER_IN_HIGH_CONTRAST, WHERE_IN_CONTAINER_IN_HIGH_CONTRAST].find(
+    (container) => selector.startsWith(container),
+  );
+  const subject = prefix ? selector.slice(prefix.length) : selector.replace(/^:scope /, "");
   return subject.startsWith(":is(") && subject.endsWith(")")
     ? selectorList(subject.slice(":is(".length, -1))
     : [subject];
@@ -243,7 +248,7 @@ describe("theme.sync — context-maps.css", () => {
     expect(zIndexOf(".cm-pad-prompt")).toBeLessThanOrEqual(100);
   });
 
-  it("scopes every rule of its palette, context pad and popup menu to its container, at no extra specificity outside high contrast, and the palette away from the shell skin", () => {
+  it("scopes every rule of its palette, context pad and popup menu to its container, at no extra specificity, and the palette away from the shell skin", () => {
     const unskinned = '.djs-palette:not([data-chrome="palette"])';
     const selectors = styleRules(css).flatMap((rule) =>
       rule.selectors
@@ -252,13 +257,13 @@ describe("theme.sync — context-maps.css", () => {
     );
     expect(selectors.filter(({ selector }) => selector.includes(".djs-palette")).length).toBe(15);
     expect(selectors.filter(({ selector }) => selector.includes(".djs-context-pad")).length).toBe(
-      13,
+      14,
     );
     expect(selectors.filter(({ selector }) => selector.includes(".djs-popup")).length).toBe(11);
     for (const { selector, highContrast } of selectors) {
       expect(selector.split(unskinned).join(""), selector).not.toMatch(/\.djs-palette(?![\w-])/);
       if (highContrast) {
-        expect(selector.startsWith(IN_CONTAINER_IN_HIGH_CONTRAST), selector).toBe(true);
+        expect(selector.startsWith(WHERE_IN_CONTAINER_IN_HIGH_CONTRAST), selector).toBe(true);
       } else {
         // `cm-dragging` is the map's own class, on diagram-js's canvas container inside it.
         expect(
@@ -279,7 +284,7 @@ describe("theme.sync — context-maps.css", () => {
     expect(highContrast.length).toBeGreaterThan(5);
     for (const selector of highContrast.flatMap((rule) => rule.selectors)) {
       expect(selector).toMatch(
-        /^(:scope |:is\(:scope\.cm-djs-container, :scope \.cm-djs-container\) )/,
+        /^(:scope |:(is|where)\(:scope\.cm-djs-container, :scope \.cm-djs-container\) )/,
       );
     }
   });
@@ -303,7 +308,7 @@ describe("theme.sync — context-maps.css", () => {
     for (const subject of shadowed) expect(dropped, subject).toContain(subject);
   });
 
-  it("keeps the focus rings of the editors and the palette in Highlight under forced colours", () => {
+  it("keeps the focus rings of the editors, the palette and the legend in Highlight under forced colours", () => {
     // Chromium itself draws a ring with :focus-visible in Highlight there, so a browser test
     // cannot tell these rules apart from no rule; other engines need them.
     const highlighted = styleRules(css)
@@ -315,6 +320,8 @@ describe("theme.sync — context-maps.css", () => {
         `${IN_CONTAINER}.djs-palette:not([data-chrome="palette"]) .entry:focus-visible`,
         ".cm-djs-container .djs-direct-editing-parent:focus-within",
         ".cm-djs-container .cm-pad-prompt__field:focus",
+        ".cm-djs-container .cm-legend__close:focus-visible",
+        ".cm-djs-container .cm-legend-toggle:focus-visible",
       ]),
     );
   });
