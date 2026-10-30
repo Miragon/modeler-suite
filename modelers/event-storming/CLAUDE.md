@@ -260,10 +260,11 @@ placeholder-labelled aggregate) as a table with a row group per aggregate, each 
 the events after it, drawn by the renderer with its own `.event-storming-aggregates` rules in
 `event-storming.css`. A name closes
 the dialog, then selects and reveals its stickies inside `freeArea.insets` and focuses the canvas;
-no command runs, so neither the history nor the `.storm` text changes. The
-renderer's own `createShortcutsDialog`, its types and the `.event-storming-shortcuts*` rules of
-`event-storming.css` are `@deprecated` for designIQ, which still uses them; their removal is due
-in renderer 0.9.0 ([#262](https://github.com/Miragon/modeler-suite/issues/262)). The
+no command runs, so neither the history nor the `.storm` text changes. The renderer draws no
+shortcuts dialog of its own since 0.9.0 ([#262](https://github.com/Miragon/modeler-suite/issues/262)):
+a host without a mounted shell opens the shell's standalone
+`showShortcutsDialog(boardShortcuts(chrome), { container })`, and `theme.sync.test.ts` fails
+on a shortcuts rule in `event-storming.css`. The
 renderer's own palette rules apply only to `.djs-palette:not([data-chrome='palette'])` inside
 `.event-storming-container`, so a shell-skinned palette wears the shell's look alone and another
 diagram-js palette on the page keeps its own. **Renderers never import the shell**: only

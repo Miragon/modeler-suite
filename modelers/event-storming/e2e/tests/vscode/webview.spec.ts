@@ -387,7 +387,6 @@ test.describe("VS Code webview: protocol and chrome", () => {
     await expect(dialog.locator("[data-chrome-key]")).toHaveCount(4);
     await expect(dialog.getByRole("row", { name: /^Fit/ })).toHaveCount(1);
     await expect(dialog.getByRole("row", { name: /Open…/ })).toHaveCount(0);
-    expect(await page.locator("dialog.event-storming-shortcuts").count()).toBe(0);
 
     await closeDialog(dialog, () => page.keyboard.press("Escape"));
     await expect(dialog).toHaveCount(0);

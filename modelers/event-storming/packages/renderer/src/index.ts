@@ -102,7 +102,6 @@ export {
   STORM_EXPORT_LABEL,
   boardShortcuts,
   commandKeyLabel,
-  createShortcutsDialog,
 } from "./board-menu/index.js";
 export type {
   BoardAggregates,
@@ -123,8 +122,6 @@ export type {
   ShortcutPlatform,
   ShortcutRow,
   ShortcutsChrome,
-  ShortcutsDialog,
-  ShortcutsDialogChrome,
   TypeCaptions,
 } from "./board-menu/index.js";
 
