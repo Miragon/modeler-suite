@@ -227,8 +227,9 @@ The extension owns file, document, history and mode; the webview shows canvas an
   a save dialog, never an untitled document, which a custom text editor handles most robustly, and
   `vscode.openWith` opens it in the modeler's editor. The dialog does not ensure a name that editor
   claims (Value Chain's binds only `*.vc` and `*.vc.json`), so `targetPath` corrects the chosen
-  path. The extension decodes a PNG's base64 with `atob`, which a web extension host has as well,
-  unlike Node's `Buffer`.
+  path; a file already at the corrected path is replaced only after a modal question, because the
+  dialog's own question covered only the chosen one. The extension decodes a PNG's base64 with
+  `atob`, which a web extension host has as well, unlike Node's `Buffer`.
 - **Undo.** The history is the document's. The webview never binds Cmd+Z to the `commandStack`
   (`undoRedoKeys: false`); the shell lets the key reach `window`, where VS Code undoes. Each canvas
   change is one `WorkspaceEdit`. The extension recognises its own edits as echoes. In text fields,

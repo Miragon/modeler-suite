@@ -32,14 +32,19 @@ interface Notification {
   severity: "info" | "warning" | "error";
   message: string;
   items: string[];
+  modal?: boolean;
 }
 
-/** A fake `vscode` for the file commands: the save dialog answers `saveTarget`, a notification `answer`. */
+/**
+ * A fake `vscode` for the file commands: the save dialog answers `saveTarget`, a notification
+ * `answer`, and the files at `existing` paths are there before the command runs.
+ */
 function fakeVsCode({ folder }: { folder?: string } = {}) {
   const state = {
     saveTarget: undefined as FakeUri | undefined,
     writeError: undefined as Error | undefined,
     answer: undefined as string | undefined,
+    existing: new Set<string>(),
   };
   const dialogs: SaveDialogOptionsLike<FakeUri>[] = [];
   const written: { uri: FakeUri; text: string; bytes: Uint8Array }[] = [];
@@ -48,8 +53,15 @@ function fakeVsCode({ folder }: { folder?: string } = {}) {
   const registered = new Map<string, () => unknown>();
   const notify =
     (severity: Notification["severity"]) =>
-    (message: string, ...items: string[]): Promise<string | undefined> => {
-      notifications.push({ severity, message, items });
+    (message: string, ...rest: (string | { modal?: boolean })[]): Promise<string | undefined> => {
+      const items = rest.filter((item): item is string => typeof item === "string");
+      const options = rest.find((item) => typeof item !== "string");
+      notifications.push({
+        severity,
+        message,
+        items,
+        ...(options?.modal === undefined ? {} : { modal: options.modal }),
+      });
       return Promise.resolve(severity === "error" ? undefined : state.answer);
     };
   const vscode = {
@@ -68,7 +80,13 @@ function fakeVsCode({ folder }: { folder?: string } = {}) {
         writeFile(target: FakeUri, bytes: Uint8Array) {
           if (state.writeError) return Promise.reject(state.writeError);
           written.push({ uri: target, text: new TextDecoder().decode(bytes), bytes });
+          state.existing.add(target.path);
           return Promise.resolve();
+        },
+        stat(target: FakeUri) {
+          return state.existing.has(target.path)
+            ? Promise.resolve({ type: 1 })
+            : Promise.reject(new Error(`FileNotFound: ${target.path}`));
         },
       },
     },
@@ -420,6 +438,88 @@ describe("createNewDocument and registerNewDocumentCommand", () => {
       "/work/chain.vc.json",
       "/work/chain.vc",
     ]);
+    expect(host.notifications).toEqual([]);
+  });
+
+  describe("a file already at the path targetPath gives", () => {
+    const RENAMING_CHAIN = {
+      ...NEW_CHAIN,
+      targetPath: (path: string) =>
+        /\.vc(\.json)?$/i.test(path) ? path : `${path.replace(/\.json$/i, "")}.vc.json`,
+    };
+
+    function hostWithExistingChain() {
+      const host = fakeVsCode();
+      host.state.saveTarget = uri("/work/chain.json");
+      host.state.existing.add("/work/chain.vc.json");
+      return host;
+    }
+
+    it("is replaced only after a modal question, since the save dialog asked about another file", async () => {
+      const host = hostWithExistingChain();
+      host.state.answer = "Replace";
+
+      const created = await createNewDocument(host.vscode, RENAMING_CHAIN);
+
+      expect(host.notifications).toEqual([
+        {
+          severity: "warning",
+          message: "chain.vc.json already exists. Do you want to replace it?",
+          items: ["Replace"],
+          modal: true,
+        },
+      ]);
+      expect(created?.path).toBe("/work/chain.vc.json");
+      expect(host.written.map((file) => file.uri.path)).toEqual(["/work/chain.vc.json"]);
+      expect(host.executed).toEqual([
+        { command: "vscode.openWith", args: [created, "valueChain.diagramEditor"] },
+      ]);
+    });
+
+    it("stays as it is, and nothing opens, when the question is dismissed", async () => {
+      const host = hostWithExistingChain();
+
+      await expect(createNewDocument(host.vscode, RENAMING_CHAIN)).resolves.toBeUndefined();
+
+      expect(host.notifications.map(({ modal }) => modal)).toEqual([true]);
+      expect(host.written).toEqual([]);
+      expect(host.executed).toEqual([]);
+    });
+
+    it("asks nothing more when the dialog's own file is written, whose replace it confirmed itself", async () => {
+      const host = fakeVsCode();
+      host.state.saveTarget = uri("/work/chain.vc.json");
+      host.state.existing.add("/work/chain.vc.json");
+
+      await createNewDocument(host.vscode, RENAMING_CHAIN);
+      await createNewDocument(host.vscode, NEW_CHAIN);
+
+      expect(host.notifications).toEqual([]);
+      expect(host.written).toHaveLength(2);
+    });
+
+    it("takes a localized modeler's question and action", async () => {
+      const host = hostWithExistingChain();
+      host.state.answer = "Ersetzen";
+
+      const created = await createNewDocument(host.vscode, {
+        ...RENAMING_CHAIN,
+        messages: {
+          alreadyExists: (fileName) => `${fileName} gibt es schon. Willst du sie ersetzen?`,
+          replaceLabel: "Ersetzen",
+        },
+      });
+
+      expect(host.notifications).toEqual([
+        {
+          severity: "warning",
+          message: "chain.vc.json gibt es schon. Willst du sie ersetzen?",
+          items: ["Ersetzen"],
+          modal: true,
+        },
+      ]);
+      expect(created?.path).toBe("/work/chain.vc.json");
+    });
   });
 
   it("reports a file it cannot write in its own words, logs the cause and opens nothing", async () => {

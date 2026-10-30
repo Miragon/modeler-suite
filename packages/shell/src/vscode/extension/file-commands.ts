@@ -22,6 +22,10 @@ export interface FileCommandMessages {
   couldNotExport(fileName: string): string;
   /** The error when a new file could not be written. */
   couldNotCreate(fileName: string): string;
+  /** The modal question before a new file replaces one the save dialog did not ask about. */
+  alreadyExists(fileName: string): string;
+  /** Its action that replaces the file: "Replace". */
+  replaceLabel: string;
   /** The notification's action that shows the file, labelled like VS Code: `revealFileLabel`. */
   revealFile(platform: string): string;
 }
@@ -38,6 +42,8 @@ export const defaultFileCommandMessages: FileCommandMessages = {
     `Exported ${fileName} in a system font. Geist couldn't be embedded.`,
   couldNotExport: (fileName) => `Couldn't export ${fileName}. Try again, or choose another folder.`,
   couldNotCreate: (fileName) => `Couldn't create ${fileName}. Try again, or choose another folder.`,
+  alreadyExists: (fileName) => `${fileName} already exists. Do you want to replace it?`,
+  replaceLabel: "Replace",
   revealFile: revealFileLabel,
 };
 
@@ -198,10 +204,23 @@ export interface NewDocumentOptions {
   readonly defaultFileName: string;
   /**
    * The path to write for the one the dialog returned, so the modeler's editor claims the file:
-   * Value Chain makes `chain.json` `chain.vc.json`. Default: the path the dialog returned.
+   * Value Chain makes `chain.json` `chain.vc.json`. Default: the path the dialog returned. A file
+   * already at another path is replaced only after a modal question.
    */
   readonly targetPath?: ((chosenPath: string) => string) | undefined;
   readonly messages?: FileCommandMessageOverrides | undefined;
+}
+
+async function fileExists<Uri extends FileUriLike>(
+  vscode: VsCodeFilesLike<Uri>,
+  uri: Uri,
+): Promise<boolean> {
+  try {
+    await vscode.workspace.fs.stat(uri);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -209,12 +228,14 @@ export interface NewDocumentOptions {
  * which a custom text editor handles most robustly. The save dialog suggests
  * `defaultFileName` in the first workspace folder, the text is written and the file opens with
  * `vscode.openWith` in `viewType`. A file that cannot be written is an error notification.
- * Resolves to the new file, or to `undefined` when the dialog was dismissed or the write failed.
+ * Resolves to the new file, or to `undefined` when the dialog was dismissed, a replace was declined
+ * or the write failed.
  */
 export async function createNewDocument<Uri extends FileUriLike>(
   vscode: VsCodeFilesLike<Uri>,
   options: NewDocumentOptions,
 ): Promise<Uri | undefined> {
+  const messages = fileCommandMessages(options.messages);
   const dialog: SaveDialogOptionsLike<Uri> = {
     title: options.title,
     saveLabel: options.saveLabel,
@@ -228,13 +249,20 @@ export async function createNewDocument<Uri extends FileUriLike>(
   const path = options.targetPath?.(chosen.path) ?? chosen.path;
   const target = path === chosen.path ? chosen : chosen.with({ path });
   const fileName = fileNameOf(target);
+  // The save dialog confirmed replacing only the file it returned, never the one targetPath names.
+  if (target !== chosen && (await fileExists(vscode, target))) {
+    const answer = await vscode.window.showWarningMessage(
+      messages.alreadyExists(fileName),
+      { modal: true },
+      messages.replaceLabel,
+    );
+    if (answer !== messages.replaceLabel) return undefined;
+  }
   try {
     await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(options.text));
   } catch (error) {
     console.error(`Couldn't write ${fileName}`, error);
-    void vscode.window.showErrorMessage(
-      fileCommandMessages(options.messages).couldNotCreate(fileName),
-    );
+    void vscode.window.showErrorMessage(messages.couldNotCreate(fileName));
     return undefined;
   }
   await vscode.commands.executeCommand("vscode.openWith", target, options.viewType);

@@ -159,19 +159,29 @@ export interface SaveDialogOptionsLike<Uri extends FileUriLike = FileUriLike> {
 
 /**
  * The parts of the `vscode` namespace `exportToFile` and the "New …" commands use: the save dialog,
- * the workspace's file system and first folder, the notifications with an action and the commands.
- * `Uri` is the extension's own `vscode.Uri`, which the helpers hand back.
+ * the workspace's file system and first folder, the notifications with an action (the question
+ * before a replace as a modal one) and the commands. `Uri` is the extension's own `vscode.Uri`,
+ * which the helpers hand back.
  */
 export interface VsCodeFilesLike<Uri extends FileUriLike = FileUriLike> {
   readonly window: {
     showSaveDialog(options: SaveDialogOptionsLike<Uri>): PromiseLike<Uri | undefined>;
     showInformationMessage(message: string, ...items: string[]): PromiseLike<string | undefined>;
     showWarningMessage(message: string, ...items: string[]): PromiseLike<string | undefined>;
+    showWarningMessage(
+      message: string,
+      options: { modal?: boolean },
+      ...items: string[]
+    ): PromiseLike<string | undefined>;
     showErrorMessage(message: string, ...items: string[]): PromiseLike<string | undefined>;
   };
   readonly workspace: {
     readonly workspaceFolders: readonly { readonly uri: Uri }[] | undefined;
-    readonly fs: { writeFile(uri: Uri, content: Uint8Array): PromiseLike<void> };
+    readonly fs: {
+      writeFile(uri: Uri, content: Uint8Array): PromiseLike<void>;
+      /** Rejects when there is no file at `uri`. */
+      stat(uri: Uri): PromiseLike<unknown>;
+    };
   };
   readonly commands: {
     executeCommand(command: string, ...rest: unknown[]): PromiseLike<unknown>;
