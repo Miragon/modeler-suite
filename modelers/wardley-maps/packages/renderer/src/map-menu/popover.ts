@@ -1,4 +1,5 @@
 import type { Modeler } from "../Modeler.js";
+import { isImeCompositionKey } from "../label-editing/index.js";
 import { READ_ONLY_CHANGED } from "../read-only/index.js";
 import { element, uniqueId } from "./dom.js";
 
@@ -50,7 +51,7 @@ export function createPopover(
   // A click into the IDE's workbench or another frame takes the focus without a pointerdown here.
   const onWindowBlur = () => end("done");
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== "Escape" || event.isComposing) return;
+    if (event.key !== "Escape" || isImeCompositionKey(event)) return;
     event.preventDefault();
     event.stopPropagation();
     end("done", { returnFocus: true });
