@@ -9,8 +9,8 @@ import {
   FALLBACK_FAMILY,
   LABEL,
   canvasInkWidth,
+  expectNearer,
   fileAsDataUrl,
-  inkWidth,
   labelSvg,
   pixelAt,
   pngPixels,
@@ -202,19 +202,6 @@ describe("svgToPng: Geist", () => {
       `Geist ${geist} px, fallback ${fallback} px`,
     ).toBeGreaterThan(40);
     return { geist, fallback };
-  }
-
-  /**
-   * The PNG's label is far nearer one drawing than the other. The canvas and an SVG image round
-   * glyph positions differently (WebKit on Linux: 3 px over 25 glyphs), so an exact width would be
-   * flaky; one subset in the fallback moves the label by a third of the gap or more.
-   */
-  async function expectNearer(png: Blob, near: number, far: number): Promise<void> {
-    const width = inkWidth(await pngPixels(png));
-    expect(
-      4 * Math.abs(width - near),
-      `PNG ${width} px, expected near ${near} px, far from ${far} px`,
-    ).toBeLessThan(Math.abs(width - far));
   }
 
   it("draws the labels in Geist from the page's own faces, where without them they fall back", async () => {
