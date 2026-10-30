@@ -10,6 +10,7 @@ import type { AppearanceRequest } from "@miragon/modeler-api";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type { Shape } from "diagram-js/lib/model/Types";
 import {
@@ -208,10 +209,14 @@ describe("the interaction case: active() follows every gesture", () => {
     const modeler = await editorOn();
     const delivered: boolean[] = [];
     modeler.interaction.onChange((active) => delivered.push(active));
+    const dragging = service<Dragging>(modeler, "dragging");
     startGesture(modeler, "move");
+    // Held past the input that started it: the destroy ends the drag at once.
+    await Promise.resolve();
 
     modeler.destroy();
 
+    expect(dragging.context()).toBeFalsy();
     expect(delivered).toEqual([true]);
     expect(modeler.interaction.active()).toBe(false);
   });

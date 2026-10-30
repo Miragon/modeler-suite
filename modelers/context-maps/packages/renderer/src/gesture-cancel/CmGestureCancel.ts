@@ -89,6 +89,8 @@ export default class CmGestureCancel {
   private readonly runningActions = new Set<object>();
   private actionWaiters: Array<() => void> = [];
   private endActivation: () => void = () => undefined;
+  /** From a drag's `drag.start` until the handler that activated the drag has returned. */
+  private handlerActivatesDrag = false;
 
   constructor(
     eventBus: EventBus,
@@ -126,6 +128,7 @@ export default class CmGestureCancel {
     eventBus.on("drag.start", FIRST, () => {
       this.endActivation = this.holdAction();
       queueMicrotask(this.endActivation);
+      this.noteDragActivation();
     });
     eventBus.on("drag.move", LAST, () => this.endActivation());
     // The scheduler drops its tasks on destroy: an import waiting for one rejects instead.
@@ -171,6 +174,20 @@ export default class CmGestureCancel {
   }
 
   /**
+   * Runs `teardown` (the modeler's destroy) at once, or, while diagram-js activates a drag, once
+   * the handler that activates it has returned. diagram-js cancels a running drag on destroy, and
+   * between the drag's start and its first move it deselects and then reads the drag's context
+   * again: a destroy from a selection listener there made `Dragging.move` throw `Cannot read
+   * properties of null (reading 'cursor')`. The first move, whose interaction listener may destroy
+   * as well, and the rest of the handler (a palette entry's, a context pad entry's) still run on
+   * the live map, which the teardown then takes down with the drag.
+   */
+  tearDownAfterActivation(teardown: () => void): void {
+    if (this.handlerActivatesDrag) queueMicrotask(teardown);
+    else teardown();
+  }
+
+  /**
    * Cancels the running gesture (a move, connect or lasso drag, a create from the palette or the
    * context pad) and a press that has not reached the drag threshold yet, the way Escape does,
    * before an import or `clear()` empties the canvas, without restoring the selection: it holds
@@ -193,6 +210,15 @@ export default class CmGestureCancel {
   /** True while a clear cancels a gesture: its cleanup must not select what the clear removes. */
   isCancellingForClear(): boolean {
     return this.cancellingForClear;
+  }
+
+  /** diagram-js activates a drag inside the handler of the user's input, which a microtask follows. */
+  private noteDragActivation(): void {
+    if (this.handlerActivatesDrag) return;
+    this.handlerActivatesDrag = true;
+    queueMicrotask(() => {
+      this.handlerActivatesDrag = false;
+    });
   }
 
   private startEnding(): void {

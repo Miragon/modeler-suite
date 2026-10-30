@@ -506,6 +506,65 @@ describe("interaction follows every Wardley gesture", () => {
     expect(diagramOf(modeler).get<CommandStack>("commandStack").canUndo()).toBe(false);
     expect(current.delivered).toEqual([true, false]);
   });
+
+  // The renderer's own drags (a label, a point of a drawing, the evolve target) read the canvas
+  // right after they report their start, as diagram-js's drags do (#346).
+  test.each(WARDLEY_GESTURES.filter(([name]) => name !== "the drag of an armed lasso"))(
+    "%s, whose start a listener destroys the modeler at: nothing throws, and no later listener hears of it",
+    async (_, start) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const svg = canvasSvgOf(modeler);
+      const box = svg.getBoundingClientRect();
+      const free = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+      let commands = 0;
+      diagramOf(modeler)
+        .get<EventBus>("eventBus")
+        .on("commandStack.changed", () => (commands += 1));
+      const later: boolean[] = [];
+      modeler.interaction.onChange(() => modeler.destroy());
+      modeler.interaction.onChange((active) => later.push(active));
+
+      await start(modeler);
+      await settle();
+      expect(errors).toEqual([]);
+      expect(svg.isConnected).toBe(false);
+      mouse(document, "mousemove", free);
+      mouse(document, "mouseup", free);
+      await settle();
+      expect(errors).toEqual([]);
+      expect(commands).toBe(0);
+      expect(current.delivered).toEqual([true]);
+      expect(later).toEqual([]);
+    },
+  );
+
+  // The renderer's own drags take Escape in their own key listener, which goes on after it
+  // reported the end (#346).
+  test.each(WARDLEY_GESTURES)(
+    "%s, ended by Escape on the canvas whose end a listener destroys the modeler at: nothing throws",
+    async (_, start) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const svg = canvasSvgOf(modeler);
+      const box = svg.getBoundingClientRect();
+      const free = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+      await start(modeler);
+      await settle();
+      expect(current.delivered).toEqual([true]);
+      modeler.interaction.onChange((active) => {
+        if (!active) modeler.destroy();
+      });
+
+      pressEscape(modeler);
+      expect(svg.isConnected).toBe(false);
+      mouse(document, "mouseup", free);
+      mouse(document, "click", free);
+      await settle();
+      expect(errors).toEqual([]);
+      expect(current.delivered).toEqual([true, false]);
+    },
+  );
 });
 
 function theDrawing(modeler: CollaborativeWardleyModeler): WardleyShape {

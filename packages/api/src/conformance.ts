@@ -225,8 +225,8 @@ export interface ConformanceHarness {
    * running) the way a user does (a press on empty canvas, or the hand tool), moved past the drag
    * threshold by one STEP: a fixed distance in screen pixels. `HeldPan.move()` moves the pointer
    * by the same step again, in the same direction, so the kit can tell a pan that goes on from the
-   * view an import left from one that puts the view from before the import back. `undefined` = the
-   * pan case is reported as skipped
+   * current view (the one an import left, or the one the host restores after it) from one that puts
+   * a view from before back. `undefined` = the pan case is reported as skipped
    */
   startPan?(modeler: CollaborativeModeler): Promise<HeldPan> | HeldPan;
   /**
@@ -819,7 +819,7 @@ export function conformanceCases(): ConformanceCase[] {
       run: importAtADragsStart,
     },
     {
-      name: "pan (recommended, 1.6): a pan is no gesture, and it runs on through an import from the view the import left",
+      name: "pan (recommended, 1.6): a pan is no gesture, and it runs on through an import from the current view, the one the import left or the one the host restores",
       run: panRunsOnThroughAnImport,
     },
     {
@@ -2587,6 +2587,51 @@ function closeTo(a: unknown, b: unknown): boolean {
   return a === b;
 }
 
+/** what `shiftedBy` returns for view states whose shapes it cannot follow */
+const UNFOLLOWED = Symbol("unfollowed");
+
+/**
+ * `base` moved as one step moved the view from `from` to `to`: each number shifted by what the step
+ * changed in it, everything else as `base` holds it. The view state stays opaque to the kit, but a
+ * pan moves its numbers by the same amount on every step. `UNFOLLOWED` where the three readbacks
+ * differ in shape, or where the step changed something that is no number
+ */
+function shiftedBy(base: unknown, from: unknown, to: unknown): unknown {
+  if (typeof base === "number" && typeof from === "number" && typeof to === "number") {
+    return base + (to - from);
+  }
+  if (Array.isArray(base) && Array.isArray(from) && Array.isArray(to)) {
+    if (base.length !== from.length || base.length !== to.length) return UNFOLLOWED;
+    const items = base.map((value: unknown, index) => shiftedBy(value, from[index], to[index]));
+    return items.includes(UNFOLLOWED) ? UNFOLLOWED : items;
+  }
+  if (
+    base !== null &&
+    from !== null &&
+    to !== null &&
+    typeof base === "object" &&
+    typeof from === "object" &&
+    typeof to === "object"
+  ) {
+    const keys = Object.keys(base).sort();
+    if (!same(keys, Object.keys(from).sort()) || !same(keys, Object.keys(to).sort())) {
+      return UNFOLLOWED;
+    }
+    const shifted: Record<string, unknown> = {};
+    for (const key of keys) {
+      const value = shiftedBy(
+        (base as Record<string, unknown>)[key],
+        (from as Record<string, unknown>)[key],
+        (to as Record<string, unknown>)[key],
+      );
+      if (value === UNFOLLOWED) return UNFOLLOWED;
+      shifted[key] = value;
+    }
+    return shifted;
+  }
+  return from === to ? base : UNFOLLOWED;
+}
+
 type GestureStarter = NonNullable<ConformanceHarness["startGesture"]>;
 
 /**
@@ -3808,11 +3853,140 @@ async function importAtADragsStart(h: ConformanceHarness): Promise<CaseOutcome> 
   );
 }
 
+type PanStarter = NonNullable<ConformanceHarness["startPan"]>;
+
 /**
- * the pan case: a pan held over an accepted import of another document and of the same one. The
- * pan is no gesture, and it runs on from the view the import left: the same document fits the same
- * view, so the pan's next step must bring the view where its first step had brought it. A change
- * event fails (L1, L3); the rest is one advisory, since 1.6 only RECOMMENDS it
+ * one pan held on a fresh import of `canonicalTexts[0]` over an accepted import of `leg`, then
+ * moved one step and released; what the recommendation finds. With `hostRestoresView` the host
+ * takes `getViewState()` during the pan, before the import, and calls `setViewState` with it after
+ * the import, as a host that keeps the user's viewport does (L5): the restore must take while the
+ * pan is held, and the pan's next step must go on from that view as it went on from the view before
+ * the import
+ */
+async function panOverAnImport(
+  h: ConformanceHarness,
+  m: CollaborativeModeler,
+  startPan: PanStarter,
+  leg: ImportedLeg,
+  hostRestoresView: boolean,
+): Promise<LegFindings> {
+  const findings: string[] = [];
+  await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
+  const expected = exportOrFail(m, `after importing ${leg.what}`);
+  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  await (h.settle ?? defaultSettle)();
+  const atRest = m.getViewState();
+  const watch = watchInteraction(m);
+  const errors = listenForWindowErrors();
+  try {
+    const pan = await startPan(m);
+    const panned = m.getViewState();
+    if (closeTo(panned, atRest)) {
+      fail(
+        "startPan left the view as the import had fitted it — the case proves nothing (startPan presses on the canvas and moves past the drag threshold, so the view pans)",
+      );
+    }
+    let activeDuringPan = m.interaction?.active() === true;
+    const { calls, importing, outcome } = await importWhileHeld(h, m, leg.text);
+    if (calls > 0) {
+      fail(
+        `importing ${leg.what} during a pan fired onContentChanged ${calls}x — an import is silent (L1; if every import emits, see the L1 cases first)`,
+      );
+    }
+    if (outcome.unsettled) {
+      findings.push(
+        `importing ${leg.what} during a pan had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — the import waited for the pan to end instead of leaving it running`,
+      );
+      await errorOf(() => pan.drop());
+      const released = await settledWithin(importing, HELD_IMPORT_BOUND_MS);
+      if (released.unsettled) {
+        findings.push(
+          `importing ${leg.what} during a pan had not settled ${HELD_IMPORT_BOUND_MS / 1000} s after the pan's release either`,
+        );
+      } else if (released.rejected !== undefined) {
+        fail(`importText(${leg.what}) rejected during a pan: ${released.rejected}`);
+      }
+      return { findings, stop: true };
+    }
+    if (outcome.rejected !== undefined) {
+      fail(`importText(${leg.what}) rejected during a pan: ${outcome.rejected}`);
+    }
+    const imported = m.getViewState();
+    if (hostRestoresView) m.setViewState(panned);
+    const current = m.getViewState();
+    const moveThrown = await errorOf(() => pan.move());
+    const after = m.getViewState();
+    activeDuringPan ||= m.interaction?.active() === true;
+    if (hostRestoresView) {
+      const stepped = shiftedBy(current, atRest, panned);
+      if (closeTo(current, imported) && !closeTo(imported, panned)) {
+        findings.push(
+          `setViewState after ${leg.what} was imported during a pan had no effect: getViewState() still read back the view the import left, so the pan went on from that view instead of the one the host restored (L5)`,
+        );
+      } else if (stepped === UNFOLLOWED ? closeTo(after, current) : !closeTo(after, stepped)) {
+        findings.push(
+          `a pan's next step after ${leg.what} was imported during it did not go on from the view the host restored after the import (setViewState with the view from before the import, L5): the step did not move that view as the pan's first step had moved the view before it`,
+        );
+      }
+    } else if (closeTo(after, imported)) {
+      findings.push(
+        `a pan stopped when ${leg.what} was imported during it (its next step left the view where the import had put it)`,
+      );
+    } else if (closeTo(imported, atRest) && !closeTo(after, panned)) {
+      findings.push(
+        `a pan's next step after ${leg.what} was imported during it did not go on from the view the import left: it put the view where the pan would have brought the view from before the import`,
+      );
+    }
+    if (moveThrown !== undefined) {
+      findings.push(`a pan's next step after an import of ${leg.what} threw ${moveThrown}`);
+    }
+    let dropThrown: string | undefined;
+    const dropped = await changeEvents(h, m, async () => {
+      dropThrown = await errorOf(() => pan.drop());
+    });
+    if (dropped.calls > 0) {
+      fail(
+        `releasing a pan fired onContentChanged ${dropped.calls}x — a pan changes the view, never the document (L3)`,
+      );
+    }
+    if (dropThrown !== undefined) {
+      findings.push(`releasing a pan after an import of ${leg.what} threw ${dropThrown}`);
+    }
+    for (const error of errors.errors) {
+      findings.push(
+        `an error reached the window during a pan over an import of ${leg.what}: ${error}`,
+      );
+    }
+    if (activeDuringPan) findings.push("interaction.active() was true during a pan");
+    else if (watch && watch.delivered.length > 0) {
+      findings.push(
+        `interaction.onChange delivered ${JSON.stringify(watch.delivered)} during a pan`,
+      );
+    }
+    if (exportOrFail(m, `after a pan over an import of ${leg.what}`) !== expected) {
+      findings.push(`a pan over an import of ${leg.what} changed the document`);
+    }
+    const before = exportOrFail(m, "before the next mutate after a pan");
+    const next = await changeEvents(h, m, () => h.mutate(m));
+    if (next.calls === 0 || exportOrFail(m, "after the next mutate after a pan") === before) {
+      findings.push(
+        `the next mutate after a pan over an import of ${leg.what} did not apply (wedged)`,
+      );
+    }
+  } finally {
+    errors.stop();
+    watch?.stop();
+  }
+  return { findings };
+}
+
+/**
+ * the pan case: a pan held over an accepted import of another document and of the same one, each
+ * once with the view the import left and once with the view the host restores after it (L5). The
+ * pan is no gesture, and it runs on from the current view: the same document fits the same view, so
+ * the pan's next step must bring the view where its first step had brought it, and from a restored
+ * view it must move the view as its first step had. A change event fails (L1, L3); the rest is one
+ * advisory, since 1.6 only RECOMMENDS it
  */
 async function panRunsOnThroughAnImport(h: ConformanceHarness): Promise<CaseOutcome> {
   if (!h.startPan) {
@@ -3821,105 +3995,16 @@ async function panRunsOnThroughAnImport(h: ConformanceHarness): Promise<CaseOutc
     );
   }
   const startPan = h.startPan;
-  const settle = h.settle ?? defaultSettle;
-  const first = h.canonicalTexts[0] ?? "";
   const findings: string[] = [];
+  const runs = importedLegs(h).flatMap((leg) =>
+    [false, true].map((hostRestoresView) => ({ leg, hostRestoresView })),
+  );
   const m = await h.create();
   try {
-    for (const leg of importedLegs(h)) {
-      await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
-      const expected = exportOrFail(m, `after importing ${leg.what}`);
-      await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
-      await settle();
-      const atRest = m.getViewState();
-      const watch = watchInteraction(m);
-      const errors = listenForWindowErrors();
-      try {
-        const pan = await startPan(m);
-        const panned = m.getViewState();
-        if (closeTo(panned, atRest)) {
-          fail(
-            "startPan left the view as the import had fitted it — the case proves nothing (startPan presses on the canvas and moves past the drag threshold, so the view pans)",
-          );
-        }
-        let activeDuringPan = m.interaction?.active() === true;
-        const { calls, importing, outcome } = await importWhileHeld(h, m, leg.text);
-        if (calls > 0) {
-          fail(
-            `importing ${leg.what} during a pan fired onContentChanged ${calls}x — an import is silent (L1; if every import emits, see the L1 cases first)`,
-          );
-        }
-        if (outcome.unsettled) {
-          findings.push(
-            `importing ${leg.what} during a pan had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — the import waited for the pan to end instead of leaving it running`,
-          );
-          await errorOf(() => pan.drop());
-          const released = await settledWithin(importing, HELD_IMPORT_BOUND_MS);
-          if (released.unsettled) {
-            findings.push(
-              `importing ${leg.what} during a pan had not settled ${HELD_IMPORT_BOUND_MS / 1000} s after the pan's release either`,
-            );
-          } else if (released.rejected !== undefined) {
-            fail(`importText(${leg.what}) rejected during a pan: ${released.rejected}`);
-          }
-          break;
-        }
-        if (outcome.rejected !== undefined) {
-          fail(`importText(${leg.what}) rejected during a pan: ${outcome.rejected}`);
-        }
-        const imported = m.getViewState();
-        const moveThrown = await errorOf(() => pan.move());
-        const after = m.getViewState();
-        activeDuringPan ||= m.interaction?.active() === true;
-        if (closeTo(after, imported)) {
-          findings.push(
-            `a pan stopped when ${leg.what} was imported during it (its next step left the view where the import had put it)`,
-          );
-        } else if (closeTo(imported, atRest) && !closeTo(after, panned)) {
-          findings.push(
-            `a pan's next step after ${leg.what} was imported during it did not go on from the view the import left: it put the view where the pan would have brought the view from before the import`,
-          );
-        }
-        if (moveThrown !== undefined) {
-          findings.push(`a pan's next step after an import of ${leg.what} threw ${moveThrown}`);
-        }
-        let dropThrown: string | undefined;
-        const dropped = await changeEvents(h, m, async () => {
-          dropThrown = await errorOf(() => pan.drop());
-        });
-        if (dropped.calls > 0) {
-          fail(
-            `releasing a pan fired onContentChanged ${dropped.calls}x — a pan changes the view, never the document (L3)`,
-          );
-        }
-        if (dropThrown !== undefined) {
-          findings.push(`releasing a pan after an import of ${leg.what} threw ${dropThrown}`);
-        }
-        for (const error of errors.errors) {
-          findings.push(
-            `an error reached the window during a pan over an import of ${leg.what}: ${error}`,
-          );
-        }
-        if (activeDuringPan) findings.push("interaction.active() was true during a pan");
-        else if (watch && watch.delivered.length > 0) {
-          findings.push(
-            `interaction.onChange delivered ${JSON.stringify(watch.delivered)} during a pan`,
-          );
-        }
-        if (exportOrFail(m, `after a pan over an import of ${leg.what}`) !== expected) {
-          findings.push(`a pan over an import of ${leg.what} changed the document`);
-        }
-        const before = exportOrFail(m, "before the next mutate after a pan");
-        const next = await changeEvents(h, m, () => h.mutate(m));
-        if (next.calls === 0 || exportOrFail(m, "after the next mutate after a pan") === before) {
-          findings.push(
-            `the next mutate after a pan over an import of ${leg.what} did not apply (wedged)`,
-          );
-        }
-      } finally {
-        errors.stop();
-        watch?.stop();
-      }
+    for (const { leg, hostRestoresView } of runs) {
+      const found = await panOverAnImport(h, m, startPan, leg, hostRestoresView);
+      findings.push(...found.findings);
+      if (found.stop) break;
     }
   } finally {
     m.destroy();

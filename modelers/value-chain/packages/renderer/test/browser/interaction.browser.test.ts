@@ -341,8 +341,13 @@ describe("interaction: the listener", () => {
     expect(calls).toEqual([true, false]);
   });
 
-  it("that destroys the modeler leaves the later listeners uncalled and the drag ended", () => {
+  it("that destroys the modeler leaves the later listeners uncalled and the drag ended", async () => {
     const later: boolean[] = [];
+    const dragging = editor().diagram.get<Dragging>("dragging");
+    let commands = 0;
+    editor()
+      .diagram.get<EventBus>("eventBus")
+      .on("commandStack.changed", () => (commands += 1));
     editor().interaction.onChange(() => editor().destroy());
     editor().interaction.onChange((value) => later.push(value));
     const start = pointer.centreOf("step-credit");
@@ -351,11 +356,15 @@ describe("interaction: the listener", () => {
     const release = pointer.event("mouseup", end);
     pointer.press(pointer.graphics("step-credit"), start);
     pointer.moveTo({ x: start.x + 40, y: start.y });
+    // The destroy came at the drag's start: it tears the diagram down once that input has returned.
+    await Promise.resolve();
+    expect(dragging.context()).toBeNull();
     document.dispatchEvent(furtherMove);
     document.dispatchEvent(release);
 
     expect(calls).toEqual([true]);
     expect(later).toEqual([]);
+    expect(commands).toBe(0);
     expect(editor().interaction.active()).toBe(false);
   });
 
@@ -371,12 +380,16 @@ describe("interaction: the listener", () => {
     expect(calls).toEqual([true, false]);
   });
 
-  it("is not called once the modeler is destroyed, also not for the gesture it ends", () => {
+  it("is not called once the modeler is destroyed, also not for the gesture it ends", async () => {
+    const dragging = editor().diagram.get<Dragging>("dragging");
     startGesture(editor(), "move");
     expect(calls).toEqual([true]);
+    // Held past the input that started it: the destroy ends the drag at once.
+    await Promise.resolve();
 
     editor().destroy();
 
+    expect(dragging.context()).toBeNull();
     expect(calls).toEqual([true]);
     expect(editor().interaction.active()).toBe(false);
   });

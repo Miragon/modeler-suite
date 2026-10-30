@@ -72,6 +72,10 @@ describe("the conforming reference modeler", () => {
     expect(await failingCases(harness({ enrichedViewStateReadback: true }))).toEqual([]);
   });
 
+  test("a diagram-js style enriched view-state readback advises nothing either: the pan case follows its numbers through a host's restore", async () => {
+    expect(await advisories(harness({ enrichedViewStateReadback: true }))).toEqual([]);
+  });
+
   test("waiting imports run by a microtask queued when the action starts (as Value Chain does) are NOT a violation: nothing fails, skips or advises", async () => {
     const h = harness({ flushQueuedAtTheActionsStart: true });
     expect(await failingCases(h)).toEqual([]);
@@ -1076,6 +1080,26 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     expect(advice).toMatch(
       /after the same document \(canonicalTexts\[0\]\) was imported during it did not go on from the view the import left/,
     );
+  });
+  test("a pan that puts back the view an import left after the host restored its own → an advisory from the pan case, for both documents", async () => {
+    const advice = await expectAdvisoryOnly({ panIgnoresHostView: true }, CASE.pan);
+    expect(advice).toMatch(
+      /after a different document \(canonicalTexts\[1\]\) was imported during it did not go on from the view the host restored after the import/,
+    );
+    expect(advice).toMatch(
+      /after the same document \(canonicalTexts\[0\]\) was imported during it did not go on from the view the host restored after the import/,
+    );
+    expect(advice).not.toMatch(/did not go on from the view the import left/);
+  });
+  test("a setViewState that does nothing while a pan is held → an advisory from the pan case, for both documents", async () => {
+    const advice = await expectAdvisoryOnly({ viewStateIgnoredDuringPan: true }, CASE.pan);
+    expect(advice).toMatch(
+      /setViewState after a different document \(canonicalTexts\[1\]\) was imported during a pan had no effect/,
+    );
+    expect(advice).toMatch(
+      /setViewState after the same document \(canonicalTexts\[0\]\) was imported during a pan had no effect/,
+    );
+    expect(advice).not.toMatch(/did not go on from the view/);
   });
   test("a request that closes the open label editor → an advisory from the appearance case", async () => {
     const advice = await expectAdvisoryOnly({ appearanceDropsInteraction: true }, CASE.appearance);
