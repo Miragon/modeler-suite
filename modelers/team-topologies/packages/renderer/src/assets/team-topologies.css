@@ -447,8 +447,16 @@
     color: CanvasText !important;
     box-shadow: inset 0 0 0 2px Highlight;
   }
-  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry[aria-disabled="true"] {
+  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry[aria-disabled="true"],
+  :where(.tt-djs-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry[aria-disabled="true"]:hover {
     color: GrayText;
+  }
+  :where(.tt-djs-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry.highlighted-entry[aria-disabled="true"] {
+    color: GrayText !important;
   }
 }
 

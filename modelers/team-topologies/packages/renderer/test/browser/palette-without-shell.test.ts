@@ -823,7 +823,7 @@ describe("the read-only lock marks the entries it disables (guide §13.5)", () =
     expect(entryOf(container, "team.platform").hasAttribute("aria-disabled")).toBe(false);
   });
 
-  test("keeps a disabled entry focusable with its tooltip, and lets neither the keys nor the pointer create, while the lasso still arms", async () => {
+  test("keeps a disabled entry focusable with its tooltip, lets neither the keys nor the pointer create, hands a pointer's focus to the canvas, and still arms the lasso", async () => {
     const { host, container, modeler } = mount();
     const dragging = modeler.get<Dragging>("dragging");
     lock(modeler, true);
@@ -836,14 +836,18 @@ describe("the read-only lock marks the entries it disables (guide §13.5)", () =
 
     await userEvent.keyboard("{Enter}");
     await userEvent.keyboard(" ");
+    expect(document.activeElement).toBe(entryOf(container, second));
     const team = entryOf(container, "team.platform");
     // Playwright waits for an aria-disabled element to become enabled before it clicks.
     await userEvent.click(team, { force: true });
     expect(dragging.context()?.prefix ?? null).toBeNull();
+    expect(document.activeElement).toBe(canvasSvg(modeler));
+    team.focus();
     const dragStart = new DragEvent("dragstart", { bubbles: true, cancelable: true });
     team.dispatchEvent(dragStart);
     expect(dragStart.defaultPrevented).toBe(true);
     expect(dragging.context()?.prefix ?? null).toBeNull();
+    expect(document.activeElement).toBe(canvasSvg(modeler));
     expect(modeler.exportDocument().nodes).toEqual([]);
 
     const lasso = entryOf(container, "lasso-tool");
@@ -883,7 +887,7 @@ describe("the read-only lock marks the entries it disables (guide §13.5)", () =
     expect(getComputedStyle(lasso.querySelector("svg")!).filter).toBe("none");
   });
 
-  test("draws a disabled entry in GrayText in forced colours", async () => {
+  test("draws a disabled entry in GrayText in forced colours, also hovered and highlighted", async () => {
     await cdp().send("Emulation.setEmulatedMedia", {
       features: [{ name: "forced-colors", value: "active" }],
     });
@@ -892,9 +896,15 @@ describe("the read-only lock marks the entries it disables (guide §13.5)", () =
       lock(modeler, true);
 
       const grayText = resolved(container, "color", "GrayText");
+      const team = entryOf(container, "team.platform");
 
-      expect((await settledStyle(entryOf(container, "team.platform"))).color).toBe(grayText);
+      expect((await settledStyle(team)).color).toBe(grayText);
       expect((await settledStyle(entryOf(container, "lasso-tool"))).color).not.toBe(grayText);
+      await userEvent.hover(team);
+      expect((await settledStyle(team)).color).toBe(grayText);
+      // diagram-js's class for the armed tool, as on a host's tool that the lock disables.
+      team.classList.add("highlighted-entry");
+      expect((await settledStyle(team)).color).toBe(grayText);
     } finally {
       await cdp().send("Emulation.setEmulatedMedia", { features: [] });
     }

@@ -2,6 +2,7 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Palette from "diagram-js/lib/features/palette/Palette";
 import type { Injector } from "didi";
+import { handFocusToCanvas } from "../keyboard/canvasFocus.js";
 import { isKeyOnHiddenTarget } from "../keyboard/TtKeyboard.js";
 import { READ_ONLY_CHANGED_EVENT, type TtReadOnly } from "../read-only/index.js";
 
@@ -153,8 +154,13 @@ export default class TtPaletteToolbar {
     const element = this.entryOf(event.event?.delegateTarget ?? event.event?.target ?? null);
     const vetoed = element ? !staysActive(element) : event.entry.group !== TOOLS_GROUP;
     if (!vetoed) return undefined;
-    // A vetoed dragstart would otherwise still start the browser's native drag of the entry.
-    event.event?.preventDefault();
+    const trigger = event.event;
+    if (trigger) {
+      // A vetoed dragstart would otherwise still start the browser's native drag of the entry.
+      trigger.preventDefault();
+      // The entry's action, which hands a pointer's focus to the canvas (guide §5.8), never runs.
+      handFocusToCanvas(this.canvas, trigger);
+    }
     return false;
   };
 
