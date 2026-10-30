@@ -524,6 +524,14 @@
   .event-storming-container .event-storming-label-input:focus::placeholder {
     color: GrayText;
   }
+  /* The opt-out takes the selection with it, which the browser would then paint in its own default
+     colours, and every editor opens with all its text selected. The second selector reaches the
+     note editor's lines and runs in an engine that does not pass the selection's colours down. */
+  .event-storming-container .event-storming-label-input:focus::selection,
+  .event-storming-container .event-storming-label-input:focus ::selection {
+    background: Highlight;
+    color: HighlightText;
+  }
   .event-storming-container .djs-context-pad.open,
   .event-storming-container .event-storming-note-toolbar,
   .event-storming-container .event-storming-color-picker,

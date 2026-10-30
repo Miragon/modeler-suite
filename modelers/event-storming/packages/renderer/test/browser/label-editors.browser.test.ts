@@ -351,6 +351,14 @@ describe("the inline label editors of a board", () => {
         expect(style.backgroundColor).toBe(unforcedColour("Canvas"));
         expect(style.color).toBe(unforcedColour("CanvasText"));
         expect(style.borderTopColor).toBe(unforcedColour("Highlight"));
+        expectSelectionInHighlight(field);
+      }
+
+      /** Every editor opens with all its text selected, the first thing a user sees of it. */
+      function expectSelectionInHighlight(element: Element): void {
+        const selection = getComputedStyle(element, "::selection");
+        expect(selection.backgroundColor).toBe(unforcedColour("Highlight"));
+        expect(selection.color).toBe(unforcedColour("HighlightText"));
       }
 
       it.each(EDITORS)(
@@ -359,6 +367,14 @@ describe("the inline label editors of a board", () => {
           expectSystemColours(open(editor), "2px");
         },
       );
+
+      it("paints the selected text of the note editor's lines and runs in Highlight", () => {
+        const field = open("note");
+        noteMarkdownToDom(field, "**Remember** the budget\n- for the workshop");
+        const runs = [...field.querySelectorAll("div, b")];
+        expect(runs.map((run) => run.tagName)).toEqual(["DIV", "B", "DIV"]);
+        for (const run of runs) expectSelectionInHighlight(run);
+      });
 
       it("shows the arrow label's placeholder in GrayText", () => {
         const field = open("arrow label");
