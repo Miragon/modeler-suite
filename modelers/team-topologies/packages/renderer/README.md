@@ -130,7 +130,8 @@ modeler.redo();
 > ship the font; self-host it in the host app (e.g. `@fontsource-variable/geist`) so the on-screen
 > canvas and exported SVG render in Geist. Without it, text falls back to a system sans. An SVG drawn
 > as an image (to rasterise a PNG) can't use the page's fonts: `svgToPng` of
-> `@miragon/modeler-shell/export` embeds the Geist subsets the text needs before it rasterises.
+> `@miragon/modeler-shell/export` embeds the Geist subsets the text needs before it rasterises, and
+> `embedGeist(svg, faces)` from the same entry embeds them for a host with a rasteriser of its own.
 
 ## API
 
@@ -302,8 +303,7 @@ shortcuts dialog is the shell's (below):
   `shell.showShortcutsDialog(diagramShortcuts(shell, options))`, with its own zoom and fit rows at
   the top of the View group (the renderer's View rows for them are left out), or the standalone
   `showShortcutsDialog(groups, { container })` of `@miragon/modeler-shell` in a host without a
-  mounted shell. `createShortcutsDialog(chrome, options)` is the renderer's own dialog for the same
-  groups, deprecated since 0.16.0 and removed in 0.17.0.
+  mounted shell.
 - The title dialog is a native modal `<dialog>` in `chrome.root` (the shell root), closed by Escape,
   the Close button or a press on the backdrop; the focus goes back to the control that opened it,
   else to `chrome.menu.trigger`. It is built on the first `open()`; call `destroy()` with the
@@ -376,16 +376,11 @@ const removeLegend = renderLegend(legendBody);
   close) come from `@miragon/modeler-shell`.
 - **Design tokens:** `MIRAGON` (the Miragon colours by name) and `CD_TOKENS` (the same values keyed
   by their `--cd-*` CSS name), for host code that paints outside CSS.
-- **Fonts in exports (deprecated since 0.16.0, removed in 0.17.0):** `geistFontFaceCss`,
-  `embedSvgStyles` and `GEIST_UNICODE_RANGES` embedded two Geist subsets into a `saveSVG()` result
-  before a host rasterised it. `svgToPng` of `@miragon/modeler-shell/export` embeds the subsets the
-  text needs, and `embedGeist(svg, faces)` from the same entry is that half on its own.
 - **Chrome content** ([Around the canvas](#around-the-canvas)): `diagramMenu`, `diagramShortcuts`,
   `createTitleDialog`, `renderLegend`, `legendGroups`, `JSON_EXPORT_LABEL`,
   `SHORTCUTS_DIALOG_KEY`, and their structural types (`DiagramMenu`, `DiagramMenuActions`,
   `DiagramExports`, `ShortcutsChrome`, `TitleDialogChrome`, `DiagramTitle`, `LegendGroup`,
-  `LegendRow`, …). `createShortcutsDialog`, `ShortcutsDialog` and `ShortcutsDialogChrome` are
-  deprecated since 0.16.0 and removed in 0.17.0.
+  `LegendRow`, …).
 - **Other:** `TtViewerOptions`, `ImportOptions`, `ImportWarning`, `RootBusinessObject`, `ROOT_ID`,
   `saveSVG`, `TtReadOnly` and `READ_ONLY_CHANGED_EVENT` (the lock, DI name `ttReadOnly`), and
   `TtViewport` (DI name `ttViewport`, for `contentBounds()`; its `fit()` is the internal fit of

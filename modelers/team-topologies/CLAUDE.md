@@ -132,8 +132,6 @@ passes all five as `data:` URLs through its `?dataurl` esbuild plugin (the CSP h
 `onFontFallback` becomes a warning toast in the web app and a warning notification in VS Code
 (`fontFallback` on the `export` and `pngResponse` messages). The renderer's `saveSVG` draws no
 sheet behind the diagram, so an SVG is transparent and only the PNG fills a background.
-`createShortcutsDialog` and the Geist helpers (`geistFontFaceCss`, `embedSvgStyles`,
-`GEIST_UNICODE_RANGES`) are deprecated since 0.16.0 and removed in 0.17.0 (#259, #260).
 
 The `ui` package is consumed from source only (no build, not published). It holds the inspector
 (React, mounted into the shell's inspector slot) and `makeRoomForLegend`, ships its styles as

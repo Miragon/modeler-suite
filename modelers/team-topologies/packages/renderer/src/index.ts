@@ -67,11 +67,6 @@ export type {
 } from "./model/di-types.js";
 export type { ImportWarning, RootBusinessObject } from "./io/index.js";
 
-// Geist inside exported SVGs, so a rasterised PNG keeps the canvas typeface. Deprecated since 0.16.0
-// and removed in 0.17.0: the shell's svgToPng embeds it.
-export { GEIST_UNICODE_RANGES, embedSvgStyles, geistFontFaceCss } from "./io/index.js";
-export type { GeistFontDataUrls } from "./io/index.js";
-
 // Miragon design tokens (pure data) — for host code that paints outside CSS, e.g. canvas exports.
 export { MIRAGON, CD_TOKENS } from "./theme/index.js";
 
@@ -99,7 +94,6 @@ export {
 export {
   JSON_EXPORT_LABEL,
   SHORTCUTS_DIALOG_KEY,
-  createShortcutsDialog,
   createTitleDialog,
   diagramMenu,
   diagramShortcuts,
@@ -122,8 +116,6 @@ export type {
   ShortcutPlatform,
   ShortcutRow,
   ShortcutsChrome,
-  ShortcutsDialog,
-  ShortcutsDialogChrome,
   TitleDialog,
   TitleDialogChrome,
 } from "./chrome/index.js";

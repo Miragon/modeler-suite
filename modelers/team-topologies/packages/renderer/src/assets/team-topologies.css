@@ -440,11 +440,9 @@
 }
 
 /* ============================================================================
-   Content for the host's chrome: the legend rows (renderLegend) and the "Keyboard shortcuts…"
-   and "Diagram title…" dialogs (createShortcutsDialog, createTitleDialog). Where they sit is the
-   host's: the modeler shell's legend card and root, or a host's own panel. Styled here, so a
-   host without the shell gets them complete. The shell's own shortcuts dialog replaces
-   createShortcutsDialog, whose .tt-shortcuts__* rules go with it in 0.17.0.
+   Content for the host's chrome: the legend rows (renderLegend) and the "Diagram title…" dialog
+   (createTitleDialog). Where they sit is the host's: the modeler shell's legend card and root,
+   or a host's own panel. Styled here, so a host without the shell gets them complete.
    ========================================================================== */
 
 /* --- Legend rows (the host renders the card around them) ------------------- */
@@ -752,54 +750,6 @@
 /* One field: the narrow width of guide §8's short dialogs. */
 .tt-title-dialog {
   width: min(440px, 100cqw - 32px);
-}
-
-.tt-shortcuts__group-title {
-  margin: 0 0 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cd-ui-text-leise);
-}
-
-.tt-shortcuts__table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.tt-shortcuts__table tr + tr {
-  border-top: 1px solid var(--cd-ui-linie);
-}
-
-.tt-shortcuts__action {
-  padding: 6px 12px 6px 0;
-  font-weight: 400;
-  text-align: left;
-}
-
-.tt-shortcuts__keys {
-  padding: 6px 0;
-  text-align: right;
-  white-space: nowrap;
-}
-
-/* The chips look like the chrome tooltip's (guide §5.6). */
-.tt-shortcuts__key {
-  display: inline-block;
-  padding: 1px 6px;
-  font-family: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 20px;
-  color: var(--cd-ui-text-leise);
-  vertical-align: baseline;
-  background: var(--cd-ui-grund);
-  border: 1px solid var(--cd-ui-linie);
-  border-radius: var(--cd-radius-sm);
-  box-shadow: none;
-}
-
-.tt-shortcuts__key + .tt-shortcuts__key {
-  margin-left: 6px;
 }
 
 /* High contrast (guide §6, §8): no shadow but a contour edge and a 3px ring, after the nearest mode
