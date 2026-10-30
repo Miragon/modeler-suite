@@ -1,5 +1,6 @@
 import type Palette from "diagram-js/lib/features/palette/Palette";
 import type Create from "diagram-js/lib/features/create/Create";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type LassoTool from "diagram-js/lib/features/lasso-tool/LassoTool";
 import type WardleyDrawTool from "../draw-tool/WardleyDrawTool.js";
 import type {
@@ -20,6 +21,8 @@ import type { FreeRect } from "../free-rect/index.js";
 import { isWardleyShape, type WardleyShape, type WardleyShapeType } from "../model/di-types.js";
 import { PALETTE_ICONS, attitudeIcon } from "../draw/palette-icons.js";
 import { focusCanvasWithoutRing } from "../a11y/index.js";
+import { LASSO_SELECTION } from "../lasso/index.js";
+import { isReadOnly } from "../read-only/index.js";
 
 interface PaletteSpec {
   key: string;
@@ -236,6 +239,11 @@ export default class WardleyPaletteProvider implements PaletteProvider {
       html: this.entryHtml(LASSO_TOOL.title, LASSO_TOOL.icon, LASSO_TOOL.shortcut),
       action: {
         click: (event: Event) => {
+          // A pointer's press has already ended the waiting drag, so its click arms the lasso again.
+          if (isKeyboardClick(event) && this.lassoArmed()) {
+            this.putLassoDown();
+            return;
+          }
           this.lassoTool.activateSelection(event as MouseEvent);
           this.focusCanvasAfterPointer(event);
         },
@@ -248,6 +256,10 @@ export default class WardleyPaletteProvider implements PaletteProvider {
       html: this.entryHtml(DRAW_TOOL.title, DRAW_TOOL.icon, DRAW_TOOL.shortcut),
       action: {
         click: (event: Event) => {
+          // A pointer's press ends the lasso's waiting drag first; without one, that drag would wait
+          // on behind the draw tool and take the canvas's next press as well. The lock refuses the
+          // draw tool and leaves the lasso active, so the lasso stays armed then.
+          if (isKeyboardClick(event) && !isReadOnly(this.injector)) this.putLassoDown();
           this.drawTool.toggle();
           this.focusCanvasAfterPointer(event);
         },
@@ -278,11 +290,12 @@ export default class WardleyPaletteProvider implements PaletteProvider {
    * Keyboard path for a create entry (guide §5.5): places the new element in the centre of the
    * free rectangle (no pointer position to attach it to), 24px further diagonally while that spot
    * is taken, selects it and opens its label editor, or focuses the canvas where there is nothing
-   * to name. Returns the created shape, or undefined for non-create entries.
+   * to name. Returns the created shape, or undefined for non-create entries and while the read-only
+   * lock holds the map, whose rules `modeling.createShape` does not ask.
    */
   createAtFreeCenter(entryId: string): WardleyShape | undefined {
     const spec = SPECS.find((candidate) => `create.${candidate.key}` === entryId);
-    if (!spec) return undefined;
+    if (!spec || isReadOnly(this.injector)) return undefined;
     const modeling = this.injector.get<Modeling>("modeling");
     const canvas = this.injector.get<Canvas>("canvas");
     const grid = this.injector.get<EvolutionGrid>("evolutionGrid");
@@ -311,6 +324,15 @@ export default class WardleyPaletteProvider implements PaletteProvider {
    */
   private focusCanvasAfterPointer(event: Event): void {
     if (!isKeyboardClick(event)) focusCanvasWithoutRing(this.injector.get<Canvas>("canvas"));
+  }
+
+  /** Whether the lasso's drag waits for the next press on the canvas. */
+  private lassoArmed(): boolean {
+    return this.injector.get<Dragging>("dragging").context()?.prefix === LASSO_SELECTION;
+  }
+
+  private putLassoDown(): void {
+    if (this.lassoArmed()) this.injector.get<Dragging>("dragging").cancel(false);
   }
 
   private createShapeFor(spec: PaletteSpec): WardleyShape {

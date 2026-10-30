@@ -9,4 +9,4 @@ export const wardleyLassoModule: ModuleDeclaration = {
   wardleyLassoBehavior: ["type", WardleyLassoBehavior],
 };
 
-export { default as WardleyLassoBehavior } from "./WardleyLassoBehavior.js";
+export { default as WardleyLassoBehavior, LASSO_SELECTION } from "./WardleyLassoBehavior.js";

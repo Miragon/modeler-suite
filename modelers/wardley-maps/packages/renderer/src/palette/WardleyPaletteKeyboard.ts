@@ -137,7 +137,7 @@ export default class WardleyPaletteKeyboard {
 
   private activate(entry: HTMLElement): void {
     const action = entry.getAttribute("data-action");
-    if (!action) return;
+    if (!action || entry.getAttribute("aria-disabled") === "true") return;
     if (this.provider.createAtFreeCenter(action)) return;
     const bounds = entry.getBoundingClientRect();
     const click = new MouseEvent("click", {

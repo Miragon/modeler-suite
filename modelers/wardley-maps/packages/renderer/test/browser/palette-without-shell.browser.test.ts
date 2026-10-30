@@ -4,9 +4,11 @@ import { cdp, page, userEvent } from "vitest/browser";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
+import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import PaletteModule from "diagram-js/lib/features/palette";
+import type Palette from "diagram-js/lib/features/palette/Palette";
 import type { ModuleDeclaration } from "didi";
-import { Modeler } from "../../src/index.js";
+import { Modeler, type WardleyReadOnly } from "../../src/index.js";
 import type WardleyDrawTool from "../../src/draw-tool/WardleyDrawTool.js";
 import "../../src/assets/wardley.css";
 import diagramJsCss from "diagram-js/assets/diagram-js.css?raw";
@@ -395,6 +397,85 @@ describe("the armed tool without the shell (guide §5.5, §5.14, #425)", () => {
   });
 });
 
+/** The lasso entry's `aria-pressed` and the drag that holds the lasso armed (null: none). */
+function lassoState({ host, modeler }: Mounted): [string | null, string | null] {
+  return [
+    entry(host, "lasso-tool").getAttribute("aria-pressed"),
+    modeler.get<Dragging>("dragging").context()?.prefix ?? null,
+  ];
+}
+
+const ARMED_LASSO = ["true", "lasso.selection"];
+const RELEASED_LASSO = ["false", null];
+
+describe("the lasso's pressed state without the shell (guide §5.5, #462, #458)", () => {
+  it("puts the armed lasso down on a second Enter or Space and on Escape, so it is pressed only while armed", async () => {
+    const mapped = await mount();
+    const lasso = entry(mapped.host, "lasso-tool");
+    focusFromKeyboard(lasso);
+
+    await userEvent.keyboard(" ");
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+    await userEvent.keyboard(" ");
+    expect(lassoState(mapped)).toEqual(RELEASED_LASSO);
+    expect(document.activeElement).toBe(lasso);
+
+    await userEvent.keyboard("{Enter}");
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+    await userEvent.keyboard("{Escape}");
+    expect(lassoState(mapped)).toEqual(RELEASED_LASSO);
+
+    await userEvent.keyboard("{Enter}");
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+  });
+
+  it("puts a lasso a click armed down on Escape before the pointer moved, and the next click arms it again", async () => {
+    const mapped = await mount();
+    const lasso = entry(mapped.host, "lasso-tool");
+
+    await userEvent.click(lasso);
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+    await userEvent.keyboard("{Escape}");
+    expect(lassoState(mapped)).toEqual(RELEASED_LASSO);
+    await vi.waitFor(() => expect(lookOf(lasso)).not.toEqual(armedLook(mapped.host)));
+
+    await userEvent.click(lasso);
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+    await userEvent.click(lasso);
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+  });
+
+  it("keeps a lasso a click armed pressed when the pointer went over the canvas and back before the next click", async () => {
+    const mapped = await mount();
+    const lasso = entry(mapped.host, "lasso-tool");
+
+    await userEvent.click(lasso);
+    await userEvent.hover(mapped.host, { position: { x: 500, y: 500 } });
+    await userEvent.hover(lasso);
+    await userEvent.click(lasso);
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+    expect(mapped.modeler.get<ToolManager>("toolManager").isActive("lasso")).toBe(true);
+  });
+
+  it("puts the armed lasso down when Enter or Space arms the draw tool, as the pointer's press on the entry does", async () => {
+    const mapped = await mount();
+    const { host, modeler } = mapped;
+    focusFromKeyboard(entry(host, "lasso-tool"));
+    await userEvent.keyboard(" ");
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(entry(host, "draw-tool"));
+    await userEvent.keyboard(" ");
+    expect(modeler.get<WardleyDrawTool>("wardleyDrawTool").isActive()).toBe(true);
+    expect(lassoState(mapped)).toEqual(RELEASED_LASSO);
+    expect(pressedStates(host)).toMatchObject({ "draw-tool": "true" });
+    await userEvent.keyboard(" ");
+    expect(modeler.get<WardleyDrawTool>("wardleyDrawTool").isActive()).toBe(false);
+    expect(pressedStates(host)).toMatchObject({ "lasso-tool": "false", "draw-tool": "false" });
+  });
+});
+
 /** Once the entry's 150ms transitions have run: a read before that sees where they started. */
 async function afterTransitions(element: Element): Promise<void> {
   await Promise.all(element.getAnimations().map((animation) => animation.finished));
@@ -679,6 +760,48 @@ describe("the palette without the shell in the tab order (guide §5.5, §5.14, #
     const mapped = await mount(HOST, Modeler, { additionalModules: [ANOTHER_CHROME] });
     expect(paletteOf(mapped.host).getAttribute("data-chrome")).toBe("palette");
     expect(precedes(canvasSvg(mapped), paletteOf(mapped.host))).toBe(true);
+  });
+});
+
+/** A stand-in for the Miragon modeler shell, which skins the palette: the renderer looks for its service. */
+const SHELL_STAND_IN: ModuleDeclaration = {
+  __init__: [markPaletteAsSkinned],
+  modelerShell: ["value", { host: "web" }],
+};
+
+describe.each([
+  { chrome: "the shell", module: SHELL_STAND_IN },
+  { chrome: "another chrome", module: ANOTHER_CHROME },
+])("the lasso in a palette $chrome skins (#462, #458)", ({ module }) => {
+  /** The click a chrome sends for Enter or Space on an entry: no pointer, `detail` 0. */
+  function keyboardClick(host: HTMLElement, action: string): void {
+    host
+      .querySelector(`.djs-palette .entry[data-action="${action}"]`)!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  }
+
+  it("puts the armed lasso down on the second click the chrome sends for Enter or Space, on Escape and when the draw tool arms", async () => {
+    const mapped = await mount(HOST, Modeler, { additionalModules: [module] });
+    const { host, modeler } = mapped;
+    const toolManager = modeler.get<ToolManager>("toolManager");
+    const dragging = modeler.get<Dragging>("dragging");
+    const state = () => [toolManager.isActive("lasso"), dragging.context()?.prefix ?? null];
+
+    keyboardClick(host, "lasso-tool");
+    expect(state()).toEqual([true, "lasso.selection"]);
+    keyboardClick(host, "lasso-tool");
+    expect(state()).toEqual([false, null]);
+
+    keyboardClick(host, "lasso-tool");
+    expect(state()).toEqual([true, "lasso.selection"]);
+    canvasSvg(mapped).focus();
+    await userEvent.keyboard("{Escape}");
+    expect(state()).toEqual([false, null]);
+
+    keyboardClick(host, "lasso-tool");
+    keyboardClick(host, "draw-tool");
+    expect(state()).toEqual([false, null]);
+    expect(modeler.get<WardleyDrawTool>("wardleyDrawTool").isActive()).toBe(true);
   });
 });
 
@@ -1002,4 +1125,194 @@ describe("the palette's surface without the shell (guide §5.3, §5.5, §6, #447
 function rgbaOf(color: string): { alpha: number } {
   const channels = color.match(/[\d.]+/g)?.map(Number) ?? [];
   return { alpha: channels.length > 3 ? channels[3]! : 1 };
+}
+
+function lock({ modeler }: Mounted, readOnly = true): void {
+  modeler.get<WardleyReadOnly>("wardleyReadOnly").setReadOnly(readOnly);
+}
+
+/** `aria-disabled` of every entry, by its action (null: none). */
+function disabledStates(host: HTMLElement): Record<string, string | null> {
+  return Object.fromEntries(
+    [...host.querySelectorAll<HTMLElement>(".djs-palette .entry")].map((found) => [
+      found.dataset["action"],
+      found.getAttribute("aria-disabled"),
+    ]),
+  );
+}
+
+/** A host's own entry, which it marks `aria-disabled` itself. */
+function registerHostEntry(palette: Palette): void {
+  palette.registerProvider({
+    getPaletteEntries: () => ({
+      "host.disabled": {
+        group: "host",
+        title: "Host entry",
+        html: '<div class="entry" aria-disabled="true">H</div>',
+        action: { click: () => undefined },
+      },
+    }),
+  });
+}
+registerHostEntry.$inject = ["palette"];
+
+describe("the read-only lock in the palette without the shell (guide §13.5, #463)", () => {
+  it("marks every entry but the lasso aria-disabled at once with the lock, again after a rebuild, and none once unlocked", async () => {
+    const mapped = await mount();
+    const { host } = mapped;
+    const unlocked = disabledStates(host);
+    expect(Object.keys(unlocked)).toHaveLength(14);
+    expect(Object.values(unlocked)).toEqual(Array(14).fill(null));
+    const locked = Object.fromEntries(
+      Object.keys(unlocked).map((action) => [action, action === "lasso-tool" ? null : "true"]),
+    );
+
+    lock(mapped);
+    expect(disabledStates(host)).toEqual(locked);
+    rebuildPalette(mapped);
+    expect(disabledStates(host)).toEqual(locked);
+    lock(mapped, false);
+    expect(disabledStates(host)).toEqual(unlocked);
+  });
+
+  it("leaves a host's own aria-disabled on its entry once unlocked", async () => {
+    const mapped = await mount(HOST, Modeler, {
+      additionalModules: [{ __init__: [registerHostEntry] }],
+    });
+    expect(disabledStates(mapped.host)["host.disabled"]).toBe("true");
+    lock(mapped);
+    lock(mapped, false);
+    expect(disabledStates(mapped.host)).toMatchObject({
+      "host.disabled": "true",
+      "create.note": null,
+    });
+  });
+
+  it("mutes the marked entries without opacity: tool icons in --cd-ui-text-leise, notation previews grey, no hover", async () => {
+    const mapped = await mount();
+    const { host } = mapped;
+    lock(mapped);
+    const muted = resolved(host, "color", "var(--cd-ui-text-leise)");
+    const mutedLook = (target: HTMLElement) => {
+      const style = getComputedStyle(target);
+      const icon = getComputedStyle(target.firstElementChild!);
+      return [style.color, style.backgroundColor, style.opacity, style.cursor, icon.filter];
+    };
+    const expected = [muted, "rgba(0, 0, 0, 0)", "1", "not-allowed", "grayscale(1)"];
+
+    for (const action of ["draw-tool", "create.component", "create.note"]) {
+      const target = entry(host, action);
+      await afterTransitions(target);
+      expect(mutedLook(target)).toEqual(expected);
+      await userEvent.hover(target);
+      await vi.waitFor(() => expect(target.matches(":hover")).toBe(true));
+      await afterTransitions(target);
+      expect(mutedLook(target)).toEqual(expected);
+    }
+
+    const lasso = entry(host, "lasso-tool");
+    expect(getComputedStyle(lasso).color).toBe(resolved(host, "color", "var(--cd-ui-text)"));
+    expect(getComputedStyle(lasso.firstElementChild!).filter).toBe("none");
+  });
+
+  it("draws a marked entry in GrayText in forced colours, also under the pointer", async () => {
+    const mapped = await mount();
+    lock(mapped);
+    await emulateForcedColours();
+    const grayText = resolved(mapped.host, "color", "GrayText");
+
+    for (const action of ["draw-tool", "create.note"]) {
+      const target = entry(mapped.host, action);
+      await afterTransitions(target);
+      expect(getComputedStyle(target).color).toBe(grayText);
+      await userEvent.hover(target);
+      await vi.waitFor(() => expect(target.matches(":hover")).toBe(true));
+      await afterTransitions(target);
+      expect(getComputedStyle(target).color).toBe(grayText);
+    }
+  });
+
+  it("keeps the marked entries in the tab order, where Enter, Space, a click or a drag changes nothing, and the lasso still arms", async () => {
+    const mapped = await mount();
+    const { host, modeler } = mapped;
+    const dragging = modeler.get<Dragging>("dragging");
+    const before = modeler.exportDSL();
+    lock(mapped);
+
+    const lasso = entry(host, "lasso-tool");
+    focusFromKeyboard(lasso);
+    await userEvent.keyboard(" ");
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(entry(host, "draw-tool"));
+    await userEvent.keyboard(" ");
+    await userEvent.keyboard("{Enter}");
+    expect(modeler.get<WardleyDrawTool>("wardleyDrawTool").isActive()).toBe(false);
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+    await userEvent.keyboard("{End}");
+    expect(document.activeElement).toBe(entry(host, "create.note"));
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard(" ");
+    expect(modeler.exportDSL()).toBe(before);
+
+    // Playwright waits for an aria-disabled element to be enabled before it clicks.
+    await userEvent.click(entry(host, "create.component"), { force: true });
+    expect(dragging.context() ?? null).toBeNull();
+    const dragstart = new DragEvent("dragstart", { bubbles: true, cancelable: true });
+    entry(host, "create.market").dispatchEvent(dragstart);
+    expect(dragstart.defaultPrevented).toBe(true);
+    expect(dragging.context() ?? null).toBeNull();
+    expect(modeler.exportDSL()).toBe(before);
+
+    focusFromKeyboard(lasso);
+    await userEvent.keyboard(" ");
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+  });
+
+  it("leaves the marks of a palette another chrome skins to that chrome, and creates nothing from its keys", async () => {
+    const mapped = await mount(HOST, Modeler, { additionalModules: [ANOTHER_CHROME] });
+    const before = mapped.modeler.exportDSL();
+    lock(mapped);
+    expect(Object.values(disabledStates(mapped.host))).toEqual(Array(14).fill(null));
+
+    focusFromKeyboard(entry(mapped.host, "create.note"));
+    await userEvent.keyboard("{Enter}");
+    expect(mapped.modeler.exportDSL()).toBe(before);
+  });
+
+  it.each([
+    {
+      where: "Enter or Space on Draw in a palette another chrome skins",
+      modules: [ANOTHER_CHROME],
+      clickDraw: ({ host }: Mounted) => clickWithoutPointer(entry(host, "draw-tool")),
+    },
+    {
+      where: "a host's triggerEntry of Draw",
+      modules: [],
+      clickDraw: ({ modeler }: Mounted) =>
+        modeler.get<Palette>("palette").triggerEntry("draw-tool", "click", new MouseEvent("click")),
+    },
+  ])(
+    "leaves the armed lasso armed when the lock refuses the draw tool: $where",
+    async ({ modules, clickDraw }) => {
+      const mapped = await mount(HOST, Modeler, { additionalModules: modules });
+      const { modeler } = mapped;
+      const lassoArmed = () => [
+        modeler.get<ToolManager>("toolManager").isActive("lasso"),
+        modeler.get<Dragging>("dragging").context()?.prefix ?? null,
+      ];
+      lock(mapped);
+      clickWithoutPointer(entry(mapped.host, "lasso-tool"));
+      expect(lassoArmed()).toEqual([true, "lasso.selection"]);
+
+      clickDraw(mapped);
+      expect(modeler.get<WardleyDrawTool>("wardleyDrawTool").isActive()).toBe(false);
+      expect(lassoArmed()).toEqual([true, "lasso.selection"]);
+    },
+  );
+});
+
+/** The click a chrome or the palette's keyboard sends for Enter or Space: no pointer, `detail` 0. */
+function clickWithoutPointer(target: HTMLElement): void {
+  target.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 }
