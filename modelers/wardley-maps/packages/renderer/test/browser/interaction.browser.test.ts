@@ -441,10 +441,16 @@ const WARDLEY_GESTURES: ReadonlyArray<readonly [string, WardleyGesture]> = [
   ],
 ];
 
-function pressCanvasKey(modeler: CollaborativeWardleyModeler, key: string): void {
+function pressCanvasKey(
+  modeler: CollaborativeWardleyModeler,
+  key: string | KeyboardEventInit,
+): KeyboardEvent {
   const svg = canvasSvgOf(modeler);
   svg.focus();
-  svg.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+  const init = typeof key === "string" ? { key } : key;
+  const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
+  svg.dispatchEvent(event);
+  return event;
 }
 
 describe("interaction follows every Wardley gesture", () => {
@@ -660,15 +666,6 @@ describe("Escape during the renderer's own drags", () => {
   );
 });
 
-function pressKeyOnCanvas(
-  modeler: CollaborativeWardleyModeler,
-  init: KeyboardEventInit,
-): KeyboardEvent {
-  const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
-  canvasSvgOf(modeler).dispatchEvent(event);
-  return event;
-}
-
 function handlePositionsOf(modeler: CollaborativeWardleyModeler): number[][] {
   const container = diagramOf(modeler).get<Canvas>("canvas").getContainer();
   return [...container.querySelectorAll(".wardley-drawing-handle")].map((handle) => [
@@ -721,7 +718,7 @@ describe("the canvas keys during a drawing's point drag (#375)", () => {
     const current = await session(GESTURE_MAP);
     const { modeler } = current;
     select(modeler, shapeNamed(modeler, "Kettle"));
-    expect(pressKeyOnCanvas(modeler, { key: "c", ctrlKey: true }).defaultPrevented).toBe(true);
+    expect(pressCanvasKey(modeler, { key: "c", ctrlKey: true }).defaultPrevented).toBe(true);
     const committed = modeler.exportText();
     const drawing = theDrawing(modeler);
     select(modeler, drawing);
@@ -757,7 +754,7 @@ describe("the canvas keys during a drawing's point drag (#375)", () => {
       const { modeler } = current;
       const shapes = shapeCount(modeler);
 
-      expect(pressKeyOnCanvas(modeler, init).defaultPrevented).toBe(taken);
+      expect(pressCanvasKey(modeler, init).defaultPrevented).toBe(taken);
       await settle();
       expectTheDragRunningOn(current, drawing, committed);
 
@@ -780,7 +777,7 @@ describe("the canvas keys during a drawing's point drag (#375)", () => {
     const { modeler } = current;
     document.dispatchEvent(new Event("copy"));
 
-    expect(pressKeyOnCanvas(modeler, { key: "v", ctrlKey: true }).defaultPrevented).toBe(true);
+    expect(pressCanvasKey(modeler, { key: "v", ctrlKey: true }).defaultPrevented).toBe(true);
     await settle();
     expectTheDragRunningOn(current, drawing, committed);
 
@@ -794,8 +791,8 @@ describe("the canvas keys during a drawing's point drag (#375)", () => {
   test("Escape still ends the drag without a commit after the keys it took", async () => {
     const { current, drawing, handle, committed, handlesBefore, to } = await draggingAPoint();
     const { modeler } = current;
-    pressKeyOnCanvas(modeler, { key: "ArrowRight" });
-    pressKeyOnCanvas(modeler, { key: "c" });
+    pressCanvasKey(modeler, { key: "ArrowRight" });
+    pressCanvasKey(modeler, { key: "c" });
 
     pressEscape(modeler);
     expect(modeler.interaction.active()).toBe(false);
@@ -816,7 +813,7 @@ describe("the canvas keys during a drawing's point drag (#375)", () => {
     const { current, drawing, to } = await draggingAPoint();
     const { modeler } = current;
 
-    expect(pressKeyOnCanvas(modeler, { key: "Delete" }).defaultPrevented).toBe(true);
+    expect(pressCanvasKey(modeler, { key: "Delete" }).defaultPrevented).toBe(true);
     expect(current.changes()).toBe(1);
     expect(
       diagramOf(modeler).get<ElementRegistry>("elementRegistry").get(drawing.id),
@@ -833,7 +830,7 @@ describe("the canvas keys during a drawing's point drag (#375)", () => {
   test("the keys act again once the release has ended the drag", async () => {
     const { current, handlesBefore, to } = await draggingAPoint();
     const { modeler } = current;
-    pressKeyOnCanvas(modeler, { key: "ArrowRight" });
+    pressCanvasKey(modeler, { key: "ArrowRight" });
     mouse(document, "mouseup", to);
     await settle();
     expect(current.changes()).toBe(1);
@@ -841,7 +838,7 @@ describe("the canvas keys during a drawing's point drag (#375)", () => {
     expect(released[0]).not.toEqual(handlesBefore[0]);
     expect(released.slice(1)).toEqual(handlesBefore.slice(1));
 
-    expect(pressKeyOnCanvas(modeler, { key: "ArrowDown", shiftKey: true }).defaultPrevented).toBe(
+    expect(pressCanvasKey(modeler, { key: "ArrowDown", shiftKey: true }).defaultPrevented).toBe(
       true,
     );
     expect(current.changes()).toBe(2);
@@ -850,7 +847,7 @@ describe("the canvas keys during a drawing's point drag (#375)", () => {
       expect(y).toBeCloseTo(released[index]![1]! + 10, 5);
     });
 
-    expect(pressKeyOnCanvas(modeler, { key: "l" }).defaultPrevented).toBe(true);
+    expect(pressCanvasKey(modeler, { key: "l" }).defaultPrevented).toBe(true);
     expect(draggingPrefix(modeler)).toBe("lasso.selection");
   });
 });
