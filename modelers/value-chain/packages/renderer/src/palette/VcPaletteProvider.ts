@@ -116,7 +116,7 @@ export default class VcPaletteProvider {
       },
       "space-tool": {
         group: "tools",
-        title: "Create or remove space",
+        title: "Space",
         shortcut: "S",
         html: paletteEntryHtml(ICONS.spaceTool),
         action: {

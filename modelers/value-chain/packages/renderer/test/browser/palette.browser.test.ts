@@ -71,7 +71,7 @@ describe("palette", () => {
     ).toEqual([
       ["Lasso", "L"],
       ["Hand", "H"],
-      ["Create or remove space", "S"],
+      ["Space", "S"],
       ["Connect", "C"],
       ["Step"],
       ["Organizational unit"],
