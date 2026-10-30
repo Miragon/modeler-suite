@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The path decisions of CI, so a change runs the jobs it can break and no more:
-#   ci-paths.sh affected               which modelers, whether the shared packages and whether the
-#                                      new-modeler template a change reaches
+#   ci-paths.sh affected               which modelers, and whether the shared packages, the
+#                                      repository-level tests and the new-modeler template a change
+#                                      reaches
 #   ci-paths.sh vscode-smoke <modeler> whether the change can reach that modeler's packaged extension
 #   ci-paths.sh modelers               every modeler (for the weekly smoke)
 # Each writes key=value lines to $GITHUB_OUTPUT. The event comes from EVENT_NAME and the base commit
@@ -120,7 +121,8 @@ reaches_template() {
 # config of a file wins, so at any depth) and its dependency-cruiser config (boundaries). A
 # .miragon folder anywhere, the docs included, is a second brand-lint config, which the brand-lint
 # config check rejects. A `*` of a case pattern also matches `/`, so regexes keep the same names
-# deeper in a modeler out. Which files a modeler and the docs have matters too, see affected.
+# deeper in a modeler out. Which files a modeler and the docs have matters too, see affected. No
+# other shared job reads these files, so these paths start shared-test alone.
 reaches_repository_tests() {
   local plugin='^modelers/[^/]+/plugins/'
   local manifest='^modelers/[^/]+/((packages|apps)/[^/]+/|e2e/)?package\.json$'
@@ -133,7 +135,7 @@ reaches_repository_tests() {
 
 affected() {
   local changed added_or_deleted reach path all
-  local everything=false shared=false template=false modelers=""
+  local everything=false shared=false repository_tests=false template=false modelers=""
   all=$(all_modelers)
   changed=$(mktemp)
   added_or_deleted=$(mktemp)
@@ -145,8 +147,8 @@ affected() {
       echo "$path: $reach"
       if reaches_template "$path"; then template=true; fi
       if reaches_repository_tests "$path"; then
-        echo "$path: shared (the repository-level tests)"
-        shared=true
+        echo "$path: the repository-level tests"
+        repository_tests=true
       fi
       case "$reach" in
         all) everything=true ;;
@@ -160,8 +162,8 @@ affected() {
     # that a change adds, deletes or moves reaches them as well.
     while IFS= read -r -d '' path; do
       if [[ "$(classify "$path")" == "modeler "* || "$path" == docs/* ]]; then
-        echo "$path: shared (added or deleted, the repository-level tests read the file names)"
-        shared=true
+        echo "$path: the repository-level tests (added or deleted, they read the file names)"
+        repository_tests=true
       fi
     done < "$added_or_deleted"
   fi
@@ -170,9 +172,13 @@ affected() {
     template=true
     modelers=$all
   fi
+  # shared-test runs the repository-level tests on every shared change as well, so
+  # repository-tests says whether that job runs.
+  if [[ "$shared" == true ]]; then repository_tests=true; fi
   modelers=$(printf '%s' "$modelers" | sort -u | sed '/^$/d')
-  echo "Shared jobs: $shared. Template job: $template. Modelers: $(printf '%s' "${modelers:-none}" | tr '\n' ' ')"
+  echo "Shared jobs: $shared. Repository-level tests: $repository_tests. Template job: $template. Modelers: $(printf '%s' "${modelers:-none}" | tr '\n' ' ')"
   output shared "$shared"
+  output repository-tests "$repository_tests"
   output template "$template"
   output modelers "$(lines_to_json "$modelers")"
   output all-modelers "$(lines_to_json "$all")"

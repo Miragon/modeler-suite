@@ -267,6 +267,75 @@ test.describe("the canvas slot", () => {
   });
 });
 
+/**
+ * The colour at `at` of a PNG of the viewport, decoded in a blank page of the same browser: the
+ * demo's webview stub may refuse the data: image this needs.
+ */
+async function pixelOf(page: Page, png: Buffer, at: { x: number; y: number }): Promise<number[]> {
+  const viewportWidth = page.viewportSize()!.width;
+  const scratch = await page.context().newPage();
+  try {
+    return await scratch.evaluate(
+      async ({ base64, at, viewportWidth }) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${base64}`;
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d")!;
+        context.drawImage(image, 0, 0);
+        const scale = image.naturalWidth / viewportWidth;
+        const data = context.getImageData(Math.floor(at.x * scale), Math.floor(at.y * scale), 1, 1);
+        return [...data.data.slice(0, 3)];
+      },
+      { base64: png.toString("base64"), at, viewportWidth },
+    );
+  } finally {
+    await scratch.close();
+  }
+}
+
+test.describe("the palette", () => {
+  test("keeps the focus ring whole beside a pressed neighbour, which paints after it (guide §5.14)", async ({
+    page,
+  }) => {
+    await open(page);
+    const palette = page.locator('[data-chrome="palette"]');
+    const lasso = palette.locator('[data-action="lasso-tool"]');
+    const hand = palette.locator('[data-action="hand-tool"]');
+    await page.locator('[data-chrome="menu"]').focus();
+    await page.keyboard.press("Tab");
+    await expect(lasso).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("ArrowLeft");
+    await expect(lasso).toBeFocused();
+    await expect(hand).toHaveAttribute("aria-pressed", "true");
+    expect(await lasso.evaluate((entry) => entry.matches(":focus-visible"))).toBe(true);
+
+    const roles = await palette.evaluate((element) => {
+      const probe = document.createElement("span");
+      element.append(probe);
+      const colourOf = (role: string) => {
+        probe.style.color = `var(${role})`;
+        return getComputedStyle(probe).color;
+      };
+      const colours = { hover: colourOf("--cd-ui-hover"), fokus: colourOf("--cd-ui-fokus") };
+      probe.remove();
+      return colours;
+    });
+    await expect
+      .poll(() => hand.evaluate((entry) => getComputedStyle(entry).backgroundColor))
+      .toBe(roles.hover);
+
+    const box = (await lasso.boundingBox())!;
+    const png = await page.screenshot({ animations: "disabled" });
+    const ring = await pixelOf(page, png, { x: box.x + box.width + 3, y: box.y + box.height / 2 });
+    expect(ring).toEqual((roles.fokus.match(/\d+/g) ?? []).slice(0, 3).map(Number));
+  });
+});
+
 test.describe("the demo's own dialog and note prompt", () => {
   /** Shadow and border of `selector`, and whether its border is the `kontur` role. */
   function frameOf(page: Page, selector: string) {

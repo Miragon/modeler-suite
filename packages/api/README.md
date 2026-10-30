@@ -272,6 +272,31 @@ label into the shared document for every peer. RECOMMENDED: the interaction
 stays open with its typed input, so the user's commit afterwards writes what it
 would have written without the view change.
 
+**A destroy from a listener** (1.6, RECOMMENDED). A host may call `destroy()`
+from any listener the modeler calls (`onContentChanged`, `elements.onSelection`,
+`interaction.onChange`), also while the user's input still runs: at a drag's
+start, where diagram-js empties the selection; at a drop, whose command fires
+the change event; at an Escape, which ends the gesture; during any other
+command. The same holds inside a method of the contract that calls the listener
+before it returns, such as `elements.reveal`, which delivers the selection.
+Neither `destroy()` nor that input or method throws there, and no listener of
+the host is called after it, also not a later listener of the same delivery: a
+delivery that loops over a copy of its listeners checks for a destroy before
+each call. A listener that an earlier listener of the same delivery
+unsubscribed is not called either, as with a DOM `EventTarget`. The modeler may
+finish removing its DOM once the input handler or the method that runs has
+returned: diagram-js reads the drag again after the selection listeners of its
+start and goes on with a drop after its change listeners (`SelectionBehavior`
+selects the moved shape again), so a renderer that tears the canvas down inside
+the listener throws from the user's input. A Promise the modeler returned
+before is no listener: an `importText` that still waits for the user's action
+may settle after the destroy (the Miragon renderers reject it), so a host
+ignores what settles after its own `destroy()`. A second `destroy()` throws
+nothing, as always. For `interaction.onChange` the contract states since 1.5
+that nothing is called once `destroy()` has been called; 1.6 extends it to
+every listener as a recommendation. The kit's destroy case checks it at the
+user's input; its leg for `elements.reveal` follows.
+
 **Keys stay on the canvas** (1.4, RECOMMENDED). A modeler acts on a key only
 while its canvas holds the focus: the key's target is the focusable element the
 modeler placed in the host to take its keys (diagram-js: the canvas `<svg>`,
@@ -562,7 +587,8 @@ cover those modes.
 an import, keep-open across a host's view change and across `appearance.set`,
 keys that stay on the canvas, the gesture cancel of 1.5, and the user's running
 action that an import waits for (a drop, a command, a drag's start), the call
-order of imports and the pan that runs on through an import, all of 1.6),
+order of imports, the pan that runs on through an import and a destroy from a
+host's listener, all of 1.6),
 the kit reports what it finds as an ADVISORY through `onAdvisory` (`console.warn` by default) and never
 fails: a recommendation becomes a law, with a failing case, only in a major
 release. The collision check imports the same canonical text into two fresh
@@ -626,10 +652,10 @@ those whose import runs inside a delete.
 
 The kit checks `interaction`, the gesture cancel of L1, the user's actions an
 import waits for (a drop, a delete, an undo, a redo, a drag's start), the call
-order of imports, the pan and `appearance` with seven cases and four optional
-harness fields. The user-action case needs none of the four: it drives
-`elements`, `undo`, `redo` and `mutate`, and presses Delete on the canvas the
-keys case finds.
+order of imports, the pan, a destroy from a host's listener and `appearance`
+with eight cases and four optional harness fields. The user-action case needs
+none of the four: it drives `elements`, `undo`, `redo` and `mutate`, and
+presses Delete on the canvas the keys case finds.
 
 The harness fields:
 
@@ -642,7 +668,12 @@ The harness fields:
   releases the gesture where it applies: the moved element lands on a new
   position, a create on free canvas (the off-canvas preview is brought there
   first). So a drop the modeler still runs changes the document, and a drop
-  that changes nothing shows a gesture that has ended.
+  that changes nothing shows a gesture that has ended. The destroy and
+  interaction cases destroy the modeler from a listener at the gesture's start,
+  the destroy case also inside `drop()` (the drop's change event) and inside
+  `cancel()` (the end that Escape reports): once the events that start, drop
+  or cancel the gesture have run, the harness reads nothing of the modeler
+  after an `await`.
 - `armTool(modeler)` arms a palette tool that waits for its next press (the
   lasso or the hand tool) without pressing.
 - `startPan(modeler)` holds a pan (a press on empty canvas, or the hand tool)
@@ -756,8 +787,32 @@ The cases:
   With a tool armed it stays false and the listener is not called, also through
   an import. Inside the listener `active()` returns the value the listener got,
   the unsubscribe ends delivery, and nothing is delivered after `destroy()`,
-  with a gesture held when it comes. A viewer that exposes the surface reports
-  false, before and after an import.
+  with a gesture held when it comes. Nor is anything delivered to a later
+  listener once an earlier one of the same delivery has called `destroy()`: on a
+  fresh instance the first of two listeners destroys the modeler on the `true`
+  of a `"move"`'s start, and the second must hear nothing after that (what the
+  start throws once the modeler is gone, also to the window, is the destroy
+  case's advisory). A viewer that exposes the surface reports false, before and
+  after an import.
+- **The destroy case** (RECOMMENDED since 1.6, an advisory): a host may destroy
+  the modeler from its listener while the user's input runs. Each leg runs on a
+  fresh instance with `canonicalTexts[0]` and its first listed element revealed,
+  and with a listener on every surface behind the one that destroys:
+  `elements.onSelection` destroys the modeler at the start of a `"move"` and of
+  a `"create"` (diagram-js empties the selection there), `onContentChanged` at
+  the drop of a `"move"`, and `interaction.onChange` at the `false` of a
+  `"move"` cancelled with Escape. The advisory: `destroy()` and the input throw
+  nothing (the window's `error` and `unhandledrejection` events too), the
+  selection listener hears `[]` and nothing more, no listener is called after
+  the destroy, also not a later one of the same delivery, and a second
+  `destroy()` throws nothing. After the destroy the case calls nothing of the
+  modeler but that second `destroy()`: no `drop()` or `cancel()` after a
+  destroy at the start, nothing after the `drop()` or `cancel()` inside which
+  the listener destroyed it. Last, on a fresh instance, the first
+  `interaction.onChange` listener unsubscribes the second on the `true` of a
+  `"move"`'s start, and the second must hear nothing after that. The contract
+  orders no delivery, so neither this leg nor the interaction case's later
+  listener counts what a listener heard before the unsubscribe or the destroy.
 - **The appearance case** (failures, apart from the keep-open advisory): a
   theme is view state, and an unlisted one falls back to `themes[0]`. `themes`
   is non-empty, without duplicates, only `"light"` and `"dark"`, and the same
@@ -797,9 +852,9 @@ holds, waits for the import once more and runs no further leg, so such a
 modeler advises instead of hanging the run.
 
 A modeler without `interaction` or `appearance` skips that case. A harness
-without `startGesture` skips the gesture, drop, drag-start and interaction
-cases, one without `startPan` the pan case; one without `armTool`, `exportImage` or
-`openInteraction` skips only the half that reads it, and one without
+without `startGesture` skips the gesture, drop, drag-start, interaction and
+destroy cases, one without `startPan` the pan case; one without `armTool`,
+`exportImage` or `openInteraction` skips only the half that reads it, and one without
 `createReadonly`, or whose viewer has no `appearance`, skips the viewer half
 of the appearance case. One canonical text skips the legs of another document,
 `invalidTexts` left undefined the rejected leg of the gesture case, and a run
@@ -818,7 +873,10 @@ comes with an export other than the document from before, and when the first
 import has already run once the second is called. The drag-start case skips
 for a modeler without `elements`, when `reveal()` selects no element of
 `canonicalTexts[0]`, and when the selection listener hears nothing at the
-start. Each case has its
+start. The destroy case skips its legs at a drag's start for the same three
+reasons, its leg at Escape and its unsubscribe for a modeler without
+`interaction` (and when `onChange` reports no end at the cancel, or no start),
+and its leg at the drop when the drop fires no change event. Each case has its
 saboteurs, the appearance case among them a `set` that does nothing and leaves
 the roles to the page.
 
@@ -862,12 +920,16 @@ whose case only advises. A 1.4 modeler stays a conforming 1.5 modeler.
 1.6 follows them too. The kit gains the cases of the 1.5 surfaces (see
 [Cases for the 1.5 surfaces and the gesture rules of 1.6](#cases-for-the-15-surfaces-and-the-gesture-rules-of-16))
 with four optional harness fields, each reported as a skip until a harness
-provides it; their failures enforce only what 1.5 states. Three requirements
-the text did not state ship as RECOMMENDATIONS whose cases only advise: an
-import called during a running user action (a drop, the start of a drag, a
-command) waits until the action has finished, imports keep their call order,
-and a pan is no gesture and runs on through an import (1.5 said a pan MAY
-count). A 1.5 modeler stays a conforming 1.6 modeler. The Miragon renderers and the new-modeler template,
+provides it; their failures enforce only what 1.5 states, the interaction
+case's later listener of a delivery in which an earlier one called `destroy()`
+included. Four requirements the text did not state ship as RECOMMENDATIONS
+whose cases only advise: an import called during a running user action (a
+drop, the start of a drag, a command) waits until the action has finished,
+imports keep their call order, a pan is no gesture and runs on through an
+import (1.5 said a pan MAY count), and a host may destroy the modeler from any
+listener, with nothing thrown, no listener called afterwards and no listener
+called that an earlier one of the same delivery unsubscribed. A 1.5 modeler
+stays a conforming 1.6 modeler. The Miragon renderers and the new-modeler template,
 whose harnesses fail on every skip and every advisory, fill the four fields
 before the cases land, and every one of them passes the cases.
 
@@ -916,6 +978,16 @@ Recommendations today, proposed as hard laws for the next major:
   and it goes on from the current view: the one the import left, or one the
   host sets after it under L5 (today: RECOMMENDED since 1.6, advisory in the
   pan case; 1.5 said a pan MAY count as a gesture).
+- **A destroy from any listener:** `destroy()` called from a listener the
+  modeler calls, also while the user's input runs (a drag's start, a drop, an
+  Escape, a command) or inside a method of the contract that calls the listener
+  (`elements.reveal`), throws nothing there, nor does that input or method, and
+  no listener of the host is called after it, also not a later listener of the
+  same delivery; a listener that an earlier listener of the same delivery
+  unsubscribed is not called; the modeler may finish its teardown once the
+  input's handler or the method has returned (today: RECOMMENDED since 1.6,
+  advisory in the destroy case, whose leg for `elements.reveal` follows; for
+  `interaction.onChange` nothing after `destroy()` is a law since 1.5).
 
 ## Roadmap
 

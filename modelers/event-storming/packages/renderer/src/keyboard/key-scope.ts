@@ -14,8 +14,9 @@ export function isUnhandledKey(event: KeyboardEvent): boolean {
  * Whether the key is aimed at the canvas: its target is the canvas `<svg>` or lies inside it, the
  * element diagram-js 15 binds its own keyboard to. `<body>` does not count: right after a load,
  * after a click on page text or while a host hides the canvas, a key there is the page's. Nor does
- * a canvas inside an `inert` subtree: Chromium moves the focus off an element the host made inert
- * only at its next rendering update, so until then the key still reaches the `<svg>`.
+ * a canvas inside an `inert` subtree or below an ancestor with `display: none`: Chromium moves the
+ * focus off an element the host made inert or hid only at its next rendering update, so until then
+ * the key still reaches the `<svg>`.
  */
 export function targetsCanvas(event: Event, canvas: Pick<Canvas, "getContainer">): boolean {
   const svg = canvasSvg(canvas);
@@ -24,6 +25,12 @@ export function targetsCanvas(event: Event, canvas: Pick<Canvas, "getContainer">
     svg !== null &&
     target instanceof Element &&
     svg.contains(target) &&
-    target.closest("[inert]") === null
+    target.closest("[inert]") === null &&
+    isRendered(svg)
   );
+}
+
+/** Without `checkVisibility` (Safari before 17.4) the browser's focus fixup alone has to do. */
+export function isRendered(element: Element): boolean {
+  return typeof element.checkVisibility !== "function" || element.checkVisibility();
 }

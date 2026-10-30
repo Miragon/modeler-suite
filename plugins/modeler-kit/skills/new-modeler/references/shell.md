@@ -80,7 +80,9 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
   (the two a read-only canvas keeps); every entry has a `title` and a separate `shortcut`, no native
   `title` attribute. A creating entry tells Enter or Space from a pointer by the synthetic click's
   `detail === 0` and then creates in the free area: selected, the canvas focused, the label editor
-  open. Renderer palette styles apply only to `.djs-palette:not([data-chrome='palette'])`.
+  open. Renderer palette styles apply only to `.djs-palette:not([data-chrome='palette'])` inside
+  the notation's container (`.__NOTATION__-container`), so the shell's palette and any other
+  diagram-js palette on the page keep their own.
 - **Keys.** The shell owns Cmd/Ctrl `+`, `−`, `0` and Shift+1 and stops them before VS Code. The
   renderer binds Cmd/Ctrl+A (select all; unprevented, VS Code would select the chrome), respects
   `undoRedoKeys`, and its single-letter tools act only on the focused canvas.

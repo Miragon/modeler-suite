@@ -222,8 +222,8 @@ export default class WardleyDrawTool {
    * that starts this tool, where a tool started with Enter leaves the focus (guide §5.5). Every
    * other target keeps them, inside the container too: a host's fields, buttons, menus and dialogs,
    * its zoom panel, a focusable element in an overlay next to the canvas, `<body>` and a canvas the
-   * host made inert. A capture listener on the document would otherwise take them from all of
-   * these.
+   * host made inert or hid. A capture listener on the document would otherwise take them from all
+   * of these.
    */
   private ownsKey(e: KeyboardEvent): boolean {
     if (isCanvasKey(e, this.canvas)) return true;
