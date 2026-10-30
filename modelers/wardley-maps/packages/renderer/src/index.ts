@@ -62,6 +62,7 @@ export {
 } from "./link-editing/index.js";
 export { wardleyLabelDragModule, WardleyLabelDragging } from "./label-drag/index.js";
 export { readOnlyModule, WardleyReadOnly, READ_ONLY_CHANGED } from "./read-only/index.js";
+export type { WardleyReadOnlyOptions } from "./read-only/index.js";
 export type { LabelRole } from "./label-drag/index.js";
 export { canvasAccessibilityModule } from "./a11y/index.js";
 export { wardleyLassoModule, WardleyLassoBehavior } from "./lasso/index.js";

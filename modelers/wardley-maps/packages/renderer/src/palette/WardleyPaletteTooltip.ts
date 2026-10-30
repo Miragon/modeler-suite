@@ -29,8 +29,10 @@ interface Shown {
  * a map in a part of a wide page shows it at its entry, also with the palette in the second row of
  * a narrow container (§5.15). It shows after 300ms of hover, at once on keyboard focus and at once
  * for a neighbour while one is shown, never for touch, and hides on a press (a click, or Enter or
- * Space on the focused entry), Escape, leaving and blur; `role="tooltip"`. Surface, type and key chip are §5.6 too (wardley.css). A palette a chrome
- * skins (`data-chrome="palette"`) keeps diagram-js's place right of the entry.
+ * Space on the focused entry), Escape, leaving and blur; `role="tooltip"`. A palette that scrolls
+ * sideways (guide §5.15) takes it along with its entry, and an entry scrolled out of view takes it
+ * away. Surface, type and key chip are §5.6 too (wardley.css). A palette a chrome skins
+ * (`data-chrome="palette"`) keeps diagram-js's place right of the entry.
  */
 export default class WardleyPaletteTooltip {
   static $inject = ["eventBus", "palette", "canvas"];
@@ -70,6 +72,7 @@ export default class WardleyPaletteTooltip {
     paletteContainer.addEventListener("focusout", this.onFocusOut);
     paletteContainer.addEventListener("pointerdown", this.onPress);
     paletteContainer.addEventListener("click", this.onPress);
+    paletteContainer.addEventListener("scroll", this.onPaletteScroll);
     // Escape hides the tooltip wherever the focus is, and leaves the key to whoever handles it. The
     // capture phase also sees Enter and Space before the toolbar or the draw tool takes them.
     paletteContainer.ownerDocument.addEventListener("keydown", this.onKeydown, true);
@@ -85,6 +88,7 @@ export default class WardleyPaletteTooltip {
     container.removeEventListener("focusout", this.onFocusOut);
     container.removeEventListener("pointerdown", this.onPress);
     container.removeEventListener("click", this.onPress);
+    container.removeEventListener("scroll", this.onPaletteScroll);
     container.ownerDocument.removeEventListener("keydown", this.onKeydown, true);
     this.paletteContainer = undefined;
     this.hovered = undefined;
@@ -138,6 +142,16 @@ export default class WardleyPaletteTooltip {
     if (event.key === "Escape" || this.pressesEntry(event)) this.hide();
   };
 
+  // A palette that scrolls sideways (guide §5.15) carries the entries away under a shown tooltip,
+  // which would then name an entry it no longer stands below.
+  private readonly onPaletteScroll = (): void => {
+    const shown = this.shown;
+    const palette = this.paletteContainer;
+    if (!shown || !palette) return;
+    if (liesOutside(shown.entry, palette)) this.hide();
+    else this.place(shown.element, shown.entry);
+  };
+
   // Enter and Space press the focused entry as a click does (guide §5.5, §5.6), but the toolbar and
   // the draw tool act on them without dispatching a click, so the click listener never sees them.
   private pressesEntry(event: KeyboardEvent): boolean {
@@ -182,11 +196,10 @@ export default class WardleyPaletteTooltip {
       return;
     }
     this.hide();
-    const skinned = entry.closest(".djs-palette")?.getAttribute("data-chrome") === "palette";
     const element = tooltipElement(
       entry.ownerDocument,
       this.id,
-      skinned,
+      isSkinned(entry),
       paletteEntry.title,
       paletteEntry.shortcut,
     );
@@ -196,7 +209,11 @@ export default class WardleyPaletteTooltip {
     if (saysMoreThanName(entry, paletteEntry.title, paletteEntry.shortcut)) {
       entry.setAttribute("aria-describedby", [describedBy, this.id].filter(Boolean).join(" "));
     }
-    if (skinned) placeRightOfEntry(element, entry);
+    this.place(element, entry);
+  }
+
+  private place(element: HTMLElement, entry: HTMLElement): void {
+    if (isSkinned(entry)) placeRightOfEntry(element, entry);
     else this.placeBelowPalette(element, entry);
   }
 
@@ -249,6 +266,18 @@ function tooltipElement(
     element.append(chip);
   }
   return element;
+}
+
+function isSkinned(entry: HTMLElement): boolean {
+  return entry.closest(".djs-palette")?.getAttribute("data-chrome") === "palette";
+}
+
+/** Whether no part of `entry` lies in the visible part of the palette that scrolls it. */
+function liesOutside(entry: HTMLElement, palette: HTMLElement): boolean {
+  const view = palette.getBoundingClientRect();
+  const start = view.left + palette.clientLeft;
+  const box = entry.getBoundingClientRect();
+  return box.right <= start || box.left >= start + palette.clientWidth;
 }
 
 // diagram-js's own place, in page coordinates: its stylesheet fixes the tooltip to the viewport.

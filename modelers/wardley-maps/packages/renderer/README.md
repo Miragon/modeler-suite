@@ -41,16 +41,19 @@ second row, 64px from the top, in a container at most 760px wide, and ahead of t
 tab order, with one tab stop that the arrow keys, Home and End move. Its tooltip names the entry
 and its key 8px below the palette, centred on the entry and at least 12px from the container's
 sides; it shows after 300ms of hover, at once on keyboard focus or for a neighbour, never for a
-tap, and hides on a press, on Escape and when the pointer or the focus leaves. The palette lies
-before the canvas `<svg>` in the container, so a host finds the canvas with
+tap, and hides on a press, on Escape and when the pointer or the focus leaves. Where the palette
+scrolls sideways, the tooltip moves with its entry and hides once the entry has left the view. The
+palette lies before the canvas `<svg>` in the container, so a host finds the canvas with
 `canvas.getContainer().querySelector(":scope > svg")`, not as the first `svg`. A palette a chrome
 skins (`data-chrome="palette"`) is left to that chrome.
 
 The lasso is pressed (`aria-pressed="true"`) only while it is armed, in every host: Enter or Space
 on the armed lasso puts it down, as Escape does, and so does arming the draw tool; a pointer's click
-on the lasso arms it again. While the read-only lock holds (below), the palette without the shell
-marks every entry but the lasso `aria-disabled="true"` and mutes it (guide §13.5): it stays
-focusable, and a click, drag, Enter or Space on it does nothing.
+on the lasso arms it again. One tool is armed at a time: arming the lasso (a click, Enter, Space or
+L) puts the armed draw tool down and saves a line it holds, as Escape does. While the read-only
+lock shows (below), the palette without the shell marks every entry but the lasso
+`aria-disabled="true"` and mutes it (guide §13.5): it stays focusable, and a click, drag, Enter or
+Space on it does nothing from the lock on.
 
 ## API
 
@@ -99,7 +102,12 @@ Options (the names of the `@miragon/modeler-api` 1.2 factory options):
 The `wardleyReadOnly` service (`modeler.get<WardleyReadOnly>('wardleyReadOnly').setReadOnly(true)`)
 locks the canvas while its host cannot save an edit, e.g. while the document is invalid: every edit
 rule is vetoed, an open editor, popup or drag ends without saving, the handles hide, and selection,
-zoom, pan, select all and export stay. It fires `wardley.readOnly.changed`.
+zoom, pan, select all and export stay. `setReadOnly(true, { delayMs: 800 })` locks at once but marks
+the palette only once the delay has passed without `setReadOnly(false)`, so typing an invalid file
+in an editor beside the canvas does not flicker (guide §13.5); a call while the delay runs keeps
+its timer, `setReadOnly(false)` takes the marks off at once, and `isReadOnlyShown()` tells whether
+they show. It fires `wardley.readOnly.changed` with `{ readOnly, shown }` when the lock changes and
+once more when delayed marks show.
 
 The canvas's keys (undo and redo, delete, copy, paste and duplicate, select all, the arrows, Escape
 and the single-key tools C, U, N, P, L and A) act only while the canvas `<svg>` has the focus, as

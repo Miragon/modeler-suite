@@ -26,6 +26,8 @@ interface Point {
 const CLOSE_RADIUS = 12;
 
 const DRAW_TOOL_ENTRY = '.djs-palette .entry[data-action="draw-tool"]';
+/** The tool's name on the tool manager's channel, which the palettes read its pressed state from. */
+const DRAW_TOOL = "draw";
 
 /**
  * Excalidraw-style polyline tool: activate, click point by point (rubber-band preview).
@@ -33,7 +35,8 @@ const DRAW_TOOL_ENTRY = '.djs-palette .entry[data-action="draw-tool"]';
  * commits the open line, and so does Space on the tool's palette entry; clicking the FIRST point
  * closes the shape. Escape with fewer than two points cancels. The result is ONE undoable
  * `drawing` shape that moves as a whole. An import cancels a line in progress without committing
- * it and leaves a tool without points armed.
+ * it and leaves a tool without points armed. Arming another tool (the lasso) puts it down and saves
+ * a held line as Escape does, so one tool is armed at a time.
  */
 export default class WardleyDrawTool {
   static $inject = [
@@ -67,6 +70,12 @@ export default class WardleyDrawTool {
     // and stays armed, as the armed lasso does.
     eventBus.on(["import.render.start", "diagram.clear"], () => {
       if (this.holdsLine()) this.cancel();
+    });
+    // The tool arms itself outside diagram-js's tool manager, which puts down only the tools it
+    // manages: without this, the lasso armed from its entry or its key would leave this tool armed
+    // under it, shown released, and the next press on the canvas would place a point.
+    eventBus.on("tool-manager.update", (event: { tool?: string | null }) => {
+      if (this.active && event.tool && event.tool !== DRAW_TOOL) this.giveWay();
     });
   }
 
@@ -106,13 +115,25 @@ export default class WardleyDrawTool {
     container.addEventListener("mousemove", this.onMouseMove, true);
     document.addEventListener("keydown", this.onKeyDown, true);
     // Light up the palette entry (same channel the tool manager uses).
-    this.eventBus.fire("tool-manager.update", { tool: "draw" });
+    this.eventBus.fire("tool-manager.update", { tool: DRAW_TOOL });
   }
 
   /** Finishes the current polyline (>= 2 points) and deactivates the tool. */
   finish(): void {
+    this.finishLine({ reportRelease: true });
+  }
+
+  /**
+   * Another tool took the press: the line is saved as Escape saves it, and the release is not
+   * reported, which would show that tool released while it is armed.
+   */
+  private giveWay(): void {
+    this.finishLine({ reportRelease: false });
+  }
+
+  private finishLine({ reportRelease }: { reportRelease: boolean }): void {
     const pts = [...this.points];
-    this.deactivate();
+    this.deactivate({ reportRelease });
     if (pts.length < 2) return;
     this.create(this.factory.drawingFromCanvasPoints(pts));
   }
@@ -144,7 +165,7 @@ export default class WardleyDrawTool {
     this.deactivate();
   }
 
-  private deactivate(): void {
+  private deactivate({ reportRelease } = { reportRelease: true }): void {
     if (!this.active) return;
     this.active = false;
     const container = this.canvas.getContainer();
@@ -156,7 +177,7 @@ export default class WardleyDrawTool {
     this.points = [];
     this.cursor = null;
     this.clearPreview();
-    this.eventBus.fire("tool-manager.update", { tool: null });
+    if (reportRelease) this.eventBus.fire("tool-manager.update", { tool: null });
   }
 
   /**

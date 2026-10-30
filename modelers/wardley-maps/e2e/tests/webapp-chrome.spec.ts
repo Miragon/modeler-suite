@@ -948,6 +948,45 @@ test.describe("keys and dialogs", () => {
     });
   }
 
+  // Issue #485: the draw tool arms itself outside diagram-js's tool manager, so the lasso armed
+  // next to it left it armed, shown released, and the next press on the canvas placed a point.
+  const armTheLasso: Record<string, (page: Page, lassoEntry: Locator) => Promise<void>> = {
+    "a click on its entry": (_page, lassoEntry) => lassoEntry.click(),
+    "Enter on its entry": async (page, lassoEntry) => {
+      await lassoEntry.focus();
+      await page.keyboard.press("Enter");
+    },
+    "Space on its entry": async (page, lassoEntry) => {
+      await lassoEntry.focus();
+      await page.keyboard.press("Space");
+    },
+    "the L key on the canvas": async (page) => {
+      await canvasSlot(page).locator('svg[role="application"]').focus();
+      await page.keyboard.press("l");
+    },
+  };
+  for (const [way, armLasso] of Object.entries(armTheLasso)) {
+    test(`arming the lasso with ${way} puts the armed draw tool down`, async ({ page }) => {
+      await startNewMap(page);
+      const palette = page.locator('[data-chrome="palette"]');
+      const drawEntry = palette.locator('[data-action="draw-tool"]');
+      const lassoEntry = palette.locator('[data-action="lasso-tool"]');
+      const drawing = page.locator(".wardley-container.wardley-draw-mode");
+      await drawEntry.click();
+      await expect(drawing).toHaveCount(1);
+      await expect(drawEntry).toHaveAttribute("aria-pressed", "true");
+
+      await armLasso(page, lassoEntry);
+
+      await expect(drawing).toHaveCount(0);
+      await expect(lassoEntry).toHaveAttribute("aria-pressed", "true");
+      await expect(drawEntry).toHaveAttribute("aria-pressed", "false");
+      const box = (await canvasSlot(page).boundingBox())!;
+      await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.5);
+      await expect(page.locator(".layer-wardley-draw-preview *")).toHaveCount(0);
+    });
+  }
+
   test("delete and undo work on the canvas again after a click on the chrome", async ({ page }) => {
     await openApp(page);
     await openExample(page);

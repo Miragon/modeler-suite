@@ -911,12 +911,11 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       expect(reachedWindow).toEqual(["Escape"]);
       const dragging = service<Dragging>("dragging");
       expect((dragging.context() as { prefix?: string } | null)?.prefix).toBe("lasso.selection");
-      dragging.cancel(false);
-      expect(drawTool().isActive()).toBe(true);
-      expect(drawings()).toBe(0);
-      expect(pressOnCanvas("Enter").defaultPrevented).toBe(true);
+      // The lasso it armed puts the draw tool down and saves the line, as Escape on the canvas does
+      // (#485).
       expect(drawTool().isActive()).toBe(false);
       expect(drawings()).toBe(1);
+      dragging.cancel(false);
     });
 
     it("leaves Enter and Escape on another modeler's draw entry to that modeler", async () => {
