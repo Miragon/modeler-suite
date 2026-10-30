@@ -139,7 +139,11 @@ function collaborative(
   if (editable) {
     eventBus.on("commandStack.changed", () => {
       if (importsRunning > 0) return;
-      for (const listener of [...contentListeners]) listener();
+      // An earlier listener may destroy the modeler, which drops every listener, or unsubscribe a
+      // later one during the same delivery.
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
 
@@ -188,12 +192,18 @@ function collaborative(
     selection: () => (destroyed ? [] : elementIds(selection.get())),
     onSelection(callback) {
       // The teardown cancels a running drag, which brings back the selection from before it.
+      // diagram-js's event bus still calls a listener that an earlier one unsubscribed during the
+      // same delivery after unsubscribing itself.
+      let subscribed = true;
       const listener = (event: unknown) => {
-        if (destroyed) return;
+        if (destroyed || !subscribed) return;
         callback(elementIds((event as { newSelection?: unknown[] }).newSelection ?? []));
       };
       eventBus.on("selection.changed", listener);
-      return () => eventBus.off("selection.changed", listener);
+      return () => {
+        subscribed = false;
+        eventBus.off("selection.changed", listener);
+      };
     },
     bounds(id) {
       if (destroyed) return undefined;
@@ -257,7 +267,7 @@ function collaborative(
       contentListeners.clear();
       interaction.stop();
       userActions.stop();
-      userActions.tearDownAfterActivation(() => diagram.destroy());
+      userActions.tearDownAfterHandler(() => diagram.destroy());
     },
   };
 }

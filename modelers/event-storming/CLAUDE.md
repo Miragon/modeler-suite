@@ -154,10 +154,12 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   there, then reads the drag once more), through a drop, from `drag.end` until
   `drag.ended` or `drag.canceled` (a drawing's point drop while its command applies), and while a
   step it scheduled holds it (`holdAction`: the append's kind chooser or label editor). A
-  `destroy()` from the selection or the interaction listener while a drag activates, or from the
-  interaction listener as a drawing's point drag starts (`beginGesture`), tears the board down once
-  the handler that started the drag has returned (`tearDownAfterActivation`, #346),
-  and the selection the cancelled drag brings back reaches no host listener. An import
+  `destroy()` from any listener while the handler of the user's input goes on with the board
+  (after a diagram-js drag's init, start, drop, cancel or cleanup, a command, or the start or end
+  of a drawing's point drag) tears the board down once that handler has returned
+  (`tearDownAfterHandler`, #346, #380, #373), and the selection the cancelled drag brings back
+  reaches no host listener; no delivery calls a listener after `destroy()` or one an earlier
+  listener of it unsubscribed (`destroy-from-listener.browser.test.ts`). An import
   called during an action, from a host's change or selection listener, waits for its end
   (`actionEnded()`), so
   no step of the action, also diagram-js's `SelectionBehavior` after a drop, sees a replaced board

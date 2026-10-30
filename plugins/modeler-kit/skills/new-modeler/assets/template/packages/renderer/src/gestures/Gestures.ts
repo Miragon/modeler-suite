@@ -16,6 +16,19 @@ const PAN_PREFIX = 'hand.move';
 const COMMAND_STARTS = ['commandStack.preExecute', 'commandStack.execute', 'commandStack.revert'];
 
 /**
+ * The steps after which the handler of the user's input goes on with the diagram: diagram-js's
+ * drag after its init, start, drop, cancel and cleanup, and the code that ran a command after it.
+ */
+const HANDLER_GOES_ON_EVENTS = [
+  'drag.init',
+  'drag.start',
+  'drag.end',
+  'drag.cancel',
+  'drag.cleanup',
+  ...COMMAND_STARTS,
+];
+
+/**
  * The drags that hold no element of the diagram, so they are no gesture (contract 1.5,
  * `InteractionSurface`): a palette tool that only waits for its next press (the lasso, the hand)
  * and the pan of the hand tool, which Space held or Ctrl/Cmd and a press start as well. An import
@@ -67,8 +80,8 @@ export default class Gestures {
   /** The drag whose drop is being applied, from its `drag.end` until it has ended. */
   private droppingDrag: DragContext | null = null;
   private actionInTask = false;
-  /** From a drag's `drag.start` until the handler that activated the drag has returned. */
-  private handlerActivatesDrag = false;
+  /** From one of `HANDLER_GOES_ON_EVENTS` until the handler of the user's input has returned. */
+  private handlerGoesOn = false;
   private readonly actionHolds = new Set<object>();
   private actionWaiters: Array<() => void> = [];
   private readonly listeners = new Set<GestureListener>();
@@ -78,6 +91,9 @@ export default class Gestures {
     private readonly dragging: Dragging,
     private readonly canvas: Canvas,
   ) {
+    // Registered first, so it runs ahead of the cleanup's listener below, which tells the host
+    // that the gesture ended.
+    eventBus.on(HANDLER_GOES_ON_EVENTS, FIRST, () => this.noticeHandlerGoesOn());
     // The first `drag.move` comes right after diagram-js activated the drag, once no start
     // listener refused it (a refused start never sets the drag active).
     eventBus.on('drag.move', FIRST, () => this.noticeStart());
@@ -86,10 +102,7 @@ export default class Gestures {
     // drag's cursor: an import from a host's selection listener there would end the drag under
     // it, and the cursor's read throws on the ended drag. First, so a start listener finds the
     // action as well.
-    eventBus.on('drag.start', FIRST, () => {
-      this.noticeAction();
-      this.noticeDragActivation();
-    });
+    eventBus.on('drag.start', FIRST, () => this.noticeAction());
     // First, so the action counts before any listener inside the command (a host's selection
     // listener on a delete, an undo or a redo) or its change listener imports.
     eventBus.on(COMMAND_STARTS, FIRST, () => this.noticeAction());
@@ -167,16 +180,20 @@ export default class Gestures {
   }
 
   /**
-   * Runs `teardown` (the modeler's destroy) at once, or, while diagram-js activates a drag, once
-   * the handler that activates it has returned. diagram-js cancels a running drag on destroy, and
-   * between the drag's start and its first move it clears the selection and then reads the drag's
-   * context again: a destroy from a selection listener there made `Dragging.move` throw on the
-   * cursor. The first move, whose interaction listener may destroy as well, and the rest of the
-   * handler (a palette entry's) still run on the live diagram, which the teardown then takes down
-   * with the drag.
+   * Runs `teardown` (the modeler's destroy) at once, or, while the handler of the user's input goes
+   * on with the diagram, once that handler has returned. A host may destroy the modeler from any
+   * listener, and these handlers read the canvas after one: diagram-js's `Dragging.move` clears
+   * the selection after a drag's start and reads the drag again, a drop's command runs inside
+   * `Dragging.end`, whose `SelectionBehavior` then selects the new node and whose cleanup reads
+   * the canvas, the cleanup's listener above tells the host that the gesture ended before
+   * diagram-js has let go of the drag, and a keyboard create selects its node and opens its label
+   * editor. The teardown fires `diagram.destroy`, on which diagram-js cancels a running drag (a
+   * second time, from inside its own cleanup) and the canvas drops its root. The rest of the
+   * handler runs on the live diagram, which the teardown then takes down, together with a drag
+   * that still runs.
    */
-  tearDownAfterActivation(teardown: () => void): void {
-    if (this.handlerActivatesDrag) queueMicrotask(teardown);
+  tearDownAfterHandler(teardown: () => void): void {
+    if (this.handlerGoesOn) queueMicrotask(teardown);
     else teardown();
   }
 
@@ -219,12 +236,12 @@ export default class Gestures {
     });
   }
 
-  /** diagram-js activates a drag inside the handler of the user's input, which a microtask follows. */
-  private noticeDragActivation(): void {
-    if (this.handlerActivatesDrag) return;
-    this.handlerActivatesDrag = true;
+  /** A microtask runs only once the handler of the user's input has returned. */
+  private noticeHandlerGoesOn(): void {
+    if (this.handlerGoesOn) return;
+    this.handlerGoesOn = true;
     queueMicrotask(() => {
-      this.handlerActivatesDrag = false;
+      this.handlerGoesOn = false;
     });
   }
 
@@ -239,9 +256,13 @@ export default class Gestures {
     this.notify(false);
   }
 
-  /** A listener that throws is reported, never left to break the drag it runs inside. */
+  /**
+   * A listener that throws is reported, never left to break the drag it runs inside. One that an
+   * earlier listener unsubscribed during the same delivery is skipped.
+   */
   private notify(active: boolean): void {
     for (const listener of [...this.listeners]) {
+      if (!this.listeners.has(listener)) continue;
       try {
         listener(active);
       } catch (error) {

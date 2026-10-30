@@ -41,6 +41,19 @@ const GLOBAL_CONNECT_TOOL = "global-connect";
  */
 const COMMAND_STARTS = ["commandStack.execute", "commandStack.revert"];
 
+/**
+ * The steps after which the handler of the user's input goes on with the diagram: diagram-js's
+ * drag after its init, start, drop, cancel and cleanup, and the code that ran a command after it.
+ */
+const HANDLER_GOES_ON_EVENTS = [
+  "drag.init",
+  "drag.start",
+  "drag.end",
+  "drag.cancel",
+  "drag.cleanup",
+  ...COMMAND_STARTS,
+];
+
 interface Point {
   x: number;
   y: number;
@@ -70,8 +83,8 @@ export default class VcGestures {
 
   private dropping: DragContext | null = null;
   private activating: DragContext | null = null;
-  /** From a drag's `drag.start` until the handler that activated the drag has returned. */
-  private handlerActivatesDrag = false;
+  /** From one of `HANDLER_GOES_ON_EVENTS` until the handler of the user's input has returned. */
+  private handlerGoesOn = false;
   private gesture: DragContext | null = null;
   private commandRunning = false;
   private scrollingPan: DragContext | null = null;
@@ -89,7 +102,7 @@ export default class VcGestures {
     // diagram-js fires the first move of a drag right after it has activated the drag, and only
     // then: a start that a listener refuses never shows as a gesture. A host that clears the
     // diagram from its interaction listener ends the drag there, and diagram-js would go on moving
-    // it on a cleared canvas; a destroy there waits for the handler (`tearDownAfterActivation`).
+    // it on a cleared canvas; a destroy there waits for the handler (`tearDownAfterHandler`).
     eventBus.on("drag.move", FIRST, () => {
       this.activating = null;
       const drag = this.context();
@@ -102,8 +115,8 @@ export default class VcGestures {
     // in between has taken away (`Cannot read properties of null (reading 'cursor')`, #336).
     eventBus.on("drag.start", FIRST, () => {
       this.activating = this.context();
-      this.noteDragActivation();
     });
+    eventBus.on(HANDLER_GOES_ON_EVENTS, FIRST, () => this.noteHandlerGoesOn());
     eventBus.on("drag.end", FIRST, () => {
       this.dropping = this.context();
     });
@@ -198,16 +211,19 @@ export default class VcGestures {
   }
 
   /**
-   * Runs `teardown` (the modeler's destroy) at once, or, while diagram-js activates a drag, once
-   * the handler that activates it has returned. diagram-js cancels a running drag on destroy, and
-   * between the drag's start and its first move it empties the selection and then reads the drag's
-   * context again: a destroy from a selection listener there made `Dragging.move` throw `Cannot
-   * read properties of null (reading 'cursor')` (#346). The first move, whose interaction listener
-   * may destroy as well, and the rest of the handler (a palette entry's, a context pad entry's)
-   * still run on the live diagram, which the teardown then takes down with the drag.
+   * Runs `teardown` (the modeler's destroy) at once, or, while the handler of the user's input goes
+   * on with the diagram, once that handler has returned. A host may destroy the modeler from any
+   * listener, and these handlers read the canvas after one: diagram-js's `Dragging.move` empties
+   * the selection after a drag's start and reads the drag again (#346), a drop's command runs
+   * inside `Dragging.end`, whose `SelectionBehavior` then selects the new shape and whose cleanup
+   * reads the canvas, a cancel cleans the drag up after the listeners of its `drag.cleanup` (#380),
+   * and a keyboard create selects the step it created (#373). The teardown fires `diagram.destroy`,
+   * on which diagram-js cancels a running drag and the canvas drops its root, so each of them threw
+   * there. The rest of the handler runs on the live diagram, which the teardown then takes down,
+   * together with a drag that still runs.
    */
-  tearDownAfterActivation(teardown: () => void): void {
-    if (this.handlerActivatesDrag) queueMicrotask(teardown);
+  tearDownAfterHandler(teardown: () => void): void {
+    if (this.handlerGoesOn) queueMicrotask(teardown);
     else teardown();
   }
 
@@ -259,12 +275,12 @@ export default class VcGestures {
     return this.activating !== null && this.context() === this.activating;
   }
 
-  /** diagram-js activates a drag inside the handler of the user's input, which a microtask follows. */
-  private noteDragActivation(): void {
-    if (this.handlerActivatesDrag) return;
-    this.handlerActivatesDrag = true;
+  /** A microtask runs only once the handler of the user's input has returned. */
+  private noteHandlerGoesOn(): void {
+    if (this.handlerGoesOn) return;
+    this.handlerGoesOn = true;
     queueMicrotask(() => {
-      this.handlerActivatesDrag = false;
+      this.handlerGoesOn = false;
     });
   }
 

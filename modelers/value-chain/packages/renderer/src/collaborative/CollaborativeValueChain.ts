@@ -128,9 +128,13 @@ function collaborative(
   };
 
   if (editable) {
-    // Imports erase the history without this event, so every delivery is a user's change.
+    // Imports erase the history without this event, so every delivery is a user's change. An
+    // earlier listener may destroy the modeler, which drops every listener, or unsubscribe a later
+    // one during the same delivery.
     eventBus.on("commandStack.changed", () => {
-      for (const listener of [...contentListeners]) listener();
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
 
@@ -170,15 +174,12 @@ function collaborative(
       return true;
     },
     selection: () => (destroyed ? [] : shapeIds(selection.get())),
-    onSelection(callback) {
-      // The teardown cancels a running drag, which brings back the selection from before it.
-      const listener = (event: unknown) => {
-        if (destroyed) return;
-        callback(shapeIds((event as { newSelection?: unknown[] }).newSelection ?? []));
-      };
-      eventBus.on("selection.changed", listener);
-      return () => eventBus.off("selection.changed", listener);
-    },
+    onSelection: (callback) =>
+      onSelectionChanged(
+        eventBus,
+        () => destroyed,
+        (selected) => callback(shapeIds(selected)),
+      ),
     bounds(id): ElementBounds | undefined {
       if (destroyed) return undefined;
       const element = elementRegistry.get(id);
@@ -264,9 +265,30 @@ function collaborative(
       destroyed = true;
       contentListeners.clear();
       interactionListeners.clear();
-      if (gestures) gestures.tearDownAfterActivation(() => diagram.destroy());
+      if (gestures) gestures.tearDownAfterHandler(() => diagram.destroy());
       else diagram.destroy();
     },
+  };
+}
+
+/** Calls `callback` with each new selection until its unsubscribe or the modeler's destroy. */
+function onSelectionChanged(
+  eventBus: EventBus,
+  isDestroyed: () => boolean,
+  callback: (selected: readonly unknown[]) => void,
+): () => void {
+  // The teardown cancels a running drag, which brings back the selection from before it.
+  // diagram-js's event bus still calls a listener that an earlier one unsubscribed during the same
+  // delivery after unsubscribing itself.
+  let subscribed = true;
+  const listener = (event: unknown) => {
+    if (isDestroyed() || !subscribed) return;
+    callback((event as { newSelection?: unknown[] }).newSelection ?? []);
+  };
+  eventBus.on("selection.changed", listener);
+  return () => {
+    subscribed = false;
+    eventBus.off("selection.changed", listener);
   };
 }
 

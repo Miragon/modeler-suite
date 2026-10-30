@@ -153,7 +153,8 @@ export default class VcCopyPaste extends CopyPaste {
     const pasted = super.paste({ tree, hints: { ...hints }, element, point }) as
       Element[] | undefined;
     if (!pasted?.length) return undefined;
-    // A host may destroy the modeler from its change listener, which the paste's command calls.
+    // A host on the `Modeler` itself may destroy it from a listener of the paste's command; the
+    // contract's `destroy()` waits until the paste has returned.
     if (!this.destroyed) this.selection.select(pasted);
     return pasted;
   }

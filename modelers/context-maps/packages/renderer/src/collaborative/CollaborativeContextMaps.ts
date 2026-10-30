@@ -106,8 +106,12 @@ function collaborative(
   // An import never touches the command stack (it erases the history without an event), so every
   // `commandStack.changed` is a user-visible change: element commands, the title, undo and redo.
   if (editable) {
+    // An earlier listener may destroy the modeler, which drops every listener, or unsubscribe a
+    // later one during the same delivery.
     eventBus.on("commandStack.changed", () => {
-      for (const listener of [...contentListeners]) listener();
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
   const interaction: InteractionSurface = {
@@ -183,12 +187,18 @@ function collaborative(
     selection: () => (destroyed ? [] : elementIds(selection.get())),
     onSelection(callback) {
       // The teardown cancels a running drag, which brings back the selection from before it.
+      // diagram-js's event bus still calls a listener that an earlier one unsubscribed during the
+      // same delivery after unsubscribing itself.
+      let subscribed = true;
       const listener = (event: unknown) => {
-        if (destroyed) return;
+        if (destroyed || !subscribed) return;
         callback(elementIds((event as { newSelection?: unknown[] }).newSelection ?? []));
       };
       eventBus.on("selection.changed", listener);
-      return () => eventBus.off("selection.changed", listener);
+      return () => {
+        subscribed = false;
+        eventBus.off("selection.changed", listener);
+      };
     },
   };
 
@@ -251,7 +261,7 @@ function collaborative(
       }
       destroyed = true;
       contentListeners.clear();
-      if (gestures) gestures.tearDownAfterActivation(() => diagram.destroy());
+      if (gestures) gestures.tearDownAfterHandler(() => diagram.destroy());
       else diagram.destroy();
     },
   };
