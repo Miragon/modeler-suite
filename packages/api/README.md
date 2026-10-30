@@ -295,7 +295,7 @@ ignores what settles after its own `destroy()`. A second `destroy()` throws
 nothing, as always. For `interaction.onChange` the contract states since 1.5
 that nothing is called once `destroy()` has been called; 1.6 extends it to
 every listener as a recommendation. The kit's destroy case checks it at the
-user's input; its leg for `elements.reveal` follows.
+user's input and inside `elements.reveal`.
 
 **Keys stay on the canvas** (1.4, RECOMMENDED). A modeler acts on a key only
 while its canvas holds the focus: the key's target is the focusable element the
@@ -795,20 +795,25 @@ The cases:
   case's advisory). A viewer that exposes the surface reports false, before and
   after an import.
 - **The destroy case** (RECOMMENDED since 1.6, an advisory): a host may destroy
-  the modeler from its listener while the user's input runs. Each leg runs on a
-  fresh instance with `canonicalTexts[0]` and its first listed element revealed,
-  and with a listener on every surface behind the one that destroys:
+  the modeler from its listener while the user's input runs, or inside a host's
+  call that reaches the listener before it returns. Each leg runs on a fresh
+  instance with `canonicalTexts[0]` and its first listed element revealed, and
+  with a listener on every surface behind the one that destroys:
   `elements.onSelection` destroys the modeler at the start of a `"move"` and of
   a `"create"` (diagram-js empties the selection there), `onContentChanged` at
   the drop of a `"move"`, and `interaction.onChange` at the `false` of a
-  `"move"` cancelled with Escape. The advisory: `destroy()` and the input throw
-  nothing (the window's `error` and `unhandledrejection` events too), the
-  selection listener hears `[]` and nothing more, no listener is called after
-  the destroy, also not a later one of the same delivery, and a second
-  `destroy()` throws nothing. After the destroy the case calls nothing of the
-  modeler but that second `destroy()`: no `drop()` or `cancel()` after a
-  destroy at the start, nothing after the `drop()` or `cancel()` inside which
-  the listener destroyed it. Last, on a fresh instance, the first
+  `"move"` cancelled with Escape. One more leg starts from the selection the
+  import left and reveals the first listed element itself:
+  `elements.onSelection` destroys the modeler inside the delivery of that
+  `reveal()` (diagram-js scrolls to the element after it). The advisory:
+  `destroy()` and the input or `reveal()` throw nothing (the window's `error`
+  and `unhandledrejection` events too), the selection listener hears `[]` at a
+  drag's start and nothing more, no listener is called after the destroy, also
+  not a later one of the same delivery, and a second `destroy()` throws
+  nothing. After the destroy the case calls nothing of the modeler but that
+  second `destroy()`: no `drop()` or `cancel()` after a destroy at the start,
+  nothing after the `drop()`, `cancel()` or `reveal()` inside which the
+  listener destroyed it. Last, on a fresh instance, the first
   `interaction.onChange` listener unsubscribes the second on the `true` of a
   `"move"`'s start, and the second must hear nothing after that. The contract
   orders no delivery, so neither this leg nor the interaction case's later
@@ -852,8 +857,9 @@ holds, waits for the import once more and runs no further leg, so such a
 modeler advises instead of hanging the run.
 
 A modeler without `interaction` or `appearance` skips that case. A harness
-without `startGesture` skips the gesture, drop, drag-start, interaction and
-destroy cases, one without `startPan` the pan case; one without `armTool`,
+without `startGesture` skips the gesture, drop, drag-start and interaction
+cases and the destroy case's legs at the user's input (its leg inside
+`reveal()` still runs), one without `startPan` the pan case; one without `armTool`,
 `exportImage` or `openInteraction` skips only the half that reads it, and one without
 `createReadonly`, or whose viewer has no `appearance`, skips the viewer half
 of the appearance case. One canonical text skips the legs of another document,
@@ -876,7 +882,10 @@ for a modeler without `elements`, when `reveal()` selects no element of
 start. The destroy case skips its legs at a drag's start for the same three
 reasons, its leg at Escape and its unsubscribe for a modeler without
 `interaction` (and when `onChange` reports no end at the cancel, or no start),
-and its leg at the drop when the drop fires no change event. Each case has its
+its leg at the drop when the drop fires no change event, and its leg inside
+`reveal()` for a modeler without `elements`, when `elements.list()` reports no
+element of `canonicalTexts[0]`, and when the selection listener hears nothing
+at that `reveal()`. Each case has its
 saboteurs, the appearance case among them a `set` that does nothing and leaves
 the roles to the page.
 
@@ -986,8 +995,8 @@ Recommendations today, proposed as hard laws for the next major:
   same delivery; a listener that an earlier listener of the same delivery
   unsubscribed is not called; the modeler may finish its teardown once the
   input's handler or the method has returned (today: RECOMMENDED since 1.6,
-  advisory in the destroy case, whose leg for `elements.reveal` follows; for
-  `interaction.onChange` nothing after `destroy()` is a law since 1.5).
+  advisory in the destroy case; for `interaction.onChange` nothing after
+  `destroy()` is a law since 1.5).
 
 ## Roadmap
 

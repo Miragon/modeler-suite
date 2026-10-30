@@ -201,10 +201,10 @@ describe("the conforming reference modeler", () => {
     expect(dragStart?.advisories).toBeUndefined();
     const destroy = await run(CASE.destroyFromListener);
     expect(destroy?.skipped).toBe(
-      ["move", "create"]
+      ["at the start of a move", "at the start of a create", "inside reveal()"]
         .map(
-          (kind) =>
-            `the modeler exposes no elements surface (optional) — a destroy() from elements.onSelection at the start of a ${kind} was not checked`,
+          (where) =>
+            `the modeler exposes no elements surface (optional) — a destroy() from elements.onSelection ${where} was not checked`,
         )
         .join("; "),
     );
@@ -230,6 +230,9 @@ describe("the conforming reference modeler", () => {
       ?.run(deaf);
     expect(destroy?.skipped).toMatch(
       /the selection listener heard nothing at the start of a create with an element revealed — a destroy\(\) from elements\.onSelection at the start of a create was not checked/,
+    );
+    expect(destroy?.skipped).toMatch(
+      /the selection listener heard nothing at reveal\(\) of the first listed element — a destroy\(\) from elements\.onSelection inside reveal\(\) was not checked/,
     );
     expect(destroy?.advisories).toBeUndefined();
   });
@@ -1105,7 +1108,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
       CASE.destroyFromListener,
     );
     expect(advice).toMatch(
-      /^a host's listener destroyed the modeler, or unsubscribed another listener, while the user's input ran: /,
+      /^a host's listener destroyed the modeler, or unsubscribed another listener, while the user's input or the host's call ran: /,
     );
     for (const kind of ["move", "create"]) {
       expect(advice).toMatch(
@@ -1114,7 +1117,8 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
         ),
       );
     }
-    expect(advice).not.toMatch(/at the drop|Escape|unsubscribed had/);
+    const [found] = advice.split(" — RECOMMENDED");
+    expect(found).not.toMatch(/at the drop|Escape|inside reveal\(\)|unsubscribed had/);
     expect(advice).toMatch(/ — RECOMMENDED \(since 1\.6\): a host may call destroy\(\) from any/);
   });
   test("a change delivered over a copy of its listeners → an advisory from the destroy case: a later listener heard the drop", async () => {
@@ -1126,7 +1130,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
       /onContentChanged came after destroy\(\) from onContentChanged at the drop of a move/,
     );
   });
-  test("a selection delivered over a copy of its listeners → an advisory from the destroy case: a later listener heard the start", async () => {
+  test("a selection delivered over a copy of its listeners → an advisory from the destroy case: a later listener heard the start and the reveal", async () => {
     const advice = await expectAdvisoryOnly(
       { selectionDeliveryIgnoresDestroy: true },
       CASE.destroyFromListener,
@@ -1138,6 +1142,20 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
         ),
       );
     }
+    expect(advice).toMatch(
+      /elements\.onSelection\(\["alpha"\]\) came after destroy\(\) from elements\.onSelection inside reveal\(\)/,
+    );
+  });
+  test("a destroy() from the selection listener that reveal() calls, which tears the canvas down at once → an advisory from the destroy case: reveal() threw", async () => {
+    const advice = await expectAdvisoryOnly(
+      { destroyTearsDownInsideReveal: true },
+      CASE.destroyFromListener,
+    );
+    expect(advice).toMatch(
+      /^a host's listener destroyed the modeler, or unsubscribed another listener, while the user's input or the host's call ran: reveal\(\) threw TypeError: Cannot read properties of null \(reading 'viewbox'\) once a listener had called destroy\(\) from elements\.onSelection inside reveal\(\) — RECOMMENDED \(since 1\.6\): /,
+    );
+    const [found] = advice.split(" — RECOMMENDED");
+    expect(found).not.toMatch(/at the start of|at the drop|Escape|came after destroy\(\)/);
   });
   test("an onChange that still calls a listener an earlier one of the same delivery unsubscribed → an advisory from the destroy case", async () => {
     const advice = await expectAdvisoryOnly(
