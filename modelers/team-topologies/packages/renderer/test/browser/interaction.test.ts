@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "vitest";
 import type Canvas from "diagram-js/lib/core/Canvas";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Root, Shape } from "diagram-js/lib/model/Types";
@@ -367,10 +368,14 @@ describe("the viewer and the end of an instance", () => {
 
   test("nothing is delivered after destroy(), also for the gesture diagram-js cancels then", async () => {
     const { modeler, diagram, deliveries } = await session();
+    const dragging = diagram.get<Dragging>("dragging");
     holdGesture(diagram, "move");
     expect(deliveries).toEqual([true]);
+    // Held past the input that started it: the destroy ends the drag at once.
+    await Promise.resolve();
 
     modeler.destroy();
+    expect(dragging.context()).toBeFalsy();
     expect(modeler.interaction.active()).toBe(false);
     expect(deliveries).toEqual([true]);
   });

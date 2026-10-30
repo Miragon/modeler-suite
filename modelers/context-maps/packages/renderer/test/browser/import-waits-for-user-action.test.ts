@@ -852,10 +852,12 @@ describe("an import from the selection listener at a drag's start runs once diag
 /**
  * Read before the destroy, since a service read afterwards would build a fresh diagram: once the
  * input's handler has returned, the modeler is destroyed, no error reached the window, the drag
- * and the canvas are gone, the release changes nothing, and the modeler keeps its text.
+ * and the canvas are gone, the release runs no command, and the modeler keeps its text.
  */
 function destroyedCleanly(running: Stage): () => Promise<void> {
   const dragging = service<Dragging>(running, "dragging");
+  let commands = 0;
+  service<EventBus>(running, "eventBus").on("commandStack.changed", () => (commands += 1));
   const canvas = svg(running);
   const release = clientPoint(running, FREE_SPOT);
   const before = running.modeler.exportText();
@@ -867,7 +869,7 @@ function destroyedCleanly(running: Stage): () => Promise<void> {
     pointer(document, "mouseup", release);
     await nextTasks(1);
     expect(running.errors).toEqual([]);
-    expect(running.changes()).toBe(0);
+    expect(commands).toBe(0);
     expect(running.modeler.interaction.active()).toBe(false);
     expect(running.modeler.exportText()).toBe(before);
   };

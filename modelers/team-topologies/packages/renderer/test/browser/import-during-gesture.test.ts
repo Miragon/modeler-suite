@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
@@ -1001,11 +1002,13 @@ describe("an import from the selection listener at a drag's start", () => {
 /**
  * Read before the destroy, since a service read afterwards would build a fresh diagram: once the
  * input's handler has returned, the modeler is destroyed, no error reached the window, the drag
- * and the canvas are gone, the release changes nothing, and the modeler keeps its text.
+ * and the canvas are gone, the release runs no command, and the modeler keeps its text.
  */
 function destroyedCleanly(current: Session): () => Promise<void> {
   const { modeler, diagram, container } = current;
   const dragging = diagram.get<Dragging>("dragging");
+  let commands = 0;
+  diagram.get<EventBus>("eventBus").on("commandStack.changed", () => (commands += 1));
   const box = container.getBoundingClientRect();
   const release = new MouseEvent("mouseup", {
     bubbles: true,
@@ -1023,7 +1026,7 @@ function destroyedCleanly(current: Session): () => Promise<void> {
     document.dispatchEvent(release);
     await nextTask();
     expect(current.errors).toEqual([]);
-    expect(current.changes()).toBe(0);
+    expect(commands).toBe(0);
     expect(modeler.interaction.active()).toBe(false);
     expect(modeler.exportText()).toBe(before);
   };

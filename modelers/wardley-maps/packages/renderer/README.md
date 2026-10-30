@@ -141,7 +141,8 @@ from the selection listener at the start of a move, a resize, a connect, the evo
 create from the palette, the context pad or a quick-create key runs right after it and then ends
 that drag, without an error and without a change
 ([#336](https://github.com/Miragon/modeler-suite/issues/336)). A `destroy()` from the selection
-listener there, or from `interaction.onChange` as the drag starts, throws nothing either: the map is
+listener there, or from `interaction.onChange` as the drag starts, throws nothing either, also at
+the start of the renderer's own drags (a label, a point of a drawing, the evolve target): the map is
 torn down once the code that started the drag has returned, and no listener of the host hears
 anything after `destroy()`, also not the selection the cancelled drag brings back
 ([#346](https://github.com/Miragon/modeler-suite/issues/346)). `exportText()` is the

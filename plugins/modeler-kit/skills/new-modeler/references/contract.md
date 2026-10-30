@@ -148,14 +148,20 @@ gets its kit case in a later release (template:
   apart by its drag context). Called from a selection listener at a drag's start, it still ends the
   drag inside `Dragging.move`, which then throws on the cursor, so a host imports there through the
   contract's `importText`, which waits.
-  - A host may destroy the modeler from the same listeners. diagram-js cancels a running drag on
-    destroy, so a `destroy()` from the selection listener at a drag's start had `Dragging.move`
-    read the cancelled drag and throw on the cursor. The template's `destroy()` ends every
-    delivery at once and tears the diagram down once the handler that activated the drag has
-    returned (`tearDownAfterActivation`, from `drag.start` until a microtask later): the first move
-    and the rest of the handler (the palette's) run on the live diagram, also when the interaction
-    listener of that first move destroys. `elements.onSelection` delivers nothing after
-    `destroy()`, so the selection the cancelled drag brings back reaches no host.
+  - A host may destroy the modeler from the selection or the interaction listener at a drag's
+    start. diagram-js cancels a running drag on destroy, so a `destroy()` from the selection
+    listener there had `Dragging.move` read the cancelled drag and throw on the cursor. The
+    template's `destroy()` stops the interaction and selection deliveries at once and tears the
+    diagram down once the handler that started the drag has returned (`tearDownAfterActivation`,
+    from `drag.start` until a microtask later): the first move and the rest of the handler (the
+    palette's) run on the live diagram, also when the interaction listener of that first move
+    destroys. `elements.onSelection` delivers nothing after `destroy()`, so the selection the
+    cancelled drag brings back reaches no host. A drag of the renderer's own that reads the canvas
+    after it reports its start opens the same window when it reports it. The end of a drag is not
+    covered yet: a `destroy()` from the change listener at a drop, or from an interaction listener
+    that hears `false` inside diagram-js's `drag.cleanup` (a drop, Escape), still makes diagram-js
+    throw in its end of the drag, and a change delivery that runs still reaches its later
+    listeners.
   - After a keyboard create, the import takes the label editor down and reopens it on the element
     with the same id. An edit the first of several waiting imports takes down stays suspended
     through the next; a render that fails reopens it as well, so no later import brings back an

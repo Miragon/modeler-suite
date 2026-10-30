@@ -56,8 +56,9 @@ ends with the import, as an accepted import ends a running gesture and a press b
 threshold (L1, 1.5). The activation of a diagram-js drag (`drag.start`, a microtask) is an action
 too: diagram-js clears the selection after the start and reads the drag again, so an import from the
 selection listener there runs once `Dragging.move` has returned and then ends the drag. A
-`destroy()` from the selection or the interaction listener while the drag activates tears the map
-down once the code that activated it has returned (`tearDownAfterActivation`, #346), and the
+`destroy()` from the selection or the interaction listener while the drag activates, or from the
+interaction listener as one of the renderer's own drags starts (`begin`), tears the map down once
+the code that started the drag has returned (`tearDownAfterActivation`, #346), and the
 selection the cancelled drag brings back reaches no host listener. Pinned by
 [`import-during-user-action.browser.test.ts`](packages/renderer/test/browser/import-during-user-action.browser.test.ts),
 [`import-during-gesture.browser.test.ts`](packages/renderer/test/browser/import-during-gesture.browser.test.ts)

@@ -147,8 +147,9 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   there, then reads the drag once more), through a drop, from `drag.end` until
   `drag.ended` or `drag.canceled` (a drawing's point drop while its command applies), and while a
   step it scheduled holds it (`holdAction`: the append's kind chooser or label editor). A
-  `destroy()` from the selection or the interaction listener while a drag activates tears the
-  board down once the handler that activated it has returned (`tearDownAfterActivation`, #346),
+  `destroy()` from the selection or the interaction listener while a drag activates, or from the
+  interaction listener as a drawing's point drag starts (`beginGesture`), tears the board down once
+  the handler that started the drag has returned (`tearDownAfterActivation`, #346),
   and the selection the cancelled drag brings back reaches no host listener. An import
   called during an action, from a host's change or selection listener, waits for its end
   (`actionEnded()`), so

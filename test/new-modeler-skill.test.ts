@@ -926,6 +926,7 @@ const NON_API_NAMES = new Map<string, string>([
   ["Dragging.move", "diagram-js"],
   ["drag.ended", "diagram-js"],
   ["drag.canceled", "diagram-js"],
+  ["drag.cleanup", "diagram-js"],
   ["lasso.selection", "diagram-js, the drag of the armed lasso tool"],
   ["hand.move", "diagram-js, the drag of the hand tool's pan"],
   ["SelectionBehavior", "diagram-js"],

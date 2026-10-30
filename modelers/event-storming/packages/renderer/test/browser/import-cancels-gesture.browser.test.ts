@@ -1389,10 +1389,12 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
   /**
    * Read before the destroy, which takes the canvas the pointer reads: once the input's handler
    * has returned, the modeler is destroyed, no error reached the window, the drag and the canvas
-   * are gone, the release changes nothing, and the modeler keeps its text.
+   * are gone, the release runs no command, and the modeler keeps its text.
    */
   function destroyedCleanly(modeler: CollaborativeEventStormingModeler): () => Promise<void> {
     const dragging = service<Dragging>(modeler, "dragging");
+    let commands = 0;
+    service<EventBus>(modeler, "eventBus").on("commandStack.changed", () => (commands += 1));
     const { svg } = pointerOn(modeler);
     const box = svg.getBoundingClientRect();
     const release = new MouseEvent("mouseup", {
@@ -1402,7 +1404,6 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
       clientX: box.left + box.width / 2,
       clientY: box.top + box.height / 2,
     });
-    const changes = changesOf(modeler);
     return async () => {
       await nextTask();
       expect(uncaught).toEqual([]);
@@ -1411,7 +1412,7 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
       document.dispatchEvent(release);
       await nextTask();
       expect(uncaught).toEqual([]);
-      expect(changes()).toBe(0);
+      expect(commands).toBe(0);
       expect(modeler.interaction.active()).toBe(false);
       expect(modeler.exportText()).toBe(BOARD);
     };

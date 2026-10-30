@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
+import type EventBus from "diagram-js/lib/core/EventBus";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Shape } from "diagram-js/lib/model/Types";
@@ -395,14 +397,54 @@ describe("the interaction surface (modeler-api 1.5)", () => {
   it("calls nothing after destroy, also for a gesture the destroy ends", async () => {
     const modeler = await editorWithBoard();
     const reports = reportsOf(modeler);
+    const dragging = service<Dragging>(modeler, "dragging");
     const [, holdMove] = GESTURES[0]!;
 
     holdMove(modeler);
+    // Held past the input that started it: the destroy ends the drag at once.
+    await Promise.resolve();
     modeler.destroy();
 
+    expect(dragging.context()).toBeFalsy();
     expect(reports.values()).toEqual([true]);
     expect(modeler.interaction.active()).toBe(false);
   });
+
+  // A drawing's point drag reads the canvas right after it reported its start, as diagram-js's
+  // drags do (#346).
+  it.each(GESTURES)(
+    "throws nothing when a listener destroys the modeler at the start of %s, and no later listener hears of it",
+    async (_, hold) => {
+      const modeler = await editorWithBoard();
+      const reports = reportsOf(modeler);
+      const { svg } = pointerOn(modeler);
+      const box = svg.getBoundingClientRect();
+      const free: MouseEventInit = {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        clientX: box.left + box.width / 2,
+        clientY: box.top + box.height / 2,
+      };
+      let commands = 0;
+      service<EventBus>(modeler, "eventBus").on("commandStack.changed", () => (commands += 1));
+      const later: boolean[] = [];
+      modeler.interaction.onChange(() => modeler.destroy());
+      modeler.interaction.onChange((active) => later.push(active));
+
+      hold(modeler);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(uncaught).toEqual([]);
+      expect(svg.isConnected).toBe(false);
+      document.dispatchEvent(new MouseEvent("mousemove", free));
+      document.dispatchEvent(new MouseEvent("mouseup", free));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(uncaught).toEqual([]);
+      expect(commands).toBe(0);
+      expect(reports.values()).toEqual([true]);
+      expect(later).toEqual([]);
+    },
+  );
 
   it("is false on the viewer, through a pan", async () => {
     const viewer = mount(createCollaborativeViewer());

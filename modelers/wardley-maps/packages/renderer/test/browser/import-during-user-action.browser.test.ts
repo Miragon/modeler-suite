@@ -881,24 +881,29 @@ function dragNamed(what: string): (current: Session) => Promise<DragSteps> {
 }
 
 /**
- * Once the input's handler has returned, the modeler is destroyed: no error reached the window, the
- * drag and the canvas are gone, the release changes nothing, and the modeler keeps its text.
+ * Read before the destroy, which takes the canvas the pointer reads: once the input's handler has
+ * returned, the modeler is destroyed, no error reached the window, the drag and the canvas are
+ * gone, a move and a release on the page run no command, and the modeler keeps its text.
  */
-async function expectDestroyedCleanly(
-  current: Session,
-  dragging: Dragging,
-  steps: DragSteps,
-): Promise<void> {
-  await nextTask();
-  expect(current.errors).toEqual([]);
-  expect(dragging.context()).toBeNull();
-  expect(current.svg.isConnected).toBe(false);
-  steps.release();
-  await nextTask();
-  expect(current.errors).toEqual([]);
-  expect(current.changes()).toBe(0);
-  expect(current.modeler.interaction.active()).toBe(false);
-  expect(current.modeler.exportText()).toBe(DRAG_MAP);
+function destroyedCleanly(current: Session): () => Promise<void> {
+  const dragging = current.diagram.get<Dragging>("dragging");
+  let commands = 0;
+  current.diagram.get<EventBus>("eventBus").on("commandStack.changed", () => (commands += 1));
+  const box = current.svg.getBoundingClientRect();
+  const free = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+  return async () => {
+    await nextTask();
+    expect(current.errors).toEqual([]);
+    expect(dragging.context()).toBeNull();
+    expect(current.svg.isConnected).toBe(false);
+    mouse(document, "mousemove", free);
+    mouse(document, "mouseup", free);
+    await nextTask();
+    expect(current.errors).toEqual([]);
+    expect(commands).toBe(0);
+    expect(current.modeler.interaction.active()).toBe(false);
+    expect(current.modeler.exportText()).toBe(DRAG_MAP);
+  };
 }
 
 describe("a destroy from a listener at a drag's start throws nothing, and nothing reaches the host afterwards (#346)", () => {
@@ -906,8 +911,8 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
     "%s, from the selection listener: the listener hears nothing more",
     async (_, start) => {
       const current = await session(DRAG_MAP);
-      const dragging = current.diagram.get<Dragging>("dragging");
       const steps = await start(current);
+      const expectDestroyedCleanly = destroyedCleanly(current);
       const heard: string[][] = [];
       current.modeler.elements.onSelection((ids) => {
         heard.push(ids);
@@ -916,7 +921,7 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
 
       steps.activate();
       expect(heard).toEqual([[]]);
-      await expectDestroyedCleanly(current, dragging, steps);
+      await expectDestroyedCleanly();
       expect(heard).toEqual([[]]);
       expect(current.delivered).toEqual([]);
     },
@@ -927,14 +932,14 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
     "a create from the palette, which a pointer click activates at once",
   ])("%s, from the interaction listener: no later listener hears of it", async (what) => {
     const current = await session(DRAG_MAP);
-    const dragging = current.diagram.get<Dragging>("dragging");
     const steps = await dragNamed(what)(current);
+    const expectDestroyedCleanly = destroyedCleanly(current);
     const later: boolean[] = [];
     current.modeler.interaction.onChange(() => current.modeler.destroy());
     current.modeler.interaction.onChange((active) => later.push(active));
 
     steps.activate();
-    await expectDestroyedCleanly(current, dragging, steps);
+    await expectDestroyedCleanly();
     expect(current.delivered).toEqual([true]);
     expect(later).toEqual([]);
   });

@@ -867,10 +867,14 @@ describe('interaction (contract 1.5)', () => {
     errors = [];
   });
 
-  it('calls nothing after destroy, a running gesture included', () => {
+  it('calls nothing after destroy, a running gesture included', async () => {
     const calls = recordInteraction();
+    const dragging = service<Dragging>('dragging');
     startGesture('move');
+    // Held past the input that started it: the destroy ends the drag at once.
+    await Promise.resolve();
     modeler.destroy();
+    expect(dragging.context()).toBeNull();
     expect(calls).toEqual([true]);
     expect(modeler.interaction.active()).toBe(false);
   });
@@ -905,10 +909,12 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
   /**
    * Read before the destroy, since reading a service afterwards would build a fresh diagram: once
    * the input's handler has returned, the modeler is destroyed, no error reached the window, the
-   * drag and the canvas are gone, the release changes nothing, and the modeler keeps its text.
+   * drag and the canvas are gone, the release runs no command, and the modeler keeps its text.
    */
   function destroyedCleanly(): () => Promise<void> {
     const dragging = service<Dragging>('dragging');
+    let commands = 0;
+    service<EventBus>('eventBus').on('commandStack.changed', () => (commands += 1));
     const svg = canvasSvg();
     const releaseEvent = pointer('mouseup', FREE_SPOT);
     const before = modeler.exportText();
@@ -920,7 +926,7 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
       document.dispatchEvent(releaseEvent);
       await nextTask();
       expect(errors).toEqual([]);
-      expect(changes).toBe(0);
+      expect(commands).toBe(0);
       expect(modeler.interaction.active()).toBe(false);
       expect(modeler.exportText()).toBe(before);
     };

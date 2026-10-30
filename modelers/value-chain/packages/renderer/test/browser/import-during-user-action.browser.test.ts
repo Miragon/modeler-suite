@@ -671,13 +671,15 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
   /**
    * Read before the destroy, which a later read of a service would undo with a fresh diagram: once
    * the input's handler has returned, the modeler is destroyed, no error reached the window, the
-   * drag and the canvas are gone, the release changes nothing, and the modeler keeps its text.
+   * drag and the canvas are gone, the release runs no command, and the modeler keeps its text.
    */
   function destroyedCleanly(): () => Promise<void> {
     const dragging = service<Dragging>("dragging");
     const svg = pointer.canvasSvg();
     const release = pointer.event("mouseup", FREE_SPOT);
     const before = editor().exportText();
+    let commands = 0;
+    eventBus().on("commandStack.changed", () => (commands += 1));
     return async () => {
       await nextTask();
       expect(errors).toEqual([]);
@@ -686,7 +688,7 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
       document.dispatchEvent(release);
       await nextTask();
       expect(errors).toEqual([]);
-      expect(changes).toBe(0);
+      expect(commands).toBe(0);
       expect(editor().interaction.active()).toBe(false);
       expect(editor().exportText()).toBe(before);
     };
