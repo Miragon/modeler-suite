@@ -77,7 +77,7 @@ describe("diagramShortcuts", () => {
     expect(tools.rows.filter((row) => row.keys.length === 1 && row.keys[0]!.length === 1)).toEqual([
       { action: "Lasso", keys: ["L"] },
       { action: "Hand", keys: ["H"] },
-      { action: "Create or remove space", keys: ["S"] },
+      { action: "Space", keys: ["S"] },
       { action: "Connect", keys: ["C"] },
     ]);
   });
