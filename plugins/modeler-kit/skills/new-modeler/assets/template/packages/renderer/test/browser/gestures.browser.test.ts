@@ -327,13 +327,20 @@ describe('a drag that holds no element runs on through an import', () => {
     expect(modeler.interaction.active()).toBe(false);
   });
 
-  /** Presses the hand tool on the canvas and pans by 60 px; returns where the pointer is. */
-  function startPan(): ClientPoint {
+  /** Arms the hand tool and presses it on the canvas at `start`; the pan waits for the threshold. */
+  function pressPan(start: Point): ClientPoint {
     const at = clickPalette('hand-tool');
-    const start = { x: 300, y: 200 };
     hover(canvasSvg(), { x: at.x + 60, y: at.y + 60 });
     hover(canvasSvg(), start);
     press(canvasSvg(), start);
+    expect(dragPrefix()).toBe('hand.move');
+    return client(start);
+  }
+
+  /** Presses the hand tool on the canvas and pans by 60 px; returns where the pointer is. */
+  function startPan(): ClientPoint {
+    const start = { x: 300, y: 200 };
+    pressPan(start);
     moveTo({ x: start.x + 30, y: start.y });
     const pointerAt = client({ x: start.x + 60, y: start.y });
     panTo(pointerAt);
@@ -391,6 +398,60 @@ describe('a drag that holds no element runs on through an import', () => {
 
     expect(panned.x).toBeCloseTo(changed.x - 40 / changed.scale, 3);
     expect(panned.y).toBeCloseTo(changed.y - 20 / changed.scale, 3);
+  });
+
+  // diagram-js rounds each step of a pan to whole diagram units, so at 300 % a 1 px step rounds to
+  // none: the pan keeps its start point under the pointer, and only that point makes up for it.
+  it('a slow pan at a zoom above 200 % keeps the diagram under the pointer (#382)', () => {
+    const canvas = service<Canvas>('canvas');
+    const rect = canvas.getContainer().getBoundingClientRect();
+    const { x, y } = canvas.viewbox();
+    modeler.setViewState({ x, y, width: rect.width / 3, height: rect.height / 3 });
+    const zoomed = canvas.viewbox();
+    expect(zoomed.scale).toBeCloseTo(3, 3);
+    const start = pressPan({ x: x + zoomed.width / 2, y: y + zoomed.height / 2 });
+
+    for (let moved = 1; moved <= 30; moved += 1) {
+      panTo({ clientX: start.clientX + moved, clientY: start.clientY });
+    }
+
+    expect(dragPrefix()).toBe('hand.move');
+    expect(Math.abs(canvas.viewbox().x - (zoomed.x - 30 / zoomed.scale))).toBeLessThanOrEqual(0.5);
+    expect(canvas.viewbox().y).toBeCloseTo(zoomed.y, 3);
+  });
+
+  it('a view listener that fails during a pan ends it, and the next pan goes on from a view the host sets', () => {
+    const eventBus = service<EventBus>('eventBus');
+    const dragging = service<Dragging>('dragging');
+    const failingListener = (): never => {
+      eventBus.off('canvas.viewbox.changed', failingListener);
+      throw new Error('view listener failed');
+    };
+    const { clientX, clientY } = startPan();
+    eventBus.on('canvas.viewbox.changed', failingListener);
+    expect(() =>
+      dragging.move(
+        new MouseEvent('mousemove', {
+          bubbles: true,
+          cancelable: true,
+          clientX: clientX + 30,
+          clientY,
+        }),
+        false,
+      ),
+    ).toThrow('view listener failed');
+    expect(dragPrefix()).toBeUndefined();
+
+    const start = pressPan({ x: 300, y: 200 });
+    const { x, y, width, height } = service<Canvas>('canvas').viewbox();
+    modeler.setViewState({ x: x + 500, y, width, height });
+    const changed = service<Canvas>('canvas').viewbox();
+    panTo({ clientX: start.clientX + 40, clientY: start.clientY });
+    const panned = service<Canvas>('canvas').viewbox();
+
+    expect(dragPrefix()).toBe('hand.move');
+    expect(panned.x).toBeCloseTo(changed.x - 40 / changed.scale, 3);
+    expect(panned.y).toBeCloseTo(changed.y, 3);
   });
 });
 

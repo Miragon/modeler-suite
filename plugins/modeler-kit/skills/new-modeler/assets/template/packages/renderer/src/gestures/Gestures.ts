@@ -6,6 +6,9 @@ import { toPoint } from 'diagram-js/lib/util/Event';
 /** Ahead of every other listener of the same event. */
 const FIRST = 100_000;
 
+/** After every other listener of the same event. */
+const LAST = -100_000;
+
 const PAN_PREFIX = 'hand.move';
 
 /**
@@ -82,6 +85,8 @@ export default class Gestures {
   private actionInTask = false;
   /** From one of `HANDLER_GOES_ON_EVENTS` until the handler of the user's input has returned. */
   private handlerGoesOn = false;
+  /** The pan whose own scroll runs, while the hand tool scrolls for its `hand.move.move`. */
+  private scrollingPan: DragContext | null = null;
   private readonly actionHolds = new Set<object>();
   private actionWaiters: Array<() => void> = [];
   private readonly listeners = new Set<GestureListener>();
@@ -113,7 +118,20 @@ export default class Gestures {
     });
     // Fired at once after each change, since the canvas runs without `deferUpdate`: the import's
     // fit, a host's `setViewState` after it and a fit of the shell each move the view under a pan.
-    eventBus.on('canvas.viewbox.changed', () => this.anchorPanToView());
+    eventBus.on('canvas.viewbox.changed', () => {
+      if (this.dragging.context() !== this.scrollingPan) this.anchorPanToView();
+    });
+    // The hand tool scrolls by the distance from the pan's start point, which diagram-js rounds to
+    // whole diagram units: moved after each of these scrolls, the start point would add the
+    // rounding up, and at a zoom above 200 % a slow pointer would not pan at all. The scroll is
+    // told apart by its drag, not by a flag: a listener that throws during it ends the pan before
+    // the last listener runs, and a flag left set would keep the next pan from re-anchoring.
+    eventBus.on(`${PAN_PREFIX}.move`, FIRST, () => {
+      this.scrollingPan = this.dragging.context() as DragContext | null;
+    });
+    eventBus.on(`${PAN_PREFIX}.move`, LAST, () => {
+      this.scrollingPan = null;
+    });
     // Before diagram-js cancels a running drag on destroy: nothing is called after it, and a step
     // that never runs on the destroyed diagram holds no import.
     eventBus.on('diagram.destroy', FIRST, () => {
@@ -275,7 +293,7 @@ export default class Gestures {
    * A pan keeps the diagram point it started on under the pointer. After a view change the pan did
    * not make, its next move would put the view from before back, undoing the fit of an import or
    * the view a host restores after it (L5). So it starts again from the diagram point that now lies
-   * under the pointer; after the pan's own scroll that is the point it already holds.
+   * under the pointer (diagram-js keeps that point in the drag's context).
    */
   private anchorPanToView(): void {
     const pan = this.dragging.context() as DragContext | null;
