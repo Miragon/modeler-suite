@@ -13,4 +13,10 @@ export function isReadOnly(injector: Injector): boolean {
   return injector.get<WardleyReadOnly | null>("wardleyReadOnly", false)?.isReadOnly() === true;
 }
 
+/** Whether the palette marks the lock, at once or after its `delayMs`; false without a lock. */
+export function isReadOnlyShown(injector: Injector): boolean {
+  return injector.get<WardleyReadOnly | null>("wardleyReadOnly", false)?.isReadOnlyShown() === true;
+}
+
 export { default as WardleyReadOnly, READ_ONLY_CHANGED } from "./WardleyReadOnly.js";
+export type { WardleyReadOnlyOptions } from "./WardleyReadOnly.js";

@@ -54,7 +54,9 @@ is aimed at the canvas `<svg>` (`isCanvasKey` in `src/a11y/`), the picker also o
 while the draw tool holds points, `WardleyKeyboard` takes the single-key tools and paste without
 effect (`preventDefault`, #445), and while a point drag runs also the arrow keys and duplicate
 (`isDraggingPoint`, #375); Space on the draw tool's own palette entry saves a held line as Enter
-does (#438).
+does (#438). The draw tool arms itself outside diagram-js's tool manager, so it puts itself down
+when another tool's `tool-manager.update` arrives (the lasso from its entry or L) and saves a held
+line as Escape does (#485).
 `wardleyInteraction` ([`src/interaction/`](packages/renderer/src/interaction/)) follows every gesture
 (diagram-js drags past their threshold and the renderer's own label, point and evolve-target drags,
 which report to it) for the contract's `interaction`, and marks the user's actions, the one wait of

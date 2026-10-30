@@ -1,4 +1,6 @@
+/// <reference types="@vitest/browser-playwright" />
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { page as browserPage } from "vitest/browser";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
@@ -173,6 +175,40 @@ function focusFromKeyboard(target: HTMLElement | SVGElement): void {
   target.focus({ focusVisible: true } as FocusOptions);
 }
 
+function boxIn(element: Element, origin: Element): DOMRect {
+  const box = element.getBoundingClientRect();
+  const originBox = origin.getBoundingClientRect();
+  return new DOMRect(box.left - originBox.left, box.top - originBox.top, box.width, box.height);
+}
+
+/** `element` as drawn on screen: the colour at a point in px from its top left. */
+async function drawnColours(element: HTMLElement): Promise<(x: number, y: number) => number[]> {
+  const base64 = await browserPage.screenshot({ element, save: false });
+  const bitmap = await createImageBitmap(
+    await (await fetch(`data:image/png;base64,${base64}`)).blob(),
+  );
+  const scale = bitmap.width / element.getBoundingClientRect().width;
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const context = canvas.getContext("2d")!;
+  context.drawImage(bitmap, 0, 0);
+  return (x, y) => {
+    const data = context.getImageData(Math.floor(x * scale), Math.floor(y * scale), 1, 1).data;
+    return [data[0]!, data[1]!, data[2]!];
+  };
+}
+
+/** The WCAG contrast ratio of two sRGB colours. */
+function contrast(first: number[], second: number[]): number {
+  const channel = (value: number) => {
+    const share = value / 255;
+    return share <= 0.04045 ? share / 12.92 : ((share + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = ([red = 0, green = 0, blue = 0]: number[]) =>
+    0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue);
+  const [lighter, darker] = [luminance(first), luminance(second)].sort((a, b) => b - a);
+  return (lighter! + 0.05) / (darker! + 0.05);
+}
+
 /** The keyboard focus ring of each focusable part of the canvas chrome, focused in turn. */
 async function focusRingsOf(modeler: CollaborativeWardleyModeler): Promise<Record<string, Ring>> {
   const rings: Record<string, Ring> = {};
@@ -190,7 +226,11 @@ async function focusRingsOf(modeler: CollaborativeWardleyModeler): Promise<Recor
   rings["settings popup"] = ringOf(results, popup);
   closeSettingsPopup(modeler);
 
-  const swatch = within<HTMLElement>(openColourPicker(modeler), "button");
+  const picker = openColourPicker(modeler);
+  const activeSwatch = within<HTMLElement>(picker, "button.wardley-cp-active");
+  focusFromKeyboard(activeSwatch);
+  rings["active colour swatch"] = ringOf(activeSwatch);
+  const swatch = within<HTMLElement>(picker, "button:not(.wardley-cp-active)");
   focusFromKeyboard(swatch);
   rings["colour swatch"] = ringOf(swatch);
   closeColourPicker(modeler);
@@ -207,6 +247,7 @@ const NORMAL_RINGS: Record<string, Ring> = {
   "context pad entry": { width: "2px", offset: "2px" },
   "palette entry": { width: "2px", offset: "-2px" },
   "settings popup": { width: "2px", offset: "2px" },
+  "active colour swatch": { width: "2px", offset: "5px" },
   "colour swatch": { width: "2px", offset: "2px" },
   canvas: { width: "2px", offset: "-2px" },
 };
@@ -215,6 +256,7 @@ const HIGH_CONTRAST_RINGS: Record<string, Ring> = {
   "context pad entry": { width: "3px", offset: "2px" },
   "palette entry": { width: "3px", offset: "-3px" },
   "settings popup": { width: "3px", offset: "2px" },
+  "active colour swatch": { width: "3px", offset: "5px" },
   "colour swatch": { width: "3px", offset: "2px" },
   canvas: { width: "3px", offset: "-3px" },
 };
@@ -265,6 +307,48 @@ describe("the canvas chrome in high contrast (guide §5.3, §5.14, §6)", () => 
       const lineColour = roleColourAt(tooltip, "--cd-ui-linie");
       expect(edgeOf(tooltip)).toEqual({ style: "solid", width: "1px", color: lineColour });
       expect(lineColour).not.toBe(getComputedStyle(tooltip).backgroundColor);
+    },
+  );
+
+  // The chosen colour's state ring lay under the focus ring, in nearly the same blue, so the focus
+  // on the swatch the picker focuses first could not be seen (guide §5.5, §8, §12).
+  it.each(Object.entries({ ...NORMAL_CONTRAST, ...HIGH_CONTRAST }))(
+    "shows the focus on the chosen colour's swatch around its state ring, clear of the neighbours and the picker's edge (#407) %s",
+    async (_, mode) => {
+      const picker = openColourPicker(await mapIn(mode));
+      const active = within<HTMLElement>(picker, "button.wardley-cp-active");
+      focusFromKeyboard(active);
+      const ring = ringOf(active);
+      const reach = parseFloat(ring.offset) + parseFloat(ring.width);
+      const pickerStyle = getComputedStyle(picker);
+      for (const room of [
+        pickerStyle.columnGap,
+        pickerStyle.rowGap,
+        pickerStyle.paddingTop,
+        pickerStyle.paddingLeft,
+      ]) {
+        expect(reach).toBeLessThan(parseFloat(room));
+      }
+      const focused = await drawnColours(picker);
+      active.blur();
+      expect(picker.isConnected).toBe(true);
+      const unfocused = await drawnColours(picker);
+
+      const swatchBox = boxIn(active, picker);
+      const ringMiddle = parseFloat(ring.offset) + parseFloat(ring.width) / 2;
+      const centre = {
+        x: swatchBox.left + swatchBox.width / 2,
+        y: swatchBox.top + swatchBox.height / 2,
+      };
+      const onTheRing = [
+        [swatchBox.left - ringMiddle, centre.y],
+        [swatchBox.right + ringMiddle, centre.y],
+        [centre.x, swatchBox.top - ringMiddle],
+        [centre.x, swatchBox.bottom + ringMiddle],
+      ] as const;
+      for (const [x, y] of onTheRing) {
+        expect(contrast(focused(x, y), unfocused(x, y))).toBeGreaterThanOrEqual(3);
+      }
     },
   );
 

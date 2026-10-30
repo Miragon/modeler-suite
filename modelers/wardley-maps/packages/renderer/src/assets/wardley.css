@@ -423,14 +423,16 @@
 
 /* Note color picker (bpmn.io style): compact 3x3 grid of small color squares, no text. A transient
    popup, so it may cover the palette while it is open (guide §5.13). Positioned absolutely WITHIN
-   .wardley-container (relative reference). */
+   .wardley-container (relative reference). The gap and the padding hold the focus ring of the
+   active swatch, which reaches 8px out in high contrast and nearly 10px while the hovered swatch
+   grows, clear of its neighbours and the border, on the 4px grid (guide §5.1). */
 .wardley-container .wardley-color-picker {
   position: absolute;
   z-index: 300;
   display: grid;
   grid-template-columns: repeat(3, 22px);
-  gap: 6px;
-  padding: 8px;
+  gap: 12px;
+  padding: 12px;
   background: var(--cd-ui-flaeche-hoch);
   border: 1px solid var(--cd-ui-linie);
   border-radius: var(--cd-radius-md);
@@ -574,6 +576,12 @@
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
   .entry[aria-pressed="true"]:focus-visible {
   outline-offset: -5px;
+}
+/* The chosen colour's ring lies 2 to 4px outside its swatch, where the focus ring would lie too,
+   in nearly the same blue: the focus stands 1px outside that ring, as guide §5.5 keeps the armed
+   tool's ring and focus apart, at every ring width. */
+:where(.wardley-container) .wardley-cp-active:focus-visible {
+  outline-offset: 5px;
 }
 /* The canvas fills its container, so an outer ring would be clipped — draw it inside. */
 .wardley-container svg:focus-visible {

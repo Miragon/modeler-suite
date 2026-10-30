@@ -476,6 +476,83 @@ describe("the lasso's pressed state without the shell (guide §5.5, #462, #458)"
   });
 });
 
+/** Each way to arm the lasso: a pointer's click, Enter or Space on its entry, and its key. */
+const ARM_THE_LASSO: Record<string, (mapped: Mounted) => Promise<void>> = {
+  "a click on its entry": async ({ host }) => userEvent.click(entry(host, "lasso-tool")),
+  "Enter on its entry": async ({ host }) => {
+    focusFromKeyboard(entry(host, "lasso-tool"));
+    await userEvent.keyboard("{Enter}");
+  },
+  "Space on its entry": async ({ host }) => {
+    focusFromKeyboard(entry(host, "lasso-tool"));
+    await userEvent.keyboard(" ");
+  },
+  "the L key on the canvas": async (mapped) => {
+    canvasSvg(mapped).focus();
+    await userEvent.keyboard("l");
+  },
+};
+
+function drawingsOf({ modeler }: Mounted): number {
+  return modeler.exportMap().elements.filter((element) => element.elementType === "drawing").length;
+}
+
+/** A press on the canvas at `x`, `y` px from its top left, as the draw tool reads it. */
+function pressCanvas(mapped: Mounted, x: number, y: number): void {
+  const box = canvasSvg(mapped).getBoundingClientRect();
+  canvasSvg(mapped).dispatchEvent(
+    new MouseEvent("mousedown", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: box.left + x,
+      clientY: box.top + y,
+    }),
+  );
+}
+
+describe("one armed tool at a time without the shell (guide §5.5, #485)", () => {
+  it.each(Object.entries(ARM_THE_LASSO))(
+    "puts the armed draw tool down when %s arms the lasso, which alone shows pressed",
+    async (_, armLasso) => {
+      const mapped = await mount();
+      const { host, modeler } = mapped;
+      const drawTool = modeler.get<WardleyDrawTool>("wardleyDrawTool");
+      await armDrawTool(mapped);
+
+      await armLasso(mapped);
+
+      expect(drawTool.isActive()).toBe(false);
+      expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+      expect(pressedStates(host)).toMatchObject({ "lasso-tool": "true", "draw-tool": "false" });
+      await vi.waitFor(() => expect(lookOf(entry(host, "lasso-tool"))).toEqual(armedLook(host)));
+      await vi.waitFor(() =>
+        expect(getComputedStyle(entry(host, "draw-tool")).boxShadow).toBe("none"),
+      );
+      pressCanvas(mapped, 300, 300);
+      expect(drawTool.holdsLine()).toBe(false);
+    },
+  );
+
+  it("saves the line the draw tool holds, as Escape does, when a click on its entry arms the lasso", async () => {
+    const mapped = await mount();
+    const { host, modeler } = mapped;
+    const drawTool = modeler.get<WardleyDrawTool>("wardleyDrawTool");
+    await armDrawTool(mapped);
+    pressCanvas(mapped, 300, 300);
+    pressCanvas(mapped, 420, 360);
+    expect(drawTool.holdsLine()).toBe(true);
+    const before = drawingsOf(mapped);
+
+    await ARM_THE_LASSO["a click on its entry"]!(mapped);
+
+    expect(drawTool.isActive()).toBe(false);
+    expect(drawingsOf(mapped)).toBe(before + 1);
+    expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+    expect(pressedStates(host)).toMatchObject({ "lasso-tool": "true", "draw-tool": "false" });
+  });
+});
+
 /** Once the entry's 150ms transitions have run: a read before that sees where they started. */
 async function afterTransitions(element: Element): Promise<void> {
   await Promise.all(element.getAnimations().map((animation) => animation.finished));
@@ -803,6 +880,42 @@ describe.each([
     expect(state()).toEqual([false, null]);
     expect(modeler.get<WardleyDrawTool>("wardleyDrawTool").isActive()).toBe(true);
   });
+
+  it.each([
+    [
+      "a click on its entry",
+      async ({ host }: Mounted) =>
+        userEvent.click(
+          host.querySelector<HTMLElement>('.djs-palette .entry[data-action="lasso-tool"]')!,
+        ),
+    ],
+    [
+      "the click the chrome sends for Enter or Space",
+      async ({ host }: Mounted) => keyboardClick(host, "lasso-tool"),
+    ],
+    ["the L key on the canvas", ARM_THE_LASSO["the L key on the canvas"]!],
+  ])(
+    "puts the armed draw tool down when %s arms the lasso, and tells the chrome the lasso is the armed tool (#485)",
+    async (_, armLasso) => {
+      const mapped = await mount(HOST, Modeler, { additionalModules: [module] });
+      const { modeler } = mapped;
+      const drawTool = modeler.get<WardleyDrawTool>("wardleyDrawTool");
+      const armedTools: (string | null)[] = [];
+      modeler
+        .get<EventBus>("eventBus")
+        .on("tool-manager.update", (event: { tool?: string | null }) =>
+          armedTools.push(event.tool ?? null),
+        );
+      drawTool.activate();
+
+      await armLasso(mapped);
+
+      expect(drawTool.isActive()).toBe(false);
+      expect(modeler.get<ToolManager>("toolManager").isActive("lasso")).toBe(true);
+      expect(modeler.get<Dragging>("dragging").context()?.prefix).toBe("lasso.selection");
+      expect(armedTools.at(-1)).toBe("lasso");
+    },
+  );
 });
 
 function shownTooltip(host: HTMLElement): HTMLElement | null {
@@ -1073,7 +1186,43 @@ describe("the palette without the shell in a container at most 760px wide (guide
       0,
     );
   });
+
+  // A trackpad or Shift and the wheel scroll the palette under a tooltip the keyboard focus shows.
+  it("takes the tooltip along when the palette scrolls, and away once its entry has left the view (#481)", async () => {
+    const { host } = await mount({ width: 300, height: 600 });
+    const palette = paletteOf(host);
+    const centreOf = (element: HTMLElement) => {
+      const box = boxIn(element, host);
+      return box.left + box.width / 2;
+    };
+    const component = entry(host, "create.component");
+    focusFromKeyboard(component);
+    expect(palette.scrollLeft).toBe(0);
+    const tooltip = shownTooltip(host)!;
+    expect(shownName(host)).toBe("Component");
+    const shownAt = centreOf(tooltip);
+    expect(shownAt).toBeCloseTo(centreOf(component), 0);
+
+    palette.scrollLeft = 24;
+    await nextFrame();
+    await nextFrame();
+    expect(palette.scrollLeft).toBe(24);
+    expect(tooltip.isConnected).toBe(true);
+    expect(centreOf(tooltip)).toBeCloseTo(shownAt - 24, 0);
+    expect(centreOf(tooltip)).toBeCloseTo(centreOf(component), 0);
+
+    palette.scrollLeft = palette.scrollWidth;
+    await nextFrame();
+    await nextFrame();
+    expect(boxIn(component, palette).right).toBeLessThanOrEqual(palette.clientLeft);
+    expect(shownTooltip(host)).toBeNull();
+    expect(component.hasAttribute("aria-describedby")).toBe(false);
+  });
 });
+
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
 
 /** The raised surface at `opacity`, in the colour space the glass mixes in. */
 function surfaceAt(host: HTMLElement, opacity: string): string {
@@ -1267,6 +1416,68 @@ describe("the read-only lock in the palette without the shell (guide §13.5, #46
     focusFromKeyboard(lasso);
     await userEvent.keyboard(" ");
     expect(lassoState(mapped)).toEqual(ARMED_LASSO);
+  });
+
+  it("shows the marks after the delay a host gives, while the lock refuses from the start, and takes them off at once (#484)", async () => {
+    const mapped = await mount();
+    const { host, modeler } = mapped;
+    const readOnly = modeler.get<WardleyReadOnly>("wardleyReadOnly");
+    const before = modeler.exportDSL();
+    const marked = () =>
+      Object.entries(disabledStates(host))
+        .filter(([, state]) => state === "true")
+        .map(([action]) => action);
+    const everyEntryButTheLasso = Object.keys(disabledStates(host)).filter(
+      (action) => action !== "lasso-tool",
+    );
+    const note = entry(host, "create.note");
+    focusFromKeyboard(note);
+    const pressEnter = () =>
+      note.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      );
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      vi.advanceTimersByTime(400);
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      vi.advanceTimersByTime(399);
+      expect([readOnly.isReadOnly(), readOnly.isReadOnlyShown(), marked()]).toEqual([
+        true,
+        false,
+        [],
+      ]);
+      pressEnter();
+      clickWithoutPointer(entry(host, "create.component"));
+      expect(modeler.exportDSL()).toBe(before);
+
+      vi.advanceTimersByTime(1);
+      expect(readOnly.isReadOnlyShown()).toBe(true);
+      expect(marked()).toEqual(everyEntryButTheLasso);
+      readOnly.setReadOnly(false);
+      expect([readOnly.isReadOnlyShown(), marked()]).toEqual([false, []]);
+
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      readOnly.setReadOnly(false);
+      vi.advanceTimersByTime(800);
+      expect([readOnly.isReadOnly(), readOnly.isReadOnlyShown(), marked()]).toEqual([
+        false,
+        false,
+        [],
+      ]);
+      pressEnter();
+      expect(modeler.exportDSL()).not.toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("marks the entries at once with the lock when the host gives no delay (#484)", async () => {
+    const mapped = await mount();
+    const readOnly = mapped.modeler.get<WardleyReadOnly>("wardleyReadOnly");
+    readOnly.setReadOnly(true, { delayMs: 0 });
+    expect(readOnly.isReadOnlyShown()).toBe(true);
+    expect(disabledStates(mapped.host)["create.note"]).toBe("true");
   });
 
   it("leaves the marks of a palette another chrome skins to that chrome, and creates nothing from its keys", async () => {
