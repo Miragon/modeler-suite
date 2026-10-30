@@ -126,6 +126,7 @@ function collaborative(
   const interactionListeners = new Set<(active: boolean) => void>();
   let destroyed = false;
   let lastExport = "";
+  const importsDrawn = drawnImports(eventBus);
   const selections = selectionListeners(eventBus, () => destroyed);
 
   const meta: ModelerMeta = {
@@ -211,8 +212,24 @@ function collaborative(
       diagram.attachTo(host);
     },
     async importText(text): Promise<ImportResult> {
-      if (destroyed) throw new Error("The modeler was destroyed.");
-      const { warnings } = await diagram.importDSL(text);
+      if (destroyed) throw destroyedError();
+      const drawnBefore = importsDrawn();
+      const importing = diagram.importDSL(text);
+      // An import that waits for nothing has drawn by the time its call returns: a destroy after
+      // that comes from outside it and leaves it resolved, as in the other renderers. One that
+      // waits (for the annotation font, the user's action, an import ahead of it) is still running
+      // until it has drawn.
+      const drewInItsCall = importsDrawn() > drawnBefore;
+      const destroyedInItsCall = destroyed;
+      const { warnings } = await importing.catch((error: unknown) => {
+        // The viewer rejects in words of its own when the board was torn down while the import
+        // waited, also after a listener of the gesture end it began with destroyed the modeler.
+        throw destroyed ? destroyedError() : error;
+      });
+      // A listener the import called (the end of a held gesture, the clear of the selection)
+      // destroyed the modeler: the import rejects, as one that waits does once the modeler is
+      // destroyed.
+      if (drewInItsCall ? destroyedInItsCall : destroyed) throw destroyedError();
       return { warnings: warnings.map(importWarningText) };
     },
     exportText() {
@@ -248,8 +265,8 @@ function collaborative(
       destroyed = true;
       contentListeners.clear();
       interactionListeners.clear();
-      // An import whose listener destroyed the modeler goes on to draw its board, and its Promise
-      // then resolves: the modeler keeps that board (#415). Whatever else runs on after the destroy
+      // An import whose listener destroyed the modeler goes on to draw its board before its Promise
+      // rejects: the modeler keeps that board (#415). Whatever else runs on after the destroy
       // reaches no host, so the text read above stays.
       let imported = false;
       eventBus.on("import.done", () => {
@@ -297,6 +314,19 @@ function selectionListeners(eventBus: EventBus, isDestroyed: () => boolean) {
       };
     },
   };
+}
+
+/** How many imports have drawn so far; an import that waits for nothing draws inside its call. */
+function drawnImports(eventBus: EventBus): () => number {
+  let drawn = 0;
+  eventBus.on("import.done", () => {
+    drawn += 1;
+  });
+  return () => drawn;
+}
+
+function destroyedError(): Error {
+  return new Error("The modeler was destroyed.");
 }
 
 function textToKeep(diagram: Modeler | NavigatedViewer): string {

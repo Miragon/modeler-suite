@@ -159,10 +159,14 @@ function collaborative(
   };
 
   const importNow = (document: TtDocument): ImportResult => {
-    if (destroyed) throw new Error("The modeler was destroyed.");
+    if (destroyed) throw destroyedError();
     importsRunning += 1;
     try {
       const { warnings } = diagram.importDocument(document, { fit: fitOnImport });
+      // A listener the import called (the end of a held gesture, the clear of the selection)
+      // destroyed the modeler: the import rejects, as one that waits does once the modeler is
+      // destroyed.
+      if (destroyed) throw destroyedError();
       return { warnings: warnings.map((warning) => warning.message) };
     } finally {
       importsRunning -= 1;
@@ -219,7 +223,7 @@ function collaborative(
       diagram.attachTo(host);
     },
     async importText(text): Promise<ImportResult> {
-      if (destroyed) throw new Error("The modeler was destroyed.");
+      if (destroyed) throw destroyedError();
       const document = parseDocumentText(text);
       if (userActions.running() || waitingImports) return importAfterUserAction(document);
       return importNow(document);
@@ -258,8 +262,8 @@ function collaborative(
       contentListeners.clear();
       interaction.stop();
       userActions.stop();
-      // An import whose listener destroyed the modeler goes on to draw its document, and its Promise
-      // then resolves: the modeler keeps that document (#415). Whatever else runs on after the
+      // An import whose listener destroyed the modeler goes on to draw its document before its
+      // Promise rejects: the modeler keeps that document (#415). Whatever else runs on after the
       // destroy reaches no host, so the text read above stays.
       let imported = false;
       eventBus.on("import.done", () => {
@@ -306,6 +310,10 @@ function selectionListeners(eventBus: EventBus, isDestroyed: () => boolean) {
       };
     },
   };
+}
+
+function destroyedError(): Error {
+  return new Error("The modeler was destroyed.");
 }
 
 /** Connectors are not addressable: their ids derive from the annotation and are never stored. */

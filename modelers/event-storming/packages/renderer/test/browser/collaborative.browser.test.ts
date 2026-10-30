@@ -428,7 +428,7 @@ describe("an annotated board imported while its font loads", () => {
     const modeler = editor();
     const importing = modeler.importText(orderCheckout);
     modeler.destroy();
-    await expect(importing).rejects.toThrow("destroyed");
+    await expect(importing).rejects.toThrow("The modeler was destroyed.");
   });
 });
 

@@ -21,7 +21,7 @@ import { Modeler } from "../Modeler.js";
 import { NavigatedViewer } from "../NavigatedViewer.js";
 import type { WardleyViewerOptions } from "../WardleyBaseViewer.js";
 import { WARDLEY_THEMES } from "../appearance/index.js";
-import { restoreEditorState, setAsideEditorState, type EditorState } from "../editor-state.js";
+import { restoreEditorState, setAsideEditorState } from "../editor-state.js";
 import {
   INTERACTION_CHANGED,
   type InteractionChangedEvent,
@@ -264,7 +264,7 @@ function importTurns(
   const wait = async (ahead: Promise<void> | undefined, action: Promise<void> | undefined) => {
     if (ahead) await ahead.catch(() => undefined);
     for (; ; action = afterUserAction()) {
-      if (isDestroyed()) throw new Error("The modeler was destroyed.");
+      if (isDestroyed()) throw destroyedError();
       if (!action) return;
       await action;
     }
@@ -369,7 +369,7 @@ function collaborative(
   };
 
   async function importText(text: string): Promise<ImportResult> {
-    if (destroyed) throw new Error("The modeler was destroyed.");
+    if (destroyed) throw destroyedError();
     // A host that echoes its own change back through its store imports from the change listener,
     // while the user's action still runs: a create goes on to select its element and open its name
     // editor, a press that saved a name goes on to start its drag, and a drop's later steps, also
@@ -380,13 +380,21 @@ function collaborative(
     importsRunning += 1;
     // An open label editor neither commits during the import nor loses what was typed (L1): it
     // is taken down and reopened on the element with the same id.
-    const editorState: EditorState | undefined =
-      editable && imported ? setAsideEditorState(diagram as Modeler) : undefined;
+    const editorState = editable && imported ? setAsideEditorState(diagram as Modeler) : undefined;
     try {
-      const { warnings } = await diagram.importDSL(text);
+      const importing = diagram.importDSL(text);
+      // The map is drawn by the time that call returns: a destroy after it comes from outside the
+      // import and leaves it resolved, as in the other renderers.
+      const destroyedWhenDrawn = destroyed;
+      const { warnings } = await importing;
       imported = true;
       // Reading a destroyed map would build a new one on the detached container.
-      if (editorState && !destroyed) restoreEditorState(diagram as Modeler, editorState);
+      const restoring = editorState !== undefined && !destroyed;
+      if (restoring) restoreEditorState(diagram as Modeler, editorState);
+      // A listener the import called (the end of a held gesture, the clear of the selection, the
+      // selection it brings back) destroyed the modeler: the import rejects, as one that waits
+      // does once the modeler is destroyed.
+      if (restoring ? destroyed : destroyedWhenDrawn) throw destroyedError();
       return { warnings: warnings.map((warning) => warning.message) };
     } catch (error) {
       if (editorState && !destroyed)
@@ -444,8 +452,8 @@ function collaborative(
       destroyed = true;
       contentListeners.clear();
       interaction.stop();
-      // An import whose listener destroyed the modeler goes on to draw its map, and its Promise then
-      // resolves: the modeler keeps that map (#415). Whatever else runs on after the destroy
+      // An import whose listener destroyed the modeler goes on to draw its map before its Promise
+      // rejects: the modeler keeps that map (#415). Whatever else runs on after the destroy
       // reaches no host, so the text read above stays.
       let imported = false;
       eventBus.on("import.done", () => {
@@ -459,6 +467,10 @@ function collaborative(
       else interaction.tearDownAfterHandler(tearDown);
     },
   };
+}
+
+function destroyedError(): Error {
+  return new Error("The modeler was destroyed.");
 }
 
 function textToKeep(committedText: () => string): string {

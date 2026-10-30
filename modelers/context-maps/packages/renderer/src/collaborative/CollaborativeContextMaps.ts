@@ -139,8 +139,12 @@ function collaborative(
 
   /** The import itself; its body runs at once when called, up to the canvas. */
   async function importNow(text: string): Promise<ImportResult> {
-    if (destroyed) throw new Error("The modeler was destroyed.");
+    if (destroyed) throw destroyedError();
     const { warnings } = diagram.importText(text);
+    // A listener the import called (the end of a held gesture, the clear of the selection)
+    // destroyed the modeler: the import rejects, as one that waits does once the modeler is
+    // destroyed.
+    if (destroyed) throw destroyedError();
     return { warnings: warnings.map((warning) => warning.message) };
   }
 
@@ -244,8 +248,8 @@ function collaborative(
       lastExport = textToKeep(diagram);
       destroyed = true;
       contentListeners.clear();
-      // An import whose listener destroyed the modeler goes on to draw its map, and its Promise then
-      // resolves: the modeler keeps that map. Whatever else runs on after the destroy reaches no
+      // An import whose listener destroyed the modeler goes on to draw its map before its Promise
+      // rejects: the modeler keeps that map. Whatever else runs on after the destroy reaches no
       // host, so the text read above stays.
       let imported = false;
       eventBus.on("import.done", () => {
@@ -293,6 +297,10 @@ function selectionListeners(eventBus: EventBus, isDestroyed: () => boolean) {
       };
     },
   };
+}
+
+function destroyedError(): Error {
+  return new Error("The modeler was destroyed.");
 }
 
 function textToKeep(diagram: Modeler | NavigatedViewer): string {
