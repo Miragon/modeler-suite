@@ -759,7 +759,7 @@ const POINT_DRAG_PREVIEW = ".layer-wardley-drawing-handles :is(polyline, polygon
  * The canvas keys that would change the drawing under a point drag or start a second gesture next
  * to it, with whether the canvas takes them (`preventDefault`): a nudge or a duplicate is a command,
  * which ends the point drag, and a create, a connection, the lasso or a paste would end with the
- * drag's release. The single-key tools are left without effect as while the draw tool holds a line.
+ * drag's release. The canvas has the focus, so it takes the single-key tools too (#404).
  */
 const KEYS_A_POINT_DRAG_TAKES: ReadonlyArray<readonly [string, KeyboardEventInit, boolean]> = [
   ["ArrowRight, a nudge of the drawing", { key: "ArrowRight" }, true],
@@ -767,12 +767,13 @@ const KEYS_A_POINT_DRAG_TAKES: ReadonlyArray<readonly [string, KeyboardEventInit
   ["ArrowLeft", { key: "ArrowLeft" }, true],
   ["ArrowUp", { key: "ArrowUp" }, true],
   ["Shift+ArrowDown", { key: "ArrowDown", shiftKey: true }, true],
-  ["C, a component at the pointer", { key: "c" }, false],
-  ["U, a user at the pointer", { key: "u" }, false],
-  ["N, a note at the pointer", { key: "n" }, false],
-  ["P, a pipeline at the pointer", { key: "p" }, false],
-  ["A, a connection from the selected node", { key: "a" }, false],
-  ["L, the lasso", { key: "l" }, false],
+  ["C, a component at the pointer", { key: "c" }, true],
+  ["U, a user at the pointer", { key: "u" }, true],
+  ["N, a note at the pointer", { key: "n" }, true],
+  ["P, a pipeline at the pointer", { key: "p" }, true],
+  ["A, a connection from the selected node", { key: "a" }, true],
+  ["L, the lasso", { key: "l" }, true],
+  ["Shift+C, a component as well", { key: "C", shiftKey: true }, true],
   ["paste, which attaches to the pointer", { key: "v", ctrlKey: true }, true],
   ["duplicate", { key: "d", ctrlKey: true }, true],
 ];

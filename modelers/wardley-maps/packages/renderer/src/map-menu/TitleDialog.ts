@@ -1,5 +1,6 @@
 import { DEFAULT_MAP_TITLE } from "@miragon/wardley-schema-model";
 import type { Modeler } from "../Modeler.js";
+import { isImeCompositionKey } from "../label-editing/index.js";
 import { READ_ONLY_CHANGED } from "../read-only/index.js";
 import { createMapDialog, dialogButton, type DialogChrome, type MapDialog } from "./dialog.js";
 import { element, uniqueId } from "./dom.js";
@@ -26,6 +27,13 @@ export function createTitleDialog(chrome: TitleDialogChrome, modeler: Modeler): 
   field.maxLength = 120;
   // showModal() focuses the first focusable element, which would be the header's Close button.
   field.autofocus = true;
+  // The form submits on the browser's Enter and the dialog closes on its Escape; while an input
+  // method composes, these keys confirm or cancel its candidate instead.
+  field.addEventListener("keydown", (event) => {
+    if ((event.key === "Enter" || event.key === "Escape") && isImeCompositionKey(event)) {
+      event.preventDefault();
+    }
+  });
 
   const dialog = createMapDialog(chrome, {
     className: "wardley-title-dialog",

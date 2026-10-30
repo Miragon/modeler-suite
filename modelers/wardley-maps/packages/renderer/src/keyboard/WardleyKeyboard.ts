@@ -56,6 +56,11 @@ const QUICK_CREATE: Record<string, { type: WardleyShapeType; label: string }> = 
   p: { type: "pipeline", label: "Pipeline" },
 };
 
+/** The single-key tools C, U, N, P, A and L, pressed without Alt. */
+function isSingleKeyTool(e: KeyboardEvent, key: string): boolean {
+  return !e.altKey && (key in QUICK_CREATE || key === "a" || key === "l");
+}
+
 /** Keyboard-created shapes stay this far inside the plot edge. */
 const PLOT_INSET = 40;
 /**
@@ -80,8 +85,8 @@ interface PlotBounds {
  * Cmd/Ctrl+A (select all), the single-key tools C (component), U (user), N (note), P (pipeline),
  * L (lasso) and A (connect from the selected node), all only while the canvas has the focus.
  * Deliberately a DOM listener (no diagram-js keyboard-service binding needed). While a point of a
- * drawing is dragged, the arrow keys, paste, duplicate and the single-key tools do nothing; Escape
- * ends that drag and Delete removes the drawing.
+ * drawing is dragged, the arrow keys, paste, duplicate and the single-key tools do nothing, and the
+ * canvas takes them; Escape ends that drag and Delete removes the drawing.
  */
 export default class WardleyKeyboard {
   static $inject = [
@@ -217,11 +222,12 @@ export default class WardleyKeyboard {
     };
 
     const onPlainKey = (e: KeyboardEvent, key: string) => {
+      if (locked() && key !== "escape" && key !== "l") return;
       // While the draw tool holds the points of a line or a point of a drawing is dragged, that
       // gesture owns the canvas keys as it owns the pointer: a tool started next to it would take
       // the next press or the release as well.
-      const toolKey = !e.altKey && !drawTool?.holdsLine() && !this.pointDragged();
-      if (locked() && key !== "escape" && key !== "l") return;
+      if (this.takenByPointDrag(e, key)) return;
+      const toolKey = isSingleKeyTool(e, key) && !drawTool?.holdsLine();
       if (key === "escape") {
         if (!escapeOwnedByOverlay && selection.get().length) selection.select(null);
       } else if (key === "delete" || key === "backspace") {
@@ -358,6 +364,16 @@ export default class WardleyKeyboard {
    */
   private pointDragged(): boolean {
     return !!this.drawingHandles?.isDraggingPoint();
+  }
+
+  /**
+   * The point drag runs on the canvas, which has the focus, so the single-key tools pressed during
+   * it are the canvas's and go no further, though they start nothing (#404).
+   */
+  private takenByPointDrag(e: KeyboardEvent, key: string): boolean {
+    if (!isSingleKeyTool(e, key) || !this.pointDragged()) return false;
+    e.preventDefault();
+    return true;
   }
 
   /** The real pointer event, or a synthetic one at `canvasPoint` when the pointer is elsewhere. */
