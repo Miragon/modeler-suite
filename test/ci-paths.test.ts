@@ -26,6 +26,59 @@ const EVERYTHING: Reach = { shared: true, template: true, modelers: MODELERS };
 const modelerOnly = (modeler: string): Reach => ({ ...NOTHING, modelers: [modeler] });
 const modelerAndShared = (modeler: string): Reach => ({ ...modelerOnly(modeler), shared: true });
 
+/** Edits only: the base commit holds each of these files, as adding one to a modeler reaches more. */
+const REACH_OF_AN_EDIT: [string, Reach][] = [
+  ["docs/guide.md", NOTHING],
+  ["README.md", NOTHING],
+  ["LICENSE", NOTHING],
+  [".husky/pre-commit", SHARED],
+  ["modelers/wardley-maps/docs/guide.md", NOTHING],
+  ["modelers/wardley-maps/README.md", NOTHING],
+  ["modelers/wardley-maps/packages/dsl/src/index.ts", modelerOnly("wardley-maps")],
+  ["modelers/wardley-maps/packages/dsl/README.md", modelerOnly("wardley-maps")],
+  ["modelers/wardley-maps/vitest.config.ts", modelerOnly("wardley-maps")],
+  ["modelers/wardley-maps/packages/renderer/src/plugins/index.ts", modelerOnly("wardley-maps")],
+  ["modelers/wardley-maps/packages/schema-model/src/index.ts", modelerOnly("wardley-maps")],
+  ["modelers/event-storming/.claude/rules/rule.md", modelerOnly("event-storming")],
+  [
+    "modelers/wardley-maps/plugins/wardley-maps-modeler/.claude-plugin/plugin.json",
+    modelerAndShared("wardley-maps"),
+  ],
+  [
+    "modelers/event-storming/plugins/event-storming-modeler/skills/storm-dsl/SKILL.md",
+    modelerAndShared("event-storming"),
+  ],
+  ["modelers/wardley-maps/package.json", modelerAndShared("wardley-maps")],
+  ["modelers/wardley-maps/packages/dsl/package.json", modelerAndShared("wardley-maps")],
+  ["modelers/event-storming/apps/vscode/package.json", modelerAndShared("event-storming")],
+  ["modelers/event-storming/apps/webapp/package.json", modelerAndShared("event-storming")],
+  ["modelers/wardley-maps/e2e/package.json", modelerAndShared("wardley-maps")],
+  [
+    "modelers/wardley-maps/packages/renderer/test/fixtures/package.json",
+    modelerOnly("wardley-maps"),
+  ],
+  ["modelers/wardley-maps/eslint.config.js", modelerAndShared("wardley-maps")],
+  ["modelers/event-storming/eslint.config.mjs", modelerAndShared("event-storming")],
+  ["modelers/wardley-maps/packages/dsl/eslint.config.js", modelerAndShared("wardley-maps")],
+  ["modelers/wardley-maps/.dependency-cruiser.cjs", modelerAndShared("wardley-maps")],
+  ["modelers/wardley-maps/packages/dsl/.dependency-cruiser.cjs", modelerOnly("wardley-maps")],
+  ["modelers/event-storming/.miragon/brand.json", modelerAndShared("event-storming")],
+  ["modelers/wardley-maps/packages/renderer/.miragon/brand.json", modelerAndShared("wardley-maps")],
+  [
+    "modelers/event-storming/packages/renderer/src/theme/cd-canvas.css",
+    { ...modelerOnly("event-storming"), template: true },
+  ],
+  ["modelers/wardley-maps/packages/renderer/src/theme/cd-canvas.css", modelerOnly("wardley-maps")],
+  ["plugins/modeler-kit/README.md", { ...SHARED, template: true }],
+  ["test/release-config.test.ts", SHARED],
+  [".claude-plugin/marketplace.json", SHARED],
+  ["extensions/modeler-collection/package.json", SHARED],
+  ["packages/api/src/index.ts", EVERYTHING],
+  [".github/workflows/ci.yml", EVERYTHING],
+  ["package-lock.json", EVERYTHING],
+  ["modelers/capability-map/src/index.ts", EVERYTHING],
+];
+
 describe("the paths a change reaches in CI", () => {
   const sandbox = mkdtempSync(join(tmpdir(), "ci-paths-"));
   const work = join(sandbox, "work");
@@ -46,8 +99,12 @@ describe("the paths a change reaches in CI", () => {
     }).trim();
   mkdirSync(work);
   git("init", "-q", "-b", "main");
-  const commit = (files: Record<string, string>) => {
+  const commit = (files: Record<string, string | null>) => {
     for (const [path, text] of Object.entries(files)) {
+      if (text === null) {
+        rmSync(join(work, path));
+        continue;
+      }
       mkdirSync(dirname(join(work, path)), { recursive: true });
       writeFileSync(join(work, path), text);
     }
@@ -65,8 +122,9 @@ describe("the paths a change reaches in CI", () => {
     return git("rev-parse", "HEAD");
   };
   const base = commit({
+    ...Object.fromEntries(REACH_OF_AN_EDIT.map(([path]) => [path, "a"])),
     ...Object.fromEntries(MODELERS.map((modeler) => [`modelers/${modeler}/package.json`, "{}"])),
-    "README.md": "a",
+    "modelers/event-storming/packages/dsl/src/index.ts": "a",
   });
   afterAll(() => rmSync(sandbox, { recursive: true, force: true }));
 
@@ -99,69 +157,45 @@ describe("the paths a change reaches in CI", () => {
       modelers: JSON.parse(outputs.get("modelers") ?? "null") as string[],
     } satisfies Reach;
   };
-  const afterChanging = (...paths: string[]) => {
+  const afterCommitting = (files: Record<string, string | null>) => {
     git("reset", "-q", "--hard", base);
-    commit(Object.fromEntries(paths.map((path) => [path, "b"])));
+    commit(files);
     return affected("pull_request", "PULL_REQUEST_BASE_SHA", base);
   };
+  const afterChanging = (...paths: string[]) =>
+    afterCommitting(Object.fromEntries(paths.map((path) => [path, "b"])));
+
+  it.each(REACH_OF_AN_EDIT)("a change to %s", (path, reach) => {
+    expect(afterChanging(path)).toEqual(reach);
+  });
 
   it.each<[string, Reach]>([
-    ["docs/guide.md", NOTHING],
-    ["README.md", NOTHING],
-    ["LICENSE", NOTHING],
-    [".husky/pre-commit", NOTHING],
-    ["modelers/wardley-maps/docs/guide.md", NOTHING],
-    ["modelers/wardley-maps/README.md", NOTHING],
-    ["modelers/wardley-maps/packages/dsl/src/index.ts", modelerOnly("wardley-maps")],
-    ["modelers/wardley-maps/packages/dsl/README.md", modelerOnly("wardley-maps")],
-    ["modelers/wardley-maps/vitest.config.ts", modelerOnly("wardley-maps")],
-    ["modelers/wardley-maps/packages/renderer/src/plugins/index.ts", modelerOnly("wardley-maps")],
-    ["modelers/event-storming/.claude/rules/rule.md", modelerOnly("event-storming")],
     [
-      "modelers/wardley-maps/plugins/wardley-maps-modeler/.claude-plugin/plugin.json",
+      "modelers/wardley-maps/packages/renderer/src/Legend.spec.tsx",
       modelerAndShared("wardley-maps"),
     ],
-    [
-      "modelers/event-storming/plugins/event-storming-modeler/skills/storm-dsl/SKILL.md",
-      modelerAndShared("event-storming"),
-    ],
-    ["modelers/wardley-maps/package.json", modelerAndShared("wardley-maps")],
-    ["modelers/wardley-maps/packages/dsl/package.json", modelerAndShared("wardley-maps")],
-    ["modelers/event-storming/apps/vscode/package.json", modelerAndShared("event-storming")],
-    ["modelers/event-storming/apps/webapp/package.json", modelerAndShared("event-storming")],
-    ["modelers/wardley-maps/e2e/package.json", modelerAndShared("wardley-maps")],
-    [
-      "modelers/wardley-maps/packages/renderer/test/fixtures/package.json",
-      modelerOnly("wardley-maps"),
-    ],
-    ["modelers/wardley-maps/eslint.config.js", modelerAndShared("wardley-maps")],
-    ["modelers/event-storming/eslint.config.mjs", modelerAndShared("event-storming")],
-    ["modelers/wardley-maps/packages/dsl/eslint.config.js", modelerAndShared("wardley-maps")],
-    ["modelers/wardley-maps/.dependency-cruiser.cjs", modelerAndShared("wardley-maps")],
-    ["modelers/wardley-maps/packages/dsl/.dependency-cruiser.cjs", modelerOnly("wardley-maps")],
-    ["modelers/event-storming/.miragon/brand.json", modelerAndShared("event-storming")],
-    [
-      "modelers/wardley-maps/packages/renderer/.miragon/brand.json",
-      modelerAndShared("wardley-maps"),
-    ],
-    [
-      "modelers/event-storming/packages/renderer/src/theme/cd-canvas.css",
-      { ...modelerOnly("event-storming"), template: true },
-    ],
-    [
-      "modelers/wardley-maps/packages/renderer/src/theme/cd-canvas.css",
-      modelerOnly("wardley-maps"),
-    ],
-    ["plugins/modeler-kit/README.md", { ...SHARED, template: true }],
-    ["test/release-config.test.ts", SHARED],
-    [".claude-plugin/marketplace.json", SHARED],
-    ["extensions/modeler-collection/package.json", SHARED],
-    ["packages/api/src/index.ts", EVERYTHING],
-    [".github/workflows/ci.yml", EVERYTHING],
-    ["package-lock.json", EVERYTHING],
-    ["modelers/capability-map/src/index.ts", EVERYTHING],
-  ])("a change to %s", (path, reach) => {
+    ["modelers/event-storming/apps/vscode/scripts/licence.txt", modelerAndShared("event-storming")],
+    ["modelers/wardley-maps/docs/added.md", NOTHING],
+    ["modelers/wardley-maps/ADDED.md", NOTHING],
+    ["docs/added.md", NOTHING],
+  ])("adding %s", (path, reach) => {
     expect(afterChanging(path)).toEqual(reach);
+  });
+
+  it.each<[string, Reach]>([
+    ["modelers/wardley-maps/packages/schema-model/src/index.ts", modelerAndShared("wardley-maps")],
+    ["modelers/wardley-maps/docs/guide.md", NOTHING],
+  ])("deleting %s", (path, reach) => {
+    expect(afterCommitting({ [path]: null })).toEqual(reach);
+  });
+
+  it("moving a file of a modeler", () => {
+    expect(
+      afterCommitting({
+        "modelers/wardley-maps/packages/dsl/src/index.ts": null,
+        "modelers/wardley-maps/packages/dsl/src/main.ts": "a",
+      }),
+    ).toEqual(modelerAndShared("wardley-maps"));
   });
 
   it("joins what every changed path reaches", () => {

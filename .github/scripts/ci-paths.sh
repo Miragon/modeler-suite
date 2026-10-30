@@ -27,8 +27,9 @@ all_modelers() {
   done
 }
 
-# Writes the changed paths, NUL-separated, to the file $1. Fails when there is nothing to compare
-# with: a run without a base commit checks everything.
+# Writes the changed paths, NUL-separated, to the file $1 and, when $2 names a file, the ones the
+# change adds or deletes to $2. Fails when there is nothing to compare with: a run without a base
+# commit checks everything.
 changed_paths() {
   local base
   case "${EVENT_NAME:-}" in
@@ -55,6 +56,10 @@ changed_paths() {
     echo "Cannot compare with the base $base: everything runs."
     return 1
   fi
+  if [[ -n "${2:-}" ]] && ! git diff --no-renames --name-only --diff-filter=AD -z "$base" HEAD > "$2"; then
+    echo "Cannot compare with the base $base: everything runs."
+    return 1
+  fi
   echo "Compared with $base."
 }
 
@@ -63,7 +68,7 @@ changed_paths() {
 classify() {
   local path=$1 modeler rest
   case "$path" in
-    docs/* | .husky/* | LICENSE)
+    docs/* | LICENSE)
       echo none
       return
       ;;
@@ -91,7 +96,8 @@ classify() {
         *) echo "modeler $modeler" ;;
       esac
       ;;
-    plugins/* | test/* | extensions/* | .claude-plugin/*) echo shared ;;
+    # The pre-commit hook runs in no job, but the template drift test (test:plugin) reads it.
+    plugins/* | test/* | extensions/* | .claude-plugin/* | .husky/*) echo shared ;;
     *) echo all ;;
   esac
 }
@@ -113,7 +119,8 @@ reaches_template() {
 # in it (release config, extension pack, boundaries), its ESLint configs (boundaries; the nearest
 # config of a file wins, so at any depth) and its dependency-cruiser config (boundaries), and a
 # .miragon folder at any depth (a second brand-lint config). A `*` of a case pattern also matches
-# `/`, so regexes keep the same names deeper in a modeler out.
+# `/`, so regexes keep the same names deeper in a modeler out. Which files a modeler has matters
+# too, see affected.
 reaches_repository_tests() {
   local plugin='^modelers/[^/]+/plugins/'
   local manifest='^modelers/[^/]+/((packages|apps)/[^/]+/|e2e/)?package\.json$'
@@ -125,10 +132,12 @@ reaches_repository_tests() {
 }
 
 affected() {
-  local changed reach path everything=false shared=false template=false modelers="" all
+  local changed added_or_deleted reach path all
+  local everything=false shared=false template=false modelers=""
   all=$(all_modelers)
   changed=$(mktemp)
-  if ! changed_paths "$changed"; then
+  added_or_deleted=$(mktemp)
+  if ! changed_paths "$changed" "$added_or_deleted"; then
     everything=true
   else
     while IFS= read -r -d '' path; do
@@ -145,6 +154,15 @@ affected() {
         "modeler "*) modelers+="${reach#modeler }"$'\n' ;;
       esac
     done < "$changed"
+    # The repository-level tests hold the name of every file against the brand-lint config's
+    # ignore list and need some files of a modeler to exist (its schema-model entry, a licence
+    # text), so a file of a modeler that a change adds, deletes or moves reaches them as well.
+    while IFS= read -r -d '' path; do
+      if [[ "$(classify "$path")" == "modeler "* ]]; then
+        echo "$path: shared (added or deleted, the repository-level tests read the file names)"
+        shared=true
+      fi
+    done < "$added_or_deleted"
   fi
   if [[ "$everything" == true ]]; then
     shared=true
