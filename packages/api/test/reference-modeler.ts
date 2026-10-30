@@ -264,6 +264,35 @@ export interface Flaws {
    *  and every later import waits behind it, since imports keep their call order */
   importDuringDropNeverSettles?: boolean;
 
+  // ── an import during any other action of the user (1.6, #285, #305, #336) ──
+  /** NOT a law violation, a missed recommendation: an import called while a command runs (a
+   *  delete, an undo, a redo) runs at once, and the command goes on: it records its step after the
+   *  import and fires its change event */
+  importDuringCommandRunsAtOnce?: boolean;
+  /** NOT a law violation, a missed recommendation: an import called while a command runs waits for
+   *  it, but its Promise resolves at once */
+  importDuringCommandSettlesEarly?: boolean;
+  /** NOT a law violation, a missed recommendation: an import called while a command runs never
+   *  settles, and every later import waits behind it */
+  importDuringCommandNeverSettles?: boolean;
+  /** NOT a law violation, a missed recommendation: only an import called while a delete runs runs
+   *  at once, which the user-action case meets with a key on the canvas, so in a DOM only */
+  importDuringDeleteRunsAtOnce?: boolean;
+  /** NOT a law violation, a missed recommendation: an import called once the user's action has
+   *  returned runs at once, ahead of an earlier one that still waits for that action */
+  waitingImportsOvertaken?: boolean;
+  /** NOT a flaw, a choice the kit must accept (Value Chain's): the microtask that runs the waiting
+   *  imports is queued when the action starts, so it runs ahead of every microtask a listener
+   *  queues during the action */
+  flushQueuedAtTheActionsStart?: boolean;
+  /** NOT a law violation, a missed recommendation: an import called while a drag activates runs at
+   *  once, and its cancel takes the drag away under the activation, which then throws (diagram-js's
+   *  Dragging.move reads the drag again after the selection listeners) */
+  importAtDragStartRunsAtOnce?: boolean;
+  /** NOT a law violation, a missed recommendation: an import called while a drag activates waits
+   *  until the drag's drop instead of ending the drag once it has started */
+  importAtDragStartWaitsForTheDrop?: boolean;
+
   // ── a pan (1.6) ────────────────────────────────────────────────────────────
   /** NOT a law violation, a missed recommendation: interaction reports a pan as a gesture */
   panIsGesture?: boolean;
@@ -455,12 +484,53 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
   let labelEditor: { elementId: string; text: string } | undefined;
   const keepsHistory = Boolean(flaws.staleUndo || flaws.staleUndoDelta);
   /** the gesture the pointer holds; an import or its own end clears it */
-  let gesture: { kind: GestureKind; elementId: string | undefined } | undefined;
+  let gesture:
+    { kind: GestureKind; elementId: string | undefined; previousSelection: string[] } | undefined;
   let pan: { from: number; steps: number } | undefined;
   let lassoArmed = false;
-  /** a drop runs: an import called now waits for the work below */
+  /** a user's action runs (a drop, a drag's activation, a command): an import called now waits
+   *  until the action has returned, and the import after it waits behind it */
+  let actionDepth = 0;
   let dropping = false;
-  const afterTheDrop: Array<() => void> = [];
+  let activating = false;
+  let commandDepth = 0;
+  let deleting = false;
+  const waitingImports: Array<() => void> = [];
+  let flushQueued = false;
+  const runWaitingImports = (): void => {
+    while (actionDepth === 0 && waitingImports.length > 0) waitingImports.shift()?.();
+  };
+  /** like the renderers, the imports run in the microtask after the action, once its code returned */
+  const queueTheFlush = (): void => {
+    if (flushQueued) return;
+    flushQueued = true;
+    queueMicrotask(() => {
+      flushQueued = false;
+      runWaitingImports();
+    });
+  };
+  const queueWaitingImports = (): void => {
+    if (waitingImports.length > 0) queueTheFlush();
+  };
+  const asUserAction = <T>(work: () => T): T => {
+    if (actionDepth === 0 && flaws.flushQueuedAtTheActionsStart) queueTheFlush();
+    actionDepth += 1;
+    try {
+      return work();
+    } finally {
+      actionDepth -= 1;
+      if (actionDepth === 0) queueWaitingImports();
+    }
+  };
+  const asCommand = <T>(work: () => T): T =>
+    asUserAction(() => {
+      commandDepth += 1;
+      try {
+        return work();
+      } finally {
+        commandDepth -= 1;
+      }
+    });
   /** imports that wait for the user's gesture or pan to end (the flawed variants) */
   const afterTheUser: Array<() => void> = [];
   const runWhatWaitedForTheUser = (): void => {
@@ -519,6 +589,12 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     flaws.positionalIds
       ? entries.map((_e, i) => `l${entries.length - i}`)
       : entries.map((e) => e.id);
+  /** an element the command removed leaves the selection while the command runs, as diagram-js's
+   *  Selection drops a removed shape */
+  const deselectRemoved = (): void => {
+    const present = ids();
+    select(selection.filter((id) => present.includes(id)));
+  };
   /** where an element is drawn: row n, moved by its offset, 8 units per character */
   const drawnBox = (e: Entry, row: number): ElementBounds => {
     const box = {
@@ -607,24 +683,26 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     labelEditor = undefined;
     // committed onto a removed element, the change still fires — diagram-js
     // updates the detached shape through the command stack
-    const before = entries;
-    const reported = ids();
-    entries = entries.map((e, i) =>
-      reported[i] === edit.elementId
-        ? { id: e.id, text: edit.text, ...(e.at ? { at: e.at } : {}) }
-        : e,
-    );
-    const after = entries;
-    undoStack.push({
-      undo: () => {
-        entries = before;
-      },
-      redo: () => {
-        entries = after;
-      },
+    asCommand(() => {
+      const before = entries;
+      const reported = ids();
+      entries = entries.map((e, i) =>
+        reported[i] === edit.elementId
+          ? { id: e.id, text: edit.text, ...(e.at ? { at: e.at } : {}) }
+          : e,
+      );
+      const after = entries;
+      undoStack.push({
+        undo: () => {
+          entries = before;
+        },
+        redo: () => {
+          entries = after;
+        },
+      });
+      redoStack = [];
+      emit();
     });
-    redoStack = [];
-    emit();
   };
   const enriched = (v: View): Record<string, unknown> => ({
     ...v,
@@ -634,24 +712,30 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     outer: { width: 800 },
   });
   /** removes the elements with these ids in one undoable command */
-  const removeElements = (doomed: string[]): void => {
-    const reported = ids();
-    const before = entries;
-    entries = entries.filter((_entry, row) => !doomed.includes(reported[row] ?? ""));
-    if (entries.length === before.length) return;
-    const after = entries;
-    undoStack.push({
-      undo: () => {
-        entries = before;
-      },
-      redo: () => {
-        entries = after;
-      },
+  const removeElements = (doomed: string[]): void =>
+    asCommand(() => {
+      const reported = ids();
+      const before = entries;
+      entries = entries.filter((_entry, row) => !doomed.includes(reported[row] ?? ""));
+      if (entries.length === before.length) return;
+      const after = entries;
+      deleting = true;
+      try {
+        deselectRemoved();
+      } finally {
+        deleting = false;
+      }
+      undoStack.push({
+        undo: () => {
+          entries = before;
+        },
+        redo: () => {
+          entries = after;
+        },
+      });
+      redoStack = [];
+      emit();
     });
-    redoStack = [];
-    select([]);
-    emit();
-  };
   /** what a key aimed at the canvas does */
   const actOnCanvasKey = (event: KeyboardEvent): void => {
     if (!editable || flaws.noCanvasKeys) return;
@@ -702,31 +786,32 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
       runWhatWaitedForTheUser();
       return;
     }
-    dropping = true;
-    try {
-      if (held.kind === "move") {
-        const id = held.elementId ?? "";
-        // diagram-js's moveShape on a shape an import removed
-        if (!ids().includes(id))
-          throw new TypeError("Cannot read properties of null (reading 'children')");
-        const selectedBefore = selection.length > 0;
-        modeler.moveLine(id, 40, 24);
-        // the drop selects the moved element again, as diagram-js does once the move has run
-        if (selectedBefore) {
+    asUserAction(() => {
+      dropping = true;
+      try {
+        if (held.kind === "move") {
+          const id = held.elementId ?? "";
+          // diagram-js's moveShape on a shape an import removed
           if (!ids().includes(id))
-            throw new TypeError("Cannot read properties of undefined (reading 'id')");
-          select([id]);
+            throw new TypeError("Cannot read properties of null (reading 'children')");
+          modeler.moveLine(id, 40, 24);
+          // the drop selects the moved element again, as diagram-js does once the move has run,
+          // when something was selected before the drag
+          if (held.previousSelection.length > 0) {
+            if (!ids().includes(id))
+              throw new TypeError("Cannot read properties of undefined (reading 'id')");
+            select([id]);
+          }
+        } else {
+          droppedCount += 1;
+          modeler.addLine(`dropped-${droppedCount}`);
         }
-      } else {
-        droppedCount += 1;
-        modeler.addLine(`dropped-${droppedCount}`);
+      } finally {
+        dropping = false;
+        endGesture();
+        runWhatWaitedForTheUser();
       }
-    } finally {
-      dropping = false;
-      endGesture();
-      runWhatWaitedForTheUser();
-      for (const work of afterTheDrop.splice(0)) work();
-    }
+    });
   };
   let mountedCanvas: Element | undefined;
   let pastes = 0;
@@ -961,6 +1046,68 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     }
     return { warnings: [] };
   };
+  /** the element command the harness's mutate runs */
+  const addTheLine = (text: string): void => {
+    // the conforming id is the one the text derives on every import; the
+    // counter variant writes its id back, the in-memory variant does not
+    createdCount += 1;
+    const id = flaws.counterIds
+      ? `line_${createdCount}`
+      : flaws.idsChangeOnExport
+        ? `tmp_${text}`
+        : text;
+    // snapshot-based undo, like real command stacks: undoing RESTORES the
+    // pre-command document — kept across imports (staleUndo) that means
+    // resurrecting the pre-import document, the exact tt drift. The delta
+    // variant removes the created element by ID instead — a no-op on any
+    // document that lacks it, a deletion on one that carries it
+    const before = entries;
+    if (flaws.emitBeforeApply) emit();
+    entries = [...entries, { id, text, created: true }];
+    const after = entries;
+    mutated = true;
+    undoStack.push(
+      flaws.staleUndoDelta
+        ? {
+            undo: () => {
+              entries = entries.filter((e) => e.id !== id);
+            },
+            redo: () => {
+              entries = [...entries, { id, text }];
+            },
+          }
+        : {
+            undo: () => {
+              entries = before;
+            },
+            redo: () => {
+              entries = after;
+            },
+          },
+    );
+    redoStack = [];
+    select([ids()[entries.length - 1] ?? id]);
+    if (!flaws.emitBeforeApply && !flaws.silentMutation) emit();
+  };
+  const asError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
+  const importNow = (text: string): Promise<ImportResult> => {
+    try {
+      return Promise.resolve(runImport(text));
+    } catch (e) {
+      return Promise.reject(asError(e));
+    }
+  };
+  /** the import, once something runs what `queue` holds */
+  const importLater = (queue: Array<() => void>, text: string): Promise<ImportResult> =>
+    new Promise((resolve, reject) => {
+      queue.push(() => {
+        try {
+          resolve(runImport(text));
+        } catch (e) {
+          reject(asError(e));
+        }
+      });
+    });
 
   const modeler: ReferenceModeler = {
     meta,
@@ -974,49 +1121,57 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     },
     importText(text: string): Promise<ImportResult> {
       if (importsStuck) return new Promise(() => undefined);
-      // an import called during a drop waits until the drop has ended (1.6, RECOMMENDED), so
-      // nothing the drop still does meets the replaced document
-      if (dropping && !flaws.importDuringDropRunsAtOnce) {
-        if (flaws.importDuringDropNeverSettles) {
-          importsStuck = true;
-          return new Promise(() => undefined);
-        }
-        if (flaws.importDuringDropSettlesEarly) {
-          setTimeout(() => {
-            try {
-              runImport(text);
-            } catch {
-              // the flawed modeler reports nothing: its Promise has resolved already
-            }
-          }, 0);
-          return Promise.resolve({ warnings: [] });
-        }
-        return new Promise((resolve, reject) => {
-          afterTheDrop.push(() => {
-            try {
-              resolve(runImport(text));
-            } catch (e) {
-              reject(e instanceof Error ? e : new Error(String(e)));
-            }
-          });
+      const duringACommand = !dropping && !activating && commandDepth > 0;
+      const runsAtOnce = dropping
+        ? flaws.importDuringDropRunsAtOnce
+        : activating
+          ? flaws.importAtDragStartRunsAtOnce
+          : duringACommand &&
+            (flaws.importDuringCommandRunsAtOnce ||
+              (deleting && flaws.importDuringDeleteRunsAtOnce));
+      if (runsAtOnce) return importNow(text);
+      if (
+        (dropping && flaws.importDuringDropNeverSettles) ||
+        (duringACommand && flaws.importDuringCommandNeverSettles)
+      ) {
+        importsStuck = true;
+        return new Promise(() => undefined);
+      }
+      if (dropping && flaws.importDuringDropSettlesEarly) {
+        setTimeout(() => {
+          try {
+            runImport(text);
+          } catch {
+            // the flawed modeler reports nothing: its Promise has resolved already
+          }
+        }, 0);
+        return Promise.resolve({ warnings: [] });
+      }
+      if (duringACommand && flaws.importDuringCommandSettlesEarly) {
+        waitingImports.push(() => {
+          try {
+            runImport(text);
+          } catch {
+            // the flawed modeler reports nothing: its Promise has resolved already
+          }
         });
+        return Promise.resolve({ warnings: [] });
+      }
+      if (activating && flaws.importAtDragStartWaitsForTheDrop) {
+        return importLater(afterTheUser, text);
+      }
+      // an import called during the user's action waits until the action has finished (1.6,
+      // RECOMMENDED), so nothing the action still does meets the replaced document, and the imports
+      // keep their call order
+      if (actionDepth > 0 || (waitingImports.length > 0 && !flaws.waitingImportsOvertaken)) {
+        const later = importLater(waitingImports, text);
+        if (actionDepth === 0) queueWaitingImports();
+        return later;
       }
       if ((flaws.importWaitsForGesture && gesture) || (flaws.importWaitsForPan && pan)) {
-        return new Promise((resolve, reject) => {
-          afterTheUser.push(() => {
-            try {
-              resolve(runImport(text));
-            } catch (e) {
-              reject(e instanceof Error ? e : new Error(String(e)));
-            }
-          });
-        });
+        return importLater(afterTheUser, text);
       }
-      try {
-        return Promise.resolve(runImport(text));
-      } catch (e) {
-        return Promise.reject(e instanceof Error ? e : new Error(String(e)));
-      }
+      return importNow(text);
     },
     exportText(): string {
       touchBeforeImport();
@@ -1081,67 +1236,36 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
       touchBeforeImport();
       if (wedged) throw new Error("lines notation: parser wedged");
       if (flaws.ignoresCommandsBeforeImport && !imported) return;
-      // the conforming id is the one the text derives on every import; the
-      // counter variant writes its id back, the in-memory variant does not
-      createdCount += 1;
-      const id = flaws.counterIds
-        ? `line_${createdCount}`
-        : flaws.idsChangeOnExport
-          ? `tmp_${text}`
-          : text;
-      // snapshot-based undo, like real command stacks: undoing RESTORES the
-      // pre-command document — kept across imports (staleUndo) that means
-      // resurrecting the pre-import document, the exact tt drift. The delta
-      // variant removes the created element by ID instead — a no-op on any
-      // document that lacks it, a deletion on one that carries it
-      const before = entries;
-      if (flaws.emitBeforeApply) emit();
-      entries = [...entries, { id, text, created: true }];
-      const after = entries;
-      mutated = true;
-      undoStack.push(
-        flaws.staleUndoDelta
-          ? {
-              undo: () => {
-                entries = entries.filter((e) => e.id !== id);
-              },
-              redo: () => {
-                entries = [...entries, { id, text }];
-              },
-            }
-          : {
-              undo: () => {
-                entries = before;
-              },
-              redo: () => {
-                entries = after;
-              },
-            },
-      );
-      redoStack = [];
-      select([ids()[entries.length - 1] ?? id]);
-      if (!flaws.emitBeforeApply && !flaws.silentMutation) emit();
+      asCommand(() => addTheLine(text));
     },
     setTitle(next: string): void {
-      title = next;
-      if (!flaws.configEditSilent) emit();
+      asCommand(() => {
+        title = next;
+        if (!flaws.configEditSilent) emit();
+      });
     },
     undoCommand(): void {
-      const step = undoStack.pop();
-      if (!step) {
-        if (flaws.undoOnEmptyEmits) emit();
-        return;
-      }
-      step.undo();
-      redoStack.push(step);
-      if (!flaws.silentUndo) emit();
+      asCommand(() => {
+        const step = undoStack.pop();
+        if (!step) {
+          if (flaws.undoOnEmptyEmits) emit();
+          return;
+        }
+        step.undo();
+        deselectRemoved();
+        redoStack.push(step);
+        if (!flaws.silentUndo) emit();
+      });
     },
     redoCommand(): void {
-      const step = redoStack.pop();
-      if (!step) return;
-      step.redo();
-      undoStack.push(step);
-      if (!flaws.silentRedo) emit();
+      asCommand(() => {
+        const step = redoStack.pop();
+        if (!step) return;
+        step.redo();
+        deselectRemoved();
+        undoStack.push(step);
+        if (!flaws.silentRedo) emit();
+      });
     },
     editLabel(elementId: string, typed: string): void {
       if (!editable) throw new Error("a viewer accepts no commands");
@@ -1155,9 +1279,25 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     holdGesture(kind: GestureKind): HeldGesture {
       if (!editable) throw new Error("a viewer accepts no commands");
       if (!imported) throw new Error("lines notation: no document to hold a gesture on");
-      const held = { kind, elementId: kind === "move" ? ids()[0] : undefined };
+      const held = {
+        kind,
+        elementId: kind === "move" ? ids()[0] : undefined,
+        previousSelection: [...selection],
+      };
       gesture = held;
-      report(true);
+      // diagram-js activates the drag: it empties the selection, whose listeners may import, and
+      // then reads the drag again
+      asUserAction(() => {
+        activating = true;
+        try {
+          select([]);
+          if (gesture !== held)
+            throw new TypeError("Cannot read properties of null (reading 'cursor')");
+          report(true);
+        } finally {
+          activating = false;
+        }
+      });
       return {
         drop: () => drop(held),
         cancel: () => {
@@ -1207,28 +1347,30 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
 
     moveLine(elementId: string, dx: number, dy: number): void {
       if (!editable) throw new Error("a viewer accepts no commands");
-      const before = entries;
-      const reported = ids();
-      entries = entries.map((e, i) =>
-        reported[i] === elementId
-          ? {
-              ...e,
-              ...(flaws.moveChangesId ? { id: `${e.id}_moved` } : {}),
-              at: { x: (e.at?.x ?? 0) + dx, y: (e.at?.y ?? 0) + dy },
-            }
-          : e,
-      );
-      const after = entries;
-      undoStack.push({
-        undo: () => {
-          entries = before;
-        },
-        redo: () => {
-          entries = after;
-        },
+      asCommand(() => {
+        const before = entries;
+        const reported = ids();
+        entries = entries.map((e, i) =>
+          reported[i] === elementId
+            ? {
+                ...e,
+                ...(flaws.moveChangesId ? { id: `${e.id}_moved` } : {}),
+                at: { x: (e.at?.x ?? 0) + dx, y: (e.at?.y ?? 0) + dy },
+              }
+            : e,
+        );
+        const after = entries;
+        undoStack.push({
+          undo: () => {
+            entries = before;
+          },
+          redo: () => {
+            entries = after;
+          },
+        });
+        redoStack = [];
+        emit();
       });
-      redoStack = [];
-      emit();
     },
   };
   return modeler;

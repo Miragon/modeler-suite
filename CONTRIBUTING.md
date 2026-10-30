@@ -350,9 +350,11 @@ Adding a case to the contract's kit means adding a saboteur flaw to
 bite. A legitimate implementation choice the kit must accept (the enriched view-state readback)
 gets a variant that must fail nothing. A RECOMMENDATION gets a variant that misses it, fails
 nothing and advises exactly once. That suite runs without a DOM; a case that needs one (the keys
-case, the colour half of the appearance case) skips there and gets its saboteurs in a jsdom suite
-that mounts the reference into `attachedHost()`: `packages/api/test/keys.conformance.test.ts`,
-which runs every case, and `packages/api/test/appearance.conformance.test.ts`. The shell's development
+case, the colour half of the appearance case, the delete of the user-action case) skips there and
+gets its saboteurs in a jsdom suite that mounts the reference into `attachedHost()`:
+`packages/api/test/keys.conformance.test.ts`, which runs every case,
+`packages/api/test/appearance.conformance.test.ts` and
+`packages/api/test/user-action.conformance.test.ts`. The shell's development
 loop (demo, e2e, module layout) is in its [README](packages/shell/README.md#development).
 
 ## Claude Code plugins
