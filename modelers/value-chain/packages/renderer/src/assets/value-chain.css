@@ -496,14 +496,17 @@
 
 /* High contrast (guide §6, §8): no shadow but a --cd-ui-kontur edge, and a 3px focus ring; forced
    colours draw the edge in CanvasText and the ring in Highlight. The chrome applies these rules
-   only to its own classes, so the modeler's dialog carries them itself. */
-:root[data-cd-kontrast="hoch"] .vc-shortcuts {
-  border-color: var(--cd-ui-kontur);
-  box-shadow: none;
-}
+   only to its own classes, so the modeler's dialog carries them itself. The nearest carrier of the
+   mode decides, as on the canvas (guide §13.3). */
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  :scope .vc-shortcuts {
+    border-color: var(--cd-ui-kontur);
+    box-shadow: none;
+  }
 
-:root[data-cd-kontrast="hoch"] .vc-shortcuts-close:focus-visible {
-  outline-width: 3px;
+  :scope .vc-shortcuts-close:focus-visible {
+    outline-width: 3px;
+  }
 }
 
 @media (forced-colors: active) {

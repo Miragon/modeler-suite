@@ -91,6 +91,70 @@ describe("the keyboard shortcuts dialog", () => {
   });
 });
 
+describe("the keyboard shortcuts dialog follows the nearest carrier of the contrast (#401)", () => {
+  function highContrastPage(): void {
+    document.documentElement.setAttribute("data-cd-kontrast", "hoch");
+    cleanups.push(() => document.documentElement.removeAttribute("data-cd-kontrast"));
+  }
+
+  function resolved(scope: HTMLElement, property: string, value: string): string {
+    const probe = document.createElement("div");
+    probe.style.setProperty(property, value);
+    scope.append(probe);
+    const computed = getComputedStyle(probe).getPropertyValue(property);
+    probe.remove();
+    return computed;
+  }
+
+  /** The dialog's shadow and edge, and the ring of its Close button, which the keyboard focuses. */
+  function openedLook(host: ShortcutsDialogChrome): { dialog: string[]; ring: string } {
+    createShortcutsDialog(host).open();
+    const close = host.root.querySelector<HTMLButtonElement>(".vc-shortcuts-close")!;
+    close.focus({ focusVisible: true } as FocusOptions);
+    expect(close.matches(":focus-visible")).toBe(true);
+    const dialog = getComputedStyle(host.root.querySelector("dialog.vc-shortcuts")!);
+    return {
+      dialog: [dialog.boxShadow, dialog.borderTopColor],
+      ring: getComputedStyle(close).outlineWidth,
+    };
+  }
+
+  it("keeps its shadow, the --cd-ui-linie edge and a 2px ring inside a carrier in normal contrast on a high-contrast page", () => {
+    highContrastPage();
+    const host = chrome();
+    host.root.setAttribute("data-cd-theme", "light");
+
+    expect(openedLook(host)).toEqual({
+      dialog: [
+        resolved(host.root, "box-shadow", "var(--cd-shadow-3)"),
+        resolved(host.root, "border-top-color", "var(--cd-ui-linie)"),
+      ],
+      ring: "2px",
+    });
+  });
+
+  it("drops its shadow, takes the --cd-ui-kontur edge and a 3px ring on a high-contrast page without a carrier between", () => {
+    highContrastPage();
+    const host = chrome();
+
+    expect(openedLook(host)).toEqual({
+      dialog: ["none", resolved(host.root, "border-top-color", "var(--cd-ui-kontur)")],
+      ring: "3px",
+    });
+  });
+
+  it("drops its shadow, takes the --cd-ui-kontur edge and a 3px ring inside a high-contrast carrier that is not the page", () => {
+    const host = chrome();
+    host.root.setAttribute("data-cd-theme", "light");
+    host.root.setAttribute("data-cd-kontrast", "hoch");
+
+    expect(openedLook(host)).toEqual({
+      dialog: ["none", resolved(host.root, "border-top-color", "var(--cd-ui-kontur)")],
+      ring: "3px",
+    });
+  });
+});
+
 describe("svgToPng", () => {
   it("rasterizes the SVG export at twice its size", async () => {
     const host = document.createElement("div");
