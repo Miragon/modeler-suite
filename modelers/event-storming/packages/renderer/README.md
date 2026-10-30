@@ -168,16 +168,24 @@ A host that mounts the renderer without the modeler shell gets the palette of th
 guide (§5.5, §5.6) from the renderer:
 
 - a horizontal glass island at the top centre of the container, 12px from its top and 40px high,
-  opaque in dark mode and in high contrast;
+  opaque in dark mode and in high contrast; in a container at most 760px wide (guide §5.15) it
+  moves to the second row, 64px from the top, at most the container less 12px on either side wide,
+  and scrolls sideways without a visible bar, the keyboard focus whole inside it;
 - a toolbar named "Tools" ahead of the canvas in the tab order, with one tab stop that roves with
   ← → Home End, Enter or Space to activate an entry (a creating entry places its sticky in the
-  `freeArea`, see above), `aria-pressed` on the lasso and the draw tool and `aria-keyshortcuts` on
-  the entries with a key; the keyboard focus is a 2px `--cd-ui-fokus` ring, 3px in high contrast,
-  and a press on the island's padding gives the focus to the canvas;
+  `freeArea`, see above; a tool entry switches its tool on and off, and any other entry puts the
+  armed lasso down, as a press with the pointer does), `aria-pressed` on the lasso and the draw
+  tool while it is armed and `aria-keyshortcuts` on the entries with a key; the keyboard focus is a
+  2px `--cd-ui-fokus` ring, 3px in high contrast, and a press on the island's padding gives the
+  focus to the canvas;
+- under the read-only lock (below), `aria-disabled` on every entry but the lasso (guide §13.5):
+  still in the tab order, without a hover, the tool icons in `--cd-ui-text-leise` and the sticky
+  previews grey;
 - the tooltip (`role="tooltip"`) with the entry's name and key 8px below the palette, centred on its
   entry and 12px from the container's sides, at most `min(280px, 100% - 24px)` wide: after 300ms of
   hover, at once on keyboard focus and for a neighbour while one is shown, never for touch, hidden
-  on a press, Escape, leaving and blur.
+  on a press, Escape, leaving and blur; a palette that scrolls sideways takes it along with its
+  entry, and away once the entry has left the view.
 
 The rules apply inside the renderer's container only, so another diagram-js palette on the same
 page keeps its own look. A chrome that skins the palette marks it `data-chrome="palette"`, as

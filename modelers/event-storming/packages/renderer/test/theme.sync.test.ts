@@ -150,7 +150,15 @@ describe("theme.sync — event-storming.css takes every colour from the roles", 
     const tokens = [...withoutComments(css).matchAll(/var\((--cd-[\w-]+)/g)].map((m) => m[1]!);
     expect(tokens.length).toBeGreaterThan(20);
     for (const token of tokens) {
-      expect(token).toMatch(/^--cd-(ui-[\w-]+|radius-\w+|shadow-\d|ease(-out)?|motion-\w+)$/);
+      expect(token).toMatch(
+        /^--cd-(ui-[\w-]+|radius-\w+|shadow-\d|ease(-out)?|motion-\w+|shell-(rand|zeile|ziel|frei))$/,
+      );
+    }
+  });
+
+  it("takes the narrow palette's second row and side edge from the shell tokens, not typed in (guide §5.1, §5.15)", () => {
+    for (const token of ["--cd-shell-frei", "--cd-shell-rand"]) {
+      expect(withoutComments(css)).toContain(`var(${token})`);
     }
   });
 
