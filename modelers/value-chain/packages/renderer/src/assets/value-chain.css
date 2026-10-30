@@ -202,10 +202,11 @@
   user-select: none;
 }
 /* Below the island, guide §5.6: opaque, 13px with a 20px line, at most min(280px, 100% - 24px)
-   wide, the key as a Geist Mono chip 6px after the name. Placed in the canvas container's
-   coordinates. */
+   wide with its padding and edge, the key as a Geist Mono chip 6px after the name. Placed in the
+   canvas container's coordinates. */
 .vc-container .djs-hover-tooltip--bottom {
   position: absolute;
+  box-sizing: border-box;
   width: max-content;
   max-width: min(280px, 100% - 24px);
   padding: 3px 8px;

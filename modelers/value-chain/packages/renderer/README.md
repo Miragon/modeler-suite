@@ -173,9 +173,11 @@ mounts the `Modeler` without a chrome of its own gets the palette of the Miragon
   `freeArea`, see above) and `aria-keyshortcuts` on the tools; a press on the island's padding gives
   the focus to the canvas;
 - the tooltip (`role="tooltip"`) with the entry's name and key 8px below the palette, centred on its
-  entry and 12px from the container's sides: after 300ms of hover, at once on keyboard focus and for
-  a neighbour while one is shown, never for touch, hidden on a press, Escape, leaving and blur
-  (§5.6); like every label of the chrome its text cannot be selected (§5.14).
+  entry and 12px from the container's sides, at most `min(280px, 100% - 24px)` wide with its padding
+  and edge: after 300ms of hover, at once on keyboard focus and for a neighbour while one is shown,
+  never for touch, hidden on a press, Escape, leaving and blur (§5.6); a palette that scrolls
+  sideways takes it along with its entry, and away once the entry has left the view (§5.15); like
+  every label of the chrome its text cannot be selected (§5.14).
 
 With or without a chrome, a tool shows pressed exactly while it is armed: Enter or Space on the
 armed tool puts it down, Escape puts down a tool the pointer has not moved yet, a click on another
