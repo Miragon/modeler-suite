@@ -59,8 +59,9 @@
 }
 
 /* --- Palette without the modeler shell (hosts that embed the renderer alone) */
-/* A palette the shell skins (data-chrome="palette") takes the shell's look alone. */
-.djs-palette:not([data-chrome="palette"]) {
+/* A palette the shell skins (data-chrome="palette") takes the shell's look alone, and any other
+   diagram-js palette on the page (a bpmn-js editor beside the map) keeps its own. */
+.cm-djs-container .djs-palette:not([data-chrome="palette"]) {
   left: 50%;
   top: 12px;
   transform: translateX(-50%);
@@ -74,14 +75,14 @@
   border-radius: var(--cd-radius-md);
   box-shadow: var(--cd-shadow-1);
 }
-.djs-palette:not([data-chrome="palette"]) .djs-palette-entries,
-.djs-palette:not([data-chrome="palette"]) .group {
+.cm-djs-container .djs-palette:not([data-chrome="palette"]) .djs-palette-entries,
+.cm-djs-container .djs-palette:not([data-chrome="palette"]) .group {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 2px;
 }
-.djs-palette:not([data-chrome="palette"]) .entry {
+.cm-djs-container .djs-palette:not([data-chrome="palette"]) .entry {
   position: relative;
   float: none;
   width: 32px;
@@ -94,17 +95,17 @@
     color var(--cd-motion-fast) var(--cd-ease),
     box-shadow var(--cd-motion-fast) var(--cd-ease);
 }
-.djs-palette:not([data-chrome="palette"]) .entry:hover {
+.cm-djs-container .djs-palette:not([data-chrome="palette"]) .entry:hover {
   background: var(--cd-ui-hover);
   color: var(--cd-ui-interaktion);
 }
 /* Vertical divider between the tools group and the create entries. */
-.djs-palette:not([data-chrome="palette"]) .group + .group {
+.cm-djs-container .djs-palette:not([data-chrome="palette"]) .group + .group {
   position: relative;
   margin-left: 8px;
   padding-left: 9px;
 }
-.djs-palette:not([data-chrome="palette"]) .group + .group::before {
+.cm-djs-container .djs-palette:not([data-chrome="palette"]) .group + .group::before {
   content: "";
   position: absolute;
   top: 4px;
@@ -113,14 +114,14 @@
   width: 1px;
   background: var(--cd-ui-linie);
 }
-.djs-palette:not([data-chrome="palette"]) .cm-palette-entry {
+.cm-djs-container .djs-palette:not([data-chrome="palette"]) .cm-palette-entry {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 /* The armed tool carries diagram-js' `highlighted-entry`; the !important matches diagram-js' own
    highlighted-entry colour rule. A ring, never a full fill (guide §5.5). */
-.djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry {
+.cm-djs-container .djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry {
   background: var(--cd-ui-hover);
   color: var(--cd-ui-text) !important;
   box-shadow: inset 0 0 0 2px var(--cd-ui-interaktion);

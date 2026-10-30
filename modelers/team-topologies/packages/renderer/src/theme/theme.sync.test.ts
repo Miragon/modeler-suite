@@ -297,14 +297,14 @@ describe("theme.sync — team-topologies.css takes every colour from the roles",
     );
   });
 
-  it("keeps every own palette rule off a palette the host chrome skins", () => {
+  it("keeps every own palette rule inside its container and off a palette the host chrome skins", () => {
     const paletteSelectors = ruleSelectors(rendererCss).filter((selector) =>
       /\.djs-palette(?![\w-])/.test(selector),
     );
     expect(paletteSelectors.length).toBeGreaterThan(5);
     for (const selector of paletteSelectors) {
       expect(selector).toMatch(
-        /^(\[data-cd-kontrast="hoch"\] )?(\.tt-djs-container(\[data-cd-kontrast="hoch"\]|:not\(\[data-cd-theme\]\))? )?\.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
+        /^(\[data-cd-kontrast="hoch"\] )?\.tt-djs-container(\[data-cd-kontrast="hoch"\]|:not\(\[data-cd-theme\]\))? \.djs-palette:not\(\[data-chrome="palette"\]\)($|[\s.:])/,
       );
     }
   });

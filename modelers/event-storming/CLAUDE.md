@@ -257,8 +257,9 @@ no command runs, so neither the history nor the `.storm` text changes. The
 renderer's own `createShortcutsDialog`, its types and the `.event-storming-shortcuts*` rules of
 `event-storming.css` are `@deprecated` for designIQ, which still uses them; their removal is due
 in renderer 0.9.0 ([#262](https://github.com/Miragon/modeler-suite/issues/262)). The
-renderer's own palette rules apply only to `.djs-palette:not([data-chrome='palette'])`, so a
-shell-skinned palette wears the shell's look alone. **Renderers never import the shell**: only
+renderer's own palette rules apply only to `.djs-palette:not([data-chrome='palette'])` inside
+`.event-storming-container`, so a shell-skinned palette wears the shell's look alone and another
+diagram-js palette on the page keeps its own. **Renderers never import the shell**: only
 the apps (and `e2e/`) do; `packages/*` reaching `@miragon/modeler-shell` fails ESLint and
 dependency-cruiser. Both pass the shell's fit insets as `freeArea: { insets }` (the modeler-api
 factory option, for keyboard creation from the palette) and connect with
