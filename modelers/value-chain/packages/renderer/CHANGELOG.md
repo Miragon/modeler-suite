@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.10.0](https://github.com/Miragon/modeler-suite/compare/value-chain-renderer-v0.9.0...value-chain-renderer-v0.10.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **value-chain:** The Value Chain renderer no longer exports `createShortcutsDialog` with its types `ShortcutsDialog` and `ShortcutsDialogChrome`, nor `svgToPng`, all deprecated since 0.9.0, and its stylesheet no longer has the `.vc-shortcuts` rules of that dialog. Open the dialog with `shell.showShortcutsDialog(diagramShortcuts(shell))` of `@miragon/modeler-shell`, or its standalone `showShortcutsDialog` in a host without a mounted shell, and export the PNG with `svgToPng(svg, { background: COLORS.surround })` of `@miragon/modeler-shell/export`.
+
+### Features
+
+* **value-chain:** let a host lock the canvas at once and show the palette's read-only marks after a delay, as the modeler shell does ([cb0f6b3](https://github.com/Miragon/modeler-suite/commit/cb0f6b34c6328fb1287b5105b0a813dcf03bd9ed))
+* **value-chain:** remove the deprecated keyboard shortcuts dialog and PNG export of the renderer ([#469](https://github.com/Miragon/modeler-suite/issues/469)) ([f7a0bc6](https://github.com/Miragon/modeler-suite/commit/f7a0bc63fc5303f90643a067f931aa0491f2df75))
+
+
+### Bug Fixes
+
+* **value-chain:** keep the palette without the shell opaque in forced colours, its tooltip unselectable and its tools' pressed state true, and mark the entries the read-only lock disables ([#477](https://github.com/Miragon/modeler-suite/issues/477)) ([cb0f6b3](https://github.com/Miragon/modeler-suite/commit/cb0f6b34c6328fb1287b5105b0a813dcf03bd9ed))
+* **value-chain:** keep the palette's tooltip without the shell within the guide's width and on its entry while the narrow palette scrolls ([#486](https://github.com/Miragon/modeler-suite/issues/486)) ([f001f05](https://github.com/Miragon/modeler-suite/commit/f001f05df4706a2873e63ec71909a3b7b660b35d))
+* **value-chain:** refuse the palette's Space and Connect tools under the read-only lock, as their keys already were ([cb0f6b3](https://github.com/Miragon/modeler-suite/commit/cb0f6b34c6328fb1287b5105b0a813dcf03bd9ed))
+* **value-chain:** show a palette tool as pressed only while it is armed, also in the web app and VS Code: Enter or Space on the armed tool puts it down, Escape releases it before the pointer moves, a click on a tool that arms nothing shows the tool it put down released, and the hand and the space tool stay pressed while and after they pan or make space ([cb0f6b3](https://github.com/Miragon/modeler-suite/commit/cb0f6b34c6328fb1287b5105b0a813dcf03bd9ed))
+
 ## [0.9.0](https://github.com/Miragon/modeler-suite/compare/value-chain-renderer-v0.8.1...value-chain-renderer-v0.9.0) (2026-10-30)
 
 

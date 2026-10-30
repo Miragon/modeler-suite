@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.17.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.16.0...team-topologies-v0.17.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **team-topologies:** the renderer no longer exports createShortcutsDialog or its types ShortcutsDialog and ShortcutsDialogChrome, deprecated since 0.16.0, and its stylesheet drops the .tt-shortcuts__* rules. Open the modeler shell's dialog with shell.showShortcutsDialog(diagramShortcuts(shell, options)), or, in a host without a mounted shell, with the standalone showShortcutsDialog(groups, { container }) of @miragon/modeler-shell.
+* **team-topologies:** the renderer no longer exports geistFontFaceCss, embedSvgStyles, GEIST_UNICODE_RANGES or the type GeistFontDataUrls, deprecated since 0.16.0. Rasterise an exported SVG with svgToPng(svg, { background }) of @miragon/modeler-shell/export, which embeds the Geist subsets the text needs, or, in a host with a rasteriser of its own, embed them with embedGeist(svg, faces) from the same entry.
+
+### Features
+
+* export images and create new diagrams from an example through the shared dialogs, and ask before replacing an existing file ([#503](https://github.com/Miragon/modeler-suite/issues/503)) ([f4f719c](https://github.com/Miragon/modeler-suite/commit/f4f719c581f21c79b0d1c8cdbb35bf98fa398f89))
+* **team-topologies:** remove the deprecated Geist font helpers of the renderer ([a7f1ee3](https://github.com/Miragon/modeler-suite/commit/a7f1ee364d2d6a2641992c9bd9d1dd8bc4b0090d))
+* **team-topologies:** remove the deprecated keyboard shortcuts dialog and Geist font helpers of the renderer ([#465](https://github.com/Miragon/modeler-suite/issues/465)) ([a7f1ee3](https://github.com/Miragon/modeler-suite/commit/a7f1ee364d2d6a2641992c9bd9d1dd8bc4b0090d))
+
+
+### Bug Fixes
+
+* **team-topologies:** give the palette without the shell a keyboard path and glass, and draw the canvas focus ring and dialog buttons by the guide in high contrast ([#450](https://github.com/Miragon/modeler-suite/issues/450)) ([22a2d1d](https://github.com/Miragon/modeler-suite/commit/22a2d1d408b12671c196a7648d0bf0b2bcf8dea0))
+* **team-topologies:** give the palette without the shell the guide's tooltip, call the lasso "Lasso", and mark the entries the read-only lock disables ([#475](https://github.com/Miragon/modeler-suite/issues/475)) ([1d99207](https://github.com/Miragon/modeler-suite/commit/1d99207ee03687a003ae8e4c1d0cd97c3b7396ba))
+* **team-topologies:** keep the palette's tooltip within the guide's width, and let a host delay the read-only marks ([#489](https://github.com/Miragon/modeler-suite/issues/489)) ([45ee4a6](https://github.com/Miragon/modeler-suite/commit/45ee4a6161c20ad51307aeddbd1d0da3949e7c09))
+* **team-topologies:** put the armed lasso down with Enter or Space, and show it as pressed only while it is armed ([22a2d1d](https://github.com/Miragon/modeler-suite/commit/22a2d1d408b12671c196a7648d0bf0b2bcf8dea0))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @miragon/modeler-shell bumped from 0.8.0 to 0.9.0
+
 ## [0.16.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.15.1...team-topologies-v0.16.0) (2026-10-30)
 
 

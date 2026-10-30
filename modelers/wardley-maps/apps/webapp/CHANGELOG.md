@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.13.1](https://github.com/Miragon/modeler-suite/compare/wardley-webapp-v0.13.0...wardley-webapp-v0.13.1) (2026-10-30)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.8.0 to 0.9.0
+    * @miragon/wardley-renderer bumped from 0.14.0 to 0.15.0
+
 ## [0.13.0](https://github.com/Miragon/modeler-suite/compare/wardley-webapp-v0.12.2...wardley-webapp-v0.13.0) (2026-10-30)
 
 

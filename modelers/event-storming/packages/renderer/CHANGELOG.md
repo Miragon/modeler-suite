@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.9.0](https://github.com/Miragon/modeler-suite/compare/event-storming-renderer-v0.8.0...event-storming-renderer-v0.9.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* **event-storming:** @miragon/event-storming-renderer no longer exports createShortcutsDialog, ShortcutsDialog and ShortcutsDialogChrome, and its stylesheet no longer styles .event-storming-shortcuts*. Open the shared dialog of @miragon/modeler-shell with the renderer's shortcut groups instead: shell.showShortcutsDialog(boardShortcuts(shell)) on a mounted shell, or the standalone showShortcutsDialog(boardShortcuts(chrome), { container }) without one.
+
+### Features
+
+* **event-storming:** remove the deprecated keyboard shortcuts dialog of the renderer ([#468](https://github.com/Miragon/modeler-suite/issues/468)) ([71f064b](https://github.com/Miragon/modeler-suite/commit/71f064b4d9c7eedba9ae1c0c504da7c1f8889a78))
+
+
+### Bug Fixes
+
+* **event-storming:** end a drawing's point drag by its handle without a change when the board turns read-only, and keep the drawing selected ([0a69710](https://github.com/Miragon/modeler-suite/commit/0a69710e91c4074e0f57bfa0624966e1e66bfa20))
+* **event-storming:** end a drawing's point drag without a change when the board turns read-only, and keep the spelling dots steady while a file is typed ([#500](https://github.com/Miragon/modeler-suite/issues/500)) ([0a69710](https://github.com/Miragon/modeler-suite/commit/0a69710e91c4074e0f57bfa0624966e1e66bfa20))
+* **event-storming:** fit the palette without the shell into a narrow window, keep the lasso's pressed state true, and mark the entries the read-only lock disables ([#476](https://github.com/Miragon/modeler-suite/issues/476)) ([b181222](https://github.com/Miragon/modeler-suite/commit/b181222c2804695bc32e786fc2365bf4b485c783))
+* **event-storming:** give the palette without the shell a keyboard path, the guide's tooltip and glass, and calm the chrome under reduced motion ([#454](https://github.com/Miragon/modeler-suite/issues/454)) ([0fce346](https://github.com/Miragon/modeler-suite/commit/0fce3468a635e7c57669382e27d934a0b15a273f))
+* **event-storming:** keep the dots that mark a name's other spellings on the board while the .storm file is typed in VS Code, and hide them only once the file has stayed invalid for 800ms ([0a69710](https://github.com/Miragon/modeler-suite/commit/0a69710e91c4074e0f57bfa0624966e1e66bfa20))
+* **event-storming:** let a host without the shell delay the read-only marks of the palette and the spelling-variant dots ([#487](https://github.com/Miragon/modeler-suite/issues/487)) ([b79731b](https://github.com/Miragon/modeler-suite/commit/b79731b004c3c624c5c6bc48e8ff22dac12be535))
+
 ## [0.8.0](https://github.com/Miragon/modeler-suite/compare/event-storming-renderer-v0.7.0...event-storming-renderer-v0.8.0) (2026-10-30)
 
 
