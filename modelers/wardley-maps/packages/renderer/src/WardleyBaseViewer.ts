@@ -238,8 +238,11 @@ export abstract class WardleyBaseViewer {
     const eventBus = diagram.get<EventBus>("eventBus");
     const importer = diagram.get<WardleyImporter>("wardleyImporter");
     const commandStack = diagram.get<CommandStack>("commandStack", false);
-    // Kept to put back if rendering fails half-way: a blank canvas is no way to fail an import.
-    const previous = this._rootBusinessObject() ? this.exportMap() : undefined;
+    // Kept to put back if rendering fails half-way: a blank canvas is no way to fail an import. The
+    // committed document, since the import ends a running live preview without its commit.
+    const previous = this._rootBusinessObject()
+      ? (this._livePreview()?.committedMap() ?? this.exportMap())
+      : undefined;
     this._labelsBeforePreview = undefined;
     this._sizePreview = undefined;
     cancelGesture(diagram, this._dropping);

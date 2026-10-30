@@ -38,8 +38,8 @@ function clamp01(n: number): number {
 /**
  * Sets a component's evolve target by dragging along the evolution axis (instead of a text field).
  * During the drag a live preview (direct mutation + re-render) that the export holds back
- * (`LivePreview`); on release exactly ONE undoable commit via the commandStack (P4). ESC cancels and
- * restores the original state.
+ * (`LivePreview`); on release exactly ONE undoable commit via the commandStack (P4). Escape cancels
+ * the context pad's placement and restores the original state.
  */
 export default class WardleyEvolveDragging {
   static $inject = [

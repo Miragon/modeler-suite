@@ -18,6 +18,7 @@ import {
   type InteractionChangedEvent,
 } from "../../src/index.js";
 import type WardleyElementFactory from "../../src/model/WardleyElementFactory.js";
+import type WardleyModeling from "../../src/modeling/WardleyModeling.js";
 import type WardleyLabelEditing from "../../src/label-editing/WardleyLabelEditing.js";
 import type EvolutionGrid from "../../src/evolution-grid/EvolutionGrid.js";
 import { isWardleyShape, type WardleyShape } from "../../src/model/di-types.js";
@@ -494,6 +495,33 @@ function gestureNamed(name: string): WardleyGesture {
   return gesture[1];
 }
 
+/** An import whose render throws half-way, after the canvas has been cleared. */
+async function importFailingHalfWay(modeler: CollaborativeWardleyModeler): Promise<void> {
+  const factory = diagramOf(modeler).get<WardleyElementFactory>("wardleyElementFactory");
+  const createFromModel = factory.createFromModel.bind(factory);
+  factory.createFromModel = (element) => {
+    if (element.label === "Broken") throw new Error("render failed");
+    return createFromModel(element);
+  };
+  try {
+    await expect(modeler.importText("title Next\ncomponent Broken [0.5, 0.5]")).rejects.toThrow(
+      "render failed",
+    );
+  } finally {
+    factory.createFromModel = createFromModel;
+  }
+}
+
+/** Presses the name label of the component `name` and drags it, without a release. */
+function dragNameOf(modeler: CollaborativeWardleyModeler, name: string): Point {
+  const label = graphicsOf(modeler, shapeNamed(modeler, name).id).querySelector(
+    '.wardley-label-handle[data-label-role="name"]',
+  );
+  if (!label) throw new Error(`${name} has no name label handle`);
+  const rect = label.getBoundingClientRect();
+  return pressAndDrag(label, { x: rect.left + 4, y: rect.top + rect.height / 2 });
+}
+
 /** The lines of `text` that `committed` does not have. */
 function linesAdded(committed: string, text: string): string[] {
   const before = new Set(committed.split("\n"));
@@ -629,6 +657,55 @@ describe("the export is the committed document while a gesture runs", () => {
       expect(modeler.exportText()).toBe(committed);
     },
   );
+
+  test.each(WARDLEY_GESTURES)(
+    "%s: an import that fails half-way puts the committed document back",
+    async (_, start) => {
+      const current = await session(GESTURE_MAP);
+      const { modeler } = current;
+      const committed = modeler.exportText();
+      const release = await start(modeler);
+      await importFailingHalfWay(modeler);
+      expect(modeler.exportText()).toBe(committed);
+      expect(diagramOf(modeler).exportDSL()).toBe(committed);
+
+      release();
+      await settle();
+      expect(errors).toEqual([]);
+      expect(modeler.exportText()).toBe(committed);
+      expect(modeler.interaction.active()).toBe(false);
+    },
+  );
+
+  test("a label press while a label drag still runs ends that drag without a commit", async () => {
+    const current = await session(GESTURE_MAP);
+    const { modeler } = current;
+    const committed = modeler.exportText();
+    // The release of the first drag never reaches the document (the window lost focus mid-drag).
+    dragNameOf(modeler, "Water");
+    const to = dragNameOf(modeler, "Cup");
+    mouse(document, "mouseup", to);
+    await settle();
+    expect(errors).toEqual([]);
+    expect(modeler.interaction.active()).toBe(false);
+    const dropped = modeler.exportText();
+    expect(dropped).toBe(diagramOf(modeler).exportDSL());
+    expect(linesAdded(committed, dropped)).toEqual([
+      expect.stringMatching(/^component Cup \[0\.7, 0\.2\] label \[-?\d+, -?\d+\]$/),
+    ]);
+    expect(current.changes()).toBe(1);
+
+    diagramOf(modeler)
+      .get<WardleyModeling>("wardleyModeling")
+      .evolveComponent(shapeNamed(modeler, "Water"), 0.6);
+    expect(modeler.exportText()).toContain("evolve Water 0.6");
+    expect(modeler.exportText()).toBe(diagramOf(modeler).exportDSL());
+
+    const release = dragNameOf(modeler, "Water");
+    mouse(document, "mouseup", release);
+    expect(modeler.exportText()).toContain("evolve Water 0.6");
+    expect(modeler.exportText()).toBe(diagramOf(modeler).exportDSL());
+  });
 });
 
 describe("interaction reports no gesture", () => {

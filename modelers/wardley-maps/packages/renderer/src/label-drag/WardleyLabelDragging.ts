@@ -122,6 +122,9 @@ export default class WardleyLabelDragging {
     if (!target) return;
     event.stopPropagation();
     event.preventDefault();
+    // A drag whose release never reached the document (the window lost focus mid-drag) would keep
+    // its preview, and the export the offset it started from, after the next drag replaces it.
+    this.cancel();
     // preventDefault keeps focus where it is; commit an open inline edit like any other click would,
     // and take focus to the canvas so Delete/Undo act on the map, not on a focused host input.
     const focused = document.activeElement;
