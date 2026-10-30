@@ -145,6 +145,10 @@ describe("theme.sync — value-chain.css takes every colour from the roles", () 
     ]);
   });
 
+  it("leaves the keyboard shortcuts dialog's look to the shell: no .vc-shortcuts rule (#257)", () => {
+    expect(withoutComments(css)).not.toMatch(/\.vc-shortcuts/);
+  });
+
   it("marks hover and selection by the outline only, never by a filter (guide §10.4)", () => {
     expect(withoutComments(css)).not.toMatch(/brightness\(/);
     expect(ruleSelectors(css)).toContain(".vc-container .djs-shape.hover > .djs-outline");

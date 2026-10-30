@@ -169,10 +169,9 @@ missing at its other places; the verdict stays the same).
 - `read-only/VcReadOnly` is the edit lock of an invalid file; `diagram-menu/` holds the Export and
   Help entries and the shortcut groups (`diagramShortcuts`) both apps hand the shell, typed
   structurally (renderers never import the shell). Both apps open the dialog with
-  `shell.showShortcutsDialog(diagramShortcuts(shell, …))`; the renderer's own
-  `createShortcutsDialog` and `svgToPng` are `@deprecated` since 0.9.0 and go in 0.10.0
-  ([#257](https://github.com/Miragon/modeler-suite/issues/257)), with the `.vc-shortcuts*` rules of
-  `value-chain.css` that only that dialog uses.
+  `shell.showShortcutsDialog(diagramShortcuts(shell, …))`; the dialog and the PNG export are the
+  shell's, and the renderer keeps no copy of either
+  ([#257](https://github.com/Miragon/modeler-suite/issues/257)).
 - Mutations funnel through `vcModeling.updateProperties` (one undoable command handler).
 - Copy and paste (#286): `copy-paste/VcCopyPaste` replaces diagram-js's `copyPaste`, `VcRules`
   allows `element.copy` for steps, org units and relations (diagram-js keeps a relation only

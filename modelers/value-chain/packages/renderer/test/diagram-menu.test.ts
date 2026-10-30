@@ -104,3 +104,11 @@ describe("diagramShortcuts", () => {
     expect(groups.some((group) => group.title === "File")).toBe(false);
   });
 });
+
+describe("the chrome content for hosts", () => {
+  it("leaves the keyboard shortcuts dialog and the PNG export to the shell (#257)", async () => {
+    const renderer = await import("../src/index.js");
+    expect(renderer).not.toHaveProperty("createShortcutsDialog");
+    expect(renderer).not.toHaveProperty("svgToPng");
+  });
+});
