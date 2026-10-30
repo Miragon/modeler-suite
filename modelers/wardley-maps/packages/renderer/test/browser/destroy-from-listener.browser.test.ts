@@ -328,47 +328,92 @@ describe("a destroy from a listener that a host's call reaches (#415)", () => {
     },
   );
 
-  test("an import, whose clear empties the selection: it resolves, and the modeler keeps the imported map", async () => {
+  /** The text a fresh viewer exports once it has imported `text`. */
+  async function exportedAfterImporting(text: string): Promise<string> {
     const referenceHost = attachedHost();
     const reference = createCollaborativeViewer();
     reference.attachTo(referenceHost);
-    await reference.importText(platformStrategy);
-    const imported = reference.exportText();
-    reference.destroy();
-    (referenceHost.parentElement ?? referenceHost).remove();
-    modeler.elements.reveal(shapeNamed(modeler, "Cup").id);
-    const expectDestroyedCleanly = destroyedCleanly();
-    const heard: string[][] = [];
-    modeler.elements.onSelection((ids) => {
-      heard.push(ids);
-      modeler.destroy();
-    });
-    const later: string[][] = [];
-    modeler.elements.onSelection((ids) => later.push(ids));
-
-    await expect(modeler.importText(platformStrategy)).resolves.toEqual({ warnings: [] });
-
-    expect(heard).toEqual([[]]);
-    await expectDestroyedCleanly(imported);
-    expect(later).toEqual([]);
-    // The selection the import brings back after it has drawn the map built no new one.
-    expect(modeler.diagram.container.querySelector(".djs-container")).toBeNull();
-  });
-
-  test.each(["move", "create"] as const)(
-    "an import that ends a held %s, heard by the interaction listener: it resolves, and the modeler keeps the imported map",
-    async (kind) => {
-      const referenceHost = attachedHost();
-      const reference = createCollaborativeViewer();
-      reference.attachTo(referenceHost);
-      await reference.importText(platformStrategy);
-      const imported = reference.exportText();
+    try {
+      await reference.importText(text);
+      return reference.exportText();
+    } finally {
       reference.destroy();
       (referenceHost.parentElement ?? referenceHost).remove();
+    }
+  }
+
+  /**
+   * When the import has drawn and when the teardown runs, in order. The listeners return nothing:
+   * diagram-js's event bus stops a delivery at a listener that returns a value.
+   */
+  function recordImportSteps(diagram: CollaborativeWardleyModeler): string[] {
+    const steps: string[] = [];
+    const eventBus = diagramOf(diagram).get<EventBus>("eventBus");
+    eventBus.on("import.done", () => {
+      steps.push("drawn");
+    });
+    eventBus.on("diagram.destroy", () => {
+      steps.push("teardown");
+    });
+    return steps;
+  }
+
+  // Decision 3 of batch 12 on #170: the import draws on the live map, the teardown waits until its
+  // call has returned, and its Promise rejects, as one that waits when the modeler is destroyed.
+  test.each([
+    { mount: "modeler", create: createCollaborativeModeler },
+    { mount: "viewer", create: createCollaborativeViewer },
+  ])(
+    "an import on the $mount, whose clear empties the selection: it draws, then rejects as destroyed, and nothing reaches the host afterwards",
+    async ({ create }) => {
+      const imported = await exportedAfterImporting(platformStrategy);
+      const importHost = attachedHost();
+      const importing = create();
+      importing.attachTo(importHost);
+      try {
+        await importing.importText(teaShop);
+        importing.elements.reveal(shapeNamed(importing, "Cup").id);
+        const steps = recordImportSteps(importing);
+        const svg = canvasSvgOf(importing);
+        const heard: string[][] = [];
+        importing.elements.onSelection((ids) => {
+          heard.push(ids);
+          importing.destroy();
+        });
+        const later: unknown[] = [];
+        importing.elements.onSelection((ids) => later.push(ids));
+        importing.interaction.onChange((active) => later.push(active));
+        importing.onContentChanged(() => later.push("change"));
+
+        const result = importing.importText(platformStrategy);
+
+        expect(steps).toEqual(["drawn"]);
+        await expect(result).rejects.toThrow("The modeler was destroyed.");
+        expect(heard).toEqual([[]]);
+        await settle();
+        expect(errors).toEqual([]);
+        expect(steps).toEqual(["drawn", "teardown"]);
+        expect(svg.isConnected).toBe(false);
+        expect(later).toEqual([]);
+        expect(() => importing.destroy()).not.toThrow();
+        expect(importing.exportText()).toBe(imported);
+        // The selection the import brings back after it has drawn the map built no new one.
+        expect(importing.diagram.container.querySelector(".djs-container")).toBeNull();
+      } finally {
+        (importHost.parentElement ?? importHost).remove();
+      }
+    },
+  );
+
+  test.each(["move", "create"] as const)(
+    "an import that ends a held %s, heard by the interaction listener: it draws, then rejects as destroyed, and nothing reaches the host afterwards",
+    async (kind) => {
+      const imported = await exportedAfterImporting(platformStrategy);
       const expectDestroyedCleanly = destroyedCleanly();
       await startGesture(modeler, kind);
       await handlerReturned();
       expect(modeler.interaction.active()).toBe(true);
+      const steps = recordImportSteps(modeler);
       const heard: boolean[] = [];
       modeler.interaction.onChange((active) => {
         heard.push(active);
@@ -379,11 +424,58 @@ describe("a destroy from a listener that a host's call reaches (#415)", () => {
       modeler.elements.onSelection((ids) => later.push(ids));
       modeler.onContentChanged(() => later.push("change"));
 
-      await expect(modeler.importText(platformStrategy)).resolves.toEqual({ warnings: [] });
+      const result = modeler.importText(platformStrategy);
 
+      expect(steps).toEqual(["drawn"]);
+      await expect(result).rejects.toThrow("The modeler was destroyed.");
       expect(heard).toEqual([false]);
       await expectDestroyedCleanly(imported);
+      expect(steps).toEqual(["drawn", "teardown"]);
       expect(later).toEqual([]);
     },
   );
+
+  // The modeler's import selects again what was selected before it, once it has drawn the map.
+  test("an import that brings the selection back, heard by the selection listener: it rejects as destroyed, and nothing reaches the host afterwards", async () => {
+    const imported = await exportedAfterImporting(teaShop);
+    const expectDestroyedCleanly = destroyedCleanly();
+    modeler.elements.reveal(shapeNamed(modeler, "Cup").id);
+    const selected = modeler.elements.selection();
+    expect(selected).toHaveLength(1);
+    const heard: string[][] = [];
+    modeler.elements.onSelection((ids) => {
+      heard.push(ids);
+      if (ids.length > 0) modeler.destroy();
+    });
+    const later: unknown[] = [];
+    modeler.elements.onSelection((ids) => later.push(ids));
+    modeler.interaction.onChange((active) => later.push(active));
+    modeler.onContentChanged(() => later.push("change"));
+
+    await expect(modeler.importText(teaShop)).rejects.toThrow("The modeler was destroyed.");
+
+    expect(heard).toEqual([[], selected]);
+    await expectDestroyedCleanly(imported);
+    expect(later).toEqual([[]]);
+  });
+
+  // A destroy that comes after the import's call has returned, from no listener of the import,
+  // leaves an import that has drawn by then to resolve, as in every other renderer.
+  test("an import that has drawn when its call returns resolves, though the host destroys the modeler right after that call", async () => {
+    modeler.elements.reveal(shapeNamed(modeler, "Cup").id);
+    const steps = recordImportSteps(modeler);
+    const heard: string[][] = [];
+    modeler.elements.onSelection((ids) => heard.push(ids));
+
+    const result = modeler.importText(platformStrategy);
+    expect(steps).toEqual(["drawn"]);
+    modeler.destroy();
+
+    await expect(result).resolves.toEqual({ warnings: [] });
+    await settle();
+    expect(errors).toEqual([]);
+    expect(steps).toEqual(["drawn", "teardown"]);
+    // The selection from before the import is not brought back on the destroyed modeler.
+    expect(heard).toEqual([[]]);
+  });
 });

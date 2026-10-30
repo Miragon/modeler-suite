@@ -285,45 +285,90 @@ describe("a destroy from a listener that a host's call reaches (#415)", () => {
     },
   );
 
-  test("an import, whose clear empties the selection: it resolves, and the modeler keeps the imported diagram", async () => {
+  /** The text a fresh viewer exports once it has imported `text`. */
+  async function exportedAfterImporting(text: string): Promise<string> {
     const referenceHost = hostOfItsOwn();
     const reference = createCollaborativeViewer();
     reference.attachTo(referenceHost);
-    const result = await reference.importText(onlineShopVersion2);
-    const imported = reference.exportText();
-    reference.destroy();
-    referenceHost.remove();
-    modeler.elements.reveal("team_discovery");
-    const expectDestroyedCleanly = destroyedCleanly();
-    const heard: string[][] = [];
-    modeler.elements.onSelection((ids) => {
-      heard.push(ids);
-      modeler.destroy();
-    });
-    const later: string[][] = [];
-    modeler.elements.onSelection((ids) => later.push(ids));
-
-    await expect(modeler.importText(onlineShopVersion2)).resolves.toEqual(result);
-
-    expect(heard).toEqual([[]]);
-    await expectDestroyedCleanly(imported);
-    expect(later).toEqual([]);
-  });
-
-  test.each(["move", "create", "createOffCanvas"] as const)(
-    "an import that ends a held %s, heard by the interaction listener: it resolves, and the modeler keeps the imported diagram",
-    async (kind) => {
-      const referenceHost = hostOfItsOwn();
-      const reference = createCollaborativeViewer();
-      reference.attachTo(referenceHost);
-      const result = await reference.importText(onlineShopVersion2);
-      const imported = reference.exportText();
+    try {
+      await reference.importText(text);
+      return reference.exportText();
+    } finally {
       reference.destroy();
       referenceHost.remove();
+    }
+  }
+
+  /**
+   * When the import has drawn and when the teardown runs, in order. The listeners return nothing:
+   * diagram-js's event bus stops a delivery at a listener that returns a value.
+   */
+  function recordImportSteps(diagram: CollaborativeTeamTopologiesModeler): string[] {
+    const steps: string[] = [];
+    const eventBus = diagram.diagram.get<EventBus>("eventBus");
+    eventBus.on("import.done", () => {
+      steps.push("drawn");
+    });
+    eventBus.on("diagram.destroy", () => {
+      steps.push("teardown");
+    });
+    return steps;
+  }
+
+  // Decision 3 of batch 12 on #170: the import draws on the live diagram, the teardown waits until
+  // its call has returned, and its Promise rejects, as one that waits when the modeler is destroyed.
+  test.each([
+    { mount: "modeler", create: createCollaborativeModeler },
+    { mount: "viewer", create: createCollaborativeViewer },
+  ])(
+    "an import on the $mount, whose clear empties the selection: it draws, then rejects as destroyed, and nothing reaches the host afterwards",
+    async ({ create }) => {
+      const imported = await exportedAfterImporting(onlineShopVersion2);
+      const importHost = hostOfItsOwn();
+      const importing = create();
+      importing.attachTo(importHost);
+      try {
+        await importing.importText(onlineShop);
+        importing.elements.reveal("team_discovery");
+        const steps = recordImportSteps(importing);
+        const container = importing.diagram.get<Canvas>("canvas").getContainer();
+        const heard: string[][] = [];
+        importing.elements.onSelection((ids) => {
+          heard.push(ids);
+          importing.destroy();
+        });
+        const later: unknown[] = [];
+        importing.elements.onSelection((ids) => later.push(ids));
+        importing.interaction.onChange((active) => later.push(active));
+        importing.onContentChanged(() => later.push("change"));
+
+        const result = importing.importText(onlineShopVersion2);
+
+        expect(steps).toEqual(["drawn"]);
+        await expect(result).rejects.toThrow("The modeler was destroyed.");
+        expect(heard).toEqual([[]]);
+        await nextTask();
+        expect(errors).toEqual([]);
+        expect(steps).toEqual(["drawn", "teardown"]);
+        expect(container.isConnected).toBe(false);
+        expect(later).toEqual([]);
+        expect(() => importing.destroy()).not.toThrow();
+        expect(importing.exportText()).toBe(imported);
+      } finally {
+        importHost.remove();
+      }
+    },
+  );
+
+  test.each(["move", "create", "createOffCanvas"] as const)(
+    "an import that ends a held %s, heard by the interaction listener: it draws, then rejects as destroyed, and nothing reaches the host afterwards",
+    async (kind) => {
+      const imported = await exportedAfterImporting(onlineShopVersion2);
       const expectDestroyedCleanly = destroyedCleanly();
       holdGesture(diagram, kind);
       await nextTask();
       expect(modeler.interaction.active()).toBe(true);
+      const steps = recordImportSteps(modeler);
       const heard: boolean[] = [];
       modeler.interaction.onChange((active) => {
         heard.push(active);
@@ -334,10 +379,13 @@ describe("a destroy from a listener that a host's call reaches (#415)", () => {
       modeler.elements.onSelection((ids) => later.push(ids));
       modeler.onContentChanged(() => later.push("change"));
 
-      await expect(modeler.importText(onlineShopVersion2)).resolves.toEqual(result);
+      const result = modeler.importText(onlineShopVersion2);
 
+      expect(steps).toEqual(["drawn"]);
+      await expect(result).rejects.toThrow("The modeler was destroyed.");
       expect(heard).toEqual([false]);
       await expectDestroyedCleanly(imported);
+      expect(steps).toEqual(["drawn", "teardown"]);
       expect(later).toEqual([]);
     },
   );

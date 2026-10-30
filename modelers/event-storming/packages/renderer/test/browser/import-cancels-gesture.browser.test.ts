@@ -983,7 +983,7 @@ describe("an import from inside the change listener of a drop waits for the drop
     expect(reimport()).toBeDefined();
     modeler.destroy();
 
-    await expect(reimport()).rejects.toThrow(/destroyed/);
+    await expect(reimport()).rejects.toThrow("The modeler was destroyed.");
     await new Promise((resolve) => setTimeout(resolve, 350));
     expect(uncaught).toEqual([]);
   });

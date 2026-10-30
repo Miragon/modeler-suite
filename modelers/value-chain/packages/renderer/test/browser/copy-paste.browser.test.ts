@@ -366,7 +366,13 @@ describe("what a copy takes along", () => {
     expect(
       added.connections
         .map(({ connectionType, source, target }) => ({ connectionType, source, target }))
-        .sort((left, right) => left.connectionType.localeCompare(right.connectionType)),
+        .sort((left, right) =>
+          left.connectionType < right.connectionType
+            ? -1
+            : left.connectionType > right.connectionType
+              ? 1
+              : 0,
+        ),
     ).toEqual([
       { connectionType: "assignment", source: capture.id, target: sales.id },
       { connectionType: "hierarchy", source: order.id, target: capture.id },

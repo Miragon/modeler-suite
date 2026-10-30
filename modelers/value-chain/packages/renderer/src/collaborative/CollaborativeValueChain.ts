@@ -214,7 +214,11 @@ function collaborative(
           }
           try {
             const warnings = diagram.importDocument(document);
-            resolve({ warnings: warnings.map((warning) => warning.message) });
+            // A listener the import called (the end of a held gesture, the clear of the selection)
+            // destroyed the modeler: the import rejects, as one that waits does once the modeler
+            // is destroyed.
+            if (destroyed) reject(destroyedError());
+            else resolve({ warnings: warnings.map((warning) => warning.message) });
           } catch (error) {
             reject(asError(error));
           }
@@ -257,8 +261,8 @@ function collaborative(
       destroyed = true;
       contentListeners.clear();
       interactionListeners.clear();
-      // An import whose listener destroyed the modeler goes on to draw its document, and its Promise
-      // then resolves: the modeler keeps that document (#415). Whatever else runs on after the
+      // An import whose listener destroyed the modeler goes on to draw its document before its
+      // Promise rejects: the modeler keeps that document (#415). Whatever else runs on after the
       // destroy reaches no host, so the text read above stays.
       let imported = false;
       eventBus.on("import.done", () => {

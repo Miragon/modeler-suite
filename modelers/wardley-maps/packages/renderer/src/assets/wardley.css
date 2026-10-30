@@ -102,27 +102,33 @@
 /* The renderer's own palette, for hosts without the Miragon modeler shell: a horizontal floating
    toolbar. Every rule skips a palette the shell skins (data-chrome="palette"), so the shell's look
    applies alone there; `:where` keeps the specificity hosts already override. Styling sits on the element itself, not on .wardley-container, so it
-   travels along when a consumer mounts the palette elsewhere. */
+   travels along when a consumer mounts the palette elsewhere. The sizes are guide §5.5's: 40px high
+   from a 1px edge, 3px padding and 32px entries 2px apart, the groups 8px, a 1px line and 8px apart. */
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) {
   left: 50%;
-  top: 12px;
+  top: var(--cd-shell-rand);
   z-index: 110;
   transform: translateX(-50%);
   width: max-content; /* diagram-js otherwise sets a fixed 48px (vertical) */
-  /* Never wider than the canvas: narrow hosts scroll the toolbar instead of clipping tools. */
-  max-width: calc(100% - 24px);
+  /* Never wider than the canvas: narrow hosts scroll the toolbar instead of clipping tools, without
+     a visible bar (guide §5.15), which would make the island taller than its 40px. */
+  max-width: calc(100% - 2 * var(--cd-shell-rand));
+  height: var(--cd-shell-zeile);
   box-sizing: border-box;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   display: flex;
   align-items: center;
-  padding: 5px 7px;
+  padding: 3px;
   background: var(--cd-ui-flaeche-hoch);
   border: 1px solid var(--cd-ui-linie);
   border-radius: var(--cd-radius-md);
-  box-shadow: var(--cd-shadow-2);
+  box-shadow: var(--cd-shadow-1);
   color: var(--cd-ui-text);
+}
+.djs-palette.wardley-palette:where(:not([data-chrome="palette"]))::-webkit-scrollbar {
+  display: none;
 }
 /* Safety net: the provider disables diagram-js' vertical two-column collapse, which would squeeze
    the horizontal bar to 94px. */
@@ -135,11 +141,16 @@
   flex-direction: row;
   align-items: center;
 }
+/* The 2px gap lies between a group's entries only: on the row of groups it would also open before
+   the separator and before the float clearing diagram-js appends to that row. */
+.djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .group {
+  gap: 2px;
+}
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .entry {
   float: none; /* diagram-js uses float:left -> redundant in the flex row */
   flex: none;
-  width: 40px;
-  height: 40px;
+  width: var(--cd-shell-ziel);
+  height: var(--cd-shell-ziel);
   line-height: normal;
   border-radius: var(--cd-radius-sm);
   color: var(--cd-ui-text);
@@ -152,41 +163,66 @@
   background: var(--cd-ui-hover);
   color: var(--cd-ui-interaktion);
 }
-/* Active tool (e.g. the lasso): a ring, never a full fill (guide §5.5). diagram-js colours the
-   highlighted entry with !important. */
+/* diagram-js forces the colour of `highlighted-entry` with !important, and the class goes stale
+   after a rebuild of the entries; the armed tool is the entry with aria-pressed="true"
+   (palette/WardleyPaletteArmedTool.ts), a ring and never a full fill (guide §5.5). */
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .entry.highlighted-entry {
-  background: var(--cd-ui-hover);
-  box-shadow: inset 0 0 0 2px var(--cd-ui-interaktion);
   color: var(--cd-ui-text) !important;
 }
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .entry.highlighted-entry:hover {
   color: var(--cd-ui-interaktion) !important;
 }
-
-/* diagram-js gives its tooltip no border, and its surface is the canvas's white: in high contrast,
-   which drops the shadow, only the border of guide §5.6 still outlines it. */
-.wardley-container .djs-hover-tooltip {
-  border: 1px solid var(--cd-ui-linie);
+.djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .entry[aria-pressed="true"] {
+  background: var(--cd-ui-hover);
+  box-shadow: inset 0 0 0 2px var(--cd-ui-interaktion);
 }
-/* diagram-js palette tooltip: it is placed to the right of an entry, which in this horizontal
-   toolbar would cover the neighbouring tool — shift it below the 40px entry instead. */
-.wardley-container .djs-hover-tooltip--right {
-  transform: translate(calc(-50% - 28px), 28px);
-  font-family: inherit;
+
+/* diagram-js's hover tooltip, which it mounts in the canvas container, as the palette tooltip of
+   guide §5.6: opaque, a 1px line edge that still outlines it in high contrast, where the shadow
+   goes, 13px type on a 20px line, and the key as a Geist Mono chip in diagram-js's 6px flex gap.
+   `:where` adds the container without adding specificity, so a host's own tooltip rule wins. */
+:where(.wardley-container) .djs-hover-tooltip {
+  padding: 3px 8px;
+  border: 1px solid var(--cd-ui-linie);
   border-radius: var(--cd-radius-sm);
+  background: var(--cd-ui-flaeche-hoch);
+  color: var(--cd-ui-text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  box-shadow: var(--cd-shadow-2);
+}
+/* palette/WardleyPaletteTooltip.ts hangs it 8px below the island at its entry's centre, with a
+   placement diagram-js's sheet has no rule for: a copy of that sheet a host loads later would win
+   a tie with a `--right` rule here and put the tooltip back over the next tools. */
+:where(.wardley-container) .djs-hover-tooltip--bottom {
+  transform: translateX(-50%);
+}
+:where(.wardley-container) .djs-hover-tooltip .djs-palette-tooltip-shortcut {
+  padding: 1px 6px;
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-sm);
+  background: var(--cd-ui-grund);
+  color: var(--cd-ui-text-leise);
+  font-family: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 400;
+  box-shadow: none;
+  vertical-align: baseline;
 }
 
 /* Subtle vertical separator between the groups (diagram-js does not separate groups on its own). */
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .group + .group {
   position: relative;
-  margin-left: 9px;
+  margin-left: 8px;
   padding-left: 9px;
 }
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .group + .group::before {
   content: "";
   position: absolute;
-  top: 6px;
-  bottom: 6px;
+  top: 4px;
+  bottom: 4px;
   left: 0;
   width: 1px;
   background: var(--cd-ui-linie);
@@ -486,7 +522,7 @@
   outline: 2px solid var(--cd-ui-fokus);
   outline-offset: 2px;
 }
-/* The palette scrolls sideways and its entries sit edge to edge, so the ring lies inside the entry,
+/* The palette scrolls sideways and its entries sit 2px apart, so the ring lies inside the entry,
    where neither the scroll nor a neighbour cuts it, and on the armed tool 1px inside its ring (guide
    §5.5, §5.14). Lifted too: a neighbour paints after the entry and would cover a ring a host lays
    outside again. */
@@ -496,7 +532,7 @@
   outline-offset: -2px;
 }
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
-  .entry.highlighted-entry:focus-visible {
+  .entry[aria-pressed="true"]:focus-visible {
   outline-offset: -5px;
 }
 /* The canvas fills its container, so an outer ring would be clipped — draw it inside. */
@@ -905,7 +941,7 @@
   }
   :scope
     .djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
-    .entry.highlighted-entry:focus-visible {
+    .entry[aria-pressed="true"]:focus-visible {
     outline-offset: -6px;
   }
   :is(:scope.wardley-container, :scope .wardley-container) .wardley-label-input:focus {
@@ -933,6 +969,29 @@
   }
   .wardley-container .wardley-label-input:focus {
     outline-color: Highlight;
+  }
+  /* The browser drops box shadows and turns backgrounds into Canvas, which would take the armed
+     tool's ring and the separators away: they stay in system colours, as the island's edge and the
+     focus ring do for an engine that does not force them itself (guide §5.14). The !important
+     answers diagram-js's colour of the highlighted entry. */
+  .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) {
+    border-color: CanvasText;
+  }
+  .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .group + .group::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  .djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
+    :where(.entry, [role="button"], [tabindex]):focus-visible {
+    outline-color: Highlight;
+  }
+  .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .entry[aria-pressed="true"],
+  .djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
+    .entry[aria-pressed="true"]:hover {
+    forced-color-adjust: none;
+    background: Canvas;
+    color: CanvasText !important;
+    box-shadow: inset 0 0 0 2px Highlight;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -155,7 +155,7 @@ async function renameDiagram(page: Page, title: string): Promise<void> {
 async function canonicalDocument(page: Page): Promise<TtDoc> {
   const doc = await exportDocument(page);
   const byId = <T extends { id: string }>(items: ReadonlyArray<T>) =>
-    [...items].sort((a, b) => a.id.localeCompare(b.id));
+    [...items].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return {
     ...doc,
     nodes: byId(doc.nodes),

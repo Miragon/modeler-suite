@@ -15,7 +15,8 @@
  * gesture, a rejected one and a pan run on, and an import called during a drop
  * waits for it. A destroy() from a listener stops every delivery at once, and
  * during a drop or a drag's start it tears the canvas and the gesture down once
- * that action has returned. Its colours resolve from the page's `data-cd-theme` and
+ * that action has returned, inside reveal() once its scroll has run. Its
+ * colours resolve from the page's `data-cd-theme` and
  * `data-cd-kontrast` until `appearance.set` writes its own on the container,
  * as on the Miragon design tokens. It is the
  * kit's reference subject, plus deliberately BROKEN variants: one per
@@ -29,7 +30,7 @@
  * focusable `<div>`, waiting imports run by a microtask queued when the
  * action starts, interaction listeners called newest first, a modeler that
  * lists and draws dark, a re-import that draws one element more) — they must
- * fail nothing. Forty variants ignore a RECOMMENDATION — they must fail nothing and
+ * fail nothing. Forty-one variants ignore a RECOMMENDATION — they must fail nothing and
  * advise once.
  */
 import type { GestureKind, HeldGesture, HeldPan } from "../src/conformance.js";
@@ -358,6 +359,12 @@ export interface Flaws {
   /** NOT a law violation, a missed recommendation: interaction.onChange still calls a listener
    *  that an earlier listener of the same delivery unsubscribed */
   interactionDeliveryIgnoresUnsubscribe?: boolean;
+  /** NOT a law violation, a missed recommendation: destroy() from the selection listener that
+   *  reveal() calls tears the canvas down at once, so reveal's scroll, which comes after the
+   *  selection's listeners and reads the canvas, throws. diagram-js 15.28.1's scrollToElement
+   *  gives up quietly there instead, which the kit cannot tell from a held teardown: the
+   *  renderers pin their scroll before the teardown in tests of their own (#415) */
+  destroyTearsDownInsideReveal?: boolean;
 
   // ── appearance (1.5) ───────────────────────────────────────────────────────
   /** NOT a flaw: the modeler lists and draws dark too */
@@ -544,8 +551,19 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
   const queueWaitingImports = (): void => {
     if (waitingImports.length > 0) queueTheFlush();
   };
-  /** a destroy() called during the user's action: the teardown waits until the action returns */
-  let tearDownAfterTheAction: (() => void) | undefined;
+  /** a reveal() runs: it calls the selection's listeners before it scrolls */
+  let revealDepth = 0;
+  /** the teardown has run: the canvas is gone */
+  let tornDown = false;
+  /** a destroy() called during the user's action or inside reveal(): the teardown waits until
+   *  that has returned */
+  let pendingTearDown: (() => void) | undefined;
+  const tearDownOnceReturned = (): void => {
+    if (actionDepth > 0 || revealDepth > 0) return;
+    const tearDown = pendingTearDown;
+    pendingTearDown = undefined;
+    tearDown?.();
+  };
   const asUserAction = <T>(work: () => T): T => {
     if (actionDepth === 0 && flaws.flushQueuedAtTheActionsStart) queueTheFlush();
     actionDepth += 1;
@@ -554,9 +572,7 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     } finally {
       actionDepth -= 1;
       if (actionDepth === 0) {
-        const tearDown = tearDownAfterTheAction;
-        tearDownAfterTheAction = undefined;
-        tearDown?.();
+        tearDownOnceReturned();
         queueWaitingImports();
       }
     }
@@ -950,7 +966,18 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     reveal: (id) => {
       if (!editable && flaws.viewerCannotReveal) return false;
       const known = ids().includes(id);
-      if (known) select([id]);
+      if (known) {
+        revealDepth += 1;
+        try {
+          select([id]);
+          // the scroll comes once the selection's listeners have run, as in diagram-js, and reads
+          // the canvas, as a scroll that measures the viewport would
+          if (tornDown) throw new TypeError("Cannot read properties of null (reading 'viewbox')");
+        } finally {
+          revealDepth -= 1;
+          tearDownOnceReturned();
+        }
+      }
       return flaws.revealUnknownTrue ? true : known;
     },
     selection: () => [...selection],
@@ -1283,9 +1310,12 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
         labelEditor = undefined;
         gesture = undefined;
         pan = undefined;
+        tornDown = true;
       };
-      if (actionDepth > 0 && !flaws.destroyTearsDownInsideTheAction) {
-        tearDownAfterTheAction = tearDown;
+      const holdsForTheAction = actionDepth > 0 && !flaws.destroyTearsDownInsideTheAction;
+      const holdsForReveal = revealDepth > 0 && !flaws.destroyTearsDownInsideReveal;
+      if (holdsForTheAction || holdsForReveal) {
+        pendingTearDown = tearDown;
       } else {
         tearDown();
       }

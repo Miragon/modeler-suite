@@ -257,9 +257,10 @@ wrapped `Modeler` or `NavigatedViewer` for host wiring.
   [#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a
   listener that a host's own call reaches: the selection listener of `elements.reveal`, or the
   interaction and selection listeners of an import, which ends a held gesture and empties the
-  selection as it clears the canvas. The diagram is torn down once that call has returned, and the
-  import still resolves, with the imported diagram as `exportText()`
-  ([#415](https://github.com/Miragon/modeler-suite/issues/415)).
+  selection as it clears the canvas. The diagram is torn down once that call has returned. The
+  import still draws its diagram, which `exportText()` then returns
+  ([#415](https://github.com/Miragon/modeler-suite/issues/415)), and its Promise rejects with
+  "The modeler was destroyed.", as an import does that waits when the modeler is destroyed.
 - `appearance` (contract 1.5, guide §13.3): `themes` is `VALUE_CHAIN_THEMES`, `["light"]`, the one
   list the web app, the VS Code webview and its theme bridge read too. `set({ theme, contrast })`
   writes `data-cd-theme="light"` on `diagram.container`, whatever theme is asked for, and

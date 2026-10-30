@@ -107,10 +107,13 @@ evolve target. These drags and the colour picker take only an Escape aimed at th
 picker also one on its swatches); one aimed at the palette, the context pad, a name editor or a
 host's field, menu, dialog or overlay, inside the canvas container or next to it, stays with that
 control. While the draw tool holds the points of a line, the single-key tools do nothing until the
-line is finished or cancelled. While a point of a drawing is dragged, the keys that would change the
-drawing under the drag or start a second gesture next to it do nothing until the release, and the
-canvas takes them with `preventDefault()`: the single-key tools, the arrow keys, paste and
-duplicate. Delete still removes the drawing, which ends the drag without a commit.
+line is finished or cancelled, and the canvas takes them with `preventDefault()`. Enter and Space
+on the Draw entry save the line, as Enter on the canvas does. While a point of a drawing is dragged,
+the keys that would change the drawing under the drag or start a second gesture next to it do
+nothing until the release, and the canvas takes them with `preventDefault()`: the single-key tools,
+the arrow keys, paste and duplicate. Delete still removes the drawing, which ends the drag without a
+commit. An undo, a redo or any other command before the release ends the drag without a commit too,
+and the drawing stays selected, as after Escape.
 
 ## Collaborative hosts
 
@@ -170,11 +173,12 @@ delivery calls a listener that an earlier listener of the same delivery unsubscr
 ([#380](https://github.com/Miragon/modeler-suite/issues/380),
 [#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a listener
 that a host's own call reaches: the selection listener of `elements.reveal`, or the interaction and
-selection listeners of an import, which ends a held gesture and empties the selection as it clears
-the canvas. The map is torn down once that call has returned, and the import still resolves, with
-the imported map as `exportText()`
-([#415](https://github.com/Miragon/modeler-suite/issues/415)). `exportText()` is the
-committed document, never a live preview: while the plot corner, an evolve target (its red circle
+selection listeners of an import, which ends a held gesture, empties the selection as it clears the
+canvas and selects again what was selected before it. The map is torn down once that call has
+returned. The import still draws its map, which `exportText()` then returns
+([#415](https://github.com/Miragon/modeler-suite/issues/415)), and its Promise rejects with "The
+modeler was destroyed.", as an import does that waits when the modeler is destroyed.
+`exportText()` is the committed document, never a live preview: while the plot corner, an evolve target (its red circle
 or the evolve placement of the context pad) or a label is dragged, or the size or axis-label popover
 previews a change, it returns the document as it was before, and the change event of the commit
 brings the new one ([#347](https://github.com/Miragon/modeler-suite/issues/347)). A command during a
