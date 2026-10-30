@@ -25,8 +25,8 @@ const EDIT_RULES = [
 /**
  * Locks every edit on the canvas while the document behind it cannot be saved from the canvas
  * (an invalid file in an IDE host, guide §13.5): no move, resize, create, connect or delete
- * through the rules, and the keyboard, context pad, label editor and drawing handles consult
- * `isReadOnly()`. Selection, zoom, pan and export stay.
+ * through the rules, and the keyboard, palette, context pad, label editor and drawing handles
+ * consult `isReadOnly()`. Selection, zoom, pan and export stay.
  */
 export default class EventStormingReadOnly extends RuleProvider {
   static override $inject = ["eventBus"];

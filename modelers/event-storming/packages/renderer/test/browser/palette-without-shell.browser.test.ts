@@ -1,12 +1,16 @@
 /// <reference types="@vitest/browser-playwright" />
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { cdp, page, userEvent } from "vitest/browser";
+import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { ModuleDeclaration } from "didi";
 import { Modeler } from "../../src/index.js";
+import type EventStormingDrawTool from "../../src/draw-tool/EventStormingDrawTool.js";
 import { isEventStormingShape, type EventStormingShape } from "../../src/model/di-types.js";
+import type EventStormingModeling from "../../src/modeling/EventStormingModeling.js";
+import type EventStormingReadOnly from "../../src/read-only/EventStormingReadOnly.js";
 import "../../src/assets/event-storming.css";
 
 /**
@@ -306,7 +310,7 @@ describe("the palette without the shell: forced colours (guide §5.14)", () => {
     const { container, palette } = await mountBoard();
     const lasso = entryOf(palette, "lasso-tool");
     await userEvent.click(lasso);
-    await vi.waitFor(() => expect(lasso.classList.contains("highlighted-entry")).toBe(true));
+    await vi.waitFor(() => expect(lasso.getAttribute("aria-pressed")).toBe("true"));
     await emulateMedia("forced-colors", "active");
 
     await vi.waitFor(() => {
@@ -463,6 +467,52 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
     expect(paletteEntries(palette).filter((entry) => entry.tabIndex === -1)).toHaveLength(6);
   });
 
+  // diagram-js removes every entry on a rebuild, the focused one too, and the focus would fall to
+  // <body>: a host that imports each remote change would throw a keyboard user out of the toolbar.
+  test("keeps the keyboard focus on its entry when an import, a level switch or its undo rebuilds the entries", async () => {
+    const { modeler, palette, before } = await mountBoard();
+    before.focus();
+    await userEvent.tab();
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+    const focused = entryOf(palette, "create.event");
+    expect(document.activeElement).toBe(focused);
+
+    await modeler.importDSL("title Palette\nevent Remote [200, 300]");
+    expect(focused.isConnected).toBe(false);
+    expect(document.activeElement).toBe(entryOf(palette, "create.event"));
+    expect(tabStops(palette)).toEqual(["create.event"]);
+
+    modeler.get<EventStormingModeling>("eventStormingModeling").setLevel("big-picture");
+    expect(paletteEntries(palette)).toHaveLength(7);
+    expect(document.activeElement).toBe(entryOf(palette, "create.event"));
+
+    modeler.get<CommandStack>("commandStack").undo();
+    expect(paletteEntries(palette)).toHaveLength(ENTRIES.length);
+    expect(document.activeElement).toBe(entryOf(palette, "create.event"));
+    expect(tabStops(palette)).toEqual(["create.event"]);
+  });
+
+  test("moves the keyboard focus to the tab stop when a level switch removes its entry, and pulls no focus into the toolbar", async () => {
+    const { modeler, container, palette, before } = await mountBoard();
+    before.focus();
+    await userEvent.tab();
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}");
+    expect(document.activeElement).toBe(entryOf(palette, "create.aggregate"));
+
+    modeler.get<EventStormingModeling>("eventStormingModeling").setLevel("big-picture");
+    expect(palette.querySelector('[data-action="create.aggregate"]')).toBeNull();
+    expect(tabStops(palette)).toEqual(["lasso-tool"]);
+    expect(document.activeElement).toBe(entryOf(palette, "lasso-tool"));
+
+    (document.activeElement as HTMLElement).blur();
+    await modeler.importDSL("title Palette\nlevel big-picture\nevent Remote [200, 300]");
+    expect(document.activeElement).toBe(document.body);
+
+    canvasSvg(container).focus();
+    await modeler.importDSL("title Palette");
+    expect(document.activeElement).toBe(canvasSvg(container));
+  });
+
   test("names the keys of the lasso, the domain event and the command, and of no other entry", async () => {
     const { palette } = await mountBoard();
     expect(
@@ -498,6 +548,39 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
     expect(pressed(palette)).toMatchObject({ "lasso-tool": "true", "draw-tool": "false" });
   });
 
+  // diagram-js marks the armed tool with `highlighted-entry` in the tools group it found at the
+  // first tool change, which a rebuild (each import, each level switch) leaves detached.
+  test("rings the armed tool after an import rebuilt the entries, also in forced colours", async () => {
+    const { modeler, container, palette } = await mountBoard();
+    canvasSvg(container).focus();
+    await userEvent.keyboard("l");
+    await userEvent.keyboard("{Escape}");
+    expect(pressed(palette)).toMatchObject({ "lasso-tool": "false" });
+
+    await modeler.importDSL("title Palette\nevent Remote [200, 300]");
+    canvasSvg(container).focus();
+    await userEvent.keyboard("l");
+    const lasso = entryOf(palette, "lasso-tool");
+    expect(lasso.getAttribute("aria-pressed")).toBe("true");
+    await vi.waitFor(() => {
+      const armed = getComputedStyle(lasso);
+      expect(armed.backgroundColor).toBe(
+        resolved(container, "background-color", "var(--cd-ui-hover)"),
+      );
+      expect(armed.boxShadow).toBe(
+        resolved(container, "box-shadow", "inset 0 0 0 2px var(--cd-ui-interaktion)"),
+      );
+      expect(armed.color).toBe(resolved(container, "color", "var(--cd-ui-text)"));
+    });
+
+    await emulateMedia("forced-colors", "active");
+    await vi.waitFor(() => {
+      const style = getComputedStyle(lasso);
+      expect(style.backgroundColor).toBe(resolved(container, "background-color", "Canvas"));
+      expect(style.boxShadow).toBe(resolved(container, "box-shadow", "inset 0 0 0 2px Highlight"));
+    });
+  });
+
   test("creates a domain event in the free area on Enter, selected and in edit", async () => {
     const { modeler, container, palette } = await mountBoard();
     entryOf(palette, "create.event").focus();
@@ -512,6 +595,30 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
     expect(modeler.get<Selection>("selection").get()).toEqual([created]);
     expect(container.querySelector(".event-storming-label-input")).not.toBeNull();
     expect(stickies(modeler)).toHaveLength(1);
+  });
+
+  // A keyboard create places its sticky through modeling, which the lock's rules do not see.
+  test("creates nothing and arms no draw tool while the board is read-only, from the keys or the pointer", async () => {
+    const { modeler, palette } = await mountBoard();
+    modeler.get<EventStormingReadOnly>("eventStormingReadOnly").setReadOnly(true);
+    const drawTool = modeler.get<EventStormingDrawTool>("eventStormingDrawTool");
+
+    entryOf(palette, "create.event").focus();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.keyboard(" ");
+    expect(stickies(modeler)).toEqual([]);
+    expect(document.activeElement).toBe(entryOf(palette, "create.event"));
+
+    entryOf(palette, "draw-tool").focus();
+    await userEvent.keyboard(" ");
+    expect(drawTool.isActive()).toBe(false);
+    await userEvent.click(entryOf(palette, "draw-tool"));
+    expect(drawTool.isActive()).toBe(false);
+    expect(pressed(palette)).toMatchObject({ "draw-tool": "false" });
+
+    entryOf(palette, "lasso-tool").focus();
+    await userEvent.keyboard("{Enter}");
+    expect(pressed(palette)).toMatchObject({ "lasso-tool": "true" });
   });
 
   test("leaves Enter with a modifier and a held key's repeats alone", async () => {
@@ -619,6 +726,12 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
     before.focus();
     await userEvent.tab();
     const lasso = entryOf(palette, "lasso-tool");
+    expect(document.activeElement).toBe(lasso);
+    expect(lasso.matches(":focus-visible")).toBe(true);
+    expect([getComputedStyle(lasso).outlineStyle, getComputedStyle(lasso).outlineWidth]).toEqual([
+      "solid",
+      "2px",
+    ]);
 
     document.documentElement.setAttribute("data-cd-kontrast", "hoch");
     expect(getComputedStyle(lasso).outlineWidth).toBe("3px");
@@ -702,11 +815,14 @@ describe("the palette without the shell: tooltip (guide §5.6)", () => {
     expect(shownName(container)).toBe("Command");
   });
 
+  // A tap brings the touch's pointerover and then the mouse events a browser fires for
+  // compatibility, so a tooltip shown on mouseover would show for a tap.
   test("shows none for touch", async () => {
     const { container, palette } = await mountBoard();
-    entryOf(palette, "create.event").dispatchEvent(
-      new PointerEvent("pointerover", { bubbles: true, pointerType: "touch" }),
-    );
+    const entry = entryOf(palette, "create.event");
+    entry.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, pointerType: "touch" }));
+    entry.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    entry.dispatchEvent(new MouseEvent("mouseenter"));
     await new Promise((resolve) => setTimeout(resolve, 400));
 
     expect(shownTooltip(container)).toBeNull();

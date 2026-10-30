@@ -189,8 +189,8 @@ the colour picker drop their hover transitions.
 
 `eventStormingReadOnly` locks every edit while a host cannot save from the canvas (an invalid file
 in an IDE): `diagram.get('eventStormingReadOnly').setReadOnly(true)` vetoes moves, resizes,
-creates, connections and deletes through the diagram-js rules, and the keyboard, context pad, label
-editor and drawing handles stop editing. Selection, zoom, pan, copy and export stay.
+creates, connections and deletes through the diagram-js rules, and the keyboard, palette, context
+pad, label editor and drawing handles stop editing. Selection, zoom, pan, copy and export stay.
 
 The DSL's `style dark` directive stays in the board config, so the text round-trips, but the
 renderer paints nothing for it: the page's design-system mode (or a host's request through the

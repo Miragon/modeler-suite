@@ -24,6 +24,9 @@ const CHROME: readonly Chrome[] = [
   "colour picker",
 ];
 
+/** The class the Miragon modeler shell sets on <html> for VS Code's workbench.reduceMotion. */
+const SHELL_REDUCE_MOTION = "cd-shell-reduce-motion";
+
 /**
  * The board's own canvas chrome under `prefers-reduced-motion: reduce` (guide §5.14, §7): no hover
  * fades and no movement. Without that wish the hovers fade in 150ms on `--cd-ease`.
@@ -41,6 +44,7 @@ describe("the canvas chrome's motion", () => {
 
   afterEach(async () => {
     await cdp().send("Emulation.setEmulatedMedia", { features: [] });
+    document.documentElement.classList.remove(SHELL_REDUCE_MOTION);
     modeler.destroy();
     container.remove();
   });
@@ -126,6 +130,27 @@ describe("the canvas chrome's motion", () => {
     await userEvent.unhover(swatch);
 
     await reduceMotion();
+    await userEvent.hover(swatch);
+    expect(swatch.matches(":hover")).toBe(true);
+    expect(getComputedStyle(swatch).transform).toBe("none");
+  });
+
+  // The host asks for it although the OS does not: VS Code's workbench.reduceMotion, which the
+  // shell only shortens the transitions for, so a swatch would still jump to its grown size.
+  it.each(CHROME)(
+    "switches the %s's transitions off when the shell asks for reduced motion",
+    (chrome) => {
+      const element = open(chrome);
+      document.documentElement.classList.add(SHELL_REDUCE_MOTION);
+
+      const style = getComputedStyle(element);
+      expect([style.transitionProperty, style.transitionDuration]).toEqual(["none", "0s"]);
+    },
+  );
+
+  it("keeps a hovered colour swatch still when the shell asks for reduced motion", async () => {
+    const swatch = open("colour picker");
+    document.documentElement.classList.add(SHELL_REDUCE_MOTION);
     await userEvent.hover(swatch);
     expect(swatch.matches(":hover")).toBe(true);
     expect(getComputedStyle(swatch).transform).toBe("none");

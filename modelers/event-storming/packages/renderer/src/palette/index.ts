@@ -3,6 +3,7 @@ import EventStormingPaletteProvider from "./EventStormingPaletteProvider.js";
 import EventStormingPaletteToolbar from "./EventStormingPaletteToolbar.js";
 import EventStormingPaletteTooltip from "./EventStormingPaletteTooltip.js";
 import { eventStormingHoverTooltipTeardownModule } from "./EventStormingHoverTooltipTeardown.js";
+import { eventStormingReadOnlyModule } from "../read-only/index.js";
 
 /**
  * Tool palette (drag-to-create), and for a host without the modeler shell its toolbar keys and
@@ -11,7 +12,7 @@ import { eventStormingHoverTooltipTeardownModule } from "./EventStormingHoverToo
  * again with its own.
  */
 export const eventStormingPaletteModule: ModuleDeclaration = {
-  __depends__: [eventStormingHoverTooltipTeardownModule],
+  __depends__: [eventStormingHoverTooltipTeardownModule, eventStormingReadOnlyModule],
   __init__: ["eventStormingPaletteProvider", "eventStormingPaletteToolbar", "paletteTooltip"],
   eventStormingPaletteProvider: ["type", EventStormingPaletteProvider],
   eventStormingPaletteToolbar: ["type", EventStormingPaletteToolbar],

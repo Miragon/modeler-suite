@@ -35,6 +35,7 @@ export default class EventStormingPaletteToolbar {
   private container: HTMLElement | undefined;
   private activeTool: string | null = null;
   private rovingAction: string | undefined;
+  private focusedEntry: HTMLElement | undefined;
 
   constructor(
     eventBus: EventBus,
@@ -60,6 +61,7 @@ export default class EventStormingPaletteToolbar {
     this.container = container;
     container.addEventListener("keydown", this.onKeydown);
     container.addEventListener("focusin", this.onFocusIn);
+    container.addEventListener("focusout", this.onFocusOut);
     container.addEventListener("mousedown", this.onMouseDown);
     this.canvas.getContainer().addEventListener("scroll", this.onCanvasScroll);
   }
@@ -104,12 +106,27 @@ export default class EventStormingPaletteToolbar {
         entry.setAttribute("aria-pressed", String(tool === this.activeTool));
       }
     }
-    this.applyTabStops(entries);
+    const stop = this.applyTabStops(entries);
+    this.restoreFocus(entries, stop);
   }
 
-  private applyTabStops(entries: readonly HTMLElement[]): void {
+  private applyTabStops(entries: readonly HTMLElement[]): HTMLElement | undefined {
     const stop = entries.find((entry) => actionOf(entry) === this.rovingAction) ?? entries[0];
     for (const entry of entries) entry.tabIndex = entry === stop ? 0 : -1;
+    return stop;
+  }
+
+  // A rebuild removes the focused entry, and the focus would fall to <body>: a host that imports
+  // each remote change would throw a keyboard user out of the toolbar. An entry the new level no
+  // longer offers hands the focus to the tab stop.
+  private restoreFocus(entries: readonly HTMLElement[], stop: HTMLElement | undefined): void {
+    const lost = this.focusedEntry;
+    if (!lost || lost.isConnected) return;
+    this.focusedEntry = undefined;
+    const active = lost.ownerDocument.activeElement;
+    if (active && active !== lost.ownerDocument.body) return;
+    const replacement = entries.find((entry) => actionOf(entry) === actionOf(lost)) ?? stop;
+    replacement?.focus({ preventScroll: true });
   }
 
   private entryElements(): HTMLElement[] {
@@ -126,8 +143,25 @@ export default class EventStormingPaletteToolbar {
   private readonly onFocusIn = (event: FocusEvent): void => {
     const entry = this.entryOf(event.target);
     if (!entry || this.skinnedByChrome()) return;
+    this.focusedEntry = entry;
     this.rovingAction = actionOf(entry);
     this.applyTabStops(this.entryElements());
+  };
+
+  // A focus that leaves the palette is not brought back by a later rebuild. Chromium reports the
+  // removal of the focused entry as a focusout too, while the entry is still in the document, and
+  // the rebuild's `palette.changed` follows in the same task: so the entry counts as left only once
+  // that task is over and the focus has not come back to it.
+  private readonly onFocusOut = (event: FocusEvent): void => {
+    const entry = this.entryOf(event.target);
+    if (!entry || entry !== this.focusedEntry) return;
+    const next = event.relatedTarget;
+    if (next instanceof Node && this.container?.contains(next)) return;
+    queueMicrotask(() => {
+      if (this.focusedEntry === entry && entry.ownerDocument.activeElement !== entry) {
+        this.focusedEntry = undefined;
+      }
+    });
   };
 
   private readonly onKeydown = (event: KeyboardEvent): void => {
