@@ -26,11 +26,13 @@ const SCALE = 2;
 const STYLES: readonly LabelStyle[] = ["italic", "normal"];
 
 /**
- * Latin-ext after latin, as in png.test.ts. Geist Italic draws z, x and the digits 1, 3 and 7
- * narrower than the upright Geist does, so the label tells the two styles apart, also the upright
- * faces that the browser slants where no italic face is embedded.
+ * Latin-ext after latin, as in png.test.ts, and enough of it that the latin-ext subset of either
+ * style in the fallback moves the label: two such glyphs alone stay within expectNearer's margin.
+ * Geist Italic draws z and ź, x and the digits 1, 3 and 7 narrower than the upright Geist does, so
+ * the label tells the two styles apart, also the upright faces that the browser slants where no
+ * italic face is embedded.
  */
-const LABEL_TEXT = "Tax zone from Łódź 1737 zzzzzzzz";
+const LABEL_TEXT = "Tax zone from Łódź 1737 źźźźźźźź";
 
 type PageDrawings = Record<LabelStyle, { readonly geist: number; readonly fallback: number }>;
 
