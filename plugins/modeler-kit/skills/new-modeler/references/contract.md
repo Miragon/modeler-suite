@@ -270,6 +270,35 @@ case moves the focus and aims keys at the one document every mounted instance li
 - A case is only as good as the harness: drive real services (the renderer's label editor, the
   command stack, `modeling.moveElements`), not shortcuts around them.
 
+Contract 1.6's kit adds eight cases. A case, or the half or leg of one, that reads one of the four
+new hooks (`startGesture`, `armTool`, `startPan`, `exportImage`) reports a skip until the harness
+fills it; the user-action case and the destroy case's leg inside `reveal()` read none of them
+(every leg is in the package README's
+[cases of 1.6](https://github.com/Miragon/modeler-suite/blob/main/packages/api/README.md#cases-for-the-15-surfaces-and-the-gesture-rules-of-16)):
+
+- the **L1 gesture** case: an accepted import ends a running move or create, so its drop throws
+  nothing and applies nothing, and a rejected import leaves it running (an advisory; a change event
+  before the drop fails L1);
+- the **drop**, **user-action** and **drag-start** cases: an import from a listener during a drop,
+  a delete, an undo, a redo or a drag's start waits until the action has finished, and imports keep
+  their call order (advisories, see [gestures](#gestures));
+- the **pan** case: a pan is no gesture and runs on through an import from the current view (an
+  advisory);
+- the **interaction** case: `active()` and `onChange` follow every gesture to its drop and its
+  cancel, never an armed tool, and nothing is delivered after `destroy()`, also not to a later
+  listener of the delivery in which an earlier one destroyed the modeler (failures);
+- the **destroy** case: a host destroys the modeler from `elements.onSelection` at the start of a
+  move and of a palette create, from `onContentChanged` at a drop, from
+  `interaction.onChange(false)` at an Escape, and from `elements.onSelection` inside the host's
+  own `reveal()`, which calls the listener before it scrolls. Nothing throws, also not to the window,
+  no listener is called afterwards, a second `destroy()` throws nothing, and a listener that an
+  earlier one of the same delivery unsubscribed is not called (an advisory; the leg inside
+  `reveal()` needs no `startGesture`);
+- the **appearance** case: `set` draws the requested theme when `themes` lists it and `themes[0]`
+  otherwise (a light-only renderer stays light when dark is requested, also on a dark page), the
+  contrast always applies, and nothing else changes: no change event, the same exports, history,
+  view state and selection (failures; an open label editor that stays open is an advisory).
+
 ## Versions and upgrades
 
 The renderer pins `@miragon/modeler-api` exactly. Hosts check `apiVersionsCompatible` (same major)
