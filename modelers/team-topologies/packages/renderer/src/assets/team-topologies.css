@@ -91,7 +91,10 @@
 /* A host chrome that skins the palette marks it data-chrome="palette" (the modeler shell); every
    rule here stays off such a palette, and off any other diagram-js palette on the page (a bpmn-js
    editor beside the modeler). `:where` adds the container without adding specificity, so a host's
-   own rule on this palette keeps winning. 32px entries + 3px padding + 1px border give 40px. */
+   own rule on this palette keeps winning. 32px entries + 3px padding + 1px border give 40px. An
+   island over the canvas is glass (guide §5.3, §6), opaque in dark and in high contrast through
+   --cd-ui-chrome-deckkraft. Its keys and the armed tool's aria-pressed come from
+   palette/TtPaletteToolbar.ts. */
 :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) {
   left: 50%;
   top: 12px;
@@ -100,7 +103,13 @@
   display: flex;
   align-items: center;
   padding: 3px;
-  background: var(--cd-ui-flaeche-hoch);
+  background: color-mix(
+    in srgb,
+    var(--cd-ui-flaeche-hoch) var(--cd-ui-chrome-deckkraft),
+    transparent
+  );
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--cd-ui-linie);
   border-radius: var(--cd-radius-md);
   box-shadow: var(--cd-shadow-1);
@@ -159,7 +168,16 @@
   outline: 2px solid var(--cd-ui-fokus);
   outline-offset: 2px;
 }
+/* diagram-js forces the colour of `highlighted-entry` with !important, and the class goes stale
+   after a rebuild of the entries; the armed tool is the entry with aria-pressed="true", a ring and
+   never a full fill (guide §5.5). */
 :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry {
+  color: var(--cd-ui-text) !important;
+}
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry:hover {
+  color: var(--cd-ui-interaktion) !important;
+}
+:where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry[aria-pressed="true"] {
   background: var(--cd-ui-hover);
   box-shadow: inset 0 0 0 2px var(--cd-ui-interaktion);
 }
@@ -244,7 +262,7 @@
   }
   :where(.tt-djs-container)
     .djs-palette:not([data-chrome="palette"])
-    .entry.highlighted-entry:focus-visible {
+    .entry[aria-pressed="true"]:focus-visible {
     outline-offset: -5px;
   }
   @scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
@@ -255,7 +273,7 @@
     }
     :where(:scope.tt-djs-container, :scope .tt-djs-container)
       .djs-palette:not([data-chrome="palette"])
-      .entry.highlighted-entry:focus-visible {
+      .entry[aria-pressed="true"]:focus-visible {
       outline-offset: -6px;
     }
   }
@@ -374,6 +392,13 @@
   :is(:scope.tt-djs-container, :scope .tt-djs-container) .tt-label-editor:focus {
     outline-width: 3px;
   }
+  /* The container clips the canvas at its edges, so the wider ring stays inside as well. */
+  :is(:scope.tt-djs-container, :scope .tt-djs-container)
+    .djs-container
+    > svg.tt-canvas-keyboard-focus {
+    outline-width: 3px;
+    outline-offset: -3px;
+  }
 }
 
 /* --- Forced colours (guide §5.14) ------------------------------------------------- */
@@ -391,7 +416,10 @@
   :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
     outline-color: Highlight;
   }
-  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry.highlighted-entry {
+  :where(.tt-djs-container) .djs-palette:not([data-chrome="palette"]) .entry[aria-pressed="true"],
+  :where(.tt-djs-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry[aria-pressed="true"]:hover {
     forced-color-adjust: none;
     background: Canvas;
     color: CanvasText !important;
@@ -784,7 +812,8 @@
     box-shadow: none;
   }
 
-  :scope .tt-dialog__button {
+  :scope .tt-dialog__button,
+  :scope .tt-dialog__button--primary:is(:hover, :active):not(:disabled) {
     box-shadow: none;
   }
 

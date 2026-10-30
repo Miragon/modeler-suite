@@ -3,17 +3,20 @@ import PaletteModule from "diagram-js/lib/features/palette";
 import CreateModule from "diagram-js/lib/features/create";
 import LassoToolModule from "diagram-js/lib/features/lasso-tool";
 import TtPaletteProvider from "./TtPaletteProvider.js";
+import TtPaletteToolbar from "./TtPaletteToolbar.js";
 import TtPaletteTooltip from "./TtPaletteTooltip.js";
 import { ttHoverTooltipTeardownModule } from "./TtHoverTooltipTeardown.js";
 
 /**
- * Tool palette (lasso, drag-to-create teams, interactions, flows and annotations). `paletteTooltip`
+ * Tool palette (lasso, drag-to-create teams, interactions, flows and annotations), and for a host
+ * without the modeler shell its toolbar keys and semantics (`ttPaletteToolbar`). `paletteTooltip`
  * overrides the diagram-js service of that name.
  */
 export const ttPaletteModule: ModuleDeclaration = {
   __depends__: [PaletteModule, ttHoverTooltipTeardownModule, CreateModule, LassoToolModule],
-  __init__: ["ttPaletteProvider", "paletteTooltip"],
+  __init__: ["ttPaletteProvider", "ttPaletteToolbar", "paletteTooltip"],
   ttPaletteProvider: ["type", TtPaletteProvider],
+  ttPaletteToolbar: ["type", TtPaletteToolbar],
   paletteTooltip: ["type", TtPaletteTooltip],
 };
 

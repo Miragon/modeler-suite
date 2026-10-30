@@ -86,7 +86,10 @@ function keyboardClick(entry: HTMLElement): void {
 }
 
 function pressCanvasKey(key: string): void {
-  const svg = diagram.get<Canvas>("canvas").getContainer().querySelector("svg")!;
+  const svg = diagram
+    .get<Canvas>("canvas")
+    .getContainer()
+    .querySelector<SVGElement>(":scope > svg")!;
   svg.focus();
   svg.dispatchEvent(
     new KeyboardEvent("keydown", { key, ctrlKey: true, bubbles: true, cancelable: true }),
@@ -101,7 +104,7 @@ function moveOverCanvas(at: { x: number; y: number }): void {
   const rect = container().getBoundingClientRect();
   const viewbox = canvas.viewbox();
   container()
-    .querySelector("svg")!
+    .querySelector(":scope > svg")!
     .dispatchEvent(
       new MouseEvent("mousemove", {
         bubbles: true,

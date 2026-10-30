@@ -1094,7 +1094,6 @@ test("a keyboard click on a palette entry creates the element in view, selected 
     const entry = container.querySelector<HTMLElement>(
       '.djs-palette [data-action="team.platform"]',
     )!;
-    expect(entry.getAttribute("tabindex")).toBeNull();
 
     keyboardClick(entry);
 

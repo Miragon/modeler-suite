@@ -67,10 +67,15 @@ off the `<svg>` at its next rendering update, and a key that reaches the `<svg>`
 or the label editor before then passes too: nothing is deleted, saved or closed. There is no
 separate switch to pause the keyboard.
 
-**Palette from the keyboard.** A host chrome that makes the palette a toolbar (the modeler shell)
-triggers an entry with a click whose `detail` is 0. On a creating entry that click places the
-element in the centre of the free part of the canvas (`freeArea`, else the centre of the view), 24px
-further diagonally while that spot is taken, selects it and opens its label editor.
+**Palette from the keyboard.** Without a chrome that skins the palette (`data-chrome="palette"`,
+the modeler shell), the renderer makes its own palette the toolbar of guide §5.5: `role="toolbar"`
+named "Tools", ahead of the canvas in the tab order, one tab stop that ← → Home End move, and
+`aria-pressed` on the lasso. Enter or Space trigger an entry with a click whose `detail` is 0, as the
+shell does. On a creating entry that click places the element in the centre of the free part of the
+canvas (`freeArea`, else the centre of the view), 24px further diagonally while that spot is taken,
+selects it and opens its label editor. On the lasso it arms the tool, and on the armed lasso puts
+it down again; the lasso shows as pressed only while it is armed, also after Escape. A key on an
+entry the host made inert or hid stays with the page.
 
 **Embedded in a page.** Layout reads the modeler's container, not the page: in a container up to
 760px wide the renderer's own palette takes a second row, whatever the window's width. Its tooltip
