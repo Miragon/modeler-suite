@@ -88,7 +88,7 @@ export interface EventStormingKeyboardConfig {
  * select all, copy and the lasso stay. While the draw tool holds a line in progress, the keys that
  * start a gesture at the pointer (L, E, C and paste) do nothing, and Enter and Escape are the
  * tool's. While a point of a drawing is dragged, these keys, the arrow keys and duplicate do
- * nothing; Escape is the drag's, and Delete removes the drawing, which ends the drag.
+ * nothing; Escape is the drag's, and Delete, undo and redo run a command, which ends the drag.
  */
 export default class EventStormingKeyboard {
   static $inject = [

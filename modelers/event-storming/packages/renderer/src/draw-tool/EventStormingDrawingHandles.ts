@@ -20,13 +20,27 @@ interface Point {
 }
 
 /**
+ * `execute` comes before each command and each redo, nested commands included, `revert` before each
+ * undo.
+ */
+const COMMAND_START_EVENTS = ["commandStack.execute", "commandStack.revert"];
+
+/**
+ * Behind `eventStormingGestures`, which marks the user action there first, so that a host's import
+ * from the interaction listener the end of the drag calls waits for the command; ahead of the
+ * command's own listeners.
+ */
+const BEFORE_THE_COMMAND = 10_000;
+
+/**
  * Vertex handles for drawings: when exactly one drawing is selected, every point gets a small
  * draggable handle. Dragging shows a live preview; releasing commits the new geometry (points +
- * recomputed bbox) as ONE undoable command; Escape on the canvas ends the drag without one. The
- * point drag is a gesture of its own, outside diagram-js's dragging, so it reports itself to
- * `eventStormingGestures` from its first move, and its release holds the drop while the command
- * applies. While it runs, `EventStormingKeyboard` takes the keys that would change the drawing
- * under it or start a second gesture without acting (`isDraggingPoint`).
+ * recomputed bbox) as ONE undoable command; Escape on the canvas ends the drag without one, and so
+ * does any command before the release. The point drag is a gesture of its own, outside
+ * diagram-js's dragging, so it reports itself to `eventStormingGestures` from its first move, and
+ * its release holds the drop while the command applies. While it runs, `EventStormingKeyboard`
+ * takes the keys that would nudge or duplicate the drawing or start a second gesture without acting
+ * (`isDraggingPoint`).
  */
 export default class EventStormingDrawingHandles {
   static $inject = [
@@ -65,6 +79,11 @@ export default class EventStormingDrawingHandles {
     eventBus.on("shape.remove", (event: { element?: unknown }) => {
       if (this.pointDrag?.shape === event.element) this.endPointDrag();
     });
+    // The release writes back every point as the press found it, which would undo a command in
+    // between (an undo or a redo pressed mid-drag, a host's edit) and cost its redo step: the drag
+    // ends first, without a commit, as Wardley Maps' point drag does. The release ends the drag
+    // before its own command.
+    eventBus.on(COMMAND_START_EVENTS, BEFORE_THE_COMMAND, () => this.endPointDrag());
     eventBus.on(["diagram.clear", "diagram.destroy"], () => {
       this.endPointDrag();
       this.dropReleaseTrap();

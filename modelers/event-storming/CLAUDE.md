@@ -131,7 +131,8 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   `EventStormingBaseViewer`, when called and again after any wait, for the annotation font or
   for a running user action and the step it scheduled; `clear()` too):
   `dragging.cancel(false)` as Escape does, and the drawing handles' point drag, which also ends on
-  `shape.remove`, so no release lands on a removed shape, and on Escape aimed at the canvas (which
+  `shape.remove`, so no release lands on a removed shape, on any command before its release (an
+  undo or redo, whose change the release would write over), and on Escape aimed at the canvas (which
   the press on a handle focuses) without a commit, its release's click trapped so the drawing
   stays selected; a line the draw tool holds ends with the tool and without a drawing (`endLine`,
   #243; Escape commits one of two points or more), and while it is held `EventStormingKeyboard`
