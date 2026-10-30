@@ -7,6 +7,7 @@ import PaletteTooltipComponent from "diagram-js/lib/features/palette/PaletteTool
 import { html } from "diagram-js/lib/ui";
 
 const PALETTE_ENTRY_SELECTOR = ".djs-palette-entries .entry";
+const ISLAND_SELECTOR = '.djs-palette:not([data-chrome="palette"])';
 
 export const PALETTE_TOOLTIP_GAP = 8;
 export const PALETTE_TOOLTIP_PLACEMENT = "bottom";
@@ -14,7 +15,7 @@ export const PALETTE_TOOLTIP_PLACEMENT = "bottom";
 /**
  * Replaces diagram-js' stock `paletteTooltip`, which places the tooltip to the RIGHT of an entry
  * (made for its vertical palette). Our palette is a horizontal bar, so a right-hand tooltip covers
- * the neighbouring entry — this one hangs BELOW the hovered entry, horizontally centred.
+ * the neighbouring entry: this one hangs BELOW the palette, centred on the hovered entry.
  */
 export default class EventStormingPaletteTooltip {
   static $inject = ["eventBus", "palette", "hoverTooltip"];
@@ -53,11 +54,17 @@ export default class EventStormingPaletteTooltip {
   }
 }
 
+/**
+ * Centred on the entry, 8px below the horizontal island (guide §5.6), not below the entry, which
+ * ends 4px above the island's edge. A palette a chrome skins keeps its own layout, so the tooltip
+ * keeps to its entry there.
+ */
 export function positionBelow(target: HTMLElement): HoverTooltipPosition {
   const bounds = target.getBoundingClientRect();
+  const island = target.closest(ISLAND_SELECTOR)?.getBoundingClientRect() ?? bounds;
   return {
     x: bounds.left + bounds.width / 2,
-    y: bounds.bottom + PALETTE_TOOLTIP_GAP,
+    y: island.bottom + PALETTE_TOOLTIP_GAP,
     placement: PALETTE_TOOLTIP_PLACEMENT,
   };
 }

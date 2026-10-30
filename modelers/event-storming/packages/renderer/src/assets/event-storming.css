@@ -64,7 +64,8 @@
    (`data-chrome="palette"`) takes only the shell's look, so every palette rule here skips it, and
    any other diagram-js palette on the page (a bpmn-js editor beside the board) keeps its own.
    `:where` adds the container without adding specificity, so a host's own rule on this palette or
-   its tooltip keeps winning. */
+   its tooltip keeps winning. The sizes are guide §5.5's: 40px high from a 1px edge, 3px padding
+   and 32px entries 2px apart, the groups 8px, a 1px line and 8px apart. */
 :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) {
   left: 50%;
   top: 12px;
@@ -73,7 +74,7 @@
   width: auto; /* diagram-js otherwise sets a fixed 48px (vertical) */
   display: flex;
   align-items: center;
-  padding: 5px 7px;
+  padding: 3px;
   background: var(--cd-ui-flaeche-hoch);
   border: 1px solid var(--cd-ui-linie);
   border-radius: var(--cd-radius-md);
@@ -85,10 +86,15 @@
   flex-direction: row;
   align-items: center;
 }
+/* The 2px gap lies between a group's entries only: on the row of groups it would also open before
+   the separator and before the float clearing diagram-js appends to that row. */
+:where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) .group {
+  gap: 2px;
+}
 :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) .entry {
   float: none; /* diagram-js uses float:left -> redundant in the flex row */
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   line-height: normal;
   border-radius: var(--cd-radius-sm);
   color: var(--cd-ui-text);
@@ -111,7 +117,7 @@
 /* Subtle vertical separator between the groups (diagram-js does not separate groups on its own). */
 :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) .group + .group {
   position: relative;
-  margin-left: 9px;
+  margin-left: 8px;
   padding-left: 9px;
 }
 :where(.event-storming-container)
@@ -120,8 +126,8 @@
   + .group::before {
   content: "";
   position: absolute;
-  top: 6px;
-  bottom: 6px;
+  top: 4px;
+  bottom: 4px;
   left: 0;
   width: 1px;
   background: var(--cd-ui-linie);
@@ -517,6 +523,35 @@
     forced-color-adjust: none;
     border-color: Canvas;
     background: CanvasText;
+  }
+  /* Forced colours drop backgrounds and box shadows, which would take the palette's separator and
+     the armed tool's ring away: they stay in system colours, as the island's edge and the focus
+     ring do (guide §5.14). The !important answers diagram-js's colour of the highlighted entry. */
+  :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) {
+    border-color: CanvasText;
+  }
+  :where(.event-storming-container)
+    .djs-palette:not([data-chrome="palette"])
+    .group
+    + .group::before {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
+    outline-color: Highlight;
+  }
+  :where(.event-storming-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry.highlighted-entry {
+    forced-color-adjust: none;
+    background: Canvas;
+    color: CanvasText !important;
+    box-shadow: inset 0 0 0 2px Highlight;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) .entry {
+    transition: none;
   }
 }
 
