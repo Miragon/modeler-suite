@@ -55,6 +55,15 @@ describe("THIRD_PARTY_NOTICES.md", () => {
     }
   });
 
+  it("credits the renderer's one dialog, the title dialog, since its shortcuts dialog is gone (#466)", () => {
+    const text = readFileSync(notices, "utf8");
+    const lucide = text
+      .slice(text.indexOf("## Lucide"), text.indexOf("ISC License"))
+      .replace(/\s+/g, " ");
+    expect(lucide).toContain("the title dialog's Close icon");
+    expect(lucide).not.toMatch(/dialogs/i);
+  });
+
   it("names the Material star and hand and carries the full Apache License 2.0", () => {
     const material = section(readFileSync(notices, "utf8"), "## Material Icons");
     expect(material).toContain("`star` and `pan_tool`");
