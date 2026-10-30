@@ -482,8 +482,8 @@
   outline: 2px solid var(--cd-ui-fokus) !important;
   outline-offset: 2px;
 }
-/* The ring takes the contrast of the nearest mode carrier, as the roles do: the container once a
-   host set its appearance (contract 1.5), the page around it before. So a request for normal
+/* The ring widens where the map's container asks for high contrast once a host set its appearance
+   (contract 1.5), and where an ancestor asks for it before. So a host's request for normal
    contrast holds on a high-contrast page. */
 .cm-djs-container[data-cd-kontrast="hoch"] .djs-direct-editing-parent:focus-within,
 [data-cd-kontrast="hoch"]

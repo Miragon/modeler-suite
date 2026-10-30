@@ -1,6 +1,6 @@
 /// <reference types="@vitest/browser-playwright" />
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cdp } from "vitest/browser";
+import { cdp, userEvent } from "vitest/browser";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type Selection from "diagram-js/lib/features/selection/Selection";
@@ -105,6 +105,21 @@ function focusRing(box: HTMLElement): {
   };
 }
 
+/**
+ * diagram-js-direct-editing never calls `focus()`: its selection range moves the focus into the
+ * content only inside a frame that has the focus, as it has for a user who opened the editor. So
+ * every case clicks into the frame first and does not depend on a case before it.
+ */
+async function focusTheFrame(): Promise<void> {
+  const target = document.createElement("div");
+  target.style.width = "16px";
+  target.style.height = "16px";
+  document.body.append(target);
+  await userEvent.click(target);
+  target.remove();
+  expect(document.hasFocus()).toBe(true);
+}
+
 /** The text box of the open name or team editor, once its content has the focus. */
 function editorBox(scope: HTMLElement): HTMLElement {
   const box = scope.querySelector<HTMLElement>(".djs-direct-editing-parent");
@@ -151,7 +166,8 @@ describe("the inline editors of a map", () => {
     return modeler.exportDocument().contexts.find((context) => context.id === id)?.description;
   }
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await focusTheFrame();
     container = document.createElement("div");
     container.style.width = "1024px";
     container.style.height = "768px";
@@ -248,6 +264,8 @@ describe("the inline editors of a map", () => {
 describe("the focus ring of the name editor under a host's appearance (#357)", () => {
   const modelers: CollaborativeContextMapsModeler[] = [];
   const wrappers: HTMLElement[] = [];
+
+  beforeEach(focusTheFrame);
 
   afterEach(() => {
     page.removeAttribute("data-cd-theme");
