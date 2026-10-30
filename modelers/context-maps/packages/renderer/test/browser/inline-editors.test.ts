@@ -1,6 +1,7 @@
 /// <reference types="@vitest/browser-playwright" />
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cdp, userEvent } from "vitest/browser";
+import type { AppearanceRequest } from "@miragon/modeler-api";
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type Selection from "diagram-js/lib/features/selection/Selection";
@@ -120,6 +121,18 @@ async function focusTheFrame(): Promise<void> {
   expect(document.hasFocus()).toBe(true);
 }
 
+/**
+ * Escape on an open description editor: a destroy blurs it, which commits and restores the focus to
+ * a canvas that is gone.
+ */
+function closeDescription(): void {
+  document
+    .querySelector(".cm-pad-prompt__field")
+    ?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    );
+}
+
 /** The text box of the open name or team editor, once its content has the focus. */
 function editorBox(scope: HTMLElement): HTMLElement {
   const box = scope.querySelector<HTMLElement>(".djs-direct-editing-parent");
@@ -179,6 +192,7 @@ describe("the inline editors of a map", () => {
   afterEach(async () => {
     await cdp().send("Emulation.setEmulatedMedia", { features: [] });
     page.removeAttribute("data-cd-kontrast");
+    closeDescription();
     modeler.destroy();
     container.remove();
   });
@@ -259,9 +273,89 @@ describe("the inline editors of a map", () => {
       expect(focusRing(box).colour).toBe(computedColour(document.body, "Highlight"));
     });
   });
+
+  describe("the description editor's ring and card (#393, guide §5.3, §8)", () => {
+    function card(): HTMLElement {
+      return container.querySelector<HTMLElement>(".cm-pad-prompt")!;
+    }
+
+    it("shows the 2px ring around the field and the card's shadow", () => {
+      const field = openDescription("billing");
+      expect(focusRing(field)).toEqual({
+        style: "solid",
+        width: "2px",
+        offset: "2px",
+        colour: computedColour(container, "var(--cd-ui-fokus)"),
+      });
+      expect(getComputedStyle(card()).boxShadow).not.toBe("none");
+    });
+
+    it("widens the ring to 3px and drops the card's shadow in high contrast", () => {
+      page.setAttribute("data-cd-kontrast", "hoch");
+      const field = openDescription("billing");
+      expect(focusRing(field)).toMatchObject({ style: "solid", width: "3px", offset: "2px" });
+      expect(getComputedStyle(card()).boxShadow).toBe("none");
+    });
+
+    it("keeps the ring in forced colours", async () => {
+      await cdp().send("Emulation.setEmulatedMedia", {
+        features: [{ name: "forced-colors", value: "active" }],
+      });
+      const field = openDescription("billing");
+      expect(focusRing(field)).toMatchObject({ style: "solid", width: "2px" });
+      expect(focusRing(field).colour).toBe(computedColour(document.body, "Highlight"));
+    });
+  });
 });
 
-describe("the focus ring of the name editor under a host's appearance (#357)", () => {
+interface Carrier {
+  theme: string;
+  kontrast?: "hoch";
+}
+
+interface Mode {
+  page?: Carrier;
+  /** A mode carrier between the page and the map's host. */
+  carrier?: Carrier;
+  request?: AppearanceRequest;
+}
+
+function carry(element: HTMLElement, carrier: Carrier): void {
+  element.setAttribute("data-cd-theme", carrier.theme);
+  if (carrier.kontrast) element.setAttribute("data-cd-kontrast", carrier.kontrast);
+}
+
+const HIGH = { width: "3px", shadow: "no shadow" };
+const NORMAL = { width: "2px", shadow: "its shadow" };
+
+/** High contrast is the nearest mode carrier's (guide §13.3), the map's container among them. */
+const CARRIERS: ({ title: string; mode: Mode } & typeof HIGH)[] = [
+  {
+    title: "for a request of high contrast, also on a page in normal contrast",
+    mode: { request: { theme: "light", contrast: "high" } },
+    ...HIGH,
+  },
+  {
+    title: "for a request of normal contrast on a high-contrast page",
+    mode: {
+      page: { theme: "dark", kontrast: "hoch" },
+      request: { theme: "light", contrast: "normal" },
+    },
+    ...NORMAL,
+  },
+  {
+    title: "inside a carrier in normal contrast between a high-contrast page and the map (#401)",
+    mode: { page: { theme: "light", kontrast: "hoch" }, carrier: { theme: "light" } },
+    ...NORMAL,
+  },
+  {
+    title: "for a request of high contrast inside a carrier in normal contrast (#401)",
+    mode: { carrier: { theme: "light" }, request: { theme: "light", contrast: "high" } },
+    ...HIGH,
+  },
+];
+
+describe("the editors under a host's appearance and the nearest mode carrier (#357, #393, #401)", () => {
   const modelers: CollaborativeContextMapsModeler[] = [];
   const wrappers: HTMLElement[] = [];
 
@@ -270,34 +364,61 @@ describe("the focus ring of the name editor under a host's appearance (#357)", (
   afterEach(() => {
     page.removeAttribute("data-cd-theme");
     page.removeAttribute("data-cd-kontrast");
+    closeDescription();
     for (const modeler of modelers.splice(0)) modeler.destroy();
     for (const wrapper of wrappers.splice(0)) wrapper.remove();
   });
 
-  async function nameEditorOf(modeler: CollaborativeContextMapsModeler): Promise<HTMLElement> {
+  async function mapIn(mode: Mode): Promise<CollaborativeContextMapsModeler> {
+    if (mode.page) carry(page, mode.page);
+    const modeler = createCollaborativeModeler();
+    if (mode.request) modeler.appearance.set(mode.request);
     const host = attachedHost();
-    wrappers.push(host.parentElement ?? host);
+    const wrapper = host.parentElement!;
+    wrappers.push(wrapper);
+    if (mode.carrier) carry(wrapper, mode.carrier);
     modeler.attachTo(host);
     modelers.push(modeler);
     await modeler.importText(serializeDocumentText(mapDocument()));
-    const billing = modeler.diagram.get<ElementRegistry>("elementRegistry").get("billing");
-    modeler.diagram.get<CmLabelEditing>("cmLabelEditing").activate(billing as unknown as CmContext);
-    return editorBox(host);
+    return modeler;
   }
 
-  it("is 3px for a request of high contrast, also on a page in normal contrast", async () => {
-    const modeler = createCollaborativeModeler();
-    modeler.appearance.set({ theme: "light", contrast: "high" });
-    const box = await nameEditorOf(modeler);
-    expect(focusRing(box)).toMatchObject({ style: "solid", width: "3px", offset: "2px" });
+  function billing(modeler: CollaborativeContextMapsModeler): CmContext {
+    const found = modeler.diagram.get<ElementRegistry>("elementRegistry").get("billing");
+    if (!found) throw new Error("no element billing");
+    return found as unknown as CmContext;
+  }
+
+  function nameEditorOf(modeler: CollaborativeContextMapsModeler): HTMLElement {
+    modeler.diagram.get<CmLabelEditing>("cmLabelEditing").activate(billing(modeler));
+    return editorBox(modeler.diagram.container);
+  }
+
+  function descriptionEditorOf(modeler: CollaborativeContextMapsModeler): {
+    field: HTMLTextAreaElement;
+    card: HTMLElement;
+  } {
+    const map = modeler.diagram.container;
+    modeler.diagram.get<Selection>("selection").select(billing(modeler));
+    map
+      .querySelector('.djs-context-pad.open [data-action="description"]')!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
+    const field = map.querySelector<HTMLTextAreaElement>(".cm-pad-prompt__field")!;
+    expect(document.activeElement).toBe(field);
+    return { field, card: map.querySelector<HTMLElement>(".cm-pad-prompt")! };
+  }
+
+  it.each(CARRIERS)("gives the name editor a $width ring $title", async ({ mode, width }) => {
+    const box = nameEditorOf(await mapIn(mode));
+    expect(focusRing(box)).toMatchObject({ style: "solid", width, offset: "2px" });
   });
 
-  it("stays 2px for a request of normal contrast on a high-contrast page", async () => {
-    page.setAttribute("data-cd-theme", "dark");
-    page.setAttribute("data-cd-kontrast", "hoch");
-    const modeler = createCollaborativeModeler();
-    modeler.appearance.set({ theme: "light", contrast: "normal" });
-    const box = await nameEditorOf(modeler);
-    expect(focusRing(box)).toMatchObject({ style: "solid", width: "2px", offset: "2px" });
-  });
+  it.each(CARRIERS)(
+    "gives the description field a $width ring and its card $shadow $title",
+    async ({ mode, width, shadow }) => {
+      const { field, card } = descriptionEditorOf(await mapIn(mode));
+      expect(focusRing(field)).toMatchObject({ style: "solid", width, offset: "2px" });
+      expect(getComputedStyle(card).boxShadow === "none").toBe(shadow === "no shadow");
+    },
+  );
 });
