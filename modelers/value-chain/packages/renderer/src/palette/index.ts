@@ -8,6 +8,7 @@ import GlobalConnectModule from "diagram-js/lib/features/global-connect";
 import VcPaletteProvider from "./VcPaletteProvider.js";
 import VcPaletteToolbar from "./VcPaletteToolbar.js";
 import VcPaletteTooltip from "./VcPaletteTooltip.js";
+import { vcHoverTooltipTeardownModule } from "./VcHoverTooltipTeardown.js";
 
 /**
  * The palette's entries, and for a host without the modeler shell its toolbar keys and semantics
@@ -17,6 +18,7 @@ import VcPaletteTooltip from "./VcPaletteTooltip.js";
 export const vcPaletteModule: ModuleDeclaration = {
   __depends__: [
     PaletteModule,
+    vcHoverTooltipTeardownModule,
     CreateModule,
     HandToolModule,
     LassoToolModule,
