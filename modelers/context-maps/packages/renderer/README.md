@@ -260,8 +260,9 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
   unless the entry goes away with its action. Append opens the subdomain-type menu, which takes the
   focus and hands it to the canvas when it closes.
 - A host that hides the canvas without destroying the modeler makes its container `inert` or
-  `display: none`, not only transparent: a hidden or inert canvas cannot hold the focus, so no key
-  reaches it. There is no separate switch to pause the keyboard.
+  `display: none`, not only transparent: the browser moves the focus off the `<svg>` at its next
+  rendering update, and a key whose target lies inside an `inert` subtree passes before then too.
+  There is no separate switch to pause the keyboard.
 
 ### Helpers & types
 

@@ -89,7 +89,8 @@ as it is. A press on a handle of a selected drawing focuses the canvas too, and 
 canvas ends the drag of that point without changing the drawing, which stays selected. To keep the
 keys away from a canvas it
 hides without destroying it, a host makes it `inert` (or `display: none`): the browser then moves
-the focus off the `<svg>` at its next rendering update. Cmd/Ctrl+A selects the whole board. An
+the focus off the `<svg>` at its next rendering update, and a key whose target lies inside an
+`inert` subtree stays the page's before then too. Cmd/Ctrl+A selects the whole board. An
 import erases the undo history without firing `commandStack.changed`, and fires
 `import.parse.start`, `import.render.start` and `import.done` in that order. It frames the content
 centred at the largest zoom that shows all of it, never above 100%; an empty board shows at 100%. A

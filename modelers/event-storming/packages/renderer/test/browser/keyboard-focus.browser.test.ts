@@ -146,6 +146,34 @@ describe("Event Storming keys act only on the focused canvas (no shell)", () => 
     expect(modeler.get<Selection>("selection").get()).toEqual([placeOrder]);
   });
 
+  it("leaves Enter and Escape on its draw entry to the page once the host made the board inert", async () => {
+    const before = shapes().length;
+    drawTool().activate();
+    await userEvent.click(svg(), { position: { x: 700, y: 520 } });
+    await userEvent.click(svg(), { position: { x: 800, y: 580 } });
+    // The shell's palette makes its entries focusable, and Enter on the draw entry keeps the focus.
+    const entry = paletteEntry("draw-tool");
+    entry.tabIndex = 0;
+    entry.focus();
+    container.inert = true;
+    expect(document.activeElement).toBe(entry);
+
+    for (const key of ["Escape", "Enter"]) {
+      const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+      entry.dispatchEvent(event);
+      expect(event.defaultPrevented, key).toBe(false);
+    }
+    expect(drawTool().isActive()).toBe(true);
+    expect(shapes()).toHaveLength(before);
+
+    container.inert = false;
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    entry.dispatchEvent(escape);
+    expect(escape.defaultPrevented).toBe(true);
+    expect(drawTool().isActive()).toBe(false);
+    expect(shapes()).toHaveLength(before + 1);
+  });
+
   it("hands the focus to the canvas after a pointer click on a palette tool", async () => {
     await userEvent.click(paletteEntry("lasso-tool"));
     expect(canvasHasFocus()).toBe(true);

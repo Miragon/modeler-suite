@@ -171,7 +171,8 @@ export default class EventStormingDrawTool {
    * palette entry, which keeps the focus when Enter starts the tool there (guide §5.5). Every other
    * target keeps them, inside the modeler's container too: a host's buttons and fields, a host's
    * overlay next to the canvas, the zoom panel, the other palette entries, an open menu or dialog,
-   * the label editor and `<body>`.
+   * the label editor and `<body>`. A canvas or an entry the host made `inert` keeps them too, as in
+   * `targetsCanvas`.
    */
   private ownsKey(e: KeyboardEvent): boolean {
     return isUnhandledKey(e) && (targetsCanvas(e, this.canvas) || this.targetsOwnPaletteEntry(e));
@@ -179,7 +180,7 @@ export default class EventStormingDrawTool {
 
   private targetsOwnPaletteEntry(e: KeyboardEvent): boolean {
     const target = e.target;
-    if (!(target instanceof Element)) return false;
+    if (!(target instanceof Element) || target.closest("[inert]") !== null) return false;
     const entry = target.closest(`.djs-palette [data-action="${DRAW_TOOL_PALETTE_ENTRY}"]`);
     return entry !== null && this.canvas.getContainer().contains(entry);
   }

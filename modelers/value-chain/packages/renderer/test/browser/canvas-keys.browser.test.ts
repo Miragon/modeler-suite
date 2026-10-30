@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import {
   createCollaborativeModeler,
@@ -138,6 +139,7 @@ describe("keys on the focused canvas", () => {
     expect(modeler.exportText()).toBe(before);
     expect(has(modeler, STEP)).toBe(true);
     expect(modeler.diagram.get<Selection>("selection").get()).toHaveLength(1);
+    expect(modeler.diagram.get<Dragging>("dragging").context()).toBeFalsy();
   });
 
   it("leave a key alone that a host has handled already", async () => {

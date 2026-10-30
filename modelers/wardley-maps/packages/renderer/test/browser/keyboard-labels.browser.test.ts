@@ -610,6 +610,21 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       expect(drawTool().isActive()).toBe(false);
     });
 
+    it("leaves Escape on the palette entry that started it to the page once the host made it inert", () => {
+      const entry = drawEntry(container);
+      entry.focus();
+      pressKey(entry, "Enter");
+      expect(drawTool().isActive()).toBe(true);
+      container.setAttribute("inert", "");
+      expect(document.activeElement).toBe(entry);
+
+      expect(pressKey(entry, "Escape").defaultPrevented).toBe(false);
+      expect(drawTool().isActive()).toBe(true);
+      container.removeAttribute("inert");
+      expect(pressKey(entry, "Escape").defaultPrevented).toBe(true);
+      expect(drawTool().isActive()).toBe(false);
+    });
+
     function drawEntry(root: ParentNode): HTMLElement {
       return root.querySelector<HTMLElement>('.djs-palette .entry[data-action="draw-tool"]')!;
     }

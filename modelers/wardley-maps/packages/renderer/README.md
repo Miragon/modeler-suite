@@ -93,8 +93,9 @@ Enter and Space on a palette tool (lasso, draw) leave the focus on the entry; on
 they place the element and hand the focus to the canvas, or to the new element's name editor; on a
 context-pad action they keep the focus in the pad, and an action that closes or redraws the pad
 (delete, line style, remove evolve) returns it to the canvas. A host that hides the canvas without
-destroying it makes the container `inert`, so the hidden canvas can neither keep the focus nor act
-on a key.
+destroying it makes the container `inert`: the browser moves the focus off the canvas at its next
+rendering update, and a key whose target lies inside the `inert` container stays with the page
+before then too.
 
 Escape on the canvas ends every drag without a change, as it ends a diagram-js drag: also a label
 drag, the point drag of a drawing (the drawing stays selected) and the drag of a component's red
