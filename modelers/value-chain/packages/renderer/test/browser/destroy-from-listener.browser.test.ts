@@ -275,6 +275,21 @@ describe("no delivery reaches a listener that an earlier listener of it unsubscr
 
     expect(later).toEqual([]);
   });
+
+  it("of the selection, also when the earlier listener unsubscribed itself first", () => {
+    const unsubscribes: (() => void)[] = [];
+    unsubscribes.push(
+      editor().elements.onSelection(() => {
+        for (const unsubscribe of unsubscribes) unsubscribe();
+      }),
+    );
+    const later: string[][] = [];
+    unsubscribes.push(editor().elements.onSelection((ids) => later.push(ids)));
+
+    editor().elements.reveal("step-credit");
+
+    expect(later).toEqual([]);
+  });
 });
 
 it("no later selection listener hears of a selection whose first listener destroyed the modeler", async () => {

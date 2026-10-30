@@ -194,6 +194,21 @@ describe("no delivery reaches a listener that an earlier listener of it unsubscr
 
     expect(later).toEqual([]);
   });
+
+  test("of the selection, also when the earlier listener unsubscribed itself first", () => {
+    const unsubscribes: (() => void)[] = [];
+    unsubscribes.push(
+      modeler.elements.onSelection(() => {
+        for (const unsubscribe of unsubscribes) unsubscribe();
+      }),
+    );
+    const later: string[][] = [];
+    unsubscribes.push(modeler.elements.onSelection((ids) => later.push(ids)));
+
+    modeler.elements.reveal("team_checkout");
+
+    expect(later).toEqual([]);
+  });
 });
 
 test("no later selection listener hears of a selection whose first listener destroyed the modeler", async () => {

@@ -1128,4 +1128,19 @@ describe('no delivery reaches a listener that an earlier listener of it unsubscr
 
     expect(later).toEqual([]);
   });
+
+  it('of the selection, also when the earlier listener unsubscribed itself first', () => {
+    const unsubscribes: (() => void)[] = [];
+    unsubscribes.push(
+      modeler.elements.onSelection(() => {
+        for (const unsubscribe of unsubscribes) unsubscribe();
+      }),
+    );
+    const later: string[][] = [];
+    unsubscribes.push(modeler.elements.onSelection((ids) => later.push(ids)));
+
+    modeler.elements.reveal('pay');
+
+    expect(later).toEqual([]);
+  });
 });
