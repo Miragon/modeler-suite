@@ -23,5 +23,3 @@ export type {
   ShortcutRow,
   ShortcutsChrome,
 } from "./shortcuts.js";
-export { createShortcutsDialog } from "./ShortcutsDialog.js";
-export type { ShortcutsDialog, ShortcutsDialogChrome } from "./ShortcutsDialog.js";

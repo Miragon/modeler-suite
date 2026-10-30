@@ -204,6 +204,10 @@ describe("theme.sync — event-storming.css wires the vendored design-system fil
     ).toEqual([]);
   });
 
+  it("leaves the keyboard shortcuts dialog to the shell's stylesheet (guide §8)", () => {
+    expect(ruleSelectors(css).filter((selector) => selector.includes("shortcuts"))).toEqual([]);
+  });
+
   it("draws the dot grid in --cd-ui-linie at 1px (guide §10.1)", () => {
     const container = /\.event-storming-container\s*\{([^}]*)\}/.exec(withoutComments(css));
     expect(container?.[1]).toMatch(

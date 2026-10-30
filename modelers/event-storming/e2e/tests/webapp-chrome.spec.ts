@@ -617,7 +617,6 @@ test.describe("webapp: the shell web chrome and the app behind it", () => {
     // The zoom and fit keys are the chrome's four rows, once: the board's own View rows give way.
     await expect(dialog.locator("[data-chrome-key]")).toHaveCount(4);
     await expect(dialog.getByRole("row", { name: /^Fit/ })).toHaveCount(1);
-    expect(await page.locator("dialog.event-storming-shortcuts").count()).toBe(0);
 
     await closeDialog(dialog, () => page.keyboard.press("Escape"));
     await expect(dialog).toBeHidden();
