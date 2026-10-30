@@ -167,6 +167,38 @@ test("the title dialog edits the map title in a field and applies it once", asyn
   expect(root.querySelector("dialog")).toBeNull();
 });
 
+test("the Close button in the dialog's header discards the edit and gives the focus back", async () => {
+  const { root, trigger } = chromeRoot();
+  const written: string[] = [];
+  const dialog = createTitleDialog(
+    { root, menu: { trigger }, messages: { close: "Close dialog" } },
+    {
+      title: () => "Conference",
+      setTitle: (next) => {
+        written.push(next);
+      },
+    },
+  );
+
+  dialog.open();
+  const element = root.querySelector<HTMLDialogElement>("dialog.cm-title-dialog")!;
+  element.querySelector("input")!.value = "Discarded";
+  const close = element.querySelector<HTMLButtonElement>(".cm-dialog-header .cm-dialog-close")!;
+  expect(close.type).toBe("button");
+  expect(close.getAttribute("aria-label")).toBe("Close dialog");
+  expect(close.querySelector("svg")).not.toBeNull();
+
+  const closed = new Promise((resolve) =>
+    element.addEventListener("close", resolve, { once: true }),
+  );
+  close.click();
+  expect(dialog.isOpen()).toBe(false);
+  await closed;
+  expect(written).toEqual([]);
+  expect(document.activeElement).toBe(trigger);
+  dialog.destroy();
+});
+
 test("hovering an element shows its own data in a tooltip inside the canvas", () => {
   const wrapper = document.createElement("div");
   wrapper.style.cssText = "position:absolute;left:0;top:0;width:900px;height:640px";

@@ -7,8 +7,9 @@
 
 /**
  * The Lucide icons of the in-canvas chrome (context pad, connect handles, the lasso tool, the
- * shortcuts dialog) and of the team glyph on the canvas, inlined so the renderer has no icon
- * runtime dependency. Copied unchanged from lucide-static 1.59.0 (`icon-nodes.json`).
+ * Close buttons of the title dialog and the legend) and of the team glyph on the canvas, inlined
+ * so the renderer has no icon runtime dependency. Copied unchanged from lucide-static 1.59.0
+ * (`icon-nodes.json`).
  */
 export const LUCIDE = {
   "arrow-left-right":
