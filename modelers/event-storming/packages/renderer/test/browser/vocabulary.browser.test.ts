@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
@@ -121,6 +121,33 @@ describe("the board's vocabulary on the canvas (real browser DOM)", () => {
     expect(
       modeler.get<EventStormingSpellingVariants>("eventStormingSpellingVariants").markedIds(),
     ).toHaveLength(3);
+  });
+
+  // Guide §13.5: someone typing an invalid file sees no lock before 800ms without a valid import,
+  // and guide §8 counts the hidden dots among its marks.
+  it("keeps the dots through the delay a host gives the lock, and brings them back at once (#484)", () => {
+    const lock = modeler.get<EventStormingReadOnly>("eventStormingReadOnly");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      lock.setReadOnly(true, { delayMs: 800 });
+      vi.advanceTimersByTime(400);
+      lock.setReadOnly(true, { delayMs: 800 });
+      vi.advanceTimersByTime(399);
+      expect(lock.isReadOnly()).toBe(true);
+      expect(dots()).toHaveLength(3);
+
+      vi.advanceTimersByTime(1);
+      expect(dots()).toHaveLength(0);
+      lock.setReadOnly(false);
+      expect(dots()).toHaveLength(3);
+
+      lock.setReadOnly(true, { delayMs: 800 });
+      lock.setReadOnly(false);
+      vi.advanceTimersByTime(800);
+      expect(dots()).toHaveLength(3);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("lists the label suggestions under the editor, on the canvas layer, and closes them on a pan", async () => {

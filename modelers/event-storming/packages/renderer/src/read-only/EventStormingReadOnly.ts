@@ -8,7 +8,10 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 export const READ_ONLY_CHANGED_EVENT = "eventStorming.readOnly.changed";
 
 export interface EventStormingReadOnlyOptions {
-  /** How long the palette's marks of the lock wait (default 0); the lock itself holds at once. */
+  /**
+   * How long the lock's marks wait (default 0): the palette's `aria-disabled` and the hidden
+   * spelling-variant dots. The lock itself holds at once.
+   */
   delayMs?: number | undefined;
 }
 
@@ -36,8 +39,8 @@ const EDIT_RULES = [
  * through the rules, and the keyboard, palette, context pad, label editor and drawing handles
  * consult `isReadOnly()`. Selection, zoom, pan and export stay. Guide §13.5 shows the lock of an
  * invalid import only after 800ms without a valid one, so typing beside the canvas does not
- * flicker: `delayMs` holds back the palette's marks (`isReadOnlyShown()`), as the shell's
- * `setReadOnly` does.
+ * flicker: `delayMs` holds back the lock's marks (`isReadOnlyShown()`), the palette's and the
+ * spelling-variant dots hiding, as the shell's `setReadOnly` does.
  */
 export default class EventStormingReadOnly extends RuleProvider {
   static override $inject = ["eventBus"];
@@ -59,13 +62,13 @@ export default class EventStormingReadOnly extends RuleProvider {
     return this.readOnly;
   }
 
-  /** Whether the palette marks the lock: from `setReadOnly(true)` on, or once its `delayMs` passed. */
+  /** Whether the lock's marks show: from `setReadOnly(true)` on, or once its `delayMs` passed. */
   isReadOnlyShown(): boolean {
     return this.shown;
   }
 
   /**
-   * `true` locks at once and shows the palette's marks after `delayMs` (default 0); a call while the
+   * `true` locks at once and shows the lock's marks after `delayMs` (default 0); a call while the
    * delay runs keeps its timer, as typing sends one invalid import after the other. `false` unlocks
    * and takes the marks off at once.
    */

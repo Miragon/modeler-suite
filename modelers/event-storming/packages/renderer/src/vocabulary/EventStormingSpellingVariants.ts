@@ -52,7 +52,8 @@ interface ShownDot {
  * no export carries it, and it never reaches the problems of a host: different names stay legal,
  * since a real language conflict is what a workshop wants to see. `unify` rewrites every other
  * spelling to the sticky's own in one command, so one undo takes it back. The dots hide while the
- * read-only lock holds, as the context pad's entries do.
+ * read-only lock shows (guide §8), so with the lock's `delayMs` they stay through the invalid
+ * imports of someone typing (guide §13.5).
  */
 export default class EventStormingSpellingVariants {
   static $inject = [
@@ -83,7 +84,7 @@ export default class EventStormingSpellingVariants {
     private readonly overlays: Overlays,
     private readonly selection: Selection,
     private readonly modeling: EventStormingModeling,
-    private readonly readOnly: Pick<EventStormingReadOnly, "isReadOnly">,
+    private readonly readOnly: Pick<EventStormingReadOnly, "isReadOnlyShown">,
   ) {
     eventBus.on(["import.done", "elements.changed", READ_ONLY_CHANGED_EVENT], () => this.refresh());
     eventBus.on(["canvas.viewbox.changing", "drag.init", "element.mousedown"], () =>
@@ -137,7 +138,7 @@ export default class EventStormingSpellingVariants {
 
   private refresh(): void {
     const wanted = new Map<string, string>();
-    if (!this.readOnly.isReadOnly()) {
+    if (!this.readOnly.isReadOnlyShown()) {
       for (const term of this.variants()) {
         for (const id of term.spellings.flatMap((spelling) => spelling.elementIds)) {
           const shape = this.elementRegistry.get(id);

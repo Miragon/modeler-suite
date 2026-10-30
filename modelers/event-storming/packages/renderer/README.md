@@ -202,10 +202,11 @@ pad, label editor and drawing handles stop editing. Selection, zoom, pan, copy a
 
 Guide §13.5 shows the lock of an invalid file only after 800ms without a valid one, so typing in the
 text editor beside the canvas does not flicker. `setReadOnly(true, { delayMs: 800 })` locks at once
-and marks the palette's entries once the delay has passed, as the shell's `setReadOnly` does; a call
-while the delay runs keeps its timer, and `setReadOnly(false)` unlocks and takes the marks off at
-once. `setReadOnly(true)` without the option marks at once. `isReadOnlyShown()` tells whether the
-marks show; `READ_ONLY_CHANGED_EVENT` carries `{ readOnly, shown }` and fires again when they show.
+and shows the lock's marks once the delay has passed, as the shell's `setReadOnly` does: the
+palette's entries turn `aria-disabled` and the spelling-variant dots (below) hide. A call while the
+delay runs keeps its timer, and `setReadOnly(false)` unlocks and takes the marks off at once.
+`setReadOnly(true)` without the option marks at once. `isReadOnlyShown()` tells whether the marks
+show; `READ_ONLY_CHANGED_EVENT` carries `{ readOnly, shown }` and fires again when they show.
 
 The DSL's `style dark` directive stays in the board config, so the text round-trips, but the
 renderer paints nothing for it: the page's design-system mode (or a host's request through the
@@ -239,7 +240,7 @@ spelling in one command, so one undo takes it back. Different names stay legal, 
 language conflict is what a workshop wants to find. A placeholder name, by the same rule as the
 suggestions, gets no dot and keeps its label on "Unify spelling", so an aggregate called "Policy"
 next to one called "Policies" marks neither. The dots are HTML overlays, so no export carries
-them and no host's problems list them, and they hide under the read-only lock.
+them and no host's problems list them, and they hide while the read-only lock's marks show.
 `eventStormingSpellingVariants` lists the variants (`variants()`, `variantOf(shape)`) and unifies
 them (`unify(shape)`); `eventStormingModeling.updateLabels(changes)` renames several stickies in
 one command.
