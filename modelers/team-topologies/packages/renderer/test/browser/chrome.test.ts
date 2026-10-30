@@ -4,13 +4,13 @@ import {
   CD_TOKENS,
   Modeler,
   SHORTCUTS_DIALOG_KEY,
-  createShortcutsDialog,
   createTitleDialog,
   diagramMenu,
   diagramShortcuts,
   type DiagramMenuActions,
   type DiagramMenuEntry,
-  type ShortcutsDialogChrome,
+  type ShortcutsChrome,
+  type TitleDialogChrome,
   type TtModeling,
 } from "@miragon/team-topologies-renderer";
 import { SAMPLE_DOCUMENT } from "@miragon/team-topologies-schema-model";
@@ -46,9 +46,11 @@ function ids(entries: readonly DiagramMenuEntry[]): string[] {
 }
 
 /** The chrome a host hands the dialogs: a root with a menu trigger, the shell's messages. */
-function chrome(platform: "mac" | "other" = "other"): ShortcutsDialogChrome & {
-  menu: { trigger: HTMLButtonElement };
-} {
+function chrome(platform: "mac" | "other" = "other"): ShortcutsChrome &
+  TitleDialogChrome & {
+    messages: ShortcutsChrome["messages"] & TitleDialogChrome["messages"];
+    menu: { trigger: HTMLButtonElement };
+  } {
   const root = document.createElement("div");
   const trigger = document.createElement("button");
   trigger.textContent = "Menu";
@@ -207,97 +209,6 @@ describe("diagramShortcuts", () => {
   });
 });
 
-describe("createShortcutsDialog", () => {
-  test("opens modal in the chrome's root, labelled, with one table per group", () => {
-    const host = chrome();
-    const dialog = createShortcutsDialog(host);
-    dialog.open();
-
-    const element = host.root.querySelector<HTMLDialogElement>("dialog.tt-dialog.tt-shortcuts")!;
-    expect(dialog.isOpen()).toBe(true);
-    expect(element.matches(":modal")).toBe(true);
-    expect(document.getElementById(element.getAttribute("aria-labelledby")!)?.textContent).toBe(
-      "Keyboard shortcuts",
-    );
-    const tables = [...element.querySelectorAll("table")];
-    expect(
-      tables.map(
-        (table) => document.getElementById(table.getAttribute("aria-labelledby")!)?.textContent,
-      ),
-    ).toEqual(["View", "Edit", "Tools"]);
-    expect(element.textContent).toContain("Zoom to 100%");
-    expect(element.querySelector(".tt-dialog__close")?.getAttribute("aria-label")).toBe("Close");
-    expect(element.querySelector(".tt-dialog__close svg")?.getAttribute("aria-hidden")).toBe(
-      "true",
-    );
-    expect(element.contains(document.activeElement)).toBe(true);
-  });
-
-  test("shows the web app's File keys in a table of their own first", () => {
-    const host = chrome("mac");
-    createShortcutsDialog(host, { fileKeys: true }).open();
-
-    const titles = [...host.root.querySelectorAll(".tt-shortcuts__group-title")].map(
-      (title) => title.textContent,
-    );
-    expect(titles).toEqual(["File", "View", "Edit", "Tools"]);
-    const fileRows = [...host.root.querySelector("table")!.rows].map((row) => row.textContent);
-    expect(fileRows).toEqual(["Open…⌘O", "Export as JSON⌘S"]);
-  });
-
-  test("closes on its Close button, gives the focus back to its opener and is removed by destroy()", async () => {
-    const host = chrome();
-    host.menu.trigger.focus();
-    const dialog = createShortcutsDialog(host);
-    dialog.open();
-
-    const closed = closeEventOf(host.root.querySelector("dialog")!);
-    host.root.querySelector<HTMLButtonElement>(".tt-dialog__close")!.click();
-    await closed;
-    expect(dialog.isOpen()).toBe(false);
-    expect(document.activeElement).toBe(host.menu.trigger);
-
-    dialog.destroy();
-    expect(host.root.querySelector("dialog")).toBeNull();
-    expect(dialog.isOpen()).toBe(false);
-  });
-
-  test("gives the focus back to the control that opened it, else to the menu trigger", async () => {
-    const host = chrome();
-    const opener = document.createElement("button");
-    opener.textContent = "Help";
-    host.root.append(opener);
-    const dialog = createShortcutsDialog(host);
-
-    opener.focus();
-    dialog.open();
-    let closed = closeEventOf(host.root.querySelector("dialog")!);
-    dialog.close();
-    await closed;
-    expect(document.activeElement).toBe(opener);
-
-    opener.focus();
-    dialog.open();
-    opener.remove();
-    closed = closeEventOf(host.root.querySelector("dialog")!);
-    dialog.close();
-    await closed;
-    expect(document.activeElement).toBe(host.menu.trigger);
-  });
-
-  test("brings its own styles: a raised panel and the key chips in Geist Mono", () => {
-    const host = chrome();
-    createShortcutsDialog(host).open();
-
-    const panel = getComputedStyle(host.root.querySelector("dialog")!);
-    expect(panel.backgroundColor).toBe(computedColour("var(--cd-ui-flaeche-hoch)"));
-    expect(panel.borderTopLeftRadius).toBe("12px");
-    expect(panel.display).toBe("flex");
-    const chip = getComputedStyle(host.root.querySelector("kbd.tt-shortcuts__key")!);
-    expect(chip.fontFamily).toContain("Geist Mono");
-  });
-});
-
 describe("createTitleDialog", () => {
   function parts(root: HTMLElement) {
     const dialog = root.querySelector<HTMLDialogElement>("dialog.tt-dialog.tt-title-dialog")!;
@@ -381,6 +292,60 @@ describe("createTitleDialog", () => {
 
     dialog.destroy();
     expect(host.root.querySelector("dialog")).toBeNull();
+  });
+
+  test("closes on its Close button, named Close with a hidden icon, without writing the title", async () => {
+    const host = chrome();
+    const title = titleOf("Payments");
+    host.menu.trigger.focus();
+    const dialog = createTitleDialog(host, title);
+    dialog.open();
+    const { dialog: element, field } = parts(host.root);
+    type(field, "Checkout");
+
+    const close = element.querySelector<HTMLButtonElement>(".tt-dialog__close")!;
+    expect(close.getAttribute("aria-label")).toBe("Close");
+    expect(close.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    const closed = closeEventOf(element);
+    close.click();
+    await closed;
+
+    expect(dialog.isOpen()).toBe(false);
+    expect(title.setTitle).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(host.menu.trigger);
+  });
+
+  test("gives the focus back to the control that opened it, else to the menu trigger", async () => {
+    const host = chrome();
+    const opener = document.createElement("button");
+    opener.textContent = "Rename";
+    host.root.append(opener);
+    const dialog = createTitleDialog(host, titleOf("Payments"));
+
+    opener.focus();
+    dialog.open();
+    let closed = closeEventOf(parts(host.root).dialog);
+    dialog.close();
+    await closed;
+    expect(document.activeElement).toBe(opener);
+
+    opener.focus();
+    dialog.open();
+    opener.remove();
+    closed = closeEventOf(parts(host.root).dialog);
+    dialog.close();
+    await closed;
+    expect(document.activeElement).toBe(host.menu.trigger);
+  });
+
+  test("brings its own styles: a raised panel", () => {
+    const host = chrome();
+    createTitleDialog(host, titleOf("Payments")).open();
+
+    const panel = getComputedStyle(parts(host.root).dialog);
+    expect(panel.backgroundColor).toBe(computedColour("var(--cd-ui-flaeche-hoch)"));
+    expect(panel.borderTopLeftRadius).toBe("12px");
+    expect(panel.display).toBe("flex");
   });
 
   test("closes on a press on the backdrop, but not when a press that began in the panel ends there", () => {

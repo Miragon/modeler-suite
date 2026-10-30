@@ -19,7 +19,5 @@ export type {
   ShortcutsChrome,
 } from "./shortcuts.js";
 export type { ChromeDialog, DialogChrome } from "./dialog.js";
-export { createShortcutsDialog } from "./ShortcutsDialog.js";
-export type { ShortcutsDialog, ShortcutsDialogChrome } from "./ShortcutsDialog.js";
 export { createTitleDialog } from "./TitleDialog.js";
 export type { DiagramTitle, TitleDialog, TitleDialogChrome } from "./TitleDialog.js";

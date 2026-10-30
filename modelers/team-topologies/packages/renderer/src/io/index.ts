@@ -14,7 +14,5 @@ export { default as TtImporter } from "./TtImporter.js";
 export { default as TtExporter } from "./TtExporter.js";
 export { default as TtViewport } from "./TtViewport.js";
 export { saveSVG } from "./saveSvg.js";
-export { GEIST_UNICODE_RANGES, embedSvgStyles, geistFontFaceCss } from "./fontEmbedding.js";
-export type { GeistFontDataUrls } from "./fontEmbedding.js";
 export { ROOT_ID } from "./types.js";
 export type { ImportWarning, RootBusinessObject } from "./types.js";
