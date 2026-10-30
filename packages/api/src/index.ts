@@ -164,17 +164,30 @@ export interface ElementsSurface {
  *     calls `dragging.cancel(false)` before the import clears the canvas
  *     (`false`: no restore of the drag's previous selection, whose shapes
  *     the import replaces).
- *     RECOMMENDED (1.6): an `importText` called while a DROP runs (a host
- *     that imports from `onContentChanged`, which the drop's command fires)
- *     waits until the drop has ended, so no later step of the drop meets the
- *     replaced document (diagram-js's `SelectionBehavior` selects the moved
- *     shape again after the move and throws on one the import removed); its
- *     Promise settles after that import, nothing of the drop applies to the
- *     imported document, and the drop's command stays off its fresh undo
- *     history (L4). A PAN is no gesture: an import leaves a running pan
- *     running, and the pan goes on from the current view (the one the import
- *     left, or one the host sets after it, L5), never putting a view from
- *     before back (`InteractionSurface`).
+ *     RECOMMENDED (1.6): an `importText` called during a running USER ACTION
+ *     waits until the action has finished. A user action is what the modeler
+ *     does for one input of the user: a drop, the start of a drag, a click
+ *     append, a keyboard create, a label commit, a press that commits a
+ *     label, a command with an undo or a redo, each with the steps it
+ *     schedules for later. A host that imports from `onContentChanged` or
+ *     `elements.onSelection` does so in the middle of the action, which goes
+ *     on after the listener: diagram-js's `SelectionBehavior` selects a moved
+ *     shape again after the move (and throws on one the import removed), a
+ *     keyboard create opens the label editor of its new element, a delete,
+ *     an undo or a redo that removes a selected element goes on after the
+ *     selection listener, and diagram-js's `Dragging.move` reads the drag
+ *     again after it emptied the selection at the drag's start. The import's
+ *     Promise settles after that import, nothing of the action applies to the
+ *     imported document, and its command stays off the fresh undo history
+ *     (L4). After the start of a drag the import then ends the drag, as an
+ *     accepted import ends any running gesture, and the drag a press starts
+ *     after it committed a label ends with the import that commit triggers:
+ *     the import does not wait for that drag's drop. Imports keep their call
+ *     order: one called while an earlier one waits, also once the action has
+ *     returned, runs after it. A PAN is no gesture: an import leaves a
+ *     running pan running, and the pan goes on from the current view (the one
+ *     the import left, or one the host sets after it, L5), never putting a
+ *     view from before back (`InteractionSurface`).
  *  L2 CANONICAL FIXPOINT — `exportText` is deterministic, and for any text t:
  *     with c = exportText() after importText(t), importText(c) followed by
  *     exportText() returns c byte-for-byte. Canonicalization is idempotent;
@@ -270,8 +283,14 @@ export interface CollaborativeModeler {
    *  host may export or route a command before its first document arrives.
    *  RECOMMENDED (1.5): an accepted import first cancels a gesture the user
    *  holds; a rejected one leaves it running (L1). RECOMMENDED (1.6): one
-   *  called while a drop runs waits until the drop has ended and settles after
-   *  that import, and one called during a pan leaves the pan running (L1) */
+   *  called during a running user action (a drop, the start of a drag, a
+   *  click append, a keyboard create, a label commit, a press that commits a
+   *  label, a command with an undo or a redo, each with the steps it
+   *  schedules) waits until the action has finished, and its Promise settles
+   *  after that import; after the start of a drag that import ends the drag,
+   *  and the drag a press starts after it committed a label ends with it.
+   *  Imports keep their call order, and one called during a pan leaves the
+   *  pan running (L1) */
   importText(text: string): Promise<ImportResult>;
 
   /** the canonical serialization of the current document (L2, L6) */
@@ -369,8 +388,9 @@ export interface CollaborativeModeler {
  * change the canvas has not shown yet. It may still import during a gesture
  * (after a timeout of its own, or for a file the user opens): the
  * RECOMMENDED cancel of L1 then ends the gesture, and that import takes the
- * place of the deferred one. The contract defines no imports that overlap,
- * so a host starts each import once the one before has settled.
+ * place of the deferred one. The contract defines no imports that overlap
+ * (1.6 only RECOMMENDS that a modeler runs them in call order), so a host
+ * starts each import once the one before has settled.
  */
 export interface InteractionSurface {
   /** true from a gesture's start until its drop or cancel, false otherwise:

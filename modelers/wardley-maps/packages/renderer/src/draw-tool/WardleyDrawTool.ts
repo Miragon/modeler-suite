@@ -31,7 +31,8 @@ const DRAW_TOOL_ENTRY = '.djs-palette .entry[data-action="draw-tool"]';
  * Excalidraw-style polyline tool: activate, click point by point (rubber-band preview).
  * Finishing (like Excalidraw): click the LAST point again, double-click, Enter or Escape
  * commits the open line; clicking the FIRST point closes the shape. Escape with fewer than
- * two points cancels. The result is ONE undoable `drawing` shape that moves as a whole.
+ * two points cancels. The result is ONE undoable `drawing` shape that moves as a whole. An import
+ * cancels a line in progress without committing it and leaves a tool without points armed.
  */
 export default class WardleyDrawTool {
   static $inject = [
@@ -59,10 +60,22 @@ export default class WardleyDrawTool {
     private readonly injector: Injector,
   ) {
     eventBus.on("diagram.destroy", () => this.cancel());
+    // The placed points are input the user has not committed yet, and the import replaces the map
+    // they were drawn on: the import ends the line as an accepted import ends a running gesture,
+    // with no change event from it (L1). A tool that only waits for its first press holds nothing
+    // and stays armed, as the armed lasso does.
+    eventBus.on(["import.render.start", "diagram.clear"], () => {
+      if (this.holdsLine()) this.cancel();
+    });
   }
 
   isActive(): boolean {
     return this.active;
+  }
+
+  /** True while the tool holds the points of a line it has not finished yet. */
+  holdsLine(): boolean {
+    return this.active && this.points.length > 0;
   }
 
   toggle(): void {

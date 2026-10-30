@@ -46,7 +46,7 @@ Everything runs from the repository root.
 | `npm run format` / `npm run format:check`   | Prettier over the whole repository, one config                                                        |
 | `npm run depcruise`                         | every modeler's module-graph rules                                                                    |
 | `npm run publint`                           | the published shape (exports, types, files) of the shared packages                                    |
-| `npm run test:plugin`                       | the checks in `test/`: modeler-kit drift, plugin manifests, release config, boundaries, auto-merge    |
+| `npm run test:plugin`                       | `test/`: modeler-kit drift, plugin manifests, release config, boundaries, auto-merge, CI paths        |
 | `npm run test:browser` / `npm run test:e2e` | every modeler's browser tests / e2e suites, both after the shell's own                                |
 | `npm run package:vscode`                    | packs every VS Code extension (`modelers/<modeler>/apps/vscode/*.vsix`)                               |
 
@@ -154,8 +154,8 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   `VSCODE_SMOKE_VSIX=<file>` smokes a packed VSIX instead of packing one. The fixture and the edit
   differ per modeler; its `CONTRIBUTING.md` names them.
 
-  On macOS `test:vscode` opens a VS Code window for a few seconds that takes the focus; on Linux
-  run it under `xvfb-run -a`. The first run downloads VS Code (about 330 MB) into
+  On macOS `test:vscode` opens a VS Code window for about half a minute that takes the focus; on
+  Linux run it under `xvfb-run -a`. The first run downloads VS Code (about 330 MB) into
   `~/Library/Caches/miragon-modeler-shell/vscode-test` (`~/.cache/…` on Linux), shared by every
   modeler. **Locally, run it in Docker instead**, where no window opens:
 
@@ -166,16 +166,17 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   npm run test:vscode:docker -w @miragon/wardley-maps-modeler-workspace -- --env VSCODE_VERSION=1.96.0
   # VS Code's logs in vscode-logs/
   npm run test:vscode:docker -w @miragon/wardley-maps-modeler-workspace -- --env VSCODE_SMOKE_KEEP=1
-  # the opt-in steps, as CI runs them
-  npm run test:vscode:docker -w @miragon/wardley-maps-modeler-workspace -- --env VSCODE_SMOKE_OPT_IN=keys,history,workbench
+  # without the workbench steps (keys, history and workbench can be skipped)
+  npm run test:vscode:docker -w @miragon/wardley-maps-modeler-workspace -- --env VSCODE_SMOKE_SKIP=workbench
   ```
 
   The flags go to the modeler's workspace, not to the alias `npm run wardley-maps`, which would take
-  them for npm's own (see [Scripts](#scripts)). CI's smoke sets
-  `VSCODE_SMOKE_OPT_IN=keys,history,workbench`: the driver's opt-in steps (now the zoom and
-  selection keys, the view and selection across a redo and an undo, and the workbench steps:
-  reduced motion, a hidden tab and Developer: Reload Window) run for every modeler without a change
-  to its test, until they become the default.
+  them for npm's own (see [Scripts](#scripts)). Besides the steps above, the driver checks by
+  default (since modeler-shell 0.8) the zoom and selection keys, the view and selection across a
+  redo and an undo, and the workbench steps: reduced motion, a hidden tab and Developer: Reload
+  Window. CI runs all of them for every modeler. `VSCODE_SMOKE_SKIP` (`keys`, `history`,
+  `workbench`, separated by commas or spaces) skips some in a local run without a change to the
+  test.
 
   `test:vscode:docker` is the shell's `modeler-shell-vscode-docker`. It mounts the repository (the
   nearest directory with a `package-lock.json`, so the whole suite) read-only, copies it into a
@@ -349,9 +350,11 @@ Adding a case to the contract's kit means adding a saboteur flaw to
 bite. A legitimate implementation choice the kit must accept (the enriched view-state readback)
 gets a variant that must fail nothing. A RECOMMENDATION gets a variant that misses it, fails
 nothing and advises exactly once. That suite runs without a DOM; a case that needs one (the keys
-case, the colour half of the appearance case) skips there and gets its saboteurs in a jsdom suite
-that mounts the reference into `attachedHost()`: `packages/api/test/keys.conformance.test.ts`,
-which runs every case, and `packages/api/test/appearance.conformance.test.ts`. The shell's development
+case, the colour half of the appearance case, the delete of the user-action case) skips there and
+gets its saboteurs in a jsdom suite that mounts the reference into `attachedHost()`:
+`packages/api/test/keys.conformance.test.ts`, which runs every case,
+`packages/api/test/appearance.conformance.test.ts` and
+`packages/api/test/user-action.conformance.test.ts`. The shell's development
 loop (demo, e2e, module layout) is in its [README](packages/shell/README.md#development).
 
 ## Claude Code plugins

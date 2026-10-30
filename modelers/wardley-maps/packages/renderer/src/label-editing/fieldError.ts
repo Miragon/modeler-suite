@@ -1,4 +1,11 @@
 /**
+ * Screen px from an inline editor's field to the first caption under it. The field's focus ring
+ * reaches 4px below it (5px in high contrast), and a caption at the same layer would cover it; the
+ * guide keeps the label editor's suggestions 8px from the field too.
+ */
+export const FIELD_TO_CAPTION_GAP = 8;
+
+/**
  * A refused value in an inline editor: the field turns red and a caption under it says why. One look
  * and one accessible pattern (role=alert, aria-describedby) for every editor, also for keyboard and
  * touch users who never see a tooltip.

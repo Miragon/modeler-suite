@@ -82,8 +82,9 @@ repository and starts VS Code with it on a throwaway profile. There it opens
 palette's keyboard path and saves: the file has to parse (`parseDocumentText`), hold one more
 context and be canonical JSON. Then it undoes (canvas and file are the fixture again) and switches
 through VS Code's four default themes, with one screenshot per theme in `test-results/vscode-smoke/`
-(gitignored). A run takes about 5 s once VS Code is downloaded. No build first: the test packs the
-extension itself.
+(gitignored). Since modeler-shell 0.8 the driver then also checks the zoom and selection keys, the
+view across a redo and an undo, reduced motion, a hidden tab and a window reload, so a run takes
+about half a minute once VS Code is downloaded. No build first: the test packs the extension itself.
 
 ```bash
 # in Docker, no window: the local way

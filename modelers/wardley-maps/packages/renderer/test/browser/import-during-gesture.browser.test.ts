@@ -685,3 +685,72 @@ describe("an import while a palette tool only waits for its press", () => {
     );
   });
 });
+
+const LINE_PREVIEW = ".layer-wardley-draw-preview polyline";
+
+/** Arms the draw tool from the palette and places two points of a line, its preview drawn. */
+function placeTwoPoints(current: Session): { drawTool: WardleyDrawTool; drawEntry: HTMLElement } {
+  const { diagram, container, pointer } = current;
+  const drawEntry = paletteEntry(container, "draw-tool");
+  pointer.clickOn(drawEntry);
+  const drawTool = diagram.get<WardleyDrawTool>("wardleyDrawTool");
+  const svg = container.querySelector<SVGSVGElement>(":scope > svg")!;
+  pointer.press(svg, at(diagram, 0.6, 0.6));
+  pointer.press(svg, at(diagram, 0.5, 0.7));
+  expect(container.querySelector(LINE_PREVIEW)).not.toBeNull();
+  return { drawTool, drawEntry };
+}
+
+describe("an import while the draw tool holds the points of a line", () => {
+  test("ends the line without a drawing: no change event, and Enter afterwards draws nothing", async () => {
+    const current = await session();
+    const { modeler, diagram, container } = current;
+    const { drawTool, drawEntry } = placeTwoPoints(current);
+
+    const imported = peerMovesCup(current);
+    await modeler.importText(imported);
+    expect(drawTool.isActive()).toBe(false);
+    expect(drawEntry.classList.contains("highlighted-entry")).toBe(false);
+    expect(container.querySelector(LINE_PREVIEW)).toBeNull();
+    const svg = container.querySelector<SVGSVGElement>(":scope > svg")!;
+    svg.focus();
+    svg.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+
+    expect(current.errors).toEqual([]);
+    expect(current.changes()).toBe(0);
+    expect(modeler.exportText()).toBe(imported);
+    expect(diagram.get<CommandStack>("commandStack").canUndo()).toBe(false);
+    expectTheNextEditReported(current, 0);
+  });
+
+  test("a map the canvas cannot hold leaves the line in progress, and Enter still finishes it", async () => {
+    const current = await session();
+    const { modeler, diagram, container } = current;
+    const { drawTool } = placeTwoPoints(current);
+    const invalid = {
+      ...diagram.exportMap(),
+      edges: [{ id: "e", edgeType: "dependency", from: "x", to: "y" }],
+    };
+
+    await expect(diagram.importMap(invalid as never)).rejects.toThrow();
+    expect(drawTool.holdsLine()).toBe(true);
+    expect(container.querySelector(LINE_PREVIEW)).not.toBeNull();
+    const svg = container.querySelector<SVGSVGElement>(":scope > svg")!;
+    svg.focus();
+    svg.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+
+    expect(current.errors).toEqual([]);
+    expect(drawTool.isActive()).toBe(false);
+    expect(current.changes()).toBe(1);
+    expect(
+      modeler
+        .exportText()
+        .split("\n")
+        .filter((line) => line.startsWith("line ")),
+    ).toHaveLength(2);
+  });
+});

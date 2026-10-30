@@ -87,11 +87,11 @@ see below).
   finds no AI agent there, the whole log of a passing test, so the command needs no reporter flag
   (it rejects `--reporter=default` as an unknown option).
 - **macOS, with the window:** `npm run value-chain test:vscode` (no build needed, the extension
-  bundles the packages from source; `unzip` comes with macOS). A VS Code window opens for a few
-  seconds and takes the focus; later runs take about 5 s. `VSCODE_VERSION=1.96.0` tests another
-  VS Code release, such as the `engines.vscode` floor; without it the newest stable release runs.
-  Run from an AI agent, give the workspace `--reporter=default`, since the alias passes no flag
-  on: `npm run test:vscode -w @miragon/value-chain-modeler-workspace -- --reporter=default`.
+  bundles the packages from source; `unzip` comes with macOS). A VS Code window opens and takes the
+  focus; once VS Code is downloaded a run takes about half a minute. `VSCODE_VERSION=1.96.0` tests
+  another VS Code release, such as the `engines.vscode` floor; without it the newest stable release
+  runs. Run from an AI agent, give the workspace `--reporter=default`, since the alias passes no
+  flag on: `npm run test:vscode -w @miragon/value-chain-modeler-workspace -- --reporter=default`.
   Vitest's agent reporter hides the log of a passing test, VS Code's version and the timings
   included.
 - **Linux:** VS Code needs an X server, `xvfb-run -a npm run value-chain test:vscode`.

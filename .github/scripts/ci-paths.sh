@@ -107,6 +107,13 @@ reaches_template() {
   esac
 }
 
+# test:plugin (in shared-test) checks the manifest and the skills of every plugin the marketplace
+# lists, the modelers' own plugins included; a modeler's own jobs never read its plugin.json. A `*`
+# of a case pattern also matches `/`, so a regex keeps a plugins/ folder deeper in a modeler out.
+reaches_plugin_tests() {
+  [[ "$1" =~ ^modelers/[^/]+/plugins/ ]]
+}
+
 affected() {
   local changed reach path everything=false shared=false template=false modelers="" all
   all=$(all_modelers)
@@ -118,6 +125,10 @@ affected() {
       reach=$(classify "$path")
       echo "$path: $reach"
       if reaches_template "$path"; then template=true; fi
+      if reaches_plugin_tests "$path"; then
+        echo "$path: shared (the plugin tests)"
+        shared=true
+      fi
       case "$reach" in
         all) everything=true ;;
         shared) shared=true ;;

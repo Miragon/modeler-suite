@@ -6,6 +6,7 @@ import {
   isOrgUnit,
   isStep,
   isVcConnection,
+  isVcElement,
   isVcShape,
   type VcConnection,
   type VcShape,
@@ -65,6 +66,9 @@ export default class VcRules extends RuleProvider {
     this.addRule(["elements.align", "elements.distribute"], (context: { elements?: Element[] }) =>
       (context.elements ?? []).filter(isVcShape),
     );
+
+    // diagram-js copies a relation only together with both of its ends.
+    this.addRule("element.copy", (context: { element?: Element }) => isVcElement(context.element));
   }
 
   /**
