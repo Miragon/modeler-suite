@@ -742,6 +742,44 @@ describe("the palette's tooltip (guide §5.6)", () => {
     expect(describedBy("host.export")).toBeNull();
   });
 
+  test("is at most min(280px, 100% - 24px) wide with its padding and edge, and keeps 12px from both sides when its title wraps (#479)", async () => {
+    class LongTitleProvider {
+      static $inject = ["palette"];
+      constructor(palette: Palette) {
+        palette.registerProvider(this);
+      }
+      getPaletteEntries(): PaletteEntries {
+        return {
+          "host.note": {
+            group: "host",
+            title: "Note: a remark beside the diagram that names who owns what and why it changed",
+            action: { click: () => undefined },
+          },
+        };
+      }
+    }
+    const withLongTitle = [
+      { __init__: ["longTitleProvider"], longTitleProvider: ["type", LongTitleProvider] },
+    ];
+    const narrowWidth = 180;
+    await page.viewport(HOST.width, HOST.height);
+    const boxes: DOMRect[] = [];
+    for (const width of [HOST.width, narrowWidth]) {
+      const { host, container, modeler } = mount(width, withLongTitle);
+      buttonBefore(host).focus();
+      await userEvent.tab();
+      await userEvent.keyboard("{End}");
+      expect(shownName(container)).toBe(titleOf(modeler, "host.note"));
+      boxes.push(boxIn(shownTooltip(container)!, modeler.get<Canvas>("canvas").getContainer()));
+    }
+
+    const [wide, narrow] = boxes;
+    expect(wide!.width).toBeCloseTo(280, 0);
+    expect(wide!.height).toBeGreaterThan(28);
+    expect(narrow!.left).toBeCloseTo(12, 0);
+    expect(narrow!.right).toBeCloseTo(narrowWidth - 12, 0);
+  });
+
   test("throws nothing later when the modeler is destroyed while its tooltip waits to show", async () => {
     const { modeler, host, container } = mount();
     const errors: unknown[] = [];
@@ -794,6 +832,45 @@ describe("the read-only lock marks the entries it disables (guide §13.5)", () =
 
     lock(modeler, false);
     expect(disabledMarks(container)).toEqual(marksOnAllBut(container, null, "lasso-tool"));
+  });
+
+  test("shows the marks after the delay a host gives, while the lock refuses from the start, and takes them off at once (#484)", async () => {
+    await page.viewport(HOST.width, HOST.height);
+    const { container, modeler } = mount();
+    const readOnly = modeler.get<TtReadOnly>("ttReadOnly");
+    const unmarked = marksOnAllBut(container, null, "lasso-tool");
+    const pressEnterOnTeam = () =>
+      entryOf(container, "team.platform").dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      );
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      vi.advanceTimersByTime(400);
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      vi.advanceTimersByTime(399);
+      expect([readOnly.isReadOnly(), readOnly.isReadOnlyShown()]).toEqual([true, false]);
+      expect(disabledMarks(container)).toEqual(unmarked);
+      pressEnterOnTeam();
+      expect(modeler.exportDocument().nodes).toEqual([]);
+
+      vi.advanceTimersByTime(1);
+      expect(readOnly.isReadOnlyShown()).toBe(true);
+      expect(disabledMarks(container)).toEqual(marksOnAllBut(container, "true", "lasso-tool"));
+      readOnly.setReadOnly(false);
+      expect([readOnly.isReadOnly(), readOnly.isReadOnlyShown()]).toEqual([false, false]);
+      expect(disabledMarks(container)).toEqual(unmarked);
+
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      readOnly.setReadOnly(false);
+      vi.advanceTimersByTime(800);
+      expect([readOnly.isReadOnly(), readOnly.isReadOnlyShown()]).toEqual([false, false]);
+      expect(disabledMarks(container)).toEqual(unmarked);
+      pressEnterOnTeam();
+      expect(modeler.exportDocument().nodes).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("keeps a host entry's own aria-disabled once the lock ends", () => {

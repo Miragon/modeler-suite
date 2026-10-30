@@ -37,7 +37,8 @@ interface PaletteTriggerEvent {
  * Space as a click without a pointer (a creating entry then places its element in the free area,
  * `TtPaletteProvider`), `aria-pressed` on the tools, `aria-keyshortcuts` on the entries with a key,
  * and the palette ahead of the canvas in the tab order (guide §5.14). Under the read-only lock
- * (`ttReadOnly`) every entry but Lasso and Hand is `aria-disabled` and does nothing (guide §13.5).
+ * (`ttReadOnly`) every entry but Lasso and Hand does nothing, and is `aria-disabled` while the lock's
+ * marks show: at once, or after the lock's `delayMs` (guide §13.5).
  * The Miragon modeler shell brings all of this itself, and a palette any chrome skins
  * (`data-chrome="palette"`) is left to it.
  */
@@ -128,10 +129,14 @@ export default class TtPaletteToolbar {
     return this.readOnly?.isReadOnly() === true;
   }
 
+  private lockShown(): boolean {
+    return this.readOnly?.isReadOnlyShown() === true;
+  }
+
   // aria-disabled, not disabled: the entry stays in the toolbar's tab order and shows its tooltip on
   // focus (guide §5.6), so a keyboard user still learns what it is and why Enter does nothing.
   private applyDisabled(entry: HTMLElement): void {
-    if (this.locked() && !staysActive(entry)) {
+    if (this.lockShown() && !staysActive(entry)) {
       if (!this.disabledEntries.has(entry)) {
         this.disabledEntries.set(entry, entry.getAttribute("aria-disabled"));
       }

@@ -10,3 +10,4 @@ export const ttReadOnlyModule: ModuleDeclaration = {
 };
 
 export { default as TtReadOnly, READ_ONLY_CHANGED_EVENT } from "./TtReadOnly.js";
+export type { TtReadOnlyOptions } from "./TtReadOnly.js";
