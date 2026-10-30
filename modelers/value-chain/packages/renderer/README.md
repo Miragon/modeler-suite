@@ -81,9 +81,12 @@ container as in bpmn-js; the feature modules (`vcDrawModule`, `vcRulesModule`, `
   still on the palette, and a press of the armed connect tool whose pointer has not left its shape
   yet) ends first, as Escape ends it, so its release changes nothing. A pan is no gesture: one
   with the hand tool, with Space held or with Ctrl/Cmd and a press keeps running across the
-  import, and the hand tool is still armed when it ends. When the import fits the view, the pan
-  goes on from the fitted view. A palette tool that only waits for its next press (lasso, hand,
-  space, connect) stays armed and highlighted, and its next press works on the imported diagram.
+  import, and the hand tool is still armed when it ends. The pan goes on from the current view:
+  the fitted one when the import fits the view, or one the host sets after the import (restoring
+  its view, L5) or while the pan runs. A pan does not scroll the view on its own at the edge of
+  the canvas, so the diagram stays under the pointer. A palette tool that only waits for its next
+  press (lasso, hand, space, connect) stays armed and highlighted, and its next press works on the
+  imported diagram.
   A pan or an armed tool that ends after the import brings back the selection from before it
   started, as it does without an import: the shapes the import drew under the same ids, without
   the ones it removed.

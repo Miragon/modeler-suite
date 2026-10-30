@@ -90,11 +90,16 @@ missing at its other places; the verdict stays the same).
   `fitOnImport: false`, which both apps pass because the shell's viewport fits), keeps an open
   label edit across the import, and ends a running gesture first, as Escape does
   (`gesture/VcGestures`: `dragging.cancel(false)`; a pan, `hand.move`, whether the hand tool, Space
-  held or Ctrl/Cmd and a press started it, is no gesture and keeps running, from the fitted view
-  when the import fits (`import.render.done` re-anchors the pan's `localStart`; without it the next
-  pointer move would put the old view back), and so does a palette tool that only waits for its
-  next press, `lasso.selection`, `hand`, `spaceTool.selection` or `global-connect`, which stays
-  armed; both bring back the selection they hold when they end, which `import.render.done` maps
+  held or Ctrl/Cmd and a press started it, is no gesture and keeps running, from the current view:
+  the fitted one when the import fits, or one a host sets after it (the restore of L5) or while the
+  pan runs (`canvas.viewbox.changed` re-anchors the pan's `localStart`; without it the next pointer
+  move would put the old view back; not during the pan's own scroll, since diagram-js rounds the
+  pan's `dx` to whole diagram units, and moving the start point there would add the rounding up,
+  so a slow pan above 200 % would not move at all, told apart by the pan's drag context, not a
+  flag; diagram-js's AutoScroll does not scroll under a pan, `gesture/PanAwareAutoScroll`, since
+  the pan would keep its scrolls at the canvas edge and lose the diagram point under the pointer),
+  and so does a palette tool that only waits for its next press, `lasso.selection`, `hand`,
+  `spaceTool.selection` or `global-connect`, which stays armed; both bring back the selection they hold when they end, which `import.render.done` maps
   onto the imported elements by id (diagram-js's `Selection` refuses the removed ones); a connect
   that the connect tool starts from a removed shape is refused at `connect.init`, which also puts
   the tool down; a drop being applied is never cancelled, told apart by its drag context, not a
