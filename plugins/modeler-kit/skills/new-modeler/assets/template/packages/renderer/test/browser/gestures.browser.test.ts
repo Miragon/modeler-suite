@@ -961,3 +961,186 @@ describe("a destroy from a listener at a drag's start throws nothing, and nothin
     });
   }
 });
+
+// A gesture ends inside the handler of its release or of Escape, and a keyboard create runs its
+// command inside the handler of Enter or Space: diagram-js and the palette go on with the canvas
+// after the host heard of it, so the teardown waits until that handler has returned.
+describe('a destroy from a listener at a drop, at Escape or at a keyboard create throws nothing, and nothing reaches the host afterwards', () => {
+  let rejections: unknown[] = [];
+  const recordRejection = (event: PromiseRejectionEvent) => rejections.push(event.reason);
+
+  beforeEach(() => {
+    rejections = [];
+    window.addEventListener('unhandledrejection', recordRejection);
+  });
+
+  afterEach(() => {
+    window.removeEventListener('unhandledrejection', recordRejection);
+  });
+
+  /**
+   * Read before the destroy, since reading a service afterwards would build a fresh diagram. Once
+   * the input's handler has returned: no error reached the window, the drag and the canvas are
+   * gone, a second destroy throws nothing, and the modeler keeps the text it had when destroyed.
+   */
+  function destroyedCleanly(): (textAtDestroy: string | undefined) => Promise<void> {
+    const dragging = service<Dragging>('dragging');
+    const svg = canvasSvg();
+    return async (textAtDestroy) => {
+      await nextTask();
+      expect(errors).toEqual([]);
+      expect(rejections).toEqual([]);
+      expect(textAtDestroy).toBeDefined();
+      expect(dragging.context()).toBeFalsy();
+      expect(svg.isConnected).toBe(false);
+      expect(() => modeler.destroy()).not.toThrow();
+      expect(modeler.interaction.active()).toBe(false);
+      expect(modeler.exportText()).toBe(textAtDestroy);
+    };
+  }
+
+  const nodeCount = (text: string) =>
+    text.split('\n').filter((line) => line.startsWith('node ')).length;
+
+  /** The release or the key comes in a handler of its own, as it does for a user. */
+  const handlerReturned = () => Promise.resolve();
+
+  for (const kind of GESTURE_KINDS) {
+    for (const ending of ['drop', 'cancel'] as const) {
+      it(`a ${kind} at its ${ending}, from the interaction listener: no later listener hears of it`, async () => {
+        const expectDestroyedCleanly = destroyedCleanly();
+        let textAtDestroy: string | undefined;
+        modeler.interaction.onChange((active) => {
+          if (active) return;
+          textAtDestroy = modeler.exportText();
+          modeler.destroy();
+        });
+        const later = recordInteraction();
+
+        const gesture = startGesture(kind);
+        await handlerReturned();
+        gesture[ending]();
+
+        expect(later).toEqual([true]);
+        await expectDestroyedCleanly(textAtDestroy);
+        expect(later).toEqual([true]);
+        expect(changes).toBe(ending === 'drop' ? 1 : 0);
+      });
+    }
+  }
+
+  /** Each makes one change; the change comes in the handler of the input's last step. */
+  const changesMade: { what: string; nodes: number; make: () => Promise<void> }[] = [
+    ...GESTURE_KINDS.map((kind) => ({
+      what: `the drop of a ${kind}`,
+      nodes: kind === 'move' ? 0 : 1,
+      make: async () => {
+        const gesture = startGesture(kind);
+        await handlerReturned();
+        gesture.drop();
+      },
+    })),
+    {
+      what: "Enter or Space on the palette's node (a click without a pointer)",
+      nodes: 1,
+      make: async () => {
+        paletteEntry('create.node').entry.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 }),
+        );
+      },
+    },
+  ];
+
+  for (const { what, nodes, make } of changesMade) {
+    it(`${what}, from the change listener: neither a later change listener nor the selection listener hears more`, async () => {
+      const expectDestroyedCleanly = destroyedCleanly();
+      const before = modeler.exportText();
+      const selections: string[][] = [];
+      modeler.elements.onSelection((ids) => selections.push(ids));
+      let textAtDestroy: string | undefined;
+      let selectionsAtDestroy = -1;
+      modeler.onContentChanged(() => {
+        textAtDestroy = modeler.exportText();
+        selectionsAtDestroy = selections.length;
+        modeler.destroy();
+      });
+      let later = 0;
+      modeler.onContentChanged(() => (later += 1));
+
+      await make();
+
+      await expectDestroyedCleanly(textAtDestroy);
+      expect(later).toBe(0);
+      expect(selections).toHaveLength(selectionsAtDestroy);
+      expect(textAtDestroy).not.toBe(before);
+      expect(nodeCount(textAtDestroy ?? before)).toBe(nodeCount(before) + nodes);
+    });
+  }
+
+  it('no later selection listener hears of a selection whose first listener destroyed the modeler', async () => {
+    service<Selection>('selection').select(node('pay'));
+    const expectDestroyedCleanly = destroyedCleanly();
+    const text = modeler.exportText();
+    modeler.elements.onSelection(() => modeler.destroy());
+    const later: string[][] = [];
+    modeler.elements.onSelection((ids) => later.push(ids));
+
+    // diagram-js clears the selection as it activates the move.
+    startGesture('move');
+
+    await expectDestroyedCleanly(text);
+    expect(later).toEqual([]);
+  });
+});
+
+describe('no delivery reaches a listener that an earlier listener of it unsubscribed', () => {
+  it('of a change', () => {
+    let unsubscribeLater: () => void = () => undefined;
+    modeler.onContentChanged(() => unsubscribeLater());
+    let later = 0;
+    unsubscribeLater = modeler.onContentChanged(() => (later += 1));
+
+    startGesture('move').drop();
+
+    expect(later).toBe(0);
+    expect(errors).toEqual([]);
+  });
+
+  it('of the interaction', () => {
+    let unsubscribeLater: () => void = () => undefined;
+    modeler.interaction.onChange(() => unsubscribeLater());
+    const later: boolean[] = [];
+    unsubscribeLater = modeler.interaction.onChange((active) => later.push(active));
+
+    startGesture('move').cancel();
+
+    expect(later).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  it('of the selection', () => {
+    let unsubscribeLater: () => void = () => undefined;
+    modeler.elements.onSelection(() => unsubscribeLater());
+    const later: string[][] = [];
+    unsubscribeLater = modeler.elements.onSelection((ids) => later.push(ids));
+
+    modeler.elements.reveal('pay');
+
+    expect(later).toEqual([]);
+  });
+
+  it('of the selection, also when the earlier listener unsubscribed itself first', () => {
+    const unsubscribes: (() => void)[] = [];
+    unsubscribes.push(
+      modeler.elements.onSelection(() => {
+        for (const unsubscribe of unsubscribes) unsubscribe();
+      }),
+    );
+    const later: string[][] = [];
+    unsubscribes.push(modeler.elements.onSelection((ids) => later.push(ids)));
+
+    modeler.elements.reveal('pay');
+
+    expect(later).toEqual([]);
+  });
+});

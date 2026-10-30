@@ -106,8 +106,12 @@ function collaborative(
 
   if (editable) {
     // An import clears the history without this event, so every delivery is a user's change (L3).
+    // An earlier listener may destroy the modeler, which drops every listener, or unsubscribe a
+    // later one during the same delivery.
     eventBus.on('commandStack.changed', () => {
-      for (const listener of [...contentListeners]) listener();
+      for (const listener of [...contentListeners]) {
+        if (contentListeners.has(listener)) listener();
+      }
     });
   }
 
@@ -130,12 +134,18 @@ function collaborative(
     selection: () => (destroyed ? [] : shapeIds(selection.get())),
     onSelection(callback) {
       // The teardown cancels a running drag, which brings back the selection from before it.
+      // diagram-js's event bus still calls a listener that an earlier one unsubscribed during the
+      // same delivery after unsubscribing itself.
+      let subscribed = true;
       const listener = (event: unknown) => {
-        if (destroyed) return;
+        if (destroyed || !subscribed) return;
         callback(shapeIds((event as { newSelection?: unknown[] }).newSelection ?? []));
       };
       eventBus.on('selection.changed', listener);
-      return () => eventBus.off('selection.changed', listener);
+      return () => {
+        subscribed = false;
+        eventBus.off('selection.changed', listener);
+      };
     },
     bounds(id): ElementBounds | undefined {
       const shape = destroyed ? undefined : shapeOf(id);
@@ -225,7 +235,7 @@ function collaborative(
       }
       destroyed = true;
       contentListeners.clear();
-      if (gestures) gestures.tearDownAfterActivation(() => diagram.destroy());
+      if (gestures) gestures.tearDownAfterHandler(() => diagram.destroy());
       else diagram.destroy();
     },
   };

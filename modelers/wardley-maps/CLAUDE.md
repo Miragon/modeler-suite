@@ -50,7 +50,8 @@ stays armed, and so does the draw tool before its first point; a line it holds e
 drawing on the import (`import.render.start` in `WardleyDrawTool`, #243). The renderer's own drags
 (label, point, evolve target) and the colour picker bind Escape themselves and take it only when it
 is aimed at the canvas `<svg>` (`isCanvasKey` in `src/a11y/`), the picker also on its swatches;
-while the draw tool holds points, `WardleyKeyboard` leaves the single-key tools without effect.
+while the draw tool holds points, `WardleyKeyboard` leaves the single-key tools without effect, and
+while a point drag runs also the arrow keys, paste and duplicate (`isDraggingPoint`, #375).
 `wardleyInteraction` ([`src/interaction/`](packages/renderer/src/interaction/)) follows every gesture
 (diagram-js drags past their threshold and the renderer's own label, point and evolve-target drags,
 which report to it) for the contract's `interaction`, and marks the user's actions, the one wait of
@@ -64,10 +65,13 @@ ends with the import, as an accepted import ends a running gesture and a press b
 threshold (L1, 1.5). The activation of a diagram-js drag (`drag.start`, a microtask) is an action
 too: diagram-js clears the selection after the start and reads the drag again, so an import from the
 selection listener there runs once `Dragging.move` has returned and then ends the drag. A
-`destroy()` from the selection or the interaction listener while the drag activates, or from the
-interaction listener as one of the renderer's own drags starts (`begin`), tears the map down once
-the code that started the drag has returned (`tearDownAfterActivation`, #346), and the
-selection the cancelled drag brings back reaches no host listener. Pinned by
+`destroy()` from any listener while the handler of the user's input goes on with the map (after a
+diagram-js drag's init, start, drop, cancel or cleanup, a command, or the start or end of one of
+the renderer's own drags) tears the map down once that handler has returned
+(`tearDownAfterHandler`, #346, #380, #373), the name editor a create opens a task later stays
+closed, and the selection the cancelled drag brings back reaches no host listener; no delivery
+calls a listener after `destroy()` or one an earlier listener of it unsubscribed
+(`destroy-from-listener.browser.test.ts`). Pinned by
 [`import-during-user-action.browser.test.ts`](packages/renderer/test/browser/import-during-user-action.browser.test.ts),
 [`import-during-gesture.browser.test.ts`](packages/renderer/test/browser/import-during-gesture.browser.test.ts)
 and the drop cases of `interaction.browser.test.ts`. `appearance`

@@ -72,8 +72,9 @@ export default class WardleyDrawingHandles {
       if (this.pointDrag?.shape === event.element) this.endPointDrag();
     });
     // The release writes back every point as it was when the handle was pressed, which would undo
-    // a command in between (an undo or an arrow-key nudge pressed mid-drag) and cost its redo step:
-    // the drag ends first, without a commit. The release ends the drag before its own command.
+    // a command in between (an undo pressed mid-drag, or a host's edit) and cost its redo step: the
+    // drag ends first, without a commit. The release ends the drag before its own command. The
+    // keys that would nudge or duplicate the drawing do nothing while it runs (`WardleyKeyboard`).
     eventBus.on(COMMAND_START_EVENTS, PUT_BACK_PRIORITY, () => this.endPointDrag());
     eventBus.on(["diagram.clear", "diagram.destroy"], () => {
       this.endPointDrag();
