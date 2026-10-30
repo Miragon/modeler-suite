@@ -39,7 +39,7 @@ import type { CollaborativeModeler } from "@miragon/modeler-api";
 | L4  | undo directly after an import is a defined **no-op**, never a stale-history mutation                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | L5  | view state survives a re-import; an import leaves the view **fitted** to the content; the readback may be a normalised form of what was set; a host's view change (`setViewState`, a fit) never **commits** an open interaction                                                                                                                                                                                                                                                                                    |
 | L6  | `exportText` is total after a successful import; foreign content is **preserved** through import → export, never dropped, never a throw                                                                                                                                                                                                                                                                                                                                                                            |
-| L7  | EVERY rejected import leaves no trace (previous document still rendered and exported, no events, undo history untouched), and the modeler **stays usable**                                                                                                                                                                                                                                                                                                                                                         |
+| L7  | EVERY rejected import leaves no trace (previous document still rendered and exported, no events, undo history untouched), and the modeler **stays usable**; one rejection lies outside L7: an import that called the listener from which the host destroyed the modeler rejects (RECOMMENDED, 1.6, see _A destroy from a listener_ below), also once it has drawn, and every call afterwards is undefined behaviour                                                                                                |
 
 View state is never part of the document: `setViewState` fires no change
 events and `exportText` is independent of it.
@@ -277,26 +277,30 @@ from any listener the modeler calls (`onContentChanged`, `elements.onSelection`,
 `interaction.onChange`), also while the user's input still runs: at a drag's
 start, where diagram-js empties the selection; at a drop, whose command fires
 the change event; at an Escape, which ends the gesture; during any other
-command. The same holds inside a method of the contract that calls the listener
-before it returns, such as `elements.reveal`, which delivers the selection, and
-`importText`, whose cancel of a held gesture (L1) delivers
-`interaction.onChange(false)` and whose clear may deliver an empty selection.
+command. The same holds inside a method of the contract that calls the
+listener: `elements.reveal`, which delivers the selection before it returns,
+and `importText`, whose cancel of a held gesture (L1) delivers
+`interaction.onChange(false)` and whose clear may deliver an empty selection
+before its Promise settles, also after it waited for the user's action or an
+import ahead of it.
 Neither `destroy()` nor that input or method throws there, and no listener of
 the host is called after it, also not a later listener of the same delivery: a
 delivery that loops over a copy of its listeners checks for a destroy before
-each call. An `importText` inside which a listener called `destroy()` rejects,
-with an error of the modeler's choosing, also when it has drawn the document
-by then. A listener that an earlier listener of the same delivery
-unsubscribed is not called either, as with a DOM `EventTarget`. The modeler may
-finish removing its DOM once the input handler or the method that runs has
-returned: diagram-js reads the drag again after the selection listeners of its
-start and goes on with a drop after its change listeners (`SelectionBehavior`
-selects the moved shape again), so a renderer that tears the canvas down inside
-the listener throws from the user's input. A Promise the modeler returned
-before is no listener: an `importText` that still waits for the user's action
-may settle after the destroy (the Miragon renderers reject it), so a host
-ignores what settles after its own `destroy()`. A second `destroy()` throws
-nothing, as always. For `interaction.onChange` the contract states since 1.5
+each call. An `importText` that called the listener which called `destroy()`
+rejects, with an error of the modeler's choosing, also when it has drawn the
+document by then. That rejection lies outside L7: the instance is gone, and
+every call on it afterwards is undefined behaviour. A listener that an earlier
+listener of the same delivery unsubscribed is not called either, as with a DOM
+`EventTarget`. The modeler may finish removing its DOM once the input handler
+or the method that runs has returned: diagram-js reads the drag again after the
+selection listeners of its start and goes on with a drop after its change
+listeners (`SelectionBehavior` selects the moved shape again), so a renderer
+that tears the canvas down inside the listener throws from the user's input. A
+Promise the modeler returned before is no listener: an `importText` that still
+waits for the user's action when a listener it did not call destroys the
+modeler may settle after the destroy (the Miragon renderers reject it), so a
+host ignores what settles after its own `destroy()`. A second `destroy()`
+throws nothing, as always. For `interaction.onChange` the contract states since 1.5
 that nothing is called once `destroy()` has been called; 1.6 extends it to
 every listener as a recommendation. The kit's destroy case checks it at the
 user's input, inside `elements.reveal` and inside an `importText` that ends a
@@ -802,16 +806,16 @@ The cases:
   after an import.
 - **The destroy case** (RECOMMENDED since 1.6, an advisory): a host may destroy
   the modeler from its listener while the user's input runs, or inside a host's
-  call that reaches the listener before it returns. Each leg runs on a fresh
-  instance with `canonicalTexts[0]` and its first listed element revealed, and
-  with a listener on every surface behind the one that destroys:
+  call that reaches the listener. Each leg runs on a fresh instance with
+  `canonicalTexts[0]` and its first listed element revealed, and with a
+  listener on every surface behind the one that destroys:
   `elements.onSelection` destroys the modeler at the start of a `"move"` and of
   a `"create"` (diagram-js empties the selection there), `onContentChanged` at
   the drop of a `"move"`, and `interaction.onChange` at the `false` of a
   `"move"` cancelled with Escape, and inside an `importText` of
   `canonicalTexts[0]` that ends a held `"move"` (L1's cancel reports that
-  `false` before the import returns). One more leg starts from the selection the
-  import left and reveals the first listed element itself:
+  `false` before the import's Promise settles). One more leg starts from the
+  selection the import left and reveals the first listed element itself:
   `elements.onSelection` destroys the modeler inside the delivery of that
   `reveal()` (diagram-js scrolls to the element after it). That leg sees what
   reaches the host, not whether the scroll ran before the teardown: diagram-js
@@ -1010,8 +1014,8 @@ Recommendations today, proposed as hard laws for the next major:
   Escape, a command) or inside a method of the contract that calls the listener
   (`elements.reveal`, `importText`), throws nothing there, nor does that input
   or method, and no listener of the host is called after it, also not a later
-  listener of the same delivery; an `importText` inside which it was called
-  rejects; a listener that an earlier listener of the same delivery
+  listener of the same delivery; an `importText` that called that listener
+  rejects, outside L7; a listener that an earlier listener of the same delivery
   unsubscribed is not called; the modeler may finish its teardown once the
   input's handler or the method has returned (today: RECOMMENDED since 1.6,
   advisory in the destroy case; for `interaction.onChange` nothing after

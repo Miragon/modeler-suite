@@ -1210,6 +1210,29 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     );
     expect(destroy?.advisories).toBeUndefined();
   });
+  test("a harness whose startGesture throws in the leg inside an import → its skip names the start of the held move as what threw, not importText()", async () => {
+    let starts = 0;
+    const destroy = await conformanceCases()
+      .find((c) => c.name === CASE.destroyFromListener)
+      ?.run(
+        harness(
+          {},
+          {
+            startGesture: (m, kind) => {
+              starts += 1;
+              // the legs at the start of a move and of a create, at the drop and at the Escape
+              // each start one gesture before it
+              if (starts === 5) throw new Error("the harness could not start the move");
+              return (m as ReferenceModeler).holdGesture(kind);
+            },
+          },
+        ),
+      );
+    expect(destroy?.skipped).toContain(
+      "interaction.onChange did not report the end of a held move inside importText(), and the start of the held move threw Error: the harness could not start the move — a destroy() from interaction.onChange(false) inside an importText() that ends a held move was not checked",
+    );
+    expect(destroy?.skipped).not.toMatch(/importText\(\) threw/);
+  });
   test("an onChange that still calls a listener an earlier one of the same delivery unsubscribed → an advisory from the destroy case", async () => {
     const advice = await expectAdvisoryOnly(
       { interactionDeliveryIgnoresUnsubscribe: true },

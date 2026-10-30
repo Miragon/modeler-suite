@@ -297,12 +297,12 @@ fills it; the user-action case and the destroy case's leg inside `reveal()` read
 - the **destroy** case: a host destroys the modeler from `elements.onSelection` at the start of a
   move and of a palette create, from `onContentChanged` at a drop, from
   `interaction.onChange(false)` at an Escape and inside the host's own `importText`, whose cancel
-  of a held move reports that end before it returns, and from `elements.onSelection` inside the
-  host's own `reveal()`, which calls the listener before it scrolls. Nothing throws, also not to
-  the window, no listener is called afterwards, that import rejects (with any error; the kit reads
-  no export after the destroy), a second `destroy()` throws nothing, and a listener that an earlier
-  one of the same delivery unsubscribed is not called (an advisory; the leg inside `reveal()` needs
-  no `startGesture`);
+  of a held move reports that end before its Promise settles, and from `elements.onSelection`
+  inside the host's own `reveal()`, which calls the listener before it scrolls. Nothing throws, also
+  not to the window, no listener is called afterwards, that import rejects (with any error, outside
+  L7; the kit reads no export after the destroy), a second `destroy()` throws nothing, and a
+  listener that an earlier one of the same delivery unsubscribed is not called (an advisory; the
+  leg inside `reveal()` needs no `startGesture`);
 - the **appearance** case: `set` draws the requested theme when `themes` lists it and `themes[0]`
   otherwise (a light-only renderer stays light when dark is requested, also on a dark page), the
   contrast always applies, and nothing else changes: no change event, the same exports, history,

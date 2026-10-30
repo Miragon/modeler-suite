@@ -4241,8 +4241,9 @@ interface Destroyer {
 interface DestroyLeg {
   /** where the listener calls `destroy()`, as a finding names it */
   where: string;
-  /** what reaches the listener, as a finding names it: the user's input or the host's call */
-  input: string;
+  /** what reaches the listener, as a finding names it: the user's input or the host's call. Read
+   *  once `act` has settled, so a leg whose act takes several steps names the one it reached */
+  readonly input: string;
   /** why the leg proves nothing when the listener never called `destroy()` */
   unheard: string;
   /** whether the leg starts with the first listed element revealed; the leg inside `reveal()`
@@ -4474,15 +4475,19 @@ function destroyInsideReveal(): DestroyLeg {
 /**
  * the interaction listener destroys the modeler inside an `importText` of `canonicalTexts[0]` that
  * ends a held move: the import's cancel (L1, RECOMMENDED since 1.5) reports the end before the
- * import returns. The import then rejects, whatever its error: it ran on a modeler the host
- * destroyed, so its resolve would tell the host a document is shown. What `exportText()` returns
- * afterwards the leg leaves open, as it calls nothing of the modeler after the destroy
+ * import's Promise settles. The import then rejects, whatever its error: it ran on a modeler the
+ * host destroyed, so its resolve would tell the host a document is shown. What `exportText()`
+ * returns afterwards the leg leaves open, as it calls nothing of the modeler after the destroy
  */
 function destroyInsideAnImport(startGesture: GestureStarter, text: string): DestroyLeg {
   const where = "from interaction.onChange(false) inside an importText() that ends a held move";
+  // what the harness's start of the move throws is no throw of the import
+  let reached = "the start of the held move";
   return {
     where,
-    input: "importText()",
+    get input() {
+      return reached;
+    },
     unheard: "interaction.onChange did not report the end of a held move inside importText()",
     startsRevealed: true,
     listen(m, destroyer) {
@@ -4499,6 +4504,7 @@ function destroyInsideAnImport(startGesture: GestureStarter, text: string): Dest
     },
     act: async (m, _selected, destroyer) => {
       await startGesture(m, "move");
+      reached = "importText()";
       const outcome = await settledWithin(m.importText(text), HELD_IMPORT_BOUND_MS);
       if (!destroyer.called) return;
       if (outcome.unsettled) {
