@@ -2,8 +2,9 @@
    sit in a cascade layer, so a host page's own --cd-* tokens (unlayered) win over this copy.
    cd-canvas.css stays unlayered and comes after diagram-js.css, so its mapping of the --bio-* and
    .djs-parent variables onto the --cd-ui-* roles beats diagram-js's defaults. Everything below
-   reads the roles (--cd-ui-*) and the mode-independent tokens (radius, shadow, motion) only, so
-   the chrome follows the mode the page sets; the canvas drawing keeps its light SVG attributes. */
+   reads the roles (--cd-ui-*) and the mode-independent tokens (radius, shadow, motion, the shell's
+   sizes) only, so the chrome follows the mode the page sets; the canvas drawing keeps its light SVG
+   attributes. */
 @import "../theme/cd-tokens.generated.css" layer(event-storming-tokens);
 @import "diagram-js/assets/diagram-js.css";
 @import "../theme/cd-canvas.css";
@@ -232,14 +233,15 @@
 }
 
 /* Guide §5.15: in a container at most 760px wide (--cd-shell-schmal) the palette moves to the second
-   row at 64px, and its tooltips with it to 112px. It is at most the container less 12px on either
-   side wide and scrolls sideways without a visible bar, which would make it taller than 40px. It
-   would clip a ring outside its entries, so the focus lies inside: 2px within the entry, 1px within
-   the armed tool's ring (guide §5.5); the 3px ring of high contrast is in the @scope block below. */
+   row (--cd-shell-frei), and its tooltips with it to 112px. It is at most the container less the
+   edge on either side wide and scrolls sideways without a visible bar, which would make it taller
+   than 40px. It would clip a ring outside its entries, so the focus lies inside: 2px within the
+   entry, 1px within the armed tool's ring (guide §5.5); the 3px ring of high contrast is in the
+   @scope block below. */
 @container event-storming (max-width: 760px) {
   :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) {
-    top: 64px;
-    max-width: calc(100% - 24px);
+    top: var(--cd-shell-frei);
+    max-width: calc(100% - 2 * var(--cd-shell-rand));
     box-sizing: border-box;
     overflow-x: auto;
     overflow-y: hidden;
@@ -695,11 +697,20 @@
     color: CanvasText !important;
     box-shadow: inset 0 0 0 2px Highlight;
   }
-  /* The muted tool icons of the read-only lock (guide §13.5) would turn CanvasText. */
+  /* The muted tool icons of the read-only lock (guide §13.5) would turn CanvasText, on hover too,
+     where the rule without forced colours is the more specific one. */
   :where(.event-storming-container)
     .djs-palette:not([data-chrome="palette"])
-    .entry[aria-disabled="true"] {
+    .entry[aria-disabled="true"],
+  :where(.event-storming-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry[aria-disabled="true"]:hover {
     color: GrayText;
+  }
+  :where(.event-storming-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry.highlighted-entry[aria-disabled="true"] {
+    color: GrayText !important;
   }
 }
 /* No movement under reduced motion (guide §5.14, §7): no hover fades in the palette, the context

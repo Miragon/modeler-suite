@@ -440,6 +440,40 @@ describe("the palette without the shell: a container at most 760px wide (guide �
       );
     },
   );
+
+  // A trackpad or Shift and the wheel scroll the palette under a tooltip the keyboard focus shows.
+  test("takes the tooltip along when the palette scrolls, and away once its entry has left the view", async () => {
+    const { container, palette, before } = await mountBoard({ width: 300 });
+    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const centreOf = (element: HTMLElement) => {
+      const box = boxIn(element, container);
+      return box.left + box.width / 2;
+    };
+    before.focus();
+    await userEvent.tab();
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+    const event = entryOf(palette, "create.event");
+    expect(document.activeElement).toBe(event);
+    const tooltip = container.querySelector<HTMLElement>(".djs-hover-tooltip")!;
+    expect(tooltip.textContent).toContain("Domain event");
+    const shownAt = centreOf(tooltip);
+    expect(shownAt).toBeCloseTo(centreOf(event), 0);
+
+    palette.scrollLeft = 24;
+    await nextFrame();
+    await nextFrame();
+    expect(palette.scrollLeft).toBe(24);
+    expect(tooltip.isConnected).toBe(true);
+    expect(centreOf(tooltip)).toBeCloseTo(shownAt - 24, 0);
+    expect(centreOf(tooltip)).toBeCloseTo(centreOf(event), 0);
+
+    palette.scrollLeft = palette.scrollWidth;
+    await nextFrame();
+    await nextFrame();
+    expect(boxIn(event, palette).right).toBeLessThanOrEqual(palette.clientLeft);
+    expect(container.querySelector(".djs-hover-tooltip")).toBeNull();
+    expect(event.hasAttribute("aria-describedby")).toBe(false);
+  });
 });
 
 describe("the palette without the shell: forced colours (guide §5.14)", () => {
@@ -730,6 +764,43 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
     expect(state()).toEqual(["true", "lasso.selection"]);
   });
 
+  // A pointer's press on another entry ends the lasso's waiting drag; Enter and Space press nothing.
+  test("puts the armed lasso down when Enter arms the draw tool, so Enter on the lasso arms it again", async () => {
+    const { modeler, palette } = await mountBoard();
+    const dragging = modeler.get<Dragging>("dragging");
+    const drawTool = modeler.get<EventStormingDrawTool>("eventStormingDrawTool");
+    const state = () => [
+      pressed(palette)["lasso-tool"],
+      pressed(palette)["draw-tool"],
+      dragging.context()?.prefix ?? null,
+      drawTool.isActive(),
+    ];
+    entryOf(palette, "lasso-tool").focus();
+
+    await userEvent.keyboard("{Enter}");
+    expect(state()).toEqual(["true", "false", "lasso.selection", false]);
+    await userEvent.keyboard("{ArrowRight}{Enter}");
+    expect(state()).toEqual(["false", "true", null, true]);
+    expect(modeler.get<ToolManager>("toolManager").isActive("lasso")).toBe(false);
+
+    await userEvent.keyboard("{ArrowLeft}{Enter}");
+    expect(state()).toEqual(["true", "false", "lasso.selection", false]);
+  });
+
+  test("puts the armed lasso down when Enter places a sticky", async () => {
+    const { modeler, palette } = await mountBoard();
+    const dragging = modeler.get<Dragging>("dragging");
+    entryOf(palette, "lasso-tool").focus();
+    await userEvent.keyboard("{Enter}");
+    expect(dragging.context()?.prefix).toBe("lasso.selection");
+
+    entryOf(palette, "create.event").focus();
+    await userEvent.keyboard("{Enter}");
+    expect(stickies(modeler)).toHaveLength(1);
+    expect(dragging.context()).toBeNull();
+    expect(pressed(palette)["lasso-tool"]).toBe("false");
+  });
+
   // diagram-js marks the armed tool with `highlighted-entry` in the tools group it found at the
   // first tool change, which a rebuild (each import, each level switch) leaves detached.
   test("rings the armed tool after an import rebuilt the entries, also in forced colours", async () => {
@@ -883,17 +954,22 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
       });
     });
 
-    test("draws the disabled tool icons in GrayText in forced colours", async () => {
+    // Chromium keeps a system colour the stylesheet sets and forces any other to CanvasText, which
+    // the muted role turns into: the hover rule without forced colours is the more specific one.
+    test("draws the disabled tool icons in GrayText in forced colours, also under the pointer", async () => {
       const { modeler, container, palette } = await mountBoard();
       modeler.get<EventStormingReadOnly>("eventStormingReadOnly").setReadOnly(true);
       await emulateMedia("forced-colors", "active");
+      const draw = entryOf(palette, "draw-tool");
+      const grayText = resolved(container, "color", "GrayText");
+      expect(grayText).not.toBe(resolved(container, "color", "CanvasText"));
 
-      // Chromium forces the text colour by itself; with that forcing off, the entry shows the
-      // stylesheet's own colour, which engines that keep author colours draw.
-      palette.style.forcedColorAdjust = "none";
-      expect((await settled(entryOf(palette, "draw-tool"))).color).toBe(
-        resolved(container, "color", "GrayText"),
-      );
+      expect((await settled(draw)).color).toBe(grayText);
+      await userEvent.hover(draw);
+      await vi.waitFor(async () => {
+        expect(draw.matches(":hover")).toBe(true);
+        expect((await settled(draw)).color).toBe(grayText);
+      });
     });
   });
 
@@ -1276,5 +1352,26 @@ describe.each([
     before.focus();
     await userEvent.keyboard("{Escape}");
     expect(state()).toEqual([false, null]);
+  });
+
+  test("puts the armed lasso down when the chrome's click without a press arms the draw tool", async () => {
+    const { modeler, palette } = await mountBoard({
+      additionalModules: [chromeModule({ asShell })],
+    });
+    const toolManager = modeler.get<ToolManager>("toolManager");
+    const dragging = modeler.get<Dragging>("dragging");
+    const drawTool = modeler.get<EventStormingDrawTool>("eventStormingDrawTool");
+    const keyboardClick = (action: string) =>
+      entryOf(palette, action).dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      );
+
+    keyboardClick("lasso-tool");
+    keyboardClick("draw-tool");
+    expect([
+      toolManager.isActive("lasso"),
+      dragging.context() ?? null,
+      drawTool.isActive(),
+    ]).toEqual([false, null, true]);
   });
 });

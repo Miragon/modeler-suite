@@ -231,7 +231,9 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
       html: `<div class="entry event-storming-palette-entry">${PALETTE_ICONS.draw}</div>`,
       action: {
         click: this.focusingCanvas(() => {
-          if (!this.isReadOnly()) this.drawTool.toggle();
+          if (this.isReadOnly()) return;
+          this.endWaitingLasso();
+          this.drawTool.toggle();
         }),
       },
     };
@@ -243,6 +245,7 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
       const start = this.focusingCanvas(
         this.endingDrawing((event) => {
           if (this.isReadOnly()) return;
+          this.endWaitingLasso();
           const shape = this.factory.createNew(spec.type, spec.label);
           if (isKeyboardClick(event) && this.placeInFreeRect(shape)) return;
           this.create.start(event, shape);
@@ -277,6 +280,15 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
       if (this.drawTool.isActive()) this.drawTool.finish();
       action(event);
     };
+  }
+
+  /**
+   * A pointer's press on another entry ends the lasso that waits for its drag, but Enter or Space
+   * presses nothing: the lasso would stay armed under the draw tool, shown released, or under the
+   * new sticky's label editor, and the next press on the canvas would draw a lasso.
+   */
+  private endWaitingLasso(): void {
+    if (this.dragging?.context()?.prefix === LASSO_SELECTION) this.dragging.cancel(false);
   }
 
   /**
