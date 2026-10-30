@@ -54,7 +54,11 @@ export interface AggregateGroup {
   readonly pairs: readonly CommandEventPair[];
 }
 
-/** The order `sortByTimeline` gives: left to right, then top to bottom, then by id. */
+/**
+ * Left to right, then top to bottom, then by id in the runtime's locale. Unlike `sortByTimeline`,
+ * whose order reaches a file and so compares ids by code unit, this order only reaches the screen,
+ * so two stickies on exactly the same spot may come in another order than there.
+ */
 function timelineOrder(first: PlacedSticky, second: PlacedSticky): number {
   return (
     first.position.x - second.position.x ||
@@ -143,9 +147,10 @@ function distinct(named: Iterable<NamedStickies>): NamedStickies[] {
  *   with no other: each such aggregate is a group of its own, each such command or event an entry
  *   of its own. Its `key` is empty.
  *
- * The groups come in the order their first aggregate stands on the timeline (`sortByTimeline`:
- * left to right, then top to bottom), the commands and events of a group likewise, and the sticky
- * ids of every name in timeline order. Arrows to stickies the board does not hold are left out.
+ * The groups come in the order their first aggregate stands on the timeline (left to right, then
+ * top to bottom, as in `sortByTimeline`; stickies on exactly the same spot by their ids in the
+ * runtime's locale), the commands and events of a group likewise, and the sticky ids of every name
+ * in timeline order. Arrows to stickies the board does not hold are left out.
  */
 export function groupByAggregate(board: AggregateBoard): AggregateGroup[] {
   const stickies = new Map<string, PlacedSticky>();

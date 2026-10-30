@@ -119,7 +119,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(facts).toEqual([
       ["lasso-tool", "Lasso", "L"],
       ["hand-tool", "Hand", "H"],
-      ["space-tool", "Create or remove space", "S"],
+      ["space-tool", "Space", "S"],
       ["global-connect-tool", "Connect", "C"],
       ["create.step", "Step", null],
       ["create.org-unit", "Organizational unit", null],

@@ -3,6 +3,7 @@ import {
   EVOLUTION_PRESETS,
   normalizeEvolutionLabels,
 } from "@miragon/wardley-schema-model";
+import { isImeCompositionKey } from "../label-editing/index.js";
 import type { Modeler } from "../Modeler.js";
 import { element } from "./dom.js";
 import { dialogButton } from "./dialog.js";
@@ -88,7 +89,7 @@ export function createAxisLabelsPopover(chrome: PopoverChrome, modeler: Modeler)
       for (const input of inputs) {
         input.addEventListener("input", preview);
         input.addEventListener("keydown", (event) => {
-          if (event.key !== "Enter" || event.isComposing) return;
+          if (event.key !== "Enter" || isImeCompositionKey(event)) return;
           event.preventDefault();
           done();
         });

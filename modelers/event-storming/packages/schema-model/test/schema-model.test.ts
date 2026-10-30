@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   ATTACHABLE_STICKY_KINDS,
   CURRENT_SCHEMA_VERSION,
@@ -39,6 +39,60 @@ const sample: EventStormingBoard = {
   edges: [{ id: "arrow_1", edgeType: "arrow", from: "cmd_place_order", to: "event_order_placed" }],
 };
 
+// Ids that a locale orders otherwise: upper and lower case, `_` against letters and digits, and
+// letters that Estonian (z before t) and Lithuanian (y with i) move.
+const SHUFFLED_IDS = [
+  "z_store",
+  "b",
+  "t_api",
+  "B",
+  "a_1",
+  "y_db",
+  "a1",
+  "_x",
+  "j_app",
+  "a",
+  "Z",
+  "10",
+  "9",
+  "A",
+];
+const CODE_POINT_ORDER = [
+  "10",
+  "9",
+  "A",
+  "B",
+  "Z",
+  "_x",
+  "a",
+  "a1",
+  "a_1",
+  "b",
+  "j_app",
+  "t_api",
+  "y_db",
+  "z_store",
+];
+const LOCALES = ["en-US", "de-DE", "et-EE", "lt-LT", "sv-SE", "tr-TR"];
+
+/** Runs `run` as on a runtime with `locale` as the default locale of `localeCompare`. */
+function withDefaultLocale(locale: string, run: () => void): void {
+  const localeCompare = String.prototype.localeCompare;
+  const asDefault = vi.spyOn(String.prototype, "localeCompare").mockImplementation(function (
+    this: string,
+    that,
+    locales,
+    options,
+  ) {
+    return localeCompare.call(this, that, locales ?? locale, options);
+  });
+  try {
+    run();
+  } finally {
+    asDefault.mockRestore();
+  }
+}
+
 describe("sortByTimeline", () => {
   const board: EventStormingBoard = {
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -68,6 +122,24 @@ describe("sortByTimeline", () => {
     sortByTimeline(board);
     expect(board.elements.map((el) => el.id)).toEqual(before);
   });
+
+  it.each(LOCALES)(
+    "orders stickies on the same spot by the code points of their ids, also on a machine whose default locale is %s",
+    (locale) => {
+      const onOneSpot: EventStormingBoard = {
+        ...board,
+        elements: SHUFFLED_IDS.map((id) => ({
+          id,
+          elementType: "event",
+          label: id,
+          position: { x: 200, y: 120 },
+        })),
+      };
+      withDefaultLocale(locale, () => {
+        expect(sortByTimeline(onOneSpot).map((el) => el.id)).toEqual(CODE_POINT_ORDER);
+      });
+    },
+  );
 });
 
 describe("DEFAULT_BOARD_SIZE", () => {
@@ -81,6 +153,51 @@ describe("Serialization", () => {
     const out = serializeBoard(sample);
     expect(out.indexOf("cmd_place_order")).toBeLessThan(out.indexOf("event_order_placed"));
     expect(serializeBoard(parseBoardJSON(out))).toBe(out);
+  });
+
+  describe("the order of elements and edges, whatever the machine's locale", () => {
+    const boardOf = (ids: readonly string[]): EventStormingBoard => ({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      config: { title: "Order" },
+      elements: ids.map((id, index) => ({
+        id,
+        elementType: "event",
+        label: id,
+        position: { x: index * 180, y: 300 },
+      })),
+      edges: ids.map((id) => ({
+        id: `arrow_${id}`,
+        edgeType: "arrow",
+        from: id,
+        to: id === "a" ? "b" : "a",
+      })),
+    });
+    const writtenOrder = (text: string): { elements: string[]; edges: string[] } => {
+      const written = JSON.parse(text) as EventStormingBoard;
+      return {
+        elements: written.elements.map((element) => element.id),
+        edges: written.edges.map((edge) => edge.id),
+      };
+    };
+    const expectedOrder = {
+      elements: CODE_POINT_ORDER,
+      edges: CODE_POINT_ORDER.map((id) => `arrow_${id}`),
+    };
+
+    it("sorts elements and edges by the code points of their ids", () => {
+      const text = serializeBoard(boardOf(SHUFFLED_IDS));
+      expect(writtenOrder(text)).toEqual(expectedOrder);
+      expect(serializeBoard(parseBoardJSON(text))).toBe(text);
+    });
+
+    it.each(LOCALES)("writes the same text on a machine whose default locale is %s", (locale) => {
+      const expectedText = serializeBoard(boardOf(SHUFFLED_IDS));
+      withDefaultLocale(locale, () => {
+        const text = serializeBoard(boardOf(SHUFFLED_IDS));
+        expect(writtenOrder(text)).toEqual(expectedOrder);
+        expect(text).toBe(expectedText);
+      });
+    });
   });
 
   it("rounds coordinates to 3 decimal places", () => {

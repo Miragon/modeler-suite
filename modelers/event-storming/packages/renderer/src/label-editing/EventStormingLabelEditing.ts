@@ -16,6 +16,7 @@ import {
 import type EventStormingModeling from "../modeling/EventStormingModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type EventStormingReadOnly } from "../read-only/index.js";
 import { isManualNoteBox, noteMetrics } from "../draw/styles.js";
+import { CHROME_SPACING } from "../theme/palette.js";
 import { LabelSuggestionList, boardStickies } from "../vocabulary/index.js";
 import {
   NOTE_BULLET_CLASS,
@@ -63,6 +64,15 @@ interface SuspendedEdit {
   selectionStart?: number | undefined;
   selectionEnd?: number | undefined;
   align?: NoteAlignState | undefined;
+}
+
+/**
+ * Enter and Escape that confirm or cancel an IME candidate belong to the composition. `isComposing`
+ * alone misses Safari: it sends the confirming Enter after `compositionend`, with `isComposing`
+ * false and the `keyCode` 229 that every engine gives a key the IME took.
+ */
+function isImeCompositionKey(event: KeyboardEvent): boolean {
+  return event.isComposing || event.keyCode === 229;
 }
 
 /**
@@ -262,6 +272,7 @@ export default class EventStormingLabelEditing {
       this.modeling.updateLabel(element, value);
     };
     const onKey = (e: KeyboardEvent) => {
+      if (isImeCompositionKey(e)) return;
       if (suggestions?.handleKey(e)) return;
       if (e.key === "Escape") {
         e.preventDefault();
@@ -339,23 +350,35 @@ export default class EventStormingLabelEditing {
 
     const toolbar = createNoteToolbar(document, (action) => onAction(action));
     toolbar.style.transform = "translate(-50%, -100%)";
+    // The editor's padding and border reach past the note, and the focus ring past the editor: the
+    // toolbar keeps the gap of the label suggestions to the editor's own edge, so it covers no part
+    // of the ring, also once new lines grow the editor beyond the note.
+    const placeToolbar = () => {
+      const scale = this.canvas.zoom();
+      const vb = this.canvas.viewbox();
+      const editorHeight = Math.max(editor.offsetHeight, element.height * scale);
+      toolbar.style.left = `${(element.x + element.width / 2 - vb.x) * scale}px`;
+      toolbar.style.top = `${
+        (element.y + element.height / 2 - vb.y) * scale - editorHeight / 2 - CHROME_SPACING.luecke
+      }px`;
+    };
     const place = () => {
       const scale = this.canvas.zoom();
       const vb = this.canvas.viewbox();
-      const left = (element.x + element.width / 2 - vb.x) * scale;
-      editor.style.left = `${left}px`;
+      editor.style.left = `${(element.x + element.width / 2 - vb.x) * scale}px`;
       editor.style.top = `${(element.y + element.height / 2 - vb.y) * scale}px`;
       // min- (not fixed) box: the editor covers the note's footprint but grows with new lines.
       editor.style.minWidth = `${element.width * scale}px`;
       editor.style.minHeight = `${element.height * scale}px`;
-      // Floats just above the note's top edge, x-centered like the editor.
-      toolbar.style.left = `${left}px`;
-      toolbar.style.top = `${(element.y - vb.y) * scale - 8}px`;
+      placeToolbar();
     };
-    place();
 
     container.appendChild(editor);
     container.appendChild(toolbar);
+    place();
+    const editorResize =
+      typeof ResizeObserver === "function" ? new ResizeObserver(placeToolbar) : undefined;
+    editorResize?.observe(editor);
     editor.focus();
     selectAllContent(editor);
 
@@ -407,6 +430,7 @@ export default class EventStormingLabelEditing {
     const cleanup = () => {
       if (done) return;
       done = true;
+      editorResize?.disconnect();
       document.removeEventListener("selectionchange", onSelectionChange);
       editor.removeEventListener("keydown", onKey as EventListener);
       editor.removeEventListener("blur", onBlur as EventListener);
@@ -426,6 +450,7 @@ export default class EventStormingLabelEditing {
       if (properties) this.modeling.updateProperties(element, properties);
     };
     const onKey = (e: KeyboardEvent) => {
+      if (isImeCompositionKey(e)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         cleanup();
@@ -528,6 +553,7 @@ export default class EventStormingLabelEditing {
       this.modeling.updateProperties(conn, { linkLabel: value || undefined });
     };
     const onKey = (e: KeyboardEvent) => {
+      if (isImeCompositionKey(e)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         cleanup();

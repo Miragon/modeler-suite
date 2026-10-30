@@ -176,7 +176,7 @@ export function diagramShortcuts(
         { action: "Lasso by dragging", keys: edit.lassoDrag },
         { action: "Hand", keys: ["H"] },
         { action: "Hand while held", keys: ["Space"] },
-        { action: "Create or remove space", keys: ["S"] },
+        { action: "Space", keys: ["S"] },
         { action: "Connect", keys: ["C"] },
       ],
     },

@@ -142,6 +142,15 @@ function placePromptBeside(card: HTMLElement, anchor: HTMLElement): void {
   }
 }
 
+/**
+ * Escape and Enter that cancel or confirm an IME candidate belong to the composition. `isComposing`
+ * alone misses Safari: it sends the confirming Enter after `compositionend`, with `isComposing`
+ * false and the `keyCode` 229 that every engine gives a key the IME took.
+ */
+function isInputMethodKey(event: KeyboardEvent): boolean {
+  return event.isComposing || event.keyCode === 229;
+}
+
 export default class CmContextPadProvider implements ContextPadProvider {
   static $inject = [
     "contextPad",
@@ -711,6 +720,7 @@ export default class CmContextPadProvider implements ContextPadProvider {
     };
     field.addEventListener("keydown", (event: Event) => {
       const keyEvent = event as KeyboardEvent;
+      if (isInputMethodKey(keyEvent)) return;
       if (keyEvent.key === "Escape") {
         keyEvent.preventDefault();
         keyEvent.stopPropagation();

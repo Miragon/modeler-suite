@@ -107,7 +107,7 @@ describe("theme.sync — wardley.css takes every colour from the roles", () => {
     expect(paletteSelectors.length).toBeGreaterThan(5);
     for (const selector of paletteSelectors) {
       expect(selector).toMatch(
-        /^\.djs-palette(\.wardley-palette)?:where\(:not\(\[data-chrome="palette"\]\)\)/,
+        /^(:scope )?\.djs-palette(\.wardley-palette)?:where\(:not\(\[data-chrome="palette"\]\)\)/,
       );
     }
   });
