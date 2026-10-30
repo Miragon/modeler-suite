@@ -208,7 +208,10 @@ export default class VcPaletteProvider {
   }
 }
 
-/** The click a host's chrome synthesises for Enter or Space on an entry: no pointer, detail 0. */
+/**
+ * The click Enter or Space on an entry dispatches (`VcPaletteToolbar`, or the chrome that skins the
+ * palette): no pointer, detail 0.
+ */
 function isKeyboardClick(event: Event): boolean {
   return event.type === "click" && (event as MouseEvent).detail === 0;
 }

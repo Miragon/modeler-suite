@@ -64,7 +64,7 @@ function shape(modeler: Modeler, id: string): VcShape {
 
 /** A key on the focused canvas `<svg>`, where diagram-js's keyboard listens. */
 function press(modeler: Modeler, init: KeyboardEventInit): KeyboardEvent {
-  const svg = modeler.container.querySelector("svg")!;
+  const svg = modeler.container.querySelector(".djs-container > svg")!;
   const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
   svg.dispatchEvent(event);
   return event;
