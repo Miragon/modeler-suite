@@ -16,6 +16,7 @@ import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import type { ModuleDeclaration } from "didi";
 import {
   Modeler,
+  READ_ONLY_CHANGED_EVENT,
   isCmContext,
   type CmContext,
   type CmReadOnly,
@@ -27,7 +28,8 @@ import { emptyDocument } from "@miragon/context-maps-schema-model";
  * its context pad and popup menu rules; the palette follows forced colours and reduced motion. For a
  * host without the modeler shell it is the glass toolbar of guide §5.5 with its keys (#433, #436),
  * the tooltip of guide §5.6 below it (#457), the lasso pressed only while it is armed (#458, #462)
- * and the marks of the read-only lock (guide §13.5, #463).
+ * and the marks of the read-only lock, at once or after the delay a host gives it (guide §13.5,
+ * #463, #484).
  */
 
 const mounted: { modeler: Modeler; container: HTMLElement }[] = [];
@@ -1099,6 +1101,93 @@ describe("the palette without the shell: read-only lock (guide §13.5, #463)", (
     lockCanvas(withHostEntry, false);
     expect(disabled(withHostEntry)["host.waiting"]).toBe("true");
     expect(disabled(withHostEntry)["context.core"]).toBeNull();
+  });
+
+  test("shows the marks after the delay a host gives, while the lock refuses from the start, and takes them off at once (#484)", () => {
+    const clicks = { count: 0 };
+    const withHostEntry = mountToolbar([handToolModule(), hostEntryModule(clicks)]);
+    const readOnly = withHostEntry.get<CmReadOnly>("cmReadOnly");
+    const dragging = withHostEntry.get<Dragging>("dragging");
+    const announced: { readOnly: boolean; shown: boolean }[] = [];
+    withHostEntry.on<{ readOnly: boolean; shown: boolean }>(READ_ONLY_CHANGED_EVENT, (event) => {
+      announced.push({ readOnly: event.readOnly, shown: event.shown });
+    });
+    const unlocked = { ...UNLOCKED, "host.note": null };
+    const locked = { ...LOCKED, "host.note": "true" };
+    const enterOn = (action: string) =>
+      entryOf(withHostEntry, action).dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+      );
+
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      vi.advanceTimersByTime(400);
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      vi.advanceTimersByTime(399);
+      expect([readOnly.isReadOnly(), readOnly.isReadOnlyShown(), disabled(withHostEntry)]).toEqual([
+        true,
+        false,
+        unlocked,
+      ]);
+      enterOn("context.core");
+      enterOn("host.note");
+      expect([contexts(withHostEntry), clicks.count, dragging.context()?.prefix ?? null]).toEqual([
+        [],
+        0,
+        null,
+      ]);
+
+      vi.advanceTimersByTime(1);
+      expect([readOnly.isReadOnlyShown(), disabled(withHostEntry)]).toEqual([true, locked]);
+      readOnly.setReadOnly(false);
+      expect([readOnly.isReadOnlyShown(), disabled(withHostEntry)]).toEqual([false, unlocked]);
+      expect(announced).toEqual([
+        { readOnly: true, shown: false },
+        { readOnly: true, shown: true },
+        { readOnly: false, shown: false },
+      ]);
+
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      readOnly.setReadOnly(false);
+      vi.advanceTimersByTime(800);
+      expect([readOnly.isReadOnly(), readOnly.isReadOnlyShown(), disabled(withHostEntry)]).toEqual([
+        false,
+        false,
+        unlocked,
+      ]);
+      enterOn("host.note");
+      expect(clicks.count).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("keeps the marks of a lock without a delay when a later call gives one (#484)", () => {
+    const readOnly = modeler.get<CmReadOnly>("cmReadOnly");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      readOnly.setReadOnly(true);
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      expect([readOnly.isReadOnlyShown(), disabled(modeler)]).toEqual([true, LOCKED]);
+      vi.advanceTimersByTime(800);
+      expect([readOnly.isReadOnlyShown(), disabled(modeler)]).toEqual([true, LOCKED]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("shows no marks once the map is destroyed during the delay (#484)", () => {
+    const readOnly = modeler.get<CmReadOnly>("cmReadOnly");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      modeler.destroy();
+      vi.advanceTimersByTime(800);
+      expect([readOnly.isReadOnly(), readOnly.isReadOnlyShown()]).toEqual([true, false]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

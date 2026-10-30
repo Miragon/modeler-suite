@@ -30,15 +30,17 @@ interface OptionalInjector {
   get(name: string, strict?: boolean): unknown;
 }
 
+type EditLock = Pick<CmReadOnly, "isReadOnly" | "isReadOnlyShown">;
+
 /**
  * The palette as a toolbar (guide §5.5) for a host that mounts the renderer without a chrome that
  * skins it: `role="toolbar"` named "Tools", one tab stop that roves with ← → Home End, Enter or
  * Space as a click without a pointer (a creating entry then places its context in the free area,
  * `CmPaletteProvider`), `aria-pressed` on the tools, `aria-keyshortcuts` on the entries with a key,
- * `aria-disabled` on the entries the read-only lock refuses, which then do nothing (guide §13.5;
- * they stay focusable), and the palette ahead of the canvas in the tab order (guide §5.14). The
- * Miragon modeler shell brings all of this itself, and a palette any chrome skins
- * (`data-chrome="palette"`) is left to it.
+ * the entries the read-only lock refuses doing nothing while it holds and `aria-disabled` while its
+ * marks show (guide §13.5: at once, or after the lock's `delayMs`; they stay focusable), and the
+ * palette ahead of the canvas in the tab order (guide §5.14). The Miragon modeler shell brings all
+ * of this itself, and a palette any chrome skins (`data-chrome="palette"`) is left to it.
  */
 export default class CmPaletteToolbar {
   static $inject = ["eventBus", "palette", "canvas", "injector"];
@@ -46,7 +48,7 @@ export default class CmPaletteToolbar {
   private container: HTMLElement | undefined;
   private activeTool: string | null = null;
   private rovingAction: string | undefined;
-  private readonly readOnly: Pick<CmReadOnly, "isReadOnly"> | undefined;
+  private readonly readOnly: EditLock | undefined;
   /** The `aria-disabled` an entry had before the lock marked it (`null`: none). */
   private readonly disabledEntries = new WeakMap<Element, string | null>();
 
@@ -58,7 +60,7 @@ export default class CmPaletteToolbar {
   ) {
     // The shell's palette skin adds the same keys; a second handler would create every context twice.
     if (injector.get("modelerShell", false)) return;
-    this.readOnly = injector.get("cmReadOnly", false) as Pick<CmReadOnly, "isReadOnly"> | undefined;
+    this.readOnly = injector.get("cmReadOnly", false) as EditLock | undefined;
     eventBus.on("palette.create", (event: { container: HTMLElement }) =>
       this.attach(event.container),
     );
@@ -127,8 +129,12 @@ export default class CmPaletteToolbar {
     return this.readOnly?.isReadOnly() === true;
   }
 
+  private lockShown(): boolean {
+    return this.readOnly?.isReadOnlyShown() === true;
+  }
+
   private applyDisabled(entry: HTMLElement): void {
-    if (this.locked() && !staysActive(entry)) {
+    if (this.lockShown() && !staysActive(entry)) {
       if (!this.disabledEntries.has(entry)) {
         this.disabledEntries.set(entry, entry.getAttribute("aria-disabled"));
       }

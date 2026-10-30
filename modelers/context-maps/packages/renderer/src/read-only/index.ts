@@ -9,4 +9,8 @@ export const cmReadOnlyModule: ModuleDeclaration = {
   cmReadOnly: ["type", CmReadOnly],
 };
 
-export { default as CmReadOnly, READ_ONLY_CHANGED_EVENT } from "./CmReadOnly.js";
+export {
+  default as CmReadOnly,
+  READ_ONLY_CHANGED_EVENT,
+  type CmReadOnlyOptions,
+} from "./CmReadOnly.js";

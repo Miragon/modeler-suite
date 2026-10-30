@@ -66,10 +66,11 @@ context, and `aria-pressed` on the armed tool. Enter or Space on the armed lasso
 so does Escape before its drag has begun. An entry's tooltip stands 8px below the palette, centred
 on its entry and 12px from the canvas's sides, as `role="tooltip"`: after 300ms of hover, at once
 on keyboard focus or for a neighbour, never for touch, and hidden on a press or Escape. While
-`cmReadOnly` locks the canvas, every entry but Lasso and Hand is `aria-disabled`, still focusable,
-its preview grey, and a click, a drag or Enter on it does nothing, a host's entry included. Where
-the shell is mounted, or another chrome marks the palette `data-chrome="palette"`, the palette is
-that chrome's alone.
+`cmReadOnly` locks the canvas, a click, a drag or Enter on any entry but Lasso and Hand does
+nothing, a host's entry included, and while the lock's marks show (at once, or after the delay the
+host gave it, see below) those entries are `aria-disabled`, still focusable, their previews grey.
+Where the shell is mounted, or another chrome marks the palette `data-chrome="palette"`, the palette
+is that chrome's alone.
 
 ## API
 
@@ -271,9 +272,14 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
   pointer through, so a connect drag released on a context behind it still connects.
 - `cmReadOnly` (part of the `Modeler`) locks every edit while a host cannot take edits from the
   canvas, an invalid file in an IDE: no context pad, move, create, connect, delete or label editor;
-  selection, zoom, pan, select all and export stay. The renderer's own palette marks the entries
-  it refuses `aria-disabled` as soon as the lock holds; the shell's palette shows them after its
-  delay.
+  selection, zoom, pan, select all and export stay. Guide §13.5 shows the lock of an invalid file
+  only after 800ms without a valid one, so typing in the text editor beside the canvas does not
+  flicker: `setReadOnly(true, { delayMs: 800 })` locks at once and marks the renderer's own
+  palette entries `aria-disabled` once the delay has passed, as the shell's `setReadOnly` does; a
+  call while the lock holds keeps its timer, and `setReadOnly(false)` unlocks and takes the marks
+  off at once. `setReadOnly(true)` marks at once, and `isReadOnlyShown()` tells whether the marks
+  show. `READ_ONLY_CHANGED_EVENT` carries `{ readOnly, shown }` and fires once more when the marks
+  show after the delay. The shell's palette shows its own marks after the delay given to it.
 - The keyboard acts only while the canvas itself has the focus, as diagram-js 15's own keyboard
   does: on keys whose target is the canvas `<svg>` or inside it. Keys with nothing focused
   (`<body>`), on a host's chrome, on the palette, the context pad or an editor in the canvas
