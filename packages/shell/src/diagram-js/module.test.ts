@@ -255,6 +255,25 @@ describe("palette skin", () => {
     expect(document.activeElement).toBe(entry(diagram, "create.box"));
   });
 
+  it("hands the focus to the tab stop when the rebuild no longer offers the focused entry", () => {
+    const offered: Record<string, TestEntry> = { ...ENTRIES };
+    const diagram = createDiagram([PaletteModule, providerModule(offered), shellModule]);
+    const circle = entry(diagram, "create.circle");
+    circle.focus();
+    eventBus(diagram).on("i18n.changed", 1500, () => {
+      circle.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+    });
+    Reflect.deleteProperty(offered, "create.circle");
+
+    rebuild(diagram);
+
+    expect(paletteOf(diagram).querySelector('[data-action="create.circle"]')).toBeNull();
+    expect(document.activeElement).toBe(entry(diagram, "lasso-tool"));
+    expect(entries(diagram).filter((element) => element.tabIndex === 0)).toEqual([
+      entry(diagram, "lasso-tool"),
+    ]);
+  });
+
   it("leaves a focus that left the palette where it went when the palette rebuilds later", async () => {
     const diagram = createDiagram();
     const box = entry(diagram, "create.box");

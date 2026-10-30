@@ -50,6 +50,9 @@ const HandToolModule = esDefault<ModuleDeclarationLike>(HandToolExport);
 const LassoToolModule = esDefault<ModuleDeclarationLike>(LassoToolExport);
 const PaletteModule = esDefault<ModuleDeclarationLike>(PaletteExport);
 
+/** The actions the provider stops offering, as a level or mode switch of a modeler does. */
+const withdrawn = new Set<string>();
+
 class ToolPaletteProvider {
   static $inject = ["palette", "lassoTool", "handTool"];
   constructor(
@@ -60,7 +63,7 @@ class ToolPaletteProvider {
     palette.registerProvider(this);
   }
   getPaletteEntries(): Record<string, unknown> {
-    return {
+    const entries: Record<string, unknown> = {
       "lasso-tool": {
         group: "tools",
         title: "Lasso",
@@ -73,6 +76,9 @@ class ToolPaletteProvider {
       },
       "create.box": { group: "shapes", title: "Box", action: { click: () => undefined } },
     };
+    return Object.fromEntries(
+      Object.entries(entries).filter(([actionName]) => !withdrawn.has(actionName)),
+    );
   }
 }
 
@@ -83,6 +89,7 @@ afterEach(() => {
     diagram.destroy();
     container.remove();
   }
+  withdrawn.clear();
 });
 
 function createDiagram(): Diagram {
@@ -137,6 +144,20 @@ describe("focus across a rebuild (#461)", () => {
     expect(entry(diagram, "hand-tool")).not.toBe(hand);
     expect(document.activeElement).toBe(entry(diagram, "hand-tool"));
     expect(entry(diagram, "hand-tool").tabIndex).toBe(0);
+  });
+
+  it("hands the keyboard focus to the tab stop when the rebuild no longer offers the focused entry", async () => {
+    const diagram = createDiagram();
+    entry(diagram, "lasso-tool").focus();
+    await userEvent.keyboard("{End}");
+    expect(document.activeElement).toBe(entry(diagram, "create.box"));
+    withdrawn.add("create.box");
+
+    rebuild(diagram);
+
+    expect(document.querySelector('.djs-palette [data-action="create.box"]')).toBeNull();
+    expect(document.activeElement).toBe(entry(diagram, "lasso-tool"));
+    expect(entry(diagram, "lasso-tool").tabIndex).toBe(0);
   });
 
   it("leaves a focus that left the palette on the page when the palette rebuilds later", async () => {

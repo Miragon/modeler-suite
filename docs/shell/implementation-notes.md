@@ -44,7 +44,8 @@ If a note and the guide disagree, the guide wins.
   was armed in it, so a switch to another tool inside that task keeps it pressed.
 - Chromium reports the removal of the focused entry as a `focusout` while it is still connected,
   in the task of the rebuild: the skin forgets the entry only a microtask later, after
-  `palette.changed` has focused its replacement.
+  `palette.changed` has focused its replacement (or the tab stop, when the rebuilt palette no
+  longer offers the entry).
 - Enter and Space dispatch a synthetic `click` with `detail === 0`. Creating entries must branch on
   it: `create.start` never ends without a pointer, so keyboard creation places the shape at
   `freeArea` instead.

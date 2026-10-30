@@ -1984,11 +1984,11 @@ registers one internal didi service named `modelerShell` (a modeler does not reu
   `ariaKeyShortcuts` or `ariaKeyShortcutsFromLabel(shortcut)` (§5.6; split the shortcut off the
   title: `title: "Domain event", shortcut: "E"`), roving `tabindex` (the last focused entry keeps the
   tab stop across rebuilds, and the keyboard focus while it held it: a rebuild under a focused
-  entry focuses its replacement, also in Chromium, which reports the removal as a `focusout` first)
-  and `aria-pressed` for the tool of the last
-  `tool-manager.update` (group `tools`, `data-action="<tool>-tool"`), styled through
-  `[aria-pressed="true"]`: diagram-js's `highlighted-entry` goes stale after a rebuild, and its
-  `two-column` class is ignored. `separator` entries become vertical rules.
+  entry focuses its replacement, or the tab stop when the rebuilt palette no longer offers the
+  entry, also in Chromium, which reports the removal as a `focusout` first) and `aria-pressed` for
+  the tool of the last `tool-manager.update` (group `tools`, `data-action="<tool>-tool"`), styled
+  through `[aria-pressed="true"]`: diagram-js's `highlighted-entry` goes stale after a rebuild, and
+  its `two-column` class is ignored. `separator` entries become vertical rules.
 - Armed tools (§5.5: pressed only while armed): diagram-js's tool manager puts a tool down when its
   drag ends, but on a cancel only for a drag the pointer has moved, and not when the event lies in
   the tools group. So when the drag that waits for an armed tool's next press goes without an end

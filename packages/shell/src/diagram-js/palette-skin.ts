@@ -121,8 +121,8 @@ export class PaletteSkin {
       this.applyPressed(entry);
       this.applyDisabled(entry);
     }
-    this.applyTabStops(entries);
-    this.restoreFocus(entries);
+    const stop = this.applyTabStops(entries);
+    this.restoreFocus(entries, stop);
   }
 
   // Guide §5.6: a button with a shortcut names it for assistive technology, not only in the chip.
@@ -157,17 +157,20 @@ export class PaletteSkin {
     else entry.setAttribute("aria-disabled", previous);
   }
 
-  private applyTabStops(entries: readonly HTMLElement[]): void {
+  private applyTabStops(entries: readonly HTMLElement[]): HTMLElement | undefined {
     const stop = entries.find((entry) => actionOf(entry) === this.rovingAction) ?? entries[0];
     for (const entry of entries) entry.tabIndex = entry === stop ? 0 : -1;
+    return stop;
   }
 
-  // A rebuild removes the focused entry; without this the focus would fall back to <body>.
-  private restoreFocus(entries: readonly HTMLElement[]): void {
+  // A rebuild removes the focused entry; without this the focus would fall back to <body>. An
+  // entry the rebuilt palette no longer offers (another level, another mode) hands the focus to the
+  // tab stop, so the keyboard user stays in the toolbar.
+  private restoreFocus(entries: readonly HTMLElement[], stop: HTMLElement | undefined): void {
     const lost = this.focusedEntry;
     if (!lost || lost.isConnected) return;
     this.focusedEntry = undefined;
-    const replacement = entries.find((entry) => actionOf(entry) === actionOf(lost));
+    const replacement = entries.find((entry) => actionOf(entry) === actionOf(lost)) ?? stop;
     const active = this.element.ownerDocument.activeElement;
     const focusIsNowhere = !active || active === this.element.ownerDocument.body;
     if (replacement && focusIsNowhere) replacement.focus();
