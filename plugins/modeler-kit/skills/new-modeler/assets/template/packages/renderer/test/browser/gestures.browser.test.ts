@@ -1147,9 +1147,9 @@ describe('no delivery reaches a listener that an earlier listener of it unsubscr
 
 // #415: a host's own call that reaches a listener goes on with the diagram once the listener has
 // returned. `reveal` scrolls to the node after its selection listener, and an import draws the
-// diagram after the clear that empties the selection, so a destroy() from that listener tears the
-// diagram down once the call has returned.
-describe("a destroy from the selection listener that a host's call reaches (#415)", () => {
+// diagram after it ended a held gesture and after the clear that empties the selection, so a
+// destroy() from those listeners tears the diagram down once the call has returned.
+describe("a destroy from a listener that a host's call reaches (#415)", () => {
   let rejections: unknown[] = [];
   const recordRejection = (event: PromiseRejectionEvent) => rejections.push(event.reason);
 
@@ -1226,4 +1226,40 @@ describe("a destroy from the selection listener that a host's call reaches (#415
     expect(() => modeler.destroy()).not.toThrow();
     expect(modeler.exportText()).toBe(imported);
   });
+
+  for (const kind of GESTURE_KINDS) {
+    it(`an import that ends a held ${kind}, heard by the interaction listener: it resolves, and the modeler keeps the imported diagram`, async () => {
+      const reference = createCollaborativeViewer();
+      reference.attachTo(attachedHost());
+      const result = await reference.importText(payments);
+      const imported = reference.exportText();
+      reference.destroy();
+      const dragging = service<Dragging>('dragging');
+      const container = service<Canvas>('canvas').getContainer();
+      startGesture(kind);
+      await Promise.resolve();
+      expect(modeler.interaction.active()).toBe(true);
+      const heard: boolean[] = [];
+      modeler.interaction.onChange((active) => {
+        heard.push(active);
+        modeler.destroy();
+      });
+      const later: unknown[] = [];
+      modeler.interaction.onChange((active) => later.push(active));
+      modeler.elements.onSelection((ids) => later.push(ids));
+      modeler.onContentChanged(() => later.push('change'));
+
+      await expect(modeler.importText(payments)).resolves.toEqual(result);
+
+      expect(heard).toEqual([false]);
+      await nextTask();
+      expect(errors).toEqual([]);
+      expect(rejections).toEqual([]);
+      expect(dragging.context()).toBeFalsy();
+      expect(container.isConnected).toBe(false);
+      expect(later).toEqual([]);
+      expect(() => modeler.destroy()).not.toThrow();
+      expect(modeler.exportText()).toBe(imported);
+    });
+  }
 });

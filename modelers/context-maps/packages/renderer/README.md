@@ -206,10 +206,11 @@ from any listener at a drop, at Escape (`interaction.onChange` hears the end ins
 cleanup of the drag) and at a create from the palette or the keyboard: the map is torn down once
 the handler of that input has returned. No delivery calls a listener that an earlier listener of
 the same delivery unsubscribed ([#380](https://github.com/Miragon/modeler-suite/issues/380),
-[#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from the
-selection listener that a host's own call reaches: `elements.reveal`, or an import, which empties
-the selection as it clears the canvas. The map is torn down once that call has returned, and the
-import still resolves, with the imported map as `exportText()`
+[#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a listener
+that a host's own call reaches: the selection listener of `elements.reveal`, or the interaction and
+selection listeners of an import, which ends a held gesture and empties the selection as it clears
+the canvas. The map is torn down once that call has returned, and the import still resolves, with
+the imported map as `exportText()`
 ([#415](https://github.com/Miragon/modeler-suite/issues/415)).
 
 So no step of the action works on a replaced map. Only the imports that waited for an action

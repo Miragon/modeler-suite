@@ -77,20 +77,21 @@ afterEach(() => {
 /**
  * Read before the destroy, since reading a service afterwards would build a fresh diagram. Once
  * the input's handler has returned: no error reached the window, the drag and the canvas are gone,
- * a second destroy throws nothing, and the modeler keeps the text it had when it was destroyed.
+ * a second destroy throws nothing, and the modeler keeps the text of the diagram it tore down: the
+ * one it had at the destroy, or the one drawn by the host's call that reached the listener.
  */
-function destroyedCleanly(): (textAtDestroy: string | undefined) => Promise<void> {
+function destroyedCleanly(): (textKept: string | undefined) => Promise<void> {
   const dragging = editor().diagram.get<Dragging>("dragging");
   const svg = pointer.canvasSvg();
-  return async (textAtDestroy) => {
+  return async (textKept) => {
     await nextTask();
     expect(errors).toEqual([]);
-    expect(textAtDestroy).toBeDefined();
+    expect(textKept).toBeDefined();
     expect(dragging.context()).toBeFalsy();
     expect(svg.isConnected).toBe(false);
     expect(() => editor().destroy()).not.toThrow();
     expect(editor().interaction.active()).toBe(false);
-    expect(editor().exportText()).toBe(textAtDestroy);
+    expect(editor().exportText()).toBe(textKept);
   };
 }
 
@@ -313,9 +314,9 @@ it("no later selection listener hears of a selection whose first listener destro
 
 // #415: a host's own call that reaches a listener goes on with the diagram once the listener has
 // returned. `reveal` scrolls to the element after its selection listener, and an import draws the
-// diagram after the clear that empties the selection, so a destroy() from that listener tears the
-// diagram down once the call has returned.
-describe("a destroy from the selection listener that a host's call reaches (#415)", () => {
+// diagram after it ended a held gesture and after the clear that empties the selection, so a
+// destroy() from those listeners tears the diagram down once the call has returned.
+describe("a destroy from a listener that a host's call reaches (#415)", () => {
   it.each([
     { mount: "modeler", create: createCollaborativeModeler },
     { mount: "viewer", create: createCollaborativeViewer },
@@ -380,4 +381,36 @@ describe("a destroy from the selection listener that a host's call reaches (#415
     await expectDestroyedCleanly(imported);
     expect(later).toEqual([]);
   });
+
+  it.each(["move", "create"] as const)(
+    "an import that ends a held %s, heard by the interaction listener: it resolves, and the modeler keeps the imported diagram",
+    async (kind) => {
+      const referenceHost = attachedHost(1000, 700);
+      const reference = createCollaborativeViewer();
+      reference.attachTo(referenceHost);
+      const result = await reference.importText(PORTER);
+      const imported = reference.exportText();
+      reference.destroy();
+      referenceHost.parentElement?.remove();
+      const expectDestroyedCleanly = destroyedCleanly();
+      startGesture(editor(), kind);
+      await handlerReturned();
+      expect(editor().interaction.active()).toBe(true);
+      const heard: boolean[] = [];
+      editor().interaction.onChange((active) => {
+        heard.push(active);
+        editor().destroy();
+      });
+      const later: unknown[] = [];
+      editor().interaction.onChange((active) => later.push(active));
+      editor().elements.onSelection((ids) => later.push(ids));
+      editor().onContentChanged(() => later.push("change"));
+
+      await expect(editor().importText(PORTER)).resolves.toEqual(result);
+
+      expect(heard).toEqual([false]);
+      await expectDestroyedCleanly(imported);
+      expect(later).toEqual([]);
+    },
+  );
 });

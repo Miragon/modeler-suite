@@ -258,16 +258,19 @@ function collaborative(
       contentListeners.clear();
       interaction.stop();
       userActions.stop();
-      if (!selections.delivering()) {
-        userActions.tearDownAfterHandler(() => diagram.destroy());
-        return;
-      }
-      // Once the code that called the selection listener has returned (#415), with the diagram it
-      // left: an import's, whose Promise then resolves.
-      queueMicrotask(() => {
-        lastExport = textToKeep();
-        diagram.destroy();
+      // An import whose listener destroyed the modeler goes on to draw its document, and its Promise
+      // then resolves: the modeler keeps that document (#415). Whatever else runs on after the
+      // destroy reaches no host, so the text read above stays.
+      let imported = false;
+      eventBus.on("import.done", () => {
+        imported = true;
       });
+      const tearDown = () => {
+        if (imported) lastExport = textToKeep();
+        diagram.destroy();
+      };
+      if (selections.delivering()) queueMicrotask(tearDown);
+      else userActions.tearDownAfterHandler(tearDown);
     },
   };
 }
