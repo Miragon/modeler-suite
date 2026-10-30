@@ -238,6 +238,11 @@
   z-index: 100;
   min-width: 90px;
 }
+/* An inline editor is a text field: its accent border plus the focus ring (guide §8). */
+.event-storming-container .event-storming-label-input:focus {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
 .event-storming-container .event-storming-label-textarea {
   resize: none;
   line-height: 17px;
@@ -457,10 +462,11 @@
   -webkit-user-select: none;
 }
 
-/* High contrast drops every shadow (guide §5.3); forced colours keep the island edges visible.
+/* High contrast drops every shadow (guide §5.3) and widens the inline editors' focus ring to 3px
+   (§8); forced colours keep the island edges visible and the ring in Highlight (§5.14).
    High contrast is the nearest mode carrier's (guide §13.3): the page's, or the container's once
    a host asked for an appearance (contract 1.5), so normal contrast requested on a high-contrast
-   page keeps the shadows. */
+   page keeps the shadows and the 2px ring. */
 @scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
   :scope .djs-palette:not([data-chrome="palette"]),
   :scope .djs-hover-tooltip,
@@ -475,8 +481,15 @@
     ) {
     box-shadow: none;
   }
+  :is(:scope.event-storming-container, :scope .event-storming-container)
+    .event-storming-label-input:focus {
+    outline-width: 3px;
+  }
 }
 @media (forced-colors: active) {
+  .event-storming-container .event-storming-label-input:focus {
+    outline-color: Highlight;
+  }
   .event-storming-container .djs-context-pad.open,
   .event-storming-container .event-storming-note-toolbar,
   .event-storming-container .event-storming-color-picker,
