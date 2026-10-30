@@ -4,12 +4,16 @@ import type * as vscode from "vscode";
 
 const host = vi.hoisted(() => {
   class Uri {
+    readonly scheme = "file";
     constructor(readonly path: string) {}
     static file(path: string): Uri {
       return new Uri(path);
     }
     static joinPath(base: Uri, ...segments: string[]): Uri {
       return new Uri([base.path, ...segments].join("/"));
+    }
+    with(change: { path: string }): Uri {
+      return new Uri(change.path);
     }
   }
   class EventEmitter {
@@ -18,8 +22,13 @@ const host = vi.hoisted(() => {
     dispose(): void {}
   }
   class CancellationError extends Error {}
-  const state = { writeError: undefined as Error | undefined, provider: undefined as unknown };
+  const state = {
+    writeError: undefined as Error | undefined,
+    provider: undefined as unknown,
+    saveTarget: undefined as Uri | undefined,
+  };
   const log: string[] = [];
+  const dialogs: unknown[] = [];
   const vscodeStub = {
     Uri,
     EventEmitter,
@@ -31,6 +40,14 @@ const host = vi.hoisted(() => {
         state.provider = provider;
         return { dispose: () => undefined };
       },
+      showSaveDialog(options: unknown): Promise<Uri | undefined> {
+        dialogs.push(options);
+        return Promise.resolve(state.saveTarget);
+      },
+      showInformationMessage(text: string): Promise<undefined> {
+        log.push(`information: ${text}`);
+        return Promise.resolve(undefined);
+      },
       showWarningMessage(text: string): Promise<undefined> {
         log.push(`warning: ${text}`);
         return Promise.resolve(undefined);
@@ -41,6 +58,7 @@ const host = vi.hoisted(() => {
       },
     },
     workspace: {
+      workspaceFolders: undefined,
       fs: {
         readFile: () => Promise.resolve(new Uint8Array()),
         createDirectory: () => Promise.resolve(),
@@ -58,9 +76,12 @@ const host = vi.hoisted(() => {
     vscodeStub,
     state,
     log,
+    dialogs,
     reset(): void {
       state.writeError = undefined;
+      state.saveTarget = undefined;
       log.length = 0;
+      dialogs.length = 0;
     },
   };
 });
@@ -108,7 +129,11 @@ function token(): Token {
 async function openEditor(
   answer: (request: { includeDraft: boolean }, cancellation: Token) => Record<string, unknown>,
   cancellation: Token,
-): Promise<{ provider: Provider; document: unknown }> {
+): Promise<{
+  provider: Provider;
+  document: unknown;
+  receive: (message: unknown) => unknown;
+}> {
   TtPngEditorProvider.register(
     { show: () => undefined } as never,
     {
@@ -141,7 +166,7 @@ async function openEditor(
     { webview, onDidDispose: () => ({ dispose: () => undefined }) },
     token(),
   );
-  return { provider, document };
+  return { provider, document, receive: (message) => receive(message) };
 }
 
 const rendered =
@@ -215,5 +240,34 @@ describe("the .tt.png editor's save", () => {
     );
 
     expect(host.log).toEqual(["written: /backups/1"]);
+  });
+});
+
+describe("the .tt.png editor's export", () => {
+  it("suggests the export beside the diagram, without its double extension", async () => {
+    const { receive } = await openEditor(rendered(), token());
+
+    await receive({ type: "export", format: "svg", data: "<svg/>" });
+
+    expect(host.dialogs).toEqual([
+      {
+        title: "Export as SVG",
+        saveLabel: "Export",
+        filters: { "SVG image": ["svg"] },
+        defaultUri: expect.objectContaining({ path: "/work/shop.svg" }),
+      },
+    ]);
+  });
+
+  it("writes the PNG and warns when its labels fell back to the system sans", async () => {
+    const { receive } = await openEditor(rendered(), token());
+    host.state.saveTarget = host.Uri.file("/work/shop.png");
+
+    await receive({ type: "export", format: "png", data: PNG_BASE64, fontFallback: true });
+
+    expect(host.log).toEqual([
+      "written: /work/shop.png",
+      "warning: Exported shop.png in a system font. Geist couldn't be embedded.",
+    ]);
   });
 });
