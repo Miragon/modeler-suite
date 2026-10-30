@@ -148,13 +148,26 @@ export default class EventStormingDrawingHandles {
     // The focus move blurs a host's field, and a host that imports from its listener has replaced
     // the drawing by now: the press has no point left to drag.
     if (this.shape !== shape) return;
+    // One that locks the board there has taken the handles away, and the release would commit
+    // past the lock's rules: the press drags nothing, and its click keeps the drawing selected.
+    if (this.readOnly?.isReadOnly()) {
+      this.trapReleaseClick();
+      return;
+    }
     this.endPointDrag();
     this.dropReleaseTrap();
     const points = this.absolutePoints();
     let endGesture: (() => void) | undefined;
+    let ended = false;
 
     const onMove = (ev: MouseEvent): void => {
       endGesture ??= this.gestures?.beginGesture();
+      // A host's listener of the gesture's start may have ended the drag (a lock, an import) before
+      // the gesture's end was known here.
+      if (ended) {
+        endGesture?.();
+        return;
+      }
       points[index] = this.toCanvasPoint(ev);
       this.renderDragPreview(points, !!shape.closed);
     };
@@ -183,6 +196,7 @@ export default class EventStormingDrawingHandles {
     this.pointDrag = {
       shape,
       unbind: () => {
+        ended = true;
         document.removeEventListener("mousemove", onMove, true);
         document.removeEventListener("mouseup", onUp, true);
         document.removeEventListener("keydown", onKeyDown, true);

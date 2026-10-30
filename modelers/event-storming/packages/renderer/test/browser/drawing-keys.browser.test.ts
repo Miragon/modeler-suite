@@ -601,4 +601,69 @@ describe("the read-only lock during the point drag of a drawing (#493)", () => {
       expect(commandStack.canUndo()).toBe(true);
     },
   );
+
+  /** The drag reports its start from inside its first move, which goes on after the listeners. */
+  it("ends the drag when a host locks the board as the drag starts: the interaction ends and no preview stays", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const lock = service<EventStormingReadOnly>(modeler, "eventStormingReadOnly");
+    const reports: boolean[] = [];
+    const stopListening = modeler.interaction.onChange((active) => {
+      reports.push(active);
+      if (active) lock.setReadOnly(true);
+    });
+    const pointer = pointerOn(modeler);
+    const drawing = drawingOf(modeler);
+    service<Selection>(modeler, "selection").select(drawing);
+
+    pointer.press(handlesOf(modeler)[0]!, FIRST_POINT);
+    pointer.moveTo(offset(FIRST_POINT, 30, -40));
+    expect(reports).toEqual([true, false]);
+    expect(modeler.interaction.active()).toBe(false);
+    expect(pointDragPreview(modeler)).toBe(null);
+
+    pointer.moveTo(RELEASED_AT);
+    pointer.release(RELEASED_AT);
+    pointer.click(pointer.svg, RELEASED_AT);
+    expect(uncaught).toEqual([]);
+    expect(reports).toEqual([true, false]);
+    expect(changes()).toBe(0);
+    expect(modeler.exportText()).toBe(BOARD);
+    expect(service<Selection>(modeler, "selection").get()).toEqual([drawing]);
+
+    stopListening();
+    lock.setReadOnly(false);
+    holdFirstPoint(modeler);
+    pointer.release(RELEASED_AT);
+    expect(modeler.interaction.active()).toBe(false);
+    expect(changes()).toBe(1);
+    expectTheFirstPointMovedTo(modeler, RELEASED_AT);
+  });
+
+  it("starts no drag when the press on a handle moves the focus off a host field that locks the board", async () => {
+    const modeler = await editorWithBoard();
+    const changes = changesOf(modeler);
+    const lock = service<EventStormingReadOnly>(modeler, "eventStormingReadOnly");
+    const pointer = pointerOn(modeler);
+    const drawing = drawingOf(modeler);
+    service<Selection>(modeler, "selection").select(drawing);
+    hostField.focus();
+    hostField.addEventListener("blur", () => lock.setReadOnly(true), { once: true });
+
+    pointer.press(handlesOf(modeler)[0]!, FIRST_POINT);
+    expect(lock.isReadOnly()).toBe(true);
+    expect(handlesOf(modeler)).toEqual([]);
+    pointer.moveTo(RELEASED_AT);
+    expect(modeler.interaction.active()).toBe(false);
+    expect(pointDragPreview(modeler)).toBe(null);
+
+    pointer.release(RELEASED_AT);
+    // The press went to the handle the lock took away, so the browser clicks the canvas.
+    pointer.click(pointer.svg, RELEASED_AT);
+    expect(uncaught).toEqual([]);
+    expect(changes()).toBe(0);
+    expect(modeler.exportText()).toBe(BOARD);
+    expect(service<CommandStack>(modeler, "commandStack").canUndo()).toBe(false);
+    expect(service<Selection>(modeler, "selection").get()).toEqual([drawing]);
+  });
 });

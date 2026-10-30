@@ -78,7 +78,8 @@ faces, a PNG without Geist is saved with a warning (the web app's toast, the web
 webview also a failed SVG or JSON export. Both
 hosts run the vocabulary specs (`webapp-vocabulary.spec.ts`,
 `vscode/vocabulary.spec.ts`): the label editor's suggestions with their keys, mouse and layer, the
-spelling-variant dots and "Unify spelling" as one undo step, in VS Code one edit of the document.
+spelling-variant dots and "Unify spelling" as one undo step, in VS Code one edit of the document
+and dots that stay while the file is typed and hide only once it has stayed invalid for 800ms.
 Both run the aggregates specs (`webapp-aggregates.spec.ts`, `vscode/aggregates.spec.ts`):
 "Aggregates…" only while the board has a named aggregate (in the web app also absent while every
 aggregate carries a placeholder, until one is renamed), the shell's dialog with a row group per
