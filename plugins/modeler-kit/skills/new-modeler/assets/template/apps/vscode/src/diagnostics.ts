@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
+import { splitLines } from '@miragon/modeler-shell/vscode/extension';
 import { parseText } from '@miragon/__NOTATION__-dsl';
 import { validateDocument } from '@miragon/__NOTATION__-schema-model';
-import { splitLines } from './textLines.js';
 
 export const DIAGNOSTIC_SOURCE = '__NOTATION__';
 

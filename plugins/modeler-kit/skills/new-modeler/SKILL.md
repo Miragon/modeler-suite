@@ -128,6 +128,9 @@ known version), and the new repository's Dependabot moves them on.
 - Neither app has chrome of its own: menu, palette skin, zoom, keys, problems, status, empty state,
   toasts and the shortcuts dialog come from the shell, and the menu content and the shortcut rows
   come from the renderer.
+- The extension syncs the document through the shell's document plumbing, `registerModelerEditor`
+  in the extension host and `connectDocumentSync` in the webview, with no writer, echo filter or
+  import queue of its own ([shell](references/shell.md#the-ide-host-vs-code)).
 - The PNG export is the shell's `svgToPng` (`@miragon/modeler-shell/export`): Geist inside the
   picture and the background of guide §10.7, in both apps, with no rasteriser of their own.
 - The extension creates a diagram natively (guide §13.5): "New Empty Diagram" and "New Diagram

@@ -23,11 +23,13 @@ import {
 } from '@miragon/modeler-shell/diagram-js';
 import { GEIST_UNICODE_RANGES, svgToPng, type GeistFace } from '@miragon/modeler-shell/export';
 import {
+  connectDocumentSync,
   mountVsCodeShell,
   persistView,
   readShellState,
+  type DocumentImportContext,
 } from '@miragon/modeler-shell/vscode/webview';
-import type { HostToWebview, WebviewToHost } from '../protocol.js';
+import type { WebviewToHost } from '../protocol.js';
 
 interface VsCodeApi {
   postMessage(message: WebviewToHost): void;
@@ -93,9 +95,6 @@ const connection = connectDiagramJs(shell, diagram, {
 const { viewport } = connection;
 persistView(vscode, viewport);
 
-let lastText = '';
-let initialized = false;
-
 function showValid(): void {
   canvasLock.setReadOnly(false);
   shell.setReadOnly(false);
@@ -116,14 +115,13 @@ function showInvalid(): void {
 /**
  * The first import takes the stored view (or fits); every later one (an undo in VS Code, the text
  * editor, Git) keeps view and selection, as the contract's view state survives a re-import (L5).
+ * False when the canvas refused the text: it then shows the file as invalid and read-only.
  */
-async function importText(text: string): Promise<void> {
-  const first = !initialized;
+async function importText(text: string, { first }: DocumentImportContext): Promise<boolean> {
   const keep = first ? undefined : viewport.getViewbox();
   const selected = modeler.elements.selection();
   try {
     await modeler.importText(text);
-    lastText = text;
     showValid();
     if (keep) viewport.restore(keep);
     else if (first && stored.view) viewport.setState(stored.view);
@@ -131,27 +129,12 @@ async function importText(text: string): Promise<void> {
     const again = selected.flatMap((id) => registry.get(id) ?? []);
     if (again.length > 0) selection.select(again);
     viewport.afterImport();
+    return true;
   } catch {
     showInvalid();
-  } finally {
-    initialized = true;
+    return false;
   }
 }
-
-// Strictly one after another: two quick updates must not finish in the wrong order.
-let imports: Promise<void> = Promise.resolve();
-const enqueueImport = (text: string) => (imports = imports.then(() => importText(text)));
-
-/** A canvas edit: the canonical text goes to the host, which writes it as one minimal edit. */
-modeler.onContentChanged(() => {
-  // Before the first import the canvas does not show the document; read-only, it shows the last
-  // valid one: either way an edit would overwrite text the canvas never saw.
-  if (!initialized || shell.isReadOnly()) return;
-  const text = modeler.exportText();
-  if (text === lastText) return;
-  lastText = text;
-  post({ type: 'edit', text });
-});
 
 async function exportPicture(format: 'png' | 'svg'): Promise<void> {
   try {
@@ -196,26 +179,19 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-let firstImportSettled: () => void = () => undefined;
-const ready = new Promise<void>((resolve) => (firstImportSettled = resolve));
-
-window.addEventListener('message', (event: MessageEvent<unknown>) => {
-  // The shell's appearance messages arrive here too; they are its own to apply.
-  const message = event.data as HostToWebview | undefined;
-  switch (message?.type) {
-    case 'init':
-      void enqueueImport(message.text).then(firstImportSettled);
-      break;
-    case 'update':
-      void enqueueImport(message.text);
-      break;
-    case 'problems':
-      shell.setProblems({ count: message.count, errors: message.errors });
-      break;
-  }
+// Connected last, since it posts `ready` at once. It imports `init` and every `update` strictly one
+// after another (two quick undos must not finish in the wrong order) and posts each canvas edit's
+// canonical text, which the extension writes as one minimal edit. Before the first import the
+// canvas does not show the document; read-only, it shows the last valid one: either way an edit
+// would overwrite text the canvas never saw, so `canWrite` holds it back.
+const sync = connectDocumentSync({
+  api: vscode,
+  importText,
+  exportText: () => modeler.exportText(),
+  canWrite: () => !shell.isReadOnly(),
+  onProblems: (counts) => shell.setProblems(counts),
 });
-
-post({ type: 'ready' });
+modeler.onContentChanged(sync.pushEdit);
 
 /** For the e2e test page: the mounted parts, and `ready` once the first `init` import settled. */
 export const webview: {
@@ -223,4 +199,4 @@ export const webview: {
   modeler: CollaborativeDiagram;
   connection: DiagramJsConnection;
   ready: Promise<void>;
-} = { shell, modeler, connection, ready };
+} = { shell, modeler, connection, ready: sync.ready };
