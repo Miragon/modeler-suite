@@ -91,9 +91,10 @@ function withoutComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
+/** The selectors of every rule, a list split at its own commas, not at those inside `:is()`. */
 function ruleSelectors(source: string): string[] {
   return [...withoutComments(source).matchAll(/([^{};]+)\{/g)].flatMap((match) =>
-    match[1]!.split(",").map((selector) => selector.trim()),
+    match[1]!.split(/,(?![^(]*\))/).map((selector) => selector.trim()),
   );
 }
 
@@ -158,7 +159,7 @@ describe("theme.sync — value-chain.css takes every colour from the roles", () 
     for (const selector of paletteSelectors) {
       expect(selector.split(unskinned).join(""), selector).not.toMatch(/\.djs-palette(?![\w-])/);
       expect(selector.replace(/\s+/g, " "), selector).toMatch(
-        /\.vc-container(\[data-cd-kontrast="hoch"\]|:not\(\[data-cd-theme\]\))? \.djs-palette:not/,
+        /^(\.vc-container|:is\(:scope\.vc-container, :scope \.vc-container\)) \.djs-palette:not/,
       );
     }
   });

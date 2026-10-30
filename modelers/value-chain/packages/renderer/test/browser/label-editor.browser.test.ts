@@ -145,4 +145,23 @@ describe("the label editor's focus ring under a host's appearance (#359)", () =>
     const textBox = openEditor(mounted, "step-credit");
     expect(focusRing(textBox)).toMatchObject({ style: "solid", width: "2px", offset: "2px" });
   });
+
+  it("stays 2px with its shadow inside a carrier in normal contrast on a high-contrast page (#401)", async () => {
+    page.setAttribute("data-cd-kontrast", "hoch");
+    const mounted = await mount();
+    mounted.diagram.container.parentElement!.setAttribute("data-cd-theme", "light");
+    const textBox = openEditor(mounted, "step-credit");
+    expect(focusRing(textBox)).toMatchObject({ style: "solid", width: "2px", offset: "2px" });
+    expect(getComputedStyle(textBox).boxShadow).not.toBe("none");
+  });
+
+  it("is 3px without a shadow inside a high-contrast carrier that is not the page (#401)", async () => {
+    const mounted = await mount();
+    const carrier = mounted.diagram.container.parentElement!;
+    carrier.setAttribute("data-cd-theme", "light");
+    carrier.setAttribute("data-cd-kontrast", "hoch");
+    const textBox = openEditor(mounted, "step-credit");
+    expect(focusRing(textBox)).toMatchObject({ style: "solid", width: "3px", offset: "2px" });
+    expect(getComputedStyle(textBox).boxShadow).toBe("none");
+  });
 });
