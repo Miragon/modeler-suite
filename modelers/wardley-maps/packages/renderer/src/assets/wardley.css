@@ -12,6 +12,8 @@
    the mode comes from the page alone, so there is no navy surround under light chrome. */
 .wardley-container {
   position: relative;
+  /* The narrow layout of the palette reads this container, not the page (guide §5.1, §5.15). */
+  container: wardley / inline-size;
   width: 100%;
   height: 100%;
   background-color: var(--cd-ui-grund);
@@ -103,7 +105,8 @@
    toolbar. Every rule skips a palette the shell skins (data-chrome="palette"), so the shell's look
    applies alone there; `:where` keeps the specificity hosts already override. Styling sits on the element itself, not on .wardley-container, so it
    travels along when a consumer mounts the palette elsewhere. The sizes are guide §5.5's: 40px high
-   from a 1px edge, 3px padding and 32px entries 2px apart, the groups 8px, a 1px line and 8px apart. */
+   from a 1px edge, 3px padding and 32px entries 2px apart, the groups 8px, a 1px line and 8px apart.
+   A glass island (guide §5.3, §6), which --cd-ui-chrome-deckkraft makes opaque in high contrast. */
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) {
   left: 50%;
   top: var(--cd-shell-rand);
@@ -121,7 +124,13 @@
   display: flex;
   align-items: center;
   padding: 3px;
-  background: var(--cd-ui-flaeche-hoch);
+  background: color-mix(
+    in srgb,
+    var(--cd-ui-flaeche-hoch) var(--cd-ui-chrome-deckkraft),
+    transparent
+  );
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--cd-ui-linie);
   border-radius: var(--cd-radius-md);
   box-shadow: var(--cd-shadow-1);
@@ -193,10 +202,17 @@
   line-height: 20px;
   box-shadow: var(--cd-shadow-2);
 }
-/* palette/WardleyPaletteTooltip.ts hangs it 8px below the island at its entry's centre, with a
-   placement diagram-js's sheet has no rule for: a copy of that sheet a host loads later would win
-   a tie with a `--right` rule here and put the tooltip back over the next tools. */
-:where(.wardley-container) .djs-hover-tooltip--bottom {
+/* palette/WardleyPaletteTooltip.ts hangs it 8px below the island at its entry's centre, in the
+   canvas container's coordinates and at least 12px from its sides, with a placement diagram-js's
+   sheet has no rule for: a copy of that sheet a host loads later would win a tie with a `--right`
+   rule here and put the tooltip back over the next tools. The doubled class outweighs that sheet's
+   fixed position too. At most min(280px, 100% - 24px) wide, so a long name wraps (guide §5.6). */
+:where(.wardley-container) .djs-hover-tooltip.djs-hover-tooltip--bottom {
+  position: absolute;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(280px, 100% - 24px);
+  white-space: normal;
   transform: translateX(-50%);
 }
 :where(.wardley-container) .djs-hover-tooltip .djs-palette-tooltip-shortcut {
@@ -210,6 +226,14 @@
   font-weight: 400;
   box-shadow: none;
   vertical-align: baseline;
+}
+
+/* Guide §5.15: in a container at most 760px wide (--cd-shell-schmal) the palette moves to the second
+   row (--cd-shell-frei), and its tooltips with it, to 112px. */
+@container wardley (max-width: 760px) {
+  .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) {
+    top: var(--cd-shell-frei);
+  }
 }
 
 /* Subtle vertical separator between the groups (diagram-js does not separate groups on its own). */

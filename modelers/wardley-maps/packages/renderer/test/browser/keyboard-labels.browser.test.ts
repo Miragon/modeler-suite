@@ -81,7 +81,7 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
   }
 
   function svg(): SVGElement {
-    return container.querySelector("svg")!;
+    return container.querySelector(".djs-container > svg")!;
   }
 
   /** A key pressed with the canvas focused, the only place its keys act. */
@@ -545,6 +545,58 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       expect(drawings()).toBe(1);
       expect(pressOnCanvas("c").defaultPrevented).toBe(true);
       expect(shapeLabels("component")).toEqual(["Platform", "Component"]);
+    });
+
+    /** Whether a create (a paste's copies at the pointer, say) runs next to the line. */
+    function createAtPointer(): boolean {
+      const context = service<Dragging>("dragging").context() as { prefix?: string } | null;
+      return context?.prefix === "create";
+    }
+
+    it("takes paste without effect while it holds the points of a line (#445)", async () => {
+      select("Platform");
+      expect(pressOnCanvas("c", { metaKey: true }).defaultPrevented).toBe(true);
+      drawTool().activate();
+      placePoint(300, 300);
+      placePoint(420, 360);
+
+      expect(pressOnCanvas("v", { metaKey: true }).defaultPrevented).toBe(true);
+      await nextTask();
+      expect(createAtPointer()).toBe(false);
+      expect(drawTool().holdsLine()).toBe(true);
+      expect(shapeLabels("component")).toEqual(["Platform"]);
+
+      expect(pressOnCanvas("Enter").defaultPrevented).toBe(true);
+      expect(drawings()).toBe(1);
+      expect(shapeLabels("component")).toEqual(["Platform"]);
+    });
+
+    it("takes paste without effect while it holds a line, also when the board would wait for the host's paste event (#445)", async () => {
+      select("Platform");
+      pressOnCanvas("c", { metaKey: true });
+      document.dispatchEvent(new ClipboardEvent("copy", { bubbles: true }));
+      drawTool().activate();
+      placePoint(300, 300);
+      placePoint(420, 360);
+
+      expect(pressOnCanvas("v", { metaKey: true }).defaultPrevented).toBe(true);
+      document.body.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true }));
+      await nextTask();
+      expect(createAtPointer()).toBe(false);
+      expect(drawTool().holdsLine()).toBe(true);
+    });
+
+    it("pastes again once the line is finished", () => {
+      select("Platform");
+      pressOnCanvas("c", { metaKey: true });
+      drawTool().activate();
+      placePoint(300, 300);
+      placePoint(420, 360);
+      pressOnCanvas("Enter");
+
+      expect(pressOnCanvas("v", { metaKey: true }).defaultPrevented).toBe(true);
+      expect(createAtPointer()).toBe(true);
+      service<Dragging>("dragging").cancel(true);
     });
 
     it("focuses the canvas on the first point, so Enter there finishes the line", () => {

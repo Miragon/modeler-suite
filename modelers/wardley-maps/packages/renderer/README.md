@@ -35,6 +35,17 @@ const { svg } = await viewer.saveSVG();
 
 Swap `NavigatedViewer` for `Modeler` to get the editable map (palette, context pad, undo/redo).
 
+For a host without the Miragon modeler shell, the `Modeler`'s palette is the toolbar of the Miragon
+design guide: a glass island at the top centre of the container (opaque in high contrast), in the
+second row, 64px from the top, in a container at most 760px wide, and ahead of the canvas in the
+tab order, with one tab stop that the arrow keys, Home and End move. Its tooltip names the entry
+and its key 8px below the palette, centred on the entry and at least 12px from the container's
+sides; it shows after 300ms of hover, at once on keyboard focus or for a neighbour, never for a
+tap, and hides on a press, on Escape and when the pointer or the focus leaves. The palette lies
+before the canvas `<svg>` in the container, so a host finds the canvas with
+`canvas.getContainer().querySelector(":scope > svg")`, not as the first `svg`. A palette a chrome
+skins (`data-chrome="palette"`) is left to that chrome.
+
 ## API
 
 | Member                                                                     | What it does                                                                                                                                        |
@@ -106,9 +117,10 @@ drag, the point drag of a drawing (the drawing stays selected) and the drag of a
 evolve target. These drags and the colour picker take only an Escape aimed at the canvas (the
 picker also one on its swatches); one aimed at the palette, the context pad, a name editor or a
 host's field, menu, dialog or overlay, inside the canvas container or next to it, stays with that
-control. While the draw tool holds the points of a line, the single-key tools do nothing until the
-line is finished or cancelled, and the canvas takes them with `preventDefault()`. Enter and Space
-on the Draw entry save the line, as Enter on the canvas does. While a point of a drawing is dragged,
+control. While the draw tool holds the points of a line, the single-key tools and Cmd/Ctrl+V (the
+paste attaches to the pointer) do nothing until the line is finished or cancelled, and the canvas
+takes them with `preventDefault()`. Enter and Space on the Draw entry save the line, as Enter on
+the canvas does. While a point of a drawing is dragged,
 the keys that would change the drawing under the drag or start a second gesture next to it do
 nothing until the release, and the canvas takes them with `preventDefault()`: the single-key tools,
 the arrow keys, paste and duplicate. Delete still removes the drawing, which ends the drag without a

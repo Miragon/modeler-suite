@@ -100,7 +100,7 @@ function paletteOf(modeler: CollaborativeWardleyModeler): HTMLElement {
 /** diagram-js shows the palette's tooltip a moment after the pointer enters an entry. */
 async function showPaletteTooltip(modeler: CollaborativeWardleyModeler): Promise<HTMLElement> {
   const entry = within(paletteOf(modeler), '.entry[data-action="create.component"]');
-  entry.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  entry.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse" }));
   return vi.waitFor(() => within(diagramOf(modeler).container, ".djs-hover-tooltip"));
 }
 

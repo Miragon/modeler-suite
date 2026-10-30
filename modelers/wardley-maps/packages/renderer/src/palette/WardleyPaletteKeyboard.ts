@@ -14,8 +14,9 @@ const ACTIVATE_KEYS = new Set(["Enter", " "]);
  * Makes the palette a keyboard-operable toolbar (WAI-ARIA toolbar pattern): one Tab stop with a
  * roving tabindex, arrow keys / Home / End move between tools, Enter or Space activates the focused
  * one. A create tool has no pointer position to attach the new element to, so it is placed at the
- * centre of the free rectangle instead (see `WardleyPaletteProvider.createAtFreeCenter`). Only for
- * hosts without the Miragon modeler shell, which brings these keys itself.
+ * centre of the free rectangle instead (see `WardleyPaletteProvider.createAtFreeCenter`). The
+ * palette comes before the canvas in the tab order. Only for hosts without the Miragon modeler
+ * shell, which brings these keys and that order itself.
  */
 export default class WardleyPaletteKeyboard {
   static $inject = ["eventBus", "palette", "wardleyPaletteProvider", "injector"];
@@ -35,9 +36,33 @@ export default class WardleyPaletteKeyboard {
     eventBus.on("palette.create", (event: { container: HTMLElement }) =>
       this.attach(event.container),
     );
-    eventBus.on("palette.changed", () => this.updateTabStops());
+    eventBus.on("palette.changed", () => {
+      this.moveBeforeCanvas();
+      this.updateTabStops();
+    });
     const existing = (palette as unknown as { _container?: HTMLElement })._container;
-    if (existing) this.attach(existing);
+    if (existing) {
+      this.attach(existing);
+      this.moveBeforeCanvas();
+    }
+  }
+
+  // diagram-js appends the palette after the canvas <svg>, so Tab would reach the canvas first
+  // (guide §5.5, §5.14). Moved only while it lies there: a move takes the focus off a focused
+  // entry. A chrome marks a palette it skins in its own listener of `palette.create`, so the move
+  // waits for the `palette.changed` that follows and leaves such a palette to that chrome.
+  private moveBeforeCanvas(): void {
+    const container = this.container;
+    if (!container || container.getAttribute("data-chrome") === "palette") return;
+    const parent = container.parentElement;
+    const svg = parent && Array.from(parent.children).find((child) => child.localName === "svg");
+    if (
+      parent &&
+      svg &&
+      container.compareDocumentPosition(svg) & Node.DOCUMENT_POSITION_PRECEDING
+    ) {
+      parent.insertBefore(container, svg);
+    }
   }
 
   private attach(container: HTMLElement): void {

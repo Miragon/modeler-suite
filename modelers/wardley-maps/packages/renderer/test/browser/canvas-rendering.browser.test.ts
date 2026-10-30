@@ -238,7 +238,7 @@ evolve Online Ordering 0.6`);
         mouse(document, "mouseup", rect.left + 4, rect.top + 4);
         mouse(name, "click", rect.left + 4, rect.top + 4);
 
-        const svg = container.querySelector("svg")!;
+        const svg = container.querySelector(".djs-container > svg")!;
         expect(document.activeElement).toBe(svg);
         expect(svg.matches(":focus-visible")).toBe(false);
         svg.dispatchEvent(
@@ -263,7 +263,7 @@ evolve Online Ordering 0.6`);
         const rect = handle.getBoundingClientRect();
         mouse(handle, "mousedown", rect.left + 2, rect.top + 2);
         mouse(document, "mouseup", rect.left + 2, rect.top + 2);
-        expect(document.activeElement).toBe(container.querySelector("svg"));
+        expect(document.activeElement).toBe(container.querySelector(".djs-container > svg"));
       } finally {
         title.remove();
       }
@@ -360,7 +360,7 @@ component Kettle [0.43, 0.35] label [20, 0]`);
       await modeler.importDSL(TEA_SHOP);
       const canvas = modeler.get<Canvas>("canvas");
       const before = canvas.viewbox();
-      const svg = container.querySelector("svg")!;
+      const svg = container.querySelector(".djs-container > svg")!;
       const rect = svg.getBoundingClientRect();
       const x = rect.left + 20;
       const y = rect.top + rect.height - 20;

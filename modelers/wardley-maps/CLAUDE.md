@@ -51,8 +51,8 @@ stays armed, and so does the draw tool before its first point; a line it holds e
 drawing on the import (`import.render.start` in `WardleyDrawTool`, #243). The renderer's own drags
 (label, point, evolve target) and the colour picker bind Escape themselves and take it only when it
 is aimed at the canvas `<svg>` (`isCanvasKey` in `src/a11y/`), the picker also on its swatches;
-while the draw tool holds points, `WardleyKeyboard` takes the single-key tools without effect
-(`preventDefault`), and while a point drag runs also the arrow keys, paste and duplicate
+while the draw tool holds points, `WardleyKeyboard` takes the single-key tools and paste without
+effect (`preventDefault`, #445), and while a point drag runs also the arrow keys and duplicate
 (`isDraggingPoint`, #375); Space on the draw tool's own palette entry saves a held line as Enter
 does (#438).
 `wardleyInteraction` ([`src/interaction/`](packages/renderer/src/interaction/)) follows every gesture
