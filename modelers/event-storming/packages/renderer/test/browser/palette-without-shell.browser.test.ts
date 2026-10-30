@@ -2,9 +2,12 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { cdp, page, userEvent } from "vitest/browser";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
+import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
+import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import type { ModuleDeclaration } from "didi";
 import { Modeler } from "../../src/index.js";
 import type EventStormingDrawTool from "../../src/draw-tool/EventStormingDrawTool.js";
@@ -153,6 +156,12 @@ function resolved(container: HTMLElement, property: string, value: string): stri
   return computed;
 }
 
+/** The element's look once its transitions have ended. */
+async function settled(element: HTMLElement): Promise<CSSStyleDeclaration> {
+  await Promise.all(element.getAnimations().map((animation) => animation.finished));
+  return getComputedStyle(element);
+}
+
 async function emulateMedia(name: "forced-colors" | "prefers-reduced-motion", value: string) {
   await cdp().send("Emulation.setEmulatedMedia", { features: [{ name, value }] });
 }
@@ -294,6 +303,143 @@ describe("the palette without the shell: the sizes of guide §5.5", () => {
     expect(key.left - name.right).toBeCloseTo(6, 0);
     await userEvent.unhover(entry);
   });
+});
+
+describe("the palette without the shell: a container at most 760px wide (guide §5.15)", () => {
+  function resize(board: Board, width: number): void {
+    board.container.style.width = `${width}px`;
+    board.modeler.get<Canvas>("canvas").resized();
+  }
+
+  function canvasScroll(container: HTMLElement): number[] {
+    const canvasContainer = container.querySelector<HTMLElement>(".djs-container")!;
+    return [canvasContainer.scrollLeft, canvasContainer.scrollTop];
+  }
+
+  /** The entry's box in the palette's visible part, whose left edge is 0. */
+  function visibleIn(entry: HTMLElement, palette: HTMLElement): { left: number; right: number } {
+    const box = boxIn(entry, palette);
+    return { left: box.left - palette.clientLeft, right: box.right - palette.clientLeft };
+  }
+
+  test("stays in the top row above 760px and moves to the second row, at 64px, at 760px", async () => {
+    const board = await mountBoard({ width: 761 });
+    expect(boxIn(board.palette, board.container).top).toBe(12);
+
+    resize(board, 760);
+    const box = boxIn(board.palette, board.container);
+    expect([box.top, box.height]).toEqual([64, 40]);
+    expect(Math.abs(box.left + box.width / 2 - 380)).toBeLessThanOrEqual(0.5);
+    expect(getComputedStyle(board.palette).overflowX).toBe("auto");
+  });
+
+  // The palette is 425px wide at the level "design".
+  test("keeps 12px from both sides of a container narrower than it and scrolls sideways without a bar, the keyboard focus in view", async () => {
+    const { container, palette } = await mountBoard({ width: 430 });
+    const box = boxIn(palette, container);
+    expect([box.left, box.right, box.height]).toEqual([12, 418, 40]);
+    expect(palette.scrollWidth).toBeGreaterThan(palette.clientWidth);
+    expect(getComputedStyle(palette).scrollbarWidth).toBe("none");
+    for (const entry of paletteEntries(palette)) {
+      expect(entry.getBoundingClientRect().width).toBe(32);
+    }
+
+    entryOf(palette, "lasso-tool").focus();
+    await userEvent.keyboard("{End}");
+    const note = entryOf(palette, "create.note");
+    expect(document.activeElement).toBe(note);
+    expect(palette.scrollLeft).toBeGreaterThan(0);
+    expect(visibleIn(note, palette).right).toBeCloseTo(palette.clientWidth - 3, 0);
+    expect(canvasScroll(container)).toEqual([0, 0]);
+
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(entryOf(palette, "lasso-tool"));
+    expect(visibleIn(entryOf(palette, "lasso-tool"), palette).left).toBeCloseTo(3, 0);
+    expect(canvasScroll(container)).toEqual([0, 0]);
+  });
+
+  // The removal of the focused entry scrolls the palette back to its start, and the focus would come
+  // back on an entry that still lies in view there: the palette would jump under the user.
+  test("keeps the palette scrolled where it was when an import rebuilds the entries under the keyboard focus", async () => {
+    const { modeler, palette, before } = await mountBoard({ width: 300 });
+    before.focus();
+    await userEvent.tab();
+    await userEvent.keyboard("{End}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}");
+    expect(document.activeElement).toBe(entryOf(palette, "create.policy"));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const scrolled = palette.scrollLeft;
+    expect(scrolled).toBeGreaterThan(0);
+
+    await modeler.importDSL("title Palette\nevent Remote [200, 300]");
+    expect(document.activeElement).toBe(entryOf(palette, "create.policy"));
+    expect(palette.scrollLeft).toBe(scrolled);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(palette.scrollLeft).toBe(scrolled);
+  });
+
+  test("puts the focus ring inside the entry, 1px inside the armed tool's ring", async () => {
+    const { palette } = await mountBoard({ width: 600 });
+    const ring = (action: string) => {
+      const style = getComputedStyle(entryOf(palette, action));
+      return [style.outlineWidth, style.outlineOffset];
+    };
+    entryOf(palette, "lasso-tool").focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(ring("draw-tool")).toEqual(["2px", "-2px"]);
+
+    await userEvent.keyboard("{Enter}");
+    expect(entryOf(palette, "draw-tool").getAttribute("aria-pressed")).toBe("true");
+    expect(ring("draw-tool")).toEqual(["2px", "-5px"]);
+  });
+
+  test("keeps the 3px ring of high contrast 1px deeper, from the nearest carrier of the mode", async () => {
+    const { container, palette } = await mountBoard({ width: 600 });
+    const carrier = container.parentElement!;
+    const ring = (action: string) => {
+      const style = getComputedStyle(entryOf(palette, action));
+      return [style.outlineWidth, style.outlineOffset];
+    };
+    entryOf(palette, "lasso-tool").focus();
+    await userEvent.keyboard("{ArrowRight}");
+    await userEvent.keyboard("{Enter}");
+    container.setAttribute("data-cd-theme", "light");
+    container.setAttribute("data-cd-kontrast", "hoch");
+    expect(ring("draw-tool")).toEqual(["3px", "-6px"]);
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(ring("lasso-tool")).toEqual(["3px", "-3px"]);
+
+    container.removeAttribute("data-cd-kontrast");
+    document.documentElement.setAttribute("data-cd-kontrast", "hoch");
+    expect(ring("lasso-tool")).toEqual(["2px", "-2px"]);
+    container.removeAttribute("data-cd-theme");
+    carrier.setAttribute("data-cd-theme", "light");
+    carrier.setAttribute("data-cd-kontrast", "hoch");
+    document.documentElement.removeAttribute("data-cd-kontrast");
+    expect(ring("lasso-tool")).toEqual(["3px", "-3px"]);
+  });
+
+  // 64px, the 40px island and 8px. At 430px the palette has scrolled to show the last entry.
+  test.for([{ width: 760 }, { width: 430 }])(
+    "hangs the tooltip at 112px in a container $width px wide, centred on its entry",
+    async ({ width }) => {
+      const { container, palette, before } = await mountBoard({ width });
+      before.focus();
+      await userEvent.tab();
+      await userEvent.keyboard("{End}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}");
+      const policy = entryOf(palette, "create.policy");
+      expect(document.activeElement).toBe(policy);
+
+      const tooltip = container.querySelector<HTMLElement>(".djs-hover-tooltip");
+      expect(tooltip?.textContent).toBe("Policy");
+      const tooltipBox = boxIn(tooltip!, container);
+      const entryBox = boxIn(policy, container);
+      expect(tooltipBox.top).toBeCloseTo(112, 0);
+      expect(tooltipBox.left + tooltipBox.width / 2).toBeCloseTo(
+        entryBox.left + entryBox.width / 2,
+        0,
+      );
+    },
+  );
 });
 
 describe("the palette without the shell: forced colours (guide §5.14)", () => {
@@ -548,6 +694,42 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
     expect(pressed(palette)).toMatchObject({ "lasso-tool": "true", "draw-tool": "false" });
   });
 
+  // diagram-js releases the lasso on a cancel only once the pointer moved its drag, and arms it
+  // again for a second click without a press, while the pointer rests (#462).
+  test("releases the armed lasso on a second Enter or Space and on Escape, so it is pressed only while armed", async () => {
+    const { modeler, palette } = await mountBoard();
+    const dragging = modeler.get<Dragging>("dragging");
+    const lasso = entryOf(palette, "lasso-tool");
+    const state = () => [lasso.getAttribute("aria-pressed"), dragging.context()?.prefix ?? null];
+    lasso.focus();
+
+    await userEvent.keyboard(" ");
+    expect(state()).toEqual(["true", "lasso.selection"]);
+    await userEvent.keyboard(" ");
+    expect(state()).toEqual(["false", null]);
+    expect(document.activeElement).toBe(lasso);
+
+    await userEvent.keyboard("{Enter}");
+    expect(state()).toEqual(["true", "lasso.selection"]);
+    await userEvent.keyboard("{Escape}");
+    expect(state()).toEqual(["false", null]);
+
+    await userEvent.keyboard("{Enter}");
+    expect(state()).toEqual(["true", "lasso.selection"]);
+  });
+
+  test("arms the lasso again, pressed, on a second click with the pointer", async () => {
+    const { modeler, palette } = await mountBoard();
+    const dragging = modeler.get<Dragging>("dragging");
+    const lasso = entryOf(palette, "lasso-tool");
+    const state = () => [lasso.getAttribute("aria-pressed"), dragging.context()?.prefix ?? null];
+
+    await userEvent.click(lasso);
+    expect(state()).toEqual(["true", "lasso.selection"]);
+    await userEvent.click(lasso);
+    expect(state()).toEqual(["true", "lasso.selection"]);
+  });
+
   // diagram-js marks the armed tool with `highlighted-entry` in the tools group it found at the
   // first tool change, which a rebuild (each import, each level switch) leaves detached.
   test("rings the armed tool after an import rebuilt the entries, also in forced colours", async () => {
@@ -612,13 +794,107 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
     entryOf(palette, "draw-tool").focus();
     await userEvent.keyboard(" ");
     expect(drawTool.isActive()).toBe(false);
-    await userEvent.click(entryOf(palette, "draw-tool"));
+    // Playwright refuses to click an aria-disabled entry, which a pointer still reaches.
+    await userEvent.click(entryOf(palette, "draw-tool"), { force: true });
     expect(drawTool.isActive()).toBe(false);
     expect(pressed(palette)).toMatchObject({ "draw-tool": "false" });
 
     entryOf(palette, "lasso-tool").focus();
     await userEvent.keyboard("{Enter}");
     expect(pressed(palette)).toMatchObject({ "lasso-tool": "true" });
+  });
+
+  describe("marks the entries the read-only lock disables (guide §13.5, #463)", () => {
+    function disabled(palette: HTMLElement): Record<string, string | null> {
+      return Object.fromEntries(
+        paletteEntries(palette).map((entry) => [
+          entry.getAttribute("data-action"),
+          entry.getAttribute("aria-disabled"),
+        ]),
+      );
+    }
+
+    function locked(actions: readonly string[]): Record<string, string | null> {
+      return Object.fromEntries(
+        actions.map((action) => [action, action === "lasso-tool" ? null : "true"]),
+      );
+    }
+
+    test("as aria-disabled, every entry but the lasso, again after each rebuild and none once unlocked", async () => {
+      const { modeler, palette } = await mountBoard();
+      const readOnly = modeler.get<EventStormingReadOnly>("eventStormingReadOnly");
+      expect(Object.values(disabled(palette))).toEqual(ENTRIES.map(() => null));
+
+      readOnly.setReadOnly(true);
+      expect(disabled(palette)).toEqual(locked(ENTRIES));
+
+      await modeler.importDSL("title Palette\nevent Remote [200, 300]");
+      expect(disabled(palette)).toEqual(locked(ENTRIES));
+      modeler.get<EventStormingModeling>("eventStormingModeling").setLevel("big-picture");
+      expect(paletteEntries(palette)).toHaveLength(7);
+      expect(disabled(palette)).toEqual(
+        locked(paletteEntries(palette).map((entry) => entry.getAttribute("data-action")!)),
+      );
+
+      readOnly.setReadOnly(false);
+      expect(Object.values(disabled(palette))).toEqual(paletteEntries(palette).map(() => null));
+    });
+
+    test("keeps them in the tab order and the arrow keys' path", async () => {
+      const { modeler, palette } = await mountBoard();
+      modeler.get<EventStormingReadOnly>("eventStormingReadOnly").setReadOnly(true);
+      entryOf(palette, "lasso-tool").focus();
+      await userEvent.keyboard("{ArrowRight}");
+
+      const draw = entryOf(palette, "draw-tool");
+      expect(document.activeElement).toBe(draw);
+      expect(draw.tabIndex).toBe(0);
+      expect(draw.matches(":focus-visible")).toBe(true);
+    });
+
+    test("draws the tool icons in --cd-ui-text-leise and the sticky previews grey, never by opacity, and without a hover", async () => {
+      const { modeler, container, palette } = await mountBoard();
+      modeler.get<EventStormingReadOnly>("eventStormingReadOnly").setReadOnly(true);
+      const lasso = entryOf(palette, "lasso-tool");
+      const draw = entryOf(palette, "draw-tool");
+      const event = entryOf(palette, "create.event");
+      const quiet = resolved(container, "color", "var(--cd-ui-text-leise)");
+
+      expect((await settled(lasso)).color).toBe(resolved(container, "color", "var(--cd-ui-text)"));
+      expect((await settled(draw)).color).toBe(quiet);
+      expect(getComputedStyle(event.firstElementChild!).filter).toBe("grayscale(1)");
+      expect(getComputedStyle(lasso.firstElementChild!).filter).toBe("none");
+      for (const entry of [draw, event]) {
+        expect(getComputedStyle(entry).opacity).toBe("1");
+        expect(getComputedStyle(entry.firstElementChild!).opacity).toBe("1");
+        expect(getComputedStyle(entry).cursor).toBe("not-allowed");
+      }
+
+      await userEvent.hover(draw);
+      await vi.waitFor(async () => {
+        const style = await settled(draw);
+        expect([style.backgroundColor, style.color]).toEqual(["rgba(0, 0, 0, 0)", quiet]);
+      });
+      await userEvent.hover(lasso);
+      await vi.waitFor(async () => {
+        expect((await settled(lasso)).backgroundColor).toBe(
+          resolved(container, "background-color", "var(--cd-ui-hover)"),
+        );
+      });
+    });
+
+    test("draws the disabled tool icons in GrayText in forced colours", async () => {
+      const { modeler, container, palette } = await mountBoard();
+      modeler.get<EventStormingReadOnly>("eventStormingReadOnly").setReadOnly(true);
+      await emulateMedia("forced-colors", "active");
+
+      // Chromium forces the text colour by itself; with that forcing off, the entry shows the
+      // stylesheet's own colour, which engines that keep author colours draw.
+      palette.style.forcedColorAdjust = "none";
+      expect((await settled(entryOf(palette, "draw-tool"))).color).toBe(
+        resolved(container, "color", "GrayText"),
+      );
+    });
   });
 
   test("leaves Enter with a modifier and a held key's repeats alone", async () => {
@@ -653,32 +929,39 @@ describe("the palette without the shell: toolbar (guide §5.5, §5.14)", () => {
     expect(canvasSvg(container).matches(":focus-visible")).toBe(false);
   });
 
-  // The browser scrolls the canvas container to show a focused entry past its side, and diagram-js
-  // maps the pointer as if it never scrolled.
-  test("keeps the board in place when the keyboard reaches an entry past the side of a narrower container", async () => {
-    const { container, palette, before } = await mountBoard({ width: 300 });
-    const canvasContainer = container.querySelector<HTMLElement>(".djs-container")!;
-    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
-    before.focus();
-    await userEvent.tab();
-    entryOf(palette, "lasso-tool").dispatchEvent(
-      new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true }),
-    );
-    expect(document.activeElement).toBe(entryOf(palette, "create.note"));
-    expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]);
-    await nextFrame();
-    expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]);
+  // The browser scrolls the canvas container to show a focused entry past its edge, and diagram-js
+  // maps the pointer as if it never scrolled. A narrow container scrolls the palette instead, but
+  // one lower than the palette's row still cuts the palette off at its bottom.
+  test.for([
+    { row: "top row", width: 1024, height: 40 },
+    { row: "second row", width: 300, height: 90 },
+  ])(
+    "keeps the board in place when the keyboard reaches an entry in a container lower than the palette's $row",
+    async ({ width, height }) => {
+      const { container, palette, before } = await mountBoard({ width, height });
+      const canvasContainer = container.querySelector<HTMLElement>(".djs-container")!;
+      const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+      before.focus();
+      await userEvent.tab();
+      entryOf(palette, "lasso-tool").dispatchEvent(
+        new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true }),
+      );
+      expect(document.activeElement).toBe(entryOf(palette, "create.note"));
+      expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]);
+      await nextFrame();
+      expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]);
 
-    before.focus();
-    await userEvent.tab();
-    expect(document.activeElement).toBe(entryOf(palette, "create.note"));
-    await vi.waitFor(() =>
-      expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]),
-    );
-    await nextFrame();
-    await nextFrame();
-    expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]);
-  });
+      before.focus();
+      await userEvent.tab();
+      expect(document.activeElement).toBe(entryOf(palette, "create.note"));
+      await vi.waitFor(() =>
+        expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]),
+      );
+      await nextFrame();
+      await nextFrame();
+      expect([canvasContainer.scrollLeft, canvasContainer.scrollTop]).toEqual([0, 0]);
+    },
+  );
 
   test("shows the keyboard focus as a 2px --cd-ui-fokus ring 2px outside the entry, none for a press", async () => {
     const { container, palette, before } = await mountBoard();
@@ -956,5 +1239,42 @@ describe.each([
     expect(document.activeElement).toBe(event);
     await userEvent.keyboard("{Enter}");
     expect(stickies(modeler)).toEqual([]);
+  });
+
+  test("leaves the marks of the read-only lock to the chrome", async () => {
+    const { modeler, palette } = await mountBoard({
+      additionalModules: [chromeModule({ asShell })],
+    });
+    modeler.get<EventStormingReadOnly>("eventStormingReadOnly").setReadOnly(true);
+    await modeler.importDSL("title Palette\nevent Remote [200, 300]");
+
+    expect(paletteEntries(palette).filter((entry) => entry.hasAttribute("aria-disabled"))).toEqual(
+      [],
+    );
+  });
+
+  // The chrome sends a click without a press (`detail` 0) for Enter or Space on an entry.
+  test("puts the armed lasso down on the second click the chrome sends for Enter or Space, and on Escape", async () => {
+    const { modeler, palette, before } = await mountBoard({
+      additionalModules: [chromeModule({ asShell })],
+    });
+    const toolManager = modeler.get<ToolManager>("toolManager");
+    const dragging = modeler.get<Dragging>("dragging");
+    const state = () => [toolManager.isActive("lasso"), dragging.context()?.prefix ?? null];
+    const keyboardClick = () =>
+      entryOf(palette, "lasso-tool").dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      );
+
+    keyboardClick();
+    expect(state()).toEqual([true, "lasso.selection"]);
+    keyboardClick();
+    expect(state()).toEqual([false, null]);
+
+    keyboardClick();
+    expect(state()).toEqual([true, "lasso.selection"]);
+    before.focus();
+    await userEvent.keyboard("{Escape}");
+    expect(state()).toEqual([false, null]);
   });
 });

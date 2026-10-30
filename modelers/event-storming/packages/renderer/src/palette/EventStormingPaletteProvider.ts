@@ -5,6 +5,8 @@ import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
+import type ToolManager from "diagram-js/lib/features/tool-manager/ToolManager";
 import type { Shape } from "diagram-js/lib/model/Types";
 import type { FreeArea } from "@miragon/modeler-api";
 import type LassoTool from "diagram-js/lib/features/lasso-tool/LassoTool";
@@ -46,6 +48,10 @@ export interface EventStormingPaletteConfig {
 
 /** Guide §5.5: a keyboard-created element lands this far down-right of one already centred there. */
 const KEYBOARD_CREATE_OFFSET = 24;
+
+/** The lasso's tool name in diagram-js's tool manager, and the drag that holds it armed. */
+const LASSO_TOOL = "lasso";
+const LASSO_SELECTION = "lasso.selection";
 
 interface PaletteSpec {
   key: string;
@@ -145,6 +151,8 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
     "eventStormingLabelEditing",
     "config.eventStormingPalette",
     "eventStormingReadOnly",
+    "dragging",
+    "toolManager",
   ];
 
   constructor(
@@ -162,8 +170,18 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
     private readonly labelEditing?: EventStormingLabelEditing,
     private readonly config?: EventStormingPaletteConfig,
     private readonly readOnly?: Pick<EventStormingReadOnly, "isReadOnly">,
+    private readonly dragging?: Pick<Dragging, "context" | "cancel">,
+    toolManager?: Pick<ToolManager, "isActive" | "setActive">,
   ) {
     palette.registerProvider(this);
+
+    // diagram-js releases a tool when its drag ends, but on a cancel only once the pointer has moved
+    // the drag, so a lasso that only waited, put down by Escape or from its entry, stayed pressed.
+    if (toolManager) {
+      eventBus.on(`${LASSO_SELECTION}.cleanup`, () => {
+        if (toolManager.isActive(LASSO_TOOL)) toolManager.setActive(null);
+      });
+    }
 
     // The level filters the entries, but diagram-js renders the palette once — re-query the
     // providers whenever the effective level may have changed: a (re)imported board and
@@ -194,7 +212,15 @@ export default class EventStormingPaletteProvider implements PaletteProvider {
       html: `<div class="entry event-storming-palette-entry">${PALETTE_ICONS.lasso}</div>`,
       action: {
         click: this.focusingCanvas(
-          this.endingDrawing((event) => this.lassoTool.activateSelection(event as MouseEvent)),
+          this.endingDrawing((event) => {
+            // A pointer's press has already ended the waiting drag, so its click arms the lasso
+            // again; Enter or Space on the armed lasso puts it down (guide §5.5).
+            if (isKeyboardClick(event) && this.dragging?.context()?.prefix === LASSO_SELECTION) {
+              this.dragging.cancel(false);
+              return;
+            }
+            this.lassoTool.activateSelection(event as MouseEvent);
+          }),
         ),
       },
     };

@@ -14,6 +14,8 @@
    not the one inherited from a page in another mode. */
 .event-storming-container {
   position: relative;
+  /* The narrow layout of the palette reads this container, not the page (guide §5.1, §5.15). */
+  container: event-storming / inline-size;
   width: 100%;
   height: 100%;
   color: var(--cd-ui-text);
@@ -138,6 +140,30 @@
   background: var(--cd-ui-hover);
   box-shadow: inset 0 0 0 2px var(--cd-ui-interaktion);
 }
+/* The entries the read-only lock disables (guide §13.5): aria-disabled from
+   palette/EventStormingPaletteToolbar.ts, still focusable, without a hover. The tool icons turn
+   --cd-ui-text-leise and the sticky previews grey, never by opacity. */
+:where(.event-storming-container)
+  .djs-palette:not([data-chrome="palette"])
+  .entry[aria-disabled="true"],
+:where(.event-storming-container)
+  .djs-palette:not([data-chrome="palette"])
+  .entry[aria-disabled="true"]:hover {
+  background: transparent;
+  color: var(--cd-ui-text-leise);
+  cursor: not-allowed;
+}
+:where(.event-storming-container)
+  .djs-palette:not([data-chrome="palette"])
+  .entry.highlighted-entry[aria-disabled="true"] {
+  color: var(--cd-ui-text-leise) !important;
+}
+:where(.event-storming-container)
+  .djs-palette:not([data-chrome="palette"])
+  .entry[aria-disabled="true"]
+  > * {
+  filter: grayscale(1);
+}
 :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) .entry:focus {
   outline: none;
 }
@@ -203,6 +229,34 @@
   font-size: 13px;
   box-shadow: none;
   vertical-align: baseline;
+}
+
+/* Guide §5.15: in a container at most 760px wide (--cd-shell-schmal) the palette moves to the second
+   row at 64px, and its tooltips with it to 112px. It is at most the container less 12px on either
+   side wide and scrolls sideways without a visible bar, which would make it taller than 40px. It
+   would clip a ring outside its entries, so the focus lies inside: 2px within the entry, 1px within
+   the armed tool's ring (guide §5.5); the 3px ring of high contrast is in the @scope block below. */
+@container event-storming (max-width: 760px) {
+  :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) {
+    top: 64px;
+    max-width: calc(100% - 24px);
+    box-sizing: border-box;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  :where(.event-storming-container) .djs-palette:not([data-chrome="palette"])::-webkit-scrollbar {
+    display: none;
+  }
+  :where(.event-storming-container) .djs-palette:not([data-chrome="palette"]) .entry:focus-visible {
+    outline-offset: -2px;
+  }
+  :where(.event-storming-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry[aria-pressed="true"]:focus-visible {
+    outline-offset: -5px;
+  }
 }
 /* Draw mode: crosshair over the whole canvas. */
 .event-storming-container.event-storming-draw-mode,
@@ -551,6 +605,19 @@
     .entry:focus-visible {
     outline-width: 3px;
   }
+  /* The palette of a narrow container (guide §5.15) keeps the wider ring inside its entries too. */
+  @container event-storming (max-width: 760px) {
+    :is(:scope.event-storming-container, :scope .event-storming-container)
+      .djs-palette:not([data-chrome="palette"])
+      .entry:focus-visible {
+      outline-offset: -3px;
+    }
+    :is(:scope.event-storming-container, :scope .event-storming-container)
+      .djs-palette:not([data-chrome="palette"])
+      .entry[aria-pressed="true"]:focus-visible {
+      outline-offset: -6px;
+    }
+  }
   /* Forced colours turn the surface role into Canvas only below a data-cd-theme: on a page in high
      contrast without one, the band would stay the light surface around a field drawn in Canvas. */
   @media (forced-colors: active) {
@@ -627,6 +694,12 @@
     background: Canvas;
     color: CanvasText !important;
     box-shadow: inset 0 0 0 2px Highlight;
+  }
+  /* The muted tool icons of the read-only lock (guide §13.5) would turn CanvasText. */
+  :where(.event-storming-container)
+    .djs-palette:not([data-chrome="palette"])
+    .entry[aria-disabled="true"] {
+    color: GrayText;
   }
 }
 /* No movement under reduced motion (guide §5.14, §7): no hover fades in the palette, the context

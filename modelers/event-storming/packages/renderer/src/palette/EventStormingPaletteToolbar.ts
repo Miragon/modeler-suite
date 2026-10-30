@@ -2,6 +2,7 @@ import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Palette from "diagram-js/lib/features/palette/Palette";
 import { focusCanvasWithoutRing, isKeyOnHiddenTarget } from "../keyboard/index.js";
+import { READ_ONLY_CHANGED_EVENT, type EventStormingReadOnly } from "../read-only/index.js";
 
 const TOOLBAR_LABEL = "Tools";
 const TOOLS_GROUP = "tools";
@@ -10,6 +11,8 @@ const ENTRIES_SELECTOR = ".djs-palette-entries";
 const ENTRY_SELECTOR = ".entry";
 /** A shortcut on one letter or digit names the same key on every layout (guide §5.6). */
 const SINGLE_KEY_SHORTCUT = /^[a-z0-9]$/i;
+/** The entries the read-only lock leaves active (guide §13.5); every other one changes the board. */
+const READ_ONLY_ACTIONS: ReadonlySet<string> = new Set(["lasso-tool"]);
 
 interface PaletteEntryLike {
   shortcut?: string;
@@ -24,10 +27,10 @@ interface OptionalInjector {
  * skins it: `role="toolbar"` named "Tools", one tab stop that roves with ← → Home End, Enter or
  * Space as a click without a pointer (a creating entry then places its sticky in the free area,
  * `EventStormingPaletteProvider`), `aria-pressed` on the tools (the lasso and the draw tool),
- * `aria-keyshortcuts` on the entries with a key, and the palette ahead of the canvas in the tab
- * order (guide §5.14). A key on an entry the host made inert or hid stays the page's. The Miragon
- * modeler shell brings all of this itself, and a palette any chrome skins (`data-chrome="palette"`)
- * is left to it.
+ * `aria-keyshortcuts` on the entries with a key, `aria-disabled` on the entries the read-only lock
+ * disables (guide §13.5), and the palette ahead of the canvas in the tab order (guide §5.14). A key
+ * on an entry the host made inert or hid stays the page's. The Miragon modeler shell brings all of
+ * this itself, and a palette any chrome skins (`data-chrome="palette"`) is left to it.
  */
 export default class EventStormingPaletteToolbar {
   static $inject = ["eventBus", "palette", "canvas", "injector"];
@@ -36,6 +39,10 @@ export default class EventStormingPaletteToolbar {
   private activeTool: string | null = null;
   private rovingAction: string | undefined;
   private focusedEntry: HTMLElement | undefined;
+  private paletteScrollLeft = 0;
+  private readonly readOnly: Pick<EventStormingReadOnly, "isReadOnly"> | undefined;
+  /** The entries this toolbar marked `aria-disabled`, with the value each had before. */
+  private readonly disabledEntries = new WeakMap<Element, string | null>();
 
   constructor(
     eventBus: EventBus,
@@ -43,6 +50,8 @@ export default class EventStormingPaletteToolbar {
     private readonly canvas: Canvas,
     injector: OptionalInjector,
   ) {
+    this.readOnly = injector.get("eventStormingReadOnly", false) as
+      Pick<EventStormingReadOnly, "isReadOnly"> | undefined;
     // The shell's palette skin adds the same keys; a second handler would create every sticky twice.
     if (injector.get("modelerShell", false)) return;
     eventBus.on("palette.create", (event: { container: HTMLElement }) =>
@@ -53,6 +62,7 @@ export default class EventStormingPaletteToolbar {
       this.activeTool = event.tool ?? null;
       this.apply();
     });
+    eventBus.on(READ_ONLY_CHANGED_EVENT, () => this.apply());
   }
 
   // diagram-js builds the entries after `palette.create`, and a chrome marks the palette in its own
@@ -63,6 +73,7 @@ export default class EventStormingPaletteToolbar {
     container.addEventListener("focusin", this.onFocusIn);
     container.addEventListener("focusout", this.onFocusOut);
     container.addEventListener("mousedown", this.onMouseDown);
+    container.addEventListener("scroll", this.onPaletteScroll);
     this.canvas.getContainer().addEventListener("scroll", this.onCanvasScroll);
   }
 
@@ -105,9 +116,28 @@ export default class EventStormingPaletteToolbar {
         const tool = action.slice(0, -TOOL_ACTION_SUFFIX.length);
         entry.setAttribute("aria-pressed", String(tool === this.activeTool));
       }
+      this.applyDisabled(entry, action);
     }
     const stop = this.applyTabStops(entries);
     this.restoreFocus(entries, stop);
+  }
+
+  // The lock only refuses the action, so without a mark a keyboard user hears no reason why Enter
+  // does nothing and a pointer user sees entries that look usable. The entry keeps its tab stop.
+  private applyDisabled(entry: HTMLElement, action: string | undefined): void {
+    const staysActive = action !== undefined && READ_ONLY_ACTIONS.has(action);
+    if (this.readOnly?.isReadOnly() && !staysActive) {
+      if (!this.disabledEntries.has(entry)) {
+        this.disabledEntries.set(entry, entry.getAttribute("aria-disabled"));
+      }
+      entry.setAttribute("aria-disabled", "true");
+      return;
+    }
+    if (!this.disabledEntries.has(entry)) return;
+    const previous = this.disabledEntries.get(entry);
+    this.disabledEntries.delete(entry);
+    if (previous === null || previous === undefined) entry.removeAttribute("aria-disabled");
+    else entry.setAttribute("aria-disabled", previous);
   }
 
   private applyTabStops(entries: readonly HTMLElement[]): HTMLElement | undefined {
@@ -118,7 +148,8 @@ export default class EventStormingPaletteToolbar {
 
   // A rebuild removes the focused entry, and the focus would fall to <body>: a host that imports
   // each remote change would throw a keyboard user out of the toolbar. An entry the new level no
-  // longer offers hands the focus to the tab stop.
+  // longer offers hands the focus to the tab stop. The removal also scrolls a palette that scrolls
+  // sideways (guide §5.15) back to its start, so it is put back where it was.
   private restoreFocus(entries: readonly HTMLElement[], stop: HTMLElement | undefined): void {
     const lost = this.focusedEntry;
     if (!lost || lost.isConnected) return;
@@ -126,6 +157,7 @@ export default class EventStormingPaletteToolbar {
     const active = lost.ownerDocument.activeElement;
     if (active && active !== lost.ownerDocument.body) return;
     const replacement = entries.find((entry) => actionOf(entry) === actionOf(lost)) ?? stop;
+    if (this.container) this.container.scrollLeft = this.paletteScrollLeft;
     replacement?.focus({ preventScroll: true });
   }
 
@@ -146,6 +178,8 @@ export default class EventStormingPaletteToolbar {
     this.focusedEntry = entry;
     this.rovingAction = actionOf(entry);
     this.applyTabStops(this.entryElements());
+    // A pointer's press focuses its entry too, which a scroll would move away from under it.
+    if (this.container && entry.matches(":focus-visible")) revealInPalette(this.container, entry);
   };
 
   // A focus that leaves the palette is not brought back by a later rebuild. Chromium reports the
@@ -203,9 +237,14 @@ export default class EventStormingPaletteToolbar {
     next.focus({ preventScroll: true });
   };
 
+  private readonly onPaletteScroll = (): void => {
+    if (this.container) this.paletteScrollLeft = this.container.scrollLeft;
+  };
+
   // diagram-js maps the pointer from the canvas container's box and never scrolls it, but the
-  // browser scrolls it to show a focused entry past the side of a container narrower than the
-  // palette (Tab back to such a tab stop), and the board would then lie off the pointer.
+  // browser scrolls it to show a focused entry past its edge: in a container lower than the
+  // palette's row, since a narrow one scrolls the palette instead (guide §5.15). The board would
+  // then lie off the pointer.
   private readonly onCanvasScroll = (event: Event): void => {
     const canvasContainer = event.currentTarget as HTMLElement;
     const focused = canvasContainer.ownerDocument.activeElement;
@@ -225,6 +264,19 @@ export default class EventStormingPaletteToolbar {
 
 function actionOf(entry: Element): string | undefined {
   return entry.getAttribute("data-action") ?? undefined;
+}
+
+// A palette that scrolls sideways (guide §5.15) shows the keyboard focus whole, inside its padding.
+// Only the palette scrolls: the browser's own scroll to a focused element would move the canvas
+// container too, and leaves an entry that is partly in view cut off at the side.
+function revealInPalette(palette: HTMLElement, entry: HTMLElement): void {
+  const style = getComputedStyle(palette);
+  const view = palette.getBoundingClientRect();
+  const start = view.left + palette.clientLeft + parseFloat(style.paddingLeft);
+  const end = view.left + palette.clientLeft + palette.clientWidth - parseFloat(style.paddingRight);
+  const box = entry.getBoundingClientRect();
+  if (box.left < start) palette.scrollLeft -= start - box.left;
+  else if (box.right > end) palette.scrollLeft += box.right - end;
 }
 
 function isTool(entry: Element, action: string | undefined): action is string {
