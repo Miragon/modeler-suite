@@ -46,6 +46,12 @@ before the canvas `<svg>` in the container, so a host finds the canvas with
 `canvas.getContainer().querySelector(":scope > svg")`, not as the first `svg`. A palette a chrome
 skins (`data-chrome="palette"`) is left to that chrome.
 
+The lasso and the draw tool are pressed (`aria-pressed="true"`) only while they are armed, in every
+host: Enter or Space on the armed lasso puts it down, as Escape does, and so does arming the draw
+tool; a pointer's click on the lasso arms it again. While the read-only lock holds (below), the
+palette without the shell marks every entry but the lasso `aria-disabled="true"` and mutes it
+(guide §13.5): it stays focusable, and a click, drag, Enter or Space on it does nothing.
+
 ## API
 
 | Member                                                                     | What it does                                                                                                                                        |

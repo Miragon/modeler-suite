@@ -185,6 +185,19 @@
   background: var(--cd-ui-hover);
   box-shadow: inset 0 0 0 2px var(--cd-ui-interaktion);
 }
+/* What the read-only lock disables (palette/WardleyPaletteReadOnly.ts, guide §13.5): tool icons in
+   --cd-ui-text-leise, notation previews grey, no hover, never by opacity. The !important answers
+   the highlighted entry's, here and in diagram-js's sheet. */
+.djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .entry[aria-disabled="true"],
+.djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
+  .entry[aria-disabled="true"]:hover {
+  background: transparent;
+  color: var(--cd-ui-text-leise) !important;
+  cursor: not-allowed;
+}
+.djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .entry[aria-disabled="true"] > * {
+  filter: grayscale(1);
+}
 
 /* diagram-js's hover tooltip, which it mounts in the canvas container, as the palette tooltip of
    guide §5.6: opaque, a 1px line edge that still outlines it in high contrast, where the shadow
@@ -979,6 +992,9 @@
     background: Canvas;
     color: CanvasText !important;
     box-shadow: inset 0 0 0 2px Highlight;
+  }
+  .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .entry[aria-disabled="true"] {
+    color: GrayText !important;
   }
 }
 @media (prefers-reduced-motion: reduce) {
