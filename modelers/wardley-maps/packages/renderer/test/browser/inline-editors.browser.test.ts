@@ -241,17 +241,68 @@ describe("the inline editors of a map", () => {
       expect(focusRing(field)).toMatchObject({ style: "solid", width: "3px", offset: "2px" });
     });
 
-    it.each(EDITORS)(
-      "draws the ring of the %s editor in Highlight in forced colours",
-      async (editor) => {
-        await cdp().send("Emulation.setEmulatedMedia", {
-          features: [{ name: "forced-colors", value: "active" }],
-        });
-        const field = open(editor);
-        expect(focusRing(field)).toMatchObject({ style: "solid", width: "2px" });
-        expect(focusRing(field).colour).toBe(computedColour(document.body, "Highlight"));
+    // Chromium forces every outline to Highlight under forced colours by itself, so these cases
+    // show that the ring survives there, not the stylesheet's own Highlight for other engines.
+    it.each(EDITORS)("keeps the ring of the %s editor in forced colours", async (editor) => {
+      await cdp().send("Emulation.setEmulatedMedia", {
+        features: [{ name: "forced-colors", value: "active" }],
+      });
+      const field = open(editor);
+      expect(focusRing(field)).toMatchObject({ style: "solid", width: "2px" });
+      expect(focusRing(field).colour).toBe(computedColour(document.body, "Highlight"));
+    });
+  });
+
+  describe("the captions under an inline editor", () => {
+    const CAPTIONS = [
+      {
+        caption: "the note editor's hint",
+        show: () => open("note"),
+        selector: ".wardley-label-hint",
       },
-    );
+      {
+        caption: "the name editor's error",
+        show: () => {
+          const field = open("name");
+          field.value = "Customer";
+          pressKey(field, { key: "Enter" });
+          return field;
+        },
+        selector: ".wardley-label-error",
+      },
+      {
+        caption: "the link address editor's error",
+        show: () => {
+          const field = open("link address");
+          field.value = "javascript:alert(1)";
+          pressKey(field, { key: "Enter" });
+          return field;
+        },
+        selector: ".wardley-label-error",
+      },
+    ] as const;
+
+    function ringBottom(field: HTMLElement): number {
+      const ring = getComputedStyle(field);
+      return (
+        field.getBoundingClientRect().bottom +
+        parseFloat(ring.outlineOffset) +
+        parseFloat(ring.outlineWidth)
+      );
+    }
+
+    for (const contrast of ["normal", "high"] as const) {
+      it.each(CAPTIONS)(
+        `keeps $caption clear of the focus ring in ${contrast} contrast`,
+        ({ show, selector }) => {
+          if (contrast === "high") page.setAttribute("data-cd-kontrast", "hoch");
+          const field = show();
+          const caption = container.querySelector<HTMLElement>(selector);
+          if (!caption) throw new Error(`no caption ${selector}`);
+          expect(caption.getBoundingClientRect().top).toBeGreaterThan(ringBottom(field));
+        },
+      );
+    }
   });
 });
 
