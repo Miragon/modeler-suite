@@ -3,9 +3,12 @@ import { PNG_VIEW_TYPE } from "./commands.js";
 import { documentDiagnostics, problemCounts } from "./diagnostics.js";
 import type { DiagramPanels } from "./diagramPanels.js";
 import { EMPTY_MAP, withExampleInserted } from "./examples.js";
-import { FONT_FALLBACK_SAVED, exportImageToFile } from "./exportImage.js";
+import { exportImage } from "./exportImage.js";
 import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "./png.js";
 import type { HostToWebview, WebviewToHost } from "./protocol.js";
+
+/** The warning of a PNG whose labels came out in the system sans (the webview says so). */
+const FONT_FALLBACK_SAVED = "Saved the PNG in a system font. Geist couldn't be embedded.";
 
 /** The embedded document has no text editor; its problems point at the start of the file. */
 const START_OF_FILE = { positionAt: () => new vscode.Position(0, 0) };
@@ -175,9 +178,7 @@ export class TtPngEditorProvider implements vscode.CustomEditorProvider<TtPngDoc
           void vscode.commands.executeCommand("workbench.actions.view.problems");
           break;
         case "export":
-          await exportImageToFile(document.uri, msg.format, msg.data, {
-            fontFallback: msg.fontFallback === true,
-          });
+          await exportImage(document.uri, msg);
           break;
         case "pngResponse":
           this.resolvePng(binding, msg);

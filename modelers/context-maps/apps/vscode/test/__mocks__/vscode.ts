@@ -238,9 +238,17 @@ export const workspace = {
   },
   fs: {
     written: [] as Array<{ uri: Uri; content: Uint8Array }>,
+    /** The paths a `stat` finds: every file written, and the ones `vscodeMock.addFile` puts there. */
+    existing: new Set<string>(),
     writeFile(uri: Uri, content: Uint8Array): Promise<void> {
       workspace.fs.written.push({ uri, content });
+      workspace.fs.existing.add(uri.path);
       return Promise.resolve();
+    },
+    stat(uri: Uri): Promise<{ type: number }> {
+      return workspace.fs.existing.has(uri.path)
+        ? Promise.resolve({ type: 1 })
+        : Promise.reject(new Error(`FileNotFound: ${uri.path}`));
     },
     readFile(): Promise<Uint8Array> {
       return Promise.resolve(new Uint8Array());
@@ -254,7 +262,15 @@ export const workspace = {
 const registeredCommands = new Map<string, (...args: unknown[]) => unknown>();
 const executedCommands: unknown[][] = [];
 const customEditorProviders = new Map<string, unknown>();
-const notifications: Array<{ level: string; message: string; items: string[] }> = [];
+interface Notification {
+  level: string;
+  message: string;
+  items: string[];
+  /** Only for a modal one. */
+  modal?: true;
+}
+
+const notifications: Notification[] = [];
 let saveDialogAnswer: Uri | undefined;
 let notificationAnswer: string | undefined;
 
@@ -276,8 +292,13 @@ export const window = {
     notifications.push({ level: "info", message, items });
     return Promise.resolve(notificationAnswer);
   },
-  showWarningMessage(message: string, ...items: string[]): Promise<string | undefined> {
-    notifications.push({ level: "warning", message, items });
+  showWarningMessage(
+    message: string,
+    ...rest: Array<string | { modal?: boolean }>
+  ): Promise<string | undefined> {
+    const items = rest.filter((item): item is string => typeof item === "string");
+    const modal = rest.some((item) => typeof item !== "string" && item.modal === true);
+    notifications.push({ level: "warning", message, items, ...(modal ? { modal } : {}) });
     return Promise.resolve(notificationAnswer);
   },
   showErrorMessage(message: string, ...items: string[]): Promise<string | undefined> {
@@ -353,8 +374,12 @@ export const vscodeMock = {
   executedCommands(): readonly unknown[][] {
     return executedCommands;
   },
-  notifications(): ReadonlyArray<{ level: string; message: string; items: string[] }> {
+  notifications(): readonly Notification[] {
     return notifications;
+  },
+  /** A file that is there before the test runs a command. */
+  addFile(uri: Uri): void {
+    workspace.fs.existing.add(uri.path);
   },
   answerSaveDialog(uri: Uri | undefined): void {
     saveDialogAnswer = uri;
@@ -381,6 +406,7 @@ export const vscodeMock = {
     executedCommands.length = 0;
     notifications.length = 0;
     workspace.fs.written.length = 0;
+    workspace.fs.existing.clear();
     workspace.workspaceFolders = undefined;
     saveDialogAnswer = undefined;
     notificationAnswer = undefined;

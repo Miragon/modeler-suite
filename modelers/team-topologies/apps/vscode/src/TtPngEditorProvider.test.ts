@@ -66,7 +66,6 @@ const host = vi.hoisted(() => {
 });
 
 vi.mock("vscode", () => host.vscodeStub);
-vi.mock("@miragon/modeler-shell/vscode/extension", () => ({ revealFileLabel: () => "Reveal" }));
 vi.mock("./diagnostics.js", () => ({
   documentDiagnostics: () => [],
   problemCounts: () => ({ count: 0, errors: 0 }),

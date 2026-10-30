@@ -1,44 +1,37 @@
 import * as vscode from "vscode";
+import { registerNewDocumentCommand } from "@miragon/modeler-shell/vscode/extension";
 import { DIAGRAM_VIEW_TYPE, registerDiagramEditor } from "./diagramEditor.js";
 import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "./examples.js";
+
+/** The save dialog of "New Empty Value Chain Diagram" and "… from Example". */
+const NEW_DIAGRAM = {
+  viewType: DIAGRAM_VIEW_TYPE,
+  title: "New Value Chain Diagram",
+  saveLabel: "Create diagram",
+  filters: { "Value Chain Diagram": ["vc.json", "vc"] },
+  defaultFileName: "value-chain.vc.json",
+  // The diagram editor claims only *.vc and *.vc.json, and a save dialog may append only the last
+  // extension of a filter: `chain.json` becomes `chain.vc.json`.
+  targetPath: (chosenPath: string) =>
+    /\.vc(\.json)?$/i.test(chosenPath)
+      ? chosenPath
+      : `${chosenPath.replace(/\.json$/i, "")}.vc.json`,
+};
 
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     registerDiagramEditor(context),
-    vscode.commands.registerCommand("valueChain.newDiagram", () => createDiagram(EMPTY_DOCUMENT)),
-    vscode.commands.registerCommand("valueChain.newDiagramFromExample", () =>
-      createDiagram(EXAMPLE_DOCUMENT),
-    ),
+    registerNewDocumentCommand(vscode, "valueChain.newDiagram", {
+      ...NEW_DIAGRAM,
+      text: EMPTY_DOCUMENT,
+    }),
+    registerNewDocumentCommand(vscode, "valueChain.newDiagramFromExample", {
+      ...NEW_DIAGRAM,
+      text: EXAMPLE_DOCUMENT,
+    }),
   );
 }
 
 export function deactivate(): void {
   /* nothing to do — all resources are tied to context.subscriptions */
-}
-
-/** A real file URI rather than an untitled doc is most robust for CustomTextEditor. */
-async function createDiagram(initial: string): Promise<void> {
-  const options: vscode.SaveDialogOptions = {
-    title: "New Value Chain Diagram",
-    saveLabel: "Create diagram",
-    filters: { "Value Chain Diagram": ["vc.json", "vc"] },
-  };
-  const defaultUri = defaultDiagramUri();
-  if (defaultUri) options.defaultUri = defaultUri;
-
-  const chosen = await vscode.window.showSaveDialog(options);
-  if (!chosen) return;
-
-  // Ensure the custom editor will actually claim the file (it only binds *.vc / *.vc.json).
-  const target = /\.vc(\.json)?$/i.test(chosen.path)
-    ? chosen
-    : chosen.with({ path: `${chosen.path.replace(/\.json$/i, "")}.vc.json` });
-
-  await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(initial));
-  await vscode.commands.executeCommand("vscode.openWith", target, DIAGRAM_VIEW_TYPE);
-}
-
-function defaultDiagramUri(): vscode.Uri | undefined {
-  const folder = vscode.workspace.workspaceFolders?.[0];
-  return folder ? vscode.Uri.joinPath(folder.uri, "value-chain.vc.json") : undefined;
 }

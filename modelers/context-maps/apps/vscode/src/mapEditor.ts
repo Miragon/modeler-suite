@@ -5,7 +5,7 @@ import {
 } from "@miragon/modeler-shell/vscode/extension";
 import type { ActivePanels } from "./commands.js";
 import { toDiagnostics } from "./diagnostics.js";
-import { exportToFile } from "./exportImage.js";
+import { exportMap } from "./exportImage.js";
 import { MAP_EDITOR_OPTIONS } from "./mapEditorOptions.js";
 import { mapProblems, problemCounts } from "./problems.js";
 import type { WebviewToHost } from "./protocol.js";
@@ -34,8 +34,6 @@ export function registerMapEditor(
     },
     onDidOpen: (editor) => panels.track(editor.panel, editor.document.uri, { text: true }),
     onMessage: (message, editor) =>
-      message.type === "export"
-        ? exportToFile(editor.document.uri, message.format, message.data, message.fontFallback)
-        : undefined,
+      message.type === "export" ? exportMap(editor.document.uri, message) : undefined,
   });
 }

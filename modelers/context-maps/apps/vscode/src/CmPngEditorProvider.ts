@@ -7,7 +7,7 @@ import {
 import { PNG_VIEW_TYPE, type ActivePanels } from "./commands.js";
 import { toDiagnostics } from "./diagnostics.js";
 import { EMPTY_MAP, withExampleInserted } from "./examples.js";
-import { exportToFile, fontFallbackText } from "./exportImage.js";
+import { exportMap } from "./exportImage.js";
 import { WEBVIEW_TITLE } from "./mapEditorOptions.js";
 import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "./png.js";
 import { mapProblems, problemCounts } from "./problems.js";
@@ -198,7 +198,7 @@ export class CmPngEditorProvider implements vscode.CustomEditorProvider<CmPngDoc
           break;
         }
         case "export":
-          await exportToFile(document.uri, msg.format, msg.data, msg.fontFallback);
+          await exportMap(document.uri, msg);
           break;
         case "pngResponse":
           this.resolvePng(binding, msg);
@@ -413,7 +413,9 @@ export class CmPngEditorProvider implements vscode.CustomEditorProvider<CmPngDoc
 /** The save went through, so the notice names the file; the console reaches no user (guide §9). */
 function warnFontFallback(target: vscode.Uri): void {
   const fileName = target.path.slice(target.path.lastIndexOf("/") + 1);
-  void vscode.window.showWarningMessage(fontFallbackText(`Saved ${fileName}`));
+  void vscode.window.showWarningMessage(
+    `Saved ${fileName} in a system font. Geist couldn't be embedded.`,
+  );
 }
 
 /**

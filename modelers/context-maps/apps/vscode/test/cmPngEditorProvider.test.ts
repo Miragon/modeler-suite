@@ -9,6 +9,7 @@ import {
   MockDiagnosticCollection,
   Uri,
   vscodeMock,
+  window,
   workspace,
 } from "./__mocks__/vscode.js";
 
@@ -64,7 +65,12 @@ async function openPngEditor(path: string) {
     received.fire({ type: "pngResponse", id: request.id, data: PNG_BASE64, fontFallback });
   }
 
-  return { provider, document, answerPngRequest };
+  return {
+    provider,
+    document,
+    answerPngRequest,
+    receive: (message: WebviewToHost) => received.fire(message),
+  };
 }
 
 describe("the .cm.png editor's save", () => {
@@ -132,5 +138,23 @@ describe("the .cm.png editor's save", () => {
 
     expect(workspace.fs.written.map((file) => file.uri)).toEqual([backup]);
     expect(vscodeMock.notifications()).toEqual([]);
+  });
+});
+
+describe("the .cm.png editor's export", () => {
+  it("suggests the export beside the diagram, without its double extension", async () => {
+    const showSaveDialog = vi.spyOn(window, "showSaveDialog");
+    const { receive } = await openPngEditor("/maps/shop.cm.png");
+
+    receive({ type: "export", format: "svg", data: "<svg/>" });
+
+    await vi.waitFor(() =>
+      expect(showSaveDialog).toHaveBeenCalledWith({
+        title: "Export as SVG",
+        saveLabel: "Export",
+        filters: { "SVG image": ["svg"] },
+        defaultUri: expect.objectContaining({ path: "/maps/shop.svg" }),
+      }),
+    );
   });
 });

@@ -229,6 +229,8 @@ const colorThemeEmitter = new EventEmitter<{ kind: number }>();
 const configurationEmitter = new EventEmitter<{ affectsConfiguration(section: string): boolean }>();
 
 const configuration = new Map<string, unknown>();
+/** The paths `workspace.fs.stat` finds, as `vscodeMock.addFile` puts them there. */
+const existingFiles = new Set<string>();
 
 export const workspace = {
   workspaceFolders: undefined as ReadonlyArray<{ uri: Uri }> | undefined,
@@ -256,6 +258,11 @@ export const workspace = {
     },
     writeFile(_uri: Uri, _content: Uint8Array): Promise<void> {
       return Promise.resolve();
+    },
+    stat(uri: Uri): Promise<{ type: number }> {
+      return existingFiles.has(uri.path)
+        ? Promise.resolve({ type: 1 })
+        : Promise.reject(new Error(`FileNotFound: ${uri.path}`));
     },
     createDirectory(_uri: Uri): Promise<void> {
       return Promise.resolve();
@@ -376,6 +383,10 @@ export const vscodeMock = {
   diagnosticCollections(): readonly MockDiagnosticCollection[] {
     return diagnosticCollections;
   },
+  /** A file that is there before the test runs a command. */
+  addFile(uri: Uri): void {
+    existingFiles.add(uri.path);
+  },
   /** Lays out the editor tabs, such as the ones VS Code restored after a reload. */
   setTabGroups(layout: readonly TabGroupLayout[]): void {
     tabGroups = tabGroupsOf(layout);
@@ -393,6 +404,7 @@ export const vscodeMock = {
     executedCommands.length = 0;
     diagnosticCollections.length = 0;
     configuration.clear();
+    existingFiles.clear();
     docChangeEmitter.dispose();
     colorThemeEmitter.dispose();
     configurationEmitter.dispose();
