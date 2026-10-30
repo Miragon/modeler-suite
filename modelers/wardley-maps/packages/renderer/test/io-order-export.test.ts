@@ -4,7 +4,6 @@ import EventBus from "diagram-js/lib/core/EventBus";
 import type { WardleyMap } from "@miragon/wardley-schema-model";
 import WardleySourceOrder from "../src/io/WardleySourceOrder.js";
 import { exportBounds } from "../src/io/exportBounds.js";
-import { rasterSize } from "../src/io/rasterize.js";
 
 const plotFrame = { x: 0, y: 0, width: 1190, height: 776 };
 const grid = { outerBounds: () => plotFrame };
@@ -137,26 +136,5 @@ describe("WardleySourceOrder", () => {
       "x",
       "a",
     ]);
-  });
-});
-
-describe("rasterSize", () => {
-  it("multiplies the SVG size by the scale", () => {
-    expect(rasterSize(1190, 776, 2)).toEqual({ width: 2380, height: 1552 });
-    expect(rasterSize(1190, 776, 4)).toEqual({ width: 4760, height: 3104 });
-  });
-
-  it("lowers the density of a huge export to fit the canvas area limit, keeping the aspect", () => {
-    const { width, height } = rasterSize(5110, 5096, 4);
-    expect(width * height).toBeLessThanOrEqual(2 ** 27 * 1.001);
-    expect(width).toBeGreaterThan(10_000);
-    expect(width / height).toBeCloseTo(5110 / 5096, 3);
-  });
-
-  it("caps a very wide export at the canvas side limit", () => {
-    expect(rasterSize(20_000, 300, 4)).toEqual({
-      width: 32_767,
-      height: Math.round((300 * 32_767) / 20_000),
-    });
   });
 });

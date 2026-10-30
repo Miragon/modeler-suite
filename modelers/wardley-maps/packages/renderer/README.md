@@ -59,7 +59,7 @@ skins (`data-chrome="palette"`) is left to that chrome.
 | `undo()` / `redo()` / `canUndo()` / `canRedo()`                            | `Modeler` only: the canvas command stack.                                                                                                           |
 | `commitPendingEdits()`                                                     | `Modeler` only: saves an open inline editor, e.g. before a save shortcut.                                                                           |
 | `on(event, callback)` / `off(event, callback)`                             | diagram-js events, see below.                                                                                                                       |
-| `svgToPng(svg, { scale, transparent })` (deprecated) / `blobToBase64`      | Deprecated, see below: rasterizes an exported SVG (default 2×, paper background). `blobToBase64` encodes a Blob.                                    |
+| `blobToBase64(blob)`                                                       | Encodes a Blob, such as the PNG of the shell's `svgToPng` (see below), as Base64 without the data-URL prefix.                                       |
 | `setAsideEditorState(modeler)` / `restoreEditorState(…)`                   | Keeps the selection and an open inline editor across a re-import of an externally changed map.                                                      |
 
 `setEvolutionLabels` turns an empty stage into its default label and `->` into `→`, so the labels
@@ -253,28 +253,23 @@ scrolling body, footer), for a host's own dialogs in the same look; `dialogButto
 gives its buttons. `chrome` is the shell handle or anything of the same shape; the renderer never
 imports the shell itself.
 
-### Deprecated: `createShortcutsDialog` and `svgToPng`
+### PNG export
 
-Both are deprecated since 0.14.0 and removed in 0.15.0
-([#258](https://github.com/Miragon/modeler-suite/issues/258)); the web app and the VS Code webview
-of this repository no longer use them.
+The package draws no PNG itself: `svgToPng` of `@miragon/modeler-shell/export` rasterizes the SVG of
+`saveSVG()`, embeds Geist, loads the SVG as a data: URL and fills the background the caller names. A
+map has a plot, so its PNG lies on `--cd-ui-plot` (guide §10.7), which is `COLORS.plotBackground`:
 
-- `createShortcutsDialog(chrome, options)` (with `ShortcutsDialog` and `ShortcutsDialogChrome`) is
-  replaced by the shell's dialog, which takes the groups of `mapShortcuts` and fills the View group
-  with the chrome's zoom and fit keys (see above).
-- `svgToPng(svg, { scale, transparent })` (with `SvgToPngOptions`) is replaced by `svgToPng` of
-  `@miragon/modeler-shell/export`, which embeds Geist, loads the SVG as a data: URL and fills the
-  background the caller names. A map has a plot, so its PNG lies on `--cd-ui-plot` (guide §10.7), not
-  on the paper this one fills:
+```ts
+import { COLORS } from "@miragon/wardley-renderer";
+import { svgToPng } from "@miragon/modeler-shell/export";
 
-  ```ts
-  import { COLORS } from "@miragon/wardley-renderer";
-  import { svgToPng } from "@miragon/modeler-shell/export";
+const { svg } = await modeler.saveSVG();
+const png = await svgToPng(svg, { background: COLORS.plotBackground }); // 2×
+const forSlides = await svgToPng(svg, { background: "transparent", scale: 4 });
+```
 
-  const { svg } = await modeler.saveSVG();
-  const png = await svgToPng(svg, { background: COLORS.plotBackground }); // 2×
-  const forSlides = await svgToPng(svg, { background: "transparent", scale: 4 });
-  ```
+`blobToBase64(png)` gives the picture as Base64 without the data-URL prefix, e.g. to post it to a VS
+Code extension host.
 
 ## Events
 

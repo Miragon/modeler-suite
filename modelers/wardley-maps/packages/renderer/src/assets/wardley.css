@@ -870,51 +870,6 @@
   padding: 16px 24px;
   border-top: 1px solid var(--cd-ui-linie);
 }
-.wardley-shortcuts-group + .wardley-shortcuts-group {
-  margin-top: 16px;
-}
-.wardley-shortcuts-group-title {
-  margin: 0 0 4px;
-  color: var(--cd-ui-text-leise);
-  font-size: 13px;
-  font-weight: 600;
-}
-.wardley-shortcuts-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.wardley-shortcuts-table tr + tr > * {
-  border-top: 1px solid var(--cd-ui-linie);
-}
-.wardley-shortcuts-action {
-  padding: 6px 16px 6px 0;
-  font-weight: 400;
-  text-align: left;
-  vertical-align: baseline;
-}
-.wardley-shortcuts-keys {
-  padding: 6px 0;
-  text-align: right;
-  vertical-align: baseline;
-}
-/* The chips look like the chrome tooltip's (guide §5.6), also against a host's own kbd style. */
-.wardley-shortcuts-key {
-  display: inline-block;
-  margin: 2px 0 2px 6px;
-  padding: 1px 6px;
-  border: 1px solid var(--cd-ui-linie);
-  border-radius: var(--cd-radius-sm);
-  background: var(--cd-ui-grund);
-  box-shadow: none;
-  color: var(--cd-ui-text-leise);
-  font:
-    400 13px/1.5 "Geist Mono Variable",
-    "Geist Mono",
-    ui-monospace,
-    monospace;
-  vertical-align: baseline;
-  white-space: nowrap;
-}
 
 /* High contrast (guide §5.3, §6, §5.14): no shadows on any surface, contour borders, 3px focus,
    inside at -3px where the ring lies inside. It follows the nearest mode carrier, as the roles do

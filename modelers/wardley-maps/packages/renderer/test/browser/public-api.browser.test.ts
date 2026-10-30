@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ModuleDeclaration } from "didi";
 import * as api from "../../src/index.js";
+import wardleyCss from "../../src/assets/wardley.css?raw";
 
 describe("public API", () => {
   it("exports every Wardley module the Modeler is built from, for custom editors", () => {
@@ -19,5 +20,20 @@ describe("public API", () => {
       expect(exported.has(module), JSON.stringify(Object.keys(module))).toBe(true);
     }
     modeler.destroy();
+  });
+
+  it("leaves the keyboard shortcuts dialog and the PNG to the shell, keeping their data and helpers (#258)", () => {
+    expect(api).not.toHaveProperty("createShortcutsDialog");
+    expect(api).not.toHaveProperty("svgToPng");
+    expect(wardleyCss).not.toContain(".wardley-shortcuts");
+    for (const kept of [
+      api.mapShortcuts,
+      api.mapMenu,
+      api.createMapDialog,
+      api.createTitleDialog,
+      api.blobToBase64,
+    ]) {
+      expect(kept).toBeTypeOf("function");
+    }
   });
 });

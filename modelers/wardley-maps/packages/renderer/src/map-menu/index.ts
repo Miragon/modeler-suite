@@ -20,8 +20,6 @@ export type {
 } from "./shortcuts.js";
 export { createMapDialog, dialogButton } from "./dialog.js";
 export type { DialogChrome, MapDialog, MapDialogParts } from "./dialog.js";
-export { createShortcutsDialog } from "./ShortcutsDialog.js";
-export type { ShortcutsDialog, ShortcutsDialogChrome } from "./ShortcutsDialog.js";
 export { createTitleDialog } from "./TitleDialog.js";
 export type { TitleDialog, TitleDialogChrome } from "./TitleDialog.js";
 export { createMapSizePopover } from "./MapSizePopover.js";

@@ -17,7 +17,6 @@ export { default as WardleySourceOrder } from "./WardleySourceOrder.js";
 export { saveSVG } from "./saveSvg.js";
 export type { SvgBounds } from "./saveSvg.js";
 export { exportBounds, EXPORT_CONTENT_PADDING } from "./exportBounds.js";
-export { svgToPng, blobToBase64 } from "./rasterize.js";
-export type { SvgToPngOptions } from "./rasterize.js";
+export { blobToBase64 } from "./blobToBase64.js";
 export { ROOT_ID } from "./types.js";
 export type { ImportWarning, RootBusinessObject } from "./types.js";
