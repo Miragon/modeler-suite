@@ -11,6 +11,8 @@ export {
   focusCanvasWithoutRing,
   isCanvasKey,
   isKeyAimedAt,
+  isKeyOnHiddenTarget,
   lastInteractionWasPointer,
+  leaveKeysOnHiddenMenuToPage,
   trackInputModality,
 } from "./canvasFocus.js";

@@ -6,6 +6,7 @@ import { labelInset } from "../draw/geometry.js";
 import { FONT, LABEL_PADDING } from "../draw/styles.js";
 import { isOrgUnit, isVcShape, type VcShape } from "../model/di-types.js";
 import type VcModeling from "../modeling/VcModeling.js";
+import { isKeyOnHiddenTarget } from "../keyboard/VcCanvasKeys.js";
 
 interface DirectEditingLike {
   registerProvider(provider: unknown): void;
@@ -16,7 +17,12 @@ interface DirectEditingLike {
   getValue(): string;
   /** diagram-js-direct-editing internals: the edit open right now and its text box. */
   _active?: { element: Element; context: EditingContext } | null;
-  _textbox?: { parent: HTMLElement; content: HTMLElement };
+  _textbox?: {
+    parent: HTMLElement;
+    content: HTMLElement;
+    /** Bound to the text box's field on every activation. */
+    keyHandler: (event: KeyboardEvent) => void;
+  };
 }
 
 interface EditingContext {
@@ -24,6 +30,19 @@ interface EditingContext {
   text: string;
   style?: Record<string, string>;
   options?: Record<string, unknown>;
+}
+
+/**
+ * The library takes every key of its box (Enter saves, Escape cancels, each one stopped), also one
+ * the browser still sends to a box the host made inert or hid: such a key goes to the page instead.
+ */
+function leaveKeysOnHiddenBoxToPage(directEditing: DirectEditingLike): void {
+  const textbox = directEditing._textbox;
+  if (!textbox) return;
+  const handleKey = textbox.keyHandler;
+  textbox.keyHandler = (event) => {
+    if (!isKeyOnHiddenTarget(event)) handleKey(event);
+  };
 }
 
 /** A label edit open right now: the element and the text typed so far, not yet committed. */
@@ -60,6 +79,7 @@ export default class VcLabelEditingProvider {
     private readonly elementRegistry: ElementRegistry,
   ) {
     directEditing.registerProvider(this);
+    leaveKeysOnHiddenBoxToPage(directEditing);
 
     eventBus.on("element.dblclick", (event: { element?: Element }) => {
       if (event.element && isVcShape(event.element)) {

@@ -24,6 +24,7 @@ import { CONTEXT_NAME_TOP, CONTEXT_TEAM_RESERVE, FONT } from "../draw/styles.js"
 import { isCmContext, isCmElement, type CmContext, type CmElement } from "../model/di-types.js";
 import type CmModeling from "../modeling/CmModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type CmReadOnly } from "../read-only/index.js";
+import { isKeyOnHiddenTarget } from "../keyboard/CmKeyboard.js";
 
 type EditMode = "name" | "team";
 
@@ -60,6 +61,21 @@ interface DirectEditingService {
   getValue(): string;
   /** The text box's parent element of the edit open right now. */
   $textbox?: HTMLElement;
+  /** The text box, which binds `keyHandler` to its field on every activation. */
+  _textbox?: { keyHandler: (event: KeyboardEvent) => void };
+}
+
+/**
+ * The library takes every key of its box (Enter saves, Escape cancels, each one stopped), also one
+ * the browser still sends to a box the host made inert or hid: such a key goes to the page instead.
+ */
+function leaveKeysOnHiddenBoxToPage(directEditing: DirectEditingService): void {
+  const textbox = directEditing._textbox;
+  if (!textbox) return;
+  const handleKey = textbox.keyHandler;
+  textbox.keyHandler = (event) => {
+    if (!isKeyOnHiddenTarget(event)) handleKey(event);
+  };
 }
 
 /** An open edit taken down for an import: its element, what it edits, the text typed so far. */
@@ -102,6 +118,7 @@ export default class CmLabelEditing {
       activate: (element) => this.activationContext(element),
       update: (element, newText) => this.commit(element, newText),
     });
+    leaveKeysOnHiddenBoxToPage(directEditing);
 
     eventBus.on(
       "element.dblclick",

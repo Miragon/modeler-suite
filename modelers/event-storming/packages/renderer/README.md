@@ -94,9 +94,12 @@ gesture next to it ([#375](https://github.com/Miragon/modeler-suite/issues/375))
 the drawing, and an undo, a redo or any other command before the release ends the drag without a
 commit, as Escape does, so the release never writes the drawing back over what the command did.
 To keep the keys away from a canvas it
-hides without destroying it, a host makes it `inert` (or `display: none`): the browser then moves
-the focus off the `<svg>` at its next rendering update, and a key that reaches the `<svg>` before
-then stays the page's too. Cmd/Ctrl+A selects the whole board. An
+hides without destroying it, a host makes it `inert` (or hides it with `display: none` or
+`visibility: hidden`, not only transparent): the browser then moves the focus off the `<svg>` at
+its next rendering update, and a key that reaches the `<svg>`, a palette entry, a label editor or
+the colour picker (Enter on a swatch included) before then stays the page's too, and the change type
+menu and the kind chooser pick no type: nothing is saved or closed. Cmd/Ctrl+A selects
+the whole board. An
 import erases the undo history without firing `commandStack.changed`, and fires
 `import.parse.start`, `import.render.start` and `import.done` in that order. It frames the content
 centred at the largest zoom that shows all of it, never above 100%; an empty board shows at 100%. A

@@ -76,6 +76,7 @@ describe('keys stay on the canvas', () => {
   it.each([
     ['made it inert', () => (host.inert = true)],
     ['hid it with display: none', () => (host.style.display = 'none')],
+    ['hid it with visibility: hidden', () => (host.style.visibility = 'hidden')],
   ])(
     'a key that reaches the canvas before the browser moves the focus off it passes, once the host %s',
     (_how, hide) => {

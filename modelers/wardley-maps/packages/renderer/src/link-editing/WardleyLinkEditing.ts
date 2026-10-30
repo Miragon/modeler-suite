@@ -13,6 +13,7 @@ import {
   type FieldSelection,
 } from "../label-editing/index.js";
 import { isAllowedLinkUrl, sanitizeLinkUrl } from "./link-url.js";
+import { isKeyOnHiddenTarget } from "../a11y/index.js";
 
 interface ActiveLinkEdit {
   elementId: string;
@@ -179,7 +180,7 @@ export default class WardleyLinkEditing {
       if (!tryCommit()) cleanup();
     };
     const onKey = (event: KeyboardEvent) => {
-      if (isImeCompositionKey(event)) return;
+      if (isImeCompositionKey(event) || isKeyOnHiddenTarget(event)) return;
       if (event.key === "Escape") {
         event.preventDefault();
         cleanup();

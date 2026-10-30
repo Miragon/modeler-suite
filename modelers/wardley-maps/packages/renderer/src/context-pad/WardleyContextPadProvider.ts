@@ -27,7 +27,7 @@ import type WardleyLinkEditing from "../link-editing/WardleyLinkEditing.js";
 import { canHaveLink, linkOf, safeLinkUrl } from "../link-editing/index.js";
 import { POPUP_PROVIDER_ID } from "../popup/index.js";
 import { isReadOnly } from "../read-only/index.js";
-import { focusCanvasWithoutRing } from "../a11y/index.js";
+import { focusCanvasWithoutRing, isKeyOnHiddenTarget } from "../a11y/index.js";
 import { chromeIcon } from "../draw/lucide.js";
 
 /** Rows of the compact pad: primary actions, then properties, then the destructive action. */
@@ -319,7 +319,7 @@ export default class WardleyContextPadProvider implements ContextPadProvider {
 
   /** Enter/Space on a focused entry = a click at the element's centre. */
   private onPadKeydown(event: KeyboardEvent, pad: HTMLElement): void {
-    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.altKey || event.ctrlKey || event.metaKey || isKeyOnHiddenTarget(event)) return;
     const entry = (event.target as Element | null)?.closest?.(".entry");
     const action = entry?.getAttribute("data-action");
     if (!entry || !action || !pad.contains(entry)) return;

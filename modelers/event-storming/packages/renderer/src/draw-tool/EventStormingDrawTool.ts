@@ -177,7 +177,7 @@ export default class EventStormingDrawTool {
    * target keeps them, inside the modeler's container too: a host's buttons and fields, a host's
    * overlay next to the canvas, the zoom panel, the other palette entries, an open menu or dialog,
    * the label editor and `<body>`. A canvas or an entry the host made `inert` or hid with
-   * `display: none` keeps them too, as in `targetsCanvas`.
+   * `display: none` or `visibility: hidden` keeps them too, as in `targetsCanvas`.
    */
   private ownsKey(e: KeyboardEvent): boolean {
     return isUnhandledKey(e) && (targetsCanvas(e, this.canvas) || this.targetsOwnPaletteEntry(e));

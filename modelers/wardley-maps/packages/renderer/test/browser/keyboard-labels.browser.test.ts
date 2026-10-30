@@ -121,7 +121,7 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
     for (const control of hostChrome.splice(0)) control.remove();
   });
 
-  /** The two ways a host hides a canvas it keeps; the focus leaves it at the next rendering update. */
+  /** The ways a host hides a canvas it keeps; the focus leaves it at the next rendering update. */
   const hostHidings = [
     {
       how: "made it inert",
@@ -132,6 +132,11 @@ describe("Keyboard and in-place label editing (real browser DOM)", () => {
       how: "hid it with display: none",
       hide: () => (container.style.display = "none"),
       show: () => container.style.removeProperty("display"),
+    },
+    {
+      how: "hid it with visibility: hidden",
+      hide: () => container.style.setProperty("visibility", "hidden"),
+      show: () => container.style.removeProperty("visibility"),
     },
   ];
 

@@ -7,7 +7,8 @@
  * mouse-down, and the palette and the context pad hand the focus back to it. `<body>`, host chrome,
  * form fields, the label editor and the palette and context pad themselves never count, and
  * nothing acts while a modal dialog is open or while the host makes the canvas `inert` or hides it
- * with `display: none`, also before the browser moves the focus off it at its next rendering update.
+ * with `display: none` or `visibility: hidden`, also before the browser moves the focus off it at
+ * its next rendering update.
  * A key a closer listener already handled (`defaultPrevented`), part of an IME composition or
  * without a `key` is left alone.
  *
@@ -58,9 +59,28 @@ function isOnCanvas(target: EventTarget | null, svg: SVGSVGElement): boolean {
   return isNode(target) && svg.contains(target) && !svg.closest("[inert]") && isRendered(svg);
 }
 
-/** Without `checkVisibility` (Safari before 17.4) the browser's focus fixup alone has to do. */
-function isRendered(element: SVGElement): boolean {
-  return typeof element.checkVisibility !== "function" || element.checkVisibility();
+/**
+ * Whether a key reaches an element the host made inert or hid, before the browser moved the focus
+ * off it. The diagram's own chrome (the context pad, the label editor) leaves such a key to the
+ * page, as the canvas does.
+ */
+export function isKeyOnHiddenTarget(event: Event): boolean {
+  const target = event.target;
+  return (
+    target instanceof globalThis.Element &&
+    (target.closest("[inert]") !== null || !isRendered(target))
+  );
+}
+
+/**
+ * `opacity: 0` keeps the focus and the keys. Without `checkVisibility` (Safari before 17.4) the
+ * browser's focus fixup alone has to do.
+ */
+function isRendered(element: globalThis.Element): boolean {
+  return (
+    typeof element.checkVisibility !== "function" ||
+    element.checkVisibility({ visibilityProperty: true })
+  );
 }
 
 function isShape(element: Element): element is Shape {

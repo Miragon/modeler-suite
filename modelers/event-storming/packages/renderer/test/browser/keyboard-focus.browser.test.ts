@@ -78,7 +78,7 @@ describe("Event Storming keys act only on the focused canvas (no shell)", () => 
     expect(document.activeElement).toBe(hostField);
   };
 
-  /** The two ways a host hides a board it keeps; the focus leaves it at the next rendering update. */
+  /** The ways a host hides a board it keeps; the focus leaves it at the next rendering update. */
   const hostHidings = [
     {
       how: "made the board inert",
@@ -89,6 +89,11 @@ describe("Event Storming keys act only on the focused canvas (no shell)", () => 
       how: "hid the board with display: none",
       hide: () => (container.style.display = "none"),
       show: () => container.style.removeProperty("display"),
+    },
+    {
+      how: "hid the board with visibility: hidden",
+      hide: () => container.style.setProperty("visibility", "hidden"),
+      show: () => container.style.removeProperty("visibility"),
     },
   ];
 

@@ -243,12 +243,15 @@ export class PaletteSkin {
 }
 
 /**
- * The renderers' canvas-key guards ask the same: `checkVisibility()` with its default options, so
- * `display: none` hides the entry and `visibility: hidden` does not. Without `checkVisibility`
- * (Safari before 17.4) the browser's focus fixup alone has to do.
+ * The renderers' canvas-key guards ask the same, so `display: none` and `visibility: hidden` both
+ * hide the entry and `opacity: 0` does not. Without `checkVisibility` (Safari before 17.4) the
+ * browser's focus fixup alone has to do.
  */
 function isRendered(entry: Element): boolean {
-  return typeof entry.checkVisibility !== "function" || entry.checkVisibility();
+  return (
+    typeof entry.checkVisibility !== "function" ||
+    entry.checkVisibility({ visibilityProperty: true })
+  );
 }
 
 function actionOf(entry: Element): string | undefined {

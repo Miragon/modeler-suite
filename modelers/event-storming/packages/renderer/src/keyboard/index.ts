@@ -10,4 +10,10 @@ export const eventStormingKeyboardModule: ModuleDeclaration = {
 export { default as EventStormingKeyboard } from "./EventStormingKeyboard.js";
 export type { EventStormingKeyboardConfig } from "./EventStormingKeyboard.js";
 export { focusCanvasWithoutRing } from "./canvas-focus.js";
-export { isRendered, isUnhandledKey, targetsCanvas } from "./key-scope.js";
+export {
+  isKeyOnHiddenTarget,
+  isRendered,
+  isUnhandledKey,
+  leaveKeysOnHiddenMenuToPage,
+  targetsCanvas,
+} from "./key-scope.js";

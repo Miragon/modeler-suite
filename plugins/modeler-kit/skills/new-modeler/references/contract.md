@@ -82,11 +82,15 @@ that adds keys of its own:
   `defaultPrevented` and one of an IME composition (`isComposing`, or the `keyCode` 229 with which
   Safari sends the key that confirms a candidate after the composition ended);
 - leaves a key alone whose target lies inside an `inert` subtree, and one that reaches a canvas
-  `<svg>` an ancestor with `display: none` hides (`checkVisibility()` is false): Chromium moves the
-  focus off a canvas the host made inert or hid only at its next rendering update, so until then a
-  key still reaches the `<svg>` (the template's
+  `<svg>` an ancestor with `display: none` or `visibility: hidden` hides (`checkVisibility()` with
+  `visibilityProperty` is false; `opacity: 0` hides nothing): Chromium moves the focus off a canvas
+  the host made inert or hid only at its next rendering update, so until then a key still reaches
+  the `<svg>` (the template's
   [`CanvasKeys.ts`](../assets/template/packages/renderer/src/keyboard/CanvasKeys.ts) does this, and
-  skips a handled key and an IME key, for diagram-js's keyboard);
+  skips a handled key and an IME key, for diagram-js's keyboard). Its own chrome follows the same
+  rule: a label editor, context pad, popover or toolbar of the renderer leaves a key aimed at it
+  alone while it lies in such a subtree, as the template's label editor does with
+  `isKeyOnHiddenTarget`;
 - never prevents or stops a key it does not act on, in the capture phase too, so a host's text
   field keeps Cmd/Ctrl+C and its buttons keep Enter and Space.
 

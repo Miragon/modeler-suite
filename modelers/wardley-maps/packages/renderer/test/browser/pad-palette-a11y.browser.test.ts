@@ -234,6 +234,11 @@ describe("palette", () => {
       hide: (host: HTMLElement) => (host.style.display = "none"),
       show: (host: HTMLElement) => host.style.removeProperty("display"),
     },
+    {
+      how: "hid it with visibility: hidden",
+      hide: (host: HTMLElement) => host.style.setProperty("visibility", "hidden"),
+      show: (host: HTMLElement) => host.style.removeProperty("visibility"),
+    },
   ])(
     "leaves its keys to the page once the host $how, before the browser moves the focus",
     async ({ hide, show }) => {

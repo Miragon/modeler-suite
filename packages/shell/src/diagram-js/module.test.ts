@@ -287,6 +287,11 @@ describe("palette skin", () => {
       hide: (container: HTMLElement) => (container.style.display = "none"),
       show: (container: HTMLElement) => container.style.removeProperty("display"),
     },
+    {
+      how: "hid it with visibility: hidden",
+      hide: (container: HTMLElement) => container.style.setProperty("visibility", "hidden"),
+      show: (container: HTMLElement) => container.style.removeProperty("visibility"),
+    },
   ])(
     "leaves the keys of an entry to the page once the host $how, before the focus moves off it",
     ({ hide, show }) => {
@@ -307,14 +312,14 @@ describe("palette skin", () => {
     },
   );
 
-  it("takes the keys of an entry the host hid with visibility: hidden, as the canvas-key guards do", () => {
+  it("takes the keys of an entry the host made transparent with opacity: 0", () => {
     const diagram = createDiagram();
     const box = entry(diagram, "create.box");
     box.focus();
     diagram
       .get<{ getContainer(): HTMLElement }>("canvas")
       .getContainer()
-      .style.setProperty("visibility", "hidden");
+      .style.setProperty("opacity", "0");
     expect(press(box, "Enter").defaultPrevented).toBe(true);
     expect(clicks).toEqual(["click:box"]);
   });

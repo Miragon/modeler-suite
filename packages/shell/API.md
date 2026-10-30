@@ -1990,10 +1990,10 @@ registers one internal didi service named `modelerShell` (a modeler does not reu
 - Palette keys, without modifiers: ← and → move and wrap, Home and End jump, Enter and Space trigger
   the entry once (repeats ignored). They are stopped at the palette, so a modeler's document listener
   and VS Code never see them; chrome keys still bubble to the shell. A key on an entry inside an
-  `inert` subtree or below an ancestor with `display: none` (`checkVisibility()` with its default
-  options, as the renderers' canvas-key guards ask) passes untouched: the browser moves the focus off
-  an entry the host made inert or hid only at its next rendering update, and until then the key
-  still reaches it.
+  `inert` subtree or below an ancestor with `display: none` or `visibility: hidden`
+  (`checkVisibility({ visibilityProperty: true })`, as the renderers' canvas-key guards ask) passes
+  untouched: the browser moves the focus off an entry the host made inert or hid only at its next
+  rendering update, and until then the key still reaches it. An entry at `opacity: 0` keeps its keys.
 - Enter and Space trigger through a synthetic `click`, and that click is a contract: a `MouseEvent`
   with `detail === 0` (a pointer click has 1 or more), `clientX`/`clientY` at the entry's centre,
   bubbling and cancelable, dispatched on the entry. It goes through diagram-js's click delegate and

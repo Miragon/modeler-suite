@@ -114,14 +114,20 @@ describe("keys on the focused canvas", () => {
     expect(has(modeler, STEP)).toBe(true);
   });
 
-  it.each(["made the canvas inert", "hid the canvas with display: none"] as const)(
+  it.each([
+    "made the canvas inert",
+    "hid the canvas with display: none",
+    "hid the canvas with visibility: hidden",
+  ] as const)(
     "but not once the host %s, before the browser moves the focus off it",
     async (how) => {
       const modeler = await mount();
       select(modeler, STEP);
       canvasSvg(modeler).focus();
       if (how === "made the canvas inert") modeler.diagram.container.inert = true;
-      else modeler.diagram.container.style.display = "none";
+      else if (how === "hid the canvas with display: none")
+        modeler.diagram.container.style.display = "none";
+      else modeler.diagram.container.style.visibility = "hidden";
       expect(document.activeElement).toBe(canvasSvg(modeler));
       const before = modeler.exportText();
 

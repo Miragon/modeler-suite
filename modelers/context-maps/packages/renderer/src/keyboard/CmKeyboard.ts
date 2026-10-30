@@ -13,6 +13,7 @@ import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
+import type PopupMenu from "diagram-js/lib/features/popup-menu/PopupMenu";
 import type { Element } from "diagram-js/lib/model/Types";
 import { isCmElement } from "../model/di-types.js";
 import type CmReadOnly from "../read-only/CmReadOnly.js";
@@ -26,9 +27,9 @@ export interface CmKeyboardConfig {
 }
 
 /**
- * A canvas inside an `inert` subtree or below an ancestor with `display: none` takes no key either:
- * Chromium moves the focus off an element the host made inert or hid only at its next rendering
- * update, so until then the key still reaches it.
+ * A canvas inside an `inert` subtree or below an ancestor with `display: none` or
+ * `visibility: hidden` takes no key either: Chromium moves the focus off an element the host made
+ * inert or hid only at its next rendering update, so until then the key still reaches it.
  */
 function isKeyForCanvas(event: KeyboardEvent, svg: SVGElement | null): boolean {
   const target = event.target;
@@ -43,9 +44,42 @@ function isKeyForCanvas(event: KeyboardEvent, svg: SVGElement | null): boolean {
   );
 }
 
-/** Without `checkVisibility` (Safari before 17.4) the browser's focus fixup alone has to do. */
-function isRendered(element: SVGElement): boolean {
-  return typeof element.checkVisibility !== "function" || element.checkVisibility();
+/**
+ * Whether a key reaches an element the host made inert or hid, before the browser moved the focus
+ * off it. The map's own chrome (the label editor, the context pad's description field and menus)
+ * leaves such a key to the page, as the canvas does.
+ */
+export function isKeyOnHiddenTarget(event: Event): boolean {
+  const target = event.target;
+  return (
+    target instanceof globalThis.Element &&
+    (target.closest("[inert]") !== null || !isRendered(target))
+  );
+}
+
+const menusLeavingHiddenKeys = new WeakSet<object>();
+
+/**
+ * diagram-js's popup menu runs its selected entry on Enter, also on one the browser still sends to
+ * a menu the host made inert or hid: such a key picks nothing and goes on to the page unprevented.
+ */
+export function leaveKeysOnHiddenMenuToPage(popupMenu: Pick<PopupMenu, "trigger">): void {
+  if (menusLeavingHiddenKeys.has(popupMenu)) return;
+  menusLeavingHiddenKeys.add(popupMenu);
+  const trigger = popupMenu.trigger.bind(popupMenu);
+  popupMenu.trigger = (event, entry, action) =>
+    isKeyOnHiddenTarget(event) ? undefined : trigger(event, entry, action);
+}
+
+/**
+ * `opacity: 0` keeps the focus and the keys. Without `checkVisibility` (Safari before 17.4) the
+ * browser's focus fixup alone has to do.
+ */
+function isRendered(element: globalThis.Element): boolean {
+  return (
+    typeof element.checkVisibility !== "function" ||
+    element.checkVisibility({ visibilityProperty: true })
+  );
 }
 
 export default class CmKeyboard {

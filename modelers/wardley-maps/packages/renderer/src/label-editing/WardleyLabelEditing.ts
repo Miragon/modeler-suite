@@ -19,6 +19,7 @@ import { isImeCompositionKey } from "./imeComposition.js";
 import { isReadOnly } from "../read-only/index.js";
 import {
   focusCanvasWithoutRing,
+  isKeyOnHiddenTarget,
   lastInteractionWasPointer,
   trackInputModality,
 } from "../a11y/index.js";
@@ -347,7 +348,7 @@ export default class WardleyLabelEditing {
       }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (isImeCompositionKey(e)) return;
+      if (isImeCompositionKey(e) || isKeyOnHiddenTarget(e)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         cleanup();
@@ -456,7 +457,7 @@ export default class WardleyLabelEditing {
       });
     };
     const onKey = (e: KeyboardEvent) => {
-      if (isImeCompositionKey(e)) return;
+      if (isImeCompositionKey(e) || isKeyOnHiddenTarget(e)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         cleanup();

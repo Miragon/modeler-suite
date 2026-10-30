@@ -5,6 +5,7 @@ import {
   parsePlotLength,
   plotLengthMessage,
 } from "@miragon/wardley-schema-model";
+import { isKeyOnHiddenTarget } from "../a11y/index.js";
 import type { Modeler } from "../Modeler.js";
 import type { MapSizeInfo } from "../WardleyBaseViewer.js";
 import { element } from "./dom.js";
@@ -99,7 +100,9 @@ export function createMapSizePopover(chrome: PopoverChrome, modeler: Modeler): P
       const hint = element("p", "wardley-popover-hint", "Or drag the plot’s right or bottom edge.");
       body.append(sizeField.wrapper, lengths, hint);
       const doneButton = dialogButton("Done", "secondary");
-      doneButton.addEventListener("click", done);
+      doneButton.addEventListener("click", (event) => {
+        if (!isKeyOnHiddenTarget(event)) done();
+      });
       footer.append(reset, doneButton);
 
       preset.addEventListener("change", () => {
@@ -109,7 +112,8 @@ export function createMapSizePopover(chrome: PopoverChrome, modeler: Modeler): P
       });
       width.addEventListener("change", () => applyLength(width, "width"));
       height.addEventListener("change", () => applyLength(height, "height"));
-      reset.addEventListener("click", () => {
+      reset.addEventListener("click", (event) => {
+        if (isKeyOnHiddenTarget(event)) return;
         // Reset disables itself, which would drop the focus out of the popover.
         preset.focus();
         preview(undefined);

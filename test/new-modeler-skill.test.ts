@@ -936,6 +936,7 @@ const NON_API_NAMES = new Map<string, string>([
   ["deferUpdate", "diagram-js, the canvas option that debounces canvas.viewbox.changed"],
   ["holdAction", "the template renderer's gestures service"],
   ["tearDownAfterHandler", "the template renderer's gestures service"],
+  ["isKeyOnHiddenTarget", "the template renderer's canvas-key guard"],
   ["THEMES", "the template renderer's themes constant"],
   ["import.parse.start", "the import events a diagram-js renderer fires (bpmn-js's names)"],
   ["import.render.start", "the import events a diagram-js renderer fires (bpmn-js's names)"],
@@ -952,6 +953,10 @@ const NON_API_NAMES = new Map<string, string>([
   ["var", "CSS"],
   ["CanvasText", "CSS, a system colour of forced colours"],
   ["checkVisibility", "the DOM, Element's check whether the browser renders it"],
+  [
+    "visibilityProperty",
+    "the DOM, checkVisibility's option that also asks the visibility property",
+  ],
   ["keyCode", "the DOM, KeyboardEvent's legacy key code (229 for a key an IME took)"],
   ["Intl", "JavaScript"],
   ["comments.legal", "Vite's build options"],

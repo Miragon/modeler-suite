@@ -79,6 +79,7 @@ import { escapeMarkup } from "../draw/markup.js";
 import { contextIconSvg, relationshipIconSvg, roleChipSvg } from "../draw/palette-icons.js";
 import { chromeIcon } from "../draw/lucide.js";
 import { handFocusToCanvas } from "../keyboard/canvasFocus.js";
+import { isKeyOnHiddenTarget, leaveKeysOnHiddenMenuToPage } from "../keyboard/CmKeyboard.js";
 
 const SUBDOMAIN_MENU = "cm-subdomain-menu";
 const PATTERN_MENU = "cm-pattern-menu";
@@ -238,6 +239,7 @@ export default class CmContextPadProvider implements ContextPadProvider {
     popupMenu.registerProvider(ROLES_MENU, {
       getPopupMenuEntries: (target: PopupMenuTarget) => this.rolesMenuEntries(target),
     });
+    leaveKeysOnHiddenMenuToPage(popupMenu);
     // Deconflict auto-placed appends: diagram-js' stock position (right of the
     // source) ignores occupied slots — step downwards until the slot is free.
     // Registered at default priority, beating the stock low-priority listener.
@@ -720,7 +722,7 @@ export default class CmContextPadProvider implements ContextPadProvider {
     };
     field.addEventListener("keydown", (event: Event) => {
       const keyEvent = event as KeyboardEvent;
-      if (isInputMethodKey(keyEvent)) return;
+      if (isInputMethodKey(keyEvent) || isKeyOnHiddenTarget(keyEvent)) return;
       if (keyEvent.key === "Escape") {
         keyEvent.preventDefault();
         keyEvent.stopPropagation();

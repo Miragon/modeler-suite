@@ -17,6 +17,7 @@ import type EventStormingModeling from "../modeling/EventStormingModeling.js";
 import { READ_ONLY_CHANGED_EVENT, type EventStormingReadOnly } from "../read-only/index.js";
 import { isManualNoteBox, noteMetrics } from "../draw/styles.js";
 import { CHROME_SPACING } from "../theme/palette.js";
+import { isKeyOnHiddenTarget } from "../keyboard/index.js";
 import { LabelSuggestionList, boardStickies } from "../vocabulary/index.js";
 import {
   NOTE_BULLET_CLASS,
@@ -272,7 +273,7 @@ export default class EventStormingLabelEditing {
       this.modeling.updateLabel(element, value);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (isImeCompositionKey(e)) return;
+      if (isImeCompositionKey(e) || isKeyOnHiddenTarget(e)) return;
       if (suggestions?.handleKey(e)) return;
       if (e.key === "Escape") {
         e.preventDefault();
@@ -450,7 +451,7 @@ export default class EventStormingLabelEditing {
       if (properties) this.modeling.updateProperties(element, properties);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (isImeCompositionKey(e)) return;
+      if (isImeCompositionKey(e) || isKeyOnHiddenTarget(e)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         cleanup();
@@ -553,7 +554,7 @@ export default class EventStormingLabelEditing {
       this.modeling.updateProperties(conn, { linkLabel: value || undefined });
     };
     const onKey = (e: KeyboardEvent) => {
-      if (isImeCompositionKey(e)) return;
+      if (isImeCompositionKey(e) || isKeyOnHiddenTarget(e)) return;
       if (e.key === "Escape") {
         e.preventDefault();
         cleanup();

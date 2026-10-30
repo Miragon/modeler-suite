@@ -6,7 +6,7 @@ import EventStormingElementSettingsProvider from "../src/popup/EventStormingElem
 function providerHarness(level: BoardLevel = "design") {
   const setStickyKind = vi.fn();
   const provider = new EventStormingElementSettingsProvider(
-    { registerProvider: vi.fn() } as never,
+    { registerProvider: vi.fn(), trigger: vi.fn() } as never,
     { getLevel: () => level, setStickyKind } as never,
   );
   return { provider, setStickyKind };
