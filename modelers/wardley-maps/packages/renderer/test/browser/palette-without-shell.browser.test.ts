@@ -982,4 +982,24 @@ describe("the palette's surface without the shell (guide §5.3, §5.5, §6, #447
 
     expect(getComputedStyle(paletteOf(host)).backgroundColor).toBe(surfaceAt(host, "100%"));
   });
+
+  // The tokens make glass opaque in forced colours only under a `data-cd-theme`, which a host
+  // without the shell need not set; the browser forces the surface's colour but keeps its alpha.
+  it.each([
+    ["on a page without a theme", () => undefined],
+    ["on a light page", () => root],
+  ])("is opaque, without the blur, in forced colours %s", async (_, carrierOf) => {
+    const { host } = await mount();
+    carrierOf()?.setAttribute("data-cd-theme", "light");
+    await emulateForcedColours();
+    const style = getComputedStyle(paletteOf(host));
+
+    expect(rgbaOf(style.backgroundColor).alpha).toBe(1);
+    expect(style.backdropFilter).toBe("none");
+  });
 });
+
+function rgbaOf(color: string): { alpha: number } {
+  const channels = color.match(/[\d.]+/g)?.map(Number) ?? [];
+  return { alpha: channels.length > 3 ? channels[3]! : 1 };
+}

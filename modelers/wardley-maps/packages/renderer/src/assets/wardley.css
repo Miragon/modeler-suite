@@ -1000,9 +1000,14 @@
   /* The browser drops box shadows and turns backgrounds into Canvas, which would take the armed
      tool's ring and the separators away: they stay in system colours, as the island's edge and the
      focus ring do for an engine that does not force them itself (guide §5.14). The !important
-     answers diagram-js's colour of the highlighted entry. */
+     answers diagram-js's colour of the highlighted entry. The glass turns opaque here only under a
+     data-cd-theme, which a host without the shell need not set, and the browser keeps the alpha
+     of the colour it forces: the island is Canvas without the blur on every page (guide §5.3). */
   .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) {
     border-color: CanvasText;
+    background: Canvas;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
   .djs-palette.wardley-palette:where(:not([data-chrome="palette"])) .group + .group::before {
     forced-color-adjust: none;
