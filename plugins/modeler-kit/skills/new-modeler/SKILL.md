@@ -137,6 +137,9 @@ known version), and the new repository's Dependabot moves them on.
   from Example" as commands, in File › New File… and in the walkthrough, whose steps are New,
   Example and Source to the side; "Open Source to the Side" and "Open Diagram to the Side" in the
   editor titles ([shell](references/shell.md#the-ide-host-vs-code)).
+- The extension's save dialogs and their notifications are the shell's: `registerNewDocumentCommand`
+  for both new-diagram commands and `exportToFile` for the PNG and SVG export, with no dialog,
+  write or notification text of its own ([shell](references/shell.md#the-ide-host-vs-code)).
 - brand-lint reports no hard finding with the template's `.miragon/brand.json`
   ([design system](references/design-system.md#brand-lint)).
 - A VSIX packages (`npx vsce package --no-dependencies`) and `npm publish --dry-run` packs every
