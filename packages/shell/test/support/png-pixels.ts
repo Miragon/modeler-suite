@@ -2,6 +2,7 @@
 /** Reading PNGs back in the browser tests of `./export`. */
 import monoLatinExtUrl from "@fontsource-variable/geist-mono/files/geist-mono-latin-ext-wght-normal.woff2?url";
 import monoLatinUrl from "@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?url";
+import { expect } from "vitest";
 import { GEIST_UNICODE_RANGES } from "../../src/export/index.js";
 
 export async function pngPixels(png: Blob): Promise<ImageData> {
@@ -37,6 +38,19 @@ export function inkWidth(pixels: ImageData): number {
   return right >= left ? right - left + 1 : 0;
 }
 
+/**
+ * The PNG's label is far nearer one drawing than the other. The canvas and an SVG image round
+ * glyph positions differently (WebKit on Linux: 3 px over 25 glyphs), so an exact width would be
+ * flaky; one subset in the fallback moves the label by a third of the gap or more.
+ */
+export async function expectNearer(png: Blob, near: number, far: number): Promise<void> {
+  const width = inkWidth(await pngPixels(png));
+  expect(
+    4 * Math.abs(width - near),
+    `PNG ${width} px, expected near ${near} px, far from ${far} px`,
+  ).toBeLessThan(Math.abs(width - far));
+}
+
 export const LABEL = { x: 8, baseline: 34, fontSize: 24, width: 480, height: 48 } as const;
 
 /**
@@ -59,12 +73,15 @@ function fallbackFontFaces(): Promise<string> {
   return fallbackFaces;
 }
 
+/** A test label's CSS `font-style`: upright, or italic as Wardley Maps' notes and axis captions. */
+export type LabelStyle = "normal" | "italic";
+
 /**
  * One label in 'Geist Variable', without 'Geist' (a local install must not stand in), falling back
  * to Geist Mono, whose subsets hidden texts load up front as embedGeist does for Geist. Build it
  * before a test stubs `fetch`: the first call reads the fallback's files.
  */
-export async function labelSvg(label: string): Promise<string> {
+export async function labelSvg(label: string, style: LabelStyle = "normal"): Promise<string> {
   const preload = ["ł", "A"]
     .map((sample) => `<text style="font-family:${FALLBACK_FAMILY}">${sample}</text>`)
     .join("");
@@ -73,7 +90,7 @@ export async function labelSvg(label: string): Promise<string> {
     `<defs><style>${await fallbackFontFaces()}</style></defs>` +
     `<g visibility="hidden">${preload}</g>` +
     `<text x="${LABEL.x}" y="${LABEL.baseline}" font-family="'Geist Variable', ${FALLBACK_FAMILY}" ` +
-    `font-size="${LABEL.fontSize}">${label}</text></svg>`
+    `font-size="${LABEL.fontSize}" font-style="${style}">${label}</text></svg>`
   );
 }
 
@@ -82,8 +99,9 @@ export async function canvasInkWidth(
   label: string,
   family: string,
   scale: number,
+  style: LabelStyle = "normal",
 ): Promise<number> {
-  const font = `${LABEL.fontSize}px ${family}`;
+  const font = `${style} ${LABEL.fontSize}px ${family}`;
   await document.fonts.load(font, label);
   const canvas = document.createElement("canvas");
   canvas.width = LABEL.width * scale;
