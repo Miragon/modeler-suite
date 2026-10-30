@@ -579,8 +579,9 @@
 }
 /* The chosen colour's ring lies 2 to 4px outside its swatch, where the focus ring would lie too,
    in nearly the same blue: the focus stands 1px outside that ring, as guide §5.5 keeps the armed
-   tool's ring and focus apart, at every ring width. */
-:where(.wardley-container) .wardley-cp-active:focus-visible {
+   tool's ring and focus apart, at every ring width. The picker's class outweighs the shell's ring
+   for a button of its document (html.cd-shell-document), which would lay the focus on the ring. */
+:where(.wardley-container) .wardley-color-picker .wardley-cp-active:focus-visible {
   outline-offset: 5px;
 }
 /* The canvas fills its container, so an outer ring would be clipped — draw it inside. */
