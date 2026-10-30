@@ -121,8 +121,9 @@ for (const { aggregate, commands, events, pairs } of groupByAggregate(board)) {
   does not.
 - A label without a word (`?`; an empty command or event) names nothing: such a sticky groups with
   no other, and its `key` is empty.
-- Groups follow their first aggregate on the timeline (`sortByTimeline`), commands and events do
-  the same within a group.
+- Groups follow their first aggregate on the timeline (left to right, then top to bottom, then by
+  id, as in `sortByTimeline`), commands and events do the same within a group. Stickies on exactly
+  the same spot follow the code points of their ids, so the order is the same on every machine.
 
 Part of the [Event Storming Modeler](https://github.com/Miragon/modeler-suite/tree/main/modelers/event-storming) in the [Miragon modeler suite](https://github.com/Miragon/modeler-suite).
 
