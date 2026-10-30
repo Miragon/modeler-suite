@@ -835,30 +835,36 @@
   white-space: nowrap;
 }
 
-/* High contrast (guide §6, §5.14): no shadows, contour borders, 3px focus. Forced colours: the
+/* High contrast (guide §5.3, §6, §5.14): no shadows, contour borders, 3px focus. It follows the
+   nearest mode carrier, as the roles do (guide §10.2): the page, the map's container once a host set
+   its appearance (contract 1.5), or a carrier around the chrome's root. So a request for normal
+   contrast holds on a high-contrast page, where a selector over any ancestor would reach through
+   that carrier. `:scope` keeps each rule as specific as the one it overrides. Forced colours: the
    system's colours, so nothing disappears. */
-[data-cd-kontrast="hoch"] :is(.wardley-popover, .wardley-dialog-panel) {
-  border-color: var(--cd-ui-kontur);
-  box-shadow: none;
-}
-[data-cd-kontrast="hoch"] .wardley-button[data-variant="primary"] {
-  box-shadow: none;
-}
-[data-cd-kontrast="hoch"]
-  :is(
-    .wardley-field-input,
-    .wardley-button,
-    .wardley-popover-link,
-    .wardley-dialog-close
-  ):focus-visible {
-  outline-width: 3px;
-}
-/* The inline editors take the contrast of the nearest mode carrier, as the roles do: the map's
-   container once a host set its appearance (contract 1.5), the page around it before. So a request
-   for normal contrast holds on a high-contrast page. */
-.wardley-container[data-cd-kontrast="hoch"] .wardley-label-input:focus,
-[data-cd-kontrast="hoch"] .wardley-container:not([data-cd-theme]) .wardley-label-input:focus {
-  outline-width: 3px;
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  :scope :is(.wardley-popover, .wardley-dialog-panel) {
+    border-color: var(--cd-ui-kontur);
+    box-shadow: none;
+  }
+  :scope .wardley-button[data-variant="primary"] {
+    box-shadow: none;
+  }
+  :scope
+    :is(
+      .wardley-field-input,
+      .wardley-button,
+      .wardley-popover-link,
+      .wardley-dialog-close
+    ):focus-visible {
+    outline-width: 3px;
+  }
+  :is(:scope.wardley-container, :scope .wardley-container)
+    :is(.wardley-label-input, .wardley-label-caption) {
+    box-shadow: none;
+  }
+  :is(:scope.wardley-container, :scope .wardley-container) .wardley-label-input:focus {
+    outline-width: 3px;
+  }
 }
 @media (forced-colors: active) {
   :is(.wardley-popover, .wardley-dialog-panel) {
