@@ -84,6 +84,12 @@
   border-radius: var(--cd-radius-md);
   box-shadow: var(--cd-shadow-1);
 }
+/* diagram-js collapses the palette of a short canvas into two columns 94px wide, made for its
+   vertical palette, with a rule that outweighs the island's width above; the horizontal island
+   would stay 94px wide and its entries run past its edge. */
+:where(.cm-djs-container) .djs-palette:not([data-chrome="palette"]).two-column.open {
+  width: auto;
+}
 :where(.cm-djs-container) .djs-palette:not([data-chrome="palette"]) .djs-palette-entries,
 :where(.cm-djs-container) .djs-palette:not([data-chrome="palette"]) .group {
   display: flex;
