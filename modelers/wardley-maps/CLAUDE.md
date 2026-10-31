@@ -121,8 +121,9 @@ italic) with `?dataurl`, which the `dataurl-imports` plugin of
 The `vscode-webview` e2e tests record the SVG each PNG is drawn from and check that every embedded
 face carries the fontsource file of its subset and style. The web app and the webview show their
 own text when the SVG or PNG can't be made (guide §2), never the error's message; when the
-extension host can't write the file, its error names the file-system reason. The renderer has no
-shortcuts dialog and no rasterizer of its own since 0.15.0
+extension host can't write the file, the shell's `exportToFile` says so in its own words
+("Couldn't export map.png. Try again, or choose another folder.") and logs the file system's reason
+to the console. The renderer has no shortcuts dialog and no rasterizer of its own since 0.15.0
 ([#258](https://github.com/Miragon/modeler-suite/issues/258)).
 
 ## Commands

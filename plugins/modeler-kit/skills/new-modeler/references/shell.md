@@ -131,11 +131,25 @@ Code's.
   as one edit.
 - The webview bundle: fonts as files (esbuild `loader` `file`, `assetNames: 'fonts/[name]-[hash]'`)
   under the CSP's `font-src`, zod's `config({ jitless: true })` imported before any schema, the
-  Lucide legal comment kept. Exports go to the host, which shows the save dialog and a
-  notification with `revealFileLabel`, not a toast.
+  Lucide legal comment kept. Exports go to the host, never a toast: `onMessage` hands the
+  webview's `export` to `exportToFile` (modeler-shell 0.9.0 or later) with the kind of
+  `IMAGE_EXPORT_KINDS`, the document as `sourceUri`, the notation as `defaultName` and the
+  message's font fallback. The shell's save dialog ("Export as PNG", "Export") suggests the
+  document's name beside it, writes the file and names it in a notification with the action that
+  shows it (`revealFileLabel`), a warning after a font fallback; a file it cannot write is an error
+  notification in its own words ("Couldn't export orders.png. Try again, or choose another
+  folder."), with the cause in the log (template:
+  [`diagramEditor.ts`](../assets/template/apps/vscode/src/diagramEditor.ts)). The extension has
+  no save dialog or notification text of its own.
 - Native contributions (guide §13.5): "New Empty Diagram" and "New Diagram from Example" are
   commands that ask for a location in the save dialog and write a real file (a custom text editor
-  is most robust on a file URI). Both are in File › New File…, which shows a command's short title,
+  is most robust on a file URI): `registerNewDocumentCommand` (modeler-shell 0.9.0 or later) with
+  the same options twice, once with the empty diagram and once with the example as `text`. It
+  opens the new file in the diagram editor and shows an error notification when the file cannot be
+  written (template: [`extension.ts`](../assets/template/apps/vscode/src/extension.ts)); a unit
+  test runs both commands and the export against a stand-in for `vscode` (template:
+  [`fileCommands.test.ts`](../assets/template/apps/vscode/test/fileCommands.test.ts)). Both
+  commands are in File › New File…, which shows a command's short title,
   such as "Capability Map Diagram" and "New Capability Map Diagram from Example", in the order of
   the group suffixes @1 and @2 (without them VS Code sorts a group by title). The walkthrough (id
   getStarted) has the steps New, Example and Source to the side, each completed by its command,
