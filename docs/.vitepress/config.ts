@@ -38,6 +38,10 @@ export default miragonDocs({
   footerMessage: "Released under the MIT License.",
   srcExclude: ["assets/**"],
   markdown: { config: linkRepositoryFilesOutsideDocsToGitHub },
+  // Mermaid 12 wraps flowchart labels at 120px, and the page's paragraph line height cuts off the
+  // last line of a wrapped label. 200px keeps them on the lines they had under Mermaid 11. It can
+  // go once the kit's theme keeps Mermaid's line height for the label paragraphs.
+  mermaid: { flowchart: { wrappingWidth: 200 } },
   nav: [
     { text: "Getting started", link: "/getting-started" },
     { text: "Modelers", items: modelers },
