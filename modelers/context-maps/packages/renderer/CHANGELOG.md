@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.9.0...context-maps-renderer-v0.9.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **context-maps:** keep every tool inside the palette on a short canvas ([#512](https://github.com/Miragon/modeler-suite/issues/512)) ([8406332](https://github.com/Miragon/modeler-suite/commit/840633224750b9cd216ce30a50f5e8e20cb0026b))
+
 ## [0.9.0](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.8.0...context-maps-renderer-v0.9.0) (2026-10-30)
 
 
