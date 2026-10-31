@@ -27,9 +27,9 @@ import { emptyDocument } from "@miragon/context-maps-schema-model";
  * The renderer's palette rules lay out this modeler's palette and no other on the page, and so do
  * its context pad and popup menu rules; the palette follows forced colours and reduced motion. For a
  * host without the modeler shell it is the glass toolbar of guide §5.5 with its keys (#433, #436),
- * the tooltip of guide §5.6 below it (#457), the lasso pressed only while it is armed (#458, #462)
- * and the marks of the read-only lock, at once or after the delay a host gives it (guide §13.5,
- * #463, #484).
+ * one row on a short canvas too (#511), the tooltip of guide §5.6 below it (#457), the lasso
+ * pressed only while it is armed (#458, #462) and the marks of the read-only lock, at once or after
+ * the delay a host gives it (guide §13.5, #463, #484).
  */
 
 const mounted: { modeler: Modeler; container: HTMLElement }[] = [];
@@ -507,6 +507,59 @@ describe("the palette without the shell: glass (guide §5.5, §6, #436)", () => 
     expect(getComputedStyle(paletteOf(modeler)).backgroundColor).toBe(
       opaqueSurface(modeler.container),
     );
+  });
+});
+
+describe("the palette without the shell: a short canvas (guide §5.5, #511)", () => {
+  /** Lower than the 4 × 46px + 50px diagram-js's vertical palette needs for the four entries. */
+  const SHORT_HEIGHT = 220;
+
+  /** The modeler sizes its container from its options and overrides the container's own size. */
+  function mountShortMap(): Modeler {
+    const host = document.createElement("div");
+    host.className = "palette-host";
+    const container = document.createElement("div");
+    host.append(container);
+    document.body.append(host);
+    const modeler = new Modeler({ container, width: 900, height: SHORT_HEIGHT });
+    mounted.push({ modeler, container: host });
+    modeler.importDocument(emptyDocument("Short"));
+    expect(modeler.get<Canvas>("canvas").getContainer().clientHeight).toBe(SHORT_HEIGHT);
+    expect(paletteOf(modeler).classList.contains("two-column")).toBe(true);
+    return modeler;
+  }
+
+  test("holds every entry inside the island where diagram-js collapses the palette into two columns", () => {
+    const modeler = mountShortMap();
+    const palette = paletteOf(modeler);
+
+    const island = palette.getBoundingClientRect();
+    const outside = entriesOf(modeler)
+      .filter((entry) => {
+        const box = entry.getBoundingClientRect();
+        return (
+          box.left < island.left ||
+          box.right > island.right ||
+          box.top < island.top ||
+          box.bottom > island.bottom
+        );
+      })
+      .map((entry) => entry.dataset.action);
+    expect(outside).toEqual([]);
+    expect(island.height).toBe(40);
+  });
+
+  test("lets a host's own width on the collapsed palette win over the renderer's sheet", () => {
+    const palette = paletteOf(mountShortMap());
+    const hostSheet = document.createElement("style");
+    hostSheet.textContent =
+      '.palette-host .djs-palette:not([data-chrome="palette"]).two-column.open { width: 300px; }';
+    document.head.prepend(hostSheet);
+    try {
+      expect(getComputedStyle(palette).width).toBe("300px");
+    } finally {
+      hostSheet.remove();
+    }
   });
 });
 
