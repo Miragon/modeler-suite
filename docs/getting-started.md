@@ -27,6 +27,12 @@ Every modeler takes the same scripts: `npm run <modeler> <script>` with `build`,
 ## How the suite fits together
 
 ```mermaid
+---
+# Mermaid 12 wraps labels at 120px, where the page's paragraph line height cuts off their last line.
+config:
+  flowchart:
+    wrappingWidth: 200
+---
 flowchart LR
   api["@miragon/modeler-api"] --> renderer["renderer of a modeler"]
   shell["@miragon/modeler-shell"] --> apps["web app and VS Code extension"]
