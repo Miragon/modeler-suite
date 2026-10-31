@@ -137,6 +137,9 @@ ask for more permissions than the caller grants, even a job that would be skippe
 
 `pr-title.yml` validates the PR title as a Conventional Commit (`feat`, `fix`, `chore`, `docs`,
 `refactor`, `ci`, `build`, `test`, `revert`); PRs are squash-merged with the title as the commit.
+A single-commit PR's commit must say what the title says, except Dependabot's: its grouped security
+updates commit a shorter headline than their title, and no Dependabot setting changes that, so its
+commit only has to be a Conventional Commit.
 
 ## Dependabot
 

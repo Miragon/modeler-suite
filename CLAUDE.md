@@ -141,7 +141,8 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
 - A root `overrides` entry also lifts a transitive dependency past a security advisory when no
   release of what pulls it in accepts the fix yet: `minimatch` 11.0.3 for GHSA-g3hv-75wg-m249,
   which ESLint, typescript-eslint, `@vscode/vsce` and release-please still hold on 10.x or older.
-  Drop it once they accept 11.x (`npm ls minimatch`). `test/root-overrides.test.ts` keeps every
+  Drop it once they accept 11.x: `npm explain minimatch` names the range each one asks for (`npm ls`
+  shows only the overridden version). `test/root-overrides.test.ts` keeps every
   override exact and the advisory out of the lockfile.
 - Adding one: `npm install <pkg> -w <workspace>` from the root, then check the exact version in
   `package.json` against `npm ls <pkg>`.

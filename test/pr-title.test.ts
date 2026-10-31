@@ -1,9 +1,10 @@
 /**
- * The PR title check. Squash merges take the title as the one Conventional Commit on main, so the
- * title is checked, a single commit too, and a person's single commit must say what the title says.
- * Dependabot's grouped security updates commit a shorter headline than their title, which no
- * Dependabot setting changes: its pull requests are held to Conventional Commits only, or every
- * security update fails the required check.
+ * The PR title check, in the suite and in the modeler-kit template. Squash merges take the title as
+ * the one Conventional Commit on main, so the title is checked, a single commit too, and the single
+ * commit of every author but Dependabot must say what the title says. Dependabot's grouped security
+ * updates commit a shorter headline than their title, which no Dependabot setting changes: its pull
+ * requests are held to Conventional Commits only, or every security update fails the required
+ * check.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -12,6 +13,8 @@ import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const TEMPLATE = join(ROOT, "plugins/modeler-kit/skills/new-modeler/assets/template");
+const PR_TITLE = ".github/workflows/pr-title.yml";
 const TITLE_ACTION = "amannn/action-semantic-pull-request";
 const AUTHOR_IS_NOT = /^\$\{\{ github\.event\.pull_request\.user\.login != '(?<login>[^']+)' \}\}$/;
 
@@ -23,13 +26,13 @@ interface Workflow {
   jobs: Record<string, { steps?: Step[] }>;
 }
 
-const workflow = parseYaml(
-  readFileSync(join(ROOT, ".github/workflows/pr-title.yml"), "utf8"),
-) as Workflow;
-const titleCheck = Object.values(workflow.jobs)
-  .flatMap((job) => job.steps ?? [])
-  .find((step) => step.uses?.split("@")[0] === TITLE_ACTION);
-const inputs = titleCheck?.with ?? {};
+const titleCheckInputs = (root: string): Record<string, unknown> => {
+  const workflow = parseYaml(readFileSync(join(root, PR_TITLE), "utf8")) as Workflow;
+  const titleCheck = Object.values(workflow.jobs)
+    .flatMap((job) => job.steps ?? [])
+    .find((step) => step.uses?.split("@")[0] === TITLE_ACTION);
+  return titleCheck?.with ?? {};
+};
 
 /** What the input says for a pull request of this author, the way GitHub would evaluate it. */
 const evaluateFor = (input: unknown, author: string): boolean => {
@@ -39,7 +42,12 @@ const evaluateFor = (input: unknown, author: string): boolean => {
   return author.toLowerCase() !== login.toLowerCase();
 };
 
-describe("the PR title check", () => {
+describe.each([
+  ["the suite", ROOT],
+  ["the modeler-kit template", TEMPLATE],
+])("the PR title check in %s", (_, root) => {
+  const inputs = titleCheckInputs(root);
+
   it("checks the title as a Conventional Commit of the suite's types", () => {
     expect(String(inputs.types).trim().split(/\s+/)).toEqual([
       "feat",
