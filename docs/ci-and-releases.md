@@ -213,7 +213,9 @@ packages or the root install changed. Site settings (Site configuration → Buil
 ## Other workflows
 
 - [`pr-title.yml`](../.github/workflows/pr-title.yml) (`validate-pr-title`): the title is a
-  Conventional Commit, and a single-commit pull request's commit says the same.
+  Conventional Commit, and a single-commit pull request's commit says the same. Dependabot's commit
+  only has to be a Conventional Commit: its grouped security updates commit a shorter headline than
+  their title, and no Dependabot setting changes that.
 - [`codeql.yml`](../.github/workflows/codeql.yml): JavaScript and TypeScript, on pull requests,
   `main` and weekly.
 - [`dependabot.yml`](../.github/dependabot.yml): npm weekly (minor and patch grouped, the suite's

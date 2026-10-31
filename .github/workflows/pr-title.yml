@@ -19,11 +19,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # squash merges take the PR title as the ONE conventional commit on
-          # main — a single-commit PR must agree with it, or release-please
-          # reads the commit instead of the title
+          # Squash merges take the PR title as the commit subject, so the title is the one
+          # Conventional Commit on main. A single commit is checked as a Conventional Commit too
+          # and, except for Dependabot's, must match the title: Dependabot's grouped security
+          # updates commit a shorter headline than their title ("chore(deps): Bump x" for
+          # "chore(deps): Bump x from 1.0.0 to 1.1.0 in the npm-security group across 1
+          # directory"), and no Dependabot setting aligns the two.
           validateSingleCommit: true
-          validateSingleCommitMatchesPrTitle: true
+          validateSingleCommitMatchesPrTitle: ${{ github.event.pull_request.user.login != 'dependabot[bot]' }}
           types: |
             feat
             fix
