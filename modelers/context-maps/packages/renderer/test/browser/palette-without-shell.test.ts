@@ -514,23 +514,24 @@ describe("the palette without the shell: a short canvas (guide §5.5, #511)", ()
   /** Lower than the 4 × 46px + 50px diagram-js's vertical palette needs for the four entries. */
   const SHORT_HEIGHT = 220;
 
+  /** The modeler sizes its container from its options and overrides the container's own size. */
   function mountShortMap(): Modeler {
     const host = document.createElement("div");
     host.className = "palette-host";
     const container = document.createElement("div");
-    container.style.cssText = `width: 900px; height: ${SHORT_HEIGHT}px;`;
     host.append(container);
     document.body.append(host);
-    const modeler = new Modeler({ container });
+    const modeler = new Modeler({ container, width: 900, height: SHORT_HEIGHT });
     mounted.push({ modeler, container: host });
     modeler.importDocument(emptyDocument("Short"));
+    expect(modeler.get<Canvas>("canvas").getContainer().clientHeight).toBe(SHORT_HEIGHT);
+    expect(paletteOf(modeler).classList.contains("two-column")).toBe(true);
     return modeler;
   }
 
   test("holds every entry inside the island where diagram-js collapses the palette into two columns", () => {
     const modeler = mountShortMap();
     const palette = paletteOf(modeler);
-    expect(palette.classList.contains("two-column")).toBe(true);
 
     const island = palette.getBoundingClientRect();
     const outside = entriesOf(modeler)
