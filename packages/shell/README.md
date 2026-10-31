@@ -94,8 +94,8 @@ every optional input field accepts `undefined`, so a modeler compiling with
 ## Usage in a VS Code webview
 
 Extension host (0.8). The extensions of all five modelers register their text editors this way:
-Wardley Maps (`apps/vscode/src/mapEditor.ts`, shown here with the file commands of 0.9 in place of
-its own export and "New …" code), Event Storming (`boardEditor.ts`), Team Topologies
+Wardley Maps (`apps/vscode/src/mapEditor.ts` and `extension.ts`, shown here in one piece, its export
+and "New …" on the file commands of 0.9), Event Storming (`boardEditor.ts`), Team Topologies
 (`diagramEditor.ts`), Context Maps (`mapEditor.ts`) and Value Chain (`diagramEditor.ts`). Only the
 PNG editors, Context Maps' `.cm.png` and Team Topologies' `.tt.png` / `.ttm.png`, stay outside the
 plumbing: binary custom editors with a document of their own.
@@ -308,12 +308,13 @@ guide §8 and removes it with `shell.destroy()`. A host without a mounted shell 
 opens the same dialog with `showShortcutsDialog(groups, { container })`. Content the modeler adds
 to `shell.root` itself (a dialog of its own) is the modeler's: it removes it in its own teardown,
 for example on `diagram.destroy`, since `shell.destroy()` removes only what the shell added. The complete Event
-Storming extension on the document plumbing, including the export notification, is in
+Storming extension on the document plumbing, with its export through `exportToFile`, is in
 [API.md][api]. Since 0.8 the document sync, the undo through the document and the problems pill
 are the shell's (`registerModelerEditor` and `connectDocumentSync`) in the extensions of all five
 modelers, for every editor but the two PNG editors (`.cm.png`, `.tt.png` / `.ttm.png`); the
-modeler keeps its diagnostics. The save dialogs of its exports and "New …" commands can be the
-shell's since 0.9 (`exportToFile`, `registerNewDocumentCommand`).
+modeler keeps its diagnostics. The save dialogs of its exports and "New …" commands are the
+shell's since 0.9 (`exportToFile`, `registerNewDocumentCommand`), in all five extensions since
+[#503](https://github.com/Miragon/modeler-suite/pull/503).
 
 ## Usage in a web app
 
