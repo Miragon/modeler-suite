@@ -40,6 +40,11 @@
         {
           "type": "json",
           "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/packages/renderer'].dependencies['@miragon/modeler-api']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/context-maps/packages/renderer'].dependencies['@miragon/modeler-api']"
         },
         {
@@ -77,6 +82,16 @@
           "type": "json",
           "path": "/plugins/modeler-kit/skills/new-modeler/assets/template/e2e/package.json",
           "jsonpath": "$.devDependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/c4/e2e/package.json",
+          "jsonpath": "$.devDependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/e2e'].devDependencies['@miragon/modeler-shell']"
         },
         {
           "type": "json",
@@ -152,6 +167,16 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['packages/shell'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/vscode'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/webapp'].dependencies['@miragon/modeler-shell']"
         },
         {
           "type": "json",
@@ -739,6 +764,142 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/value-chain/apps/webapp'].version"
+        }
+      ]
+    },
+    "modelers/c4/packages/schema-model": {
+      "component": "c4-schema-model",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/packages/schema-model'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/vscode'].dependencies['@miragon/c4-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/webapp'].dependencies['@miragon/c4-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/packages/dsl'].dependencies['@miragon/c4-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/packages/layout'].dependencies['@miragon/c4-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/packages/renderer'].dependencies['@miragon/c4-schema-model']"
+        }
+      ]
+    },
+    "modelers/c4/packages/dsl": {
+      "component": "c4-dsl",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/packages/dsl'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/vscode'].dependencies['@miragon/c4-dsl']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/webapp'].dependencies['@miragon/c4-dsl']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/packages/renderer'].dependencies['@miragon/c4-dsl']"
+        }
+      ]
+    },
+    "modelers/c4/packages/layout": {
+      "component": "c4-layout",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/packages/layout'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/vscode'].dependencies['@miragon/c4-layout']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/webapp'].dependencies['@miragon/c4-layout']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/packages/dsl'].devDependencies['@miragon/c4-layout']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/packages/renderer'].dependencies['@miragon/c4-layout']"
+        }
+      ]
+    },
+    "modelers/c4/packages/renderer": {
+      "component": "c4-renderer",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/packages/renderer'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/vscode'].dependencies['@miragon/c4-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/webapp'].dependencies['@miragon/c4-renderer']"
+        }
+      ]
+    },
+    "modelers/c4/apps/vscode": {
+      "component": "c4-vscode",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/vscode'].version"
+        }
+      ]
+    },
+    "modelers/c4/apps/webapp": {
+      "component": "c4-webapp",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/c4/apps/webapp'].version"
         }
       ]
     },

@@ -1,7 +1,9 @@
 // Takes the editor screenshot of every modeler's web app with its example open, for the
 // modelers' READMEs (modelers/<modeler>/docs/screenshots/editor.png) and the docs landing page
 // (docs/public/shots/<modeler>/editor.png). Needs the built web apps: run `npm run build` first,
-// then `node docs/shots/modeler-screenshots.mjs [modeler ...]` from the repository root.
+// then `node docs/shots/modeler-screenshots.mjs [modeler ...]` from the repository root. The web
+// apps are served one after another on ports from 4780 on; SHOTS_PORT moves the first one when
+// another server on the machine holds it.
 import { spawn } from "node:child_process";
 import { copyFileSync, mkdirSync } from "node:fs";
 import { setTimeout as wait } from "node:timers/promises";
@@ -13,8 +15,10 @@ const allModelers = [
   "team-topologies",
   "context-maps",
   "value-chain",
+  "c4",
 ];
 const modelers = process.argv.length > 2 ? process.argv.slice(2) : allModelers;
+const firstPort = Number(process.env.SHOTS_PORT ?? 4780);
 
 async function startPreview(modeler, port) {
   const preview = spawn(
@@ -37,7 +41,7 @@ async function startPreview(modeler, port) {
 const browser = await chromium.launch();
 try {
   for (const [index, modeler] of modelers.entries()) {
-    const port = 4780 + index;
+    const port = firstPort + index;
     const preview = await startPreview(modeler, port);
     try {
       const page = await browser.newPage({

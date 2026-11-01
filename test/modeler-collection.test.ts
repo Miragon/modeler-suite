@@ -21,15 +21,35 @@ function readManifest(directory: string): ExtensionManifest {
   ) as ExtensionManifest;
 }
 
+/**
+ * Modelers whose extension is not on the Marketplace and Open VSX yet. A pack entry for an
+ * extension that does not exist there breaks installing the pack, and the release publishes every
+ * extension in parallel, so the new extension's first release comes first; the pull request after
+ * it adds the pack entry and the walkthrough step and takes the modeler off this list.
+ */
+const PENDING_FIRST_PUBLISH: readonly string[] = ["c4"];
+
 const collection = readManifest(COLLECTION);
 const walkthroughSteps =
   collection.contributes?.walkthroughs?.flatMap((walkthrough) => walkthrough.steps) ?? [];
-const suiteExtensionIds = readdirSync(join(ROOT, "modelers")).map((modeler) => {
+const modelers = readdirSync(join(ROOT, "modelers"));
+
+function extensionIdOf(modeler: string): string {
   const extension = readManifest(`modelers/${modeler}/apps/vscode`);
   return `${extension.publisher}.${extension.name}`;
-});
+}
+
+const suiteExtensionIds = modelers
+  .filter((modeler) => !PENDING_FIRST_PUBLISH.includes(modeler))
+  .map(extensionIdOf);
 
 describe("the modeler collection", () => {
+  it("leaves out only modelers of this suite whose extension is not published yet", () => {
+    expect(PENDING_FIRST_PUBLISH.filter((modeler) => !modelers.includes(modeler))).toEqual([]);
+    const pendingIds = PENDING_FIRST_PUBLISH.map(extensionIdOf);
+    expect(collection.extensionPack?.filter((id) => pendingIds.includes(id)) ?? []).toEqual([]);
+  });
+
   it.each(suiteExtensionIds)("packs %s", (extensionId) => {
     expect(collection.extensionPack).toContain(extensionId);
   });

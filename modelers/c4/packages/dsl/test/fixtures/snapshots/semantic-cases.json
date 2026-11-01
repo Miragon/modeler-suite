@@ -1,0 +1,3494 @@
+{
+  "structurizr": {
+    "version": "6.2.4",
+    "commit": "e3a736a90194d3ac692ad7b5c1c7a48287355347"
+  },
+  "results": [
+    {
+      "file": "animation-steps.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "Custom://A",
+            "identifier": "a",
+            "kind": "custom",
+            "parent": null,
+            "name": "A",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Custom://B",
+            "identifier": "b",
+            "kind": "custom",
+            "parent": null,
+            "name": "B",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Custom://C",
+            "identifier": "c",
+            "kind": "custom",
+            "parent": null,
+            "name": "C",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Shop",
+            "identifier": "shop",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Shop",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.Web",
+            "identifier": "web",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "Web",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.Database",
+            "identifier": "db",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "Database",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Custom://A",
+            "destination": "Custom://B",
+            "description": "",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Shop.Web",
+            "destination": "Container://Shop.Database",
+            "description": "",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "Containers",
+            "type": "container",
+            "scope": "SoftwareSystem://Shop",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Container://Shop.Database", "Container://Shop.Web"],
+            "relationships": ["Container://Shop.Web -> Container://Shop.Database ()"],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "animations.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "Person://User",
+            "identifier": "user",
+            "kind": "person",
+            "parent": null,
+            "name": "User",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Person"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Shop",
+            "identifier": "shop",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Shop",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": "Team",
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Payments",
+            "identifier": "payments",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Payments",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Person://User",
+            "destination": "SoftwareSystem://Shop",
+            "description": "Orders",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://Shop",
+            "destination": "SoftwareSystem://Payments",
+            "description": "Charges",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "Landscape",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Person://User", "SoftwareSystem://Payments", "SoftwareSystem://Shop"],
+            "relationships": [
+              "Person://User -> SoftwareSystem://Shop (Orders)",
+              "SoftwareSystem://Shop -> SoftwareSystem://Payments (Charges)"
+            ],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "archetypes.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem://A",
+            "identifier": "a",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "A",
+            "description": "Default description",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System", "Default"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://A.API",
+            "identifier": "api",
+            "kind": "container",
+            "parent": "SoftwareSystem://A",
+            "name": "API",
+            "description": "Serves",
+            "technology": "Kotlin",
+            "metadata": "",
+            "tags": ["Element", "Container", "Application", "Spring Boot", "Framework"],
+            "url": null,
+            "group": null,
+            "properties": {
+              "team": "core"
+            }
+          },
+          {
+            "canonical": "Container://A.DB",
+            "identifier": "db",
+            "kind": "container",
+            "parent": "SoftwareSystem://A",
+            "name": "DB",
+            "description": "",
+            "technology": "Postgres",
+            "metadata": "",
+            "tags": ["Element", "Container", "Database"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://A.Web",
+            "identifier": "web",
+            "kind": "container",
+            "parent": "SoftwareSystem://A",
+            "name": "Web",
+            "description": "",
+            "technology": "Java",
+            "metadata": "",
+            "tags": ["Element", "Container", "Application"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://B",
+            "identifier": "b",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "B",
+            "description": "Has its own description",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System", "Default", "External"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://C",
+            "identifier": "c",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "C",
+            "description": "Default description",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System", "Default"],
+            "url": null,
+            "group": "Teams",
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Container://A.API",
+            "destination": "SoftwareSystem://B",
+            "description": "Calls",
+            "technology": "HTTPS",
+            "tags": ["Relationship", "Secure"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://A",
+            "destination": "SoftwareSystem://B",
+            "description": "Calls",
+            "technology": "HTTPS",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://A.Web",
+            "destination": "Container://A.API",
+            "description": "Uses",
+            "technology": "HTTPS",
+            "tags": ["Relationship", "Secure", "mTLS"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://A.API",
+            "destination": "Container://A.DB",
+            "description": "",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "constants.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Payments workspace",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem://Payments",
+            "identifier": "p",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Payments",
+            "description": "Takes \"money\"\n  from customers",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System", "Blue", "Core"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Payments 2",
+            "identifier": "q",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Payments 2",
+            "description": "${UNKNOWN}",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System", "Red"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://Payments",
+            "destination": "SoftwareSystem://Payments 2",
+            "description": "Sends Red",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "deployment-identifiers.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem://Shop",
+            "identifier": "shop",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Shop",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.API",
+            "identifier": "api",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "API",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [],
+        "views": [],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "deployment.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem://Shop",
+            "identifier": "shop",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Shop",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.API",
+            "identifier": "api",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "API",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.DB",
+            "identifier": "db",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "DB",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Container://Shop.API",
+            "destination": "Container://Shop.DB",
+            "description": "Reads",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "SystemLandscape-001",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["SoftwareSystem://Shop"],
+            "relationships": [],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "dynamic-steps.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "Person://User",
+            "identifier": "user",
+            "kind": "person",
+            "parent": null,
+            "name": "User",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Person"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Custom://Partner",
+            "identifier": "partner",
+            "kind": "custom",
+            "parent": null,
+            "name": "Partner",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Shop",
+            "identifier": "shop",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Shop",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.Web",
+            "identifier": "web",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "Web",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.API",
+            "identifier": "api",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "API",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Payments",
+            "identifier": "payments",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Payments",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": "browses",
+            "source": "Person://User",
+            "destination": "Container://Shop.Web",
+            "description": "Browses",
+            "technology": "HTTPS",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://User",
+            "destination": "SoftwareSystem://Shop",
+            "description": "Browses",
+            "technology": "HTTPS",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Shop.Web",
+            "destination": "Container://Shop.API",
+            "description": "Calls",
+            "technology": "JSON",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Shop.Web",
+            "destination": "Container://Shop.API",
+            "description": "Streams",
+            "technology": "gRPC",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Shop.API",
+            "destination": "SoftwareSystem://Payments",
+            "description": "Charges",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://Shop",
+            "destination": "SoftwareSystem://Payments",
+            "description": "Charges",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Custom://Partner",
+            "destination": "SoftwareSystem://Shop",
+            "description": "Feeds",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "expressions.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "Person://U",
+            "identifier": "u",
+            "kind": "person",
+            "parent": null,
+            "name": "U",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Person", "Internal"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Person://V",
+            "identifier": "v",
+            "kind": "person",
+            "parent": null,
+            "name": "V",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Person", "External"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://A",
+            "identifier": "a",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "A",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System", "Internal", "Core"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://A.C1",
+            "identifier": "c1",
+            "kind": "container",
+            "parent": "SoftwareSystem://A",
+            "name": "C1",
+            "description": "",
+            "technology": "Java",
+            "metadata": "",
+            "tags": ["Element", "Container", "Api"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://A.C2",
+            "identifier": "c2",
+            "kind": "container",
+            "parent": "SoftwareSystem://A",
+            "name": "C2",
+            "description": "",
+            "technology": "Node",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {
+              "tier": "front"
+            }
+          },
+          {
+            "canonical": "Container://A.C3",
+            "identifier": "c3",
+            "kind": "container",
+            "parent": "SoftwareSystem://A",
+            "name": "C3",
+            "description": "",
+            "technology": "Java",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://B",
+            "identifier": "b",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "B",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System", "External"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Person://U",
+            "destination": "Container://A.C1",
+            "description": "Uses",
+            "technology": "",
+            "tags": ["Relationship", "Sync"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://U",
+            "destination": "SoftwareSystem://A",
+            "description": "Uses",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://V",
+            "destination": "Container://A.C2",
+            "description": "Uses",
+            "technology": "",
+            "tags": ["Relationship", "Async"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://V",
+            "destination": "SoftwareSystem://A",
+            "description": "Uses",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://A.C2",
+            "destination": "Container://A.C1",
+            "description": "Calls",
+            "technology": "",
+            "tags": ["Relationship", "Async"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://A.C1",
+            "destination": "SoftwareSystem://B",
+            "description": "Reads",
+            "technology": "",
+            "tags": ["Relationship", "Sync"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://A",
+            "destination": "SoftwareSystem://B",
+            "description": "Reads",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://A.C3",
+            "destination": "SoftwareSystem://B",
+            "description": "Writes",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "ByTag",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Person://U", "SoftwareSystem://A", "SoftwareSystem://B"],
+            "relationships": [
+              "Person://U -> SoftwareSystem://A (Uses) implied",
+              "SoftwareSystem://A -> SoftwareSystem://B (Reads) implied"
+            ],
+            "properties": {}
+          },
+          {
+            "key": "Typed",
+            "type": "container",
+            "scope": "SoftwareSystem://A",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Container://A.C1", "Container://A.C2", "Container://A.C3"],
+            "relationships": [],
+            "properties": {}
+          },
+          {
+            "key": "Coupled",
+            "type": "container",
+            "scope": "SoftwareSystem://A",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Container://A.C1", "Container://A.C2", "Person://U"],
+            "relationships": [
+              "Container://A.C2 -> Container://A.C1 (Calls)",
+              "Person://U -> Container://A.C1 (Uses)"
+            ],
+            "properties": {}
+          },
+          {
+            "key": "Properties",
+            "type": "container",
+            "scope": "SoftwareSystem://A",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Container://A.C2"],
+            "relationships": [],
+            "properties": {}
+          },
+          {
+            "key": "Reluctant",
+            "type": "systemContext",
+            "scope": "SoftwareSystem://A",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Person://U", "Person://V", "SoftwareSystem://A", "SoftwareSystem://B"],
+            "relationships": [
+              "Person://U -> SoftwareSystem://A (Uses) implied",
+              "Person://V -> SoftwareSystem://A (Uses) implied",
+              "SoftwareSystem://A -> SoftwareSystem://B (Reads) implied"
+            ],
+            "properties": {}
+          },
+          {
+            "key": "Relationships",
+            "type": "container",
+            "scope": "SoftwareSystem://A",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": [
+              "Container://A.C1",
+              "Container://A.C2",
+              "Person://U",
+              "Person://V",
+              "SoftwareSystem://B"
+            ],
+            "relationships": [
+              "Person://U -> Container://A.C1 (Uses)",
+              "Person://V -> Container://A.C2 (Uses)"
+            ],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "group-members.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem://Shop",
+            "identifier": "shop",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Shop",
+            "description": "Moved into the group",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": "Team",
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://API",
+            "identifier": "api",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "API",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": "Team/Inner",
+            "properties": {}
+          },
+          {
+            "canonical": "Custom://Bank",
+            "identifier": "bank",
+            "kind": "custom",
+            "parent": null,
+            "name": "Bank",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element"],
+            "url": null,
+            "group": "Team",
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Web",
+            "identifier": "web",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Web",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": "Team",
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Custom://Bank",
+            "destination": "SoftwareSystem://Web",
+            "description": "",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "Team",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["SoftwareSystem://API", "SoftwareSystem://Web"],
+            "relationships": [],
+            "properties": {}
+          },
+          {
+            "key": "Inner",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["SoftwareSystem://API"],
+            "relationships": [],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "groups.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "Person://Rep",
+            "identifier": "rep",
+            "kind": "person",
+            "parent": null,
+            "name": "Rep",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Person"],
+            "url": null,
+            "group": "Company/Sales",
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://CRM",
+            "identifier": "crm",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "CRM",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": "Company/Sales",
+            "properties": {}
+          },
+          {
+            "canonical": "Container://CRM.UI",
+            "identifier": "ui",
+            "kind": "container",
+            "parent": "SoftwareSystem://CRM",
+            "name": "UI",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": "Front",
+            "properties": {}
+          },
+          {
+            "canonical": "Container://CRM.Widget",
+            "identifier": "widget",
+            "kind": "container",
+            "parent": "SoftwareSystem://CRM",
+            "name": "Widget",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": "Front/Inner",
+            "properties": {}
+          },
+          {
+            "canonical": "Component://CRM.Widget.Part",
+            "identifier": "part",
+            "kind": "component",
+            "parent": "Container://CRM.Widget",
+            "name": "Part",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Component"],
+            "url": null,
+            "group": "Parts/Small",
+            "properties": {}
+          },
+          {
+            "canonical": "Container://CRM.Backend",
+            "identifier": "backend",
+            "kind": "container",
+            "parent": "SoftwareSystem://CRM",
+            "name": "Backend",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://ERP",
+            "identifier": "erp",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "ERP",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": "Company",
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Loner",
+            "identifier": "loner",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Loner",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": "Moved",
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Person://Rep",
+            "destination": "SoftwareSystem://CRM",
+            "description": "Uses",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://CRM.UI",
+            "destination": "Container://CRM.Backend",
+            "description": "Calls",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://CRM",
+            "destination": "SoftwareSystem://ERP",
+            "description": "Syncs",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "Landscape",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": [
+              "Person://Rep",
+              "SoftwareSystem://CRM",
+              "SoftwareSystem://ERP",
+              "SoftwareSystem://Loner"
+            ],
+            "relationships": [
+              "Person://Rep -> SoftwareSystem://CRM (Uses)",
+              "SoftwareSystem://CRM -> SoftwareSystem://ERP (Syncs)"
+            ],
+            "properties": {}
+          },
+          {
+            "key": "CrmContainers",
+            "type": "container",
+            "scope": "SoftwareSystem://CRM",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Container://CRM.Backend", "Container://CRM.UI", "Container://CRM.Widget"],
+            "relationships": ["Container://CRM.UI -> Container://CRM.Backend (Calls)"],
+            "properties": {}
+          },
+          {
+            "key": "WidgetComponents",
+            "type": "component",
+            "scope": "Container://CRM.Widget",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Component://CRM.Widget.Part"],
+            "relationships": [],
+            "properties": {}
+          },
+          {
+            "key": "Sales",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Person://Rep", "SoftwareSystem://CRM"],
+            "relationships": ["Person://Rep -> SoftwareSystem://CRM (Uses)"],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "hierarchical-groups.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "Person://User",
+            "identifier": "user",
+            "kind": "person",
+            "parent": null,
+            "name": "User",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Person"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Other",
+            "identifier": "other",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Other",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": "Team",
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Shop",
+            "identifier": "shop",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Shop",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.API",
+            "identifier": "shop.api",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "API",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": "Backend",
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.Database",
+            "identifier": "shop.db",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "Database",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": "Backend",
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.Web",
+            "identifier": "shop.web",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "Web",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Person://User",
+            "destination": "Container://Shop.Web",
+            "description": "Browses",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://User",
+            "destination": "SoftwareSystem://Shop",
+            "description": "Browses",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Shop.Web",
+            "destination": "Container://Shop.API",
+            "description": "Calls",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Shop.API",
+            "destination": "Container://Shop.Database",
+            "description": "Reads",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Shop.API",
+            "destination": "SoftwareSystem://Other",
+            "description": "Notifies",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://Shop",
+            "destination": "SoftwareSystem://Other",
+            "description": "Notifies",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "Backend",
+            "type": "container",
+            "scope": "SoftwareSystem://Shop",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Container://Shop.API", "Container://Shop.Database"],
+            "relationships": ["Container://Shop.API -> Container://Shop.Database (Reads)"],
+            "properties": {}
+          },
+          {
+            "key": "Landscape",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Person://User", "SoftwareSystem://Other"],
+            "relationships": [],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "hierarchical.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "Person://User",
+            "identifier": "user",
+            "kind": "person",
+            "parent": null,
+            "name": "User",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Person"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Shop",
+            "identifier": "shop",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Shop",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.Web",
+            "identifier": "shop.web",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "Web",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Component://Shop.Web.Login",
+            "identifier": "shop.web.login",
+            "kind": "component",
+            "parent": "Container://Shop.Web",
+            "name": "Login",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Component"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Component://Shop.Web.Session",
+            "identifier": null,
+            "kind": "component",
+            "parent": "Container://Shop.Web",
+            "name": "Session",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Component"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.API",
+            "identifier": "shop.api",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "API",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Anonymous",
+            "identifier": null,
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Anonymous",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Anonymous.Inner",
+            "identifier": null,
+            "kind": "container",
+            "parent": "SoftwareSystem://Anonymous",
+            "name": "Inner",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Anonymous.Other",
+            "identifier": null,
+            "kind": "container",
+            "parent": "SoftwareSystem://Anonymous",
+            "name": "Other",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Container://Shop.API",
+            "destination": "Container://Shop.Web",
+            "description": "Calls",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Shop.API",
+            "destination": "Component://Shop.Web.Login",
+            "description": "Logs in",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Shop.Web",
+            "destination": "Container://Shop.API",
+            "description": "Uses",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Anonymous.Other",
+            "destination": "Container://Anonymous.Inner",
+            "description": "Reads",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://User",
+            "destination": "Container://Shop.Web",
+            "description": "Browses",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://User",
+            "destination": "SoftwareSystem://Shop",
+            "description": "Browses",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "Containers",
+            "type": "container",
+            "scope": "SoftwareSystem://Shop",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Container://Shop.API", "Container://Shop.Web", "Person://User"],
+            "relationships": [
+              "Container://Shop.API -> Container://Shop.Web (Calls)",
+              "Container://Shop.Web -> Container://Shop.API (Uses)",
+              "Person://User -> Container://Shop.Web (Browses)"
+            ],
+            "properties": {}
+          },
+          {
+            "key": "Components",
+            "type": "component",
+            "scope": "Container://Shop.Web",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": [
+              "Component://Shop.Web.Login",
+              "Component://Shop.Web.Session",
+              "Container://Shop.API"
+            ],
+            "relationships": ["Container://Shop.API -> Component://Shop.Web.Login (Logs in)"],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "implicit-identifiers.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Implicit identifiers",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem://Payments Core",
+            "identifier": "payments",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Payments Core",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Payments",
+            "identifier": null,
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Payments",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Person://Payments",
+            "identifier": null,
+            "kind": "person",
+            "parent": null,
+            "name": "Payments",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Person"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Person://Model",
+            "identifier": null,
+            "kind": "person",
+            "parent": null,
+            "name": "Model",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Person"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://3D Viewer",
+            "identifier": null,
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "3D Viewer",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://3D Viewer.Web App",
+            "identifier": null,
+            "kind": "container",
+            "parent": "SoftwareSystem://3D Viewer",
+            "name": "Web App",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://3D Viewer.Web App 2",
+            "identifier": null,
+            "kind": "container",
+            "parent": "SoftwareSystem://3D Viewer",
+            "name": "Web App 2",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Custom://#",
+            "identifier": null,
+            "kind": "custom",
+            "parent": null,
+            "name": "#",
+            "description": "",
+            "technology": "",
+            "metadata": "Hardware",
+            "tags": ["Element"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Custom://Printer",
+            "identifier": "custom",
+            "kind": "custom",
+            "parent": null,
+            "name": "Printer",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://PaymentsX",
+            "identifier": null,
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Pay.ments/X",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [],
+        "views": [
+          {
+            "key": "SystemLandscape-001",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": [
+              "Person://Model",
+              "Person://Payments",
+              "SoftwareSystem://3D Viewer",
+              "SoftwareSystem://Payments",
+              "SoftwareSystem://Payments Core",
+              "SoftwareSystem://PaymentsX"
+            ],
+            "relationships": [],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "implied-strategies.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "Person://User",
+            "identifier": "user",
+            "kind": "person",
+            "parent": null,
+            "name": "User",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Person"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://S",
+            "identifier": "s",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "S",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://S.C",
+            "identifier": "c",
+            "kind": "container",
+            "parent": "SoftwareSystem://S",
+            "name": "C",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Component://S.C.K",
+            "identifier": "k",
+            "kind": "component",
+            "parent": "Container://S.C",
+            "name": "K",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Component"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://S.D",
+            "identifier": "d",
+            "kind": "container",
+            "parent": "SoftwareSystem://S",
+            "name": "D",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://T",
+            "identifier": "t",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "T",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://T.E",
+            "identifier": "e",
+            "kind": "container",
+            "parent": "SoftwareSystem://T",
+            "name": "E",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Person://User",
+            "destination": "Component://S.C.K",
+            "description": "Uses",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://User",
+            "destination": "Container://S.C",
+            "description": "Uses",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://User",
+            "destination": "SoftwareSystem://S",
+            "description": "Uses",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://User",
+            "destination": "Container://T.E",
+            "description": "Reads",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://S.D",
+            "destination": "Container://T.E",
+            "description": "Writes",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://S.D",
+            "destination": "SoftwareSystem://T",
+            "description": "Writes",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://S",
+            "destination": "Container://T.E",
+            "description": "Writes",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://S",
+            "destination": "SoftwareSystem://T",
+            "description": "Writes",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://S.C",
+            "destination": "Container://T.E",
+            "description": "Writes",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://S.C",
+            "destination": "SoftwareSystem://T",
+            "description": "Writes",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://S.C",
+            "destination": "Container://T.E",
+            "description": "Reads",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://S.C",
+            "destination": "SoftwareSystem://T",
+            "description": "Reads",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://S",
+            "destination": "Container://T.E",
+            "description": "Reads",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://S",
+            "destination": "SoftwareSystem://T",
+            "description": "Reads",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Component://S.C.K",
+            "destination": "SoftwareSystem://T",
+            "description": "Notifies",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://User",
+            "destination": "SoftwareSystem://S",
+            "description": "Different",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "Context",
+            "type": "systemContext",
+            "scope": "SoftwareSystem://S",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Person://User", "SoftwareSystem://S", "SoftwareSystem://T"],
+            "relationships": [
+              "Person://User -> SoftwareSystem://S (Different)",
+              "Person://User -> SoftwareSystem://S (Uses) implied",
+              "SoftwareSystem://S -> SoftwareSystem://T (Reads) implied",
+              "SoftwareSystem://S -> SoftwareSystem://T (Writes) implied"
+            ],
+            "properties": {}
+          },
+          {
+            "key": "Containers",
+            "type": "container",
+            "scope": "SoftwareSystem://S",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": [
+              "Container://S.C",
+              "Container://S.D",
+              "Person://User",
+              "SoftwareSystem://T"
+            ],
+            "relationships": [
+              "Container://S.C -> SoftwareSystem://T (Reads) implied",
+              "Container://S.C -> SoftwareSystem://T (Writes) implied",
+              "Container://S.D -> SoftwareSystem://T (Writes) implied",
+              "Person://User -> Container://S.C (Uses) implied"
+            ],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "no-break-space-name.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem:// ",
+            "identifier": "blank",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": " ",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Shop",
+            "identifier": "shop",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Shop",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System", " Edge ", "Edge"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [],
+        "views": [
+          {
+            "key": "Landscape",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["SoftwareSystem://Shop", "SoftwareSystem:// "],
+            "relationships": [],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "no-relationship.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem://Shop",
+            "identifier": "shop",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Shop",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.Web",
+            "identifier": "web",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "Web",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.API",
+            "identifier": "api",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "API",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Container://Shop.Web",
+            "destination": "Container://Shop.API",
+            "description": "Calls",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Shop.Web",
+            "destination": "Container://Shop.API",
+            "description": "Polls",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "Containers",
+            "type": "container",
+            "scope": "SoftwareSystem://Shop",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Container://Shop.API", "Container://Shop.Web"],
+            "relationships": [
+              "Container://Shop.Web -> Container://Shop.API (Calls)",
+              "Container://Shop.Web -> Container://Shop.API (Polls)"
+            ],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "refused-ancestor.dsl",
+      "accepted": false,
+      "error": "Relationships cannot be added between parents and children",
+      "line": 6
+    },
+    {
+      "file": "refused-animation-expression.dsl",
+      "accepted": false,
+      "error": "None of the specified elements exist in this view",
+      "line": 13
+    },
+    {
+      "file": "refused-animation-step.dsl",
+      "accepted": false,
+      "error": "None of the specified elements exist in this view",
+      "line": 13
+    },
+    {
+      "file": "refused-autolayout-direction.dsl",
+      "accepted": false,
+      "error": "Valid rank directions are: tb|bt|lr|rl",
+      "line": 8
+    },
+    {
+      "file": "refused-constant-twice.dsl",
+      "accepted": false,
+      "error": "A constant/variable \"A\" already exists",
+      "line": 3
+    },
+    {
+      "file": "refused-custom-animation.dsl",
+      "accepted": false,
+      "error": "None of the specified elements exist in this view",
+      "line": 14
+    },
+    {
+      "file": "refused-deployment-animation.dsl",
+      "accepted": false,
+      "error": "None of the specified elements exist in this view",
+      "line": 20
+    },
+    {
+      "file": "refused-deployment-group-identifier.dsl",
+      "accepted": false,
+      "error": "The identifier \"servers\" is already in use",
+      "line": 8
+    },
+    {
+      "file": "refused-duplicate-name.dsl",
+      "accepted": false,
+      "error": "A top-level element named 'Same' already exists",
+      "line": 4
+    },
+    {
+      "file": "refused-dynamic-family.dsl",
+      "accepted": false,
+      "error": "A parent of Gateway is already in this view",
+      "line": 14
+    },
+    {
+      "file": "refused-dynamic-first-relationship.dsl",
+      "accepted": false,
+      "error": "A relationship between API and Web does not exist in model",
+      "line": 26
+    },
+    {
+      "file": "refused-dynamic-reply.dsl",
+      "accepted": false,
+      "error": "A relationship between API and Web does not exist in model",
+      "line": 11
+    },
+    {
+      "file": "refused-dynamic-scope.dsl",
+      "accepted": false,
+      "error": "Only people and software systems can be added to this dynamic view",
+      "line": 11
+    },
+    {
+      "file": "refused-dynamic-technology.dsl",
+      "accepted": false,
+      "error": "A relationship between User and Shop with technology gRPC does not exist in model",
+      "line": 9
+    },
+    {
+      "file": "refused-dynamic-unrelated.dsl",
+      "accepted": false,
+      "error": "A relationship between A and B does not exist in model",
+      "line": 8
+    },
+    {
+      "file": "refused-exclude-scope.dsl",
+      "accepted": false,
+      "error": "The element named 'Shop' cannot be removed from this view",
+      "line": 8
+    },
+    {
+      "file": "refused-filtered-autolayout.dsl",
+      "accepted": false,
+      "error": "The view \"Base\" has automatic layout enabled - this is not supported for filtered views",
+      "line": 10
+    },
+    {
+      "file": "refused-forward-reference.dsl",
+      "accepted": false,
+      "error": "The destination element \"b\" does not exist",
+      "line": 4
+    },
+    {
+      "file": "refused-generated-key.dsl",
+      "accepted": false,
+      "error": "A view with the key SystemLandscape-001 already exists",
+      "line": 9
+    },
+    {
+      "file": "refused-group-without-members.dsl",
+      "accepted": false,
+      "error": "The element/relationship \"partners\" does not exist",
+      "line": 10
+    },
+    {
+      "file": "refused-hierarchical-group.dsl",
+      "accepted": false,
+      "error": "The element/relationship \"backend\" does not exist",
+      "line": 12
+    },
+    {
+      "file": "refused-implicit-this.dsl",
+      "accepted": false,
+      "error": "The destination element \"this\" does not exist",
+      "line": 4
+    },
+    {
+      "file": "refused-implied-exists.dsl",
+      "accepted": false,
+      "error": "A relationship between \"Person://Customer\" and \"SoftwareSystem://Shop\" already exists",
+      "line": 8
+    },
+    {
+      "file": "refused-invalid-colour.dsl",
+      "accepted": false,
+      "error": "notacolour is not a valid hex colour code or HTML colour name",
+      "line": 5
+    },
+    {
+      "file": "refused-nested-group.dsl",
+      "accepted": false,
+      "error": "To use nested groups, please define a model property named structurizr.groupSeparator",
+      "line": 4
+    },
+    {
+      "file": "refused-no-break-space-line.dsl",
+      "accepted": false,
+      "error": "Unexpected tokens (expected: archetypes, !identifiers, group, person, softwareSystem, deploymentEnvironment, element, ->)",
+      "line": 4
+    },
+    {
+      "file": "refused-no-break-space-users.dsl",
+      "accepted": false,
+      "error": "Expected: <username> <read|write>",
+      "line": 7
+    },
+    {
+      "file": "refused-no-break-space-words.dsl",
+      "accepted": false,
+      "error": "Unexpected tokens (expected: archetypes, !identifiers, group, person, softwareSystem, deploymentEnvironment, element, ->)",
+      "line": 4
+    },
+    {
+      "file": "refused-no-relationship-in-node.dsl",
+      "accepted": false,
+      "error": "Unexpected tokens (expected: group, deploymentNode, infrastructureNode, instanceOf, softwareSystemInstance, containerInstance, ->, description, technology, instances, tags, url, properties, perspectives, deploymentGroup)",
+      "line": 12
+    },
+    {
+      "file": "refused-no-relationship-leading.dsl",
+      "accepted": false,
+      "error": "Unexpected tokens (expected: group, deploymentGroup, deploymentNode, ->)",
+      "line": 13
+    },
+    {
+      "file": "refused-no-relationship-without-block.dsl",
+      "accepted": false,
+      "error": "Unexpected tokens (expected: group, deploymentGroup, deploymentNode, ->)",
+      "line": 13
+    },
+    {
+      "file": "refused-no-relationship.dsl",
+      "accepted": false,
+      "error": "A relationship between \"web\" and \"api\" does not exist",
+      "line": 12
+    },
+    {
+      "file": "refused-relationship-archetype.dsl",
+      "accepted": false,
+      "error": "Unexpected tokens (expected: archetypes, !identifiers, group, person, softwareSystem, deploymentEnvironment, element, ->)",
+      "line": 5
+    },
+    {
+      "file": "refused-top-level-identifiers.dsl",
+      "accepted": false,
+      "error": "Unexpected tokens (expected: workspace)",
+      "line": 1
+    },
+    {
+      "file": "refused-top-level-implied.dsl",
+      "accepted": false,
+      "error": "Cannot invoke \"com.structurizr.dsl.DslContext.getWorkspace()\" because \"context\" is null",
+      "line": 1
+    },
+    {
+      "file": "refused-url.dsl",
+      "accepted": false,
+      "error": "not a url is not a valid URL",
+      "line": 4
+    },
+    {
+      "file": "refused-view-element.dsl",
+      "accepted": false,
+      "error": "The element \"web\" can not be added to this type of view",
+      "line": 9
+    },
+    {
+      "file": "refused-view-scope.dsl",
+      "accepted": false,
+      "error": "The software system \"missing\" does not exist",
+      "line": 6
+    },
+    {
+      "file": "refused-views-before-model.dsl",
+      "accepted": false,
+      "error": "The element/relationship \"user\" does not exist",
+      "line": 4
+    },
+    {
+      "file": "relationships.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "Person://Customer",
+            "identifier": "customer",
+            "kind": "person",
+            "parent": null,
+            "name": "Customer",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Person"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Shop",
+            "identifier": "shop",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Shop",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.Web",
+            "identifier": "web",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "Web",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://Shop.API",
+            "identifier": "api",
+            "kind": "container",
+            "parent": "SoftwareSystem://Shop",
+            "name": "API",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://Mail",
+            "identifier": "mail",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "Mail",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Custom://Printer",
+            "identifier": "printer",
+            "kind": "custom",
+            "parent": null,
+            "name": "Printer",
+            "description": "",
+            "technology": "",
+            "metadata": "Hardware",
+            "tags": ["Element"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "Container://Shop.API",
+            "destination": "Container://Shop.Web",
+            "description": "Serves",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://Shop.API",
+            "destination": "Person://Customer",
+            "description": "Emails",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://Shop",
+            "destination": "Person://Customer",
+            "description": "Emails",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://Customer",
+            "destination": "Container://Shop.API",
+            "description": "Calls",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://Customer",
+            "destination": "SoftwareSystem://Shop",
+            "description": "Calls",
+            "technology": "",
+            "tags": [],
+            "url": null,
+            "implied": true,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://Customer",
+            "destination": "Container://Shop.Web",
+            "description": "",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://Customer",
+            "destination": "SoftwareSystem://Shop",
+            "description": "Buys from",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Person://Customer",
+            "destination": "SoftwareSystem://Shop",
+            "description": "Returns to",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://Shop",
+            "destination": "SoftwareSystem://Mail",
+            "description": "Sends",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://Shop",
+            "destination": "SoftwareSystem://Mail",
+            "description": "Sends receipts",
+            "technology": "SMTP",
+            "tags": ["Relationship", "Async"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Custom://Printer",
+            "destination": "Person://Customer",
+            "description": "Prints for",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://Mail",
+            "destination": "Custom://Printer",
+            "description": "",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": "named",
+            "source": "SoftwareSystem://Mail",
+            "destination": "Person://Customer",
+            "description": "Delivers",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "Landscape",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": [
+              "Custom://Printer",
+              "Person://Customer",
+              "SoftwareSystem://Mail",
+              "SoftwareSystem://Shop"
+            ],
+            "relationships": [
+              "Custom://Printer -> Person://Customer (Prints for)",
+              "Person://Customer -> SoftwareSystem://Shop (Buys from)",
+              "Person://Customer -> SoftwareSystem://Shop (Calls) implied",
+              "Person://Customer -> SoftwareSystem://Shop (Returns to)",
+              "SoftwareSystem://Mail -> Custom://Printer ()",
+              "SoftwareSystem://Shop -> Person://Customer (Emails) implied"
+            ],
+            "properties": {}
+          },
+          {
+            "key": "Context",
+            "type": "systemContext",
+            "scope": "SoftwareSystem://Shop",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Person://Customer", "SoftwareSystem://Mail", "SoftwareSystem://Shop"],
+            "relationships": [
+              "Person://Customer -> SoftwareSystem://Shop (Buys from)",
+              "Person://Customer -> SoftwareSystem://Shop (Calls) implied",
+              "Person://Customer -> SoftwareSystem://Shop (Returns to)",
+              "SoftwareSystem://Shop -> Person://Customer (Emails) implied",
+              "SoftwareSystem://Shop -> SoftwareSystem://Mail (Sends receipts)",
+              "SoftwareSystem://Shop -> SoftwareSystem://Mail (Sends)"
+            ],
+            "properties": {}
+          },
+          {
+            "key": "Containers",
+            "type": "container",
+            "scope": "SoftwareSystem://Shop",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["Container://Shop.API", "Container://Shop.Web", "Person://Customer"],
+            "relationships": [
+              "Container://Shop.API -> Container://Shop.Web (Serves)",
+              "Container://Shop.API -> Person://Customer (Emails)",
+              "Person://Customer -> Container://Shop.API (Calls)",
+              "Person://Customer -> Container://Shop.Web ()"
+            ],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "reopen.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem://A",
+            "identifier": "a",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "A",
+            "description": "Reopened",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System", "Two"],
+            "url": null,
+            "group": null,
+            "properties": {
+              "owner": "team-a"
+            }
+          },
+          {
+            "canonical": "SoftwareSystem://B",
+            "identifier": "b",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "B",
+            "description": "Set in the block",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System", "One", "Three", "Four"],
+            "url": "https://example.com/b",
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://A.Added later",
+            "identifier": null,
+            "kind": "container",
+            "parent": "SoftwareSystem://A",
+            "name": "Added later",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": "r",
+            "source": "SoftwareSystem://A",
+            "destination": "SoftwareSystem://B",
+            "description": "Uses",
+            "technology": "HTTP",
+            "tags": ["Relationship", "Sync", "Reopened"],
+            "url": "https://example.com/r",
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://B",
+            "destination": "SoftwareSystem://A",
+            "description": "Calls back",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "styles.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem://A",
+            "identifier": "a",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "A",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System", "Database"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [],
+        "views": [],
+        "styles": {
+          "elements": [
+            {
+              "tag": "Database",
+              "shape": "Cylinder",
+              "background": null,
+              "color": null,
+              "stroke": null,
+              "width": null,
+              "height": null,
+              "border": null,
+              "opacity": null,
+              "strokeWidth": null,
+              "fontSize": null,
+              "metadata": null,
+              "description": null
+            },
+            {
+              "tag": "Element",
+              "shape": "RoundedBox",
+              "background": "#000000",
+              "color": "#ffffff",
+              "stroke": "#228b22",
+              "width": 500,
+              "height": 250,
+              "border": "Dotted",
+              "opacity": 100,
+              "strokeWidth": 10,
+              "fontSize": 30,
+              "metadata": false,
+              "description": true
+            },
+            {
+              "tag": "Database",
+              "shape": null,
+              "background": "#add8e6",
+              "color": null,
+              "stroke": null,
+              "width": null,
+              "height": null,
+              "border": null,
+              "opacity": null,
+              "strokeWidth": null,
+              "fontSize": null,
+              "metadata": null,
+              "description": null
+            }
+          ],
+          "relationships": [
+            {
+              "tag": "Relationship",
+              "thickness": 4,
+              "color": "#707070",
+              "style": null,
+              "dashed": false,
+              "routing": "Orthogonal",
+              "fontSize": 18,
+              "width": 300,
+              "position": 100,
+              "opacity": 50
+            }
+          ],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "urls.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem://A",
+            "identifier": "a",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "A",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": "https://example.com/a",
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://B",
+            "identifier": "b",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "B",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": "{workspace}/diagrams#Landscape",
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://C",
+            "identifier": "c",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "C",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://D",
+            "identifier": "d",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "D",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": "mailto:team@example.com",
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://A",
+            "destination": "SoftwareSystem://B",
+            "description": "Uses",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": "https://example.com/uses",
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    },
+    {
+      "file": "view-keys.dsl",
+      "accepted": true,
+      "workspace": {
+        "name": "Name",
+        "description": "Description",
+        "elements": [
+          {
+            "canonical": "SoftwareSystem://A",
+            "identifier": "a",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "A",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Container://A.C",
+            "identifier": "c",
+            "kind": "container",
+            "parent": "SoftwareSystem://A",
+            "name": "C",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Container"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "Component://A.C.K",
+            "identifier": "k",
+            "kind": "component",
+            "parent": "Container://A.C",
+            "name": "K",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Component"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          },
+          {
+            "canonical": "SoftwareSystem://B",
+            "identifier": "b",
+            "kind": "softwareSystem",
+            "parent": null,
+            "name": "B",
+            "description": "",
+            "technology": "",
+            "metadata": "",
+            "tags": ["Element", "Software System"],
+            "url": null,
+            "group": null,
+            "properties": {}
+          }
+        ],
+        "relationships": [
+          {
+            "identifier": null,
+            "source": "SoftwareSystem://A",
+            "destination": "SoftwareSystem://B",
+            "description": "Uses",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Container://A.C",
+            "destination": "SoftwareSystem://B",
+            "description": "Calls",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          },
+          {
+            "identifier": null,
+            "source": "Component://A.C.K",
+            "destination": "SoftwareSystem://B",
+            "description": "Queries",
+            "technology": "",
+            "tags": ["Relationship"],
+            "url": null,
+            "implied": false,
+            "properties": {}
+          }
+        ],
+        "views": [
+          {
+            "key": "SystemLandscape-001",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["SoftwareSystem://A", "SoftwareSystem://B"],
+            "relationships": ["SoftwareSystem://A -> SoftwareSystem://B (Uses)"],
+            "properties": {}
+          },
+          {
+            "key": "SystemLandscape-002",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["SoftwareSystem://A", "SoftwareSystem://B"],
+            "relationships": ["SoftwareSystem://A -> SoftwareSystem://B (Uses)"],
+            "properties": {}
+          },
+          {
+            "key": "SystemLandscape-003",
+            "type": "systemLandscape",
+            "scope": null,
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": null,
+            "elements": ["SoftwareSystem://A", "SoftwareSystem://B"],
+            "relationships": ["SoftwareSystem://A -> SoftwareSystem://B (Uses)"],
+            "properties": {}
+          },
+          {
+            "key": "SystemContext-001",
+            "type": "systemContext",
+            "scope": "SoftwareSystem://A",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": {
+              "rankDirection": "LeftRight",
+              "rankSeparation": 100,
+              "nodeSeparation": 50,
+              "edgeSeparation": 50,
+              "vertices": true
+            },
+            "elements": ["SoftwareSystem://A", "SoftwareSystem://B"],
+            "relationships": ["SoftwareSystem://A -> SoftwareSystem://B (Uses)"],
+            "properties": {}
+          },
+          {
+            "key": "ContextOfB",
+            "type": "systemContext",
+            "scope": "SoftwareSystem://B",
+            "title": null,
+            "description": "The context of B",
+            "default": false,
+            "autoLayout": {
+              "rankDirection": "TopBottom",
+              "rankSeparation": 100,
+              "nodeSeparation": 50,
+              "edgeSeparation": 50,
+              "vertices": true
+            },
+            "elements": ["SoftwareSystem://A", "SoftwareSystem://B"],
+            "relationships": ["SoftwareSystem://A -> SoftwareSystem://B (Uses)"],
+            "properties": {}
+          },
+          {
+            "key": "Container-001",
+            "type": "container",
+            "scope": "SoftwareSystem://A",
+            "title": null,
+            "description": "",
+            "default": false,
+            "autoLayout": {
+              "rankDirection": "LeftRight",
+              "rankSeparation": 200,
+              "nodeSeparation": 100,
+              "edgeSeparation": 30,
+              "vertices": false
+            },
+            "elements": ["Container://A.C", "SoftwareSystem://B"],
+            "relationships": ["Container://A.C -> SoftwareSystem://B (Calls)"],
+            "properties": {}
+          },
+          {
+            "key": "Component-001",
+            "type": "component",
+            "scope": "Container://A.C",
+            "title": "Components of C",
+            "description": "Overrides",
+            "default": true,
+            "autoLayout": null,
+            "elements": ["Component://A.C.K", "SoftwareSystem://B"],
+            "relationships": ["Component://A.C.K -> SoftwareSystem://B (Queries)"],
+            "properties": {}
+          }
+        ],
+        "styles": {
+          "elements": [],
+          "relationships": [],
+          "themes": []
+        }
+      }
+    }
+  ]
+}

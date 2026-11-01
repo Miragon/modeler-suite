@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](LICENSE)
 
 The Miragon modeler platform in one repository: ONE contract every Miragon modeler implements, the
-shared chrome around their canvases, and the five modelers built on the two. Each modeler is one
+shared chrome around their canvases, and the six modelers built on the two. Each modeler is one
 notation: a plain-text file is the source of truth, a [diagram-js](https://github.com/bpmn-io/diagram-js)
 renderer shows and edits it, and a web app and a VS Code extension put the renderer in front of
 users. Every package and extension keeps its own version and its own npm or Marketplace name.
@@ -20,6 +20,7 @@ users. Every package and extension keeps its own version and its own npm or Mark
 | [Team Topologies](modelers/team-topologies/README.md) | `.tt`, `.ttm.json`, editable `*.tt.png`               | [team-topologies.modeler.miragon.io](https://team-topologies.modeler.miragon.io) | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.team-topologies-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/team-topologies-modeler) |
 | [Context Maps](modelers/context-maps/README.md)       | `.cm`, `.cm.json`, editable `*.cm.png`; `.cml` in/out | [context-maps.modeler.miragon.io](https://context-maps.modeler.miragon.io)       | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.context-maps-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/context-maps-modeler)       |
 | [Value Chain](modelers/value-chain/README.md)         | `.vc`, `.vc.json`                                     | no public deployment yet; run it locally                                         | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.value-chain-modeler)                                                                                       |
+| [C4 model](modelers/c4/README.md)                     | `.c4`, `.dsl` (Structurizr DSL)                       | no public deployment yet; run it locally                                         | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.c4-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/c4-modeler)                           |
 
 Their libraries on npm, each in `modelers/<modeler>/packages/<package>`:
 
@@ -28,10 +29,16 @@ Their libraries on npm, each in `modelers/<modeler>/packages/<package>`:
 - **Team Topologies:** [`@miragon/team-topologies-schema-model`](https://www.npmjs.com/package/@miragon/team-topologies-schema-model), [`@miragon/team-topologies-renderer`](https://www.npmjs.com/package/@miragon/team-topologies-renderer)
 - **Context Maps:** [`@miragon/context-maps-schema-model`](https://www.npmjs.com/package/@miragon/context-maps-schema-model), [`@miragon/context-maps-cml`](https://www.npmjs.com/package/@miragon/context-maps-cml), [`@miragon/context-maps-renderer`](https://www.npmjs.com/package/@miragon/context-maps-renderer)
 - **Value Chain:** [`@miragon/value-chain-schema-model`](https://www.npmjs.com/package/@miragon/value-chain-schema-model), [`@miragon/value-chain-renderer`](https://www.npmjs.com/package/@miragon/value-chain-renderer)
+- **C4 model:** [`@miragon/c4-schema-model`](https://www.npmjs.com/package/@miragon/c4-schema-model), [`@miragon/c4-dsl`](https://www.npmjs.com/package/@miragon/c4-dsl), [`@miragon/c4-layout`](https://www.npmjs.com/package/@miragon/c4-layout), [`@miragon/c4-renderer`](https://www.npmjs.com/package/@miragon/c4-renderer)
 
-The `schema-model`, `dsl`, `transforms` and `cml` packages are DOM-free and run in any JavaScript
-runtime; the `renderer` packages are the diagram-js viewers and modelers. How to embed one is in
-its modeler's README.
+The `schema-model`, `dsl`, `transforms`, `cml` and `layout` packages are DOM-free and run in any
+JavaScript runtime; the `renderer` packages are the diagram-js viewers and modelers. How to embed
+one is in its modeler's README.
+
+The C4 Modeler is compatible with Structurizr DSL: its own `.c4` file holds a Structurizr DSL
+workspace, and it opens a Structurizr `workspace.dsl` as it is and keeps it a file Structurizr
+opens. Structurizr is a product of Structurizr Limited; this project is not affiliated with or
+endorsed by Structurizr Limited.
 
 ## Shared packages
 
@@ -91,8 +98,8 @@ npm run lint                           # type checks and ESLint, everywhere
 ```
 
 `npm run <modeler> <script>` runs a script of one modeler (`wardley-maps`, `event-storming`,
-`team-topologies`, `context-maps`, `value-chain`), `npm run modelers <script>` runs it for all
-five. [CONTRIBUTING.md](CONTRIBUTING.md) lists the scripts, the dev servers, the browser, e2e and
+`team-topologies`, `context-maps`, `value-chain`, `c4`), `npm run modelers <script>` runs it for
+all six. [CONTRIBUTING.md](CONTRIBUTING.md) lists the scripts, the dev servers, the browser, e2e and
 VS Code tests, the pre-commit hook and the conventions for commits and pull requests;
 [docs/ci-and-releases.md](docs/ci-and-releases.md) explains CI and releases.
 
@@ -107,7 +114,8 @@ modelers/
   event-storming/       │ example/, docs/, and README.md, CLAUDE.md, CONTRIBUTING.md for what
   team-topologies/      │ is special to its notation
   context-maps/         │
-  value-chain/         ─┘
+  value-chain/          │
+  c4/                  ─┘
 tooling/               the ESLint and dependency-cruiser presets; each modeler names its DOM-free packages in package.json
 plugins/modeler-kit/   the Claude Code plugin with the new-modeler skill and its template
 .claude-plugin/        the suite's Claude Code marketplace
@@ -119,9 +127,9 @@ docs/                  shell implementation notes, CI and releases
 
 See [CONTRIBUTING.md](CONTRIBUTING.md), and for each modeler its own
 [Wardley Maps](modelers/wardley-maps/CONTRIBUTING.md), [Event Storming](modelers/event-storming/CONTRIBUTING.md),
-[Team Topologies](modelers/team-topologies/CONTRIBUTING.md), [Context Maps](modelers/context-maps/CONTRIBUTING.md)
-and [Value Chain](modelers/value-chain/CONTRIBUTING.md) notes. Agent-oriented rules are in
-[CLAUDE.md](CLAUDE.md).
+[Team Topologies](modelers/team-topologies/CONTRIBUTING.md), [Context Maps](modelers/context-maps/CONTRIBUTING.md),
+[Value Chain](modelers/value-chain/CONTRIBUTING.md) and [C4 model](modelers/c4/CONTRIBUTING.md)
+notes. Agent-oriented rules are in [CLAUDE.md](CLAUDE.md).
 
 ## License
 

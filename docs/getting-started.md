@@ -4,13 +4,14 @@ Every modeler of the suite runs as a web app, as a VS Code extension and as an n
 
 ## The modelers
 
-| Modeler                                      | Files                     |
-| -------------------------------------------- | ------------------------- |
-| [Wardley Maps](/modelers/wardley-maps)       | `.wmap`, `.owm`           |
-| [Event Storming](/modelers/event-storming)   | `.storm`                  |
-| [Team Topologies](/modelers/team-topologies) | `.tt`, `.ttm.json`        |
-| [Context Maps](/modelers/context-maps)       | `.cm`, `.cm.json`, `.cml` |
-| [Value Chain](/modelers/value-chain)         | `.vc`, `.vc.json`         |
+| Modeler                                      | Files                           |
+| -------------------------------------------- | ------------------------------- |
+| [Wardley Maps](/modelers/wardley-maps)       | `.wmap`, `.owm`                 |
+| [Event Storming](/modelers/event-storming)   | `.storm`                        |
+| [Team Topologies](/modelers/team-topologies) | `.tt`, `.ttm.json`              |
+| [Context Maps](/modelers/context-maps)       | `.cm`, `.cm.json`, `.cml`       |
+| [Value Chain](/modelers/value-chain)         | `.vc`, `.vc.json`               |
+| [C4 model](/modelers/c4)                     | `.c4`, `.dsl` (Structurizr DSL) |
 
 ## Build from source
 

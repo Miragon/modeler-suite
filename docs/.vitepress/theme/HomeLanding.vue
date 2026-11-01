@@ -54,6 +54,16 @@ const modelers = [
     files: ".vc",
     effect: "Steps and the organizational units behind them.",
   },
+  {
+    name: "C4 model",
+    npmPackage: "@miragon/c4-renderer",
+    webApp: undefined,
+    file: "bookshop.c4",
+    shot: "/shots/c4/editor.png",
+    link: "/modelers/c4",
+    files: ".c4 .dsl",
+    effect: "One model, many views, from the landscape down to the components.",
+  },
 ];
 const next = { text: "Pick a modeler and open its example", link: "/getting-started#the-modelers" };
 const stage = "raster";
@@ -133,8 +143,8 @@ async function copyInstall() {
           <h1>Model strategy where your <em>code</em> lives.</h1>
           <p class="slogan">Draw on a canvas, commit plain text.</p>
           <p class="lede">
-            Wardley Maps, Event Storming, Team Topologies, Context Maps and Value Chains as text
-            files, edited on a canvas in VS Code, in the browser or in your own app.
+            Wardley Maps, Event Storming, Team Topologies, Context Maps, Value Chains and C4 models
+            as text files, edited on a canvas in VS Code, in the browser or in your own app.
           </p>
 
           <div class="install">
@@ -482,7 +492,7 @@ h1 em {
   color: var(--cd-ui-text);
 }
 
-/* The five modelers on one rail, each linking to its page. */
+/* The modelers on one rail, each linking to its page. */
 .loop {
   flex: none;
   border-top: var(--line);
@@ -587,6 +597,16 @@ h1 em {
     border-right: var(--line);
   }
   .step:last-child {
+    border-right: 0;
+  }
+}
+
+/* Six names in one row run out of width below 1366px ("Team Topologies"): two rows of three. */
+@media (min-width: 960px) and (max-width: 1365px) {
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .step:nth-child(3n) {
     border-right: 0;
   }
 }

@@ -1,0 +1,68 @@
+/* The label editor's states beyond the base look in assets/c4.css: a value the DSL cannot store
+   turns the field's edge to --cd-ui-danger and shows its reason below it (guide §8 "Fehler"),
+   at the label editor's layer (guide §5.13). An empty field names itself in --cd-ui-text-leise
+   (guide §8 "Eingabefelder"); a neutral note in the same box says when the canvas cuts the text
+   short, or why a field cannot be edited here. */
+.c4-container .diagram-label-editor[aria-invalid="true"] {
+  border-color: var(--cd-ui-danger);
+}
+
+.c4-container .diagram-label-editor::placeholder {
+  color: var(--cd-ui-text-leise);
+  opacity: 1;
+}
+
+.c4-container .diagram-label-editor:focus {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+
+.c4-container :is(.c4-label-error, .c4-label-hint) {
+  z-index: 100;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--cd-ui-flaeche-hoch);
+  border-radius: var(--cd-radius-sm);
+  box-shadow: var(--cd-shadow-2);
+  pointer-events: none;
+}
+
+.c4-container .c4-label-error {
+  color: var(--cd-ui-danger);
+  border: 1px solid var(--cd-ui-danger);
+}
+
+.c4-container .c4-label-hint {
+  color: var(--cd-ui-text);
+  border: 1px solid var(--cd-ui-linie);
+}
+
+/* Without a field: centred under the band it speaks of. */
+.c4-container .c4-label-hint--alone {
+  width: max-content;
+  max-width: 280px;
+  transform: translateX(-50%);
+}
+
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  :is(:scope.c4-container, :scope .c4-container) .diagram-label-editor:focus {
+    outline-width: 3px;
+  }
+  :is(:scope.c4-container, :scope .c4-container) :is(.c4-label-error, .c4-label-hint) {
+    box-shadow: none;
+  }
+  :is(:scope.c4-container, :scope .c4-container) .c4-label-hint {
+    border-color: var(--cd-ui-kontur);
+  }
+}
+
+@media (forced-colors: active) {
+  .c4-container .diagram-label-editor:focus {
+    outline-color: Highlight;
+  }
+  .c4-container .c4-label-hint {
+    border-color: CanvasText;
+  }
+}

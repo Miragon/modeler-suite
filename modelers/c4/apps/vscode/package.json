@@ -1,0 +1,320 @@
+{
+  "name": "c4-modeler",
+  "private": true,
+  "version": "0.0.0",
+  "displayName": "C4 Modeler",
+  "description": "View and edit C4 model diagrams directly in VS Code, backed by plain-text Structurizr DSL files (.c4, .dsl).",
+  "publisher": "miragon-gmbh",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Miragon/modeler-suite.git",
+    "directory": "modelers/c4/apps/vscode"
+  },
+  "bugs": "https://github.com/Miragon/modeler-suite/issues",
+  "homepage": "https://github.com/Miragon/modeler-suite/tree/main/modelers/c4/apps/vscode#readme",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "c4",
+    "c4 model",
+    "structurizr",
+    "software architecture",
+    "diagram"
+  ],
+  "main": "./dist/extension.cjs",
+  "type": "module",
+  "activationEvents": [
+    "onCustomEditor:c4.editor",
+    "onCustomEditor:c4.dslEditor",
+    "onLanguage:structurizr-dsl",
+    "workspaceContains:**/*.c4",
+    "workspaceContains:**/workspace.dsl"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "structurizr-dsl",
+        "aliases": [
+          "Structurizr DSL",
+          "structurizr-dsl"
+        ],
+        "extensions": [
+          ".c4",
+          ".dsl"
+        ],
+        "filenames": [
+          "workspace.dsl"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./media/icons/c4-light.svg",
+          "dark": "./media/icons/c4-dark.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "structurizr-dsl",
+        "scopeName": "source.structurizr-dsl",
+        "path": "./syntaxes/structurizr-dsl.tmLanguage.json"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "c4.editor",
+        "displayName": "C4 Modeler",
+        "selector": [
+          {
+            "filenamePattern": "*.c4"
+          }
+        ],
+        "priority": "default"
+      },
+      {
+        "viewType": "c4.dslEditor",
+        "displayName": "C4 Modeler",
+        "selector": [
+          {
+            "filenamePattern": "*.dsl"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "c4.newDiagram",
+        "title": "New Empty C4 Diagram",
+        "category": "C4",
+        "shortTitle": "C4 Diagram"
+      },
+      {
+        "command": "c4.newDiagramFromExample",
+        "title": "New C4 Diagram from Example",
+        "category": "C4"
+      },
+      {
+        "command": "c4.openSource",
+        "title": "Open Source to the Side",
+        "category": "C4",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "c4.openDiagram",
+        "title": "Open Diagram to the Side",
+        "category": "C4",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "c4.goToView",
+        "title": "Go to View…",
+        "category": "C4"
+      },
+      {
+        "command": "c4.parentView",
+        "title": "Parent View",
+        "category": "C4"
+      },
+      {
+        "command": "c4.fitView",
+        "title": "Fit to View",
+        "category": "C4"
+      },
+      {
+        "command": "c4.exportPng",
+        "title": "Export as PNG",
+        "category": "C4"
+      },
+      {
+        "command": "c4.exportSvg",
+        "title": "Export as SVG",
+        "category": "C4"
+      },
+      {
+        "command": "c4.useForWorkspaceDsl",
+        "title": "Use C4 Modeler for workspace.dsl",
+        "category": "C4"
+      }
+    ],
+    "menus": {
+      "file/newFile": [
+        {
+          "command": "c4.newDiagram",
+          "group": "c4@1"
+        },
+        {
+          "command": "c4.newDiagramFromExample",
+          "group": "c4@2"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "c4.openSource",
+          "when": "activeCustomEditorId == c4.editor || activeCustomEditorId == c4.dslEditor",
+          "group": "navigation"
+        },
+        {
+          "command": "c4.openDiagram",
+          "when": "(resourceExtname == .dsl || editorLangId == structurizr-dsl) && activeCustomEditorId != c4.editor && activeCustomEditorId != c4.dslEditor",
+          "group": "navigation"
+        },
+        {
+          "command": "c4.fitView",
+          "when": "activeCustomEditorId == c4.editor || activeCustomEditorId == c4.dslEditor",
+          "group": "c4@1"
+        },
+        {
+          "command": "c4.exportPng",
+          "when": "activeCustomEditorId == c4.editor || activeCustomEditorId == c4.dslEditor",
+          "group": "c4@2"
+        },
+        {
+          "command": "c4.exportSvg",
+          "when": "activeCustomEditorId == c4.editor || activeCustomEditorId == c4.dslEditor",
+          "group": "c4@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "c4.openSource",
+          "when": "activeCustomEditorId == c4.editor || activeCustomEditorId == c4.dslEditor"
+        },
+        {
+          "command": "c4.openDiagram",
+          "when": "(resourceExtname == .dsl || editorLangId == structurizr-dsl) && activeCustomEditorId != c4.editor && activeCustomEditorId != c4.dslEditor"
+        },
+        {
+          "command": "c4.goToView",
+          "when": "activeCustomEditorId == c4.editor || activeCustomEditorId == c4.dslEditor"
+        },
+        {
+          "command": "c4.parentView",
+          "when": "activeCustomEditorId == c4.editor || activeCustomEditorId == c4.dslEditor"
+        },
+        {
+          "command": "c4.fitView",
+          "when": "activeCustomEditorId == c4.editor || activeCustomEditorId == c4.dslEditor"
+        },
+        {
+          "command": "c4.exportPng",
+          "when": "activeCustomEditorId == c4.editor || activeCustomEditorId == c4.dslEditor"
+        },
+        {
+          "command": "c4.exportSvg",
+          "when": "activeCustomEditorId == c4.editor || activeCustomEditorId == c4.dslEditor"
+        }
+      ]
+    },
+    "walkthroughs": [
+      {
+        "id": "getStarted",
+        "title": "Get Started with the C4 Modeler",
+        "description": "Draw the C4 model of your software on a canvas, backed by a plain-text Structurizr DSL file: one model, many views, and the layout of each view kept in the same file.",
+        "steps": [
+          {
+            "id": "new",
+            "title": "Create a diagram",
+            "description": "Start from an empty diagram: a .c4 file that opens as a canvas.\n[Create empty diagram](command:c4.newDiagram)",
+            "media": {
+              "markdown": "media/walkthrough/new.md"
+            },
+            "completionEvents": [
+              "onCommand:c4.newDiagram"
+            ]
+          },
+          {
+            "id": "example",
+            "title": "Open the example",
+            "description": "See a finished diagram: an online bookshop with a view of each level.\n[Create diagram from example](command:c4.newDiagramFromExample)",
+            "media": {
+              "markdown": "media/walkthrough/example.md"
+            },
+            "completionEvents": [
+              "onCommand:c4.newDiagramFromExample"
+            ]
+          },
+          {
+            "id": "draw",
+            "title": "Draw and drill down",
+            "description": "Add people, software systems, containers and components from the palette, connect them, and open the view one level deeper.\n[Go to View](command:c4.goToView)",
+            "media": {
+              "markdown": "media/walkthrough/draw.md"
+            },
+            "completionEvents": [
+              "onStepSelected"
+            ]
+          },
+          {
+            "id": "layout",
+            "title": "Your layout lives in your file",
+            "description": "Every position you set on the canvas is written into the view's properties in the same file as the model, so it travels with the model through Git.",
+            "media": {
+              "markdown": "media/walkthrough/layout.md"
+            },
+            "completionEvents": [
+              "onStepSelected"
+            ]
+          },
+          {
+            "id": "source",
+            "title": "Open the source to the side",
+            "description": "The text is the model: edit it beside the canvas and watch both stay in sync.\n[Open Source to the Side](command:c4.openSource)",
+            "media": {
+              "markdown": "media/walkthrough/source.md"
+            },
+            "completionEvents": [
+              "onCommand:c4.openSource"
+            ]
+          },
+          {
+            "id": "default",
+            "title": "Use it for workspace.dsl",
+            "description": ".c4 files open in the C4 Modeler. Other tools read .dsl files too, so a .dsl file opens in it only when you ask. Make it the editor of every workspace.dsl.\n[Use C4 Modeler for workspace.dsl](command:c4.useForWorkspaceDsl)",
+            "media": {
+              "markdown": "media/walkthrough/default.md"
+            },
+            "completionEvents": [
+              "onCommand:c4.useForWorkspaceDsl"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "typecheck": "tsc -p tsconfig.json",
+    "notices": "node scripts/third-party-notices.mjs",
+    "vscode:prepublish": "node esbuild.config.mjs --production",
+    "package": "vsce package --no-dependencies -o c4-modeler.vsix"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
+    "@miragon/c4-dsl": "0.0.0",
+    "@miragon/c4-layout": "0.0.0",
+    "@miragon/c4-renderer": "0.0.0",
+    "@miragon/c4-schema-model": "0.0.0",
+    "@miragon/modeler-shell": "0.9.0",
+    "diagram-js": "15.28.1",
+    "didi": "12.0.0",
+    "tiny-svg": "4.1.4"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "@types/vscode": "1.96.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.0.0",
+    "esbuild": "0.28.2",
+    "playwright-core": "1.64.1",
+    "typescript": "6.0.3"
+  }
+}
