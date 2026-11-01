@@ -159,6 +159,20 @@ export type C4Edit =
   | { type: "updateElement"; id: ElementId; fields: Partial<ElementFields> }
   /** `key` is the relationship's canvas key. */
   | { type: "updateRelationship"; key: string; fields: Partial<RelationshipFields> }
+  /**
+   * Moves one end of an explicit relationship from its element to a child of it (a software
+   * system's container, a container's component); everything else of the relationship stays.
+   */
+  | {
+      type: "moveRelationshipEnd";
+      /** The relationship's canvas key. */
+      key: string;
+      end: "source" | "destination";
+      /** A child of the element at that end. */
+      to: ElementId;
+      /** Where the elements the move brings into the current view are drawn, as their layout keys. */
+      boxes?: ReadonlyMap<ElementId, Box>;
+    }
   | { type: "renameIdentifier"; id: ElementId; identifier: string }
   | {
       type: "setLayout";

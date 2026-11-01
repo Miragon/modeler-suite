@@ -111,7 +111,10 @@ system landscape down to the view shown ("System landscape › Bookshop context 
 containers"), each view above a button that opens it, and a draft shown marked "Not in the file
 yet". It is hidden at a landscape, where no view lies above. It is HTML after the canvas's `<svg>`
 (a `<nav>` named "Breadcrumb"), so the keyboard reaches it after the canvas and no export draws
-it, and it keeps clear of the islands of a `@miragon/modeler-shell` chrome around it.
+it, and it keeps clear of the islands of a `@miragon/modeler-shell` chrome around it. In the
+`Modeler` with dialogs connected, a container or component view whose scope has relationships of
+its own it can't draw shows a chip right after it ("1 relationship of Bookshop isn't shown here");
+its dialog moves such a relationship's end to a container or component (`c4.moveRelationshipEnd`).
 
 `getViewState()` returns `{ view, x, y, width, height }`, and `setViewState()` restores the view
 as well as the viewbox. `rebaseText(text)` takes a text that differs from the current one only in
@@ -150,7 +153,7 @@ shell:
 | Export                                                                 | What                                                                                                                                                                                                                      |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `c4Menu({ modeler, exports, … })`                                      | the Model group (Views…, Parent view, Lay out automatically, Add existing element…, the settings, Apply C4 colours), Export (PNG, SVG and, where the host passes them, the text as `.c4` and as Structurizr DSL) and Help |
-| `connectDialogs(modeler, { container, openDialog })`                   | the dialogs (Views…, View settings…, Add existing element…, Workspace settings…, the delete confirmation) on the chrome's dialog                                                                                          |
+| `connectDialogs(modeler, { container, openDialog })`                   | the dialogs (Views…, View settings…, Add existing element…, Workspace settings…, Move to a container, the delete confirmation) on the chrome's dialog                                                                     |
 | `mountInspector(slot, modeler, options?)`                              | the properties of the selection, plain DOM in an inspector slot; `commitDraft()` for a host's save                                                                                                                        |
 | `connectLegend(body, modeler)`, `legendRows`, `renderLegend`           | the legend of the view on the canvas                                                                                                                                                                                      |
 | `c4Shortcuts(host, options)`, `createShortcutsDialog(chrome, options)` | the keyboard shortcuts as data and as a dialog                                                                                                                                                                            |

@@ -65,6 +65,7 @@ export {
   TEXT_REBASED_EVENT,
   VIEW_CHANGED_EVENT,
   type C4DiagramExtras,
+  type CanvasNotice,
   type C4ElementFactory,
   type C4ModelingMethods,
   type C4SceneService,

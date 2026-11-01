@@ -11,6 +11,7 @@ import { rectanglePath } from "../draw/shapes.js";
 import { append, clearChildren, svgElement } from "../draw/svg.js";
 import type { C4Engine } from "../engine/C4Engine.js";
 import { BREADCRUMBS_CLASS } from "../navigation/Breadcrumbs.js";
+import { HIDDEN_RELATIONSHIPS_CLASS } from "../navigation/HiddenRelationshipsHint.js";
 import { boundaryCanvasId } from "../reconcile/Reconciler.js";
 import {
   c4ReferenceOf,
@@ -162,8 +163,9 @@ export default class FramePreview {
   }
 
   /**
-   * The breadcrumb and the shell's islands (what it marks `data-chrome` in its root) that show over
-   * the canvas: a warning chip under them would be hidden, since HTML draws over the canvas.
+   * The breadcrumb, the chip after it and the shell's islands (what it marks `data-chrome` in its
+   * root) that show over the canvas: a warning chip under them would be hidden, since HTML draws
+   * over the canvas.
    */
   private chromeOverCanvas(): ScreenBox[] {
     const container = this.canvas.getContainer();
@@ -171,6 +173,7 @@ export default class FramePreview {
     const root = container.closest(".cd-shell");
     const candidates = [
       container.querySelector(`nav.${BREADCRUMBS_CLASS}`),
+      container.querySelector(`.${HIDDEN_RELATIONSHIPS_CLASS}:not([data-covered])`),
       ...(root ? root.querySelectorAll("[data-chrome]") : []),
     ];
     const chrome: ScreenBox[] = [];

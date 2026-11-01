@@ -103,6 +103,57 @@ const CONTAINERS = dsl`
 
 const LANDSCAPE_BOXES = { customer: box(0, 0, 216, 216), shop: box(400, 28) };
 
+/** A relationship on the system itself, which its container view can't draw. */
+const SYNC = dsl`
+  workspace "Shop" {
+      model {
+          customer = person "Customer"
+          shop = softwareSystem "Shop" {
+              web = container "Web"
+              api = container "API"
+          }
+          crm = softwareSystem "CRM"
+          customer -> web "Uses"
+          shop -> crm "Syncs customers" "HTTPS"
+      }
+      views {
+          systemLandscape "Landscape" {
+              include *
+              properties {
+                  "c4modeler.element.crm" "400,280"
+                  "c4modeler.element.customer" "0,0"
+                  "c4modeler.element.shop" "400,0"
+              }
+          }
+          container shop "ShopContainers" {
+              include *
+              properties {
+                  "c4modeler.element.api" "0,560"
+                  "c4modeler.element.customer" "12,0"
+                  "c4modeler.element.web" "0,280"
+              }
+          }
+      }
+  }
+`;
+
+/** A workspace of this model and an auto-laid-out landscape. */
+function syncWith(model: string): string {
+  return dsl`
+    workspace "Shop" {
+        model {
+${model}
+        }
+        views {
+            systemLandscape "Landscape" {
+                include *
+                autoLayout tb 300 160
+            }
+        }
+    }
+  `;
+}
+
 export const GOLDEN_CASES: readonly GoldenCase[] = [
   {
     name: "create-person-after-people",
@@ -1207,5 +1258,290 @@ export const GOLDEN_CASES: readonly GoldenCase[] = [
     ).replace("include *", "include customer shop"),
     edit: { type: "includeInView", ids: ["mail"], boxes: new Map([["mail", box(400, 280)]]) },
     options: { view: "Landscape", boxes: { customer: box(0, 0, 216, 216), shop: box(400, 0) } },
+  },
+  {
+    name: "move-end-model-level-source",
+    before: SYNC,
+    edit: {
+      type: "moveRelationshipEnd",
+      key: "shop->crm",
+      end: "source",
+      to: "api",
+      boxes: new Map([["crm", box(400, 560)]]),
+    },
+    options: {
+      view: "ShopContainers",
+      boxes: { api: box(0, 560), customer: box(12, 0, 216, 216), web: box(0, 280) },
+    },
+  },
+  {
+    name: "move-end-model-level-destination",
+    before: dsl`
+      workspace {
+          model {
+              shop = softwareSystem "Shop" {
+                  web = container "Web"
+              }
+              crm = softwareSystem "CRM"
+              crm -> shop "Sends leads to"
+          }
+          views {
+              systemLandscape "Landscape" {
+                  include *
+                  properties {
+                      "c4modeler.element.crm" "0,0"
+                      "c4modeler.element.shop" "400,0"
+                      "c4modeler.relationship.crm->shop" "320,-80"
+                  }
+              }
+          }
+      }
+    `,
+    edit: { type: "moveRelationshipEnd", key: "crm->shop", end: "destination", to: "web" },
+    options: { view: "Landscape", boxes: { crm: box(0, 0), shop: box(400, 0) } },
+  },
+  {
+    name: "move-end-this-in-block",
+    before: syncWith(`            crm = softwareSystem "CRM"
+            shop = softwareSystem "Shop" {
+                web = container "Web"
+                this -> crm "Syncs customers"
+            }`),
+    edit: { type: "moveRelationshipEnd", key: "shop->crm", end: "source", to: "web" },
+    options: { view: "Landscape" },
+  },
+  {
+    name: "move-end-implicit-in-scope-block",
+    before: syncWith(`            crm = softwareSystem "CRM"
+            shop = softwareSystem "Shop" {
+                web = container "Web"
+                -> crm "Syncs customers" "HTTPS"
+            }`),
+    edit: { type: "moveRelationshipEnd", key: "shop->crm", end: "source", to: "web" },
+    options: { view: "Landscape" },
+  },
+  {
+    name: "move-end-implicit-archetype",
+    before: syncWith(`            archetypes {
+                https = -> {
+                    technology "HTTPS"
+                }
+            }
+            crm = softwareSystem "CRM"
+            shop = softwareSystem "Shop" {
+                web = container "Web"
+                --https-> crm "Syncs customers"
+            }`),
+    edit: { type: "moveRelationshipEnd", key: "shop->crm", end: "source", to: "web" },
+    options: { view: "Landscape" },
+  },
+  {
+    name: "move-end-implicit-in-other-block",
+    before: syncWith(`            shop = softwareSystem "Shop" {
+                web = container "Web"
+            }
+            crm = softwareSystem "CRM" {
+                -> shop "Sends leads to"
+            }`),
+    edit: { type: "moveRelationshipEnd", key: "crm->shop", end: "destination", to: "web" },
+    options: { view: "Landscape" },
+  },
+  {
+    name: "move-end-reopened-element",
+    before: syncWith(`            shop = softwareSystem "Shop" {
+                web = container "Web"
+            }
+            crm = softwareSystem "CRM"
+            !element shop {
+                -> crm "Syncs customers"
+            }`),
+    edit: { type: "moveRelationshipEnd", key: "shop->crm", end: "source", to: "web" },
+    options: { view: "Landscape" },
+  },
+  {
+    name: "move-end-hierarchical",
+    before: dsl`
+      workspace {
+          !identifiers hierarchical
+          model {
+              shop = softwareSystem "Shop" {
+                  web = container "Web"
+                  api = container "API" {
+                      orders = component "Orders"
+                  }
+              }
+              crm = softwareSystem "CRM"
+              shop.api -> crm "Reads customers from"
+          }
+          views {
+              container shop "ShopContainers" {
+                  include *
+                  autoLayout tb 300 160
+              }
+          }
+      }
+    `,
+    edit: {
+      type: "moveRelationshipEnd",
+      key: "shop.api->crm",
+      end: "source",
+      to: "shop.api.orders",
+    },
+    options: { view: "ShopContainers" },
+  },
+  {
+    name: "move-end-anonymous-child",
+    before: syncWith(`            shop = softwareSystem "Shop" {
+                container "Web App"
+            }
+            crm = softwareSystem "CRM"
+            shop -> crm "Syncs customers"`),
+    edit: { type: "moveRelationshipEnd", key: "shop->crm", end: "source", to: "webApp" },
+    options: { view: "Landscape" },
+  },
+  {
+    name: "move-end-named-with-block",
+    before: dsl`
+      workspace {
+          model {
+              shop = softwareSystem "Shop" {
+                  web = container "Web"
+                  api = container "API"
+              }
+              crm = softwareSystem "CRM"
+              sync = shop -> crm "Syncs customers" "HTTPS" "Nightly" {
+                  tags "Batch"
+                  url "https://example.com/sync"
+                  properties {
+                      "owner" "crm-team"
+                  }
+                  perspectives {
+                      "Security" "Uses mTLS."
+                  }
+              }
+              !relationship sync {
+                  tag "Reviewed"
+              }
+          }
+          views {
+              systemLandscape "Landscape" {
+                  include *
+                  properties {
+                      "c4modeler.element.crm" "400,0"
+                      "c4modeler.element.shop" "0,0"
+                      "c4modeler.relationship.sync" "320,-80"
+                  }
+              }
+          }
+      }
+    `,
+    edit: { type: "moveRelationshipEnd", key: "sync", end: "source", to: "api" },
+    options: { view: "Landscape", boxes: { crm: box(400, 0), shop: box(0, 0) } },
+  },
+  {
+    name: "move-end-vertices-without-implied",
+    before: dsl`
+      workspace {
+          !impliedRelationships false
+          model {
+              shop = softwareSystem "Shop" {
+                  web = container "Web"
+              }
+              crm = softwareSystem "CRM"
+              shop -> crm "Syncs customers"
+          }
+          views {
+              systemLandscape "Landscape" {
+                  include *
+                  properties {
+                      "c4modeler.element.crm" "400,0"
+                      "c4modeler.element.shop" "0,0"
+                      "c4modeler.relationship.shop->crm" "320,-80"
+                  }
+              }
+          }
+      }
+    `,
+    edit: { type: "moveRelationshipEnd", key: "shop->crm", end: "source", to: "web" },
+    options: { view: "Landscape", boxes: { crm: box(400, 0), shop: box(0, 0) } },
+  },
+  {
+    name: "move-end-names-an-ambiguous-pair",
+    before: syncWith(`            shop = softwareSystem "Shop" {
+                web = container "Web"
+            }
+            crm = softwareSystem "CRM"
+            shop -> crm "Syncs customers"
+            shop -> crm "Sends orders to"`),
+    edit: { type: "moveRelationshipEnd", key: "shop->crm#2", end: "source", to: "web" },
+    options: { view: "Landscape" },
+  },
+  {
+    name: "move-end-names-before-joining-a-pair",
+    before: syncWith(`            shop = softwareSystem "Shop" {
+                web = container "Web"
+            }
+            crm = softwareSystem "CRM"
+            web -> crm "Reads customers from"
+            shop -> crm "Syncs customers"`),
+    edit: { type: "moveRelationshipEnd", key: "shop->crm", end: "source", to: "web" },
+    options: { view: "Landscape" },
+  },
+  {
+    name: "move-end-in-group",
+    before: syncWith(`            shop = softwareSystem "Shop" {
+                web = container "Web"
+            }
+            crm = softwareSystem "CRM"
+            group "Integrations" {
+                shop -> crm "Syncs customers"
+            }`),
+    edit: { type: "moveRelationshipEnd", key: "shop->crm", end: "source", to: "web" },
+    options: { view: "Landscape" },
+  },
+  {
+    name: "move-end-explicit-archetype",
+    before: syncWith(`            archetypes {
+                https = -> {
+                    technology "HTTPS"
+                }
+            }
+            shop = softwareSystem "Shop" {
+                web = container "Web"
+            }
+            crm = softwareSystem "CRM"
+            shop --https-> crm "Syncs customers"`),
+    edit: { type: "moveRelationshipEnd", key: "shop->crm", end: "source", to: "web" },
+    options: { view: "Landscape" },
+  },
+  {
+    name: "move-end-hierarchical-in-block",
+    before: dsl`
+      workspace {
+          !identifiers hierarchical
+          model {
+              crm = softwareSystem "CRM"
+              shop = softwareSystem "Shop" {
+                  web = container "Web"
+                  -> crm "Syncs customers"
+              }
+          }
+          views {
+              systemLandscape "Landscape" {
+                  include *
+                  autoLayout tb 300 160
+              }
+          }
+      }
+    `,
+    edit: { type: "moveRelationshipEnd", key: "shop->crm", end: "source", to: "shop.web" },
+    options: { view: "Landscape" },
+  },
+  {
+    name: "move-end-tabs-crlf",
+    before:
+      'workspace "Tabs" {\r\n\tmodel {\r\n\t\tshop = softwareSystem "Shop" {\r\n\t\t\tweb = container "Web"\r\n\t\t}\r\n\t\tcrm = softwareSystem "CRM"\r\n\t\t// Nightly.\r\n\t\tshop\t->\tcrm "Syncs customers" {\r\n\t\t\tperspectives {\r\n\t\t\t\t"Security" "Uses mTLS."\r\n\t\t\t}\r\n\t\t}\r\n\t}\r\n\tviews {\r\n\t\tsystemLandscape "Landscape" {\r\n\t\t\tinclude *\r\n\t\t\tautoLayout tb 300 160\r\n\t\t}\r\n\t}\r\n}\r\n',
+    edit: { type: "moveRelationshipEnd", key: "shop->crm", end: "source", to: "web" },
+    options: { view: "Landscape" },
   },
 ];

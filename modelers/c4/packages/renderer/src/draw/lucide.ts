@@ -3,8 +3,8 @@
  * Copyright (c) 2026 Lucide Icons and Contributors */
 
 /*
- * The Lucide icons of the palette tools, of the canvas's drill badge and of its feedback, copied
- * unchanged from `icon-nodes.json`. Renderers never import the modeler shell, so they cannot take
+ * The Lucide icons of the palette tools, of the canvas's drill badge, of its feedback and of the
+ * hint of hidden relationships, copied unchanged from `icon-nodes.json`. Renderers never import the modeler shell, so they cannot take
  * its copy.
  */
 export const LUCIDE = {
@@ -46,6 +46,13 @@ export const TRIANGLE_ALERT_NODES: readonly (readonly [
   ["path", { d: "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" }],
   ["path", { d: "M12 9v4" }],
   ["path", { d: "M12 17h.01" }],
+];
+
+/** Lucide `info`, the hint of the relationships a view can't show. */
+export const INFO_NODES: readonly (readonly [string, Readonly<Record<string, string>>])[] = [
+  ["circle", { cx: "12", cy: "12", r: "10" }],
+  ["path", { d: "M12 16v-4" }],
+  ["path", { d: "M12 8h.01" }],
 ];
 
 export type LucideIconName = keyof typeof LUCIDE;

@@ -445,6 +445,66 @@ select.c4-field-control {
   border: 0;
 }
 
+/* Move to a container (navigation/MoveRelationshipDialog.ts): a group per relationship end, its
+   ends as the legend in the weight of a title, its description and technology quiet below, then
+   the child to move to and Assign on one line; groups apart by a line, as the table rows are. */
+.c4-move-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+}
+
+.c4-move-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--cd-ui-linie);
+}
+
+.c4-move-row:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.c4-move-row:last-child {
+  padding-bottom: 0;
+}
+
+.c4-move-title {
+  margin: 0 0 2px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--cd-ui-text);
+  overflow-wrap: anywhere;
+}
+
+.c4-move-row :is(.c4-move-details, .c4-field-note, .c4-field-error) {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.c4-move-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.c4-move-controls > .c4-field {
+  flex: 1 1 200px;
+}
+
+.c4-move-controls > .c4-button {
+  flex: none;
+}
+
 .c4-dialog-footer {
   display: flex;
   flex-wrap: wrap;

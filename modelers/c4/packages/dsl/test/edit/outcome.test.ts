@@ -900,3 +900,124 @@ describe("sources in less common forms", () => {
     expect(after).toContain('        softwareSystem "Shop" "Sells"\n');
   });
 });
+
+describe("moving a relationship's end into a child", () => {
+  const SYNC = dsl`
+    workspace {
+        model {
+            shop = softwareSystem "Shop" {
+                web = container "Web"
+                api = container "API"
+            }
+            crm = softwareSystem "CRM"
+            shop -> crm "Syncs customers" "HTTPS" {
+                tags "Batch"
+                url "https://example.com/sync"
+                properties {
+                    "owner" "crm-team"
+                }
+            }
+        }
+        views {
+            systemLandscape "Landscape" {
+                include *
+                autoLayout tb 300 160
+            }
+            container shop "ShopContainers" {
+                include *
+                autoLayout tb 300 160
+            }
+        }
+    }
+  `;
+  const move = (text: string, key: string, to: string) =>
+    ok(edit(text, { type: "moveRelationshipEnd", key, end: "source", to }, { view: "Landscape" }));
+
+  it("rewrites only the end's token, and its inverse restores the text byte for byte", () => {
+    const outcome = move(SYNC, "shop->crm", "web");
+    expect(outcome.edits).toHaveLength(1);
+    const [change] = outcome.edits;
+    expect(change).toBeDefined();
+    expect(applyTextEdits(SYNC, outcome.edits)).toBe(outcome.text);
+    expect(applyTextEdits(outcome.text, outcome.inverse)).toBe(SYNC);
+    expect(outcome.text).toBe(SYNC.replace("shop -> crm", "web -> crm"));
+  });
+
+  it("keeps everything of the relationship but its source", () => {
+    const before = parseWorkspace(SYNC).workspace.relationships.find(
+      (relationship) => relationship.canvasKey === "shop->crm",
+    );
+    const after = move(SYNC, "shop->crm", "web").document.workspace.relationships.find(
+      (relationship) => relationship.canvasKey === "web->crm",
+    );
+    expect(after).toEqual({
+      ...before,
+      key: "web->crm",
+      canvasKey: "web->crm",
+      sourceId: "web",
+      fields: after?.fields,
+    });
+  });
+
+  it("reports the canvas key the unnamed relationship takes from its new end", () => {
+    expect(move(SYNC, "shop->crm", "web").idChanges).toEqual([
+      { kind: "relationship", from: "shop->crm", to: "web->crm" },
+    ]);
+  });
+
+  it("reports the identifier it names an ambiguous relationship with, and the sibling's key", () => {
+    const text = SYNC.replace(
+      '        shop -> crm "Syncs customers"',
+      '        shop -> crm "Sends orders to"\n        shop -> crm "Syncs customers"',
+    );
+    expect(move(text, "shop->crm#2", "web").idChanges).toEqual([
+      { kind: "relationship", from: "shop->crm#2", to: "webToCrm" },
+      { kind: "relationship", from: "shop->crm#1", to: "shop->crm" },
+    ]);
+  });
+
+  it("keeps a named relationship's key", () => {
+    const outcome = move(SYNC.replace("shop -> crm", "sync = shop -> crm"), "sync", "web");
+    expect(outcome.idChanges).toEqual([]);
+  });
+
+  it("draws the relationship in the container view and an implied one in the landscape", () => {
+    const { workspace } = move(SYNC, "shop->crm", "web").document;
+    const catalog = viewCatalog(workspace);
+    const members = (key: string) => viewMembers(workspace, catalog.resolve(key)!);
+    expect(members("ShopContainers").elements).toContain("crm");
+    expect(members("ShopContainers").relationships).toContain("web->crm");
+    expect(members("Landscape").relationships).toEqual(["implied:shop->crm"]);
+  });
+
+  it("moves an end beside a dynamic step that keeps showing the relationship it names", () => {
+    const text = dsl`
+      workspace {
+          model {
+              shop = softwareSystem "Shop" {
+                  web = container "Web"
+              }
+              crm = softwareSystem "CRM"
+              shop -> crm "Syncs customers"
+              web -> crm "Reads customers from"
+          }
+          views {
+              systemLandscape "Landscape" {
+                  include *
+                  autoLayout tb 300 160
+              }
+              dynamic shop "Lookup" {
+                  web -> crm "Reads customers from"
+              }
+          }
+      }
+    `;
+    expect(move(text, "shop->crm", "web").text).toContain(
+      '        webToCrm = web -> crm "Syncs customers"\n',
+    );
+  });
+
+  it("says nothing about the implied relationship it brings, which is the moved one", () => {
+    expect(move(SYNC, "shop->crm", "web").notices).toEqual([]);
+  });
+});

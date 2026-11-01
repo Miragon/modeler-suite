@@ -6,6 +6,7 @@ import CanvasKeys from "../keyboard/CanvasKeys.js";
 import Breadcrumbs from "./Breadcrumbs.js";
 import C4Dialogs from "./C4Dialogs.js";
 import EmptyScopeHint from "./EmptyScopeHint.js";
+import HiddenRelationshipsHint from "./HiddenRelationshipsHint.js";
 import Navigation from "./Navigation.js";
 
 /**
@@ -28,6 +29,12 @@ export const emptyScopeHintModule: ModuleDeclaration = {
   c4EmptyScopeHint: ["type", EmptyScopeHint],
 };
 
+/** The modeler's chip of the relationships a view can't draw: it opens an editing dialog. */
+export const hiddenRelationshipsHintModule: ModuleDeclaration = {
+  __init__: ["c4HiddenRelationshipsHint"],
+  c4HiddenRelationshipsHint: ["type", HiddenRelationshipsHint],
+};
+
 export {
   BREADCRUMBS_CLASS,
   BREADCRUMBS_LABEL,
@@ -40,8 +47,25 @@ export {
   default as EmptyScopeHint,
 } from "./EmptyScopeHint.js";
 export { LANDSCAPE_CRUMB, breadcrumbPath, crumbText, type Crumb } from "./breadcrumbPath.js";
+export {
+  HIDDEN_RELATIONSHIPS_CLASS,
+  default as HiddenRelationshipsHint,
+  hiddenRelationshipsText,
+} from "./HiddenRelationshipsHint.js";
+export {
+  ASSIGN_LABEL,
+  MOVE_TO_COMPONENT_TITLE,
+  MOVE_TO_CONTAINER_TITLE,
+  moveEntryLabel,
+  showMoveRelationshipDialog,
+} from "./MoveRelationshipDialog.js";
 
-export { default as C4Dialogs, connectDialogs, NO_CONFIRMATION_MESSAGE } from "./C4Dialogs.js";
+export {
+  default as C4Dialogs,
+  connectDialogs,
+  DIALOGS_CONNECTED_EVENT,
+  NO_CONFIRMATION_MESSAGE,
+} from "./C4Dialogs.js";
 export { default as Navigation } from "./Navigation.js";
 export { ADD_ELEMENT_TITLE, addableElements, showAddElementDialog } from "./AddElementDialog.js";
 export { confirmDeleteFromModel, deleteImpactIn, type DeleteSelection } from "./deleteFromModel.js";

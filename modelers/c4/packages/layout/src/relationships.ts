@@ -163,6 +163,15 @@ export function dockedPath(source: Box, destination: Box, route: readonly Point[
   return [dockOnBox(source, first), ...route, dockOnBox(destination, last)];
 }
 
+/** Where the label of a line without a fan sits: halfway, or slid as `relationshipGeometry` slides it. */
+export function labelSlotOn(
+  path: readonly Point[],
+  labels: readonly Box[],
+  strangers: readonly Box[],
+): Box {
+  return slidLabel(path, 0.5, labels, strangers);
+}
+
 /** How far along `path` its point at `index` lies, as a fraction of the whole length. */
 function fractionAt(path: readonly Point[], index: number): number {
   let before = 0;

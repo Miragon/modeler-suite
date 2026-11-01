@@ -92,8 +92,10 @@ geometry.mode; // "auto", "stored" or "mixed"
   neighbour is clear, the clear place nearest the neighbour wins (beside a member of its frame, or
   on a 16-unit grid around the neighbour, with a label's room to it); only where none exists does
   the first free slot stay. A frame never grows over a box or frame it did not reach, and a clear
-  place whose frames keep 40 units from what they do not hold comes before one that grows a frame
-  up to a stranger.
+  place whose frames keep 40 units from what they do not hold, and that keeps a label's room
+  (192 across or 80 above and below) from every frame it does not belong to with the label of each
+  of its lines 16 units off that frame's edge, comes before one that grows a frame up to a stranger
+  or sits close to a frame.
 - Boundaries and groups are never stored: a frame is its members' union plus 32 of padding and a
   40-high caption band at the bottom, nested frames grow around inner ones, and the boundary of an
   empty container view is 320 × 200.

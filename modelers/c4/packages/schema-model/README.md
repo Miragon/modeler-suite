@@ -66,6 +66,7 @@ read-only rather than guessed.
 | `viewCatalog()`, `ViewCatalog`, `ViewEntry`, `draftKey()`, `generateViewKey()`              | every view: written, implicit and draft, the default view, drill-down and parent                   |
 | `viewMembers()`, `ViewMembers`, `groupKey()`, `parseExpression()`                           | what a static view shows, by its `include` and `exclude` statements; a group frame's identity      |
 | `impliedRelationships()`                                                                    | Structurizr's implied relationships, for the default, "unless same" and no strategy                |
+| `hiddenScopeRelationships()`, `endsWithChildren()`, `childElements()`                       | the relationships on a view's scope it can't draw, the ends that could move to a child             |
 | `resolveElementStyle()`, `resolveRelationshipStyle()`, `resolveBoundaryStyle()`             | the style cascade: tags in order, the last one wins, light blocks applied                          |
 | `deriveIdentifier()`, `isValidIdentifier()`, `isKeyword()`                                  | readable, unique identifiers from names (`"Payment API"` becomes `paymentApi`)                     |
 | `elementLayoutKey()`, `encodeElementLayout()`, `decodeElementLayout()`, `encodeVertices()`… | the `c4modeler.*` layout properties                                                                |

@@ -14,6 +14,7 @@ import { showAddElementDialog } from "./AddElementDialog.js";
 import { showAddRelationshipDialog } from "./AddRelationshipDialog.js";
 import { deleteImpactIn, confirmDeleteFromModel, type DeleteSelection } from "./deleteFromModel.js";
 import { reachesBeyondSelection } from "./impact.js";
+import { showMoveRelationshipDialog } from "./MoveRelationshipDialog.js";
 import { showViewSettingsDialog, showWorkspaceSettingsDialog } from "./SettingsDialogs.js";
 import type { C4DialogModeler, DialogChrome, DialogTarget, OpenedDialog } from "./types.js";
 import { showNewViewDialog, showViewsDialog } from "./ViewsDialog.js";
@@ -23,6 +24,7 @@ const NO_EDITS: C4ModelingMethods = {
   editElement: () => undefined,
   createRelationship: () => undefined,
   editRelationship: () => undefined,
+  moveRelationshipEnd: () => undefined,
   renameIdentifier: () => undefined,
   removeFromView: () => undefined,
   deleteFromModel: () => undefined,
@@ -35,6 +37,9 @@ const NO_EDITS: C4ModelingMethods = {
   applyC4Colours: () => undefined,
   insertExample: () => undefined,
 };
+
+/** The app handed its dialog chrome over or took it back: what opens a dialog shows or hides. */
+export const DIALOGS_CONNECTED_EVENT = "c4.dialogs.connected";
 
 export const NO_CONFIRMATION_MESSAGE =
   "This also deletes what is nested in it or shown in other views, and the app can't ask first. Delete it in the text instead.";
@@ -66,7 +71,9 @@ export default class C4Dialogs {
 
   /** `{ container: shell.root, openDialog: openShellDialog }`; undefined disconnects. */
   connect(chrome: DialogChrome | undefined): void {
-    if (!this.destroyed) this.chrome = chrome;
+    if (this.destroyed) return;
+    this.chrome = chrome;
+    this.eventBus.fire(DIALOGS_CONNECTED_EVENT);
   }
 
   isConnected(): boolean {
@@ -99,6 +106,16 @@ export default class C4Dialogs {
     const selected = this.injector.get<Selection>("selection", false)?.get() ?? [];
     const [from, to] = selected.filter(isElementShape).map((shape) => shape.c4.id);
     return this.show((target) => showAddRelationshipDialog({ ...target, from, to }));
+  }
+
+  /** The hidden relationships' chip: the scope's relationships the current view can't draw. */
+  showHiddenRelationships(): OpenedDialog | undefined {
+    return this.show((target) => showMoveRelationshipDialog(target));
+  }
+
+  /** "Move to a container…" of the inspector, for the relationship it shows. */
+  showMoveRelationship(relationshipKey: string): OpenedDialog | undefined {
+    return this.show((target) => showMoveRelationshipDialog({ ...target, relationshipKey }));
   }
 
   showViewSettings(view?: ViewKey): OpenedDialog | undefined {

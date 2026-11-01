@@ -76,9 +76,13 @@ export interface EditRefusedEvent {
   readonly level?: RefusalLevel;
 }
 
-export interface EditNoticeEvent {
-  readonly notice: EditNotice;
-}
+/** What the canvas tells the user about what they drew, besides the edit layer's notices. */
+export type CanvasNotice = "relationship-above-containers";
+
+/** An edit layer's notice in the app's words, or a canvas notice in its own, naming what it saw. */
+export type EditNoticeEvent =
+  | { readonly notice: EditNotice; readonly message?: undefined }
+  | { readonly notice: CanvasNotice; readonly message: string };
 
 export interface LayoutAppliedEvent {
   readonly view: ViewKey;
@@ -138,6 +142,15 @@ export interface C4ModelingMethods {
   editRelationship(
     key: RelationshipKey,
     fields: Partial<RelationshipFields>,
+  ): EditOutcome | undefined;
+  /**
+   * "Assign" of Move to a container… and the hidden relationships' dialog: one end of a
+   * relationship moves from its element to a child of it, as one command.
+   */
+  moveRelationshipEnd(
+    key: RelationshipKey,
+    end: "source" | "destination",
+    to: ElementId,
   ): EditOutcome | undefined;
   renameIdentifier(id: ElementId, identifier: string): EditOutcome | undefined;
   removeFromView(

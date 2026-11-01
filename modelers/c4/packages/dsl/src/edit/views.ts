@@ -597,8 +597,13 @@ function excludeMember(draft: Draft, key: ViewKey, id: ElementId): void {
 /**
  * Names an unnamed relationship (SPEC 3.6): `deriveIdentifier("<src> to <dst>")` written before
  * its statement, its layout keys follow in every view, and the canvas key change is reported.
+ * `ends` derives the name from other ends: those a move is about to give it.
  */
-export function nameRelationship(draft: Draft, canvasKey: string): string {
+export function nameRelationship(
+  draft: Draft,
+  canvasKey: string,
+  ends?: { readonly sourceId: ElementId; readonly destinationId: ElementId },
+): string {
   const relationship = draft.relationship(canvasKey);
   if (relationship === undefined || relationship.implied) {
     refuse("not-allowed", "This relationship can't be named.");
@@ -611,8 +616,9 @@ export function nameRelationship(draft: Draft, canvasKey: string): string {
   if (site === undefined || first === undefined) {
     refuse("not-allowed", "This relationship can't be named.");
   }
+  const named = ends ?? relationship;
   const identifier = deriveIdentifier(
-    `${relationship.sourceId} to ${relationship.destinationId}`,
+    `${named.sourceId} to ${named.destinationId}`,
     "custom",
     identifierRegister(draft),
     "flat",

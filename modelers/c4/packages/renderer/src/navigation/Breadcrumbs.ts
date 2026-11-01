@@ -34,6 +34,8 @@ const NAME_MIN = 26;
 const SUBPIXEL = 0.02;
 /** The narrowest the breadcrumb gets; narrower, it steps aside. */
 const MIN_WIDTH = 120;
+/** Between the path and what stands after it on its line: the shell's gap between islands. */
+const TRAILING_GAP = 8;
 
 /**
  * The path from the system landscape down to the view on the canvas, like bpmn-js's drill-down
@@ -49,6 +51,7 @@ export default class Breadcrumbs {
   private readonly list: HTMLOListElement;
   private readonly clearance: ChromeClearance;
   private shown = "";
+  private trailing: HTMLElement | undefined;
 
   constructor(
     eventBus: EventBus,
@@ -83,6 +86,23 @@ export default class Breadcrumbs {
     );
   }
 
+  /**
+   * An element on the breadcrumb's line right after it (the hint of the relationships the view
+   * can't show), inserted after it in the container, so Tab reaches it after the path: the path
+   * leaves it room, it goes compact (`data-compact`) before a name is cut, and it is covered
+   * (`data-covered`) with the path or where not even its compact form fits.
+   */
+  setTrailing(element: HTMLElement | undefined): void {
+    this.trailing = element;
+    if (element) this.element.after(element);
+    this.layout();
+  }
+
+  /** After the trailing element changed its content or showed. */
+  relayout(): void {
+    this.layout();
+  }
+
   update(): void {
     const crumbs = this.path();
     const signature = JSON.stringify(crumbs);
@@ -100,7 +120,11 @@ export default class Breadcrumbs {
    * the names of the views above first, so the view shown stays whole the longest.
    */
   private layout(): void {
-    if (this.element.hidden) return;
+    const trailing = this.trailing && !this.trailing.hidden ? this.trailing : undefined;
+    if (this.element.hidden) {
+      trailing?.toggleAttribute("data-covered", true);
+      return;
+    }
     const space = this.clearance.space();
     if (space.end === undefined) this.element.style.removeProperty("max-width");
     else this.element.style.maxWidth = `${Math.floor(space.end)}px`;
@@ -138,17 +162,45 @@ export default class Breadcrumbs {
     const withNote = widths.map((crumb) =>
       crumb.current ? { ...crumb, fixed: crumb.fixed + noteWidth } : crumb,
     );
-    let fit = covered ? undefined : fitCrumbs(withNote, available, NAME_MIN);
+    // The note gives way first, then the trailing element's words, then the names.
+    const trailingWidth = (compact: boolean) => {
+      if (!trailing) return 0;
+      trailing.toggleAttribute("data-compact", compact);
+      return trailing.getBoundingClientRect().width + TRAILING_GAP;
+    };
+    let reserve = trailingWidth(false);
+    let fit = covered ? undefined : fitCrumbs(withNote, available - reserve, NAME_MIN);
     if (note && !covered && !whole(fit)) {
       note.hidden = true;
+      fit = fitCrumbs(widths, available - reserve, NAME_MIN);
+    }
+    if (trailing && !covered && !whole(fit)) {
+      reserve = trailingWidth(true);
+      fit = fitCrumbs(widths, available - reserve, NAME_MIN);
+    }
+    let trailingCovered = false;
+    if (trailing && !covered && !fit) {
+      trailingCovered = true;
+      reserve = 0;
       fit = fitCrumbs(widths, available, NAME_MIN);
     }
     if (!fit) covered = true;
+    if (reserve > 0) this.element.style.maxWidth = `${Math.floor(space.width - reserve)}px`;
     items.forEach((item, index) => {
       limit(item.name, fit?.[index]?.name, widths[index]!.name);
       limit(item.level, fit?.[index]?.level, widths[index]!.level);
     });
     this.element.toggleAttribute("data-covered", covered);
+    if (trailing) this.placeTrailing(trailing, covered || trailingCovered);
+  }
+
+  private placeTrailing(trailing: HTMLElement, covered: boolean): void {
+    trailing.toggleAttribute("data-covered", covered);
+    if (covered) return;
+    const bounds = this.canvas.getContainer().getBoundingClientRect();
+    const own = this.element.getBoundingClientRect();
+    trailing.style.left = `${Math.ceil(own.right - bounds.left) + TRAILING_GAP}px`;
+    trailing.style.top = `${Math.round(own.top - bounds.top)}px`;
   }
 
   private item(crumb: Crumb, separated: boolean): HTMLLIElement {
@@ -216,6 +268,7 @@ export default class Breadcrumbs {
   private destroy(): void {
     this.clearance.destroy();
     this.element.remove();
+    this.trailing = undefined;
   }
 }
 

@@ -16,6 +16,7 @@ import { createElement, renameIdentifier, updateElement } from "./elements.js";
 import { insertExample } from "./example.js";
 import { ensureIdentifiers } from "./identifiers.js";
 import { EditRefused, GENERIC_MESSAGE } from "./refusal.js";
+import { moveRelationshipEnd } from "./relationshipEnds.js";
 import { createRelationship, updateRelationship } from "./relationships.js";
 import { applyC4Colours } from "./styles.js";
 import { applyTextEdits as apply, diffTexts } from "./textEdits.js";
@@ -127,6 +128,9 @@ function perform(draft: Draft, edit: C4Edit): void {
       return;
     case "updateRelationship":
       updateRelationshipWithIntent(draft, edit);
+      return;
+    case "moveRelationshipEnd":
+      moveRelationshipEnd(draft, edit);
       return;
     case "renameIdentifier":
       renameIdentifier(draft, edit.id, edit.identifier);

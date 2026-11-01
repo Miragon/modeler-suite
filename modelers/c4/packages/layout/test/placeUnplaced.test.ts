@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Box, ElementId } from "@miragon/c4-schema-model";
 import { layoutView, placeUnplaced } from "../src/index.js";
-import { HORIZONTAL_GAP, VERTICAL_GAP } from "../src/placement.js";
+import { HORIZONTAL_GAP, LABEL_MARGIN, VERTICAL_GAP } from "../src/placement.js";
 import {
   BOX,
   PERSON,
+  contains,
   layoutInput,
   overlap,
   plain,
@@ -147,7 +148,7 @@ describe("placeUnplaced", () => {
     expect(result.get("far")).toEqual(at(2 * BESIDE, 0));
   });
 
-  it("keeps an element that does not belong to a frame out of it", () => {
+  it("keeps an element that does not belong to a frame out of it, its label off the frame's edge", () => {
     const spec: ViewSpec = {
       elements: ["c1", "c3", "person"],
       relationships: [["person", "c1"]],
@@ -155,11 +156,13 @@ describe("placeUnplaced", () => {
       sizes: { person: PERSON },
     };
     const result = placed(spec, { c1: at(0, 0), c3: at(640, 0) }, ["person"]);
-    const frame = layoutView(
-      layoutInput({ ...spec, stored: Object.fromEntries(result) }),
-    ).boundaries.get("shop") as Box;
-    expect(overlap(frame, result.get("person") as Box)).toBe(false);
-    expect(result.get("person")).toEqual(at(-(HORIZONTAL_GAP + PERSON.width), -32, PERSON));
+    const view = layoutView(layoutInput({ ...spec, stored: Object.fromEntries(result) }));
+    const frame = view.boundaries.get("shop") as Box;
+    const person = result.get("person") as Box;
+    expect(overlap(frame, person)).toBe(false);
+    expect(roomForALabel(person, frame)).toBe(true);
+    expect(onTheEdge(view.labelBoxes.get("person->c1") as Box, frame)).toBe(false);
+    expect(person).toEqual(at(16, -368, PERSON));
   });
 
   it("does not grow a frame over an element outside it", () => {
@@ -375,6 +378,54 @@ describe("placeUnplaced", () => {
       }
     });
 
+    it("keeps an element outside the frame a label's room from it, with its label off the edge", () => {
+      const outside: ViewSpec = {
+        ...crowded("crm"),
+        boundaries: [{ elementId: "shop", members: ["webApp", "api", "database"], depth: 0 }],
+      };
+      const places: Record<string, Box> = {};
+      for (const source of ["webApp", "api", "database"]) {
+        const spec = connected(outside, source, "crm");
+        const result = placed(spec, pinned, ["crm"]);
+        const view = drawn(spec, result);
+        const crm = result.get("crm") as Box;
+        const shop = view.boundaries.get("shop") as Box;
+        expect(roomForALabel(crm, shop), `${source}: the room from the frame`).toBe(true);
+        const label = view.labelBoxes.get(`${source}->crm`) as Box;
+        expect(onTheEdge(label, shop), `${source}: the label on the frame's edge`).toBe(false);
+        for (const [id, box] of result) {
+          if (id === source || id === "crm") continue;
+          expect(lineCrosses(result.get(source) as Box, crm, box), `${source}: through ${id}`).toBe(
+            false,
+          );
+        }
+        places[source] = crm;
+      }
+      expect(places).toEqual({
+        webApp: at(288, 88),
+        api: at(1056, 848),
+        database: at(560, 1304),
+      });
+    });
+
+    it("keeps the same room from a group frame it does not belong to", () => {
+      const spec: ViewSpec = {
+        elements: ["a", "b", "c", "new"],
+        relationships: [
+          ["a", "b"],
+          ["b", "new"],
+        ],
+        groups: [{ name: "Core", path: "Core", depth: 0, members: ["a", "b"] }],
+      };
+      const result = placed(spec, { a: at(0, 0), b: at(0, 280), c: at(BESIDE, 0) }, ["new"]);
+      const view = drawn(spec, result);
+      const group = [...view.groups.values()][0] as Box;
+      const added = result.get("new") as Box;
+      expect(overlap(group, added)).toBe(false);
+      expect(roomForALabel(added, group)).toBe(true);
+      expect(onTheEdge(view.labelBoxes.get("b->new") as Box, group)).toBe(false);
+    });
+
     it("lets a frame grow up to a stranger where only that keeps the line in the clear", () => {
       const spec = connected(crowded("search"), "api", "search");
       const result = placed(spec, pinned, ["search"]);
@@ -393,6 +444,30 @@ describe("placeUnplaced", () => {
     }
   });
 });
+
+/** A relationship's label fits between the box and the frame, across or above and below it. */
+function roomForALabel(box: Box, frame: Box): boolean {
+  const across = Math.max(frame.x - (box.x + box.width), box.x - (frame.x + frame.width));
+  const along = Math.max(frame.y - (box.y + box.height), box.y - (frame.y + frame.height));
+  return across >= HORIZONTAL_GAP || along >= VERTICAL_GAP;
+}
+
+/** The label comes within a label's margin of the frame's edge, from outside or from inside. */
+function onTheEdge(label: Box, frame: Box): boolean {
+  const grown = {
+    x: frame.x - LABEL_MARGIN,
+    y: frame.y - LABEL_MARGIN,
+    width: frame.width + 2 * LABEL_MARGIN,
+    height: frame.height + 2 * LABEL_MARGIN,
+  };
+  const shrunk = {
+    x: frame.x + LABEL_MARGIN,
+    y: frame.y + LABEL_MARGIN,
+    width: frame.width - 2 * LABEL_MARGIN,
+    height: frame.height - 2 * LABEL_MARGIN,
+  };
+  return overlap(label, grown) && !contains(shrunk, label);
+}
 
 /** The distance between two boxes, 0 where they touch or overlap. */
 function gapBetween(first: Box, second: Box): number {

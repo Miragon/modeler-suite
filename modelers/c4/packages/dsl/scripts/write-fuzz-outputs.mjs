@@ -91,6 +91,33 @@ function boxesFor(api, workspace, entry) {
   return boxes;
 }
 
+/**
+ * For half of the relationship edits, while some relationship has an end with children: that end
+ * moved into one of them, the other end placed where the view would draw it should it arrive.
+ */
+function movedEnd(workspace, explicit, number) {
+  if (number % 2 !== 0) return undefined;
+  const childrenOf = (id) => workspace.elements.filter((element) => element.parentId === id);
+  const ends = explicit.flatMap((relationship) =>
+    [
+      ["source", relationship.sourceId, relationship.destinationId],
+      ["destination", relationship.destinationId, relationship.sourceId],
+    ]
+      .filter(([, id]) => childrenOf(id).length > 0)
+      .map(([end, id, otherId]) => ({ relationship, end, id, otherId })),
+  );
+  const chosen = ends[Math.floor(number / 2) % Math.max(ends.length, 1)];
+  if (chosen === undefined) return undefined;
+  const children = childrenOf(chosen.id);
+  return {
+    type: "moveRelationshipEnd",
+    key: chosen.relationship.canvasKey,
+    end: chosen.end,
+    to: children[Math.floor(number / 7) % children.length].id,
+    boxes: new Map([[chosen.otherId, { x: 1600, y: 1600, width: 240, height: 160 }]]),
+  };
+}
+
 function pickEdit(random, api, workspace, entry) {
   const catalog = api.viewCatalog(workspace);
   const editable = entry !== undefined && entry.editable && STATIC_TYPES.has(entry.type);
@@ -153,14 +180,14 @@ function pickEdit(random, api, workspace, entry) {
   if (roll < 0.48) {
     const relationship = pick(random, explicit);
     if (relationship === undefined) return undefined;
-    return {
-      type: "updateRelationship",
-      key: relationship.canvasKey,
-      fields:
-        random() < 0.6
-          ? { description: `${pick(random, TEXTS)} ${Math.floor(random() * 100)}` }
-          : { technology: pick(random, TECHNOLOGIES) },
-    };
+    const fields =
+      random() < 0.6
+        ? { description: `${pick(random, TEXTS)} ${Math.floor(random() * 100)}` }
+        : { technology: pick(random, TECHNOLOGIES) };
+    // A move derives from the roll and draws no number, so every other edit keeps its seed.
+    const move = movedEnd(workspace, explicit, Math.floor(roll * 100_000));
+    if (move !== undefined) return move;
+    return { type: "updateRelationship", key: relationship.canvasKey, fields };
   }
   if (roll < 0.54) {
     const id = element();

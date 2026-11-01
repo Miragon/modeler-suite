@@ -69,6 +69,12 @@ export { resolveBoundaryStyle, resolveElementStyle, resolveRelationshipStyle } f
 export { defaultTerminology, typeLine } from "./terminology.js";
 export { sameDigest, semanticDigest } from "./digest.js";
 export { groupKey, viewMembers } from "./views/membership.js";
+export {
+  childElements,
+  endsWithChildren,
+  hiddenScopeRelationships,
+  type RelationshipEnd,
+} from "./views/hiddenRelationships.js";
 export { parseExpression } from "./views/expressions.js";
 export { viewCatalog } from "./views/catalog.js";
 export { draftKey, generateViewKey } from "./views/viewKeys.js";

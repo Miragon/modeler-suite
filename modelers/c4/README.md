@@ -33,6 +33,11 @@ not affiliated with or endorsed by Structurizr Limited.
   opens that view; U goes up one level. Model › Views… (G) lists every view of the workspace. A
   view that is not in the file yet opens as a draft, marked "Not in the file yet" in the
   breadcrumb, and is written with your first edit in it; looking around never changes the file.
+- It shows where a relationship lives. As in Structurizr, a relationship shows in the levels above
+  its ends, never below: one drawn on a software system itself shows in the landscape and the
+  context view, but its container view can't tell which container makes or takes the call. There
+  a chip after the breadcrumb says how many such relationships it leaves out, and Assign in its
+  dialog moves one to a container; the inspector offers the same as Move to a container….
 - It keeps the layout in your file. Your first move in a view writes the position of every
   element into that view's `properties`, one line per element, so a later move is a one-line diff
   and travels with the model through Git. An element added later gets its line as it arrives (one

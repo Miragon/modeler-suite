@@ -13,7 +13,7 @@ import { gesturesModule, panAwareAutoScrollModule, snappingModule } from "./gest
 import { keyboardModule } from "./keyboard/index.js";
 import { labelEditingModule } from "./label-editing/index.js";
 import { c4ModelingModule, elementFactoryModule } from "./modeling/index.js";
-import { emptyScopeHintModule } from "./navigation/index.js";
+import { emptyScopeHintModule, hiddenRelationshipsHintModule } from "./navigation/index.js";
 import { paletteModule } from "./palette/index.js";
 import { readOnlyModule } from "./read-only/index.js";
 import { rulesModule } from "./rules/index.js";
@@ -46,6 +46,7 @@ export class Modeler extends NavigatedViewer {
       panAwareAutoScrollModule,
       framePreviewModule,
       emptyScopeHintModule,
+      hiddenRelationshipsHintModule,
     ];
   }
 

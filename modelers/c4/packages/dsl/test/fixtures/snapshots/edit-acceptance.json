@@ -240,6 +240,91 @@
       "accepted": true
     },
     {
+      "file": "test/edit/golden/move-end-anonymous-child.after.dsl",
+      "sha256": "162293777e48eeb7c91fb08dffc7b296204f1755c18c98095a4d5fee61d98b81",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-explicit-archetype.after.dsl",
+      "sha256": "834956a113243674d1fbc8f6a7522776d246dcdb772ce11896256754f2e06bd2",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-hierarchical-in-block.after.dsl",
+      "sha256": "c4294496d8ee45321f0e63e89906ab586defe14964d31ae511ef2a64ae84783e",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-hierarchical.after.dsl",
+      "sha256": "aabd08e06e344f8a4f4f9942401a11ff407722e501f94ef7ec968eac3583c924",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-implicit-archetype.after.dsl",
+      "sha256": "72418acf0c092ba6765a918f549ca37af8939439738e7fc087153c1202d37396",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-implicit-in-other-block.after.dsl",
+      "sha256": "bb29f5d4f71fa16ccad6ac47734f86edc9d815b6d7f61448f058af55454af70a",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-implicit-in-scope-block.after.dsl",
+      "sha256": "b0d7b3448ee8e479b3b6cd647b56851eaeca05417dd2c2fa2a2f6691295ef53f",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-in-group.after.dsl",
+      "sha256": "30d16da4b03aa68d783a08e75543f35c63fb883b97276797d5c5996ad200b7ff",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-model-level-destination.after.dsl",
+      "sha256": "f3b2979bd3b777a18e8bb1e6e430f7f2d3b4ae554dd75ed46f2a4fd742b1ee87",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-model-level-source.after.dsl",
+      "sha256": "e35c46859aabcd5936c1a5c250d18815d0e91b120aa92ff514ded4b2046c9f33",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-named-with-block.after.dsl",
+      "sha256": "0d60389644cac15f3f69b800c94bab2f11b13271861f6f6cbaa24d1db479166c",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-names-an-ambiguous-pair.after.dsl",
+      "sha256": "5ced10340901de9d7f0133a886cd3265723b3525f55ea4afaba3593cb97c21f3",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-names-before-joining-a-pair.after.dsl",
+      "sha256": "33e955da89900f77258f21d409ce0639d695cfca50fbaeef8977a8c7d8cb7d3a",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-reopened-element.after.dsl",
+      "sha256": "ffb18da2ea9d26863a7d719457ecfeefc8cdd2da2eef9b7bd17389d575a37f0c",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-tabs-crlf.after.dsl",
+      "sha256": "70f4f900271f06939c8aa45d9a0a71915cb4443be863935680093511c7415e86",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-this-in-block.after.dsl",
+      "sha256": "ada0fefc3543a0401bd502bc026bad7748a35bc9fb0537c14baa815450718312",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/move-end-vertices-without-implied.after.dsl",
+      "sha256": "5bdb72eb779917eb4329cad3902ecc56dde3ea2eda6c1fed025d15e73567bfe3",
+      "accepted": true
+    },
+    {
       "file": "test/edit/golden/move-one-property-line.after.dsl",
       "sha256": "e4aa3db61df281634b7d3447c42012506c06f1314e08fe1facad2d547c1c1af9",
       "accepted": true
@@ -411,7 +496,7 @@
     },
     {
       "file": "fuzz/seed-0010.dsl",
-      "sha256": "92ddea9167cf276968f6c3669751300220d89311407f525552b4756f4ff94368",
+      "sha256": "fe8dc4fae95cf9aebd6440e8ca43d94ddbd537ec01299001be6526e9bc8a698f",
       "accepted": true
     },
     {
@@ -481,7 +566,7 @@
     },
     {
       "file": "fuzz/seed-0024.dsl",
-      "sha256": "df862c714ae1dfb1c91b2546c9c0ee4d1d8a5ae0cf6f916978197d731d0438d6",
+      "sha256": "18a7c955e240db9582c821d5eed7de02b98c5c59b83f429713e4728db2a6599c",
       "accepted": true
     },
     {
@@ -571,7 +656,7 @@
     },
     {
       "file": "fuzz/seed-0042.dsl",
-      "sha256": "35a1fdee78d6329d31759f06f863427e10a41ef8b12ab7915ed6c02592811559",
+      "sha256": "eec6b3f235ec56f0ff3465c627157b66a2be65ed33ebcbf917c4811fc89c7046",
       "accepted": true
     },
     {
@@ -631,7 +716,7 @@
     },
     {
       "file": "fuzz/seed-0054.dsl",
-      "sha256": "9dcf13ee1e7f0e66057df9a6d36d1e585230a00b32559ebbc1187387ca016a8f",
+      "sha256": "7d2dbe69d1bd317d74a61e5e1409252c8754a1b097d07ac218ba2ee0bdef94be",
       "accepted": true
     },
     {
@@ -681,7 +766,7 @@
     },
     {
       "file": "fuzz/seed-0064.dsl",
-      "sha256": "2e681f968b98e4d9ee36d9e4c90e3337281afbe4b466a5308c07b44bd3e7f873",
+      "sha256": "f80d1027f3c4e3782d0fcff47a66c10962ba485f60b776a6b3c36b8f2100ccd4",
       "accepted": true
     },
     {
@@ -706,7 +791,7 @@
     },
     {
       "file": "fuzz/seed-0069.dsl",
-      "sha256": "a162e93bebd2f1a9085bea9885c43eaa4db46a2487db5a0da687bbc3fd5cf99e",
+      "sha256": "a8045a43d3204c2c310207b26c42cba335ab94a30ff2f6c4f83dd4181a01dff4",
       "accepted": true
     },
     {
@@ -741,7 +826,7 @@
     },
     {
       "file": "fuzz/seed-0076.dsl",
-      "sha256": "edb7291ca82b7d8dc66140c52861e2ed24191d2f8c0fd34cfd1c511e7ce7421e",
+      "sha256": "f4f35fff2b8196c0dd4f2f24c91a7aeaaa3775bdf3629f8be76334f68a723cf5",
       "accepted": true
     },
     {
@@ -831,7 +916,7 @@
     },
     {
       "file": "fuzz/seed-0094.dsl",
-      "sha256": "7ecd604f59cffe9ca5881624dbebb957330674df0ff65e25d5610a19a40e052b",
+      "sha256": "e23fcaf7fb1921a8fab1e9e063e9b3e54e5eab7d5b6b827fc2f4034b198634da",
       "accepted": true
     },
     {
@@ -916,7 +1001,7 @@
     },
     {
       "file": "fuzz/seed-0111.dsl",
-      "sha256": "b9dd2ea0299c181bf186c96a14a6d6e238c35ae001da048f0bd6e09269ee4e9d",
+      "sha256": "90d4aa5f762679bad7b8f9f7fc60b2b3bb19ad893e002d7570326f9cad91a587",
       "accepted": true
     },
     {
@@ -991,7 +1076,7 @@
     },
     {
       "file": "fuzz/seed-0126.dsl",
-      "sha256": "2e3749d95df2457ef5e05173a42c74ce54148bb05edab14f846ad52eeb07a4c8",
+      "sha256": "5d82b5121a1c812ec74f453bf54652803c61fd76d0cddf192afe2ac9354eda78",
       "accepted": true
     },
     {
@@ -1021,7 +1106,7 @@
     },
     {
       "file": "fuzz/seed-0132.dsl",
-      "sha256": "a7499c1857d62c5c3d464b3ce1195c2c3a2596042dcbf18e14b565b5078f1cd6",
+      "sha256": "5e67038e4f5b4a0511e3ead3ff1107be17b0c421b0dab2854271fc4c51452f91",
       "accepted": true
     },
     {
@@ -1051,7 +1136,7 @@
     },
     {
       "file": "fuzz/seed-0138.dsl",
-      "sha256": "edeff072b986a33d109c3d6130b236f6cdf60da5edf491564c8a65b743b13215",
+      "sha256": "11c970e7e912d9961319deef56f22f14a223fe14f2b9f416a774d5300d7f9956",
       "accepted": true
     },
     {
@@ -1281,7 +1366,7 @@
     },
     {
       "file": "fuzz/seed-0184.dsl",
-      "sha256": "dc4f68fc74aabde591c19d81ed4492dc1740d44a86fa2662fae3853184976ff7",
+      "sha256": "ffff25de7ed8fbff6cfd3f353f216c466dbb3112756dd37db27f6bc13dd99e1b",
       "accepted": true
     },
     {
@@ -1291,7 +1376,7 @@
     },
     {
       "file": "fuzz/seed-0186.dsl",
-      "sha256": "c33c706bfa6bbabfbc1040db07bb4a8118be4606296abc7f027875c3b65c4054",
+      "sha256": "3b02d4d7f7f1b0c1823e3687025c1f2da8b9831e4b08f766868c27f009874075",
       "accepted": true
     },
     {
@@ -1341,7 +1426,7 @@
     },
     {
       "file": "fuzz/seed-0196.dsl",
-      "sha256": "9582a7613bc05844ad6a42339658c8024bd02c8311c62f952b505eebd5ead4ca",
+      "sha256": "80233079ae6e29fbbfcd98b2b0cc35457e1ffd5826f52e75c06008f62cc5f25f",
       "accepted": true
     },
     {

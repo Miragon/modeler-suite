@@ -6,8 +6,9 @@
  * the straight lines to the placed neighbours cross no other box and no label, and no other line
  * or label runs over the box. Beside a neighbour, else the clear place nearest it (beside a
  * neighbour or a sibling, or on the grid around the neighbour), and only where none is clear the
- * first free one. A clear place whose frames keep their room from what they do not hold comes
- * before one that grows a frame up to a stranger.
+ * first free one. A clear place whose frames keep their room from what they do not hold, and that
+ * keeps a label's room from every frame it does not belong to with the labels of its lines off that
+ * frame's edge, comes before one that grows a frame up to a stranger or sits close to a frame.
  */
 import type { Box, ElementId, Point, Size } from "@miragon/c4-schema-model";
 import { LABEL_SIZE } from "./autoLayout.js";
@@ -25,10 +26,15 @@ import {
   segmentCrossesBox,
   unionOf,
 } from "./geometry.js";
-import { dockedPath, relationshipGeometry, type DrawnRelationship } from "./relationships.js";
+import {
+  dockedPath,
+  labelSlotOn,
+  relationshipGeometry,
+  type DrawnRelationship,
+} from "./relationships.js";
 
 /** A relationship's label fits between two neighbours, with this much room on either side. */
-const LABEL_MARGIN = 16;
+export const LABEL_MARGIN = 16;
 /** Side by side: the label lies across the gap, so the gap takes its width. */
 export const HORIZONTAL_GAP = LABEL_SIZE.width + 2 * LABEL_MARGIN;
 /** One above the other: the gap takes the label's height. */
@@ -52,7 +58,8 @@ const FRAME_ROOM = CLEARANCE;
 
 /**
  * A place for a box: not free or not in the clear (`taken`), in the clear with a frame it grows
- * coming within `FRAME_ROOM` of a stranger (`cramped`), or in the clear with room (`roomy`).
+ * coming within `FRAME_ROOM` of a stranger or the box too close to a frame it does not belong to
+ * (`cramped`), or in the clear with room (`roomy`).
  */
 type ClearPlace = "taken" | "cramped" | "roomy";
 
@@ -94,6 +101,8 @@ interface Surroundings {
   readonly others: readonly Box[];
   /** Every box and every frame the item does not belong to, which it keeps its clearance from. */
   readonly obstacles: readonly Box[];
+  /** The frames the item does not belong to. */
+  readonly foreignFrames: readonly Box[];
 }
 
 interface Row {
@@ -311,7 +320,28 @@ class Placement {
       if (overlaps(candidate, obstacle, CLEARANCE)) return "taken";
     }
     if (!this.inTheClear(candidate, surroundings.neighbours, surroundings.others)) return "taken";
-    return this.frameGrowth(surroundings.key, candidate);
+    const growth = this.frameGrowth(surroundings.key, candidate);
+    if (growth !== "roomy") return growth;
+    return this.roomFromForeignFrames(candidate, surroundings) ? "roomy" : "cramped";
+  }
+
+  /**
+   * Outside a frame it does not belong to, the box keeps a label's room from it, as from a
+   * neighbour, and the label of each of its lines lies off the frame's edge: a stranger close to a
+   * frame reads as one of its members, and a label across the edge as neither inside nor out.
+   */
+  private roomFromForeignFrames(candidate: Box, surroundings: Surroundings): boolean {
+    const frames = surroundings.foreignFrames;
+    if (frames.length === 0) return true;
+    if (!roomForLabels(candidate, frames)) return false;
+    const labels = this.drawnLines().labels;
+    for (const neighbour of surroundings.neighbours) {
+      const strangers = surroundings.others.filter((other) => other !== neighbour);
+      const path = dockedPath(neighbour, candidate, []);
+      const label = labelSlotOn(path, labels, strangers);
+      if (frames.some((frame) => acrossEdge(label, frame))) return false;
+    }
+    return true;
   }
 
   /** Undefined for an item without a placed neighbour: it has no line to keep clear. */
@@ -325,12 +355,13 @@ class Placement {
       .sort((first, second) => first.distance - second.distance)
       .map(({ box }) => box);
     const own = new Set(this.context.tree.ancestors(key));
-    const obstacles = [...this.boxes.values()];
+    const foreignFrames: Box[] = [];
     for (const [cluster, frame] of this.frames) {
       if (cluster === key || own.has(cluster) || this.lists(cluster, key)) continue;
-      obstacles.push(frame.frame);
+      foreignFrames.push(frame.frame);
     }
-    return { key, neighbours, others, obstacles };
+    const obstacles = [...this.boxes.values(), ...foreignFrames];
+    return { key, neighbours, others, obstacles, foreignFrames };
   }
 
   /**
@@ -401,15 +432,21 @@ class Placement {
     return this.drawn;
   }
 
-  /** The content and room for the item and a gap on every side: farther out every place is farther. */
+  /**
+   * The content and room for the item and two gaps on every side: a line from a frame's member to
+   * a place outside the frame crosses the frame's padding before its label clears the edge, and
+   * farther out every place is farther.
+   */
   private searchWindow(size: Size): Box | undefined {
     const content = this.content();
     if (!content) return undefined;
+    const across = size.width + 2 * HORIZONTAL_GAP;
+    const along = size.height + 2 * VERTICAL_GAP;
     return {
-      x: content.x - size.width - HORIZONTAL_GAP,
-      y: content.y - size.height - VERTICAL_GAP,
-      width: content.width + 2 * (size.width + HORIZONTAL_GAP),
-      height: content.height + 2 * (size.height + VERTICAL_GAP),
+      x: content.x - across,
+      y: content.y - along,
+      width: content.width + 2 * across,
+      height: content.height + 2 * along,
     };
   }
 
@@ -545,6 +582,17 @@ function roomForLabels(box: Box, neighbours: readonly Box[]): boolean {
     const along = Math.max(neighbour.y - bottom(box), box.y - bottom(neighbour));
     return across >= HORIZONTAL_GAP || along >= VERTICAL_GAP;
   });
+}
+
+/** The label comes within `LABEL_MARGIN` of the frame's edge, from outside or from inside. */
+function acrossEdge(label: Box, frame: Box): boolean {
+  if (!overlaps(label, frame, LABEL_MARGIN)) return false;
+  return !(
+    label.x >= frame.x + LABEL_MARGIN &&
+    label.y >= frame.y + LABEL_MARGIN &&
+    right(label) <= right(frame) - LABEL_MARGIN &&
+    bottom(label) <= bottom(frame) - LABEL_MARGIN
+  );
 }
 
 function distanceBetween(first: Point, second: Point): number {

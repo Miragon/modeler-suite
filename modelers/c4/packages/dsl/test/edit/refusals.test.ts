@@ -24,6 +24,40 @@ const SHOP = dsl`
   }
 `;
 
+/** A relationship on the system itself, beside one of its container. */
+const MOVES = dsl`
+  workspace {
+      model {
+          customer = person "Customer"
+          shop = softwareSystem "Shop" {
+              web = container "Web"
+              api = container "API" {
+                  orders = component "Orders"
+              }
+          }
+          crm = softwareSystem "CRM" {
+              leads = container "Leads"
+          }
+          customer -> web "Uses"
+          shop -> crm "Syncs customers"
+          orders -> crm "Reads customers from"
+      }
+      views {
+          systemLandscape "Landscape" {
+              include *
+              autoLayout tb 300 160
+          }
+          dynamic * "Flow" {
+              customer -> shop "Uses"
+          }
+      }
+  }
+`;
+
+function moveOf(key: string, to: string, end: "source" | "destination" = "source"): C4Edit {
+  return { type: "moveRelationshipEnd", key, end, to };
+}
+
 interface Refusal {
   readonly name: string;
   readonly text?: string;
@@ -334,6 +368,140 @@ const REFUSALS: readonly Refusal[] = [
     `,
     edit: { type: "deleteFromModel", ids: ["a"], relationships: [] },
     reason: "referenced-by-opaque",
+  },
+  {
+    name: "moving an end of a relationship the model lacks",
+    text: MOVES,
+    edit: moveOf("web->crm", "orders"),
+    reason: "not-allowed",
+    message: /^There is no such relationship in the model\.$/,
+  },
+  {
+    name: "moving an end of an implied relationship",
+    text: MOVES,
+    edit: moveOf("implied:customer->shop", "web", "destination"),
+    reason: "not-allowed",
+    message: /^An implied relationship comes from another one\. Move that relationship instead\.$/,
+  },
+  {
+    name: "moving an end to an element the model lacks",
+    text: MOVES,
+    edit: moveOf("shop->crm", "nobody"),
+    reason: "not-allowed",
+    message: /^There is no element nobody in the model\.$/,
+  },
+  {
+    name: "moving an end to an element that isn't inside it",
+    text: MOVES,
+    edit: moveOf("shop->crm", "leads"),
+    reason: "not-allowed",
+    message: /^Leads isn't inside Shop\.$/,
+  },
+  {
+    name: "moving an end to a grandchild",
+    text: MOVES,
+    edit: moveOf("shop->crm", "orders"),
+    reason: "not-allowed",
+    message: /^Orders isn't inside Shop\.$/,
+  },
+  {
+    name: "moving an end where an implied relationship with that description exists",
+    text: MOVES.replace('"Syncs customers"', '"Reads customers from"'),
+    edit: moveOf("shop->crm", "api"),
+    reason: "relationship-exists",
+    message: /^API → CRM exists already with this description\.$/,
+  },
+  {
+    name: "moving an end of a relationship a dynamic step shows",
+    text: MOVES.replace('customer -> shop "Uses"', 'shop -> crm "Syncs customers"'),
+    edit: moveOf("shop->crm", "web"),
+    reason: "not-allowed",
+    message:
+      /^The dynamic view “Flow” shows this relationship, and its step would no longer match it\. Edit the text instead\.$/,
+  },
+  {
+    name: "moving an end of a relationship re-opened by its canonical name",
+    text: MOVES.replace(
+      '        orders -> crm "Reads customers from"\n',
+      '        orders -> crm "Reads customers from"\n        !relationship "Relationship://SoftwareSystem://Shop -> SoftwareSystem://CRM (Syncs customers)" {\n            tag "Nightly"\n        }\n',
+    ),
+    edit: moveOf("shop->crm", "web"),
+    reason: "not-allowed",
+    message:
+      /^The “!relationship” on line 16 names this relationship by its ends, so it would no longer find it\. Edit the text instead\.$/,
+  },
+  {
+    name: "moving an end while a !relationships statement selects by ends",
+    text: MOVES.replace(
+      '        orders -> crm "Reads customers from"\n',
+      '        orders -> crm "Reads customers from"\n        !relationships "*->crm" {\n            tag "Inbound"\n        }\n',
+    ),
+    edit: moveOf("shop->crm", "web"),
+    reason: "not-allowed",
+    message: /^The “!relationships” on line 16 selects relationships by their ends/,
+  },
+  {
+    name: "moving an end written with a constant",
+    text: MOVES.replace("workspace {\n", 'workspace {\n    !const SHOP "shop"\n').replace(
+      "shop -> crm",
+      "${SHOP} -> crm",
+    ),
+    edit: moveOf("shop->crm", "web"),
+    reason: "not-allowed",
+    message: /^This end is set with the constant “\$\{SHOP\}”\. Edit the text instead\.$/,
+  },
+  {
+    name: "moving an end to a child defined below the relationship",
+    text: dsl`
+      workspace {
+          model {
+              crm = softwareSystem "CRM"
+              shop = softwareSystem "Shop" {
+                  -> crm "Syncs customers"
+                  web = container "Web"
+              }
+          }
+      }
+    `,
+    edit: moveOf("shop->crm", "web"),
+    reason: "not-allowed",
+    message:
+      /^Web is defined below this relationship, and Structurizr reads top to bottom\. Move the relationship below Web in the text, or choose another container\.$/,
+  },
+  {
+    name: "moving an end so that a dynamic step would show it instead of what it shows",
+    text: dsl`
+      workspace {
+          model {
+              shop = softwareSystem "Shop" {
+                  web = container "Web"
+              }
+              crm = softwareSystem "CRM"
+              shop -> crm "Syncs customers"
+              web -> crm "Reads customers from"
+          }
+          views {
+              systemLandscape "Landscape" {
+                  include *
+                  autoLayout tb 300 160
+              }
+              dynamic shop "Lookup" {
+                  web -> crm "Asks for a customer"
+              }
+          }
+      }
+    `,
+    edit: moveOf("shop->crm", "web"),
+    reason: "not-allowed",
+    message:
+      /^The step on line 16 of the dynamic view “Lookup” would show another relationship once this one moves\. Edit the text instead\.$/,
+  },
+  {
+    name: "moving an end in a view the canvas can't edit",
+    text: MOVES,
+    edit: moveOf("shop->crm", "web"),
+    options: { view: "Flow" },
+    reason: "view-not-editable",
   },
   {
     name: "an example over existing work",

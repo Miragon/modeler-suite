@@ -62,6 +62,27 @@ React, no `packages/ui`.
   `verification-failed`, a splice that failed its own verification. A refused value in the label
   editor or the inspector shows as a field error instead. Where a new statement goes (`place.ts`,
   `write.ts`) is pinned by the golden before/after pairs in `packages/dsl/test/edit/golden/`.
+- `moveRelationshipEnd` (`edit/relationshipEnds.ts`, the `move-end-*` goldens) moves one end of
+  an explicit relationship from its element to a direct child (a system's container, a
+  container's component): Structurizr implies relationships upward only, so one written on the
+  system itself never shows in its container view. One splice at the end's token keeps the
+  assignee, the values, the block (tags, url, properties, perspectives) and every re-open byte for
+  byte: `a -> b` and `this -> b` anywhere get the child's id (the dotted key in hierarchical mode)
+  in place of the end; an implicit `-> b` in the scope's block or an `!element` re-open gets the
+  child put before its operator (archetype operators too); `-> s` in the other end's block gets
+  the child as its destination. First it prepares and pins the current view, writes the child's
+  identifier if it has none, and names the relationship when its old pair has another unnamed one
+  or the new pair already has one, so no key turns ambiguous; `idChanges` hold the relationship's
+  renames from the key it was given to its final canvas key. Its bend key goes to
+  `implied:<old src>-><old dst>` in each view that now draws that implied relationship instead,
+  else it goes; `boxes` pins what the move brings into the current view. No
+  `implied-relationship-appears` notice for what the moved relationship implies
+  (`Intent.impliedFrom`). It refuses (info) an implied relationship, a target that is not a direct
+  child, the new ends already connected with that description, a dynamic step that shows it or
+  would show it in place of its own once it moves (a step written by its ends shows the first
+  relationship between them, the one with its description first), an `!relationship` that names
+  it by its ends, any `!relationships` in the workspace, a `${…}` end, a child defined below the
+  statement (Structurizr reads top to bottom), and a view the canvas can't edit.
 - Layout format, in the view's last `properties` block, one quoted key per element and per
   relationship, sorted: `"c4modeler.element.<ElementId>" "x,y"` (`"x,y,w,h"` when the size differs
   from the shape's default) and `"c4modeler.relationship.<key>" "x1,y1 x2,y2"` (the vertices; no
@@ -83,12 +104,15 @@ React, no `packages/ui`.
   neighbour first, else the clear place nearest it (beside a sibling, or on a 16-unit grid around
   the neighbour, ring by ring, as far as the content reaches, with a label's room to each
   neighbour), and only where none is clear the first free slot as before; the frame rules hold for
-  every candidate. A clear place whose frames keep 40 units from what they do not hold comes before
-  one that grows a frame up to a stranger, which stays the choice only where no other place keeps
-  the line clear. And the next edit that changes the geometry or graph writes its drawn box too,
-  since that place depends on the graph. Add existing element writes the boxes of what it adds in
-  the same edit (`includeInView` with `boxes`, which `C4Modeling` takes from a dry run of the edit).
-  "Lay out automatically" removes the view's keys.
+  every candidate. A clear place whose frames keep 40 units from what they do not hold, and that
+  keeps a label's room (192 across or 80 above and below) from every frame it does not belong to
+  with the label of each of its lines 16 units off that frame's edge, comes before one that grows a
+  frame up to a stranger or sits close to a frame, which stays the choice only where no other place
+  keeps the line clear; the search reaches two gaps past the content for it. And the next edit that
+  changes the geometry or graph writes its drawn box too, since that place depends on the graph.
+  Add existing element writes the boxes of what it adds in the same edit (`includeInView` with
+  `boxes`, which `C4Modeling` takes from a dry run of the edit). "Lay out automatically" removes the
+  view's keys.
 - New views are written with `include *` and `autoLayout tb 300 160` (`NEW_VIEW_AUTO_LAYOUT`), the
   values the modeler draws drafts with. `autoLayout` is never added to or removed from an existing
   view: Structurizr refuses a filtered view on a base with `autoLayout`
@@ -155,10 +179,16 @@ React, no `packages/ui`.
   that is applied and verified before `commandStack.execute`. A call returns what its caller
   expects (the registered shape of a create, `undefined` when refused); a stock method no gesture
   may reach throws `C4UnsupportedOperationError`. The domain methods (`editElement`,
-  `createRelationship`, `editRelationship`, `renameIdentifier`, `removeFromView`,
-  `deleteFromModel`, `includeInView`, `createView`, `editView`, `deleteView`,
+  `createRelationship`, `editRelationship`, `moveRelationshipEnd`, `renameIdentifier`,
+  `removeFromView`, `deleteFromModel`, `includeInView`, `createView`, `editView`, `deleteView`,
   `layOutAutomatically`, `editWorkspace`, `applyC4Colours`, `insertExample`) take the same path;
-  the contract wrapper exposes them as `modeler.c4`.
+  the contract wrapper exposes them as `modeler.c4`. `moveRelationshipEnd` pins what the move
+  brings into the view where a dry run of the same edit draws it, as `includeInView` does. A
+  relationship drawn (connect, Add relationship…, an append) in a landscape or context view on a
+  software system with containers fires `c4.edit.notice` once per modeler, with
+  `notice: "relationship-above-containers"` and its own words (`modeling/levelNotice.ts`:
+  "Bookshop → CRM connects the systems themselves, so Bookshop's container view won't show it.
+  Draw it from a container, or use Move to a container…").
 - `DocumentChangeHandler`: one command per change, whose context holds reversible text patches
   guarded by text hashes, the view before and after and the id changes, never a shape. A hash that
   does not match is a `C4HistoryMismatchError`, a bug: between imports only this handler changes
@@ -350,6 +380,27 @@ React, no `packages/ui`.
   components) and "Add one from the palette." inside the frame, in the modeler and while it is
   editable (`navigation/EmptyScopeHint.ts`): a diagram-js overlay, so never in an export, without
   pointer events, hidden while a palette create is dragged.
+- Hidden relationships (`navigation/HiddenRelationshipsHint.ts`, `MoveRelationshipDialog.ts`,
+  `hiddenScopeRelationships` in the schema-model's `views/hiddenRelationships.ts`): a container or
+  component view counts the explicit relationships written on its scope itself whose other end E
+  lies outside it, unless the view draws the same direction between an element inside the scope
+  and E (or an element inside E), explicit or implied. With at least one, in the modeler, while
+  the view is editable, not read-only, the dialogs are connected (`c4.dialogs.connected`) and the
+  scope has a child to assign to (else the empty scope hint says to add one), a `<button>` chip
+  stands on the breadcrumb's line 8px after it: Lucide `info` in `--cd-ui-info`, the info surface
+  and border, "1 relationship of Bookshop isn't shown here" / "2 relationships of Bookshop aren't
+  shown here"; HTML after the `<nav>`, so Tab reaches it after the path and no export draws it;
+  it goes compact (icon and count, its words in `aria-label` and `title`) before a crumb is cut,
+  and covered with the path. It recomputes on every import, view switch, command, rebase and lock
+  change. It opens Move to a container (Move to a component in a component view):
+  one or two sentences on why ("These relationships connect to Bookshop itself, so this view can't
+  tell which container makes or takes the call. Assign each one to a container to show it here."),
+  then per relationship a fieldset with "Bookshop → CRM" as its legend, its description and
+  `[technology]`, a "Container of Bookshop" select of the scope's children in document order, and
+  Assign, Done in the footer; it starts on the first select, follows the document and keeps the
+  choices. Assign is one `moveRelationshipEnd` command; a refusal stays at its row as a field
+  error; on success the dialog closes and the canvas selects the moved relationship alone (or the
+  implied one the view draws in its place), so the inspector shows it, and reveals it with E.
 - Breadcrumb (`navigation/Breadcrumbs.ts`, NavigatedViewer and Modeler): the `parentOf` chain from
   the landscape down to the view shown, "System landscape › Bookshop context › Bookshop containers ›
   API components"; a container view's parent is its system's context view, a draft when the file has
@@ -365,14 +416,22 @@ React, no `packages/ui`.
   ends 8px before a shell island beside it and steps aside while one covers its start (`data-chrome`
   islands of the shell's root, observed); a path too wide gives way by `fitCrumbs`: the names above,
   the current name, the levels above, the current level. No drill-up badge on a boundary: the
-  breadcrumb is the one way up a pointer, a keyboard and a screen reader share.
+  breadcrumb is the one way up a pointer, a keyboard and a screen reader share. `setTrailing`
+  places an element on its line right after it (the hidden relationships' chip): the path leaves
+  it room, the draft note gives way first, then the element's words (`data-compact`), then the
+  names; it is covered (`data-covered`) with the path, or alone where not even its compact form
+  fits.
 - Inspector (`inspector/`): plain DOM in the shell's `inspector` slot (`mountInspector`), with Team
   Topologies' behaviour: type, name, technology, metadata, description, tags, URL, identifier (a
   refactoring rename), "In views", the drill as a button of its own and, in VS Code, "Defined on
   line N"; the tags offer External (the tag "Existing System", where the styles use it) and the
   other styled tags; Add relationship…; a relationship's ends and fields, an implied one read-only
-  ("Implied by A → B") with Select it or Open <view> of its origin. A read-only field names its
-  reason (a constant, a bulk statement). `commitDraft()` serves the VS Code save flush.
+  ("Implied by A → B") with Select it or Open <view> of its origin; an explicit relationship with
+  an end a level up (`endsWithChildren`: a software system with containers in a landscape or
+  context view, a container with components in a container or component view) gets Move to a
+  container… (or Move to a component…), which opens the hidden relationships' dialog for it. A
+  read-only field names its reason (a constant, a bulk statement). `commitDraft()` serves the VS
+  Code save flush.
 - Menu (`menu/`): `c4Menu` hands the shell the Model group in this order, pinned by `menu.test.ts`:
   Views…, Parent view, Lay out automatically, Add existing element…, Add relationship…, View
   settings…, Workspace settings…, Apply C4 colours, then the shell's Legend checkbox; plus Export
@@ -483,7 +542,7 @@ React, no `packages/ui`.
 - `THEMES` is `["light"]` ([`themes.ts`](packages/renderer/src/themes.ts); Node code reads
   `@miragon/c4-renderer/themes`).
 - Still open: the design-system amendment for the Model entries, the drill badge, the title block,
-  the open chevron and the C4 palette.
+  the open chevron, the C4 palette and the hidden relationships' chip after the breadcrumb.
 
 ## Apps
 
@@ -513,10 +572,10 @@ React, no `packages/ui`.
   blur would leave it on `<body>`). `c4.delete.done` becomes an info toast with Undo ("Removed E-mail System
   from this view. It stays in the model."), withdrawn by the next change and by every import.
   `c4.edit.refused` becomes a toast at its level (`refusalToast`: info for a rule it explains,
-  danger for a failed edit or a refusal without a level), `c4.edit.notice` an info toast; the
-  problems pill lists the parser's diagnostics, and a row reveals its element, switching views
-  when needed. `window.app` is the e2e handle. Port 5182 (`dev:app`, `PORT` overrides it),
-  Portless name `c4`.
+  danger for a failed edit or a refusal without a level), `c4.edit.notice` an info toast (in the
+  event's own `message` where it has one, the canvas notice's); the problems pill lists the
+  parser's diagnostics, and a row reveals its element, switching views when needed. `window.app`
+  is the e2e handle. Port 5182 (`dev:app`, `PORT` overrides it), Portless name `c4`.
 - VS Code ([`apps/vscode`](apps/vscode)): `.c4` files open in the custom editor `c4.editor`
   (priority `default`); New Empty C4 Diagram (`c4.newDiagram`, `newWorkspaceText()`) and New C4
   Diagram from Example (`c4.newDiagramFromExample`) save a new file, `workspace.c4` by default (a
@@ -559,8 +618,9 @@ React, no `packages/ui`.
   `FLUSH_TIMEOUT_MS` (1 s) and skips autosaves. No toasts in the webview (guide §13.5): it posts
   the shell's `info` and `error` messages, which the host shows as notifications. A refused edit
   comes at the level of the web app's toast (`refusalNotification`: an info notification for a
-  rule, an error for a failed edit), and what Delete did as an info notification in the web app's
-  words (`deleteDoneNotification`), without Undo, since the document's history owns it.
+  rule, an error for a failed edit), what Delete did as an info notification in the web app's
+  words (`deleteDoneNotification`), without Undo, since the document's history owns it, and an
+  edit notice as an info notification (the canvas notice in its own `message`).
   `THIRD_PARTY_NOTICES.md` is generated
   (`npm run notices -w modelers/c4/apps/vscode`: dagre and graphlib, Geist, Lucide, diagram-js) and
   checked by `notices.test.ts`.
@@ -606,15 +666,20 @@ React, no `packages/ui`.
 ## Tests
 
 - Unit: schema-model (identifiers, the layout codec, catalog, membership and expressions, implied
-  relationships, styles, the digest, notation contrast, a performance budget); dsl (the lexer and
-  syntax tree with the mutation fuzz and linear-time guards, the builder against the reference
-  snapshots, the edit goldens, refusals, smart delete, a 2 000-sequence edit fuzz, the edit
+  relationships, the hidden scope relationships and the ends that could move down, styles, the
+  digest, notation contrast, a performance budget); dsl (the lexer and syntax tree with the
+  mutation fuzz and linear-time guards, the builder against the reference snapshots, the edit
+  goldens, `moveRelationshipEnd` per statement position, its refusals and outcomes among the
+  others, smart delete, a 2 000-sequence edit fuzz that moves relationship ends too, the edit
   acceptance); layout (determinism, text independence, placement without overlap and in the clear of
-  other lines in a crowded view, its frames' room from strangers, frames, the fan of a pair's lines
-  and the label slide, `relationshipRoutes.test.ts`); the renderer (menu, shortcuts, legend rows,
+  other lines in a crowded view, its frames' room from strangers, its room from a frame it does not
+  belong to and its label off that frame's edge, frames, the fan of a pair's lines and the label
+  slide, `relationshipRoutes.test.ts`); the renderer (menu, shortcuts, legend rows,
   the engine seam, the scene's group frames by scope, the theme, peer and pre-bundling drift, the
   breadcrumb's path, fit and stylesheet, the level of every refusal reason, the delete text, the
-  warning chip's place); the web app (example, files, icons, link, notices, problems, storage);
+  warning chip's place, the hidden relationships on the example and the notice's words
+  (`hiddenRelationships.test.ts`), the chip's stylesheet); the web app (example, files, icons,
+  link, notices, problems, storage);
   the extension (contributions and icons, grammar, diagnostics, commands, examples, the editor of
   either file type and its save flush, LikeC4 next to it, the webview's state and messages, the
   menu mirror, notices, tokens). The dsl's edit tests read `@miragon/c4-layout` from `dist` as
@@ -645,8 +710,16 @@ React, no `packages/ui`.
   it, its order and removal, a drag's preview with the labels it carries above every label, the
   fan's bend without a handle or a floating one, a selected relationship's label kept clear of the
   inspector, the export's cut-outs on a white page and on the ground), the level each place that
-  refuses fires with (`refusal-levels`), and the apps' feedback (`app-feedback`: the layout and
-  delete events, the Model menu's Add relationship…, the fit's clearance of the breadcrumb).
+  refuses fires with (`refusal-levels`), the apps' feedback (`app-feedback`: the layout and
+  delete events, the Model menu's Add relationship…, the fit's clearance of the breadcrumb), and
+  the hidden relationships (`hidden-relationships`: the chip's count and words per view, its
+  updates and undo, its place after the breadcrumb, Tab and Enter, out of the export, hidden while
+  read-only, without dialogs or without a child to assign to, compact when narrow, clear of a
+  stand-in island; the dialog's words, rows and choices, its note on a scope without children,
+  Assign as one undo step that restores the text byte for byte with the other end placed clear and
+  pinned, the relationship alone selected and revealed with it, a refusal at its row; the
+  inspector's Move to a container… and Move to a component…, the landscape's implied line alone
+  selected after it; the notice once per modeler and none elsewhere).
 - e2e (`e2e/`): projects `webapp` and `vscode-webview` with the shell's kit, the navigation
   between views, the breadcrumb (no island overlapped at seven sizes, and the kit's `aria` and
   `overlayLayers` cases on the component view where it shows), the PNG export and the shortcuts
@@ -657,9 +730,12 @@ React, no `packages/ui`.
   an info toast and an info notification and the webview's delete notifications
   (`webapp-feedback-levels.spec.ts`, `vscode/feedback-levels.spec.ts`), the context pad by
   keyboard in the web app, after the canvas and before the inspector
-  (`webapp-pad-keyboard.spec.ts`), the fit after Lay
-  out automatically and below the breadcrumb on both hosts, and Share and the focus hand-back in
-  the web app, which `webapp-webkit` runs in WebKit as well.
+  (`webapp-pad-keyboard.spec.ts`), a relationship drawn on Bookshop in the landscape, its notice,
+  the container view's chip and Assign in the web app (`webapp-hidden-relationships.spec.ts`), the
+  notice as an info notification and the chip's Assign in the webview
+  (`vscode/hidden-relationships.spec.ts`), the fit after Lay out automatically and below the
+  breadcrumb on both hosts, and Share and the focus hand-back in the web app, which
+  `webapp-webkit` runs in WebKit as well.
 - VS Code smoke (`apps/vscode/test-smoke/`): the example as `workspace.c4`, the default edit
   (Enter on the palette's first creating entry, then Escape on the name editor) as one undo step,
   the save checked with `parseWorkspace`. The file opens in `c4.editor` by default; the driver

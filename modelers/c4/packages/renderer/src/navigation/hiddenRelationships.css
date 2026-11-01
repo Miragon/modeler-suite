@@ -1,0 +1,113 @@
+/* The chip of the relationships a container or component view can't draw
+   (navigation/HiddenRelationshipsHint.ts): on the breadcrumb's line right after it, 24 high like
+   it, so it stays on the free line the fit keeps clear above the content; the script sets its
+   place. A tinted info badge (guide §8): the info surface, a 1px info border and the Lucide `info`
+   icon in the info role, the text in the text role, so the state never shows by colour alone
+   (§3.3). As a button it takes the secondary button's hover (§8) and the chrome's focus ring.
+   Roles and tokens only. */
+.c4-container .c4-hidden-relationships {
+  position: absolute;
+  top: var(--cd-shell-frei);
+  left: var(--cd-shell-rand);
+  z-index: 10;
+  box-sizing: border-box;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  height: 24px;
+  margin: 0;
+  padding: 0 8px 0 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 22px;
+  color: var(--cd-ui-text);
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  cursor: pointer;
+  background: var(--cd-ui-info-flaeche);
+  border: 1px solid var(--cd-ui-info);
+  border-radius: var(--cd-radius-sm);
+  box-shadow: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    background-color 150ms var(--cd-ease),
+    border-color 150ms var(--cd-ease),
+    color 150ms var(--cd-ease);
+}
+
+.c4-container .c4-hidden-relationships[hidden] {
+  display: none;
+}
+
+/* The breadcrumb is covered, or not even the compact chip fits beside it (guide §5.11). */
+.c4-container .c4-hidden-relationships[data-covered] {
+  visibility: hidden;
+}
+
+.c4-container .c4-hidden-relationships:hover {
+  color: var(--cd-ui-link);
+  background: var(--cd-ui-hover);
+  border-color: var(--cd-ui-interaktion);
+}
+
+.c4-container .c4-hidden-relationships:focus {
+  outline: none;
+}
+
+.c4-container .c4-hidden-relationships:focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+
+.c4-container .c4-hidden-relationships-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--cd-ui-info);
+}
+
+/* Compact, where the path needs the room: the icon and the count; the name and the tooltip keep
+   the words. */
+.c4-container .c4-hidden-relationships-count {
+  display: none;
+  font-weight: 600;
+}
+
+.c4-container .c4-hidden-relationships[data-compact] .c4-hidden-relationships-text {
+  display: none;
+}
+
+.c4-container .c4-hidden-relationships[data-compact] .c4-hidden-relationships-count {
+  display: inline;
+}
+
+:is([data-cd-kontrast="hoch"], [data-cd-kontrast="hoch"] *)
+  .c4-container
+  .c4-hidden-relationships:focus-visible {
+  outline-width: 3px;
+}
+
+@media (forced-colors: active) {
+  .c4-container .c4-hidden-relationships {
+    color: ButtonText;
+    background: ButtonFace;
+    border-color: ButtonText;
+  }
+
+  .c4-container .c4-hidden-relationships-icon {
+    color: ButtonText;
+  }
+
+  .c4-container .c4-hidden-relationships:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .c4-container .c4-hidden-relationships {
+    transition: none;
+  }
+}

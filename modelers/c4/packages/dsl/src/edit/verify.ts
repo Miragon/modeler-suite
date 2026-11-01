@@ -30,6 +30,8 @@ export class Intent {
   /** Canvas keys before the edit. */
   readonly removedRelationships = new Set<string>();
   readonly relationshipFields = new Map<string, Partial<RelationshipDigest>>();
+  /** Keys of relationships the edit kept whose implied relationships may appear without a notice. */
+  readonly impliedFrom = new Set<string>();
   /** Written views the edit wrote into: they may differ, but must still exist. */
   readonly touchedViews = new Set<ViewKey>();
   readonly removedViews = new Set<ViewKey>();
@@ -344,14 +346,14 @@ function selfAndAncestors(workspace: Workspace, id: ElementId): Set<ElementId> {
 
 /**
  * Implied relationships may differ only for pairs around an end of a relationship the edit
- * added, removed or changed (SPEC 3.4 step 4); returns whether one appeared that no created
- * relationship implies.
+ * added, removed or changed (SPEC 3.4 step 4); returns whether one appeared that none of
+ * `origins` (the created relationships, and those the edit moved) implies.
  */
 function checkImpliedFrame(
   before: ParseResult,
   after: ParseResult,
   changes: readonly IdChange[],
-  created: readonly string[],
+  origins: readonly string[],
 ): boolean {
   const rename = renamer(changes);
   const key = (pair: Pair) =>
@@ -431,7 +433,7 @@ function checkImpliedFrame(
     if (previousKeys.has(key(pair))) continue;
     if (!allowed(pair))
       failure(`the implied relationship ${pair.sourceId} -> ${pair.destinationId} appeared`);
-    if (pair.impliedBy === undefined || !created.includes(pair.impliedBy)) appeared = true;
+    if (pair.impliedBy === undefined || !origins.includes(pair.impliedBy)) appeared = true;
   }
   return appeared;
 }
@@ -463,7 +465,10 @@ export function verify(
     failure(`frame condition: ${describeDifference(expected, actual)}`);
   const unread = uninterpretedDifference(before, after, intent, changes);
   if (unread !== undefined) failure(`frame condition: ${unread}`);
-  const appeared = checkImpliedFrame(before, after, changes, created.relationships);
+  const appeared = checkImpliedFrame(before, after, changes, [
+    ...created.relationships,
+    ...intent.impliedFrom,
+  ]);
   checkUncheckedAnimations(before, after, intent, changes);
   for (const check of intent.checks) {
     const problem = check(after);

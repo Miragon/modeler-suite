@@ -82,7 +82,8 @@ if (outcome.ok) {
 ```
 
 `applyEdit` is pure and never throws. A `C4Edit` creates, updates or deletes elements and
-relationships, renames an identifier everywhere, moves and resizes (`setLayout`), removes from or
+relationships, moves a relationship's end from a system to one of its containers (or a container
+to a component), renames an identifier everywhere, moves and resizes (`setLayout`), removes from or
 includes in a view, creates, retitles and deletes views, clears a view's layout, edits the
 workspace's name and description, applies the C4 colours, and puts an example into a blank text or
 an empty workspace (no element, no view, no style but the C4 colours; `insertExample`, refused

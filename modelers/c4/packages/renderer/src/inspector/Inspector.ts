@@ -5,13 +5,14 @@ import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element } from "diagram-js/lib/model/Types";
 import type { EditOutcome } from "@miragon/c4-dsl";
-import type {
-  ElementId,
-  FieldName,
-  ModelElement,
-  Relationship,
-  ViewEntry,
-  Workspace,
+import {
+  endsWithChildren,
+  type ElementId,
+  type FieldName,
+  type ModelElement,
+  type Relationship,
+  type ViewEntry,
+  type Workspace,
 } from "@miragon/c4-schema-model";
 import { padIcon } from "../context-pad/icons.js";
 import { LUCIDE_STROKE_WIDTH, lucideIcon } from "../draw/lucide.js";
@@ -25,6 +26,7 @@ import {
   serviceOf,
 } from "../navigation/access.js";
 import type C4Dialogs from "../navigation/C4Dialogs.js";
+import { moveEntryLabel } from "../navigation/MoveRelationshipDialog.js";
 import {
   button,
   destructiveGhostButton,
@@ -123,6 +125,8 @@ interface ActionOptions {
   readonly deleteRelationships?: readonly string[];
   /** "Add relationship…" from this element. */
   readonly connectFrom?: ElementId;
+  /** "Move to a container…" for this relationship, drawn a level above where it could be. */
+  readonly moveRelationship?: { readonly key: string; readonly label: string };
 }
 
 interface Shown {
@@ -642,11 +646,20 @@ class Inspector implements InspectorHandle {
           c4.editRelationship(key, { url: value.trim() === "" ? null : value.trim() }),
       },
     ];
+    const movable = endsWithChildren(workspace, relationship, this.modeler.views.active());
+    const moveRelationship =
+      movable.length > 0 ? { key, label: moveEntryLabel(workspace, movable) } : undefined;
     return {
       title: "Relationship",
       before: [ends],
       specs,
-      dynamic: [this.actions(owner, { removeRelationships: [key], deletable: true })],
+      dynamic: [
+        this.actions(owner, {
+          removeRelationships: [key],
+          deletable: true,
+          ...(moveRelationship ? { moveRelationship } : {}),
+        }),
+      ],
       signature: this.signatureOf("relationship", specs),
     };
   }
@@ -788,6 +801,16 @@ class Inspector implements InspectorHandle {
       add.dataset.focusKey = "add-relationship";
       add.disabled = locked;
       actions.append(add);
+    }
+    const move = options.moveRelationship;
+    if (move !== undefined && dialogs()?.isConnected()) {
+      const entry = button(owner, move.label, "secondary", () =>
+        dialogs()?.showMoveRelationship(move.key),
+      );
+      entry.dataset.focusKey = "move-relationship";
+      entry.setAttribute("aria-haspopup", "dialog");
+      entry.disabled = locked;
+      actions.append(entry);
     }
     if (removeIds.length > 0 || removeRelationships.length > 0) {
       const remove = button(owner, "Remove from view", "secondary", () => {

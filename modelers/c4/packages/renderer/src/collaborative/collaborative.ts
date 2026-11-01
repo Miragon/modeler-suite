@@ -266,6 +266,7 @@ function modelingMethods(
     createRelationship: (sourceId, destinationId, fields) =>
       modeling()?.createRelationship(sourceId, destinationId, fields),
     editRelationship: (key, fields) => modeling()?.editRelationship(key, fields),
+    moveRelationshipEnd: (key, end, to) => modeling()?.moveRelationshipEnd(key, end, to),
     renameIdentifier: (id, identifier) => modeling()?.renameIdentifier(id, identifier),
     removeFromView: (ids, relationships) => modeling()?.removeFromView(ids, relationships),
     deleteFromModel: (ids, relationships) => modeling()?.deleteFromModel(ids, relationships),
@@ -285,6 +286,7 @@ const REFUSING_METHODS: C4ModelingMethods = {
   editElement: () => undefined,
   createRelationship: () => undefined,
   editRelationship: () => undefined,
+  moveRelationshipEnd: () => undefined,
   renameIdentifier: () => undefined,
   removeFromView: () => undefined,
   deleteFromModel: () => undefined,

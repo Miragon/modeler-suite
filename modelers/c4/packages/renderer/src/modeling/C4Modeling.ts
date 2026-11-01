@@ -40,6 +40,7 @@ import {
   EDIT_REFUSED_EVENT,
   LAYOUT_APPLIED_EVENT,
   type C4ModelingMethods,
+  type EditNoticeEvent,
   type EditRefusedEvent,
   type LayoutAppliedEvent,
 } from "../services.js";
@@ -53,6 +54,7 @@ import { framedClosure } from "./closure.js";
 import { deleteSummary } from "./deleteSummary.js";
 import { C4UnsupportedOperationError } from "./errors.js";
 import { centreOf, samePoints, verticesOutside, withoutFanBend } from "./geometry.js";
+import { relationshipLevelNotice } from "./levelNotice.js";
 import { refusedEvent } from "./refusalLevel.js";
 
 export const READ_ONLY_MESSAGE = "This diagram is read-only. Fix the file to edit it.";
@@ -97,6 +99,9 @@ const ModelingBase = Modeling as unknown as ModelingConstructor;
  */
 export default class C4Modeling extends ModelingBase implements C4ModelingMethods {
   static $inject = ["eventBus", "elementFactory", "commandStack", "injector"];
+
+  /** The notice about a relationship drawn above containers comes once per modeler. */
+  private levelNoticeShown = false;
 
   constructor(
     private readonly bus: EventBus,
@@ -333,6 +338,26 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
     return this.change({ type: "updateRelationship", key, fields });
   }
 
+  /**
+   * What the move brings into the view (the other end, in a container view) is pinned where the
+   * view first draws it (a dry run of the same edit), as Add existing element pins what it adds:
+   * a place `placeUnplaced` picks depends on the graph, and the next relationship would move it.
+   */
+  moveRelationshipEnd(
+    key: RelationshipKey,
+    end: "source" | "destination",
+    to: ElementId,
+  ): EditOutcome | undefined {
+    const edit: Extract<C4Edit, { type: "moveRelationshipEnd" }> = {
+      type: "moveRelationshipEnd",
+      key,
+      end,
+      to,
+    };
+    const boxes = this.boxesOfArrivals(edit);
+    return this.change(boxes && boxes.size > 0 ? { ...edit, boxes } : edit);
+  }
+
   renameIdentifier(id: ElementId, identifier: string): EditOutcome | undefined {
     return this.change({ type: "renameIdentifier", id, identifier });
   }
@@ -448,7 +473,27 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
     };
     this.commands.execute(DOCUMENT_CHANGE, context);
     for (const notice of outcome.notices) this.bus.fire(EDIT_NOTICE_EVENT, { notice });
+    if (edit.type === "createRelationship" || edit.type === "createElement") {
+      this.noticeLevelOnce(outcome);
+    }
     return outcome;
+  }
+
+  /**
+   * A relationship drawn on a software system with containers, in a landscape or context view,
+   * vanishes from the system's container view, which surprises a user once; after that they know.
+   */
+  private noticeLevelOnce(outcome: Extract<EditOutcome, { ok: true }>): void {
+    if (this.levelNoticeShown) return;
+    const message = relationshipLevelNotice(
+      outcome.document.workspace,
+      outcome.view,
+      outcome.created.relationships,
+    );
+    if (message === undefined) return;
+    this.levelNoticeShown = true;
+    const event: EditNoticeEvent = { notice: "relationship-above-containers", message };
+    this.bus.fire(EDIT_NOTICE_EVENT, event);
   }
 
   private editContext(): EditContext {
@@ -510,6 +555,20 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
     const scene = this.scenes().ofParse(dryRun.document, dryRun.view);
     const box = scene.boxes.get(id);
     return box && { id, box, scene };
+  }
+
+  /** Where the view draws what an edit brings into it; undefined when the edit is refused. */
+  private boxesOfArrivals(edit: C4Edit): Map<ElementId, Box> | undefined {
+    if (this.injector.get<EditLock>("readOnly", false)?.isReadOnly()) return undefined;
+    const state = this.store().current();
+    const dryRun = this.engine().applyEdit(state.parse, edit, this.editContext());
+    if (!dryRun.ok) return undefined;
+    const shown = this.scenes().current().boxes;
+    const boxes = new Map<ElementId, Box>();
+    for (const [id, box] of this.scenes().ofParse(dryRun.document, dryRun.view).boxes) {
+      if (!shown.has(id)) boxes.set(id, box);
+    }
+    return boxes;
   }
 
   /** Where the view draws `ids` once they are in it; undefined when the edit is refused. */

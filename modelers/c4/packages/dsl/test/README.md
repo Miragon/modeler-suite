@@ -43,7 +43,7 @@ node packages/dsl/scripts/structurizr-snapshots/snapshot.mjs --edits --fuzz <fol
 The first command writes the results of fuzz seeds 1-200 as `seed-NNNN.dsl`; the second parses
 every golden `*.after.dsl` and every fuzz output with Structurizr 6.2.4 and writes
 `edit-acceptance.json`. Run it whenever the edit layer or a golden changes; the acceptance test
-fails until the JSON is regenerated. Last run: 2026-11-01, 72 golden after-files and 200 fuzz
+fails until the JSON is regenerated. Last run: 2026-11-01, 89 golden after-files and 200 fuzz
 outputs, all accepted.
 
 ## The `autoLayout` decision, checked against Structurizr (SPEC 4.4)

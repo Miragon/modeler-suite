@@ -468,8 +468,9 @@ diagram.on("commandStack.changed", () => shell.menu.refresh());
 diagram.on<EditRefusedEvent>(EDIT_REFUSED_EVENT, (event) => {
   if (!destroyed) shell.toast(refusalToast(event));
 });
-diagram.on<EditNoticeEvent>(EDIT_NOTICE_EVENT, ({ notice }) => {
-  if (!destroyed) shell.toast({ status: "info", text: noticeText(notice) });
+diagram.on<EditNoticeEvent>(EDIT_NOTICE_EVENT, (event) => {
+  const text = event.message === undefined ? noticeText(event.notice) : event.message;
+  if (!destroyed) shell.toast({ status: "info", text });
 });
 
 // The new layout may lie where the viewport doesn't look.

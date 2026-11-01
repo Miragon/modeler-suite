@@ -187,8 +187,9 @@ diagram.on<DeleteDoneEvent>(DELETE_DONE_EVENT, (event) => {
   if (notification) post(notification);
 });
 const noticeMessage = noticeMessages();
-diagram.on<EditNoticeEvent>(EDIT_NOTICE_EVENT, ({ notice }) => {
-  const message = destroyed ? undefined : noticeMessage(notice);
+diagram.on<EditNoticeEvent>(EDIT_NOTICE_EVENT, (event) => {
+  if (destroyed) return;
+  const message = event.message === undefined ? noticeMessage(event.notice) : event.message;
   if (message) post({ type: "info", message });
 });
 
