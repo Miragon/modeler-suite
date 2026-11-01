@@ -5,6 +5,7 @@
   "displayName": "C4 Modeler",
   "description": "View and edit C4 model diagrams directly in VS Code, backed by plain-text Structurizr DSL files (.c4, .dsl).",
   "publisher": "miragon-gmbh",
+  "icon": "icon.png",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Miragon/modeler-suite.git",
@@ -51,7 +52,11 @@
         "filenames": [
           "workspace.dsl"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./media/icons/c4-light.svg",
+          "dark": "./media/icons/c4-dark.svg"
+        }
       }
     ],
     "grammars": [

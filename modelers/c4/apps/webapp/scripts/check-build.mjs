@@ -1,7 +1,9 @@
 // What the production build must carry and the dev server never shows: the mode markup the Vite
 // plugin writes into index.html (guide §13.3), the renderer's stylesheet (the dev server also takes
-// it through the renderer's entry, the build only by name) and the shell's Lucide licence comment.
-import { readFileSync, readdirSync } from "node:fs";
+// it through the renderer's entry, the build only by name), the shell's Lucide licence comment, and
+// the files of the public folder that only index.html and the start screen name: the modeler icon
+// and the Miragon comet.
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const dist = new URL("../dist/", import.meta.url).pathname;
@@ -28,10 +30,20 @@ if (!styles.some((source) => source.includes(".c4-container"))) {
 if (!scripts.some((source) => /@license[\s\S]{0,400}Lucide/.test(source))) {
   problems.push("no bundle keeps the shell’s @license comment naming Lucide");
 }
+for (const rel of ["icon", "apple-touch-icon"]) {
+  const href = new RegExp(`<link rel="${rel}"[^>]*\\shref="([^"]+)"`).exec(html)?.[1];
+  if (href === undefined) problems.push(`index.html links no ${rel}`);
+  else if (!existsSync(join(dist, href.replace(/^\.?\//, "")))) {
+    problems.push(`index.html links the ${rel} ${href}, which the build doesn't carry`);
+  }
+}
+if (!existsSync(join(dist, "miragon-komet-blau.svg"))) {
+  problems.push("the start screen's miragon-komet-blau.svg is missing");
+}
 if (problems.length > 0) {
   console.error(`apps/webapp build check failed:\n- ${problems.join("\n- ")}`);
   process.exit(1);
 }
 console.log(
-  "apps/webapp build check: mode markup, renderer stylesheet and licence comment present",
+  "apps/webapp build check: mode markup, renderer stylesheet, licence comment, icons and comet present",
 );

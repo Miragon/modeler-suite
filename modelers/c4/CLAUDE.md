@@ -482,10 +482,8 @@ React, no `packages/ui`.
   the view, rendered into the shell's live legend body by `connectLegend`.
 - `THEMES` is `["light"]` ([`themes.ts`](packages/renderer/src/themes.ts); Node code reads
   `@miragon/c4-renderer/themes`).
-- Still open: a C4 app icon from `miragon-brand:icon-design` (none exists yet, so the extension
-  names no icon and `apps/vscode/test/contributions.test.ts` asserts that), and the design-system
-  amendment for the Model entries, the drill badge, the title block, the open chevron and the C4
-  palette.
+- Still open: the design-system amendment for the Model entries, the drill badge, the title block,
+  the open chevron and the C4 palette.
 
 ## Apps
 
@@ -566,6 +564,18 @@ React, no `packages/ui`.
   `THIRD_PARTY_NOTICES.md` is generated
   (`npm run notices -w modelers/c4/apps/vscode`: dagre and graphlib, Geist, Lucide, diagram-js) and
   checked by `notices.test.ts`.
+- Icons: the C4 modeler icon of the Miragon modeler icon set (skill `miragon-brand:icon-design`,
+  id `c4`), copied byte for byte from `docs/public/modeler-icons/` of Miragon/corporate-identity,
+  never redrawn, recoloured, cropped or optimised here: to update one, copy it again and `cmp` it.
+  The extension icon `apps/vscode/icon.png` (`png/c4-256.png`); the file icons
+  `apps/vscode/media/icons/c4-light.svg` and `c4-dark.svg` (`glyph/c4-hell.svg`,
+  `glyph/c4-dunkel.svg`) on the language `structurizr-dsl` only, so every `.c4`, `.dsl` and
+  `workspace.dsl` file VS Code gives that language carries it, and a `.c4` LikeC4 model in `likec4`
+  does not; the web app's `public/favicon.svg` (`favicon/c4.svg`) and `public/apple-touch-icon.png`
+  (`png/c4-180.png`), linked from `index.html`. The start screen keeps the Miragon comet
+  (`public/miragon-komet-blau.svg`). `contributions.test.ts` checks the manifest's icons and that
+  the VSIX ships them, `apps/webapp/test/icons.test.ts` the links and their files, and
+  `check:build` that the build carries them and the comet.
 - `miragon-gmbh.c4-modeler` joins the extension pack `extensions/modeler-collection` only after its
   first release, since a pack member that is not on the Marketplace breaks installing the pack.
   Until then `test/modeler-collection.test.ts` lists `c4` in `PENDING_FIRST_PUBLISH`; the follow-up
@@ -604,10 +614,11 @@ React, no `packages/ui`.
   and the label slide, `relationshipRoutes.test.ts`); the renderer (menu, shortcuts, legend rows,
   the engine seam, the scene's group frames by scope, the theme, peer and pre-bundling drift, the
   breadcrumb's path, fit and stylesheet, the level of every refusal reason, the delete text, the
-  warning chip's place); the web app (example, files, link, notices, problems, storage); the
-  extension (contributions, grammar, diagnostics, commands, examples, the editor of either file type
-  and its save flush, LikeC4 next to it, the webview's state and messages, the menu mirror, notices,
-  tokens). The dsl's edit tests read `@miragon/c4-layout` from `dist` as well.
+  warning chip's place); the web app (example, files, icons, link, notices, problems, storage);
+  the extension (contributions and icons, grammar, diagnostics, commands, examples, the editor of
+  either file type and its save flush, LikeC4 next to it, the webview's state and messages, the
+  menu mirror, notices, tokens). The dsl's edit tests read `@miragon/c4-layout` from `dist` as
+  well.
 - Browser (`packages/renderer/test/browser/`): the conformance kit, the gestures, reconcile
   identity, view switches, refused edits, the invariant, the drawing (label layout, contrast,
   appearance, content bounds, the export with and without a selection), interaction, context pad,

@@ -45,6 +45,7 @@ const manifest = JSON.parse(read("package.json")) as {
   icon?: string;
   activationEvents: string[];
   contributes: {
+    languages: Array<{ id: string; icon?: { light: string; dark: string } }>;
     commands: CommandContribution[];
     menus: Record<string, MenuContribution[]>;
     customEditors: Array<{
@@ -64,6 +65,16 @@ const ON_DIAGRAM = "activeCustomEditorId == c4.editor || activeCustomEditorId ==
 const ON_SOURCE =
   "(resourceExtname == .dsl || editorLangId == structurizr-dsl) && activeCustomEditorId != c4.editor && activeCustomEditorId != c4.dslEditor";
 const WEBVIEW_COMMAND_IDS: readonly string[] = Object.values(WEBVIEW_COMMANDS);
+const iconPaths = [
+  manifest.icon,
+  ...contributes.languages.flatMap(({ icon }) => (icon ? [icon.light, icon.dark] : [])),
+].flatMap((path) => (path === undefined ? [] : [path.replace(/^\.\//, "")]));
+
+/** A PNG's signature and the size its IHDR chunk, always the first, gives. */
+function pngHeader(path: string): [string, number, number] {
+  const png = readFileSync(new URL(`../${path}`, import.meta.url));
+  return [png.toString("latin1", 1, 4), png.readUInt32BE(16), png.readUInt32BE(20)];
+}
 
 describe("the extension", () => {
   it("is the C4 Modeler of Miragon", () => {
@@ -267,9 +278,22 @@ describe("package.json contributions", () => {
     expect(contributes.keybindings).toBeUndefined();
   });
 
-  // The C4 icon isn't in Miragon/corporate-identity yet: the manifest names none until it is.
-  it("names no icon of its own yet", () => {
-    expect(manifest.icon).toBeUndefined();
+  it("carries the C4 modeler icon as a 256 px PNG", () => {
+    expect(manifest.icon).toBe("icon.png");
+    expect(pngHeader("icon.png")).toEqual(["PNG", 256, 256]);
+  });
+
+  // An icon on a language VS Code or another extension owns would mark every file of that language.
+  it("gives the C4 file icon, light and dark, to its own language only", () => {
+    expect(contributes.languages.map(({ id, icon }) => [id, icon])).toEqual([
+      [
+        "structurizr-dsl",
+        { light: "./media/icons/c4-light.svg", dark: "./media/icons/c4-dark.svg" },
+      ],
+    ]);
+    for (const path of ["media/icons/c4-light.svg", "media/icons/c4-dark.svg"]) {
+      expect(read(path), path).toMatch(/^<svg [^>]*viewBox="0 0 24 24"/);
+    }
   });
 });
 
@@ -311,6 +335,14 @@ describe("the VSIX", () => {
     "dist/extension.cjs.map",
   ])("leaves %s out", (path) => {
     expect(isIgnored(path)).toBe(true);
+  });
+
+  it("ships every icon the manifest names", () => {
+    expect(iconPaths).toEqual(["icon.png", "media/icons/c4-light.svg", "media/icons/c4-dark.svg"]);
+    for (const path of iconPaths) {
+      expect(existsSync(new URL(`../${path}`, import.meta.url)), path).toBe(true);
+      expect(isIgnored(path), path).toBe(false);
+    }
   });
 });
 
