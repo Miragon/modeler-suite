@@ -68,7 +68,7 @@ test.describe("web app: files", () => {
   test("the drop zone takes a .c4 file and a .dsl file", async ({ page }) => {
     await page.goto("/");
     await page.waitForFunction(() => window.app?.shell.isEmptyStateShown() === true);
-    await expect(startScreen(page)).toContainText("Or drop a .c4, .dsl or .txt file here");
+    await expect(startScreen(page)).toContainText("Or drop a .c4, .dsl, or .txt file here");
 
     await dropFile(page, { name: "bookshop.c4", text: EXAMPLE });
     await expect.poll(() => exportText(page)).toBe(EXAMPLE);

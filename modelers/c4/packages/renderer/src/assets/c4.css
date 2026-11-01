@@ -32,12 +32,19 @@
   user-select: none;
 }
 
-/* The drill badge opens the child view (SPEC 6.5); its own hit shows that it does. */
+/* The drill badge opens the child view (SPEC 6.5); its own hit shows that it does, and the chip
+   answers the pointer like a button (guide §8). */
 .c4-container .djs-hit.c4-drill {
   cursor: pointer;
 }
 
-/* Guide §10.4: hover and selection are a dashed outline in the interaction blue. */
+.c4-container .djs-element:has(> .djs-hit.c4-drill:hover) .djs-visual .c4-drill > rect {
+  fill: var(--cd-ui-hover) !important;
+  stroke: var(--cd-ui-interaktion) !important;
+}
+
+/* Guide §10.4: hover and selection are a dashed outline in the interaction blue. diagram-js shows
+   the outline of a selection only; a boundary's hover would frame everything it holds. */
 .c4-container .djs-outline {
   stroke: var(--cd-ui-interaktion);
   stroke-dasharray: 3 3;
@@ -45,6 +52,74 @@
 
 .c4-container .djs-parent {
   --element-selected-outline-stroke-color: var(--cd-ui-interaktion);
+}
+
+.c4-container
+  svg:not(.djs-drag-active)
+  .djs-shape.hover:not(.selected, [data-element-id^="boundary:"])
+  > .djs-outline,
+.c4-container .djs-shape.c4-connect-source > .djs-outline {
+  visibility: visible;
+}
+
+.c4-container svg:not(.djs-drag-active) .djs-connection.hover :is(.c4-line, .c4-arrow),
+.c4-container .djs-connection.selected :is(.c4-line, .c4-arrow) {
+  stroke: var(--cd-ui-interaktion) !important;
+}
+
+.c4-container .djs-connection.selected .c4-label-ground {
+  stroke: var(--cd-ui-interaktion);
+  stroke-width: 1.5px;
+}
+
+/* Connect and drop feedback (guide §10.4): diagram-js paints its markers on a shape's first
+   visual child, the ring around the outline (drawItems.ts), so the target's own colours and text
+   stay. The ring follows the drawn shape and replaces the box outline while it shows. */
+.c4-container .djs-shape:is(.connect-ok, .connect-not-ok, .drop-not-ok, .new-parent) .c4-feedback {
+  display: inline;
+}
+
+.c4-container .djs-shape.connect-ok .c4-feedback {
+  stroke: var(--cd-ui-interaktion) !important;
+  stroke-dasharray: 6 4 !important;
+}
+
+.c4-container .djs-shape:is(.connect-ok, .connect-not-ok) > .djs-outline {
+  visibility: hidden;
+}
+
+.c4-container .djs-dragger .c4-feedback {
+  display: none !important;
+}
+
+.c4-container .connect-ok,
+.c4-container .connect-ok * {
+  cursor: crosshair !important;
+}
+
+/* While a connect runs, a relationship or a boundary under the pointer is no target and gets no
+   marker (rules/C4Connect.ts): it keeps the canvas's cursor, not diagram-js's move cursor, which
+   would promise a drag. */
+.c4-container
+  svg.djs-drag-active:has(.c4-connect-source)
+  .djs-element:not(.connect-ok, .connect-not-ok)
+  > .djs-hit {
+  cursor: default;
+}
+
+/* A create tints nothing: the preview under the pointer is the feedback (diagram-js tints the
+   whole canvas in the drop colour). */
+.c4-container svg.new-parent {
+  background: transparent !important;
+}
+
+/* Bendpoints: a press anywhere on a line adds one (rules/C4SegmentInsert.ts), so the segment
+   handle has nothing to offer, and the end handles would start a reconnect, which v1 refuses.
+   diagram-js shows both on a hovered or selected line; a shown segment handle lies outside every
+   element, so the pointer on it would end the line's hover and the handle would blink. */
+.c4-container .djs-segment-dragger,
+.c4-container .djs-bendpoint.c4-bendpoint-end {
+  display: none !important;
 }
 
 /* The renderer's own palette, where no host chrome skins it (the shell sets data-chrome). */

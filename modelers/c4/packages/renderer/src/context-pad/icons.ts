@@ -10,6 +10,9 @@ import { LUCIDE, LUCIDE_STROKE_WIDTH } from "../draw/lucide.js";
  */
 const PAD_ICONS = {
   workflow: LUCIDE.workflow,
+  pencil:
+    '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>' +
+    '<path d="m15 5 4 4"/>',
   text: '<path d="M21 5H3"/><path d="M15 12H3"/><path d="M17 19H3"/>',
   cpu:
     '<path d="M12 20v2"/><path d="M12 2v2"/><path d="M17 20v2"/><path d="M17 2v2"/>' +
@@ -39,6 +42,14 @@ export function padIcon(name: PadIconName, size = PAD_ICON_SIZE): string {
     `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">` +
     `${PAD_ICONS[name]}</svg>`
   );
+}
+
+/**
+ * An append entry: the palette's preview of the element it creates, in the look it lands in, set
+ * at the pad's icon size by `contextPad.css`.
+ */
+export function padPreviewEntryHtml(previewSvg: string): string {
+  return `<div class="entry c4-pad-entry c4-pad-entry--preview" draggable="true">${previewSvg}</div>`;
 }
 
 /** No native `title` here: diagram-js writes the entry's `title` itself. */

@@ -1,22 +1,32 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type ContextPad from "diagram-js/lib/features/context-pad/ContextPad";
+import type Scheduler from "diagram-js/lib/features/scheduler/Scheduler";
+import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Injector } from "didi";
 import type { Box, Point } from "@miragon/c4-schema-model";
 import type DocumentStore from "../document/DocumentStore.js";
 import type SceneLookup from "../draw/SceneLookup.js";
+import { readOnlyReason } from "../inspector/fields.js";
 import { isKeyOnHiddenTarget } from "../keyboard/CanvasKeys.js";
+import type { SceneNotation } from "../scene/notation.js";
 import {
   isElementShape,
   isRelationshipConnection,
   type C4Connection,
   type C4ElementShape,
 } from "../scene/types.js";
-import type { C4ModelingMethods } from "../services.js";
+import { EDIT_REFUSED_EVENT, type C4ModelingMethods, type EditRefusedEvent } from "../services.js";
 import { bandAt, elementTextLayout, relationshipLabelLayout } from "../text/elementTextLayout.js";
 import { lineHeightOf, type TextFont } from "../text/textMetrics.js";
 import type { TextBand, TextBands } from "../text/types.js";
-import { ELEMENT_FONTS, ELEMENT_GAPS, RELATIONSHIP_FONTS } from "../text/typography.js";
+import {
+  ELEMENT_FONTS,
+  ELEMENT_GAPS,
+  RELATIONSHIP_FONTS,
+  RELATIONSHIP_LABEL,
+} from "../text/typography.js";
 import { editAtField } from "./fieldRefusal.js";
 import "./labelEditing.css";
 
@@ -52,6 +62,7 @@ interface FieldModel {
 
 const FIELD_CLASS = "diagram-label-editor";
 const ERROR_CLASS = "c4-label-error";
+const HINT_CLASS = "c4-label-hint";
 /** Before the canvas's key guard (10000), which stops a key on a hidden canvas. */
 const BEFORE_THE_KEY_GUARD = 20_000;
 /** The textarea's own padding and 1px border, which the box over the band leaves room for. */
@@ -59,6 +70,9 @@ const PADDING = { x: 4, y: 2 };
 const BORDER = 1;
 /** Screen px between the field and its error message (the focus ring reaches 4px below). */
 const ERROR_GAP = 8;
+/** Screen px the focus ring reaches outside the field: 2px out, 3px wide in high contrast. */
+const FOCUS_RING_REACH = 5;
+const READ_ONLY_PLACEMENT = "C4LabelEditing#readOnlyPlacement";
 /** A band too narrow to type in still gets a field this wide (screen px). */
 const MINIMUM_WIDTH = 96;
 
@@ -71,6 +85,15 @@ const LABELS: Readonly<Record<LabelField, string>> = {
   technology: "Technology",
   metadata: "Metadata",
 };
+
+/** Under the field while its text is longer than the canvas shows (the file keeps all of it). */
+const SHORTENED_NOTE = "Shortened on the canvas. The file keeps the full text.";
+
+function isLabelField(field: string | undefined): field is LabelField {
+  return (
+    field === "name" || field === "description" || field === "technology" || field === "metadata"
+  );
+}
 
 /** Whether Enter commits; in a description it does too, and Shift+Enter breaks the line. */
 function isMultiline(field: LabelField): boolean {
@@ -87,6 +110,10 @@ function isImeCompositionKey(event: KeyboardEvent): boolean {
   return event.isComposing || event.keyCode === 229;
 }
 
+function overlaps(a: DOMRect, b: DOMRect): boolean {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+
 /**
  * In-place editing of a field's band (SPEC 5.5): one textarea over the band in the band's font,
  * size and wrapping, from the same `elementTextLayout` the drawing uses. Only the user's own
@@ -95,7 +122,9 @@ function isImeCompositionKey(event: KeyboardEvent): boolean {
  * takes the open edit down without committing and reopens it on the same id with the text typed
  * so far; when the new view does not show the element, the edit stays parked for the host's
  * `setViewState` to bring the view back. A value the DSL cannot store shows its reason under the
- * field and commits nothing.
+ * field and commits nothing; dropped by a click away, it goes to the app as `c4.edit.refused`.
+ * A field that cannot be edited here names its reason at its band instead of opening. While a
+ * relationship's field is open, its context pad, which lies beside the label, stays closed.
  */
 export default class LabelEditing {
   static $inject = ["canvas", "eventBus", "elementRegistry", "injector"];
@@ -104,9 +133,11 @@ export default class LabelEditing {
   private target: LabelTarget | undefined;
   private fieldName: LabelField = "name";
   private error: HTMLElement | undefined;
+  private hint: HTMLElement | undefined;
   private suspended: SuspendedEdit | undefined;
   private resumeTimer: ReturnType<typeof setTimeout> | undefined;
   private committing = false;
+  private restoresPad = true;
   private errors = 0;
 
   constructor(
@@ -119,17 +150,26 @@ export default class LabelEditing {
       this.onDoubleClick(event.element, event.originalEvent),
     );
     eventBus.on(["element.mousedown", "drag.init"], () => {
+      this.hideHint();
       this.forgetParked();
       this.complete({ dropRefused: true });
     });
     eventBus.on("keyboard.keydown", BEFORE_THE_KEY_GUARD, () => {
+      this.hideHint();
       this.forgetParked();
       return undefined;
     });
-    eventBus.on("canvas.viewbox.changed", () => this.followView());
+    eventBus.on("canvas.viewbox.changed", () => {
+      this.hideHint();
+      this.followView();
+    });
+    eventBus.on("contextPad.open.allowed", () =>
+      this.field && isRelationshipConnection(this.target) ? false : undefined,
+    );
     // Undo, redo or another change of the model underneath the field: drop the edit instead of
     // writing it onto an element that may be gone. A commit of its own closes the field itself.
     eventBus.on("commandStack.changed", () => {
+      this.hideHint();
       this.forgetParked();
       if (!this.committing) this.cancel();
     });
@@ -137,6 +177,8 @@ export default class LabelEditing {
     eventBus.on("diagram.destroy", 1500, () => {
       clearTimeout(this.resumeTimer);
       this.suspended = undefined;
+      this.hideHint();
+      this.restoresPad = false;
       this.cancel();
     });
   }
@@ -152,9 +194,11 @@ export default class LabelEditing {
     if (!model?.editable) return false;
     this.complete();
     if (this.field) return false;
+    this.hideHint();
     const textarea = document.createElement("textarea");
     textarea.className = FIELD_CLASS;
     textarea.setAttribute("aria-label", LABELS[chosen]);
+    textarea.placeholder = LABELS[chosen];
     textarea.dataset.field = chosen;
     textarea.spellcheck = false;
     textarea.rows = 1;
@@ -163,6 +207,7 @@ export default class LabelEditing {
     textarea.addEventListener("input", () => {
       this.clearError();
       this.fitHeight();
+      this.updateShortenedNote();
     });
     textarea.addEventListener("blur", () => {
       if (this.field === textarea) this.complete();
@@ -170,9 +215,12 @@ export default class LabelEditing {
     this.field = textarea;
     this.target = target;
     this.fieldName = chosen;
+    if (isRelationshipConnection(target))
+      this.injector.get<ContextPad>("contextPad", false)?.close();
     this.place();
     this.canvas.getContainer().append(textarea);
     this.fitHeight();
+    this.updateShortenedNote();
     // A field over a band at the edge of the view would scroll the canvas's container, which
     // diagram-js does not expect, and shift the drawing under the field.
     textarea.focus({ preventScroll: true });
@@ -193,7 +241,8 @@ export default class LabelEditing {
   /**
    * Writes the typed text as one command and closes the field; true once it is closed. A refused
    * value keeps the field open with its reason, unless the user went on to the canvas
-   * (`dropRefused`), where the edit is dropped.
+   * (`dropRefused`), where the edit is dropped and the app hears why. The name of a fresh element
+   * commits even unchanged: confirming the default name settles a readable identifier.
    */
   complete(options: { dropRefused?: boolean } = {}): boolean {
     const { field, target } = this;
@@ -205,24 +254,37 @@ export default class LabelEditing {
     const fieldName = this.fieldName;
     const text = normalized(field.value, fieldName);
     const model = this.fieldModel(target, fieldName);
-    if (!model?.editable || text === model.value) {
+    const confirmsFreshName =
+      fieldName === "name" && isElementShape(target) && this.isFresh(target.c4.id);
+    if (!model?.editable || (text === model.value && !confirmsFreshName)) {
       this.close();
       return true;
     }
     const modeling = this.injector.get<C4ModelingMethods>("modeling");
     this.committing = true;
     let refusal: string | undefined;
+    let reason: EditRefusedEvent["reason"] = "verification-failed";
     try {
-      ({ refusal } = editAtField(this.eventBus, () =>
+      const edit = editAtField(this.eventBus, () =>
         isElementShape(target)
           ? modeling.editElement(target.c4.id, { [fieldName]: text })
           : modeling.editRelationship(target.c4.key, { [fieldName]: text }),
-      ));
+      );
+      refusal = edit.refusal;
+      if (edit.outcome && !edit.outcome.ok) reason = edit.outcome.reason;
     } finally {
       this.committing = false;
     }
-    if (refusal === undefined || options.dropRefused) {
+    if (refusal === undefined) {
       this.close();
+      return true;
+    }
+    if (options.dropRefused) {
+      this.close();
+      this.eventBus.fire(EDIT_REFUSED_EVENT, {
+        reason,
+        message: refusal,
+      } satisfies EditRefusedEvent);
       return true;
     }
     this.showError(refusal);
@@ -251,7 +313,13 @@ export default class LabelEditing {
         text: field.value,
       };
     }
-    this.cancel();
+    this.hideHint();
+    this.restoresPad = false;
+    try {
+      this.cancel();
+    } finally {
+      this.restoresPad = true;
+    }
   }
 
   /**
@@ -286,6 +354,7 @@ export default class LabelEditing {
       if (this.activate(target, edit.field) && this.field) {
         this.field.value = edit.text;
         this.fitHeight();
+        this.updateShortenedNote();
       }
       return;
     }
@@ -306,27 +375,73 @@ export default class LabelEditing {
       : workspace.elements.some((element) => element.id === edit.documentId);
   }
 
+  /**
+   * The band's own field, else the default (SPEC 5.5). A field that cannot be edited here names
+   * its reason at its band, an implied relationship where it comes from.
+   */
   private onDoubleClick(element: unknown, originalEvent: Event | undefined): void {
     if (!isElementShape(element) && !isRelationshipConnection(element)) return;
+    if (this.isLocked()) return;
     const point = this.diagramPoint(originalEvent);
     const layout = this.layoutOf(element);
-    const band = point && layout ? bandAt(layout, point) : undefined;
-    const field = this.bandField(element, band);
-    if (!this.activate(element, field)) this.activate(element);
+    const band: TextBand | undefined = point && layout ? bandAt(layout, point) : undefined;
+    const pointed = isLabelField(band?.field) ? band.field : undefined;
+    const field = pointed ?? (isRelationshipConnection(element) ? "description" : "name");
+    if (this.fieldModel(element, field)?.editable) {
+      this.activate(element, field);
+      return;
+    }
+    const reason = this.readOnlyReasonOf(element, field);
+    if (reason !== undefined) this.showReadOnly(element, field, reason);
+    else if (pointed) this.activate(element);
   }
 
-  /** The band's own field when it can be edited, else the default (SPEC 5.5). */
-  private bandField(target: LabelTarget, band: TextBand | undefined): LabelField | undefined {
-    const field = band?.field;
-    if (
-      field !== "name" &&
-      field !== "description" &&
-      field !== "technology" &&
-      field !== "metadata"
-    ) {
-      return undefined;
+  private readOnlyReasonOf(target: LabelTarget, field: LabelField): string | undefined {
+    const parse = this.injector.get<DocumentStore>("c4Document").current().parse;
+    const { workspace } = parse;
+    if (isElementShape(target)) {
+      const element = workspace.elements.find((candidate) => candidate.id === target.c4.id);
+      if (!element) return undefined;
+      const fits =
+        field === "technology"
+          ? element.kind === "container" || element.kind === "component"
+          : field === "metadata"
+            ? element.kind === "custom"
+            : true;
+      return fits
+        ? readOnlyReason(parse, element.id, field, element.fields[field], undefined)
+        : undefined;
     }
-    return this.fieldModel(target, field)?.editable ? field : undefined;
+    const relationship = workspace.relationships.find(
+      (candidate) => candidate.canvasKey === target.c4.key,
+    );
+    if (!relationship) return undefined;
+    if (relationship.implied) {
+      const origin = workspace.relationships.find(
+        (candidate) => candidate.key !== undefined && candidate.key === relationship.impliedBy,
+      );
+      const name = (id: string) =>
+        workspace.elements.find((element) => element.id === id)?.name ?? id;
+      return origin
+        ? `Comes from ${name(origin.sourceId)} → ${name(origin.destinationId)}. Edit it there.`
+        : "Comes from a relationship between the elements inside. Edit it there.";
+    }
+    if (field !== "description" && field !== "technology") return undefined;
+    return readOnlyReason(
+      parse,
+      undefined,
+      field,
+      relationship.fields[field],
+      relationship.bulk ? "relationship" : undefined,
+    );
+  }
+
+  private isLocked(): boolean {
+    return this.injector.get<EditLock>("readOnly", false)?.isReadOnly() === true;
+  }
+
+  private isFresh(id: string): boolean {
+    return this.injector.get<DocumentStore>("c4Document").current().fresh.has(id);
   }
 
   private onKey(event: KeyboardEvent, textarea: HTMLTextAreaElement): void {
@@ -418,9 +533,33 @@ export default class LabelEditing {
     }
     const { area } = layout;
     const last = layout.bands.at(-1);
+    if (isRelationshipConnection(target))
+      return { box: this.labelSlot(layout, field, height), font };
     const below = last ? last.box.y + last.box.height + ELEMENT_GAPS.beforeDescription : area.y;
     const y = Math.min(below, area.y + area.height - height);
     return { box: { x: area.x, y: Math.max(area.y, y), width: area.width, height }, font };
+  }
+
+  /**
+   * Where a relationship's empty field goes: next to the band it has, which stays readable (the
+   * description above the technology), else in the middle of the label box. Unlike an element's,
+   * a label box is no bound: the field may reach past it. The field's padding, border and focus
+   * ring keep clear of the band, at every zoom.
+   */
+  private labelSlot(layout: TextBands, field: LabelField, height: number): Box {
+    const { area } = layout;
+    const { gap, padding } = RELATIONSHIP_LABEL;
+    const shown = layout.bands[0];
+    const x = shown?.box.x ?? area.x + padding;
+    const width = shown?.box.width ?? area.width - 2 * padding;
+    if (!shown) return { x, y: area.y + (area.height - height) / 2, width, height };
+    const clearance = gap + (PADDING.y + BORDER + FOCUS_RING_REACH) / this.canvas.viewbox().scale;
+    const technology = layout.bands.find((band) => band.band === "technology");
+    if (field === "description" && technology) {
+      return { x, y: technology.box.y - clearance - height, width, height };
+    }
+    const last = layout.bands.at(-1)!;
+    return { x, y: last.box.y + last.box.height + clearance, width, height };
   }
 
   private fontOf(target: LabelTarget, field: LabelField): TextFont {
@@ -444,11 +583,23 @@ export default class LabelEditing {
   }
 
   private close(): void {
-    const field = this.field;
+    const { field, target } = this;
     this.field = undefined;
     this.target = undefined;
     this.clearError();
+    this.hideHint();
     field?.remove();
+    if (field && isRelationshipConnection(target) && this.restoresPad) this.reopenPad();
+  }
+
+  /** The pad a relationship's field kept closed, back on what is still selected. */
+  private reopenPad(): void {
+    const pad = this.injector.get<ContextPad>("contextPad", false);
+    const selected = this.injector.get<Selection>("selection", false)?.get() ?? [];
+    const [only] = selected;
+    if (!pad || pad.isOpen() || !only) return;
+    if (selected.some((element) => this.elementRegistry.get(element.id) !== element)) return;
+    pad.open(selected.length > 1 ? selected : only);
   }
 
   private followView(): void {
@@ -490,9 +641,114 @@ export default class LabelEditing {
     this.placeError();
   }
 
+  /**
+   * The note under the field while the canvas would cut its text short. The error, when there is
+   * one, says more and takes the place.
+   */
+  private updateShortenedNote(): void {
+    const { field, target } = this;
+    if (!field || !target) return;
+    const text = normalized(field.value, this.fieldName);
+    if (this.error || !this.wouldBeShortened(target, this.fieldName, text)) {
+      this.hideHint();
+      return;
+    }
+    const hint = this.showHint(SHORTENED_NOTE);
+    field.setAttribute("aria-describedby", hint.id);
+    this.placeError();
+  }
+
+  /** Whether the drawing would end `text` in an ellipsis, by the layout the drawing uses. */
+  private wouldBeShortened(target: LabelTarget, field: LabelField, text: string): boolean {
+    const lookup = this.injector.get<SceneLookup>("c4SceneLookup", false);
+    if (!lookup || text === "") return false;
+    if (isRelationshipConnection(target)) {
+      const relationship = lookup.relationship(target);
+      if (!relationship || (field !== "description" && field !== "technology")) return false;
+      const layout = relationshipLabelLayout({ ...relationship, [field]: text });
+      return layout.bands.some((band) => band.field === field && band.truncated);
+    }
+    const element = lookup.element(target);
+    if (!element) return false;
+    if (field === "name" || field === "description") {
+      const layout = elementTextLayout({ ...element, [field]: text });
+      return layout.bands.some((band) => band.band === field && band.truncated);
+    }
+    const { workspace } = this.injector.get<DocumentStore>("c4Document").current().parse;
+    const model = workspace.elements.find((candidate) => candidate.id === element.id);
+    const notation = this.injector.get<SceneNotation>("c4Notation", false);
+    if (!model || !notation) return false;
+    const typeLine = notation.typeLine({ ...model, [field]: text }, workspace.terminology);
+    const layout = elementTextLayout({ ...element, typeLine });
+    return layout.bands.some((band) => band.band === "type" && band.truncated);
+  }
+
+  /** A field that cannot be edited here: its reason, at its band, until the next action. */
+  private showReadOnly(target: LabelTarget, field: LabelField, reason: string): void {
+    const { box } = this.fieldBox(target, field);
+    const hint = this.showHint(reason);
+    hint.classList.add("c4-label-hint--alone");
+    this.placeReadOnly(hint, box);
+    // The double-click's second press may just have opened the pad, which diagram-js positions
+    // in a task of its own.
+    this.injector.get<Scheduler>("scheduler", false)?.schedule(() => {
+      if (this.hint === hint) this.placeReadOnly(hint, box);
+    }, READ_ONLY_PLACEMENT);
+  }
+
+  /**
+   * Under the band, leaving the open pad free, whose entries are what the user can still do:
+   * above the band instead, else moved aside under it.
+   */
+  private placeReadOnly(hint: HTMLElement, box: Box): void {
+    const { x, y, scale } = this.canvas.viewbox();
+    const centre = (box.x + box.width / 2 - x) * scale;
+    const below = (box.y + box.height - y) * scale + ERROR_GAP;
+    const placeAt = (left: number, top: number) =>
+      Object.assign(hint.style, { position: "absolute", left: `${left}px`, top: `${top}px` });
+    placeAt(centre, below);
+    const pad = this.canvas.getContainer().querySelector(".djs-context-pad.open");
+    const entries = pad?.getBoundingClientRect();
+    if (!entries || !overlaps(hint.getBoundingClientRect(), entries)) return;
+    placeAt(centre, (box.y - y) * scale - ERROR_GAP - hint.offsetHeight);
+    if (!overlaps(hint.getBoundingClientRect(), entries)) return;
+    placeAt(centre, below);
+    const note = hint.getBoundingClientRect();
+    const padOnTheRight = entries.left + entries.width / 2 >= note.left + note.width / 2;
+    const shift = padOnTheRight
+      ? entries.left - ERROR_GAP - note.right
+      : entries.right + ERROR_GAP - note.left;
+    placeAt(centre + shift, below);
+  }
+
+  private showHint(message: string): HTMLElement {
+    if (!this.hint) {
+      this.errors += 1;
+      const hint = document.createElement("div");
+      hint.className = HINT_CLASS;
+      hint.id = `c4-label-hint-${this.errors}`;
+      hint.setAttribute("role", "status");
+      this.canvas.getContainer().append(hint);
+      this.hint = hint;
+    }
+    if (this.hint.textContent !== message) this.hint.textContent = message;
+    return this.hint;
+  }
+
+  private hideHint(): void {
+    const hint = this.hint;
+    if (!hint) return;
+    this.hint = undefined;
+    hint.remove();
+    if (this.field?.getAttribute("aria-describedby") === hint.id) {
+      this.field.removeAttribute("aria-describedby");
+    }
+  }
+
   private showError(message: string): void {
     const field = this.field;
     if (!field) return;
+    this.hideHint();
     if (!this.error) {
       this.errors += 1;
       const error = document.createElement("div");
@@ -515,10 +771,12 @@ export default class LabelEditing {
     this.field?.removeAttribute("aria-describedby");
   }
 
+  /** The error, else the note, under the field. */
   private placeError(): void {
-    const { field, error } = this;
-    if (!field || !error) return;
-    Object.assign(error.style, {
+    const field = this.field;
+    const message = this.error ?? this.hint;
+    if (!field || !message) return;
+    Object.assign(message.style, {
       position: "absolute",
       left: field.style.left,
       top: `${field.offsetTop + field.offsetHeight + ERROR_GAP}px`,

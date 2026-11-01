@@ -13,6 +13,7 @@ import {
   type ResolvedRelationshipStyle,
   type ShapeName,
 } from "@miragon/c4-schema-model";
+import { labelReach } from "../../src/text/typography.js";
 import type {
   Scene,
   SceneBoundary,
@@ -206,6 +207,7 @@ export function relationship(
     sourceId: source.id,
     destinationId: destination.id,
     vertices,
+    route: vertices,
     description: spec.description ?? "",
     technology: spec.technology ?? "",
     implied: spec.implied ?? false,
@@ -222,9 +224,9 @@ export function relationship(
 export function waypointsOf(scene: Scene, item: SceneRelationship): Point[] {
   const source = scene.boxes.get(item.sourceId)!;
   const destination = scene.boxes.get(item.destinationId)!;
-  const first = item.vertices[0] ?? centre(destination);
-  const last = item.vertices.at(-1) ?? centre(source);
-  return [exitPoint(source, first), ...item.vertices, exitPoint(destination, last)];
+  const first = item.route[0] ?? centre(destination);
+  const last = item.route.at(-1) ?? centre(source);
+  return [exitPoint(source, first), ...item.route, exitPoint(destination, last)];
 }
 
 function union(boxes: readonly Box[]): Box | undefined {
@@ -265,7 +267,13 @@ export function scene(spec: SceneSpec): Scene {
   };
   const content = union([
     ...frames,
-    ...relationships.map((item) => item.labelBox),
+    ...relationships.flatMap((item) => [
+      item.labelBox,
+      ...(item.description.trim() !== "" || item.technology.trim() !== ""
+        ? [labelReach(item.labelBox)]
+        : []),
+      ...item.route.map(({ x, y }) => ({ x, y, width: 0, height: 0 })),
+    ]),
     ...(elements.length + boundaries.length > 0 ? [titleBox] : []),
   ]);
   return {

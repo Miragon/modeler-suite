@@ -109,13 +109,16 @@ function pickEdit(random, api, workspace, entry) {
   if (roll < 0.16 && editable) {
     const kind = pick(random, KINDS_BY_VIEW[entry.type]);
     const named = random() < 0.5;
-    return {
-      type: "createElement",
-      kind,
-      ...(named ? { name: `${pick(random, WORDS)} ${Math.floor(random() * 90) + 10}` } : {}),
-      ...(kind === "container" && random() < 0.3 ? { tags: ["Database"] } : {}),
-      center: { x: Math.round(random() * 1200), y: Math.round(random() * 800) },
-    };
+    const name = named ? { name: `${pick(random, WORDS)} ${Math.floor(random() * 90) + 10}` } : {};
+    const tags = kind === "container" && random() < 0.3 ? { tags: ["Database"] } : {};
+    const center = { x: Math.round(random() * 1200), y: Math.round(random() * 800) };
+    // An append derives from the centre and draws no number, so every other edit keeps its seed.
+    const appends = center.x % 3 === 0 && members.elements.length > 0;
+    const connectFrom = appends
+      ? { connectFrom: members.elements[center.y % members.elements.length] }
+      : {};
+    const placed = appends && center.y % 2 === 0 ? {} : { center };
+    return { type: "createElement", kind, ...name, ...tags, ...placed, ...connectFrom };
   }
   if (roll < 0.28 && editable) {
     const sourceId = pick(random, members.elements);

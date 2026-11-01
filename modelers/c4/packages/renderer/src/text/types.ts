@@ -16,6 +16,8 @@ export interface TextBand {
   readonly lines: readonly string[];
   /** Text was dropped: the last line ends in an ellipsis. */
   readonly truncated: boolean;
+  /** The whole text of a band that was cut short, for its tooltip; undefined when all shows. */
+  readonly fullText: string | undefined;
   /** How the lines sit in the box. */
   readonly align: "centre" | "start";
   readonly role: TextRole;
@@ -27,6 +29,6 @@ export interface TextBands {
   /** What the bands are laid out in (diagram coordinates): an element's text area, a label box. */
   readonly area: Box;
   readonly bands: readonly TextBand[];
-  /** The plot-coloured ground behind a relationship's label, inside its label box. */
+  /** The ground behind a relationship's label, centred on its label box, within its reach. */
   readonly backing: Box | undefined;
 }

@@ -60,10 +60,17 @@ export interface SceneRelationship {
   readonly key: RelationshipKey | undefined;
   readonly sourceId: ElementId;
   readonly destinationId: ElementId;
+  /** The stored vertices: what an edit writes back. */
   readonly vertices: readonly Point[];
+  /**
+   * What the line is drawn through: `vertices`, or the bend that fans it out from the other lines
+   * of its pair (the layout's `routes`), which no edit ever writes.
+   */
+  readonly route: readonly Point[];
   readonly description: string;
   readonly technology: string;
   readonly implied: boolean;
+  /** The layout's fixed slot; the drawn label may grow past it to `LABEL_REACH`, centred. */
   readonly labelBox: Box;
   readonly style: ResolvedRelationshipStyle;
 }
@@ -122,7 +129,23 @@ export interface C4PreviewReference {
   readonly tags?: readonly string[];
 }
 
-export type C4Reference = C4ElementReference | C4RelationshipReference | C4PreviewReference;
+/**
+ * The line diagram-js draws while a connect or a bendpoint drag runs. The rules answer it as the
+ * connection's attributes, since diagram-js draws the preview of whatever the rule returns.
+ */
+export interface C4RelationshipPreviewReference {
+  readonly role: "relationshipPreview";
+}
+
+export const RELATIONSHIP_PREVIEW: { readonly c4: C4RelationshipPreviewReference } = Object.freeze({
+  c4: Object.freeze({ role: "relationshipPreview" }),
+});
+
+export type C4Reference =
+  | C4ElementReference
+  | C4RelationshipReference
+  | C4PreviewReference
+  | C4RelationshipPreviewReference;
 
 export type C4Shape = Shape & { c4: C4ElementReference | C4PreviewReference };
 export type C4ElementShape = Shape & { c4: C4ElementReference & { role: "element" } };
@@ -135,9 +158,17 @@ export function c4ReferenceOf(element: unknown): C4Reference | undefined {
   const reference = (element as { c4?: unknown }).c4;
   if (typeof reference !== "object" || reference === null) return undefined;
   const role = (reference as { role?: unknown }).role;
-  return role === "element" || role === "boundary" || role === "relationship" || role === "preview"
+  return role === "element" ||
+    role === "boundary" ||
+    role === "relationship" ||
+    role === "preview" ||
+    role === "relationshipPreview"
     ? (reference as C4Reference)
     : undefined;
+}
+
+export function isRelationshipPreview(element: unknown): boolean {
+  return c4ReferenceOf(element)?.role === "relationshipPreview";
 }
 
 export function isElementShape(element: unknown): element is C4ElementShape {

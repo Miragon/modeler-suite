@@ -11,6 +11,8 @@ import "./breadcrumbs.css";
 export const BREADCRUMBS_CLASS = "c4-breadcrumbs";
 /** The landmark's name (WAI-ARIA's breadcrumb pattern). */
 export const BREADCRUMBS_LABEL = "Breadcrumb";
+/** Beside the view shown while it is a draft: the words of the views dialog. */
+export const DRAFT_NOTE = "Not in the file yet";
 
 /** An import, a view switch, and every edit and its undo: a rename or a written draft. */
 const UPDATE_EVENTS = [
@@ -21,10 +23,11 @@ const UPDATE_EVENTS = [
 ];
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-/** The sizes of breadcrumbs.css: the separator, a crumb's padding, the bar's padding. */
+/** The sizes of breadcrumbs.css: the separator, a crumb's padding, the bar's padding, the note's. */
 const SEPARATOR_SIZE = 16;
 const CRUMB_PADDING = 12;
 const BAR_PADDING = 4;
+const NOTE_PADDING = 8;
 /** A cut name keeps a letter and its ellipsis, never a cut glyph (2em of the 13px text). */
 const NAME_MIN = 26;
 /** Less than this is no cut: layout rounds to 1/64 of a pixel. */
@@ -102,6 +105,8 @@ export default class Breadcrumbs {
     if (space.end === undefined) this.element.style.removeProperty("max-width");
     else this.element.style.maxWidth = `${Math.floor(space.end)}px`;
     let covered = space.width < MIN_WIDTH;
+    const note = this.list.querySelector<HTMLElement>(`.${BREADCRUMBS_CLASS}-note`);
+    if (note) note.hidden = false;
     const items = [...this.list.children].map((item) => ({
       name: item.querySelector<HTMLElement>(`.${BREADCRUMBS_CLASS}-name`),
       level: item.querySelector<HTMLElement>(`.${BREADCRUMBS_CLASS}-level`),
@@ -121,7 +126,23 @@ export default class Breadcrumbs {
       level: widthOf(item.level),
       current: item.current,
     }));
-    const fit = covered ? undefined : fitCrumbs(widths, space.width - BAR_PADDING, NAME_MIN);
+    const available = space.width - BAR_PADDING;
+    // The note is the first to give way: it shows only while every name and level stays whole.
+    const noteWidth = note ? widthOf(note) + NOTE_PADDING : 0;
+    const whole = (fitted: ReturnType<typeof fitCrumbs>) =>
+      fitted?.every(
+        (part, index) =>
+          part.name >= widths[index]!.name - SUBPIXEL &&
+          part.level >= widths[index]!.level - SUBPIXEL,
+      ) === true;
+    const withNote = widths.map((crumb) =>
+      crumb.current ? { ...crumb, fixed: crumb.fixed + noteWidth } : crumb,
+    );
+    let fit = covered ? undefined : fitCrumbs(withNote, available, NAME_MIN);
+    if (note && !covered && !whole(fit)) {
+      note.hidden = true;
+      fit = fitCrumbs(widths, available, NAME_MIN);
+    }
     if (!fit) covered = true;
     items.forEach((item, index) => {
       limit(item.name, fit?.[index]?.name, widths[index]!.name);
@@ -156,6 +177,12 @@ export default class Breadcrumbs {
       label.append(level);
     }
     item.append(label);
+    if (crumb.current && crumb.draft) {
+      const note = ownerDocument.createElement("span");
+      note.className = `${BREADCRUMBS_CLASS}-note`;
+      note.textContent = DRAFT_NOTE;
+      item.append(note);
+    }
     return item;
   }
 

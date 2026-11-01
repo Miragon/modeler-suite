@@ -1,14 +1,16 @@
 /* The context pad (guide §8 "Palette / Context-Pad"): opaque --cd-ui-flaeche-hoch with a 1px
    --cd-ui-linie edge, shadow-2, 3px inside, 28 × 28 entries of radius sm 2px apart, 16px icons;
-   hover in --cd-ui-hover with the icon in --cd-ui-interaktion. The destructive entry's icon is
-   --cd-ui-danger (guide §5.4). At diagram-js's z-index 100, below the palette (guide §5.13). */
+   hover in --cd-ui-hover with the icon in --cd-ui-interaktion. One column like Context Maps' pad,
+   a --cd-ui-linie separator after the appends and before the group of the deletes; the trash
+   stays neutral like the family's and shows --cd-ui-danger on hover only. At diagram-js's z-index
+   100, below the palette (guide §5.13). */
 .c4-container .djs-context-pad.open {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
   gap: 2px;
   box-sizing: border-box;
   width: max-content;
-  max-width: calc(3 * 28px + 2 * 2px + 2 * 3px + 2px);
   padding: 3px;
   background: var(--cd-ui-flaeche-hoch);
   border: 1px solid var(--cd-ui-linie);
@@ -18,7 +20,32 @@
 }
 
 .c4-container .djs-context-pad .group {
-  display: contents;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.c4-container .djs-context-pad .group + .group {
+  margin-top: 1px;
+  padding-top: 3px;
+  border-top: 1px solid var(--cd-ui-linie);
+}
+
+/* A relationship's pad between two close ends of a vertical line (C4ContextPad): one row, the
+   separator before the deletes upright. */
+.c4-container .djs-context-pad.open.c4-pad-row,
+.c4-container .djs-context-pad.c4-pad-row .group {
+  flex-direction: row;
+}
+
+.c4-container .djs-context-pad.c4-pad-row .group + .group {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+  margin-left: 1px;
+  padding-left: 3px;
+  border-left: 1px solid var(--cd-ui-linie);
 }
 
 /* No entries (the read-only lock, a boundary): no empty island either. */
@@ -47,8 +74,8 @@
   color: var(--cd-ui-interaktion);
 }
 
-.c4-container .djs-context-pad .entry.c4-pad-entry--danger,
 .c4-container .djs-context-pad .entry.c4-pad-entry--danger:hover {
+  background: var(--cd-ui-danger-flaeche);
   color: var(--cd-ui-danger);
 }
 
@@ -56,16 +83,30 @@
   display: block;
 }
 
+/* An append entry shows the palette's 24px preview of what it creates at the pad's icon size. */
+.c4-container .c4-pad-entry--preview svg {
+  width: 16px;
+  height: 16px;
+}
+
 @scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
   :is(:scope.c4-container, :scope .c4-container) .djs-context-pad.open {
     border-color: var(--cd-ui-kontur);
     box-shadow: none;
+  }
+  :is(:scope.c4-container, :scope .c4-container) .djs-context-pad .group + .group {
+    border-top-color: var(--cd-ui-kontur);
+    border-left-color: var(--cd-ui-kontur);
   }
 }
 
 @media (forced-colors: active) {
   .c4-container .djs-context-pad.open {
     border-color: CanvasText;
+  }
+  .c4-container .djs-context-pad .group + .group {
+    border-top-color: CanvasText;
+    border-left-color: CanvasText;
   }
 }
 

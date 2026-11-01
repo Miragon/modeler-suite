@@ -106,10 +106,10 @@ written under, so the edit that writes it switches nothing.
 
 `NavigatedViewer` and `Modeler` show a breadcrumb at the top left of the canvas: the path from the
 system landscape down to the view shown ("System landscape › Bookshop context › Bookshop
-containers"), each view above a button that opens it. It is hidden at a landscape, where no view
-lies above. It is HTML after the canvas's `<svg>` (a `<nav>` named "Breadcrumb"), so the keyboard
-reaches it after the canvas and no export draws it, and it keeps clear of the islands of a
-`@miragon/modeler-shell` chrome around it.
+containers"), each view above a button that opens it, and a draft shown marked "Not in the file
+yet". It is hidden at a landscape, where no view lies above. It is HTML after the canvas's `<svg>`
+(a `<nav>` named "Breadcrumb"), so the keyboard reaches it after the canvas and no export draws
+it, and it keeps clear of the islands of a `@miragon/modeler-shell` chrome around it.
 
 `getViewState()` returns `{ view, x, y, width, height }`, and `setViewState()` restores the view
 as well as the viewbox. `rebaseText(text)` takes a text that differs from the current one only in

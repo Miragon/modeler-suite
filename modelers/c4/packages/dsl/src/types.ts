@@ -143,8 +143,11 @@ export type C4Edit =
       kind: CreatableKind;
       name?: string;
       tags?: readonly string[];
-      center: Point;
+      /** Without it the element gets no layout key: the view places it beside its first neighbour. */
+      center?: Point;
       size?: Size;
+      /** Also writes a relationship from this element to the new one, in the same edit. */
+      connectFrom?: ElementId;
     }
   | {
       type: "createRelationship";
@@ -165,7 +168,12 @@ export type C4Edit =
   | { type: "smartDelete"; ids: readonly ElementId[]; relationships: readonly string[] }
   | { type: "deleteFromModel"; ids: readonly ElementId[]; relationships: readonly string[] }
   | { type: "removeFromView"; ids: readonly ElementId[]; relationships: readonly string[] }
-  | { type: "includeInView"; ids: readonly ElementId[] }
+  | {
+      type: "includeInView";
+      ids: readonly ElementId[];
+      /** Where the added elements are drawn, written as their layout keys so they never move. */
+      boxes?: ReadonlyMap<ElementId, Box>;
+    }
   | { type: "createView"; viewType: StaticViewType; scopeId?: ElementId; title?: string }
   | {
       type: "updateView";

@@ -8,7 +8,14 @@ import type {
 import { selfSetTextColour } from "../text/elementTextLayout.js";
 import { chevronPath, polylinePath } from "./lines.js";
 import { markupElement, type Markup, type MarkupAttributes } from "./markup.js";
-import { drawnShape, PREVIEW_PROPORTIONS, rectanglePath, shapeParts } from "./shapes.js";
+import {
+  drawnShape,
+  ellipsePath,
+  PREVIEW_PROPORTIONS,
+  rectanglePath,
+  shapeParts,
+  type ShapeParts,
+} from "./shapes.js";
 import { paintOf, ROLE_LIGHT, type Paint } from "./styles.js";
 
 /** Guide §11: notation previews in palette and legend are 24 px (WYSIWYG). */
@@ -60,6 +67,35 @@ function previewDash(line: LineStyle, unit: number): string | undefined {
   return `${dash * unit} ${gap * unit}`;
 }
 
+function rounded(value: number): string {
+  return String(Math.round(value * 100) / 100);
+}
+
+/**
+ * A person at 24 px: the canvas's head overlaps the body, which reads as one blob at this size, so
+ * the miniature leaves a neck gap and rounds the body's top corners into shoulders.
+ */
+function personPreviewParts(width: number, height: number): ShapeParts {
+  const side = Math.min(width, height);
+  const headRadius = side * 0.185;
+  const bodyTop = side * 0.52;
+  const shoulder = side * 0.3;
+  const foot = side * 0.11;
+  const bottom = height;
+  const arc = (radius: number, x: number, y: number) =>
+    `A${rounded(radius)},${rounded(radius)} 0 0 1 ${rounded(x)},${rounded(y)}`;
+  const body =
+    `M0,${rounded(bodyTop + shoulder)}${arc(shoulder, shoulder, bodyTop)}` +
+    `H${rounded(width - shoulder)}${arc(shoulder, width, bodyTop + shoulder)}` +
+    `V${rounded(bottom - foot)}${arc(foot, width - foot, bottom)}` +
+    `H${rounded(foot)}${arc(foot, 0, bottom - foot)}Z`;
+  return {
+    bodies: [body, ellipsePath(width / 2, headRadius + side * 0.02, headRadius, headRadius)],
+    details: [],
+    marks: [],
+  };
+}
+
 /**
  * A 24 px miniature of a shape in its look (SPEC 5.1, 6.6): the canvas's outline and inner lines,
  * scaled from the shape's default proportions, without text. Without a look: the default look.
@@ -69,7 +105,10 @@ export function shapePreviewSvg(shape: ShapeName, look?: ElementLook): Markup {
   const { width, height } = PREVIEW_PROPORTIONS[drawn];
   const unit = Math.max(width, height) / PREVIEW_SIZE;
   const margin = PREVIEW_STROKE * unit;
-  const parts = shapeParts(drawn, { x: 0, y: 0, width, height });
+  const parts =
+    drawn === "Person"
+      ? personPreviewParts(width, height)
+      : shapeParts(drawn, { x: 0, y: 0, width, height });
   const fill = paintOf(look?.fill, "cd-c-fill-plot");
   const stroke = paintOf(look?.stroke, "cd-c-stroke-text");
   const detail = paintOf(look ? selfSetTextColour(look) : undefined, "cd-c-stroke-text");

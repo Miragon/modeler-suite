@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import type ElementFactory from "diagram-js/lib/core/ElementFactory";
 import type GraphicsFactory from "diagram-js/lib/core/GraphicsFactory";
 import type { Shape } from "diagram-js/lib/model/Types";
+import type { Box } from "@miragon/c4-schema-model";
 import { drawnShape } from "../../src/draw/shapes.js";
+import { saveSVG } from "../../src/io/saveSvg.js";
 import { drawSignature } from "../../src/draw/signature.js";
 import {
   bandAt,
@@ -11,7 +13,9 @@ import {
   relationshipLabelLayout,
   titleTextLayout,
 } from "../../src/text/elementTextLayout.js";
-import { TITLE_BLOCK } from "../../src/text/typography.js";
+import { textWidth } from "../../src/text/textMetrics.js";
+import { TITLE_BLOCK, labelReach } from "../../src/text/typography.js";
+import { wrapText } from "../../src/text/wrap.js";
 import type { TextBand } from "../../src/text/types.js";
 import type { SceneElement } from "../../src/scene/types.js";
 import {
@@ -33,6 +37,11 @@ function lines(visual: SVGGElement, band: string): SVGTextElement[] {
 
 function lineHeight(band: TextBand): number {
   return band.font.size * band.font.lineHeight;
+}
+
+function expectCentredOnSlot(box: Box, slot: Box): void {
+  expect(box.x + box.width / 2).toBeCloseTo(slot.x + slot.width / 2, 5);
+  expect(box.y + box.height / 2).toBeCloseTo(slot.y + slot.height / 2, 5);
 }
 
 function bandsOf(item: SceneElement) {
@@ -105,6 +114,33 @@ describe("the text stack of an element (SPEC 6.3)", () => {
     expect(name!.lines).toHaveLength(2);
     expect(name!.lines[1]).toMatch(/\S…$/);
     expect(name!.truncated).toBe(true);
+  });
+
+  it("wraps a long type line to two balanced lines instead of cutting it, and still shows the description", () => {
+    const controller = element("controller", {
+      kind: "component",
+      name: "Sign In Controller",
+      technology: "Spring MVC Rest Controller",
+      description: "Allows users to sign in to the Internet Banking System.",
+    });
+    const { type, description } = bandsOf(controller);
+    expect(type!.lines).toHaveLength(2);
+    expect(type!.truncated).toBe(false);
+    expect(type!.lines.join(" ")).toBe("[Component: Spring MVC Rest Controller]");
+    const [first, second] = type!.lines.map((line) => textWidth(line, type!.font));
+    expect(Math.abs(first! - second!)).toBeLessThan(type!.box.width / 2);
+    expect(description!.truncated).toBe(false);
+  });
+
+  it("cuts a type line short after two lines and keeps the whole of it for the tooltip", () => {
+    const typeLine =
+      "[Container: Java 21, Spring Boot 3, Hibernate, Flyway, Testcontainers, Micrometer, " +
+      "Resilience4j and a few more]";
+    const service = element("service", { kind: "container", typeLine });
+    const { type } = bandsOf(service);
+    expect(type!.lines).toHaveLength(2);
+    expect(type!.lines[1]).toMatch(/…$/);
+    expect(type!.fullText).toBe(typeLine);
   });
 
   it("fills what the box leaves with the description and ellipsises the last kept line", () => {
@@ -281,26 +317,72 @@ describe("a relationship's label (SPEC 6.3)", () => {
   const source = element("source", { at: { x: 0, y: 0 } });
   const destination = element("destination", { at: { x: 600, y: 0 } });
 
-  it("fits two description lines and the technology into its 160 × 48 box, on a ground inside it", () => {
+  it("wraps a description to three lines inside the 160 wide slot before it widens, and cuts nothing", () => {
     const item = relationship(source, destination, {
-      description: "Makes API calls to read and write the account data of every customer",
-      technology: "JSON/HTTPS with a very long technology name",
+      description: "Gets account information from, and makes payments using",
+      technology: "XML/HTTPS",
+    });
+    const layout = relationshipLabelLayout(item);
+    expect(layout.bands.map((band) => [band.band, band.truncated])).toEqual([
+      ["description", false],
+      ["technology", false],
+    ]);
+    expect(layout.bands[0]!.lines.join(" ")).toBe(
+      "Gets account information from, and makes payments using",
+    );
+    expect(layout.backing!.width).toBeLessThanOrEqual(item.labelBox.width);
+    expect(layout.backing!.height).toBeGreaterThan(item.labelBox.height);
+    expect(inside(labelReach(item.labelBox), layout.backing!, 0.01)).toBe(true);
+    expectCentredOnSlot(layout.backing!, item.labelBox);
+  });
+
+  it("widens up to 240 × 72 for a long text, cuts only what does not fit there, and draws inside its reach", () => {
+    const item = relationship(source, destination, {
+      description:
+        "Makes API calls to read and write the account data of every customer " +
+        "and of every account the customer holds at any branch of the bank",
+      technology: "JSON/HTTPS with a very long technology name that runs on and on and on",
     });
     const layout = relationshipLabelLayout(item);
     expect(layout.bands.map((band) => [band.band, band.lines.length])).toEqual([
-      ["description", 2],
+      ["description", 3],
       ["technology", 1],
     ]);
-    expect(layout.bands[0]!.lines[1]).toMatch(/…$/);
+    expect(layout.bands[0]!.lines[2]).toMatch(/…$/);
     expect(layout.bands[1]!.lines[0]).toMatch(/^\[JSON\/HTTPS.*…$/);
-    expect(inside(item.labelBox, layout.backing!, 0.01)).toBe(true);
+    expect(layout.backing!.width).toBeGreaterThan(item.labelBox.width);
+    const reach = labelReach(item.labelBox);
+    expect(reach).toMatchObject({ width: 240, height: 72 });
+    expect(inside(reach, layout.backing!, 0.01)).toBe(true);
     const drawing = mountDrawing(scene({ elements: [source, destination], relationships: [item] }));
     const visual = drawing.visual(`rel:${item.canvasKey}`);
     const ground = drawnBox(visual.querySelector<SVGRectElement>("rect.c4-label-ground")!);
     for (const line of visual.querySelectorAll<SVGTextElement>("text")) {
-      expect(inside(item.labelBox, drawnBox(line), 0.5), line.textContent!).toBe(true);
+      expect(inside(reach, drawnBox(line), 0.5), line.textContent!).toBe(true);
       expect(line.getComputedTextLength()).toBeLessThanOrEqual(ground.width);
     }
+  });
+
+  it("gives a technology two lines before it cuts it short", () => {
+    const item = relationship(source, destination, {
+      technology: "Kafka protocol over TLS 1.3 with mutual authentication and schema registry",
+    });
+    const [technology] = relationshipLabelLayout(item).bands;
+    expect(technology!.lines).toHaveLength(2);
+    expect(technology!.truncated).toBe(false);
+  });
+
+  it("balances the lines it wraps, instead of filling the first and leaving a word on the last", () => {
+    const text = "Views account balances, and makes payments using it";
+    const item = relationship(source, destination, { description: text });
+    const [description] = relationshipLabelLayout(item).bands;
+    const widths = description!.lines.map((line) => textWidth(line, description!.font));
+    const greedy = wrapText(text, description!.box.width, description!.font).map((line) =>
+      textWidth(line, description!.font),
+    );
+    expect(widths).toHaveLength(greedy.length);
+    const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
+    expect(spread(widths)).toBeLessThan(spread(greedy));
   });
 
   it("is one line for a technology alone, and nothing at all without either", () => {
@@ -312,6 +394,35 @@ describe("a relationship's label (SPEC 6.3)", () => {
     expect(relationshipLabelLayout(bare)).toMatchObject({ bands: [], backing: undefined });
     const drawing = mountDrawing(scene({ elements: [source, destination], relationships: [bare] }));
     expect(drawing.visual(`rel:${bare.canvasKey}`).querySelector("rect, text")).toBeNull();
+  });
+});
+
+describe("a band cut short names its whole text (P3.3)", () => {
+  it("titles a hit of its own with the whole text, and a band that shows everything gets none", () => {
+    const verbose = element("verbose", { name: "Mainframe", description: LONG_DESCRIPTION });
+    const other = element("other", { at: { x: 600, y: 0 } });
+    const cut = relationship(verbose, other, {
+      description: LONG_DESCRIPTION,
+      technology: "JSON over HTTPS",
+    });
+    const drawing = mountDrawing(scene({ elements: [verbose, other], relationships: [cut] }));
+    const titles = (canvasId: string) =>
+      [...drawing.registry.getGraphics(canvasId).querySelectorAll(".djs-hit.c4-cut-band")].map(
+        (hit) => hit.querySelector("title")?.textContent,
+      );
+    expect(titles("verbose")).toEqual([LONG_DESCRIPTION]);
+    expect(titles("other")).toEqual([]);
+    expect(titles(`rel:${cut.canvasKey}`)).toEqual([LONG_DESCRIPTION]);
+  });
+
+  it("leaves the tooltips out of the export", () => {
+    const verbose = element("verbose", { name: "Mainframe", description: LONG_DESCRIPTION });
+    const shown = scene({ elements: [verbose] });
+    const drawing = mountDrawing(shown);
+    expect(drawing.container.querySelector(".c4-cut-band title")).not.toBeNull();
+    const { svg } = saveSVG(drawing.canvas, { contentBounds: () => shown.contentBounds });
+    expect(svg).not.toContain("<title");
+    expect(svg).not.toContain("c4-cut-band");
   });
 });
 

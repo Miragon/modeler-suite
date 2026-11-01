@@ -89,9 +89,10 @@ describe("the path per view type (SPEC 4.5)", () => {
     open("Components-api");
     expect(modeler.views.active().state).toBe("draft");
     expect(crumbs()).toEqual([LANDSCAPE, "Shop context", "Shop containers", "[API components]"]);
-    // A container view of a system without a context view goes up to the landscape, as U does.
+    // A container view of a system without a context view keeps that level: its draft, as U goes.
     open("Containers-payments");
-    expect(crumbs()).toEqual([LANDSCAPE, "[Payments containers]"]);
+    expect(crumbs()).toEqual([LANDSCAPE, "Payments context", "[Payments containers]"]);
+    expect(crumbButton("Payments context").dataset.view).toBe("SystemContext-payments");
   });
 
   it("marks the view shown as the current page, not as a button", async () => {
@@ -198,9 +199,11 @@ describe("it follows the view and the document", () => {
 
     modeler.c4.deleteView("ShopContext");
     expect(modeler.views.active().key).toBe("ShopContainers");
-    expect(crumbs()).toEqual([LANDSCAPE, "[Shop containers]"]);
+    expect(crumbs()).toEqual([LANDSCAPE, "Shop context", "[Shop containers]"]);
+    expect(crumbButton("Shop context").dataset.view).toBe("SystemContext-shop");
     service<CommandStack>("commandStack").undo();
     expect(crumbs()).toEqual([LANDSCAPE, "Shop context", "[Shop containers]"]);
+    expect(crumbButton("Shop context").dataset.view).toBe("ShopContext");
   });
 
   it("follows an import, onto another workspace's view and back to a landscape", async () => {

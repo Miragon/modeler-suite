@@ -1,5 +1,5 @@
 import type { EditOutcome } from "@miragon/c4-dsl";
-import type { ViewKey } from "@miragon/c4-schema-model";
+import type { StaticViewType, ViewKey } from "@miragon/c4-schema-model";
 import { editAtField } from "../label-editing/fieldRefusal.js";
 import { elementById, eventBusOf, isLocked, workspaceOf } from "./access.js";
 import { confirmDestructive, focusCanvas, openModelerDialog } from "./dialog.js";
@@ -12,16 +12,10 @@ import {
   type TextField,
 } from "./dom.js";
 import type { DialogTarget, OpenedDialog } from "./types.js";
+import { VIEW_TYPE_LABELS } from "./ViewsDialog.js";
 
 export const VIEW_SETTINGS_TITLE = "View settings";
 export const WORKSPACE_SETTINGS_TITLE = "Workspace settings";
-
-const TYPE_LABELS: Readonly<Record<string, string>> = {
-  systemLandscape: "System Landscape",
-  systemContext: "System Context",
-  container: "Container",
-  component: "Component",
-};
 
 const GENERIC_REFUSAL = "Couldn't write this change into the DSL. Edit the text instead.";
 
@@ -75,6 +69,13 @@ function commit(
   dialog.close();
 }
 
+/** The view's key as the DSL writes it, in the code face the views dialog shows keys in. */
+function keyRow(owner: Document, key: string): HTMLElement {
+  const row = valueRow(owner, "Key", "");
+  row.querySelector(".c4-field-value")?.append(node(owner, "code", "c4-dialog-code", key));
+  return row;
+}
+
 /** `""` clears a value: the statement or positional token goes (SPEC 3.4 `updateView`). */
 function cleared(value: string): string | null {
   const trimmed = value.trim();
@@ -106,6 +107,7 @@ export function showViewSettingsDialog(
         placeholder: entry.title,
         name: "title",
       });
+      title.control.autofocus = true;
       const description = textField(owner, {
         label: "Description",
         value: definition?.description ?? "",
@@ -130,9 +132,9 @@ export function showViewSettingsDialog(
       parts.fields.append(
         title.root,
         description.root,
-        valueRow(owner, "Type", TYPE_LABELS[entry.type] ?? entry.type),
+        valueRow(owner, "Type", VIEW_TYPE_LABELS[entry.type as StaticViewType] ?? entry.type),
         ...(scope ? [valueRow(owner, "Scope", scope.name)] : []),
-        valueRow(owner, "Key", entry.key),
+        keyRow(owner, entry.key),
       );
       if (entry.state !== "written") {
         parts.fields.append(
@@ -173,6 +175,7 @@ export function showWorkspaceSettingsDialog(target: DialogTarget): OpenedDialog 
       const owner = body.ownerDocument;
       const workspace = workspaceOf(modeler);
       const name = textField(owner, { label: "Name", value: workspace.name, name: "name" });
+      name.control.autofocus = true;
       const description = textField(owner, {
         label: "Description",
         value: workspace.description,

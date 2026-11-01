@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type Selection from "diagram-js/lib/features/selection/Selection";
 import type C4Dialogs from "../../src/navigation/C4Dialogs.js";
 import { confirmDeleteFromModel } from "../../src/navigation/deleteFromModel.js";
 import type ReadOnly from "../../src/read-only/ReadOnly.js";
@@ -10,8 +11,9 @@ import {
   VIEW_CHANGED_EVENT,
   type ViewChangedEvent,
 } from "../../src/services.js";
-import { BOOKSHOP } from "./support/interaction/fixtures.js";
+import { BOOKSHOP, SINGLE } from "./support/interaction/fixtures.js";
 import {
+  canvasSvg,
   destroyMounted,
   elementNamed,
   mountModeler,
@@ -79,12 +81,11 @@ describe('"Views…" (SPEC 7.1)', () => {
     const dialog = openDialog(page);
     const headings = [...dialog.querySelectorAll("h3")].map((heading) => heading.textContent);
     expect(headings).toEqual([
-      "System Landscape",
-      "System Context",
+      "System landscape",
+      "System context",
       "Container",
       "Component",
       "Other views",
-      "New view",
     ]);
     const current = dialog.querySelector('[aria-current="true"]');
     expect(current?.getAttribute("data-view")).toBe("Landscape");
@@ -102,6 +103,47 @@ describe('"Views…" (SPEC 7.1)', () => {
     expect(rows.find((row) => row.dataset.view === "Containers")?.textContent).not.toContain(
       "Not in the file yet",
     );
+  });
+
+  it("lines every table up on one set of columns and keeps a key on one line", async () => {
+    const page = await mountModeler();
+    dialogs(page).showViews();
+    const dialog = openDialog(page);
+    const tables = [...dialog.querySelectorAll<HTMLTableElement>("table")];
+    expect(tables).toHaveLength(5);
+    const keyColumns = tables.map((table) => {
+      const header = [...table.querySelectorAll("th")].find((cell) => cell.textContent === "Key");
+      return Math.round(header?.getBoundingClientRect().left ?? -1);
+    });
+    expect(new Set(keyColumns).size, `Key starts at ${keyColumns.join(", ")}`).toBe(1);
+    const titleColumns = tables.map((table) =>
+      Math.round(table.querySelector("th")?.getBoundingClientRect().left ?? -1),
+    );
+    expect(new Set(titleColumns).size).toBe(1);
+    for (const key of dialog.querySelectorAll<HTMLElement>("code.c4-dialog-code")) {
+      const style = getComputedStyle(key);
+      expect(style.whiteSpace).toBe("nowrap");
+      expect(style.textOverflow).toBe("ellipsis");
+      expect(key.title).toBe(key.textContent);
+      expect(key.getBoundingClientRect().height).toBeLessThan(2 * parseFloat(style.lineHeight));
+    }
+  });
+
+  it("lines a row's scope and key up with its title", async () => {
+    const page = await mountModeler();
+    dialogs(page).showViews();
+    const row = openDialog(page).querySelector('button[data-view="Containers"]')?.closest("tr");
+    const [title, scope, key] = [...(row?.cells ?? [])].map(
+      (cell) => cell.querySelector("button, code") ?? cell,
+    );
+    const textTop = (element: Element | undefined) => {
+      if (!element) return -1;
+      const range = document.createRange();
+      range.selectNodeContents(element.firstChild ?? element);
+      return Math.round(range.getBoundingClientRect().top);
+    };
+    expect(textTop(scope)).toBe(textTop(title));
+    expect(Math.abs(textTop(key) - textTop(title))).toBeLessThanOrEqual(1);
   });
 
   it("names the views only Structurizr shows, without opening them", async () => {
@@ -139,13 +181,25 @@ describe('"Views…" (SPEC 7.1)', () => {
     ).toBe("Payments");
   });
 
-  it('"New view…" creates a view of a type and scope, shows it and undoes in one step', async () => {
+  it('"New view…" opens its own dialog, which creates a view, shows it and undoes in one step', async () => {
     const page = await mountModeler();
     const changes = viewChanges(page);
     dialogs(page).showViews();
-    buttonNamed(openDialog(page), "New view…").click();
+    const views = page.dialogs.current();
+    const start = buttonNamed(openDialog(page), "New view…");
+    expect(start.closest(".c4-dialog-footer"), "an action of the dialog's footer").not.toBeNull();
+    start.click();
+    expect(views?.dialog.isOpen()).toBe(false);
+    expect(page.dialogs.current()?.options.title).toBe("New view");
     const dialog = openDialog(page);
     expect(document.activeElement).toBe(field(dialog, "type"));
+    const type = field(dialog, "type") as unknown as HTMLSelectElement;
+    expect([...type.options].map((option) => option.textContent)).toEqual([
+      "System landscape",
+      "System context",
+      "Container",
+      "Component",
+    ]);
     const scope = field(dialog, "scope") as unknown as HTMLSelectElement;
     expect([...scope.options].map((option) => option.textContent)).toEqual([
       "Bookshop",
@@ -213,6 +267,15 @@ describe('"Views…" (SPEC 7.1)', () => {
 });
 
 describe('"View settings…" (SPEC 7.1, 4.6)', () => {
+  it("starts on the first field, names the type in sentence case and the key as code", async () => {
+    const page = await mountModeler();
+    dialogs(page).showViewSettings();
+    const dialog = openDialog(page);
+    expect(document.activeElement).toBe(field(dialog, "title"));
+    expect(dialog.textContent).toContain("System landscape");
+    expect(dialog.querySelector("code.c4-dialog-code")?.textContent).toBe("Landscape");
+  });
+
   it("writes the title and the description as one command, and clears them again", async () => {
     const page = await mountModeler();
     dialogs(page).showViewSettings();
@@ -249,8 +312,10 @@ describe('"View settings…" (SPEC 7.1, 4.6)', () => {
     buttonNamed(confirm, "Delete view").click();
     await wait();
     expect(workspaceOf(page.modeler).views.some(({ key }) => key === "Containers")).toBe(false);
-    expect(page.modeler.views.active().key).toBe("Landscape");
-    expect(changes).toEqual([{ view: "Landscape", previous: "Containers", cause: "removed" }]);
+    expect(page.modeler.views.active().key).toBe("SystemContext-bookshop");
+    expect(changes).toEqual([
+      { view: "SystemContext-bookshop", previous: "Containers", cause: "removed" },
+    ]);
   });
 
   it("offers no delete for a view that is not in the file, and saving writes it", async () => {
@@ -336,6 +401,12 @@ describe('"Add existing element…" (SPEC 7.1)', () => {
 });
 
 describe('"Workspace settings…" (SPEC 7.1)', () => {
+  it("starts on the first field", async () => {
+    const page = await mountModeler();
+    dialogs(page).showWorkspaceSettings();
+    expect(document.activeElement).toBe(field(openDialog(page), "name"));
+  });
+
   it("writes the name and the description", async () => {
     const page = await mountModeler();
     dialogs(page).showWorkspaceSettings();
@@ -357,6 +428,81 @@ describe('"Workspace settings…" (SPEC 7.1)', () => {
     expect(buttonNamed(dialog, "Save").disabled).toBe(true);
     buttonNamed(dialog, "Cancel").click();
     expect(page.dialogs.current()).toBeUndefined();
+  });
+});
+
+describe('"Add relationship…"', () => {
+  it("writes one relationship to an element of the view, selects it and gives the canvas the focus", async () => {
+    const page = await mountModeler();
+    dialogs(page).showAddRelationship("customer");
+    const dialog = openDialog(page);
+    expect(page.dialogs.current()?.options.title).toBe("Add relationship");
+    expect(dialog.textContent).toContain("Customer");
+    const destination = field(dialog, "destination") as unknown as HTMLSelectElement;
+    expect(document.activeElement).toBe(destination);
+    expect([...destination.options].map((option) => option.textContent)).toEqual([
+      "Bookshop",
+      "Payment Provider",
+    ]);
+    destination.value = "payments";
+    destination.dispatchEvent(new Event("change"));
+    typeInto(field(dialog, "description"), "Pays with");
+    typeInto(field(dialog, "technology"), "Card");
+    buttonNamed(dialog, "Add relationship").click();
+
+    expect(page.dialogs.current()).toBeUndefined();
+    const created = workspaceOf(page.modeler).relationships.find(
+      ({ sourceId, destinationId }) => sourceId === "customer" && destinationId === "payments",
+    );
+    expect(created).toMatchObject({ description: "Pays with", technology: "Card" });
+    const selected = service<Selection>(page.modeler, "selection").get();
+    expect(selected.map((element) => element.id)).toEqual([`rel:${created?.canvasKey}`]);
+    expect(document.activeElement).toBe(canvasSvg(page.modeler));
+    service<CommandStack>(page.modeler, "commandStack").undo();
+    expect(page.modeler.exportText()).toBe(BOOKSHOP);
+  });
+
+  it("shows a refused relationship at its field, not as the app's toast", async () => {
+    const page = await mountModeler();
+    const atTheApp = refusalsAtTheApp(page);
+    dialogs(page).showAddRelationship("bookshop");
+    const dialog = openDialog(page);
+    const destination = field(dialog, "destination") as unknown as HTMLSelectElement;
+    destination.value = "payments";
+    destination.dispatchEvent(new Event("change"));
+    const description = field(dialog, "description");
+    typeInto(description, "Charges cards");
+    buttonNamed(dialog, "Add relationship").click();
+    expect(page.dialogs.current()).toBeDefined();
+    expect(description.getAttribute("aria-invalid")).toBe("true");
+    const message = document.getElementById(description.getAttribute("aria-describedby") ?? "");
+    expect(message?.textContent).toContain("already connected");
+    expect(atTheApp).toEqual([]);
+    expect(page.modeler.exportText()).toBe(BOOKSHOP);
+  });
+
+  it("says so when no other element of the view can take one", async () => {
+    const page = await mountModeler(SINGLE);
+    dialogs(page).showAddRelationship("customer");
+    const dialog = openDialog(page);
+    const destination = field(dialog, "destination");
+    expect((destination as unknown as HTMLSelectElement).disabled).toBe(true);
+    expect(getComputedStyle(destination).cursor).toBe("not-allowed");
+    expect(dialog.textContent).toContain("No other element in this view to connect to.");
+    expect(buttonNamed(dialog, "Add relationship").disabled).toBe(true);
+  });
+
+  it("draws its destination like the fields beside it, as a choice that takes input", async () => {
+    const page = await mountModeler();
+    dialogs(page).showAddRelationship("customer");
+    const dialog = openDialog(page);
+    const destination = getComputedStyle(field(dialog, "destination"));
+    const description = getComputedStyle(field(dialog, "description"));
+    expect(destination.color, "a select matches :read-only, yet takes input").toBe(
+      description.color,
+    );
+    expect(destination.borderColor).toBe(description.borderColor);
+    expect(destination.cursor).toBe("pointer");
   });
 });
 

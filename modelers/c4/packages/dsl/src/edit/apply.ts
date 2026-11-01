@@ -32,6 +32,7 @@ import {
   updateWorkspace,
 } from "./viewOperations.js";
 import { verify } from "./verify.js";
+import { includeElement } from "./views.js";
 
 const MAXIMUM_ROUNDS = 16;
 
@@ -116,6 +117,7 @@ function perform(draft: Draft, edit: C4Edit): void {
   switch (edit.type) {
     case "createElement":
       createElement(draft, edit);
+      if (edit.connectFrom !== undefined) connectCreated(draft, edit.connectFrom);
       return;
     case "createRelationship":
       createRelationship(draft, edit);
@@ -168,6 +170,17 @@ function perform(draft: Draft, edit: C4Edit): void {
       insertExample(draft, edit.exampleText);
       return;
   }
+}
+
+/**
+ * The relationship of an append: from `sourceId` to the element the same edit just created, which
+ * the view then includes unless the relationship already took it in.
+ */
+function connectCreated(draft: Draft, sourceId: ElementId): void {
+  const created = draft.created.elements.at(-1);
+  if (created === undefined) return;
+  createRelationship(draft, { type: "createRelationship", sourceId, destinationId: created });
+  includeElement(draft, draft.context.view, created);
 }
 
 function updateElementWithIntent(

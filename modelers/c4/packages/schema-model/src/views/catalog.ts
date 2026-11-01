@@ -89,11 +89,8 @@ function buildCatalog(workspace: Workspace): ViewCatalog {
           return system && entryFor("container", system);
         }
         case "container":
-          return (
-            firstWritten("systemContext", scope?.id) ??
-            firstWritten("systemLandscape") ??
-            unwrittenFor("systemContext", scope)
-          );
+          if (scope?.kind === "softwareSystem") return entryFor("systemContext", scope);
+          return firstWritten("systemLandscape") ?? unwrittenFor("systemLandscape");
         case "systemContext":
           return firstWritten("systemLandscape") ?? unwrittenFor("systemLandscape");
         default:

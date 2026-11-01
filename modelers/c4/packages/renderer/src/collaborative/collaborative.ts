@@ -263,6 +263,8 @@ function modelingMethods(
   const modeling = () => (isDestroyed() ? undefined : diagram.get<C4ModelingMethods>("modeling"));
   return {
     editElement: (id, fields) => modeling()?.editElement(id, fields),
+    createRelationship: (sourceId, destinationId, fields) =>
+      modeling()?.createRelationship(sourceId, destinationId, fields),
     editRelationship: (key, fields) => modeling()?.editRelationship(key, fields),
     renameIdentifier: (id, identifier) => modeling()?.renameIdentifier(id, identifier),
     removeFromView: (ids, relationships) => modeling()?.removeFromView(ids, relationships),
@@ -281,6 +283,7 @@ function modelingMethods(
 /** The viewer edits nothing. */
 const REFUSING_METHODS: C4ModelingMethods = {
   editElement: () => undefined,
+  createRelationship: () => undefined,
   editRelationship: () => undefined,
   renameIdentifier: () => undefined,
   removeFromView: () => undefined,

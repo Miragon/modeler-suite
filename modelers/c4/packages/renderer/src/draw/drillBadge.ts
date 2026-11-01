@@ -18,20 +18,19 @@ export interface DrillBadgeLayout {
   readonly icon: Box;
   /** The child count, drawn after the icon when there is at least one child. */
   readonly count: { readonly text: string; readonly x: number; readonly y: number } | undefined;
-  /** "Open container view (5 containers)". */
+  /** "Open Bookshop containers (Enter)": the view it opens, as the breadcrumb names it. */
   readonly title: string;
 }
 
-function titleOf(element: SceneElement, childCount: number): string {
-  const child =
+function titleOf(element: SceneElement): string {
+  const level =
     element.kind === "softwareSystem"
-      ? "container"
+      ? "containers"
       : element.kind === "container"
-        ? "component"
+        ? "components"
         : undefined;
-  if (child === undefined) return "Open view";
-  const count = childCount > 0 ? ` (${childCount} ${child}${childCount === 1 ? "" : "s"})` : "";
-  return `Open ${child} view${count}`;
+  const name = element.name.trim() || element.id;
+  return level === undefined ? "Open view (Enter)" : `Open ${name} ${level} (Enter)`;
 }
 
 /** The badge inside the element's outline (SPEC 6.5), or undefined without a child view. */
@@ -59,6 +58,6 @@ export function drillBadgeLayout(element: SceneElement): DrillBadgeLayout | unde
       countText === undefined
         ? undefined
         : { text: countText, x: icon.x + ICON_SIZE + COUNT_GAP, y: box.y + BADGE_SIZE / 2 },
-    title: titleOf(element, childCount),
+    title: titleOf(element),
   };
 }

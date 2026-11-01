@@ -30,10 +30,18 @@ export interface ViewGeometry {
   /** The elements with a stored box. */
   readonly placed: ReadonlySet<ElementId>;
   readonly vertices: ReadonlyMap<string, readonly Point[]>;
+  /**
+   * What each relationship is drawn through: its vertices, or, for one of several lines of a pair
+   * without vertices, one bend that fans it out from the others. Never stored.
+   */
+  readonly routes: ReadonlyMap<string, readonly Point[]>;
   readonly boundaries: ReadonlyMap<ElementId, Box>;
   /** By `groupKey(scopeId, path)`, as two scopes may hold a group of one name. */
   readonly groups: ReadonlyMap<string, Box>;
-  /** Fixed 160 × 48 at the label anchor, never measured. */
+  /**
+   * Fixed 160 × 48, never measured: on the route, halfway or as near to it as the box clears the
+   * labels before it and the elements that are not its ends.
+   */
   readonly labelBoxes: ReadonlyMap<string, Box>;
   /** The top-left corner of the title block. */
   readonly title: Point;

@@ -61,10 +61,37 @@ describe("breadcrumbPath: the views from the landscape down (SPEC 4.5)", () => {
     ]);
   });
 
-  it("a container view of a system without a context view goes up to the landscape, as U does", () => {
+  it("keeps the context level of a system without a context view: its draft, as U goes", () => {
     expect(pathTo(ALL_LEVELS, "Containers-mail")).toEqual([
       "System landscape [Landscape]",
+      "Mail context [SystemContext-mail]",
       "Mail containers (current) [Containers-mail]",
+    ]);
+  });
+
+  it("keeps the context level below a written container view too", () => {
+    const text = workspaceWith(
+      [
+        '        systemLandscape "Landscape" {\n            include *\n        }',
+        '        container shop "ShopContainers" {\n            include *\n        }',
+      ].join("\n"),
+    );
+    expect(pathTo(text, "ShopContainers")).toEqual([
+      "System landscape [Landscape]",
+      "Shop context [SystemContext-shop]",
+      "Shop containers (current) [ShopContainers]",
+    ]);
+  });
+
+  it("marks each view that is not in the file yet", () => {
+    const { workspace } = parseWorkspace(ALL_LEVELS);
+    const catalog = viewCatalog(workspace);
+    const crumbs = breadcrumbPath(catalog, catalog.resolve("Components-api")!, workspace);
+    expect(crumbs.map(({ key, draft }) => [key, draft])).toEqual([
+      ["Landscape", false],
+      ["ShopContext", false],
+      ["ShopContainers", false],
+      ["Components-api", true],
     ]);
   });
 

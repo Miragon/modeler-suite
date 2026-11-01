@@ -22,12 +22,16 @@ export function shortcutsDialogHooks(shellPage: ShellPage): ShortcutsDialogHooks
         if (!shell) throw new Error("the page has no shell handle");
         return { platform: shell.platform, lang: shell.lang };
       }, shellPage);
-      // Only the web app binds the key; in VS Code the webview passes it on to the workbench,
-      // which also owns undo and redo there.
+      // Only the web app binds the key and the file keys; in VS Code the webview passes them on
+      // to the workbench, which also owns undo and redo there.
       const webapp = shellPage === "webapp";
       const groups = diagramShortcuts(
         { ...chrome, messages: defaultMessages },
-        { shortcutsKey: webapp ? SHORTCUTS_KEY : undefined, host: webapp ? "web" : "ide" },
+        {
+          shortcutsKey: webapp ? SHORTCUTS_KEY : undefined,
+          host: webapp ? "web" : "ide",
+          fileKeys: webapp,
+        },
       );
       await page.evaluate(
         ({ where, groups }) => {

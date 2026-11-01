@@ -12,6 +12,7 @@ import type Selection from "diagram-js/lib/features/selection/Selection";
 import { C4_COLOUR_STYLES } from "@miragon/c4-schema-model";
 import { createCollaborativeModeler } from "../../src/collaborative/index.js";
 import { DRILL_CLASS } from "../../src/draw/drillBadge.js";
+import { FEEDBACK_CLASS } from "../../src/draw/drawItems.js";
 import { ROLE_LIGHT } from "../../src/draw/styles.js";
 import { BOOKSHOP, LIBRARY } from "./fixtures/texts.js";
 import { fontsReady, harnessHost, removeHarnessHosts } from "./support/harness.js";
@@ -81,7 +82,7 @@ interface DrawnNode {
  * badge is no part of the picture: the live canvas draws it, the export drops it.
  */
 function drawnNodes(svg: ParentNode): DrawnNode[] {
-  const pictured = (node: Element) => node.closest(`.${DRILL_CLASS}`) === null;
+  const pictured = (node: Element) => node.closest(`.${DRILL_CLASS}, .${FEEDBACK_CLASS}`) === null;
   const visuals = [...svg.querySelectorAll("[data-element-id]")].flatMap((gfx) => {
     const part = gfx.getAttribute("data-element-id") ?? "";
     return [...gfx.querySelectorAll(`:scope > .djs-visual :is(${PAINTED})`)]
@@ -137,10 +138,11 @@ describe("the SVG export of the shipped modeler", () => {
     ["BOOKSHOP", BOOKSHOP, ["customer", "bookshop", "payments", "rel:customer->bookshop"]],
     ["LIBRARY", LIBRARY, ["reader", "catalogue", "loans", "boundary:library"]],
   ] as const) {
-    it(`of ${fixture} drops the drill badges and every role class`, async () => {
+    it(`of ${fixture} drops the drill badges, the feedback rings and every role class`, async () => {
       const { svg, liveDrills } = await exported(text);
       expect(liveDrills, "the live canvas draws drill badges").toBeGreaterThan(0);
       expect(svg.querySelectorAll(`.${DRILL_CLASS}`)).toHaveLength(0);
+      expect(svg.querySelectorAll(`.${FEEDBACK_CLASS}`)).toHaveLength(0);
       expect(roleClasses(svg)).toEqual([]);
       expect(svg.querySelectorAll('[class=""]')).toHaveLength(0);
     });

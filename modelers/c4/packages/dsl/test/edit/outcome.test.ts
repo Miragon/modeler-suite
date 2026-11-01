@@ -10,6 +10,7 @@ import {
   type ViewKey,
 } from "@miragon/c4-schema-model";
 import { describe, expect, it } from "vitest";
+import { applyTextEdits } from "../../src/edit/apply.js";
 import { NEW_VIEW_AUTO_LAYOUT, newWorkspaceText } from "../../src/edit/skeleton.js";
 import type { ParseResult } from "../../src/types.js";
 import { box, dsl, edit, edited, parseWorkspace } from "./support/edit.js";
@@ -194,6 +195,144 @@ describe("the fresh set", () => {
       ),
     );
     expect(created.text).toMatch(/softwareSystem_[0-9a-z]{4} = softwareSystem "Software System 2"/);
+  });
+
+  it("settles a readable identifier when the default name of a fresh element is confirmed as it is", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "updateElement", id: "softwareSystem_ab12", fields: { name: "Software System" } },
+        { view: "Landscape", fresh: ["softwareSystem_ab12"] },
+      ),
+    );
+    expect(outcome.idChanges[0]).toEqual({
+      kind: "element",
+      from: "softwareSystem_ab12",
+      to: "softwareSystem2",
+    });
+    expect(outcome.text).toContain('softwareSystem2 = softwareSystem "Software System"');
+    expect(outcome.text).toContain('"c4modeler.element.softwareSystem2" "400,0"');
+    expect(outcome.fresh.size).toBe(0);
+  });
+
+  it("changes nothing when the unchanged name of an element that is not fresh is committed", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "updateElement", id: "softwareSystem_ab12", fields: { name: "Software System" } },
+        { view: "Landscape" },
+      ),
+    );
+    expect(outcome.text).toBe(LANDSCAPE);
+    expect(outcome.idChanges).toEqual([]);
+  });
+});
+
+describe("an append: a created element and its relationship in one edit", () => {
+  const PINNED = dsl`
+    workspace {
+        model {
+            customer = person "Customer"
+            shop = softwareSystem "Shop"
+            customer -> shop "Uses"
+        }
+        views {
+            systemLandscape "Landscape" {
+                include *
+                properties {
+                    "c4modeler.element.customer" "0,0"
+                    "c4modeler.element.shop" "400,0"
+                }
+            }
+        }
+    }
+  `;
+  const BOXES = { customer: box(0, 0, 216, 216), shop: box(400, 0) };
+
+  it("creates the element, fresh, and the relationship from the source to it", () => {
+    const outcome = ok(
+      edit(
+        PINNED,
+        {
+          type: "createElement",
+          kind: "softwareSystem",
+          center: { x: 952, y: 80 },
+          connectFrom: "shop",
+        },
+        { view: "Landscape", boxes: BOXES },
+      ),
+    );
+    const id = outcome.created.elements[0] as ElementId;
+    expect(id).toMatch(/^softwareSystem_[0-9a-z]{4}$/);
+    expect(outcome.created.relationships).toEqual([`shop->${id}`]);
+    expect([...outcome.fresh]).toEqual([id]);
+    const relationship = outcome.document.workspace.relationships.find(
+      (candidate) => candidate.canvasKey === `shop->${id}`,
+    );
+    expect(relationship).toMatchObject({ sourceId: "shop", destinationId: id, implied: false });
+    expect(outcome.text).toContain(`"c4modeler.element.${id}" "832,0"`);
+  });
+
+  it("follows the first name into the relationship's key", () => {
+    const appended = ok(
+      edit(
+        PINNED,
+        { type: "createElement", kind: "person", center: { x: 952, y: 108 }, connectFrom: "shop" },
+        { view: "Landscape", boxes: BOXES },
+      ),
+    );
+    const id = appended.created.elements[0] as ElementId;
+    const named = ok(
+      edit(
+        appended.text,
+        { type: "updateElement", id, fields: { name: "Clerk" } },
+        { view: "Landscape", fresh: [id] },
+      ),
+    );
+    expect(named.idChanges).toContainEqual({
+      kind: "relationship",
+      from: `shop->${id}`,
+      to: "shop->clerk",
+    });
+    expect(named.text).toContain("shop -> clerk");
+  });
+
+  it("leaves the element unplaced without a centre, so the view puts it beside its source", () => {
+    const outcome = ok(
+      edit(
+        PINNED,
+        { type: "createElement", kind: "softwareSystem", connectFrom: "customer" },
+        { view: "Landscape", boxes: BOXES },
+      ),
+    );
+    const id = outcome.created.elements[0] as ElementId;
+    expect(outcome.text).not.toContain(`c4modeler.element.${id}`);
+    const placed = boxesOf(outcome.document, "Landscape").get(id);
+    expect(placed).toBeDefined();
+    const customer = BOXES.customer;
+    const beside = (placed?.y ?? 0) >= customer.y + customer.height;
+    const right = (placed?.x ?? 0) >= customer.x + customer.width;
+    expect(beside || right, `placed at ${JSON.stringify(placed)}`).toBe(true);
+    for (const other of [BOXES.customer, BOXES.shop]) {
+      const overlapping =
+        placed !== undefined &&
+        placed.x < other.x + other.width &&
+        other.x < placed.x + placed.width &&
+        placed.y < other.y + other.height &&
+        other.y < placed.y + placed.height;
+      expect(overlapping).toBe(false);
+    }
+  });
+
+  it("is undone by its inverse as a whole", () => {
+    const outcome = ok(
+      edit(
+        PINNED,
+        { type: "createElement", kind: "softwareSystem", connectFrom: "shop" },
+        { view: "Landscape", boxes: BOXES },
+      ),
+    );
+    expect(applyTextEdits(outcome.text, outcome.inverse)).toBe(PINNED);
   });
 });
 

@@ -10,6 +10,7 @@ import {
   elementLayoutKey,
   encodeVertices,
   relationshipLayoutKey,
+  type Box,
   type ElementId,
   type ElementKind,
   type StaticViewType,
@@ -131,9 +132,19 @@ export function includeInView(
   prepareView(draft, key);
   pin(draft, key);
   for (const id of edit.ids) includeElement(draft, key, id);
+  const shown = new Set(draft.members(key)?.elements ?? []);
+  const placed = edit.ids.filter((id) => shown.has(id) && edit.boxes?.get(id) !== undefined);
+  ensureIdentifiers(draft, placed);
+  const changes = new Map<string, string | null>(
+    placed.map((id) => [elementLayoutKey(id), encodeBox(draft, id, edit.boxes?.get(id) as Box)]),
+  );
+  setViewProperties(draft, key, changes);
   draft.intent.checks.push((after) => {
     const entry = after.workspace.views.find((view) => view.key === key);
     if (entry === undefined) return `the view ${key} is missing`;
+    for (const [name, value] of changes) {
+      if (entry.properties[name] !== value) return `the layout key ${name} doesn't read back`;
+    }
     return undefined;
   });
 }

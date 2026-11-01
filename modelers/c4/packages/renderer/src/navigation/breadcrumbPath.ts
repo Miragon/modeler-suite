@@ -16,6 +16,8 @@ export interface Crumb {
   readonly level: string | undefined;
   /** The view on the canvas, the last crumb. */
   readonly current: boolean;
+  /** Not in the file yet: navigating never writes, the first edit there does. */
+  readonly draft: boolean;
 }
 
 /** The name of the landscape's crumb (guide §2: sentence case). */
@@ -33,8 +35,8 @@ const MAX_DEPTH = 8;
 /**
  * The views from the root of the hierarchy down to `active`, by the parent rules of SPEC 4.5
  * (`ViewCatalog.parentOf`): landscape, the system context of S, the containers of S, the
- * components of C. A container view whose system has no context view goes up to the landscape
- * directly, as U does. Drafts are steps like written views.
+ * components of C. Drafts are steps like written views, so no level drops out of the path or out
+ * of U where the file has no view for it yet.
  */
 export function breadcrumbPath(
   catalog: ViewCatalog,
@@ -56,6 +58,7 @@ export function breadcrumbPath(
     key: entry.key,
     ...labelOf(entry, (id) => names.get(id)),
     current: entry === active,
+    draft: entry.state !== "written",
   }));
 }
 

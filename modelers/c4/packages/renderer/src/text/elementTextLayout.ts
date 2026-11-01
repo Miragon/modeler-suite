@@ -19,12 +19,21 @@ import {
   GROUP_CAPTION,
   GROUP_FONT,
   NAME_MAX_LINES,
+  LABEL_REACH,
   RELATIONSHIP_FONTS,
   RELATIONSHIP_LABEL,
   TITLE_BLOCK,
   TITLE_FONTS,
+  TYPE_LINE_MAX_LINES,
 } from "./typography.js";
-import { fitLines, singleLine, withoutLineBreaks, type FittedLines } from "./wrap.js";
+import {
+  balanced,
+  fitLines,
+  singleLine,
+  withoutLineBreaks,
+  wrapText,
+  type FittedLines,
+} from "./wrap.js";
 
 /** The text colour on a fill the author set, else undefined: the roles draw it (SPEC 6.4). */
 export function selfSetTextColour(style: {
@@ -40,6 +49,8 @@ interface PendingBand {
   readonly field: FieldName | undefined;
   readonly font: TextFont;
   readonly fitted: FittedLines;
+  /** What the band shows when nothing is cut: its tooltip once something is. */
+  readonly text: string;
   readonly role: TextRole;
   /** Lines the band takes even when it has none: an empty name keeps its place for the editor. */
   readonly minimumLines: number;
@@ -77,6 +88,7 @@ function placeBands(
       font: band.font,
       lines: band.fitted.lines,
       truncated: band.fitted.truncated,
+      fullText: band.fitted.truncated ? tooltipText(band.text) : undefined,
       align,
       role: band.role,
       colour,
@@ -134,6 +146,7 @@ function layoutElement(element: SceneElement): TextBands {
       field: "name",
       font: ELEMENT_FONTS.name,
       fitted: fitLines(withoutLineBreaks(element.name), area.width, ELEMENT_FONTS.name, nameLines),
+      text: element.name,
       role: "cd-c-fill-text",
       minimumLines: 1,
       gapBefore: 0,
@@ -141,16 +154,21 @@ function layoutElement(element: SceneElement): TextBands {
   ];
 
   const typeLine = lineHeightOf(ELEMENT_FONTS.type);
-  if (
-    style.metadata &&
-    element.typeLine.trim() !== "" &&
-    stackHeight(pending) + ELEMENT_GAPS.beforeType + typeLine <= area.height
-  ) {
+  const typeRoom = area.height - stackHeight(pending) - ELEMENT_GAPS.beforeType;
+  if (style.metadata && element.typeLine.trim() !== "" && typeLine <= typeRoom) {
+    const flat = withoutLineBreaks(element.typeLine);
+    const lines = Math.min(TYPE_LINE_MAX_LINES, Math.floor(typeRoom / typeLine));
     pending.push({
       band: "type",
       field: typeField(element),
       font: ELEMENT_FONTS.type,
-      fitted: singleLine(element.typeLine, area.width, ELEMENT_FONTS.type),
+      fitted: balanced(
+        fitLines(flat, area.width, ELEMENT_FONTS.type, lines),
+        flat,
+        area.width,
+        ELEMENT_FONTS.type,
+      ),
+      text: element.typeLine,
       role: "cd-c-fill-text-leise",
       minimumLines: 1,
       gapBefore: ELEMENT_GAPS.beforeType,
@@ -166,6 +184,7 @@ function layoutElement(element: SceneElement): TextBands {
         field: "description",
         font: ELEMENT_FONTS.description,
         fitted: fitLines(element.description, area.width, ELEMENT_FONTS.description, lines),
+        text: element.description,
         role: "cd-c-fill-text",
         minimumLines: 0,
         gapBefore: ELEMENT_GAPS.beforeDescription,
@@ -183,61 +202,160 @@ function layoutElement(element: SceneElement): TextBands {
 }
 
 /**
- * A relationship's label in its fixed label box (SPEC 6.3): up to two description lines and the
- * `[technology]`, centred, on a plot-coloured ground just wide enough for the text.
+ * A relationship's label (SPEC 6.3), centred on its label box: up to three description lines and
+ * two of the `[technology]`, each band's lines balanced, on a ground just large enough for the text.
+ * The ground keeps to the 160 wide slot while the text fits it in up to 72 high, and widens up to
+ * 240 for the rest; only text that does not fit 240 × 72 is cut short.
  */
 export function relationshipLabelLayout(relationship: SceneRelationship): TextBands {
-  const box = relationship.labelBox;
+  const generation = measurementGeneration();
+  const cached = labelLayouts.get(relationship);
+  if (cached?.generation === generation) return cached.bands;
+  const bands = layoutLabel(relationship);
+  labelLayouts.set(relationship, { generation, bands });
+  return bands;
+}
+
+const labelLayouts = new WeakMap<
+  SceneRelationship,
+  { readonly generation: number; readonly bands: TextBands }
+>();
+
+function layoutLabel(relationship: SceneRelationship): TextBands {
+  const slot = relationship.labelBox;
   const { style } = relationship;
-  const padding = RELATIONSHIP_LABEL.padding;
-  const width = Math.max(0, box.width - 2 * padding);
+  const { padding, groundPadding } = RELATIONSHIP_LABEL;
+  const description =
+    style.description && relationship.description.trim() !== ""
+      ? relationship.description
+      : undefined;
+  const technology =
+    style.metadata && relationship.technology.trim() !== ""
+      ? `[${relationship.technology}]`
+      : undefined;
+  if (description === undefined && technology === undefined) {
+    return { area: slot, bands: [], backing: undefined };
+  }
+  const { width, pending } = fittedLabel(description, technology, slot.width - 2 * padding);
+  const height = stackHeight(pending);
+  const centre = { x: slot.x + slot.width / 2, y: slot.y + slot.height / 2 };
+  const bands = placeBands(
+    pending,
+    centre.x - width / 2,
+    centre.y - height / 2,
+    width,
+    "centre",
+    style.text,
+  );
+  const widest = Math.max(
+    0,
+    ...bands.flatMap((band) => band.lines.map((line) => textWidth(line, band.font))),
+  );
+  const area = centredIn(
+    slot,
+    Math.max(slot.width, width + 2 * padding),
+    Math.max(slot.height, height + 2 * groundPadding),
+  );
+  const backing =
+    widest > 0 ? centredIn(slot, widest + 2 * padding, height + 2 * groundPadding) : undefined;
+  return { area, bands, backing };
+}
+
+/**
+ * The narrowest text width, from the slot's up to the reach's in steps of 8, at which every line
+ * fits without a cut and the stack fits the reach's height; else the reach's width, with the
+ * technology and then the description giving up lines until the stack fits.
+ */
+function fittedLabel(
+  description: string | undefined,
+  technology: string | undefined,
+  slotWidth: number,
+): { width: number; pending: PendingBand[] } {
+  const { padding, groundPadding, descriptionLines, technologyLines } = RELATIONSHIP_LABEL;
+  const widest = Math.max(slotWidth, LABEL_REACH.width - 2 * padding);
+  const tallest = LABEL_REACH.height - 2 * groundPadding;
+  const counts = (width: number) => ({
+    description:
+      description === undefined
+        ? 0
+        : wrapText(description, width, RELATIONSHIP_FONTS.description).length,
+    technology:
+      technology === undefined
+        ? 0
+        : wrapText(technology, width, RELATIONSHIP_FONTS.technology).length,
+  });
+  for (let width = slotWidth; width <= widest; width += LABEL_WIDTH_STEP) {
+    const lines = counts(width);
+    if (lines.description > descriptionLines || lines.technology > technologyLines) continue;
+    const pending = labelBands(description, technology, width, lines);
+    if (stackHeight(pending) <= tallest) return { width, pending };
+  }
+  const wanted = counts(widest);
+  const lines = {
+    description: Math.min(wanted.description, descriptionLines),
+    technology: Math.min(wanted.technology, technologyLines),
+  };
+  let pending = labelBands(description, technology, widest, lines);
+  while (stackHeight(pending) > tallest && (lines.technology > 1 || lines.description > 1)) {
+    if (lines.technology > 1) lines.technology -= 1;
+    else lines.description -= 1;
+    pending = labelBands(description, technology, widest, lines);
+  }
+  return { width: widest, pending };
+}
+
+/** The text width a label tries next when its text does not fit. */
+const LABEL_WIDTH_STEP = 8;
+
+function labelBands(
+  description: string | undefined,
+  technology: string | undefined,
+  width: number,
+  lines: { readonly description: number; readonly technology: number },
+): PendingBand[] {
   const pending: PendingBand[] = [];
-  if (style.description && relationship.description.trim() !== "") {
+  if (description !== undefined) {
+    const font = RELATIONSHIP_FONTS.description;
     pending.push({
       band: "description",
       field: "description",
-      font: RELATIONSHIP_FONTS.description,
-      fitted: fitLines(
-        relationship.description,
+      font,
+      fitted: balanced(
+        fitLines(description, width, font, lines.description),
+        description,
         width,
-        RELATIONSHIP_FONTS.description,
-        RELATIONSHIP_LABEL.descriptionLines,
+        font,
       ),
+      text: description,
       role: "cd-c-fill-text",
       minimumLines: 0,
       gapBefore: 0,
     });
   }
-  if (style.metadata && relationship.technology.trim() !== "") {
+  if (technology !== undefined) {
+    const font = RELATIONSHIP_FONTS.technology;
+    const flat = withoutLineBreaks(technology);
     pending.push({
       band: "technology",
       field: "technology",
-      font: RELATIONSHIP_FONTS.technology,
-      fitted: singleLine(`[${relationship.technology}]`, width, RELATIONSHIP_FONTS.technology),
+      font,
+      fitted: balanced(fitLines(flat, width, font, lines.technology), flat, width, font),
+      text: technology,
       role: "cd-c-fill-text-leise",
       minimumLines: 1,
       gapBefore: RELATIONSHIP_LABEL.gap,
     });
   }
-  const height = stackHeight(pending);
-  const top = box.y + (box.height - height) / 2;
-  const bands = placeBands(pending, box.x + padding, top, width, "centre", style.text);
-  const widest = Math.max(
-    0,
-    ...bands.flatMap((band) => band.lines.map((line) => textWidth(line, band.font))),
-  );
-  // Two description lines and the technology fill the box nearly to the edge: the ground then
-  // gives up its vertical padding rather than leave the label box.
-  const verticalPadding = Math.max(0, Math.min(2, (box.height - height) / 2));
-  const backing =
-    widest > 0
-      ? centredIn(
-          box,
-          Math.min(box.width, widest + 2 * padding),
-          Math.min(box.height, height + 2 * verticalPadding),
-        )
-      : undefined;
-  return { area: box, bands, backing };
+  return pending;
+}
+
+/** A tooltip shows the text as one paragraph per explicit line break. */
+function tooltipText(text: string): string {
+  return text
+    .split(/\r\n|\r|\n|\\n/)
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+    .join("\n");
 }
 
 function centredIn(box: Box, width: number, height: number): Box {
@@ -260,6 +378,7 @@ export function boundaryTextLayout(boundary: SceneBoundary): TextBands {
       field: "name",
       font: BOUNDARY_FONTS.name,
       fitted: singleLine(boundary.name, maxWidth, BOUNDARY_FONTS.name),
+      text: boundary.name,
       role: "cd-c-fill-text",
       minimumLines: 1,
       gapBefore: 0,
@@ -271,6 +390,7 @@ export function boundaryTextLayout(boundary: SceneBoundary): TextBands {
       field: undefined,
       font: BOUNDARY_FONTS.type,
       fitted: singleLine(boundary.typeLine, maxWidth, BOUNDARY_FONTS.type),
+      text: boundary.typeLine,
       role: "cd-c-fill-text-leise",
       minimumLines: 1,
       gapBefore: BOUNDARY_CAPTION.gap,
@@ -304,6 +424,7 @@ export function groupTextLayout(group: SceneGroup): TextBands {
       field: undefined,
       font: GROUP_FONT,
       fitted: singleLine(group.name, maxWidth, GROUP_FONT),
+      text: group.name,
       role: "cd-c-fill-text-leise",
       minimumLines: 1,
       gapBefore: 0,
@@ -332,6 +453,7 @@ export function titleTextLayout(title: Scene["title"]): TextBands {
       field: undefined,
       font: TITLE_FONTS.title,
       fitted: singleLine(title.text, width, TITLE_FONTS.title),
+      text: title.text,
       role: "cd-c-fill-text",
       minimumLines: 1,
       gapBefore: 0,
@@ -348,6 +470,7 @@ export function titleTextLayout(title: Scene["title"]): TextBands {
         TITLE_FONTS.description,
         TITLE_BLOCK.descriptionLines,
       ),
+      text: title.description,
       role: "cd-c-fill-text-leise",
       minimumLines: 0,
       gapBefore: TITLE_BLOCK.gap,

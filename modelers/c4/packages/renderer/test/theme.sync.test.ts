@@ -82,6 +82,15 @@ describe("theme.sync: c4.css takes every colour from the roles", () => {
     ]);
   });
 
+  it("paints connect feedback on the ring around a target in the interaction role and tints no canvas (guide §10.4)", () => {
+    const rules = withoutComments(css);
+    expect(rules).toMatch(
+      /\.djs-shape\.connect-ok \.c4-feedback\s*\{[^}]*stroke:\s*var\(--cd-ui-interaktion\) !important;/,
+    );
+    expect(rules).not.toMatch(/connect-(not-)?ok[^{]*\.c4-body/);
+    expect(rules).toMatch(/svg\.new-parent\s*\{\s*background:\s*transparent !important;/);
+  });
+
   it("paints the surround in --cd-ui-grund with the dot grid in --cd-ui-linie (guide §10.1)", () => {
     const container = /\.c4-container\s*\{([^}]*)\}/.exec(withoutComments(css));
     expect(container?.[1]).toMatch(/background-color:\s*var\(--cd-ui-grund\);/);

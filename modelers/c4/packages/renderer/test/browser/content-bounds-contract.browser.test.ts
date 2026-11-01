@@ -19,6 +19,7 @@ import {
 import type FontRelayout from "../../src/draw/FontRelayout.js";
 import type SceneService from "../../src/scene/SceneService.js";
 import type { Scene } from "../../src/scene/types.js";
+import { labelReach } from "../../src/text/typography.js";
 import { BOOKSHOP, LIBRARY } from "./fixtures/texts.js";
 import { loadGeist, registerGeist, removeFonts } from "./support/drawingHarness.js";
 
@@ -76,9 +77,11 @@ function partsOf(scene: Scene): ElementBounds[] {
     ...scene.elements.map(({ box }) => box),
     ...scene.boundaries.map(({ box }) => box),
     ...scene.groups.map(({ box }) => box),
-    ...scene.relationships.flatMap(({ labelBox, vertices }) => [
+    ...scene.relationships.flatMap(({ labelBox, route, description, technology }) => [
       labelBox,
-      ...vertices.map(({ x, y }) => ({ x, y, width: 0, height: 0 })),
+      // A label with text may grow its ground up to its reach, whatever the font measures.
+      ...(description.trim() !== "" || technology.trim() !== "" ? [labelReach(labelBox)] : []),
+      ...route.map(({ x, y }) => ({ x, y, width: 0, height: 0 })),
     ]),
     scene.title.box,
   ];

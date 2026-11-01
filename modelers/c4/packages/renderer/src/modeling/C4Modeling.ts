@@ -7,6 +7,8 @@ import type { Connection, Element, Shape } from "diagram-js/lib/model/Types";
 import type { Injector } from "didi";
 import type {
   C4Edit,
+  CreatableKind,
+  EditContext,
   EditOutcome,
   EditRefusal,
   ElementFields,
@@ -30,20 +32,27 @@ import {
   isBoundaryShape,
   isElementShape,
   isRelationshipConnection,
+  type Scene,
 } from "../scene/types.js";
 import {
+  DELETE_DONE_EVENT,
   EDIT_NOTICE_EVENT,
   EDIT_REFUSED_EVENT,
+  LAYOUT_APPLIED_EVENT,
   type C4ModelingMethods,
   type EditRefusedEvent,
+  type LayoutAppliedEvent,
 } from "../services.js";
 import type ViewService from "../views/ViewService.js";
 import DocumentChangeHandler, {
   DOCUMENT_CHANGE,
   type DocumentChangeContext,
 } from "./DocumentChangeHandler.js";
+import { centreOnSourceAxis, reachesNothingNew } from "./appendPlace.js";
 import { framedClosure } from "./closure.js";
+import { deleteSummary } from "./deleteSummary.js";
 import { C4UnsupportedOperationError } from "./errors.js";
+import { centreOf, samePoints, verticesOutside, withoutFanBend } from "./geometry.js";
 
 export const READ_ONLY_MESSAGE = "This diagram is read-only. Fix the file to edit it.";
 
@@ -187,7 +196,16 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
   /** Bendpoint and segment moves: the inner waypoints are the vertices; the ends dock again. */
   updateWaypoints(connection: Element, newWaypoints: readonly Point[]): void {
     if (!isRelationshipConnection(connection)) return;
-    const inner = newWaypoints.slice(1, -1).map(({ x, y }) => ({ x, y }));
+    const ends = [connection.source, connection.target].filter(
+      (end): end is Shape => !!end && "width" in end,
+    );
+    const scene = this.scenes().current();
+    const inner = withoutFanBend(
+      verticesOutside(newWaypoints.slice(1, -1), ends),
+      scene.relationships.find((relationship) => relationship.canvasKey === connection.c4.key),
+    );
+    const stored = scene.vertices.get(connection.c4.key) ?? [];
+    if (samePoints(inner, stored)) return;
     this.change({
       type: "setLayout",
       boxes: new Map(),
@@ -200,7 +218,20 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
     const ids = elements.filter(isElementShape).map((shape) => shape.c4.id);
     const relationships = elements.filter(isRelationshipConnection).map(({ c4 }) => c4.key);
     if (ids.length === 0 && relationships.length === 0) return;
-    this.change({ type: "smartDelete", ids, relationships });
+    const before = this.store().current().parse;
+    const outcome = this.change({ type: "smartDelete", ids, relationships });
+    if (!outcome.ok || outcome.text === before.text) return;
+    this.bus.fire(
+      DELETE_DONE_EVENT,
+      deleteSummary({
+        view: outcome.view,
+        before: before.workspace,
+        after: outcome.document.workspace,
+        idChanges: outcome.idChanges,
+        ids,
+        relationships,
+      }),
+    );
   }
 
   removeShape(shape: Element): void {
@@ -216,8 +247,24 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
     return undefined;
   }
 
-  appendShape(): never {
-    throw new C4UnsupportedOperationError("appendShape");
+  /**
+   * diagram-js's create with a `source` (the context pad's dragged append): the preview's element
+   * and a relationship from the source to it, as one edit; the registered shape, or none when
+   * refused.
+   */
+  appendShape(source: Element, shape: Element, position: Point): Shape | undefined {
+    const reference = c4ReferenceOf(shape);
+    if (!isElementShape(source) || reference?.role !== "preview") {
+      throw new C4UnsupportedOperationError("appendShape of anything but one new element");
+    }
+    const { width, height } = shape as Shape;
+    const outcome = this.change({
+      ...this.appendEdit(source.c4.id, reference.kind, reference.tags, reference.name),
+      center: { x: position.x, y: position.y },
+      size: { width, height },
+    });
+    const created = outcome.ok ? outcome.created.elements[0] : undefined;
+    return created === undefined ? undefined : (this.registry().get(created) as Shape | undefined);
   }
 
   reconnect(): never {
@@ -270,6 +317,14 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
     return this.change({ type: "updateElement", id, fields });
   }
 
+  createRelationship(
+    sourceId: ElementId,
+    destinationId: ElementId,
+    fields: Partial<Pick<RelationshipFields, "description" | "technology">> = {},
+  ): EditOutcome | undefined {
+    return this.change({ type: "createRelationship", sourceId, destinationId, ...fields });
+  }
+
   editRelationship(
     key: RelationshipKey,
     fields: Partial<RelationshipFields>,
@@ -295,8 +350,29 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
     return this.change({ type: "deleteFromModel", ids, relationships });
   }
 
+  /**
+   * The added elements are pinned where the view first draws them (a dry run of the same edit),
+   * since a place `placeUnplaced` picks depends on the graph and the next relationship would move
+   * it.
+   */
   includeInView(ids: readonly ElementId[]): EditOutcome | undefined {
-    return this.change({ type: "includeInView", ids });
+    const boxes = this.boxesOnceIncluded(ids);
+    return this.change({ type: "includeInView", ids, ...(boxes ? { boxes } : {}) });
+  }
+
+  /**
+   * The context pad's append: an element of `kind` and a relationship from `sourceId` to it, one
+   * edit and one undo step. It is pinned where the view places an element connected to the source
+   * (a dry run of the same edit), beside the source and clear of what is drawn.
+   */
+  appendElement(
+    sourceId: ElementId,
+    kind: CreatableKind,
+    tags?: readonly string[],
+  ): EditOutcome | undefined {
+    const edit = this.appendEdit(sourceId, kind, tags);
+    const center = this.centreOnceAppended(edit);
+    return this.change(center ? { ...edit, center } : edit);
   }
 
   createView(type: StaticViewType, scopeId?: ElementId, title?: string): EditOutcome | undefined {
@@ -320,7 +396,13 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
   }
 
   layOutAutomatically(): EditOutcome | undefined {
-    return this.change({ type: "clearLayout" });
+    const before = this.store().current().parse.text;
+    const outcome = this.change({ type: "clearLayout" });
+    if (outcome.ok && outcome.text !== before) {
+      const event: LayoutAppliedEvent = { view: outcome.view };
+      this.bus.fire(LAYOUT_APPLIED_EVENT, event);
+    }
+    return outcome;
   }
 
   editWorkspace(fields: { name?: string; description?: string }): EditOutcome | undefined {
@@ -345,16 +427,7 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
     }
     const store = this.store();
     const state = store.current();
-    const scene = this.scenes().current();
-    const outcome = this.engine().applyEdit(state.parse, edit, {
-      view: state.view,
-      boxes: scene.boxes,
-      vertices: scene.vertices,
-      fresh: state.fresh,
-      identifiers:
-        this.injector.get<C4ModelingConfig>("config.c4Modeling", false)?.identifiers ?? "readable",
-      random: randomSuffix,
-    });
+    const outcome = this.engine().applyEdit(state.parse, edit, this.editContext());
     if (!outcome.ok) return this.refuse(outcome);
     if (outcome.text === state.parse.text && outcome.view === state.view) return outcome;
     const afterHash = hashText(outcome.text);
@@ -375,6 +448,86 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
     this.commands.execute(DOCUMENT_CHANGE, context);
     for (const notice of outcome.notices) this.bus.fire(EDIT_NOTICE_EVENT, { notice });
     return outcome;
+  }
+
+  private editContext(): EditContext {
+    const state = this.store().current();
+    const scene = this.scenes().current();
+    return {
+      view: state.view,
+      boxes: scene.boxes,
+      vertices: scene.vertices,
+      fresh: state.fresh,
+      identifiers:
+        this.injector.get<C4ModelingConfig>("config.c4Modeling", false)?.identifiers ?? "readable",
+      random: randomSuffix,
+    };
+  }
+
+  private appendEdit(
+    sourceId: ElementId,
+    kind: CreatableKind,
+    tags: readonly string[] | undefined,
+    name?: string,
+  ): Extract<C4Edit, { type: "createElement" }> {
+    return {
+      type: "createElement",
+      kind,
+      ...(name === undefined ? {} : { name }),
+      ...(tags === undefined ? {} : { tags }),
+      connectFrom: sourceId,
+    };
+  }
+
+  /**
+   * The middle of the box the view draws an unplaced append at, on the source's axis unless that
+   * would grow a frame over something it does not hold; undefined when refused.
+   */
+  private centreOnceAppended(edit: Extract<C4Edit, { type: "createElement" }>): Point | undefined {
+    const placed = this.appendDryRun(edit);
+    if (!placed) return undefined;
+    const centre = centreOf(placed.box);
+    const source =
+      edit.connectFrom === undefined ? undefined : placed.scene.boxes.get(edit.connectFrom);
+    const onAxis = source && centreOnSourceAxis(placed.box, source);
+    if (!onAxis) return centre;
+    const lined = this.appendDryRun({ ...edit, center: onAxis });
+    const keepsFrames =
+      lined !== undefined && reachesNothingNew(placed.scene, lined.scene, [placed.id, lined.id]);
+    return keepsFrames ? onAxis : centre;
+  }
+
+  private appendDryRun(
+    edit: Extract<C4Edit, { type: "createElement" }>,
+  ): { readonly id: ElementId; readonly box: Box; readonly scene: Scene } | undefined {
+    if (this.injector.get<EditLock>("readOnly", false)?.isReadOnly()) return undefined;
+    const state = this.store().current();
+    const dryRun = this.engine().applyEdit(state.parse, edit, this.editContext());
+    if (!dryRun.ok) return undefined;
+    const id = dryRun.created.elements[0];
+    if (id === undefined) return undefined;
+    const scene = this.scenes().ofParse(dryRun.document, dryRun.view);
+    const box = scene.boxes.get(id);
+    return box && { id, box, scene };
+  }
+
+  /** Where the view draws `ids` once they are in it; undefined when the edit is refused. */
+  private boxesOnceIncluded(ids: readonly ElementId[]): Map<ElementId, Box> | undefined {
+    if (this.injector.get<EditLock>("readOnly", false)?.isReadOnly()) return undefined;
+    const state = this.store().current();
+    const dryRun = this.engine().applyEdit(
+      state.parse,
+      { type: "includeInView", ids },
+      this.editContext(),
+    );
+    if (!dryRun.ok) return undefined;
+    const drawn = this.scenes().ofParse(dryRun.document, dryRun.view).boxes;
+    const boxes = new Map<ElementId, Box>();
+    for (const id of ids) {
+      const box = drawn.get(id);
+      if (box) boxes.set(id, box);
+    }
+    return boxes;
   }
 
   private refuse(refusal: Refusal): Refusal {

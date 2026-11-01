@@ -31,6 +31,11 @@ export type {
   ShortcutsChrome,
 } from "./shortcuts.js";
 export { createShortcutsDialog } from "./ShortcutsDialog.js";
+export {
+  BREADCRUMB_FIT_GAP,
+  insetsClearOfBreadcrumb,
+  type FitInsets,
+} from "./breadcrumbClearance.js";
 export { connectLegend, type LegendBinding } from "./legendBinding.js";
 export type {
   ShortcutsDialog,
@@ -78,6 +83,7 @@ export {
   type OpenDialog,
   type OpenedDialog,
 } from "../navigation/index.js";
+export { VIEW_TYPE_LABELS } from "../navigation/ViewsDialog.js";
 export {
   editAtField,
   type FieldEdit,

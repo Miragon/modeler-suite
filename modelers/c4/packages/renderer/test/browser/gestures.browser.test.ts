@@ -23,7 +23,7 @@ import type LabelEditing from "../../src/label-editing/LabelEditing.js";
 import type C4Modeling from "../../src/modeling/C4Modeling.js";
 import { C4UnsupportedOperationError } from "../../src/modeling/errors.js";
 import type SceneService from "../../src/scene/SceneService.js";
-import type { C4ElementShape } from "../../src/scene/types.js";
+import { RELATIONSHIP_PREVIEW, type C4ElementShape } from "../../src/scene/types.js";
 import {
   EDIT_REFUSED_EVENT,
   VIEW_CHANGED_EVENT,
@@ -1491,10 +1491,11 @@ describe("the gestures of the template and the C4 modeling, on the real engine",
       ) as Connection & { c4: { key: string; implied: boolean } };
       const rules = service<{ allowed(action: string, context: object): unknown }>("rules");
       const bend = () => rules.allowed("connection.updateWaypoints", { connection });
-      expect(bend()).toBe(true);
+      // The answer is what the drag draws while it runs: the relationship's preview line.
+      expect(bend()).toEqual(RELATIONSHIP_PREVIEW);
 
       connection.c4.implied = true;
-      expect(bend()).toBe(true);
+      expect(bend()).toEqual(RELATIONSHIP_PREVIEW);
       connection.c4.key = "customer->bookshop#2";
       expect(bend()).toBe(false);
       connection.c4.key = "customer->bookshop";
@@ -1562,7 +1563,7 @@ describe("the gestures of the template and the C4 modeling, on the real engine",
       expect(connection.waypoints).toHaveLength(2);
     });
 
-    it("a segment drag, which diagram-js asks no rule for, does not start under the read-only lock", () => {
+    it("a press on a straight segment inserts a bendpoint, and starts nothing under the read-only lock", () => {
       const refused: string[] = [];
       service<EventBus>("eventBus").on(EDIT_REFUSED_EVENT, (event: { reason: string }) => {
         refused.push(event.reason);
@@ -1592,7 +1593,7 @@ describe("the gestures of the template and the C4 modeling, on the real engine",
 
       service<{ setReadOnly(readOnly: boolean): void }>("readOnly").setReadOnly(false);
       dragSegment();
-      expect(dragPrefix()).toBe("connectionSegment.move");
+      expect(dragPrefix()).toBe("bendpoint.move");
       pressEscape();
 
       expect(errors).toEqual([]);
@@ -1614,7 +1615,7 @@ describe("the gestures of the template and the C4 modeling, on the real engine",
     });
 
     it("a stock call the notation has no edit for throws a named error", () => {
-      expect(() => service<C4Modeling>("modeling").appendShape()).toThrow(
+      expect(() => service<C4Modeling>("modeling").reconnect()).toThrow(
         C4UnsupportedOperationError,
       );
     });

@@ -3,8 +3,9 @@
  * Copyright (c) 2026 Lucide Icons and Contributors */
 
 /*
- * The Lucide icons of the palette tools and of the canvas's drill badge, copied unchanged from
- * `icon-nodes.json`. Renderers never import the modeler shell, so they cannot take its copy.
+ * The Lucide icons of the palette tools, of the canvas's drill badge and of its feedback, copied
+ * unchanged from `icon-nodes.json`. Renderers never import the modeler shell, so they cannot take
+ * its copy.
  */
 export const LUCIDE = {
   "square-dashed-mouse-pointer":
@@ -36,6 +37,16 @@ export const ZOOM_IN_NODES: readonly (readonly [string, Readonly<Record<string, 
 /** Lucide `chevron-right`, the breadcrumb's separator. */
 export const CHEVRON_RIGHT_NODES: readonly (readonly [string, Readonly<Record<string, string>>])[] =
   [["path", { d: "m9 18 6-6-6-6" }]];
+
+/** Lucide `triangle-alert`, the warning of a drag's frame preview. */
+export const TRIANGLE_ALERT_NODES: readonly (readonly [
+  string,
+  Readonly<Record<string, string>>,
+])[] = [
+  ["path", { d: "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" }],
+  ["path", { d: "M12 9v4" }],
+  ["path", { d: "M12 17h.01" }],
+];
 
 export type LucideIconName = keyof typeof LUCIDE;
 

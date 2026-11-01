@@ -13,12 +13,20 @@ import {
   type ParseResult,
   type TextEdit,
 } from "@miragon/c4-dsl";
-import { layoutView, type LayoutInput, type ViewGeometry } from "@miragon/c4-layout";
+import {
+  layoutView,
+  viewFrames,
+  type LayoutInput,
+  type ViewFrames,
+  type ViewGeometry,
+} from "@miragon/c4-layout";
 import {
   sameDigest,
   semanticDigest,
   viewCatalog,
   viewMembers,
+  type Box,
+  type ElementId,
   type FieldSource,
   type ViewCatalog,
   type ViewEntry,
@@ -41,6 +49,15 @@ export interface C4Engine {
   catalog(workspace: Workspace): ViewCatalog;
   members(workspace: Workspace, view: ViewEntry): ViewMembers;
   layout(input: LayoutInput): ViewGeometry;
+  /**
+   * The boundary and group frames around `boxes`, without a layout: what a drag previews on every
+   * pointer move. A boundary that frames nothing drawn keeps its box from `leafBoundaries`.
+   */
+  frames(
+    members: ViewMembers,
+    boxes: ReadonlyMap<ElementId, Box>,
+    leafBoundaries?: ReadonlyMap<ElementId, Box>,
+  ): ViewFrames;
 }
 
 /** The real engine; the renderer registers it as `c4Engine: ["value", createC4Engine()]`. */
@@ -60,6 +77,7 @@ export function createC4Engine(): C4Engine {
     catalog: viewCatalog,
     members: viewMembers,
     layout: layoutView,
+    frames: viewFrames,
   };
 }
 

@@ -1,8 +1,11 @@
 import BaseKeyboardBindings from "diagram-js/lib/features/keyboard/KeyboardBindings";
 import { hasModifier, isCmd, isKey } from "diagram-js/lib/features/keyboard/KeyboardUtil";
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type Dragging from "diagram-js/lib/features/dragging/Dragging";
 import type EditorActions from "diagram-js/lib/features/editor-actions/EditorActions";
 import type Keyboard from "diagram-js/lib/features/keyboard/Keyboard";
+import type Selection from "diagram-js/lib/features/selection/Selection";
+import type { Injector } from "didi";
 
 interface KeyContext {
   keyEvent: KeyboardEvent;
@@ -24,17 +27,23 @@ const BEFORE_THE_DELETE_BINDING = 1500;
 
 /**
  * diagram-js's bindings (delete, the arrows, zoom, …) on the focused canvas, plus the keys of
- * SPEC 5.7: L (lasso), H (hand), C (connect), E (the name), Shift+Delete ("Delete from model…")
- * and Cmd/Ctrl+A: diagram-js binds no select all, and an unprevented one reaches VS Code, whose
+ * SPEC 5.7: L (lasso), H (hand), C (connect), E (the name, a relationship's description),
+ * Shift+Delete ("Delete from model…"), Escape (clears the selection, as Team Topologies' does) and
+ * Cmd/Ctrl+A: diagram-js binds no select all, and an unprevented one reaches VS Code, whose
  * Select All then selects the chrome's text. Enter, U and G are the navigation's (`c4Navigation`),
  * which the viewer has too.
  */
 export default class KeyboardBindings extends BaseKeyboardBindings {
-  static override $inject = ["eventBus", "keyboard", "config.diagramKeyboard"];
+  static override $inject = ["eventBus", "keyboard", "config.diagramKeyboard", "injector"];
 
   private readonly undoRedoKeys: boolean;
 
-  constructor(eventBus: EventBus, keyboard: Keyboard, config: KeyboardConfig | undefined) {
+  constructor(
+    eventBus: EventBus,
+    keyboard: Keyboard,
+    config: KeyboardConfig | undefined,
+    private readonly injector: Injector,
+  ) {
     super(eventBus, keyboard);
     this.undoRedoKeys = config?.undoRedoKeys ?? true;
   }
@@ -86,5 +95,19 @@ export default class KeyboardBindings extends BaseKeyboardBindings {
       editorActions.trigger("selectAll", {});
       return true;
     });
+    keyboard.addListener((({ keyEvent }: KeyContext) => this.clearSelection(keyEvent)) as never);
+  }
+
+  /**
+   * Escape with nothing selected stays unhandled, so it reaches the host; during a drag or an armed
+   * tool it is diagram-js's, which cancels on the key's release.
+   */
+  private clearSelection(keyEvent: KeyboardEvent): boolean | undefined {
+    if (!isKey(["Escape", "Esc"], keyEvent) || hasModifier(keyEvent)) return undefined;
+    const selection = this.injector.get<Selection>("selection", false);
+    if (!selection || selection.get().length === 0) return undefined;
+    if (this.injector.get<Dragging>("dragging", false)?.context()) return undefined;
+    selection.select([]);
+    return true;
   }
 }

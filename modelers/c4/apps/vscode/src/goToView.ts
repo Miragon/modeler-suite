@@ -11,10 +11,13 @@ import {
 import { GO_TO_VIEW_COMMAND, NO_DIAGRAM_MESSAGE, resourceArgument } from "./commands.js";
 import type { ShowViewMessage } from "./protocol.js";
 
-/** The types the canvas shows and edits, in the order of the Views… dialog (SPEC 7.1). */
-const STATIC_TYPES: readonly { readonly type: StaticViewType; readonly label: string }[] = [
-  { type: "systemLandscape", label: "System Landscape" },
-  { type: "systemContext", label: "System Context" },
+/**
+ * The types the canvas shows and edits, in the order and the words of the Views… dialog's headings
+ * (SPEC 7.1), sentence case as every label of the modeler.
+ */
+export const STATIC_TYPES: readonly { readonly type: StaticViewType; readonly label: string }[] = [
+  { type: "systemLandscape", label: "System landscape" },
+  { type: "systemContext", label: "System context" },
   { type: "container", label: "Container" },
   { type: "component", label: "Component" },
 ];

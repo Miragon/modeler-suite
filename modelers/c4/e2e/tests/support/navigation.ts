@@ -59,7 +59,7 @@ export function registerNavigationTests(host: NavigationHost): void {
     expect(await activeViewKey(page)).toBe(EXAMPLE_DEFAULT_VIEW);
     // The badge's hit area, which carries its title; the drawn badge sits under it.
     const badge = shape(page, "bookshop").locator(".djs-hit.c4-drill");
-    await expect(badge).toHaveAccessibleName("Open container view (3 containers)");
+    await expect(badge).toHaveAccessibleName("Open Bookshop containers (Enter)");
     await badge.click();
     await expect.poll(() => activeViewKey(page)).toBe(EXAMPLE_CONTAINER_VIEW);
     // The boundary of the view's system, and its containers inside.

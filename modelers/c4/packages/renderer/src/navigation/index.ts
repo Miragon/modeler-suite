@@ -1,9 +1,11 @@
 import type { ModuleDeclaration } from "didi";
 import KeyboardModule from "diagram-js/lib/features/keyboard";
+import OverlaysModule from "diagram-js/lib/features/overlays";
 import SelectionModule from "diagram-js/lib/features/selection";
 import CanvasKeys from "../keyboard/CanvasKeys.js";
 import Breadcrumbs from "./Breadcrumbs.js";
 import C4Dialogs from "./C4Dialogs.js";
+import EmptyScopeHint from "./EmptyScopeHint.js";
 import Navigation from "./Navigation.js";
 
 /**
@@ -19,7 +21,24 @@ export const navigationModule: ModuleDeclaration = {
   c4Breadcrumbs: ["type", Breadcrumbs],
 };
 
-export { BREADCRUMBS_CLASS, BREADCRUMBS_LABEL, default as Breadcrumbs } from "./Breadcrumbs.js";
+/** The modeler's hint in an empty scope frame: it points at the palette, which the viewer lacks. */
+export const emptyScopeHintModule: ModuleDeclaration = {
+  __depends__: [OverlaysModule],
+  __init__: ["c4EmptyScopeHint"],
+  c4EmptyScopeHint: ["type", EmptyScopeHint],
+};
+
+export {
+  BREADCRUMBS_CLASS,
+  BREADCRUMBS_LABEL,
+  DRAFT_NOTE,
+  default as Breadcrumbs,
+} from "./Breadcrumbs.js";
+export {
+  EMPTY_SCOPE_HINT_ACTION,
+  EMPTY_SCOPE_HINT_CLASS,
+  default as EmptyScopeHint,
+} from "./EmptyScopeHint.js";
 export { LANDSCAPE_CRUMB, breadcrumbPath, crumbText, type Crumb } from "./breadcrumbPath.js";
 
 export { default as C4Dialogs, connectDialogs, NO_CONFIRMATION_MESSAGE } from "./C4Dialogs.js";

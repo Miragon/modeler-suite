@@ -12,13 +12,31 @@ import type { Shape } from "diagram-js/lib/model/Types";
 import type { Injector } from "didi";
 import type { DiagramPoint, FreeArea, FreeAreaInsets } from "@miragon/modeler-api";
 import type { CreatableKind } from "@miragon/c4-dsl";
-import type { ShapeName, ViewType } from "@miragon/c4-schema-model";
+import type {
+  Box,
+  ElementId,
+  ResolvedElementStyle,
+  ShapeName,
+  Size,
+  ViewEntry,
+  ViewType,
+} from "@miragon/c4-schema-model";
+import type DocumentStore from "../document/DocumentStore.js";
 import { ICONS, paletteEntryHtml } from "../draw/icons.js";
 import { shapePreviewSvg } from "../draw/preview.js";
+import type SceneLookup from "../draw/SceneLookup.js";
+import type { C4Engine } from "../engine/C4Engine.js";
+import {
+  createdParentId,
+  framingBoundaries,
+  membersWithCreated,
+} from "../frame-preview/createdMembers.js";
 import type LabelEditing from "../label-editing/LabelEditing.js";
 import type C4Modeling from "../modeling/C4Modeling.js";
+import type { SceneNotation } from "../scene/notation.js";
 import { isElementShape } from "../scene/types.js";
-import type { C4ElementFactory, C4Views } from "../services.js";
+import type { C4ElementFactory, C4SceneService, C4Views } from "../services.js";
+import { boxAround, findFreeSpot, panToShow } from "./freeSpot.js";
 
 export interface PaletteConfig {
   /**
@@ -41,7 +59,7 @@ interface EditLock {
   isReadOnly(): boolean;
 }
 
-interface CreatingEntry {
+export interface CreatingEntry {
   readonly action: string;
   readonly title: string;
   readonly kind: CreatableKind;
@@ -49,8 +67,12 @@ interface CreatingEntry {
   readonly tags?: readonly string[];
 }
 
-/** Guide §5.5: a keyboard-created element lands this far down-right of one already centred there. */
+/** Guide §5.5: a keyboard-created element lands this far down-right of a spot that is taken. */
 const KEYBOARD_CREATE_OFFSET = 24;
+/** Room kept around a keyboard-created element: a relationship's label (48 high) fits between. */
+const KEYBOARD_CREATE_GAP = 48;
+/** The search out of sight runs on a coarser lattice: it may span the whole view. */
+const BEYOND_STEP = 48;
 
 const PERSON: CreatingEntry = {
   action: "create.person",
@@ -86,7 +108,7 @@ const COMPONENT: CreatingEntry = {
 };
 
 /** What each editable view type creates (SPEC 5.1); the parent comes from the view's scope. */
-const CREATING_ENTRIES: Readonly<Partial<Record<ViewType, readonly CreatingEntry[]>>> = {
+export const CREATING_ENTRIES: Readonly<Partial<Record<ViewType, readonly CreatingEntry[]>>> = {
   systemLandscape: [PERSON, SOFTWARE_SYSTEM],
   systemContext: [PERSON, SOFTWARE_SYSTEM],
   container: [PERSON, SOFTWARE_SYSTEM, CONTAINER, DATABASE],
@@ -162,14 +184,33 @@ export default class PaletteProvider {
     if (!view?.editable) return entries;
     for (const entry of CREATING_ENTRIES[view.type] ?? []) {
       const start = (event: Event) => this.startCreate(entry, event);
+      const look = this.lookOf(entry);
       entries[entry.action] = {
         group: "elements",
         title: entry.title,
-        html: paletteEntryHtml(shapePreviewSvg(entry.shape), true),
+        html: paletteEntryHtml(shapePreviewSvg(look?.shape ?? entry.shape, look), true),
         action: { click: start, dragstart: start },
       };
     }
     return entries;
+  }
+
+  /**
+   * What the entries show: the view's type, whether it is editable and the look of each element it
+   * creates. The view service rebuilds the palette when this changes, after "Apply C4 colours" too.
+   */
+  signature(): string {
+    const view = this.injector.get<C4Views>("c4Views", false)?.active();
+    if (!view) return "";
+    const entries = view.editable ? (CREATING_ENTRIES[view.type] ?? []) : [];
+    return JSON.stringify([view.type, view.editable, entries.map((entry) => this.lookOf(entry))]);
+  }
+
+  /** The look the element lands in (WYSIWYG, guide §5.5): the workspace's styles for its kind. */
+  private lookOf(entry: CreatingEntry): ResolvedElementStyle | undefined {
+    return this.injector
+      .get<SceneLookup>("c4SceneLookup", false)
+      ?.createdStyle(entry.kind, entry.tags ?? []);
   }
 
   /** Enter or Space on the armed connect tool puts it down, as on any pressed toggle button. */
@@ -186,8 +227,19 @@ export default class PaletteProvider {
     if (this.isLocked()) return;
     const factory = this.injector.get<C4ElementFactory>("c4ElementFactory");
     const shape = factory.createNew(entry.kind, undefined, entry.tags);
-    if (isKeyboardClick(event)) this.placeInFreeArea(shape);
+    const size = this.sizeOf(entry);
+    if (size) Object.assign(shape, size);
+    if (isKeyboardClick(event)) this.placeInFreeArea(shape, entry.kind);
     else this.create.start(event as MouseEvent, shape);
+  }
+
+  /** The size the element lands in: its style's, else its shape's default (SPEC 6.2). */
+  private sizeOf(entry: CreatingEntry): Size | undefined {
+    const look = this.lookOf(entry);
+    const notation = this.injector.get<SceneNotation>("c4Notation", false);
+    if (!look || !notation) return undefined;
+    const fallback = notation.defaultSize(look.shape);
+    return { width: look.width ?? fallback.width, height: look.height ?? fallback.height };
   }
 
   /**
@@ -196,13 +248,11 @@ export default class PaletteProvider {
    * centre of the free area, selected, with the focus on the canvas and its name editor open. A
    * refused create selects nothing.
    */
-  private placeInFreeArea(shape: Shape): void {
+  private placeInFreeArea(shape: Shape, kind: CreatableKind): void {
     const centre = this.freeAreaCentre() ?? this.visibleCentre();
-    const position = { x: centre.x, y: centre.y };
-    while (this.centreTaken(position)) {
-      position.x += KEYBOARD_CREATE_OFFSET;
-      position.y += KEYBOARD_CREATE_OFFSET;
-    }
+    const area = this.freeAreaBox();
+    const position = this.freeSpot(centre, area, shape, kind);
+    this.panToShow(area, boxAround(position, { width: shape.width, height: shape.height }));
     const modeling = this.injector.get<C4Modeling>("modeling");
     const created = modeling.createShape(shape, position);
     if (!created || this.elementRegistry.get(created.id) !== created) return;
@@ -211,6 +261,82 @@ export default class PaletteProvider {
     if (isElementShape(created)) {
       this.injector.get<LabelEditing>("labelEditing", false)?.activate(created);
     }
+  }
+
+  /**
+   * The keyboard create's spot (guide §5.5), clear of the elements, the relationship labels and
+   * every frame the element will not belong to; a frame it joins may grow around it, but not over
+   * an element it does not hold. The title moves below whatever the view then draws.
+   */
+  private freeSpot(
+    centre: DiagramPoint,
+    area: Box,
+    shape: Shape,
+    kind: CreatableKind,
+  ): DiagramPoint {
+    const scene = this.injector.get<C4SceneService>("c4Scene", false)?.current();
+    if (!scene) return { x: centre.x, y: centre.y };
+    const { workspace } = this.injector.get<DocumentStore>("c4Document").current().parse;
+    const view = this.injector.get<C4Views>("c4Views").active();
+    const engine = this.injector.get<C4Engine>("c4Engine");
+    const members = engine.members(workspace, view);
+    const parentId = createdParentId(kind, view, workspace);
+    const framing = framingBoundaries(members, parentId);
+    const obstacles: Box[] = [
+      ...scene.elements.map((element) => element.box),
+      ...scene.relationships.map((relationship) => relationship.labelBox),
+      ...scene.boundaries.filter((boundary) => !framing.has(boundary.id)).map(({ box }) => box),
+      ...scene.groups.map((group) => group.box),
+    ];
+    const grows =
+      framing.size > 0 ? this.growsOverStrangers(view, framing, shape, parentId) : undefined;
+    const size = { width: shape.width, height: shape.height };
+    return findFreeSpot({
+      centre,
+      size,
+      area,
+      obstacles,
+      gap: KEYBOARD_CREATE_GAP,
+      step: KEYBOARD_CREATE_OFFSET,
+      ...(grows ? { accepts: (box: Box) => !grows(box) } : {}),
+      beyond: { area: beyondArea(area, obstacles, size), step: BEYOND_STEP },
+    });
+  }
+
+  /**
+   * A spot found out of sight comes to the middle of the free area; a spot in sight stays, since
+   * placing an element never moves the view otherwise (guide §5.9).
+   */
+  private panToShow(area: Box, box: Box): void {
+    const { x, y } = panToShow(area, box);
+    if (x === 0 && y === 0) return;
+    const viewbox = this.canvas.viewbox();
+    this.canvas.viewbox({
+      x: viewbox.x + x,
+      y: viewbox.y + y,
+      width: viewbox.width,
+      height: viewbox.height,
+    });
+  }
+
+  /** Whether a frame the new element joins would grow over an element it does not hold. */
+  private growsOverStrangers(
+    view: ViewEntry,
+    framing: ReadonlySet<ElementId>,
+    shape: Shape,
+    parentId: ElementId | undefined,
+  ): (box: Box) => boolean {
+    const scene = this.injector.get<C4SceneService>("c4Scene").current();
+    const { workspace } = this.injector.get<DocumentStore>("c4Document").current().parse;
+    const engine = this.injector.get<C4Engine>("c4Engine");
+    const members = membersWithCreated(engine.members(workspace, view), shape.id, parentId);
+    const leaves = new Map(scene.boundaries.map((boundary) => [boundary.id, boundary.box]));
+    return (box) => {
+      const boxes = new Map(scene.boxes);
+      boxes.set(shape.id, box);
+      const { boundaries } = engine.frames(members, boxes, leaves);
+      return [...framing].some((id) => (boundaries.get(id)?.intruders.length ?? 0) > 0);
+    };
   }
 
   private freeAreaCentre(): DiagramPoint | undefined {
@@ -238,19 +364,38 @@ export default class PaletteProvider {
     return { x: x + width / 2, y: y + height / 2 };
   }
 
-  private centreTaken(point: DiagramPoint): boolean {
-    return this.elementRegistry
-      .filter(isElementShape)
-      .some(
-        (element) =>
-          Math.abs(element.x + element.width / 2 - point.x) < 1 &&
-          Math.abs(element.y + element.height / 2 - point.y) < 1,
-      );
+  /** The visible canvas without the host's insets, in diagram coordinates. */
+  private freeAreaBox(): Box {
+    const viewbox = this.canvas.viewbox();
+    const visible = { x: viewbox.x, y: viewbox.y, width: viewbox.width, height: viewbox.height };
+    const insets = this.config?.freeArea?.insets?.();
+    const { width, height } = this.canvas.getSize();
+    if (!insets || !(width > 0 && height > 0)) return visible;
+    const left = insets.left / viewbox.scale;
+    const top = insets.top / viewbox.scale;
+    const freeWidth = (width - insets.left - insets.right) / viewbox.scale;
+    const freeHeight = (height - insets.top - insets.bottom) / viewbox.scale;
+    if (!(freeWidth > 0 && freeHeight > 0)) return visible;
+    return { x: visible.x + left, y: visible.y + top, width: freeWidth, height: freeHeight };
   }
 
   private isLocked(): boolean {
     return this.injector.get<EditLock>("readOnly", false)?.isReadOnly() === true;
   }
+}
+
+/**
+ * The visible area and everything drawn, widened by a free element's room on every side: past
+ * the content there is always a clear spot.
+ */
+function beyondArea(area: Box, obstacles: readonly Box[], size: Size): Box {
+  const room = 2 * (Math.max(size.width, size.height) + KEYBOARD_CREATE_GAP);
+  const boxes = [area, ...obstacles];
+  const left = Math.min(...boxes.map((box) => box.x)) - room;
+  const top = Math.min(...boxes.map((box) => box.y)) - room;
+  const right = Math.max(...boxes.map((box) => box.x + box.width)) + room;
+  const bottom = Math.max(...boxes.map((box) => box.y + box.height)) + room;
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 /** The click the shell synthesises for Enter or Space on an entry: no pointer, detail 0. */

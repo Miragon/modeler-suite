@@ -1,14 +1,22 @@
+import type EventBus from "diagram-js/lib/core/EventBus";
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type { Element } from "diagram-js/lib/model/Types";
-import type { C4Edit, IdChange, TextEdit } from "@miragon/c4-dsl";
+import type { Injector } from "didi";
+import type { C4Edit, IdChange, ParseResult, TextEdit } from "@miragon/c4-dsl";
 import type { ElementId, ViewKey } from "@miragon/c4-schema-model";
 import type DocumentStore from "../document/DocumentStore.js";
 import { hashText } from "../document/hash.js";
 import type { C4Engine } from "../engine/C4Engine.js";
+import { reveal, select } from "../navigation/reveal.js";
 import type Reconciler from "../reconcile/Reconciler.js";
 import type SceneService from "../scene/SceneService.js";
-import type { ViewChangeCause } from "../services.js";
+import { VIEW_CHANGED_EVENT, type ViewChangeCause, type ViewChangedEvent } from "../services.js";
 import type ViewService from "../views/ViewService.js";
+import { changedItems } from "./changedItems.js";
 import { C4HistoryMismatchError } from "./errors.js";
+
+/** After the hosts' own listeners (1000), which restore or fit the view's place first. */
+const AFTER_THE_HOST = 500;
 
 /** The one command every document change runs as (SPEC 1.3, 1.4). */
 export const DOCUMENT_CHANGE = "c4.document.change";
@@ -33,9 +41,23 @@ export interface DocumentChangeContext {
   readonly idChanges: readonly IdChange[];
 }
 
-/** The command's handler: applies a patch to the store, then syncs the canvas in place. */
+/**
+ * The command's handler: applies a patch to the store, then syncs the canvas in place. An undo or
+ * redo that switches views selects what it changed there, so the switch points at its reason.
+ */
 export default class DocumentChangeHandler {
-  static $inject = ["c4Document", "c4Engine", "c4Reconciler", "c4Views", "c4Scene"];
+  static $inject = [
+    "c4Document",
+    "c4Engine",
+    "c4Reconciler",
+    "c4Views",
+    "c4Scene",
+    "eventBus",
+    "injector",
+  ];
+
+  /** What the last switching undo or redo selected, revealed once the view's place is set. */
+  private toReveal: readonly string[] = [];
 
   constructor(
     private readonly store: DocumentStore,
@@ -43,7 +65,20 @@ export default class DocumentChangeHandler {
     private readonly reconciler: Reconciler,
     private readonly views: ViewService,
     private readonly scenes: SceneService,
-  ) {}
+    eventBus: EventBus,
+    private readonly injector: Injector,
+  ) {
+    eventBus.on(VIEW_CHANGED_EVENT, AFTER_THE_HOST, ({ cause }: ViewChangedEvent) => {
+      const ids = this.toReveal;
+      this.toReveal = [];
+      if (cause !== "undo" && cause !== "redo") return;
+      const registry = this.injector.get<ElementRegistry>("elementRegistry");
+      const shapes = ids
+        .map((id) => registry.get(id) as Element | undefined)
+        .filter((shape): shape is Element => shape !== undefined);
+      reveal(this.injector, shapes);
+    });
+  }
 
   /** The first run and every redo; diagram-js skips `preExecute` on a redo. */
   execute(context: DocumentChangeContext): Element[] {
@@ -95,7 +130,26 @@ export default class DocumentChangeHandler {
     if (actual !== to) throw new C4HistoryMismatchError(to, actual);
     // Set first: `exportText()` inside `commandStack.changed` already returns the new text (L3).
     this.store.set({ parse: this.store.parseOf(text, to), view, fresh }, to);
-    if (view !== before.view) this.views.switchedInCommand(before.view, view, cause, sameView);
-    return this.reconciler.sync(this.scenes.current(), idChanges);
+    const switched = view !== before.view;
+    if (switched) this.views.switchedInCommand(before.view, view, cause, sameView);
+    const synced = this.reconciler.sync(this.scenes.current(), idChanges);
+    if (switched && !sameView && (cause === "undo" || cause === "redo")) {
+      this.selectChanged(before.parse, view, idChanges);
+    }
+    return synced;
+  }
+
+  private selectChanged(
+    parseBefore: ParseResult,
+    view: ViewKey,
+    idChanges: readonly IdChange[],
+  ): void {
+    const changed = changedItems(
+      this.scenes.ofParse(parseBefore, view),
+      this.scenes.current(),
+      idChanges,
+    );
+    this.toReveal = changed;
+    select(this.injector, changed);
   }
 }

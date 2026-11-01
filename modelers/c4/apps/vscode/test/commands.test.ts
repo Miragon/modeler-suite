@@ -73,9 +73,9 @@ describe("the rows of Go to View…", () => {
     expect(
       items.map((item) => (item.kind === SEPARATOR ? `# ${item.label}` : item.description)),
     ).toEqual([
-      "# System Landscape",
+      "# System landscape",
       "SystemLandscape",
-      "# System Context",
+      "# System context",
       "SystemContext-bookshop",
       "SystemContext-mail",
       "SystemContext-payments",
@@ -117,7 +117,7 @@ describe("the rows of Go to View…", () => {
     const items = viewPickItems(parseWorkspace(EMPTY_DIAGRAM).workspace);
 
     expect(items.map((item) => item.label)).toEqual([
-      "System Landscape",
+      "System landscape",
       "System Landscape diagram",
     ]);
     expect(items[1]).toMatchObject({ key: "SystemLandscape", detail: DRAFT_NOTE });

@@ -77,6 +77,37 @@ export function copyPoint({ x, y }: Point): Point {
   return { x, y };
 }
 
+/**
+ * The vertices outside every end's box. A vertex inside an end would run the line into that box
+ * and back out, so a bendpoint drag's preview and its drop both leave it out.
+ */
+export function verticesOutside(vertices: readonly Point[], ends: readonly Box[]): Point[] {
+  return vertices
+    .filter(
+      ({ x, y }) =>
+        !ends.some(
+          (end) => x >= end.x && x <= end.x + end.width && y >= end.y && y <= end.y + end.height,
+        ),
+    )
+    .map(copyPoint);
+}
+
+/**
+ * The vertices without the bend the layout fans a line out with (a route point the relationship
+ * does not store): a bendpoint gesture keeps the points the user placed or moved, and that bend
+ * never reaches the file.
+ */
+export function withoutFanBend(
+  vertices: readonly Point[],
+  relationship:
+    { readonly vertices: readonly Point[]; readonly route: readonly Point[] } | undefined,
+): Point[] {
+  if (!relationship || relationship.vertices.length > 0) return vertices.map(copyPoint);
+  return vertices
+    .filter(({ x, y }) => !relationship.route.some((bend) => bend.x === x && bend.y === y))
+    .map(copyPoint);
+}
+
 export function samePoints(left: readonly Point[], right: readonly Point[]): boolean {
   return (
     left.length === right.length &&

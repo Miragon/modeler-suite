@@ -12,6 +12,12 @@ import { relationshipLabelLayout } from "../text/elementTextLayout.js";
 /** diagram-js's gap between a shape and its pad, in diagram units. */
 const PAD_MARGIN = 8;
 
+/** The pad's entries in a row instead of the column (`contextPad.css`). */
+const ROW_CLASS = "c4-pad-row";
+
+/** Container pixels kept between an element's pad and the canvas's top and bottom edges. */
+const EDGE_GAP = 8;
+
 /** Container pixels, as diagram-js places the pad. */
 interface Position {
   readonly left: number;
@@ -55,10 +61,28 @@ export default class C4ContextPad extends ContextPad {
   }
 
   _getPosition(target: ContextPadTarget): Position {
-    if (Array.isArray(target) || !isRelationshipConnection(target)) {
-      return stock._getPosition.call(this, target);
+    if (Array.isArray(target)) return stock._getPosition.call(this, target);
+    if (!isRelationshipConnection(target)) {
+      return this.besideOnCanvas(target, stock._getPosition.call(this, target));
     }
     return this.relationshipPosition(target);
+  }
+
+  /**
+   * With its appends an element's column is taller than many elements: at the canvas's top or
+   * bottom edge it moves into the canvas, as far as it still runs beside the element, so every
+   * entry stays in reach.
+   */
+  private besideOnCanvas(target: ContextPadTarget, position: Position): Position {
+    const html = (this as unknown as StockContextPad)._current?.html;
+    if (!html || Array.isArray(target) || !("height" in target)) return position;
+    const padHeight = html.getBoundingClientRect().height;
+    const elementBottom = position.top + target.height * this.diagramCanvas.viewbox().scale;
+    const canvasHeight = this.diagramCanvas.getContainer().clientHeight;
+    const minTop = Math.max(position.top - padHeight, EDGE_GAP);
+    const maxTop = Math.min(elementBottom, canvasHeight - EDGE_GAP - padHeight);
+    if (minTop > maxTop) return position;
+    return { left: position.left, top: Math.min(Math.max(position.top, minTop), maxTop) };
   }
 
   private relationshipPosition(connection: C4Connection): Position {
@@ -74,6 +98,25 @@ export default class C4ContextPad extends ContextPad {
       .filter((end): end is Shape => end !== undefined && "width" in end)
       .map(onScreen);
     const html = (this as unknown as StockContextPad)._current?.html;
+    html?.classList.remove(ROW_CLASS);
+    const column = this.placeBeside(anchor, ends, html, scale);
+    if (column.covered === 0 || !html) return { left: column.left, top: column.top };
+    // The family's column is taller than the gap between two close ends of a vertical line; a
+    // row fits there.
+    html.classList.add(ROW_CLASS);
+    const row = this.placeBeside(anchor, ends, html, scale);
+    if (row.covered < column.covered) return { left: row.left, top: row.top };
+    html.classList.remove(ROW_CLASS);
+    return { left: column.left, top: column.top };
+  }
+
+  /** The first side or corner of the anchor that covers neither end, else the least covering. */
+  private placeBeside(
+    anchor: Rect,
+    ends: readonly Rect[],
+    html: HTMLElement | undefined,
+    scale: number,
+  ): Position & { readonly covered: number } {
     const { width, height } = html?.getBoundingClientRect() ?? { width: 0, height: 0 };
     const margin = PAD_MARGIN * scale;
     const middle = { left: anchor.left + anchor.width / 2, top: anchor.top + anchor.height / 2 };
@@ -105,7 +148,7 @@ export default class C4ContextPad extends ContextPad {
     const clear = sides.find((side) => covered(side) === 0);
     const chosen =
       clear ?? sides.reduce((best, side) => (covered(side) < covered(best) ? side : best));
-    return { left: chosen.left, top: chosen.top };
+    return { left: chosen.left, top: chosen.top, covered: covered(chosen) };
   }
 
   /** The label's drawn ground, else the middle of the line, in diagram units. */

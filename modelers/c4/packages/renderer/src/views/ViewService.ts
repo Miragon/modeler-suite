@@ -36,6 +36,10 @@ interface Rebuildable {
   _rebuild(): void;
 }
 
+interface SignedEntries {
+  signature(): string;
+}
+
 interface Fitting {
   fitToContent(): void;
 }
@@ -74,7 +78,10 @@ export default class ViewService implements C4Views {
     private readonly injector: Injector,
     private readonly config: ImportConfig | undefined,
   ) {
-    eventBus.on("commandStack.changed", BEFORE_HOST_LISTENERS, () => this.announcePending());
+    eventBus.on("commandStack.changed", BEFORE_HOST_LISTENERS, () => {
+      this.announcePending();
+      this.refreshPalette();
+    });
     eventBus.on("diagram.destroy", () => {
       this.destroyed = true;
       this.pending = undefined;
@@ -172,10 +179,16 @@ export default class ViewService implements C4Views {
         : { view: next, previous: this.pending.previous, cause };
   }
 
-  /** The palette's entries follow the view's type and whether it is editable (SPEC 5.1). */
+  /**
+   * The palette's entries follow the view's type, whether it is editable (SPEC 5.1) and the look of
+   * what they create, which the workspace's styles set.
+   */
   refreshPalette(): void {
+    if (this.destroyed) return;
     const view = this.active();
-    const signature = `${view.type}:${String(view.editable)}`;
+    const signature =
+      this.service<SignedEntries>("paletteProvider")?.signature() ??
+      `${view.type}:${String(view.editable)}`;
     if (signature === this.paletteFor) return;
     this.paletteFor = signature;
     this.service<Rebuildable>("palette")?._rebuild();

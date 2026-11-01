@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 import type CommandStack from "diagram-js/lib/command/CommandStack";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type EventBus from "diagram-js/lib/core/EventBus";
@@ -32,6 +33,22 @@ interface Panel {
 }
 
 const handles: InspectorHandle[] = [];
+
+/** A name set with a constant, which the inspector shows read-only. */
+const CONSTANT = `workspace "Constant" {
+    !constant PAY "Payment Gateway"
+    model {
+        shop = softwareSystem "Shop"
+        pay = softwareSystem "\${PAY}"
+        shop -> pay "Charges"
+    }
+    views {
+        systemLandscape "Landscape" {
+            include *
+        }
+    }
+}
+`;
 
 afterEach(() => {
   for (const handle of handles.splice(0)) handle.destroy();
@@ -248,14 +265,17 @@ describe("the inspector's content (SPEC 5.6)", () => {
     const page = await mountModeler();
     const panel = panelFor(page);
     select(page.modeler, "bookshop");
-    const views = [...panel.slot.element.querySelectorAll<HTMLButtonElement>("button[data-view]")];
+    const list = panel.slot.element.querySelector(".c4-inspector-view-list");
+    const views = [...(list?.querySelectorAll<HTMLButtonElement>("button[data-view]") ?? [])];
     expect(views.map((view) => view.textContent)).toEqual([
       "System Landscape diagram",
       "Container diagram for Bookshop",
-      "Open container view",
     ]);
     expect(views[0]?.getAttribute("aria-current")).toBe("true");
-    buttonNamed(panel, "Open container view").click();
+    const drill = buttonNamed(panel, "Open container view");
+    expect(list?.contains(drill), "the drill is a button of its own, not a view").toBe(false);
+    expect(drill.dataset.variant).toBe("secondary");
+    drill.click();
     expect(page.modeler.views.active().key).toBe("Containers");
     expect(page.modeler.elements.selection()).toEqual(["bookshop"]);
     expect(panel.slot.element.querySelector(".c4-field-note")?.textContent).toBe(
@@ -315,7 +335,170 @@ describe("the inspector's content (SPEC 5.6)", () => {
     select(page.modeler, "rel:implied:customer->bookshop");
     expect(panel.slot.element.querySelector("h2")?.textContent).toBe("Implied relationship");
     expect(panel.slot.element.textContent).toContain("Implied by Customer → Web App.");
-    expect(panel.slot.element.querySelector("[data-field]")).toBeNull();
+  });
+
+  it("shows an implied relationship's values read-only and opens the view of its origin", async () => {
+    const page = await mountModeler();
+    const panel = panelFor(page);
+    select(page.modeler, "rel:implied:customer->bookshop");
+    const description = control(panel, "description");
+    const technology = control(panel, "technology");
+    expect(description.value).toBe("Buys books");
+    expect(technology.value).toBe("HTTPS");
+    for (const field of [description, technology]) {
+      expect(field.readOnly).toBe(true);
+      const reason = document.getElementById(field.getAttribute("aria-describedby") ?? "");
+      expect(reason?.textContent).toBe(
+        "Implied by Customer → Web App. Edit that relationship to change it.",
+      );
+    }
+    buttonNamed(panel, "Open Container diagram for Bookshop").click();
+    expect(page.modeler.views.active().key).toBe("Containers");
+    const selected = service<Selection>(page.modeler, "selection").get();
+    expect(selected.map((element) => element.id)).toEqual(["rel:customer->web"]);
+    expect(panel.slot.element.querySelector("h2")?.textContent).toBe("Relationship");
+    expect(page.modeler.exportText()).toBe(BOOKSHOP);
+  });
+
+  it("names a constant's token in typographic quotes", async () => {
+    const page = await mountModeler(CONSTANT);
+    const panel = panelFor(page);
+    select(page.modeler, "pay");
+    const name = control(panel, "name");
+    expect(name.readOnly).toBe(true);
+    const reason = document.getElementById(name.getAttribute("aria-describedby") ?? "");
+    expect(reason?.textContent).toBe("Set with “${PAY}”. Edit the constant in the text.");
+  });
+
+  it("shows a taken identifier in typographic quotes", async () => {
+    const page = await mountModeler();
+    const panel = panelFor(page);
+    select(page.modeler, "bookshop");
+    const identifier = control(panel, "identifier");
+    typeInto(identifier, "customer");
+    press(identifier, "Enter");
+    const message = document.getElementById(identifier.getAttribute("aria-describedby") ?? "");
+    expect(message?.textContent).toBe(
+      "The identifier “customer” is already in use. Choose another one.",
+    );
+  });
+
+  it("offers no Remove from view for the system a system context view is about", async () => {
+    const page = await mountModeler();
+    const panel = panelFor(page);
+    page.modeler.views.open("SystemContext-bookshop", { cause: "user" });
+    select(page.modeler, "bookshop");
+    const remove = buttonNamed(panel, "Remove from view");
+    expect(remove.disabled).toBe(true);
+    const reason = document.getElementById(remove.getAttribute("aria-describedby") ?? "");
+    expect(reason?.textContent).toBe("A system context view always shows its system.");
+    const disabledSurface = getComputedStyle(remove).backgroundColor;
+
+    select(page.modeler, "customer");
+    const enabled = buttonNamed(panel, "Remove from view");
+    expect(enabled.disabled).toBe(false);
+    expect(disabledSurface, "a disabled secondary button keeps its surface (guide §8)").toBe(
+      getComputedStyle(enabled).backgroundColor,
+    );
+  });
+
+  it("suggests the tags the styles use, each added as one command", async () => {
+    const page = await mountModeler();
+    const panel = panelFor(page);
+    select(page.modeler, "payments");
+    const suggestions = panel.slot.element.querySelector('[role="group"].c4-tag-suggestions');
+    const named = document.getElementById(suggestions?.getAttribute("aria-labelledby") ?? "");
+    expect(named?.textContent).toBe("Tags with a style");
+    const offered = [...(suggestions?.querySelectorAll("button") ?? [])];
+    expect(offered.map((button) => button.textContent)).toEqual(["Database"]);
+    offered[0]?.click();
+    expect(elementNamed(page.modeler, "payments")?.ownTags).toEqual(["Database"]);
+    expect(control(panel, "tags").value).toBe("Database");
+    expect(undoSteps(page)).toBe(1);
+    expect(panel.slot.element.querySelector(".c4-tag-suggestions")).toBeNull();
+  });
+
+  it("marks a software system external with the tag the C4 colours draw grey", async () => {
+    const page = await mountModeler();
+    const panel = panelFor(page);
+    select(page.modeler, "payments");
+    expect(panel.slot.element.querySelector('[data-field="external"]')).toBeNull();
+
+    page.modeler.c4.applyC4Colours();
+    select(page.modeler, "payments");
+    const external = panel.slot.element.querySelector<HTMLInputElement>('[data-field="external"]');
+    expect(external?.type).toBe("checkbox");
+    expect(external?.checked).toBe(false);
+    expect(external?.closest("label")?.textContent).toContain("External");
+    const offered = [...panel.slot.element.querySelectorAll(".c4-tag-suggestions button")];
+    expect(offered.map((button) => button.textContent)).toEqual(["Database"]);
+    const steps = undoSteps(page);
+    external?.click();
+    expect(elementNamed(page.modeler, "payments")?.ownTags).toEqual(["Existing System"]);
+    expect(undoSteps(page)).toBe(steps + 1);
+    const after = panel.slot.element.querySelector<HTMLInputElement>('[data-field="external"]');
+    expect(after?.checked).toBe(true);
+    after?.click();
+    expect(elementNamed(page.modeler, "payments")?.ownTags).toEqual([]);
+
+    select(page.modeler, "customer");
+    expect(panel.slot.element.querySelector('[data-field="external"]')).toBeNull();
+  });
+
+  it("keeps the focus among the tag choices when the chosen one goes", async () => {
+    const page = await mountModeler();
+    const panel = panelFor(page);
+    page.modeler.c4.applyC4Colours();
+    select(page.modeler, "customer");
+    const choice = (tag: string) => buttonNamed(panel, `Add the tag “${tag}”`);
+    const first = choice("Existing System");
+    first.focus();
+    first.click();
+    expect(elementNamed(page.modeler, "customer")?.ownTags).toEqual(["Existing System"]);
+    expect(document.activeElement, "the next choice").toBe(choice("Database"));
+
+    choice("Database").click();
+    expect(elementNamed(page.modeler, "customer")?.ownTags).toEqual([
+      "Existing System",
+      "Database",
+    ]);
+    expect(document.activeElement, "the field once no choice is left").toBe(control(panel, "tags"));
+  });
+
+  it("lets Tab go on from a committed field to the control after it", async () => {
+    const page = await mountModeler();
+    const panel = panelFor(page);
+    page.modeler.c4.applyC4Colours();
+    select(page.modeler, "payments");
+    typeInto(control(panel, "tags"), "Legacy");
+    await userEvent.tab();
+    expect(elementNamed(page.modeler, "payments")?.ownTags).toEqual(["Legacy"]);
+    expect((document.activeElement as HTMLElement | null)?.dataset.field).toBe("external");
+
+    typeInto(control(panel, "identifier"), "gateway");
+    await userEvent.tab();
+    expect(elementNamed(page.modeler, "gateway")).toBeDefined();
+    expect(document.activeElement?.textContent).toBe("System Landscape diagram");
+    expect(panel.slot.element.contains(document.activeElement)).toBe(true);
+  });
+
+  it("adds a relationship from the keyboard through its dialog", async () => {
+    const page = await mountModeler();
+    const panel = panelFor(page);
+    select(page.modeler, "customer");
+    const add = buttonNamed(panel, "Add relationship…");
+    add.focus();
+    add.click();
+    const dialog = page.dialogs.current();
+    expect(dialog?.options.title).toBe("Add relationship");
+    const destination = dialog?.element.querySelector<HTMLSelectElement>(
+      '[data-field="destination"]',
+    );
+    expect(document.activeElement).toBe(destination);
+
+    service<ReadOnly>(page.modeler, "readOnly").setReadOnly(true);
+    dialog?.dialog.close();
+    expect(buttonNamed(panel, "Add relationship…").disabled).toBe(true);
   });
 
   it("follows a rename of a relationship's end, keeping the draft typed in another field", async () => {

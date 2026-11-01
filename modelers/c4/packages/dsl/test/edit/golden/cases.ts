@@ -328,6 +328,88 @@ export const GOLDEN_CASES: readonly GoldenCase[] = [
     options: { view: "SystemLandscape" },
   },
   {
+    name: "append-system-in-pinned-landscape",
+    before: PINNED,
+    edit: {
+      type: "createElement",
+      kind: "softwareSystem",
+      center: { x: 952, y: 80 },
+      connectFrom: "shop",
+    },
+    options: { view: "Landscape", boxes: { customer: box(0, 0, 216, 216), shop: box(400, 0) } },
+  },
+  {
+    name: "append-unplaced-person",
+    before: PINNED,
+    edit: { type: "createElement", kind: "person", connectFrom: "shop" },
+    options: { view: "Landscape", boxes: { customer: box(0, 0, 216, 216), shop: box(400, 0) } },
+  },
+  {
+    name: "append-container-pins-the-view",
+    before: CONTAINERS,
+    edit: {
+      type: "createElement",
+      kind: "container",
+      center: { x: 120, y: 800 },
+      connectFrom: "api",
+    },
+    options: {
+      view: "ShopContainers",
+      seed: 5,
+      boxes: { customer: box(0, 0, 216, 216), web: box(0, 296), api: box(0, 552) },
+    },
+  },
+  {
+    name: "append-database-from-anonymous-element",
+    before: dsl`
+      workspace "Shop" {
+          model {
+              shop = softwareSystem "Shop" {
+                  container "API"
+              }
+          }
+          views {
+              container shop "ShopContainers" {
+                  include *
+                  properties {
+                      "c4modeler.element.api" "0,0"
+                  }
+              }
+          }
+      }
+    `,
+    edit: {
+      type: "createElement",
+      kind: "container",
+      tags: ["Database"],
+      center: { x: 552, y: 80 },
+      connectFrom: "api",
+    },
+    options: { view: "ShopContainers", seed: 9, boxes: { api: box(0, 0) } },
+  },
+  {
+    name: "append-from-the-context-scope",
+    before: SHOP,
+    edit: {
+      type: "createElement",
+      kind: "softwareSystem",
+      center: { x: 952, y: 108 },
+      connectFrom: "shop",
+    },
+    options: { view: "ShopContext", boxes: LANDSCAPE_BOXES },
+  },
+  {
+    name: "append-beside-the-context-scope",
+    before: SHOP,
+    edit: {
+      type: "createElement",
+      kind: "softwareSystem",
+      center: { x: 108, y: 496 },
+      connectFrom: "customer",
+    },
+    options: { view: "ShopContext", boxes: LANDSCAPE_BOXES },
+  },
+  {
     name: "hierarchical-relationship",
     before: dsl`
       workspace {
@@ -1104,5 +1186,26 @@ export const GOLDEN_CASES: readonly GoldenCase[] = [
     ),
     edit: { type: "clearLayout" },
     options: { view: "Landscape" },
+  },
+  {
+    name: "pin-keyless-member-on-relationship",
+    before: PINNED.replace(
+      'shop = softwareSystem "Shop"',
+      'shop = softwareSystem "Shop"\n        mail = softwareSystem "Mail"',
+    ),
+    edit: { type: "createRelationship", sourceId: "shop", destinationId: "mail" },
+    options: {
+      view: "Landscape",
+      boxes: { customer: box(0, 0, 216, 216), shop: box(400, 0), mail: box(0, 296) },
+    },
+  },
+  {
+    name: "include-in-view-with-box",
+    before: PINNED.replace(
+      'shop = softwareSystem "Shop"',
+      'shop = softwareSystem "Shop"\n        mail = softwareSystem "Mail"',
+    ).replace("include *", "include customer shop"),
+    edit: { type: "includeInView", ids: ["mail"], boxes: new Map([["mail", box(400, 280)]]) },
+    options: { view: "Landscape", boxes: { customer: box(0, 0, 216, 216), shop: box(400, 0) } },
   },
 ];

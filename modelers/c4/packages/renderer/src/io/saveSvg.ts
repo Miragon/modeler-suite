@@ -1,5 +1,6 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
 import { DRILL_CLASS } from "../draw/drillBadge.js";
+import { FEEDBACK_CLASS } from "../draw/drawItems.js";
 import type ContentBounds from "./ContentBounds.js";
 
 const EXPORT_PADDING = 20;
@@ -7,10 +8,10 @@ const EMPTY_EXPORT = { x: 0, y: 0, width: 800, height: 600 };
 /** What the live canvas carries for keyboard and screen-reader use, not for a picture. */
 const LIVE_CANVAS_ATTRIBUTES = ["tabindex", "role", "aria-label", "aria-roledescription"];
 /**
- * The interaction helpers and the drill badge, which only a click on the live canvas uses. The
- * handles of a selection (bendpoints, which stay on a relationship once hovered, resize handles,
- * the outline of several) have no paint of their own: diagram-js's stylesheet shows them, so a
- * standalone picture would fill them black.
+ * The interaction helpers, the connect and drop feedback ring and the drill badge, which only the
+ * live canvas uses. The handles of a selection (bendpoints, which stay on a relationship once
+ * hovered, resize handles, the outline of several) have no paint of their own: diagram-js's
+ * stylesheet shows them, so a standalone picture would fill them black.
  */
 const LIVE_CANVAS_PARTS = [
   ".djs-outline",
@@ -19,6 +20,7 @@ const LIVE_CANVAS_PARTS = [
   ".djs-resizer",
   ".djs-selection-outline",
   `.${DRILL_CLASS}`,
+  `.${FEEDBACK_CLASS}`,
 ].join(", ");
 /**
  * The design system's role classes follow the page's mode; each such node also carries its light

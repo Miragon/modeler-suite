@@ -31,14 +31,16 @@ not affiliated with or endorsed by Structurizr Limited.
   opens the view one level deeper. Below the system landscape, the breadcrumb at the top left
   shows the path from the landscape down to the view you are in, and a click on any view in it
   opens that view; U goes up one level. Model › Views… (G) lists every view of the workspace. A
-  view that is not in the file yet opens as a draft and is written with your first edit in it;
-  looking around never changes the file.
+  view that is not in the file yet opens as a draft, marked "Not in the file yet" in the
+  breadcrumb, and is written with your first edit in it; looking around never changes the file.
 - It keeps the layout in your file. Your first move in a view writes the position of every
   element into that view's `properties`, one line per element, so a later move is a one-line diff
-  and travels with the model through Git. A view without positions is laid out automatically.
+  and travels with the model through Git. An element added later gets its line as it arrives (one
+  added in the text, with the next change in the view), so nothing jumps. A view without positions
+  is laid out automatically.
 - It deletes with care. Delete removes an element from this view, or from the model when no other
-  view shows it; Delete from model (Shift+Delete) asks first when the deletion reaches further.
-  Every change is one undo step.
+  view shows it, and the web app says which it was; Delete from model (Shift+Delete) asks first
+  when the deletion reaches further. Every change is one undo step.
 
 ## The file
 
@@ -103,16 +105,21 @@ On the focused canvas, next to the shell's zoom and fit keys:
 | Key                                  | Action                                                               |
 | ------------------------------------ | -------------------------------------------------------------------- |
 | L, H, C                              | lasso, hand, connect tool                                            |
-| E, double-click                      | edit the name (Tab moves to the next field)                          |
+| E                                    | edit the name, or a relationship's description (Tab moves on)        |
+| Double-click                         | edit the text under the pointer                                      |
 | Enter                                | open the view of the selected software system or container           |
 | U                                    | parent view                                                          |
 | G                                    | Views…                                                               |
 | Delete, Backspace                    | remove from this view, or from the model when no other view shows it |
 | Shift+Delete                         | Delete from model…                                                   |
 | Arrows, Shift+Arrows                 | move the selection                                                   |
+| Esc                                  | clear the selection                                                  |
+| Cmd/Ctrl+Arrows                      | move the canvas                                                      |
+| Space (held)                         | hand                                                                 |
 | Cmd/Ctrl+A                           | select every element of the view                                     |
 | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, Ctrl+Y | undo, redo (in VS Code, the editor's own undo and redo)              |
 | ?                                    | keyboard shortcuts (web app)                                         |
+| Cmd/Ctrl+O, Cmd/Ctrl+S               | open a file, export the `.c4` file (web app)                         |
 
 ## Getting started
 

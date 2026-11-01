@@ -40,16 +40,16 @@ export function layoutView(input: LayoutInput): ViewGeometry {
     placeItems(boxes, [...items, ...leaves], context);
   }
   const frames = deriveFrames(tree, boxes);
-  const { vertices, labelBoxes } = relationshipGeometry(
-    relationships,
-    boxes,
-    input.stored.relationships,
-  );
   const elementBoxes = new Map<ElementId, Box>();
   for (const id of elements) {
     const box = boxes.get(id);
     if (box) elementBoxes.set(id, box);
   }
+  const { vertices, routes, labelBoxes } = relationshipGeometry(
+    relationships,
+    elementBoxes,
+    input.stored.relationships,
+  );
   const boundaries = new Map<ElementId, Box>();
   const groups = new Map<string, Box>();
   for (const cluster of tree.clusters.values()) {
@@ -62,6 +62,7 @@ export function layoutView(input: LayoutInput): ViewGeometry {
     boxes: elementBoxes,
     placed,
     vertices,
+    routes,
     boundaries,
     groups,
     labelBoxes,

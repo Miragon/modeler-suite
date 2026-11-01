@@ -5,6 +5,36 @@
   },
   "results": [
     {
+      "file": "test/edit/golden/append-beside-the-context-scope.after.dsl",
+      "sha256": "ba65b1f857656603991e055428cc6018670e7d08029d5054254fd56deac429f1",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/append-container-pins-the-view.after.dsl",
+      "sha256": "44da8658644acd7db26fec147b99a611858e0b82f7cb03506d8cb1bde1aa5239",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/append-database-from-anonymous-element.after.dsl",
+      "sha256": "3a71d34fd18ac16e4d94ee7ad9fc0593a7bca7cb00155f2dc3a1e7e7c9c7578f",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/append-from-the-context-scope.after.dsl",
+      "sha256": "788dc22088a8470aedaeaba109628d1b9e6ab455bfad5dd9ad4b78efc0c1938c",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/append-system-in-pinned-landscape.after.dsl",
+      "sha256": "23bf1fa253cc04e9f694e033ca88c8c521cea5d28b4c7700b16b6cf46364e985",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/append-unplaced-person.after.dsl",
+      "sha256": "cdaeaadc6fa255896191f138fd652dc1dfe2328227996d9bab04f7aa7883638b",
+      "accepted": true
+    },
+    {
       "file": "test/edit/golden/apply-c4-colours.after.dsl",
       "sha256": "303cc3ad3373b05e6f3f7d4dc72628434737d314b797786c6ce3890c0ea8d519",
       "accepted": true
@@ -190,6 +220,11 @@
       "accepted": true
     },
     {
+      "file": "test/edit/golden/include-in-view-with-box.after.dsl",
+      "sha256": "2405b7efde330096a24f0feb84c2328fdfd290b619b8408887777f29196fdace",
+      "accepted": true
+    },
+    {
       "file": "test/edit/golden/keyless-view-move.after.dsl",
       "sha256": "f7362c16cdd42ce9faf6205ef465454e05ea0952b67cbde35965b32a360d81f3",
       "accepted": true
@@ -207,6 +242,11 @@
     {
       "file": "test/edit/golden/move-one-property-line.after.dsl",
       "sha256": "e4aa3db61df281634b7d3447c42012506c06f1314e08fe1facad2d547c1c1af9",
+      "accepted": true
+    },
+    {
+      "file": "test/edit/golden/pin-keyless-member-on-relationship.after.dsl",
+      "sha256": "17f446f4b45c6312cb42f732631920fccaf8a803aba37b1ae1c127b6c110e548",
       "accepted": true
     },
     {
@@ -356,7 +396,7 @@
     },
     {
       "file": "fuzz/seed-0007.dsl",
-      "sha256": "982eac1ebed6ac39d05af4ae22e5cd1bd789c033cff3f9c8d7258934ab90c635",
+      "sha256": "74e8e56a97e739a1980c4b1d2e16ecd8eee9a8a9db6e3875e079fd084448ff8e",
       "accepted": true
     },
     {
@@ -366,7 +406,7 @@
     },
     {
       "file": "fuzz/seed-0009.dsl",
-      "sha256": "1941a9303c5422f7151d806ec39d101e2a69d3af96083f8525cb8eea94e2b821",
+      "sha256": "982b74c904cc7dd106a58ea3ba34343c0bd3726fa8b41f464c12e5827060e063",
       "accepted": true
     },
     {
@@ -401,7 +441,7 @@
     },
     {
       "file": "fuzz/seed-0016.dsl",
-      "sha256": "009145f5f880a9cf0527025097130e0af917655699404550625ef6e9b1a5fecf",
+      "sha256": "3314025b86a19d1d3605ce696f6956a807495350be9b40256aaacde599d9cef9",
       "accepted": true
     },
     {
@@ -411,7 +451,7 @@
     },
     {
       "file": "fuzz/seed-0018.dsl",
-      "sha256": "afd2c76d20decfc41e9b5622072e95c01212f78c0f239f8d5e7ede6fe8de19d0",
+      "sha256": "ac3f370c1c10db2cf080a7c93e9269b04ec90bb334cce46ea02ff11be45f7c59",
       "accepted": true
     },
     {
@@ -456,12 +496,12 @@
     },
     {
       "file": "fuzz/seed-0027.dsl",
-      "sha256": "71245a0d6dabe4d8ed756ce4c985ad5d73816c39fcb47cf52f16136e362c3a04",
+      "sha256": "df3289132f7f83144ddd5d217018d3492ad4429e207ee053fedf74b9b882d166",
       "accepted": true
     },
     {
       "file": "fuzz/seed-0028.dsl",
-      "sha256": "61a46524ac60e44d1d754c3a0304a735dace2d4a6e47463c608326880f17822d",
+      "sha256": "7b5de645fb123d3a350d2958d83e9be96f765b4aea4327d740380772904c5735",
       "accepted": true
     },
     {
@@ -541,12 +581,12 @@
     },
     {
       "file": "fuzz/seed-0044.dsl",
-      "sha256": "acd16d97e029dc62934d51424d226518d12311918f55ea393182ebb6f49c1eee",
+      "sha256": "ae112f2091de376bc1f55c49be141d92c6d838e92c68fe282aa0d053d723161e",
       "accepted": true
     },
     {
       "file": "fuzz/seed-0045.dsl",
-      "sha256": "fc6d73b574bb9638f51e7b4672def3a1be6bba2dce29cb5c5de4fd11ffda37c6",
+      "sha256": "4bdbbd017ae79de95d760c5fb64ad5653175a01d9cb107111be37629d9917536",
       "accepted": true
     },
     {
@@ -566,12 +606,12 @@
     },
     {
       "file": "fuzz/seed-0049.dsl",
-      "sha256": "bbfc9d54e6b1ca3f6ef628ea6d3a6ae23a727c7a69e502f9b1aa772b40a45fd2",
+      "sha256": "32576bc834f2caa307b07f1a4976a06c23cbb1c421234b7c14af33da65492128",
       "accepted": true
     },
     {
       "file": "fuzz/seed-0050.dsl",
-      "sha256": "f8501981dcb423eaf1702bf3bc0de5ddc4779f3d6a27c2674d09da4a590f995d",
+      "sha256": "c140f47b5ed7fd4dafa31bd7303622edcb07204defbc75c2e964a8f8aef443ee",
       "accepted": true
     },
     {
@@ -581,7 +621,7 @@
     },
     {
       "file": "fuzz/seed-0052.dsl",
-      "sha256": "86db18057c57640c9a61ebb87269299d5262858a06a1ee830a0005eb11b52086",
+      "sha256": "917fabd9b3ce04ed76c8fd152db468154eb3ea96f2f1e65fec092bfd36c5722c",
       "accepted": true
     },
     {
@@ -621,7 +661,7 @@
     },
     {
       "file": "fuzz/seed-0060.dsl",
-      "sha256": "30b20cbe213441efa54541d8fffc995af97d535efc128878a87adfde391f1a70",
+      "sha256": "4fb74ad2b1f1b3a67a30593b6e54bb9db93a246f02150e62f520c15e4465bebc",
       "accepted": true
     },
     {
@@ -631,7 +671,7 @@
     },
     {
       "file": "fuzz/seed-0062.dsl",
-      "sha256": "f457e3acb8386fc33162121f2243cd4f257ada44dd04ff74f6b90da7dba4a8eb",
+      "sha256": "d4b0bcdc646ca32e0c7b8fd73324e5c33e2b52a7510baaeb46e6e387ea73c2ca",
       "accepted": true
     },
     {
@@ -696,7 +736,7 @@
     },
     {
       "file": "fuzz/seed-0075.dsl",
-      "sha256": "539ce96e520c5227b9b68550e15134bdce501e2e0c20abb7f0b6d716a3538798",
+      "sha256": "448066832330f5e15bd5f93f49bdf4bea2c2180f7bfcc133c0f4655ed65f46be",
       "accepted": true
     },
     {
@@ -731,7 +771,7 @@
     },
     {
       "file": "fuzz/seed-0082.dsl",
-      "sha256": "94819554326f4f26c5a1398b2bee45cb1e9047c5bdd6e9fc4c61f37c13a008c3",
+      "sha256": "9619b3c4b8a6689ebc9f97ebc5e7be5571c4968f40912b07c9dbbb961db51131",
       "accepted": true
     },
     {
@@ -746,12 +786,12 @@
     },
     {
       "file": "fuzz/seed-0085.dsl",
-      "sha256": "fa06c8bbb1d007966b9843cd2702acc0822930368f94e62b61773389f851e563",
+      "sha256": "55f0b30fcf523b7bbad1693bb9734a7240de607dbb34516b60cdd24f054c9434",
       "accepted": true
     },
     {
       "file": "fuzz/seed-0086.dsl",
-      "sha256": "9f4dd70985aed2906d533379a3e410aeebd6d62cc14bbdba34a1edbc032fbdf2",
+      "sha256": "4001a6c3a5ed59bbb952f8474a07f91139478bcf5c3f0a1de3904376ec3d3562",
       "accepted": true
     },
     {
@@ -771,7 +811,7 @@
     },
     {
       "file": "fuzz/seed-0090.dsl",
-      "sha256": "c587a8f5fa478301f8fba829117d78570e779562757dc0f48dd377ccc2fec380",
+      "sha256": "814a48822d7785868d2ed958daf86d146a4dfaf21b0420673067096eddcc1aad",
       "accepted": true
     },
     {
@@ -791,7 +831,7 @@
     },
     {
       "file": "fuzz/seed-0094.dsl",
-      "sha256": "14ec3745eeaf4b002549d6a62ed7c9b9812678f48366c8911e0baf1164a334c1",
+      "sha256": "7ecd604f59cffe9ca5881624dbebb957330674df0ff65e25d5610a19a40e052b",
       "accepted": true
     },
     {
@@ -806,7 +846,7 @@
     },
     {
       "file": "fuzz/seed-0097.dsl",
-      "sha256": "95391ea08c64ed1b4164cea5fc7603ac73e2a83ce0fe96a056f844e3ed43c829",
+      "sha256": "a519e4c1b4b58a06bb0eae68f717ed0af8efd16e8fc5e66b02affa41eb0532bc",
       "accepted": true
     },
     {
@@ -866,7 +906,7 @@
     },
     {
       "file": "fuzz/seed-0109.dsl",
-      "sha256": "0d2e648e2e27197b5c4c5d8bfbe724ca63bbde8b12296915896f44b135e559cb",
+      "sha256": "178272a8afb833b00b2de15d3b20c09e04b3a02ca6d05815c569e1e437760988",
       "accepted": true
     },
     {
@@ -876,7 +916,7 @@
     },
     {
       "file": "fuzz/seed-0111.dsl",
-      "sha256": "b39e1b3ef296fdb07ab597f63ded03f0380abba14de76a452219a7a6eeb2b562",
+      "sha256": "b9dd2ea0299c181bf186c96a14a6d6e238c35ae001da048f0bd6e09269ee4e9d",
       "accepted": true
     },
     {
@@ -891,7 +931,7 @@
     },
     {
       "file": "fuzz/seed-0114.dsl",
-      "sha256": "ebc7f821c270c3ab0ca431c940cad2295ad8ca68b61775d55850a21e48d861f8",
+      "sha256": "b9f9cfb869a67cf53d877b6155f5981019dab9bd05d625daec6977546780c599",
       "accepted": true
     },
     {
@@ -906,7 +946,7 @@
     },
     {
       "file": "fuzz/seed-0117.dsl",
-      "sha256": "9dd8ac5fe7c24a0d0d2e5fbd4121e224387988de9e7e1171b38726559d8bcc30",
+      "sha256": "828315f4ad5d96941493371b3720fb9b99de6ca3b39b8b47d2fdb2db85f8104f",
       "accepted": true
     },
     {
@@ -921,7 +961,7 @@
     },
     {
       "file": "fuzz/seed-0120.dsl",
-      "sha256": "65c689b87271541d61b9dc3cd198cd96855d10afdb05af5c840de1059e2900f8",
+      "sha256": "37747cf60021d98979ce1d043715c38dee200eef49ce9a7726780d61325df757",
       "accepted": true
     },
     {
@@ -936,7 +976,7 @@
     },
     {
       "file": "fuzz/seed-0123.dsl",
-      "sha256": "8c1fc6d63244989850b0f637b559429abf86bad73f015797d6ccfed60e755bc6",
+      "sha256": "24ea396afac37615e1a83880640e61c762efab2f983ba25ab2e2e467b901df45",
       "accepted": true
     },
     {
@@ -996,7 +1036,7 @@
     },
     {
       "file": "fuzz/seed-0135.dsl",
-      "sha256": "2f3a47242a76bc048e446b58a1d2c953ea4fae3d3944d98828e58883ae1da1c6",
+      "sha256": "0b97c9b0a17d17eb59892da2eb09ee33e9a4342828fa181e71b50c94059ae825",
       "accepted": true
     },
     {
@@ -1011,7 +1051,7 @@
     },
     {
       "file": "fuzz/seed-0138.dsl",
-      "sha256": "238b7c0271e88de4dd6acd426d2bb08d9cf473fb331b2acf798f768c84f598d7",
+      "sha256": "edeff072b986a33d109c3d6130b236f6cdf60da5edf491564c8a65b743b13215",
       "accepted": true
     },
     {
@@ -1051,17 +1091,17 @@
     },
     {
       "file": "fuzz/seed-0146.dsl",
-      "sha256": "ce893bcb13b453d7358e6f9afa0a8e5187214cd22014ac042f5c8af839136801",
+      "sha256": "41d20a0ad7838e9f4b04e0d1099749fd8bac9310b86fd1e8de36322cf10e5b77",
       "accepted": true
     },
     {
       "file": "fuzz/seed-0147.dsl",
-      "sha256": "3522151f0b8e24cec8f5f4307a20ca9a242469856f7a777396733f0bc50cf5e8",
+      "sha256": "0de831be55770241b46c6607255471be47ac13a33f9b1a0fbd530a70995cdd1e",
       "accepted": true
     },
     {
       "file": "fuzz/seed-0148.dsl",
-      "sha256": "6c4c3324cb735cf13e693cf0218abeaaa9b6797e0196bd5bf3d7c3ced22a5dc9",
+      "sha256": "acc9323e5d40605fcb0badf1098bb8e479eb1a49a7d7fa3c4823b1906ee25ed7",
       "accepted": true
     },
     {
@@ -1086,7 +1126,7 @@
     },
     {
       "file": "fuzz/seed-0153.dsl",
-      "sha256": "2d3929cc666bf84a0f9b419f620c3882df06dc6e0fbd679ee619221935c07b86",
+      "sha256": "37a9646130ae2fbd4e21f44292245ea840927af7a85902f0dd62bd8d5ccdf453",
       "accepted": true
     },
     {
@@ -1176,12 +1216,12 @@
     },
     {
       "file": "fuzz/seed-0171.dsl",
-      "sha256": "5a210eaaa004b32cb85115edfb5f44de58478adb4aa73f1a230576c12eec77c1",
+      "sha256": "3e6f20f981f9e9ff29b7900d6d9bbd38798ed1215239e0d0a2ef13fd5d2a3437",
       "accepted": true
     },
     {
       "file": "fuzz/seed-0172.dsl",
-      "sha256": "44d6a481ab3a3d9fd14b9ea4280b5a813847906840dcca3582f8698eb319b536",
+      "sha256": "72ac1cca3a5b81589604997b8958b3206c2273027a254b5a9d7bc91e3443e67c",
       "accepted": true
     },
     {
@@ -1201,17 +1241,17 @@
     },
     {
       "file": "fuzz/seed-0176.dsl",
-      "sha256": "402ba7fc091b94f6ab9a7d0ed5396e9954ff5ba8d3bc32393aa981c945ae1e4d",
+      "sha256": "74fb56b53c6b749d60e0d61e8a002eb026ab58ade13ec7b3e1deae4e13448153",
       "accepted": true
     },
     {
       "file": "fuzz/seed-0177.dsl",
-      "sha256": "28d3c10fcdd1089be586a21902f0b3190743cf39a232e968f858752a85394269",
+      "sha256": "307c12f94c3777218a7d9222ab034d6b535bc667a0e10d15e8d3bbf031462d2b",
       "accepted": true
     },
     {
       "file": "fuzz/seed-0178.dsl",
-      "sha256": "a6f73fc023bb80c1c689bb5cb44e05f386c0a5d97f2af2bb99de492c532960c5",
+      "sha256": "7b504f764ecdd5de81fa20f6875a3128ab2ac842efa90658ef244b989a57726a",
       "accepted": true
     },
     {
@@ -1226,7 +1266,7 @@
     },
     {
       "file": "fuzz/seed-0181.dsl",
-      "sha256": "ea98c178e3515c172d3fd36f620b11672a36058fca6406c816b883142917a18f",
+      "sha256": "ef53fc3b1145ada4fbc02e04aff296b4f28d1f9dc5873163d082e9a0ceb7731d",
       "accepted": true
     },
     {
@@ -1246,7 +1286,7 @@
     },
     {
       "file": "fuzz/seed-0185.dsl",
-      "sha256": "f8c80e57fd31bd3e46cb01bd8bdb62ae3e6396df17fdb19444b83e3f0c9a1d91",
+      "sha256": "43640c7798a3dc2610c3a203d82ca2c6bc112becb09d785366fcae87ff77e58b",
       "accepted": true
     },
     {
@@ -1256,7 +1296,7 @@
     },
     {
       "file": "fuzz/seed-0187.dsl",
-      "sha256": "efdfe0c6ba9134b802e174663cd6a0fb9bdc52e22429b3f5e413ce676b9ad579",
+      "sha256": "5e9cc7c034cc93da85d4c365fe822d4660589c458988f0fef2ed40a3ae5a8f6a",
       "accepted": true
     },
     {
@@ -1266,7 +1306,7 @@
     },
     {
       "file": "fuzz/seed-0189.dsl",
-      "sha256": "90e6e4f6cbee7d7ae14c5681110349319dfa2b925456dce55f11d07dc401a5fd",
+      "sha256": "d366e0f66a9089bbe913fc3532663218feccf2d1565e9d78221d2c2b6cfbdb7b",
       "accepted": true
     },
     {

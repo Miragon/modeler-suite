@@ -139,10 +139,10 @@ function dialogsOf(modeler: C4MenuModeler): C4Dialogs | undefined {
 
 /**
  * The Model group (SPEC 7.1), in this order: "Views…", "Parent view", "Lay out automatically",
- * "Add existing element…", "View settings…", "Workspace settings…", "Apply C4 colours"; the shell
- * appends its "Legend" checkbox. Navigation stays usable on a read-only canvas. "Parent view" is
- * disabled at a landscape, so the first enabled action of the group there is "Lay out
- * automatically", which keeps the view and does nothing on a second run.
+ * "Add existing element…", "Add relationship…", "View settings…", "Workspace settings…", "Apply C4
+ * colours"; the shell appends its "Legend" checkbox. Navigation stays usable on a read-only canvas.
+ * "Parent view" is disabled at a landscape, so the first enabled action of the group there is "Lay
+ * out automatically", which keeps the view and does nothing on a second run.
  */
 export function c4ModelMenu(modeler: C4MenuModeler): DiagramMenuEntry[] {
   const notEditable = () => !modeler.views.active().editable;
@@ -180,6 +180,13 @@ export function c4ModelMenu(modeler: C4MenuModeler): DiagramMenuEntry[] {
       label: "Add existing element…",
       disabled: notEditable,
       onSelect: () => void dialogsOf(modeler)?.showAddElement(),
+    },
+    {
+      kind: "dialog",
+      id: "add-relationship",
+      label: "Add relationship…",
+      disabled: notEditable,
+      onSelect: () => void dialogsOf(modeler)?.showNewRelationship(),
     },
     {
       kind: "dialog",

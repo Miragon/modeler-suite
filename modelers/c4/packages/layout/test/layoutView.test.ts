@@ -3,6 +3,7 @@ import type { Box, ElementId } from "@miragon/c4-schema-model";
 import { layoutView, type LayoutInput, type ViewGeometry } from "../src/index.js";
 import { autoLayoutBoxes } from "../src/autoLayout.js";
 import { clusterTree } from "../src/clusters.js";
+import { HORIZONTAL_GAP } from "../src/placement.js";
 import {
   BOX,
   PERSON,
@@ -297,7 +298,7 @@ describe("layoutView with stored boxes", () => {
     );
     expect(geometry.mode).toBe("mixed");
     expect([...geometry.placed]).toEqual(["customer", "bookshop"]);
-    expect(box(geometry, "payments")).toEqual({ x: 320, y: 400, ...BOX });
+    expect(box(geometry, "payments")).toEqual({ x: BOX.width + HORIZONTAL_GAP, y: 400, ...BOX });
     const boxes = [...geometry.boxes.values()];
     boxes.forEach((first, index) => {
       for (const second of boxes.slice(index + 1)) expect(overlap(first, second)).toBe(false);

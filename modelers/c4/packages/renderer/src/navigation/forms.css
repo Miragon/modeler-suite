@@ -84,7 +84,9 @@ dialog.c4-confirm[open] {
   border-color: var(--cd-ui-danger);
 }
 
-.c4-field-control:read-only,
+/* A <select> always matches :read-only, so only a text control reads as read-only by it. */
+:is(input, textarea).c4-field-control:read-only,
+.c4-field-control:disabled,
 .c4-form:disabled .c4-field-control {
   color: var(--cd-ui-text-leise);
   border-color: var(--cd-ui-linie);
@@ -279,6 +281,11 @@ select.c4-field-control {
   border-color: transparent;
 }
 
+/* Guide §8: a disabled secondary button keeps its surface; only its edge and text recede. */
+.c4-button[data-variant="secondary"]:disabled {
+  background: var(--cd-ui-flaeche-hoch);
+}
+
 /* ---- Dialog content ------------------------------------------------------------------------- */
 
 .c4-dialog {
@@ -384,6 +391,48 @@ select.c4-field-control {
 
 .c4-dialog-code {
   font-family: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
+}
+
+/* The views dialog: every table on the same three columns, so a title, a scope and a key line up
+   from one type to the next. Keys stay on one line and end in an ellipsis; titles wrap at words. */
+.c4-views-table {
+  table-layout: fixed;
+}
+
+.c4-views-column-title {
+  width: 42%;
+}
+
+.c4-views-column-scope {
+  width: 22%;
+}
+
+.c4-views-column-key {
+  width: 36%;
+}
+
+.c4-views-table th,
+.c4-views-table td {
+  overflow-wrap: break-word;
+}
+
+/* On the line of the row button's text: its 8px padding inside the cell's 2px. */
+.c4-views-table td.c4-views-value,
+.c4-views-table td.c4-views-key {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.c4-views-table .c4-dialog-code {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.c4-views-title,
+.c4-views-value .c4-dialog-note {
+  display: block;
 }
 
 .c4-dialog-choices {

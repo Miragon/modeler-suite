@@ -304,7 +304,10 @@ function randomIdentifier(
   );
 }
 
-/** SPEC 3.4 `createElement`: in the current view, with the view's scope as the parent. */
+/**
+ * SPEC 3.4 `createElement`: in the current view, with the view's scope as the parent. Without a
+ * centre it writes no layout key, and the view places the element beside its first neighbour.
+ */
 export function createElement(
   draft: Draft,
   edit: Extract<C4Edit, { type: "createElement" }>,
@@ -372,12 +375,20 @@ export function createElement(
     width: style.width ?? shape.width,
     height: style.height ?? shape.height,
   };
-  const box = { x: edit.center.x - size.width / 2, y: edit.center.y - size.height / 2, ...size };
-  setViewProperties(draft, key, new Map([[elementLayoutKey(id), encodeBox(draft, id, box)]]));
-  includeElement(draft, key, id);
+  const center = edit.center;
+  const box =
+    center === undefined
+      ? undefined
+      : { x: center.x - size.width / 2, y: center.y - size.height / 2, ...size };
+  if (box !== undefined) {
+    setViewProperties(draft, key, new Map([[elementLayoutKey(id), encodeBox(draft, id, box)]]));
+  }
+  // An append's relationship may bring the element into the view by itself (the `include *` of a
+  // system context view takes what its scope connects to), so it is included after that.
+  if (edit.connectFrom === undefined) includeElement(draft, key, id);
   draft.created.elements.push(id);
   const layoutKey = elementLayoutKey(id);
-  const layoutValue = encodeBox(draft, id, box);
+  const layoutValue = box === undefined ? undefined : encodeBox(draft, id, box);
   draft.intent.checks.push((after) => {
     const element = after.workspace.elements.find((candidate) => candidate.id === id);
     if (element?.kind !== edit.kind || element.parentId !== parentId || element.name !== name) {
@@ -387,6 +398,7 @@ export function createElement(
     if (entry === undefined || !viewMembers(after.workspace, entry).elements.includes(id)) {
       return `the created element ${id} isn't in the view ${key}`;
     }
+    if (layoutValue === undefined) return undefined;
     const view = after.workspace.views.find((candidate) => candidate.key === key);
     return view?.properties[layoutKey] === layoutValue
       ? undefined
@@ -414,7 +426,7 @@ function notEditableMessage(draft: Draft, element: ModelElement, field: FieldNam
     const statement = draft.sources.statementAt(source.statement);
     const raw = source.token === undefined ? undefined : statement?.tokens[source.token]?.raw;
     const constant = raw === undefined ? undefined : /\$\{([^}]+)\}/.exec(raw)?.[0];
-    if (constant !== undefined) return `Set with ${constant}. Edit the constant in the text.`;
+    if (constant !== undefined) return `Set with “${constant}”. Edit the constant in the text.`;
   }
   return (
     NOT_EDITABLE[source.reason ?? ""] ??
@@ -448,14 +460,18 @@ function changedFields(
   return changes;
 }
 
-/** SPEC 3.4 `updateElement`: each field into its effective source (3.5); a fresh name renames the identifier (3.3). */
+/**
+ * SPEC 3.4 `updateElement`: each field into its effective source (3.5); a fresh name renames the
+ * identifier (3.3), also the default name confirmed as it is.
+ */
 export function updateElement(
   draft: Draft,
   edit: Extract<C4Edit, { type: "updateElement" }>,
 ): void {
   const element = draft.requireElement(edit.id);
   const changes = changedFields(element, edit.fields);
-  if (changes.size === 0) return;
+  const confirmsFreshName = edit.fields.name === element.name && draft.fresh.has(element.id);
+  if (changes.size === 0 && !confirmsFreshName) return;
   for (const [field, value] of changes) {
     if (!fieldApplies(element.kind, field)) {
       refuse("field-not-editable", `A ${KIND_WORDS[element.kind]} has no ${field}.`);
@@ -467,7 +483,7 @@ export function updateElement(
       else checkValue(value);
     }
   }
-  const name = changes.get("name");
+  const name = changes.get("name") ?? (confirmsFreshName ? element.name : undefined);
   if (typeof name === "string") {
     if (name.trim() === "") refuse("unrepresentable-value", "An element needs a name.");
     checkNameFree(draft, element.kind, element.parentId, name, element.id);
@@ -768,7 +784,7 @@ export function renameIdentifier(draft: Draft, id: ElementId, identifier: string
   if (newId.toLowerCase() !== id.toLowerCase() && !isFree(draft, newId)) {
     refuse(
       "identifier-taken",
-      `The identifier ${identifier} is already in use. Choose another one.`,
+      `The identifier “${identifier}” is already in use. Choose another one.`,
     );
   }
   const line = opaqueMention(draft, [id]);

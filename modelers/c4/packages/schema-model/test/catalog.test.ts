@@ -200,7 +200,7 @@ describe("drill-down and parent (SPEC 4.5)", () => {
     expect(catalog.parentOf("Components-mainframe-core")?.key).toBe("Containers-mainframe");
   });
 
-  it("goes up from a container view to its context view, else a landscape, else the context draft", () => {
+  it("goes up from a container view to its context view, written or a draft, never past it", () => {
     const withContext = viewCatalog(
       bank([
         view("Landscape", "systemLandscape"),
@@ -209,12 +209,23 @@ describe("drill-down and parent (SPEC 4.5)", () => {
       ]),
     );
     expect(withContext.parentOf("Web")?.key).toBe("Ctx");
-    expect(withContext.parentOf("Containers-mainframe")?.key).toBe("Landscape");
+    expect(summary(withContext.parentOf("Containers-mainframe"))).toMatchObject({
+      key: "SystemContext-mainframe",
+      state: "draft",
+    });
+    expect(withContext.parentOf("SystemContext-mainframe")?.key).toBe("Landscape");
     const bare = viewCatalog(bank([view("Web", "container", { scope: "banking" })]));
     expect(summary(bare.parentOf("Web"))).toMatchObject({
       key: "SystemContext-banking",
       state: "draft",
     });
+  });
+
+  it("goes up from a container view whose scope is missing to the landscape", () => {
+    const catalog = viewCatalog(
+      bank([view("Landscape", "systemLandscape"), view("Lost", "container", { scope: "nowhere" })]),
+    );
+    expect(catalog.parentOf("Lost")?.key).toBe("Landscape");
   });
 
   it("goes up from a context view to the landscape and stops there", () => {

@@ -208,7 +208,10 @@ describe("the context pad (SPEC 5.3)", () => {
     const page = await mountModeler();
     select(page.modeler, "customer");
     expect(padActions(page)).toEqual([
+      "append.person",
+      "append.softwareSystem",
       "connect",
+      "edit-name",
       "edit-description",
       "remove-from-view",
       "delete-from-model",

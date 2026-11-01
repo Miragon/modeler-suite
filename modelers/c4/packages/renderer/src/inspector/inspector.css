@@ -64,6 +64,10 @@
   display: contents;
 }
 
+.c4-inspector-before > p {
+  margin: 0;
+}
+
 .c4-inspector-dynamic {
   display: flex;
   flex-direction: column;
@@ -109,9 +113,51 @@
   margin-top: 8px;
 }
 
-.c4-inspector-actions .c4-button {
+.c4-inspector-actions .c4-button,
+.c4-inspector-drill,
+.c4-inspector-dynamic > .c4-button {
   width: 100%;
   justify-content: center;
+  padding-block: 8px;
+  text-align: center;
+}
+
+/* Why a disabled action can't act, right under it. */
+.c4-inspector-actions > .c4-field-note {
+  margin-top: -4px;
+}
+
+/* The choices beside a field (the tags'), 8px under it instead of the fields' 16px. */
+.c4-inspector-extras {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: -8px;
+}
+
+.c4-inspector-extras[hidden] {
+  display: none;
+}
+
+.c4-inspector-external {
+  gap: 0;
+}
+
+.c4-inspector-external .c4-field-check {
+  min-height: 32px;
+  padding: 6px 0 2px;
+}
+
+.c4-tag-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The toast action's 32px (guide §8): a row of them stays compact beside the 36px fields. */
+.c4-tag-suggestion {
+  min-height: 32px;
+  padding: 0 12px;
 }
 
 /* 16px keeps iOS Safari from zooming the page when a field gets focus. */

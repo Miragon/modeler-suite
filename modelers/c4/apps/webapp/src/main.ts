@@ -8,8 +8,10 @@ import "@miragon/c4-renderer/assets/c4.css";
 import "@miragon/modeler-shell/shell.css";
 import {
   COLORS,
+  DELETE_DONE_EVENT,
   EDIT_NOTICE_EVENT,
   EDIT_REFUSED_EVENT,
+  LAYOUT_APPLIED_EVENT,
   SHORTCUTS_KEY,
   THEMES,
   VIEW_CHANGED_EVENT,
@@ -18,8 +20,11 @@ import {
   connectLegend,
   createCollaborativeModeler,
   createShortcutsDialog,
+  insetsClearOfBreadcrumb,
   mountInspector,
   type C4Engine,
+  type LabelEditing,
+  type DeleteDoneEvent,
   type DocumentStore,
   type EditNoticeEvent,
   type EditRefusedEvent,
@@ -28,6 +33,9 @@ import {
 import { newWorkspaceText } from "@miragon/c4-dsl";
 import type { ViewKey } from "@miragon/c4-schema-model";
 import {
+  commandKeyLabel,
+  defaultMessages,
+  detectPlatform,
   formatNumber,
   isTextField,
   isUndoRedoKey,
@@ -49,7 +57,7 @@ import {
   pictureFileName,
 } from "./files.js";
 import { createLinkWriter, holdsLink, readLink, shareUrl } from "./link.js";
-import { noticeText } from "./notices.js";
+import { deleteDoneText, noticeText } from "./notices.js";
 import { openedWithProblemsText, problemItems } from "./problems.js";
 import {
   forgetStoredDocument,
@@ -61,6 +69,7 @@ import {
 
 interface CommandStackLike {
   canUndo(): boolean;
+  undo(): void;
 }
 
 /** A workspace text and the view to show it on; without one the default view shows. */
@@ -87,26 +96,32 @@ if (!app) throw new Error("index.html has no #app root.");
 const modeler = createCollaborativeModeler({
   additionalModules: [shellModule],
   fitOnImport: false,
-  freeArea: { insets: () => shell.fitInsets() },
+  freeArea: { insets: () => fitInsets() },
 });
 const diagram = modeler.diagram;
 diagram.get("canvas");
 const store = diagram.get<DocumentStore>("c4Document");
 const engine = diagram.get<C4Engine>("c4Engine");
 const commandStack = diagram.get<CommandStackLike>("commandStack");
+const labelEditing = diagram.get<LabelEditing>("labelEditing");
+
+const platform = detectPlatform(navigator);
+const openKey = commandKeyLabel("O", platform, defaultMessages.keyNames);
+const saveKey = commandKeyLabel("S", platform, defaultMessages.keyNames);
 
 // 2. The chrome around it: the whole web column of guide §5.2.
 const shell = mountShell(app, {
   host: "web",
   canvas: diagram.container,
   lang: "en",
+  platform,
   themes: THEMES,
   messages: { canvas: "C4 diagram" },
   primary: { onSelect: () => share() },
   legal: { links: [{ label: "GitHub", href: REPOSITORY_URL }] },
   file: {
     newDiagram: { onSelect: () => void newDiagram() },
-    open: { onSelect: () => pickFile() },
+    open: { onSelect: () => pickFile(), shortcut: openKey },
     showExample: { onSelect: () => void showExample() },
   },
   menu: c4Menu({
@@ -114,7 +129,7 @@ const shell = mountShell(app, {
     exports: {
       png: { onSelect: () => void exportPng() },
       svg: { onSelect: () => exportSvg() },
-      text: { onSelect: () => exportText(nativeFileName(workspaceName())) },
+      text: { onSelect: () => exportNativeFile(), shortcut: saveKey },
       structurizr: { onSelect: () => exportText(WORKSPACE_FILE_NAME) },
     },
     showKeyboardShortcuts: () => shortcutsDialog.open(),
@@ -133,7 +148,7 @@ const shell = mountShell(app, {
     komet: "/miragon-komet-blau.svg",
     onNewDiagram: () => void newDiagram(),
     onShowExample: () => void showExample(),
-    dropHint: "Or drop a .c4, .dsl or .txt file here",
+    dropHint: "Or drop a .c4, .dsl, or .txt file here",
   },
   dropZone: {
     accept: OPENABLE_FILE_TYPES,
@@ -148,14 +163,21 @@ const shell = mountShell(app, {
 // and the shortcuts dialog live in the shell's slots and go with the diagram.
 connectDialogs(modeler, { container: shell.root, openDialog: openShellDialog });
 if (!shell.inspector || !shell.legend) throw new Error("The shell mounted no inspector or legend.");
-mountInspector(shell.inspector, modeler);
+const inspector = mountInspector(shell.inspector, modeler);
 connectLegend(shell.legend.body, modeler);
-const shortcutsDialog = createShortcutsDialog(shell, { shortcutsKey: SHORTCUTS_KEY });
+const shortcutsDialog = createShortcutsDialog(shell, {
+  shortcutsKey: SHORTCUTS_KEY,
+  fileKeys: true,
+});
 diagram.on("diagram.destroy", () => shortcutsDialog.destroy());
 
 // 3. Viewport, palette skin and keys. The viewport fits to the contract's contentBounds(), tight
-//    as guide §5.9 wants it. The empty-file hint is about the file, not the view (G §13.5).
-const connection = connectDiagramJs(shell, diagram, {
+//    as guide §5.9 wants it, clear of the breadcrumb, which the shell's insets don't know. The
+//    empty-file hint is about the file, not the view (G §13.5).
+function fitInsets() {
+  return insetsClearOfBreadcrumb(diagram.container, shell.fitInsets());
+}
+const connection = connectDiagramJs({ ...shell, fitInsets }, diagram, {
   modeler,
   isEmpty: () => modeler.isModelEmpty(),
 });
@@ -377,6 +399,7 @@ modeler.onContentChanged(() => {
   // The first edit is a start as well; and an edit makes an open undo offer stale.
   shell.setEmptyState(false);
   withdrawReplaceUndo();
+  withdrawDeleteUndo();
   updateDocumentTitle();
   showProblems(false);
   persist();
@@ -447,6 +470,41 @@ diagram.on<EditRefusedEvent>(EDIT_REFUSED_EVENT, ({ message }) => {
 diagram.on<EditNoticeEvent>(EDIT_NOTICE_EVENT, ({ notice }) => {
   if (!destroyed) shell.toast({ status: "info", text: noticeText(notice) });
 });
+
+// The new layout may lie where the viewport doesn't look.
+diagram.on(LAYOUT_APPLIED_EVENT, () => {
+  if (!destroyed) viewport.fit();
+});
+
+let deleteUndo: ToastHandle | undefined;
+
+/** The offer would undo whatever came after the delete. */
+function withdrawDeleteUndo(): void {
+  deleteUndo?.dismiss();
+  deleteUndo = undefined;
+}
+
+// Delete chose between the view and the model without asking, so the toast says which it was.
+diagram.on<DeleteDoneEvent>(DELETE_DONE_EVENT, (event) => {
+  const text = destroyed ? undefined : deleteDoneText(event);
+  if (text === undefined) return;
+  withdrawDeleteUndo();
+  const offer = shell.toast({
+    status: "info",
+    text,
+    action: {
+      label: "Undo",
+      onSelect: () => {
+        if (deleteUndo === offer) commandStack.undo();
+      },
+    },
+  });
+  deleteUndo = offer;
+});
+
+// Every import clears the history, so the offer would undo nothing: another workspace replaced
+// the one the delete happened in.
+diagram.on("import.done", withdrawDeleteUndo);
 
 // ---------------------------------------------------------------------------
 // Share and export
@@ -525,6 +583,10 @@ function exportSvg(): void {
   }
 }
 
+function exportNativeFile(): void {
+  exportText(nativeFileName(workspaceName()));
+}
+
 /**
  * The whole workspace, byte for byte: as the native `.c4` file, or under the name Structurizr's
  * own tools open. Both are Structurizr DSL.
@@ -540,8 +602,8 @@ function exportText(fileName: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Cmd/Ctrl+Z after a replacement: the import cleared the canvas history, so the key takes the
-// replaced workspace back
+// The web app's own keys: Cmd/Ctrl+O opens a file, Cmd/Ctrl+S exports the .c4 file, Cmd/Ctrl+Z
+// takes back a replaced workspace (the import cleared the canvas history)
 // ---------------------------------------------------------------------------
 
 function modalOpen(): boolean {
@@ -550,8 +612,7 @@ function modalOpen(): boolean {
 
 function onUndoReplaceKey(event: KeyboardEvent): void {
   const offer = replaceUndo;
-  if (!offer || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
-  if (event.isComposing || !isUndoRedoKey(event)) return;
+  if (!offer || event.shiftKey || event.isComposing || !isUndoRedoKey(event)) return;
   // Cmd/Ctrl+Y is redo; the typed letter decides (QWERTZ swaps the keys), as in isUndoRedoKey.
   const ascii = event.key.length === 1 && event.key.charCodeAt(0) < 0x80;
   if ((ascii ? event.key.toLowerCase() : event.code === "KeyZ" ? "z" : "") !== "z") return;
@@ -560,7 +621,47 @@ function onUndoReplaceKey(event: KeyboardEvent): void {
   if (!event.repeat) offer.run();
 }
 
-window.addEventListener("keydown", onUndoReplaceKey);
+function onUndoKey(event: KeyboardEvent): void {
+  if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
+  onUndoReplaceKey(event);
+}
+
+/**
+ * In the capture phase: the label editor keeps its keys from the page, and Cmd/Ctrl+S there would
+ * otherwise open the browser's "Save page as".
+ */
+function onFileKey(event: KeyboardEvent): void {
+  if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+  const key = event.key.toLowerCase();
+  if ((key !== "o" && key !== "s") || event.isComposing) return;
+  // Never the browser's "Open file" or "Save page as" instead, also not over a dialog.
+  event.preventDefault();
+  if (event.repeat || modalOpen()) return;
+  if (key === "o") {
+    pickFile();
+    return;
+  }
+  // The start screen has no workspace yet to save (guide §8: only the card and the legal line).
+  if (shell.isEmptyStateShown()) return;
+  commitTyping();
+  exportNativeFile();
+}
+
+/**
+ * What is still being typed belongs in the file. A blur would commit it too, but leave the focus on
+ * `<body>`, where the canvas's keys do nothing: an inspector draft commits and keeps its field, a
+ * label commits as on Enter and hands the focus to the canvas.
+ */
+function commitTyping(): void {
+  inspector.commitDraft();
+  const active = document.activeElement;
+  const typingLabel =
+    active instanceof HTMLTextAreaElement && active.classList.contains("diagram-label-editor");
+  if (typingLabel && labelEditing.complete()) viewport.focus?.();
+}
+
+window.addEventListener("keydown", onUndoKey);
+window.addEventListener("keydown", onFileKey, true);
 window.addEventListener("hashchange", onHashChange);
 
 // ---------------------------------------------------------------------------
@@ -603,7 +704,9 @@ Object.assign(globalThis, {
       destroyed = true;
       addressBar.stop();
       withdrawReplaceUndo();
-      window.removeEventListener("keydown", onUndoReplaceKey);
+      withdrawDeleteUndo();
+      window.removeEventListener("keydown", onUndoKey);
+      window.removeEventListener("keydown", onFileKey, true);
       window.removeEventListener("hashchange", onHashChange);
       fileInput.remove();
       connection.destroy();

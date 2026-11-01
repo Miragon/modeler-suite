@@ -1,6 +1,8 @@
 import type EventBus from "diagram-js/lib/core/EventBus";
+import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Injector } from "didi";
-import type { ViewKey } from "@miragon/c4-schema-model";
+import type { ElementId, ViewKey } from "@miragon/c4-schema-model";
+import { isElementShape } from "../scene/types.js";
 import {
   EDIT_REFUSED_EVENT,
   type C4ModelingMethods,
@@ -8,15 +10,17 @@ import {
   type EditRefusedEvent,
 } from "../services.js";
 import { showAddElementDialog } from "./AddElementDialog.js";
+import { showAddRelationshipDialog } from "./AddRelationshipDialog.js";
 import { deleteImpactIn, confirmDeleteFromModel, type DeleteSelection } from "./deleteFromModel.js";
 import { reachesBeyondSelection } from "./impact.js";
 import { showViewSettingsDialog, showWorkspaceSettingsDialog } from "./SettingsDialogs.js";
 import type { C4DialogModeler, DialogChrome, DialogTarget, OpenedDialog } from "./types.js";
-import { showViewsDialog } from "./ViewsDialog.js";
+import { showNewViewDialog, showViewsDialog } from "./ViewsDialog.js";
 
 /** The viewer edits nothing. */
 const NO_EDITS: C4ModelingMethods = {
   editElement: () => undefined,
+  createRelationship: () => undefined,
   editRelationship: () => undefined,
   renameIdentifier: () => undefined,
   removeFromView: () => undefined,
@@ -69,11 +73,31 @@ export default class C4Dialogs {
   }
 
   showViews(): OpenedDialog | undefined {
-    return this.show((target) => showViewsDialog(target));
+    return this.show((target) => showViewsDialog(target, { onNewView: () => this.showNewView() }));
+  }
+
+  /** "New view…" of the views dialog, which closes before this one opens. */
+  showNewView(): OpenedDialog | undefined {
+    return this.show((target) => showNewViewDialog(target));
   }
 
   showAddElement(): OpenedDialog | undefined {
     return this.show((target) => showAddElementDialog(target));
+  }
+
+  /** "Add relationship…" of the inspector, from the element it shows. */
+  showAddRelationship(sourceId: ElementId): OpenedDialog | undefined {
+    return this.show((target) => showAddRelationshipDialog({ ...target, sourceId }));
+  }
+
+  /**
+   * "Add relationship…" of the Model menu: both ends are the dialog's choice, starting on the
+   * first and the second selected element.
+   */
+  showNewRelationship(): OpenedDialog | undefined {
+    const selected = this.injector.get<Selection>("selection", false)?.get() ?? [];
+    const [from, to] = selected.filter(isElementShape).map((shape) => shape.c4.id);
+    return this.show((target) => showAddRelationshipDialog({ ...target, from, to }));
   }
 
   showViewSettings(view?: ViewKey): OpenedDialog | undefined {

@@ -8,12 +8,14 @@ import { fest, hell } from "../theme/cd-tokens.generated.json";
  */
 export const ROLE_LIGHT = {
   "cd-c-fill-plot": { attribute: "fill", value: hell["--cd-ui-plot"] },
+  "cd-c-fill-grund": { attribute: "fill", value: hell["--cd-ui-grund"] },
   "cd-c-fill-text": { attribute: "fill", value: hell["--cd-ui-text"] },
   "cd-c-fill-text-leise": { attribute: "fill", value: hell["--cd-ui-text-leise"] },
   "cd-c-fill-flaeche-hoch": { attribute: "fill", value: hell["--cd-ui-flaeche-hoch"] },
   "cd-c-stroke-text": { attribute: "stroke", value: hell["--cd-ui-text"] },
   "cd-c-stroke-kontur": { attribute: "stroke", value: hell["--cd-ui-kontur"] },
   "cd-c-stroke-linie": { attribute: "stroke", value: hell["--cd-ui-linie"] },
+  "cd-c-stroke-interaktion": { attribute: "stroke", value: hell["--cd-ui-interaktion"] },
 } as const satisfies Record<string, { attribute: "fill" | "stroke"; value: string }>;
 
 export type RoleClass = keyof typeof ROLE_LIGHT;

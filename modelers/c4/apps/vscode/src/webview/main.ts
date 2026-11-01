@@ -8,6 +8,7 @@ import {
   COLORS,
   EDIT_NOTICE_EVENT,
   EDIT_REFUSED_EVENT,
+  LAYOUT_APPLIED_EVENT,
   THEMES,
   VIEW_CHANGED_EVENT,
   c4Menu,
@@ -15,6 +16,7 @@ import {
   connectLegend,
   createCollaborativeModeler,
   createShortcutsDialog,
+  insetsClearOfBreadcrumb,
   mountInspector,
   type CollaborativeDiagram,
   type EditNoticeEvent,
@@ -74,7 +76,7 @@ const modeler = createCollaborativeModeler({
   additionalModules: [shellModule],
   undoRedoKeys: false,
   fitOnImport: false,
-  freeArea: { insets: () => shell.fitInsets() },
+  freeArea: { insets: () => fitInsets() },
 });
 const diagram = modeler.diagram;
 diagram.get("canvas");
@@ -122,8 +124,11 @@ const inspector = mountInspector(shell.inspector, modeler, {
 connectLegend(shell.legend.body, modeler);
 
 // Empty means the model has no element (guide §13.5: the hint is about an empty file), not that
-// the view shows nothing.
-const connection = connectDiagramJs(shell, diagram, {
+// the view shows nothing. The fit keeps clear of the breadcrumb, which the shell's insets don't know.
+function fitInsets() {
+  return insetsClearOfBreadcrumb(diagram.container, shell.fitInsets());
+}
+const connection = connectDiagramJs({ ...shell, fitInsets }, diagram, {
   modeler,
   isEmpty: () => modeler.isModelEmpty(),
 });
@@ -159,6 +164,10 @@ diagram.on<ViewChangedEvent>(VIEW_CHANGED_EVENT, ({ view, previous, cause }) => 
 });
 diagram.on("commandStack.changed", () => {
   if (!destroyed) shell.menu.refresh();
+});
+// The new layout may lie where the viewport doesn't look.
+diagram.on(LAYOUT_APPLIED_EVENT, () => {
+  if (!destroyed) viewport.fit();
 });
 // No toasts in the webview (guide §13.5): the host shows them as its notifications. The label
 // editor, the inspector and the dialog forms show their own refusals at the field.

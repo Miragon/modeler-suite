@@ -3,7 +3,7 @@
  * panel tooltips say, so the chrome's key labels are mirrored here structurally (the renderer never
  * imports the shell) and apps/vscode/test/menu.sync.test.ts pins them against the shell.
  */
-import { PARENT_VIEW_KEY, VIEWS_KEY } from "./menu.js";
+import { PARENT_VIEW_KEY, TEXT_EXPORT_LABEL, VIEWS_KEY } from "./menu.js";
 
 export type ShortcutPlatform = "mac" | "other";
 
@@ -25,6 +25,8 @@ export interface ShortcutsChrome {
     readonly zoomOut: string;
     zoomToActual(percent: string): string;
     readonly fit: string;
+    /** The File group's "Open…" (the shell's `messages.openFile`); default "Open…". */
+    readonly openFile?: string | undefined;
     readonly keyNames: ShortcutKeyNames;
   };
 }
@@ -46,6 +48,10 @@ export interface C4ShortcutsOptions {
   readonly keyNames?: Pick<ShortcutKeyNames, "ctrl" | "shift"> | undefined;
   /** The key that opens the dialog itself, listed in a Help group. */
   readonly shortcutsKey?: string | undefined;
+  /** The web app's file keys, listed first: Cmd/Ctrl+O opens a file, Cmd/Ctrl+S exports the .c4. */
+  readonly fileKeys?: boolean | undefined;
+  /** The File group's "Open…"; default "Open…". */
+  readonly openFile?: string | undefined;
 }
 
 export interface DiagramShortcutsOptions {
@@ -53,6 +59,8 @@ export interface DiagramShortcutsOptions {
   readonly shortcutsKey?: string | undefined;
   /** "ide": VS Code owns undo and redo, so their rows go (SPEC 1.6). Default "web". */
   readonly host?: ShortcutHost | undefined;
+  /** The web app's file keys (`C4ShortcutsOptions.fileKeys`). */
+  readonly fileKeys?: boolean | undefined;
 }
 
 const ARROWS = ["←", "↑", "→", "↓"] as const;
@@ -72,14 +80,17 @@ export function commandKeyLabel(
 }
 
 /**
- * The diagram's own groups (SPEC 5.7): Edit, Tools, Navigation, and Help where a key opens the
- * dialog. The shell's dialog puts the chrome's View group first (`withChromeShortcuts`). In the IDE
- * host VS Code owns undo and redo, so their rows go.
+ * The diagram's own groups (SPEC 5.7): File where the web app binds its keys, View with the keys
+ * the canvas adds to the chrome's, Edit, Tools, Navigation, and Help where a key opens the dialog.
+ * The shell's dialog puts the chrome's zoom rows at the top of the View group
+ * (`withChromeShortcuts`). In the IDE host VS Code owns undo and redo, so their rows go.
  */
 export function c4Shortcuts(host: ShortcutHost, options: C4ShortcutsOptions = {}): ShortcutGroup[] {
   const mac = options.platform === "mac";
   const { ctrl, shift } = options.keyNames ?? ENGLISH_KEYS;
   const command = (key: string) => (mac ? `⌘${key}` : `${ctrl}+${key}`);
+  const shifted = (key: string) => (mac ? `⇧${key}` : `${shift}+${key}`);
+  const withPointer = (gesture: string) => (mac ? `⇧ ${gesture}` : `${shift}+${gesture}`);
   const history: ShortcutRow[] =
     host === "web"
       ? [
@@ -87,29 +98,48 @@ export function c4Shortcuts(host: ShortcutHost, options: C4ShortcutsOptions = {}
           { action: "Redo", keys: mac ? ["⌘⇧Z"] : [`${ctrl}+${shift}+Z`, `${ctrl}+Y`] },
         ]
       : [];
+  const file: ShortcutGroup[] = options.fileKeys
+    ? [
+        {
+          title: "File",
+          rows: [
+            { action: options.openFile ?? "Open…", keys: [command("O")] },
+            { action: TEXT_EXPORT_LABEL, keys: [command("S")] },
+          ],
+        },
+      ]
+    : [];
   return [
+    ...file,
+    { title: "View", rows: [{ action: "Move the canvas", keys: ARROWS.map(command) }] },
     {
       title: "Edit",
       rows: [
         ...history,
-        { action: "Edit name", keys: ["E", "Double-click"] },
+        { action: "Select all", keys: [command("A")] },
+        { action: "Clear the selection", keys: ["Esc"] },
+        { action: "Edit name, or a relationship's description", keys: ["E"] },
+        { action: "Edit the text under the pointer", keys: ["Double-click"] },
+        { action: "Save a label", keys: ["Enter"] },
         { action: "Next field while editing a label", keys: ["Tab"] },
+        { action: "Line break in a description", keys: [shifted("Enter")] },
+        { action: "Discard a label edit", keys: ["Esc"] },
         { action: SMART_DELETE_ROW, keys: mac ? ["⌫"] : ["Del", "Backspace"] },
         { action: "Delete from model…", keys: mac ? ["⇧⌫"] : [`${shift}+Del`] },
         { action: "Move selection", keys: ARROWS },
-        {
-          action: "Move selection in large steps",
-          keys: ARROWS.map((arrow) => (mac ? `⇧${arrow}` : `${shift}+${arrow}`)),
-        },
-        { action: "Select all", keys: [command("A")] },
+        { action: "Move selection in large steps", keys: ARROWS.map(shifted) },
       ],
     },
     {
       title: "Tools",
       rows: [
         { action: "Lasso", keys: ["L"] },
+        { action: "Lasso by dragging", keys: [withPointer("Drag")] },
+        { action: "Add to or remove from the selection", keys: [withPointer("Click")] },
         { action: "Hand", keys: ["H"] },
+        { action: "Hand while held", keys: ["Space"] },
         { action: "Connect", keys: ["C"] },
+        { action: "Add the palette element in the middle", keys: ["Enter", "Space"] },
       ],
     },
     {
@@ -127,9 +157,9 @@ export function c4Shortcuts(host: ShortcutHost, options: C4ShortcutsOptions = {}
 }
 
 /**
- * Every group of the dialog: the View group with the rows the zoom panel's tooltips show, then the
- * diagram's own (`c4Shortcuts`). For a host without the shell's chrome, which adds that View group
- * itself.
+ * Every group of the dialog: the diagram's own (`c4Shortcuts`), its View group led by the rows the
+ * zoom panel's tooltips show, which the shell's dialog replaces with its own. For a host without
+ * the shell's chrome as well.
  */
 export function diagramShortcuts(
   chrome: ShortcutsChrome,
@@ -140,23 +170,22 @@ export function diagramShortcuts(
   const mac = platform === "mac";
   const command = (key: string) => commandKeyLabel(key, platform, keyNames);
   const percent = percentOfActualSize(chrome.lang);
-  const view: ShortcutGroup = {
-    title: "View",
-    rows: [
-      { action: messages.zoomIn, keys: [mac ? "⌘+" : `${keyNames.ctrl}+${keyNames.plus}`] },
-      { action: messages.zoomOut, keys: [mac ? "⌘−" : `${keyNames.ctrl}+${keyNames.minus}`] },
-      { action: messages.zoomToActual(percent), keys: [command("0")] },
-      { action: messages.fit, keys: [mac ? "⇧1" : `${keyNames.shift}+1`] },
-    ],
-  };
-  return [
-    view,
-    ...c4Shortcuts(options.host ?? "web", {
-      platform,
-      keyNames,
-      shortcutsKey: options.shortcutsKey,
-    }),
+  const zoomRows: ShortcutRow[] = [
+    { action: messages.zoomIn, keys: [mac ? "⌘+" : `${keyNames.ctrl}+${keyNames.plus}`] },
+    { action: messages.zoomOut, keys: [mac ? "⌘−" : `${keyNames.ctrl}+${keyNames.minus}`] },
+    { action: messages.zoomToActual(percent), keys: [command("0")] },
+    { action: messages.fit, keys: [mac ? "⇧1" : `${keyNames.shift}+1`] },
   ];
+  const groups = c4Shortcuts(options.host ?? "web", {
+    platform,
+    keyNames,
+    shortcutsKey: options.shortcutsKey,
+    fileKeys: options.fileKeys,
+    openFile: messages.openFile,
+  });
+  return groups.map((group) =>
+    group.title === "View" ? { title: group.title, rows: [...zoomRows, ...group.rows] } : group,
+  );
 }
 
 function percentOfActualSize(lang: string): string {

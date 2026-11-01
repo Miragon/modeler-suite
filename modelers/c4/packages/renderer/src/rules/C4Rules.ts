@@ -16,13 +16,12 @@ import {
   isBoundaryShape,
   isElementShape,
   isRelationshipConnection,
+  RELATIONSHIP_PREVIEW,
 } from "../scene/types.js";
-import type { C4SceneService, C4Views } from "../services.js";
+import type { C4SceneService, C4Views, EditRefusedEvent } from "../services.js";
 
 /** Below the read-only lock (5000), which vetoes every edit while it holds. */
 const PRIORITY = 1000;
-/** Ahead of diagram-js's own start listener, which sets the segment move up. */
-const BEFORE_THE_SEGMENT_MOVE = 1500;
 /** After diagram-js's Move took the selection (1500), before its rule check (1250) and preview. */
 const COLLECT_FRAMED = 1400;
 /** Ahead of diagram-js's own start listener, which turns the minimum into the drag's constraint. */
@@ -37,9 +36,8 @@ const MOBILE_SHAPES: ReadonlySet<ShapeName> = new Set([
   "MobileDeviceLandscape",
 ]);
 
-interface AllowedRules {
-  allowed(action: string, context: object): unknown;
-}
+/** What a connect and a bendpoint drag draw while they run: the line with its chevron. */
+type PreviewAnswer = typeof RELATIONSHIP_PREVIEW;
 
 /** What a palette may create in a view of each type (SPEC 5.1). */
 const CREATABLE: Readonly<Partial<Record<ViewType, readonly CreatableKind[]>>> = {
@@ -84,19 +82,6 @@ export default class C4Rules extends RuleProvider {
     private readonly injector: Injector,
   ) {
     super(eventBus);
-    // diagram-js's segment move asks no rule: without the bendpoints' answer it would run under
-    // the read-only lock and in a view that is not editable, and only its drop would be refused.
-    eventBus.on(
-      "connectionSegment.move.start",
-      BEFORE_THE_SEGMENT_MOVE,
-      (event: { context?: { connection?: Element } }) => {
-        const rules = this.injector.get<AllowedRules>("rules");
-        const allowed = rules.allowed("connection.updateWaypoints", {
-          connection: event.context?.connection,
-        });
-        return allowed === false ? false : undefined;
-      },
-    );
     // A dragged boundary shows its content moving with it; the drop moves the same closure.
     eventBus.on("shape.move.start", COLLECT_FRAMED, (event: { context?: MoveContext }) => {
       const context = event.context;
@@ -123,10 +108,8 @@ export default class C4Rules extends RuleProvider {
       PRIORITY,
       ({ shape }: { shape?: Element }) => this.editable() && isElementShape(shape),
     );
-    this.addRule(
-      "connection.start",
-      PRIORITY,
-      ({ source }: ConnectContext) => this.editable() && isElementShape(source),
+    this.addRule("connection.start", PRIORITY, ({ source }: ConnectContext) =>
+      isElementShape(source) ? this.editable() : null,
     );
     this.addRule("connection.create", PRIORITY, (context: ConnectContext) =>
       this.canConnect(context),
@@ -169,32 +152,63 @@ export default class C4Rules extends RuleProvider {
   }
 
   /** An implied relationship without a key takes no vertices (SPEC 3.6); an explicit one is named. */
-  private canBend(connection: Element | undefined): boolean {
+  private canBend(connection: Element | undefined): PreviewAnswer | false {
     if (!this.editable() || !isRelationshipConnection(connection)) return false;
-    if (!connection.c4.implied) return true;
+    if (!connection.c4.implied) return RELATIONSHIP_PREVIEW;
     const scene = this.injector.get<C4SceneService>("c4Scene");
-    return scene
+    const named = scene
       .current()
       .relationships.some(
         (relationship) =>
           relationship.canvasKey === connection.c4.key && relationship.key !== undefined,
       );
+    return named ? RELATIONSHIP_PREVIEW : false;
   }
 
-  /** Not to itself, not between an element and its ancestor, not over an unnamed duplicate. */
-  private canConnect({ source, target }: ConnectContext): boolean {
-    if (!this.editable() || !isElementShape(source) || !isElementShape(target)) return false;
+  /**
+   * Only an element is a target: the canvas, a boundary and a relationship are ignored (`null`),
+   * so the pointer over them reads as "not there yet" instead of "forbidden".
+   */
+  private canConnect({ source, target }: ConnectContext): PreviewAnswer | false | null {
+    if (!this.editable() || !isElementShape(source)) return false;
+    // The context pad's dragged append: diagram-js's create asks for the element it drops, which
+    // makes its drop an append (`C4Modeling.appendShape`), never a bare create.
+    if (c4ReferenceOf(target)?.role === "preview") return RELATIONSHIP_PREVIEW;
+    if (!isElementShape(target)) return null;
+    return this.connectRefusal(source, target) === undefined ? RELATIONSHIP_PREVIEW : false;
+  }
+
+  /**
+   * Why the edit layer would refuse a relationship from `source` to `target`, in its own words:
+   * not to itself, not between an element and its ancestor, not over an unnamed duplicate.
+   */
+  connectRefusal(source: Element, target: Element): EditRefusedEvent | undefined {
+    if (!isElementShape(source) || !isElementShape(target)) return undefined;
     const from = source.c4.id;
     const to = target.c4.id;
-    if (from === to) return false;
+    if (from === to) {
+      return { reason: "not-allowed", message: "An element can't have a relationship to itself." };
+    }
     const { workspace } = this.injector.get<DocumentStore>("c4Document").current().parse;
-    if (isAncestor(workspace, from, to) || isAncestor(workspace, to, from)) return false;
-    return !workspace.relationships.some(
+    if (isAncestor(workspace, from, to) || isAncestor(workspace, to, from)) {
+      return {
+        reason: "not-allowed",
+        message: "Structurizr refuses a relationship between an element and its parent or child.",
+      };
+    }
+    const duplicate = workspace.relationships.find(
       (relationship) =>
         relationship.sourceId === from &&
         relationship.destinationId === to &&
         relationship.description === "",
     );
+    if (!duplicate) return undefined;
+    return {
+      reason: "relationship-exists",
+      message: duplicate.implied
+        ? "An implied relationship already connects these. Give the new one a description."
+        : "These are already connected by a relationship without a description.",
+    };
   }
 
   /** The shapes plus what the boundaries among them frame, nested boundaries included. */

@@ -43,6 +43,16 @@ export const EDIT_NOTICE_EVENT = "c4.edit.notice";
  * inspector's "Defined on line N") shows them anew.
  */
 export const TEXT_REBASED_EVENT = "c4.text.rebased";
+/**
+ * "Lay out automatically" changed the layout of the view shown, after its command ran: the apps
+ * fit the view to the new layout, which may lie where the viewport doesn't look.
+ */
+export const LAYOUT_APPLIED_EVENT = "c4.layout.applied";
+/**
+ * Delete or Backspace (the smart delete) ran, after its command: what went from the model and
+ * what only from the view shown, which the app tells the user, since the key chose for them.
+ */
+export const DELETE_DONE_EVENT = "c4.delete.done";
 
 /** Why the canvas shows another view; `removed`: the edit deleted the view that was shown. */
 export type ViewChangeCause = "user" | "reveal" | "host" | "undo" | "redo" | "rekey" | "removed";
@@ -60,6 +70,25 @@ export interface EditRefusedEvent {
 
 export interface EditNoticeEvent {
   readonly notice: EditNotice;
+}
+
+export interface LayoutAppliedEvent {
+  readonly view: ViewKey;
+}
+
+/** Selected items of one outcome of the smart delete, in the order of the selection. */
+export interface DeletedItems {
+  /** The elements' names. */
+  readonly elements: readonly string[];
+  /** Each relationship as "Source → Destination", by the names of its ends. */
+  readonly relationships: readonly string[];
+}
+
+export interface DeleteDoneEvent {
+  readonly view: ViewKey;
+  readonly fromModel: DeletedItems;
+  /** Still in the model, since another view, a dynamic step, an instance or a scope needs it. */
+  readonly fromView: DeletedItems;
 }
 
 /** The service `c4Views`: one view on the canvas at a time (SPEC 1.7, 4.5). */
@@ -92,6 +121,12 @@ export interface C4ElementFactory {
  */
 export interface C4ModelingMethods {
   editElement(id: ElementId, fields: Partial<ElementFields>): EditOutcome | undefined;
+  /** "Add relationship…": a relationship of the current view, as the connect tool draws one. */
+  createRelationship(
+    sourceId: ElementId,
+    destinationId: ElementId,
+    fields?: Partial<Pick<RelationshipFields, "description" | "technology">>,
+  ): EditOutcome | undefined;
   editRelationship(
     key: RelationshipKey,
     fields: Partial<RelationshipFields>,

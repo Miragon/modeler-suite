@@ -1,4 +1,4 @@
-import type { Box, Point } from "@miragon/c4-schema-model";
+import type { Box, LineStyle, Point } from "@miragon/c4-schema-model";
 import type { SceneBoundary, SceneElement, SceneRelationship } from "../scene/types.js";
 import {
   boundaryTextLayout,
@@ -12,7 +12,14 @@ import { DRILL_CLASS, drillBadgeLayout } from "./drillBadge.js";
 import { chevronPath, dashArray, polylinePath } from "./lines.js";
 import { LUCIDE_STROKE_WIDTH, ZOOM_IN_NODES } from "./lucide.js";
 import { drawnShape, outlinePath, personArms, rectanglePath, shapeParts } from "./shapes.js";
-import { applyPaint, applyRole, paintOf, type Paint, type StrokeRole } from "./styles.js";
+import {
+  applyPaint,
+  applyRole,
+  paintOf,
+  type FillRole,
+  type Paint,
+  type StrokeRole,
+} from "./styles.js";
 import { append, appendBand, svgElement } from "./svg.js";
 
 /** Style widths are 1..4 modeler units (SPEC 6.4); a hand-built or foreign style stays inside. */
@@ -24,6 +31,16 @@ export function clampWidth(width: number): number {
 const DETAIL_WIDTH = 1.5;
 const ARM_GAP = 6;
 
+/**
+ * diagram-js paints its connect and drop markers on a shape's first visual child. That child is
+ * this ring around the outline, not the body, so a marker never repaints the element's fill and
+ * its text keeps its contrast (guide §10.4, §10.6). Hidden until a marker shows it, so it counts
+ * in no bounding box.
+ */
+export const FEEDBACK_CLASS = "c4-feedback";
+const FEEDBACK_GAP = 4;
+const FEEDBACK_WIDTH = 2;
+
 function bandClass(band: string): string {
   return `c4-band c4-band-${band}`;
 }
@@ -31,7 +48,7 @@ function bandClass(band: string): string {
 /**
  * An element in the coordinates of its shape (SPEC 6.2-6.5): the outline inset by half its stroke,
  * so nothing is drawn outside the box, then the details, the text stack and the drill badge.
- * Returns the body, the node diagram-js paints its drop and connect feedback on.
+ * Returns the body.
  */
 export function drawElement(visuals: SVGElement, element: SceneElement): SVGElement {
   const { style } = element;
@@ -53,6 +70,22 @@ export function drawElement(visuals: SVGElement, element: SceneElement): SVGElem
   const detail = paintOf(textColour, "cd-c-stroke-text");
   const dash = dashArray(style.border, strokeWidth, "outline");
 
+  append(
+    visuals,
+    svgElement("path", {
+      class: FEEDBACK_CLASS,
+      d: outlinePath(shape, {
+        x: -FEEDBACK_GAP,
+        y: -FEEDBACK_GAP,
+        width: width + 2 * FEEDBACK_GAP,
+        height: height + 2 * FEEDBACK_GAP,
+      }),
+      fill: "none",
+      stroke: "none",
+      "stroke-width": FEEDBACK_WIDTH,
+      display: "none",
+    }),
+  );
   const bodies = parts.bodies.map((d) => {
     const path = svgElement("path", {
       class: "c4-body",
@@ -209,24 +242,20 @@ export function drawBoundary(visuals: SVGElement, boundary: SceneBoundary): SVGE
   return frame;
 }
 
-/**
- * A relationship (SPEC 6.5) through the connection's docked waypoints: the line, the open
- * chevron at the destination, and the label on its plot-coloured ground in the label box.
- */
-export function drawRelationship(
+/** The line and the open chevron at its destination. */
+function drawLine(
   visuals: SVGElement,
-  relationship: SceneRelationship | undefined,
   waypoints: readonly Point[],
+  thickness: number,
+  lineStyle: LineStyle,
+  stroke: Paint<StrokeRole>,
 ): SVGElement {
-  const style = relationship?.style;
-  const thickness = clampWidth(style?.thickness ?? 1.5);
-  const stroke = paintOf(style?.stroke, "cd-c-stroke-kontur");
   const line = svgElement("path", {
     class: "c4-line",
     d: polylinePath(waypoints),
     fill: "none",
     "stroke-width": thickness,
-    "stroke-dasharray": dashArray(style?.line ?? "dashed", thickness, "relationship"),
+    "stroke-dasharray": dashArray(lineStyle, thickness, "relationship"),
     "stroke-linejoin": "round",
   });
   applyPaint(line, "stroke", stroke);
@@ -244,6 +273,29 @@ export function drawRelationship(
     applyPaint(arrow, "stroke", stroke);
     append(visuals, arrow);
   }
+  return line;
+}
+
+/**
+ * A relationship (SPEC 6.5) through the connection's docked waypoints: the line, the open
+ * chevron at the destination, and the label in the label box on a ground of what lies behind it
+ * (guide §10.1, Label-Halo), the canvas's ground unless the renderer names another.
+ */
+export function drawRelationship(
+  visuals: SVGElement,
+  relationship: SceneRelationship | undefined,
+  waypoints: readonly Point[],
+  labelGround: Paint<FillRole> = { role: "cd-c-fill-grund" },
+): SVGElement {
+  const style = relationship?.style;
+  const thickness = clampWidth(style?.thickness ?? 1.5);
+  const line = drawLine(
+    visuals,
+    waypoints,
+    thickness,
+    style?.line ?? "dashed",
+    paintOf(style?.stroke, "cd-c-stroke-kontur"),
+  );
   if (relationship) {
     const label = relationshipLabelLayout(relationship);
     if (label.backing) {
@@ -255,7 +307,7 @@ export function drawRelationship(
         height: label.backing.height,
         rx: 2,
       });
-      applyRole(ground, "cd-c-fill-plot");
+      applyPaint(ground, "fill", labelGround);
       append(visuals, ground);
     }
     for (const band of label.bands) {
@@ -263,6 +315,17 @@ export function drawRelationship(
     }
   }
   return line;
+}
+
+/**
+ * What a connect and a bendpoint drag draw while they run: a relationship's dashed line and
+ * chevron in the interaction blue (guide §10.1), without a label, since the edit writes none.
+ */
+export function drawRelationshipPreview(
+  visuals: SVGElement,
+  waypoints: readonly Point[],
+): SVGElement {
+  return drawLine(visuals, waypoints, 1.5, "dashed", { role: "cd-c-stroke-interaktion" });
 }
 
 /** A shape the scene does not know (yet): its box in the default look. */

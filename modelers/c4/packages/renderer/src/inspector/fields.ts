@@ -1,5 +1,11 @@
 import type { ParseResult } from "@miragon/c4-dsl";
-import type { ElementId, FieldName, FieldSource } from "@miragon/c4-schema-model";
+import type {
+  ElementId,
+  FieldName,
+  FieldSource,
+  ModelElement,
+  Workspace,
+} from "@miragon/c4-schema-model";
 
 /** Why a field cannot be edited here (SPEC 5.6), or undefined when it can. */
 export function readOnlyReason(
@@ -13,9 +19,9 @@ export function readOnlyReason(
   if (source.editable) return undefined;
   switch (source.reason) {
     case "substitution": {
-      const raw = substitutedToken(parse, id, field);
-      return raw
-        ? `Set with ${raw}. Edit the constant in the text.`
+      const constant = substitutedToken(parse, id, field);
+      return constant
+        ? `Set with “${constant}”. Edit the constant in the text.`
         : "Set with a constant. Edit the constant in the text.";
     }
     case "bulk":
@@ -31,7 +37,10 @@ export function readOnlyReason(
   }
 }
 
-/** The token as written, `${PAYMENTS_NAME}`, read from the parse's source index when it has it. */
+/**
+ * The constant as written, `${PAYMENTS_NAME}`, without the quotes of the token around it (the edit
+ * layer names it the same way), read from the parse's source index when it has it.
+ */
 function substitutedToken(
   parse: ParseResult,
   id: ElementId | undefined,
@@ -41,7 +50,8 @@ function substitutedToken(
   try {
     const source = parse.sources.field(id, field);
     if (!source || source.token === undefined) return undefined;
-    return source.statement.tokens[source.token]?.raw;
+    const raw = source.statement.tokens[source.token]?.raw;
+    return raw === undefined ? undefined : (/\$\{[^}]+\}/.exec(raw)?.[0] ?? raw);
   } catch {
     return undefined;
   }
@@ -72,4 +82,35 @@ export function tagsOf(text: string): string[] {
     .split(",")
     .map((tag) => tag.trim())
     .filter((tag) => tag !== "");
+}
+
+/** The tag the C4 colours draw an external software system with (Big Bank's "Existing System"). */
+export const EXTERNAL_TAG = "Existing System";
+
+/** The tags Structurizr gives by kind; styling one of them never needs a tag of the element's own. */
+const KIND_TAGS = new Set([
+  "Element",
+  "Person",
+  "Software System",
+  "Container",
+  "Component",
+  "Group",
+  "Relationship",
+  "Deployment Node",
+  "Infrastructure Node",
+  "Software System Instance",
+  "Container Instance",
+]);
+
+/** The tags the workspace's element styles use that the element doesn't carry yet, in style order. */
+export function styledTagSuggestions(
+  styles: Workspace["styles"],
+  element: Pick<ModelElement, "tags">,
+): string[] {
+  const carried = new Set(element.tags);
+  const suggested = new Set<string>();
+  for (const { tag } of styles.elements) {
+    if (!KIND_TAGS.has(tag) && !carried.has(tag)) suggested.add(tag);
+  }
+  return [...suggested];
 }

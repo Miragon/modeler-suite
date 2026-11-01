@@ -10,9 +10,11 @@ import type {
   FieldName,
   ModelElement,
   Relationship,
+  ViewEntry,
   Workspace,
 } from "@miragon/c4-schema-model";
 import { padIcon } from "../context-pad/icons.js";
+import { LUCIDE_STROKE_WIDTH, lucideIcon } from "../draw/lucide.js";
 import { editAtField } from "../label-editing/fieldRefusal.js";
 import {
   DOCUMENT_EVENTS,
@@ -28,6 +30,7 @@ import {
   destructiveGhostButton,
   node,
   textField,
+  uniqueId,
   valueRow,
   type TextField,
 } from "../navigation/dom.js";
@@ -41,7 +44,14 @@ import {
   type C4Connection,
   type C4ElementShape,
 } from "../scene/types.js";
-import { definitionLine, readOnlyReason, tagsOf, tagsText } from "./fields.js";
+import {
+  definitionLine,
+  EXTERNAL_TAG,
+  readOnlyReason,
+  styledTagSuggestions,
+  tagsOf,
+  tagsText,
+} from "./fields.js";
 import "./inspector.css";
 import { selectionKeeper, type SelectionKeeper } from "./keepSelectionVisible.js";
 
@@ -82,13 +92,37 @@ interface FieldSpec {
   readonly value: string;
   readonly multiline?: boolean;
   readonly reason?: string | undefined;
+  /** Read-only for the reason the note of this id gives, which several fields share. */
+  readonly describedBy?: string;
+  /** What follows the field and acts on it (the tags' choices). */
+  readonly extras?: FieldExtras;
   commit(value: string): EditOutcome | undefined;
+}
+
+interface FieldExtras {
+  /** What the choices offer; they are drawn again only when it changes. */
+  readonly signature: string;
+  draw(control: FieldControl, owner: Document): HTMLElement[];
 }
 
 interface FieldControl {
   spec: FieldSpec;
   readonly field: TextField;
   committed: string;
+  readonly extras: HTMLElement | undefined;
+  extrasSignature: string | undefined;
+}
+
+interface ActionOptions {
+  readonly removeIds?: readonly ElementId[];
+  readonly removeRelationships?: readonly string[];
+  /** Why Remove from view can't take the element out of this view, which disables it. */
+  readonly keptInView?: string;
+  readonly deletable: boolean;
+  readonly deleteIds?: readonly ElementId[];
+  readonly deleteRelationships?: readonly string[];
+  /** "Add relationship…" from this element. */
+  readonly connectFrom?: ElementId;
 }
 
 interface Shown {
@@ -102,6 +136,8 @@ interface Shown {
 }
 
 const KIND_WORDS_FOR_CHILD = { softwareSystem: "container", container: "component" } as const;
+
+const OWN_SYSTEM_KEPT = "A system context view always shows its system.";
 
 /** One token per selected shape object, which an identifier rename keeps (SPEC 1.5). */
 const tokens = new WeakMap<object, number>();
@@ -136,6 +172,8 @@ class Inspector implements InspectorHandle {
   private readonly keeper: SelectionKeeper;
   private shown: Shown | undefined;
   private readOnly = false;
+  /** The implied relationship's reason, which its read-only fields name as their description. */
+  private readonly impliedReasonId = uniqueId("c4-inspector-implied");
   private destroyed = false;
   private readonly render = () => this.update();
 
@@ -246,7 +284,10 @@ class Inspector implements InspectorHandle {
     fields.disabled = this.readOnly || isLocked(this.modeler);
     const controls = content.specs.map((spec) => this.control(owner, spec));
     const before = node(owner, "div", "c4-inspector-before", ...content.before);
-    fields.append(before, ...controls.map(({ field }) => field.root));
+    fields.append(
+      before,
+      ...controls.flatMap(({ field, extras }) => (extras ? [field.root, extras] : [field.root])),
+    );
     const dynamic = node(owner, "div", "c4-inspector-dynamic");
     dynamic.append(...content.dynamic);
     root.append(this.header(owner, title), fields, dynamic);
@@ -280,7 +321,60 @@ class Inspector implements InspectorHandle {
       }
       control.spec = spec;
       control.committed = fresh;
+      if (control.extras) this.drawExtras(control, owner);
     });
+  }
+
+  /**
+   * Draws a field's choices again once what they offer changed, so a commit that changes nothing
+   * there keeps the choice under the pointer and the next Tab stop. A focused choice that went
+   * (its tag is the element's now) hands the focus to its next sibling, else the one before, else
+   * the field.
+   */
+  private drawExtras(control: FieldControl, owner: Document): void {
+    const { extras } = control;
+    const signature = control.spec.extras?.signature ?? "";
+    if (!extras || control.extrasSignature === signature) return;
+    control.extrasSignature = signature;
+    const active = owner.activeElement;
+    const focused = active instanceof HTMLElement && extras.contains(active) ? active : undefined;
+    const siblings = [...(focused?.parentElement?.children ?? [])].filter(
+      (sibling): sibling is HTMLElement =>
+        sibling instanceof HTMLElement && sibling.dataset.focusKey !== undefined,
+    );
+    const at = focused ? siblings.indexOf(focused) : -1;
+    const candidates = [
+      ...(focused ? [focused] : []),
+      ...siblings.slice(at + 1),
+      ...siblings.slice(0, Math.max(at, 0)).reverse(),
+    ];
+    extras.replaceChildren(...(control.spec.extras?.draw(control, owner) ?? []));
+    extras.hidden = extras.childElementCount === 0;
+    if (!focused) return;
+    const successor = candidates
+      .map(({ dataset }) =>
+        extras.querySelector<HTMLElement>(
+          `[data-focus-key="${CSS.escape(dataset.focusKey ?? "")}"]`,
+        ),
+      )
+      .find((candidate) => candidate !== null);
+    (successor ?? control.field.control).focus();
+  }
+
+  /**
+   * A commit on blur redraws what it changed, which can be the control Tab was moving to (the
+   * views after a rename): the focus goes to the control drawn in its place.
+   */
+  private focusReplacement(arriving: EventTarget | null): void {
+    if (!(arriving instanceof HTMLElement) || arriving.isConnected) return;
+    const { focusKey, field } = arriving.dataset;
+    const selector =
+      focusKey !== undefined
+        ? `[data-focus-key="${CSS.escape(focusKey)}"]`
+        : field !== undefined
+          ? `[data-field="${CSS.escape(field)}"]`
+          : undefined;
+    if (selector) this.slot.element.querySelector<HTMLElement>(selector)?.focus();
   }
 
   private replaceDynamic(shown: Shown, parts: readonly HTMLElement[]): void {
@@ -314,10 +408,26 @@ class Inspector implements InspectorHandle {
       ...(spec.multiline ? { multiline: true } : {}),
       readOnlyReason: spec.reason,
     });
-    const control: FieldControl = { spec, field, committed: normalized(spec, spec.value) };
+    const extras = spec.extras ? node(owner, "div", "c4-inspector-extras") : undefined;
+    const control: FieldControl = {
+      spec,
+      field,
+      committed: normalized(spec, spec.value),
+      extras,
+      extrasSignature: undefined,
+    };
+    this.drawExtras(control, owner);
     const input = field.control;
+    if (spec.describedBy !== undefined) {
+      input.readOnly = true;
+      input.setAttribute("aria-describedby", spec.describedBy);
+    }
     input.addEventListener("input", () => field.clearError());
-    input.addEventListener("blur", () => this.commit(control));
+    input.addEventListener("blur", (blur: Event) => {
+      const arriving = (blur as FocusEvent).relatedTarget;
+      this.commit(control);
+      this.focusReplacement(arriving);
+    });
     input.addEventListener("keydown", (keydown: Event) => {
       const event = keydown as KeyboardEvent;
       if (isImeCompositionKey(event)) return;
@@ -375,7 +485,12 @@ class Inspector implements InspectorHandle {
       kind,
       this.readOnly,
       isLocked(this.modeler),
-      specs.map((spec) => [spec.name, spec.reason ?? null]),
+      specs.map((spec) => [
+        spec.name,
+        spec.reason ?? null,
+        spec.describedBy ?? null,
+        spec.extras !== undefined,
+      ]),
       extra,
     ]);
   }
@@ -428,6 +543,7 @@ class Inspector implements InspectorHandle {
         label: "Tags",
         value: tagsText(element.ownTags),
         reason: reason("tags"),
+        extras: this.tagChoices(workspace, element, reason("tags")),
         commit: (value) => c4.editElement(id, { tags: tagsOf(value) }),
       },
       {
@@ -444,11 +560,27 @@ class Inspector implements InspectorHandle {
         commit: (value) => c4.renameIdentifier(id, value.trim()),
       },
     );
-    const dynamic = [this.inViews(owner, workspace, element), ...this.sourceLine(owner, id)];
-    dynamic.push(this.actions(owner, boundary ? [] : [id], [], true, [id]));
+    const active = this.modeler.views.active();
+    const drill = this.drillButton(owner, element);
+    const dynamic = [
+      this.inViews(owner, workspace, element),
+      ...(drill ? [drill] : []),
+      ...this.sourceLine(owner, id),
+    ];
+    dynamic.push(
+      this.actions(owner, {
+        removeIds: boundary ? [] : [id],
+        ...(active.type === "systemContext" && active.scopeId === id
+          ? { keptInView: OWN_SYSTEM_KEPT }
+          : {}),
+        deletable: true,
+        deleteIds: [id],
+        ...(boundary ? {} : { connectFrom: id }),
+      }),
+    );
     // A component view frames its scope container and, around it, the container's system.
     const frame =
-      this.modeler.views.active().scopeId === id
+      active.scopeId === id
         ? "The frame of this view."
         : "A frame in this view, around the frame of its scope.";
     const before = boundary ? [node(owner, "p", "c4-field-note", frame)] : [];
@@ -514,12 +646,15 @@ class Inspector implements InspectorHandle {
       title: "Relationship",
       before: [ends],
       specs,
-      dynamic: [this.actions(owner, [], [key], true, [])],
+      dynamic: [this.actions(owner, { removeRelationships: [key], deletable: true })],
       signature: this.signatureOf("relationship", specs),
     };
   }
 
-  /** An implied relationship is never written: it says where it comes from (SPEC 5.6). */
+  /**
+   * An implied relationship is never written: its values are its origin's, shown read-only, and it
+   * leads to where that origin can be edited, on this canvas or in a view that shows it (SPEC 5.6).
+   */
   private buildImplied(
     owner: Document,
     workspace: Workspace,
@@ -531,34 +666,86 @@ class Inspector implements InspectorHandle {
     );
     const name = (id: ElementId) =>
       workspace.elements.find((element) => element.id === id)?.name ?? id;
+    const reason = node(
+      owner,
+      "p",
+      "c4-field-note",
+      origin
+        ? `Implied by ${name(origin.sourceId)} → ${name(origin.destinationId)}. Edit that relationship to change it.`
+        : "Implied by a relationship of the elements nested in these. Edit that relationship to change it.",
+    );
+    reason.id = this.impliedReasonId;
+    const specs: FieldSpec[] = [
+      {
+        name: "description",
+        label: "Description",
+        value: relationship.description,
+        describedBy: reason.id,
+        commit: () => undefined,
+      },
+      {
+        name: "technology",
+        label: "Technology",
+        value: relationship.technology,
+        describedBy: reason.id,
+        commit: () => undefined,
+      },
+    ];
     const parts: HTMLElement[] = [];
-    if (origin) {
-      parts.push(
-        node(
-          owner,
-          "p",
-          "c4-field-note",
-          `Implied by ${name(origin.sourceId)} → ${name(origin.destinationId)}.`,
-        ),
-      );
-      const registry = this.modeler.diagram.get<ElementRegistry>("elementRegistry");
-      const shown = registry.get(relationshipCanvasId(origin.canvasKey));
-      if (shown) {
-        const select = button(owner, "Select it", "secondary", () =>
-          serviceOf<Selection>(this.modeler, "selection")?.select(shown),
-        );
-        select.dataset.focusKey = "select-origin";
-        parts.push(select);
-      }
-    }
-    parts.push(this.actions(owner, [], [relationship.canvasKey], false, []));
+    const lead = origin && this.originButton(owner, origin.canvasKey);
+    if (lead) parts.push(lead);
+    parts.push(
+      this.actions(owner, { removeRelationships: [relationship.canvasKey], deletable: false }),
+    );
     return {
       title: "Implied relationship",
-      before: [ends],
-      specs: [],
+      before: [ends, reason],
+      specs,
       dynamic: parts,
-      signature: this.signatureOf("implied", [], relationship.canvasKey),
+      signature: this.signatureOf("implied", specs, relationship.canvasKey),
     };
+  }
+
+  /** "Select it" where the canvas shows the origin, else "Open <view>" of the first view that does. */
+  private originButton(owner: Document, originKey: string): HTMLButtonElement | undefined {
+    const registry = this.modeler.diagram.get<ElementRegistry>("elementRegistry");
+    const canvasId = relationshipCanvasId(originKey);
+    const selectOrigin = () => {
+      const shape = registry.get(canvasId);
+      if (!shape) return;
+      serviceOf<Selection>(this.modeler, "selection")?.select(shape);
+      this.slot.element.querySelector<HTMLElement>("[data-field]")?.focus();
+    };
+    if (registry.get(canvasId)) {
+      const select = button(owner, "Select it", "secondary", selectOrigin);
+      select.dataset.focusKey = "select-origin";
+      return select;
+    }
+    const view = this.viewShowing(originKey);
+    if (!view) return undefined;
+    const open = button(owner, `Open ${view.title}`, "secondary", () => {
+      this.modeler.views.open(view.key, { cause: "user" });
+      selectOrigin();
+    });
+    open.classList.add("c4-inspector-lead");
+    open.dataset.view = view.key;
+    open.dataset.focusKey = "open-origin";
+    return open;
+  }
+
+  /** The first editable view, written ones before drafts, whose canvas shows the relationship. */
+  private viewShowing(canvasKey: string): ViewEntry | undefined {
+    const { views } = this.modeler;
+    const active = views.active().key;
+    return views
+      .catalog()
+      .list()
+      .find(
+        (entry) =>
+          entry.editable &&
+          entry.key !== active &&
+          membersOf(this.modeler, entry).relationships.includes(canvasKey),
+      );
   }
 
   private buildSeveral(target: Extract<Target, { kind: "several" }>) {
@@ -573,44 +760,55 @@ class Inspector implements InspectorHandle {
       before: [],
       specs: [],
       dynamic: [
-        this.actions(
-          owner,
-          target.ids,
-          target.relationships,
-          target.ids.length > 0 || explicit.length > 0,
-          target.ids,
-          explicit,
-        ),
+        this.actions(owner, {
+          removeIds: target.ids,
+          removeRelationships: target.relationships,
+          deletable: target.ids.length > 0 || explicit.length > 0,
+          deleteIds: target.ids,
+          deleteRelationships: explicit,
+        }),
       ],
       signature: this.signatureOf("several", []),
     };
   }
 
-  /** "Remove from view" and "Delete from model…", locked like the fields. */
-  private actions(
-    owner: Document,
-    removeIds: readonly ElementId[],
-    removeRelationships: readonly string[],
-    deletable: boolean,
-    deleteIds: readonly ElementId[],
-    deleteRelationships: readonly string[] = removeRelationships,
-  ): HTMLElement {
+  /** "Add relationship…", "Remove from view" and "Delete from model…", locked like the fields. */
+  private actions(owner: Document, options: ActionOptions): HTMLElement {
     const locked = this.readOnly || isLocked(this.modeler) || !this.modeler.views.active().editable;
+    const removeIds = options.removeIds ?? [];
+    const removeRelationships = options.removeRelationships ?? [];
     const actions = node(owner, "div", "c4-inspector-actions");
+    const dialogs = () => serviceOf<C4Dialogs>(this.modeler, "c4Dialogs");
+    const sourceId = options.connectFrom;
+    // The dialog opens on the app's chrome; a host that gave none gets no entry that can't open.
+    if (sourceId !== undefined && dialogs()?.isConnected()) {
+      const add = button(owner, "Add relationship…", "secondary", () =>
+        dialogs()?.showAddRelationship(sourceId),
+      );
+      add.dataset.focusKey = "add-relationship";
+      add.disabled = locked;
+      actions.append(add);
+    }
     if (removeIds.length > 0 || removeRelationships.length > 0) {
       const remove = button(owner, "Remove from view", "secondary", () => {
         this.modeler.c4.removeFromView(removeIds, removeRelationships);
         this.canvas().focus();
       });
       remove.dataset.focusKey = "remove-from-view";
-      remove.disabled = locked;
+      remove.disabled = locked || options.keptInView !== undefined;
       actions.append(remove);
+      if (options.keptInView !== undefined) {
+        const why = node(owner, "span", "c4-field-note", options.keptInView);
+        why.id = uniqueId("c4-inspector-kept");
+        remove.setAttribute("aria-describedby", why.id);
+        actions.append(why);
+      }
     }
-    if (deletable) {
+    if (options.deletable) {
       const remove = destructiveGhostButton(owner, "Delete from model…", () =>
-        serviceOf<C4Dialogs>(this.modeler, "c4Dialogs")?.deleteFromModel({
-          ids: deleteIds,
-          relationships: deleteRelationships,
+        dialogs()?.deleteFromModel({
+          ids: options.deleteIds ?? [],
+          relationships: options.deleteRelationships ?? removeRelationships,
         }),
       );
       remove.dataset.focusKey = "delete-from-model";
@@ -620,7 +818,7 @@ class Inspector implements InspectorHandle {
     return actions;
   }
 
-  /** The written views that show the element, and the view one level deeper (SPEC 5.6). */
+  /** The written views that show the element (SPEC 5.6). */
   private inViews(owner: Document, workspace: Workspace, element: ModelElement): HTMLElement {
     const { views } = this.modeler;
     const active = views.active();
@@ -639,19 +837,123 @@ class Inspector implements InspectorHandle {
         this.viewButton(owner, entry.key, entry.title, element.id, entry.key === active.key),
       );
     }
-    const child = catalog.childOf(element.id);
-    const childWord =
-      element.kind === "softwareSystem" || element.kind === "container"
-        ? KIND_WORDS_FOR_CHILD[element.kind]
-        : undefined;
-    if (child && childWord) {
-      list.append(this.viewButton(owner, child.key, `Open ${childWord} view`, element.id, false));
-    }
     if (list.childElementCount === 0) {
       list.append(node(owner, "span", "c4-field-note", "No view in the file shows it yet."));
     }
     section.append(list);
     return section;
+  }
+
+  /** The view one level deeper, the drill badge's and Enter's target: an action, not a view it is in. */
+  private drillButton(owner: Document, element: ModelElement): HTMLButtonElement | undefined {
+    const child = this.modeler.views.catalog().childOf(element.id);
+    const childWord =
+      element.kind === "softwareSystem" || element.kind === "container"
+        ? KIND_WORDS_FOR_CHILD[element.kind]
+        : undefined;
+    if (!child || !childWord) return undefined;
+    const drill = button(owner, `Open ${childWord} view`, "secondary", () => {
+      this.modeler.views.open(child.key, { cause: "user" });
+      this.reselect(element.id);
+    });
+    drill.insertAdjacentHTML(
+      "afterbegin",
+      lucideIcon("zoom-in", { size: 16, strokeWidth: LUCIDE_STROKE_WIDTH }),
+    );
+    drill.classList.add("c4-inspector-drill");
+    drill.dataset.focusKey = "drill";
+    return drill;
+  }
+
+  /**
+   * What the tags offer beside typing (SPEC 5.6): External for a software system where the styles
+   * draw "Existing System", and the other tags the styles use; each choice is one command.
+   */
+  private tagChoices(
+    workspace: Workspace,
+    element: ModelElement,
+    reason: string | undefined,
+  ): FieldExtras {
+    const editable = reason === undefined;
+    const external =
+      editable &&
+      element.kind === "softwareSystem" &&
+      workspace.styles.elements.some(({ tag }) => tag === EXTERNAL_TAG);
+    const checked = element.tags.includes(EXTERNAL_TAG);
+    // A tag an archetype gives can't be taken off here.
+    const inherited = checked && !element.ownTags.includes(EXTERNAL_TAG);
+    const suggestions = editable
+      ? styledTagSuggestions(workspace.styles, element).filter(
+          (tag) => !external || tag !== EXTERNAL_TAG,
+        )
+      : [];
+    return {
+      signature: JSON.stringify([external, checked, inherited, suggestions]),
+      draw: (control, owner) => [
+        ...(external ? [this.externalChoice(owner, control, checked, inherited)] : []),
+        ...(suggestions.length > 0 ? [this.tagSuggestions(owner, control, suggestions)] : []),
+      ],
+    };
+  }
+
+  private commitTags(control: FieldControl, change: (tags: string[]) => string[]): boolean {
+    const input = control.field.control;
+    input.value = tagsText(change(tagsOf(input.value)));
+    return this.commit(control);
+  }
+
+  private externalChoice(
+    owner: Document,
+    control: FieldControl,
+    checked: boolean,
+    inherited: boolean,
+  ): HTMLElement {
+    const box = node(owner, "input");
+    box.type = "checkbox";
+    box.dataset.field = "external";
+    box.dataset.focusKey = "external";
+    box.checked = checked;
+    box.disabled = inherited;
+    const note = node(owner, "span", "c4-field-note", `Sets the tag “${EXTERNAL_TAG}”.`);
+    note.id = uniqueId("c4-inspector-external");
+    box.setAttribute("aria-describedby", note.id);
+    box.addEventListener("change", () => {
+      const external = box.checked;
+      const written = this.commitTags(control, (tags) => [
+        ...tags.filter((tag) => tag !== EXTERNAL_TAG),
+        ...(external ? [EXTERNAL_TAG] : []),
+      ]);
+      if (!written) box.checked = !external;
+    });
+    return node(
+      owner,
+      "div",
+      "c4-field c4-inspector-external",
+      node(owner, "label", "c4-field-check", box, node(owner, "span", "", "External")),
+      note,
+    );
+  }
+
+  private tagSuggestions(
+    owner: Document,
+    control: FieldControl,
+    suggestions: readonly string[],
+  ): HTMLElement {
+    const label = node(owner, "span", "c4-field-note", "Tags with a style");
+    label.id = uniqueId("c4-inspector-tag-suggestions");
+    const group = node(owner, "div", "c4-tag-suggestions");
+    group.setAttribute("role", "group");
+    group.setAttribute("aria-labelledby", label.id);
+    for (const tag of suggestions) {
+      const add = button(owner, tag, "secondary", () =>
+        this.commitTags(control, (tags) => [...tags.filter((own) => own !== tag), tag]),
+      );
+      add.classList.add("c4-tag-suggestion");
+      add.setAttribute("aria-label", `Add the tag “${tag}”`);
+      add.dataset.focusKey = `tag:${tag}`;
+      group.append(add);
+    }
+    return node(owner, "div", "c4-field", label, group);
   }
 
   private viewButton(

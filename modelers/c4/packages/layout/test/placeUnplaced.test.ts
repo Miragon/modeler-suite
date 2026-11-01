@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Box, ElementId } from "@miragon/c4-schema-model";
 import { layoutView, placeUnplaced } from "../src/index.js";
+import { HORIZONTAL_GAP, VERTICAL_GAP } from "../src/placement.js";
 import {
   BOX,
   PERSON,
@@ -20,6 +21,9 @@ function placed(
 }
 
 const at = (x: number, y: number, size = BOX): Box => ({ x, y, ...size });
+/** The next slot to the right of a box at 0, and below one: a relationship's label fits between. */
+const BESIDE = BOX.width + HORIZONTAL_GAP;
+const BELOW = BOX.height + VERTICAL_GAP;
 
 describe("placeUnplaced", () => {
   it("keeps the placed boxes and adds one for every unplaced element", () => {
@@ -30,13 +34,18 @@ describe("placeUnplaced", () => {
     expect(result.get("a")).toEqual(at(0, 0));
   });
 
-  it("puts an element right of its first placed neighbour at a gap of 80, centred on it", () => {
+  it("leaves room for a relationship's label between neighbours: 160 wide, 48 high", () => {
+    expect(HORIZONTAL_GAP).toBeGreaterThanOrEqual(160 + 2 * 8);
+    expect(VERTICAL_GAP).toBeGreaterThanOrEqual(48 + 2 * 8);
+  });
+
+  it("puts an element right of its first placed neighbour at the horizontal gap, centred on it", () => {
     const result = placed(
       { elements: ["a", "user"], relationships: [["user", "a"]], sizes: { user: PERSON } },
       { a: at(0, 0) },
       ["user"],
     );
-    expect(result.get("user")).toEqual(at(320, -32, PERSON));
+    expect(result.get("user")).toEqual(at(BESIDE, -32, PERSON));
   });
 
   it("tries below, left of and above the neighbour when the slot before is taken", () => {
@@ -44,15 +53,12 @@ describe("placeUnplaced", () => {
       elements: ["n", "new", "r", "b", "l"],
       relationships: [["n", "new"]],
     };
-    expect(placed(spec, { n: at(0, 0), r: at(320, 0) }, ["new"]).get("new")).toEqual(at(0, 240));
-    expect(placed(spec, { n: at(0, 0), r: at(320, 0), b: at(0, 240) }, ["new"]).get("new")).toEqual(
-      at(-320, 0),
-    );
-    expect(
-      placed(spec, { n: at(0, 0), r: at(320, 0), b: at(0, 240), l: at(-320, 0) }, ["new"]).get(
-        "new",
-      ),
-    ).toEqual(at(0, -240));
+    const r = at(BESIDE, 0);
+    const b = at(0, BELOW);
+    const l = at(-BESIDE, 0);
+    expect(placed(spec, { n: at(0, 0), r }, ["new"]).get("new")).toEqual(at(0, BELOW));
+    expect(placed(spec, { n: at(0, 0), r, b }, ["new"]).get("new")).toEqual(at(-BESIDE, 0));
+    expect(placed(spec, { n: at(0, 0), r, b, l }, ["new"]).get("new")).toEqual(at(0, -BELOW));
   });
 
   it("takes the first placed neighbour in relationship order", () => {
@@ -67,7 +73,7 @@ describe("placeUnplaced", () => {
       { first: at(0, 0), second: at(0, 800) },
       ["new"],
     );
-    expect(result.get("new")).toEqual(at(320, 800));
+    expect(result.get("new")).toEqual(at(BESIDE, 800));
   });
 
   it("writes no negative zero, which would make equal boxes compare unequal", () => {
@@ -84,7 +90,7 @@ describe("placeUnplaced", () => {
     const b = result.get("b") as Box;
     expect(b.x % 8).toBe(0);
     expect(b.y % 8).toBe(0);
-    expect(b.x - (3 + 240)).toBeGreaterThanOrEqual(80);
+    expect(b.x - (3 + 240)).toBeGreaterThanOrEqual(HORIZONTAL_GAP);
   });
 
   it("puts an element without a placed neighbour into a row below the placed content", () => {
@@ -94,35 +100,35 @@ describe("placeUnplaced", () => {
       ["lonely", "alone"],
     );
     expect(result.get("lonely")).toEqual(at(0, 440));
-    expect(result.get("alone")).toEqual(at(320, 440));
+    expect(result.get("alone")).toEqual(at(BESIDE, 440));
   });
 
   it("starts a new row when a row grows wider than the content", () => {
     const unplaced = ["e1", "e2", "e3", "e4", "e5"];
     const result = placed({ elements: ["a", ...unplaced] }, { a: at(0, 0) }, unplaced);
     expect(unplaced.map((id) => result.get(id))).toEqual([
-      at(0, 240),
-      at(320, 240),
-      at(640, 240),
-      at(960, 240),
-      at(0, 480),
+      at(0, BELOW),
+      at(BESIDE, BELOW),
+      at(2 * BESIDE, BELOW),
+      at(3 * BESIDE, BELOW),
+      at(0, 2 * BELOW),
     ]);
   });
 
   it("puts the first element of an empty view at the origin and the next beside it", () => {
     const result = placed({ elements: ["a", "b"], relationships: [["a", "b"]] }, {}, ["a", "b"]);
     expect(result.get("a")).toEqual(at(0, 0));
-    expect(result.get("b")).toEqual(at(320, 0));
+    expect(result.get("b")).toEqual(at(BESIDE, 0));
   });
 
   it("never puts an element at the origin of a view that is not empty", () => {
     const result = placed(
       { elements: ["n", "new", "r", "b"], relationships: [["n", "new"]] },
-      { n: at(320, 0), r: at(640, 0), b: at(320, 240) },
+      { n: at(BESIDE, 0), r: at(2 * BESIDE, 0), b: at(BESIDE, BELOW) },
       ["new"],
     );
     expect(result.get("new")).not.toMatchObject({ x: 0, y: 0 });
-    expect(result.get("new")).toEqual(at(320, -240));
+    expect(result.get("new")).toEqual(at(BESIDE, -BELOW));
   });
 
   it("places an element after its unplaced neighbour has found a place, whatever their order", () => {
@@ -137,8 +143,8 @@ describe("placeUnplaced", () => {
       { anchor: at(0, 0) },
       ["far", "near"],
     );
-    expect(result.get("near")).toEqual(at(320, 0));
-    expect(result.get("far")).toEqual(at(640, 0));
+    expect(result.get("near")).toEqual(at(BESIDE, 0));
+    expect(result.get("far")).toEqual(at(2 * BESIDE, 0));
   });
 
   it("keeps an element that does not belong to a frame out of it", () => {
@@ -153,7 +159,7 @@ describe("placeUnplaced", () => {
       layoutInput({ ...spec, stored: Object.fromEntries(result) }),
     ).boundaries.get("shop") as Box;
     expect(overlap(frame, result.get("person") as Box)).toBe(false);
-    expect(result.get("person")).toEqual(at(-296, -32, PERSON));
+    expect(result.get("person")).toEqual(at(-(HORIZONTAL_GAP + PERSON.width), -32, PERSON));
   });
 
   it("does not grow a frame over an element outside it", () => {
@@ -163,10 +169,12 @@ describe("placeUnplaced", () => {
       boundaries: [{ elementId: "shop", members: ["c1", "c2"], depth: 0 }],
       sizes: { person: PERSON },
     };
-    const result = placed(spec, { c1: at(0, 0), person: at(0, 440, PERSON), other: at(320, 0) }, [
-      "c2",
-    ]);
-    expect(result.get("c2")).toEqual(at(-320, 0));
+    const result = placed(
+      spec,
+      { c1: at(0, 0), person: at(0, 440, PERSON), other: at(BESIDE, 0) },
+      ["c2"],
+    );
+    expect(result.get("c2")).toEqual(at(-BESIDE, 0));
     const frame = layoutView(
       layoutInput({ ...spec, stored: Object.fromEntries(result) }),
     ).boundaries.get("shop") as Box;
@@ -183,7 +191,7 @@ describe("placeUnplaced", () => {
       { user: at(0, 0, PERSON), c1: at(0, 600) },
       ["c2"],
     );
-    expect(result.get("c2")).toEqual(at(320, 600));
+    expect(result.get("c2")).toEqual(at(BESIDE, 600));
   });
 
   it("keeps a new element off an empty boundary's place and returns no box for the boundary", () => {

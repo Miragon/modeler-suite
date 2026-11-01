@@ -1,3 +1,4 @@
+import type { Box } from "@miragon/c4-schema-model";
 import { canvasFont } from "./textMetrics.js";
 
 /** The text stack of an element box (SPEC 6.3). */
@@ -10,6 +11,8 @@ export const ELEMENT_FONTS = {
 /** The stack is centred as a block; these are the only gaps in it. */
 export const ELEMENT_GAPS = { beforeType: 4, beforeDescription: 8 } as const;
 export const NAME_MAX_LINES = 2;
+/** `[Container: Java 21, Spring Boot 3, Hibernate]` wraps rather than end in an ellipsis. */
+export const TYPE_LINE_MAX_LINES = 2;
 
 /** A relationship's label (SPEC 6.3): two description lines and the technology fit 160 × 48. */
 export const RELATIONSHIP_FONTS = {
@@ -17,11 +20,34 @@ export const RELATIONSHIP_FONTS = {
   technology: canvasFont(11, 400, 1.3),
 } as const;
 export const RELATIONSHIP_LABEL = {
-  descriptionLines: 2,
+  descriptionLines: 3,
+  technologyLines: 2,
   gap: 2,
-  /** Between the text and the edge of its ground, which stays inside the fixed label box. */
+  /** Between the text and the left and right edge of its ground. */
   padding: 4,
+  /** Between the text and the top and bottom edge of its ground. */
+  groundPadding: 2,
 } as const;
+
+/**
+ * How far a relationship's drawn label may reach: its ground grows from the layout's 160 × 48
+ * slot up to this, centred on the slot, before the text is cut short. The layout keeps the fixed
+ * slot, so a longer description moves nothing (SPEC 4.3), and spaces the bends of a fan by this
+ * same size (its own `LABEL_REACH`, `layout/src/relationships.ts`): change both together.
+ */
+export const LABEL_REACH = { width: 240, height: 72 } as const;
+
+/** The most a label of `slot` may cover, in diagram coordinates. */
+export function labelReach(slot: Box): Box {
+  const width = Math.max(slot.width, LABEL_REACH.width);
+  const height = Math.max(slot.height, LABEL_REACH.height);
+  return {
+    x: slot.x + (slot.width - width) / 2,
+    y: slot.y + (slot.height - height) / 2,
+    width,
+    height,
+  };
+}
 
 /** The caption at a boundary's bottom left (SPEC 6.5). */
 export const BOUNDARY_FONTS = {

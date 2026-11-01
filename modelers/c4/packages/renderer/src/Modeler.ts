@@ -8,10 +8,12 @@ import OutlineModule from "diagram-js/lib/features/outline";
 import ResizeModule from "diagram-js/lib/features/resize";
 import KeyboardMoveModule from "diagram-js/lib/navigation/keyboard-move";
 import { NavigatedViewer } from "./NavigatedViewer.js";
-import { gesturesModule } from "./gestures/index.js";
+import { framePreviewModule } from "./frame-preview/index.js";
+import { gesturesModule, panAwareAutoScrollModule, snappingModule } from "./gestures/index.js";
 import { keyboardModule } from "./keyboard/index.js";
 import { labelEditingModule } from "./label-editing/index.js";
 import { c4ModelingModule, elementFactoryModule } from "./modeling/index.js";
+import { emptyScopeHintModule } from "./navigation/index.js";
 import { paletteModule } from "./palette/index.js";
 import { readOnlyModule } from "./read-only/index.js";
 import { rulesModule } from "./rules/index.js";
@@ -29,6 +31,7 @@ export class Modeler extends NavigatedViewer {
       elementFactoryModule,
       MoveModule,
       ResizeModule,
+      snappingModule,
       ConnectModule,
       BendpointsModule,
       OutlineModule,
@@ -40,6 +43,9 @@ export class Modeler extends NavigatedViewer {
       labelEditingModule,
       keyboardModule,
       gesturesModule,
+      panAwareAutoScrollModule,
+      framePreviewModule,
+      emptyScopeHintModule,
     ];
   }
 

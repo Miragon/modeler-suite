@@ -5,6 +5,7 @@
  * frames it grows do not reach anything new.
  */
 import type { Box, ElementId, Size } from "@miragon/c4-schema-model";
+import { LABEL_SIZE } from "./autoLayout.js";
 import type { ClusterKey, ClusterTree } from "./clusters.js";
 import { deriveFrames, padded, type Frame } from "./frames.js";
 import {
@@ -18,11 +19,16 @@ import {
   unionOf,
 } from "./geometry.js";
 
-export const PLACEMENT_GAP = 80;
-/** Half the gap: a new box keeps it from every box but the neighbour it was put next to. */
-const CLEARANCE = PLACEMENT_GAP / 2;
+/** A relationship's label fits between two neighbours, with this much room on either side. */
+const LABEL_MARGIN = 16;
+/** Side by side: the label lies across the gap, so the gap takes its width. */
+export const HORIZONTAL_GAP = LABEL_SIZE.width + 2 * LABEL_MARGIN;
+/** One above the other: the gap takes the label's height. */
+export const VERTICAL_GAP = LABEL_SIZE.height + 2 * LABEL_MARGIN;
+/** Half the narrower gap: a new box keeps it from every box but the neighbour it was put next to. */
+const CLEARANCE = VERTICAL_GAP / 2;
 const MAX_ANCHORS = 16;
-const MIN_ROW_WIDTH = 4 * (240 + PLACEMENT_GAP);
+const MIN_ROW_WIDTH = 4 * (240 + HORIZONTAL_GAP);
 const MAX_ROW_STEPS = 10_000;
 
 export interface PlacementItem {
@@ -139,12 +145,12 @@ class Placement {
     this.row = row;
     for (let step = 0; step < MAX_ROW_STEPS; step++) {
       if (row.cursor > row.left && row.cursor + item.size.width > row.left + row.limit) {
-        row.y = ceilToGrid(row.y + row.height + PLACEMENT_GAP);
+        row.y = ceilToGrid(row.y + row.height + VERTICAL_GAP);
         row.cursor = row.left;
         row.height = 0;
       }
       const candidate = { x: row.cursor, y: row.y, ...item.size };
-      row.cursor = ceilToGrid(row.cursor + item.size.width + PLACEMENT_GAP);
+      row.cursor = ceilToGrid(row.cursor + item.size.width + HORIZONTAL_GAP);
       if (this.isFree(item.key, candidate)) {
         row.height = Math.max(row.height, item.size.height);
         this.put(item.key, candidate);
@@ -154,7 +160,7 @@ class Placement {
     const content = this.content();
     this.put(item.key, {
       x: content ? floorToGrid(content.x) : 0,
-      y: content ? ceilToGrid(bottom(content) + PLACEMENT_GAP) : 0,
+      y: content ? ceilToGrid(bottom(content) + VERTICAL_GAP) : 0,
       ...item.size,
     });
   }
@@ -258,7 +264,7 @@ class Placement {
     return {
       left,
       limit: Math.max(MIN_ROW_WIDTH, right(content) - left),
-      y: ceilToGrid(bottom(content) + PLACEMENT_GAP),
+      y: ceilToGrid(bottom(content) + VERTICAL_GAP),
       cursor: left,
       height: 0,
     };
@@ -270,9 +276,9 @@ function slotsBeside(anchor: Box, size: Size): Box[] {
   const alignedX = roundToGrid(middle.x - size.width / 2);
   const alignedY = roundToGrid(middle.y - size.height / 2);
   return [
-    { x: ceilToGrid(right(anchor) + PLACEMENT_GAP), y: alignedY, ...size },
-    { x: alignedX, y: ceilToGrid(bottom(anchor) + PLACEMENT_GAP), ...size },
-    { x: floorToGrid(anchor.x - PLACEMENT_GAP - size.width), y: alignedY, ...size },
-    { x: alignedX, y: floorToGrid(anchor.y - PLACEMENT_GAP - size.height), ...size },
+    { x: ceilToGrid(right(anchor) + HORIZONTAL_GAP), y: alignedY, ...size },
+    { x: alignedX, y: ceilToGrid(bottom(anchor) + VERTICAL_GAP), ...size },
+    { x: floorToGrid(anchor.x - HORIZONTAL_GAP - size.width), y: alignedY, ...size },
+    { x: alignedX, y: floorToGrid(anchor.y - VERTICAL_GAP - size.height), ...size },
   ];
 }

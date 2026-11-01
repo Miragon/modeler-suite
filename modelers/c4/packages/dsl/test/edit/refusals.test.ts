@@ -46,7 +46,7 @@ const REFUSALS: readonly Refusal[] = [
     `,
     edit: { type: "updateElement", id: "shop", fields: { name: "Store" } },
     reason: "field-not-editable",
-    message: /Set with \$\{NAME\}\. Edit the constant in the text\./,
+    message: /Set with “\$\{NAME\}”\. Edit the constant in the text\./,
   },
   {
     name: "tags set with a constant",
@@ -115,6 +115,7 @@ const REFUSALS: readonly Refusal[] = [
     name: "a taken identifier, in any case",
     edit: { type: "renameIdentifier", id: "shop", identifier: "CUSTOMER" },
     reason: "identifier-taken",
+    message: /^The identifier “CUSTOMER” is already in use\. Choose another one\.$/,
   },
   {
     name: "a delete a script may depend on",
@@ -165,6 +166,33 @@ const REFUSALS: readonly Refusal[] = [
     edit: { type: "createElement", kind: "container", center: { x: 0, y: 0 } },
     options: { view: "Landscape" },
     reason: "not-allowed",
+  },
+  {
+    name: "an append from an element the model doesn't have",
+    edit: { type: "createElement", kind: "person", center: { x: 0, y: 0 }, connectFrom: "nobody" },
+    options: { view: "Landscape" },
+    reason: "not-allowed",
+  },
+  {
+    name: "an append of a component from the container it goes into",
+    text: dsl`
+      workspace {
+          model {
+              shop = softwareSystem "Shop" {
+                  api = container "API"
+              }
+          }
+          views {
+              component api "ApiComponents" {
+                  include *
+              }
+          }
+      }
+    `,
+    edit: { type: "createElement", kind: "component", center: { x: 0, y: 0 }, connectFrom: "api" },
+    options: { view: "ApiComponents" },
+    reason: "not-allowed",
+    message: /Structurizr refuses a relationship between an element and its parent or child\./,
   },
   {
     name: "a relationship to itself",

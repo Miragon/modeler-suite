@@ -9,6 +9,7 @@ import { editAtField } from "../label-editing/fieldRefusal.js";
 import { eventBusOf, isLocked, membersOf, workspaceOf } from "./access.js";
 import { focusCanvas, openModelerDialog } from "./dialog.js";
 import { button, node, uniqueId } from "./dom.js";
+import { selectAndReveal } from "./reveal.js";
 import type { C4DialogModeler, DialogTarget, OpenedDialog } from "./types.js";
 
 export const ADD_ELEMENT_TITLE = "Add existing element";
@@ -62,7 +63,8 @@ function matches(element: ModelElement, query: string): boolean {
 
 /**
  * "Add existing element…" (SPEC 7.1): a searchable list of the elements the view lacks; the
- * checked ones go into the view as one command (`includeInView`).
+ * checked ones go into the view as one command (`includeInView`), and the canvas selects them and
+ * scrolls them into sight, so the user sees where they landed.
  */
 export function showAddElementDialog(target: DialogTarget): OpenedDialog {
   const { modeler } = target;
@@ -85,6 +87,7 @@ export function showAddElementDialog(target: DialogTarget): OpenedDialog {
       search.dataset.field = "search";
       search.setAttribute("aria-label", "Search elements");
       search.placeholder = "Search by name";
+      search.autofocus = true;
       const searchField = node(
         owner,
         "label",
@@ -177,6 +180,7 @@ export function showAddElementDialog(target: DialogTarget): OpenedDialog {
         }
         dialog.close();
         focusCanvas(target);
+        selectAndReveal(modeler.diagram, ids);
       });
       body.replaceChildren(form);
     },

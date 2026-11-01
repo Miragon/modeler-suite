@@ -54,6 +54,19 @@ function liesInInertSubtree(target: EventTarget | null): boolean {
 }
 
 /**
+ * Hands the focus to the canvas after a pointer action on the modeler's own controls (Event
+ * Storming's helper). The context pad's entries take no focus, so a click on one drops it to
+ * `<body>`, where Delete and Cmd/Ctrl+Z do nothing. The browser may have seen no pointer focus
+ * before this script focus and would draw its ring around the whole canvas, although the pointer
+ * moved the focus.
+ */
+export function focusCanvasWithoutRing(canvas: Pick<Canvas, "getContainer" | "focus">): void {
+  const svg = canvas.getContainer().querySelector<SVGSVGElement>(":scope > svg");
+  if (svg) svg.focus({ preventScroll: true, focusVisible: false });
+  else canvas.focus();
+}
+
+/**
  * `opacity: 0` keeps the focus and the keys. Without `checkVisibility` (Safari before 17.4) the
  * browser's focus fixup alone has to do.
  */

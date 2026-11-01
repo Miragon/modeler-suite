@@ -17,6 +17,8 @@ import {
 } from "@miragon/c4-schema-model";
 import type { C4Engine } from "../engine/C4Engine.js";
 import { legendRows } from "../legend/legendContent.js";
+import { widestTextWidth } from "../text/estimate.js";
+import { TITLE_FONTS, labelReach } from "../text/typography.js";
 import type { SceneNotation } from "./notation.js";
 import type { Scene, SceneBoundary, SceneElement, SceneGroup, SceneRelationship } from "./types.js";
 
@@ -138,6 +140,7 @@ export function buildSceneWith(
         sourceId: relationship.sourceId,
         destinationId: relationship.destinationId,
         vertices: geometry.vertices.get(relationship.canvasKey) ?? [],
+        route: geometry.routes.get(relationship.canvasKey) ?? [],
         description: relationship.description,
         technology: relationship.technology,
         implied: relationship.implied,
@@ -154,7 +157,7 @@ export function buildSceneWith(
   const title = {
     text: view.title,
     description: view.definition?.description ?? "",
-    box: titleBox(geometry.title, drawn),
+    box: titleBox(geometry.title, drawn, view.title),
   };
   const scene: Scene = {
     view,
@@ -171,9 +174,10 @@ export function buildSceneWith(
         : unionOf([
             ...drawn,
             ...groups.map(({ box }) => box),
-            ...relationships.flatMap(({ vertices: points, labelBox }) => [
-              labelBox,
-              ...points.map(pointBox),
+            ...relationships.flatMap((relationship) => [
+              relationship.labelBox,
+              ...(drawsLabel(relationship) ? [labelReach(relationship.labelBox)] : []),
+              ...relationship.route.map(pointBox),
             ]),
             title.box,
           ]),
@@ -226,15 +230,32 @@ function boundariesOf(
   });
 }
 
-/** At the layout's anchor, as wide as the content and at least `TITLE_MIN_WIDTH`. */
-function titleBox(anchor: Point, drawn: readonly Box[]): Box {
+/**
+ * At the layout's anchor, as wide as the content, at least `TITLE_MIN_WIDTH`, and as wide as the
+ * title can be drawn, by an estimate that needs no font: the bounds stay put when Geist arrives,
+ * and the title line is not cut short.
+ */
+function titleBox(anchor: Point, drawn: readonly Box[], title: string): Box {
   const content = drawn.length === 0 ? undefined : unionOf(drawn);
   return {
     x: anchor.x,
     y: anchor.y,
-    width: Math.max(TITLE_MIN_WIDTH, content?.width ?? 0),
+    width: Math.max(
+      TITLE_MIN_WIDTH,
+      content?.width ?? 0,
+      widestTextWidth(title, TITLE_FONTS.title),
+    ),
     height: TITLE_HEIGHT,
   };
+}
+
+/** Whether the label shows any text, so its ground may grow to the label's reach. */
+function drawsLabel(relationship: SceneRelationship): boolean {
+  const { style } = relationship;
+  return (
+    (style.description && relationship.description.trim() !== "") ||
+    (style.metadata && relationship.technology.trim() !== "")
+  );
 }
 
 function labelBoxBetween(source: Box, destination: Box): Box {

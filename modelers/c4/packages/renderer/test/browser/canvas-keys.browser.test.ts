@@ -144,6 +144,11 @@ describe("the C4 keys (SPEC 5.7)", () => {
     expect(pressOnCanvas(page.modeler, { key: "u" })).toBe(false);
     expect(page.modeler.views.active().key).toBe("Containers");
     pressOnCanvas(page.modeler, { key: "U" });
+    expect(page.modeler.views.active(), "the context level, not in the file yet").toMatchObject({
+      key: "SystemContext-bookshop",
+      state: "draft",
+    });
+    pressOnCanvas(page.modeler, { key: "u" });
     expect(page.modeler.views.active().key).toBe("Landscape");
     expect(pressOnCanvas(page.modeler, { key: "u" }), "no parent of a landscape").toBe(true);
     expect(page.modeler.exportText()).toBe(BOOKSHOP);
@@ -241,7 +246,8 @@ describe("the C4 keys (SPEC 5.7)", () => {
     pressOnCanvas(page.modeler, { key: "Enter" });
     expect(page.modeler.views.active().key).toBe("Containers");
     pressOnCanvas(page.modeler, { key: "u" });
-    expect(page.modeler.views.active().key).toBe("Landscape");
+    expect(page.modeler.views.active().key).toBe("SystemContext-bookshop");
+    expect(page.modeler.exportText()).toBe(BOOKSHOP);
     pressOnCanvas(page.modeler, { key: "g" });
     expect(page.dialogs.current()?.options.title).toBe("Views");
   });

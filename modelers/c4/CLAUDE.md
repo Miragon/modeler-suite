@@ -75,7 +75,11 @@ React, no `packages/ui`.
   writes the current box of every element of the view. Text edits never pin: the layout's input
   does not depend on text (relationship labels take a fixed 160 × 48 box), so a rename moves
   nothing. An element without a key in a pinned view is placed next to its first placed neighbour
-  (`placeUnplaced`). "Lay out automatically" removes the view's keys.
+  (`placeUnplaced`, a horizontal gap of 192 and a vertical one of 80, so a label fits between),
+  and the next edit that changes the geometry or graph writes its drawn box too, since that place
+  depends on the graph. Add existing element writes the boxes of what it adds in the same edit
+  (`includeInView` with `boxes`, which `C4Modeling` takes from a dry run of the edit). "Lay out
+  automatically" removes the view's keys.
 - New views are written with `include *` and `autoLayout tb 300 160` (`NEW_VIEW_AUTO_LAYOUT`), the
   values the modeler draws drafts with. `autoLayout` is never added to or removed from an existing
   view: Structurizr refuses a filtered view on a base with `autoLayout`
@@ -84,8 +88,9 @@ React, no `packages/ui`.
   dotted key), else an implicit identifier from `deriveIdentifier`, which the edit layer writes
   into the defining statement the first time a statement needs it. An id-stabilising pre-pass keeps
   every other element's id when an edit deletes or renames one. A palette create gets
-  `<kind>_<4 random [0-9a-z]>` and stays fresh until its first name, which renames the identifier
-  everywhere (definition, references, layout keys) in the same edit; every import empties the
+  `<kind>_<4 random [0-9a-z]>` and stays fresh until its first name (the default name confirmed
+  as it is counts), which renames the identifier everywhere (definition, references, layout keys)
+  in the same edit; every import empties the
   fresh set. The factory option `identifiers: "collision-free"` keeps a random suffix after the
   first name, for hosts where peers edit one text.
 - Views (`viewCatalog`, `packages/schema-model/src/views/`): written views (a keyless one under
@@ -131,7 +136,8 @@ React, no `packages/ui`.
   `boundary:<id>`, `rel:<key>` and the root `c4:root`.
 - `C4Engine` (service `c4Engine`, `engine/C4Engine.ts`, `createC4Engine()`) is the one seam to the
   DOM-free packages: parse, apply an edit, apply text edits, semantic equality, catalog,
-  membership, layout. Browser tests swap it (`test/browser/support/stack.ts`); the interaction
+  membership, layout, and the frames around given boxes (`frames`, the layout's `viewFrames`, no
+  dagre, for a drag's preview). Browser tests swap it (`test/browser/support/stack.ts`); the interaction
   tests keep a stand-in engine in `support/interaction/` that they use only while the real one
   refuses their probe edits.
 - `C4Modeling extends Modeling` (`modeling/`) replaces diagram-js's ModelingModule. `getHandlers()`
@@ -140,14 +146,16 @@ React, no `packages/ui`.
   that is applied and verified before `commandStack.execute`. A call returns what its caller
   expects (the registered shape of a create, `undefined` when refused); a stock method no gesture
   may reach throws `C4UnsupportedOperationError`. The domain methods (`editElement`,
-  `editRelationship`, `renameIdentifier`, `removeFromView`, `deleteFromModel`, `includeInView`,
-  `createView`, `editView`, `deleteView`, `layOutAutomatically`, `editWorkspace`,
-  `applyC4Colours`, `insertExample`) take the same path; the contract wrapper exposes them as
-  `modeler.c4`.
+  `createRelationship`, `editRelationship`, `renameIdentifier`, `removeFromView`,
+  `deleteFromModel`, `includeInView`, `createView`, `editView`, `deleteView`,
+  `layOutAutomatically`, `editWorkspace`, `applyC4Colours`, `insertExample`) take the same path;
+  the contract wrapper exposes them as `modeler.c4`.
 - `DocumentChangeHandler`: one command per change, whose context holds reversible text patches
   guarded by text hashes, the view before and after and the id changes, never a shape. A hash that
   does not match is a `C4HistoryMismatchError`, a bug: between imports only this handler changes
-  the text. Undoing a change made in another view switches back to it inside the revert. The web
+  the text. Undoing a change made in another view switches back to it inside the revert and
+  selects what the change shows differently there (`modeling/changedItems.ts`), revealed once the
+  host has restored or fitted the view's place; so does such a redo. The web
   app's history crosses views; in VS Code the document owns undo (`undoRedoKeys: false`) and every
   import clears the stack.
 - `Reconciler.sync(scene, idChanges)` (`reconcile/`) is the one in-place diff for imports, view
@@ -177,14 +185,17 @@ React, no `packages/ui`.
 - Gestures are the template's (`gestures/Gestures.ts`: `holdAction`, `actionEnded`, `cancel`,
   `tearDownAfterHandler`), with `global-connect` among the prefixes that are no gesture, so an
   armed connect tool survives an import. A pointer create opens the name editor after its drop,
-  held with `holdAction()` (`palette/CreateNameEditor.ts`).
+  held with `holdAction()` (`palette/CreateNameEditor.ts`), and a new relationship its description
+  the same way (`label-editing/ConnectLabelEditor.ts`), Tab going on to the technology.
 - Contract (`collaborative/`, notation `c4`): `getViewState()` is `{ view, x, y, width, height }`
   in this key order; `setViewState` may switch views and joins the import queue; `elements.list()`
   holds the current view's elements in document order, then its boundaries;
   `elements.reveal(id)` may switch to the first written view that shows the element;
-  `contentBounds()` comes from the scene (boxes, frames, waypoints, label boxes, the title of fixed
-  height), `undefined` for a view that draws nothing. `isModelEmpty()` drives the empty-file hint:
-  the hint is about the file, not the view. The kit runs in
+  `contentBounds()` comes from the scene (boxes, frames, route points, label boxes and, for a
+  label with text, its 240 × 72 reach, the title of fixed height and of the width the title can be
+  drawn at most, `text/estimate.ts`), `undefined` for a view that draws nothing.
+  `isModelEmpty()` drives the empty-file hint: the hint is about the file, not the view. The kit
+  runs in
   [`conformance.browser.test.ts`](packages/renderer/test/browser/conformance.browser.test.ts) on
   the fixtures in `test/browser/fixtures/` (the canonical `bookshop.dsl` and `library.dsl`, written
   by the edit layer and reviewed byte by byte, and a loose and a foreign variant); a skip or an
@@ -204,16 +215,69 @@ React, no `packages/ui`.
   component views, Component in component views. Database is a container tagged `Database`, plus
   `element "Database" { shape cylinder }` when the workspace has no style for that tag. The parent
   comes from the view's scope, never from the drop position, and when the view's `include` would
-  not take the new element, the create writes `include <id>` into that view. The entries follow
-  the view: `ViewService.refreshPalette()` calls `palette._rebuild()` whenever an import or a view
-  switch changes the view's type or whether it is editable.
+  not take the new element, the create writes `include <id>` into that view. Each creating entry
+  shows the look and size its element lands in (`SceneLookup.createdStyle`: the workspace's styles
+  for the kind and tags, the Database cylinder its create adds, a blank file's skeleton colours),
+  and so does the create's drag preview, see-through (`frame-preview/CreatePreviewLook.ts`). The
+  entries follow the view: `ViewService.refreshPalette()` calls `palette._rebuild()` whenever an
+  import, a view switch or a command changes `PaletteProvider.signature()` (the view's type,
+  whether it is editable, the entries' looks, so "Apply C4 colours" too). Enter or Space on an
+  entry (`palette/freeSpot.ts`) takes the free area's centre, else 24 units further diagonally,
+  else the visible spot nearest it, clear by 48 (then 24, then 0) of every element, label and
+  frame the element does not join, and not where a frame it joins would grow over a stranger;
+  with no spot in view clear by 24 (a crowded view zoomed in), the clear spot nearest it around
+  the content, which the canvas pans to the middle of the free area; only with none at all, in
+  view where it covers the least.
+- Move and create feedback (`frame-preview/`, `gestures/`): while a member moves, a palette create
+  follows the pointer or an element is resized, every boundary and group frame the drop changes
+  is drawn dashed in `--cd-ui-interaktion` where it will be, in `--cd-ui-danger` when it would run
+  over an element it does not hold (the drop is allowed), and the frame as drawn fades. A frame
+  that stays put shows in `--cd-ui-danger` too while the dragged or created element would land
+  over it without belonging to it, since a stranger inside a frame reads as a member. Each
+  previewed frame carries its caption, and a warning one a chip above it with Lucide
+  `triangle-alert` and what it runs over ("Overlaps Customer"), so the warning never shows by
+  colour alone (guide §3.3). Snapping
+  is diagram-js's to the other elements' centres and sides, never to a boundary
+  (`gestures/C4Snapping.ts`), with snap lines in `--cd-ui-kontur`; no grid. A drag that carries
+  something scrolls at the canvas edge and moves again after each scroll, so the preview stays
+  under the pointer (`gestures/PanAwareAutoScroll.ts`); an armed tool and a pan never scroll.
 - Rules (`rules/C4Rules.ts`) answer every action a loaded module asks: `C4Modeling` registers no
   stock handler, so an action no rule answers would be refused without a word. Boundaries are
   derived frames, never parents: moving one moves its members, and nothing is ever reparented.
-- Context pad (`context-pad/`): Connect, Edit description, Edit technology (containers,
-  components), Remove from view and Delete from model on an element; the edits and both deletes on
-  an explicit relationship; Remove from view on an implied one; no pad on a boundary. No entry
-  switches the view: the shell kit's overlay case clicks every entry that is not a delete.
+- Connect feedback (`rules/C4Connect.ts`, guide §10.1, §10.4): `connection.create` and
+  `connection.updateWaypoints` answer `RELATIONSHIP_PREVIEW` (role `relationshipPreview`), which
+  diagram-js's connection preview (loaded with the context pad) draws as the dashed line and
+  chevron in `cd-c-stroke-interaktion`, docked on the target's outline; the canvas, a boundary and
+  a relationship are no target (`null`, no forbidden mark). The source carries `c4-connect-source`
+  while the gesture runs; diagram-js's connect markers paint `c4-feedback`, a ring around the
+  element's outline drawn as its first visual child (hidden at rest, stripped from exports), so a
+  marker never repaints a C4 fill. A refused A → B never writes B → A (diagram-js's reverse try),
+  and its drop fires `c4.edit.refused` with the edit layer's words.
+- Context pad (`context-pad/`): the appends, Connect, Edit name, Edit description, Edit technology
+  (containers, components), Remove from view (not for the system of its own system context view)
+  and Delete from model on an element; the edits and both deletes on an explicit relationship;
+  Remove from view on an implied one; no pad on a boundary. One column like the family's, a
+  separator after the appends and before the deletes, the trash neutral until hovered; a
+  relationship's pad turns into a row where the column would cover an end, and an element's moves
+  up or down into the canvas at its edge while it still runs beside the element. A pointer action
+  on an entry hands the focus back to
+  the canvas, unless the action focused something itself (an editor, a confirmation), and a
+  relationship's pad stays closed while its label editor is open. No entry switches the view: the
+  shell kit's overlay case clicks every entry that is not a delete.
+- Append (`context-pad/C4Append.ts`, the family's): one entry per kind the view creates, in the
+  palette's order and look ("Append person", "Append database"), adds that element with a
+  relationship from the selected one as one `createElement` edit with `connectFrom`, so one undo
+  step. A click places it where the view places an unplaced element connected to the source
+  (`placeUnplaced`, from a dry run of the same edit: beside it, clear of every box and frame, in
+  its parent's frame without that frame reaching a stranger) and pins it there, moved onto the
+  source's axis where the 8-unit grid left it up to 4 units off, unless a frame would then reach
+  something new (`modeling/appendPlace.ts`), so the line runs straight; a drag is
+  diagram-js's create with the source (`C4Modeling.appendShape`), the relationship's line drawn
+  from the source while the element follows the pointer, and it stays an append when dropped over
+  another element. The new element is selected and its name editor opens; Enter there (after its
+  other fields, by Tab) goes on to the relationship's description, Tab to its technology; Escape,
+  a click away or another key ends the chain. The relationship comes before the include, so an
+  element the view's `include *` takes through it gets no `include` line.
 - Delete and Backspace are the smart delete (`planSmartDelete` in the dsl): an element or explicit
   relationship that no other written view shows, and that no dynamic step, deployment instance or
   scoped view needs, goes from the model, anything else from this view; an implied relationship
@@ -223,20 +287,38 @@ React, no `packages/ui`.
 - Label editing (`label-editing/`): one textarea over the band of the field under the pointer
   (`elementTextLayout` gives the drawing, the editor and the hit test the same bands). Fields:
   name, description, technology, metadata, and a relationship's description and technology. E
-  opens the name, Tab commits and opens the next band, Shift+Enter breaks a description line
-  (written as `\n`); `openEdit()` returns `{ elementId, text, field }`. A suspended edit whose
-  element the imported view no longer shows stays parked until a view switch shows it again.
+  opens the name (a relationship's description), Tab commits and opens the next band (an empty one
+  of a relationship next to the band it has), Shift+Enter breaks a description line (written as
+  `\n`); `openEdit()` returns `{ elementId, text, field }`. An empty field shows its name as the
+  placeholder; a note under the field says when the canvas would cut the text short. A
+  double-click on a field that cannot be edited here names its reason at the band, clear of the
+  open pad (an implied relationship: "Comes from A → B. Edit it there."), and a refused value
+  dropped by a click away goes to the app as `c4.edit.refused`. Escape on the canvas clears the
+  selection. A suspended edit whose element the imported view no longer shows stays parked until
+  a view switch shows it again.
 - Navigation (`navigation/`): the drill badge on a software system or container, Enter on one
   selected element and the inspector's "In views" open the view one level deeper (the first
   written one, else the draft); U and Model › Parent view go up; G and Model › Views… open the
-  views dialog (a table per editable type, the other views, New view…). The other dialogs are View
-  settings… (title, description, Delete view…), Add existing element…, Workspace settings… and the
-  Delete from model confirmation. All open on the shell's dialog, which the apps hand in with
-  `connectDialogs(modeler, { container, openDialog })`.
+  views dialog (a table per editable type on one set of columns, the other views, and New view… in
+  its footer, which opens the New view dialog). The other dialogs are View settings… (title,
+  description, Delete view…), Add existing element…, Add relationship… (the inspector's, from its
+  element, and the Model menu's, both ends chosen and started on the selected elements: the
+  keyboard's way to draw one), Workspace settings… and the Delete from model confirmation; a form
+  dialog starts on its first field, Add existing element on its search. What Add existing element
+  adds ends up selected and scrolled into the free area, zoomed out where it does not fit there
+  (`navigation/reveal.ts`, also after an undo across views). All open on the
+  shell's dialog, which the apps hand in with `connectDialogs(modeler, { container, openDialog })`.
+  A container or component view whose scope frame holds nothing shows "No containers yet" (or
+  components) and "Add one from the palette." inside the frame, in the modeler and while it is
+  editable (`navigation/EmptyScopeHint.ts`): a diagram-js overlay, so never in an export, without
+  pointer events, hidden while a palette create is dragged.
 - Breadcrumb (`navigation/Breadcrumbs.ts`, NavigatedViewer and Modeler): the `parentOf` chain
   from the landscape down to the view shown, "System landscape › Bookshop context › Bookshop
-  containers › API components"; each view above a `<button>` that opens it (cause `user`, drafts
-  too) and hands the focus to the canvas, the view shown `aria-current="page"`; hidden at a view
+  containers › API components"; a container view's parent is its system's context view, a draft
+  when the file has none, so neither the path nor U skips that level. Each view above a
+  `<button>` that opens it (cause `user`, drafts too) and hands the focus to the canvas, the view
+  shown `aria-current="page"`, followed by "Not in the file yet" while it is a draft (the first
+  part to give way when the path runs out of room); hidden at a view
   without a parent, like bpmn-js's. It redraws on `import.done`, `c4.view.changed`,
   `commandStack.changed` (a rename of a scope, a written draft) and `c4.text.rebased`. A `<nav>`
   in diagram-js's container after the `<svg>` (z-index 10, HTML, so never in an export): Tab
@@ -249,19 +331,44 @@ React, no `packages/ui`.
   screen reader share.
 - Inspector (`inspector/`): plain DOM in the shell's `inspector` slot (`mountInspector`), with Team
   Topologies' behaviour: type, name, technology, metadata, description, tags, URL, identifier (a
-  refactoring rename), "In views" and, in VS Code, "Defined on line N"; a relationship's ends and
-  fields, an implied one read-only ("Implied by A → B"). A read-only field names its reason (a
-  constant, a bulk statement). `commitDraft()` serves the VS Code save flush.
+  refactoring rename), "In views", the drill as a button of its own and, in VS Code, "Defined on
+  line N"; the tags offer External (the tag "Existing System", where the styles use it) and the
+  other styled tags; Add relationship…; a relationship's ends and fields, an implied one read-only
+  ("Implied by A → B") with Select it or Open <view> of its origin. A read-only field names its
+  reason (a constant, a bulk statement). `commitDraft()` serves the VS Code save flush.
 - Menu (`menu/`): `c4Menu` hands the shell the Model group in this order, pinned by `menu.test.ts`:
-  Views…, Parent view, Lay out automatically, Add existing element…, View settings…, Workspace
-  settings…, Apply C4 colours, then the shell's Legend checkbox; plus Export (PNG, SVG, and in the
-  web app Export as .c4 and Export as Structurizr DSL (.dsl)) and Help. At a landscape Parent view
-  is disabled, so Lay out automatically is the first canvas action of the group, the one the shell
-  kit's focus hand-back runs twice; a second run changes nothing. `c4Shortcuts` lists the keys,
-  the Delete row with what the smart delete does.
+  Views…, Parent view, Lay out automatically, Add existing element…, Add relationship…, View
+  settings…, Workspace settings…, Apply C4 colours, then the shell's Legend checkbox; plus Export
+  (PNG, SVG, and in the web app Export as .c4 and Export as Structurizr DSL (.dsl)) and Help. At a
+  landscape Parent view is disabled, so Lay out automatically is the first canvas action of the
+  group, the one the shell kit's focus hand-back runs twice; a second run changes nothing.
+  `c4Shortcuts` lists the keys: the web app's File group (`fileKeys`), the canvas's own View row,
+  Edit (the label editor's keys, Esc, the Delete row with what the smart delete does), Tools and
+  Navigation. "Lay out automatically" fires `c4.layout.applied` (`LAYOUT_APPLIED_EVENT`) after a
+  command that changed the layout, on which both apps fit; the smart delete fires
+  `c4.delete.done` (`DELETE_DONE_EVENT`) with the names of what went from the model and what only
+  from the view. Both apps fit clear of the breadcrumb, 8px below it (`insetsClearOfBreadcrumb`,
+  handed to `connectDiagramJs` and the free area in place of `shell.fitInsets`).
 - Resize: element shapes only, at least 140 × 100 (a person 140 × 140), stored as `w,h` only while
   the size differs from the default. Bendpoints are diagram-js's: straight segments through the
-  vertices, docked on the drawn outline. No copy and paste in v1.
+  vertices, docked on the drawn outline. A press anywhere on a line, the middle of a straight
+  segment too, inserts one bendpoint (`rules/C4SegmentInsert.ts` replaces diagram-js's segment
+  move); a vertex dropped inside an end's box is left out, and the drag's preview leaves it out
+  already (`C4ConnectionDocking`, docked as the reconciler docks); the handles at the ends are hidden
+  (`rules/C4BendpointEnds.ts`), since reconnecting is not in v1. No copy and paste in v1.
+- Lines of one pair (`layout/src/relationships.ts`): where a pair has several lines without
+  vertices (a two-way pair, an explicit relationship beside the implied one, two descriptions),
+  each bends once halfway across the gap (the layout's `routes`, the scene's `route`), the bends as
+  far apart as a label's ground may grow (`LABEL_REACH`, 240 × 72) and a gap: its height across
+  the pair, its width up and down. So the labels at the bends never meet, however long their text,
+  and no line of the pair runs through another's label; an odd count keeps its middle line
+  straight. A bend is drawn, never written: the scene's `vertices` stay the stored ones, and a
+  bendpoint gesture keeps the points the user placed or moved and drops the bend
+  (`withoutFanBend`, in the preview's docking and in `updateWaypoints`). Each label slot slides
+  along its route between a quarter and three quarters of the way, starting halfway (a fanned
+  line's at its bend), until it clears the slots before it and every element that is not its end;
+  deterministic and without text. While a connect runs, a relationship or a boundary under the pointer keeps the
+  canvas's cursor.
 
 ## Drawing and design system
 
@@ -285,9 +392,9 @@ React, no `packages/ui`.
   600 at 0,0 for a view that draws nothing). It strips what only the live canvas uses: `tabindex`,
   `role`, `aria-label` and `aria-roledescription`, diagram-js's outlines, hit areas, bendpoints,
   resize handles and selection outlines (so a selection exports the same picture as none), the
-  drill badge and every `cd-c-*` role class. The title block stays. The apps rasterise it on
-  `COLORS.paper` for PNG; the VS Code webview embeds Geist as data URLs, since its CSP fetches
-  no font.
+  feedback ring, the drill badge and every `cd-c-*` role class. The title block stays. The apps
+  rasterise it on `COLORS.paper` for PNG; the VS Code webview embeds Geist as data URLs, since its
+  CSP fetches no font.
 - Colours from the workspace's styles (`background`, `stroke`, `color`, by tag order, `light`
   blocks applied) are self-set colours (guide §10.6), drawn as attributes without a class: a text
   colour that misses 4.5:1 on its fill becomes black or white, whichever contrasts more, and a
@@ -308,8 +415,14 @@ React, no `packages/ui`.
   8/15 (a box 240 × 160, a person 216 × 216).
 - Text (`text/`): Geist on every text node, measured on one shared 2D canvas; name 15/600, the type
   line 12 (`[Container: Kotlin]`), description 13; laid out again once the font arrives
-  (`draw/FontRelayout.ts`); nothing is drawn outside its box. A relationship's label sits in a
-  fixed 160 × 48 box at the middle of its path; arrowheads are an open chevron in the line's
+  (`draw/FontRelayout.ts`); nothing is drawn outside its box. The type line takes up to two
+  balanced lines. A relationship's label is centred on its fixed 160 × 48 slot: up to three
+  description and two technology lines, balanced, on a ground that keeps the slot's width while
+  the text fits it in up to 72 high and widens up to 240 for the rest (`LABEL_REACH`); only what
+  does not fit 240 × 72 ends in an ellipsis. A band cut short gets a hit of its own titled with
+  the whole text (`c4-cut-band`), which the export drops with every hit. The ground shows what
+  lies behind the label (guide §10.1, Label-Halo): `cd-c-fill-grund`, the fill of the innermost filled boundary under it, or the plot
+  white where its text would lose 4.5:1 there; arrowheads are an open chevron in the line's
   stroke role.
 - Boundaries are dashed frames with their caption bottom left; their hit area is the stroke and
   the caption, so a click inside reaches the members. Groups are dotted frames in `c4-frames`,
@@ -318,7 +431,8 @@ React, no `packages/ui`.
   group and a system's group of one name are two frames. The
   title block (title and description, 62 high) sits in `c4-title` and is exported; a view that
   draws nothing has none. The drill badge (Lucide `zoom-in` and the child count) is part of the
-  shape and stripped from exports. Icons are Lucide (`draw/lucide.ts`).
+  shape and stripped from exports; its hit is titled with the view it opens ("Open Bookshop
+  containers (Enter)"). Icons are Lucide (`draw/lucide.ts`).
 - Legend (`legend/`): one row per element look, boundary kind, the groups and relationship look of
   the view, rendered into the shell's live legend body by `connectLegend`.
 - `THEMES` is `["light"]` ([`themes.ts`](packages/renderer/src/themes.ts); Node code reads
@@ -348,7 +462,13 @@ React, no `packages/ui`.
   link before the autosave, and a link whose text the autosave holds is a restore, without a
   toast. Share copies that URL (an empty workspace gets its hash then). The autosave keeps
   `c4-modeler.document`, `c4-modeler.view` and `c4-modeler.legend` in `localStorage`, every access
-  in try/catch. A replaced workspace stays an Undo away (toast, Cmd/Ctrl+Z).
+  in try/catch. A replaced workspace stays an Undo away (toast, Cmd/Ctrl+Z). Cmd/Ctrl+O opens a
+  file and Cmd/Ctrl+S exports the `.c4` (Value Chain's keys, in the capture phase, since the label
+  editor keeps its keys from the page), chips on Open… and Export as .c4 and in the File group of
+  the shortcuts dialog. Cmd/Ctrl+S first commits what is being typed, as the webview's save flush
+  does: an inspector draft keeps its field, a label hands the focus to the canvas as on Enter (a
+  blur would leave it on `<body>`). `c4.delete.done` becomes an info toast with Undo ("Removed E-mail System
+  from this view. It stays in the model."), withdrawn by the next change and by every import.
   `c4.edit.refused` and `c4.edit.notice` become toasts; the problems pill lists the parser's
   diagnostics, and a row reveals its element, switching views when needed. `window.app` is the e2e
   handle. Port 5182 (`dev:app`, `PORT` overrides it), Portless name `c4`.
@@ -374,7 +494,8 @@ React, no `packages/ui`.
   first statement is `workspace` or a directive (ACPI sources and LikeC4 models are left alone),
   whatever language it has, and for the document of every open C4 editor, source "C4 Modeler",
   code `c4.<code>`. C4: Go to View… parses in the host, lists the catalog in
-  a QuickPick and posts `c4.showView`. The host bundles only `dsl` and `schema-model`, the webview
+  a QuickPick under the Views… dialog's headings (`VIEW_TYPE_LABELS`, pinned by `menu.sync.test.ts`)
+  and posts `c4.showView`. The host bundles only `dsl` and `schema-model`, the webview
   the renderer and the shell.
 - LikeC4 (`likec4.likec4-vscode`) claims `.c4` for its language `likec4` and has no custom editor
   ([`likeC4.ts`](apps/vscode/src/likeC4.ts)). With it installed, `c4.editor` hands a `.c4` file
@@ -426,7 +547,8 @@ React, no `packages/ui`.
   relationships, styles, the digest, notation contrast, a performance budget); dsl (the lexer and
   syntax tree with the mutation fuzz and linear-time guards, the builder against the reference
   snapshots, the edit goldens, refusals, smart delete, a 2 000-sequence edit fuzz, the edit
-  acceptance); layout (determinism, text independence, placement without overlap, frames); the
+  acceptance); layout (determinism, text independence, placement without overlap, frames, the
+  fan of a pair's lines and the label slide, `relationshipRoutes.test.ts`); the
   renderer (menu, shortcuts, legend rows, the engine seam, the scene's group frames by scope, the
   theme, peer and pre-bundling drift, the breadcrumb's path, fit and stylesheet); the web app
   (example, files, link, problems, storage); the extension (contributions, grammar, diagnostics,
@@ -436,16 +558,33 @@ React, no `packages/ui`.
 - Browser (`packages/renderer/test/browser/`): the conformance kit, the gestures, reconcile
   identity, view switches, refused edits, the invariant, the drawing (label layout, contrast,
   appearance, content bounds, the export with and without a selection), interaction, context pad,
-  inspector (a rebase too), legend, dialogs, canvas keys, hidden-chrome keys, the palette tooltip,
-  the shortcuts dialog and the breadcrumb (path, clicks, undo, import, the viewer, clearance of a
-  stand-in shell, truncation).
+  the connect and bendpoint feedback (preview line, marks, refusals, handles, hover, label ground),
+  focus and label editing around the pad (`keyboard-editing`: the focus after an entry, the
+  editor of a new relationship, Escape, a confirmed default name, read-only reasons, the
+  placeholder and the shortened note), the appends (`append`: the entries per view type, a click's
+  place and frame, its line on the source's axis unless a frame would reach a stranger, the one
+  undo step, the chain to the relationship's description, a drag's line
+  and drop, also over an element, the pad at the canvas's edge), inspector (a rebase too), legend,
+  dialogs, canvas keys,
+  hidden-chrome keys, the palette tooltip,
+  move and create feedback (frames, snapping, auto-scroll, palette looks, the keyboard create's
+  spot), layout stability and navigation (`document-navigation`: Add existing element's pins,
+  selection and gap, the selection after an undo across views, the context level, the draft note,
+  the empty scope hint, the frames' captions and warning chip, a keyboard create in a crowded
+  zoomed view), the shortcuts dialog and the breadcrumb (path, clicks, undo, import, the viewer, clearance of a
+  stand-in shell, truncation), the routes of a pair's lines (`relationship-routes`: the bends no
+  pin or bendpoint gesture writes, the cursor of a connect over a line or a boundary, the view
+  title), and the apps' feedback (`app-feedback`: the layout and delete events,
+  the Model menu's Add relationship…, the fit's clearance of the breadcrumb).
 - e2e (`e2e/`): projects `webapp` and `vscode-webview` with the shell's kit, the navigation
   between views, the breadcrumb (no island overlapped at seven sizes, and the kit's `aria` and
   `overlayLayers` cases on the component view where it shows), the PNG export and the shortcuts
   key on both hosts, document sync in the webview (a formatting-only change rebased under a
   running drag, the C4 colours of a blank file's first element), the link in the address bar
-  (`webapp-link.spec.ts`), the files (`.c4`, `.dsl`, both text exports), and Share and the focus
-  hand-back in the web app, which `webapp-webkit` runs in WebKit as well.
+  (`webapp-link.spec.ts`), the files (`.c4`, `.dsl`, both text exports), the web app's file keys,
+  delete toasts and Model › Add relationship… (`webapp-app-feedback.spec.ts`), the fit after Lay
+  out automatically and below the breadcrumb on both hosts, and Share and the focus hand-back in
+  the web app, which `webapp-webkit` runs in WebKit as well.
 - VS Code smoke (`apps/vscode/test-smoke/`): the example as `workspace.c4`, the default edit
   (Enter on the palette's first creating entry, then Escape on the name editor) as one undo step,
   the save checked with `parseWorkspace`. The file opens in `c4.editor` by default; the driver

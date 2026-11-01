@@ -35,6 +35,8 @@ export interface ShortcutsDialogOptions {
   readonly shortcutsKey?: string | undefined;
   /** "ide": VS Code owns undo and redo, so the dialog lists no rows for them. Default "web". */
   readonly host?: ShortcutHost | undefined;
+  /** The web app binds Cmd/Ctrl+O and Cmd/Ctrl+S itself: the dialog lists them in a File group. */
+  readonly fileKeys?: boolean | undefined;
 }
 
 export interface ShortcutsDialog {
@@ -82,12 +84,12 @@ export function createShortcutsDialog(
   chrome: ShortcutsDialogChrome,
   options: ShortcutsDialogOptions = {},
 ): ShortcutsDialog {
-  const { shortcutsKey, host } = options;
+  const { shortcutsKey, host, fileKeys } = options;
   const page = chrome.root.ownerDocument;
   let shown: ShownShortcutsDialog | undefined;
 
   const open = () => {
-    shown = chrome.showShortcutsDialog(diagramShortcuts(chrome, { shortcutsKey, host }));
+    shown = chrome.showShortcutsDialog(diagramShortcuts(chrome, { shortcutsKey, host, fileKeys }));
   };
 
   const onKey = (event: KeyboardEvent) => {

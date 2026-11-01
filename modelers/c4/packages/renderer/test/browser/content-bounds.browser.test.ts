@@ -7,6 +7,7 @@ import type { Connection, Shape } from "diagram-js/lib/model/Types";
 import { drillBadgeLayout } from "../../src/draw/drillBadge.js";
 import type FontRelayout from "../../src/draw/FontRelayout.js";
 import { relationshipLabelLayout } from "../../src/text/elementTextLayout.js";
+import { labelReach } from "../../src/text/typography.js";
 import type { Scene } from "../../src/scene/types.js";
 import {
   EVERY_SHAPE,
@@ -105,7 +106,7 @@ function drawingOutside(drawing: MountedDrawing, shown: Scene): string[] {
   for (const item of shown.relationships) {
     check(
       item.canvasKey,
-      item.labelBox,
+      labelReach(item.labelBox),
       drawing.visual(`rel:${item.canvasKey}`).querySelectorAll("rect, text"),
     );
   }
@@ -169,6 +170,7 @@ describe("hit areas follow the drawing (SPEC 6.5)", () => {
 
   const customer = element("customer", { kind: "person", at: { x: 0, y: 0 } });
   const shop = element("shop", {
+    name: "Shop",
     at: { x: 600, y: 0 },
     drill: { target: "Containers-shop", childCount: 5 },
   });
@@ -217,7 +219,7 @@ describe("hit areas follow the drawing (SPEC 6.5)", () => {
     })!;
     expect(hit.closest(".c4-drill")).not.toBeNull();
     expect(hit.closest(".djs-element")?.getAttribute("data-element-id")).toBe("shop");
-    expect(hit.querySelector("title")?.textContent).toBe("Open container view (5 containers)");
+    expect(hit.querySelector("title")?.textContent).toBe("Open Shop containers (Enter)");
     const elsewhere = hitAt(drawing, { x: shop.box.x + 40, y: shop.box.y + 40 })!;
     expect(elsewhere.closest(".c4-drill")).toBeNull();
     expect(elsewhere.closest(".djs-element")?.getAttribute("data-element-id")).toBe("shop");

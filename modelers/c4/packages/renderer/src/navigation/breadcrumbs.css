@@ -120,6 +120,19 @@
   font-weight: 600;
 }
 
+/* A draft view shown: quiet text after it, in the views dialog's words. The script hides it first
+   when the path runs out of room. */
+.c4-container .c4-breadcrumbs-note {
+  flex: none;
+  padding: 0 6px 0 2px;
+  color: var(--cd-ui-text-leise);
+  font-weight: 400;
+}
+
+.c4-container .c4-breadcrumbs-note[hidden] {
+  display: none;
+}
+
 /* "Shop containers" reads "Sh… containers": name and level are cut apart. */
 .c4-container :is(.c4-breadcrumbs-name, .c4-breadcrumbs-level) {
   min-width: 0;
@@ -166,7 +179,7 @@
     outline-color: Highlight;
   }
 
-  .c4-container :is(.c4-breadcrumbs-current, .c4-breadcrumbs-separator) {
+  .c4-container :is(.c4-breadcrumbs-current, .c4-breadcrumbs-separator, .c4-breadcrumbs-note) {
     color: CanvasText;
   }
 }

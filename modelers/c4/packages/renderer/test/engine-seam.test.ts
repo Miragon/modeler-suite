@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { applyEdit, applyTextEdits, parseWorkspace, type ParseResult } from "@miragon/c4-dsl";
-import { layoutView } from "@miragon/c4-layout";
+import { layoutView, viewFrames } from "@miragon/c4-layout";
 import {
   viewCatalog,
   viewMembers,
@@ -151,6 +151,7 @@ describe("the engine seam", () => {
     expect(engine.catalog).toBe(viewCatalog);
     expect(engine.members).toBe(viewMembers);
     expect(engine.layout).toBe(layoutView);
+    expect(engine.frames).toBe(viewFrames);
   });
 
   it("takes a formatting-only change, whose statements only moved, as equal", () => {

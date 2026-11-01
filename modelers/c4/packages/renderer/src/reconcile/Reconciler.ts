@@ -51,6 +51,7 @@ interface DesiredConnection {
   /** The ends as the drawing outlines them, where the line docks (SPEC 5.7). */
   readonly source: DockTarget;
   readonly target: DockTarget;
+  /** The scene's route: the stored vertices, or the bend that fans the line out. */
   readonly vertices: readonly Point[];
   readonly signature: string;
 }
@@ -325,7 +326,7 @@ function desiredConnections(scene: Scene): DesiredConnection[] {
         targetId: relationship.destinationId,
         source: dockTargetOf(source),
         target: dockTargetOf(target),
-        vertices: relationship.vertices,
+        vertices: relationship.route,
         signature: drawSignature(relationship),
       },
     ];

@@ -17,7 +17,7 @@ import type {
   Statement,
   TextEdit,
 } from "@miragon/c4-dsl";
-import { layoutView } from "@miragon/c4-layout";
+import { layoutView, viewFrames } from "@miragon/c4-layout";
 import {
   C4_COLOUR_STYLES,
   decodeElementLayout,
@@ -1167,15 +1167,17 @@ function createElement(state: EditState, edit: Extract<C4Edit, { type: "createEl
     state.model.styles.push({ tag: "Database", entries: [["shape", "cylinder"]] });
   }
   const size = edit.size ?? defaultSize(shapeOfElement(state.model, created));
-  setProperty(
-    view,
-    elementLayoutKey(id),
-    storedBox(state.model, created, {
-      x: edit.center.x - size.width / 2,
-      y: edit.center.y - size.height / 2,
-      ...size,
-    }),
-  );
+  if (edit.center) {
+    setProperty(
+      view,
+      elementLayoutKey(id),
+      storedBox(state.model, created, {
+        x: edit.center.x - size.width / 2,
+        y: edit.center.y - size.height / 2,
+        ...size,
+      }),
+    );
+  }
   includeIfMissing(state, view, [id]);
   state.created.elements.push(id);
 }
@@ -1679,5 +1681,6 @@ export function createInteractionEngine(): InteractionEngine {
     catalog: viewCatalog,
     members: viewMembers,
     layout: layoutView,
+    frames: viewFrames,
   };
 }

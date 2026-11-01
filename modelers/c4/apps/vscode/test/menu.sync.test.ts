@@ -20,6 +20,7 @@ import {
   c4Shortcuts,
   commandKeyLabel,
   diagramShortcuts,
+  VIEW_TYPE_LABELS,
   type C4MenuModeler,
   type DialogChrome,
   type DiagramMenu,
@@ -27,6 +28,7 @@ import {
   type ShortcutsDialogChrome,
 } from "@miragon/c4-renderer";
 import { GO_TO_VIEW_COMMAND, WEBVIEW_COMMANDS } from "../src/commands.js";
+import { STATIC_TYPES } from "../src/goToView.js";
 
 vi.mock("vscode", async () => (await import("./fakeVsCode.js")).vscodeModule);
 
@@ -127,12 +129,30 @@ describe("the renderer's menu and shortcuts against @miragon/modeler-shell", () 
           (group) => group.title === "View",
         );
 
-        expect(view?.rows).toEqual(
+        expect(view?.rows.slice(0, VIEW_KEYS.length)).toEqual(
           viewActions(messages, lang).map((action, index) => ({
             action,
             keys: [shortcutLabel(VIEW_KEYS[index]!, platform, messages.keyNames)],
           })),
         );
+      });
+
+      it(`the File rows name the chrome's Open… and the shell's Cmd/Ctrl chips (${lang}, ${platform})`, () => {
+        const file = diagramShortcuts({ platform, lang, messages }, { fileKeys: true })[0];
+
+        expect(file).toEqual({
+          title: "File",
+          rows: [
+            {
+              action: messages.openFile,
+              keys: [shellCommandKeyLabel("O", platform, messages.keyNames)],
+            },
+            {
+              action: "Export as .c4",
+              keys: [shellCommandKeyLabel("S", platform, messages.keyNames)],
+            },
+          ],
+        });
       });
     }
   }
@@ -158,8 +178,9 @@ describe("the renderer's menu and shortcuts against @miragon/modeler-shell", () 
 
       expect(shown.map((group) => group.title)).toEqual(["View", "Edit", "Tools", "Navigation"]);
       const view = shown.find((group) => group.title === defaultMessages.shortcutsView);
-      expect(view?.rows).toHaveLength(4);
-      expect(view?.rows.every(isChromeShortcutRow)).toBe(true);
+      expect(view?.rows.filter(isChromeShortcutRow)).toHaveLength(4);
+      expect(view?.rows.slice(0, 4).every(isChromeShortcutRow)).toBe(true);
+      expect(view?.rows.slice(4).map((row) => row.action)).toEqual(["Move the canvas"]);
     });
   }
 
@@ -181,7 +202,7 @@ describe("the renderer's menu and shortcuts against @miragon/modeler-shell", () 
       openDialog: openShellDialog,
     });
 
-    expect(groups.model).toHaveLength(7);
+    expect(groups.model).toHaveLength(8);
     expect(Object.keys(groups)).toEqual(["model", "export", "help"]);
     expect([shortcutsChrome, dialogChrome].every((check) => typeof check === "function")).toBe(
       true,
@@ -216,5 +237,11 @@ describe("the Command Palette against the webview's menu (guide §13.5)", () => 
   it("Go to View… lists what Views… lists, and both open a dialog-like list", () => {
     expect(entryById.get("views")).toMatchObject({ kind: "dialog", label: "Views…" });
     expect(commandTitle.get(GO_TO_VIEW_COMMAND)).toMatch(/…$/);
+  });
+
+  it("Go to View… groups the views under the Views… dialog's headings, in sentence case", () => {
+    expect(STATIC_TYPES.map(({ label }) => label)).toEqual(
+      STATIC_TYPES.map(({ type }) => VIEW_TYPE_LABELS[type]),
+    );
   });
 });

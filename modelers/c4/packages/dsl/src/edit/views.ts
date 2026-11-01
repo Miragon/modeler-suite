@@ -259,17 +259,26 @@ export function isPinned(draft: Draft, key: ViewKey): boolean {
 
 /**
  * The first edit that changes a view's geometry or graph first writes the box of every element
- * the user sees there, so nothing jumps afterwards (SPEC 3.6).
+ * the user sees there, so nothing jumps afterwards (SPEC 3.6). In a view pinned already, every
+ * later such edit writes the box of each element still without one (added in the text, or
+ * placed by `placeUnplaced`): its place depends on the graph, so the next relationship would move
+ * it.
  */
 export function pin(
   draft: Draft,
   key: ViewKey,
   leaveOut: ReadonlySet<ElementId> = new Set(),
 ): void {
-  if (draft.sources.viewSite(key) === undefined || isPinned(draft, key)) return;
+  if (draft.sources.viewSite(key) === undefined) return;
+  const stored = isPinned(draft, key)
+    ? (draft.workspace.views.find((view) => view.key === key)?.properties ?? {})
+    : {};
   const members = draft.members(key);
   const ids = (members?.elements ?? []).filter(
-    (id) => draft.context.boxes.has(id) && !leaveOut.has(id),
+    (id) =>
+      draft.context.boxes.has(id) &&
+      !leaveOut.has(id) &&
+      stored[elementLayoutKey(id)] === undefined,
   );
   if (ids.length === 0) return;
   ensureIdentifiers(draft, ids);
@@ -568,7 +577,7 @@ function excludeMember(draft: Draft, key: ViewKey, id: ElementId): void {
   if (entry?.type === "systemContext" && entry.scopeId === id) {
     refuse(
       "not-allowed",
-      "A context view always shows its system. Delete the system from the model instead.",
+      "A system context view always shows its system. To leave it out, delete the view.",
     );
   }
   const includes = termsNaming(draft, key, id, "include");

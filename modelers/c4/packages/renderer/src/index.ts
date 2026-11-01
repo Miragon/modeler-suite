@@ -56,8 +56,10 @@ export {
 } from "./scene/types.js";
 export {
   C4_SERVICES,
+  DELETE_DONE_EVENT,
   EDIT_NOTICE_EVENT,
   EDIT_REFUSED_EVENT,
+  LAYOUT_APPLIED_EVENT,
   TEXT_REBASED_EVENT,
   VIEW_CHANGED_EVENT,
   type C4DiagramExtras,
@@ -65,8 +67,11 @@ export {
   type C4ModelingMethods,
   type C4SceneService,
   type C4Views,
+  type DeleteDoneEvent,
+  type DeletedItems,
   type EditNoticeEvent,
   type EditRefusedEvent,
+  type LayoutAppliedEvent,
   type ViewChangeCause,
   type ViewChangedEvent,
 } from "./services.js";

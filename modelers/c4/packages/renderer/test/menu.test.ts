@@ -39,6 +39,7 @@ function fakeModeler(active: ViewEntry, parent?: ViewEntry) {
   const dialogs = {
     showViews: vi.fn(),
     showAddElement: vi.fn(),
+    showNewRelationship: vi.fn(),
     showViewSettings: vi.fn(),
     showWorkspaceSettings: vi.fn(),
   };
@@ -88,6 +89,7 @@ describe("the Model group (SPEC 7.1)", () => {
       ["action", "Parent view"],
       ["action", "Lay out automatically"],
       ["dialog", "Add existing element…"],
+      ["dialog", "Add relationship…"],
       ["dialog", "View settings…"],
       ["dialog", "Workspace settings…"],
       ["action", "Apply C4 colours"],
@@ -100,7 +102,12 @@ describe("the Model group (SPEC 7.1)", () => {
     const { modeler } = fakeModeler(view("Landscape", "systemLandscape"));
     const entries = model(modeler);
     expect(entry(entries, "parent-view").disabled?.()).toBe(true);
-    for (const id of ["lay-out-automatically", "add-existing-element", "view-settings"]) {
+    for (const id of [
+      "lay-out-automatically",
+      "add-existing-element",
+      "add-relationship",
+      "view-settings",
+    ]) {
       expect(entry(entries, id).disabled?.(), id).toBe(false);
     }
     expect(firstCanvasAction(entries)).toBe("Lay out automatically");
@@ -118,7 +125,12 @@ describe("the Model group (SPEC 7.1)", () => {
   it("disables what edits the view on a view the modeler can't edit", () => {
     const { modeler } = fakeModeler(view("Filtered", "container", false));
     const entries = model(modeler);
-    for (const id of ["lay-out-automatically", "add-existing-element", "view-settings"]) {
+    for (const id of [
+      "lay-out-automatically",
+      "add-existing-element",
+      "add-relationship",
+      "view-settings",
+    ]) {
       expect(entry(entries, id).disabled?.(), id).toBe(true);
     }
     expect(entry(entries, "views").disabled?.() ?? false).toBe(false);
@@ -137,12 +149,14 @@ describe("the Model group (SPEC 7.1)", () => {
     const entries = model(modeler);
     entry(entries, "views").onSelect();
     entry(entries, "add-existing-element").onSelect();
+    entry(entries, "add-relationship").onSelect();
     entry(entries, "view-settings").onSelect();
     entry(entries, "workspace-settings").onSelect();
     entry(entries, "lay-out-automatically").onSelect();
     entry(entries, "apply-c4-colours").onSelect();
     expect(dialogs.showViews).toHaveBeenCalledOnce();
     expect(dialogs.showAddElement).toHaveBeenCalledOnce();
+    expect(dialogs.showNewRelationship).toHaveBeenCalledOnce();
     expect(dialogs.showViewSettings).toHaveBeenCalledOnce();
     expect(dialogs.showWorkspaceSettings).toHaveBeenCalledOnce();
     expect(modeler.c4.layOutAutomatically).toHaveBeenCalledOnce();
@@ -218,6 +232,35 @@ describe("the diagram menu", () => {
     });
     expect(groups().map((group) => group.title)).toEqual(["View", "Edit", "Tools", "Navigation"]);
   });
+
+  it("shows the web app's file keys on Export as .c4 and lists them first in the dialog", () => {
+    const { modeler } = fakeModeler(view("Landscape", "systemLandscape"));
+    const menu = c4Menu({
+      modeler,
+      exports: { ...EXPORTS, text: { onSelect() {}, shortcut: "⌘S" } },
+      showKeyboardShortcuts() {},
+    });
+    expect(menu.export.find((candidate) => candidate.id === "export-text")).toMatchObject({
+      label: "Export as .c4",
+      shortcut: "⌘S",
+    });
+    const groups = diagramShortcuts(
+      { platform: "mac", lang: "en", messages: MESSAGES },
+      { shortcutsKey: SHORTCUTS_KEY, fileKeys: true },
+    );
+    expect(groups.map((group) => group.title)).toEqual([
+      "File",
+      "View",
+      "Edit",
+      "Tools",
+      "Navigation",
+      "Help",
+    ]);
+    expect(groups[0]?.rows).toEqual([
+      { action: "Open…", keys: ["⌘O"] },
+      { action: "Export as .c4", keys: ["⌘S"] },
+    ]);
+  });
 });
 
 describe("the parts the apps hand the shell, and the shell's parts the renderer takes", () => {
@@ -230,7 +273,7 @@ describe("the parts the apps hand the shell, and the shell's parts the renderer 
       openDialog: open,
     });
     const slot = (shell: ShellHandle): InspectorSlot | undefined => shell.inspector;
-    expect(groups.model).toHaveLength(7);
+    expect(groups.model).toHaveLength(8);
     expect([opener, chrome, slot].every((check) => typeof check === "function")).toBe(true);
   });
 });

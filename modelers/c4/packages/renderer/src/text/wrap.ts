@@ -86,6 +86,30 @@ export function fitLines(
   return { lines: kept, truncated: true };
 }
 
+/**
+ * The same lines as `fitted` holds, of as even a width as the wrap allows: the narrowest width
+ * that still wraps `text` into that many lines. A cut text and a single line stay as they are.
+ */
+export function balanced(
+  fitted: FittedLines,
+  text: string,
+  maxWidth: number,
+  font: TextFont,
+): FittedLines {
+  const count = fitted.lines.length;
+  if (fitted.truncated || count < 2) return fitted;
+  let narrow = 0;
+  let wide = maxWidth;
+  // Half a pixel: no drawn line moves by more, and the search stays short.
+  while (wide - narrow > 0.5) {
+    const middle = (narrow + wide) / 2;
+    if (wrapText(text, middle, font).length <= count) wide = middle;
+    else narrow = middle;
+  }
+  const lines = wrapText(text, wide, font);
+  return lines.length === count ? { lines, truncated: false } : fitted;
+}
+
 /** One line: line breaks become spaces, and what does not fit ends in an ellipsis. */
 export function singleLine(text: string, maxWidth: number, font: TextFont): FittedLines {
   const flat = text.split(LINE_BREAK).join(" ").replace(/\s+/g, " ").trim();
