@@ -1,0 +1,44 @@
+{
+  "name": "@miragon/c4-dsl",
+  "version": "0.0.0",
+  "description": "Read and edit Structurizr DSL workspaces losslessly: a byte-exact syntax tree, the C4 model it defines and edits that change only what they touch.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Miragon/modeler-suite.git",
+    "directory": "modelers/c4/packages/dsl"
+  },
+  "homepage": "https://github.com/Miragon/modeler-suite/tree/main/modelers/c4/packages/dsl#readme",
+  "bugs": "https://github.com/Miragon/modeler-suite/issues",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@miragon/c4-schema-model": "0.0.0"
+  },
+  "devDependencies": {
+    "@miragon/c4-layout": "0.0.0",
+    "tsup": "9.0.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

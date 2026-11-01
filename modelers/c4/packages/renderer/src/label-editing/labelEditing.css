@@ -1,0 +1,40 @@
+/* The label editor's states beyond the base look in assets/c4.css: a value the DSL cannot store
+   turns the field's edge to --cd-ui-danger and shows its reason below it (guide §8 "Fehler"),
+   at the label editor's layer (guide §5.13). */
+.c4-container .diagram-label-editor[aria-invalid="true"] {
+  border-color: var(--cd-ui-danger);
+}
+
+.c4-container .diagram-label-editor:focus {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+
+.c4-container .c4-label-error {
+  z-index: 100;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cd-ui-danger);
+  background: var(--cd-ui-flaeche-hoch);
+  border: 1px solid var(--cd-ui-danger);
+  border-radius: var(--cd-radius-sm);
+  box-shadow: var(--cd-shadow-2);
+  pointer-events: none;
+}
+
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  :is(:scope.c4-container, :scope .c4-container) .diagram-label-editor:focus {
+    outline-width: 3px;
+  }
+  :is(:scope.c4-container, :scope .c4-container) .c4-label-error {
+    box-shadow: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .c4-container .diagram-label-editor:focus {
+    outline-color: Highlight;
+  }
+}

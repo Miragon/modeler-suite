@@ -1,0 +1,23 @@
+# Netlify deployment of the C4 web app (apps/webapp). The site's package directory is
+# modelers/c4, its base directory the repository root: Netlify reads this file from the package
+# directory, installs the suite's one npm workspace from the root lockfile and runs command, publish
+# and ignore from the root.
+
+[build]
+  # The web app bundles the modeler's packages from source (Vite aliases, see apps/webapp/vite.config.ts)
+  # and @miragon/modeler-api and @miragon/modeler-shell from their build.
+  command = "npm run build:shared && npm run c4 build:webapp"
+  publish = "modelers/c4/apps/webapp/dist"
+  # Every push to the repository reaches every site; build only when the web app's inputs changed:
+  # this modeler, the shared packages or the root install. Exit 0 skips the build; without a
+  # previous build to compare with, or for a rebuild of the same commit, it builds.
+  ignore = "test -n \"$CACHED_COMMIT_REF\" && test \"$CACHED_COMMIT_REF\" != \"$COMMIT_REF\" && git diff --quiet \"$CACHED_COMMIT_REF\" \"$COMMIT_REF\" -- modelers/c4 packages package.json package-lock.json .npmrc"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Single-page app: the catch-all serves index.html for any path (robust against deep links).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

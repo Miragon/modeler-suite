@@ -1,0 +1,10 @@
+# Only dist/, the manifest, the language files and THIRD_PARTY_NOTICES.md go into the VSIX.
+src/**
+test/**
+test-smoke/**
+scripts/**
+node_modules/**
+esbuild.config.mjs
+tsconfig.json
+**/*.map
+**/tsconfig.tsbuildinfo

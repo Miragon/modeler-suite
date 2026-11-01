@@ -1,0 +1,71 @@
+/* The design-system files are vendored unchanged (../theme/). The tokens sit in a cascade layer,
+   so a host page's own --cd-* tokens (unlayered) win over this copy. cd-canvas.css stays unlayered
+   and comes after diagram-js.css, so its mapping of diagram-js's variables onto the --cd-ui-* roles
+   wins. Every rule below reads the roles and the mode-independent tokens only, and sits below the
+   renderer's own root class or its own classes: a host may prefix every rule with a descendant
+   selector (Design IQ scopes renderer sheets that way), and the canvas drawing keeps its light SVG
+   attributes, so exports stay light. */
+@import "../theme/cd-tokens.generated.css" layer(c4-tokens);
+@import "diagram-js/assets/diagram-js.css";
+@import "../theme/cd-canvas.css";
+
+/* Guide §10.1: the surround in --cd-ui-grund with the dot grid in --cd-ui-linie. The text colour
+   is a role too, so a theme the host requests through `appearance` holds against the page's. */
+.c4-container {
+  position: relative;
+  overflow: hidden;
+  color: var(--cd-ui-text);
+  background-color: var(--cd-ui-grund);
+  background-image: radial-gradient(var(--cd-ui-linie) 1px, transparent 1px);
+  background-size: 20px 20px;
+  font-family:
+    "Geist Variable",
+    "Geist",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+.c4-container svg text {
+  user-select: none;
+}
+
+/* The drill badge opens the child view (SPEC 6.5); its own hit shows that it does. */
+.c4-container .djs-hit.c4-drill {
+  cursor: pointer;
+}
+
+/* Guide §10.4: hover and selection are a dashed outline in the interaction blue. */
+.c4-container .djs-outline {
+  stroke: var(--cd-ui-interaktion);
+  stroke-dasharray: 3 3;
+}
+
+.c4-container .djs-parent {
+  --element-selected-outline-stroke-color: var(--cd-ui-interaktion);
+}
+
+/* The renderer's own palette, where no host chrome skins it (the shell sets data-chrome). */
+.c4-container .djs-palette:not([data-chrome="palette"]) .entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The label editor: an overlay on the canvas, at most at diagram-js's z-index 100 (§5.13). */
+.c4-container .diagram-label-editor {
+  z-index: 100;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px;
+  resize: none;
+  overflow: hidden;
+  text-align: center;
+  color: var(--cd-ui-text);
+  background: var(--cd-ui-flaeche-hoch);
+  border: 1px solid var(--cd-ui-interaktion);
+  border-radius: var(--cd-radius-sm);
+  outline: none;
+}

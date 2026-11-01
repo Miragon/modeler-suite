@@ -33,12 +33,13 @@
     "publint": "npm run publint -w @miragon/modeler-api -w @miragon/modeler-shell",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "modelers": "npm run -w @miragon/wardley-maps-modeler-workspace -w @miragon/event-storming-modeler-workspace -w @miragon/team-topologies-modeler-workspace -w @miragon/context-maps-modeler-workspace -w @miragon/value-chain-modeler-workspace",
+    "modelers": "npm run -w @miragon/wardley-maps-modeler-workspace -w @miragon/event-storming-modeler-workspace -w @miragon/team-topologies-modeler-workspace -w @miragon/context-maps-modeler-workspace -w @miragon/value-chain-modeler-workspace -w @miragon/c4-modeler-workspace",
     "wardley-maps": "npm run -w @miragon/wardley-maps-modeler-workspace",
     "event-storming": "npm run -w @miragon/event-storming-modeler-workspace",
     "team-topologies": "npm run -w @miragon/team-topologies-modeler-workspace",
     "context-maps": "npm run -w @miragon/context-maps-modeler-workspace",
     "value-chain": "npm run -w @miragon/value-chain-modeler-workspace",
+    "c4": "npm run -w @miragon/c4-modeler-workspace",
     "prepare": "husky"
   },
   "lint-staged": {

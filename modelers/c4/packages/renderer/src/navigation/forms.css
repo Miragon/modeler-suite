@@ -1,0 +1,451 @@
+/* The modeler's dialog content and inspector fields (guide §8). They live in the shell's dialog and
+   inspector panel, outside the canvas container, so every rule sits on the renderer's own classes
+   and reads the roles. The only fixed values are the fills of the primary and the destructive
+   button, which guide §8 fixes in both modes (no role carries them). */
+
+/* A confirmation is narrower than the shell's form dialog (guide §8). */
+dialog.c4-confirm[open] {
+  max-width: min(440px, 100% - 32px);
+}
+
+.c4-form,
+.c4-dialog {
+  font-family:
+    "Geist Variable",
+    "Geist",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cd-ui-text);
+}
+
+:where(.c4-form, .c4-dialog),
+:where(.c4-form, .c4-dialog) * {
+  box-sizing: border-box;
+}
+
+.c4-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* ---- Fields --------------------------------------------------------------------------------- */
+
+.c4-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.c4-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cd-ui-text);
+}
+
+.c4-field-control {
+  width: 100%;
+  min-height: 36px;
+  margin: 0;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cd-ui-text);
+  background: var(--cd-ui-grund);
+  border: 1px solid var(--cd-ui-kontur);
+  border-radius: var(--cd-radius-sm);
+  resize: vertical;
+  transition: border-color var(--cd-motion-fast) var(--cd-ease);
+}
+
+.c4-field-control::placeholder {
+  color: var(--cd-ui-text-leise);
+  opacity: 1;
+}
+
+.c4-field-control:focus {
+  border-color: var(--cd-ui-interaktion);
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+
+.c4-field-control[aria-invalid="true"] {
+  border-color: var(--cd-ui-danger);
+}
+
+.c4-field-control:read-only,
+.c4-form:disabled .c4-field-control {
+  color: var(--cd-ui-text-leise);
+  border-color: var(--cd-ui-linie);
+  cursor: not-allowed;
+}
+
+select.c4-field-control {
+  appearance: none;
+  padding-right: 36px;
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 40%, var(--cd-ui-text-leise) 40% 60%, transparent 60%),
+    linear-gradient(-45deg, transparent 40%, var(--cd-ui-text-leise) 40% 60%, transparent 60%);
+  background-size: 6px 6px;
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 15px) 50%;
+  background-repeat: no-repeat;
+}
+
+.c4-field-value {
+  overflow-wrap: anywhere;
+}
+
+.c4-field-note {
+  color: var(--cd-ui-text-leise);
+}
+
+.c4-field-error {
+  color: var(--cd-ui-danger);
+}
+
+.c4-field-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+/* Guide §8: the box is let in like a field; checked, its edge and tick turn to the interaction
+   role while the surface stays, since a blue fill would fall to 2.45:1 in the dark mode. */
+.c4-field-check input[type="checkbox"] {
+  display: inline-grid;
+  flex: none;
+  place-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  background: var(--cd-ui-grund);
+  border: 1.5px solid var(--cd-ui-kontur);
+  border-radius: var(--cd-radius-sm);
+  cursor: pointer;
+  appearance: none;
+}
+
+.c4-field-check input[type="checkbox"]::before {
+  width: 9px;
+  height: 5px;
+  content: "";
+  border-bottom: 2px solid var(--cd-ui-interaktion);
+  border-left: 2px solid var(--cd-ui-interaktion);
+  transform: translateY(-1px) rotate(-45deg);
+  visibility: hidden;
+}
+
+.c4-field-check input[type="checkbox"]:checked {
+  border-color: var(--cd-ui-interaktion);
+}
+
+.c4-field-check input[type="checkbox"]:checked::before {
+  visibility: visible;
+}
+
+.c4-field-check input[type="checkbox"]:disabled {
+  border-color: var(--cd-ui-linie);
+  cursor: not-allowed;
+}
+
+.c4-field-check input[type="checkbox"]:disabled::before {
+  border-color: var(--cd-ui-text-leise);
+}
+
+.c4-field-check input:focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+
+/* ---- Buttons -------------------------------------------------------------------------------- */
+
+.c4-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--cd-ui-text);
+  text-align: start;
+  background: var(--cd-ui-flaeche-hoch);
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-md);
+  box-shadow: none;
+  cursor: pointer;
+  appearance: none;
+  transition:
+    background-color var(--cd-motion-fast) var(--cd-ease),
+    border-color var(--cd-motion-fast) var(--cd-ease),
+    color var(--cd-motion-fast) var(--cd-ease),
+    box-shadow var(--cd-motion-fast) var(--cd-ease);
+}
+
+.c4-button:hover:not(:disabled) {
+  color: var(--cd-ui-link);
+  background: var(--cd-ui-hover);
+  border-color: var(--cd-ui-interaktion);
+}
+
+.c4-button:focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+
+.c4-button[data-variant="primary"] {
+  color: var(--cd-weiss);
+  background: var(--cd-blau);
+  border-color: var(--cd-blau);
+  box-shadow: var(--cd-shadow-1);
+}
+
+.c4-button[data-variant="primary"]:hover:not(:disabled) {
+  color: var(--cd-weiss);
+  background: var(--cd-blau-link);
+  border-color: var(--cd-blau-link);
+  box-shadow: var(--cd-shadow-2);
+}
+
+.c4-button[data-variant="danger"] {
+  color: var(--cd-weiss);
+  background: var(--cd-danger);
+  border-color: var(--cd-danger);
+}
+
+.c4-button[data-variant="danger"]:hover:not(:disabled) {
+  color: var(--cd-weiss);
+  background: var(--cd-danger);
+  border-color: var(--cd-danger);
+  box-shadow: var(--cd-shadow-2);
+}
+
+.c4-button[data-variant="ghost"] {
+  background: transparent;
+  border-color: transparent;
+}
+
+.c4-button[data-variant="ghost"]:hover:not(:disabled) {
+  color: var(--cd-ui-text);
+  background: var(--cd-ui-hover);
+  border-color: transparent;
+}
+
+.c4-button svg {
+  display: block;
+  flex: none;
+}
+
+/* A destructive ghost (guide §8): its icon in the danger role, its text the ghost's. */
+.c4-button[data-danger] svg {
+  color: var(--cd-ui-danger);
+}
+
+.c4-button[data-danger]:disabled svg {
+  color: var(--cd-ui-text-leise);
+}
+
+.c4-button:disabled {
+  color: var(--cd-ui-text-leise);
+  background: var(--cd-ui-hover);
+  border-color: var(--cd-ui-linie);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.c4-button[data-variant="ghost"]:disabled {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* ---- Dialog content ------------------------------------------------------------------------- */
+
+.c4-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.c4-dialog-text {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.c4-dialog-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+}
+
+.c4-dialog-heading {
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--cd-ui-text-leise);
+}
+
+.c4-dialog-table {
+  width: 100%;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cd-ui-text);
+  border: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.c4-dialog-table th,
+.c4-dialog-table td {
+  padding: 2px 12px 2px 0;
+  font: inherit;
+  text-align: start;
+  vertical-align: top;
+  border: 0;
+  overflow-wrap: anywhere;
+}
+
+.c4-dialog-table thead th {
+  padding-bottom: 4px;
+  font-weight: 600;
+  color: var(--cd-ui-text-leise);
+  border-bottom: 1px solid var(--cd-ui-linie);
+}
+
+.c4-dialog-table tbody tr + tr > * {
+  border-top: 1px solid var(--cd-ui-linie);
+}
+
+/* A view in the list: a button without a fill, its text flush with the column heading. Inside
+   the scrolling body the focus ring lies within the button (guide §5.14). */
+.c4-dialog-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: calc(100% + 12px);
+  min-height: 36px;
+  margin: 0 0 0 -12px;
+  padding: 8px 12px;
+  font: inherit;
+  color: var(--cd-ui-text);
+  text-align: start;
+  background: transparent;
+  border: 0;
+  border-radius: var(--cd-radius-sm);
+  cursor: pointer;
+}
+
+.c4-dialog-row:hover {
+  background: var(--cd-ui-hover);
+}
+
+.c4-dialog-row:focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: -2px;
+}
+
+/* The view on the canvas: the hover surface plus the 2px bar of a selected item (guide §8). */
+.c4-dialog-row[aria-current="true"] {
+  font-weight: 600;
+  background: var(--cd-ui-hover);
+  box-shadow: inset 2px 0 0 var(--cd-ui-interaktion);
+}
+
+.c4-dialog-note {
+  font-weight: 400;
+  color: var(--cd-ui-text-leise);
+}
+
+.c4-dialog-code {
+  font-family: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
+}
+
+.c4-dialog-choices {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 0;
+}
+
+.c4-dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0 -24px -24px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--cd-ui-linie);
+}
+
+.c4-dialog-footer-start {
+  margin-right: auto;
+}
+
+/* ---- High contrast, forced colours, reduced motion (guide §5.14) ---------------------------- */
+
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  .c4-field-control:focus,
+  .c4-button:focus-visible,
+  .c4-field-check input:focus-visible {
+    outline-width: 3px;
+  }
+  .c4-dialog-row:focus-visible {
+    outline-width: 3px;
+    outline-offset: -3px;
+  }
+  .c4-button {
+    box-shadow: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .c4-field-control:focus,
+  .c4-button:focus-visible,
+  .c4-dialog-row:focus-visible,
+  .c4-field-check input:focus-visible {
+    outline-color: Highlight;
+  }
+  .c4-dialog-row[aria-current="true"] {
+    forced-color-adjust: none;
+    color: CanvasText;
+    background: Canvas;
+    box-shadow: inset 2px 0 0 Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .c4-field-control,
+  .c4-button {
+    transition-duration: 0.001ms;
+  }
+}

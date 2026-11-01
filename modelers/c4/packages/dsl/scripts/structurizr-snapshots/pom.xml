@@ -1,0 +1,14 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <!-- Resolves the reference parser for Snapshot.java; snapshot.mjs only asks it for the classpath. -->
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.miragon.c4</groupId>
+  <artifactId>structurizr-snapshots</artifactId>
+  <version>1</version>
+  <dependencies>
+    <dependency>
+      <groupId>com.structurizr</groupId>
+      <artifactId>structurizr-dsl</artifactId>
+      <version>6.2.4</version>
+    </dependency>
+  </dependencies>
+</project>

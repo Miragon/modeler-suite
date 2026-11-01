@@ -1,0 +1,40 @@
+{
+  "name": "@miragon/c4-schema-model",
+  "version": "0.0.0",
+  "description": "The C4 model of a Structurizr DSL workspace as plain data: elements, relationships, views and their rules.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Miragon/modeler-suite.git",
+    "directory": "modelers/c4/packages/schema-model"
+  },
+  "homepage": "https://github.com/Miragon/modeler-suite/tree/main/modelers/c4/packages/schema-model#readme",
+  "bugs": "https://github.com/Miragon/modeler-suite/issues",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "tsup": "9.0.0",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

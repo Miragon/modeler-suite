@@ -1,0 +1,146 @@
+/* The inspector's content (guide §5.11): the host places the panel (the shell's inspector, opaque,
+   padding 16px) around it. Fields, buttons and focus come from navigation/forms.css. */
+
+.c4-inspector {
+  gap: 16px;
+}
+
+/* The 32px close target sits in the corner padding instead of pushing the content down. */
+.c4-inspector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -8px -8px 0 0;
+}
+
+.c4-inspector-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--cd-ui-text);
+}
+
+.c4-inspector-close {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  color: var(--cd-ui-text);
+  background: transparent;
+  border: 0;
+  border-radius: var(--cd-radius-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--cd-motion-fast) var(--cd-ease),
+    color var(--cd-motion-fast) var(--cd-ease);
+}
+
+.c4-inspector-close:hover {
+  color: var(--cd-ui-interaktion);
+  background: var(--cd-ui-hover);
+}
+
+.c4-inspector-close:focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+
+.c4-inspector-close svg {
+  display: block;
+}
+
+/* Labels recede behind the values they name (Team Topologies' inspector). */
+.c4-inspector .c4-field-label {
+  color: var(--cd-ui-text-leise);
+}
+
+/* Its rows take the fields' gap, as if they stood in the fieldset themselves. */
+.c4-inspector-before {
+  display: contents;
+}
+
+.c4-inspector-dynamic {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.c4-inspector-view-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+/* A view the element is in: a ghost button flush with the labels, the current one marked by the
+   hover surface and the 2px bar of a selected item (guide §8). */
+.c4-inspector-view {
+  justify-content: flex-start;
+  margin-left: -12px;
+  padding: 0 12px;
+  font-weight: 400;
+  border-radius: var(--cd-radius-sm);
+}
+
+.c4-inspector-view[aria-current="true"] {
+  font-weight: 600;
+  background: var(--cd-ui-hover);
+  box-shadow: inset 2px 0 0 var(--cd-ui-interaktion);
+}
+
+.c4-inspector-source {
+  align-self: flex-start;
+  margin-left: -12px;
+  padding: 0 12px;
+  font-weight: 400;
+  color: var(--cd-ui-link);
+  text-decoration: underline;
+}
+
+.c4-inspector-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.c4-inspector-actions .c4-button {
+  width: 100%;
+  justify-content: center;
+}
+
+/* 16px keeps iOS Safari from zooming the page when a field gets focus. */
+@media (max-width: 760px), (pointer: coarse) {
+  .c4-inspector .c4-field-control {
+    font-size: 16px;
+  }
+}
+
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  .c4-inspector-close:focus-visible {
+    outline-width: 3px;
+  }
+}
+
+@media (forced-colors: active) {
+  .c4-inspector-close:focus-visible {
+    outline-color: Highlight;
+  }
+  .c4-inspector-view[aria-current="true"] {
+    forced-color-adjust: none;
+    color: CanvasText;
+    background: Canvas;
+    box-shadow: inset 2px 0 0 Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .c4-inspector-close {
+    transition-duration: 0.001ms;
+  }
+}

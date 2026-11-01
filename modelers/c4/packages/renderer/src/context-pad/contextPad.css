@@ -1,0 +1,76 @@
+/* The context pad (guide §8 "Palette / Context-Pad"): opaque --cd-ui-flaeche-hoch with a 1px
+   --cd-ui-linie edge, shadow-2, 3px inside, 28 × 28 entries of radius sm 2px apart, 16px icons;
+   hover in --cd-ui-hover with the icon in --cd-ui-interaktion. The destructive entry's icon is
+   --cd-ui-danger (guide §5.4). At diagram-js's z-index 100, below the palette (guide §5.13). */
+.c4-container .djs-context-pad.open {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(3 * 28px + 2 * 2px + 2 * 3px + 2px);
+  padding: 3px;
+  background: var(--cd-ui-flaeche-hoch);
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-md);
+  box-shadow: var(--cd-shadow-2);
+  pointer-events: auto;
+}
+
+.c4-container .djs-context-pad .group {
+  display: contents;
+}
+
+/* No entries (the read-only lock, a boundary): no empty island either. */
+.c4-container .djs-context-pad.open:empty {
+  display: none;
+}
+
+.c4-container .djs-context-pad .entry.c4-pad-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  border-radius: var(--cd-radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--cd-ui-text);
+  transition:
+    background-color var(--cd-motion-fast) var(--cd-ease),
+    color var(--cd-motion-fast) var(--cd-ease);
+}
+
+.c4-container .djs-context-pad .entry.c4-pad-entry:hover {
+  background: var(--cd-ui-hover);
+  color: var(--cd-ui-interaktion);
+}
+
+.c4-container .djs-context-pad .entry.c4-pad-entry--danger,
+.c4-container .djs-context-pad .entry.c4-pad-entry--danger:hover {
+  color: var(--cd-ui-danger);
+}
+
+.c4-container .c4-pad-entry svg {
+  display: block;
+}
+
+@scope ([data-cd-kontrast="hoch"]) to ([data-cd-theme]:not([data-cd-kontrast="hoch"])) {
+  :is(:scope.c4-container, :scope .c4-container) .djs-context-pad.open {
+    border-color: var(--cd-ui-kontur);
+    box-shadow: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .c4-container .djs-context-pad.open {
+    border-color: CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .c4-container .djs-context-pad .entry.c4-pad-entry {
+    transition-duration: 0.001ms;
+  }
+}

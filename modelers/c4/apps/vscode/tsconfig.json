@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node", "vscode"],
+    "paths": {
+      "@miragon/c4-renderer": ["../../packages/renderer/src/index.ts"],
+      "@miragon/c4-renderer/themes": ["../../packages/renderer/src/themes.ts"],
+      "@miragon/c4-schema-model": ["../../packages/schema-model/src/index.ts"],
+      "@miragon/c4-dsl": ["../../packages/dsl/src/index.ts"],
+      "@miragon/c4-layout": ["../../packages/layout/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "test-smoke/**/*.ts"]
+}
