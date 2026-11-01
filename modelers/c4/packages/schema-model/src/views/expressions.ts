@@ -30,8 +30,8 @@ export function isExpressionText(term: string): boolean {
       "relationship==",
     ].some((prefix) => lower.startsWith(prefix)) ||
     lower.includes(ARROW) ||
-    /^element\.properties\[.*]==.*$/.test(lower) ||
-    /^relationship\.properties\[.*]==.*$/.test(lower)
+    isPropertyTest(lower, "element") ||
+    isPropertyTest(lower, "relationship")
   );
 }
 
@@ -146,7 +146,7 @@ function elementProperty(expression: string): Expression | undefined {
       return { kind: "elementTechnology", equals, technology: rest(prefix) };
     }
   }
-  if (/^element\.properties\[.*]==.*$/.test(expression)) {
+  if (isPropertyTest(expression, "element")) {
     return { kind: "elementProperty", ...propertyTest(expression) };
   }
   if (lower.startsWith("element.group==")) {
@@ -164,7 +164,7 @@ function relationshipProperty(expression: string): Expression | undefined {
       return { kind: "relationshipTag", equals, tags: tagList(expression.slice(prefix.length)) };
     }
   }
-  if (/^relationship\.properties\[.*]==.*$/.test(expression)) {
+  if (isPropertyTest(expression, "relationship")) {
     return { kind: "relationshipProperty", ...propertyTest(expression) };
   }
   for (const side of ["source", "destination"] as const) {
@@ -183,6 +183,21 @@ function tagList(text: string): string[] {
   const parts = text.split(",");
   while (parts.length > 0 && parts[parts.length - 1] === "") parts.pop();
   return parts.map((part) => part.trim());
+}
+
+const LINE_BREAK = /[\n\r\u2028\u2029]/;
+
+/**
+ * `<subject>.properties[name]==value` on one line. A scan, not a pattern: `^…\[.*]==.*$`
+ * backtracks polynomially on a term with many `]==`, and a term comes from the opened file.
+ */
+function isPropertyTest(expression: string, subject: "element" | "relationship"): boolean {
+  const prefix = `${subject}.properties[`;
+  return (
+    expression.startsWith(prefix) &&
+    expression.includes("]==", prefix.length) &&
+    !LINE_BREAK.test(expression)
+  );
 }
 
 function propertyTest(expression: string): { name: string; value: string } {

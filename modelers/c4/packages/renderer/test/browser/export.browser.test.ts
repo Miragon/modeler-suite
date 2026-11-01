@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type EventBus from "diagram-js/lib/core/EventBus";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import { C4_COLOUR_STYLES } from "@miragon/c4-schema-model";
 import { createCollaborativeModeler } from "../../src/collaborative/index.js";
@@ -209,6 +210,33 @@ describe("the SVG export of the shipped modeler", () => {
     expect(
       modeler.diagram.get<Canvas>("canvas").getContainer().querySelector(".djs-bendpoints"),
     ).not.toBeNull();
+    modeler.destroy();
+  });
+
+  it("writes the same text wherever the pointer rests and whatever is selected", async () => {
+    await fontsReady();
+    const modeler = createCollaborativeModeler();
+    modeler.attachTo(harnessHost());
+    await modeler.importText(BOOKSHOP);
+    const untouched = modeler.diagram.saveSVG().svg;
+    const canvas = modeler.diagram.get<Canvas>("canvas");
+    const eventBus = modeler.diagram.get<EventBus>("eventBus");
+    const registry = modeler.diagram.get<ElementRegistry>("elementRegistry");
+    for (const element of [
+      canvas.getRootElement(),
+      registry.get("customer")!,
+      registry.get("rel:customer->bookshop")!,
+    ]) {
+      const gfx = canvas.getGraphics(element.id);
+      eventBus.fire("element.hover", { element, gfx });
+      expect(gfx.classList.contains("hover"), element.id).toBe(true);
+      expect(modeler.diagram.saveSVG().svg, `hovering ${element.id}`).toBe(untouched);
+      eventBus.fire("element.out", { element, gfx });
+    }
+    modeler.diagram
+      .get<Selection>("selection")
+      .select([registry.get("bookshop")!, registry.get("rel:customer->bookshop")!]);
+    expect(modeler.diagram.saveSVG().svg, "with a selection").toBe(untouched);
     modeler.destroy();
   });
 

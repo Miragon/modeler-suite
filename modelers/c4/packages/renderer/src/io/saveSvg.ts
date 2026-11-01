@@ -1,6 +1,7 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
 import { DRILL_CLASS } from "../draw/drillBadge.js";
 import { FEEDBACK_CLASS } from "../draw/drawItems.js";
+import { CONNECT_SOURCE_MARKER } from "../rules/C4Connect.js";
 import type ContentBounds from "./ContentBounds.js";
 
 const EXPORT_PADDING = 20;
@@ -27,6 +28,27 @@ const LIVE_CANVAS_PARTS = [
  * value as an attribute, so without the class the picture stays light (guide §10.7).
  */
 const ROLE_CLASS_PREFIX = "cd-c-";
+/**
+ * The markers of the pointer, the selection and a running gesture: they style the live canvas
+ * only, and where the pointer happens to rest must not change the exported text.
+ */
+const INTERACTION_MARKERS = new Set([
+  "hover",
+  "selected",
+  "attach-ok",
+  "connect-ok",
+  "connect-not-ok",
+  "connect-hover",
+  "drop-ok",
+  "drop-not-ok",
+  "new-parent",
+  "resize-not-ok",
+  "djs-drag-active",
+  "djs-dragging",
+  "djs-resizing",
+  "djs-updating",
+  CONNECT_SOURCE_MARKER,
+]);
 
 /**
  * A standalone SVG of the content. The canvas's OWN `<svg>` child: the shell moves the palette,
@@ -49,15 +71,15 @@ export function saveSVG(
   clone.setAttribute("height", String(box.height));
   clone.querySelector<SVGGElement>(".viewport")?.removeAttribute("transform");
   for (const part of clone.querySelectorAll(LIVE_CANVAS_PARTS)) part.remove();
-  for (const node of clone.querySelectorAll(`[class*="${ROLE_CLASS_PREFIX}"]`)) {
-    removeRoleClasses(node);
-  }
+  for (const node of [clone, ...clone.querySelectorAll("[class]")]) removeLiveClasses(node);
   const svg = new XMLSerializer().serializeToString(clone);
   return { svg: `<?xml version="1.0" encoding="utf-8"?>\n${svg}` };
 }
 
-function removeRoleClasses(node: Element): void {
-  const roles = [...node.classList].filter((name) => name.startsWith(ROLE_CLASS_PREFIX));
-  node.classList.remove(...roles);
+function removeLiveClasses(node: Element): void {
+  const live = [...node.classList].filter(
+    (name) => name.startsWith(ROLE_CLASS_PREFIX) || INTERACTION_MARKERS.has(name),
+  );
+  node.classList.remove(...live);
   if (node.classList.length === 0) node.removeAttribute("class");
 }

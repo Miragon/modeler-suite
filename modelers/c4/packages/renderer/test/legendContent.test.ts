@@ -86,6 +86,43 @@ describe("legendRows (SPEC 6.6)", () => {
   it("is empty for an empty view", () => {
     expect(legendRows(scene({}))).toEqual([]);
   });
+
+  it("names a boundary by its type word, whatever brackets the metadata symbols draw", () => {
+    const labels = (typeLines: readonly string[]) =>
+      legendRows(
+        scene({
+          boundaries: typeLines.map((typeLine, index) =>
+            boundary(`b${index}`, { x: index * 400, y: 0, width: 300, height: 200 }, { typeLine }),
+          ),
+        }),
+      ).map((row) => row.label);
+    expect(labels(["«Container: Java»", " (Component) ", "<Team>", "[]", "]] Edge [["])).toEqual([
+      "Container boundary",
+      "Component boundary",
+      "Team boundary",
+      "Boundary boundary",
+      "]] Edge [[ boundary",
+    ]);
+  });
+
+  it("reads a type line with a long run of brackets in linear time (CodeQL js/polynomial-redos)", () => {
+    const started = performance.now();
+    const rows = legendRows(
+      scene({
+        boundaries: [
+          boundary(
+            "long",
+            { x: 0, y: 0, width: 300, height: 200 },
+            {
+              typeLine: `${")".repeat(200_000)}x`,
+            },
+          ),
+        ],
+      }),
+    );
+    expect(rows).toHaveLength(1);
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
 });
 
 describe("legendPreview", () => {

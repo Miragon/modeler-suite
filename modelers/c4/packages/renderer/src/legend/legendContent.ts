@@ -27,13 +27,24 @@ function tagLabel(tags: readonly string[], without: string): string {
   return tags.filter((tag) => tag !== without).join(", ");
 }
 
+const OPENING_BRACKETS = new Set(["[", "(", "{", "<", "«"]);
+const CLOSING_BRACKETS = new Set(["]", ")", "}", ">", "»"]);
+
+/**
+ * The text without its leading opening and trailing closing brackets. A scan, not a pattern:
+ * `[…]+$` backtracks polynomially on a long run of brackets, and the text comes from the file.
+ */
+function withoutBrackets(text: string): string {
+  let start = 0;
+  let end = text.length;
+  while (start < end && OPENING_BRACKETS.has(text[start]!)) start += 1;
+  while (end > start && CLOSING_BRACKETS.has(text[end - 1]!)) end -= 1;
+  return text.slice(start, end);
+}
+
 /** "[Container: Java]" → "Container"; brackets of every `metadataSymbols` setting go. */
 function typeWord(typeLine: string): string {
-  const word = typeLine
-    .trim()
-    .replace(/^[[({<«]+|[\])}>»]+$/g, "")
-    .split(":")[0]
-    ?.trim();
+  const word = withoutBrackets(typeLine.trim()).split(":")[0]?.trim();
   return word === undefined || word === "" ? "Boundary" : word;
 }
 

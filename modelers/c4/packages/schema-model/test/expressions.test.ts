@@ -168,3 +168,24 @@ describe("isExpressionText (ExpressionParser.isExpression)", () => {
     expect(isExpressionText("element.properties[a]==b")).toBe(true);
   });
 });
+
+describe("a property test term (CodeQL js/polynomial-redos)", () => {
+  it("needs the bracket, the closing `]==` after it and a single line", () => {
+    expect(isExpressionText("element.properties[a]==")).toBe(true);
+    expect(isExpressionText("relationship.properties[a]]==b")).toBe(true);
+    expect(isExpressionText("element.properties[a]=b")).toBe(false);
+    expect(isExpressionText("element.properties]==b")).toBe(false);
+    expect(isExpressionText("element.properties[a]==b\nc")).toBe(false);
+    expect(parseExpression("element.properties]==b")).toEqual(ref("element.properties]==b"));
+  });
+
+  it("reads a term with many `]==` in linear time", () => {
+    for (const subject of ["element", "relationship"]) {
+      const crafted = `${subject}.properties[${"]==".repeat(200_000)}\n`;
+      const started = performance.now();
+      expect(isExpressionText(crafted)).toBe(false);
+      expect(parseExpression(crafted)).toEqual(ref(crafted));
+      expect(performance.now() - started).toBeLessThan(1_000);
+    }
+  });
+});

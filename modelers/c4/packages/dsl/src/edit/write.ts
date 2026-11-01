@@ -22,7 +22,7 @@ export function unrepresentable(value: string): string | undefined {
 export function quote(value: string): string {
   const reason = unrepresentable(value);
   if (reason !== undefined) refuse("unrepresentable-value", reason);
-  return `"${value.replace(/"/g, '\\"').replace(/\r\n|\r|\n/g, "\\n")}"`;
+  return `"${value.replace(/"|\r\n|\r|\n/g, (match) => (match === '"' ? '\\"' : "\\n"))}"`;
 }
 
 /** `"key" "value"`: a properties entry, both quoted. */
