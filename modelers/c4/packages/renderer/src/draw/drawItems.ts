@@ -279,13 +279,15 @@ function drawLine(
 /**
  * A relationship (SPEC 6.5) through the connection's docked waypoints: the line, the open
  * chevron at the destination, and the label in the label box on a ground of what lies behind it
- * (guide §10.1, Label-Halo), the canvas's ground unless the renderer names another.
+ * (guide §10.1, Label-Halo), the canvas's ground unless the renderer names another. The label goes
+ * into `labelVisuals`, the labels layer's group of the relationship (`RelationshipLabels`).
  */
 export function drawRelationship(
   visuals: SVGElement,
   relationship: SceneRelationship | undefined,
   waypoints: readonly Point[],
   labelGround: Paint<FillRole> = { role: "cd-c-fill-grund" },
+  labelVisuals: SVGElement = visuals,
 ): SVGElement {
   const style = relationship?.style;
   const thickness = clampWidth(style?.thickness ?? 1.5);
@@ -308,10 +310,10 @@ export function drawRelationship(
         rx: 2,
       });
       applyPaint(ground, "fill", labelGround);
-      append(visuals, ground);
+      append(labelVisuals, ground);
     }
     for (const band of label.bands) {
-      appendBand(visuals, band, { x: 0, y: 0 }, bandClass(band.band));
+      appendBand(labelVisuals, band, { x: 0, y: 0 }, bandClass(band.band));
     }
   }
   return line;

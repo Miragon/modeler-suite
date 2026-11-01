@@ -26,8 +26,13 @@ export interface MountedDrawing {
   readonly eventBus: EventBus;
   /** Replaces the canvas with `scene`, as an import would. */
   show(scene: Scene): void;
-  /** The `.djs-visual` of an element, a boundary (`boundary:<id>`) or a relationship (`rel:<key>`). */
+  /**
+   * The `.djs-visual` of an element, a boundary (`boundary:<id>`) or a relationship (`rel:<key>`),
+   * whose line and chevron it holds.
+   */
   visual(canvasId: string): SVGGElement;
+  /** The `.djs-visual` of a relationship's label, in the labels layer. */
+  label(canvasId: string): SVGGElement;
   destroy(): void;
 }
 
@@ -115,6 +120,12 @@ export function mountDrawing(
       const gfx = registry.getGraphics(canvasId);
       const visual = gfx?.querySelector<SVGGElement>(".djs-visual");
       if (!visual) throw new Error(`No visual for ${canvasId}.`);
+      return visual;
+    },
+    label(canvasId) {
+      const gfx = registry.getGraphics(canvasId, true);
+      const visual = gfx?.querySelector<SVGGElement>(":scope > .djs-visual");
+      if (!visual) throw new Error(`No label for ${canvasId}.`);
       return visual;
     },
     destroy() {

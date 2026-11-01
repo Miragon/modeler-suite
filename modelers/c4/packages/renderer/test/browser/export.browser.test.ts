@@ -19,6 +19,7 @@ import { BOOKSHOP, LIBRARY } from "./fixtures/texts.js";
 import { fontsReady, harnessHost, removeHarnessHosts } from "./support/harness.js";
 
 const PAINTED = "rect, path, text, circle, ellipse, line, polyline, polygon";
+const CANVAS_GROUND = ".c4-label-ground.cd-c-fill-grund";
 
 const LIGHT_VALUES = {
   fill: new Set(
@@ -151,11 +152,15 @@ describe("the SVG export of the shipped modeler", () => {
     it(`of ${fixture} looks as the live canvas does in the light mode`, async () => {
       const { svg, live } = await exported(text);
       const nodes = drawnNodes(svg);
+      // A label ground in the canvas's ground is no node of the picture: the export cuts it out
+      // of what lies beneath (label-layering.browser.test.ts).
+      const pictured = live.filter(({ node }) => !node.matches(CANVAS_GROUND));
+      expect(pictured.length).toBeLessThan(live.length);
       expect(nodes.map(describeNode)).toEqual(
-        live.map(({ part, node }) => describeNode({ part, node: withoutRoles(node) })),
+        pictured.map(({ part, node }) => describeNode({ part, node: withoutRoles(node) })),
       );
       nodes.forEach((drawn, index) => {
-        const shown = live[index]!;
+        const shown = pictured[index]!;
         for (const attribute of ["fill", "stroke"] as const) {
           expect(
             computedFromAttribute(attribute, drawn.node.getAttribute(attribute)),

@@ -87,6 +87,18 @@ describe("the shortcut rows (SPEC 5.7)", () => {
     ]);
   });
 
+  it("names the keys of the context pad, after the canvas's own Edit rows", () => {
+    const rows = c4Shortcuts("web", { platform: "mac" }).find(
+      (group) => group.title === "Edit",
+    )!.rows;
+    expect(rows.slice(-4)).toEqual([
+      { action: "Go to the context pad of the selection", keys: ["Tab"] },
+      { action: "Move through the context pad", keys: ["↑", "↓", "Home", "End"] },
+      { action: "Run a context pad entry", keys: ["Enter", "Space"] },
+      { action: "Back to the canvas from the context pad", keys: ["Esc"] },
+    ]);
+  });
+
   it("names the Mac keys", () => {
     const groups = c4Shortcuts("web", { platform: "mac" });
     expect(rowsOf(groups, "Edit")).toMatchObject({

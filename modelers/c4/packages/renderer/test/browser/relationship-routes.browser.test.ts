@@ -185,7 +185,9 @@ describe("two lines of one pair (P3.1)", () => {
 
 describe("two lines of one pair with long labels (P3.1 with P3.3)", () => {
   function ground(id: string): DOMRect {
-    const rect = graphics(id).querySelector<SVGRectElement>("rect.c4-label-ground");
+    const rect = service<ElementRegistry>("elementRegistry")
+      .getGraphics(id, true)
+      .querySelector<SVGRectElement>("rect.c4-label-ground");
     if (!rect) throw new Error(`no label ground on ${id}`);
     const attribute = (name: string) => Number(rect.getAttribute(name));
     return new DOMRect(attribute("x"), attribute("y"), attribute("width"), attribute("height"));

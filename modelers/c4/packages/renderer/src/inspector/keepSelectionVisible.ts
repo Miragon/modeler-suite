@@ -45,17 +45,22 @@ export function shiftInto(start: number, end: number, min: number, max: number):
 function selectionWithPad(canvas: Canvas, selected: readonly Element[]): ScreenBox | undefined {
   let box: ScreenBox | undefined;
   for (const element of selected) {
-    const graphics = canvas.getGraphics(element.id) as SVGElement | undefined;
-    if (!graphics) continue;
-    const { left, top, right, bottom } = graphics.getBoundingClientRect();
-    box = box
-      ? {
-          left: Math.min(box.left, left),
-          top: Math.min(box.top, top),
-          right: Math.max(box.right, right),
-          bottom: Math.max(box.bottom, bottom),
-        }
-      : { left, top, right, bottom };
+    // A relationship's label is its secondary graphics, in the labels layer; a relationship
+    // without text draws an empty one, which has no box.
+    const parts = [canvas.getGraphics(element.id), canvas.getGraphics(element.id, true)];
+    for (const graphics of parts as (SVGElement | undefined)[]) {
+      if (!graphics) continue;
+      const { left, top, right, bottom, width, height } = graphics.getBoundingClientRect();
+      if (width === 0 && height === 0) continue;
+      box = box
+        ? {
+            left: Math.min(box.left, left),
+            top: Math.min(box.top, top),
+            right: Math.max(box.right, right),
+            bottom: Math.max(box.bottom, bottom),
+          }
+        : { left, top, right, bottom };
+    }
   }
   if (!box) return undefined;
   const pad = canvas.getContainer().querySelector<HTMLElement>(".djs-context-pad.open");

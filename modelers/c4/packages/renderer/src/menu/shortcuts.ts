@@ -128,6 +128,10 @@ export function c4Shortcuts(host: ShortcutHost, options: C4ShortcutsOptions = {}
         { action: "Delete from model…", keys: mac ? ["⇧⌫"] : [`${shift}+Del`] },
         { action: "Move selection", keys: ARROWS },
         { action: "Move selection in large steps", keys: ARROWS.map(shifted) },
+        { action: "Go to the context pad of the selection", keys: ["Tab"] },
+        { action: "Move through the context pad", keys: ["↑", "↓", "Home", "End"] },
+        { action: "Run a context pad entry", keys: ["Enter", "Space"] },
+        { action: "Back to the canvas from the context pad", keys: ["Esc"] },
       ],
     },
     {

@@ -77,7 +77,9 @@ createCollaborativeModeler({
 - `fitOnImport: false` is for a host whose chrome fits the content itself: it then fits, or
   restores the view's last viewbox, on `c4.view.changed` (below).
 - `freeArea` follows the contract's factory option: a palette entry chosen by keyboard creates the
-  element in its centre, and the fit centres the content in it.
+  element in its centre, and the fit centres the content in it. Inside the shell, the keyboard
+  create also keeps out from under the inspector its selection opens (the shell's
+  `data-chrome="inspector"` island), except for the first element of an empty view.
 - An element created from the palette gets an identifier with a random suffix
   (`softwareSystem_k3x9`), which follows its first name (`payments`). With
   `identifiers: "collision-free"` the suffix stays (`payments_k3x9`): for hosts where several
@@ -130,10 +132,15 @@ Every gesture (create, connect, move, resize, bendpoints, delete, label edits) a
 `applyC4Colours`, `insertExample`.
 
 An edit the DSL can't hold is refused: nothing changes, and `c4.edit.refused` (`EDIT_REFUSED_EVENT`)
-carries `{ reason, message }` for the host to show. `c4.edit.notice` (`EDIT_NOTICE_EVENT`) reports
-what an accepted edit did besides what was asked (an implied relationship appeared, an include the
-modeler could not read was not updated). Delete is the smart delete: an element no other view
-shows goes from the model, any other from the view only.
+carries `{ reason, message, level }` for the host to show. `level` (`refusalLevel(reason)`) is
+`info` where the message explains a rule the edit would break, and `danger` only where an edit went
+wrong (`verification-failed`: the text it wrote failed the edit layer's own check); a host shows a
+refusal without a level as `danger`. `c4.edit.notice` (`EDIT_NOTICE_EVENT`) reports what an
+accepted edit did besides what was asked (an implied relationship appeared, an include the modeler
+could not read was not updated). Delete is the smart delete: an element no other view shows goes
+from the model, any other from the view only; `c4.delete.done` (`DELETE_DONE_EVENT`) says which
+went where, and `deleteDoneText(event)` words it ("Removed E-mail System from this view. It stays
+in the model.").
 
 ## Chrome parts
 
@@ -154,7 +161,13 @@ On the focused canvas: L, H and C pick the lasso, hand and connect tools; E edit
 the next field; Enter opens the view of the selected software system or container, U the parent
 view, G the views dialog; Delete and Backspace delete smartly, Shift+Delete deletes from the model;
 the arrows move the selection; Cmd/Ctrl+A selects every element of the view. Tab from the canvas
-reaches the breadcrumb.
+reaches the context pad of the selection, then the breadcrumb.
+
+The context pad is a toolbar with one tab stop, its entries buttons named by their titles: the
+arrows move through it, Home and End jump to its ends, Enter and Space run an entry (an append
+places the element beside the selection and opens its name, Connect opens Add relationship… from
+it, a delete asks first where it reaches further), and Esc gives the keys back to the canvas with
+the selection kept.
 
 ## Look and export
 
@@ -163,11 +176,17 @@ own default is; colours from the workspace's styles are drawn as written, with t
 on them. A new workspace of `@miragon/c4-dsl` (`newWorkspaceText()`) carries the C4 colours as tag
 styles, and `modeler.c4.applyC4Colours()` writes them into one that lacks them.
 
+Every relationship's label sits above every line, so a line that crosses a label runs under it,
+and a click on the label selects its own relationship. What is dragged, moved or resized shows
+above every label, a moved relationship with its label.
+
 `saveSVG()` exports the current view, its title block included, always light: every node carries
 its light colour as an attribute, and the export drops the design system's role classes, the drill
 badges, the selection and hover handles and the canvas's keyboard and screen-reader attributes, so
-a selection exports the same picture as none. Rasterise it on `COLORS.paper` for a PNG. `THEMES`
-(also `@miragon/c4-renderer/themes`, without the diagram) is `["light"]`.
+a selection exports the same picture as none. The SVG has no background: where a label lies on the
+canvas's ground, what it covers is cut out with a mask, so the page shows under the label, white
+on a white page. Rasterise it on `COLORS.paper` for a PNG. `THEMES` (also
+`@miragon/c4-renderer/themes`, without the diagram) is `["light"]`.
 
 ## Development
 

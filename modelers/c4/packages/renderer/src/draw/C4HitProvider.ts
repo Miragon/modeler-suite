@@ -1,4 +1,5 @@
 import type { Injector } from "didi";
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type InteractionEvents from "diagram-js/lib/features/interaction-events/InteractionEvents";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
@@ -29,7 +30,9 @@ interface HitEvent {
  *   the canvas and the members (SPEC 6.5);
  * - a drill badge gets a hit of its own above the shape's, carrying `c4-drill`, so a click
  *   listener tells it from a click on the element (the visual takes no pointer events);
- * - a relationship's label takes clicks as its line does;
+ * - a relationship's label takes clicks as its line does, with its hit in the label's own group in
+ *   the labels layer (`RelationshipLabels`), so a click on a label reaches its relationship even
+ *   where another line crosses it;
  * - a band of text cut short gets a hit of its own, carrying `c4-cut-band`, titled with the whole
  *   text, so the pointer shows what the ellipsis left out (the visual takes no pointer events,
  *   and the export drops every hit).
@@ -37,12 +40,13 @@ interface HitEvent {
  * Answers before diagram-js's default (low priority) and stops it by returning false.
  */
 export default class C4HitProvider {
-  static $inject = ["eventBus", "injector", "c4SceneLookup"];
+  static $inject = ["eventBus", "injector", "c4SceneLookup", "elementRegistry"];
 
   constructor(
     eventBus: EventBus,
     private readonly injector: Injector,
     private readonly lookup: SceneLookup,
+    private readonly elementRegistry: ElementRegistry,
   ) {
     eventBus.on("interactionEvents.createHit", (event: HitEvent) => this.createHits(event, false));
     eventBus.on("interactionEvents.updateHit", (event: HitEvent) => this.createHits(event, true));
@@ -56,10 +60,12 @@ export default class C4HitProvider {
     if (reference.role === "relationship") {
       const waypoints = "waypoints" in element ? element.waypoints : undefined;
       interactionEvents.createWaypointsHit(gfx, waypoints ?? []);
+      const labelGfx = this.labelGraphics(element) ?? gfx;
+      if (labelGfx !== gfx) interactionEvents.removeHits(labelGfx);
       const relationship = this.lookup.relationship(element);
       const label = relationship && relationshipLabelLayout(relationship);
-      if (label?.backing) interactionEvents.createBoxHit(gfx, "all", { ...label.backing });
-      if (label) cutBandHits(interactionEvents, gfx, label, { x: 0, y: 0 });
+      if (label?.backing) interactionEvents.createBoxHit(labelGfx, "all", { ...label.backing });
+      if (label) cutBandHits(interactionEvents, labelGfx, label, { x: 0, y: 0 });
       return false;
     }
     if (!isShape(element)) return undefined;
@@ -93,6 +99,11 @@ export default class C4HitProvider {
       hit.appendChild(title);
     }
     return false;
+  }
+
+  /** The relationship's group in the labels layer, its secondary graphics. */
+  private labelGraphics(element: Element): SVGElement | undefined {
+    return (this.elementRegistry.getGraphics(element, true) as SVGElement | undefined) ?? undefined;
   }
 }
 

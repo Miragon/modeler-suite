@@ -402,10 +402,83 @@ describe("a drag's previewed frames say which frame they are and why one warns",
     expect(chip.querySelectorAll(".c4-frame-preview-chip-icon path")).toHaveLength(3);
     const frame = item.querySelector<SVGPathElement>(".c4-frame-preview")!.getBBox();
     const ground = chip.querySelector<SVGRectElement>(".c4-frame-preview-chip-ground")!.getBBox();
-    expect(ground.y + ground.height).toBeLessThanOrEqual(frame.y);
+    expect(outsideAboveOrBelow(ground, frame)).toBe(true);
+    expect(inside(ground, viewbox(page))).toBe(true);
     pressEscape();
     expect(container(page).querySelector(".c4-frame-preview-chip")).toBeNull();
   });
+
+  it("keeps the warning chip out from under the breadcrumb, along the frame's top", async () => {
+    const page = await mountModeler();
+    page.modeler.views.open("Containers", { cause: "user" });
+    hold(page, "database", { x: 180, y: 420 });
+    const frame = item(page).querySelector<SVGPathElement>(".c4-frame-preview")!.getBBox();
+    pressEscape();
+    const canvas = service<Canvas>(page.modeler, "canvas");
+    const breadcrumb = container(page).querySelector("nav.c4-breadcrumbs")!.getBoundingClientRect();
+    const bounds = container(page).getBoundingClientRect();
+    const { scale } = canvas.viewbox();
+    // The frame's top left just below the breadcrumb's start: the chip above it would be under it.
+    const shown = canvas.viewbox();
+    canvas.viewbox({
+      ...shown,
+      x: frame.x - (breadcrumb.left - bounds.left + 16) / scale,
+      y: frame.y - (breadcrumb.bottom - bounds.top + 4) / scale,
+    });
+
+    hold(page, "database", { x: 180, y: 420 });
+    const chip = item(page).querySelector(".c4-frame-preview-chip")!;
+    expect(chip.textContent).toBe("Overlaps Customer");
+    const box = chip.getBoundingClientRect();
+    const covered =
+      box.left < breadcrumb.right &&
+      breadcrumb.left < box.right &&
+      box.top < breadcrumb.bottom &&
+      breadcrumb.top < box.bottom;
+    expect(covered).toBe(false);
+    const ground = chip.querySelector<SVGRectElement>(".c4-frame-preview-chip-ground")!.getBBox();
+    expect(outsideAboveOrBelow(ground, frame)).toBe(true);
+    expect(inside(ground, viewbox(page))).toBe(true);
+    pressEscape();
+  });
+
+  it("keeps the warning chip out from under the shell's islands", async () => {
+    const page = await mountModeler();
+    page.modeler.views.open("Containers", { cause: "user" });
+    hold(page, "database", { x: 180, y: 420 });
+    const first = item(page).querySelector(".c4-frame-preview-chip")!.getBoundingClientRect();
+    pressEscape();
+    // A stand-in for the shell's root and one of its islands, right where the chip went.
+    const root = page.host.parentElement!;
+    root.classList.add("cd-shell");
+    const island = document.createElement("div");
+    island.setAttribute("data-chrome", "legend");
+    const bounds = root.getBoundingClientRect();
+    island.style.cssText = `position:absolute;left:${first.left - bounds.left - 4}px;top:${
+      first.top - bounds.top - 4
+    }px;width:${first.width + 8}px;height:${first.height + 8}px`;
+    root.append(island);
+
+    hold(page, "database", { x: 180, y: 420 });
+    const box = item(page).querySelector(".c4-frame-preview-chip")!.getBoundingClientRect();
+    const covers = island.getBoundingClientRect();
+    expect(
+      box.left < covers.right &&
+        covers.left < box.right &&
+        box.top < covers.bottom &&
+        covers.top < box.bottom,
+    ).toBe(false);
+    pressEscape();
+  });
+
+  function item(page: Mounted): Element {
+    return previewItem(page, "bookshop")!;
+  }
+
+  /** Where a chip names its frame: on the outside of its top or bottom edge. */
+  function outsideAboveOrBelow(chip: Box, frame: Box): boolean {
+    return chip.y + chip.height <= frame.y || chip.y >= frame.y + frame.height;
+  }
 });
 
 describe("a keyboard create in a crowded, zoomed view (P2.6 follow-up)", () => {

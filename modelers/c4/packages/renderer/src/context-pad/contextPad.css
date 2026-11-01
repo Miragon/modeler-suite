@@ -3,7 +3,8 @@
    hover in --cd-ui-hover with the icon in --cd-ui-interaktion. One column like Context Maps' pad,
    a --cd-ui-linie separator after the appends and before the group of the deletes; the trash
    stays neutral like the family's and shows --cd-ui-danger on hover only. At diagram-js's z-index
-   100, below the palette (guide §5.13). */
+   100, below the palette (guide §5.13). The keyboard's focus ring is the palette's (guide §5.5,
+   §5.14): outside, 2px, and 3px in high contrast. */
 .c4-container .djs-context-pad.open {
   display: flex;
   flex-direction: column;
@@ -79,6 +80,19 @@
   color: var(--cd-ui-danger);
 }
 
+.c4-container .djs-context-pad .entry.c4-pad-entry:focus {
+  outline: none;
+}
+
+/* The ring reaches over the 2px gap into the next entry's box: lifted, so a hovered neighbour,
+   painted later, does not cover it. */
+.c4-container .djs-context-pad .entry.c4-pad-entry:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+
 .c4-container .c4-pad-entry svg {
   display: block;
 }
@@ -98,6 +112,11 @@
     border-top-color: var(--cd-ui-kontur);
     border-left-color: var(--cd-ui-kontur);
   }
+  :is(:scope.c4-container, :scope .c4-container)
+    .djs-context-pad
+    .entry.c4-pad-entry:focus-visible {
+    outline-width: 3px;
+  }
 }
 
 @media (forced-colors: active) {
@@ -107,6 +126,9 @@
   .c4-container .djs-context-pad .group + .group {
     border-top-color: CanvasText;
     border-left-color: CanvasText;
+  }
+  .c4-container .djs-context-pad .entry.c4-pad-entry:focus-visible {
+    outline-color: Highlight;
   }
 }
 

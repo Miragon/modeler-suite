@@ -2,9 +2,14 @@
  * Placement of the elements a pinned view has no stored box for (SPEC 4.3): next to a placed
  * neighbour on the 8-unit grid, else in a row below the placed content. A place is free when the
  * box keeps its distance from every box, stays out of the frames it does not belong to, and the
- * frames it grows do not reach anything new.
+ * frames it grows do not reach anything new. Among the free places, one in the clear comes first:
+ * the straight lines to the placed neighbours cross no other box and no label, and no other line
+ * or label runs over the box. Beside a neighbour, else the clear place nearest it (beside a
+ * neighbour or a sibling, or on the grid around the neighbour), and only where none is clear the
+ * first free one. A clear place whose frames keep their room from what they do not hold comes
+ * before one that grows a frame up to a stranger.
  */
-import type { Box, ElementId, Size } from "@miragon/c4-schema-model";
+import type { Box, ElementId, Point, Size } from "@miragon/c4-schema-model";
 import { LABEL_SIZE } from "./autoLayout.js";
 import type { ClusterKey, ClusterTree } from "./clusters.js";
 import { deriveFrames, padded, type Frame } from "./frames.js";
@@ -12,12 +17,15 @@ import {
   bottom,
   ceilToGrid,
   centre,
+  dockOnBox,
   floorToGrid,
   overlaps,
   right,
   roundToGrid,
+  segmentCrossesBox,
   unionOf,
 } from "./geometry.js";
+import { dockedPath, relationshipGeometry, type DrawnRelationship } from "./relationships.js";
 
 /** A relationship's label fits between two neighbours, with this much room on either side. */
 const LABEL_MARGIN = 16;
@@ -30,6 +38,28 @@ const CLEARANCE = VERTICAL_GAP / 2;
 const MAX_ANCHORS = 16;
 const MIN_ROW_WIDTH = 4 * (240 + HORIZONTAL_GAP);
 const MAX_ROW_STEPS = 10_000;
+/** A line in the clear passes another box or label at least this far off, so it never grazes one. */
+const LINE_CLEARANCE = 8;
+/** The grid the search around a neighbour steps on: twice the layout's, so it stays cheap. */
+const SEARCH_STEP = 16;
+/** Rings of the search around a neighbour at most: past the content every place is farther. */
+const MAX_SEARCH_RINGS = 160;
+/**
+ * A frame a new box grows keeps this far from what it does not hold, as the box keeps from a box:
+ * a stranger on a frame's edge reads as one of its members.
+ */
+const FRAME_ROOM = CLEARANCE;
+
+/**
+ * A place for a box: not free or not in the clear (`taken`), in the clear with a frame it grows
+ * coming within `FRAME_ROOM` of a stranger (`cramped`), or in the clear with room (`roomy`).
+ */
+type ClearPlace = "taken" | "cramped" | "roomy";
+
+interface Candidate {
+  readonly box: Box;
+  readonly distance: number;
+}
 
 export interface PlacementItem {
   /** An element id, or a leaf boundary's cluster key. */
@@ -42,9 +72,28 @@ export interface PlacementItem {
 export interface PlacementContext {
   readonly tree: ClusterTree;
   readonly relationships: readonly {
+    readonly key?: string;
     readonly sourceId: ElementId;
     readonly destinationId: ElementId;
   }[];
+  /** The stored vertices by relationship key, which the lines already drawn run through. */
+  readonly vertices?: ReadonlyMap<string, readonly Point[]>;
+}
+
+/** The lines and labels drawn between the placed elements: what a place in the clear keeps off. */
+interface DrawnLines {
+  readonly paths: readonly (readonly Point[])[];
+  readonly labels: readonly Box[];
+}
+
+/** What one item's search for a place in the clear tests every candidate against. */
+interface Surroundings {
+  readonly key: string;
+  readonly neighbours: readonly Box[];
+  /** The other elements, nearest the first neighbour first: a line meets those first. */
+  readonly others: readonly Box[];
+  /** Every box and every frame the item does not belong to, which it keeps its clearance from. */
+  readonly obstacles: readonly Box[];
 }
 
 interface Row {
@@ -57,7 +106,9 @@ interface Row {
 
 /**
  * Puts a box for every item into `boxes`: first each preferred box nothing covers, then the rest in
- * order; an item already there keeps its box.
+ * order; an item already there keeps its box. A slot beside a neighbour in the clear, its frames
+ * keeping their room, is taken at once; an item without one waits its turn, then takes the clear
+ * place nearest its neighbour, else the first free slot as before.
  */
 export function placeItems(
   boxes: Map<string, Box>,
@@ -76,14 +127,18 @@ export function placeItems(
     while (progressed) {
       progressed = false;
       remaining = remaining.filter((item) => {
-        const placed = placement.besideNeighbours(item);
+        const placed = placement.besideNeighboursInTheClear(item);
         if (placed) progressed = true;
         return !placed;
       });
     }
     const next = remaining.shift();
     if (next) {
-      if (!placement.besideNeighbours(next) && !placement.besideSiblings(next)) {
+      if (
+        !placement.nearNeighboursInTheClear(next) &&
+        !placement.besideNeighbours(next) &&
+        !placement.besideSiblings(next)
+      ) {
         placement.inRow(next);
       }
     }
@@ -95,6 +150,7 @@ class Placement {
   private readonly adjacent = new Map<string, string[]>();
   private frames: Map<ClusterKey, Frame>;
   private row: Row | undefined;
+  private drawn: DrawnLines | undefined;
 
   constructor(
     private readonly boxes: Map<string, Box>,
@@ -123,8 +179,75 @@ class Placement {
     return this.besideAny(item, this.neighbours(item.key));
   }
 
+  besideNeighboursInTheClear(item: PlacementItem): boolean {
+    const surroundings = this.surroundings(item.key);
+    if (!surroundings) return false;
+    for (const anchor of surroundings.neighbours) {
+      for (const candidate of slotsBeside(anchor, item.size)) {
+        if (this.placeInTheClear(candidate, surroundings) === "roomy") {
+          this.put(item.key, candidate);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * The place in the clear nearest the first placed neighbour, where a label still fits between
+   * the box and each neighbour: a slot beside a neighbour or a sibling, or a spot on the grid
+   * around the neighbour, ring by ring. The nearest roomy place wins, so the search ends at the
+   * first ring beyond it; without one, the nearest cramped place.
+   */
+  nearNeighboursInTheClear(item: PlacementItem): boolean {
+    const surroundings = this.surroundings(item.key);
+    const anchor = surroundings?.neighbours[0];
+    if (!surroundings || !anchor) return false;
+    const middle = centre(anchor);
+    let roomy: Candidate | undefined;
+    let cramped: Candidate | undefined;
+    const consider = (box: Box): void => {
+      const distance = distanceBetween(centre(box), middle);
+      if (roomy && distance >= roomy.distance) return;
+      if (!roomForLabels(box, surroundings.neighbours)) return;
+      const place = this.placeInTheClear(box, surroundings);
+      if (place === "roomy") roomy = { box, distance };
+      if (place !== "taken" && (!cramped || distance < cramped.distance)) {
+        cramped = { box, distance };
+      }
+    };
+    for (const slotAnchor of [...surroundings.neighbours, ...this.siblingAnchors(item)]) {
+      for (const slot of slotsBeside(slotAnchor, item.size)) consider(slot);
+    }
+    const start = {
+      x: roundToGrid(middle.x - item.size.width / 2),
+      y: roundToGrid(middle.y - item.size.height / 2),
+    };
+    const window = this.searchWindow(item.size);
+    const rings = window ? ringsToCover(start, item.size, window) : 0;
+    for (let ring = 1; window && ring <= rings; ring++) {
+      if (roomy && ring * SEARCH_STEP > roomy.distance) break;
+      for (const [column, row] of ringOffsets(ring)) {
+        const box = {
+          x: start.x + column * SEARCH_STEP,
+          y: start.y + row * SEARCH_STEP,
+          ...item.size,
+        };
+        if (within(box, window)) consider(box);
+      }
+    }
+    const best = roomy ?? cramped;
+    if (!best) return false;
+    this.put(item.key, best.box);
+    return true;
+  }
+
   /** Inside a frame, the members it already holds are the next best neighbours. */
   besideSiblings(item: PlacementItem): boolean {
+    return this.besideAny(item, this.siblingAnchors(item));
+  }
+
+  private siblingAnchors(item: PlacementItem): Box[] {
     const anchors: Box[] = [];
     for (const key of this.context.tree.ancestors(item.key)) {
       const cluster = this.context.tree.clusters.get(key);
@@ -137,7 +260,7 @@ class Placement {
         if (box && !anchors.includes(box)) anchors.push(box);
       }
     }
-    return this.besideAny(item, anchors.slice(0, MAX_ANCHORS));
+    return anchors.slice(0, MAX_ANCHORS);
   }
 
   inRow(item: PlacementItem): void {
@@ -168,13 +291,126 @@ class Placement {
   private besideAny(item: PlacementItem, anchors: readonly Box[]): boolean {
     for (const anchor of anchors) {
       for (const candidate of slotsBeside(anchor, item.size)) {
-        if (this.isFree(item.key, candidate) && this.growsFramesFreely(item.key, candidate)) {
+        if (this.fits(item.key, candidate)) {
           this.put(item.key, candidate);
           return true;
         }
       }
     }
     return false;
+  }
+
+  private fits(key: string, candidate: Box): boolean {
+    return this.isFree(key, candidate) && this.growsFramesFreely(key, candidate);
+  }
+
+  /** `isFree`, the lines, then the frames, the dearest test, for one item's surroundings. */
+  private placeInTheClear(candidate: Box, surroundings: Surroundings): ClearPlace {
+    if (!this.emptyAtStart && candidate.x === 0 && candidate.y === 0) return "taken";
+    for (const obstacle of surroundings.obstacles) {
+      if (overlaps(candidate, obstacle, CLEARANCE)) return "taken";
+    }
+    if (!this.inTheClear(candidate, surroundings.neighbours, surroundings.others)) return "taken";
+    return this.frameGrowth(surroundings.key, candidate);
+  }
+
+  /** Undefined for an item without a placed neighbour: it has no line to keep clear. */
+  private surroundings(key: string): Surroundings | undefined {
+    const neighbours = this.neighbours(key);
+    const [anchor] = neighbours;
+    if (!anchor) return undefined;
+    const middle = centre(anchor);
+    const others = this.elementBoxes(key)
+      .map((box) => ({ box, distance: distanceBetween(centre(box), middle) }))
+      .sort((first, second) => first.distance - second.distance)
+      .map(({ box }) => box);
+    const own = new Set(this.context.tree.ancestors(key));
+    const obstacles = [...this.boxes.values()];
+    for (const [cluster, frame] of this.frames) {
+      if (cluster === key || own.has(cluster) || this.lists(cluster, key)) continue;
+      obstacles.push(frame.frame);
+    }
+    return { key, neighbours, others, obstacles };
+  }
+
+  /**
+   * The lines from the box to its placed neighbours cross no other element and no label, and no
+   * line or label already drawn runs over the box: a line through a stranger reads as its own.
+   */
+  private inTheClear(candidate: Box, neighbours: readonly Box[], others: readonly Box[]): boolean {
+    const drawn = this.drawnLines();
+    for (const neighbour of neighbours) {
+      const from = dockOnBox(neighbour, centre(candidate));
+      const to = dockOnBox(candidate, centre(neighbour));
+      for (const other of others) {
+        if (other === neighbour) continue;
+        if (segmentCrossesBox(from, to, other, LINE_CLEARANCE)) return false;
+      }
+      for (const label of drawn.labels) {
+        if (segmentCrossesBox(from, to, label, LINE_CLEARANCE)) return false;
+      }
+    }
+    for (const label of drawn.labels) {
+      if (overlaps(candidate, label, LINE_CLEARANCE)) return false;
+    }
+    for (const path of drawn.paths) {
+      for (let index = 1; index < path.length; index++) {
+        const from = path[index - 1];
+        const to = path[index];
+        if (from && to && segmentCrossesBox(from, to, candidate, LINE_CLEARANCE)) return false;
+      }
+    }
+    return true;
+  }
+
+  private elementBoxes(except?: string): Box[] {
+    const boxes: Box[] = [];
+    for (const [key, box] of this.boxes) {
+      if (key !== except && !this.context.tree.clusters.has(key)) boxes.push(box);
+    }
+    return boxes;
+  }
+
+  private drawnLines(): DrawnLines {
+    if (this.drawn) return this.drawn;
+    const elements = new Map<string, Box>();
+    for (const [key, box] of this.boxes) {
+      if (!this.context.tree.clusters.has(key)) elements.set(key, box);
+    }
+    const relationships: DrawnRelationship[] = this.context.relationships.map(
+      (relationship, index) => ({
+        key: relationship.key ?? `${index}`,
+        sourceId: relationship.sourceId,
+        destinationId: relationship.destinationId,
+      }),
+    );
+    const { routes, labelBoxes } = relationshipGeometry(
+      relationships,
+      elements,
+      this.context.vertices ?? new Map(),
+    );
+    const paths: Point[][] = [];
+    for (const relationship of relationships) {
+      const route = routes.get(relationship.key);
+      const source = elements.get(relationship.sourceId);
+      const destination = elements.get(relationship.destinationId);
+      if (!route || !source || !destination || source === destination) continue;
+      paths.push(dockedPath(source, destination, route));
+    }
+    this.drawn = { paths, labels: [...labelBoxes.values()] };
+    return this.drawn;
+  }
+
+  /** The content and room for the item and a gap on every side: farther out every place is farther. */
+  private searchWindow(size: Size): Box | undefined {
+    const content = this.content();
+    if (!content) return undefined;
+    return {
+      x: content.x - size.width - HORIZONTAL_GAP,
+      y: content.y - size.height - VERTICAL_GAP,
+      width: content.width + 2 * (size.width + HORIZONTAL_GAP),
+      height: content.height + 2 * (size.height + VERTICAL_GAP),
+    };
   }
 
   private neighbours(key: string): Box[] {
@@ -206,23 +442,34 @@ class Placement {
 
   /** The frames around the item grow with it; they may not reach a box or a frame they did not reach before. */
   private growsFramesFreely(key: string, candidate: Box): boolean {
+    return this.frameGrowth(key, candidate) !== "taken";
+  }
+
+  /**
+   * How the frames around the item grow with it: over a box or a frame they did not reach before
+   * (`taken`), within `FRAME_ROOM` of one they did not come that close to (`cramped`), or `roomy`.
+   */
+  private frameGrowth(key: string, candidate: Box): ClearPlace {
+    let growth: ClearPlace = "roomy";
     let inner = candidate;
     for (const cluster of this.context.tree.ancestors(key)) {
       const before = this.frames.get(cluster);
       const grown = padded(unionOf([before?.content, inner]) ?? inner);
+      const reaches = (box: Box, room: number): boolean =>
+        overlaps(grown, box, room) && !(before && overlaps(before.frame, box, room));
       for (const [other, box] of this.boxes) {
         if (this.isInside(other, cluster)) continue;
-        if (overlaps(grown, box) && !(before && overlaps(before.frame, box))) return false;
+        if (reaches(box, 0)) return "taken";
+        if (growth === "roomy" && reaches(box, FRAME_ROOM)) growth = "cramped";
       }
       for (const [other, frame] of this.frames) {
         if (this.related(other, cluster)) continue;
-        if (overlaps(grown, frame.frame) && !(before && overlaps(before.frame, frame.frame))) {
-          return false;
-        }
+        if (reaches(frame.frame, 0)) return "taken";
+        if (growth === "roomy" && reaches(frame.frame, FRAME_ROOM)) growth = "cramped";
       }
       inner = grown;
     }
-    return true;
+    return growth;
   }
 
   private isInside(key: string, cluster: ClusterKey): boolean {
@@ -248,6 +495,7 @@ class Placement {
   private put(key: string, box: Box): void {
     this.boxes.set(key, box);
     this.frames = deriveFrames(this.context.tree, this.boxes);
+    this.drawn = undefined;
   }
 
   private content(): Box | undefined {
@@ -269,6 +517,66 @@ class Placement {
       height: 0,
     };
   }
+}
+
+function ringsToCover(start: Point, size: Size, window: Box): number {
+  const reach = Math.max(
+    start.x - window.x,
+    right(window) - (start.x + size.width),
+    start.y - window.y,
+    bottom(window) - (start.y + size.height),
+  );
+  return Math.min(MAX_SEARCH_RINGS, Math.max(0, Math.ceil(reach / SEARCH_STEP)));
+}
+
+function within(box: Box, window: Box): boolean {
+  return (
+    box.x >= window.x &&
+    box.y >= window.y &&
+    right(box) <= right(window) &&
+    bottom(box) <= bottom(window)
+  );
+}
+
+/** Each neighbour keeps a label's room from the box, across the gap or above and below it. */
+function roomForLabels(box: Box, neighbours: readonly Box[]): boolean {
+  return neighbours.every((neighbour) => {
+    const across = Math.max(neighbour.x - right(box), box.x - right(neighbour));
+    const along = Math.max(neighbour.y - bottom(box), box.y - bottom(neighbour));
+    return across >= HORIZONTAL_GAP || along >= VERTICAL_GAP;
+  });
+}
+
+function distanceBetween(first: Point, second: Point): number {
+  return Math.hypot(first.x - second.x, first.y - second.y);
+}
+
+const RING_OFFSETS: (readonly (readonly [number, number])[])[] = [];
+
+/**
+ * The grid offsets at Chebyshev distance `ring`, nearest first, then right, below, left and above
+ * among equals, so the search is deterministic; computed once per ring.
+ */
+function ringOffsets(ring: number): readonly (readonly [number, number])[] {
+  const known = RING_OFFSETS[ring];
+  if (known) return known;
+  const offsets: { offset: readonly [number, number]; length: number; turn: number }[] = [];
+  for (let column = -ring; column <= ring; column++) {
+    for (let row = -ring; row <= ring; row++) {
+      if (Math.max(Math.abs(column), Math.abs(row)) !== ring) continue;
+      const angle = Math.atan2(row, column);
+      offsets.push({
+        offset: [column, row],
+        length: Math.hypot(column, row),
+        turn: angle < 0 ? angle + 2 * Math.PI : angle,
+      });
+    }
+  }
+  const ordered = offsets
+    .sort((first, second) => first.length - second.length || first.turn - second.turn)
+    .map(({ offset }) => offset);
+  RING_OFFSETS[ring] = ordered;
+  return ordered;
 }
 
 function slotsBeside(anchor: Box, size: Size): Box[] {

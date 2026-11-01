@@ -1,4 +1,7 @@
 import type { EditNotice } from "@miragon/c4-dsl";
+import { deleteDoneText, type DeleteDoneEvent, type EditRefusedEvent } from "@miragon/c4-renderer";
+
+type Notification = { readonly type: "info" | "error"; readonly message: string };
 
 /*
  * What the webview asks the host to show as a notification (guide §13.5: no toasts in the
@@ -48,4 +51,23 @@ export function noticeMessages(): (notice: EditNotice) => string | undefined {
     }
     return message;
   };
+}
+
+/**
+ * A refused edit as the host's notification of the level the web app's toast has (guide §13.5):
+ * info where it explains a rule the edit would break, an error where the edit went wrong, as for a
+ * refusal that names no level.
+ */
+export function refusalNotification({ message, level }: EditRefusedEvent): Notification {
+  return { type: level === "info" ? "info" : "error", message };
+}
+
+/**
+ * What Delete did, in the words of the web app's info toast (guide §9), since the key chose
+ * between the view and the model for the user. Without its Undo: the document's history owns undo
+ * in VS Code. `undefined` when no selected item went.
+ */
+export function deleteDoneNotification(event: DeleteDoneEvent): Notification | undefined {
+  const message = deleteDoneText(event);
+  return message === undefined ? undefined : { type: "info", message };
 }

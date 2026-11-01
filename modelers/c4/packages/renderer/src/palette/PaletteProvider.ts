@@ -37,6 +37,7 @@ import type { SceneNotation } from "../scene/notation.js";
 import { isElementShape } from "../scene/types.js";
 import type { C4ElementFactory, C4SceneService, C4Views } from "../services.js";
 import { boxAround, findFreeSpot, panToShow } from "./freeSpot.js";
+import { inspectorCover } from "./inspectorCover.js";
 
 export interface PaletteConfig {
   /**
@@ -250,8 +251,7 @@ export default class PaletteProvider {
    */
   private placeInFreeArea(shape: Shape, kind: CreatableKind): void {
     const centre = this.freeAreaCentre() ?? this.visibleCentre();
-    const area = this.freeAreaBox();
-    const position = this.freeSpot(centre, area, shape, kind);
+    const { position, area } = this.freeSpot(centre, this.freeAreaBox(), shape, kind);
     this.panToShow(area, boxAround(position, { width: shape.width, height: shape.height }));
     const modeling = this.injector.get<C4Modeling>("modeling");
     const created = modeling.createShape(shape, position);
@@ -266,16 +266,18 @@ export default class PaletteProvider {
   /**
    * The keyboard create's spot (guide §5.5), clear of the elements, the relationship labels and
    * every frame the element will not belong to; a frame it joins may grow around it, but not over
-   * an element it does not hold. The title moves below whatever the view then draws.
+   * an element it does not hold. The title moves below whatever the view then draws. Where the
+   * view draws something, the spot keeps out from under the inspector its selection opens, so the
+   * name editor shows; the first element of an empty view still goes where the hint stood.
    */
   private freeSpot(
     centre: DiagramPoint,
-    area: Box,
+    freeArea: Box,
     shape: Shape,
     kind: CreatableKind,
-  ): DiagramPoint {
+  ): { position: DiagramPoint; area: Box } {
     const scene = this.injector.get<C4SceneService>("c4Scene", false)?.current();
-    if (!scene) return { x: centre.x, y: centre.y };
+    if (!scene) return { position: { x: centre.x, y: centre.y }, area: freeArea };
     const { workspace } = this.injector.get<DocumentStore>("c4Document").current().parse;
     const view = this.injector.get<C4Views>("c4Views").active();
     const engine = this.injector.get<C4Engine>("c4Engine");
@@ -291,7 +293,8 @@ export default class PaletteProvider {
     const grows =
       framing.size > 0 ? this.growsOverStrangers(view, framing, shape, parentId) : undefined;
     const size = { width: shape.width, height: shape.height };
-    return findFreeSpot({
+    const area = obstacles.length > 0 ? this.clearOfInspector(freeArea) : freeArea;
+    const position = findFreeSpot({
       centre,
       size,
       area,
@@ -301,6 +304,22 @@ export default class PaletteProvider {
       ...(grows ? { accepts: (box: Box) => !grows(box) } : {}),
       beyond: { area: beyondArea(area, obstacles, size), step: BEYOND_STEP },
     });
+    return { position, area };
+  }
+
+  /**
+   * The free area without what the host's inspector covers once it shows (`inspectorCover`): the
+   * shell's fit insets count it only while it is open, and a keyboard create opens it.
+   */
+  private clearOfInspector(area: Box): Box {
+    const cover = inspectorCover(this.canvas.getContainer());
+    const { width, height } = this.canvas.getSize();
+    if (!cover || !(width > 0 && height > 0)) return area;
+    const { x, y, scale } = this.canvas.viewbox();
+    const right = Math.min(area.x + area.width, x + (width - cover.right) / scale);
+    const bottom = Math.min(area.y + area.height, y + (height - cover.bottom) / scale);
+    if (!(right > area.x && bottom > area.y)) return area;
+    return { x: area.x, y: area.y, width: right - area.x, height: bottom - area.y };
   }
 
   /**

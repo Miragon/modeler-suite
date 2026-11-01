@@ -10,6 +10,7 @@ import { FRAMES_LAYER, FRAMES_LAYER_INDEX } from "../draw/C4Layers.js";
 import { rectanglePath } from "../draw/shapes.js";
 import { append, clearChildren, svgElement } from "../draw/svg.js";
 import type { C4Engine } from "../engine/C4Engine.js";
+import { BREADCRUMBS_CLASS } from "../navigation/Breadcrumbs.js";
 import { boundaryCanvasId } from "../reconcile/Reconciler.js";
 import {
   c4ReferenceOf,
@@ -19,6 +20,7 @@ import {
   type SceneGroup,
 } from "../scene/types.js";
 import type { C4SceneService, C4Views } from "../services.js";
+import type { ChipSurroundings } from "./chipPlace.js";
 import { createdParentId, membersWithCreated } from "./createdMembers.js";
 import {
   appendBoundaryCaption,
@@ -41,6 +43,9 @@ export const FRAME_WARNING_CLASS = "c4-frame-preview-warning";
 export const FRAME_PREVIEW_ITEM_CLASS = "c4-frame-preview-item";
 /** The frame as it was drawn before the drag, faded while its preview shows. */
 export const STALE_FRAME_CLASS = "c4-frame-stale";
+
+/** Between a warning chip and the host's chrome, as the breadcrumb keeps from an island. */
+const CHROME_GAP = 8;
 
 const BOUNDARY_RADIUS = 6;
 const GROUP_RADIUS = 8;
@@ -79,6 +84,18 @@ interface DragBase {
   readonly groupLooks: ReadonlyMap<string, SceneGroup>;
   /** The names a warning gives the elements a frame would run over. */
   readonly names: ReadonlyMap<ElementId, string>;
+  /**
+   * The host's chrome over the canvas when the drag started, in pixels from the container's top
+   * left: it stays put while the drag runs, and reading it on every move would force a layout.
+   */
+  readonly chrome: readonly ScreenBox[];
+}
+
+interface ScreenBox {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
 }
 
 const KIND_WORDS: Readonly<Record<string, string>> = {
@@ -140,6 +157,50 @@ export default class FramePreview {
       boundaryLooks: new Map(scene.boundaries.map((boundary) => [boundary.id, boundary])),
       groupLooks: new Map(scene.groups.map((group) => [group.key, group])),
       names: new Map(scene.elements.map((element) => [element.id, element.name])),
+      chrome: this.chromeOverCanvas(),
+    };
+  }
+
+  /**
+   * The breadcrumb and the shell's islands (what it marks `data-chrome` in its root) that show over
+   * the canvas: a warning chip under them would be hidden, since HTML draws over the canvas.
+   */
+  private chromeOverCanvas(): ScreenBox[] {
+    const container = this.canvas.getContainer();
+    const bounds = container.getBoundingClientRect();
+    const root = container.closest(".cd-shell");
+    const candidates = [
+      container.querySelector(`nav.${BREADCRUMBS_CLASS}`),
+      ...(root ? root.querySelectorAll("[data-chrome]") : []),
+    ];
+    const chrome: ScreenBox[] = [];
+    for (const node of candidates) {
+      if (!(node instanceof HTMLElement) || node.contains(container) || !isShown(node)) continue;
+      const box = node.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) continue;
+      chrome.push({
+        left: box.left - bounds.left - CHROME_GAP,
+        top: box.top - bounds.top - CHROME_GAP,
+        right: box.right - bounds.left + CHROME_GAP,
+        bottom: box.bottom - bounds.top + CHROME_GAP,
+      });
+    }
+    return chrome;
+  }
+
+  /** The chrome and the visible canvas in diagram units at the current zoom and scroll. */
+  private chipSurroundings(base: DragBase): ChipSurroundings | undefined {
+    const { width, height } = this.canvas.getSize();
+    if (!(width > 0 && height > 0)) return undefined;
+    const { x, y, scale } = this.canvas.viewbox();
+    return {
+      visible: { x, y, width: width / scale, height: height / scale },
+      chrome: base.chrome.map((box) => ({
+        x: x + box.left / scale,
+        y: y + box.top / scale,
+        width: (box.right - box.left) / scale,
+        height: (box.bottom - box.top) / scale,
+      })),
     };
   }
 
@@ -228,6 +289,7 @@ export default class FramePreview {
     clearChildren(layer);
     const stale = new Set<string>();
     const strayedInto = (frame: ViewFrame) => frame.intruders.some((id) => dragged.has(id));
+    const surroundings = this.chipSurroundings(base);
     for (const [id, frame] of frames.boundaries) {
       const before = base.boundaries.get(id);
       if (before && sameBox(before, frame.box) && !strayedInto(frame)) continue;
@@ -238,7 +300,12 @@ export default class FramePreview {
       append(item, frameNode(frame, BOUNDARY_RADIUS, { "data-boundary": id }));
       const look = base.boundaryLooks.get(id);
       if (look) appendBoundaryCaption(item, look, frame.box);
-      if (warns) appendWarningChip(item, frame.box, overlapText(frame.intruders.map(nameOf)));
+      if (warns) {
+        appendWarningChip(item, frame.box, overlapText(frame.intruders.map(nameOf)), {
+          roomInside: true,
+          surroundings,
+        });
+      }
       if (!carried.has(id)) stale.add(boundaryCanvasId(id));
     }
     for (const [key, frame] of frames.groups) {
@@ -249,7 +316,9 @@ export default class FramePreview {
       const look = base.groupLooks.get(key);
       if (look) appendGroupCaption(item, look, frame.box);
       if (frame.intruders.length > 0) {
-        appendWarningChip(item, frame.box, overlapText(frame.intruders.map(nameOf)));
+        appendWarningChip(item, frame.box, overlapText(frame.intruders.map(nameOf)), {
+          surroundings,
+        });
       }
       stale.add(groupSelector(key));
     }
@@ -307,6 +376,15 @@ const GROUP_SELECTOR_PREFIX = "group:";
 
 function groupSelector(key: string): string {
   return `${GROUP_SELECTOR_PREFIX}[data-group="${CSS.escape(key)}"]`;
+}
+
+function isShown(element: HTMLElement): boolean {
+  if (element.hidden) return false;
+  if (typeof element.checkVisibility === "function") {
+    return element.checkVisibility({ visibilityProperty: true });
+  }
+  const style = getComputedStyle(element);
+  return style.display !== "none" && style.visibility !== "hidden";
 }
 
 function frameNode(

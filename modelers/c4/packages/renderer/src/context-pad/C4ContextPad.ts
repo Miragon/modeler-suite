@@ -18,6 +18,16 @@ const ROW_CLASS = "c4-pad-row";
 /** Container pixels kept between an element's pad and the canvas's top and bottom edges. */
 const EDGE_GAP = 8;
 
+/**
+ * Fired when the pad closes while one of its entries has the focus, with that entry's action:
+ * the pad that opens in its place gives the focus back (`PadKeyboard`).
+ */
+export const PAD_FOCUS_DROPPED_EVENT = "c4.contextPad.focusDropped";
+
+export interface PadFocusDroppedEvent {
+  readonly action: string;
+}
+
 /** Container pixels, as diagram-js places the pad. */
 interface Position {
   readonly left: number;
@@ -31,7 +41,10 @@ interface Rect extends Position {
 
 interface StockContextPad {
   _getPosition(target: ContextPadTarget): Position;
+  _createContainer(): HTMLElement;
   _current?: { readonly html: HTMLElement } | null;
+  _canvas: Canvas;
+  _eventBus: EventBus;
 }
 
 const stock = ContextPad.prototype as unknown as StockContextPad;
@@ -60,7 +73,43 @@ export default class C4ContextPad extends ContextPad {
     this.lookup = lookup;
   }
 
+  /**
+   * Right after the canvas `<svg>`: Tab from the canvas reaches the pad of the selection first,
+   * before the breadcrumb and the chrome after the diagram (guide §5.14).
+   */
+  _createContainer(): HTMLElement {
+    const container = stock._createContainer.call(this);
+    const self = this as unknown as StockContextPad;
+    self._canvas.getContainer().querySelector(":scope > svg")?.after(container);
+    return container;
+  }
+
+  override close(): void {
+    const self = this as unknown as StockContextPad;
+    const html = self._current?.html;
+    const focused = html?.ownerDocument.activeElement;
+    const action =
+      focused && html?.contains(focused)
+        ? focused.closest(".entry")?.getAttribute("data-action")
+        : undefined;
+    super.close();
+    if (action) {
+      const dropped: PadFocusDroppedEvent = { action };
+      self._eventBus.fire(PAD_FOCUS_DROPPED_EVENT, dropped);
+    }
+  }
+
   _getPosition(target: ContextPadTarget): Position {
+    const position = this.positionOf(target);
+    const html = (this as unknown as StockContextPad)._current?.html;
+    html?.setAttribute(
+      "aria-orientation",
+      html.classList.contains(ROW_CLASS) ? "horizontal" : "vertical",
+    );
+    return position;
+  }
+
+  private positionOf(target: ContextPadTarget): Position {
     if (Array.isArray(target)) return stock._getPosition.call(this, target);
     if (!isRelationshipConnection(target)) {
       return this.besideOnCanvas(target, stock._getPosition.call(this, target));

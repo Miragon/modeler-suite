@@ -4,6 +4,7 @@ import { append, appendBand, svgElement } from "../draw/svg.js";
 import type { SceneBoundary, SceneGroup } from "../scene/types.js";
 import { boundaryTextLayout, groupTextLayout } from "../text/elementTextLayout.js";
 import { canvasFont, textWidth } from "../text/textMetrics.js";
+import { chipPlace, type ChipSurroundings } from "./chipPlace.js";
 
 export const FRAME_CAPTION_CLASS = "c4-frame-preview-caption";
 export const FRAME_WARNING_CHIP_CLASS = "c4-frame-preview-chip";
@@ -43,12 +44,22 @@ export function overlapText(names: readonly string[]): string {
 
 /**
  * The warning's words and icon on a chip above the frame's top left (guide §3.3: a status never
- * shows by its colour alone): Lucide `triangle-alert` and what the frame would run over.
+ * shows by its colour alone): Lucide `triangle-alert` and what the frame would run over. With
+ * `surroundings`, clear of the host's chrome (`chipPlace`).
  */
-export function appendWarningChip(parent: SVGElement, frame: Box, text: string): SVGGElement {
+export function appendWarningChip(
+  parent: SVGElement,
+  frame: Box,
+  text: string,
+  options: { roomInside?: boolean; surroundings?: ChipSurroundings | undefined } = {},
+): SVGGElement {
   const width = CHIP_PADDING + CHIP_ICON + CHIP_GAP + textWidth(text, CHIP_FONT) + CHIP_PADDING;
-  const x = frame.x;
-  const y = frame.y - CHIP_HEIGHT - CHIP_OFFSET;
+  const { x, y } = chipPlace(
+    { box: frame, roomInside: options.roomInside === true },
+    { width, height: CHIP_HEIGHT },
+    CHIP_OFFSET,
+    options.surroundings,
+  );
   const chip = append(parent, svgElement("g", { class: FRAME_WARNING_CHIP_CLASS }));
   append(
     chip,

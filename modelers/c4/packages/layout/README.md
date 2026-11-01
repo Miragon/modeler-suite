@@ -11,7 +11,8 @@ of boundaries and groups, the label boxes of relationships and where the title g
 A view without stored positions is laid out with [`@dagrejs/dagre`](https://github.com/dagrejs/dagre)
 (MIT), as Structurizr's own automatic layout in the browser is, honouring the view's `autoLayout`.
 A view with stored positions keeps them, and an element without one goes into the first free slot
-next to its first placed neighbour. The result is deterministic, and it does not depend on any
+next to its first placed neighbour, preferring one where its lines to its neighbours run clear of
+the other boxes and labels. The result is deterministic, and it does not depend on any
 text: a rename or a new description never moves anything.
 
 Its dependencies are [`@miragon/c4-schema-model`](../schema-model) and `@dagrejs/dagre` (pinned
@@ -85,7 +86,14 @@ geometry.mode; // "auto", "stored" or "mixed"
   view changes no line.
 - With stored positions: they are used as they are. Each element without one, in document order,
   goes right of, below, left of or above its first placed neighbour, 80 apart on an 8-unit grid,
-  else into a free cell of a row below everything; never on top of another box.
+  else into a free cell of a row below everything; never on top of another box. A place in the
+  clear comes first: the straight lines to the placed neighbours cross no other box and no label
+  (8 units off), and no line or label already drawn runs over the new box. Where no slot beside a
+  neighbour is clear, the clear place nearest the neighbour wins (beside a member of its frame, or
+  on a 16-unit grid around the neighbour, with a label's room to it); only where none exists does
+  the first free slot stay. A frame never grows over a box or frame it did not reach, and a clear
+  place whose frames keep 40 units from what they do not hold comes before one that grows a frame
+  up to a stranger.
 - Boundaries and groups are never stored: a frame is its members' union plus 32 of padding and a
   40-high caption band at the bottom, nested frames grow around inner ones, and the boundary of an
   empty container view is 320 × 200.

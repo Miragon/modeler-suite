@@ -178,7 +178,8 @@ export default class Reconciler {
    * The drawing order a fresh render has (SPEC 1.5 step 2): kept elements stay where they were
    * and new ones go in at their place, but an edit or a switch can change the order of kept ones
    * (two relationships shown again in another order). Their graphics move in place, so nothing
-   * is removed, deselected or redrawn.
+   * is removed, deselected or redrawn; a relationship's label (its secondary graphics, in the
+   * labels layer) moves with it, so the labels keep the order of their lines.
    */
   private restoreOrder(root: Root, desired: readonly { readonly canvasId: string }[]): void {
     const wanted = desired.flatMap(({ canvasId }) => this.registered(canvasId) ?? []);
@@ -193,6 +194,8 @@ export default class Reconciler {
     for (const element of [...wanted, ...others]) {
       const group = this.elementRegistry.getGraphics(element)?.parentNode;
       if (group && group.parentNode === container) container.append(group);
+      const label = this.elementRegistry.getGraphics(element, true) as SVGElement | undefined;
+      label?.parentNode?.append(label);
     }
   }
 

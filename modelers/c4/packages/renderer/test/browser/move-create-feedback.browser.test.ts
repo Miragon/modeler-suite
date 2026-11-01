@@ -469,6 +469,77 @@ describe("a keyboard create lands clear of everything (P2.6)", () => {
     }
   });
 
+  /**
+   * Makes the host's wrapper a stand-in for the shell's root with its inspector, still closed: the
+   * selection a keyboard create makes opens it on the right, 12 + 288 px wide.
+   */
+  function inspectorAround(page: Mounted): HTMLElement {
+    const root = page.host.parentElement!;
+    root.classList.add("cd-shell");
+    const inspector = document.createElement("aside");
+    inspector.setAttribute("data-chrome", "inspector");
+    inspector.style.cssText = "position:absolute;top:64px;right:12px;width:288px;bottom:64px";
+    inspector.hidden = true;
+    root.append(inspector);
+    return inspector;
+  }
+
+  /**
+   * Where the inspector will stand, with the fit's 24 px beside it, in client pixels; 2 px more for
+   * the outline's stroke and a position rounded to whole units.
+   */
+  function inspectorStrip(page: Mounted): { left: number } {
+    const bounds = container(page).getBoundingClientRect();
+    return { left: bounds.right - 12 - 288 - 24 + 2 };
+  }
+
+  it("keeps out from under the inspector its selection opens, so the name editor shows", async () => {
+    const page = await mountModeler();
+    page.modeler.views.open("Containers", { cause: "user" });
+    inspectorAround(page);
+    for (const action of ["create.container", "create.container", "create.person"]) {
+      const id = keyboardCreate(page, action);
+      const shape = container(page).querySelector(`[data-element-id="${id}"]`)!;
+      const box = shape.getBoundingClientRect();
+      expect(box.right, `${action} ${id}`).toBeLessThanOrEqual(inspectorStrip(page).left);
+    }
+  });
+
+  it("puts the first element of an empty view where the hint stood, an inspector or not", async () => {
+    const page = await mountModeler(BLANK);
+    inspectorAround(page);
+    const canvas = service<Canvas>(page.modeler, "canvas");
+    const viewbox = canvas.viewbox();
+    const id = keyboardCreate(page, "create.softwareSystem");
+    const box = scene(page).boxes.get(id)!;
+    expect(box.x + box.width / 2).toBeCloseTo(viewbox.x + viewbox.width / 2, 0);
+    expect(box.y + box.height / 2).toBeCloseTo(viewbox.y + viewbox.height / 2, 0);
+    expect(canvas.viewbox()).toMatchObject({ x: viewbox.x, y: viewbox.y, scale: viewbox.scale });
+    const second = container(page)
+      .querySelector(`[data-element-id="${keyboardCreate(page, "create.softwareSystem")}"]`)!
+      .getBoundingClientRect();
+    expect(second.right).toBeLessThanOrEqual(inspectorStrip(page).left);
+  });
+
+  it("keeps above the bottom sheet the inspector becomes in a narrow window", async () => {
+    const page = await mountModeler();
+    const root = page.host.parentElement!;
+    root.style.width = "700px";
+    service<Canvas>(page.modeler, "canvas").resized();
+    page.modeler.views.open("Containers", { cause: "user" });
+    inspectorAround(page);
+    const bounds = container(page).getBoundingClientRect();
+    // Guide §5.11: up to 45 % of the container high, 12 px from its bottom.
+    const sheetTop = bounds.bottom - 12 - 0.45 * bounds.height;
+    for (const action of ["create.container", "create.person"]) {
+      const id = keyboardCreate(page, action);
+      const box = container(page)
+        .querySelector(`[data-element-id="${id}"]`)!
+        .getBoundingClientRect();
+      expect(box.bottom, `${action} ${id}`).toBeLessThanOrEqual(sheetTop);
+    }
+  });
+
   it("lands in the visible canvas, the centre when it is free", async () => {
     const page = await mountModeler(BLANK);
     const canvas = service<Canvas>(page.modeler, "canvas");

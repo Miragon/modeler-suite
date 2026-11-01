@@ -78,6 +78,34 @@ export function dockOnBox(box: Box, target: Point): Point {
   return { x: middle.x + dx * scale, y: middle.y + dy * scale };
 }
 
+/**
+ * Whether the segment from `from` to `to` runs through `box` widened by `clearance` on every side;
+ * a segment that only touches the widened box's edge does not.
+ */
+export function segmentCrossesBox(from: Point, to: Point, box: Box, clearance = 0): boolean {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  let enter = 0;
+  let leave = 1;
+  const sides: readonly (readonly [number, number])[] = [
+    [-dx, from.x - (box.x - clearance)],
+    [dx, right(box) + clearance - from.x],
+    [-dy, from.y - (box.y - clearance)],
+    [dy, bottom(box) + clearance - from.y],
+  ];
+  for (const [direction, room] of sides) {
+    if (direction === 0) {
+      if (room <= 0) return false;
+      continue;
+    }
+    const at = room / direction;
+    if (direction < 0) enter = Math.max(enter, at);
+    else leave = Math.min(leave, at);
+    if (enter >= leave) return false;
+  }
+  return true;
+}
+
 export function pointAlong(points: readonly Point[], fraction: number): Point {
   const first = points[0];
   if (!first) return { x: 0, y: 0 };

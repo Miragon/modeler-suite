@@ -233,6 +233,159 @@ describe("placeUnplaced", () => {
     }
   });
 
+  describe("in a crowded view", () => {
+    // The bookshop's container view: a column of three containers in their system's boundary,
+    // the customer above it, two external systems either side, so the boundary grows downwards only.
+    const crowded = (unplaced: ElementId): ViewSpec => ({
+      elements: ["customer", "webApp", "api", "database", "payments", "mail", unplaced],
+      relationships: [
+        ["customer", "webApp"],
+        ["webApp", "api"],
+        ["api", "database"],
+        ["mail", "customer"],
+        ["api", "payments"],
+        ["api", "mail"],
+      ],
+      boundaries: [
+        { elementId: "shop", members: ["webApp", "api", "database", unplaced], depth: 0 },
+      ],
+      sizes: { customer: PERSON },
+    });
+    const pinned: Record<ElementId, Box> = {
+      customer: at(572, 0, PERSON),
+      webApp: at(560, 360),
+      api: at(560, 640),
+      database: at(560, 920),
+      payments: at(0, 640),
+      mail: at(1120, 640),
+    };
+    const connected = (spec: ViewSpec, source: ElementId, unplaced: ElementId): ViewSpec => ({
+      ...spec,
+      relationships: [...(spec.relationships ?? []), [source, unplaced]],
+    });
+    const drawn = (spec: ViewSpec, boxes: Map<ElementId, Box>) =>
+      layoutView(layoutInput({ ...spec, stored: Object.fromEntries(boxes) }));
+
+    it("takes the clear place nearest the neighbour where the first free slot's line crosses a box", () => {
+      const spec = connected(crowded("search"), "api", "search");
+      const result = placed(spec, pinned, ["search"]);
+      const search = result.get("search") as Box;
+      const view = drawn(spec, result);
+      const api = result.get("api") as Box;
+      for (const [id, box] of result) {
+        if (id === "api" || id === "search") continue;
+        expect(lineCrosses(api, search, box), `the line runs through ${id}`).toBe(false);
+      }
+      for (const [key, label] of view.labelBoxes) {
+        if (key === "api->search") continue;
+        expect(lineCrosses(api, search, label), `the line runs through ${key}'s label`).toBe(false);
+      }
+      const shop = view.boundaries.get("shop") as Box;
+      for (const stranger of ["customer", "payments", "mail"]) {
+        expect(overlap(shop, result.get(stranger) as Box), `the frame reaches ${stranger}`).toBe(
+          false,
+        );
+      }
+      expect(search).toEqual(at(848, 880));
+    });
+
+    it("keeps a new box off a line drawn between two others", () => {
+      const spec = connected({ ...crowded("reader"), boundaries: [] }, "webApp", "reader");
+      const result = placed(spec, pinned, ["reader"]);
+      const reader = result.get("reader") as Box;
+      const customer = pinned.customer as Box;
+      const mail = pinned.mail as Box;
+      expect(lineCrosses(mail, customer, reader)).toBe(false);
+      expect(reader.y).toBe(360);
+    });
+
+    it("falls back to the first free slot where no place is in the clear", () => {
+      const spec = connected(crowded("search"), "webApp", "search");
+      expect(placed(spec, pinned, ["search"]).get("search")).toEqual(at(560, 1160));
+    });
+
+    // The bookshop's API component view: the API boundary inside the bookshop's, the web app
+    // above it and the database below it inside the bookshop only, two external systems below.
+    const components: ViewSpec = {
+      elements: [
+        "webApp",
+        "catalogue",
+        "orders",
+        "notifications",
+        "database",
+        "payments",
+        "mail",
+        "added",
+      ],
+      relationships: [
+        ["webApp", "catalogue"],
+        ["webApp", "orders"],
+        ["catalogue", "database"],
+        ["orders", "database"],
+        ["orders", "notifications"],
+        ["orders", "payments"],
+        ["notifications", "mail"],
+      ],
+      boundaries: [
+        { elementId: "bookshop", members: ["webApp", "database"], depth: 0 },
+        {
+          elementId: "api",
+          members: ["catalogue", "orders", "notifications", "added"],
+          parentId: "bookshop",
+          depth: 1,
+        },
+      ],
+    };
+    const componentBoxes: Record<ElementId, Box> = {
+      webApp: at(320, 0),
+      catalogue: at(80, 320),
+      orders: at(560, 320),
+      notifications: at(1000, 320),
+      database: at(320, 704),
+      payments: at(560, 1032),
+      mail: at(1000, 1032),
+    };
+
+    it("keeps a frame it grows clear of what the frame does not hold where a clear place allows it", () => {
+      for (const source of ["webApp", "database", "payments", "mail"]) {
+        const spec = connected(components, source, "added");
+        const result = placed(spec, componentBoxes, ["added"]);
+        const view = drawn(spec, result);
+        const added = result.get("added") as Box;
+        const from = result.get(source) as Box;
+        for (const [id, box] of result) {
+          if (id === source || id === "added") continue;
+          expect(lineCrosses(from, added, box), `${source}: the line runs through ${id}`).toBe(
+            false,
+          );
+        }
+        const frames: [string, readonly ElementId[]][] = [
+          ["api", ["webApp", "database", "payments", "mail"]],
+          ["bookshop", ["payments", "mail"]],
+        ];
+        for (const [frameId, strangers] of frames) {
+          const frame = view.boundaries.get(frameId) as Box;
+          for (const stranger of strangers) {
+            expect(
+              gapBetween(frame, result.get(stranger) as Box),
+              `${source}: the ${frameId} frame's room from ${stranger}`,
+            ).toBeGreaterThanOrEqual(VERTICAL_GAP / 2);
+          }
+        }
+      }
+    });
+
+    it("lets a frame grow up to a stranger where only that keeps the line in the clear", () => {
+      const spec = connected(crowded("search"), "api", "search");
+      const result = placed(spec, pinned, ["search"]);
+      const shop = drawn(spec, result).boundaries.get("shop") as Box;
+      expect(gapBetween(shop, pinned.mail as Box)).toBe(0);
+      expect(
+        lineCrosses(pinned.api as Box, result.get("search") as Box, pinned.database as Box),
+      ).toBe(false);
+    });
+  });
+
   it("is deterministic", () => {
     for (let seed = 1; seed <= 20; seed++) {
       const { spec, boxes, unplaced } = randomPinnedView(seed);
@@ -240,6 +393,33 @@ describe("placeUnplaced", () => {
     }
   });
 });
+
+/** The distance between two boxes, 0 where they touch or overlap. */
+function gapBetween(first: Box, second: Box): number {
+  const across = Math.max(
+    second.x - (first.x + first.width),
+    first.x - (second.x + second.width),
+    0,
+  );
+  const along = Math.max(
+    second.y - (first.y + first.height),
+    first.y - (second.y + second.height),
+    0,
+  );
+  return Math.hypot(across, along);
+}
+
+/** Whether the straight line between the centres of `from` and `to` runs through `box`. */
+function lineCrosses(from: Box, to: Box, box: Box): boolean {
+  const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
+  const end = { x: to.x + to.width / 2, y: to.y + to.height / 2 };
+  for (let step = 1; step < 400; step++) {
+    const x = start.x + ((end.x - start.x) * step) / 400;
+    const y = start.y + ((end.y - start.y) * step) / 400;
+    if (x > box.x && x < box.x + box.width && y > box.y && y < box.y + box.height) return true;
+  }
+  return false;
+}
 
 /** A pinned view on a loose grid with gaps, and a few elements the text added since. */
 function randomPinnedView(seed: number): {

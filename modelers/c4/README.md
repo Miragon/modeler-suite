@@ -39,7 +39,7 @@ not affiliated with or endorsed by Structurizr Limited.
   added in the text, with the next change in the view), so nothing jumps. A view without positions
   is laid out automatically.
 - It deletes with care. Delete removes an element from this view, or from the model when no other
-  view shows it, and the web app says which it was; Delete from model (Shift+Delete) asks first
+  view shows it, and both apps say which it was; Delete from model (Shift+Delete) asks first
   when the deletion reaches further. Every change is one undo step.
 
 ## The file
@@ -120,6 +120,14 @@ On the focused canvas, next to the shell's zoom and fit keys:
 | Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, Ctrl+Y | undo, redo (in VS Code, the editor's own undo and redo)              |
 | ?                                    | keyboard shortcuts (web app)                                         |
 | Cmd/Ctrl+O, Cmd/Ctrl+S               | open a file, export the `.c4` file (web app)                         |
+
+In the context pad of the selection, which Tab reaches from the canvas:
+
+| Key               | Action                                        |
+| ----------------- | --------------------------------------------- |
+| Arrows, Home, End | move to the previous, next, first, last entry |
+| Enter, Space      | run the entry                                 |
+| Esc               | back to the canvas, the selection kept        |
 
 ## Getting started
 

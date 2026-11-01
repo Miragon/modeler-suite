@@ -6,6 +6,7 @@ import geistLatinExt from "@fontsource-variable/geist/files/geist-latin-ext-wght
 // inspector's and the dialogs' content) comes with its module, before the shell's, which is last.
 import {
   COLORS,
+  DELETE_DONE_EVENT,
   EDIT_NOTICE_EVENT,
   EDIT_REFUSED_EVENT,
   LAYOUT_APPLIED_EVENT,
@@ -19,6 +20,7 @@ import {
   insetsClearOfBreadcrumb,
   mountInspector,
   type CollaborativeDiagram,
+  type DeleteDoneEvent,
   type EditNoticeEvent,
   type EditRefusedEvent,
   type LabelEditing,
@@ -46,7 +48,13 @@ import {
   type TypedMessage,
 } from "@miragon/modeler-shell/vscode/webview";
 import type { WebviewCommand, WebviewToHost } from "../protocol.js";
-import { NO_PARENT_VIEW_MESSAGE, noticeMessages, viewMissingMessage } from "./messages.js";
+import {
+  NO_PARENT_VIEW_MESSAGE,
+  deleteDoneNotification,
+  noticeMessages,
+  refusalNotification,
+  viewMissingMessage,
+} from "./messages.js";
 import { connectViewportMemory, storedViewport } from "./state.js";
 
 interface VsCodeApi {
@@ -171,8 +179,12 @@ diagram.on(LAYOUT_APPLIED_EVENT, () => {
 });
 // No toasts in the webview (guide §13.5): the host shows them as its notifications. The label
 // editor, the inspector and the dialog forms show their own refusals at the field.
-diagram.on<EditRefusedEvent>(EDIT_REFUSED_EVENT, ({ message }) => {
-  if (!destroyed) post({ type: "error", message });
+diagram.on<EditRefusedEvent>(EDIT_REFUSED_EVENT, (event) => {
+  if (!destroyed) post(refusalNotification(event));
+});
+diagram.on<DeleteDoneEvent>(DELETE_DONE_EVENT, (event) => {
+  const notification = destroyed ? undefined : deleteDoneNotification(event);
+  if (notification) post(notification);
 });
 const noticeMessage = noticeMessages();
 diagram.on<EditNoticeEvent>(EDIT_NOTICE_EVENT, ({ notice }) => {

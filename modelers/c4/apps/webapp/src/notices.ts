@@ -1,5 +1,5 @@
 import type { EditNotice } from "@miragon/c4-dsl";
-import type { DeleteDoneEvent, DeletedItems } from "@miragon/c4-renderer";
+import type { EditRefusedEvent } from "@miragon/c4-renderer";
 
 /** What an edit did besides what was asked (`c4.edit.notice`), as the info toast says it (guide §2). */
 const NOTICE_TEXTS: Readonly<Record<EditNotice, string>> = {
@@ -15,43 +15,13 @@ export function noticeText(notice: EditNotice): string {
   return NOTICE_TEXTS[notice];
 }
 
-function count(items: DeletedItems): number {
-  return items.elements.length + items.relationships.length;
-}
-
-function counted(amount: number, noun: string): string {
-  return `${amount} ${noun}${amount === 1 ? "" : "s"}`;
-}
-
-/** One item by its name, more by their number per kind: "2 elements and 1 relationship". */
-function described(items: DeletedItems): string {
-  const [element] = items.elements;
-  const [relationship] = items.relationships;
-  if (count(items) === 1) {
-    return element ?? `the relationship ${relationship ?? ""}`;
-  }
-  const parts = [
-    items.elements.length > 0 ? counted(items.elements.length, "element") : undefined,
-    items.relationships.length > 0
-      ? counted(items.relationships.length, "relationship")
-      : undefined,
-  ];
-  return parts.filter((part) => part !== undefined).join(" and ");
-}
-
 /**
- * What Delete did (`c4.delete.done`), as the info toast says it: from the model when no other view
- * showed it, else from this view only (SPEC 5.4). Undefined when it took no selected item.
+ * A refused edit as its toast (guide §9): info where it explains a rule the edit would break,
+ * danger where the edit went wrong, as for a refusal that names no level.
  */
-export function deleteDoneText({ fromModel, fromView }: DeleteDoneEvent): string | undefined {
-  const deleted = count(fromModel);
-  const removed = count(fromView);
-  if (deleted === 0 && removed === 0) return undefined;
-  if (deleted > 0 && removed > 0) {
-    return `Deleted ${described(fromModel)} from the model and removed ${described(fromView)} from this view.`;
-  }
-  if (deleted > 0) {
-    return `Deleted ${described(fromModel)} from the model. No other view showed ${deleted === 1 ? "it" : "them"}.`;
-  }
-  return `Removed ${described(fromView)} from this view. ${removed === 1 ? "It stays" : "They stay"} in the model.`;
+export function refusalToast({ message, level }: EditRefusedEvent): {
+  readonly status: "info" | "danger";
+  readonly text: string;
+} {
+  return { status: level ?? "danger", text: message };
 }

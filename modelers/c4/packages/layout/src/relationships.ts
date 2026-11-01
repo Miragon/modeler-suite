@@ -156,7 +156,8 @@ function placedLabels(
   return labelBoxes;
 }
 
-function dockedPath(source: Box, destination: Box, route: readonly Point[]): Point[] {
+/** The points a line is drawn through: from the source's outline, along its route, to the destination's. */
+export function dockedPath(source: Box, destination: Box, route: readonly Point[]): Point[] {
   const first = route[0] ?? centre(destination);
   const last = route[route.length - 1] ?? centre(source);
   return [dockOnBox(source, first), ...route, dockOnBox(destination, last)];

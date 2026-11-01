@@ -355,7 +355,7 @@ describe("a relationship's label (SPEC 6.3)", () => {
     expect(reach).toMatchObject({ width: 240, height: 72 });
     expect(inside(reach, layout.backing!, 0.01)).toBe(true);
     const drawing = mountDrawing(scene({ elements: [source, destination], relationships: [item] }));
-    const visual = drawing.visual(`rel:${item.canvasKey}`);
+    const visual = drawing.label(`rel:${item.canvasKey}`);
     const ground = drawnBox(visual.querySelector<SVGRectElement>("rect.c4-label-ground")!);
     for (const line of visual.querySelectorAll<SVGTextElement>("text")) {
       expect(inside(reach, drawnBox(line), 0.5), line.textContent!).toBe(true);
@@ -393,7 +393,7 @@ describe("a relationship's label (SPEC 6.3)", () => {
     const bare = relationship(source, destination);
     expect(relationshipLabelLayout(bare)).toMatchObject({ bands: [], backing: undefined });
     const drawing = mountDrawing(scene({ elements: [source, destination], relationships: [bare] }));
-    expect(drawing.visual(`rel:${bare.canvasKey}`).querySelector("rect, text")).toBeNull();
+    expect(drawing.label(`rel:${bare.canvasKey}`).querySelector("rect, text")).toBeNull();
   });
 });
 
@@ -406,10 +406,11 @@ describe("a band cut short names its whole text (P3.3)", () => {
       technology: "JSON over HTTPS",
     });
     const drawing = mountDrawing(scene({ elements: [verbose, other], relationships: [cut] }));
+    // A relationship's label, and so its bands, is its secondary graphics, in the labels layer.
     const titles = (canvasId: string) =>
-      [...drawing.registry.getGraphics(canvasId).querySelectorAll(".djs-hit.c4-cut-band")].map(
-        (hit) => hit.querySelector("title")?.textContent,
-      );
+      [drawing.registry.getGraphics(canvasId), drawing.registry.getGraphics(canvasId, true)]
+        .flatMap((gfx) => (gfx ? [...gfx.querySelectorAll(".djs-hit.c4-cut-band")] : []))
+        .map((hit) => hit.querySelector("title")?.textContent);
     expect(titles("verbose")).toEqual([LONG_DESCRIPTION]);
     expect(titles("other")).toEqual([]);
     expect(titles(`rel:${cut.canvasKey}`)).toEqual([LONG_DESCRIPTION]);

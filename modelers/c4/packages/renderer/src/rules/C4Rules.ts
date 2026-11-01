@@ -8,6 +8,7 @@ import type { ElementId, ShapeName, Size, ViewType, Workspace } from "@miragon/c
 import type DocumentStore from "../document/DocumentStore.js";
 import type { C4Engine } from "../engine/C4Engine.js";
 import { framedClosure } from "../modeling/closure.js";
+import { refusedEvent } from "../modeling/refusalLevel.js";
 import { boundaryCanvasId } from "../reconcile/Reconciler.js";
 import type { SceneNotation } from "../scene/notation.js";
 import {
@@ -187,14 +188,14 @@ export default class C4Rules extends RuleProvider {
     const from = source.c4.id;
     const to = target.c4.id;
     if (from === to) {
-      return { reason: "not-allowed", message: "An element can't have a relationship to itself." };
+      return refusedEvent("not-allowed", "An element can't have a relationship to itself.");
     }
     const { workspace } = this.injector.get<DocumentStore>("c4Document").current().parse;
     if (isAncestor(workspace, from, to) || isAncestor(workspace, to, from)) {
-      return {
-        reason: "not-allowed",
-        message: "Structurizr refuses a relationship between an element and its parent or child.",
-      };
+      return refusedEvent(
+        "not-allowed",
+        "Structurizr refuses a relationship between an element and its parent or child.",
+      );
     }
     const duplicate = workspace.relationships.find(
       (relationship) =>
@@ -203,12 +204,12 @@ export default class C4Rules extends RuleProvider {
         relationship.description === "",
     );
     if (!duplicate) return undefined;
-    return {
-      reason: "relationship-exists",
-      message: duplicate.implied
+    return refusedEvent(
+      "relationship-exists",
+      duplicate.implied
         ? "An implied relationship already connects these. Give the new one a description."
         : "These are already connected by a relationship without a description.",
-    };
+    );
   }
 
   /** The shapes plus what the boundaries among them frame, nested boundaries included. */

@@ -85,7 +85,8 @@ function boundaryFailures(drawing: MountedDrawing, id: string): string[] {
 /** A relationship: line and chevron 3:1 on the ground, the label 4.5:1 on its ground. */
 function relationshipFailures(drawing: MountedDrawing, key: string): string[] {
   const visual = drawing.visual(`rel:${key}`);
-  const ground = visual.querySelector(".c4-label-ground");
+  const label = drawing.label(`rel:${key}`);
+  const ground = label.querySelector(".c4-label-ground");
   const labelGround = ground ? paint(ground, "fill") : GROUND;
   return failures([
     ...[...visual.querySelectorAll(".c4-line, .c4-arrow")].map((line) =>
@@ -96,7 +97,7 @@ function relationshipFailures(drawing: MountedDrawing, key: string): string[] {
         NON_TEXT_CONTRAST,
       ),
     ),
-    ...[...visual.querySelectorAll("text")].map((text) =>
+    ...[...label.querySelectorAll("text")].map((text) =>
       pairBelow(`${key} "${text.textContent}"`, paint(text, "fill"), labelGround, TEXT_CONTRAST),
     ),
   ]);

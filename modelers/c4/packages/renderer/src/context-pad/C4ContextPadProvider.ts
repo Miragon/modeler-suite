@@ -25,6 +25,7 @@ import {
 import type { C4ModelingMethods, C4Views } from "../services.js";
 import type C4Append from "./C4Append.js";
 import { padEntryHtml, padPreviewEntryHtml, type PadIconName } from "./icons.js";
+import { KEYBOARD_ACTION } from "./PadKeyboard.js";
 
 interface ContextPadEntry {
   group: string;
@@ -59,7 +60,8 @@ const EDIT_ICONS: Readonly<Record<LabelField, PadIconName>> = {
  * remove from view and delete from model, by what is selected. No entry switches the view, and
  * none takes the element away but the two named so: the shell kit clicks every other entry and
  * needs the element again for the next (an append selects what it adds). A boundary has no pad, a
- * read-only canvas or view none at all.
+ * read-only canvas or view none at all. Every entry has a keyboard action for Enter and Space
+ * (`PadKeyboard`): Connect, a pointer gesture, opens Add relationship… from the element instead.
  */
 export default class C4ContextPadProvider {
   static $inject = ["eventBus", "contextPad", "connect", "canvas", "injector"];
@@ -108,13 +110,19 @@ export default class C4ContextPadProvider {
     const startConnect = this.focusingCanvas((event: Event) =>
       this.connect.start(event as MouseEvent, shape),
     );
+    const addRelationship = () =>
+      this.injector.get<C4Dialogs>("c4Dialogs", false)?.showAddRelationship(shape.c4.id);
     const entries: Entries = {
       ...this.appendEntries(shape),
       connect: {
         group: "edit",
         title: "Connect",
         html: padEntryHtml("workflow", { draggable: true }),
-        action: { click: startConnect, dragstart: startConnect },
+        action: {
+          click: startConnect,
+          dragstart: startConnect,
+          [KEYBOARD_ACTION]: addRelationship,
+        },
       },
     };
     if (editable("name")) entries["edit-name"] = this.editEntry(shape, "name");
@@ -148,6 +156,7 @@ export default class C4ContextPadProvider {
         action: {
           click: this.focusingCanvas(() => append.append(shape, entry)),
           dragstart: this.focusingCanvas((event) => append.startAppend(event, shape, entry)),
+          [KEYBOARD_ACTION]: () => append.append(shape, entry),
         },
       };
     }
@@ -173,52 +182,53 @@ export default class C4ContextPadProvider {
   }
 
   private editEntry(target: C4ElementShape | C4Connection, field: LabelField): ContextPadEntry {
+    const edit = () =>
+      this.injector.get<LabelEditing>("labelEditing", false)?.activate(target, field);
     return {
       group: "edit",
       title: EDIT_TITLES[field],
       html: padEntryHtml(EDIT_ICONS[field]),
-      action: {
-        click: () =>
-          this.injector.get<LabelEditing>("labelEditing", false)?.activate(target, field),
-      },
+      action: { click: edit, [KEYBOARD_ACTION]: edit },
     };
   }
 
   private removeEntry(ids: readonly string[], relationships: readonly string[]): ContextPadEntry {
+    const remove = () =>
+      this.injector.get<C4ModelingMethods>("modeling").removeFromView(ids, relationships);
     return {
       group: "delete",
       title: "Remove from view",
       html: padEntryHtml("eye-off"),
-      action: {
-        click: this.focusingCanvas(() =>
-          this.injector.get<C4ModelingMethods>("modeling").removeFromView(ids, relationships),
-        ),
-      },
+      action: { click: this.focusingCanvas(remove), [KEYBOARD_ACTION]: remove },
     };
   }
 
   private deleteEntry(ids: readonly string[], relationships: readonly string[]): ContextPadEntry {
+    const remove = () =>
+      this.injector.get<C4Dialogs>("c4Dialogs", false)?.deleteFromModel({ ids, relationships });
     return {
       group: "delete",
       title: "Delete from model…",
       html: padEntryHtml("trash-2", { danger: true }),
-      action: {
-        click: this.focusingCanvas(() =>
-          this.injector.get<C4Dialogs>("c4Dialogs", false)?.deleteFromModel({ ids, relationships }),
-        ),
-      },
+      action: { click: this.focusingCanvas(remove), [KEYBOARD_ACTION]: remove },
     };
   }
 
   /**
-   * The entries take no focus, so a click on one drops it to `<body>`, where Delete and Cmd/Ctrl+Z
-   * do nothing. Whatever the action focused itself (the confirmation dialog of a delete that
-   * reaches further) keeps the focus.
+   * A press on an entry focuses it, and an action that takes the entry away drops the focus to
+   * `<body>`: on either, Delete and Cmd/Ctrl+Z would do nothing. The canvas takes the focus before
+   * the action, so a confirmation the action opens gives it back to the canvas and not to the
+   * pressed entry. Whatever the action focused itself (that confirmation, an editor) keeps the
+   * focus. Enter and Space run the keyboard action instead, after which `PadKeyboard` places the
+   * focus.
    */
   private focusingCanvas(action: (event: Event) => void): (event: Event) => void {
     return (event) => {
+      const ownerDocument = this.canvas.getContainer().ownerDocument;
+      const pressed = ownerDocument.activeElement?.closest(".djs-context-pad");
+      if (pressed) focusCanvasWithoutRing(this.canvas);
       action(event);
-      const active = this.canvas.getContainer().ownerDocument.activeElement;
+      const active = ownerDocument.activeElement;
       if (active === null || active.localName === "body") focusCanvasWithoutRing(this.canvas);
     };
   }

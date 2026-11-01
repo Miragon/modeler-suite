@@ -7,13 +7,15 @@ import "./contextPad.css";
 import C4Append from "./C4Append.js";
 import C4ContextPad from "./C4ContextPad.js";
 import C4ContextPadProvider from "./C4ContextPadProvider.js";
+import PadKeyboard from "./PadKeyboard.js";
 
 export const contextPadModule: ModuleDeclaration = {
   __depends__: [ContextPadModule, ConnectModule, ConnectionPreviewModule, CreateModule],
-  __init__: ["c4ContextPadProvider", "c4Append"],
+  __init__: ["c4ContextPadProvider", "c4Append", "c4PadKeyboard"],
   contextPad: ["type", C4ContextPad],
   c4ContextPadProvider: ["type", C4ContextPadProvider],
   c4Append: ["type", C4Append],
+  c4PadKeyboard: ["type", PadKeyboard],
 };
 
 export { default as C4Append } from "./C4Append.js";

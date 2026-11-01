@@ -67,7 +67,9 @@
   stroke: var(--cd-ui-interaktion) !important;
 }
 
-.c4-container .djs-connection.selected .c4-label-ground {
+/* A label sits in the labels layer above every line (draw/RelationshipLabels.ts), in a group that
+   carries its relationship's markers. */
+.c4-container .c4-label.selected .c4-label-ground {
   stroke: var(--cd-ui-interaktion);
   stroke-width: 1.5px;
 }
@@ -116,9 +118,12 @@
 /* Bendpoints: a press anywhere on a line adds one (rules/C4SegmentInsert.ts), so the segment
    handle has nothing to offer, and the end handles would start a reconnect, which v1 refuses.
    diagram-js shows both on a hovered or selected line; a shown segment handle lies outside every
-   element, so the pointer on it would end the line's hover and the handle would blink. */
+   element, so the pointer on it would end the line's hover and the handle would blink. The bend
+   that fans a line out of its pair is the layout's, not the user's vertex, and its label sits on
+   it: its handle would cover the label's text (a press there still moves the bend). */
 .c4-container .djs-segment-dragger,
-.c4-container .djs-bendpoint.c4-bendpoint-end {
+.c4-container .djs-bendpoint.c4-bendpoint-end,
+.c4-container .djs-bendpoint.c4-bendpoint-fan {
   display: none !important;
 }
 

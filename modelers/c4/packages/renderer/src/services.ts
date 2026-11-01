@@ -63,9 +63,17 @@ export interface ViewChangedEvent {
   readonly cause: ViewChangeCause;
 }
 
+/**
+ * How the app shows a refusal (guide §9): `info` when the message explains a rule the edit would
+ * break, `danger` when an edit went wrong.
+ */
+export type RefusalLevel = "info" | "danger";
+
 export interface EditRefusedEvent {
   readonly reason: EditRefusal;
   readonly message: string;
+  /** `refusalLevel(reason)` where the renderer fires it; without it, the apps show `danger`. */
+  readonly level?: RefusalLevel;
 }
 
 export interface EditNoticeEvent {

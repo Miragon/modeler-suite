@@ -107,7 +107,7 @@ function drawingOutside(drawing: MountedDrawing, shown: Scene): string[] {
     check(
       item.canvasKey,
       labelReach(item.labelBox),
-      drawing.visual(`rel:${item.canvasKey}`).querySelectorAll("rect, text"),
+      drawing.label(`rel:${item.canvasKey}`).querySelectorAll("rect, text"),
     );
   }
   shown.groups.forEach((item) => {

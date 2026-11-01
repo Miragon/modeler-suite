@@ -53,6 +53,7 @@ import { framedClosure } from "./closure.js";
 import { deleteSummary } from "./deleteSummary.js";
 import { C4UnsupportedOperationError } from "./errors.js";
 import { centreOf, samePoints, verticesOutside, withoutFanBend } from "./geometry.js";
+import { refusedEvent } from "./refusalLevel.js";
 
 export const READ_ONLY_MESSAGE = "This diagram is read-only. Fix the file to edit it.";
 
@@ -531,10 +532,7 @@ export default class C4Modeling extends ModelingBase implements C4ModelingMethod
   }
 
   private refuse(refusal: Refusal): Refusal {
-    const event: EditRefusedEvent = {
-      reason: refusal.reason as EditRefusal,
-      message: refusal.message,
-    };
+    const event: EditRefusedEvent = refusedEvent(refusal.reason as EditRefusal, refusal.message);
     this.bus.fire(EDIT_REFUSED_EVENT, event);
     return refusal;
   }

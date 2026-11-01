@@ -10,6 +10,7 @@ import type DocumentStore from "../document/DocumentStore.js";
 import type SceneLookup from "../draw/SceneLookup.js";
 import { readOnlyReason } from "../inspector/fields.js";
 import { isKeyOnHiddenTarget } from "../keyboard/CanvasKeys.js";
+import { refusedEvent } from "../modeling/refusalLevel.js";
 import type { SceneNotation } from "../scene/notation.js";
 import {
   isElementShape,
@@ -281,10 +282,7 @@ export default class LabelEditing {
     }
     if (options.dropRefused) {
       this.close();
-      this.eventBus.fire(EDIT_REFUSED_EVENT, {
-        reason,
-        message: refusal,
-      } satisfies EditRefusedEvent);
+      this.eventBus.fire(EDIT_REFUSED_EVENT, refusedEvent(reason, refusal));
       return true;
     }
     this.showError(refusal);

@@ -2,6 +2,7 @@ import type EventBus from "diagram-js/lib/core/EventBus";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Injector } from "didi";
 import type { ElementId, ViewKey } from "@miragon/c4-schema-model";
+import { refusedEvent } from "../modeling/refusalLevel.js";
 import { isElementShape } from "../scene/types.js";
 import {
   EDIT_REFUSED_EVENT,
@@ -125,7 +126,7 @@ export default class C4Dialogs {
     }
     const chrome = this.chrome;
     if (!chrome) {
-      const refusal: EditRefusedEvent = { reason: "not-allowed", message: NO_CONFIRMATION_MESSAGE };
+      const refusal: EditRefusedEvent = refusedEvent("not-allowed", NO_CONFIRMATION_MESSAGE);
       this.eventBus.fire(EDIT_REFUSED_EVENT, refusal);
       return;
     }

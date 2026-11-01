@@ -261,9 +261,12 @@ describe("a refused connect", () => {
     for (const [from, to] of pairs) {
       const said = rules.connectRefusal(shape(from), shape(to));
       expect(said, `${from} -> ${to} is refused`).toBeDefined();
+      expect(said?.level, `${from} -> ${to} explains a rule`).toBe("info");
       refused = [];
       modeling.connect(shape(from), shape(to));
-      expect(refused, `${from} -> ${to}`).toEqual([said]);
+      expect(refused, `${from} -> ${to}`).toEqual([
+        { reason: said?.reason, message: said?.message },
+      ]);
     }
     expect(rules.connectRefusal(shape("partner"), shape("user"))).toBeUndefined();
   });
@@ -558,7 +561,9 @@ describe("hover and selection (guide §10.4)", () => {
     service<Selection>("selection").select(relationship);
     expect(getComputedStyle(line).stroke).toBe(INTERACTION);
     expect(getComputedStyle(arrow).stroke).toBe(INTERACTION);
-    const ground = graphics(relationship.id).querySelector(".c4-label-ground")!;
+    const ground = service<ElementRegistry>("elementRegistry")
+      .getGraphics(relationship.id, true)
+      .querySelector(".c4-label-ground")!;
     expect(getComputedStyle(ground).stroke).toBe(INTERACTION);
   });
 
@@ -588,7 +593,7 @@ describe("the label's ground is what lies behind it (guide §10.1, Label-Halo)",
 
   function groundOf(shown: ReturnType<typeof scene>): SVGRectElement {
     const drawing = mountDrawing(shown);
-    return drawing.visual("rel:customer->shop").querySelector<SVGRectElement>(".c4-label-ground")!;
+    return drawing.label("rel:customer->shop").querySelector<SVGRectElement>(".c4-label-ground")!;
   }
 
   it("the canvas's ground role by default", () => {

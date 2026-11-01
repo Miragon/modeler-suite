@@ -13,6 +13,7 @@ import {
   shapeOutline,
 } from "./drawItems.js";
 import { polylinePath } from "./lines.js";
+import type RelationshipLabels from "./RelationshipLabels.js";
 import type SceneLookup from "./SceneLookup.js";
 import { rectanglePath } from "./shapes.js";
 import { paintValue, ROLE_LIGHT, type FillRole, type Paint } from "./styles.js";
@@ -33,15 +34,17 @@ function contains(box: Box, point: Point): boolean {
 
 /**
  * Draws every element that carries a C4 reference from the current scene (SPEC 6): element shapes
- * and previews, boundaries and relationships. The group frames and the title are no diagram-js
- * elements; `C4Layers` draws them.
+ * and previews, boundaries and relationships, whose labels go into the labels layer
+ * (`RelationshipLabels`). The group frames and the title are no diagram-js elements; `C4Layers`
+ * draws them.
  */
 export default class C4Renderer extends BaseRenderer {
-  static $inject = ["eventBus", "c4SceneLookup"];
+  static $inject = ["eventBus", "c4SceneLookup", "c4RelationshipLabels"];
 
   constructor(
     eventBus: EventBus,
     private readonly lookup: SceneLookup,
+    private readonly labels: RelationshipLabels,
   ) {
     super(eventBus, RENDER_PRIORITY);
   }
@@ -71,6 +74,7 @@ export default class C4Renderer extends BaseRenderer {
       relationship,
       connection.waypoints ?? [],
       relationship && this.labelGround(relationship),
+      this.labels.visual(connection) ?? visuals,
     );
   }
 

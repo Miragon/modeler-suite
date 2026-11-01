@@ -35,3 +35,5 @@ export {
 export { default as C4ElementFactory, PREVIEW_PREFIX } from "./C4ElementFactory.js";
 export { default as C4Layouter } from "./C4Layouter.js";
 export { C4HistoryMismatchError, C4UnsupportedOperationError } from "./errors.js";
+export { deleteDoneText } from "./deleteDoneText.js";
+export { refusalLevel } from "./refusalLevel.js";

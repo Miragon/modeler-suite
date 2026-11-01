@@ -1518,12 +1518,16 @@ describe("the gestures of the template and the C4 modeling, on the real engine",
       ];
 
       expect(root.children.map((child: { id: string }) => child.id)).toEqual(order);
-      const drawn = [
-        ...service<Canvas>("canvas").getContainer().querySelectorAll("[data-element-id]"),
-      ]
+      const container = service<Canvas>("canvas").getContainer();
+      const drawn = [...container.querySelectorAll("[data-element-id]:not(.c4-label)")]
         .map((gfx) => gfx.getAttribute("data-element-id"))
         .filter((id) => id !== root.id);
       expect(drawn).toEqual(order);
+      // The labels lie in a layer of their own above every line, in the lines' order.
+      const labels = [...container.querySelectorAll(".layer-c4-labels > .c4-label")].map((gfx) =>
+        gfx.getAttribute("data-element-id"),
+      );
+      expect(labels).toEqual(order.filter((id) => id.startsWith("rel:")));
     });
 
     it("a connection drawn with diagram-js's connect is one relationship", () => {

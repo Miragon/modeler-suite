@@ -137,7 +137,7 @@ describe("the context pad of a relationship (SPEC 5.3)", () => {
         expect(overlaps(pad, screenBox(page, end)), `the pad covers ${end.id}`).toBe(false);
       }
       const label = service<Canvas>(page.modeler, "canvas")
-        .getGraphics(connection)
+        .getGraphics(connection, true)
         .querySelector(".c4-label-ground")!
         .getBoundingClientRect();
       expect(gap(pad, label)).toBeLessThanOrEqual(12);
@@ -149,7 +149,7 @@ describe("the context pad of a relationship (SPEC 5.3)", () => {
       const connection = shapeOf(page.modeler, "rel:shop->stock") as C4Connection;
       expect(
         service<Canvas>(page.modeler, "canvas")
-          .getGraphics(connection)
+          .getGraphics(connection, true)
           .querySelector(".c4-label-ground"),
       ).toBeNull();
       const pad = await openPad(page, connection.id);

@@ -80,6 +80,56 @@ function frameNearStranger(withMail: boolean): string {
 `;
 }
 
+/**
+ * The bookshop's container view, where the boundary may grow downwards only (the customer above
+ * it, an external system either side): the first free slot for a container appended from `api`
+ * is below `database`, and its line would run through `database` and its label.
+ */
+const CROWDED = `workspace "Crowded" {
+    model {
+        customer = person "Customer"
+        shop = softwareSystem "Shop" {
+            web = container "Web"
+            api = container "API"
+            database = container "Database"
+        }
+        payments = softwareSystem "Payments"
+        mail = softwareSystem "Mail"
+        customer -> web "Uses"
+        web -> api "Calls"
+        api -> database "Reads from"
+        api -> payments "Charges"
+        api -> mail "Sends"
+        mail -> customer "Notifies"
+    }
+    views {
+        container shop "Containers" {
+            include *
+            properties {
+                "c4modeler.element.api" "560,640"
+                "c4modeler.element.customer" "572,0"
+                "c4modeler.element.database" "560,920"
+                "c4modeler.element.mail" "1120,640"
+                "c4modeler.element.payments" "0,640"
+                "c4modeler.element.web" "560,360"
+            }
+        }
+    }
+}
+`;
+
+/** Whether the straight line between the centres of `from` and `to` runs through `box`. */
+function lineCrosses(from: Box, to: Box, box: Box): boolean {
+  const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
+  const end = { x: to.x + to.width / 2, y: to.y + to.height / 2 };
+  for (let step = 1; step < 400; step++) {
+    const x = start.x + ((end.x - start.x) * step) / 400;
+    const y = start.y + ((end.y - start.y) * step) / 400;
+    if (x > box.x && x < box.x + box.width && y > box.y && y < box.y + box.height) return true;
+  }
+  return false;
+}
+
 async function containersView(): Promise<Mounted> {
   const page = await mountModeler();
   page.modeler.views.open("Containers", { cause: "user" });
@@ -300,6 +350,35 @@ describe("the context pad appends a connected element (P7)", () => {
       .boundaries.find((boundary) => boundary.id === "shop")!.box;
     expect(contains(frame, boxOf(page, created!.id))).toBe(true);
     expect(overlap(frame, boxOf(page, "mail"))).toBe(false);
+  });
+
+  it("runs a click's line clear of the other boxes and labels in a crowded view", async () => {
+    const page = await mountModeler(CROWDED);
+    const ids = workspaceOf(page.modeler).elements.map((element) => element.id);
+    select(page.modeler, "api");
+    clickPadEntry(page, "append.container");
+    press(editor(page), "Escape");
+
+    const [created] = createdSince(page, ids);
+    expect(created).toMatchObject({ kind: "container", parentId: "shop" });
+    const scene = service<C4SceneService>(page.modeler, "c4Scene").current();
+    const box = boxOf(page, created!.id);
+    const api = boxOf(page, "api");
+    for (const other of ["customer", "web", "database", "payments", "mail"]) {
+      expect(lineCrosses(api, box, boxOf(page, other)), `through ${other}`).toBe(false);
+    }
+    for (const relationship of scene.relationships) {
+      if (relationship.destinationId === created!.id) continue;
+      expect(
+        lineCrosses(api, box, relationship.labelBox),
+        `through the label of ${relationship.canvasKey}`,
+      ).toBe(false);
+    }
+    const frame = scene.boundaries.find((boundary) => boundary.id === "shop")!.box;
+    expect(contains(frame, box)).toBe(true);
+    for (const stranger of ["customer", "payments", "mail"]) {
+      expect(overlap(frame, boxOf(page, stranger)), `the frame over ${stranger}`).toBe(false);
+    }
   });
 
   it("goes on from the name to the relationship's description on Enter, its key following the name", async () => {

@@ -250,7 +250,8 @@ test.describe("VS Code webview: the document both ways", () => {
     await replaceDocument(page, SCRIPTED);
     await canvasShows(page, SCRIPTED);
 
-    // Shown nowhere else, the system would go from the model, which its script may still use.
+    // Shown nowhere else, the system would go from the model, which its script may still use. The
+    // refusal explains that and the way around it, so it is no error (guide §9).
     await select(page, "shop");
     await page.keyboard.press("Delete");
 
@@ -258,7 +259,7 @@ test.describe("VS Code webview: the document both ways", () => {
       .poll(() => page.evaluate(() => window.vscodeHost!.host.notifications))
       .toEqual([
         {
-          severity: "error",
+          severity: "info",
           message: "A script or bulk statement on line 6 may use shop. Edit the text instead.",
         },
       ]);

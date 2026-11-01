@@ -28,6 +28,8 @@ export {
   C4UnsupportedOperationError,
   DOCUMENT_CHANGE,
   READ_ONLY_MESSAGE,
+  deleteDoneText,
+  refusalLevel,
   type C4ModelingConfig,
   type DocumentChangeContext,
 } from "./modeling/index.js";
@@ -72,6 +74,7 @@ export {
   type EditNoticeEvent,
   type EditRefusedEvent,
   type LayoutAppliedEvent,
+  type RefusalLevel,
   type ViewChangeCause,
   type ViewChangedEvent,
 } from "./services.js";

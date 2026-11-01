@@ -20,6 +20,7 @@ import {
   connectLegend,
   createCollaborativeModeler,
   createShortcutsDialog,
+  deleteDoneText,
   insetsClearOfBreadcrumb,
   mountInspector,
   type C4Engine,
@@ -57,7 +58,7 @@ import {
   pictureFileName,
 } from "./files.js";
 import { createLinkWriter, holdsLink, readLink, shareUrl } from "./link.js";
-import { deleteDoneText, noticeText } from "./notices.js";
+import { noticeText, refusalToast } from "./notices.js";
 import { openedWithProblemsText, problemItems } from "./problems.js";
 import {
   forgetStoredDocument,
@@ -464,8 +465,8 @@ diagram.on<ViewChangedEvent>(VIEW_CHANGED_EVENT, ({ view, previous, cause }) => 
 diagram.on("import.done", () => shell.menu.refresh());
 diagram.on("commandStack.changed", () => shell.menu.refresh());
 
-diagram.on<EditRefusedEvent>(EDIT_REFUSED_EVENT, ({ message }) => {
-  if (!destroyed) shell.toast({ status: "danger", text: message });
+diagram.on<EditRefusedEvent>(EDIT_REFUSED_EVENT, (event) => {
+  if (!destroyed) shell.toast(refusalToast(event));
 });
 diagram.on<EditNoticeEvent>(EDIT_NOTICE_EVENT, ({ notice }) => {
   if (!destroyed) shell.toast({ status: "info", text: noticeText(notice) });

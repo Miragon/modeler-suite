@@ -20,7 +20,7 @@ export function layoutView(input: LayoutInput): ViewGeometry {
   const tree = clusterTree(input.members);
   const elements = viewElements(input);
   const relationships = drawnRelationships(input, new Set(elements));
-  const context: PlacementContext = { tree, relationships };
+  const context: PlacementContext = { tree, relationships, vertices: input.stored.relationships };
   const boxes = new Map<string, Box>();
   const placed = new Set<ElementId>();
   for (const id of elements) {
@@ -88,6 +88,7 @@ export function placeUnplaced(
   placeItems(working, [...items, ...leaves], {
     tree,
     relationships: drawnRelationships(input, new Set([...elements, ...boxes.keys(), ...unplaced])),
+    vertices: input.stored.relationships,
   });
   for (const leaf of leaves) {
     if (!boxes.has(leaf.key)) working.delete(leaf.key);
