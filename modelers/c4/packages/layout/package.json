@@ -1,6 +1,6 @@
 {
   "name": "@miragon/c4-layout",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Lay out C4 views automatically and place new elements next to their neighbours, without the DOM.",
   "license": "MIT",
   "repository": {
@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@dagrejs/dagre": "3.1.1",
-    "@miragon/c4-schema-model": "0.0.0"
+    "@miragon/c4-schema-model": "0.1.0"
   },
   "devDependencies": {
     "tsup": "9.0.0",

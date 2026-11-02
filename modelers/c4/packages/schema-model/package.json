@@ -1,6 +1,6 @@
 {
   "name": "@miragon/c4-schema-model",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "The C4 model of a Structurizr DSL workspace as plain data: elements, relationships, views and their rules.",
   "license": "MIT",
   "repository": {
