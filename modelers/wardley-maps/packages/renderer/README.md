@@ -99,6 +99,10 @@ Options (the names of the `@miragon/modeler-api` 1.2 factory options):
 - `fitOnImport: false` leaves the view after an import to the host, whose chrome fits it.
 - `additionalModules` adds diagram-js modules; every Wardley feature module is exported for custom
   editors.
+- `openRelativeLink: (address) => …` follows a link without a scheme (`details/payment.wmap`) from
+  the context pad: only the host knows where the map's file lies, so it resolves the address or says
+  why it can't. Without this option the pad offers no "Open link" on such an address. http(s) and
+  `mailto:` addresses open in a new tab either way, and no other scheme ever opens.
 
 The `wardleyReadOnly` service (`modeler.get<WardleyReadOnly>('wardleyReadOnly').setReadOnly(true)`)
 locks the canvas while its host cannot save an edit, e.g. while the document is invalid: every edit
@@ -224,8 +228,8 @@ edit at once and stays the same across zoom and scroll. A map without elements s
 so it is never `undefined` while the modeler lives (before the first import it is the default plot);
 tell an empty map by its elements. `diagram` is the wrapped `Modeler` or `NavigatedViewer` for
 host-specific wiring. Both factories take the options above (`additionalModules`, `freeArea`,
-`fitOnImport` and `undoRedoKeys`); the viewer never edits and ignores the undo keys. Both pass the
-contract's conformance kit (1.3) without skips.
+`fitOnImport`, `undoRedoKeys` and `openRelativeLink`); the viewer never edits, so it ignores the undo
+keys and `openRelativeLink`. Both pass the contract's conformance kit (1.3) without skips.
 
 `interaction` (contract 1.5) tells a host whether the user holds a gesture, so it can defer a remote
 re-import until the gesture ends: `active()` is true from the moment a move, resize, connect or

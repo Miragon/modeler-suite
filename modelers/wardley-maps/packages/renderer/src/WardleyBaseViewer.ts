@@ -64,6 +64,13 @@ export interface WardleyViewerOptions {
    * `false` leaves them to the host (e.g. VS Code, which owns the document's undo stack).
    */
   undoRedoKeys?: boolean | undefined;
+  /**
+   * Follows a link without a scheme (`details/payment.wmap`) from the context pad. Only the host
+   * knows where the map's file lies, so it resolves the address or says why it can't. Without this
+   * option the pad offers no "Open link" on such an address; http(s) and `mailto:` addresses open
+   * in a new tab either way.
+   */
+  openRelativeLink?: ((address: string) => void) | undefined;
 }
 
 /** The diagram config the viewer options stand for. */
@@ -78,6 +85,9 @@ function diagramConfig(options: WardleyViewerOptions): Record<string, unknown> {
     ...(undoRedo === undefined ? {} : { wardleyKeyboard: { undoRedo } }),
     ...(freeArea ? { wardleyFreeRect: freeArea } : {}),
     ...(options.fitOnImport === false ? { wardleyImport: { fit: false } } : {}),
+    ...(options.openRelativeLink
+      ? { wardleyLinks: { openRelative: options.openRelativeLink } }
+      : {}),
   };
 }
 

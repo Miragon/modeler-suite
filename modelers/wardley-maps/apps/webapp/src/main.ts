@@ -62,6 +62,7 @@ import {
   downloadFileName,
   importErrorMessage,
   isDefaultTitle,
+  relativeLinkMessage,
   type DownloadKind,
 } from "./map-file.js";
 
@@ -92,6 +93,8 @@ const collaborative = createCollaborativeModeler({
   // Where Enter or Space on a creating palette entry places the element (guide §5.5), where the
   // import fits the plot and where panning keeps it.
   freeArea: { insets: () => shell.fitInsets() },
+  openRelativeLink: (address) =>
+    shell.toast({ status: "danger", text: relativeLinkMessage(address) }),
 });
 const viewer = collaborative.diagram as Modeler;
 viewer.get("canvas");

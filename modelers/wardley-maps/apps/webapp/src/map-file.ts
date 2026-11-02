@@ -82,6 +82,14 @@ export function importErrorMessage(error: unknown, fileName?: string): string {
   return notAMapMessage(fileName);
 }
 
+/**
+ * A relative link names a file beside the map, but the web app reads a picked or dropped file or a
+ * share link, so it knows no folder to look in.
+ */
+export function relativeLinkMessage(address: string): string {
+  return `Couldn't open “${address}”. The web app can't follow links to other map files. Use Open… to pick the file.`;
+}
+
 export interface WarningLike {
   readonly message: string;
   readonly line?: number;

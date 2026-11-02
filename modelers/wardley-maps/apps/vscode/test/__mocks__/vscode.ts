@@ -9,6 +9,8 @@
  * file to the same module id, a listener the host registers and an event a test fires share state.
  */
 
+import { posix } from "node:path";
+
 export class Disposable {
   constructor(private readonly _dispose: () => void) {}
   dispose(): void {
@@ -145,9 +147,9 @@ export class Uri {
   static file(path: string): Uri {
     return new Uri("file", path);
   }
+  /** Normalises `.`, `..` and repeated slashes, as the real one does outside Windows. */
   static joinPath(base: Uri, ...segments: string[]): Uri {
-    const joined = [base.path.replace(/\/$/, ""), ...segments].join("/");
-    return new Uri(base.scheme, joined);
+    return new Uri(base.scheme, posix.join(base.path, ...segments));
   }
   with(change: { scheme?: string; path?: string }): Uri {
     return new Uri(change.scheme ?? this.scheme, change.path ?? this.path);
@@ -155,6 +157,13 @@ export class Uri {
   toString(): string {
     return `${this.scheme}:${this.path}`;
   }
+}
+
+export enum FileType {
+  Unknown = 0,
+  File = 1,
+  Directory = 2,
+  SymbolicLink = 64,
 }
 
 /** The input of a custom editor's tab. */
@@ -217,6 +226,14 @@ const docCloseEmitter = new EventEmitter<unknown>();
 export const workspace = {
   workspaceFolders: undefined as ReadonlyArray<{ uri: Uri }> | undefined,
   textDocuments: [] as unknown[],
+  /** The folder holding `uri`, by whole path segments and scheme as the real one compares them. */
+  getWorkspaceFolder(uri: Uri): { uri: Uri } | undefined {
+    return workspace.workspaceFolders?.find(
+      ({ uri: folder }) =>
+        folder.scheme === uri.scheme &&
+        (uri.path === folder.path || uri.path.startsWith(`${folder.path}/`)),
+    );
+  },
   onDidChangeTextDocument(
     listener: (e: { document: unknown; contentChanges: unknown[] }) => void,
   ): Disposable {
@@ -240,6 +257,13 @@ export const workspace = {
     return Promise.resolve(true);
   },
   fs: {
+    /** Knows what `vscodeMock.setFileTypes` named; anything else is missing. */
+    stat(uri: Uri): Promise<{ type: FileType }> {
+      const type = fileTypes.get(uri.path);
+      return type === undefined
+        ? Promise.reject(new Error(`No such file: ${uri.path}`))
+        : Promise.resolve({ type });
+    },
     readFile(_uri: Uri): Promise<Uint8Array> {
       return Promise.resolve(new Uint8Array());
     },
@@ -268,7 +292,9 @@ const registeredCommands = new Map<string, (...args: unknown[]) => unknown>();
 const executedCommands: Array<{ command: string; args: unknown[] }> = [];
 const informationMessages: string[] = [];
 const warningMessages: string[] = [];
+const errorMessages: string[] = [];
 const writtenFiles: Array<{ uri: Uri; content: Uint8Array }> = [];
+const fileTypes = new Map<string, FileType>();
 let saveDialogAnswer: Uri | undefined;
 
 export const languages = {
@@ -301,7 +327,8 @@ export const window = {
     warningMessages.push(message);
     return Promise.resolve(undefined);
   },
-  showErrorMessage(_message: string, ..._items: string[]): Promise<string | undefined> {
+  showErrorMessage(message: string, ..._items: string[]): Promise<string | undefined> {
+    errorMessages.push(message);
     return Promise.resolve(undefined);
   },
   showSaveDialog(_options: unknown): Promise<Uri | undefined> {
@@ -357,6 +384,14 @@ export const vscodeMock = {
   warningMessages(): readonly string[] {
     return warningMessages;
   },
+  errorMessages(): readonly string[] {
+    return errorMessages;
+  },
+  /** What `workspace.fs.stat` finds, by path. */
+  setFileTypes(types: Readonly<Record<string, FileType>>): void {
+    fileTypes.clear();
+    for (const [path, type] of Object.entries(types)) fileTypes.set(path, type);
+  },
   /** The file the next save dialogs choose; none cancels them. */
   chooseSaveTarget(uri: Uri | undefined): void {
     saveDialogAnswer = uri;
@@ -396,7 +431,9 @@ export const vscodeMock = {
     executedCommands.length = 0;
     informationMessages.length = 0;
     warningMessages.length = 0;
+    errorMessages.length = 0;
     writtenFiles.length = 0;
+    fileTypes.clear();
     saveDialogAnswer = undefined;
     docChangeEmitter.dispose();
     docOpenEmitter.dispose();

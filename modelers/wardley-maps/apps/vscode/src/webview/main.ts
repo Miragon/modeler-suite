@@ -65,6 +65,7 @@ const collaborative = createCollaborativeModeler({
   additionalModules: [shellModule],
   undoRedoKeys: false,
   freeArea: { insets: () => shell.fitInsets() },
+  openRelativeLink: (address) => post({ type: "openLink", address }),
 });
 const modeler = collaborative.diagram as Modeler;
 modeler.get("canvas");

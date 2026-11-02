@@ -5,6 +5,7 @@ import { FIT_TOLERANCE, LONG_NAME_DRAWING, LONG_NAME_MAP, overhang } from "../su
 import { PAPER_BACKGROUND, PLOT_BACKGROUND, cornerPixel } from "../support/png.js";
 import { contrast, drawnRightOf, focusChosenColour, ringsOf } from "../support/colour-picker.js";
 import { recordSvgImages, recordedSvgImages } from "../support/svg-images.js";
+import { recordWindowOpens, recordedWindowOpens } from "../support/window-open.js";
 import { embeddedGeistFaces, geistFace, type GeistStyle } from "./support/geist.js";
 import {
   WIDE,
@@ -544,6 +545,29 @@ test.describe("VS Code webview: protocol and chrome", () => {
       else await expect(entry).not.toHaveAttribute("aria-keyshortcuts");
       await expect(entry).not.toHaveAttribute("title");
     }
+  });
+
+  test("Open link on a relative address asks the host and opens no window", async ({ page }) => {
+    await recordWindowOpens(page);
+    await openWebview(page);
+    await postFromHost(page, {
+      type: "update",
+      text: `title Overview
+url Payment URL [details/payment.wmap]
+component Payment [0.5, 0.5] url(Payment URL)
+`,
+    });
+
+    await page
+      .locator('.cd-shell-canvas .djs-shape[data-element-id="cmp_payment"] > .djs-hit')
+      .click();
+    await page.locator('.djs-context-pad [data-action="open-link"]').click();
+
+    expect(await waitForPosted(page, "openLink")).toEqual({
+      type: "openLink",
+      address: "details/payment.wmap",
+    });
+    expect(await recordedWindowOpens(page)).toEqual([]);
   });
 });
 

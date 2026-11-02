@@ -24,7 +24,13 @@ import type WardleyElementFactory from "../model/WardleyElementFactory.js";
 import type WardleyColorPicker from "../color-picker/WardleyColorPicker.js";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyLinkEditing from "../link-editing/WardleyLinkEditing.js";
-import { canHaveLink, linkOf, safeLinkUrl } from "../link-editing/index.js";
+import {
+  canHaveLink,
+  isRelativeLink,
+  linkOf,
+  safeLinkUrl,
+  type WardleyLinksConfig,
+} from "../link-editing/index.js";
 import { POPUP_PROVIDER_ID } from "../popup/index.js";
 import { isReadOnly } from "../read-only/index.js";
 import { focusCanvasWithoutRing, isKeyOnHiddenTarget } from "../a11y/index.js";
@@ -70,6 +76,7 @@ export default class WardleyContextPadProvider implements ContextPadProvider {
     "eventBus",
     "canvas",
     "injector",
+    "config.wardleyLinks",
   ];
 
   /** Synthetic clicks created for Enter/Space, so actions can pick a pointer-free variant. */
@@ -89,6 +96,7 @@ export default class WardleyContextPadProvider implements ContextPadProvider {
     eventBus: EventBus,
     private readonly canvas: Canvas,
     private readonly injector: Injector,
+    private readonly linksConfig: WardleyLinksConfig | undefined,
   ) {
     contextPad.registerProvider(this);
     eventBus.on("contextPad.create", (event: { pad: HTMLElement }) => {
@@ -290,18 +298,28 @@ export default class WardleyContextPadProvider implements ContextPadProvider {
     }
     // Shared maps can carry any address, so only allowlisted ones are ever opened.
     const openableLink = safeLinkUrl(storedLink);
-    if (openableLink) {
+    const openLink = openableLink ? this.linkOpener(openableLink) : undefined;
+    if (openableLink && openLink) {
       entries["open-link"] = {
         group: GROUP_PROPERTIES,
         title: `Open link (${openableLink})`,
         html: cpHtml(chromeIcon("external-link"), `Open link (${openableLink})`),
-        action: {
-          click: this.focusingCanvas(() =>
-            window.open(openableLink, "_blank", "noopener,noreferrer"),
-          ),
-        },
+        action: { click: this.focusingCanvas(openLink) },
       };
     }
+  }
+
+  /**
+   * How an allowlisted address opens: the browser takes one with a scheme, and a relative one goes
+   * to the host, since the browser would resolve it against the page. A host that follows no
+   * relative links leaves nothing to offer.
+   */
+  private linkOpener(address: string): (() => void) | undefined {
+    if (!isRelativeLink(address)) {
+      return () => void window.open(address, "_blank", "noopener,noreferrer");
+    }
+    const openRelative = this.linksConfig?.openRelative;
+    return openRelative && (() => openRelative(address));
   }
 
   /**

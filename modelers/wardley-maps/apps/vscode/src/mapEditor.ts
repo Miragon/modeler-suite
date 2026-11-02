@@ -7,6 +7,7 @@ import {
 } from "@miragon/modeler-shell/vscode/extension";
 import type { WardleyDiagnostics } from "./diagnostics.js";
 import { MAP_EDITOR_OPTIONS } from "./mapEditorOptions.js";
+import { openMapLink } from "./mapLinks.js";
 import type { WebviewToHost } from "./protocol.js";
 
 export { MAP_VIEW_TYPE } from "./mapEditorOptions.js";
@@ -31,16 +32,22 @@ export function registerMapEditor(
       // The parser's findings are warnings: the map stays editable (guide §13.5), so no errors.
       refresh: (document) => ({ count: diagnostics.refresh(document), errors: 0 }),
     },
-    onMessage: (message, editor) =>
-      message.type === "export"
-        ? exportToFile(vscode, {
+    onMessage: (message, editor) => {
+      switch (message.type) {
+        case "export":
+          return exportToFile(vscode, {
             kind: IMAGE_EXPORT_KINDS[message.format],
             data: message.data,
             sourceUri: editor.document.uri,
             defaultName: "wardley-map",
             fontFallback: message.fontFallback === true,
             platform: process.platform,
-          })
-        : undefined,
+          });
+        case "openLink":
+          return openMapLink(editor.document.uri, message.address);
+        default:
+          return undefined;
+      }
+    },
   });
 }

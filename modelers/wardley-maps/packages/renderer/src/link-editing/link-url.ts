@@ -8,6 +8,11 @@ const SCHEME_PATTERN = /^([a-z][a-z0-9+.-]*):/i;
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/g;
 
+/** Diagram config `wardleyLinks` (viewer option `openRelativeLink`). */
+export interface WardleyLinksConfig {
+  openRelative: (address: string) => void;
+}
+
 /**
  * Normalises user or file input into an address the OWM DSL can carry losslessly:
  * `url Name [address]` ends at `]`, and a line break would end the definition line.
@@ -24,6 +29,14 @@ export function sanitizeLinkUrl(raw: string): string {
 export function isAllowedLinkUrl(url: string): boolean {
   const scheme = SCHEME_PATTERN.exec(url)?.[1];
   return scheme === undefined || ALLOWED_SCHEMES.has(`${scheme.toLowerCase()}:`);
+}
+
+/**
+ * Whether the address has no scheme, so it names a place relative to the map's file. Only the host
+ * knows that file; the browser would resolve the address against the page.
+ */
+export function isRelativeLink(url: string): boolean {
+  return !SCHEME_PATTERN.test(url);
 }
 
 /** Sanitised address if it is non-empty and allowed, otherwise `undefined`. */

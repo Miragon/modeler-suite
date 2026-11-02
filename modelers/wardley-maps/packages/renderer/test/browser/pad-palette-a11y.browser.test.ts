@@ -38,12 +38,18 @@ Kettle -> Power`;
 let container: HTMLElement | undefined;
 let modeler: Modeler | undefined;
 
-function mount(width = 1024, height = 768): Modeler {
+function mount(width = 1024, height = 768, openRelativeLink?: (address: string) => void): Modeler {
   container = document.createElement("div");
   document.body.appendChild(container);
   // The viewer sizes its container from these options (default 100%), not from inline styles.
-  modeler = new Modeler({ container, width, height });
+  modeler = new Modeler({ container, width, height, openRelativeLink });
   return modeler;
+}
+
+function mapWithLinkedKettle(address: string): string {
+  return `title Linked
+url Spec [${address}]
+component Kettle [0.43, 0.35] url(Spec)`;
 }
 
 afterEach(() => {
@@ -728,7 +734,7 @@ describe("links (OWM url)", () => {
   });
 
   it("stores a component link and offers to open it", async () => {
-    const target = mount();
+    const target = mount(1024, 768, () => {});
     await target.importDSL(TEA_SHOP);
     const kettle = findByLabel(target, "Kettle");
     const linkEditing = target.get<WardleyLinkEditing>("wardleyLinkEditing");
@@ -772,6 +778,68 @@ url Evil [javascript:alert(1)]
 component Trap [0.5, 0.5] url(Evil)`);
     const trap = findByLabel(target, "Trap");
     const pad = await selectAndOpenPad(target, trap);
+    expect(padEntry(pad, "open-link")).toBeNull();
+  });
+
+  it.each([
+    "details/kettle.wmap",
+    "./kettle.wmap",
+    "kettle.wmap",
+    "../kettle.wmap",
+    "//example.com/kettle.wmap",
+  ])("hands the relative address %s to the host, never to the browser", async (address) => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const openRelativeLink = vi.fn();
+    try {
+      const target = mount(1024, 768, openRelativeLink);
+      await target.importDSL(mapWithLinkedKettle(address));
+      const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+      const entry = padEntry(pad, "open-link")!;
+      entry.focus();
+      pointerClick(entry);
+      expect(openRelativeLink.mock.calls).toEqual([[address]]);
+      expect(open).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(canvasSvgOf(target));
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  it("offers no relative link to open in a host that doesn't follow them", async () => {
+    const target = mount();
+    await target.importDSL(mapWithLinkedKettle("details/kettle.wmap"));
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+    expect(padEntry(pad, "open-link")).toBeNull();
+    expect(padEntry(pad, "link")?.getAttribute("aria-label")).toBe("Edit link…");
+  });
+
+  it.each(["https://example.com/kettle", "http://example.com/kettle", "mailto:team@example.com"])(
+    "leaves %s to the browser in a host that follows relative links",
+    async (address) => {
+      const open = vi.spyOn(window, "open").mockReturnValue(null);
+      const openRelativeLink = vi.fn();
+      try {
+        const target = mount(1024, 768, openRelativeLink);
+        await target.importDSL(mapWithLinkedKettle(address));
+        const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+        pointerClick(padEntry(pad, "open-link")!);
+        expect(open.mock.calls).toEqual([[address, "_blank", "noopener,noreferrer"]]);
+        expect(openRelativeLink).not.toHaveBeenCalled();
+      } finally {
+        open.mockRestore();
+      }
+    },
+  );
+
+  it.each([
+    "javascript:alert(1)",
+    "data:text/html,hello",
+    "file:///maps/kettle.wmap",
+    "C:\\maps\\kettle.wmap",
+  ])("never offers to open %s, not even through the host", async (address) => {
+    const target = mount(1024, 768, () => {});
+    await target.importDSL(mapWithLinkedKettle(address));
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
     expect(padEntry(pad, "open-link")).toBeNull();
   });
 });

@@ -8,4 +8,5 @@ export const linkEditingModule: ModuleDeclaration = {
 };
 
 export { default as WardleyLinkEditing, canHaveLink, linkOf } from "./WardleyLinkEditing.js";
-export { sanitizeLinkUrl, isAllowedLinkUrl, safeLinkUrl } from "./link-url.js";
+export { sanitizeLinkUrl, isAllowedLinkUrl, isRelativeLink, safeLinkUrl } from "./link-url.js";
+export type { WardleyLinksConfig } from "./link-url.js";

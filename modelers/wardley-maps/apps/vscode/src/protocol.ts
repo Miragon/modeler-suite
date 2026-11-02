@@ -5,7 +5,8 @@ import type {
 
 /**
  * Message protocol between the extension host and the webview: the shell's document plumbing
- * (`registerModelerEditor` in the extension, `connectDocumentSync` in the webview) plus the export.
+ * (`registerModelerEditor` in the extension, `connectDocumentSync` in the webview) plus the export
+ * and the map links.
  *
  *  - Host -> webview: `init`/`update` with the document's text (OWM-DSL), `problems` for the pill
  *    and `command` from the Command Palette or the editor title bar.
@@ -13,6 +14,8 @@ import type {
  *    statements rewritten), written as one minimal WorkspaceEdit whose echo is not imported again;
  *    `showProblems` (the pill), `insertExample` (the empty-file hint), `info` and `error`.
  *  - Webview -> host: `export` (SVG text or Base64 PNG) -> save dialog + write file.
+ *  - Webview -> host: `openLink` (an address without a scheme) -> the map it names opens beside the
+ *    current file, or an error says why it can't.
  *
  * The modeler shell's `modelerShell.appearance` messages arrive on the same window.
  */
@@ -38,4 +41,6 @@ export type WebviewToHost =
    * Trigger an image export (SVG = text, PNG = Base64). `fontFallback` tells that a PNG was drawn
    * in the system font because Geist could not be embedded: the host says so once the file is saved.
    */
-  | { type: "export"; format: ExportFormat; data: string; fontFallback?: boolean };
+  | { type: "export"; format: ExportFormat; data: string; fontFallback?: boolean }
+  /** Follow a relative link: the address as the map holds it, which the host checks itself. */
+  | { type: "openLink"; address: string };
