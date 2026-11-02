@@ -1,0 +1,63 @@
+{
+  "name": "@miragon/c4-renderer",
+  "version": "0.0.0",
+  "description": "View and edit C4 diagrams of Structurizr DSL workspaces in the browser: a diagram-js viewer and modeler implementing @miragon/modeler-api.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Miragon/modeler-suite.git",
+    "directory": "modelers/c4/packages/renderer"
+  },
+  "homepage": "https://github.com/Miragon/modeler-suite/tree/main/modelers/c4/packages/renderer#readme",
+  "bugs": "https://github.com/Miragon/modeler-suite/issues",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./themes": {
+      "types": "./dist/themes.d.ts",
+      "import": "./dist/themes.js"
+    },
+    "./assets/c4.css": "./dist/c4.css",
+    "./package.json": "./package.json"
+  },
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vite build",
+    "test": "npm --prefix ../.. run test",
+    "test:browser": "npm --prefix ../.. run test:browser"
+  },
+  "dependencies": {
+    "@miragon/c4-dsl": "0.0.0",
+    "@miragon/c4-layout": "0.0.0",
+    "@miragon/c4-schema-model": "0.0.0",
+    "@miragon/modeler-api": "1.6.0"
+  },
+  "peerDependencies": {
+    "diagram-js": "^15.28.0",
+    "didi": "^11.0.0 || ^12.0.0",
+    "tiny-svg": "^4.1.4"
+  },
+  "devDependencies": {
+    "@fontsource-variable/geist": "5.3.0",
+    "diagram-js": "15.28.1",
+    "didi": "12.0.0",
+    "tiny-svg": "4.1.4",
+    "typescript": "6.0.3",
+    "vite": "8.3.5",
+    "vite-plugin-dts": "5.1.2",
+    "vitest": "5.0.5"
+  }
+}

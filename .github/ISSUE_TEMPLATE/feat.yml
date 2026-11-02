@@ -20,6 +20,7 @@ body:
         - Team Topologies modeler
         - Context Maps modeler
         - Value Chain modeler
+        - C4 Modeler
         - modeler-api or modeler-shell
         - Repository, CI or releases
     validations:

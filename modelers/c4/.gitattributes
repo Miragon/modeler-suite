@@ -1,0 +1,10 @@
+# Vendored unchanged from the Miragon design system: collapsed in diffs, re-copied instead of edited.
+packages/renderer/src/theme/cd-tokens.generated.css linguist-generated=true
+packages/renderer/src/theme/cd-tokens.generated.json linguist-generated=true
+packages/renderer/src/theme/cd-canvas.css linguist-generated=true
+
+# Test fixtures pin their bytes (CRLF, a lone CR, a byte order mark): never normalise them.
+packages/*/test/**/*.dsl -text
+
+# Structurizr's DSL test fixtures, vendored unchanged (Apache-2.0, see NOTICE.md there).
+packages/dsl/test/fixtures/structurizr/** linguist-vendored

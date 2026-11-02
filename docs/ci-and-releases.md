@@ -16,15 +16,15 @@ cancelled.
 The first job, `changes` (`.github/scripts/ci-paths.sh affected`), compares the change with its base
 commit and decides which jobs it can break:
 
-| Changed path                                                                                                     | Runs                                                    |
-| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `modelers/<m>/**`                                                                                                | the jobs of modeler `<m>`                               |
-| `modelers/<m>/plugins/**`, the manifests and configs of `<m>` named below, a file added to or deleted from `<m>` | the jobs of modeler `<m>` and `shared-test`             |
-| `packages/**`, `.github/**`, root `package.json`, `package-lock.json`, `.npmrc`, any other root file or folder   | the shared jobs, the template job and all five modelers |
-| `plugins/modeler-kit/**`                                                                                         | the shared jobs and the template job                    |
-| `plugins/**`, `test/**`, `extensions/**`, `.claude-plugin/**`, `.husky/**`                                       | the shared jobs                                         |
-| a `.miragon/` folder in `docs/**` or `modelers/<m>/docs/**`, a file added to or deleted from `docs/`             | `shared-test`                                           |
-| `docs/**` (an edit), `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`          | nothing but the always-on jobs                          |
+| Changed path                                                                                                     | Runs                                                |
+| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `modelers/<m>/**`                                                                                                | the jobs of modeler `<m>`                           |
+| `modelers/<m>/plugins/**`, the manifests and configs of `<m>` named below, a file added to or deleted from `<m>` | the jobs of modeler `<m>` and `shared-test`         |
+| `packages/**`, `.github/**`, root `package.json`, `package-lock.json`, `.npmrc`, any other root file or folder   | the shared jobs, the template job and every modeler |
+| `plugins/modeler-kit/**`                                                                                         | the shared jobs and the template job                |
+| `plugins/**`, `test/**`, `extensions/**`, `.claude-plugin/**`, `.husky/**`                                       | the shared jobs                                     |
+| a `.miragon/` folder in `docs/**` or `modelers/<m>/docs/**`, a file added to or deleted from `docs/`             | `shared-test`                                       |
+| `docs/**` (an edit), `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`          | nothing but the always-on jobs                      |
 
 Markdown elsewhere is no documentation here: skills under `plugins/` feed drift tests, and a
 package or an extension ships its README. A modeler's Claude plugin reaches `shared-test` because
@@ -138,7 +138,7 @@ on Mondays; a failure opens, or comments on, the issue "VS Code smoke: the weekl
 | `modelers/<m>/apps/webapp`       | `<m>-webapp`                             | nothing (Netlify deploys `main`)       |
 | `modelers/team-topologies`       | `team-topologies`                        | its two npm packages and its extension |
 
-for `<m>` in event-storming, context-maps and value-chain; Wardley Maps lives in
+for `<m>` in event-storming, context-maps, value-chain and c4; Wardley Maps lives in
 `modelers/wardley-maps` and keeps its released components `wardley-<p>`, `wardley-vscode` and
 `wardley-webapp`. Team Topologies stays in
 lockstep: one component whose `extra-files` move every one of its packages, the plugin and the

@@ -1,0 +1,185 @@
+/* The breadcrumb of the view hierarchy: an overlay on the canvas (guide §5.13, below the context
+   pad and the label editor at 100), under the menu trigger on the free line (--cd-shell-frei),
+   24 high, so it ends on the line the fit keeps free above the content (88, guide §5.9). A line of
+   links over the diagram like the web app's legal line (§5.10): glass without border and shadow,
+   links in --cd-ui-link, underlined on hover and focus. Roles and tokens only. */
+.c4-container .c4-breadcrumbs {
+  position: absolute;
+  top: var(--cd-shell-frei);
+  left: var(--cd-shell-rand);
+  z-index: 10;
+  box-sizing: border-box;
+  max-width: calc(100% - 2 * var(--cd-shell-rand));
+  height: 24px;
+  margin: 0;
+  padding: 0 2px;
+  color: var(--cd-ui-text);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  background: color-mix(
+    in srgb,
+    var(--cd-ui-flaeche-hoch) var(--cd-ui-chrome-deckkraft),
+    transparent
+  );
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 0;
+  border-radius: var(--cd-radius-sm);
+  box-shadow: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.c4-container .c4-breadcrumbs[hidden] {
+  display: none;
+}
+
+/* An island of the host's chrome covers its start: it steps aside meanwhile (guide §5.11). */
+.c4-container .c4-breadcrumbs[data-covered] {
+  visibility: hidden;
+}
+
+/* The palette in the second row (guide §5.15): below it, where the status box goes, ending on the
+   narrow layout's fit line (140). */
+.cd-shell[data-palette="second-row"] .c4-container .c4-breadcrumbs {
+  top: calc(var(--cd-shell-frei) + var(--cd-shell-zeile) + var(--cd-shell-rand));
+}
+
+.c4-container .c4-breadcrumbs-list {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A path too wide gives way in the script (fitCrumbs), which sets each name's and level's
+   max-width: the names above first, so the view shown stays whole the longest. */
+.c4-container .c4-breadcrumbs-item {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.c4-container .c4-breadcrumbs-separator {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--cd-ui-text-leise);
+}
+
+.c4-container :is(.c4-breadcrumbs-link, .c4-breadcrumbs-current) {
+  box-sizing: border-box;
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  height: 24px;
+  margin: 0;
+  padding: 0 6px;
+  font: inherit;
+  line-height: 24px;
+  background: transparent;
+  border: 0;
+  border-radius: 2px;
+}
+
+.c4-container .c4-breadcrumbs-link {
+  color: var(--cd-ui-link);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.c4-container .c4-breadcrumbs-link:hover {
+  text-decoration: underline;
+}
+
+.c4-container .c4-breadcrumbs-link:focus {
+  outline: none;
+}
+
+/* Inside, as in every dense row of the chrome (guide §5.14): outside it would touch the
+   separators. */
+.c4-container .c4-breadcrumbs-link:focus-visible {
+  text-decoration: underline;
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: -2px;
+}
+
+/* The view shown: text, in the weight of a title (guide §5.14), so colour is not its only sign. */
+.c4-container .c4-breadcrumbs-current {
+  color: var(--cd-ui-text);
+  font-weight: 600;
+}
+
+/* A draft view shown: quiet text after it, in the views dialog's words. The script hides it first
+   when the path runs out of room. */
+.c4-container .c4-breadcrumbs-note {
+  flex: none;
+  padding: 0 6px 0 2px;
+  color: var(--cd-ui-text-leise);
+  font-weight: 400;
+}
+
+.c4-container .c4-breadcrumbs-note[hidden] {
+  display: none;
+}
+
+/* "Shop containers" reads "Sh… containers": name and level are cut apart. */
+.c4-container :is(.c4-breadcrumbs-name, .c4-breadcrumbs-level) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.c4-container .c4-breadcrumbs-name {
+  flex: 0 1 auto;
+}
+
+/* `pre` keeps the space before the level: the crumb's text and its accessible name. */
+.c4-container .c4-breadcrumbs-level {
+  flex: none;
+  white-space: pre;
+}
+
+/* High contrast: a link is underlined at rest, as in the shell's legal line, so colour is not its
+   only sign. */
+:is([data-cd-kontrast="hoch"], [data-cd-kontrast="hoch"] *) .c4-container .c4-breadcrumbs-link {
+  text-decoration: underline;
+}
+
+:is([data-cd-kontrast="hoch"], [data-cd-kontrast="hoch"] *)
+  .c4-container
+  .c4-breadcrumbs-link:focus-visible {
+  outline-width: 3px;
+  outline-offset: -3px;
+}
+
+@media (forced-colors: active) {
+  .c4-container .c4-breadcrumbs {
+    background: Canvas;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .c4-container .c4-breadcrumbs-link {
+    color: LinkText;
+    text-decoration: underline;
+  }
+
+  .c4-container .c4-breadcrumbs-link:focus-visible {
+    outline-color: Highlight;
+  }
+
+  .c4-container :is(.c4-breadcrumbs-current, .c4-breadcrumbs-separator, .c4-breadcrumbs-note) {
+    color: CanvasText;
+  }
+}

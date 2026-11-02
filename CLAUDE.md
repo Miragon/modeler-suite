@@ -1,8 +1,8 @@
 # CLAUDE.md
 
 The Miragon modeler suite: the collaborative-modeler contract `@miragon/modeler-api`, the shared
-chrome `@miragon/modeler-shell`, and the five modelers built on them (Wardley Maps, Event
-Storming, Team Topologies, Context Maps, Value Chain). Each modeler is one notation on
+chrome `@miragon/modeler-shell`, and the six modelers built on them (Wardley Maps, Event
+Storming, Team Topologies, Context Maps, Value Chain, C4 model). Each modeler is one notation on
 [diagram-js](https://github.com/bpmn-io/diagram-js) (MIT): DOM-free model packages, a renderer, a
 web app and a VS Code extension. One npm workspace, one lockfile, one pre-commit hook; every package
 keeps its own version, npm name and extension id.
@@ -21,6 +21,7 @@ special to its notation (packages, DSL or file format, renderer architecture, te
 | `modelers/team-topologies`        | Team Topologies, `.tt` / `.ttm.json`                                                                                                                                             | [CLAUDE.md](modelers/team-topologies/CLAUDE.md)                                                                                                       |
 | `modelers/context-maps`           | Context Maps, `.cm` / `.cm.json`, Context Mapper `.cml`                                                                                                                          | [CLAUDE.md](modelers/context-maps/CLAUDE.md)                                                                                                          |
 | `modelers/value-chain`            | Value Chain, `.vc` / `.vc.json`                                                                                                                                                  | [CLAUDE.md](modelers/value-chain/CLAUDE.md)                                                                                                           |
+| `modelers/c4`                     | C4 model, `.c4` / `.dsl` (Structurizr DSL, read and written losslessly)                                                                                                          | [CLAUDE.md](modelers/c4/CLAUDE.md)                                                                                                                    |
 | `extensions/modeler-collection`   | the VS Code extension pack of every Miragon modeler, `miragon-modeler-collection`                                                                                                | `test/modeler-collection.test.ts`                                                                                                                     |
 | `plugins/modeler-kit`             | Claude plugin: the `new-modeler` skill and its template                                                                                                                          | [README](plugins/modeler-kit/README.md)                                                                                                               |
 | `.claude-plugin/marketplace.json` | the suite's one Claude plugin marketplace (`modeler-suite`)                                                                                                                      |                                                                                                                                                       |
@@ -40,15 +41,15 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
 
 - Setup: `npm ci`, then `npm run build:shared`. The modelers link `@miragon/modeler-api` and
   `@miragon/modeler-shell` from this workspace and read their `dist`, so build them again after
-  changing them. Wardley Maps, Event Storming and Value Chain also resolve their own packages from
-  `dist` in their unit tests: `npm run <modeler> build` first. Team Topologies and Context Maps
-  consume their packages from source.
+  changing them. Wardley Maps, Event Storming, Value Chain and C4 also resolve their own packages
+  from `dist` in their unit tests: `npm run <modeler> build` first. Team Topologies and Context
+  Maps consume their packages from source.
 - One modeler: `npm run <modeler> <script>` with the aliases `wardley-maps`, `event-storming`,
-  `team-topologies`, `context-maps`, `value-chain` (e.g. `npm run wardley-maps test`). All five:
-  `npm run modelers <script>`. One workspace: `npm run <script> -w <name or path>`. A flag after
-  an alias never reaches the script, since npm takes it for an option of its own: npm 10 and 11
-  (Node 22, 24 and 26) drop it and run the whole script, npm 11 after a warning; npm 12 stops with
-  `EUNKNOWNCONFIG`; `-g` means `--global`. Give flags to the workspace instead:
+  `team-topologies`, `context-maps`, `value-chain`, `c4` (e.g. `npm run wardley-maps test`). All
+  six: `npm run modelers <script>`. One workspace: `npm run <script> -w <name or path>`. A flag
+  after an alias never reaches the script, since npm takes it for an option of its own: npm 10
+  and 11 (Node 22, 24 and 26) drop it and run the whole script, npm 11 after a warning; npm 12
+  stops with `EUNKNOWNCONFIG`; `-g` means `--global`. Give flags to the workspace instead:
   `npm run test:e2e -w modelers/<modeler>/e2e -- --project=<name> --grep "<title>"` for
   Playwright, `npm run <script> -w @miragon/<modeler>-modeler-workspace -- <flags>` for the
   modeler's own scripts (e.g. `test:vscode:docker -- --env VSCODE_SMOKE_KEEP=1`; the path
@@ -89,6 +90,7 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   | Team Topologies | `schema-model`                      |
   | Context Maps    | `schema-model`, `cml`               |
   | Value Chain     | `schema-model`                      |
+  | C4 model        | `schema-model`, `dsl`, `layout`     |
 
   ESLint (`no-restricted-imports` / `no-restricted-globals`) and dependency-cruiser enforce it, so a
   violation fails `npm run <modeler> lint` and `npm run <modeler> depcruise`. Both configs come from
@@ -113,7 +115,7 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   `packages/shell/test/package-boundaries.test.ts` enforces both.
 - **Shared code changes reach every modeler at once.** The modelers pin the workspace's current
   `@miragon/modeler-api` and `@miragon/modeler-shell` and npm links them, so a change in
-  `packages/` is live in all five: rebuild (`npm run build:shared`) and run the affected modelers'
+  `packages/` is live in all six: rebuild (`npm run build:shared`) and run the affected modelers'
   `test:browser` (contract) or `test:e2e` (shell) before pushing, and `npm run test:browser:shared`
   (the shell's `./export` and palette skin in Chromium and WebKit) after a change to the shell.
 
@@ -132,7 +134,7 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   injector. Each ranged peer is mirrored by an exact `devDependency`, and the bundling apps
   (`webapp`, `vscode`) declare it as an exact `dependency`. Neither npm nor pin-check notices a peer
   range that rejects those exact versions; the peer-dependency tests of the Wardley Maps, Event
-  Storming and Context Maps renderers do. Details per modeler in its
+  Storming, Context Maps and C4 renderers do. Details per modeler in its
   `.claude/rules/package-json-fixed-versions.md`.
 - The toolchain (TypeScript, Vitest, tsup, Vite, ESLint, Prettier, Playwright, …) is pinned once in
   the root `package.json`, with `overrides` for `vite` and `@types/node`; a workspace declares only
@@ -151,8 +153,8 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
 
 - **Conventional Commits**, checked on the PR title: `feat`, `fix`, `chore`, `docs`, `refactor`,
   `ci`, `build`, `test`, `revert`. The scope names the area: a modeler (`wardley-maps`,
-  `event-storming`, `team-topologies`, `context-maps`, `value-chain`), `api`, `shell` or `plugin`,
-  e.g. `feat(wardley-maps): add an inertia decorator`.
+  `event-storming`, `team-topologies`, `context-maps`, `value-chain`, `c4`), `api`, `shell` or
+  `plugin`, e.g. `feat(wardley-maps): add an inertia decorator`.
 - **Every commit is GPG-signed** (`git commit -S`); after rewriting history, sign again
   (`git rebase -S`).
 - Pull requests are squash-merged with the PR title as the subject. More than one changelog entry,
@@ -183,16 +185,25 @@ Install once: `/plugin marketplace add Miragon/corporate-identity` then
   `cd-canvas.css` unchanged into `modelers/<modeler>/packages/renderer/src/theme/`, the shell into
   `packages/shell/fixtures/tokens/`. Never edit, reformat (they are Prettier-ignored) or fork a hex
   value: re-copy from the skill to update and run the drift tests (`theme.sync`, `tokens.sync`).
-- The chrome of both apps is the shell's; a renderer's own CSS reads only the `--cd-ui-*` roles.
-  The canvas draws light, exports stay light.
+- The chrome of both apps is the shell's; a renderer's own CSS reads only the `--cd-ui-*` roles
+  and the mode-independent tokens (radii, shadows, motion). The one fixed value is guide §8's fill
+  of a primary and a destructive button: `--cd-blau` (hover `--cd-blau-link`) and `--cd-danger`,
+  with `--cd-weiss` text in both modes, as the dialogs of Wardley Maps, Team Topologies, Context
+  Maps and C4 use it. The canvas draws light, exports stay light.
 - The official notation colours of Team Topologies (`notation.ts` in its `schema-model`) stay as
   they are, for fidelity to the official templates. Its strokes below 3:1 on the canvas ground are
   an accepted exception, recorded in guide §10.6 since release 1.22.0; the modeler's
   `notation-contrast` test lists them exactly. The notation colours of Context Maps (`notation.ts`
   in its `schema-model`) follow conventions, not a template, so they may be tuned for contrast:
   text 4.5:1 and lines 3:1, no exception, checked by its `notation-contrast` tests. A document
-  serializes only an element's optional `fill` / `stroke` override, never a notation colour. The
-  design system covers everything else.
+  serializes only an element's optional `fill` / `stroke` override, never a notation colour. C4
+  draws its default look in the roles only, as Structurizr's own default is monochrome; its Model
+  menu entry "Apply C4 colours" writes the classic C4 palette, tuned for text 4.5:1 and lines 3:1
+  (`C4_COLOUR_STYLES` in `notation.ts` of its `schema-model`, checked by its `notation-contrast`
+  tests), as Structurizr tag styles into the user's own `views { styles }`. That is a self-set
+  colour (guide §10.6), and new workspaces carry the same block from the start, as every other
+  modeler shows its notation colours; a workspace without styles is drawn in the roles. The design
+  system covers everything else.
 - Each modeler's `CLAUDE.md` names its reference files and drift tests.
 - The root [`.miragon/brand.json`](.miragon/brand.json) turns on the plugin's brand-lint hook: after
   every file Claude writes or edits, it reports each hard finding back to Claude, which fixes it

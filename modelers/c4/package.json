@@ -1,0 +1,36 @@
+{
+  "name": "@miragon/c4-modeler-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": "^22.22.2 || >=24.15.0"
+  },
+  "modelerSuite": {
+    "domFreePackages": [
+      "schema-model",
+      "dsl",
+      "layout"
+    ]
+  },
+  "scripts": {
+    "build": "npm run build -w packages/schema-model -w packages/dsl -w packages/layout -w packages/renderer",
+    "build:webapp": "npm run build -w apps/webapp",
+    "build:vscode": "npm run build -w apps/vscode",
+    "package:vscode": "npm run package -w apps/vscode",
+    "typecheck": "tsc -p tsconfig.json && tsc -p apps/webapp/tsconfig.config.json && npm run typecheck -w apps/vscode && npm run typecheck -w e2e",
+    "lint": "eslint . && npm run typecheck",
+    "format": "prettier --write . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",
+    "format:check": "prettier --check . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",
+    "test": "vitest run --project=unit",
+    "test:browser": "vitest run --project=browser",
+    "test:vscode": "vitest run --config apps/vscode/test-smoke/vitest.config.ts",
+    "test:vscode:docker": "modeler-shell-vscode-docker --results modelers/c4/test-results/vscode-smoke",
+    "test:e2e": "npm run test:e2e -w e2e --",
+    "dev:webapp": "npm run dev -w apps/webapp",
+    "dev:webapp:plain": "npm run dev:app -w apps/webapp",
+    "dev:vscode": "npm run watch -w apps/vscode",
+    "depcruise": "depcruise packages apps --config .dependency-cruiser.cjs"
+  }
+}

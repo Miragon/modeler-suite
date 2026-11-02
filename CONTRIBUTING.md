@@ -1,13 +1,14 @@
 # Contributing
 
 Thanks for helping improve the Miragon modeler suite. It is one npm workspace (TypeScript ESM):
-the shared packages under `packages/`, the five modelers under `modelers/`, the modeler-kit plugin
+the shared packages under `packages/`, the six modelers under `modelers/`, the modeler-kit plugin
 under `plugins/`. This guide covers what holds for all of them; each modeler's `CONTRIBUTING.md`
 adds what is special to it ([Wardley Maps](modelers/wardley-maps/CONTRIBUTING.md),
 [Event Storming](modelers/event-storming/CONTRIBUTING.md),
 [Team Topologies](modelers/team-topologies/CONTRIBUTING.md),
 [Context Maps](modelers/context-maps/CONTRIBUTING.md),
-[Value Chain](modelers/value-chain/CONTRIBUTING.md)). Agent-oriented rules live in
+[Value Chain](modelers/value-chain/CONTRIBUTING.md),
+[C4 model](modelers/c4/CONTRIBUTING.md)). Agent-oriented rules live in
 [`CLAUDE.md`](CLAUDE.md), CI and releases in [docs/ci-and-releases.md](docs/ci-and-releases.md).
 
 ## External contributions
@@ -23,12 +24,12 @@ Node `^22.22.2` or `>=24.15.0` and npm. From the repository root:
 ```sh
 npm ci                              # every workspace; also installs the pre-commit hook
 npm run build:shared                # @miragon/modeler-api and @miragon/modeler-shell
-npx playwright install chromium webkit  # once; WebKit for the shell's browser tests and the e2e of the shell, Wardley Maps, Event Storming, Context Maps, Team Topologies and Value Chain
+npx playwright install chromium webkit  # once; WebKit for the shell's browser tests and the e2e of the shell, Wardley Maps, Event Storming, Context Maps, Team Topologies, Value Chain and C4
 ```
 
 The modelers link the workspace's `@miragon/modeler-api` and `@miragon/modeler-shell` and read
 their `dist`, so run `npm run build:shared` again after changing either. Wardley Maps, Event
-Storming and Value Chain resolve their own packages from `dist` in their unit tests: run
+Storming, Value Chain and C4 resolve their own packages from `dist` in their unit tests: run
 `npm run <modeler> build` before `npm run <modeler> test`. Team Topologies and Context Maps
 consume their packages from source. Their apps, the e2e suites and the VS Code extensions bundle
 every modeler's packages from source, so they need no package build.
@@ -51,8 +52,8 @@ Everything runs from the repository root.
 | `npm run package:vscode`                    | packs every VS Code extension (`modelers/<modeler>/apps/vscode/*.vsix`)                               |
 
 `npm run <modeler> <script>` runs one script of one modeler, with the aliases `wardley-maps`,
-`event-storming`, `team-topologies`, `context-maps` and `value-chain`; `npm run modelers <script>`
-runs it in all five. Every modeler has these scripts:
+`event-storming`, `team-topologies`, `context-maps`, `value-chain` and `c4`;
+`npm run modelers <script>` runs it in all six. Every modeler has these scripts:
 
 | Modeler script                                   | Does                                                                                    |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------- |
@@ -105,6 +106,7 @@ the URL under Vite's output.
 | Team Topologies | `https://<branch>.team-topologies-modeler.localhost`  | `http://127.0.0.1:5181` |
 | Context Maps    | `http://<branch>.context-maps-modeler.localhost:8080` | `http://127.0.0.1:5181` |
 | Value Chain     | plain Vite: `http://localhost:5181`                   | (no Portless)           |
+| C4 model        | `https://<branch>.c4.localhost`                       | `http://127.0.0.1:5182` |
 
 The HTTPS URLs need Portless's proxy on port 443, installed once per machine with `sudo` (which is
 also why a non-interactive Run button cannot do it):
@@ -132,8 +134,8 @@ configuration of its `.vscode/launch.json` from Run and Debug.
   its own dev server built from source: the web app (`webapp`; `chromium` and `webkit` in Context
   Maps) and the VS Code webview inside the shell's VS Code stub (`vscode-webview`), both held to the
   shell's conformance kit. Team Topologies also runs its focus hand-back cases in WebKit on both
-  hosts (`webapp-webkit`, `vscode-webview-webkit`), Wardley Maps, Event Storming and Value Chain
-  their web app's Share and focus hand-back specs (`webapp-webkit`).
+  hosts (`webapp-webkit`, `vscode-webview-webkit`), Wardley Maps, Event Storming, Value Chain and
+  C4 their web app's Share and focus hand-back specs (`webapp-webkit`).
   `npm run test:e2e -w modelers/<modeler>/e2e -- --project=<name>` runs one project and
   `-- --grep "<title>"` the tests whose title matches; the alias cannot pass these flags on (see
   [Scripts](#scripts)). A running server on a port is reused, so pick free ports when another
@@ -219,8 +221,8 @@ the hook; avoid it.
 
 - **Conventional Commits**, enforced on the pull request title: `feat`, `fix`, `chore`, `docs`,
   `refactor`, `ci`, `build`, `test`, `revert`. The scope names the area: a modeler (`wardley-maps`,
-  `event-storming`, `team-topologies`, `context-maps`, `value-chain`), `api`, `shell` or `plugin`,
-  e.g. `feat(wardley-maps): add an inertia decorator`, `fix(shell): keep the menu's shortcut chip out of
+  `event-storming`, `team-topologies`, `context-maps`, `value-chain`, `c4`), `api`, `shell` or
+  `plugin`, e.g. `feat(wardley-maps): add an inertia decorator`, `fix(shell): keep the menu's shortcut chip out of
 the accessible name`. A pull request with a single commit must carry the title as that commit's
   subject.
 - **Signed commits:** every commit is GPG-signed (`git commit -S`, or `commit.gpgsign`); after a

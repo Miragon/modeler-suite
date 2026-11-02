@@ -1,0 +1,43 @@
+/* The live feedback of a drag (frame-preview/): roles only, never in an export, since every node
+   here lives only while the drag runs. */
+
+/* A palette create shows the element it drops in its own look, see-through, so what lies under it
+   stays visible (diagram-js's draggers are outlines only). */
+.c4-container .c4-create-preview {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Guide §10.4: what an interaction will produce is dashed in the interaction colour. */
+.c4-container .c4-frame-preview {
+  fill: none;
+  stroke: var(--cd-ui-interaktion);
+  stroke-dasharray: 6 4;
+  stroke-linejoin: round;
+}
+
+/* A frame that would run over an element it does not hold: the drop is allowed, so it warns. */
+.c4-container .c4-frame-preview.c4-frame-preview-warning {
+  stroke: var(--cd-ui-danger);
+}
+
+/* The warning in words and icon too (guide §3.3): a chip on the canvas (§10.1) above the frame,
+   its border and icon in the danger role, the text in the text role. */
+.c4-container .c4-frame-preview-chip-ground {
+  fill: var(--cd-ui-flaeche-hoch);
+  stroke: var(--cd-ui-danger);
+}
+
+.c4-container .c4-frame-preview-chip-icon {
+  stroke: var(--cd-ui-danger);
+}
+
+.c4-container .c4-frame-preview-chip-text {
+  fill: var(--cd-ui-text);
+}
+
+/* The frame as drawn before the drag fades like diagram-js's dragged originals. */
+.c4-container .djs-element.c4-frame-stale > .djs-visual,
+.c4-container .c4-group.c4-frame-stale {
+  opacity: 0.3;
+}

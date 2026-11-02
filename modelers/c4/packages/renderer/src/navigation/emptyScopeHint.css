@@ -1,0 +1,43 @@
+/* The hint inside an empty scope frame (navigation/EmptyScopeHint.ts): quiet text in the frame's
+   free area above its caption, scaled with the canvas like the frame. It takes no pointer, so a
+   click or a palette create reaches the canvas. Roles only. */
+.c4-container .c4-empty-scope-hint {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 12px;
+  color: var(--cd-ui-text-leise);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* diagram-js wraps the hint in a positioned `.djs-overlay` of the hint's size, which would take the
+   pointer over the frame and swallow the palette drop the hint asks for. */
+.c4-container .djs-overlay-c4-empty-scope-hint {
+  pointer-events: none;
+}
+
+.c4-container .c4-empty-scope-hint p {
+  margin: 0;
+}
+
+.c4-container .c4-empty-scope-hint-title {
+  font-weight: 600;
+}
+
+.c4-container .c4-empty-scope-hint[data-dragging] {
+  visibility: hidden;
+}
+
+@media (forced-colors: active) {
+  .c4-container .c4-empty-scope-hint {
+    color: CanvasText;
+  }
+}

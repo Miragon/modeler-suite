@@ -23,5 +23,11 @@
   "modelers/value-chain/packages/renderer": "0.10.0",
   "modelers/value-chain/apps/vscode": "0.10.0",
   "modelers/value-chain/apps/webapp": "0.9.1",
+  "modelers/c4/packages/schema-model": "0.0.0",
+  "modelers/c4/packages/dsl": "0.0.0",
+  "modelers/c4/packages/layout": "0.0.0",
+  "modelers/c4/packages/renderer": "0.0.0",
+  "modelers/c4/apps/vscode": "0.0.0",
+  "modelers/c4/apps/webapp": "0.0.0",
   "extensions/modeler-collection": "1.4.1"
 }

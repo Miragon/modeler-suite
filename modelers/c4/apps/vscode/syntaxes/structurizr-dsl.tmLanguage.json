@@ -1,0 +1,689 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Structurizr DSL",
+  "scopeName": "source.structurizr-dsl",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#script-block" },
+    { "include": "#directives" },
+    { "include": "#workspace-block" },
+    { "include": "#workspace-statement" },
+    { "include": "#model-block" },
+    { "include": "#views-block" },
+    { "include": "#styles-block" },
+    { "include": "#element-block" },
+    { "include": "#view-block" },
+    { "include": "#properties-block" },
+    { "include": "#relationships" },
+    { "include": "#model-statements" },
+    { "include": "#model-generic-block" },
+    { "include": "#values" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.structurizr-dsl",
+          "match": "^\\s*(//).*$",
+          "captures": { "1": { "name": "punctuation.definition.comment.structurizr-dsl" } }
+        },
+        {
+          "name": "comment.line.number-sign.structurizr-dsl",
+          "match": "^\\s*(#).*$",
+          "captures": { "1": { "name": "punctuation.definition.comment.structurizr-dsl" } }
+        },
+        { "include": "#block-comment" }
+      ]
+    },
+    "block-comment": {
+      "patterns": [
+        {
+          "comment": "A line that starts with /* and ends with */ (/*/ too) is a comment of its own, also inside another one.",
+          "name": "comment.block.structurizr-dsl",
+          "match": "^\\s*(?=.*\\*/\\s*$)(/\\*).*$",
+          "captures": { "1": { "name": "punctuation.definition.comment.structurizr-dsl" } }
+        },
+        {
+          "comment": "Otherwise a line whose first token, after an optional id =, starts with /* opens a comment, and the first line that ends with */ closes it. Comments nest, and a // or # line never closes one.",
+          "name": "comment.block.structurizr-dsl",
+          "begin": "^\\s*(?:[^\\s\"]+\\s+=\\s+)?(/\\*)",
+          "beginCaptures": { "1": { "name": "punctuation.definition.comment.structurizr-dsl" } },
+          "end": "(\\*/)\\s*$",
+          "endCaptures": { "1": { "name": "punctuation.definition.comment.structurizr-dsl" } },
+          "patterns": [{ "match": "^\\s*(?://|#).*$" }, { "include": "#block-comment" }]
+        }
+      ]
+    },
+    "script-block": {
+      "comment": "An inline script is kept verbatim up to the line that is only }.",
+      "begin": "(?i)^\\s*(!script)\\s+(\\S+)\\s+(\\{)\\s*$",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.directive.structurizr-dsl" },
+        "2": { "name": "entity.name.type.script-language.structurizr-dsl" },
+        "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+      },
+      "end": "^\\s*(\\})\\s*$",
+      "endCaptures": { "1": { "name": "punctuation.section.block.end.structurizr-dsl" } },
+      "contentName": "meta.embedded.block.script.structurizr-dsl"
+    },
+    "directives": {
+      "patterns": [
+        {
+          "match": "(?i)^\\s*(!(?:const|var))(?=\\s|$)(?:\\s+([A-Za-z0-9_.-]+))?",
+          "captures": {
+            "1": { "name": "keyword.control.directive.structurizr-dsl" },
+            "2": { "name": "variable.other.constant.structurizr-dsl" }
+          }
+        },
+        {
+          "match": "(?i)^\\s*(!identifiers)(?=\\s|$)(?:\\s+(flat|hierarchical)(?=\\s|$))?",
+          "captures": {
+            "1": { "name": "keyword.control.directive.structurizr-dsl" },
+            "2": { "name": "constant.language.identifier-mode.structurizr-dsl" }
+          }
+        },
+        {
+          "match": "(?i)^\\s*(?:([A-Za-z0-9_][A-Za-z0-9_-]*)\\s+(=)\\s+)?(!(?:include|docs|adrs|decisions|script|plugin|components|element|elements|relationship|relationships|impliedRelationships)|impliedRelationships)(?=\\s|$)",
+          "captures": {
+            "1": { "name": "variable.other.identifier.structurizr-dsl" },
+            "2": { "name": "keyword.operator.assignment.structurizr-dsl" },
+            "3": { "name": "keyword.control.directive.structurizr-dsl" }
+          }
+        },
+        {
+          "comment": "Removed from Structurizr 6: the reference parser refuses them.",
+          "match": "(?i)^\\s*(!(?:extend|ref|constant))(?=\\s|$)",
+          "captures": { "1": { "name": "invalid.deprecated.directive.structurizr-dsl" } }
+        }
+      ]
+    },
+    "workspace-block": {
+      "name": "meta.block.workspace.structurizr-dsl",
+      "begin": "(?i)^\\s*(workspace)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.structurizr-dsl" },
+        "2": { "patterns": [{ "include": "#extends" }, { "include": "#values" }] },
+        "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+      },
+      "end": "^\\s*(\\})(.*)$",
+      "endCaptures": {
+        "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+        "2": { "name": "comment.line.ignored.structurizr-dsl" }
+      },
+      "patterns": [{ "include": "#workspace-body" }]
+    },
+    "workspace-statement": {
+      "match": "(?i)^\\s*(workspace)(?=\\s|$)",
+      "captures": { "1": { "name": "keyword.other.block.structurizr-dsl" } }
+    },
+    "extends": {
+      "comment": "The one case-sensitive keyword of the language.",
+      "match": "(?<!\\S)(extends)(?=\\s|$)",
+      "captures": { "1": { "name": "keyword.other.extends.structurizr-dsl" } }
+    },
+    "workspace-body": {
+      "patterns": [
+        { "include": "#comments" },
+        { "include": "#script-block" },
+        { "include": "#directives" },
+        { "include": "#model-block" },
+        { "include": "#views-block" },
+        { "include": "#configuration-block" },
+        { "include": "#properties-block" },
+        {
+          "match": "(?i)^\\s*(model|views|configuration)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.other.block.structurizr-dsl" } }
+        },
+        {
+          "match": "(?i)^\\s*(name|description)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.other.statement.structurizr-dsl" } }
+        },
+        {
+          "name": "meta.block.structurizr-dsl",
+          "begin": "(?<![^\\s\"])(\\{)\\s*$",
+          "beginCaptures": { "1": { "name": "punctuation.section.block.begin.structurizr-dsl" } },
+          "end": "^\\s*(\\})(.*)$",
+          "endCaptures": {
+            "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+            "2": { "name": "comment.line.ignored.structurizr-dsl" }
+          },
+          "patterns": [{ "include": "#workspace-body" }]
+        },
+        { "include": "#values" }
+      ]
+    },
+    "model-block": {
+      "name": "meta.block.model.structurizr-dsl",
+      "begin": "(?i)^\\s*(model)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.structurizr-dsl" },
+        "2": { "patterns": [{ "include": "#values" }] },
+        "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+      },
+      "end": "^\\s*(\\})(.*)$",
+      "endCaptures": {
+        "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+        "2": { "name": "comment.line.ignored.structurizr-dsl" }
+      },
+      "patterns": [{ "include": "#model-body" }]
+    },
+    "model-body": {
+      "patterns": [
+        { "include": "#comments" },
+        { "include": "#script-block" },
+        { "include": "#directives" },
+        { "include": "#properties-block" },
+        { "include": "#element-block" },
+        {
+          "name": "meta.block.model-item.structurizr-dsl",
+          "begin": "(?i)^\\s*(archetypes|perspectives|perspective)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+          "beginCaptures": {
+            "1": { "name": "keyword.other.block.structurizr-dsl" },
+            "2": { "patterns": [{ "include": "#values" }] },
+            "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+          },
+          "end": "^\\s*(\\})(.*)$",
+          "endCaptures": {
+            "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+            "2": { "name": "comment.line.ignored.structurizr-dsl" }
+          },
+          "patterns": [{ "include": "#model-body" }]
+        },
+        { "include": "#relationships" },
+        { "include": "#model-statements" },
+        { "include": "#model-generic-block" },
+        { "include": "#values" }
+      ]
+    },
+    "element-block": {
+      "name": "meta.block.element.structurizr-dsl",
+      "begin": "(?i)^\\s*(?:([A-Za-z0-9_][A-Za-z0-9_-]*)\\s+(=)\\s+)?(person|softwareSystem|container|component|element|group|deploymentEnvironment|deploymentNode|infrastructureNode|softwareSystemInstance|containerInstance|deploymentGroup)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+      "beginCaptures": {
+        "1": { "name": "variable.other.identifier.structurizr-dsl" },
+        "2": { "name": "keyword.operator.assignment.structurizr-dsl" },
+        "3": { "name": "storage.type.element.structurizr-dsl" },
+        "4": { "patterns": [{ "include": "#values" }] },
+        "5": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+      },
+      "end": "^\\s*(\\})(.*)$",
+      "endCaptures": {
+        "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+        "2": { "name": "comment.line.ignored.structurizr-dsl" }
+      },
+      "patterns": [{ "include": "#model-body" }]
+    },
+    "model-statements": {
+      "patterns": [
+        {
+          "match": "(?i)^\\s*(?:([A-Za-z0-9_][A-Za-z0-9_-]*)\\s+(=)\\s+)?(person|softwareSystem|container|component|element|group|deploymentEnvironment|deploymentNode|infrastructureNode|softwareSystemInstance|containerInstance|deploymentGroup)(?=\\s|$)",
+          "captures": {
+            "1": { "name": "variable.other.identifier.structurizr-dsl" },
+            "2": { "name": "keyword.operator.assignment.structurizr-dsl" },
+            "3": { "name": "storage.type.element.structurizr-dsl" }
+          }
+        },
+        {
+          "comment": "Removed from Structurizr 6: the reference parser refuses it.",
+          "match": "(?i)^\\s*(enterprise)(?=\\s|$)",
+          "captures": { "1": { "name": "invalid.deprecated.keyword.structurizr-dsl" } }
+        },
+        {
+          "match": "(?i)^\\s*(archetypes|perspectives|perspective)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.other.block.structurizr-dsl" } }
+        },
+        {
+          "match": "(?i)^\\s*(description|technology|tag|tags|url|instances|healthCheck|instanceOf|metadata|name|value|classes|source|filter|strategy|matcher|supportingTypes|forEach)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.other.statement.structurizr-dsl" } }
+        }
+      ]
+    },
+    "model-generic-block": {
+      "name": "meta.block.structurizr-dsl",
+      "begin": "(?<![^\\s\"])(\\{)\\s*$",
+      "beginCaptures": { "1": { "name": "punctuation.section.block.begin.structurizr-dsl" } },
+      "end": "^\\s*(\\})(.*)$",
+      "endCaptures": {
+        "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+        "2": { "name": "comment.line.ignored.structurizr-dsl" }
+      },
+      "patterns": [{ "include": "#model-body" }]
+    },
+    "relationships": {
+      "patterns": [
+        {
+          "match": "^\\s*(?:([A-Za-z0-9_][A-Za-z0-9_-]*)\\s+(=)\\s+)?([A-Za-z0-9_][A-Za-z0-9_.-]*)\\s+(->|-/>|--[A-Za-z0-9_][A-Za-z0-9_-]*->)(?=\\s|$)(?:\\s+([A-Za-z0-9_][A-Za-z0-9_.-]*)(?=\\s|$))?",
+          "captures": {
+            "1": { "name": "variable.other.identifier.structurizr-dsl" },
+            "2": { "name": "keyword.operator.assignment.structurizr-dsl" },
+            "3": { "name": "variable.other.reference.structurizr-dsl" },
+            "4": { "name": "keyword.operator.relationship.structurizr-dsl" },
+            "5": { "name": "variable.other.reference.structurizr-dsl" }
+          }
+        },
+        {
+          "match": "^\\s*(?:([A-Za-z0-9_][A-Za-z0-9_-]*)\\s+(=)\\s+)?(->|--[A-Za-z0-9_][A-Za-z0-9_-]*->)(?=\\s|$)(?:\\s+([A-Za-z0-9_][A-Za-z0-9_.-]*)(?=\\s|$))?",
+          "captures": {
+            "1": { "name": "variable.other.identifier.structurizr-dsl" },
+            "2": { "name": "keyword.operator.assignment.structurizr-dsl" },
+            "3": { "name": "keyword.operator.relationship.structurizr-dsl" },
+            "4": { "name": "variable.other.reference.structurizr-dsl" }
+          }
+        }
+      ]
+    },
+    "views-block": {
+      "name": "meta.block.views.structurizr-dsl",
+      "begin": "(?i)^\\s*(views)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.structurizr-dsl" },
+        "2": { "patterns": [{ "include": "#values" }] },
+        "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+      },
+      "end": "^\\s*(\\})(.*)$",
+      "endCaptures": {
+        "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+        "2": { "name": "comment.line.ignored.structurizr-dsl" }
+      },
+      "patterns": [{ "include": "#views-body" }]
+    },
+    "views-body": {
+      "patterns": [
+        { "include": "#comments" },
+        { "include": "#script-block" },
+        { "include": "#directives" },
+        { "include": "#view-block" },
+        { "include": "#styles-block" },
+        {
+          "name": "meta.block.terminology.structurizr-dsl",
+          "begin": "(?i)^\\s*(terminology)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+          "beginCaptures": {
+            "1": { "name": "keyword.other.block.structurizr-dsl" },
+            "2": { "patterns": [{ "include": "#values" }] },
+            "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+          },
+          "end": "^\\s*(\\})(.*)$",
+          "endCaptures": {
+            "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+            "2": { "name": "comment.line.ignored.structurizr-dsl" }
+          },
+          "patterns": [{ "include": "#terminology-body" }]
+        },
+        { "include": "#properties-block" },
+        {
+          "match": "(?i)^\\s*(systemLandscape|systemContext|container|component|filtered|dynamic|deployment|custom|image)(?=\\s|$)",
+          "captures": { "1": { "name": "storage.type.view.structurizr-dsl" } }
+        },
+        {
+          "match": "(?i)^\\s*(styles|terminology)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.other.block.structurizr-dsl" } }
+        },
+        {
+          "match": "(?i)^\\s*(theme|themes)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.other.statement.structurizr-dsl" } }
+        },
+        {
+          "name": "meta.block.structurizr-dsl",
+          "begin": "(?<![^\\s\"])(\\{)\\s*$",
+          "beginCaptures": { "1": { "name": "punctuation.section.block.begin.structurizr-dsl" } },
+          "end": "^\\s*(\\})(.*)$",
+          "endCaptures": {
+            "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+            "2": { "name": "comment.line.ignored.structurizr-dsl" }
+          },
+          "patterns": [{ "include": "#views-body" }]
+        },
+        { "include": "#values" }
+      ]
+    },
+    "view-block": {
+      "name": "meta.block.view.structurizr-dsl",
+      "begin": "(?i)^\\s*(systemLandscape|systemContext|container|component|filtered|dynamic|deployment|custom|image)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+      "beginCaptures": {
+        "1": { "name": "storage.type.view.structurizr-dsl" },
+        "2": { "patterns": [{ "include": "#values" }] },
+        "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+      },
+      "end": "^\\s*(\\})(.*)$",
+      "endCaptures": {
+        "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+        "2": { "name": "comment.line.ignored.structurizr-dsl" }
+      },
+      "patterns": [{ "include": "#view-body" }]
+    },
+    "view-body": {
+      "patterns": [
+        { "include": "#comments" },
+        { "include": "#script-block" },
+        { "include": "#directives" },
+        { "include": "#properties-block" },
+        {
+          "name": "meta.block.view-item.structurizr-dsl",
+          "begin": "(?i)^\\s*(animation|light|dark)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+          "beginCaptures": {
+            "1": { "name": "keyword.other.block.structurizr-dsl" },
+            "2": { "patterns": [{ "include": "#values" }] },
+            "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+          },
+          "end": "^\\s*(\\})(.*)$",
+          "endCaptures": {
+            "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+            "2": { "name": "comment.line.ignored.structurizr-dsl" }
+          },
+          "patterns": [{ "include": "#view-body" }]
+        },
+        {
+          "comment": "The keyword is case-insensitive, the rank direction is not: the reference parser looks it up in lower case.",
+          "match": "^\\s*([Aa][Uu][Tt][Oo][Ll][Aa][Yy][Oo][Uu][Tt])(?=\\s|$)(?:\\s+(tb|bt|lr|rl)(?=\\s|$))?",
+          "captures": {
+            "1": { "name": "keyword.other.statement.structurizr-dsl" },
+            "2": { "name": "constant.language.rank-direction.structurizr-dsl" }
+          }
+        },
+        { "include": "#relationships" },
+        {
+          "match": "(?i)^\\s*(include|exclude|default|title|description|animationStep|plantuml|mermaid|kroki|image|animation)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.other.statement.structurizr-dsl" } }
+        },
+        {
+          "comment": "The order of a dynamic view's step: 1:, 2a:, 1.5:",
+          "match": "^\\s*([^\\s\"{}]+:)(?=\\s)",
+          "captures": { "1": { "name": "constant.other.order.structurizr-dsl" } }
+        },
+        {
+          "name": "meta.block.structurizr-dsl",
+          "begin": "(?<![^\\s\"])(\\{)\\s*$",
+          "beginCaptures": { "1": { "name": "punctuation.section.block.begin.structurizr-dsl" } },
+          "end": "^\\s*(\\})(.*)$",
+          "endCaptures": {
+            "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+            "2": { "name": "comment.line.ignored.structurizr-dsl" }
+          },
+          "patterns": [{ "include": "#view-body" }]
+        },
+        { "include": "#values" }
+      ]
+    },
+    "styles-block": {
+      "name": "meta.block.styles.structurizr-dsl",
+      "begin": "(?i)^\\s*(styles)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.structurizr-dsl" },
+        "2": { "patterns": [{ "include": "#values" }] },
+        "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+      },
+      "end": "^\\s*(\\})(.*)$",
+      "endCaptures": {
+        "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+        "2": { "name": "comment.line.ignored.structurizr-dsl" }
+      },
+      "patterns": [{ "include": "#styles-body" }]
+    },
+    "styles-body": {
+      "patterns": [
+        { "include": "#comments" },
+        { "include": "#directives" },
+        {
+          "name": "meta.block.style.structurizr-dsl",
+          "begin": "(?i)^\\s*(element|relationship)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+          "beginCaptures": {
+            "1": { "name": "keyword.other.style.structurizr-dsl" },
+            "2": { "patterns": [{ "include": "#values" }] },
+            "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+          },
+          "end": "^\\s*(\\})(.*)$",
+          "endCaptures": {
+            "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+            "2": { "name": "comment.line.ignored.structurizr-dsl" }
+          },
+          "patterns": [{ "include": "#style-body" }]
+        },
+        {
+          "name": "meta.block.colour-scheme.structurizr-dsl",
+          "begin": "(?i)^\\s*(light|dark)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+          "beginCaptures": {
+            "1": { "name": "keyword.other.block.structurizr-dsl" },
+            "2": { "patterns": [{ "include": "#values" }] },
+            "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+          },
+          "end": "^\\s*(\\})(.*)$",
+          "endCaptures": {
+            "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+            "2": { "name": "comment.line.ignored.structurizr-dsl" }
+          },
+          "patterns": [{ "include": "#styles-body" }]
+        },
+        {
+          "match": "(?i)^\\s*(theme|themes)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.other.statement.structurizr-dsl" } }
+        },
+        {
+          "name": "meta.block.structurizr-dsl",
+          "begin": "(?<![^\\s\"])(\\{)\\s*$",
+          "beginCaptures": { "1": { "name": "punctuation.section.block.begin.structurizr-dsl" } },
+          "end": "^\\s*(\\})(.*)$",
+          "endCaptures": {
+            "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+            "2": { "name": "comment.line.ignored.structurizr-dsl" }
+          },
+          "patterns": [{ "include": "#styles-body" }]
+        },
+        { "include": "#values" }
+      ]
+    },
+    "style-body": {
+      "patterns": [
+        { "include": "#comments" },
+        { "include": "#directives" },
+        { "include": "#properties-block" },
+        {
+          "match": "(?i)^\\s*(shape|icon|iconPosition|width|height|background|color|colour|stroke|strokeWidth|fontSize|border|opacity|metadata|description|thickness|style|dashed|routing|position|jump)(?=\\s|$)",
+          "captures": { "1": { "name": "support.type.property-name.style.structurizr-dsl" } }
+        },
+        {
+          "match": "(?i)(?<!\\S)(Box|RoundedBox|Circle|Ellipse|Hexagon|Diamond|Cylinder|Bucket|Pipe|Person|Robot|Folder|WebBrowser|Window|Terminal|Shell|MobileDevicePortrait|MobileDeviceLandscape|Component|Solid|Dashed|Dotted|Direct|Orthogonal|Curved|Top|Bottom|Left)(?=\\s|$)",
+          "captures": { "1": { "name": "constant.language.style.structurizr-dsl" } }
+        },
+        {
+          "name": "meta.block.structurizr-dsl",
+          "begin": "(?<![^\\s\"])(\\{)\\s*$",
+          "beginCaptures": { "1": { "name": "punctuation.section.block.begin.structurizr-dsl" } },
+          "end": "^\\s*(\\})(.*)$",
+          "endCaptures": {
+            "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+            "2": { "name": "comment.line.ignored.structurizr-dsl" }
+          },
+          "patterns": [{ "include": "#style-body" }]
+        },
+        { "include": "#values" }
+      ]
+    },
+    "terminology-body": {
+      "patterns": [
+        { "include": "#comments" },
+        { "include": "#directives" },
+        {
+          "match": "(?i)^\\s*(person|softwareSystem|container|component|deploymentNode|infrastructureNode|relationship|metadata)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.other.terminology.structurizr-dsl" } }
+        },
+        {
+          "match": "(?i)(?<!\\S)(square|round|curly|angle|double-angle|none)(?=\\s|$)",
+          "captures": { "1": { "name": "constant.language.metadata-symbols.structurizr-dsl" } }
+        },
+        { "include": "#values" }
+      ]
+    },
+    "configuration-block": {
+      "name": "meta.block.configuration.structurizr-dsl",
+      "begin": "(?i)^\\s*(configuration)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.structurizr-dsl" },
+        "2": { "patterns": [{ "include": "#values" }] },
+        "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+      },
+      "end": "^\\s*(\\})(.*)$",
+      "endCaptures": {
+        "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+        "2": { "name": "comment.line.ignored.structurizr-dsl" }
+      },
+      "patterns": [{ "include": "#configuration-body" }]
+    },
+    "configuration-body": {
+      "patterns": [
+        { "include": "#comments" },
+        { "include": "#directives" },
+        { "include": "#properties-block" },
+        {
+          "name": "meta.block.users.structurizr-dsl",
+          "begin": "(?i)^\\s*(users)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+          "beginCaptures": {
+            "1": { "name": "keyword.other.block.structurizr-dsl" },
+            "2": { "patterns": [{ "include": "#values" }] },
+            "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+          },
+          "end": "^\\s*(\\})(.*)$",
+          "endCaptures": {
+            "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+            "2": { "name": "comment.line.ignored.structurizr-dsl" }
+          },
+          "patterns": [{ "include": "#users-body" }]
+        },
+        {
+          "match": "(?i)^\\s*(scope|visibility)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.other.statement.structurizr-dsl" } }
+        },
+        {
+          "match": "(?i)^\\s*(users)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.other.block.structurizr-dsl" } }
+        },
+        {
+          "match": "(?i)(?<!\\S)(landscape|softwaresystem|none|private|public)(?=\\s|$)",
+          "captures": { "1": { "name": "constant.language.configuration.structurizr-dsl" } }
+        },
+        { "include": "#values" }
+      ]
+    },
+    "users-body": {
+      "patterns": [
+        { "include": "#comments" },
+        {
+          "match": "(?i)(?<!\\S)(read|write)(?=\\s|$)",
+          "captures": { "1": { "name": "constant.language.user-role.structurizr-dsl" } }
+        },
+        { "include": "#values" }
+      ]
+    },
+    "properties-block": {
+      "name": "meta.block.properties.structurizr-dsl",
+      "begin": "(?i)^\\s*(properties)(?=\\s|$)(.*?)\\s(\\{)\\s*$",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.block.structurizr-dsl" },
+        "2": { "patterns": [{ "include": "#values" }] },
+        "3": { "name": "punctuation.section.block.begin.structurizr-dsl" }
+      },
+      "end": "^\\s*(\\})(.*)$",
+      "endCaptures": {
+        "1": { "name": "punctuation.section.block.end.structurizr-dsl" },
+        "2": { "name": "comment.line.ignored.structurizr-dsl" }
+      },
+      "patterns": [{ "include": "#properties-body" }]
+    },
+    "properties-body": {
+      "patterns": [
+        { "include": "#comments" },
+        { "include": "#directives" },
+        {
+          "match": "^\\s*([^\\s\"{}][^\\s\"]*)(?=\\s)",
+          "captures": { "1": { "name": "variable.other.property.structurizr-dsl" } }
+        },
+        { "include": "#values" }
+      ]
+    },
+    "values": {
+      "patterns": [
+        { "include": "#text-block" },
+        { "include": "#string" },
+        { "include": "#substitution" },
+        {
+          "match": "(?<!\\S)(->|-/>|--[A-Za-z0-9_][A-Za-z0-9_-]*->)(?=\\s|$)",
+          "captures": { "1": { "name": "keyword.operator.relationship.structurizr-dsl" } }
+        },
+        { "include": "#expression" },
+        { "name": "keyword.operator.relationship.structurizr-dsl", "match": "->" },
+        { "name": "keyword.operator.comparison.structurizr-dsl", "match": "==|!=" },
+        { "name": "keyword.operator.logical.structurizr-dsl", "match": "&&|\\|\\|" },
+        { "name": "keyword.operator.wildcard.structurizr-dsl", "match": "\\*\\?|\\*" },
+        { "name": "keyword.operator.assignment.structurizr-dsl", "match": "(?<!\\S)=(?=\\s|$)" },
+        { "include": "#colour" },
+        { "include": "#url" },
+        {
+          "name": "constant.numeric.structurizr-dsl",
+          "match": "(?<![A-Za-z0-9_.#-])-?\\d+(?:\\.\\d+)?(?![A-Za-z0-9_.-])"
+        },
+        {
+          "match": "(?i)(?<!\\S)(true|false)(?=\\s|$)",
+          "captures": { "1": { "name": "constant.language.boolean.structurizr-dsl" } }
+        },
+        {
+          "match": "(?i)(?<!\\S)(this)(?=\\s|$)",
+          "captures": { "1": { "name": "variable.language.this.structurizr-dsl" } }
+        },
+        { "name": "punctuation.section.block.begin.structurizr-dsl", "match": "\\{" },
+        { "name": "punctuation.section.block.end.structurizr-dsl", "match": "\\}" }
+      ]
+    },
+    "text-block": {
+      "comment": "Opened by a line that ends with \"\"\", closed by the next line that ends with it.",
+      "name": "string.quoted.triple.structurizr-dsl",
+      "begin": "(\"\"\")$",
+      "beginCaptures": { "1": { "name": "punctuation.definition.string.begin.structurizr-dsl" } },
+      "end": "(\"\"\")$",
+      "endCaptures": { "1": { "name": "punctuation.definition.string.end.structurizr-dsl" } },
+      "patterns": [{ "include": "#substitution" }]
+    },
+    "string": {
+      "comment": "A quote opens a string only where a token starts; \\\" is a quote and \\n a line break, there is no other escape.",
+      "name": "string.quoted.double.structurizr-dsl",
+      "begin": "(?<![^\\s\"])(\")",
+      "beginCaptures": { "1": { "name": "punctuation.definition.string.begin.structurizr-dsl" } },
+      "end": "(\")|$",
+      "endCaptures": { "1": { "name": "punctuation.definition.string.end.structurizr-dsl" } },
+      "patterns": [
+        { "name": "constant.character.escape.structurizr-dsl", "match": "\\\\[\"n]" },
+        { "include": "#substitution" },
+        { "include": "#colour" },
+        { "include": "#url" }
+      ]
+    },
+    "substitution": {
+      "name": "variable.other.substitution.structurizr-dsl",
+      "match": "\\$\\{[A-Za-z0-9_.-]+?\\}"
+    },
+    "expression": {
+      "patterns": [
+        {
+          "match": "(?i)(?<![A-Za-z0-9_.-])(element)(\\.)(type)(==|!=)(Person|SoftwareSystem|Container|Component|DeploymentNode|InfrastructureNode|SoftwareSystemInstance|ContainerInstance|Custom)(?![A-Za-z0-9_])",
+          "captures": {
+            "1": { "name": "support.variable.expression.structurizr-dsl" },
+            "2": { "name": "punctuation.accessor.structurizr-dsl" },
+            "3": { "name": "support.variable.expression.structurizr-dsl" },
+            "4": { "name": "keyword.operator.comparison.structurizr-dsl" },
+            "5": { "name": "support.constant.element-type.structurizr-dsl" }
+          }
+        },
+        {
+          "match": "(?i)(?<![A-Za-z0-9_.-])(element|relationship)(?:(\\.)(type|tag|tags|parent|technology|source|destination|group|properties)(?:\\[[^\\]]*\\])?)?(?===|!=)",
+          "captures": {
+            "1": { "name": "support.variable.expression.structurizr-dsl" },
+            "2": { "name": "punctuation.accessor.structurizr-dsl" },
+            "3": { "name": "support.variable.expression.structurizr-dsl" }
+          }
+        }
+      ]
+    },
+    "colour": {
+      "name": "constant.other.color.rgb-value.hex.structurizr-dsl",
+      "match": "(?<![A-Za-z0-9_])#[0-9A-Fa-f]{6}(?![0-9A-Za-z_])"
+    },
+    "url": { "name": "markup.underline.link.structurizr-dsl", "match": "https?://[^\\s\"]+" }
+  }
+}

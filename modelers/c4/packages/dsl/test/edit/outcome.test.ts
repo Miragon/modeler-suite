@@ -1,0 +1,1023 @@
+import { layoutView } from "@miragon/c4-layout";
+import {
+  C4_COLOUR_STYLES,
+  defaultShape,
+  defaultSize,
+  viewCatalog,
+  viewMembers,
+  type ElementId,
+  type Size,
+  type ViewKey,
+} from "@miragon/c4-schema-model";
+import { describe, expect, it } from "vitest";
+import { applyTextEdits } from "../../src/edit/apply.js";
+import { NEW_VIEW_AUTO_LAYOUT, newWorkspaceText } from "../../src/edit/skeleton.js";
+import type { ParseResult } from "../../src/types.js";
+import { box, dsl, edit, edited, parseWorkspace } from "./support/edit.js";
+
+function ok(outcome: ReturnType<typeof edit>) {
+  if (!outcome.ok)
+    throw new Error(
+      `${outcome.reason}: ${outcome.message} ${(outcome as { detail?: string }).detail ?? ""}`,
+    );
+  return outcome;
+}
+
+const LANDSCAPE = dsl`
+  workspace {
+      model {
+          customer = person "Customer"
+          softwareSystem_ab12 = softwareSystem "Software System" {
+              web = container "Web"
+          }
+          customer -> softwareSystem_ab12
+      }
+      views {
+          systemLandscape "Landscape" {
+              include *
+              properties {
+                  "c4modeler.element.customer" "0,0"
+                  "c4modeler.element.softwareSystem_ab12" "400,0"
+                  "c4modeler.relationship.customer->softwareSystem_ab12" "200,300"
+              }
+          }
+      }
+  }
+`;
+
+describe("the outcome's view (SPEC 3.4 step 5)", () => {
+  it("follows a draft whose scope's fresh identifier follows its first name (rekey)", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "updateElement", id: "softwareSystem_ab12", fields: { name: "Payments" } },
+        {
+          view: "Containers-softwareSystem_ab12",
+          fresh: ["softwareSystem_ab12"],
+        },
+      ),
+    );
+    expect(outcome.view).toBe("Containers-payments");
+    expect(outcome.fresh.has("payments")).toBe(false);
+    expect(outcome.fresh.has("softwareSystem_ab12")).toBe(false);
+  });
+
+  it("reports the identifier, the relationship keys and the layout keys that follow a fresh name", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "updateElement", id: "softwareSystem_ab12", fields: { name: "Payments" } },
+        {
+          view: "Landscape",
+          fresh: ["softwareSystem_ab12"],
+        },
+      ),
+    );
+    expect(outcome.idChanges).toEqual([
+      { kind: "element", from: "softwareSystem_ab12", to: "payments" },
+      { kind: "relationship", from: "customer->softwareSystem_ab12", to: "customer->payments" },
+    ]);
+    expect(outcome.text).toContain('"c4modeler.element.payments" "400,0"');
+    expect(outcome.text).toContain('"c4modeler.relationship.customer->payments" "200,300"');
+    expect(outcome.text).toContain("customer -> payments");
+    expect(outcome.view).toBe("Landscape");
+  });
+
+  it("adds a random suffix to the followed identifier for collaborative hosts", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "updateElement", id: "softwareSystem_ab12", fields: { name: "Payments" } },
+        {
+          view: "Landscape",
+          fresh: ["softwareSystem_ab12"],
+          identifiers: "collision-free",
+        },
+      ),
+    );
+    expect(outcome.idChanges[0]?.to).toMatch(/^payments_[0-9a-z]{4}$/);
+  });
+
+  it("lets a software system share a person's name, as Structurizr does", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "updateElement", id: "softwareSystem_ab12", fields: { name: "Customer" } },
+        { view: "Landscape" },
+      ),
+    );
+    expect(outcome.text).toContain('softwareSystem_ab12 = softwareSystem "Customer"');
+  });
+
+  it("keeps a non-fresh identifier when the name changes", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "updateElement", id: "customer", fields: { name: "Buyer" } },
+        { view: "Landscape" },
+      ),
+    );
+    expect(outcome.idChanges).toEqual([]);
+    expect(outcome.text).toContain('customer = person "Buyer"');
+  });
+
+  it("goes to the nearest parent that resolves when the scope of the current view goes", () => {
+    const text = dsl`
+      workspace {
+          model {
+              shop = softwareSystem "Shop" {
+                  web = container "Web"
+              }
+          }
+          views {
+              systemLandscape "Landscape" {
+                  include *
+                  autoLayout tb 300 160
+              }
+              container shop "ShopContainers" {
+                  include *
+                  autoLayout tb 300 160
+              }
+          }
+      }
+    `;
+    const outcome = ok(
+      edit(
+        text,
+        { type: "deleteFromModel", ids: ["shop"], relationships: [] },
+        { view: "ShopContainers" },
+      ),
+    );
+    expect(outcome.view).toBe("Landscape");
+    expect(outcome.text).not.toContain("ShopContainers");
+  });
+
+  it("names the created view after createView", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "createView", viewType: "container", scopeId: "softwareSystem_ab12" },
+        { view: "Landscape" },
+      ),
+    );
+    expect(outcome.view).toBe("Containers-softwareSystem_ab12");
+  });
+});
+
+describe("the fresh set", () => {
+  it("gains a palette element and loses a deleted one", () => {
+    const created = ok(
+      edit(
+        LANDSCAPE,
+        { type: "createElement", kind: "person", center: { x: 0, y: 400 } },
+        { view: "Landscape" },
+      ),
+    );
+    const id = created.created.elements[0] as ElementId;
+    expect(id).toMatch(/^person_[0-9a-z]{4}$/);
+    expect([...created.fresh]).toEqual([id]);
+    const deleted = ok(
+      edit(
+        created.text,
+        { type: "deleteFromModel", ids: [id], relationships: [] },
+        { view: "Landscape", fresh: [id] },
+      ),
+    );
+    expect([...deleted.fresh]).toEqual([]);
+  });
+
+  it("names a palette element after its placeholder, numbered in its namespace", () => {
+    const created = ok(
+      edit(
+        LANDSCAPE,
+        { type: "createElement", kind: "softwareSystem", center: { x: 0, y: 400 } },
+        { view: "Landscape" },
+      ),
+    );
+    expect(created.text).toMatch(/softwareSystem_[0-9a-z]{4} = softwareSystem "Software System 2"/);
+  });
+
+  it("settles a readable identifier when the default name of a fresh element is confirmed as it is", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "updateElement", id: "softwareSystem_ab12", fields: { name: "Software System" } },
+        { view: "Landscape", fresh: ["softwareSystem_ab12"] },
+      ),
+    );
+    expect(outcome.idChanges[0]).toEqual({
+      kind: "element",
+      from: "softwareSystem_ab12",
+      to: "softwareSystem2",
+    });
+    expect(outcome.text).toContain('softwareSystem2 = softwareSystem "Software System"');
+    expect(outcome.text).toContain('"c4modeler.element.softwareSystem2" "400,0"');
+    expect(outcome.fresh.size).toBe(0);
+  });
+
+  it("changes nothing when the unchanged name of an element that is not fresh is committed", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "updateElement", id: "softwareSystem_ab12", fields: { name: "Software System" } },
+        { view: "Landscape" },
+      ),
+    );
+    expect(outcome.text).toBe(LANDSCAPE);
+    expect(outcome.idChanges).toEqual([]);
+  });
+});
+
+describe("an append: a created element and its relationship in one edit", () => {
+  const PINNED = dsl`
+    workspace {
+        model {
+            customer = person "Customer"
+            shop = softwareSystem "Shop"
+            customer -> shop "Uses"
+        }
+        views {
+            systemLandscape "Landscape" {
+                include *
+                properties {
+                    "c4modeler.element.customer" "0,0"
+                    "c4modeler.element.shop" "400,0"
+                }
+            }
+        }
+    }
+  `;
+  const BOXES = { customer: box(0, 0, 216, 216), shop: box(400, 0) };
+
+  it("creates the element, fresh, and the relationship from the source to it", () => {
+    const outcome = ok(
+      edit(
+        PINNED,
+        {
+          type: "createElement",
+          kind: "softwareSystem",
+          center: { x: 952, y: 80 },
+          connectFrom: "shop",
+        },
+        { view: "Landscape", boxes: BOXES },
+      ),
+    );
+    const id = outcome.created.elements[0] as ElementId;
+    expect(id).toMatch(/^softwareSystem_[0-9a-z]{4}$/);
+    expect(outcome.created.relationships).toEqual([`shop->${id}`]);
+    expect([...outcome.fresh]).toEqual([id]);
+    const relationship = outcome.document.workspace.relationships.find(
+      (candidate) => candidate.canvasKey === `shop->${id}`,
+    );
+    expect(relationship).toMatchObject({ sourceId: "shop", destinationId: id, implied: false });
+    expect(outcome.text).toContain(`"c4modeler.element.${id}" "832,0"`);
+  });
+
+  it("follows the first name into the relationship's key", () => {
+    const appended = ok(
+      edit(
+        PINNED,
+        { type: "createElement", kind: "person", center: { x: 952, y: 108 }, connectFrom: "shop" },
+        { view: "Landscape", boxes: BOXES },
+      ),
+    );
+    const id = appended.created.elements[0] as ElementId;
+    const named = ok(
+      edit(
+        appended.text,
+        { type: "updateElement", id, fields: { name: "Clerk" } },
+        { view: "Landscape", fresh: [id] },
+      ),
+    );
+    expect(named.idChanges).toContainEqual({
+      kind: "relationship",
+      from: `shop->${id}`,
+      to: "shop->clerk",
+    });
+    expect(named.text).toContain("shop -> clerk");
+  });
+
+  it("leaves the element unplaced without a centre, so the view puts it beside its source", () => {
+    const outcome = ok(
+      edit(
+        PINNED,
+        { type: "createElement", kind: "softwareSystem", connectFrom: "customer" },
+        { view: "Landscape", boxes: BOXES },
+      ),
+    );
+    const id = outcome.created.elements[0] as ElementId;
+    expect(outcome.text).not.toContain(`c4modeler.element.${id}`);
+    const placed = boxesOf(outcome.document, "Landscape").get(id);
+    expect(placed).toBeDefined();
+    const customer = BOXES.customer;
+    const beside = (placed?.y ?? 0) >= customer.y + customer.height;
+    const right = (placed?.x ?? 0) >= customer.x + customer.width;
+    expect(beside || right, `placed at ${JSON.stringify(placed)}`).toBe(true);
+    for (const other of [BOXES.customer, BOXES.shop]) {
+      const overlapping =
+        placed !== undefined &&
+        placed.x < other.x + other.width &&
+        other.x < placed.x + placed.width &&
+        placed.y < other.y + other.height &&
+        other.y < placed.y + placed.height;
+      expect(overlapping).toBe(false);
+    }
+  });
+
+  it("is undone by its inverse as a whole", () => {
+    const outcome = ok(
+      edit(
+        PINNED,
+        { type: "createElement", kind: "softwareSystem", connectFrom: "shop" },
+        { view: "Landscape", boxes: BOXES },
+      ),
+    );
+    expect(applyTextEdits(outcome.text, outcome.inverse)).toBe(PINNED);
+  });
+});
+
+describe("notices", () => {
+  it("says when deleting a relationship lets an implied one appear", () => {
+    const text = dsl`
+      workspace {
+          model {
+              customer = person "Customer"
+              shop = softwareSystem "Shop" {
+                  web = container "Web"
+              }
+              customer -> shop "Visits"
+              customer -> web "Browses"
+          }
+      }
+    `;
+    const outcome = ok(
+      edit(text, { type: "deleteFromModel", ids: [], relationships: ["customer->shop"] }),
+    );
+    expect(outcome.notices).toEqual(["implied-relationship-appears"]);
+  });
+
+  it("says that included files aren't updated, and that identifiers may collide there", () => {
+    const text = dsl`
+      workspace {
+          !include other.dsl
+          model {
+              a = softwareSystem "A"
+          }
+          views {
+              systemLandscape "Landscape" {
+                  include *
+                  autoLayout tb 300 160
+              }
+          }
+      }
+    `;
+    expect(
+      ok(edit(text, { type: "deleteFromModel", ids: ["a"], relationships: [] })).notices,
+    ).toEqual(["include-not-updated"]);
+    expect(
+      ok(
+        edit(
+          text,
+          { type: "createElement", kind: "person", name: "Visitor", center: { x: 0, y: 0 } },
+          { view: "Landscape" },
+        ),
+      ).notices,
+    ).toEqual(["identifier-may-collide"]);
+  });
+});
+
+describe("minimal edits", () => {
+  it("renames with one token edit per occurrence", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "renameIdentifier", id: "customer", identifier: "buyer" },
+        { view: "Landscape" },
+      ),
+    );
+    expect(outcome.edits).toHaveLength(4);
+    for (const change of outcome.edits) {
+      expect(LANDSCAPE.slice(change.start, change.end)).toMatch(/^[a-z]+$/);
+      expect(change.insert).toMatch(/^[a-z]+$/);
+    }
+    expect(outcome.text.match(/buyer/g)?.length).toBe(4);
+    expect(outcome.text).not.toMatch(/\bcustomer\b/);
+  });
+
+  it("moves with one property line", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        {
+          type: "setLayout",
+          boxes: new Map([["customer", box(80, 40, 216, 216)]]),
+          vertices: new Map(),
+        },
+        { view: "Landscape" },
+      ),
+    );
+    expect(outcome.edits).toHaveLength(1);
+    const [change] = outcome.edits;
+    const line = LANDSCAPE.slice(
+      LANDSCAPE.lastIndexOf("\n", change?.start) + 1,
+      LANDSCAPE.indexOf("\n", change?.end),
+    );
+    expect(line.trim()).toBe('"c4modeler.element.customer" "0,0"');
+    expect(outcome.text).toContain('"c4modeler.element.customer" "80,40"');
+  });
+
+  it("changes nothing for a value it already has", () => {
+    const outcome = ok(
+      edit(
+        LANDSCAPE,
+        { type: "updateElement", id: "customer", fields: { name: "Customer" } },
+        { view: "Landscape" },
+      ),
+    );
+    expect(outcome.text).toBe(LANDSCAPE);
+    expect(outcome.edits).toEqual([]);
+  });
+
+  it("is idempotent for the colours, the automatic layout and the workspace name", () => {
+    const coloured = edited(LANDSCAPE, { type: "applyC4Colours" });
+    expect(edited(coloured, { type: "applyC4Colours" })).toBe(coloured);
+    const cleared = edited(LANDSCAPE, { type: "clearLayout" }, { view: "Landscape" });
+    expect(cleared).not.toContain("c4modeler.");
+    expect(edited(cleared, { type: "clearLayout" }, { view: "Landscape" })).toBe(cleared);
+  });
+});
+
+function boxesOf(parse: ParseResult, key: ViewKey) {
+  const workspace = parse.workspace;
+  const entry = viewCatalog(workspace).resolve(key);
+  if (entry === undefined) throw new Error(`no view ${key}`);
+  const members = viewMembers(workspace, entry);
+  const sizes = new Map<ElementId, Size>();
+  for (const id of members.elements) {
+    const element = workspace.elements.find((candidate) => candidate.id === id);
+    if (element) sizes.set(id, defaultSize(defaultShape(element.kind)));
+  }
+  const relationshipEnds = new Map(
+    workspace.relationships.map((relationship) => [
+      relationship.canvasKey,
+      { sourceId: relationship.sourceId, destinationId: relationship.destinationId },
+    ]),
+  );
+  const autoLayout =
+    entry.state === "written"
+      ? entry.definition?.autoLayout
+      : {
+          rankDirection: "tb" as const,
+          rankSeparation: 300,
+          nodeSeparation: 160,
+          edgeSeparation: 50,
+          vertices: false,
+        };
+  const stored = entry.definition?.layout ?? {
+    elements: new Map(),
+    relationships: new Map(),
+    unmatched: [],
+    malformed: [],
+  };
+  return layoutView({ members, sizes, stored, autoLayout, relationshipEnds }).boxes;
+}
+
+describe("writing a draft or the implicit views moves no box (SPEC 3.5 rule 5)", () => {
+  const MODEL = dsl`
+    workspace {
+        model {
+            customer = person "Customer"
+            shop = softwareSystem "Shop" {
+                web = container "Web"
+                api = container "API"
+            }
+            mail = softwareSystem "Mail"
+            customer -> web "Uses"
+            web -> api "Calls"
+            api -> mail "Sends with"
+        }
+    }
+  `;
+
+  it(`writes autoLayout ${NEW_VIEW_AUTO_LAYOUT}`, () => {
+    const after = edited(
+      MODEL,
+      { type: "updateView", key: "SystemContext-shop", fields: { title: "The shop" } },
+      { view: "SystemLandscape" },
+    );
+    expect(after).toContain(`autoLayout ${NEW_VIEW_AUTO_LAYOUT}`);
+  });
+
+  it("keeps every box of every implicit view written together with the first one", () => {
+    const before = parseWorkspace(MODEL);
+    const after = parseWorkspace(
+      edited(
+        MODEL,
+        { type: "updateView", key: "SystemContext-shop", fields: { title: "The shop" } },
+        { view: "SystemLandscape" },
+      ),
+    );
+    const keys = viewCatalog(before.workspace)
+      .list()
+      .map((entry) => entry.key);
+    expect(keys).toEqual([
+      "SystemLandscape",
+      "SystemContext-mail",
+      "SystemContext-shop",
+      "Containers-shop",
+    ]);
+    for (const key of keys) {
+      expect(viewCatalog(after.workspace).resolve(key)?.state).toBe("written");
+      expect([...boxesOf(after, key)]).toEqual([...boxesOf(before, key)]);
+    }
+  });
+
+  it("keeps every box of a draft written by a title", () => {
+    const text = edited(
+      MODEL,
+      { type: "createView", viewType: "systemLandscape" },
+      { view: "SystemLandscape" },
+    );
+    const before = parseWorkspace(text);
+    const after = parseWorkspace(
+      edited(
+        text,
+        { type: "updateView", key: "Components-web", fields: { title: "Web" } },
+        { view: "SystemLandscape" },
+      ),
+    );
+    expect(viewCatalog(before.workspace).resolve("Components-web")?.state).toBe("draft");
+    expect([...boxesOf(after, "Components-web")]).toEqual([...boxesOf(before, "Components-web")]);
+  });
+});
+
+/** The tag styles of a text, as the colours of "Apply C4 colours" are compared. */
+function colourStyles(text: string) {
+  return parseWorkspace(text).workspace.styles.elements.map(
+    ({ tag, background, color, stroke }) => ({ tag, background, color, stroke }),
+  );
+}
+
+const C4_COLOURS = C4_COLOUR_STYLES.map(({ tag, background, color, stroke }) => ({
+  tag,
+  background: background.toLowerCase(),
+  color: color.toLowerCase(),
+  stroke: stroke.toLowerCase(),
+}));
+
+describe("a new workspace", () => {
+  it("is empty and carries the C4 colours, written as Apply C4 colours writes them", () => {
+    const text = newWorkspaceText();
+    const result = parseWorkspace(text);
+    expect(result.ok).toBe(true);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.workspace.elements).toEqual([]);
+    expect(result.workspace.views).toEqual([]);
+    expect(colourStyles(text)).toEqual(C4_COLOURS);
+    const bare = "workspace {\n    model {\n    }\n    views {\n    }\n}\n";
+    expect(edited(bare, { type: "applyC4Colours" })).toBe(text);
+  });
+
+  it("is a text Apply C4 colours leaves as it is", () => {
+    const outcome = ok(edit(newWorkspaceText(), { type: "applyC4Colours" }));
+    expect(outcome.text).toBe(newWorkspaceText());
+    expect(outcome.edits).toEqual([]);
+  });
+
+  it("is what Apply C4 colours makes of a blank document: one styles block, each tag once", () => {
+    for (const blank of ["", "  \n\n"]) {
+      expect(edited(blank, { type: "applyC4Colours" }), JSON.stringify(blank)).toBe(
+        newWorkspaceText(),
+      );
+    }
+  });
+});
+
+describe("whole documents", () => {
+  it("starts a blank document with the skeleton, the C4 colours included", () => {
+    const outcome = ok(
+      edit(
+        "",
+        { type: "createElement", kind: "person", name: "Visitor", center: { x: 108, y: 108 } },
+        { view: "SystemLandscape" },
+      ),
+    );
+    expect(outcome.text.startsWith(newWorkspaceText().slice(0, 23))).toBe(true);
+    expect(outcome.text).toContain('visitor = person "Visitor"');
+    expect(outcome.text).toContain('systemLandscape "SystemLandscape" {');
+    expect(colourStyles(outcome.text)).toEqual(C4_COLOURS);
+    expect(outcome.view).toBe("SystemLandscape");
+    expect(edited(outcome.text, { type: "applyC4Colours" })).toBe(outcome.text);
+  });
+
+  it("keeps the C4 colours when the first element of a blank document is deleted again", () => {
+    const created = edited(
+      "",
+      { type: "createElement", kind: "person", name: "Visitor", center: { x: 108, y: 108 } },
+      { view: "SystemLandscape" },
+    );
+    const emptied = edited(
+      created,
+      { type: "smartDelete", ids: ["visitor"], relationships: [] },
+      { view: "SystemLandscape" },
+    );
+    const result = parseWorkspace(emptied);
+    expect(result.workspace.elements).toEqual([]);
+    expect(colourStyles(emptied)).toEqual(C4_COLOURS);
+  });
+
+  it("inserts the example into a skeleton-only document and shows its default view", () => {
+    const example = dsl`
+      workspace "Example" {
+          model {
+              a = softwareSystem "A"
+          }
+          views {
+              systemLandscape "Overview" {
+                  include *
+                  autoLayout tb 300 160
+              }
+          }
+      }
+    `;
+    const outcome = ok(edit(newWorkspaceText(), { type: "insertExample", exampleText: example }));
+    expect(outcome.text).toBe(example);
+    expect(outcome.view).toBe("Overview");
+    expect(ok(edit("", { type: "insertExample", exampleText: example })).text).toBe(example);
+  });
+
+  it("writes an !element re-open after a definition with a trailing comment", () => {
+    const text = dsl`
+      workspace {
+          model {
+              shop = softwareSystem "Shop" // the shop
+          }
+          views {
+              container shop "Containers" {
+                  include *
+                  autoLayout tb 300 160
+              }
+          }
+      }
+    `;
+    const after = edited(
+      text,
+      { type: "createElement", kind: "container", name: "Web", center: { x: 120, y: 80 } },
+      { view: "Containers" },
+    );
+    expect(after).toContain(
+      '        shop = softwareSystem "Shop" // the shop\n        !element shop {\n            web = container "Web"\n        }\n',
+    );
+  });
+
+  it("doesn't add a second Database style", () => {
+    const text = edited(
+      LANDSCAPE,
+      { type: "createElement", kind: "container", tags: ["Database"], center: { x: 0, y: 0 } },
+      { view: "Containers-softwareSystem_ab12" },
+    );
+    const again = edited(
+      text,
+      { type: "createElement", kind: "container", tags: ["Database"], center: { x: 400, y: 0 } },
+      { view: "Containers-softwareSystem_ab12" },
+    );
+    expect(again.match(/element "Database"/g)?.length).toBe(1);
+    expect(again).toContain('"Database 2"');
+  });
+});
+
+describe("sources in less common forms", () => {
+  it("writes a keyless deployment view's key after its environment", () => {
+    const text = dsl`
+      workspace {
+          model {
+              s = softwareSystem "S" {
+                  c = container "C"
+              }
+              live = deploymentEnvironment "Live" {
+                  deploymentNode "N" {
+                      containerInstance c
+                  }
+              }
+          }
+          views {
+              deployment s "Live" {
+                  include *
+              }
+              deployment s "Live" {
+                  include *
+              }
+          }
+      }
+    `;
+    const after = edited(text, { type: "deleteView", key: "Deployment-001" });
+    expect(after).toContain('        deployment s "Live" "Deployment-002" {\n');
+    expect(after.match(/deployment s/g)).toHaveLength(1);
+  });
+
+  const DEFAULTS = dsl`
+    workspace {
+        model {
+            archetypes {
+                -> {
+                    description "Uses"
+                    technology "HTTPS"
+                }
+            }
+            a = softwareSystem "A"
+            b = softwareSystem "B"
+            b -> a "" "Java"
+        }
+        views {
+            systemLandscape "L" {
+                include *
+            }
+        }
+    }
+  `;
+
+  it("lets a relationship archetype's defaults apply to a drawn relationship", () => {
+    const outcome = ok(
+      edit(DEFAULTS, { type: "createRelationship", sourceId: "a", destinationId: "b" }),
+    );
+    expect(outcome.text).toContain("        a -> b\n");
+    const created = outcome.document.workspace.relationships.find(
+      (relationship) => relationship.canvasKey === "a->b",
+    );
+    expect(created?.description).toBe("Uses");
+    expect(created?.technology).toBe("HTTPS");
+    const again = edit(outcome.text, {
+      type: "createRelationship",
+      sourceId: "a",
+      destinationId: "b",
+    });
+    expect(again.ok ? undefined : again.reason).toBe("relationship-exists");
+  });
+
+  it("keeps a placeholder that holds an archetype default away when it clears the last value", () => {
+    const after = edited(DEFAULTS, {
+      type: "updateRelationship",
+      key: "b->a",
+      fields: { technology: "" },
+    });
+    expect(after).toContain('        b -> a "" ""\n');
+  });
+
+  const CONTINUED = dsl`
+    workspace {
+        model {
+            a = softwareSystem "A"
+            b = softwareSystem "B" "Receives" \\
+                "Tag"
+            a -> b "Uses" \\
+                "HTTP"
+        }
+        views {
+            systemLandscape "L" {
+                include *
+            }
+        }
+    }
+  `;
+
+  it("names an unnamed relationship that can't be opened and re-opens it for a URL", () => {
+    const outcome = ok(
+      edit(CONTINUED, {
+        type: "updateRelationship",
+        key: "a->b",
+        fields: { url: "https://example.com" },
+      }),
+    );
+    expect(outcome.text).toContain(
+      '        aToB = a -> b "Uses" \\\n            "HTTP"\n        !relationship aToB {\n            url "https://example.com"\n        }\n',
+    );
+    expect(outcome.idChanges).toEqual([{ kind: "relationship", from: "a->b", to: "aToB" }]);
+  });
+
+  it("takes the line continuation along when the last value on a continued line goes", () => {
+    const after = edited(CONTINUED, { type: "updateElement", id: "b", fields: { tags: [] } });
+    expect(after).toContain('        b = softwareSystem "B" "Receives"\n        a -> b');
+  });
+
+  it("excludes each of an ambiguous pair and reports the renumbered canvas keys", () => {
+    const text = dsl`
+      workspace {
+          model {
+              a = softwareSystem "A"
+              b = softwareSystem "B"
+              a -> b "One"
+              a -> b "Two"
+              a -> b "Three"
+          }
+          views {
+              systemLandscape "L" {
+                  include *
+              }
+              systemContext a "C" {
+                  include *
+              }
+          }
+      }
+    `;
+    const outcome = ok(
+      edit(text, { type: "removeFromView", ids: [], relationships: ["a->b#1", "a->b#2"] }),
+    );
+    expect(outcome.text).toContain('aToB = a -> b "One"');
+    expect(outcome.text).toContain('aToB2 = a -> b "Two"');
+    expect(outcome.text).toContain('        a -> b "Three"\n');
+    expect(outcome.text).toContain("            exclude aToB\n            exclude aToB2\n");
+    let key = "a->b#3";
+    for (const change of outcome.idChanges) if (change.from === key) key = change.to;
+    expect(key).toBe("a->b");
+  });
+
+  it("renames a layout key in place when its line keeps its sorted place", () => {
+    const text = dsl`
+      workspace {
+          model {
+              a = softwareSystem "A"
+              b = softwareSystem "B"
+          }
+          views {
+              systemLandscape "L" {
+                  include *
+                  properties {
+                      "c4modeler.element.a" "0,0"
+                      "c4modeler.element.b" "400,0"
+                      "team" "orders"
+                  }
+              }
+          }
+      }
+    `;
+    const outcome = ok(
+      edit(text, { type: "renameIdentifier", id: "a", identifier: "alpha" }, { view: "L" }),
+    );
+    expect(outcome.edits.every((change) => change.insert === "lpha")).toBe(true);
+    expect(outcome.text).toContain(
+      '"c4modeler.element.alpha" "0,0"\n                "c4modeler.element.b" "400,0"\n',
+    );
+  });
+
+  it("removes a view term naming an outer group whose nested groups lose their last element", () => {
+    const text = dsl`
+      workspace {
+          model {
+              properties {
+                  "structurizr.groupSeparator" "/"
+              }
+              d = group "D" {
+                  t = group "T" {
+                      a = softwareSystem "A"
+                  }
+              }
+              b = softwareSystem "B"
+          }
+          views {
+              systemLandscape "L" {
+                  include d b
+              }
+          }
+      }
+    `;
+    const after = edited(text, { type: "deleteFromModel", ids: ["a"], relationships: [] });
+    expect(after).toContain("            include b\n");
+  });
+
+  it("writes no implicit identifier for a field other than the name", () => {
+    const text = dsl`
+      workspace {
+          model {
+              softwareSystem "Shop"
+          }
+      }
+    `;
+    const after = edited(text, {
+      type: "updateElement",
+      id: "shop",
+      fields: { description: "Sells" },
+    });
+    expect(after).toContain('        softwareSystem "Shop" "Sells"\n');
+  });
+});
+
+describe("moving a relationship's end into a child", () => {
+  const SYNC = dsl`
+    workspace {
+        model {
+            shop = softwareSystem "Shop" {
+                web = container "Web"
+                api = container "API"
+            }
+            crm = softwareSystem "CRM"
+            shop -> crm "Syncs customers" "HTTPS" {
+                tags "Batch"
+                url "https://example.com/sync"
+                properties {
+                    "owner" "crm-team"
+                }
+            }
+        }
+        views {
+            systemLandscape "Landscape" {
+                include *
+                autoLayout tb 300 160
+            }
+            container shop "ShopContainers" {
+                include *
+                autoLayout tb 300 160
+            }
+        }
+    }
+  `;
+  const move = (text: string, key: string, to: string) =>
+    ok(edit(text, { type: "moveRelationshipEnd", key, end: "source", to }, { view: "Landscape" }));
+
+  it("rewrites only the end's token, and its inverse restores the text byte for byte", () => {
+    const outcome = move(SYNC, "shop->crm", "web");
+    expect(outcome.edits).toHaveLength(1);
+    const [change] = outcome.edits;
+    expect(change).toBeDefined();
+    expect(applyTextEdits(SYNC, outcome.edits)).toBe(outcome.text);
+    expect(applyTextEdits(outcome.text, outcome.inverse)).toBe(SYNC);
+    expect(outcome.text).toBe(SYNC.replace("shop -> crm", "web -> crm"));
+  });
+
+  it("keeps everything of the relationship but its source", () => {
+    const before = parseWorkspace(SYNC).workspace.relationships.find(
+      (relationship) => relationship.canvasKey === "shop->crm",
+    );
+    const after = move(SYNC, "shop->crm", "web").document.workspace.relationships.find(
+      (relationship) => relationship.canvasKey === "web->crm",
+    );
+    expect(after).toEqual({
+      ...before,
+      key: "web->crm",
+      canvasKey: "web->crm",
+      sourceId: "web",
+      fields: after?.fields,
+    });
+  });
+
+  it("reports the canvas key the unnamed relationship takes from its new end", () => {
+    expect(move(SYNC, "shop->crm", "web").idChanges).toEqual([
+      { kind: "relationship", from: "shop->crm", to: "web->crm" },
+    ]);
+  });
+
+  it("reports the identifier it names an ambiguous relationship with, and the sibling's key", () => {
+    const text = SYNC.replace(
+      '        shop -> crm "Syncs customers"',
+      '        shop -> crm "Sends orders to"\n        shop -> crm "Syncs customers"',
+    );
+    expect(move(text, "shop->crm#2", "web").idChanges).toEqual([
+      { kind: "relationship", from: "shop->crm#2", to: "webToCrm" },
+      { kind: "relationship", from: "shop->crm#1", to: "shop->crm" },
+    ]);
+  });
+
+  it("keeps a named relationship's key", () => {
+    const outcome = move(SYNC.replace("shop -> crm", "sync = shop -> crm"), "sync", "web");
+    expect(outcome.idChanges).toEqual([]);
+  });
+
+  it("draws the relationship in the container view and an implied one in the landscape", () => {
+    const { workspace } = move(SYNC, "shop->crm", "web").document;
+    const catalog = viewCatalog(workspace);
+    const members = (key: string) => viewMembers(workspace, catalog.resolve(key)!);
+    expect(members("ShopContainers").elements).toContain("crm");
+    expect(members("ShopContainers").relationships).toContain("web->crm");
+    expect(members("Landscape").relationships).toEqual(["implied:shop->crm"]);
+  });
+
+  it("moves an end beside a dynamic step that keeps showing the relationship it names", () => {
+    const text = dsl`
+      workspace {
+          model {
+              shop = softwareSystem "Shop" {
+                  web = container "Web"
+              }
+              crm = softwareSystem "CRM"
+              shop -> crm "Syncs customers"
+              web -> crm "Reads customers from"
+          }
+          views {
+              systemLandscape "Landscape" {
+                  include *
+                  autoLayout tb 300 160
+              }
+              dynamic shop "Lookup" {
+                  web -> crm "Reads customers from"
+              }
+          }
+      }
+    `;
+    expect(move(text, "shop->crm", "web").text).toContain(
+      '        webToCrm = web -> crm "Syncs customers"\n',
+    );
+  });
+
+  it("says nothing about the implied relationship it brings, which is the moved one", () => {
+    expect(move(SYNC, "shop->crm", "web").notices).toEqual([]);
+  });
+});

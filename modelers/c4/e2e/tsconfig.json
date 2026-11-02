@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@miragon/c4-schema-model": ["../packages/schema-model/src/index.ts"],
+      "@miragon/c4-dsl": ["../packages/dsl/src/index.ts"],
+      "@miragon/c4-layout": ["../packages/layout/src/index.ts"],
+      "@miragon/c4-renderer": ["../packages/renderer/src/index.ts"],
+      "@miragon/c4-renderer/themes": ["../packages/renderer/src/themes.ts"]
+    }
+  },
+  "include": ["tests/**/*.ts", "webview/**/*.ts", "playwright.config.ts"]
+}

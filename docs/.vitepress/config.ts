@@ -28,13 +28,14 @@ const modelers = [
   { text: "Team Topologies", link: "/modelers/team-topologies" },
   { text: "Context Maps", link: "/modelers/context-maps" },
   { text: "Value Chain", link: "/modelers/value-chain" },
+  { text: "C4 model", link: "/modelers/c4" },
 ];
 
 export default miragonDocs({
   repo: "Miragon/modeler-suite",
   title: "Miragon Modeler Suite",
   description:
-    "Five diagram-js modelers for strategy and architecture notations, as web apps, VS Code extensions and npm libraries.",
+    "Six diagram-js modelers for strategy and architecture notations, as web apps, VS Code extensions and npm libraries.",
   footerMessage: "Released under the MIT License.",
   srcExclude: ["assets/**"],
   markdown: { config: linkRepositoryFilesOutsideDocsToGitHub },
