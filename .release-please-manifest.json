@@ -29,5 +29,5 @@
   "modelers/c4/packages/renderer": "0.1.0",
   "modelers/c4/apps/vscode": "0.1.0",
   "modelers/c4/apps/webapp": "0.1.0",
-  "extensions/modeler-collection": "1.4.1"
+  "extensions/modeler-collection": "1.5.0"
 }
