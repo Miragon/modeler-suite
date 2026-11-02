@@ -14,6 +14,8 @@ extension** on one diagram-js renderer, as `modelers/c4` of the
 Compatible with Structurizr DSL. Structurizr is a product of Structurizr Limited; this project is
 not affiliated with or endorsed by Structurizr Limited.
 
+**[Try the web app →](https://c4.modeler.miragon.io)**
+
 ![The C4 Modeler web app with the system landscape of its example](docs/screenshots/editor.png)
 
 ## What it does
