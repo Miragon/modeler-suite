@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/Miragon/modeler-suite/compare/modeler-collection-v1.4.1...modeler-collection-v1.5.0) (2026-11-02)
+
+
+### Features
+
+* **modeler-collection:** add the C4 Modeler to the extension pack ([#528](https://github.com/Miragon/modeler-suite/issues/528)) ([a7cca50](https://github.com/Miragon/modeler-suite/commit/a7cca50ff5568477d833bbd9d3093d99f058cfec))
+
 ## [1.4.1](https://github.com/Miragon/modeler-suite/compare/modeler-collection-v1.4.0...modeler-collection-v1.4.1) (2026-10-26)
 
 
