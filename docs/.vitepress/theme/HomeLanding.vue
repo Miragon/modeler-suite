@@ -57,7 +57,7 @@ const modelers = [
   {
     name: "C4 model",
     npmPackage: "@miragon/c4-renderer",
-    webApp: undefined,
+    webApp: "https://c4.modeler.miragon.io",
     file: "bookshop.c4",
     shot: "/shots/c4/editor.png",
     link: "/modelers/c4",
