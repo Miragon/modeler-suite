@@ -35,6 +35,9 @@ Then list:
 - dependency links (`A -> B`: A needs B) and flow links (`+>`)
 - `evolve` arrows, `inertia`, `(build)`/`(buy)`/`(outsource)`, `(market)`/`(ecosystem)`
 - pipelines, PST regions (`pioneers`, `settlers`, `townplanners`), accelerators, submaps
+- `url` lines: web links, and links to other maps (a relative address such as
+  `details/payment.wmap`). A map that links to other maps belongs to a set: ask for the whole set,
+  review every map with this playbook, then run the set checks in `linked-maps.md`.
 - existing notes and annotations; do not duplicate what is already said
 
 ## 2. Structural checks
@@ -48,7 +51,7 @@ Then list:
 | **Lines not understood**      | Diagnostics `Unknown statement "…"` and `Line not understood …`; any non-comment `rawPassthrough` entry.                                                         | The user thinks these elements or links are on the map; they are not.         |
 | **Duplicate names**           | Diagnostic `Duplicate name "X": renamed to "X 2"; links bind to the first "X"`.                                                                                  | Every link to `X` reaches the first one; the second shows up as "X 2".        |
 | **Dangling evolve**           | Diagnostic `evolve: component "X" not found`.                                                                                                                    | The movement arrow is not drawn.                                              |
-| **Orphans**                   | A component in no link at all (pipeline children excepted).                                                                                                      | It serves no need: remove it or connect it.                                   |
+| **Orphans**                   | A component in no link at all (pipeline children and a detail map's back link to its overview excepted).                                                         | It serves no need: remove it or connect it.                                   |
 | **Cycles**                    | `A -> B -> … -> A`.                                                                                                                                              | A value chain is acyclic; a cycle usually hides a flow drawn as a dependency. |
 | **Chain reaches commodities** | Leaves (components nothing below them) still in Genesis or Custom-Built.                                                                                         | The map stops before the things that will move fastest and cost least.        |
 | **Pipelines**                 | No block children (a range but no forms); the pipeline's component right above a child; an `evolve` that only restates the range.                                | A pipeline is one component in several forms: suggest the forms as children.  |

@@ -1,0 +1,19 @@
+title Online Grocery: Meal Planner
+url Online Grocery URL [../online-grocery.wmap]
+anchor Meal Planner [0.95, 0.22]
+submap Online Grocery [0.95, 0.04] url(Online Grocery URL)
+component Meal Suggestions [0.8, 0.1] (build)
+component Ingredient Matching [0.8, 0.3] (build)
+component Recipe Content [0.62, 0.55] (buy)
+component Language Model [0.5, 0.62] (buy)
+component Product Catalogue [0.38, 0.58]
+component Cloud Hosting [0.1, 0.85] (outsource)
+note Differentiator: build it [0.73, 0.1] (color #0B7A55)
+evolve Language Model 0.8
+Meal Planner -> Meal Suggestions
+Meal Planner -> Ingredient Matching
+Meal Suggestions -> Recipe Content
+Meal Suggestions -> Language Model
+Ingredient Matching -> Recipe Content
+Ingredient Matching -> Product Catalogue
+Product Catalogue -> Cloud Hosting

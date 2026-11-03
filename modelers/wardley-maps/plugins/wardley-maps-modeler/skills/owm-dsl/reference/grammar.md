@@ -439,7 +439,10 @@ submap <Name> [vis, mat] (color …) url(<Def>)
 ```
 
 → `SubmapElement`, id `submap_<slug>`, `urlRef` = the resolved address. Link endpoint. Decorators
-and `label [dx, dy]` are ignored with a diagnostic.
+and `label [dx, dy]` are ignored with a diagnostic. `evolve` works on components only, so
+`evolve <Submap> …` gives `evolve: component "<Submap>" not found`. A submap without `url(…)` is
+drawn and links nowhere, without a diagnostic. Use `component … url(…)` for a linked element that
+needs a method, `inertia` or an `evolve` arrow.
 
 ### `url`
 
@@ -457,7 +460,25 @@ A named address.
   (`url Docs [https://x] // see [docs]`) becomes part of the address.
 - **References.** A definition is referenced by `url(<Def>)` on a `component` or `submap`, declared
   before or after it. `url(<scheme>://…)` with a literal address works too. `mailto:` does not
-  (it has no `//`).
+  (it has no `//`), and neither does a relative address: `url(details/x.wmap)` is read as the name
+  of a definition. Both need a definition line. A definition name holds no `(` or `)`, since the
+  reference ends at the first `)`. Anchors, pipeline children, notes, accelerators, pipelines,
+  regions and `line` drawings drop a `url(…)` after their coordinates with
+  `Ignored text after the coordinates`; only components and submaps link.
+- **Addresses.** The parser keeps the address exactly as written and checks nothing about it: not
+  its scheme, not whether a file exists. `url` (component) and `urlRef` (submap) hold it unchanged.
+  How the Modeler reads it:
+  - An address without a scheme is a path relative to the folder of the map file that holds the
+    `url` line, with `/` between folders and nothing percent-decoded (`my map.wmap` as typed).
+    Whether a click follows it depends on the host: the VS Code extension opens `.wmap` / `.owm`
+    files inside the workspace, the web app cannot follow it.
+  - `http:` and `https:` addresses open in the browser, `mailto:` in the mail app.
+  - Every other scheme (`javascript:`, `data:`, `file:` …) is never opened.
+  - The Modeler's link editor removes `[`, `]` and control characters from an address it saves, and
+    a line break would end the `url` line, so keep them out of addresses.
+
+  `SKILL.md`, "Links between maps", has the resolution table and the authoring rules.
+
 - **Diagnostics.**
   - A `url(<Def>)` with no matching definition gives
     `url(Docs) has no matching "url Docs [address]" line: ignored`, and the address is lost on
@@ -469,7 +490,10 @@ A named address.
 - **On save**, every element address becomes its own definition `url <Element Name> URL [address]`
   directly after the config lines, referenced as `url(<Element Name> URL)` at the end of the
   element line. `()[]<>` are left out of that name and it is made unique, so `Shop (v2)` gives
-  `Shop v2 URL`. A definition shared by two elements is split into two.
+  `Shop v2 URL`. A definition shared by two elements is split into two. That is what
+  `serializeDSL` writes. `patchDSL`, with which the Modeler's apps save a graphical edit, keeps
+  the name of an existing definition (also when the element's address changes) and a literal
+  `url(https://…)` that stays a web address; a new link gets the `<Element> URL` form.
 
 ### `line`
 
@@ -755,7 +779,7 @@ no effect on the map, or part of it was dropped or changed.
 | `Repeated evolve for "X": replaces the one on line N`                                                     | a second `evolve` for one component                                                                                             |
 | `buy: replaces the method "build" of "X"`                                                                 | a legacy method line overrides a decorator                                                                                      |
 | `y-axis takes "Label" or "Label->Bottom->Top": read as "…"`                                               | a `y-axis` with two, or more than three, parts, or empty parts                                                                  |
-| `url(<Def>) has no matching "url <Def> [address]" line: ignored`                                          | a missing definition, or `url(mailto:…)`; the address is lost                                                                   |
+| `url(<Def>) has no matching "url <Def> [address]" line: ignored`                                          | a missing definition, `url(mailto:…)` or a literal relative address (`url(details/x.wmap)`); the address is lost                |
 | `Repeated url definition "D": replaces the one on line N, which is kept unused`                           | two definitions with one name                                                                                                   |
 | `Ignored "*/": this line is kept after an unclosed "/*" and would end that comment`                       | a kept line holding `*/` that the save would place inside an unclosed block comment                                             |
 
@@ -770,6 +794,8 @@ An empty `diagnostics` array means almost everything was read as written. These 
 | `Title Search -> X` while `Title Search` is not declared            | **replaces the map title**; no link                           |
 | `Y-axis A -> B -> C` while `Y-axis A` is not declared               | sets the y-axis label and end labels; no link                 |
 | `url <Def> [address]` that nothing references                       | kept in `rawPassthrough`, moved to the end                    |
+| an address naming a missing file, or a scheme that never opens      | kept as written; the link fails only when followed            |
+| `submap X [vis, mat]` without `url(…)`                              | drawn, links nowhere                                          |
 | `pipeline X` without range next to a top-level `component X`        | kept, nothing drawn                                           |
 | a pipeline with a single child                                      | range `[m, m + 0.05]`                                         |
 | a pipeline named like an anchor, accelerator or submap only         | height `0.5` unless `(y …)`                                   |

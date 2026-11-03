@@ -1,0 +1,19 @@
+title Online Grocery: Fulfilment
+url Online Grocery URL [../online-grocery.wmap]
+anchor Fulfilment [0.95, 0.35]
+submap Online Grocery [0.95, 0.06] url(Online Grocery URL)
+component Last-Mile Delivery [0.84, 0.66]
+component Order Picking [0.78, 0.25] (build) inertia
+component Delivery Routing [0.62, 0.6] (buy)
+component Inventory [0.55, 0.5] (buy)
+component Delivery Vans [0.4, 0.84] (outsource)
+component Cloud Hosting [0.1, 0.85] (outsource)
+note Inertia: staff and stores [0.72, 0.13] (color #92610A)
+evolve Order Picking 0.5 (buy)
+Fulfilment -> Order Picking
+Fulfilment -> Last-Mile Delivery
+Order Picking -> Inventory
+Last-Mile Delivery -> Delivery Routing
+Last-Mile Delivery -> Delivery Vans
+Inventory -> Cloud Hosting
+Delivery Routing -> Cloud Hosting
