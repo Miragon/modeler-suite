@@ -111,6 +111,10 @@ Options (the names of the `@miragon/modeler-api` 1.2 factory options):
   relative to the current map (`undefined` when the user cancels), which becomes the element's link
   in one undoable step.
 
+A component or submap whose link the editor can open, the cases where its context pad offers "Open
+link", carries a small link mark at its lower left (Lucide `link` in the `--cd-ui-link` role). It
+takes no pointer, the viewer shows none, and the export leaves it out, as the selection outline.
+
 The `wardleyReadOnly` service (`modeler.get<WardleyReadOnly>('wardleyReadOnly').setReadOnly(true)`)
 locks the canvas while its host cannot save an edit, e.g. while the document is invalid: every edit
 rule is vetoed, an open editor, popup or drag ends without saving, the handles hide, and selection,

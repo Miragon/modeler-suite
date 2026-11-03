@@ -53,6 +53,19 @@
   pointer-events: all;
 }
 
+/* The mark of an element whose link the editor opens (Open link in its context pad): the link
+   colour, as a link's text has it, on a raised surface. It takes no pointer, so clicks still select
+   the element, and the export leaves it out (saveSvg). */
+.wardley-container .wardley-link-badge {
+  color: var(--cd-ui-link);
+  pointer-events: none;
+}
+.wardley-container .wardley-link-badge > circle {
+  fill: var(--cd-ui-flaeche-hoch);
+  stroke: var(--cd-ui-link);
+  stroke-width: 1.5px;
+}
+
 /* Hover and selection leave an element's own (possibly user-picked) colour alone: the dashed
    outline in the interaction blue is the cue (guide §10.4, no brightness filter). diagram-js shows
    no outline on hover by itself. */
@@ -959,6 +972,13 @@
 @media (forced-colors: active) {
   :is(.wardley-popover, .wardley-dialog-panel) {
     border-color: CanvasText;
+  }
+  .wardley-container .wardley-link-badge {
+    color: LinkText;
+  }
+  .wardley-container .wardley-link-badge > circle {
+    fill: Canvas;
+    stroke: LinkText;
   }
   .wardley-button {
     border-color: ButtonText;

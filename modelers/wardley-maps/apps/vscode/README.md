@@ -58,7 +58,8 @@ Together they show _what_ you depend on and _how mature_ each piece is.
 - **Links between maps:** **Link to map…** in the context pad of a submap or component lists the
   other maps of the workspace and links the element to the one you choose; **Set link…** takes any
   address, such as `details/payment.wmap` relative to the folder of the current map or a web
-  address. **Open link** opens the linked map in its own tab, or a web address in your browser. So a
+  address. An element with a link carries a small link mark at its lower left. **Open link** opens
+  the linked map in its own tab, or a web address in your browser. So a
   large map can become an overview plus detail maps you click through. Only `.wmap` and `.owm` files
   inside the workspace open this way. A link that can't open is a problem like a parser warning,
   underlined at its address and counted in the pill: a map that doesn't exist (or no longer does,

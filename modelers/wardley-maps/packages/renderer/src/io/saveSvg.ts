@@ -1,5 +1,5 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
-import { PLOT } from "../draw/styles.js";
+import { LINK_BADGE_CLASS, PLOT } from "../draw/styles.js";
 
 export interface SvgBounds {
   x: number;
@@ -25,6 +25,8 @@ export function saveSVG(canvas: Canvas, bounds?: SvgBounds): { svg: string } {
   // Interaction state is not part of the map either: the picture looks the same whatever the user
   // has selected or hovers, so hosts need not deselect (and lose the selection) to export.
   clone.querySelectorAll(".layer-wardley-drawing-handles").forEach((layer) => layer.remove());
+  // A link mark says the editor can follow the link from the element; a picture can't.
+  clone.querySelectorAll(`.${LINK_BADGE_CLASS}`).forEach((badge) => badge.remove());
   clone
     .querySelectorAll(".djs-outline, .layer-selectionOutline > *, .layer-resizers > *")
     .forEach((decoration) => decoration.remove());
