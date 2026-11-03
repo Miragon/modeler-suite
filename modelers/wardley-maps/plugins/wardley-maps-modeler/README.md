@@ -3,10 +3,10 @@
 Two skills that teach Claude [Wardley Mapping](https://learnwardleymapping.com/) and the OWM text
 format (`.wmap` / `.owm`) used by the [Wardley Maps Modeler](https://github.com/Miragon/modeler-suite/tree/main/modelers/wardley-maps).
 
-| Skill             | What it covers                                                                                                                                                                                                                                |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wardley-mapping` | Simon Wardley's method: value chains, the evolution axis (genesis → custom-built → product → commodity), doctrine, climatic patterns and gameplay, creating maps from a strategic question, and map reviews with colour-coded feedback notes. |
-| `owm-dsl`         | The OWM format itself: full grammar, `[visibility, maturity]` coordinates and layout, evolve / pipeline / inertia / notes / annotations, parser diagnostics and their pitfalls, the round-trip guarantee, web-app share links.                |
+| Skill             | What it covers                                                                                                                                                                                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `wardley-mapping` | Simon Wardley's method: value chains, the evolution axis (genesis → custom-built → product → commodity), doctrine, climatic patterns and gameplay, creating maps from a strategic question, splitting a large map into an overview and linked detail maps, and map reviews with colour-coded feedback notes. |
+| `owm-dsl`         | The OWM format itself: full grammar, `[visibility, maturity]` coordinates and layout, evolve / pipeline / inertia / notes / annotations, parser diagnostics and their pitfalls, the round-trip guarantee, links between maps, web-app share links.                                                           |
 
 Together they let Claude read, review, edit and generate Wardley Maps as plain text, in any
 repository, next to the VS Code extension, and in Miragon AI Design. Claude never renders a map
@@ -35,6 +35,7 @@ Nothing to invoke by hand. The skills trigger when you ask Claude to work on War
 
 - "Review this map and tell me what's weak" → `wardley-mapping`
 - "Map our build-vs-buy decision for the payment platform as a `.wmap`" → both
+- "This map is too big: split it into an overview and detail maps" → both
 - "Explain pioneers, settlers and town planners" → `wardley-mapping`
 - "Why does this link not show up in my `.owm` file?" → `owm-dsl`
 

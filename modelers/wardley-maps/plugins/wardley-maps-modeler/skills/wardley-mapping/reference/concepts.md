@@ -26,7 +26,7 @@ x position is not a map.
 | **Market / ecosystem**                  | A component that is a market or ecosystem in itself (a platform others build on).                        |
 | **Pioneers / settlers / town planners** | Regions showing which attitude (team culture) owns which part of the map.                                |
 | **Accelerator / de-accelerator**        | A force speeding up or slowing down a component's evolution (open source, regulation, patents).          |
-| **Submap**                              | A component expanded into its own map.                                                                   |
+| **Submap**                              | A component expanded into its own map, linked from the map above it (`linked-maps.md`).                  |
 
 How each is written in the file is the `owm-dsl` skill's job.
 

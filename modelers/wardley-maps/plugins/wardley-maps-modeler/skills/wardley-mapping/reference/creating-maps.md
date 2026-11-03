@@ -18,7 +18,8 @@ Before placing a single component, settle:
 - **User (anchor).** Who is at the top of the chain: customer, citizen, internal team? More than
   one user is fine when their needs differ (Business and Public in the tea shop).
 - **Needs.** The user's 1–4 most important needs, in their words.
-- **Scope.** One product, one business unit, one journey. Big scopes become several maps.
+- **Scope.** One product, one business unit, one journey. Big scopes become several maps: an
+  overview linked to detail maps (`linked-maps.md`).
 
 If any of these is missing, ask. Do not invent the strategic question: the map's value comes from
 the user's domain knowledge. If the user wants a draft anyway, state your assumptions at the top of
@@ -33,7 +34,8 @@ Work **backwards** from each need to the capabilities it depends on, down to the
 
 - **8–15 components.** Fewer than 6 rarely produces insight; more than about 18 becomes unreadable.
   For a large scope, propose a main map plus submaps (one component on the main map stands for a
-  whole submap).
+  whole submap). `linked-maps.md` says when to split, how to lay out the files and how to link them
+  so the user clicks through.
 - **Every component is linked**, and the chain runs from the anchor down to things you buy or rent.
   A chain that stops at a Custom-Built component usually stopped too early.
 - **Noun names:** "Payment Processing", not "Process Payments". One capability per component:
@@ -184,13 +186,15 @@ it.
 - **Incomplete input:** ask for the missing context instead of guessing.
 - **Ambiguous stage:** place by the majority of the characteristics and record the tension in the
   rationale.
-- **Too many components:** split into a main map and submaps; each submap replaces one component.
+- **Too many components:** split into a main map and submaps; each submap replaces one component
+  (`linked-maps.md`).
 
 ## Worked examples
 
 Three complete maps ship in `examples/`. Each parses with zero diagnostics and is already
 canonical text (a parse/serialize round-trip returns it unchanged). Start from the closest one when
-the user's domain is similar.
+the user's domain is similar. A linked set, an online grocer's overview with two detail maps, ships
+in `examples/online-grocery/`; `linked-maps.md` walks through it.
 
 ### Tea shop: `examples/tea-shop.wmap`
 
