@@ -11,7 +11,7 @@ import type { Element } from "diagram-js/lib/model/Types";
 import Diagram from "diagram-js/lib/Diagram";
 import PaletteModule from "diagram-js/lib/features/palette";
 import type Palette from "diagram-js/lib/features/palette/Palette";
-import { Modeler } from "../../src/index.js";
+import { Modeler, type WardleyReadOnly, type WardleyViewerOptions } from "../../src/index.js";
 import {
   isWardleyShape,
   type WardleyConnection,
@@ -38,12 +38,23 @@ Kettle -> Power`;
 let container: HTMLElement | undefined;
 let modeler: Modeler | undefined;
 
-function mount(width = 1024, height = 768): Modeler {
+type LinkHandlers = Pick<
+  WardleyViewerOptions,
+  "openRelativeLink" | "openExternalLink" | "chooseLinkTarget"
+>;
+
+function mount(width = 1024, height = 768, links: LinkHandlers = {}): Modeler {
   container = document.createElement("div");
   document.body.appendChild(container);
   // The viewer sizes its container from these options (default 100%), not from inline styles.
-  modeler = new Modeler({ container, width, height });
+  modeler = new Modeler({ container, width, height, ...links });
   return modeler;
+}
+
+function mapWithLinkedKettle(address: string): string {
+  return `title Linked
+url Spec [${address}]
+component Kettle [0.43, 0.35] url(Spec)`;
 }
 
 afterEach(() => {
@@ -474,7 +485,7 @@ component Kettle [0.43, 0.35] url(Spec)`);
   });
 
   it("draws every entry with a 16px Lucide icon at stroke 2.5 (guide §5.14)", async () => {
-    const target = mount();
+    const target = mount(1024, 768, { chooseLinkTarget: () => Promise.resolve(undefined) });
     await target.importDSL(`title Pad Icons
 url Docs [https://example.com/docs]
 component Cup of Tea [0.79, 0.61] url(Docs)
@@ -523,11 +534,13 @@ Cup of Tea -> Kettle`);
       "evolve",
       "evolve-clear",
       "link",
+      "link-map",
       "open-link",
       "settings",
       "stroke-style",
     ]);
     expect(iconByAction.get("evolve-clear")).not.toBe(iconByAction.get("evolve"));
+    expect(iconByAction.get("link-map")).not.toBe(iconByAction.get("link"));
     expect(iconByAction.get("edit-value")).toBe(iconByAction.get("edit-label"));
   });
 
@@ -728,7 +741,7 @@ describe("links (OWM url)", () => {
   });
 
   it("stores a component link and offers to open it", async () => {
-    const target = mount();
+    const target = mount(1024, 768, { openRelativeLink: () => {} });
     await target.importDSL(TEA_SHOP);
     const kettle = findByLabel(target, "Kettle");
     const linkEditing = target.get<WardleyLinkEditing>("wardleyLinkEditing");
@@ -773,6 +786,236 @@ component Trap [0.5, 0.5] url(Evil)`);
     const trap = findByLabel(target, "Trap");
     const pad = await selectAndOpenPad(target, trap);
     expect(padEntry(pad, "open-link")).toBeNull();
+  });
+
+  it.each([
+    "details/kettle.wmap",
+    "./kettle.wmap",
+    "kettle.wmap",
+    "../kettle.wmap",
+    "//example.com/kettle.wmap",
+  ])("hands the relative address %s to the host, never to the browser", async (address) => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const openRelativeLink = vi.fn();
+    try {
+      const target = mount(1024, 768, { openRelativeLink });
+      await target.importDSL(mapWithLinkedKettle(address));
+      const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+      const entry = padEntry(pad, "open-link")!;
+      entry.focus();
+      pointerClick(entry);
+      expect(openRelativeLink.mock.calls).toEqual([[address]]);
+      expect(open).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(canvasSvgOf(target));
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  it("offers no relative link to open in a host that doesn't follow them", async () => {
+    const target = mount();
+    await target.importDSL(mapWithLinkedKettle("details/kettle.wmap"));
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+    expect(padEntry(pad, "open-link")).toBeNull();
+    expect(padEntry(pad, "link")?.getAttribute("aria-label")).toBe("Edit link…");
+  });
+
+  it.each(["https://example.com/kettle", "http://example.com/kettle", "mailto:team@example.com"])(
+    "leaves %s to the browser in a host that follows relative links",
+    async (address) => {
+      const open = vi.spyOn(window, "open").mockReturnValue(null);
+      const openRelativeLink = vi.fn();
+      try {
+        const target = mount(1024, 768, { openRelativeLink });
+        await target.importDSL(mapWithLinkedKettle(address));
+        const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+        pointerClick(padEntry(pad, "open-link")!);
+        expect(open.mock.calls).toEqual([[address, "_blank", "noopener,noreferrer"]]);
+        expect(openRelativeLink).not.toHaveBeenCalled();
+      } finally {
+        open.mockRestore();
+      }
+    },
+  );
+
+  it.each([
+    "javascript:alert(1)",
+    "data:text/html,hello",
+    "file:///maps/kettle.wmap",
+    "C:\\maps\\kettle.wmap",
+  ])("never offers to open %s, not even through the host", async (address) => {
+    const target = mount(1024, 768, {
+      openRelativeLink: () => {},
+      openExternalLink: () => {},
+    });
+    await target.importDSL(mapWithLinkedKettle(address));
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+    expect(padEntry(pad, "open-link")).toBeNull();
+  });
+
+  it.each(["https://example.com/kettle", "mailto:team@example.com"])(
+    "hands %s to a host that opens external links itself, never to the browser",
+    async (address) => {
+      const open = vi.spyOn(window, "open").mockReturnValue(null);
+      const openExternalLink = vi.fn();
+      try {
+        const target = mount(1024, 768, { openExternalLink });
+        await target.importDSL(mapWithLinkedKettle(address));
+        const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+        pointerClick(padEntry(pad, "open-link")!);
+        expect(openExternalLink.mock.calls).toEqual([[address]]);
+        expect(open).not.toHaveBeenCalled();
+      } finally {
+        open.mockRestore();
+      }
+    },
+  );
+
+  it("offers no relative link to open in a host that opens only external ones", async () => {
+    const target = mount(1024, 768, { openExternalLink: () => {} });
+    await target.importDSL(mapWithLinkedKettle("details/kettle.wmap"));
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+    expect(padEntry(pad, "open-link")).toBeNull();
+  });
+});
+
+describe("Link to map…", () => {
+  const LINKED_ADDRESS = "details/kettle.wmap";
+
+  /** A host's picker that answers once the test says so. */
+  function pendingChoice(): {
+    chooseLinkTarget: () => Promise<string | undefined>;
+    answer: (address: string | undefined) => void;
+  } {
+    let answer: (address: string | undefined) => void = () => {};
+    return {
+      chooseLinkTarget: () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+      answer: (address) => answer(address),
+    };
+  }
+
+  it("is missing in a host that can't choose maps", async () => {
+    const target = mount(1024, 768, { openRelativeLink: () => {} });
+    await target.importDSL(TEA_SHOP);
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+    expect(padEntry(pad, "link")).not.toBeNull();
+    expect(padEntry(pad, "link-map")).toBeNull();
+  });
+
+  it("is missing on elements that carry no link", async () => {
+    const target = mount(1024, 768, { chooseLinkTarget: () => Promise.resolve(LINKED_ADDRESS) });
+    await target.importDSL(TEA_SHOP);
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Business"));
+    expect(padEntry(pad, "link-map")).toBeNull();
+  });
+
+  it("links a component to the chosen map as one undoable step and offers to open it", async () => {
+    const chooseLinkTarget = vi.fn(() => Promise.resolve(LINKED_ADDRESS));
+    const target = mount(1024, 768, { openRelativeLink: () => {}, chooseLinkTarget });
+    await target.importDSL(TEA_SHOP);
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+    const entry = padEntry(pad, "link-map")!;
+    expect(entry.getAttribute("aria-label")).toBe("Link to map…");
+    entry.focus();
+    pointerClick(entry);
+
+    expect(document.activeElement).toBe(canvasSvgOf(target));
+    await vi.waitFor(() =>
+      expect(target.exportMap().elements.find((el) => el.label === "Kettle")).toMatchObject({
+        url: LINKED_ADDRESS,
+      }),
+    );
+    expect(chooseLinkTarget).toHaveBeenCalledTimes(1);
+    const reopened = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+    expect(padEntry(reopened, "open-link")?.getAttribute("aria-label")).toBe(
+      `Open link (${LINKED_ADDRESS})`,
+    );
+
+    target.get<CommandStack>("commandStack").undo();
+    expect(target.exportDSL()).not.toContain(LINKED_ADDRESS);
+  });
+
+  it("links a submap from the keyboard and hands the focus to the canvas once the pad re-renders", async () => {
+    const target = mount(1024, 768, { chooseLinkTarget: () => Promise.resolve(LINKED_ADDRESS) });
+    await target.importDSL(`title Overview
+submap Payments [0.5, 0.5]`);
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Payments"));
+    const entry = padEntry(pad, "link-map")!;
+    entry.focus();
+    pressKey(entry, "Enter");
+
+    await vi.waitFor(() =>
+      expect(target.exportMap().elements.find((el) => el.label === "Payments")).toMatchObject({
+        urlRef: LINKED_ADDRESS,
+      }),
+    );
+    expect(pad.isConnected).toBe(false);
+    expect(document.activeElement).toBe(canvasSvgOf(target));
+  });
+
+  it("keeps the link when the user cancels", async () => {
+    const host = pendingChoice();
+    const target = mount(1024, 768, { chooseLinkTarget: host.chooseLinkTarget });
+    await target.importDSL(mapWithLinkedKettle("https://example.com/kettle"));
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+    pointerClick(padEntry(pad, "link-map")!);
+
+    host.answer(undefined);
+    await nextFrame();
+
+    expect(target.get<CommandStack>("commandStack").canUndo()).toBe(false);
+    expect(target.exportMap().elements.find((el) => el.label === "Kettle")).toMatchObject({
+      url: "https://example.com/kettle",
+    });
+  });
+
+  it("links nothing once an import removed the element while the host's picker was open", async () => {
+    const host = pendingChoice();
+    const target = mount(1024, 768, { chooseLinkTarget: host.chooseLinkTarget });
+    await target.importDSL(TEA_SHOP);
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+    pointerClick(padEntry(pad, "link-map")!);
+
+    await target.importDSL(`title Tea Shop
+component Cup of Tea [0.79, 0.61]`);
+    host.answer(LINKED_ADDRESS);
+    await nextFrame();
+
+    expect(target.exportDSL()).not.toContain(LINKED_ADDRESS);
+  });
+
+  it("links the element an import brought back while the host's picker was open", async () => {
+    const host = pendingChoice();
+    const target = mount(1024, 768, { chooseLinkTarget: host.chooseLinkTarget });
+    await target.importDSL(TEA_SHOP);
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+    pointerClick(padEntry(pad, "link-map")!);
+
+    await target.importDSL(TEA_SHOP);
+    host.answer(LINKED_ADDRESS);
+
+    await vi.waitFor(() =>
+      expect(target.exportMap().elements.find((el) => el.label === "Kettle")).toMatchObject({
+        url: LINKED_ADDRESS,
+      }),
+    );
+  });
+
+  it("links nothing once the canvas was locked while the host's picker was open", async () => {
+    const host = pendingChoice();
+    const target = mount(1024, 768, { chooseLinkTarget: host.chooseLinkTarget });
+    await target.importDSL(TEA_SHOP);
+    const pad = await selectAndOpenPad(target, findByLabel(target, "Kettle"));
+    pointerClick(padEntry(pad, "link-map")!);
+
+    target.get<WardleyReadOnly>("wardleyReadOnly").setReadOnly(true);
+    host.answer(LINKED_ADDRESS);
+    await nextFrame();
+
+    expect(target.exportDSL()).not.toContain(LINKED_ADDRESS);
   });
 });
 

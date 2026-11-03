@@ -36,11 +36,18 @@ export const WARDLEY_NOTATION = "wardley";
 
 /**
  * The contract's factory options (`freeArea`, `fitOnImport`, `undoRedoKeys`, see
- * `WardleyViewerOptions`) plus the renderer's own. The viewer ignores `undoRedoKeys`.
+ * `WardleyViewerOptions`) plus the renderer's own. The viewer ignores `undoRedoKeys` and the link
+ * handlers, as it has no context pad.
  */
 export interface CollaborativeWardleyOptions extends CollaborativeModelerOptions {
   /** Appended to the renderer's own modules (e.g. a host's chrome module). */
   additionalModules?: ModuleDeclaration[] | undefined;
+  /** Follows a link without a scheme, see `WardleyViewerOptions`. */
+  openRelativeLink?: ((address: string) => void) | undefined;
+  /** Opens an http(s) or `mailto:` link, see `WardleyViewerOptions`. */
+  openExternalLink?: ((address: string) => void) | undefined;
+  /** Chooses another map as a link, see `WardleyViewerOptions`. */
+  chooseLinkTarget?: (() => Promise<string | undefined>) | undefined;
 }
 
 /** The contract's element surface, with the optional `bounds` of contract 1.2 always present. */
@@ -93,6 +100,9 @@ export function createCollaborativeModeler(
     new Modeler({
       ...diagramOptions(options),
       undoRedoKeys: options.undoRedoKeys,
+      openRelativeLink: options.openRelativeLink,
+      openExternalLink: options.openExternalLink,
+      chooseLinkTarget: options.chooseLinkTarget,
     }),
     true,
   );

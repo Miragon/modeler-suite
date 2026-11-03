@@ -635,6 +635,105 @@ describe("runVsCodeSmoke, keys", () => {
   });
 });
 
+describe("runVsCodeSmoke, custom", () => {
+  const SKIPPED_EDIT = "edit: the test skips the edit";
+
+  async function smokeWithCustom(overrides: Partial<VsCodeSmokeOptions> = {}) {
+    fakeVsCode({ menu: true, document: { shapes: 1 } });
+    return runVsCodeSmoke(
+      await smokeOptions({
+        edit: async () => {
+          throw new Error("the test skips the edit");
+        },
+        colorThemes: [],
+        keys: false,
+        history: false,
+        workbench: false,
+        ...overrides,
+      }),
+    );
+  }
+
+  it("writes the fixture's files into the workspace and runs the custom step last", async () => {
+    const seen: { workspace: string[]; nested: string; fixture: string }[] = [];
+
+    const result = await smokeWithCustom({
+      fixture: {
+        fileName: "plan.board",
+        text: "board",
+        files: { "details/child.board": "child", "notes.txt": "notes" },
+      },
+      custom: async ({ workspaceDir }) => {
+        seen.push({
+          workspace: (await readdir(workspaceDir)).sort(),
+          nested: readFileSync(join(workspaceDir, "details", "child.board"), "utf8"),
+          fixture: readFileSync(join(workspaceDir, "plan.board"), "utf8"),
+        });
+      },
+    });
+
+    expect(result.failures).toEqual([SKIPPED_EDIT]);
+    expect(seen).toEqual([
+      { workspace: ["details", "notes.txt", "plan.board"], nested: "child", fixture: "board" },
+    ]);
+    expect(Object.keys(result.timings)).toEqual([
+      "resolve",
+      "launch",
+      "open",
+      "edit",
+      "themes",
+      "custom",
+      "close",
+      "total",
+    ]);
+  });
+
+  it("fails the custom step with what it threw", async () => {
+    const result = await smokeWithCustom({
+      custom: async () => {
+        throw new Error("the link opened no editor");
+      },
+    });
+
+    expect(result.failures).toEqual([SKIPPED_EDIT, "custom: the link opened no editor"]);
+    expect(result.ok).toBe(false);
+  });
+
+  it("skips it when the open step did not show the fixture", async () => {
+    fakeVsCode({
+      menu: false,
+      extensionHostLog:
+        "2026-10-24 10:00:01.100 [error] Activating extension miragon.board failed due to an error:",
+    });
+    const custom = vi.fn(async () => undefined);
+    const lines: string[] = [];
+
+    const result = await runVsCodeSmoke(
+      await smokeOptions({ timeoutMs: 20_000, custom, log: (line) => lines.push(line) }),
+    );
+
+    expect(custom).not.toHaveBeenCalled();
+    expect(result.timings.custom).toBeUndefined();
+    expect(lines).toContain("custom: skipped, the open step did not show the fixture");
+  });
+
+  it.each([
+    "../outside.board",
+    "/absolute.board",
+    "details/../plan.board",
+    "a//b.board",
+    "plan.board",
+  ])("throws before it starts VS Code for the fixture's file %s", async (path) => {
+    await expect(
+      smokeWithCustom({
+        fixture: { fileName: "plan.board", text: "board", files: { [path]: "" } },
+      }),
+    ).rejects.toThrow(
+      `runVsCodeSmoke: the fixture's file "${path}" needs a relative path inside the workspace, other than the fixture's own`,
+    );
+  });
+});
+
 interface FakeDocumentOptions {
   /** How many document edits the edit makes; the undo and the redo move one of them per key. Default 1. */
   steps?: number | undefined;

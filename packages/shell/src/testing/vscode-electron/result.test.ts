@@ -42,6 +42,7 @@ describe("VSCODE_SMOKE_STEPS", () => {
       "motion",
       "hidden",
       "reload",
+      "custom",
       "close",
     ]);
   });

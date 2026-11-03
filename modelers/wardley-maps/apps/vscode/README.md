@@ -55,6 +55,12 @@ Together they show _what_ you depend on and _how mature_ each piece is.
   breaks the line in a name); placing a new one opens its name field right away. `Enter` on a
   palette entry places the element in the middle of the visible map. Drag a component left or right
   to evolve it, drag its label to move just the label (`Alt`+double-click puts it back).
+- **Links between maps:** **Link to map…** in the context pad of a submap or component lists the
+  other maps of the workspace and links the element to the one you choose; **Set link…** takes any
+  address, such as `details/payment.wmap` relative to the folder of the current map or a web
+  address. **Open link** opens the linked map in its own tab, or a web address in your browser. So a
+  large map can become an overview plus detail maps you click through. Only `.wmap` and `.owm` files
+  inside the workspace open this way.
 - **Map size:** drag the plot's right or bottom edge or its corner to resize it (`Shift` keeps the
   ratio, `Alt` turns off snapping, double-click the corner to reset), or open **Map size…** in the
   menu for a preset or an exact width × height, previewed on the map as you choose.

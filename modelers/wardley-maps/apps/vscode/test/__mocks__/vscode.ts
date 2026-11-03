@@ -9,6 +9,8 @@
  * file to the same module id, a listener the host registers and an event a test fires share state.
  */
 
+import { posix } from "node:path";
+
 export class Disposable {
   constructor(private readonly _dispose: () => void) {}
   dispose(): void {
@@ -145,9 +147,9 @@ export class Uri {
   static file(path: string): Uri {
     return new Uri("file", path);
   }
+  /** Normalises `.`, `..` and repeated slashes, as the real one does outside Windows. */
   static joinPath(base: Uri, ...segments: string[]): Uri {
-    const joined = [base.path.replace(/\/$/, ""), ...segments].join("/");
-    return new Uri(base.scheme, joined);
+    return new Uri(base.scheme, posix.join(base.path, ...segments));
   }
   with(change: { scheme?: string; path?: string }): Uri {
     return new Uri(change.scheme ?? this.scheme, change.path ?? this.path);
@@ -155,6 +157,13 @@ export class Uri {
   toString(): string {
     return `${this.scheme}:${this.path}`;
   }
+}
+
+export enum FileType {
+  Unknown = 0,
+  File = 1,
+  Directory = 2,
+  SymbolicLink = 64,
 }
 
 /** The input of a custom editor's tab. */
@@ -217,6 +226,14 @@ const docCloseEmitter = new EventEmitter<unknown>();
 export const workspace = {
   workspaceFolders: undefined as ReadonlyArray<{ uri: Uri }> | undefined,
   textDocuments: [] as unknown[],
+  /** The folder holding `uri`, by whole path segments and scheme as the real one compares them. */
+  getWorkspaceFolder(uri: Uri): { uri: Uri } | undefined {
+    return workspace.workspaceFolders?.find(
+      ({ uri: folder }) =>
+        folder.scheme === uri.scheme &&
+        (uri.path === folder.path || uri.path.startsWith(`${folder.path}/`)),
+    );
+  },
   onDidChangeTextDocument(
     listener: (e: { document: unknown; contentChanges: unknown[] }) => void,
   ): Disposable {
@@ -239,7 +256,27 @@ export const workspace = {
   applyEdit(_edit: WorkspaceEdit): Promise<boolean> {
     return Promise.resolve(true);
   },
+  /**
+   * The map files `vscodeMock.setFileTypes` named inside a workspace folder, in no particular
+   * order; it reads only the map pattern the extension asks for.
+   */
+  findFiles(_include: string): Promise<Uri[]> {
+    return Promise.resolve(
+      [...fileTypes]
+        .filter(([path, type]) => type & FileType.File && /\.(wmap|owm)$/i.test(path))
+        .map(([path]) => Uri.file(path))
+        .filter((uri) => workspace.getWorkspaceFolder(uri))
+        .reverse(),
+    );
+  },
   fs: {
+    /** Knows what `vscodeMock.setFileTypes` named; anything else is missing. */
+    stat(uri: Uri): Promise<{ type: FileType }> {
+      const type = fileTypes.get(uri.path);
+      return type === undefined
+        ? Promise.reject(new Error(`No such file: ${uri.path}`))
+        : Promise.resolve({ type });
+    },
     readFile(_uri: Uri): Promise<Uint8Array> {
       return Promise.resolve(new Uint8Array());
     },
@@ -268,8 +305,25 @@ const registeredCommands = new Map<string, (...args: unknown[]) => unknown>();
 const executedCommands: Array<{ command: string; args: unknown[] }> = [];
 const informationMessages: string[] = [];
 const warningMessages: string[] = [];
+const errorMessages: string[] = [];
 const writtenFiles: Array<{ uri: Uri; content: Uint8Array }> = [];
+const fileTypes = new Map<string, FileType>();
+const openedExternally: Uri[] = [];
+const quickPicks: Array<{ items: readonly QuickPickItem[]; options: unknown }> = [];
+let quickPickAnswer: string | undefined;
 let saveDialogAnswer: Uri | undefined;
+
+export interface QuickPickItem {
+  label: string;
+  description?: string;
+}
+
+export const env = {
+  openExternal(uri: Uri): Promise<boolean> {
+    openedExternally.push(uri);
+    return Promise.resolve(true);
+  },
+};
 
 export const languages = {
   createDiagnosticCollection(name: string): MockDiagnosticCollection {
@@ -301,11 +355,20 @@ export const window = {
     warningMessages.push(message);
     return Promise.resolve(undefined);
   },
-  showErrorMessage(_message: string, ..._items: string[]): Promise<string | undefined> {
+  showErrorMessage(message: string, ..._items: string[]): Promise<string | undefined> {
+    errorMessages.push(message);
     return Promise.resolve(undefined);
   },
   showSaveDialog(_options: unknown): Promise<Uri | undefined> {
     return Promise.resolve(saveDialogAnswer);
+  },
+  /** Records what it offers and takes the item `vscodeMock.answerQuickPick` named; none cancels. */
+  showQuickPick<T extends QuickPickItem>(
+    items: readonly T[],
+    options?: unknown,
+  ): Promise<T | undefined> {
+    quickPicks.push({ items, options });
+    return Promise.resolve(items.find(({ label }) => label === quickPickAnswer));
   },
   registerCustomEditorProvider(viewType: string, provider: unknown, options?: unknown): Disposable {
     registeredEditors.push({ viewType, provider, options });
@@ -357,6 +420,26 @@ export const vscodeMock = {
   warningMessages(): readonly string[] {
     return warningMessages;
   },
+  errorMessages(): readonly string[] {
+    return errorMessages;
+  },
+  /** What `workspace.fs.stat` finds, by path. */
+  setFileTypes(types: Readonly<Record<string, FileType>>): void {
+    fileTypes.clear();
+    for (const [path, type] of Object.entries(types)) fileTypes.set(path, type);
+  },
+  /** Every `env.openExternal` call. */
+  openedExternally(): readonly Uri[] {
+    return openedExternally;
+  },
+  /** What every `window.showQuickPick` offered. */
+  quickPicks(): ReadonlyArray<{ items: readonly QuickPickItem[]; options: unknown }> {
+    return quickPicks;
+  },
+  /** The label the next Quick Picks choose; none cancels them. */
+  answerQuickPick(label: string | undefined): void {
+    quickPickAnswer = label;
+  },
   /** The file the next save dialogs choose; none cancels them. */
   chooseSaveTarget(uri: Uri | undefined): void {
     saveDialogAnswer = uri;
@@ -396,7 +479,12 @@ export const vscodeMock = {
     executedCommands.length = 0;
     informationMessages.length = 0;
     warningMessages.length = 0;
+    errorMessages.length = 0;
     writtenFiles.length = 0;
+    fileTypes.clear();
+    openedExternally.length = 0;
+    quickPicks.length = 0;
+    quickPickAnswer = undefined;
     saveDialogAnswer = undefined;
     docChangeEmitter.dispose();
     docOpenEmitter.dispose();

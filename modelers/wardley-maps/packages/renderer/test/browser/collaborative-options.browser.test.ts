@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ModuleDeclaration } from "didi";
 import type Canvas from "diagram-js/lib/core/Canvas";
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type Selection from "diagram-js/lib/features/selection/Selection";
-import type { Shape } from "diagram-js/lib/model/Types";
+import type { Element, Shape } from "diagram-js/lib/model/Types";
 import {
   createCollaborativeModeler,
   createCollaborativeViewer,
@@ -132,6 +133,50 @@ describe("the factory options of contract 1.2", () => {
     expect(kept.after).toEqual(kept.before);
     const fitted = await viewAfterImport(await mount());
     expect(fitted.after[2]).toBeCloseTo(1, 3);
+  });
+});
+
+describe("the renderer's own factory options", () => {
+  it("openRelativeLink reaches the context pad of the editing mount", async () => {
+    const openRelativeLink = vi.fn();
+    const modeler = await mount({ openRelativeLink });
+    await modeler.importText(`title Linked
+url Spec [details/kettle.wmap]
+component Kettle [0.43, 0.35] url(Spec)`);
+
+    const kettle = modeler.diagram.get<ElementRegistry>("elementRegistry").get("cmp_kettle");
+    modeler.diagram.get<Selection>("selection").select(kettle as Element);
+    await new Promise(requestAnimationFrame);
+    canvasOf(modeler)
+      .getContainer()
+      .querySelector<HTMLElement>('.djs-context-pad.open .entry[data-action="open-link"]')!
+      .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+
+    expect(openRelativeLink.mock.calls).toEqual([["details/kettle.wmap"]]);
+  });
+
+  it("openExternalLink and chooseLinkTarget reach the context pad of the editing mount", async () => {
+    const openExternalLink = vi.fn();
+    const chooseLinkTarget = vi.fn(() => Promise.resolve("details/kettle.wmap"));
+    const modeler = await mount({ openExternalLink, chooseLinkTarget });
+    await modeler.importText(`title Linked
+url Spec [https://example.com/kettle]
+component Kettle [0.43, 0.35] url(Spec)`);
+
+    const kettle = modeler.diagram.get<ElementRegistry>("elementRegistry").get("cmp_kettle");
+    modeler.diagram.get<Selection>("selection").select(kettle as Element);
+    await new Promise(requestAnimationFrame);
+    const pad = canvasOf(modeler)
+      .getContainer()
+      .querySelector<HTMLElement>(".djs-context-pad.open")!;
+    for (const action of ["open-link", "link-map"]) {
+      pad
+        .querySelector<HTMLElement>(`.entry[data-action="${action}"]`)!
+        .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+    }
+
+    expect(openExternalLink.mock.calls).toEqual([["https://example.com/kettle"]]);
+    expect(chooseLinkTarget).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -9,6 +9,7 @@ import type {
   ContextPadEntries,
   default as ContextPadProvider,
 } from "diagram-js/lib/features/context-pad/ContextPadProvider";
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
 import type { Injector } from "didi";
 import {
@@ -24,7 +25,13 @@ import type WardleyElementFactory from "../model/WardleyElementFactory.js";
 import type WardleyColorPicker from "../color-picker/WardleyColorPicker.js";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyLinkEditing from "../link-editing/WardleyLinkEditing.js";
-import { canHaveLink, linkOf, safeLinkUrl } from "../link-editing/index.js";
+import {
+  canHaveLink,
+  isRelativeLink,
+  linkOf,
+  safeLinkUrl,
+  type WardleyLinksConfig,
+} from "../link-editing/index.js";
 import { POPUP_PROVIDER_ID } from "../popup/index.js";
 import { isReadOnly } from "../read-only/index.js";
 import { focusCanvasWithoutRing, isKeyOnHiddenTarget } from "../a11y/index.js";
@@ -70,6 +77,7 @@ export default class WardleyContextPadProvider implements ContextPadProvider {
     "eventBus",
     "canvas",
     "injector",
+    "config.wardleyLinks",
   ];
 
   /** Synthetic clicks created for Enter/Space, so actions can pick a pointer-free variant. */
@@ -89,6 +97,7 @@ export default class WardleyContextPadProvider implements ContextPadProvider {
     eventBus: EventBus,
     private readonly canvas: Canvas,
     private readonly injector: Injector,
+    private readonly linksConfig: WardleyLinksConfig | undefined,
   ) {
     contextPad.registerProvider(this);
     eventBus.on("contextPad.create", (event: { pad: HTMLElement }) => {
@@ -288,20 +297,66 @@ export default class WardleyContextPadProvider implements ContextPadProvider {
         action: { click: () => linkEditing.activate(shape) },
       };
     }
-    // Shared maps can carry any address, so only allowlisted ones are ever opened.
-    const openableLink = safeLinkUrl(storedLink);
-    if (openableLink) {
-      entries["open-link"] = {
+    const chooseTarget = this.linksConfig?.chooseTarget;
+    if (linkEditing && chooseTarget && canHaveLink(shape)) {
+      entries["link-map"] = {
         group: GROUP_PROPERTIES,
-        title: `Open link (${openableLink})`,
-        html: cpHtml(chromeIcon("external-link"), `Open link (${openableLink})`),
+        title: "Link to map…",
+        html: cpHtml(chromeIcon("map"), "Link to map…"),
         action: {
-          click: this.focusingCanvas(() =>
-            window.open(openableLink, "_blank", "noopener,noreferrer"),
+          click: this.focusingCanvas(
+            () => void this.linkChosenMap(shape.id, linkEditing, chooseTarget),
           ),
         },
       };
     }
+    // Shared maps can carry any address, so only allowlisted ones are ever opened.
+    const openableLink = safeLinkUrl(storedLink);
+    const openLink = openableLink ? this.linkOpener(openableLink) : undefined;
+    if (openableLink && openLink) {
+      entries["open-link"] = {
+        group: GROUP_PROPERTIES,
+        title: `Open link (${openableLink})`,
+        html: cpHtml(chromeIcon("external-link"), `Open link (${openableLink})`),
+        action: { click: this.focusingCanvas(openLink) },
+      };
+    }
+  }
+
+  /**
+   * How an allowlisted address opens: one with a scheme in a new browser tab unless the host opens
+   * it itself, and a relative one through the host, since the browser would resolve it against the
+   * page. A host that follows no relative links leaves nothing to offer.
+   */
+  private linkOpener(address: string): (() => void) | undefined {
+    if (!isRelativeLink(address)) {
+      const openExternal = this.linksConfig?.openExternal;
+      return openExternal
+        ? () => openExternal(address)
+        : () => void window.open(address, "_blank", "noopener,noreferrer");
+    }
+    const openRelative = this.linksConfig?.openRelative;
+    return openRelative && (() => openRelative(address));
+  }
+
+  /**
+   * Links the element to the map the user chooses in the host. While the host's picker is open, an
+   * import may replace the element or lock the canvas, so the element is looked up again after it.
+   * The link re-renders the pad, which takes a focused entry with it: as after a synchronous
+   * action (`onPadKeydown`), the canvas then takes the focus instead of `<body>`.
+   */
+  private async linkChosenMap(
+    elementId: string,
+    linkEditing: WardleyLinkEditing,
+    chooseTarget: () => Promise<string | undefined>,
+  ): Promise<void> {
+    const address = await chooseTarget().catch(() => undefined);
+    if (address === undefined || isReadOnly(this.injector)) return;
+    const element = this.injector.get<ElementRegistry>("elementRegistry").get(elementId);
+    if (!isWardleyShape(element) || !canHaveLink(element)) return;
+    linkEditing.setLink(element, address);
+    const focused = document.activeElement;
+    if (!focused || focused === document.body) this.canvas.focus();
   }
 
   /**

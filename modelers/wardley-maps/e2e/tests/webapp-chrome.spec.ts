@@ -12,6 +12,7 @@ import {
   menuEntry,
   openExample,
   openMenu,
+  selectShape,
   startNewMap,
   startScreen,
   waitForViewer,
@@ -19,6 +20,7 @@ import {
 import { codeEditors, pressIn } from "./support/code-editors.js";
 import { contrast, drawnRightOf, focusChosenColour, ringsOf } from "./support/colour-picker.js";
 import { PAPER_BACKGROUND, PLOT_BACKGROUND, cornerPixel } from "./support/png.js";
+import { recordWindowOpens, recordedWindowOpens } from "./support/window-open.js";
 
 /**
  * The web app's side of the shell's web chrome: what it hands the shell (menu groups, primary
@@ -1119,6 +1121,53 @@ test.describe("share", () => {
     await expect(dialog.locator("textarea")).toHaveValue(/#mz=/);
     await expect(dialog.locator("textarea")).toBeFocused();
     await expect(toast(page, "Link copied")).toHaveCount(0);
+  });
+});
+
+test.describe("links on the map", () => {
+  const LINKED_MAP = `title Overview
+url Payment URL [details/payment.wmap]
+url Docs URL [https://example.com/docs]
+component Payment [0.5, 0.5] url(Payment URL)
+component Docs [0.3, 0.7] url(Docs URL)`;
+
+  async function followLinkOf(page: Page, shapeId: string): Promise<void> {
+    await selectShape(page, shapeId);
+    await page.locator('.djs-context-pad [data-action="open-link"]').click();
+  }
+
+  test("a relative link says why it can't open and leaves the tab and the map alone", async ({
+    page,
+  }) => {
+    await recordWindowOpens(page);
+    await openLink(page, LINKED_MAP);
+    const url = page.url();
+    const map = await exportDSL(page);
+
+    await followLinkOf(page, "cmp_payment");
+
+    await expect(
+      toast(
+        page,
+        "Couldn't open “details/payment.wmap”. The web app can't follow links to other map files. Use Open… to pick the file.",
+      ),
+    ).toHaveAttribute("data-status", "danger");
+    expect(await recordedWindowOpens(page)).toEqual([]);
+    expect(page.url()).toBe(url);
+    expect(await exportDSL(page)).toBe(map);
+    await expect(startScreen(page)).toBeHidden();
+  });
+
+  test("an https link opens in a new tab, without a message", async ({ page }) => {
+    await recordWindowOpens(page);
+    await openLink(page, LINKED_MAP);
+
+    await followLinkOf(page, "cmp_docs");
+
+    expect(await recordedWindowOpens(page)).toEqual([
+      ["https://example.com/docs", "_blank", "noopener,noreferrer"],
+    ]);
+    await expect(page.locator('[data-chrome="toasts"] .cd-shell-toast')).toHaveCount(0);
   });
 });
 

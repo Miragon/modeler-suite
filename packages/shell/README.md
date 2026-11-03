@@ -820,8 +820,25 @@ edit: async ({ webview, page }) => {
 },
 ```
 
+Checks of its own that need a real VS Code go into `custom` (0.10), the step after every other one
+but closing VS Code, once the fixture showed. It gets the same context and `workspaceDir`, the
+folder VS Code opened; `fixture.files` writes more files there, by their path inside it. Nothing
+of the driver runs after it, so it may open more editors, as Wardley Maps does to follow a link
+from the fixture to a map in a subfolder:
+
+```ts
+fixture: {
+  fileName: "tea-shop.wmap",
+  text: fixtureText,
+  files: { "details/payment.wmap": "title Payment\ncomponent Card [0.6, 0.5]\n" },
+},
+custom: async ({ page, webview, timeoutMs }) => {
+  // click the link in the context pad, then wait for the editor of details/payment.wmap
+},
+```
+
 The result says what happened (`ok`, `failures`, `saved`, `undone`, `themes` with the observed
-appearance and the screenshot, `keys`, `history`, `motion`, `hidden` and `reload` when those steps ran, `timings` per step); `runVsCodeSmoke`
+appearance and the screenshot, `keys`, `history`, `motion`, `hidden` and `reload` when those steps ran, `timings` per step, `custom` among them); `runVsCodeSmoke`
 never throws for a failed check, only for options it cannot run with. An extension that fails to
 activate in VS Code (a module its bundle cannot load, a throw in `activate`) fails the open step at
 once, with VS Code's own error from its extension host log; `keepTemporaryFiles: true` keeps the profile with all of VS Code's logs.
