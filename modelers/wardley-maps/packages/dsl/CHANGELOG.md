@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0](https://github.com/Miragon/modeler-suite/compare/wardley-dsl-v0.8.1...wardley-dsl-v0.9.0) (2026-11-03)
+
+
+### Features
+
+* **wardley-maps:** mark linked elements and warn about broken map links ([#535](https://github.com/Miragon/modeler-suite/issues/535)) ([ad760b7](https://github.com/Miragon/modeler-suite/commit/ad760b78587d8771c0625a94b833f1799f92083e))
+* **wardley-maps:** update map links when a map is renamed or moved ([ad760b7](https://github.com/Miragon/modeler-suite/commit/ad760b78587d8771c0625a94b833f1799f92083e))
+
 ## [0.8.1](https://github.com/Miragon/modeler-suite/compare/wardley-dsl-v0.8.0...wardley-dsl-v0.8.1) (2026-10-30)
 
 

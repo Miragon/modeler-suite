@@ -1,7 +1,7 @@
 {
   "name": "c4-modeler",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "C4 Modeler",
   "description": "View and edit C4 model diagrams directly in VS Code, backed by plain-text Structurizr DSL files (.c4, .dsl).",
   "publisher": "miragon-gmbh",
@@ -303,7 +303,7 @@
     "@miragon/c4-layout": "0.1.0",
     "@miragon/c4-renderer": "0.1.0",
     "@miragon/c4-schema-model": "0.1.0",
-    "@miragon/modeler-shell": "0.9.0",
+    "@miragon/modeler-shell": "0.10.0",
     "diagram-js": "15.28.1",
     "didi": "12.0.0",
     "tiny-svg": "4.1.4"

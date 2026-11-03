@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.10.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.9.0...modeler-shell-v0.10.0) (2026-11-03)
+
+
+### Features
+
+* **shell:** let a VS Code smoke run write more workspace files and run a modeler's own step ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+* **wardley-maps:** follow links to maps relative to the current map ([#531](https://github.com/Miragon/modeler-suite/issues/531)) ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+* **wardley-maps:** link to another map of the workspace with Link to map… in VS Code ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+
+
+### Bug Fixes
+
+* **wardley-maps:** open http(s) and mailto links from the VS Code extension ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+
 ## [0.9.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.8.0...modeler-shell-v0.9.0) (2026-10-30)
 
 

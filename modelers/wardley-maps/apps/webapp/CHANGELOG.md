@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.14.0](https://github.com/Miragon/modeler-suite/compare/wardley-webapp-v0.13.1...wardley-webapp-v0.14.0) (2026-11-03)
+
+
+### Features
+
+* **shell:** let a VS Code smoke run write more workspace files and run a modeler's own step ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+* **wardley-maps:** follow links to maps relative to the current map ([#531](https://github.com/Miragon/modeler-suite/issues/531)) ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+* **wardley-maps:** link to another map of the workspace with Link to map… in VS Code ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+
+
+### Bug Fixes
+
+* **wardley-maps:** open http(s) and mailto links from the VS Code extension ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.9.0 to 0.10.0
+    * @miragon/wardley-dsl bumped from 0.8.1 to 0.9.0
+    * @miragon/wardley-renderer bumped from 0.15.0 to 0.16.0
+
 ## [0.13.1](https://github.com/Miragon/modeler-suite/compare/wardley-webapp-v0.13.0...wardley-webapp-v0.13.1) (2026-10-30)
 
 

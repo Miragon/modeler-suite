@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.16.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.15.0...wardley-renderer-v0.16.0) (2026-11-03)
+
+
+### Features
+
+* **shell:** let a VS Code smoke run write more workspace files and run a modeler's own step ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+* **wardley-maps:** follow links to maps relative to the current map ([#531](https://github.com/Miragon/modeler-suite/issues/531)) ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+* **wardley-maps:** link to another map of the workspace with Link to map… in VS Code ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+* **wardley-maps:** mark linked elements and warn about broken map links ([#535](https://github.com/Miragon/modeler-suite/issues/535)) ([ad760b7](https://github.com/Miragon/modeler-suite/commit/ad760b78587d8771c0625a94b833f1799f92083e))
+* **wardley-maps:** update map links when a map is renamed or moved ([ad760b7](https://github.com/Miragon/modeler-suite/commit/ad760b78587d8771c0625a94b833f1799f92083e))
+
+
+### Bug Fixes
+
+* **wardley-maps:** open http(s) and mailto links from the VS Code extension ([f59dc49](https://github.com/Miragon/modeler-suite/commit/f59dc49fe5ef8d65d41869b7bab2bb7bd0eca3aa))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/wardley-dsl bumped from 0.8.1 to 0.9.0
+
 ## [0.15.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.14.0...wardley-renderer-v0.15.0) (2026-10-30)
 
 

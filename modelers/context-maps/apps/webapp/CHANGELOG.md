@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.3](https://github.com/Miragon/modeler-suite/compare/context-maps-webapp-v0.9.2...context-maps-webapp-v0.9.3) (2026-11-03)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.9.0 to 0.10.0
+
 ## [0.9.2](https://github.com/Miragon/modeler-suite/compare/context-maps-webapp-v0.9.1...context-maps-webapp-v0.9.2) (2026-10-31)
 
 
