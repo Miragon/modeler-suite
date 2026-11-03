@@ -22,6 +22,13 @@ export { PLOT_MIN } from "@miragon/wardley-schema-model";
 export const NODE_SIZE = 34;
 export const COMPONENT_RADIUS = 15;
 export const COMPONENT_INNER_RADIUS = 12;
+/**
+ * The mark on an element whose link the editor opens (its context pad's "Open link"): editor
+ * chrome in the `--cd-ui-*` roles of `wardley.css`, which the export leaves out.
+ */
+export const LINK_BADGE_CLASS = "wardley-link-badge";
+export const LINK_BADGE_RADIUS = 8;
+export const LINK_BADGE_ICON_SIZE = 11;
 export const ANCHOR_ICON_SIZE = 26;
 export const PIPELINE_HEIGHT = 30;
 export const PIPELINE_ANCHOR_SIZE = 16;

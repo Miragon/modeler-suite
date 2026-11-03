@@ -25,13 +25,8 @@ import type WardleyElementFactory from "../model/WardleyElementFactory.js";
 import type WardleyColorPicker from "../color-picker/WardleyColorPicker.js";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type WardleyLinkEditing from "../link-editing/WardleyLinkEditing.js";
-import {
-  canHaveLink,
-  isRelativeLink,
-  linkOf,
-  safeLinkUrl,
-  type WardleyLinksConfig,
-} from "../link-editing/index.js";
+import type WardleyLinkOpener from "../link-editing/WardleyLinkOpener.js";
+import { canHaveLink, linkOf, type WardleyLinksConfig } from "../link-editing/index.js";
 import { POPUP_PROVIDER_ID } from "../popup/index.js";
 import { isReadOnly } from "../read-only/index.js";
 import { focusCanvasWithoutRing, isKeyOnHiddenTarget } from "../a11y/index.js";
@@ -310,33 +305,16 @@ export default class WardleyContextPadProvider implements ContextPadProvider {
         },
       };
     }
-    // Shared maps can carry any address, so only allowlisted ones are ever opened.
-    const openableLink = safeLinkUrl(storedLink);
-    const openLink = openableLink ? this.linkOpener(openableLink) : undefined;
-    if (openableLink && openLink) {
+    const opener = this.injector.get<WardleyLinkOpener>("wardleyLinkOpener", false);
+    const openableLink = opener?.openableLink(shape);
+    if (opener && openableLink) {
       entries["open-link"] = {
         group: GROUP_PROPERTIES,
         title: `Open link (${openableLink})`,
         html: cpHtml(chromeIcon("external-link"), `Open link (${openableLink})`),
-        action: { click: this.focusingCanvas(openLink) },
+        action: { click: this.focusingCanvas(() => opener.open(openableLink)) },
       };
     }
-  }
-
-  /**
-   * How an allowlisted address opens: one with a scheme in a new browser tab unless the host opens
-   * it itself, and a relative one through the host, since the browser would resolve it against the
-   * page. A host that follows no relative links leaves nothing to offer.
-   */
-  private linkOpener(address: string): (() => void) | undefined {
-    if (!isRelativeLink(address)) {
-      const openExternal = this.linksConfig?.openExternal;
-      return openExternal
-        ? () => openExternal(address)
-        : () => void window.open(address, "_blank", "noopener,noreferrer");
-    }
-    const openRelative = this.linksConfig?.openRelative;
-    return openRelative && (() => openRelative(address));
   }
 
   /**
