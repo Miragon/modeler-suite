@@ -3653,12 +3653,14 @@ workbench's keybindings, and the theme bridge under VS Code's four default theme
 per theme. It also presses the zoom and selection keys and checks that none of them reaches VS
 Code's own bindings (0.7), redoes and undoes the edit and checks that the zoomed view and the
 selection survive both, and runs the workbench steps: VS Code's `workbench.reduceMotion`, the editor
-in a hidden tab and Developer: Reload Window (0.8). The keys, the history and the workbench steps
-started opt-in and run by default since 0.8; `keys`, `history` or `workbench` set to `false`, or
-`VSCODE_SMOKE_SKIP` in the environment, skips them. 0.9 removed their opt-in names, deprecated
-since 0.8: `VSCODE_SMOKE_SKIPPABLE_STEPS`, `VsCodeSmokeSkippableStep` and `vsCodeSmokeSkip` replace
-`VSCODE_SMOKE_OPT_IN_STEPS`, `VsCodeSmokeOptInStep` and `vsCodeSmokeOptIn`. It runs in Node, from a
-Vitest or `node:test` file; no Playwright test runner is needed.
+in a hidden tab and Developer: Reload Window (0.8). A modeler's own checks run last as the step
+`custom`, with more files of its own in the workspace (0.10). The keys, the history and the
+workbench steps started opt-in and run by default since 0.8; `keys`, `history` or `workbench` set to
+`false`, or `VSCODE_SMOKE_SKIP` in the environment, skips them. 0.9 removed their opt-in names,
+deprecated since 0.8: `VSCODE_SMOKE_SKIPPABLE_STEPS`, `VsCodeSmokeSkippableStep` and
+`vsCodeSmokeSkip` replace `VSCODE_SMOKE_OPT_IN_STEPS`, `VsCodeSmokeOptInStep` and
+`vsCodeSmokeOptIn`. It runs in Node, from a Vitest or `node:test` file; no Playwright test runner is
+needed.
 The package's command `modeler-shell-vscode-docker` runs such a test in a Linux container, without a
 window on the host ([In Docker](#in-docker-031)).
 
@@ -3674,6 +3676,7 @@ Code 1.110 renamed that executable to `Code` and has since dropped the `Electron
 interface VsCodeSmokeFixture {
   fileName: string; // a plain file name; it also keys workbench.editorAssociations
   text: string; // the document, with at least one element
+  files?: Record<string, string>; // 0.10: more files of the workspace by their path inside it ("details/payment.wmap"); only written
 }
 interface PlatformKeys {
   modifier: "Meta" | "Control";
@@ -3687,6 +3690,7 @@ interface VsCodeSmokeContext {
   webview: FrameLocator; // the modeler's webview document, inside VS Code's two webview frames
   keys: PlatformKeys;
   timeoutMs: number;
+  workspaceDir: string; // 0.10: the folder VS Code opened, with the fixture and its files
 }
 interface VsCodeSmokeOptions {
   extensionPath: string; // the built extension folder (its package.json), --extensionDevelopmentPath
@@ -3694,6 +3698,7 @@ interface VsCodeSmokeOptions {
   parse: (text: string) => unknown; // the modeler's parser; throws or rejects for an invalid document
   edit?: (context: VsCodeSmokeContext) => Promise<void>; // default createFromPalette
   ready?: (context: VsCodeSmokeContext) => Promise<void>; // default: the canvas shows a shape
+  custom?: (context: VsCodeSmokeContext) => Promise<void>; // 0.10: the step "custom", after every step but close, once the fixture showed
   undoSteps?: number; // default 1; the history step presses the redo key as often, then the undo key
   themes?: readonly Theme[]; // what the extension passes to the theme bridge; default ["light"]
   colorThemes?: readonly VsCodeColorTheme[]; // default VSCODE_COLOR_THEMES; the first also at start
@@ -3739,6 +3744,7 @@ const VSCODE_SMOKE_STEPS: readonly [
   "motion", // 0.8; skipped as "workbench"
   "hidden", // 0.8; skipped as "workbench"
   "reload", // 0.8; skipped as "workbench"
+  "custom", // 0.10; runs when the modeler passes custom
   "close",
 ];
 // 0.8: the steps a run takes unless told to skip them (keys since 0.7, history and workbench since

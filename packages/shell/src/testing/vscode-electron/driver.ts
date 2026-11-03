@@ -1,7 +1,7 @@
 import { rmSync } from "node:fs";
 import { access, mkdir, mkdtemp, readFile, readdir, realpath, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import type { ProgressReport, ProgressReporter } from "@vscode/test-electron";
 import type { ElectronApplication, FrameLocator, Page } from "playwright-core";
 import {
@@ -33,6 +33,7 @@ import {
   defaultVsCodeCachePath,
   extensionIdOf,
   isPlainFileName,
+  isWorkspacePath,
   platformKeys,
   resolveExtensionMain,
   vsCodeEnvironment,
@@ -125,6 +126,11 @@ export interface VsCodeSmokeFixture {
   fileName: string;
   /** The document; it shows at least one element. */
   text: string;
+  /**
+   * More files of the workspace by their path inside it (`details/payment.wmap`), such as the
+   * documents a `custom` step opens (0.10). The driver only writes them.
+   */
+  files?: Readonly<Record<string, string>> | undefined;
 }
 
 /** What `edit` and `ready` get to drive VS Code. */
@@ -137,6 +143,8 @@ export interface VsCodeSmokeContext {
   keys: PlatformKeys;
   /** The timeout of every wait. */
   timeoutMs: number;
+  /** The folder VS Code opened, with the fixture and its `files` (0.10). */
+  workspaceDir: string;
 }
 
 export interface VsCodeSmokeOptions {
@@ -150,6 +158,12 @@ export interface VsCodeSmokeOptions {
    * open. Default `createFromPalette`: Enter on the first creating palette entry, then Escape.
    */
   edit?: ((context: VsCodeSmokeContext) => Promise<void>) | undefined;
+  /**
+   * The modeler's own checks in the real VS Code (0.10), run as the step `custom` after every other
+   * step but `close`, once the open step showed the fixture: a throw is its failure. Nothing of the
+   * driver runs after it, so it may open more editors, such as the fixture's `files`.
+   */
+  custom?: ((context: VsCodeSmokeContext) => Promise<void>) | undefined;
   /** Resolves once the opened fixture is ready for the edit; default: the canvas shows a shape. */
   ready?: ((context: VsCodeSmokeContext) => Promise<void>) | undefined;
   /**
@@ -386,6 +400,13 @@ export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCod
   if (!isPlainFileName(fileName)) {
     throw new Error(`runVsCodeSmoke: the fixture needs a plain file name, not "${fileName}"`);
   }
+  for (const path of Object.keys(options.fixture.files ?? {})) {
+    if (!isWorkspacePath(path) || path === fileName) {
+      throw new Error(
+        `runVsCodeSmoke: the fixture's file "${path}" needs a relative path inside the workspace, other than the fixture's own`,
+      );
+    }
+  }
 
   const extensionPath = resolve(options.extensionPath);
   const manifest = await readManifest(extensionPath);
@@ -522,6 +543,17 @@ export async function runVsCodeSmoke(options: VsCodeSmokeOptions): Promise<VsCod
   return result;
 }
 
+/** Writes the fixture and its `files` into the workspace. */
+async function writeWorkspace(paths: VsCodeSmokePaths, fixture: VsCodeSmokeFixture): Promise<void> {
+  await mkdir(paths.workspaceDir, { recursive: true });
+  await writeFile(paths.file, fixture.text);
+  for (const [path, text] of Object.entries(fixture.files ?? {})) {
+    const file = join(paths.workspaceDir, ...path.split("/"));
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(file, text);
+  }
+}
+
 /** One run's settled inputs, and where the launch step leaves the application for the cleanup. */
 interface SessionRun {
   options: VsCodeSmokeOptions;
@@ -560,6 +592,15 @@ interface WorkbenchState {
 }
 
 async function runSession(run: SessionRun): Promise<void> {
+  const opened = await runDriverSteps(run);
+  const custom = run.options.custom;
+  if (!custom) return;
+  if (opened) await run.step("custom", () => custom(opened));
+  else run.log("custom: skipped, the open step did not show the fixture");
+}
+
+/** The driver's steps from the launch to the last workbench step; the context once the fixture showed. */
+async function runDriverSteps(run: SessionRun): Promise<VsCodeSmokeContext | undefined> {
   const { options, step, failures, result, log, paths, timeoutMs, islands } = run;
   const original = options.fixture.text;
   const settingsFile = join(paths.userDataDir, "User", "settings.json");
@@ -600,8 +641,7 @@ async function runSession(run: SessionRun): Promise<void> {
 
   await mkdir(join(paths.userDataDir, "User"), { recursive: true });
   await mkdir(paths.extensionsDir, { recursive: true });
-  await mkdir(paths.workspaceDir, { recursive: true });
-  await writeFile(paths.file, original);
+  await writeWorkspace(paths, options.fixture);
   await writeSettingsFile();
 
   let webviewErrors: WebviewErrorWatch | undefined;
@@ -629,9 +669,15 @@ async function runSession(run: SessionRun): Promise<void> {
       .contentFrame()
       .locator("iframe#active-frame")
       .contentFrame();
-    return { page, webview, keys: platformKeys(process.platform), timeoutMs };
+    return {
+      page,
+      webview,
+      keys: platformKeys(process.platform),
+      timeoutMs,
+      workspaceDir: paths.workspaceDir,
+    };
   });
-  if (!context || !webviewErrors) return;
+  if (!context || !webviewErrors) return undefined;
   const errors = webviewErrors;
 
   const html = context.webview.locator("html");
@@ -657,7 +703,7 @@ async function runSession(run: SessionRun): Promise<void> {
       errors.stop();
     }
   });
-  if (!before) return;
+  if (!before) return undefined;
 
   const edited = await step("edit", async () => {
     await (options.edit ?? createFromPalette)(context);
@@ -799,7 +845,7 @@ async function runSession(run: SessionRun): Promise<void> {
     );
   }
 
-  if (!run.workbench) return;
+  if (!run.workbench) return context;
   const settings: SettingsWriter = { writeSettings, writeReduceMotion };
   // After the history, which needs the redo the undo step left; the reload step redoes it once more.
   await step("motion", async () => {
@@ -832,7 +878,7 @@ async function runSession(run: SessionRun): Promise<void> {
         ? "reload: skipped, the undo step did not bring the canvas back, so there is no edit to redo"
         : "reload: skipped, the edit was not saved, so there is no edit to redo",
     );
-    return;
+    return context;
   }
   const inFront = await pollUntil(
     () => modelerEditorInFront(context, run),
@@ -841,7 +887,7 @@ async function runSession(run: SessionRun): Promise<void> {
   );
   if (!inFront.met) {
     log("reload: skipped, the hidden step left another editor in front of the modeler's");
-    return;
+    return context;
   }
   const canvasToRedo = editedCanvas;
   await step("reload", async () => {
@@ -860,6 +906,7 @@ async function runSession(run: SessionRun): Promise<void> {
     for (const failure of checked.failures) failures.add("reload", failure);
     log(`reload: ${describeReload(checked.result)}`);
   });
+  return context;
 }
 
 /** How the workbench steps change the profile's `settings.json`, as a user's settings change would. */

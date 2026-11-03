@@ -267,3 +267,8 @@ export function customEditorViewType(
 export function isPlainFileName(fileName: string): boolean {
   return /^[\w][\w.-]*$/.test(fileName);
 }
+
+/** Whether `path` is a relative path of plain file names, `/`-separated, so it stays in the workspace. */
+export function isWorkspacePath(path: string): boolean {
+  return path.split("/").every(isPlainFileName);
+}
