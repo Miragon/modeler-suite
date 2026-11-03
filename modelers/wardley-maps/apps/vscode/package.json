@@ -32,7 +32,9 @@
   "type": "module",
   "activationEvents": [
     "onCustomEditor:wardley.mapEditor",
-    "onLanguage:wardley-owm"
+    "onLanguage:wardley-owm",
+    "workspaceContains:**/*.wmap",
+    "workspaceContains:**/*.owm"
   ],
   "contributes": {
     "languages": [
@@ -53,6 +55,27 @@
         }
       }
     ],
+    "configuration": {
+      "title": "Wardley Maps",
+      "properties": {
+        "miragon.wardleyMaps.updateLinksOnFileMove.enabled": {
+          "type": "string",
+          "enum": [
+            "prompt",
+            "always",
+            "never"
+          ],
+          "enumDescriptions": [
+            "Ask before updating the links.",
+            "Update the links without asking.",
+            "Leave the links as they are."
+          ],
+          "default": "prompt",
+          "scope": "resource",
+          "markdownDescription": "Update the links between maps when `.wmap` or `.owm` files, or folders that hold them, are renamed or moved in VS Code: the links to a moved map, and the links of a moved map to the maps that stay. The maps that change stay unsaved."
+        }
+      }
+    },
     "grammars": [
       {
         "language": "wardley-owm",

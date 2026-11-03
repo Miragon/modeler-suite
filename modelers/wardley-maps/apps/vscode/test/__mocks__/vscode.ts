@@ -140,6 +140,9 @@ export class Uri {
   get fsPath(): string {
     return this.path;
   }
+  get authority(): string {
+    return "";
+  }
   static parse(value: string): Uri {
     const idx = value.indexOf(":");
     return idx >= 0 ? new Uri(value.slice(0, idx), value.slice(idx + 1)) : new Uri("file", value);
@@ -165,6 +168,44 @@ export enum FileType {
   Directory = 2,
   SymbolicLink = 64,
 }
+
+/** A glob below `base`, a folder's Uri. */
+export class RelativePattern {
+  readonly baseUri: Uri;
+  constructor(
+    base: Uri | { uri: Uri },
+    readonly pattern: string,
+  ) {
+    this.baseUri = base instanceof Uri ? base : base.uri;
+  }
+}
+
+/** The only glob the extension watches and searches: the map files. */
+const MAP_FILES = /\.(wmap|owm)$/i;
+
+function isBelow(path: string, folder: string): boolean {
+  return path.startsWith(`${folder.replace(/\/$/, "")}/`);
+}
+
+/**
+ * Whether a file event or search result at `path` matches `include`: a map file inside a
+ * workspace folder for the string glob (the real one reports from workspace folders only), a map
+ * file below its base for a RelativePattern.
+ */
+function matchesMapGlob(path: string, include: string | RelativePattern): boolean {
+  if (!MAP_FILES.test(path)) return false;
+  return include instanceof RelativePattern
+    ? isBelow(path, include.baseUri.path)
+    : workspace.getWorkspaceFolder(Uri.file(path)) !== undefined;
+}
+
+interface MockWatcher {
+  readonly include: string | RelativePattern;
+  readonly created: EventEmitter<Uri>;
+  readonly deleted: EventEmitter<Uri>;
+}
+
+const watchers: MockWatcher[] = [];
 
 /** The input of a custom editor's tab. */
 export class TabInputCustom {
@@ -222,6 +263,13 @@ const configurationEmitter = new EventEmitter<{
 }>();
 const docOpenEmitter = new EventEmitter<unknown>();
 const docCloseEmitter = new EventEmitter<unknown>();
+const filesCreatedEmitter = new EventEmitter<{ files: readonly Uri[] }>();
+const filesDeletedEmitter = new EventEmitter<{ files: readonly Uri[] }>();
+const filesRenamedEmitter = new EventEmitter<{
+  files: ReadonlyArray<{ oldUri: Uri; newUri: Uri }>;
+}>();
+const workspaceFoldersEmitter = new EventEmitter<unknown>();
+const configuration = new Map<string, unknown>();
 
 export const workspace = {
   workspaceFolders: undefined as ReadonlyArray<{ uri: Uri }> | undefined,
@@ -245,27 +293,74 @@ export const workspace = {
   onDidCloseTextDocument(listener: (document: unknown) => void): Disposable {
     return docCloseEmitter.event(listener);
   },
-  getConfiguration(_section?: string): { get<T>(key: string): T | undefined } {
-    return { get: () => undefined };
+  /** VS Code's own file operations (Explorer, a WorkspaceEdit), for files and folders alike. */
+  onDidCreateFiles(listener: (event: { files: readonly Uri[] }) => void): Disposable {
+    return filesCreatedEmitter.event(listener);
+  },
+  onDidDeleteFiles(listener: (event: { files: readonly Uri[] }) => void): Disposable {
+    return filesDeletedEmitter.event(listener);
+  },
+  onDidRenameFiles(
+    listener: (event: { files: ReadonlyArray<{ oldUri: Uri; newUri: Uri }> }) => void,
+  ): Disposable {
+    return filesRenamedEmitter.event(listener);
+  },
+  onDidChangeWorkspaceFolders(listener: (event: unknown) => void): Disposable {
+    return workspaceFoldersEmitter.event(listener);
+  },
+  /** Reports what `vscodeMock.fireFileWatcher` names, if it matches, unless told to ignore it. */
+  createFileSystemWatcher(
+    include: string | RelativePattern,
+    ignoreCreateEvents = false,
+    _ignoreChangeEvents = false,
+    ignoreDeleteEvents = false,
+  ) {
+    const watcher: MockWatcher = {
+      include,
+      created: new EventEmitter<Uri>(),
+      deleted: new EventEmitter<Uri>(),
+    };
+    watchers.push(watcher);
+    const never = (): Disposable => new Disposable(() => {});
+    return {
+      onDidCreate: ignoreCreateEvents ? never : watcher.created.event,
+      onDidChange: never,
+      onDidDelete: ignoreDeleteEvents ? never : watcher.deleted.event,
+      dispose: () => {
+        const index = watchers.indexOf(watcher);
+        if (index !== -1) watchers.splice(index, 1);
+        watcher.created.dispose();
+        watcher.deleted.dispose();
+      },
+    };
+  },
+  /** What `vscodeMock.setConfiguration` set, by the full key. */
+  getConfiguration(section?: string, _scope?: unknown): { get<T>(key: string): T | undefined } {
+    return {
+      get: <T>(key: string) => configuration.get(section ? `${section}.${key}` : key) as T,
+    };
   },
   onDidChangeConfiguration(
     listener: (event: { affectsConfiguration(section: string): boolean }) => void,
   ): Disposable {
     return configurationEmitter.event(listener);
   },
-  applyEdit(_edit: WorkspaceEdit): Promise<boolean> {
+  /** Records the edit (`vscodeMock.appliedEdits`); a test replaces it to apply one. */
+  applyEdit(edit: WorkspaceEdit): Promise<boolean> {
+    appliedEdits.push(edit);
     return Promise.resolve(true);
   },
   /**
-   * The map files `vscodeMock.setFileTypes` named inside a workspace folder, in no particular
-   * order; it reads only the map pattern the extension asks for.
+   * The map files `vscodeMock.setFileTypes` named inside a workspace folder, or below a
+   * RelativePattern's base, in no particular order; it reads only the map pattern the extension
+   * asks for.
    */
-  findFiles(_include: string): Promise<Uri[]> {
+  findFiles(include: string | RelativePattern): Promise<Uri[]> {
+    findFilesCalls.push(include);
     return Promise.resolve(
       [...fileTypes]
-        .filter(([path, type]) => type & FileType.File && /\.(wmap|owm)$/i.test(path))
+        .filter(([path, type]) => type & FileType.File && matchesMapGlob(path, include))
         .map(([path]) => Uri.file(path))
-        .filter((uri) => workspace.getWorkspaceFolder(uri))
         .reverse(),
     );
   },
@@ -277,8 +372,9 @@ export const workspace = {
         ? Promise.reject(new Error(`No such file: ${uri.path}`))
         : Promise.resolve({ type });
     },
-    readFile(_uri: Uri): Promise<Uint8Array> {
-      return Promise.resolve(new Uint8Array());
+    /** The text `vscodeMock.setFileTexts` gave the file, as UTF-8; empty for any other. */
+    readFile(uri: Uri): Promise<Uint8Array> {
+      return Promise.resolve(new TextEncoder().encode(fileTexts.get(uri.path) ?? ""));
     },
     writeFile(uri: Uri, content: Uint8Array): Promise<void> {
       writtenFiles.push({ uri, content });
@@ -308,6 +404,11 @@ const warningMessages: string[] = [];
 const errorMessages: string[] = [];
 const writtenFiles: Array<{ uri: Uri; content: Uint8Array }> = [];
 const fileTypes = new Map<string, FileType>();
+const fileTexts = new Map<string, string>();
+const findFilesCalls: Array<string | RelativePattern> = [];
+const appliedEdits: WorkspaceEdit[] = [];
+const shownMessages: Array<{ message: string; options: unknown; items: unknown[] }> = [];
+let messageAnswer: string | undefined;
 const openedExternally: Uri[] = [];
 const quickPicks: Array<{ items: readonly QuickPickItem[]; options: unknown }> = [];
 let quickPickAnswer: string | undefined;
@@ -316,6 +417,11 @@ let saveDialogAnswer: Uri | undefined;
 export interface QuickPickItem {
   label: string;
   description?: string;
+}
+
+export interface MessageItem {
+  title: string;
+  isCloseAffordance?: boolean;
 }
 
 export const env = {
@@ -347,9 +453,23 @@ export const window = {
   onDidChangeActiveColorTheme(listener: (theme: { kind: ColorThemeKind }) => void): Disposable {
     return colorThemeEmitter.event(listener);
   },
-  showInformationMessage(message: string, ..._items: string[]): Promise<string | undefined> {
+  /**
+   * Records the message, its options (`{ modal: true }`) and its items, and takes the item
+   * `vscodeMock.answerMessage` named by its title; none dismisses the message.
+   */
+  showInformationMessage(message: string, ...rest: unknown[]): Promise<unknown> {
     informationMessages.push(message);
-    return Promise.resolve(undefined);
+    const [first, ...others] = rest;
+    const hasOptions = typeof first === "object" && first !== null && !("title" in first);
+    const items = hasOptions ? others : rest;
+    shownMessages.push({ message, options: hasOptions ? first : undefined, items });
+    return Promise.resolve(
+      items.find((item) =>
+        typeof item === "string"
+          ? item === messageAnswer
+          : (item as MessageItem).title === messageAnswer,
+      ),
+    );
   },
   showWarningMessage(message: string, ..._items: string[]): Promise<string | undefined> {
     warningMessages.push(message);
@@ -428,6 +548,68 @@ export const vscodeMock = {
     fileTypes.clear();
     for (const [path, type] of Object.entries(types)) fileTypes.set(path, type);
   },
+  /** The current file system, by path, for a test that changes it. */
+  fileTypes(): ReadonlyMap<string, FileType> {
+    return fileTypes;
+  },
+  /** What `workspace.fs.readFile` reads, by path: files and their texts. */
+  setFileTexts(texts: Readonly<Record<string, string>>): void {
+    fileTexts.clear();
+    for (const [path, text] of Object.entries(texts)) {
+      fileTexts.set(path, text);
+      if (!fileTypes.has(path)) fileTypes.set(path, FileType.File);
+    }
+  },
+  fileText(path: string): string | undefined {
+    return fileTexts.get(path);
+  },
+  /** Every `workspace.findFiles` include, in call order. */
+  findFilesCalls(): ReadonlyArray<string | RelativePattern> {
+    return findFilesCalls;
+  },
+  /**
+   * A file event on disk, as the watchers report it: only to those whose glob matches `path`, so
+   * a folder's event reaches none of the map watchers and says nothing about the maps inside.
+   */
+  fireFileWatcher(kind: "create" | "delete", path: string): void {
+    for (const watcher of [...watchers]) {
+      if (!matchesMapGlob(path, watcher.include)) continue;
+      (kind === "create" ? watcher.created : watcher.deleted).fire(Uri.file(path));
+    }
+  },
+  fireDidCreateFiles(paths: readonly string[]): void {
+    filesCreatedEmitter.fire({ files: paths.map((path) => Uri.file(path)) });
+  },
+  fireDidDeleteFiles(paths: readonly string[]): void {
+    filesDeletedEmitter.fire({ files: paths.map((path) => Uri.file(path)) });
+  },
+  fireDidRenameFiles(moves: ReadonlyArray<readonly [oldPath: string, newPath: string]>): void {
+    filesRenamedEmitter.fire({
+      files: moves.map(([oldPath, newPath]) => ({
+        oldUri: Uri.file(oldPath),
+        newUri: Uri.file(newPath),
+      })),
+    });
+  },
+  fireDidChangeWorkspaceFolders(): void {
+    workspaceFoldersEmitter.fire({});
+  },
+  /** A setting `workspace.getConfiguration` reads, by its full key. */
+  setConfiguration(key: string, value: unknown): void {
+    configuration.set(key, value);
+  },
+  /** Every edit `workspace.applyEdit` got while the mock's own one was in place. */
+  appliedEdits(): readonly WorkspaceEdit[] {
+    return appliedEdits;
+  },
+  /** Every `window.showInformationMessage` with its options and items. */
+  shownMessages(): ReadonlyArray<{ message: string; options: unknown; items: unknown[] }> {
+    return shownMessages;
+  },
+  /** The title of the item the next messages choose; none dismisses them. */
+  answerMessage(title: string | undefined): void {
+    messageAnswer = title;
+  },
   /** Every `env.openExternal` call. */
   openedExternally(): readonly Uri[] {
     return openedExternally;
@@ -482,6 +664,17 @@ export const vscodeMock = {
     errorMessages.length = 0;
     writtenFiles.length = 0;
     fileTypes.clear();
+    fileTexts.clear();
+    findFilesCalls.length = 0;
+    appliedEdits.length = 0;
+    shownMessages.length = 0;
+    messageAnswer = undefined;
+    configuration.clear();
+    watchers.length = 0;
+    filesCreatedEmitter.dispose();
+    filesDeletedEmitter.dispose();
+    filesRenamedEmitter.dispose();
+    workspaceFoldersEmitter.dispose();
     openedExternally.length = 0;
     quickPicks.length = 0;
     quickPickAnswer = undefined;

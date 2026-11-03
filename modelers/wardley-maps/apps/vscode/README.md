@@ -60,7 +60,13 @@ Together they show _what_ you depend on and _how mature_ each piece is.
   address, such as `details/payment.wmap` relative to the folder of the current map or a web
   address. **Open link** opens the linked map in its own tab, or a web address in your browser. So a
   large map can become an overview plus detail maps you click through. Only `.wmap` and `.owm` files
-  inside the workspace open this way.
+  inside the workspace open this way. A link that can't open is a problem like a parser warning,
+  underlined at its address and counted in the pill: a map that doesn't exist (or no longer does,
+  after it was deleted or moved), a file that isn't a map, or one outside the workspace. The check
+  follows the workspace as maps appear and go away; web and mail addresses aren't checked. When you
+  rename or move maps, or folders that hold them, in VS Code, the extension offers to update the
+  links: those of other maps to a moved map, and those of a moved map to the maps that stayed. Only
+  the addresses change, and one that started with `./` keeps it (see [Settings](#settings)).
 - **Map size:** drag the plot's right or bottom edge or its corner to resize it (`Shift` keeps the
   ratio, `Alt` turns off snapping, double-click the corner to reset), or open **Map size…** in the
   menu for a preset or an exact width × height, previewed on the map as you choose.
@@ -90,6 +96,12 @@ Run these from the Command Palette (type _"Wardley"_) or the editor title bar:
 | **Wardley: Fit to View**                     | Zooms the diagram to show the whole map.            |
 | **Wardley: Export as PNG / SVG**             | Opens a save dialog (defaults to next to the file). |
 | **Wardley: Export as PNG (4×, Transparent)** | High-resolution PNG without background, for slides. |
+
+## Settings
+
+| Setting                                             | Default  | What it does                                                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `miragon.wardleyMaps.updateLinksOnFileMove.enabled` | `prompt` | Whether the links between maps follow a `.wmap` / `.owm` file, or a folder that holds one, that you rename or move in VS Code: `prompt` asks first and says how many maps would change, `always` updates them without asking, `never` leaves the links as they are. The maps it changes stay unsaved, as with VS Code's `markdown.updateLinksOnFileMove.enabled`. |
 
 ## Keyboard shortcuts on the canvas
 

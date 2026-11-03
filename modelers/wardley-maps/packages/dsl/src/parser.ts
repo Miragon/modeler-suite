@@ -355,6 +355,19 @@ export interface ParseResult {
 }
 
 /**
+ * The address of a `url Name [address]` statement and where it stands, so an editor can rewrite
+ * just the address: `line` is 1-based like a diagnostic's, `start` and `end` are 0-based offsets
+ * into that line (end exclusive), around the address without the spaces inside the brackets.
+ */
+export interface UrlAddress {
+  readonly name: string;
+  readonly address: string;
+  readonly line: number;
+  readonly start: number;
+  readonly end: number;
+}
+
+/**
  * Where a parse read its statements: 1-based source lines per statement key (the keys
  * `serializeKeyedLines` writes). A secondary line also feeds the statement: a legacy `buy X`
  * line, or a repeated config or evolve line that the primary one replaces.
@@ -369,6 +382,8 @@ export interface SourceMap {
   /** Pipelines written without a range: their children span it. */
   readonly rangeFromChildren: ReadonlySet<string>;
   readonly urlReferences: ReadonlyMap<string, UrlReferenceHint>;
+  /** Every url definition in source order, the replaced and unused ones included. */
+  readonly urlAddresses: readonly UrlAddress[];
 }
 
 class IdAllocator {
@@ -446,6 +461,7 @@ class MapReader {
   private annotationCounter = 0;
   private readonly comments = new CommentStripper();
   private readonly urlDefinitions: UrlDefinition[] = [];
+  private readonly urlAddresses: UrlAddress[] = [];
   private readonly pendingUrlRefs: PendingUrlRef[] = [];
   /** Candidate for a `{` block opening: a block binds only to the directly preceding pipeline line. */
   private lastPipeline: PendingPipeline | null = null;
@@ -453,6 +469,7 @@ class MapReader {
   private blockOpening = { line: 0, text: "" };
   private lineNo = 0;
   private currentLine = "";
+  private currentRawLine = "";
   private readonly declarationLineById = new Map<string, number>();
   private readonly configLinesByKeyword = new Map<string, number[]>();
   private readonly evolveLinesById = new Map<string, number[]>();
@@ -664,6 +681,7 @@ class MapReader {
       const raw = withoutTrailingCarriageReturns(sourceLines[i]!);
       this.lineNo = i + 1;
       this.currentLine = raw.trim();
+      this.currentRawLine = raw;
 
       const stripped = this.comments.strip(raw);
       if (!this.comments.insideBlockComment) blockCommentStart = null;
@@ -1057,6 +1075,8 @@ class MapReader {
     const definition = readUrlDefinition(after);
     if (!definition) return this.failed(line);
     this.urlDefinitions.push({ ...definition, lineNo: this.lineNo, text: this.currentLine });
+    const span = addressSpan(this.currentRawLine, line, definition.address);
+    if (span) this.urlAddresses.push({ ...definition, line: this.lineNo, ...span });
   }
 
   /**
@@ -1232,6 +1252,7 @@ class MapReader {
       blocks,
       rangeFromChildren: this.rangeFromChildren,
       urlReferences: parts.urlReferences,
+      urlAddresses: this.urlAddresses,
     };
   }
 
@@ -1378,6 +1399,22 @@ function renameDiagnostic(sourceName: string, name: string): string | undefined 
   if (!trimmed) return `Name "${sourceName}" has only line breaks: renamed to "${name}"`;
   if (name === trimmed) return undefined;
   return `Name "${sourceName}" renamed to "${name}", because a name cannot hold link operators ("->", "+>", "+<", "+'"), comment markers or a leading "{"`;
+}
+
+/**
+ * Where `address` stands in the source line of a url definition. The statement ends with the
+ * line's last "]" (only spaces or a block's "}" follow it) and holds no "[" before its address; a
+ * line that doesn't read that way gets no span.
+ */
+function addressSpan(
+  rawLine: string,
+  statement: string,
+  address: string,
+): { start: number; end: number } | undefined {
+  const statementStart = rawLine.lastIndexOf("]") + 1 - statement.length;
+  if (statementStart < 0 || !rawLine.startsWith(statement, statementStart)) return undefined;
+  const start = rawLine.indexOf(address, statementStart + statement.indexOf("[") + 1);
+  return start < 0 ? undefined : { start, end: start + address.length };
 }
 
 function withoutTrailingCarriageReturns(line: string): string {

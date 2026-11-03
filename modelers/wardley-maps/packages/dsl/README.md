@@ -83,6 +83,22 @@ import { readBackIds } from "@miragon/wardley-dsl";
 readBackIds(editedMap).get("shape_42"); // 'cmp_hot_water'
 ```
 
+### Where the link addresses stand
+
+An element links through a definition, `url Payment [details/payment.wmap]` with `url(Payment)` on
+the element line. `locateUrlAddresses(text)` lists every definition in source order (the unused and
+replaced ones too, none from a comment) with its address, its 1-based `line` and the `start` and
+`end` offsets of the address in that line, without the spaces inside the brackets. An editor that
+checks the links of a map, or follows a moved map, replaces just that range and keeps every other
+character of the file:
+
+```ts
+import { locateUrlAddresses } from "@miragon/wardley-dsl";
+
+locateUrlAddresses("title Shop\nurl Payment [details/payment.wmap]\n");
+// [{ name: 'Payment', address: 'details/payment.wmap', line: 2, start: 13, end: 33 }]
+```
+
 Part of the [Wardley Maps Modeler](https://github.com/Miragon/modeler-suite/tree/main/modelers/wardley-maps) in the [Miragon modeler suite](https://github.com/Miragon/modeler-suite).
 
 ## License
