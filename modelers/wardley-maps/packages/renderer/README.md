@@ -101,8 +101,15 @@ Options (the names of the `@miragon/modeler-api` 1.2 factory options):
   editors.
 - `openRelativeLink: (address) => …` follows a link without a scheme (`details/payment.wmap`) from
   the context pad: only the host knows where the map's file lies, so it resolves the address or says
-  why it can't. Without this option the pad offers no "Open link" on such an address. http(s) and
-  `mailto:` addresses open in a new tab either way, and no other scheme ever opens.
+  why it can't. Without this option the pad offers no "Open link" on such an address. No scheme but
+  http(s) and `mailto:` ever opens.
+- `openExternalLink: (address) => …` opens an http(s) or `mailto:` address from the context pad;
+  without it a new browser tab opens. A host whose page can't open windows, such as a VS Code
+  webview, hands the address to its own opener.
+- `chooseLinkTarget: () => Promise<string | undefined>` adds "Link to map…" to the context pad of a
+  component or submap: the host lets the user choose another map and resolves with its address
+  relative to the current map (`undefined` when the user cancels), which becomes the element's link
+  in one undoable step.
 
 The `wardleyReadOnly` service (`modeler.get<WardleyReadOnly>('wardleyReadOnly').setReadOnly(true)`)
 locks the canvas while its host cannot save an edit, e.g. while the document is invalid: every edit
@@ -228,8 +235,9 @@ edit at once and stays the same across zoom and scroll. A map without elements s
 so it is never `undefined` while the modeler lives (before the first import it is the default plot);
 tell an empty map by its elements. `diagram` is the wrapped `Modeler` or `NavigatedViewer` for
 host-specific wiring. Both factories take the options above (`additionalModules`, `freeArea`,
-`fitOnImport`, `undoRedoKeys` and `openRelativeLink`); the viewer never edits, so it ignores the undo
-keys and `openRelativeLink`. Both pass the contract's conformance kit (1.3) without skips.
+`fitOnImport`, `undoRedoKeys` and the link handlers); the viewer never edits and has no context
+pad, so it ignores the undo keys and the link handlers. Both pass the contract's conformance kit
+(1.3) without skips.
 
 `interaction` (contract 1.5) tells a host whether the user holds a gesture, so it can defer a remote
 re-import until the gesture ends: `active()` is true from the moment a move, resize, connect or
@@ -323,8 +331,8 @@ MIT
 The tool icons of the palette (`square-dashed-mouse-pointer`, and for Draw `spline` with a
 straight segment), the Close icon of the dialogs (`x`) and the icons of the context pad (`pencil`,
 `trash`, `circle-plus`, `arrow-right`, `chevrons-right`, `sliders-horizontal`, `line-style`,
-`palette`, `link`, `external-link`, and for Remove evolve `chevrons-right` with the corner `x` of
-`calendar-x-2`) are copied from [Lucide](https://lucide.dev) (`lucide-static` 1.59.0):
+`palette`, `link`, `map`, `external-link`, and for Remove evolve `chevrons-right` with the corner
+`x` of `calendar-x-2`) are copied from [Lucide](https://lucide.dev) (`lucide-static` 1.59.0):
 
 > ISC License
 >
@@ -341,8 +349,8 @@ straight segment), the Close icon of the dialogs (`x`) and the icons of the cont
 > NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 > PERFORMANCE OF THIS SOFTWARE.
 
-`arrow-right`, `chevrons-right`, `circle-plus`, `external-link`, `link`, `trash` and `x` are derived
-from [Feather](https://feathericons.com):
+`arrow-right`, `chevrons-right`, `circle-plus`, `external-link`, `link`, `map`, `trash` and `x` are
+derived from [Feather](https://feathericons.com):
 
 > The MIT License (MIT)
 >

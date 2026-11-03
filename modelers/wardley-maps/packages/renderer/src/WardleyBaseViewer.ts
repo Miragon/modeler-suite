@@ -34,6 +34,7 @@ import {
 import type WardleyModeling from "./modeling/WardleyModeling.js";
 import type { FreeArea } from "@miragon/modeler-api";
 import type { FreeRectConfig } from "./free-rect/index.js";
+import type { WardleyLinksConfig } from "./link-editing/index.js";
 import { COMMAND_START_EVENTS, PUT_BACK_PRIORITY, type LivePreview } from "./live-preview/index.js";
 import { applyConfigUpdate, type MapConfigUpdate } from "./modeling/cmd/UpdateConfigHandler.js";
 import { ACTION_MARK_PRIORITY, ARMED_TOOL_PREFIXES } from "./interaction/index.js";
@@ -71,6 +72,29 @@ export interface WardleyViewerOptions {
    * in a new tab either way.
    */
   openRelativeLink?: ((address: string) => void) | undefined;
+  /**
+   * Opens an http(s) or `mailto:` address from the context pad. Default: a new browser tab. A host
+   * whose page can't open windows (a VS Code webview) hands the address to its own opener.
+   */
+  openExternalLink?: ((address: string) => void) | undefined;
+  /**
+   * Lets the user choose another map as the link of a component or submap, from the context pad's
+   * "Link to map…": resolves with its address relative to the current map, or `undefined` when the
+   * user cancels. Only the host knows the files around the map; without this option the pad offers
+   * no "Link to map…".
+   */
+  chooseLinkTarget?: (() => Promise<string | undefined>) | undefined;
+}
+
+/** The link handlers the host passed, as the diagram config `wardleyLinks`; none without one. */
+function linksConfig(options: WardleyViewerOptions): WardleyLinksConfig | undefined {
+  const { openRelativeLink, openExternalLink, chooseLinkTarget } = options;
+  if (!openRelativeLink && !openExternalLink && !chooseLinkTarget) return undefined;
+  return {
+    ...(openRelativeLink ? { openRelative: openRelativeLink } : {}),
+    ...(openExternalLink ? { openExternal: openExternalLink } : {}),
+    ...(chooseLinkTarget ? { chooseTarget: chooseLinkTarget } : {}),
+  };
 }
 
 /** The diagram config the viewer options stand for. */
@@ -81,13 +105,12 @@ function diagramConfig(options: WardleyViewerOptions): Record<string, unknown> {
       ? { insets: options.freeArea.insets }
       : { center: options.freeArea.center }
     : undefined;
+  const links = linksConfig(options);
   return {
     ...(undoRedo === undefined ? {} : { wardleyKeyboard: { undoRedo } }),
     ...(freeArea ? { wardleyFreeRect: freeArea } : {}),
     ...(options.fitOnImport === false ? { wardleyImport: { fit: false } } : {}),
-    ...(options.openRelativeLink
-      ? { wardleyLinks: { openRelative: options.openRelativeLink } }
-      : {}),
+    ...(links ? { wardleyLinks: links } : {}),
   };
 }
 

@@ -256,6 +256,19 @@ export const workspace = {
   applyEdit(_edit: WorkspaceEdit): Promise<boolean> {
     return Promise.resolve(true);
   },
+  /**
+   * The map files `vscodeMock.setFileTypes` named inside a workspace folder, in no particular
+   * order; it reads only the map pattern the extension asks for.
+   */
+  findFiles(_include: string): Promise<Uri[]> {
+    return Promise.resolve(
+      [...fileTypes]
+        .filter(([path, type]) => type & FileType.File && /\.(wmap|owm)$/i.test(path))
+        .map(([path]) => Uri.file(path))
+        .filter((uri) => workspace.getWorkspaceFolder(uri))
+        .reverse(),
+    );
+  },
   fs: {
     /** Knows what `vscodeMock.setFileTypes` named; anything else is missing. */
     stat(uri: Uri): Promise<{ type: FileType }> {
@@ -295,7 +308,22 @@ const warningMessages: string[] = [];
 const errorMessages: string[] = [];
 const writtenFiles: Array<{ uri: Uri; content: Uint8Array }> = [];
 const fileTypes = new Map<string, FileType>();
+const openedExternally: Uri[] = [];
+const quickPicks: Array<{ items: readonly QuickPickItem[]; options: unknown }> = [];
+let quickPickAnswer: string | undefined;
 let saveDialogAnswer: Uri | undefined;
+
+export interface QuickPickItem {
+  label: string;
+  description?: string;
+}
+
+export const env = {
+  openExternal(uri: Uri): Promise<boolean> {
+    openedExternally.push(uri);
+    return Promise.resolve(true);
+  },
+};
 
 export const languages = {
   createDiagnosticCollection(name: string): MockDiagnosticCollection {
@@ -333,6 +361,14 @@ export const window = {
   },
   showSaveDialog(_options: unknown): Promise<Uri | undefined> {
     return Promise.resolve(saveDialogAnswer);
+  },
+  /** Records what it offers and takes the item `vscodeMock.answerQuickPick` named; none cancels. */
+  showQuickPick<T extends QuickPickItem>(
+    items: readonly T[],
+    options?: unknown,
+  ): Promise<T | undefined> {
+    quickPicks.push({ items, options });
+    return Promise.resolve(items.find(({ label }) => label === quickPickAnswer));
   },
   registerCustomEditorProvider(viewType: string, provider: unknown, options?: unknown): Disposable {
     registeredEditors.push({ viewType, provider, options });
@@ -392,6 +428,18 @@ export const vscodeMock = {
     fileTypes.clear();
     for (const [path, type] of Object.entries(types)) fileTypes.set(path, type);
   },
+  /** Every `env.openExternal` call. */
+  openedExternally(): readonly Uri[] {
+    return openedExternally;
+  },
+  /** What every `window.showQuickPick` offered. */
+  quickPicks(): ReadonlyArray<{ items: readonly QuickPickItem[]; options: unknown }> {
+    return quickPicks;
+  },
+  /** The label the next Quick Picks choose; none cancels them. */
+  answerQuickPick(label: string | undefined): void {
+    quickPickAnswer = label;
+  },
   /** The file the next save dialogs choose; none cancels them. */
   chooseSaveTarget(uri: Uri | undefined): void {
     saveDialogAnswer = uri;
@@ -434,6 +482,9 @@ export const vscodeMock = {
     errorMessages.length = 0;
     writtenFiles.length = 0;
     fileTypes.clear();
+    openedExternally.length = 0;
+    quickPicks.length = 0;
+    quickPickAnswer = undefined;
     saveDialogAnswer = undefined;
     docChangeEmitter.dispose();
     docOpenEmitter.dispose();

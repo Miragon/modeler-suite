@@ -569,6 +569,74 @@ component Payment [0.5, 0.5] url(Payment URL)
     });
     expect(await recordedWindowOpens(page)).toEqual([]);
   });
+
+  test("Open link on an https address asks the host, as the webview opens no window", async ({
+    page,
+  }) => {
+    await recordWindowOpens(page);
+    await openWebview(page);
+    await postFromHost(page, {
+      type: "update",
+      text: `title Overview
+url Docs URL [https://example.com/docs]
+component Docs [0.5, 0.5] url(Docs URL)
+`,
+    });
+
+    await page
+      .locator('.cd-shell-canvas .djs-shape[data-element-id="cmp_docs"] > .djs-hit')
+      .click();
+    await page.locator('.djs-context-pad [data-action="open-link"]').click();
+
+    expect(await waitForPosted(page, "openLink")).toEqual({
+      type: "openLink",
+      address: "https://example.com/docs",
+    });
+    expect(await recordedWindowOpens(page)).toEqual([]);
+  });
+
+  test("Link to map… writes the map the host's Quick Pick chose into the document", async ({
+    page,
+  }) => {
+    await openWebview(page);
+
+    await page
+      .locator('.cd-shell-canvas .djs-shape[data-element-id="cmp_kettle"] > .djs-hit')
+      .click();
+    await page.locator('.djs-context-pad [data-action="link-map"]').click();
+    const request = await waitForPosted(page, "chooseLinkTarget");
+    expect(countOf(await postedMessages(page), "edit")).toBe(0);
+    await postFromHost(page, {
+      type: "linkTargetChosen",
+      requestId: request.requestId,
+      address: "details/kettle.wmap",
+    });
+
+    const edit = await waitForPosted(page, "edit");
+    expect(edit.text).toMatch(/^url \S.* \[details\/kettle\.wmap\]$/m);
+    expect(edit.text).toMatch(/^component Kettle \[[^\]]+\].* url\(.+\)$/m);
+    await expect(page.locator('.djs-context-pad [data-action="open-link"]')).toHaveAttribute(
+      "title",
+      "Open link (details/kettle.wmap)",
+    );
+  });
+
+  test("Link to map… leaves the document alone when the host's Quick Pick was cancelled", async ({
+    page,
+  }) => {
+    await openWebview(page);
+
+    await page
+      .locator('.cd-shell-canvas .djs-shape[data-element-id="cmp_kettle"] > .djs-hit')
+      .click();
+    await page.locator('.djs-context-pad [data-action="link-map"]').click();
+    const request = await waitForPosted(page, "chooseLinkTarget");
+    await postFromHost(page, { type: "linkTargetChosen", requestId: request.requestId });
+    await postFromHost(page, { type: "linkTargetChosen", requestId: 999, address: "x.wmap" });
+
+    await expect(page.locator('.djs-context-pad [data-action="open-link"]')).toHaveCount(0);
+    expect(countOf(await postedMessages(page), "edit")).toBe(0);
+  });
 });
 
 const GRUND = "rgb(249, 247, 247)";

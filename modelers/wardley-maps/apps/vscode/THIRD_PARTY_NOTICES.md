@@ -26,8 +26,8 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 The icons `arrow-right`, `check`, `chevrons-right`, `circle-plus`, `circle-x`,
-`external-link`, `link`, `maximize`, `minus`, `plus`, `trash`, `triangle-alert` and `x` are
-derived from the Feather project:
+`external-link`, `link`, `map`, `maximize`, `minus`, `plus`, `trash`, `triangle-alert` and
+`x` are derived from the Feather project:
 
 The MIT License (MIT)
 

@@ -154,6 +154,30 @@ component Kettle [0.43, 0.35] url(Spec)`);
 
     expect(openRelativeLink.mock.calls).toEqual([["details/kettle.wmap"]]);
   });
+
+  it("openExternalLink and chooseLinkTarget reach the context pad of the editing mount", async () => {
+    const openExternalLink = vi.fn();
+    const chooseLinkTarget = vi.fn(() => Promise.resolve("details/kettle.wmap"));
+    const modeler = await mount({ openExternalLink, chooseLinkTarget });
+    await modeler.importText(`title Linked
+url Spec [https://example.com/kettle]
+component Kettle [0.43, 0.35] url(Spec)`);
+
+    const kettle = modeler.diagram.get<ElementRegistry>("elementRegistry").get("cmp_kettle");
+    modeler.diagram.get<Selection>("selection").select(kettle as Element);
+    await new Promise(requestAnimationFrame);
+    const pad = canvasOf(modeler)
+      .getContainer()
+      .querySelector<HTMLElement>(".djs-context-pad.open")!;
+    for (const action of ["open-link", "link-map"]) {
+      pad
+        .querySelector<HTMLElement>(`.entry[data-action="${action}"]`)!
+        .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+    }
+
+    expect(openExternalLink.mock.calls).toEqual([["https://example.com/kettle"]]);
+    expect(chooseLinkTarget).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("elements.bounds", () => {

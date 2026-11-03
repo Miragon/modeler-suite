@@ -7,8 +7,8 @@ import {
 } from "@miragon/modeler-shell/vscode/extension";
 import type { WardleyDiagnostics } from "./diagnostics.js";
 import { MAP_EDITOR_OPTIONS } from "./mapEditorOptions.js";
-import { openMapLink } from "./mapLinks.js";
-import type { WebviewToHost } from "./protocol.js";
+import { chooseMapLink, openMapLink } from "./mapLinks.js";
+import type { HostToWebview, WebviewToHost } from "./protocol.js";
 
 export { MAP_VIEW_TYPE } from "./mapEditorOptions.js";
 
@@ -45,6 +45,14 @@ export function registerMapEditor(
           });
         case "openLink":
           return openMapLink(editor.document.uri, message.address);
+        case "chooseLinkTarget":
+          return chooseMapLink(editor.document.uri).then((address) =>
+            editor.post({
+              type: "linkTargetChosen",
+              requestId: message.requestId,
+              ...(address === undefined ? {} : { address }),
+            } satisfies HostToWebview),
+          );
         default:
           return undefined;
       }

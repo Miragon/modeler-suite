@@ -9,6 +9,7 @@ import type {
   ContextPadEntries,
   default as ContextPadProvider,
 } from "diagram-js/lib/features/context-pad/ContextPadProvider";
+import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
 import type { Injector } from "didi";
 import {
@@ -296,6 +297,19 @@ export default class WardleyContextPadProvider implements ContextPadProvider {
         action: { click: () => linkEditing.activate(shape) },
       };
     }
+    const chooseTarget = this.linksConfig?.chooseTarget;
+    if (linkEditing && chooseTarget && canHaveLink(shape)) {
+      entries["link-map"] = {
+        group: GROUP_PROPERTIES,
+        title: "Link to map…",
+        html: cpHtml(chromeIcon("map"), "Link to map…"),
+        action: {
+          click: this.focusingCanvas(
+            () => void this.linkChosenMap(shape.id, linkEditing, chooseTarget),
+          ),
+        },
+      };
+    }
     // Shared maps can carry any address, so only allowlisted ones are ever opened.
     const openableLink = safeLinkUrl(storedLink);
     const openLink = openableLink ? this.linkOpener(openableLink) : undefined;
@@ -310,16 +324,39 @@ export default class WardleyContextPadProvider implements ContextPadProvider {
   }
 
   /**
-   * How an allowlisted address opens: the browser takes one with a scheme, and a relative one goes
-   * to the host, since the browser would resolve it against the page. A host that follows no
-   * relative links leaves nothing to offer.
+   * How an allowlisted address opens: one with a scheme in a new browser tab unless the host opens
+   * it itself, and a relative one through the host, since the browser would resolve it against the
+   * page. A host that follows no relative links leaves nothing to offer.
    */
   private linkOpener(address: string): (() => void) | undefined {
     if (!isRelativeLink(address)) {
-      return () => void window.open(address, "_blank", "noopener,noreferrer");
+      const openExternal = this.linksConfig?.openExternal;
+      return openExternal
+        ? () => openExternal(address)
+        : () => void window.open(address, "_blank", "noopener,noreferrer");
     }
     const openRelative = this.linksConfig?.openRelative;
     return openRelative && (() => openRelative(address));
+  }
+
+  /**
+   * Links the element to the map the user chooses in the host. While the host's picker is open, an
+   * import may replace the element or lock the canvas, so the element is looked up again after it.
+   * The link re-renders the pad, which takes a focused entry with it: as after a synchronous
+   * action (`onPadKeydown`), the canvas then takes the focus instead of `<body>`.
+   */
+  private async linkChosenMap(
+    elementId: string,
+    linkEditing: WardleyLinkEditing,
+    chooseTarget: () => Promise<string | undefined>,
+  ): Promise<void> {
+    const address = await chooseTarget().catch(() => undefined);
+    if (address === undefined || isReadOnly(this.injector)) return;
+    const element = this.injector.get<ElementRegistry>("elementRegistry").get(elementId);
+    if (!isWardleyShape(element) || !canHaveLink(element)) return;
+    linkEditing.setLink(element, address);
+    const focused = document.activeElement;
+    if (!focused || focused === document.body) this.canvas.focus();
   }
 
   /**

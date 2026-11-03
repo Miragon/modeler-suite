@@ -65,7 +65,10 @@ const collaborative = createCollaborativeModeler({
   additionalModules: [shellModule],
   undoRedoKeys: false,
   freeArea: { insets: () => shell.fitInsets() },
+  // The webview's sandbox opens no windows, so every link goes to the host.
   openRelativeLink: (address) => post({ type: "openLink", address }),
+  openExternalLink: (address) => post({ type: "openLink", address }),
+  chooseLinkTarget,
 });
 const modeler = collaborative.diagram as Modeler;
 modeler.get("canvas");
@@ -122,6 +125,25 @@ let lastMap: WardleyMap | undefined;
 
 function post(message: WebviewToHost): void {
   vscode.postMessage(message);
+}
+
+const pendingLinkTargets = new Map<number, (address: string | undefined) => void>();
+let lastLinkTargetRequest = 0;
+
+/** "Link to map…": the host's Quick Pick of the other maps, answered by `linkTargetChosen`. */
+function chooseLinkTarget(): Promise<string | undefined> {
+  const requestId = ++lastLinkTargetRequest;
+  return new Promise((resolve) => {
+    pendingLinkTargets.set(requestId, resolve);
+    post({ type: "chooseLinkTarget", requestId });
+  });
+}
+
+function onHostMessage(message: { type: string; requestId?: unknown; address?: unknown }): void {
+  if (message.type !== "linkTargetChosen" || typeof message.requestId !== "number") return;
+  const resolve = pendingLinkTargets.get(message.requestId);
+  pendingLinkTargets.delete(message.requestId);
+  resolve?.(typeof message.address === "string" ? message.address : undefined);
 }
 
 /** Compares two DSL texts modulo line endings/trailing whitespace (= save transforms). */
@@ -256,6 +278,7 @@ const sync = connectDocumentSync({
   canWrite: () => !shell.isReadOnly(),
   onProblems: (counts) => shell.setProblems(counts),
   commands: COMMANDS,
+  onMessage: onHostMessage,
 });
 collaborative.onContentChanged(sync.pushEdit);
 

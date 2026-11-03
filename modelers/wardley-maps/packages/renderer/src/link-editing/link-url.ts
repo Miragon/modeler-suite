@@ -8,9 +8,14 @@ const SCHEME_PATTERN = /^([a-z][a-z0-9+.-]*):/i;
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/g;
 
-/** Diagram config `wardleyLinks` (viewer option `openRelativeLink`). */
+/**
+ * Diagram config `wardleyLinks`: the host's link handlers (viewer options `openRelativeLink`,
+ * `openExternalLink` and `chooseLinkTarget`).
+ */
 export interface WardleyLinksConfig {
-  openRelative: (address: string) => void;
+  openRelative?: ((address: string) => void) | undefined;
+  openExternal?: ((address: string) => void) | undefined;
+  chooseTarget?: (() => Promise<string | undefined>) | undefined;
 }
 
 /**
