@@ -273,8 +273,65 @@ async function followMapLinks({
   await renameLinkedMap(page, payment, keys, timeoutMs, workspaceDir);
 }
 
-/** Runs a command from the Command Palette by its title. */
-async function runFromPalette(page: Page, title: string, timeoutMs: number): Promise<void> {
+/** Where the workbench's keyboard focus is: a webview's frame, the Explorer's tree, or what else. */
+async function workbenchFocus(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLIFrameElement) return "a webview";
+    if (active?.closest(".explorer-folders-view")) return "the Explorer";
+    return active ? `${active.localName}.${[...active.classList].join(".")}` : "nothing";
+  });
+}
+
+/**
+ * Waits until the keyboard focus is in the Explorer's tree. A key pressed while the focus is in a
+ * webview's frame reaches the workbench only if that webview forwards it, which the webview of a
+ * tab that just went to the background, or of one that just opened, may not do.
+ */
+async function awaitExplorerFocus(page: Page, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let focus = await workbenchFocus(page);
+  while (focus !== "the Explorer" && Date.now() < deadline) {
+    await delay(POLL_INTERVAL_MS);
+    focus = await workbenchFocus(page);
+  }
+  if (focus !== "the Explorer") throw new Error(`the focus stayed in ${focus}, not the Explorer`);
+}
+
+function explorerRow(page: Page, name: string): Locator {
+  const exactly = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+  return page.locator(".explorer-folders-view .monaco-list-row", {
+    has: page.locator(".label-name", { hasText: exactly }),
+  });
+}
+
+/**
+ * Selects `folder/name` in the Explorer with the pointer, which leaves the keyboard focus in its
+ * tree: shown through its button in the activity bar unless it shows already, the folder expanded
+ * unless it is already, then the file's row.
+ */
+async function selectInExplorer(
+  page: Page,
+  folder: string,
+  name: string,
+  timeoutMs: number,
+): Promise<void> {
+  const explorer = page.locator(".explorer-folders-view");
+  if (!(await explorer.isVisible())) {
+    await page.locator(".codicon-explorer-view-icon").first().click({ timeout: timeoutMs });
+    await explorer.waitFor({ state: "visible", timeout: timeoutMs });
+  }
+  const folderRow = explorerRow(page, folder);
+  if ((await folderRow.getAttribute("aria-expanded", { timeout: timeoutMs })) !== "true") {
+    await folderRow.click({ timeout: timeoutMs });
+  }
+  await explorerRow(page, name).click({ timeout: timeoutMs });
+  await awaitExplorerFocus(page, timeoutMs);
+}
+
+/** Runs a command from the Command Palette by its title, with the focus in the Explorer. */
+async function runFromExplorer(page: Page, title: string, timeoutMs: number): Promise<void> {
+  await awaitExplorerFocus(page, timeoutMs);
   const quickInput = page.locator(".quick-input-widget");
   await page.keyboard.press("F1");
   await quickInput.waitFor({ state: "visible", timeout: timeoutMs });
@@ -315,12 +372,8 @@ async function renameLinkedMap(
   });
 
   await linksPart(page, "rename the archive in the Explorer", async () => {
-    // The archive map, opened from the payment map's link, is the active editor.
-    await runFromPalette(page, "Reveal Active File in Explorer View", timeoutMs);
-    const row = page.locator(".explorer-folders-view .monaco-list-row", {
-      has: page.locator(".label-name", { hasText: /^archive\.wmap$/ }),
-    });
-    await row.click({ timeout: timeoutMs });
+    // The pointer, not a key: the keyboard focus is still in a map's webview.
+    await selectInExplorer(page, "details", "archive.wmap", timeoutMs);
     await page.keyboard.press(keys.modifier === "Meta" ? "Enter" : "F2");
     const input = page.locator(".explorer-folders-view .monaco-inputbox input");
     await input.waitFor({ state: "visible", timeout: timeoutMs });
@@ -332,7 +385,8 @@ async function renameLinkedMap(
 
   await linksPart(page, "the links follow the rename", async () => {
     await pill.waitFor({ state: "hidden", timeout: timeoutMs });
-    await runFromPalette(page, "File: Save All", timeoutMs);
+    // The rename's input gave the focus back to the Explorer's tree.
+    await runFromExplorer(page, "File: Save All", timeoutMs);
     const expected = PAYMENT_MAP.replace("[archive.wmap]", `[${DRAFT_NAME}]`);
     const saved = await savedPayment(workspaceDir, expected, timeoutMs);
     if (saved !== expected) throw new Error(`the payment map holds ${JSON.stringify(saved)}`);
