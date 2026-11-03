@@ -83,7 +83,7 @@ evolve        <Name>-><New Name> <targetMat>
 | `pioneers` `settlers` `townplanners`   | Translucent team region between two corners           | Drawn behind everything.                               |
 | `accelerator` / `deaccelerator`        | Market force that speeds up / slows down evolution    | Link endpoint.                                         |
 | `submap`                               | A component that stands for another map               | Link endpoint; `url(…)` points at the other map.       |
-| `url`                                  | A named address, referenced by `url(<Def>)`           | Must be referenced, or it stays an unused line.        |
+| `url`                                  | A named address, referenced by `url(<Def>)`           | Must be referenced; see "Links between maps".          |
 | `line`                                 | Freeform polyline / polygon                           | Modeler extension.                                     |
 | `market` / `ecosystem`                 | Legacy for `component … (market)` / `(ecosystem)`     | Rewritten as `component` on save.                      |
 | `build` / `buy` / `outsource` `<Name>` | Legacy: sets the method on an existing component      | Rewritten as a `(…)` decorator on save.                |
@@ -138,7 +138,7 @@ word. When a suffix is repeated, the first one counts.
 | `inertia`                       | component, pipeline child                   | Resistance to change (bar right of the circle).            |
 | `(color #rrggbb)`               | every element line                          | Colour; hex (3–8 digits) or a CSS colour name.             |
 | `label [dx, dy]`                | anchor, component, pipeline child, `evolve` | Label offset in **pixels**, x first.                       |
-| `url(<Def>)` / `url(https://…)` | component, submap                           | Link target; a named `url` line or a literal address.      |
+| `url(<Def>)` / `url(https://…)` | component, submap                           | Link target; a named `url` line or a literal web address.  |
 | `(y <vis>)`                     | pipeline                                    | Pipeline height; needed when no component shares its name. |
 
 Canonical component suffix order:
@@ -299,6 +299,90 @@ by kind (team regions, pipelines, notes, components, anchors, annotations), then
 links, comments at the end, legacy forms normalised. Expect that diff; do not fight it or restore
 the old order by hand.
 
+## Links between maps
+
+A `component` or a `submap` links to another map file, or to a web page, through a named address:
+a `url <Def> [<address>]` line, referenced as `url(<Def>)` after the element's coordinates. That is
+how a large map becomes an overview plus detail maps the user clicks through (the
+`wardley-mapping` skill says when to split a map and how to lay out the set).
+
+```owm
+title Online Grocery
+url Meal Planner URL [details/meal-planner.wmap]
+url Fulfilment URL [details/fulfilment.wmap]
+anchor Household [0.95, 0.4]
+submap Meal Planner [0.75, 0.22] url(Meal Planner URL)
+component Fulfilment [0.6, 0.35] (build) inertia url(Fulfilment URL)
+evolve Fulfilment 0.5 (buy)
+Household -> Meal Planner
+Household -> Fulfilment
+```
+
+### How an address resolves
+
+An address without a scheme is a path relative to the **folder of the map file that holds the
+`url` line**, taken literally:
+
+| Written in                     | Address                            | Names                            |
+| ------------------------------ | ---------------------------------- | -------------------------------- |
+| `maps/online-grocery.wmap`     | `details/fulfilment.wmap`          | `maps/details/fulfilment.wmap`   |
+| `maps/online-grocery.wmap`     | `pricing.wmap` or `./pricing.wmap` | `maps/pricing.wmap`              |
+| `maps/details/fulfilment.wmap` | `../online-grocery.wmap`           | `maps/online-grocery.wmap`       |
+| `maps/details/fulfilment.wmap` | `meal-planner.wmap`                | `maps/details/meal-planner.wmap` |
+
+What a relative address may hold:
+
+- `/` between folders, and the file's exact case: Linux tells `Payment.wmap` from `payment.wmap`,
+  so a link that works on a Mac can fail there. No leading `/` and no backslash: write the path
+  from the map's own folder.
+- Spaces as they are. Nothing is percent-decoded: `my map.wmap` works as typed, and `my%20map.wmap`
+  looks for a file with `%20` in its name.
+- No `[`, `]` or line break. The `url` line is one line that ends at its `]`, and the Modeler's link
+  editor strips brackets from an address it saves.
+- A `.wmap` or `.owm` file. The VS Code extension opens no other file, and none outside the
+  workspace.
+
+Of the addresses with a scheme, `https://…` and `http://…` open in the browser and `mailto:…` in
+the mail app. Every other scheme (`javascript:`, `data:`, `file:` …) is kept in the file but never
+opened. The parser checks none of this, so a link to a missing file gives no diagnostic; check the
+set with the link script in `reference/api.md`.
+
+### Writing the link
+
+Write one definition per linked element, named `<Element> URL`, after the config lines and in
+element order, and reference it as the last suffix: `component X [..] (buy) inertia url(X URL)`.
+That is the canonical form, so a round trip returns your file unchanged. Another name works too
+(`url Pay [details/payment.wmap]` with `url(Pay)`) and the Modeler's own edits keep it, but
+`serializeDSL` renames it `<Element> URL`. A definition name holds no `(`, `)`, `[` or `]`.
+
+A literal `url(…)` takes only an address that starts with a scheme and `://`, in practice a web
+page: `url(https://example.com/pricing)`. A relative address or a `mailto:` always needs its own
+`url` line: `url(details/fulfilment.wmap)` is read as the name of a definition, gives
+`url(details/fulfilment.wmap) has no matching "url details/fulfilment.wmap [address]" line: ignored`,
+and the link is lost on save.
+
+### Component or submap
+
+Both carry a link and both are link endpoints. A `submap` draws a double square, which says "there
+is a map behind this", but it takes only `(color …)` and `url(…)`: `(build|buy|outsource)`,
+`(market)`, `inertia` and `label [dx, dy]` are dropped with `Ignored text after the coordinates`,
+and `evolve` cannot move it (`evolve: component "X" not found`). A `component … url(…)` keeps all of
+those and looks like any other component; its link shows in the context pad. Use a submap for an
+element that stands for its detail map, a component when the map must also show that element's
+sourcing, inertia or movement. A `submap` without `url(…)` is drawn but leads nowhere, and no
+diagnostic says so. An `anchor` cannot carry a link: `url(…)` on it is dropped with a diagnostic.
+
+### Following a link depends on the host
+
+The file always keeps the link; whether a click follows it is up to the host that renders the map.
+The VS Code extension does: **Open link** in the context pad opens the linked map in its own tab,
+and **Link to map…** picks another map of the workspace and writes its relative address. It opens
+only `.wmap` / `.owm` files inside the workspace and names the address when it refuses one. The web
+app does not: it opens a single file, knows no folder, and says that it cannot follow the link. A
+`#mz=` share link carries one map, never the maps it links to, so hand over a linked set as files.
+Other hosts, Miragon AI Design included, follow a relative link only if they implement it
+(`reference/api.md`, "Links in a host"). Web links open in the browser, `mailto:` in the mail app.
+
 ## Before handing a file back
 
 - Every element line has its coordinates as `[visibility, maturity]`, both in `0…1`.
@@ -309,6 +393,9 @@ the old order by hand.
 - No name contains `;`, `//`, `/*`, `[n, n]`, `->`, `+>`, `+<` or `+'`. A link that starts with a
   statement keyword has both names declared.
 - Review notes use the palette hexes from `reference/layout.md`.
+- Every `url(<Def>)` has its `url <Def> [address]` line, and every `url` line is referenced. A
+  relative address names an existing `.wmap` / `.owm` file, from this map's folder, in the file's
+  exact case.
 - If you can run Node, run the recipe in `reference/api.md`. It checks that:
   - `diagnostics` is empty;
   - `rawPassthrough` holds nothing but comments;
@@ -316,7 +403,8 @@ the old order by hand.
   - the title is the one you wrote.
 
   A difference between your text and its canonical form on a link, title or element line means
-  content was lost, not reformatted.
+  content was lost, not reformatted. For maps that link to each other, also run the link check in
+  `reference/api.md` on their folder.
 
 ## Opening the map
 
@@ -347,5 +435,5 @@ the old order by hand.
 - `reference/layout.md`: canvas geometry in pixels and map units, spacing rules, label offsets,
   pipelines and team regions, review-note placement, the note colour table and a full worked map.
 - `reference/api.md`: the programmatic API (`parseDSL`, `parseDSLWithDiagnostics`, `serializeDSL`,
-  the JSON bridge), the `WardleyMap` model, a validation script for generated text and the
-  share-link encoder/decoder.
+  the JSON bridge), the `WardleyMap` model, a validation script for generated text, a link check
+  for a folder of linked maps, how a host follows links, and the share-link encoder/decoder.

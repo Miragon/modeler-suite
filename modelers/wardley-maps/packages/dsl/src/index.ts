@@ -1,5 +1,6 @@
 export { parseDSL, parseDSLWithDiagnostics } from "./parser.js";
-export type { ParseDiagnostic, ParseResult } from "./parser.js";
+export type { ParseDiagnostic, ParseResult, UrlAddress } from "./parser.js";
+export { locateUrlAddresses } from "./url-addresses.js";
 export { serializeDSL } from "./serializer.js";
 export { patchDSL } from "./patch.js";
 export { readBackIds } from "./read-back-ids.js";

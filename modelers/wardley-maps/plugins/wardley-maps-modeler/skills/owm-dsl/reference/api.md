@@ -133,6 +133,84 @@ title and the link count are the ones you wrote. For `differs from canonical tex
 against the `serializeDSL` output and read the difference as described above. A changed link,
 title, pipeline or element line is lost content.
 
+### Checking the links of a map set
+
+The parser never looks at the files an address names, so a set of maps that link to each other
+(an overview and its detail maps) needs a check of its own. It resolves every relative address the
+way the Modeler does (from the folder of the map that holds it, literally, in exact case) and lists
+what would not open. Run `check-map.mjs` on every map first: a `url(…)` without its definition is
+a diagnostic there and has no address here.
+
+`/tmp/owm-check/check-links.mjs`:
+
+```js
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { parseDSL } from "@miragon/wardley-dsl";
+
+const root = resolve(process.argv[2] ?? ".");
+const MAP_FILE = /\.(wmap|owm)$/i;
+const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+const files = readdirSync(root, { recursive: true, encoding: "utf8" })
+  .filter((path) => MAP_FILE.test(path) && !path.split(/[\\/]/).includes("node_modules"))
+  .map((path) => join(root, path));
+
+// Exact case, segment by segment: a case-insensitive disk (macOS, Windows) finds a mistyped name.
+function existsExactly(path) {
+  let folder = root;
+  for (const segment of relative(root, path).split(/[\\/]/)) {
+    let names;
+    try {
+      names = readdirSync(folder);
+    } catch {
+      return false;
+    }
+    if (!names.includes(segment)) return false;
+    folder = join(folder, segment);
+  }
+  return true;
+}
+
+const linkedTo = new Set();
+for (const file of files) {
+  for (const element of parseDSL(readFileSync(file, "utf8")).elements) {
+    const address = element.url ?? element.urlRef;
+    const where = `${relative(root, file)}, ${element.label}`;
+    if (element.elementType === "submap" && !address)
+      console.log(`${where}: submap without url(…)`);
+    if (!address) continue;
+    if (SCHEME.test(address)) {
+      if (!/^(https?|mailto):/i.test(address)) console.log(`${where}: "${address}" never opens`);
+      continue;
+    }
+    const target = join(dirname(file), address);
+    const inside = relative(root, target);
+    if (/^[\\/]/.test(address) || address.includes("\\")) {
+      console.log(`${where}: "${address}": write it from this map's folder, with "/" only`);
+    } else if (!MAP_FILE.test(address)) {
+      console.log(`${where}: "${address}" is no .wmap or .owm file`);
+    } else if (inside.startsWith("..") || isAbsolute(inside)) {
+      console.log(`${where}: "${address}" leads out of the checked folder`);
+    } else if (!existsExactly(target)) {
+      console.log(`${where}: "${address}" not found (check the spelling and case)`);
+    } else {
+      linkedTo.add(target);
+    }
+  }
+}
+for (const file of files) {
+  if (!linkedTo.has(file)) console.log(`${relative(root, file)}: no map links here`);
+}
+console.log(`${files.length} maps checked`);
+```
+
+Run it on the folder that holds the whole set, from the scratch directory as above:
+`node check-links.mjs /path/to/maps`. A clean set prints `no map links here` only for its overview
+(and not even that when the detail maps link back to it), then the count. Every other line is a
+finding: a link that would not open, a submap that leads nowhere, or a map no other map links to.
+Point it at the overview's folder: back links from `details/` (`../<overview>.wmap`) then stay inside
+it, and maps that belong to no set do not show up as orphans unless they share that folder.
+
 ## The map model
 
 The types live in `@miragon/wardley-schema-model` (a dependency of `@miragon/wardley-dsl`, which
@@ -185,6 +263,8 @@ and optionally `labelOffset` (`{ dx, dy }` px) and `color`.
 
 - `decorators`: `{ market?, ecosystem?, inertia?, method?: 'build' | 'buy' | 'outsource' }`.
 - `movement` (from `evolve`): `{ targetEvolution, newLabel?, method?, labelOffset? }`.
+- `url` (component) and `urlRef` (submap): the link address exactly as its `url` line writes it.
+  Nothing resolves or decodes it; a relative address stays relative to the map's file.
 - A pipeline's `position` is the midpoint of its range at its height; its children carry
   `pipelineId`.
 
@@ -256,6 +336,25 @@ Legacy uncompressed links use `#m=` + base64url of the text; decode with
 `Buffer.from(hash, 'base64url').toString('utf8')`. In a browser, the same encoding is
 `new Blob([text]).stream().pipeThrough(new CompressionStream('deflate-raw'))`, then base64url
 without `=` padding.
+
+## Links in a host
+
+The renderer (`@miragon/wardley-renderer`) offers **Open link** in the context pad of a component or
+submap with an address, and the host decides what a click does, through three options of the viewer
+and the collaborative modeler:
+
+- `openExternalLink(address)` takes an http(s) or `mailto:` address; without it a new browser tab
+  opens.
+- `openRelativeLink(address)` takes an address without a scheme. Only the host knows where the
+  map's file lies, so it resolves the address or says why it can't. Without this option the pad
+  offers no Open link for a relative address.
+- `chooseLinkTarget()` adds **Link to map…**: the host lets the user choose another map and resolves
+  with its address relative to the current map, which becomes the element's link.
+
+No other scheme ever opens. The VS Code extension passes all three: it opens `.wmap` / `.owm` files
+inside the workspace in their own tab and offers the workspace's other maps, nearest first. The web
+app knows no folder, so its `openRelativeLink` only says that it cannot follow the link. A map
+written for any other host follows relative links only if that host passes `openRelativeLink`.
 
 ## Related packages
 

@@ -12,9 +12,13 @@ import {
   ANCHOR_ICON_SIZE,
   ATTITUDE_COLORS,
   ATTITUDE_TITLES,
+  LINK_BADGE_CLASS,
+  LINK_BADGE_ICON_SIZE,
+  LINK_BADGE_RADIUS,
   NOTE_LINE_HEIGHT,
   PIPELINE_ANCHOR_SIZE,
 } from "./styles.js";
+import { LUCIDE } from "./lucide.js";
 import { drawIcon, ICON_FAST_FORWARD, ICON_FAST_REWIND, ICON_PERSON } from "./icons.js";
 import {
   LABEL_LINE_HEIGHT,
@@ -37,6 +41,7 @@ import {
   type WardleyShape,
 } from "../model/di-types.js";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
+import type { Injector } from "didi";
 import { connectionAnchorOf } from "../layout/index.js";
 
 /** BaseRenderer default is 1000; 1500 wins the render.shape/render.connection event. */
@@ -54,13 +59,22 @@ const ATTITUDE_TITLE_CLEARANCE = 6;
 
 type Attrs = Record<string, string | number>;
 
+/**
+ * The part of `wardleyLinkOpener` the link mark asks, named here so drawing depends on no editing
+ * module.
+ */
+interface LinkOpenerLike {
+  openableLink(shape: WardleyShape): string | undefined;
+}
+
 export default class WardleyRenderer extends BaseRenderer {
-  static $inject = ["eventBus", "evolutionGrid", "elementRegistry"];
+  static $inject = ["eventBus", "evolutionGrid", "elementRegistry", "injector"];
 
   constructor(
     eventBus: EventBus,
     private readonly grid: EvolutionGrid,
     private readonly elementRegistry: ElementRegistry,
+    private readonly injector: Injector,
   ) {
     super(eventBus, WARDLEY_RENDER_PRIORITY);
   }
@@ -200,6 +214,8 @@ export default class WardleyRenderer extends BaseRenderer {
     }
 
     drawComponentSymbols(visuals, cx, cy, tint, dec);
+    const corner = COMPONENT_RADIUS * Math.SQRT1_2;
+    this.drawLinkBadge(visuals, shape, cx - corner, cy + corner);
     drawComponentLabel(
       visuals,
       shape,
@@ -548,7 +564,33 @@ export default class WardleyRenderer extends BaseRenderer {
         nameLineGrowth(shape, this.elementRegistry),
       ),
     );
+    this.drawLinkBadge(visuals, shape, cx - r + 1, cy + r - 1);
     return outer;
+  }
+
+  /**
+   * Marks the element at its lower left, where neither its name, its inertia nor its evolve sits,
+   * when the editor can open its link. Only the editing mount has the link opener: the viewer opens
+   * no links, so it shows no mark.
+   */
+  private drawLinkBadge(visuals: SVGElement, shape: WardleyShape, x: number, y: number): void {
+    const opener = this.injector.get<LinkOpenerLike | null>("wardleyLinkOpener", false);
+    if (!opener?.openableLink(shape)) return;
+    const badge = svgAttr(svgCreate("g"), { class: LINK_BADGE_CLASS, "aria-hidden": "true" });
+    svgAppend(badge, svgAttr(svgCreate("circle"), { cx: x, cy: y, r: LINK_BADGE_RADIUS }));
+    const icon = svgCreate(`<g>${LUCIDE.link}</g>`);
+    const iconOffset = LINK_BADGE_ICON_SIZE / 2;
+    const iconScale = LINK_BADGE_ICON_SIZE / 24;
+    svgAttr(icon, {
+      transform: `translate(${x - iconOffset}, ${y - iconOffset}) scale(${iconScale})`,
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": 2.5,
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+    });
+    svgAppend(badge, icon);
+    svgAppend(visuals, badge);
   }
 }
 

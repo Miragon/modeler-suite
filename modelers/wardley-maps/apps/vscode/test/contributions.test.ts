@@ -9,6 +9,7 @@ import {
   SHOW_SOURCE_COMMAND,
 } from "../src/commands.js";
 import { WEBVIEW_COMMANDS } from "../src/protocol.js";
+import { UPDATE_LINKS_SECTION } from "../src/linkUpdates.js";
 import { EMPTY_MAP, EXAMPLE_MAP } from "../src/examples.js";
 import {
   asTextDocument,
@@ -28,6 +29,13 @@ interface Manifest {
     grammars: Array<{ language: string; scopeName: string; path: string }>;
     menus: Record<string, Array<{ command: string; when?: string; group?: string }>>;
     walkthroughs: Array<{ id: string; steps: Array<{ id: string; completionEvents: string[] }> }>;
+    configuration: {
+      title: string;
+      properties: Record<
+        string,
+        { type: string; enum: string[]; enumDescriptions: string[]; default: string; scope: string }
+      >;
+    };
   };
 }
 const manifest = JSON.parse(read("package.json")) as Manifest;
@@ -137,6 +145,27 @@ describe("the New File menu (guide §13.5)", () => {
       ["wardley.newMap", "wardley@1", "Wardley Map"],
       ["wardley.newMapFromExample", "wardley@2", "New Wardley Map from Example"],
     ]);
+  });
+});
+
+describe("updating map links on a move", () => {
+  it("is a setting like markdown.updateLinksOnFileMove.enabled, asking by default", () => {
+    const { title, properties } = manifest.contributes.configuration;
+    expect(title).toBe("Wardley Maps");
+    expect(Object.keys(properties)).toEqual([`${UPDATE_LINKS_SECTION}.enabled`]);
+    expect(properties[`${UPDATE_LINKS_SECTION}.enabled`]).toMatchObject({
+      type: "string",
+      enum: ["prompt", "always", "never"],
+      default: "prompt",
+      scope: "resource",
+    });
+    expect(properties[`${UPDATE_LINKS_SECTION}.enabled`]!.enumDescriptions).toHaveLength(3);
+  });
+
+  it("is ready before any map was opened, for a workspace that holds maps", () => {
+    expect(manifest.activationEvents).toEqual(
+      expect.arrayContaining(["workspaceContains:**/*.wmap", "workspaceContains:**/*.owm"]),
+    );
   });
 });
 

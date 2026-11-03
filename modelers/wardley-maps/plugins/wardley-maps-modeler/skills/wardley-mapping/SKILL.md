@@ -1,10 +1,10 @@
 ---
 name: wardley-mapping
 description: >-
-  Explains Simon Wardley's mapping method, creates Wardley Maps from a strategic question and
-  reviews maps with colour-coded feedback notes in the .wmap/.owm file. Use when creating, reviewing
-  or improving a Wardley map or explaining its concepts; for the OWM text format use the `owm-dsl`
-  skill.
+  Explains Simon Wardley's mapping method, creates Wardley Maps from a strategic question (one map,
+  or an overview linked to detail maps) and reviews maps with colour-coded feedback notes in the
+  .wmap/.owm file. Use when creating, reviewing, splitting or improving a Wardley map or explaining
+  its concepts; for the OWM text format use the `owm-dsl` skill.
 ---
 
 # Wardley Mapping
@@ -31,6 +31,10 @@ drag and drop) or a `#mz=` share link. It has no field to paste map text into.
   Node, also give a share link (`owm-dsl` skill, "Opening the map").
 - The **`owm-dsl` skill** (shipped alongside this one) owns the format: grammar, coordinates,
   decorators, layout, diagnostics, round-trip. Load it whenever you read or write a file.
+- A scope too big for one map becomes an overview plus detail maps, each its own file, linked by a
+  relative address (`details/fulfilment.wmap`) so the user clicks through
+  (`reference/linked-maps.md`). Whether a click follows the link depends on the host: the VS Code
+  extension does, the web app does not.
 
 ## The two axes (always check these first)
 
@@ -53,6 +57,8 @@ is the most common way to get a map wrong.
 | "Explain X on my map"                 | Explain X, then point at named components in the file. If X is absent (no `inertia` marked), say where it likely sits. Edit only when asked.      |
 | "Create a Wardley map for X"          | Full workflow in `reference/creating-maps.md` → write the `.wmap` → commentary in chat.                                                           |
 | "Review / critique this map"          | `reference/review-playbook.md` → add notes to the file → written assessment.                                                                      |
+| "This map is too big" / "Split it"    | `reference/linked-maps.md`: an overview plus detail maps, linked by relative address.                                                             |
+| A map that links to other maps        | Ask for the whole set; review every map, then the set checks in `reference/linked-maps.md`.                                                       |
 | "What stage is X at?"                 | `reference/evolution-assessment.md`: stage, maturity value, evidence.                                                                             |
 | "Compare our map with the industry"   | Check placements against the usual suspects (`review-playbook.md` §3) and the context heuristics (`evolution-assessment.md`).                     |
 | "Build or buy X?"                     | Assess the stage first; software components also `reference/ai-era-patterns.md`.                                                                  |
@@ -68,7 +74,8 @@ domain knowledge. If they want a quick draft anyway, state your assumptions in t
 1. **Purpose first:** the strategic question the map must answer, the user (anchor), their 1–4
    needs, the scope.
 2. **Value chain backwards** from each need down to commodities. 8–15 components, noun names, every
-   component linked, the chain ends in things you buy or rent.
+   component linked, the chain ends in things you buy or rent. A scope that needs more becomes an
+   overview with linked detail maps (`reference/linked-maps.md`).
 3. **Evolution, with evidence:** place each component by its market characteristics and write a
    one-sentence rationale per placement (`reference/evolution-assessment.md`).
 4. **Movement:** `evolve` arrows for expected moves (always rightward), `inertia` where resistance
@@ -85,7 +92,8 @@ domain knowledge. If they want a quick draft anyway, state your assumptions in t
    `Unknown statement "compnent"`, and lines the parser did not understand (non-comment
    `rawPassthrough`) are all review findings, not noise.
 2. **Structure:** user and need at the top? Dependencies pointing down? Links to names that don't
-   exist, orphans, cycles? Does the chain reach commodities?
+   exist, orphans, cycles? Does the chain reach commodities? Does the map link to other maps
+   (`url` lines with a relative address)? Then review the set (`reference/linked-maps.md`).
 3. **Evolution:** is each stage realistic? Commodities placed too far left (compute, storage,
    payments, identity) are the classic error; differentiators drawn as commodities the dangerous
    one.
@@ -145,7 +153,9 @@ note Expose as API: platform play [0.57, 0.7] (color #6A3DB8)
 | `reference/concepts.md`             | Explaining the method; climatic patterns, strategy cycle, PST, gameplay              |
 | `reference/doctrine.md`             | Doctrine checks in a review; explaining doctrine                                     |
 | `reference/ai-era-patterns.md`      | Maps with software or AI components; build-vs-buy for software                       |
+| `reference/linked-maps.md`          | Splitting a map into an overview and detail maps; creating or reviewing such a set   |
 | `examples/*.wmap`                   | Tea shop, SaaS platform, AI coding agent: complete maps to start from                |
+| `examples/online-grocery/`          | A linked set: an overview and two detail maps in `details/`                          |
 | The **`owm-dsl` skill**             | Every time you read or write a `.wmap`/`.owm` file                                   |
 
 Read only what the current step needs.

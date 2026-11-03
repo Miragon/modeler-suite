@@ -4,6 +4,8 @@ import { MAP_VIEW_TYPE, registerMapEditor } from "./mapEditor.js";
 import { WardleyDiagnostics } from "./diagnostics.js";
 import { registerEditorCommands } from "./commands.js";
 import { EMPTY_MAP, EXAMPLE_MAP } from "./examples.js";
+import { registerLinkUpdates } from "./linkUpdates.js";
+import { WorkspaceMaps } from "./workspaceMaps.js";
 
 const NEW_MAP = {
   viewType: MAP_VIEW_TYPE,
@@ -14,11 +16,14 @@ const NEW_MAP = {
 };
 
 export function activate(context: vscode.ExtensionContext): void {
-  const diagnostics = new WardleyDiagnostics();
+  const maps = new WorkspaceMaps();
+  const diagnostics = new WardleyDiagnostics(maps);
   const editors = registerMapEditor(context, diagnostics);
   context.subscriptions.push(
+    maps,
     diagnostics,
     editors,
+    registerLinkUpdates(),
     ...registerEditorCommands(editors),
     registerNewDocumentCommand(vscode, "wardley.newMap", { ...NEW_MAP, text: EMPTY_MAP }),
     registerNewDocumentCommand(vscode, "wardley.newMapFromExample", {

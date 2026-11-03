@@ -105,6 +105,19 @@ the export; the webview's half is `connectDocumentSync`, whose `exportText` patc
 `vscode` live in [`mapEditorOptions.ts`](apps/vscode/src/mapEditorOptions.ts), which the e2e page
 also registers against the shell's host stub (`?host`, `e2e/tests/vscode/document-sync.spec.ts`).
 
+The links between maps are the extension's own. [`mapLinks.ts`](apps/vscode/src/mapLinks.ts) opens
+and offers them (only `.wmap`/`.owm` inside the workspace, the address a literal path);
+[`workspaceMaps.ts`](apps/vscode/src/workspaceMaps.ts) keeps the workspace's map files current (a
+watcher, plus VS Code's own file operations, since the maps of a moved or deleted folder get no
+watcher event), against which `WardleyDiagnostics` checks every relative link on each refresh,
+using the address ranges of `locateUrlAddresses` from the DSL. When a map file appears or goes
+away, `registerMapEditor` posts the pill's new count itself, as the shell posts counts only after a
+change of the text, and then keeps posting every count that differs from its own.
+[`linkUpdates.ts`](apps/vscode/src/linkUpdates.ts) rewrites just the addresses after VS Code renamed
+or moved maps (`onDidRenameFiles` and `applyEdit`, as VS Code's Markdown extension does: an edit
+returned through `onWillRenameFiles` brings up VS Code's own refactoring dialog as well), as the
+setting `miragon.wardleyMaps.updateLinksOnFileMove.enabled` says.
+
 Both apps hand the shell the shortcuts dialog and the PNG: Help › Keyboard shortcuts… opens
 `shell.showShortcutsDialog(mapShortcuts(shell, …))` (the renderer's groups as data; the shell adds
 the chrome's zoom keys), and the PNG exports go through `svgToPng` of `@miragon/modeler-shell/export`

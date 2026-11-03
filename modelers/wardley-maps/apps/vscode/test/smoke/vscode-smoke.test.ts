@@ -26,12 +26,20 @@ const EVOLVED_COMPONENT_ID = "cmp_kettle";
 const LINKED_COMPONENT_ID = "cmp_kettle";
 const PAYMENT_FILE = "details/payment.wmap";
 const ARCHIVE_FILE = "details/archive.wmap";
-/** The maps beside the fixture: the payment map links on to the archive next to it. */
-const LINKED_MAPS: Readonly<Record<string, string>> = {
-  [PAYMENT_FILE]: `title Payment
+/** What the archive is renamed to in the Explorer: the map the payment map's draft link awaits. */
+const DRAFT_NAME = "draft.wmap";
+const PAYMENT_MAP = `title Payment
 url Archive URL [archive.wmap]
+url Draft URL [${DRAFT_NAME}]
 component Ledger [0.4, 0.3] url(Archive URL)
-`,
+component Draft [0.6, 0.6] url(Draft URL)
+`;
+/**
+ * The maps beside the fixture: the payment map links on to the archive next to it, and to a draft
+ * that doesn't exist yet.
+ */
+const LINKED_MAPS: Readonly<Record<string, string>> = {
+  [PAYMENT_FILE]: PAYMENT_MAP,
   [ARCHIVE_FILE]: `title Archive
 component Old Ledger [0.5, 0.5]
 `,
@@ -261,6 +269,130 @@ async function followMapLinks({
       if (!tabs.includes(name)) throw new Error(`${tabs.join(", ")} has no tab ${name}`);
     }
   });
+
+  await renameLinkedMap(page, payment, keys, timeoutMs, workspaceDir);
+}
+
+/** Where the workbench's keyboard focus is: a webview's frame, the Explorer's tree, or what else. */
+async function workbenchFocus(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLIFrameElement) return "a webview";
+    if (active?.closest(".explorer-folders-view")) return "the Explorer";
+    return active ? `${active.localName}.${[...active.classList].join(".")}` : "nothing";
+  });
+}
+
+/**
+ * Waits until the keyboard focus is in the Explorer's tree. A key pressed while the focus is in a
+ * webview's frame reaches the workbench only if that webview forwards it, which the webview of a
+ * tab that just went to the background, or of one that just opened, may not do.
+ */
+async function awaitExplorerFocus(page: Page, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let focus = await workbenchFocus(page);
+  while (focus !== "the Explorer" && Date.now() < deadline) {
+    await delay(POLL_INTERVAL_MS);
+    focus = await workbenchFocus(page);
+  }
+  if (focus !== "the Explorer") throw new Error(`the focus stayed in ${focus}, not the Explorer`);
+}
+
+function explorerRow(page: Page, name: string): Locator {
+  const exactly = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+  return page.locator(".explorer-folders-view .monaco-list-row", {
+    has: page.locator(".label-name", { hasText: exactly }),
+  });
+}
+
+/**
+ * Selects `folder/name` in the Explorer with the pointer, which leaves the keyboard focus in its
+ * tree: shown through its button in the activity bar unless it shows already, the folder expanded
+ * unless it is already, then the file's row.
+ */
+async function selectInExplorer(
+  page: Page,
+  folder: string,
+  name: string,
+  timeoutMs: number,
+): Promise<void> {
+  const explorer = page.locator(".explorer-folders-view");
+  if (!(await explorer.isVisible())) {
+    await page.locator(".codicon-explorer-view-icon").first().click({ timeout: timeoutMs });
+    await explorer.waitFor({ state: "visible", timeout: timeoutMs });
+  }
+  const folderRow = explorerRow(page, folder);
+  if ((await folderRow.getAttribute("aria-expanded", { timeout: timeoutMs })) !== "true") {
+    await folderRow.click({ timeout: timeoutMs });
+  }
+  await explorerRow(page, name).click({ timeout: timeoutMs });
+  await awaitExplorerFocus(page, timeoutMs);
+}
+
+/** Runs a command from the Command Palette by its title, with the focus in the Explorer. */
+async function runFromExplorer(page: Page, title: string, timeoutMs: number): Promise<void> {
+  await awaitExplorerFocus(page, timeoutMs);
+  const quickInput = page.locator(".quick-input-widget");
+  await page.keyboard.press("F1");
+  await quickInput.waitFor({ state: "visible", timeout: timeoutMs });
+  await page.keyboard.type(title);
+  await page.keyboard.press("Enter");
+  await quickInput.waitFor({ state: "hidden", timeout: timeoutMs });
+}
+
+/** The payment map on disk once it holds `wanted`, or the last text read. */
+async function savedPayment(workspaceDir: string, wanted: string, timeoutMs: number) {
+  const file = join(workspaceDir, PAYMENT_FILE);
+  const deadline = Date.now() + timeoutMs;
+  let text = await readFile(file, "utf8");
+  while (text !== wanted && Date.now() < deadline) {
+    await delay(POLL_INTERVAL_MS);
+    text = await readFile(file, "utf8");
+  }
+  return text;
+}
+
+/**
+ * The payment map's draft link counts in its problems pill until the archive, renamed to the
+ * draft in the Explorer, makes it whole; the extension updates the archive link to the new name
+ * (the setting is `always`) without any dialog, VS Code's own included.
+ */
+async function renameLinkedMap(
+  page: Page,
+  payment: Frame,
+  keys: VsCodeSmokeContext["keys"],
+  timeoutMs: number,
+  workspaceDir: string,
+): Promise<void> {
+  const pill = payment.locator('[data-chrome="problems"]');
+  await linksPart(page, "the broken link in the pill", async () => {
+    await payment
+      .locator('[data-chrome="problems"][aria-label^="1 problem"]')
+      .waitFor({ timeout: timeoutMs });
+  });
+
+  await linksPart(page, "rename the archive in the Explorer", async () => {
+    // The pointer, not a key: the keyboard focus is still in a map's webview.
+    await selectInExplorer(page, "details", "archive.wmap", timeoutMs);
+    await page.keyboard.press(keys.modifier === "Meta" ? "Enter" : "F2");
+    const input = page.locator(".explorer-folders-view .monaco-inputbox input");
+    await input.waitFor({ state: "visible", timeout: timeoutMs });
+    await page.keyboard.press(`${keys.modifier}+A`);
+    await page.keyboard.type(DRAFT_NAME);
+    await page.keyboard.press("Enter");
+    await input.waitFor({ state: "hidden", timeout: timeoutMs });
+  });
+
+  await linksPart(page, "the links follow the rename", async () => {
+    await pill.waitFor({ state: "hidden", timeout: timeoutMs });
+    // The rename's input gave the focus back to the Explorer's tree.
+    await runFromExplorer(page, "File: Save All", timeoutMs);
+    const expected = PAYMENT_MAP.replace("[archive.wmap]", `[${DRAFT_NAME}]`);
+    const saved = await savedPayment(workspaceDir, expected, timeoutMs);
+    if (saved !== expected) throw new Error(`the payment map holds ${JSON.stringify(saved)}`);
+    const dialogs = await page.locator(".monaco-dialog-box").count();
+    if (dialogs > 0) throw new Error(`${dialogs} dialog(s) showed for the rename`);
+  });
 }
 
 let workDirectory: string | undefined;
@@ -296,6 +428,11 @@ it(
       themes: WARDLEY_THEMES,
       name: "wardley",
       screenshotDir: SCREENSHOT_DIRECTORY,
+      // Any dialog shows in the workbench, where the links step looks for one.
+      settings: {
+        "miragon.wardleyMaps.updateLinksOnFileMove.enabled": "always",
+        "window.dialogStyle": "custom",
+      },
       vscodeVersion: process.env.VSCODE_VERSION || undefined,
       keepTemporaryFiles: process.env.VSCODE_SMOKE_KEEP === "1",
       log: (line) => console.log(line),
