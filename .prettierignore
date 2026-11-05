@@ -16,6 +16,8 @@ playwright-report/
 .playwright-mcp/
 **/e2e/.cache/
 modelers/*/apps/orca/plugin/
+# release-please rewrites the manifest's version with JSON.stringify on every release.
+modelers/*/apps/orca/orca-plugin.json
 modelers/*/apps/orca/.orca/
 
 # generated from the bundled packages' licences (npm run notices -w apps/vscode)
