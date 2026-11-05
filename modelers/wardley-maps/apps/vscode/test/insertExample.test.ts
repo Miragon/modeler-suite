@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseDSLWithDiagnostics } from "@miragon/wardley-dsl";
 import { type WorkspaceEdit, workspace, vscodeMock } from "./__mocks__/vscode";
-import { EMPTY_MAP, EXAMPLE_MAP, withExampleInserted } from "../src/examples.js";
+import { EMPTY_MAP, EXAMPLE_MAP, withExampleInserted } from "wardley-maps-ide-editor/examples";
 import {
   applyRangeEdit,
   asTextDocument,

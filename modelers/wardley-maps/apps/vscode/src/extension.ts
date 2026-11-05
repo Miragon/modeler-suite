@@ -3,7 +3,7 @@ import { registerNewDocumentCommand } from "@miragon/modeler-shell/vscode/extens
 import { MAP_VIEW_TYPE, registerMapEditor } from "./mapEditor.js";
 import { WardleyDiagnostics } from "./diagnostics.js";
 import { registerEditorCommands } from "./commands.js";
-import { EMPTY_MAP, EXAMPLE_MAP } from "./examples.js";
+import { EMPTY_MAP, EXAMPLE_MAP } from "wardley-maps-ide-editor/examples";
 import { registerLinkUpdates } from "./linkUpdates.js";
 import { WorkspaceMaps } from "./workspaceMaps.js";
 

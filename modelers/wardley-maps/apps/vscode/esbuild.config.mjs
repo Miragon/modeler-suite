@@ -9,49 +9,13 @@
 // (`@miragon/wardley-renderer/themes`); @miragon/modeler-shell comes from node_modules in both.
 import * as esbuild from "esbuild";
 import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { alias, editorBundle } from "wardley-maps-ide-editor/esbuild";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const root = resolve(here, "../..");
 const watch = process.argv.includes("--watch");
 const production = process.argv.includes("--production");
-
-const r = (p) => resolve(root, p);
-
-/** Package aliases pointing at the TS source (mirrors apps/webapp/vite.config.ts). */
-const alias = {
-  "@miragon/wardley-renderer/themes": r("packages/renderer/src/appearance/index.ts"),
-  "@miragon/wardley-renderer": r("packages/renderer/src/index.ts"),
-  "@miragon/wardley-schema-model": r("packages/schema-model/src/index.ts"),
-  "@miragon/wardley-dsl": r("packages/dsl/src/index.ts"),
-  "@miragon/wardley-transforms": r("packages/transforms/src/index.ts"),
-};
-
-/**
- * `import url from "file?dataurl"` inlines that one file as a data: URL, while every other import of
- * the same file type keeps its loader. The PNG export needs Geist inline: an SVG drawn as an image
- * can't load the webview's font files.
- * @type {import('esbuild').Plugin}
- */
-const dataUrlImports = {
-  name: "dataurl-imports",
-  setup(build) {
-    build.onResolve({ filter: /\?dataurl$/ }, async (args) => {
-      const resolved = await build.resolve(args.path.slice(0, -"?dataurl".length), {
-        kind: args.kind,
-        resolveDir: args.resolveDir,
-      });
-      if (resolved.errors.length > 0) return { errors: resolved.errors };
-      return { path: resolved.path, namespace: "dataurl" };
-    });
-    build.onLoad({ filter: /.*/, namespace: "dataurl" }, async (args) => ({
-      contents: await readFile(args.path),
-      loader: "dataurl",
-    }));
-  },
-};
 
 /** @type {import('esbuild').BuildOptions} */
 const common = {
@@ -78,18 +42,10 @@ export const host = {
 /** @type {import('esbuild').BuildOptions} */
 export const web = {
   ...common,
+  ...editorBundle,
   entryPoints: [resolve(here, "src/webview/main.ts")],
   outfile: resolve(here, "dist/webview.js"),
-  platform: "browser",
   format: "iife",
-  target: "es2022",
-  alias,
-  // Font files next to the bundle, not inlined: Geist Mono alone brings six subsets, and as
-  // separate files the browser fetches only the ones a page's unicode-range needs. The CSP of
-  // renderWebviewHtml allows fonts from cspSource, and dist/ is the webview's resource root.
-  loader: { ".woff2": "file", ".woff": "file", ".ttf": "file" },
-  assetNames: "fonts/[name]-[hash]",
-  plugins: [dataUrlImports],
 };
 
 // The options are also read by scripts/third-party-notices.mjs; only a direct run builds. The module

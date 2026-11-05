@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 import { revealFileLabel } from "@miragon/modeler-shell/vscode/extension";
-import { EMPTY_MAP, EXAMPLE_MAP } from "../src/examples.js";
+import { EMPTY_MAP, EXAMPLE_MAP } from "wardley-maps-ide-editor/examples";
 import { activate } from "../src/extension.js";
 import { MAP_VIEW_TYPE } from "../src/mapEditor.js";
 import { Uri, commands, vscodeMock, window, workspace } from "./__mocks__/vscode";

@@ -24,6 +24,7 @@ version satisfies the pin, and the release PR bumps them.
 | `@miragon/wardley-transforms`   | Pure `WardleyMap → WardleyMap` transforms (evolve, inertia, …)  | no  |
 | `@miragon/wardley-renderer`     | diagram-js bootstrap, renderer, viewer, import/export, CSS      | yes |
 | `apps/webapp`                   | Vite demo editor                                                | yes |
+| `apps/ide-editor`               | The map's IDE editor, mounted by `apps/vscode` and `apps/orca`  | yes |
 | `apps/vscode`                   | VS Code extension: custom editor for `.wmap`/`.owm`             | yes |
 
 **P1, the DOM boundary:** the DOM-free packages (`schema-model`, `dsl`, `transforms`) must **never**
@@ -125,12 +126,12 @@ on `COLORS.plotBackground`, the `--cd-ui-plot` role a notation with a plot lies 
 pinned by `theme.sync.test.ts`; the 4× variant is `"transparent"`). The web app lets the shell read
 Geist from its stylesheets and shows a warning toast when the labels fell back to the system font;
 the webview's CSP and stylesheet keep its font files out of reach, so
-[`geist-faces.ts`](apps/vscode/src/webview/geist-faces.ts) imports every subset (upright and
+[`geist-faces.ts`](apps/ide-editor/src/geist-faces.ts) imports every subset (upright and
 italic) with `?dataurl`, which the `dataurl-imports` plugin of
-[`esbuild.config.mjs`](apps/vscode/esbuild.config.mjs) (also read by
-`scripts/third-party-notices.mjs`) and of the e2e page's
+[`esbuild.mjs`](apps/ide-editor/esbuild.mjs) (through the extension's `esbuild.config.mjs`, also
+read by `scripts/third-party-notices.mjs`) and of the e2e page's
 [`vite.config.ts`](e2e/webview/vite.config.ts) inline, and a fallback reaches the host as
-`fontFallback` on the `export` message (`pngExportMessage`), which then warns instead of confirming.
+`fontFallback` on the `export` message (from `pngExport`), which then warns instead of confirming.
 The `vscode-webview` e2e tests record the SVG each PNG is drawn from and check that every embedded
 face carries the fontsource file of its subset and style. The web app and the webview show their
 own text when the SVG or PNG can't be made (guide §2), never the error's message; when the
@@ -145,6 +146,11 @@ to the console. The renderer has no shortcuts dialog and no rasterizer of its ow
   `dist`, so build before `npm run wardley-maps test` · `npm run wardley-maps build:webapp` (then
   `npm run check:build -w modelers/wardley-maps/apps/webapp` checks the mode markup and licence comment
   it ships) · `npm run wardley-maps build:vscode`
+- `npm run wardley-maps build:orca`: the Orca plugin into `apps/orca/plugin/` (the editor
+  definition the VS Code webview mounts too, `createMapEditor` in `apps/ide-editor/src/editor.ts`, on
+  `orcaEditorHost`, see [`apps/orca/README.md`](apps/orca/README.md)) ·
+  `npm run wardley-maps test:orca:docker`: the plugin in a real Orca in a Linux container; the
+  e2e project `orca-editor` runs it in the shell's Orca stub
 - `npm run wardley-maps dev:webapp` (alias: `npm run wardley-maps dev`) serves the webapp via
   [Portless](https://portless.sh) at a per-worktree `https://<branch>.wardley.localhost` URL
   (Portless-derived from the git worktree; config in

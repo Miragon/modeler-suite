@@ -1,6 +1,6 @@
 import type { ModelerEditorOptions } from "@miragon/modeler-shell/vscode/extension";
 import { WARDLEY_THEMES } from "@miragon/wardley-renderer/themes";
-import { withExampleInserted } from "./examples.js";
+import { withExampleInserted } from "wardley-maps-ide-editor/examples";
 
 export const MAP_VIEW_TYPE = "wardley.mapEditor";
 

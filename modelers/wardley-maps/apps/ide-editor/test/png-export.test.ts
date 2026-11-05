@@ -2,11 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import tokens from "../../../packages/renderer/src/theme/cd-tokens.generated.json" with { type: "json" };
 import type { GeistFace, PngExportOptions } from "@miragon/modeler-shell/export";
-import {
-  PNG_EXPORT_FAILED,
-  pngExportMessage,
-  pngExportOptions,
-} from "../src/webview/png-export.js";
+import { PNG_EXPORT_FAILED, pngExport, pngExportOptions } from "../src/png-export.js";
 
 const FACES: readonly GeistFace[] = [{ src: "data:font/woff2;base64,AAAA" }];
 const NO_FALLBACK = (): void => undefined;
@@ -38,36 +34,29 @@ describe("the webview's PNG options", () => {
   });
 });
 
-describe("the webview's PNG message", () => {
+describe("the webview's PNG export", () => {
   const picture = new Blob(["png"], { type: "image/png" });
-  const base64OfPicture = "cG5n";
 
-  it("carries the picture and no fallback flag when Geist was embedded", async () => {
+  it("hands over the picture and no fallback when Geist was embedded", async () => {
     const rasterize = vi.fn().mockResolvedValue(picture);
-    const message = await pngExportMessage("<svg/>", "png", FACES, rasterize);
-    expect(message).toEqual({ type: "export", format: "png", data: base64OfPicture });
-    expect(message).not.toHaveProperty("fontFallback");
+    const exported = await pngExport("<svg/>", "png", FACES, rasterize);
+    expect(exported).toEqual({ data: picture, fontFallback: false });
     expect(rasterize).toHaveBeenCalledWith("<svg/>", expect.objectContaining({ fonts: FACES }));
   });
 
-  it("flags the picture for the host when the export fell back to the system font", async () => {
+  it("reports the fallback when the export fell back to the system font", async () => {
     const rasterize = vi.fn(async (_svg: string, options: PngExportOptions) => {
       options.onFontFallback?.(new Error("no file"));
       return picture;
     });
-    const message = await pngExportMessage("<svg/>", "png-transparent", FACES, rasterize);
-    expect(message).toEqual({
-      type: "export",
-      format: "png-transparent",
-      data: base64OfPicture,
-      fontFallback: true,
-    });
+    const exported = await pngExport("<svg/>", "png-transparent", FACES, rasterize);
+    expect(exported).toEqual({ data: picture, fontFallback: true });
   });
 
   it("rejects with the rasteriser's error, for the caller to show its own text", async () => {
     const failure = new Error("could not draw");
     const rasterize = vi.fn().mockRejectedValue(failure);
-    await expect(pngExportMessage("<svg/>", "png", FACES, rasterize)).rejects.toBe(failure);
+    await expect(pngExport("<svg/>", "png", FACES, rasterize)).rejects.toBe(failure);
   });
 });
 

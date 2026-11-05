@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseDSLWithDiagnostics } from "@miragon/wardley-dsl";
-import { EXAMPLE_MAP as EXTENSION_EXAMPLE } from "../../vscode/src/examples.js";
+import { EXAMPLE_MAP as EXTENSION_EXAMPLE } from "../../ide-editor/src/examples.js";
 import { EXAMPLE_MAP } from "../src/example.js";
 
 describe("EXAMPLE_MAP", () => {

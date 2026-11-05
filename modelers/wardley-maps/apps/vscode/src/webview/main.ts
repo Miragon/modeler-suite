@@ -1,136 +1,29 @@
-import "./zod-jitless.js";
-// Geist (Miragon typeface), self-hosted variable fonts; notes and axis captions are italic, and
-// the shortcut chips are Geist Mono.
+import "wardley-maps-ide-editor/zod-jitless";
 import "@fontsource-variable/geist/wght.css";
 import "@fontsource-variable/geist/wght-italic.css";
 import "@fontsource-variable/geist-mono/wght.css";
-// The renderer brings its stylesheet (tokens, diagram-js.css, cd-canvas.css); the shell's comes
-// last.
-import {
-  WARDLEY_THEMES,
-  createAxisLabelsPopover,
-  createCollaborativeModeler,
-  createMapSizePopover,
-  isWardleyShape,
-  mapMenu,
-  mapShortcuts,
-  type CollaborativeWardleyModeler,
-  type LabelDeduplicatedEvent,
-  type Modeler,
-  type WardleyReadOnly,
-} from "@miragon/wardley-renderer";
-import { patchDSL } from "@miragon/wardley-dsl";
-import type { WardleyMap } from "@miragon/wardley-schema-model";
 import "@miragon/modeler-shell/shell.css";
+import type { CollaborativeWardleyModeler } from "@miragon/wardley-renderer";
 import type { ShellHandle } from "@miragon/modeler-shell";
-import { INVALID_STATUS_DELAY_MS } from "@miragon/modeler-shell/core";
+import type { DiagramJsConnection } from "@miragon/modeler-shell/diagram-js";
+import { mountIdeEditor } from "@miragon/modeler-shell/ide";
 import {
-  connectDiagramJs,
-  shellModule,
-  type DiagramJsConnection,
-} from "@miragon/modeler-shell/diagram-js";
-import {
-  connectDocumentSync,
-  mountVsCodeShell,
-  persistView,
-  readShellState,
-  type DocumentImportContext,
+  vsCodeEditorHost,
+  type TypedMessage,
+  type VsCodeEditorApi,
 } from "@miragon/modeler-shell/vscode/webview";
-import type { WebviewCommand, WebviewToHost } from "../protocol.js";
-import { GEIST_FACES } from "./geist-faces.js";
-import { PNG_EXPORT_FAILED, pngExportMessage, type PngFormat } from "./png-export.js";
+import type { WebviewToHost } from "../protocol.js";
+import { createMapEditor } from "wardley-maps-ide-editor";
 
-interface VsCodeApi {
-  postMessage(message: WebviewToHost): void;
-  getState(): unknown;
-  setState(state: unknown): void;
-}
-declare const acquireVsCodeApi: () => VsCodeApi;
+declare const acquireVsCodeApi: () => VsCodeEditorApi;
 
-interface ElementRegistryLike {
-  getAll(): unknown[];
-}
-
-const MAP_NAME = "Wardley map";
-
-const vscode = acquireVsCodeApi();
-const storedShellState = readShellState(vscode);
-
-// The diagram first: the renderer's keyboard listens on document and must run before the shell's
-// key listener, and the Modeler builds its diagram lazily on the first get(). Undo and redo keys
-// stay unbound: VS Code's document history owns them (guide §13.5). The webview runs the same
-// collaborative-modeler contract as every other host, so its imports are silent and keep an open
-// label editor.
-const collaborative = createCollaborativeModeler({
-  additionalModules: [shellModule],
-  undoRedoKeys: false,
-  freeArea: { insets: () => shell.fitInsets() },
-  // The webview's sandbox opens no windows, so every link goes to the host.
-  openRelativeLink: (address) => post({ type: "openLink", address }),
-  openExternalLink: (address) => post({ type: "openLink", address }),
-  chooseLinkTarget,
-});
-const modeler = collaborative.diagram as Modeler;
-modeler.get("canvas");
-const registry = modeler.get<ElementRegistryLike>("elementRegistry");
-// The canvas lock of an invalid file: context pad, move, resize, delete, paste, label editor.
-const canvasLock = modeler.get<WardleyReadOnly>("wardleyReadOnly");
-
-const app = document.getElementById("app");
-if (!app) throw new Error("The webview HTML has no #app root.");
-
-const shell: ShellHandle = mountVsCodeShell(app, {
-  themes: WARDLEY_THEMES,
-  canvas: modeler.container,
-  messages: { canvas: MAP_NAME },
-  menu: mapMenu({
-    mapSize: () => mapSizePopover.open(),
-    axisLabels: () => axisLabelsPopover.open(),
-    // The web app's Export group without the map file itself: here the document is the file.
-    exports: {
-      png: { onSelect: () => void exportPng() },
-      svg: { onSelect: () => void exportSvg() },
-      transparentPng: { onSelect: () => void exportPngTransparent() },
-    },
-    showKeyboardShortcuts: () => shell.showShortcutsDialog(mapShortcuts(shell)),
-  }),
-  problems: { onActivate: () => post({ type: "showProblems" }) },
-  emptyHint: { onInsertExample: () => post({ type: "insertExample" }) },
-});
-// The modeler's own content in the shell root; it goes with the diagram.
-const mapSizePopover = createMapSizePopover(shell, modeler);
-const axisLabelsPopover = createAxisLabelsPopover(shell, modeler);
-modeler.on("diagram.destroy", () => {
-  mapSizePopover.destroy();
-  axisLabelsPopover.destroy();
-});
-
-// The shell fits to the renderer's content bounds, which always hold the plot, so an empty map
-// still fits its plot (guide §5.9) and they tell no empty map: empty means no element (§13.5).
-const isEmpty = (): boolean => !registry.getAll().some(isWardleyShape);
-const connection: DiagramJsConnection = connectDiagramJs(shell, modeler, {
-  modeler: collaborative,
-  isEmpty,
-});
-const { viewport } = connection;
-persistView(vscode, viewport);
-
-// ---------------------------------------------------------------------------
-// Two-way sync with the document
-// ---------------------------------------------------------------------------
-
-// The modeler's map the reconciled text was written from: the modeler keeps the ids of its last
-// import while a re-read of the text derives them from the current names, so this pairs the two.
-let lastMap: WardleyMap | undefined;
-
-function post(message: WebviewToHost): void {
-  vscode.postMessage(message);
-}
+const api = acquireVsCodeApi();
+const post = (message: WebviewToHost): void => api.postMessage(message);
 
 const pendingLinkTargets = new Map<number, (address: string | undefined) => void>();
 let lastLinkTargetRequest = 0;
 
-/** "Link to map…": the host's Quick Pick of the other maps, answered by `linkTargetChosen`. */
+/** The extension's quick pick of a map or a page to link to; undefined when the user cancels. */
 function chooseLinkTarget(): Promise<string | undefined> {
   const requestId = ++lastLinkTargetRequest;
   return new Promise((resolve) => {
@@ -139,148 +32,21 @@ function chooseLinkTarget(): Promise<string | undefined> {
   });
 }
 
-function onHostMessage(message: { type: string; requestId?: unknown; address?: unknown }): void {
+function answerHost(message: TypedMessage): void {
   if (message.type !== "linkTargetChosen" || typeof message.requestId !== "number") return;
   const resolve = pendingLinkTargets.get(message.requestId);
   pendingLinkTargets.delete(message.requestId);
   resolve?.(typeof message.address === "string" ? message.address : undefined);
 }
 
-/** Compares two DSL texts modulo line endings/trailing whitespace (= save transforms). */
-function sameMapText(a: string, b: string): boolean {
-  return a.replace(/\r\n/g, "\n").trim() === b.replace(/\r\n/g, "\n").trim();
-}
-
-function showValidMap(): void {
-  canvasLock.setReadOnly(false);
-  shell.setReadOnly(false);
-  shell.setStatus(null);
-}
-
-function showInvalidMap(): void {
-  // Locked at once; the marks and the status box follow after 800ms without a valid import, so
-  // typing in the text editor neither flickers nor re-announces the alert (guide §13.5).
-  canvasLock.setReadOnly(true);
-  shell.setReadOnly(true, { delayMs: INVALID_STATUS_DELAY_MS });
-  shell.setStatus(
-    { severity: "danger", text: shell.messages.invalidFile(MAP_NAME) },
-    { delayMs: INVALID_STATUS_DELAY_MS },
-  );
-}
-
-/**
- * Loads `text` into the modeler. The first import takes the stored view or fits; every later one
- * (a host undo, the text editor, Git) keeps viewbox, selection and an open label editor. An update
- * that describes the map the canvas already shows (only whitespace/EOL differ, e.g.
- * `insertFinalNewline` on save) is not re-imported at all.
- */
-async function importText(
-  text: string,
-  { first, reconciledText }: DocumentImportContext,
-): Promise<boolean> {
-  if (
-    !first &&
-    (sameMapText(text, reconciledText) || sameMapText(text, collaborative.exportText()))
-  ) {
-    showValidMap();
-    return true;
-  }
-  const keep = first ? undefined : viewport.getViewbox();
-  const wasEmpty = isEmpty();
-  try {
-    await collaborative.importText(text);
-    lastMap = modeler.exportMap();
-    showValidMap();
-    if (keep) viewport.restore(keep);
-    else if (first && storedShellState.view) viewport.setState(storedShellState.view);
-    viewport.afterImport();
-    // The first elements of an empty file fit like a fresh file would ("Insert example", §13.5);
-    // the plot alone already counted as content, so the shell would keep the view.
-    if (!first && wasEmpty && !isEmpty() && viewport.isAutomatic()) {
-      viewport.fit({ animate: false });
-    }
-    shell.menu.refresh();
-    return true;
-  } catch {
-    showInvalidMap();
-    return false;
-  }
-}
-
-/**
- * The map written into the text it was last reconciled with, keeping comments, blank lines,
- * statement order and number formatting of everything the change did not touch.
- */
-function exportText(reconciledText: string): string {
-  const map = modeler.exportMap();
-  const text = patchDSL(reconciledText, map, lastMap ? { previous: lastMap } : {});
-  lastMap = map;
-  return text;
-}
-
-// The menu reads the map (size, labels): refresh after every change, undo and redo included.
-modeler.on("commandStack.changed", () => shell.menu.refresh());
-modeler.on("wardley.label.deduplicated", (event: LabelDeduplicatedEvent) => {
-  post({
-    type: "info",
-    message: `“${event.requested}” already exists. Renamed to “${event.applied}”, because links refer to names.`,
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Export (the webview rasterizes/serializes; the host shows the save dialog)
-// ---------------------------------------------------------------------------
-
-const SVG_EXPORT_FAILED = "Couldn't export the map as SVG. Try again.";
-
-// The picture never shows selection or hover state (saveSVG leaves it out): the selection stays.
-async function exportSvg(): Promise<void> {
-  try {
-    const { svg } = await modeler.saveSVG();
-    post({ type: "export", format: "svg", data: svg });
-  } catch (error) {
-    console.error("Wardley SVG export failed", error);
-    post({ type: "error", message: SVG_EXPORT_FAILED });
-  }
-}
-
-async function exportRaster(format: PngFormat): Promise<void> {
-  try {
-    const { svg } = await modeler.saveSVG();
-    post(await pngExportMessage(svg, format, GEIST_FACES));
-  } catch (error) {
-    console.error("Wardley PNG export failed", error);
-    post({ type: "error", message: PNG_EXPORT_FAILED });
-  }
-}
-
-const exportPng = (): Promise<void> => exportRaster("png");
-/** Four times the size, without the plot's background (slides, documents), as in the web app. */
-const exportPngTransparent = (): Promise<void> => exportRaster("png-transparent");
-
-// ---------------------------------------------------------------------------
-// The extension host: init, updates, problems and commands in; ready and edits out
-// ---------------------------------------------------------------------------
-
-const COMMANDS: Readonly<Record<WebviewCommand, () => void>> = {
-  fitView: () => viewport.fit(),
-  exportPng: () => void exportPng(),
-  exportSvg: () => void exportSvg(),
-  exportPngTransparent: () => void exportPngTransparent(),
-};
-
-// Before the first import the canvas does not show the document yet; read-only, it shows the last
-// valid map. Either way an edit would overwrite text the canvas never saw, so the sync writes none.
-const sync = connectDocumentSync({
-  api: vscode,
-  importText,
-  exportText,
-  canWrite: () => !shell.isReadOnly(),
-  onProblems: (counts) => shell.setProblems(counts),
-  commands: COMMANDS,
-  onMessage: onHostMessage,
-});
-collaborative.onContentChanged(sync.pushEdit);
+const editor = mountIdeEditor(
+  vsCodeEditorHost({ onMessage: answerHost }, api),
+  createMapEditor({
+    openRelativeLink: (address) => post({ type: "openLink", address }),
+    openExternalLink: (address) => post({ type: "openLink", address }),
+    chooseLinkTarget,
+  }),
+);
 
 /** For test pages: the mounted parts, and `ready` once the first `init` import settled. */
 export const webview: {
@@ -288,4 +54,4 @@ export const webview: {
   modeler: CollaborativeWardleyModeler;
   connection: DiagramJsConnection;
   ready: Promise<void>;
-} = { shell, modeler: collaborative, connection, ready: sync.ready };
+} = editor;
