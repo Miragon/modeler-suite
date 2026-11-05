@@ -248,15 +248,20 @@ extension and every Orca plugin at or below a released component's path):
 
 - **Orca**, one job per plugin (a workspace with an `orca-plugin.json` and its own release-please
   component `<modeler>-orca`, which also bumps the manifest's version; Team Topologies releases its
-  plugin in lockstep with the modeler's component): build the plugin folder,
-  smoke-test exactly that folder in a real Orca (`ORCA_SMOKE_PLUGIN`), then publish it with the
-  action `publish-plugin` of [miragon/orca-modelers](https://github.com/miragon/orca-modelers), the
+  plugin in lockstep with the modeler's component), after one approval in the environment `orca`
+  (the job `Orca approval`, which waits next to the npm and VS Code jobs, so one "Review
+  deployments" approves all three environments), one plugin at a time: build the plugin folder, smoke-test
+  exactly that folder in a real Orca (`ORCA_SMOKE_PLUGIN`), then publish it with the action
+  `publish-plugin` of [miragon/orca-modelers](https://github.com/miragon/orca-modelers), the
   one catalog of every Miragon modeler for Orca. The action runs with the release-please app's token
   (`RELEASE_PLEASE_APP_CLIENT_ID`, `RELEASE_PLEASE_APP_PRIVATE_KEY`, scoped to that repository),
   commits the folder and then its catalog entry (`orca plugin release-entry`) through GitHub's API,
-  and that repository tags the catalog change. The jobs share the concurrency group
-  `orca-modelers-publish` with every other source repository's publish. No build output lands in
-  this repository: Orca installs the files of the pinned commit in miragon/orca-modelers.
+  and that repository tags the catalog change. The matrix runs with `max-parallel: 1` and no
+  concurrency group, which would cancel all but one pending plugin. A publish from another source
+  repository is not serialized with these jobs (concurrency groups are per repository): the action
+  starts over when main of miragon/orca-modelers moved. A re-run of a failed plugin job publishes
+  under the run's approval; "Re-run all jobs" asks again. No build output lands in this repository:
+  Orca installs the files of the pinned commit in miragon/orca-modelers.
 
 Started by hand with `dry_run`, the workflow releases nothing: it packs every npm package
 (`npm publish --dry-run`), packs and smoke-tests every extension, and builds and smoke-tests every
