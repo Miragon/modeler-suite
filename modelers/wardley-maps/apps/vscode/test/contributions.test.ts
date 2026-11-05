@@ -10,7 +10,7 @@ import {
 } from "../src/commands.js";
 import { WEBVIEW_COMMANDS } from "../src/protocol.js";
 import { UPDATE_LINKS_SECTION } from "../src/linkUpdates.js";
-import { EMPTY_MAP, EXAMPLE_MAP } from "../src/examples.js";
+import { EMPTY_MAP, EXAMPLE_MAP } from "wardley-maps-ide-editor/examples";
 import {
   asTextDocument,
   fakeDocument,

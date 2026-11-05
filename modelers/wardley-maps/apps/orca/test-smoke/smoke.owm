@@ -1,0 +1,8 @@
+title Smoke test
+anchor Customer [0.95, 0.5]
+component Shop [0.6, 0.15]
+component Cart [0.6, 0.35]
+component Checkout [0.6, 0.55]
+component Payments [0.6, 0.75]
+component Hosting [0.2, 0.9]
+Customer -> Shop

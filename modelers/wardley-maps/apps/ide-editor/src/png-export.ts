@@ -1,8 +1,7 @@
 import { svgToPng, type GeistFace, type PngExportOptions } from "@miragon/modeler-shell/export";
-import { COLORS, blobToBase64 } from "@miragon/wardley-renderer";
-import type { ExportFormat, WebviewToHost } from "../protocol.js";
+import { COLORS } from "@miragon/wardley-renderer";
 
-export type PngFormat = Extract<ExportFormat, "png" | "png-transparent">;
+export type PngFormat = "png" | "png-transparent";
 
 export const PNG_EXPORT_FAILED = "Couldn't export the map as PNG. Try again, or export it as SVG.";
 
@@ -23,27 +22,19 @@ export function pngExportOptions(
 
 type Rasterize = (svg: string, options: PngExportOptions) => Promise<Blob>;
 
-/**
- * The `export` message of a PNG: the host warns instead of confirming when the picture came out in
- * the system font, so the flag travels with the data.
- */
-export async function pngExportMessage(
+/** "Export as PNG" (2×, on the plot) or its 4× transparent variant, for the host to save. */
+export async function pngExport(
   svg: string,
   format: PngFormat,
   fonts: readonly GeistFace[],
   rasterize: Rasterize = svgToPng,
-): Promise<Extract<WebviewToHost, { type: "export" }>> {
+): Promise<{ data: Blob; fontFallback: boolean }> {
   let fontFallback = false;
-  const png = await rasterize(
+  const data = await rasterize(
     svg,
     pngExportOptions(format, fonts, () => {
       fontFallback = true;
     }),
   );
-  return {
-    type: "export",
-    format,
-    data: await blobToBase64(png),
-    ...(fontFallback ? { fontFallback } : {}),
-  };
+  return { data, fontFallback };
 }

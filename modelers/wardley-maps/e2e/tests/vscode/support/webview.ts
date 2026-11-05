@@ -14,7 +14,7 @@ import type {
   VsCodeHostStub,
   VsCodeWebviewStub,
 } from "@miragon/modeler-shell/testing/vscode-stub";
-import { EXAMPLE_MAP } from "../../../../apps/vscode/src/examples.js";
+import { EXAMPLE_MAP } from "../../../../apps/ide-editor/src/examples.js";
 import { WARDLEY_THEMES } from "../../../../packages/renderer/src/appearance/index.js";
 
 /*

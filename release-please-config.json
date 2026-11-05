@@ -272,6 +272,16 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/context-maps/apps/orca'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/wardley-maps/apps/orca'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/wardley-maps/apps/ide-editor'].dependencies['@miragon/modeler-shell']"
         }
       ]
     },
@@ -307,6 +317,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/wardley-maps/packages/transforms'].dependencies['@miragon/wardley-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/wardley-maps/apps/ide-editor'].dependencies['@miragon/wardley-schema-model']"
         }
       ]
     },
@@ -332,6 +347,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/wardley-maps/packages/renderer'].dependencies['@miragon/wardley-dsl']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/wardley-maps/apps/ide-editor'].dependencies['@miragon/wardley-dsl']"
         }
       ]
     },
@@ -362,6 +382,36 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/wardley-maps/apps/webapp'].dependencies['@miragon/wardley-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/wardley-maps/apps/orca'].dependencies['@miragon/wardley-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/wardley-maps/apps/ide-editor'].dependencies['@miragon/wardley-renderer']"
+        }
+      ]
+    },
+    "modelers/wardley-maps/apps/ide-editor": {
+      "component": "wardley-maps-ide-editor",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/wardley-maps/apps/ide-editor'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/wardley-maps/apps/vscode'].dependencies['wardley-maps-ide-editor']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/wardley-maps/apps/orca'].dependencies['wardley-maps-ide-editor']"
         }
       ]
     },
@@ -382,6 +432,21 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/wardley-maps/apps/webapp'].version"
+        }
+      ]
+    },
+    "modelers/wardley-maps/apps/orca": {
+      "component": "wardley-maps-orca",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "orca-plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/wardley-maps/apps/orca'].version"
         }
       ]
     },

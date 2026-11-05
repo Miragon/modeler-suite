@@ -1,6 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ICONS, type ShellIconName } from "@miragon/modeler-shell";
-import { EMPTY_MAP, EXAMPLE_MAP, withExampleInserted } from "../../../apps/vscode/src/examples.js";
+import {
+  EMPTY_MAP,
+  EXAMPLE_MAP,
+  withExampleInserted,
+} from "../../../apps/ide-editor/src/examples.js";
 import { FIT_TOLERANCE, LONG_NAME_DRAWING, LONG_NAME_MAP, overhang } from "../support/fit.js";
 import { PAPER_BACKGROUND, PLOT_BACKGROUND, cornerPixel } from "../support/png.js";
 import { contrast, drawnRightOf, focusChosenColour, ringsOf } from "../support/colour-picker.js";

@@ -40,10 +40,10 @@ export function collectParserTestFixtures(): string[] {
 /** The example map the VS Code extension offers for a new file. */
 export function vscodeExampleMap(): string {
   const examplesFile = fileURLToPath(
-    new URL("../../../../apps/vscode/src/examples.ts", import.meta.url),
+    new URL("../../../../apps/ide-editor/src/examples.ts", import.meta.url),
   );
   const match = /const EXAMPLE_MAP = `([^`]*)`/.exec(readFileSync(examplesFile, "utf8"));
-  if (!match) throw new Error("EXAMPLE_MAP not found in apps/vscode/src/examples.ts");
+  if (!match) throw new Error("EXAMPLE_MAP not found in apps/ide-editor/src/examples.ts");
   return unescape(match[1]!);
 }
 

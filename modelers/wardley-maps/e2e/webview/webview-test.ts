@@ -5,7 +5,7 @@ import {
   stubOptionsFromSearch,
   type StubWebviewPanel,
 } from "@miragon/modeler-shell/testing/vscode-stub";
-import { EMPTY_MAP, EXAMPLE_MAP } from "../../apps/vscode/src/examples.js";
+import { EMPTY_MAP, EXAMPLE_MAP } from "../../apps/ide-editor/src/examples.js";
 import { WARDLEY_THEMES } from "@miragon/wardley-renderer/themes";
 import { MAP_EDITOR_OPTIONS, MAP_VIEW_TYPE } from "../../apps/vscode/src/mapEditorOptions.js";
 
