@@ -1,6 +1,6 @@
 {
   "name": "value-chain-orca",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "The Value Chain Modeler as an Orca custom editor for .vc and .vc.json files.",
   "license": "MIT",

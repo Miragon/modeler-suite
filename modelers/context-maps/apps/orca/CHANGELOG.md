@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/Miragon/modeler-suite/compare/context-maps-orca-v0.1.0...context-maps-orca-v0.1.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* ship the Orca plugins without web fonts so Orca's plugin directory lists them ([#559](https://github.com/Miragon/modeler-suite/issues/559)) ([b4047c1](https://github.com/Miragon/modeler-suite/commit/b4047c15c207848eea5ac5bd699413e0ba2e07f7)), closes [#557](https://github.com/Miragon/modeler-suite/issues/557)
+
 ## 0.1.0 (2026-11-05)
 
 

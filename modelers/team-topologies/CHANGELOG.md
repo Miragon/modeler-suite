@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.18.0...team-topologies-v0.18.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* ship the Orca plugins without web fonts so Orca's plugin directory lists them ([#559](https://github.com/Miragon/modeler-suite/issues/559)) ([b4047c1](https://github.com/Miragon/modeler-suite/commit/b4047c15c207848eea5ac5bd699413e0ba2e07f7)), closes [#557](https://github.com/Miragon/modeler-suite/issues/557)
+
 ## [0.18.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.17.1...team-topologies-v0.18.0) (2026-11-05)
 
 
