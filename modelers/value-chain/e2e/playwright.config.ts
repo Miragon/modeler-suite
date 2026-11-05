@@ -10,8 +10,12 @@ const WEBVIEW_URL = `http://127.0.0.1:${WEBVIEW_PORT}`;
 const SHARE_SPEC = "webapp-share.spec.ts";
 const FOCUS_HAND_BACK_SPEC = "webapp-focus-hand-back.spec.ts";
 
+// A regular expression, not "**/orca/**": a glob matches the absolute path, which may hold an
+// "orca" folder of its own.
+const ORCA_SPECS = /[\\/]tests[\\/]orca[\\/].*\.spec\.ts$/;
+
 /**
- * Three projects:
+ * Four projects (`orca-editor`: the Orca editor in the shell's Orca stub, webview/orca-test.html):
  *  - `webapp`: @miragon/value-chain-webapp. Its dev server resolves @miragon/value-chain-* via Vite
  *    source aliases (apps/webapp/vite.config.ts), so no package build is required. `cwd: '..'`
  *    runs the command from the repo root so the npm workspace resolves.
@@ -40,12 +44,17 @@ export default defineConfig({
   projects: [
     {
       name: "webapp",
-      testIgnore: "**/vscode/**",
+      testIgnore: ["**/vscode/**", ORCA_SPECS],
       use: { ...devices["Desktop Chrome"], baseURL: WEBAPP_URL },
     },
     {
       name: "vscode-webview",
       testMatch: "**/vscode/**/*.spec.ts",
+      use: { ...devices["Desktop Chrome"], baseURL: WEBVIEW_URL },
+    },
+    {
+      name: "orca-editor",
+      testMatch: ORCA_SPECS,
       use: { ...devices["Desktop Chrome"], baseURL: WEBVIEW_URL },
     },
     {

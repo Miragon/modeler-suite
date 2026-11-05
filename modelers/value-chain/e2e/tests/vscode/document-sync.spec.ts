@@ -3,7 +3,7 @@ import {
   EMPTY_DOCUMENT,
   EXAMPLE_DOCUMENT,
   withExampleInserted,
-} from "../../../apps/vscode/src/examples.js";
+} from "../../../apps/ide-editor/src/examples.js";
 import { openWebview } from "./support/webview.js";
 
 /**

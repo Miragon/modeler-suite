@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EXAMPLE_DOCUMENT as EXTENSION_EXAMPLE } from "../../vscode/src/examples.js";
+import { EXAMPLE_DOCUMENT as EXTENSION_EXAMPLE } from "../../ide-editor/src/examples.js";
 import { EXAMPLE_DOCUMENT } from "../src/example.js";
 
 describe("EXAMPLE_DOCUMENT", () => {

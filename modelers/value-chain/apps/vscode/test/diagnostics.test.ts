@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MAX_NESTING_DEPTH } from "@miragon/value-chain-schema-model";
 import { documentDiagnostics, documentProblems } from "../src/diagnostics.js";
-import { EXAMPLE_DOCUMENT } from "../src/examples.js";
+import { EXAMPLE_DOCUMENT } from "value-chain-ide-editor/examples";
 
 function at(text: string, offset: number): string {
   return text.slice(offset);

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { registerNewDocumentCommand } from "@miragon/modeler-shell/vscode/extension";
 import { DIAGRAM_VIEW_TYPE, registerDiagramEditor } from "./diagramEditor.js";
-import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "./examples.js";
+import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "value-chain-ide-editor/examples";
 
 const NEW_DIAGRAM = {
   viewType: DIAGRAM_VIEW_TYPE,

@@ -8,44 +8,11 @@
 // comes from node_modules in both bundles.
 import * as esbuild from "esbuild";
 import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { alias, editorBundle } from "value-chain-ide-editor/esbuild";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const root = resolve(here, "../..");
-
-const r = (p) => resolve(root, p);
-
-/** Package aliases pointing at the TS source (mirrors apps/webapp/vite.config.ts). */
-const alias = {
-  "@miragon/value-chain-renderer": r("packages/renderer/src/index.ts"),
-  "@miragon/value-chain-schema-model": r("packages/schema-model/src/index.ts"),
-};
-
-/**
- * `import url from "file?dataurl"` inlines that one file as a data: URL, while every other import
- * of the same file type keeps its loader. The PNG export needs Geist inline: an SVG drawn as an
- * image can't load the webview's font files.
- * @type {import('esbuild').Plugin}
- */
-const dataUrlImports = {
-  name: "dataurl-imports",
-  setup(build) {
-    build.onResolve({ filter: /\?dataurl$/ }, async (args) => {
-      const resolved = await build.resolve(args.path.slice(0, -"?dataurl".length), {
-        kind: args.kind,
-        resolveDir: args.resolveDir,
-      });
-      if (resolved.errors.length > 0) return { errors: resolved.errors };
-      return { path: resolved.path, namespace: "dataurl" };
-    });
-    build.onLoad({ filter: /.*/, namespace: "dataurl" }, async (args) => ({
-      contents: await readFile(args.path),
-      loader: "dataurl",
-    }));
-  },
-};
 
 /**
  * The options of both bundles; `production` is the build the VSIX ships (`vscode:prepublish`).
@@ -83,19 +50,10 @@ export function bundleOptions({ production }) {
   /** @type {import('esbuild').BuildOptions} */
   const web = {
     ...common,
+    ...editorBundle,
     entryPoints: [resolve(here, "src/webview/main.ts")],
     outfile: resolve(here, "dist/webview.js"),
-    platform: "browser",
-    // renderWebviewHtml writes a classic <script nonce>.
     format: "iife",
-    target: "es2022",
-    alias,
-    // Font files next to the bundle, not inlined: Geist Mono alone brings six subsets, and as
-    // separate files the browser fetches only the ones a page's unicode-range needs. The CSP of
-    // renderWebviewHtml allows fonts from cspSource, and dist/ is the webview's resource root.
-    loader: { ".woff2": "file", ".woff": "file", ".ttf": "file" },
-    assetNames: "fonts/[name]-[hash]",
-    plugins: [dataUrlImports],
   };
 
   return { host, web };

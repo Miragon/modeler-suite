@@ -232,6 +232,16 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/event-storming/apps/ide-editor'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/value-chain/apps/ide-editor'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/value-chain/apps/orca'].dependencies['@miragon/modeler-shell']"
         }
       ]
     },
@@ -779,6 +789,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/value-chain/packages/renderer'].dependencies['@miragon/value-chain-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/value-chain/apps/ide-editor'].dependencies['@miragon/value-chain-schema-model']"
         }
       ]
     },
@@ -799,6 +814,36 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/value-chain/apps/webapp'].dependencies['@miragon/value-chain-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/value-chain/apps/ide-editor'].dependencies['@miragon/value-chain-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/value-chain/apps/orca'].dependencies['@miragon/value-chain-renderer']"
+        }
+      ]
+    },
+    "modelers/value-chain/apps/ide-editor": {
+      "component": "value-chain-ide-editor",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/value-chain/apps/ide-editor'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/value-chain/apps/vscode'].dependencies['value-chain-ide-editor']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/value-chain/apps/orca'].dependencies['value-chain-ide-editor']"
         }
       ]
     },
@@ -965,6 +1010,21 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['extensions/modeler-collection'].version"
+        }
+      ]
+    },
+    "modelers/value-chain/apps/orca": {
+      "component": "value-chain-orca",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "orca-plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/value-chain/apps/orca'].version"
         }
       ]
     }

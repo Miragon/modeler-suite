@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 import { revealFileLabel } from "@miragon/modeler-shell/vscode/extension";
 import { DIAGRAM_VIEW_TYPE } from "../src/diagramEditorOptions.js";
-import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "../src/examples.js";
+import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "value-chain-ide-editor/examples";
 import { activate } from "../src/extension.js";
 import { Uri, vscodeMock, window, workspace } from "./__mocks__/vscode";
 import { fakeDocument, openDiagram, resetApplyEdit } from "./fakes";
