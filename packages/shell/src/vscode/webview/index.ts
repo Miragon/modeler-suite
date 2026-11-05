@@ -16,6 +16,8 @@ export type {
   DocumentSyncOptions,
 } from "./document-sync.js";
 export { connectDocumentSync } from "./document-sync.js";
+export type { VsCodeEditorApi, VsCodeEditorHostOptions } from "./editor-host.js";
+export { vsCodeEditorHost } from "./editor-host.js";
 export type {
   AppearanceMessage,
   DocumentHostMessage,

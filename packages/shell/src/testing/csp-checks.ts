@@ -1,5 +1,6 @@
 import { renderWebviewHtml } from "../vscode/extension/index.js";
-import type { CspViolation } from "./vscode-stub.js";
+import type { CspViolation } from "./failures.js";
+import { ORCA_FRAME_POLICY } from "./orca-frame.js";
 
 /** One of the shell's fonts in the opened bundle. */
 export interface FontFacts {
@@ -98,31 +99,43 @@ function expectedPolicy(policy: string, origin: string): string {
     .replace(/&amp;/g, "&");
 }
 
-/**
- * The production bundle under `renderWebviewHtml`'s CSP: the page runs under that policy with the
- * recording stub, nothing violated it, nothing failed, and the shell's fonts loaded from files.
- */
-export function cspProblems(facts: CspFacts): string[] {
-  const problems: string[] = [];
+/** Which IDE the `ide` host is: VS Code's webview or Orca's editor frame. */
+export type IdeHostKind = "vscode" | "orca";
+
+function policyProblems(facts: CspFacts, ideHost: IdeHostKind): string[] {
+  const opener = ideHost === "orca" ? "openOrcaEditorBundle" : "openWebviewBundle";
   if (facts.policy === null) {
-    problems.push(
-      "csp: the page csp.open loaded has no Content-Security-Policy; open the production bundle with openWebviewBundle, which serves renderWebviewHtml's document",
-    );
-  } else {
-    const expected = expectedPolicy(facts.policy, facts.origin);
-    if (normalizedPolicy(facts.policy) !== normalizedPolicy(expected)) {
-      const shown = expected.replace(`'nonce-${ANY_NONCE}'`, "'nonce-…'");
-      problems.push(
-        `csp: the page's policy "${facts.policy}" is not renderWebviewHtml's for ${facts.origin} ("${shown}"); open the production bundle with openWebviewBundle`,
-      );
-    }
+    return [
+      ideHost === "orca"
+        ? `csp: the page csp.open loaded has no Content-Security-Policy; open the built plugin with ${opener}, which serves Orca's frame policy`
+        : `csp: the page csp.open loaded has no Content-Security-Policy; open the production bundle with ${opener}, which serves renderWebviewHtml's document`,
+    ];
   }
+  const expected =
+    ideHost === "orca" ? ORCA_FRAME_POLICY : expectedPolicy(facts.policy, facts.origin);
+  if (normalizedPolicy(facts.policy) === normalizedPolicy(expected)) return [];
+  const shown = expected.replace(`'nonce-${ANY_NONCE}'`, "'nonce-…'");
+  const owner =
+    ideHost === "orca" ? "Orca's editor frame" : `renderWebviewHtml's for ${facts.origin}`;
+  return [
+    `csp: the page's policy "${facts.policy}" is not ${owner} ("${shown}"); open the production bundle with ${opener}`,
+  ];
+}
+
+/**
+ * The production bundle under its host's CSP (`renderWebviewHtml`'s, or Orca's frame policy): the
+ * page runs under that policy with the recording stub, nothing violated it, nothing failed, and the
+ * shell's fonts loaded from files.
+ */
+export function cspProblems(facts: CspFacts, ideHost: IdeHostKind = "vscode"): string[] {
+  const problems: string[] = [...policyProblems(facts, ideHost)];
   if (!facts.recording) {
     problems.push(
-      "csp: the page has no VS Code stub that records violations (window.__modelerShellVsCodeStub.cspViolations); open the bundle with openWebviewBundle",
+      ideHost === "orca"
+        ? "csp: the page has no Orca stub that records violations (window.__modelerShellOrcaStub.cspViolations); open the plugin with openOrcaEditorBundle"
+        : "csp: the page has no VS Code stub that records violations (window.__modelerShellVsCodeStub.cspViolations); open the bundle with openWebviewBundle",
     );
   }
-
   const counts = new Map<string, number>();
   for (const violation of facts.violations) {
     const problem = describeViolation(violation);

@@ -23,7 +23,9 @@ export default defineConfig({
           include: [
             "src/dom/**/*.test.ts",
             "src/diagram-js/**/*.test.ts",
+            "src/ide/**/*.test.ts",
             "src/vscode/**/*.test.ts",
+            "src/orca/**/*.test.ts",
             "src/testing/**/*.test.ts",
           ],
           exclude: [

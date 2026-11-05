@@ -707,7 +707,9 @@ const keysCase: ShellConformanceCase = {
       await press("F9", "canvas", undefined, "handled by the canvas");
     }
     await inPage(page, removeInjectedProbe, null);
-    if (host === "ide") {
+    // Orca keeps no history for a custom editor and hands Cmd/Ctrl+Z to the frame, where the
+    // canvas owns it: no IDE runs it a second time, so where the key goes on is the modeler's.
+    if (host === "ide" && harness.ideHost !== "orca") {
       // Guide §13.5: on the canvas, undo and redo use the document's history, never the canvas's.
       for (const key of UNDO_REDO_PRESSES) {
         await press(

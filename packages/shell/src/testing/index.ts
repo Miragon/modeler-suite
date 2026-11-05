@@ -21,3 +21,5 @@ export type {
   ToastFixture,
 } from "./harness.js";
 export { registerShellConformance, shellConformanceCases, vsCodeStubSearch } from "./harness.js";
+export type { IdeHostKind } from "./csp-checks.js";
+export { ORCA_FRAME_POLICY } from "./orca-frame.js";

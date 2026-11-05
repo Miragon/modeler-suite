@@ -447,7 +447,7 @@ describe("runVsCodeSmokeInDocker", { skip: process.platform === "win32" }, () =>
     });
     const called = readFileSync(calls, "utf8").trim().split("\n");
     expect(called.slice(0, 3)).toEqual([
-      "version --format {{.Server.Version}} {{.Server.Arch}}",
+      "version --format {{.Server.Version}}",
       `image inspect ${image}`,
       `build --tag ${image} -`,
     ]);

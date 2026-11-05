@@ -324,13 +324,9 @@ export async function runVsCodeSmokeInDocker(
   if (!results)
     throw new Error(`the results directory has to be a directory inside ${root}, not the root`);
 
-  const server = spawnSync(
-    docker,
-    ["version", "--format", "{{.Server.Version}} {{.Server.Arch}}"],
-    {
-      encoding: "utf8",
-    },
-  );
+  const server = spawnSync(docker, ["version", "--format", "{{.Server.Version}}"], {
+    encoding: "utf8",
+  });
   if (server.status !== 0) {
     const reason = server.error
       ? server.error.message

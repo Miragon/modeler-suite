@@ -890,6 +890,25 @@ describe("keyboard", () => {
     expect(webUndo).toHaveBeenCalledTimes(1);
   });
 
+  it("in an IDE host whose canvas owns the history (Orca) undoes on the canvas", () => {
+    const modules = [CommandModule, KeyboardModule, EditorActionsModule, shellModule];
+    const orca = createDiagram(modules);
+    connectDiagramJs(fakeShell("Tools", "ide").handle, orca, {
+      contentBounds: () => undefined,
+      canvasOwnsHistory: true,
+    });
+    const undo = vi.spyOn(orca.get<{ undo(): void }>("commandStack"), "undo");
+    const event = new KeyboardEvent("keydown", {
+      key: "z",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    svgOf(orca).dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(undo).toHaveBeenCalledTimes(1);
+  });
+
   it("is a no-op without a keyboard service (viewer)", () => {
     expect(() =>
       createDiagram([PaletteModule, providerModule(ENTRIES), shellModule]),

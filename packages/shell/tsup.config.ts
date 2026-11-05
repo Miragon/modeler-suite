@@ -6,13 +6,17 @@ export default defineConfig([
       index: "src/index.ts",
       core: "src/core.ts",
       "diagram-js": "src/diagram-js.ts",
+      ide: "src/ide.ts",
       "vscode-extension": "src/vscode-extension.ts",
       "vscode-webview": "src/vscode-webview.ts",
+      "orca-webview": "src/orca-webview.ts",
       export: "src/export.ts",
       testing: "src/testing.ts",
       "testing-vscode-stub": "src/testing-vscode-stub.ts",
+      "testing-orca-stub": "src/testing-orca-stub.ts",
       "testing-vscode-electron": "src/testing-vscode-electron.ts",
       "testing-webview-bundle": "src/testing-webview-bundle.ts",
+      "testing-orca-editor-bundle": "src/testing-orca-editor-bundle.ts",
     },
     format: ["esm", "cjs"],
     dts: true,
@@ -20,7 +24,13 @@ export default defineConfig([
     // openWebviewBundle finds the stub's script next to itself through import.meta.url, in CJS too
     shims: true,
     // the builds below run in parallel; cleaning their output here would race them
-    clean: ["**/*", "!shell.css", "!vscode-docker.js*", "!testing-vscode-stub-script.global.js*"],
+    clean: [
+      "**/*",
+      "!shell.css",
+      "!vscode-docker.js*",
+      "!testing-vscode-stub-script.global.js*",
+      "!testing-orca-stub-script.global.js*",
+    ],
   },
   {
     entry: { shell: "src/shell.css" },
@@ -28,7 +38,10 @@ export default defineConfig([
   },
   {
     // the VS Code stub as one classic script, which a page under the webview CSP loads by its nonce
-    entry: { "testing-vscode-stub-script": "src/testing-vscode-stub-script.ts" },
+    entry: {
+      "testing-vscode-stub-script": "src/testing-vscode-stub-script.ts",
+      "testing-orca-stub-script": "src/testing-orca-stub-script.ts",
+    },
     format: ["iife"],
     platform: "browser",
     target: "es2022",

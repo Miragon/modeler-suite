@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { cspProblems, type CspFacts } from "./csp-checks.js";
+import { ORCA_FRAME_POLICY } from "./orca-frame.js";
 
 const POLICY =
   "default-src 'none'; img-src https://webview.test data: blob:; style-src https://webview.test 'unsafe-inline'; font-src https://webview.test data:; script-src 'nonce-abc'";
@@ -144,6 +145,27 @@ describe("cspProblems", () => {
     ]);
     expect(cspProblems(facts({ fonts: [] }))).toEqual([
       "fonts: the shell root names no font family (--modeler-shell-font); the shell's stylesheet did not load",
+    ]);
+  });
+});
+
+describe("cspProblems in Orca", () => {
+  const orcaFacts = (overrides: Partial<CspFacts> = {}) =>
+    facts({ policy: ORCA_FRAME_POLICY, origin: "https://orca-plugin-frame.test", ...overrides });
+
+  it("passes an editor under Orca's frame policy, in any order of its directives", () => {
+    expect(cspProblems(orcaFacts(), "orca")).toEqual([]);
+    const reordered = ORCA_FRAME_POLICY.split("; ").reverse().join("; ");
+    expect(cspProblems(orcaFacts({ policy: reordered }), "orca")).toEqual([]);
+  });
+
+  it("fails VS Code's policy, a page without one and a page without the Orca stub", () => {
+    expect(cspProblems(orcaFacts({ policy: POLICY }), "orca")).toEqual([
+      `csp: the page's policy "${POLICY}" is not Orca's editor frame ("${ORCA_FRAME_POLICY}"); open the production bundle with openOrcaEditorBundle`,
+    ]);
+    expect(cspProblems(orcaFacts({ policy: null, recording: false }), "orca")).toEqual([
+      "csp: the page csp.open loaded has no Content-Security-Policy; open the built plugin with openOrcaEditorBundle, which serves Orca's frame policy",
+      "csp: the page has no Orca stub that records violations (window.__modelerShellOrcaStub.cspViolations); open the plugin with openOrcaEditorBundle",
     ]);
   });
 });
