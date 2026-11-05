@@ -21,11 +21,17 @@ orca plugin dev load . --json --approve <fingerprint>
 `plugin/` is the folder Orca loads and the release publishes. The bundle is not minified and ships
 its sourcemap. The editor needs Orca 1.4.248 or later (`"frame": "isolated"`, the desktop app).
 
+The plugin ships no web fonts, because Orca's community directory refuses `.woff2` files
+([stablyai/orca#38607](https://github.com/stablyai/orca/issues/38607)):
+the editor draws in the system font, and only the PNG export embeds Geist. Bringing Geist back is
+[#558](https://github.com/Miragon/modeler-suite/issues/558).
+
 ## Tests
 
 The `orca-editor` project of `modelers/event-storming/e2e` runs the editor inside the shell's Orca
-stub: the shell's conformance kit on the `ide` host (`ideHost: "orca"`, the `csp` case on the built
-plugin under Orca's frame policy) and the document sync with an agent's writes.
+stub: the shell's conformance kit on the `ide` host (`ideHost: "orca"`) and the document sync with
+an agent's writes. The kit's `csp` case stays off while the plugin ships no web fonts
+([#558](https://github.com/Miragon/modeler-suite/issues/558)).
 
 ```sh
 npm run test:e2e -w modelers/event-storming/e2e -- --project=orca-editor
