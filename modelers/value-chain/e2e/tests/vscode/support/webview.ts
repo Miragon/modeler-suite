@@ -6,7 +6,7 @@ import type { Page } from "@playwright/test";
 import type { Appearance } from "@miragon/modeler-shell";
 import { vsCodeStubSearch, type OpenContext } from "@miragon/modeler-shell/testing";
 import { openWebviewBundle } from "@miragon/modeler-shell/testing/webview-bundle";
-import { EXAMPLE_DOCUMENT } from "../../../../apps/vscode/src/examples.js";
+import { EXAMPLE_DOCUMENT } from "../../../../apps/ide-editor/src/examples.js";
 import { VALUE_CHAIN_THEMES } from "../../../../packages/renderer/src/appearance/themes.js";
 
 export const LIGHT: Appearance = { theme: "light" };

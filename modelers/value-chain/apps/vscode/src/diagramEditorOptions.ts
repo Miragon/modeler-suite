@@ -1,6 +1,6 @@
 import type { ModelerEditorOptions } from "@miragon/modeler-shell/vscode/extension";
 import { VALUE_CHAIN_THEMES } from "../../../packages/renderer/src/appearance/themes.js";
-import { withExampleInserted } from "./examples.js";
+import { withExampleInserted } from "value-chain-ide-editor/examples";
 
 export const DIAGRAM_VIEW_TYPE = "valueChain.diagramEditor";
 

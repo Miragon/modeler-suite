@@ -8,7 +8,7 @@ import {
 } from "../src/commands.js";
 import { fakeDocument, newProvider, openDiagram, resetApplyEdit } from "./fakes";
 
-import { EMPTY_DOCUMENT } from "../src/examples.js";
+import { EMPTY_DOCUMENT } from "value-chain-ide-editor/examples";
 
 const DOC_A = EMPTY_DOCUMENT.replace("New value chain", "A");
 const DOC_B = EMPTY_DOCUMENT.replace("New value chain", "B");

@@ -1,0 +1,140 @@
+{
+  "connections": [
+    {
+      "connectionType": "sequence",
+      "id": "flow_1",
+      "source": "step_order",
+      "target": "step_pick",
+      "waypoints": [
+        {
+          "x": 160,
+          "y": 130
+        },
+        {
+          "x": 200,
+          "y": 130
+        }
+      ]
+    },
+    {
+      "connectionType": "sequence",
+      "id": "flow_2",
+      "source": "step_pick",
+      "target": "step_pack",
+      "waypoints": [
+        {
+          "x": 360,
+          "y": 130
+        },
+        {
+          "x": 400,
+          "y": 130
+        }
+      ]
+    },
+    {
+      "connectionType": "sequence",
+      "id": "flow_3",
+      "source": "step_pack",
+      "target": "step_ship",
+      "waypoints": [
+        {
+          "x": 560,
+          "y": 130
+        },
+        {
+          "x": 600,
+          "y": 130
+        }
+      ]
+    },
+    {
+      "connectionType": "sequence",
+      "id": "flow_4",
+      "source": "step_ship",
+      "target": "step_invoice",
+      "waypoints": [
+        {
+          "x": 760,
+          "y": 130
+        },
+        {
+          "x": 800,
+          "y": 130
+        }
+      ]
+    }
+  ],
+  "elements": [
+    {
+      "bounds": {
+        "height": 60,
+        "width": 160,
+        "x": 800,
+        "y": 100
+      },
+      "elementType": "step",
+      "id": "step_invoice",
+      "name": "Invoice"
+    },
+    {
+      "bounds": {
+        "height": 60,
+        "width": 160,
+        "x": 0,
+        "y": 100
+      },
+      "elementType": "step",
+      "id": "step_order",
+      "name": "Order"
+    },
+    {
+      "bounds": {
+        "height": 60,
+        "width": 160,
+        "x": 400,
+        "y": 100
+      },
+      "elementType": "step",
+      "id": "step_pack",
+      "name": "Pack"
+    },
+    {
+      "bounds": {
+        "height": 60,
+        "width": 160,
+        "x": 200,
+        "y": 100
+      },
+      "elementType": "step",
+      "id": "step_pick",
+      "name": "Pick"
+    },
+    {
+      "bounds": {
+        "height": 60,
+        "width": 160,
+        "x": 600,
+        "y": 100
+      },
+      "elementType": "step",
+      "id": "step_ship",
+      "name": "Ship"
+    },
+    {
+      "bounds": {
+        "height": 60,
+        "width": 130,
+        "x": 400,
+        "y": 300
+      },
+      "elementType": "orgUnit",
+      "id": "unit_logistics",
+      "name": "Logistics"
+    }
+  ],
+  "meta": {
+    "name": "Smoke test"
+  },
+  "schemaVersion": 1
+}

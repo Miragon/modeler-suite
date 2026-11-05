@@ -5,7 +5,7 @@ import {
   stubOptionsFromSearch,
   type StubWebviewPanel,
 } from "@miragon/modeler-shell/testing/vscode-stub";
-import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "../../apps/vscode/src/examples.js";
+import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "../../apps/ide-editor/src/examples.js";
 import {
   DIAGRAM_EDITOR_OPTIONS,
   DIAGRAM_VIEW_TYPE,

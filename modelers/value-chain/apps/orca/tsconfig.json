@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "baseUrl": ".",
+    "paths": {
+      "@miragon/value-chain-renderer": ["../../packages/renderer/src/index.ts"],
+      "@miragon/value-chain-schema-model": ["../../packages/schema-model/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "../ide-editor/src/css.d.ts"]
+}

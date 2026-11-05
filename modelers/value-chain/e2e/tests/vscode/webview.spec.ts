@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ICONS, type ShellIconName } from "@miragon/modeler-shell";
 import { fitViewbox, sameView } from "@miragon/modeler-shell/core";
-import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "../../../apps/vscode/src/examples.js";
+import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "../../../apps/ide-editor/src/examples.js";
 import { PNG_GROUND, pixelOf } from "../support/png.js";
 import {
   LIGHT,

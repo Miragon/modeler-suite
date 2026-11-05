@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseDocumentJSON } from "@miragon/value-chain-schema-model";
-import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT, withExampleInserted } from "../src/examples.js";
+import {
+  EMPTY_DOCUMENT,
+  EXAMPLE_DOCUMENT,
+  withExampleInserted,
+} from "value-chain-ide-editor/examples";
 
 describe("examples", () => {
   it("ships canonical texts: the Porter example and an empty diagram", () => {

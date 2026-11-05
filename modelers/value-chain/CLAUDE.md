@@ -13,13 +13,15 @@ adds what is special to value chains. Run its scripts from the repository root a
 
 ## Packages
 
-| Package                             | Purpose                                                          | DOM |
-| ----------------------------------- | ---------------------------------------------------------------- | --- |
-| `@miragon/value-chain-schema-model` | Metamodel, Zod validation, migrations, stable JSON serialization | no  |
-| `@miragon/value-chain-renderer`     | diagram-js bootstrap, renderer, modeler, import/export, CSS      | yes |
-| `apps/webapp`                       | Vite editor app on the shell's web host                          | yes |
-| `apps/vscode`                       | VS Code extension: `*.vc`/`*.vc.json` custom editor (esbuild)    | yes |
-| `e2e`                               | Playwright: the webapp and the VS Code webview (shell kit, both) | yes |
+| Package                             | Purpose                                                            | DOM |
+| ----------------------------------- | ------------------------------------------------------------------ | --- |
+| `@miragon/value-chain-schema-model` | Metamodel, Zod validation, migrations, stable JSON serialization   | no  |
+| `@miragon/value-chain-renderer`     | diagram-js bootstrap, renderer, modeler, import/export, CSS        | yes |
+| `apps/webapp`                       | Vite editor app on the shell's web host                            | yes |
+| `apps/ide-editor`                   | The diagram's IDE editor, mounted by `apps/vscode` and `apps/orca` | yes |
+| `apps/vscode`                       | VS Code extension: `*.vc`/`*.vc.json` custom editor (esbuild)      | yes |
+| `apps/orca`                         | Orca plugin: the same editor as an Orca custom editor              | yes |
+| `e2e`                               | Playwright: the webapp and the VS Code webview (shell kit, both)   | yes |
 
 **DOM boundary (P1):** `schema-model` must never import diagram-js/DOM libraries
 (`tiny-svg`, `min-dom`) or use `window`/`document`. Enforced twice: ESLint
@@ -231,6 +233,11 @@ missing at its other places; the verdict stays the same).
   `--env NAME` for the host's value, a variable set in front of `npm` does not reach the
   container. **From an agent, run this one, never `test:vscode` on macOS**: its VS Code window
   takes the user's focus (see [`CONTRIBUTING.md`](CONTRIBUTING.md#vs-code-smoke-test))
+- `npm run value-chain build:orca`: the Orca plugin into `apps/orca/plugin/` (the editor definition
+  the VS Code webview mounts too, `apps/ide-editor/src/editor.ts`, on `orcaEditorHost`, see
+  [`apps/orca/README.md`](apps/orca/README.md)) ·
+  `npm run value-chain test:orca:docker`: the plugin in a real Orca in a Linux container
+  (`modeler-shell-orca-docker`); the e2e project `orca-editor` runs it in the shell's Orca stub
 - `npm run check:build -w modelers/value-chain/apps/webapp`: after `build:webapp`, checks the head
   markup and the licence comments the production bundle must carry
 - `npm run value-chain lint`: ESLint + typecheck · `npm run value-chain depcruise`: module-graph
@@ -283,8 +290,8 @@ passed on the VSIX it uploads) is in the suite's
   shows the same sentence as a warning notification. A rejection shows the app's own sentence
   ("Couldn't export the diagram as PNG. Try again, or export it as SVG."), never `error.message`.
   The web app lets the shell read the page's Geist faces; the webview cannot fetch its font files
-  (no `connect-src`), so `webview/geist.ts` hands the shell all five Geist subsets as
-  `data:` URLs, which the `?dataurl` esbuild plugin of `esbuild.config.mjs` (and the Vite plugin
+  (no `connect-src`), so `apps/ide-editor/src/geist.ts` hands the shell all five Geist subsets as
+  `data:` URLs, which the `?dataurl` esbuild plugin of `apps/ide-editor/esbuild.mjs` (and the Vite plugin
   of `e2e/webview/vite.config.ts`) inlines. The e2e suites read the corner pixel of the PNG.
 - Both apps connect the shell with `connectDiagramJs(shell, diagram, { modeler, isEmpty })`: the
   shell fits to the contract instance's `contentBounds()`, `isEmpty` is the cheap

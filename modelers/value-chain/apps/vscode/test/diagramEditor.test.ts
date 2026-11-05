@@ -7,7 +7,7 @@ import {
   openDiagram,
   resetApplyEdit,
 } from "./fakes";
-import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "../src/examples.js";
+import { EMPTY_DOCUMENT, EXAMPLE_DOCUMENT } from "value-chain-ide-editor/examples";
 
 /**
  * The diagram editor on the shell's document plumbing, from the extension host's side: graphical
