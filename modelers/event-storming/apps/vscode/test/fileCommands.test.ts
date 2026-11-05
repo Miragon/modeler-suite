@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { revealFileLabel } from "@miragon/modeler-shell/vscode/extension";
 import { BOARD_VIEW_TYPE } from "../src/boardEditorOptions.js";
-import { EMPTY_BOARD, EXAMPLE_BOARD } from "../src/examples.js";
+import { EMPTY_BOARD, EXAMPLE_BOARD } from "event-storming-ide-editor/examples";
 import { Uri, vscodeMock, window, workspace } from "./__mocks__/vscode";
 import { fakeDocument, newProvider, openBoard, resetApplyEdit } from "./fakes";
 

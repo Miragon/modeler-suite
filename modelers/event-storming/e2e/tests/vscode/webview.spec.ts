@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ICONS, type ShellIconName } from "@miragon/modeler-shell";
-import { EMPTY_BOARD, withExampleInserted } from "../../../apps/vscode/src/examples.js";
+import { EMPTY_BOARD, withExampleInserted } from "../../../apps/ide-editor/src/examples.js";
 import {
   ANNOTATED_BOARD,
   delayGeist,

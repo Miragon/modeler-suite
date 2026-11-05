@@ -19,7 +19,7 @@
     "build:webapp": "npm run build -w apps/webapp",
     "build:vscode": "npm run build -w apps/vscode",
     "package:vscode": "npm run package -w apps/vscode",
-    "typecheck": "tsc -p tsconfig.json && tsc -p apps/webapp/tsconfig.config.json && npm run typecheck -w apps/vscode && npm run typecheck -w e2e",
+    "typecheck": "tsc -p tsconfig.json && tsc -p apps/webapp/tsconfig.config.json && npm run typecheck -w apps/ide-editor && npm run typecheck -w apps/vscode && npm run typecheck -w e2e",
     "lint": "eslint . && npm run typecheck",
     "format": "prettier --write . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",
     "format:check": "prettier --check . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",

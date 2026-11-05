@@ -14,7 +14,7 @@ import type {
   VsCodeHostStub,
   VsCodeWebviewStub,
 } from "@miragon/modeler-shell/testing/vscode-stub";
-import { EXAMPLE_BOARD } from "../../../../apps/vscode/src/examples.js";
+import { EXAMPLE_BOARD } from "../../../../apps/ide-editor/src/examples.js";
 import { EVENT_STORMING_THEMES } from "../../../../packages/renderer/src/theme/themes.js";
 
 /*

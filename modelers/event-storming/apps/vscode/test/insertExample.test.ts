@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { vscodeMock } from "./__mocks__/vscode";
-import { EMPTY_BOARD, withExampleInserted } from "../src/examples.js";
+import { EMPTY_BOARD, withExampleInserted } from "event-storming-ide-editor/examples";
 import { fakeDocument, installEchoingApplyEdit, openBoard, resetApplyEdit } from "./fakes";
 
 beforeEach(() => vscodeMock.reset());

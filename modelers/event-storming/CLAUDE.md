@@ -18,14 +18,15 @@ links them to the local workspace because the local version satisfies the pin); 
 to exact pins are the consumer-shared runtime libs declared as ranged `peerDependencies` (see
 Conventions).
 
-| Package                                | Purpose                                                                                    | DOM |
-| -------------------------------------- | ------------------------------------------------------------------------------------------ | --- |
-| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, timeline sort, JSON serialization, vocabulary, aggregates | no  |
-| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                                            | no  |
-| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms (move, …)                        | no  |
-| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export, CSS                                 | yes |
-| `apps/webapp`                          | Vite demo editor                                                                           | yes |
-| `apps/vscode`                          | VS Code extension: custom editor for `.storm`                                              | yes |
+| Package                                | Purpose                                                                                            | DOM |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------- | --- |
+| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, timeline sort, JSON serialization, vocabulary, aggregates         | no  |
+| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                                                    | no  |
+| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms (move, …)                                | no  |
+| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export, CSS                                         | yes |
+| `apps/webapp`                          | Vite demo editor                                                                                   | yes |
+| `apps/ide-editor`                      | The board's IDE editor (`IdeEditorDefinition`), mounted by `apps/vscode` and later the Orca plugin | yes |
+| `apps/vscode`                          | VS Code extension: custom editor for `.storm`                                                      | yes |
 
 **P1, the DOM boundary:** the DOM-free packages (`schema-model`, `dsl`, `transforms`) must **never**
 import `diagram-js`/DOM libraries (`tiny-svg`, `min-dom`) or use the DOM (`window`/`document`).
@@ -225,8 +226,10 @@ Text on a fill the user sets (`(color …)`, any CSS colour) is black or white, 
 more ([`draw/contrast.ts`](packages/renderer/src/draw/contrast.ts), guide §10.6). The DSL's
 `style dark` stays in the board config for the round-trip, but nothing renders it (guide §10.7).
 
-**Chrome = `@miragon/modeler-shell`, in both apps.** The VS Code webview
-([`apps/vscode/src/webview/main.ts`](apps/vscode/src/webview/main.ts)) mounts the shared Miragon
+**Chrome = `@miragon/modeler-shell`, in both apps.** The VS Code webview mounts the board's IDE
+editor ([`apps/ide-editor/src/editor.ts`](apps/ide-editor/src/editor.ts), an
+`IdeEditorDefinition` of `@miragon/modeler-shell/ide`) on `vsCodeEditorHost()`
+([`main.ts`](apps/vscode/src/webview/main.ts)), with the shared Miragon
 modeler chrome on the `ide` host (menu, palette skin, chrome tooltip, zoom panel and keys, fit,
 problems pill, status box, empty-file hint, theme bridge, key interception); the extension host
 runs on the shell's document plumbing (below). The web app
@@ -285,19 +288,20 @@ the theme bridge, sync, echo suppression, minimal line edits, undo through the d
 example", the problems pill, Show in Problems view), handing it `withExampleInserted`, the
 `BoardDiagnostics` of [`diagnostics.ts`](apps/vscode/src/diagnostics.ts) (the parser's findings as
 warnings, so the pill counts no errors; a board's entry lives only while its board editor is open)
-and the export; the webview's half is `connectDocumentSync`, whose `exportText` is the contract's
-`exportText()`. An edit VS Code refuses (a read-only file) brings the document's text back to the
+and the export; the webview's half is `connectDocumentSync` inside `vsCodeEditorHost`, whose
+`exportText` is the contract's `exportText()`. An edit VS Code refuses (a read-only file) brings the document's text back to the
 canvas. The options that need no `vscode` live in
 [`boardEditorOptions.ts`](apps/vscode/src/boardEditorOptions.ts), which the e2e page also
 registers against the shell's host stub (`?host`, `e2e/tests/vscode/document-sync.spec.ts`).
 **PNG export** is `svgToPng` of `@miragon/modeler-shell/export` in both apps (`boardToPng` in
-`apps/webapp/src/io.ts` and `apps/vscode/src/webview/io.ts`): 2× on `COLORS.paper` (#F9F7F7,
+`apps/webapp/src/io.ts`, `boardPng` in `apps/ide-editor/src/io.ts`, whose Blob the host
+encodes): 2× on `COLORS.paper` (#F9F7F7,
 `hell['--cd-ui-grund']` as guide §10.7 names it for a notation without a plot; both apps' unit
 tests pin it to the vendored tokens), the 4× variant on `"transparent"`, Geist inside the picture.
 The web app lets the shell read the page's own faces and warns with a toast when Geist could not be
 embedded ("Exported … in a system font."); the webview cannot fetch (its CSP has no `connect-src`),
-so [`geist-faces.ts`](apps/vscode/src/webview/geist-faces.ts) passes all five Geist subsets as
-`data:` URLs, which the `?dataurl` plugin of [`esbuild.config.mjs`](apps/vscode/esbuild.config.mjs)
+so [`geist-faces.ts`](apps/ide-editor/src/geist-faces.ts) passes all five Geist subsets as
+`data:` URLs, which the `?dataurl` plugin of [`esbuild.mjs`](apps/ide-editor/esbuild.mjs)
 inlines (the e2e webview page has the same plugin in its Vite config, and
 `scripts/third-party-notices.mjs` builds from the config's `host` and `web` options). A fallback
 travels to the extension host as `fontFallback` on the `export` message, and the host warns in a
@@ -314,5 +318,6 @@ colours [`packages/renderer/src/draw/styles.ts`](packages/renderer/src/draw/styl
 chrome [`packages/renderer/src/assets/event-storming.css`](packages/renderer/src/assets/event-storming.css)
 · board menu and shortcut groups
 [`packages/renderer/src/board-menu/`](packages/renderer/src/board-menu/) · web app
-[`apps/webapp/src/main.ts`](apps/webapp/src/main.ts) · VS Code webview
+[`apps/webapp/src/main.ts`](apps/webapp/src/main.ts) · IDE editor
+[`apps/ide-editor/src/`](apps/ide-editor/src/) · VS Code webview
 [`apps/vscode/src/webview/`](apps/vscode/src/webview/).

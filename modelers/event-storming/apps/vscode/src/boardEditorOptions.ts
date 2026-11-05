@@ -1,5 +1,5 @@
 import type { ModelerEditorOptions } from "@miragon/modeler-shell/vscode/extension";
-import { withExampleInserted } from "./examples.js";
+import { withExampleInserted } from "event-storming-ide-editor/examples";
 // The renderer's DOM-free module, not its entry: the extension host bundle runs in Node.
 import { EVENT_STORMING_THEMES } from "../../../packages/renderer/src/theme/themes.js";
 
