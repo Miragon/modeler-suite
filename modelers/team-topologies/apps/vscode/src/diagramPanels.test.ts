@@ -25,7 +25,7 @@ const {
 const { registerDiagramEditor } = await import("./diagramEditor.js");
 const { DIAGRAM_VIEW_TYPE } = await import("./diagramEditorOptions.js");
 const { DiagramPanels } = await import("./diagramPanels.js");
-const { EXAMPLE_MAP } = await import("./examples.js");
+const { EXAMPLE_MAP } = await import("team-topologies-ide-editor/examples");
 
 /**
  * The commands as `activate` registers them: the text diagrams on the shell's document plumbing,

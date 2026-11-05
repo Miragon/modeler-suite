@@ -123,7 +123,7 @@ const { activate } = await import("./extension.js");
 const { exportImage } = await import("./exportImage.js");
 const { PNG_VIEW_TYPE } = await import("./commands.js");
 const { DIAGRAM_VIEW_TYPE } = await import("./diagramEditorOptions.js");
-const { EMPTY_MAP, EXAMPLE_MAP } = await import("./examples.js");
+const { EMPTY_MAP, EXAMPLE_MAP } = await import("team-topologies-ide-editor/examples");
 
 const PNG_BASE64 = Buffer.from("png bytes").toString("base64");
 

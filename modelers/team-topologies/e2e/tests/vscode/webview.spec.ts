@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { EXAMPLE_MAP } from "../../../apps/vscode/src/examples.js";
+import { EXAMPLE_MAP } from "../../../apps/ide-editor/src/examples.js";
 import {
   WIDE,
   exportedDocument,

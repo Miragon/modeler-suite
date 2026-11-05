@@ -12,8 +12,8 @@ import cyrillic from "@fontsource-variable/geist/files/geist-cyrillic-wght-norma
 import vietnamese from "@fontsource-variable/geist/files/geist-vietnamese-wght-normal.woff2?dataurl";
 import latinExt from "@fontsource-variable/geist/files/geist-latin-ext-wght-normal.woff2?dataurl";
 import latin from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?dataurl";
-import tokens from "../../../../packages/renderer/src/theme/cd-tokens.generated.json";
-import { EMBED_KEYWORD, encodeDoc, pngInsertText } from "../png.js";
+import tokens from "../../../packages/renderer/src/theme/cd-tokens.generated.json";
+import { EMBED_KEYWORD, encodeDoc, pngInsertText } from "./png.js";
 
 /** The webview's CSP has no `connect-src`, so the faces travel inline instead of being fetched. */
 const GEIST_FACES: readonly GeistFace[] = [

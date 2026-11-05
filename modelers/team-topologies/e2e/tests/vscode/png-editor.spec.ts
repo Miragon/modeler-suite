@@ -1,12 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { parseDocument } from "@miragon/team-topologies-schema-model";
-import { EXAMPLE_MAP } from "../../../apps/vscode/src/examples.js";
-import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/vscode/src/png.js";
+import { EXAMPLE_MAP } from "../../../apps/ide-editor/src/examples.js";
+import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/ide-editor/src/png.js";
 import {
   pngChunks,
   textChunksWith,
   textWith,
-} from "../../../apps/vscode/src/pngChunks.test-support.js";
+} from "../../../apps/ide-editor/src/pngChunks.test-support.js";
 import {
   openWebview,
   postFromHost,

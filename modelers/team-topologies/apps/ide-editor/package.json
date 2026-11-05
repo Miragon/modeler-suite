@@ -1,0 +1,28 @@
+{
+  "name": "team-topologies-ide-editor",
+  "version": "0.17.1",
+  "private": true,
+  "description": "The Team Topologies editor that the VS Code extension and the Orca plugin both mount.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/editor.ts",
+    "./examples": "./src/examples.ts",
+    "./zod-jitless": "./src/zod-jitless.ts",
+    "./io": "./src/io.ts",
+    "./png": "./src/png.ts",
+    "./esbuild": "./esbuild.mjs",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "5.3.0",
+    "@miragon/modeler-shell": "0.10.0",
+    "@miragon/team-topologies-renderer": "0.17.1",
+    "@miragon/team-topologies-schema-model": "0.17.1",
+    "@miragon/team-topologies-ui": "0.17.1",
+    "zod": "4.6.7"
+  }
+}
