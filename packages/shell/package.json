@@ -135,6 +135,16 @@
         "default": "./dist/testing-vscode-electron.cjs"
       }
     },
+    "./testing/orca-electron": {
+      "import": {
+        "types": "./dist/testing-orca-electron.d.ts",
+        "default": "./dist/testing-orca-electron.js"
+      },
+      "require": {
+        "types": "./dist/testing-orca-electron.d.cts",
+        "default": "./dist/testing-orca-electron.cjs"
+      }
+    },
     "./testing/webview-bundle": {
       "import": {
         "types": "./dist/testing-webview-bundle.d.ts",
@@ -196,6 +206,9 @@
       "testing/vscode-electron": [
         "./dist/testing-vscode-electron.d.ts"
       ],
+      "testing/orca-electron": [
+        "./dist/testing-orca-electron.d.ts"
+      ],
       "testing/webview-bundle": [
         "./dist/testing-webview-bundle.d.ts"
       ],
@@ -205,7 +218,8 @@
     }
   },
   "bin": {
-    "modeler-shell-vscode-docker": "./dist/vscode-docker.js"
+    "modeler-shell-vscode-docker": "./dist/vscode-docker.js",
+    "modeler-shell-orca-docker": "./dist/orca-docker.js"
   },
   "files": [
     "dist",

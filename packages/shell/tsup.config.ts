@@ -15,6 +15,7 @@ export default defineConfig([
       "testing-vscode-stub": "src/testing-vscode-stub.ts",
       "testing-orca-stub": "src/testing-orca-stub.ts",
       "testing-vscode-electron": "src/testing-vscode-electron.ts",
+      "testing-orca-electron": "src/testing-orca-electron.ts",
       "testing-webview-bundle": "src/testing-webview-bundle.ts",
       "testing-orca-editor-bundle": "src/testing-orca-editor-bundle.ts",
     },
@@ -28,6 +29,7 @@ export default defineConfig([
       "**/*",
       "!shell.css",
       "!vscode-docker.js*",
+      "!orca-docker.js*",
       "!testing-vscode-stub-script.global.js*",
       "!testing-orca-stub-script.global.js*",
     ],
@@ -50,7 +52,10 @@ export default defineConfig([
   },
   {
     // the bin: one self-contained ESM file, its shebang kept by esbuild
-    entry: { "vscode-docker": "src/testing/vscode-electron/docker-cli.ts" },
+    entry: {
+      "vscode-docker": "src/testing/vscode-electron/docker-cli.ts",
+      "orca-docker": "src/testing/orca-electron/docker-cli.ts",
+    },
     format: ["esm"],
     platform: "node",
     sourcemap: true,

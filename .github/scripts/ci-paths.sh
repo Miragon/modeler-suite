@@ -4,6 +4,7 @@
 #                                      repository-level tests and the new-modeler template a change
 #                                      reaches
 #   ci-paths.sh vscode-smoke <modeler> whether the change can reach that modeler's packaged extension
+#   ci-paths.sh orca-smoke <modeler>   whether the change can reach that modeler's Orca plugin
 #   ci-paths.sh modelers               every modeler (for the weekly smoke)
 # Each writes key=value lines to $GITHUB_OUTPUT. The event comes from EVENT_NAME and the base commit
 # from PULL_REQUEST_BASE_SHA, PUSH_BEFORE_SHA or MERGE_GROUP_BASE_SHA. Whenever there is nothing to
@@ -224,12 +225,48 @@ vscode_smoke() {
   fi
 }
 
+# The Orca plugin bundles the VS Code webview's editor definition, so it reaches what the VSIX
+# reaches, plus its own app.
+reaches_orca_plugin() {
+  local path=$1 modeler=$2
+  case "$path" in
+    .github/workflows/orca-smoke.yml | .github/workflows/orca-smoke-weekly.yml) ;;
+    "modelers/$modeler/apps/orca/"*) ;;
+    *) reaches_extension "$path" "$modeler" ;;
+  esac
+}
+
+orca_smoke() {
+  local modeler=$1 changed path relevant=""
+  if [[ ! -f "modelers/$modeler/apps/orca/orca-plugin.json" ]]; then
+    echo "modelers/$modeler has no Orca plugin: the smoke is skipped."
+    output run false
+    return
+  fi
+  changed=$(mktemp)
+  if ! changed_paths "$changed"; then
+    output run true
+    return
+  fi
+  while IFS= read -r -d '' path; do
+    if reaches_orca_plugin "$path" "$modeler"; then relevant+=" $path"; fi
+  done < "$changed"
+  if [[ -n "$relevant" ]]; then
+    echo "Paths the $modeler Orca plugin depends on changed, the smoke runs:$relevant"
+    output run true
+  else
+    echo "No path the $modeler Orca plugin depends on changed: the smoke is skipped."
+    output run false
+  fi
+}
+
 case "${1:-}" in
   affected) affected ;;
+  orca-smoke) orca_smoke "${2:?usage: ci-paths.sh orca-smoke <modeler>}" ;;
   vscode-smoke) vscode_smoke "${2:?usage: ci-paths.sh vscode-smoke <modeler>}" ;;
   modelers) output all-modelers "$(lines_to_json "$(all_modelers)")" ;;
   *)
-    echo "usage: ci-paths.sh affected | vscode-smoke <modeler> | modelers" >&2
+    echo "usage: ci-paths.sh affected | vscode-smoke <modeler> | orca-smoke <modeler> | modelers" >&2
     exit 2
     ;;
 esac

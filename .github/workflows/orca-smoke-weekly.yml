@@ -1,0 +1,66 @@
+name: Orca smoke weekly
+
+# A new Orca release can break a plugin without any change here, and GitHub tells only the
+# last editor of the cron line about a failed scheduled run, so a failure opens a tracking issue.
+on:
+  schedule:
+    - cron: "53 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  modelers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      all: ${{ steps.list.outputs.all-modelers }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: list
+        run: .github/scripts/ci-paths.sh modelers
+
+  orca-smoke:
+    name: orca-smoke (${{ matrix.modeler }})
+    needs: modelers
+    strategy:
+      fail-fast: false
+      matrix:
+        modeler: ${{ fromJSON(needs.modelers.outputs.all) }}
+    uses: ./.github/workflows/orca-smoke.yml
+    with:
+      modeler: ${{ matrix.modeler }}
+
+  alert:
+    needs: [modelers, orca-smoke]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Here and not in orca-smoke.yml: GitHub rejects a called workflow whose jobs ask for more
+    # permissions than the caller grants, even for a job that would be skipped, and CI grants only
+    # contents: read.
+    permissions:
+      issues: write
+    steps:
+      - name: Open the tracking issue or comment on it
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: "Orca smoke: the weekly run failed"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          number=$(gh issue list --state open --limit 500 --json number,title \
+            --jq 'map(select(.title == env.TITLE)) | first | .number // empty')
+          if [[ -n "$number" ]]; then
+            gh issue comment "$number" --body "The weekly run failed again: $RUN_URL"
+            echo "Commented on #$number"
+          else
+            body=$(printf '%s\n\n%s\n\n%s' \
+              "The weekly Orca smoke failed: $RUN_URL" \
+              "It runs every modeler's Orca plugin in the newest Orca release and in the oldest one its engines.orca accepts; the run's jobs name the modeler that failed. Its artifacts hold the screenshots of each step and the plugin's log." \
+              "Close this issue once the smoke passes again; the next failure opens a new one.")
+            gh issue create --title "$TITLE" --body "$body"
+          fi
