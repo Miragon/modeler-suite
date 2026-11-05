@@ -242,25 +242,37 @@ jobs:
         env:
           OVSX_PAT: ${{ secrets.OVSX_PUBLISH }}
 
-  # Every package and extension the suite releases, packed and smoke-tested as a release would,
-  # without releasing or publishing anything.
+  # Each job that names an environment waits for its own approval when it starts, and the matrix of
+  # publish-orca starts its plugins one after another. This one job waits once, next to the npm and
+  # VS Code jobs, so one "Review deployments" approves all three environments.
+  orca-approval:
+    name: Orca approval
+    needs: release-please
+    if: needs.release-please.outputs.orca != '' && needs.release-please.outputs.orca != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: orca
+    permissions: {}
+    steps:
+      - run: echo "Approved the Orca plugins of this release"
+
   # An Orca plugin goes into the output repository miragon/orca-modelers, whose catalog Orca reads:
   # built and smoke-tested here in a real Orca, then published by that repository's action with the
-  # release-please app's token. The concurrency group runs publishes one at a time, also those of
-  # other source repositories (Miragon/bpmn-modeler).
+  # release-please app's token. The matrix publishes one plugin at a time; a concurrency group would
+  # cancel all but one pending plugin. A publish from another source repository
+  # (Miragon/bpmn-modeler) is not serialized here, as concurrency groups are per repository: the
+  # action starts over when miragon/orca-modelers' main moved.
   publish-orca:
     name: Orca (${{ matrix.plugin.id }})
-    needs: release-please
+    needs: [release-please, orca-approval]
     if: needs.release-please.outputs.orca != '' && needs.release-please.outputs.orca != '[]'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    concurrency:
-      group: orca-modelers-publish
-      cancel-in-progress: false
     permissions:
       contents: read
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         plugin: ${{ fromJSON(needs.release-please.outputs.orca) }}
     env:
@@ -321,6 +333,8 @@ jobs:
           source-tag: ${{ matrix.plugin.tag }}
           changelog: ${{ steps.changelog.outputs.text }}
 
+  # Every package and extension the suite releases, packed and smoke-tested as a release would,
+  # without releasing or publishing anything.
   dry-run-plan:
     if: github.event_name == 'workflow_dispatch' && inputs.dry_run
     runs-on: ubuntu-latest
