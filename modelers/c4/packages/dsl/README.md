@@ -4,16 +4,12 @@
 [![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/modelers/c4/LICENSE)
 
 Read and edit Structurizr DSL workspaces losslessly, without the DOM: the text part of the
-[C4 Modeler](../../README.md). It parses a workspace (a `workspace.dsl`, or the C4 Modeler's own
-`.c4` file, which holds the same DSL) into a syntax tree that holds every byte, builds the
-[C4 model](https://c4model.com) it defines with diagnostics, and applies edits
-that change only the statements they touch, checked before they are handed back. Whatever the
-package does not interpret (deployment environments, dynamic and deployment views, `!docs`,
-`!adrs`, scripts, comments, the formatting) stays byte for byte.
-
-Its only dependency is [`@miragon/c4-schema-model`](../schema-model), which describes the model it
-builds. It runs in a browser, in Node and in a VS Code extension host, where the C4 Modeler
-parses for the Problems view and for Go to View.
+[C4 Modeler](../../README.md). It parses a workspace (`workspace.dsl`, or the modeler's `.c4`) into
+a syntax tree that holds every byte, builds the [C4 model](https://c4model.com) with diagnostics,
+and applies verified edits that change only the statements they touch. What it does not interpret
+(deployment environments, dynamic and deployment views, `!docs`, `!adrs`, scripts, comments,
+formatting) stays byte for byte. Its only dependency is [`@miragon/c4-schema-model`](../schema-model);
+it runs in a browser, Node and a VS Code extension host.
 
 Compatible with Structurizr DSL; the reference is Structurizr 6.2.4. Structurizr is a product of
 Structurizr Limited; this project is not affiliated with or endorsed by Structurizr Limited.
@@ -37,19 +33,18 @@ document.diagnostics; // { severity, code, message, line, column, rejects, eleme
 printCst(document.cst) === text; // always: the syntax tree holds every byte
 ```
 
-The lexer follows the reference parser's rules (line continuations, text blocks, comments, BOM,
-CRLF, tabs). The builder resolves identifiers (flat and hierarchical), archetypes, groups, `!element`
-and `!relationship` re-opens, constants, implied relationships and every view's key, and reports
-what it cannot follow as diagnostics instead of failing:
+The lexer follows the reference parser (line continuations, text blocks, comments, BOM, CRLF,
+tabs). The builder resolves identifiers (flat and hierarchical), archetypes, groups, `!element` and
+`!relationship` re-opens, constants, implied relationships and view keys, and reports what it
+cannot follow as diagnostics:
 
-- A text rejects (`ok: false`) only where its structure is ambiguous: unbalanced blocks or an
-  unterminated `/*` or `"""`, not exactly one `workspace` block, a second `model` or `views`, a
-  duplicate identifier, a duplicate view key, an element keyword where the context does not allow
-  it.
-- What Structurizr refuses but a reader can still show (an unresolved reference, a duplicate name,
-  a relationship Structurizr would not accept) is an error that does not reject (`rejects: false`).
-- `!include`, `!script` and `!plugin` are kept and not run; the workspace is then marked
-  `openWorld`. `!elements` and `!relationships` are kept and not evaluated.
+- It rejects (`ok: false`) only ambiguous structure: unbalanced blocks, an unterminated `/*` or
+  `"""`, not exactly one `workspace`, a second `model` or `views`, a duplicate identifier or view
+  key, an element keyword in the wrong context.
+- What Structurizr refuses but a reader can still show (unresolved reference, duplicate name,
+  invalid relationship) is an error with `rejects: false`.
+- `!include`, `!script` and `!plugin` are kept, not run (the workspace is marked `openWorld`);
+  `!elements` and `!relationships` are kept, not evaluated.
 
 ## Edit
 
@@ -82,18 +77,13 @@ if (outcome.ok) {
 ```
 
 `applyEdit` is pure and never throws. A `C4Edit` creates, updates or deletes elements and
-relationships, moves a relationship's end from a system to one of its containers (or a container
-to a component), renames an identifier everywhere, moves and resizes (`setLayout`), removes from or
-includes in a view, creates, retitles and deletes views, clears a view's layout, edits the
-workspace's name and description, applies the C4 colours, and puts an example into a blank text or
-an empty workspace (no element, no view, no style but the C4 colours; `insertExample`, refused
-anywhere else). Each edit writes its statements
-where a person would (after the elements of their kind, inside the right parent, opening a
-one-line element into a block when it needs one), and before it returns it parses the result and
-checks it: the text still parses, no new error appeared, nothing changed but what the edit asked
-for (a semantic digest of the result against the expected one), no other element's identifier
-moved, and the created or deleted things are there or gone. An edit that fails a check is refused
-with a reason and a message, and the text stays as it was.
+relationships, moves a relationship's end to a child, renames an identifier everywhere, moves and
+resizes (`setLayout`), removes from or includes in a view, creates, retitles and deletes views,
+clears a view's layout, edits the workspace's name and description, applies the C4 colours, and
+inserts an example into a blank or empty workspace (`insertExample`). Statements go where a person
+would write them. Before returning, it reparses and checks the result: no new error, nothing changed
+but what was asked (semantic digest), no other identifier moved, created or deleted things are
+there or gone. A failed check is refused with a reason and a message.
 
 Other exports:
 
@@ -101,10 +91,9 @@ Other exports:
 - `planSmartDelete(document, view, ids, relationships)` splits a deletion into what goes from the
   model (shown in no other view) and what goes from the view only; `deleteImpact` counts what a
   deletion from the model reaches (descendants, views, dynamic steps, deployment instances).
-- `newWorkspaceText()` is an empty workspace with the C4 colours as tag styles, the block
-  `applyC4Colours` writes, so that edit changes nothing on it (the first edit of a blank text
-  starts from it too); `NEW_VIEW_AUTO_LAYOUT` (`"tb 300 160"`) is the `autoLayout` the edits write
-  into the views they create, so Structurizr lays them out itself.
+- `newWorkspaceText()` is an empty workspace with the C4 colours as tag styles (what
+  `applyC4Colours` writes, so it changes nothing there); `NEW_VIEW_AUTO_LAYOUT` (`"tb 300 160"`) is
+  the `autoLayout` new views get.
 - `parseCst` and `printCst` give the lossless syntax tree on its own.
 
 ## Layout in the file
@@ -116,23 +105,17 @@ afterwards; edits of names, descriptions or technologies write no position.
 
 ## Tests against Structurizr
 
-The package's tests run on the test fixtures of the Structurizr DSL reference parser (Apache-2.0,
-vendored unchanged with their licence) and compare the model and every view's members with what
-Structurizr 6.2.4 makes of them, recorded by a script that runs the reference parser. Every golden
-result of the edit tests, and 200 results of seeded random edits, are recorded as accepted by
-Structurizr 6.2.4 as well. How to run those scripts (Java, not in CI) is in
+The tests compare the model and every view's members with what Structurizr 6.2.4 makes of its
+vendored DSL test fixtures (Apache-2.0, unchanged), and record every edit golden and 200 seeded
+random edits as accepted by it. The Java scripts (not in CI) are described in
 [`test/README.md`](test/README.md).
 
 ## Development
 
 Part of the [C4 Modeler](../../README.md) in the
-[Miragon modeler suite](https://github.com/Miragon/modeler-suite). From the suite's root:
-
-```bash
-npm run build -w @miragon/c4-dsl   # tsup to dist/ (the renderer's and the apps' tests read it)
-npm run c4 test                    # Vitest unit tests of the modeler (build the packages first)
-npm run c4 lint                    # ESLint and the type checks
-```
+[Miragon modeler suite](https://github.com/Miragon/modeler-suite). Build with
+`npm run build -w @miragon/c4-dsl` (the renderer's and the apps' tests read `dist`); test and lint with `npm run c4 test` and
+`npm run c4 lint` from the suite's root.
 
 ## License
 

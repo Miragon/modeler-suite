@@ -168,11 +168,11 @@ describe("breakingChangeReport", () => {
   });
 });
 
-describe("CONTRIBUTING.md", () => {
+describe("docs/ci-and-releases.md", () => {
   it("shows a BEGIN_COMMIT_OVERRIDE block like the one #129 needed, and it keeps both breaking changes", () => {
-    // the suite's CONTRIBUTING.md holds the example now, indented inside a list item
+    // the suite's release docs hold the example
     const contributing = readFileSync(
-      new URL("../../../../CONTRIBUTING.md", import.meta.url),
+      new URL("../../../../docs/ci-and-releases.md", import.meta.url),
       "utf8",
     );
     const indented = contributing.match(

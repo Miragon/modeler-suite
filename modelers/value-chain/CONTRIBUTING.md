@@ -1,138 +1,77 @@
 # Contributing to the Value Chain Modeler
 
-Thanks for contributing to the Value Chain Modeler! It lives in `modelers/value-chain` of the
-Miragon modeler suite: setup, the scripts, the pre-commit hook, the commit and pull-request
-conventions and how to report an issue are in the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md),
-CI, Dependabot and releases in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). This file
-adds what is special to this modeler. AI agents: start with [`CLAUDE.md`](CLAUDE.md).
+The modeler lives in `modelers/value-chain` of the Miragon modeler suite. Setup, scripts, the
+pre-commit hook, tests in general, commits and pull requests are in the suite's
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md), CI and releases in
+[docs/ci-and-releases.md](../../docs/ci-and-releases.md). This file adds what is special to this
+modeler. AI agents: start with [`CLAUDE.md`](CLAUDE.md).
+
+## Packages
+
+| Package                                                                | Purpose                                                          | DOM |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------- | --- |
+| [`@miragon/value-chain-schema-model`](packages/schema-model/README.md) | Metamodel, Zod validation, migrations, stable JSON serialization | no  |
+| [`@miragon/value-chain-renderer`](packages/renderer/README.md)         | diagram-js viewer/modeler, chevron renderer, import/export, CSS  | yes |
+| `apps/webapp`                                                          | Vite editor app on the shell's web host                          | yes |
+| [`apps/vscode`](apps/vscode/README.md)                                 | VS Code extension: custom editor for `*.vc` / `*.vc.json`        | yes |
+| `e2e`                                                                  | Playwright: the web app and the VS Code webview                  | yes |
+
+The renderer implements [`@miragon/modeler-api`](../../packages/api/README.md); both apps run in
+[`@miragon/modeler-shell`](../../packages/shell/README.md). `npm run value-chain dev:webapp` serves
+the editor at http://localhost:5181. Debug the extension with the "Run Value Chain VS Code
+extension" launch configuration.
 
 ## Inner loop
 
-From the repository root (or with `npm run <script>` inside `modelers/value-chain`):
-
 ```bash
 npm run build:shared          # once, and after changing packages/api or packages/shell
-npm run value-chain build     # builds packages/* (workspace deps resolve to dist: build before testing)
-npm run value-chain test      # vitest run
-npm run value-chain lint      # eslint . + type-check (what the pre-commit hook runs for this modeler)
+npm run value-chain build     # tests resolve the workspace packages from dist
+npm run value-chain test
+npm run value-chain lint      # what the pre-commit hook runs
 ```
 
-Extras: `npm run value-chain dev:webapp` (editor at http://localhost:5181),
-`npm run value-chain dev:vscode` (extension watch build), `npm run value-chain depcruise`
-(module-graph rules), `npm run value-chain format`.
+`schema-model` is DOM-free (P1, enforced by ESLint and dependency-cruiser); its JSON serialization
+stays deterministic (sorted ids and keys, 3-decimal rounding).
 
-## Browser & e2e tests
+## Browser and e2e tests
 
-- `npm run value-chain test:browser`: renderer integration tests in real Chromium (Vitest browser
-  mode; jsdom lacks `getBBox`), the `@miragon/modeler-api` conformance kit included.
-- `npm run value-chain test:e2e`: Playwright tests in `e2e/`, three projects. The first two start
-  a dev server each: `webapp` (the web app, `E2E_PORT`, default 5181; it runs the
-  `@miragon/modeler-shell` conformance kit on the web host and the app's own chrome handlers) and
-  `vscode-webview` (the VS Code webview from source inside the shell's VS Code stub,
-  `E2E_WEBVIEW_PORT`, default 5191; it runs the kit on the IDE host, whose `csp` case walks the
-  production bundle behind the webview CSP). With `?host` its test page runs the extension's
-  document plumbing too (`registerModelerEditor` with `DIAGRAM_EDITOR_OPTIONS`) against the shell's
-  stand-in for VS Code's documents, so `document-sync.spec.ts` edits the canvas and reads the
-  document, and changes or undoes the document and reads the canvas. `webapp-webkit` runs two
-  specs of the web app in Safari's engine, on the `webapp` server. `webapp-share.spec.ts` checks
-  that Share calls `clipboard.write` while the click is dispatched, with a ClipboardItem whose
-  value is a promise (Safari drops the user activation at the first `await`; Playwright's WebKit
-  allows a write at any time, so the spec records the call), and confirms with the success toast;
-  it does not read the clipboard back. `webapp-focus-hand-back.spec.ts` checks that Cmd/Ctrl+Z
-  and C (the connect tool) act on the canvas at once after a click on zoom in, zoom out or Share,
-  and that Enter on Share leaves the focus on the button. After the menu's dialog closes it checks
-  that the focus is on the menu trigger and that the keys act once a click on the canvas has given
-  it the focus back. Both run in `webapp` too. Safari gives a clicked button no focus, while
-  Chromium and Playwright's WebKit on Linux (as in CI) focus it, so the focus spec takes the focus
-  off a clicked button as Safari does (`tests/support/safari.ts`). One project:
-  `npm run test:e2e -w modelers/value-chain/e2e -- --project=vscode-webview`, only the tests whose
-  title matches: `-- --grep "<title>"`; the alias `npm run value-chain` cannot pass Playwright's
-  flags on (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)). Set both ports
-  when another checkout
-  already serves the defaults.
+`test:browser` runs the renderer in Chromium with the `@miragon/modeler-api` conformance kit.
+`test:e2e` has three Playwright projects:
 
-`test:browser` needs Chromium, `test:e2e` Chromium and WebKit: locally run
-`npx playwright install chromium webkit` once. Bump `playwright` (the suite's root
-`package.json`), `@playwright/test` (`e2e/package.json`) and `playwright-core`
-(`apps/vscode/package.json`) together: `pin-check` fails when they disagree.
+- `webapp` (`E2E_PORT`, default 5181): the shell's conformance kit on the web host and the app's
+  own chrome handlers.
+- `vscode-webview` (`E2E_WEBVIEW_PORT`, default 5191): the kit on the IDE host, `csp` against the
+  production bundle. With `?host` the page also runs the extension's document plumbing
+  (`registerModelerEditor` with `DIAGRAM_EDITOR_OPTIONS`), which `document-sync.spec.ts` uses to
+  sync canvas and document both ways.
+- `webapp-webkit`: `webapp-share.spec.ts` (Share calls `clipboard.write` with a promised
+  ClipboardItem inside the click, as Safari requires) and `webapp-focus-hand-back.spec.ts` (canvas
+  keys act right after clicks on zoom or Share, and after the menu dialog closes). The focus spec
+  blurs clicked buttons as Safari does (`tests/support/safari.ts`).
+
+Run `npx playwright install chromium webkit` once. Keep `playwright` (root), `@playwright/test`
+(`e2e`) and `playwright-core` (`apps/vscode`) on one version: `pin-check` fails otherwise.
 
 ## VS Code smoke test
 
-`npm run value-chain test:vscode` packages the extension as the release does (`vsce package
---no-dependencies`, which runs `vscode:prepublish`), unpacks the VSIX and starts it in a real
-VS Code through `runVsCodeSmoke` of `@miragon/modeler-shell/testing/vscode-electron` (how it works
-for every modeler is in the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#tests)). It opens
-`example/porter.vc.json` in the diagram editor, checks the chrome, creates a step from the
-palette, saves (the file must pass `parseDocumentJSON`), undoes, and switches through VS Code's
-four default themes with a screenshot each in `test-results/vscode-smoke/` (gitignored). It is
-not part of `npm test`: it needs a display and downloads VS Code. It runs on the unpacked VSIX,
-not on `apps/vscode`, because only there a module the bundle requires but does not contain fails
-as it does for users. With `VSCODE_SMOKE_VSIX` set to a `.vsix` file it tests that file instead of
-packing one; the release does so with the VSIX it is about to publish. With `VSCODE_SMOKE_KEEP=1`
-it keeps VS Code's profile and prints where, so VS Code's logs of a failed run can be read (in
-Docker, `--env VSCODE_SMOKE_KEEP=1` brings them back into `test-results/vscode-smoke/vscode-logs/`,
-see below).
-
-- **Locally, without a window:** `npm run value-chain test:vscode:docker` runs the same test in a
-  Linux container under `xvfb-run -a`, through `modeler-shell-vscode-docker` of
-  `@miragon/modeler-shell`, so no VS Code window opens and nothing takes the focus. It needs Docker
-  and no build. Variables go in only with `--env`, given to the modeler's workspace by its name,
-  since the alias `npm run value-chain` takes every flag for npm's own (see the suite's
-  [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)), as in
-  `npm run test:vscode:docker -w @miragon/value-chain-modeler-workspace -- --env VSCODE_VERSION=1.96.0`;
-  `--env` without a value passes on the value set on the host:
-  `VSCODE_VERSION=1.96.0 npm run test:vscode:docker -w @miragon/value-chain-modeler-workspace -- --env VSCODE_VERSION`.
-  A variable set in front of `npm` alone stays on the host: the test then runs the newest VS Code
-  and passes without a warning. The log shows the container's paths (`/work/…`) and, as Vitest
-  finds no AI agent there, the whole log of a passing test, so the command needs no reporter flag
-  (it rejects `--reporter=default` as an unknown option).
-- **macOS, with the window:** `npm run value-chain test:vscode` (no build needed, the extension
-  bundles the packages from source; `unzip` comes with macOS). A VS Code window opens and takes the
-  focus; once VS Code is downloaded a run takes about half a minute. `VSCODE_VERSION=1.96.0` tests
-  another VS Code release, such as the `engines.vscode` floor; without it the newest stable release
-  runs. Run from an AI agent, give the workspace `--reporter=default`, since the alias passes no
-  flag on: `npm run test:vscode -w @miragon/value-chain-modeler-workspace -- --reporter=default`.
-  Vitest's agent reporter hides the log of a passing test, VS Code's version and the timings
-  included.
-- **Linux:** VS Code needs an X server, `xvfb-run -a npm run value-chain test:vscode`.
-
-The test runs once, without a retry. Since `@miragon/modeler-shell` 0.3.2 the save step waits until
-the editor tab is clean and two reads of the file agree before it parses the saved text, so it no
-longer sees the file VS Code has emptied but not yet written; a save that writes broken JSON fails.
-Since 0.4.1 the driver writes a theme again, or switches through another theme and back, when VS
-Code kept the previous one, all within one timeout; a theme that still fails names the theme
-requested and the one VS Code shows.
+How it works for every modeler, with its variables and the Docker runner, is in the suite's
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md#tests). Here it opens `example/porter.vc.json`, checks
+the chrome, creates a step from the palette, saves (the file must pass `parseDocumentJSON`),
+undoes and switches through the four default themes. Locally run
+`npm run value-chain test:vscode:docker`; flags go to the workspace, e.g.
+`npm run test:vscode:docker -w @miragon/value-chain-modeler-workspace -- --env VSCODE_VERSION=1.96.0`.
 
 ## Design tokens
 
-`packages/renderer/src/theme/` vendors `cd-tokens.generated.css`, `cd-tokens.generated.json` and
-`cd-canvas.css` from the `miragon-brand:modeler-tool-design` skill (Miragon/corporate-identity)
-unchanged. To update, copy the three files again, put the vendoring header (with the new design
-system version) back on top of the two CSS files, and update the release and its sha256 values in
-`theme.sync.test.ts` (the CSS files hashed without the header); never edit
-their values. When a dependency of the VS Code extension changes, run
-`npm run notices -w modelers/value-chain/apps/vscode` and commit `THIRD_PARTY_NOTICES.md`.
-
-## Monorepo map & the DOM boundary (P1)
-
-| Package                             | Purpose                                                          | DOM |
-| ----------------------------------- | ---------------------------------------------------------------- | --- |
-| `@miragon/value-chain-schema-model` | Metamodel, Zod validation, migrations, stable JSON serialization | no  |
-| `@miragon/value-chain-renderer`     | diagram-js viewer/modeler, chevron renderer, import/export, CSS  | yes |
-| `apps/webapp`                       | Vite editor app on the shell's web host                          | yes |
-| `apps/vscode`                       | VS Code extension: custom editor for `*.vc` / `*.vc.json`        | yes |
-| `e2e`                               | Playwright: the webapp and the VS Code webview                   | yes |
-
-`schema-model` must never import diagram-js/`tiny-svg`/`min-dom` or use `window`/`document`,
-enforced by both ESLint and dependency-cruiser. JSON serialization must stay deterministic
-(sorted ids, sorted keys, 3-decimal rounding).
+To update the vendored files in `packages/renderer/src/theme/`, copy the three files again, put the
+vendoring header (with the new design-system version) back on both CSS files and update the
+release and sha256 values in `theme.sync.test.ts` (hashed without the header). When a dependency of
+the VS Code extension changes, run `npm run notices -w modelers/value-chain/apps/vscode` and commit
+`THIRD_PARTY_NOTICES.md`.
 
 ## Pull requests
 
-Keep PRs small and focused. Local gates before opening one: `npm run value-chain lint`,
-`npm run value-chain test`, `npm run value-chain depcruise`, `npm run value-chain build`, for a
-web app change `npm run value-chain build:webapp` with
-`npm run check:build -w modelers/value-chain/apps/webapp`, and for an extension change
-`npm run value-chain test:vscode:docker` (or `npm run value-chain test:vscode`). Commit scope
-`value-chain`, e.g. `feat(value-chain): add a milestone element`. For value-chain domain work, use
-the skill in [`.claude/skills/value-chain-modeling/`](.claude/skills/value-chain-modeling/).
+Gates: `lint`, `test`, `depcruise`, `build`; for a web app change also `build:webapp` and
+`npm run check:build -w modelers/value-chain/apps/webapp`; for an extension change
+`test:vscode:docker`. Scope `value-chain`, e.g. `feat(value-chain): add a milestone element`. For
+domain work use the skill in [`.claude/skills/value-chain-modeling/`](.claude/skills/value-chain-modeling/).

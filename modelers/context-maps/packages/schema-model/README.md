@@ -7,34 +7,15 @@ The **DOM-free core** of the [Context Maps Modeler](../../README.md): the data m
 specification, runtime validation, version migrations and deterministic JSON serialization for
 strategic Domain-Driven Design [Context Maps](https://contextmapper.org/) diagrams.
 
-This package has **no view, no DOM and no diagram-js**: it is plain TypeScript that runs anywhere
-(browser, Node, an edge function, a CLI). The browser renderer
-([`@miragon/context-maps-renderer`](../renderer)), the web app and the VS Code extension all build
-on top of it. The DOM-freedom is enforced in CI (ESLint `no-restricted-imports` /
-`no-restricted-globals` **and** `dependency-cruiser`), so a stray `diagram-js`/`window`/`document`
-reference fails the build.
+It is plain TypeScript with no DOM and no diagram-js, so it runs in the browser, Node, an edge
+function or a CLI. The renderer ([`@miragon/context-maps-renderer`](../renderer)), the web app and
+the VS Code extension build on it.
 
 ## Install
 
 ```bash
 npm install @miragon/context-maps-schema-model
 ```
-
-## What's inside
-
-- **The notation spec:** the three subdomain types and five context-mapping relationship patterns,
-  with their colours and stroke styles as plain data you can read and render against.
-- **The document model:** a small, stable shape (`CmDocument`) with `version`, `title`, `contexts`
-  and `relationships`.
-- **Runtime validation:** Zod schemas + `parseDocument()` for structural checks, plus
-  `validateDocument()` for the thirteen strategic-DDD semantic rules, for everything that comes from a
-  file, a URL or `localStorage`.
-- **Forward migrations:** `parseDocument()` migrates older documents up to the current version
-  before validating, keyed by the document `version`.
-- **Deterministic serialization:** sorted, rounded and version-stamped output, so `.cm.json` files
-  diff cleanly and share URLs stay stable.
-- **Factories & a sample:** helpers that create well-formed elements and documents, plus a complete
-  example context map.
 
 ## The document format
 
@@ -76,9 +57,8 @@ A diagram is a single JSON object: a set of **bounded contexts** (boxes) and the
 
 ## Notation
 
-The single source of truth for the visual notation. Bounded contexts are boxes coloured by subdomain
-type; relationships are lines styled per context-mapping pattern. Every relationship is distinguished
-by stroke **and** colour, so diagrams survive colour-vision deficiency and greyscale printing.
+The visual notation as data. Every relationship differs by stroke **and** colour, so diagrams
+survive colour-vision deficiency and greyscale printing.
 
 ### Subdomain types: `SUBDOMAIN_TYPE_SPECS`
 
@@ -103,9 +83,8 @@ The **integration roles** that decorate the ends of asymmetric relationships com
 (ACL = Anticorruption Layer, CF = Conformist), with per-marker colours in `MARK_COLORS`. The
 renderer writes black or white on each role chip, whichever has more contrast.
 
-The values are tuned for contrast on the canvas: every text 4.5:1 on what it sits on, every box
-outline and relationship line 3:1 on the canvas ground. A document never stores them, only a
-context's own `fill` / `stroke`, so a tuned value changes no document.
+The values are tuned for text 4.5:1 and lines 3:1. A document stores only a context's own `fill` /
+`stroke`, never these values.
 
 ## Usage
 
@@ -179,28 +158,17 @@ console.log(SAMPLE_DOCUMENT.title);
 - **Foreign keys:** a key the model does not know (a vendor extension, a field of a newer modeler)
   on the document, a context or a relationship is kept as it is and written back after the known
   keys of its object, sorted by name. Opening and saving a file never drops content.
-- **Migrations:** `parseDocument()` normalises older/foreign documents before validating (keyed by
-  `version`). `1` is the first version, so this mainly coerces loosely-shaped input (e.g. a
-  hand-written file) into the expected `{ contexts, relationships }` container. A document of a
-  newer `version` is rejected rather than rewritten as version 1, and so is a coordinate or size
-  beyond `MAX_COORDINATE` and a context or relationship id the canvas cannot draw: one it keeps for
-  itself (`cm-root`, `__implicitroot…`), the name of a built-in object property (`constructor`,
-  `toString`, `__proto__`, …; `isReservedId()` and `reservedIdProblem()` name both), and an id an
-  earlier context or relationship already uses. So is a document whose objects and arrays nest more
-  than `MAX_NESTING_DEPTH` (100) levels deep, the document itself being the first, with an issue
-  at the first level too deep of each branch, the first 100 of them: the serializer overflows the
-  stack a few thousand levels down, so the canvas would open such a file and fail to save it. Each
-  issue carries the path of the offending value (`["contexts", 2, "id"]` for a repeated id: the
-  repeat, not the first use). "Earlier" follows the file, so a hand-written file that lists its
-  relationships first gets the repeat on the copy it writes second. Repeated ids and nesting are reported in the same round as
-  every other issue, in document order, so fixing the others never brings up one of them as a new
-  error.
+- **Validation and migrations:** `parseDocument()` migrates older documents by `version` and
+  coerces loosely shaped input, then validates. It rejects a newer `version`, a coordinate or size
+  beyond `MAX_COORDINATE`, an id the canvas reserves or a built-in object property name
+  (`isReservedId()`, `reservedIdProblem()`), a repeated id, and nesting deeper than
+  `MAX_NESTING_DEPTH`. All issues come in one round, in document order, each with the path of the
+  offending value (e.g. `["contexts", 2, "id"]` for the repeat). `validateDocument()` adds the
+  thirteen semantic rules.
 
 ## Development
 
-This package is part of the [Context Maps Modeler](../../README.md) in the
-[Miragon modeler suite](https://github.com/Miragon/modeler-suite) and is normally consumed from
-source. From the suite's root:
+From the root of the [Miragon modeler suite](https://github.com/Miragon/modeler-suite):
 
 ```bash
 npm run build -w @miragon/context-maps-schema-model   # tsup → dist/ (publish build)

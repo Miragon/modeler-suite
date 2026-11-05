@@ -26,9 +26,7 @@ const text = serializeDSL(map); // back to OWM text, losslessly
 
 ### Line breaks in names
 
-The text is one statement per line, so a line break in a name, in a note's text, in an
-annotation's text or in the new name of an `evolve` line is written as a literal `\n`, and read
-back as a line break:
+A line break in a name, a note, an annotation or an `evolve` rename is written as a literal `\n`:
 
 ```ts
 const map = parseDSL(`title Portal
@@ -39,17 +37,15 @@ Customer\\nPortal -> Ledger`);
 map.elements[0].label; // "Customer\nPortal"
 ```
 
-Links, `evolve` lines and pipeline blocks refer to the name with its `\n`, and names are unique
-with their breaks (`Customer\nPortal` and `Customer Portal` are two names). Breaks at the start or
-the end of a name are dropped without a diagnostic, like the spaces there; a name of nothing but
-breaks gets the type's default name, with a diagnostic. A real backslash followed by `n`
-(`C:\new`) reads as a line break too. Other OWM tools may show the `\n` as text.
+References use the name with its `\n`, and `Customer\nPortal` differs from `Customer Portal`.
+Leading and trailing breaks are dropped; a name of only breaks gets the type's default name, with a
+diagnostic. A real backslash before `n` (`C:\new`) also reads as a break. Other OWM tools may show
+`\n` as text.
 
 ### Writing edits back into hand-written text
 
-`serializeDSL` writes the canonical form: statements grouped by kind, comments and unknown lines at
-the end, numbers like `0.80` as `0.8`. Where the text file is the source of truth (an editor, a
-file under Git), write an edited map back with `patchDSL` instead:
+`serializeDSL` writes the canonical form (statements grouped by kind, comments and unknown lines
+last, `0.80` as `0.8`). Where the text is the source of truth, write edits back with `patchDSL`:
 
 ```ts
 import { parseDSL, patchDSL } from "@miragon/wardley-dsl";
@@ -59,23 +55,18 @@ const map = parseDSL(fileText);
 const newText = patchDSL(fileText, editedMap);
 ```
 
-`patchDSL(originalText, map)` keeps every line the edit did not touch exactly as written (comments,
-blank lines, line order, number formatting, unknown lines, CRLF or LF line breaks and the final line
-break). It rewrites changed statements in place, deletes removed ones together with their links and
-evolve lines, rewrites every line that references a renamed element and inserts new statements after
-the last statement of the same kind. Elements are matched to the source by id, then by name, so the
-element order and ids of `map` do not matter.
-
-The result always reads back as the same map as `serializeDSL(map)`. When an edit cannot be patched
-safely into the source layout, `patchDSL` falls back to the canonical `serializeDSL(map)` text (in
-the source's line break style). It never throws.
+`patchDSL(originalText, map)` keeps every untouched line exactly as written (comments, blank lines,
+order, number formatting, unknown lines, line endings). It rewrites changed statements in place,
+deletes removed ones with their links and evolve lines, updates references to renamed elements and
+inserts new statements after the last one of their kind. Elements are matched by id, then by name.
+The result always reads back as `serializeDSL(map)` would; when an edit cannot be patched safely it
+falls back to that canonical text. It never throws.
 
 ### Ids in the document
 
-The OWM DSL writes no ids: the parser derives them from names (`cmp_cup_of_tea`), note texts and
-annotation numbers, with a `_2` suffix for a repeat in line order. An editor that creates or renames
-an element holds an id the text does not give it until the text is read again. `readBackIds(map)`
-tells, by the ids of `map`, which id each element carries once `serializeDSL(map)` is read back:
+The DSL writes no ids: the parser derives them from names (`cmp_cup_of_tea`), with `_2` for a
+repeat. `readBackIds(map)` tells which id each element of `map` gets once `serializeDSL(map)` is read
+back:
 
 ```ts
 import { readBackIds } from "@miragon/wardley-dsl";
@@ -85,12 +76,9 @@ readBackIds(editedMap).get("shape_42"); // 'cmp_hot_water'
 
 ### Where the link addresses stand
 
-An element links through a definition, `url Payment [details/payment.wmap]` with `url(Payment)` on
-the element line. `locateUrlAddresses(text)` lists every definition in source order (the unused and
-replaced ones too, none from a comment) with its address, its 1-based `line` and the `start` and
-`end` offsets of the address in that line, without the spaces inside the brackets. An editor that
-checks the links of a map, or follows a moved map, replaces just that range and keeps every other
-character of the file:
+`locateUrlAddresses(text)` lists every `url Name [address]` definition (none from comments) with its
+address, 1-based `line` and the `start` / `end` offsets of the address, so an editor can replace just
+that range:
 
 ```ts
 import { locateUrlAddresses } from "@miragon/wardley-dsl";

@@ -162,6 +162,53 @@ Every other changelog stays in its package.
   drift test ([`test/release-config.test.ts`](../test/release-config.test.ts)) fails when one is
   missing or stale.
 
+### `BEGIN_COMMIT_OVERRIDE`
+
+The PR body becomes the squash commit's body, but GitHub appends a `Co-authored-by:` block after it
+whenever a commit has a co-author, so a `Release-As:` footer at the end of the body is no footer
+any more. release-please also takes **one** breaking note per commit message. To set a version, or
+to contribute more than one changelog entry or breaking change, end the PR body with an override
+block:
+
+- one conventional-commit message per changelog entry, separated by blank lines; the first is the
+  pull request's title with its number;
+- every breaking change in a message of its own, its `BREAKING CHANGE:` text starting on the
+  footer's own line;
+- no `!` in a header inside the block (it starts no new message, and the footer before it is lost);
+- the markers nowhere else in the body: release-please reads from the first `BEGIN_COMMIT_OVERRIDE`
+  on. A `Release-As:` footer inside the block is honoured.
+
+```text
+BEGIN_COMMIT_OVERRIDE
+feat(team-topologies): explain the notation in the legend and implement modeler-api 1.2 (#129)
+
+BREAKING CHANGE: parseDocument and documentIdProblems refuse ids that
+name a built-in property of JavaScript objects (constructor, toString,
+__proto__, hasOwnProperty, valueOf, ...).
+
+feat(team-topologies): refuse an interaction without position or size from version 2 on
+
+BREAKING CHANGE: parseDocument refuses a version 2 or 3 document with
+an interaction that has no position or size instead of dropping that
+interaction.
+END_COMMIT_OVERRIDE
+```
+
+release-please reads the merged pull request's body on every run, so a block can be added or fixed
+after the merge, until the release pull request is merged.
+`npm run team-topologies check:release-notes -- <number>` runs release-please's parser on a pull
+request and names every breaking change that would be lost.
+
+### Deprecations
+
+Every new `@deprecated` gets an issue that names its target version as a number, as
+[#184](https://github.com/Miragon/modeler-suite/issues/184) does: the release that removes it, or
+the package's first breaking release ([#183](https://github.com/Miragon/modeler-suite/issues/183)).
+"The next minor" is no target: [#88](https://github.com/Miragon/modeler-suite/issues/88) and
+[#161](https://github.com/Miragon/modeler-suite/issues/161) named it, and the minor shipped without
+the removal both times. The pull request that adds the deprecation files the issue, with the
+modeler's label (`modeler: wardley`, …).
+
 ### The imported history
 
 The modelers came with their full history, whose `feat` and `fix` commits must not reach the new
@@ -194,6 +241,23 @@ every extension at or below a released component's path):
 
 Started by hand with `dry_run`, the workflow releases nothing: it packs every npm package
 (`npm publish --dry-run`) and packs and smoke-tests every extension.
+
+### The first release of a new npm package
+
+Trusted publishing can only be bound to a package that already exists, so the first `npm publish`
+of a new name fails with E404. This is how `@miragon/modeler-api@1.0.0` was bootstrapped:
+
+1. Merge the package's first release PR as usual. The tag is created, the publish job fails.
+2. A maintainer with publish rights to `@miragon` publishes that version once from a clean
+   checkout of the tag: `npm ci && npm run build -w <path> && npm publish -w <path>`, in a terminal
+   (npm aborts the web 2FA with EOTP in a non-interactive shell).
+3. Bind the trusted publisher:
+   `npm trust github @miragon/<name> --repo Miragon/modeler-suite --file release-please.yml --env npm --allow-publish`.
+4. Re-run the failed publish job. It skips with "already published"; later releases publish
+   without a token.
+
+Packages published before the suite existed were bound for their old repository and need the
+binding of step 3 for `Miragon/modeler-suite` before their first release from here.
 
 ## Web apps on Netlify
 

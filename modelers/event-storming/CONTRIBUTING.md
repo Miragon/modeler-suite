@@ -1,43 +1,34 @@
 # Contributing to the Event Storming Modeler
 
-Thanks for helping improve the Event Storming Modeler. It lives in `modelers/event-storming` of the
-Miragon modeler suite: setup, the scripts, the pre-commit hook, the commit and pull-request
-conventions and how to report an issue are in the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md),
-CI and releases in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). This file adds what is
-special to this modeler. Agent-oriented notes live in [`CLAUDE.md`](CLAUDE.md).
+This modeler lives in `modelers/event-storming` of the Miragon modeler suite. Setup, scripts, the
+pre-commit hook, commit conventions, the DOM boundary and CI are in the suite's
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md), [`CLAUDE.md`](../../CLAUDE.md) and
+[docs/ci-and-releases.md](../../docs/ci-and-releases.md). This file adds what is special here;
+agent notes are in [`CLAUDE.md`](CLAUDE.md).
 
 ## Inner loop
 
-From the repository root (or with `npm run <script>` inside `modelers/event-storming`):
-
 ```bash
 npm run build:shared              # once, and after changing packages/api or packages/shell
-npm run event-storming build      # builds packages/* (workspace deps resolve to dist: build before testing)
-npm run event-storming test       # vitest run
-npm run event-storming lint       # eslint . + type-check (what the pre-commit hook runs for this modeler)
+npm run event-storming build      # unit tests resolve the packages from dist: build first
+npm run event-storming test
+npm run event-storming lint       # what the pre-commit hook runs
+npm run event-storming depcruise
 ```
 
-Useful extras: `npm run event-storming dev:webapp`, `npm run event-storming dev:vscode`,
-`npm run event-storming depcruise` (module-graph check), `npm run event-storming format`
-(Prettier).
+`dev:webapp` serves the web app through Portless at `https://<branch>.event-storming.localhost`
+(worktree) or `https://event-storming.localhost` (config
+[`apps/webapp/portless.json`](apps/webapp/portless.json), setup in the suite's
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md#dev-servers)); `dev:webapp:plain` runs Vite on `:5180`.
 
-`npm run event-storming dev:webapp` (and `npm run event-storming dev`) serves the webapp through
-Portless at `https://<branch>.event-storming.localhost` in a linked worktree and
-`https://event-storming.localhost` in the main checkout (config
-[`apps/webapp/portless.json`](apps/webapp/portless.json):
-`{ "name": "event-storming", "script": "dev:app" }`; the one-time Portless setup is in the suite's
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md#dev-servers)). `npm run event-storming dev:webapp:plain`
-runs Vite directly on `:5180` and needs none of it.
+`npm run check:build -w modelers/event-storming/apps/webapp` (after `build:webapp`, as CI does)
+checks the mode markup in `dist/index.html` and the shell's Lucide licence comment in the bundle.
 
 ## Browser & e2e tests
 
-`npm run event-storming test:browser` (Vitest browser mode, incl. the `@miragon/modeler-api`
-conformance kit for the collaborative modeler and viewer) needs a Chromium browser, and
-`npm run event-storming test:e2e` (Playwright, in `e2e/`) needs Chromium and WebKit
-(`npx playwright install chromium webkit`, once).
-
-`npm run event-storming test:e2e` runs three Playwright projects. The first two each start their
-own Vite dev server, built from the package sources (no build needed):
+`test:browser` runs the renderer in Chromium, including the `@miragon/modeler-api` conformance kit.
+`test:e2e` (Playwright, `e2e/`) needs `npx playwright install chromium webkit` once; its servers
+build from source:
 
 | Project          | Serves                                                               | Port (env)                |
 | ---------------- | -------------------------------------------------------------------- | ------------------------- |
@@ -45,175 +36,65 @@ own Vite dev server, built from the package sources (no build needed):
 | `vscode-webview` | the VS Code webview inside the shell's VS Code stub (`e2e/webview/`) | 5190 (`E2E_WEBVIEW_PORT`) |
 | `webapp-webkit`  | the web app in Safari's engine, on the `webapp` server               | 5180 (`E2E_PORT`)         |
 
-The first two run `@miragon/modeler-shell`'s conformance kit: `vscode-webview` on the `ide` host
-(geometry, the legend's start state, ARIA, keys, the focus hand-back after a pointer click on
-chrome, keyboard creation, a sticky's label editor that the shell's zoom, fit and refit leave open
-and uncommitted, the read-only lock of an invalid file, appearance, reduced motion, forced colours,
-the canvas's overlay layers, the shell's shortcuts dialog with the board's own groups, the
-production bundle behind the webview CSP, cleanup), `webapp` on
-the `web` host (the same but the production bundle, plus the focus after a File action, primary
-action, legal line, start screen, toasts, problems list and drop zone). The harnesses declare what
-Event Storming lacks `absent`
-(the legend and the inspector; in the web app also the invalid-file state and a problem row that
-selects an element, since its problems name lines, never elements; in the webview a menu action
-that hands the focus to the canvas, since its Model group holds only toggles and dialog entries:
-the Level radios, the Type captions checkbox and "Aggregates…"), and any skip fails the suite. Both harnesses list `documents`: the empty board
-(in the web app after "New diagram"; in the webview also a file of zero bytes), on which the kit
-checks the empty file and runs appearance too. With `?host` the webview page also runs the
-extension's document plumbing (`registerModelerEditor` with `BOARD_EDITOR_OPTIONS`) against the
-shell's stand-in for VS Code's documents, so `vscode/document-sync.spec.ts` moves a sticky and
-reads the document (one line changed, no echo imported, nothing posted on a save), changes, undoes
-and redoes the document and reads the canvas, inserts the example as one edit and one undo step,
-and has a read-only document refuse an edit, which takes the canvas back. Next to the kit run the
-webview's protocol and chrome specs and the web app's own (`webapp-chrome.spec.ts`: share link, the fit to what the board
-draws, replace with undo, open, drop, exports, app keys, Delete after a click on + or a palette
-entry, Escape after Enter on the Draw entry, Enter on the Lasso entry or a creating entry ending a
-drawing, and Escape and Enter for the menu, the shortcuts dialog and the zoom panel while a line is
-drawn). Both hosts also check the two apps' own wiring of the shell's dialog and PNG export: the
-Help entry opens the shell's shortcuts dialog from the menu and by keyboard and the focus returns
-to the menu trigger; an exported PNG has the corner pixel of guide §10.7 (#F9F7F7, transparent for
-the 4× variant, which has twice the pixels), the SVG the browser drew carries Geist as `data:`
-faces, a PNG without Geist is saved with a warning (the web app's toast, the webview's
-`fontFallback` flag) and a PNG the browser cannot draw is refused in the app's own words, in the
-webview also a failed SVG or JSON export. Both
-hosts run the vocabulary specs (`webapp-vocabulary.spec.ts`,
-`vscode/vocabulary.spec.ts`): the label editor's suggestions with their keys, mouse and layer, the
-spelling-variant dots and "Unify spelling" as one undo step, in VS Code one edit of the document
-and dots that stay while the file is typed and hide only once it has stayed invalid for 800ms.
-Both run the aggregates specs (`webapp-aggregates.spec.ts`, `vscode/aggregates.spec.ts`):
-"Aggregates…" only while the board has a named aggregate (in the web app also absent while every
-aggregate carries a placeholder, until one is renamed), the shell's dialog with a row group per
-aggregate, a name by click, double click or Enter that closes it, selects and reveals its stickies
-and hands the focus to the canvas without an undo step or a change of the board (in VS Code no
-edit, also on the read-only canvas of an invalid file), and Escape back to the menu trigger. The
-web app's spec also checks the focus ring in high contrast and forced colours; the VS Code spec an
-update from the host that redraws the open dialog, and one that takes the last aggregate, after
-which the focus stays in the dialog on the sentence that says so.
+- `webapp` and `vscode-webview` run the `@miragon/modeler-shell` conformance kit on the `web` and
+  `ide` hosts. The harnesses declare what Event Storming lacks as `absent` (legend, inspector; in
+  the web app the invalid-file state and element problem rows; in the webview a menu action that
+  focuses the canvas, since the Model group holds only toggles and dialogs). Any skip fails. Both
+  list the empty board as a `document`.
+- With `?host` the webview page also runs `registerModelerEditor` with `BOARD_EDITOR_OPTIONS`, so
+  `vscode/document-sync.spec.ts` checks edits, undo and redo in both directions, the example insert
+  as one edit and a read-only document.
+- App specs: `webapp-chrome.spec.ts` (share, fit, replace with undo, open, drop, exports, app keys,
+  keys while a line is drawn), PNG export (corner pixel `#F9F7F7` of guide §10.7, Geist embedded,
+  font fallback warning), the vocabulary specs (label suggestions, spelling dots, "Unify spelling")
+  and the aggregates specs ("Aggregates…" dialog) on both hosts.
+- `webapp-webkit` runs `webapp-share.spec.ts` (Share calls `clipboard.write` during the click with a
+  promise-valued ClipboardItem, as Safari needs) and `webapp-focus-hand-back.spec.ts` (keys act on
+  the canvas after a click on zoom or Share; clicked buttons lose the focus as in Safari,
+  `e2e/tests/support/safari.ts`).
 
-`webapp-webkit` runs two specs only, which run in `webapp` too. `webapp-share.spec.ts` checks that
-Share calls `clipboard.write` while the click is dispatched, with a ClipboardItem whose value is a
-promise (Safari drops the user activation at the first `await`; Playwright's WebKit allows a write
-at any time, so the spec records the call), and confirms with the success toast; it does not read
-the clipboard back. `webapp-focus-hand-back.spec.ts` checks that Cmd/Ctrl+Z and C act on the
-canvas at once after a click on zoom in, zoom out or Share, and that Enter on Share leaves the
-focus on the button. After the shortcuts dialog closes it checks that the focus is on the menu
-trigger and that the keys act once a click on the canvas has given it the focus back. Safari gives
-a clicked button no focus, while Chromium and Playwright's WebKit on Linux (as in CI) focus it, so
-the focus spec takes the focus off a clicked button as Safari does (`e2e/tests/support/safari.ts`).
-
-Run one project with
-`npm run test:e2e -w modelers/event-storming/e2e -- --project=vscode-webview`, and only the tests
-whose title matches with `-- --grep "<title>"`; the alias `npm run event-storming` cannot pass
-Playwright's flags on (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)).
-Locally an already running server on a port is reused, so pick free ports
-(`E2E_PORT=5387 E2E_WEBVIEW_PORT=5397 npm run event-storming test:e2e`) when another app occupies
-5180 or 5190.
+Pass Playwright flags to the workspace:
+`npm run test:e2e -w modelers/event-storming/e2e -- --project=vscode-webview --grep "<title>"`.
+A running server on a port is reused, so pick free ports when needed:
+`E2E_PORT=5387 E2E_WEBVIEW_PORT=5397 npm run event-storming test:e2e`.
 
 ## VS Code smoke test
 
-The e2e project `vscode-webview` runs the webview in a stand-in for VS Code.
-`npm run event-storming test:vscode` starts the real one with the **packaged** extension, through
-the `@miragon/modeler-shell` driver `runVsCodeSmoke`
-([`apps/vscode/test-smoke/`](apps/vscode/test-smoke/), the Vitest project `vscode`, so `npm test`
-stays fast); how it works for every modeler, locally and in Docker, is in the suite's
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md#tests). Here it:
-
-1. packs the extension as the release does (`vsce package --no-dependencies`, which runs
-   `vscode:prepublish`, the production build into `apps/vscode/dist`) and unpacks the VSIX into the
-   OS temp directory, so VS Code loads exactly what ships and a module missing from the bundle is
-   not found in a `node_modules` of the repository;
-2. opens the fixture [`smoke.storm`](apps/vscode/test-smoke/smoke.storm) in the custom editor and
-   checks the shell's menu, palette and zoom;
-3. adds a sticky with Enter on the first creating palette entry, saves with the platform's save key
-   (the file on disk changes and `parseDSLWithDiagnostics` accepts it with one sticky more), undoes
-   (canvas and, saved again, the file are back to the fixture's exact text);
-4. switches through VS Code's four default themes (Light Modern, Dark Modern, High Contrast, High
-   Contrast Light); the webview has to stay light, with the high-contrast mark in the last two, and
-   each theme gets a screenshot in `test-results/vscode-smoke/` (gitignored), e.g.
-   `event-storming-dark.png`.
-
-No build is needed to run it: the parser check takes the package sources, as the extension's
-bundle does.
+`npm run event-storming test:vscode:docker` runs [`apps/vscode/test-smoke/`](apps/vscode/test-smoke/)
+with the **packaged** extension in a real VS Code in a container (how it works for every modeler:
+the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#tests)). It opens
+[`smoke.storm`](apps/vscode/test-smoke/smoke.storm), checks menu, palette and zoom, adds a sticky
+with Enter on the first palette entry, saves (the file parses with one sticky more), undoes (the
+file is back to the fixture), and screenshots the four default themes (the webview stays light)
+into `test-results/vscode-smoke/`, e.g. `event-storming-dark.png`. No build is needed first; the
+packing writes the production build into `apps/vscode/dist`.
 
 ```bash
-# in Docker, no window: the local way
-npm run event-storming test:vscode:docker
-# the engines.vscode floor, or another
 npm run test:vscode:docker -w @miragon/event-storming-modeler-workspace -- --env VSCODE_VERSION=1.96.0
-# VS Code's logs in vscode-logs/
 npm run test:vscode:docker -w @miragon/event-storming-modeler-workspace -- --env VSCODE_SMOKE_KEEP=1
-# on the host, with a window
-npm run event-storming test:vscode
 ```
 
-The `--env` flags go to the modeler's workspace by its name: the alias `npm run event-storming`
-would take them for npm's own, and the path `modelers/event-storming` would select the workspaces
-beneath it too (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)).
+A failure names its step (`open: …`, `save: …`); a failed open leaves
+`event-storming-open-failure.png` and quotes the webview's own errors. `VSCODE_SMOKE_KEEP=1`
+brings VS Code's logs back in `vscode-logs/`. The test is not retried. Never run the host variant
+`test:vscode` on a Mac: its window takes the focus.
 
-On the host, `unzip` must be on the `PATH` (it is on macOS and Ubuntu); a VS Code window opens for
-about half a minute and takes the focus, so leave it alone until it closes.
-
-Either way the log names each step, then the VS Code version, the timings and every theme with its
-screenshot; a failure names its step (`open: …`, `save: …`), and a failed open leaves
-`event-storming-open-failure.png` with VS Code's error from the extension host. An exception or a
-`console.error` inside the webview is in none of VS Code's logs: the failed open quotes them itself,
-with their stacks, and a webview that throws on start fails the open 3 s later instead of after the
-driver's 30 s. With `VSCODE_SMOKE_KEEP=1` it also names the folder of VS Code's logs (main process,
-renderer, extension host; from Docker they come back in `vscode-logs/`). Keep `playwright-core` in
-`apps/vscode/package.json` at the root `playwright` version.
-
-The test is not retried: every failure fails the run at once. The driver's save step
-(`@miragon/modeler-shell` 0.4.1) reads the file only after the editor tab turned clean, which VS
-Code does once its write has finished, and only when two reads 100 ms apart agree. The parse check
-accepts only the fixture's board with one sticky more, since an empty or cut-short `.storm` file can
-parse without a diagnostic; anything else fails the save step with the counts it found
-(`save: the saved text does not parse: 6 elements and 0 arrows in 181 characters, expected 7 and 4 …`).
-A theme switch VS Code does not pick up is the driver's to handle: it writes the setting again,
-then switches through another default theme and back, all within its 30 s wait, and logs each of
-these steps; a theme that still fails names the theme requested and the one VS Code shows
-(`themes: Default High Contrast Light: the workbench never switched (no .hc-light): requested Default High Contrast Light, VS Code shows Default High Contrast …`).
+The extension host bundle (`dist/extension.cjs`, about 470 KB minified) is nearly all zod, which the
+DSL validation for the Problems view needs; this is accepted rather than moving diagnostics into
+the webview.
 
 ## Design tokens
 
-`packages/renderer/src/theme/cd-tokens.generated.css`, `cd-tokens.generated.json` and
-`cd-canvas.css` are vendored unchanged from the `miragon-brand:modeler-tool-design` skill
-(`assets/`). To update them, copy all three again, put the vendoring header back as the first line
-of the two CSS files (the JSON gets none), update the release and its sha256 values in
-`packages/renderer/test/theme.sync.test.ts` (the CSS files hashed without the header), and run
-`npm run event-storming test` (`theme.sync` in the renderer, `tokens.sync` in apps/vscode against
-the shell's sizes) and
-`npm run test:e2e -w modelers/event-storming/e2e -- --project=vscode-webview` (the shell
-conformance kit). Never edit or reformat them by hand.
-
-## Monorepo map & the DOM boundary (P1)
-
-| Package                                | Purpose                                                                     | DOM      |
-| -------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, JSON serialization, vocabulary, aggregates | DOM-free |
-| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                             | DOM-free |
-| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms                   | DOM-free |
-| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export                       | DOM      |
-| `apps/webapp`                          | Vite demo editor                                                            | DOM      |
-| `apps/vscode`                          | VS Code custom editor for `.storm`                                          | DOM      |
-
-**P1, the DOM boundary:** the DOM-free packages (`schema-model`, `dsl`, `transforms`) must **never**
-import `diagram-js`/DOM libraries (`tiny-svg`, `min-dom`) or use the DOM (`window`/`document`). This
-is enforced twice, by ESLint (`no-restricted-imports`/`no-restricted-globals`) **and** by
-dependency-cruiser, so a violating import fails `npm run event-storming lint` and
-`npm run event-storming depcruise`.
-
-Also keep the `.storm` DSL round-trip lossless and JSON serialization deterministic.
+To update the vendored `cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css` in
+`packages/renderer/src/theme/`: copy all three from the `miragon-brand:modeler-tool-design` skill,
+put the vendoring header back as the first line of the two CSS files, update the release and sha256
+values in `packages/renderer/test/theme.sync.test.ts` (CSS hashed without the header), then run
+`npm run event-storming test` and the `vscode-webview` e2e project.
 
 ## Pull requests
 
-- Make sure the local gates are green: `npm run event-storming lint`, `npm run event-storming test`,
-  `npm run event-storming depcruise`, `npm run event-storming build`.
-- Commit scope `event-storming`, e.g. `feat(event-storming): add a hotspot sticky`,
-  `fix(event-storming): keep comment lines on round-trip`.
-- Working on board/domain semantics? Install the modeler's Claude plugin once
-  (`/plugin marketplace add Miragon/modeler-suite`, then
-  `/plugin install event-storming-modeler@modeler-suite`) for the `event-storming` (method) and
-  `storm-dsl` (`.storm` format) skills. The sources live in
+- Green locally: `lint`, `test`, `depcruise`, `build`.
+- Commit scope `event-storming`, e.g. `fix(event-storming): keep comment lines on round-trip`.
+- The `event-storming` and `storm-dsl` skills live in
   [`plugins/event-storming-modeler/skills/`](plugins/event-storming-modeler/skills/); after editing
-  them run `claude plugin validate modelers/event-storming/plugins/event-storming-modeler --strict`
-  from the repository root.
+  them run `claude plugin validate modelers/event-storming/plugins/event-storming-modeler --strict`.

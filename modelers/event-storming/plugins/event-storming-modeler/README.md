@@ -8,35 +8,19 @@ text format used by the [Event Storming Modeler](https://github.com/Miragon/mode
 | `event-storming` | Alberto Brandolini's method: the sticky grammar (actor → command → aggregate → domain event → policy → …), the three workshop levels, facilitation, and board reviews with colour-coded feedback notes.   |
 | `storm-dsl`      | The `.storm` format itself: full grammar, the `(color …)` `(id …)` `(on …)` `(size …)` `(align …)` suffixes, coordinates and layout, per-level authoring rules, escaping, parser diagnostics, round-trip. |
 
-Together they let Claude read, review, edit and generate Event Storming boards as plain text,
-in any repository, not just this one.
+Claude reads, reviews, edits and generates boards as plain text, in any repository.
 
-## Install
+## Install and use
 
 ```
 /plugin marketplace add Miragon/modeler-suite
 /plugin install event-storming-modeler@modeler-suite
 ```
 
-From a local checkout of [Miragon/modeler-suite](https://github.com/Miragon/modeler-suite) instead:
-
-```
-/plugin marketplace add /path/to/modeler-suite
-/plugin install event-storming-modeler@modeler-suite
-```
-
-Once installed the skills are available everywhere as `event-storming-modeler:event-storming` and
-`event-storming-modeler:storm-dsl`. They load on demand; the always-on cost is roughly 600 tokens.
-
-## Using them
-
-Nothing to invoke by hand. The skills trigger when you ask Claude to work on Event Storming:
-
-- "Review this board and tell me what's weak" → `event-storming`
-- "Generate a `.storm` board for our checkout process" → both
-- "Why does this arrow not show up in my `.storm` file?" → `storm-dsl`
-
-You can also call them explicitly with `/event-storming-modeler:storm-dsl`.
+From a local checkout, add `/path/to/modeler-suite` as the marketplace instead. The skills then
+load on demand as `event-storming-modeler:event-storming` and `event-storming-modeler:storm-dsl`,
+and trigger on their own ("Review this board", "Generate a `.storm` board for our checkout"), or
+call one with `/event-storming-modeler:storm-dsl`.
 
 ## A `.storm` board in 30 seconds
 
@@ -67,9 +51,8 @@ claude plugin validate modelers/event-storming/plugins/event-storming-modeler --
 claude plugin validate .                                               # the suite's marketplace
 ```
 
-The plugin's `version` lives in `.claude-plugin/plugin.json` only: its entry in the suite's
-marketplace (`.claude-plugin/marketplace.json` at the repository root) carries none, which
-`npm run test:plugin` checks. Bump it there when the skills change.
+The `version` lives in `.claude-plugin/plugin.json` only (the marketplace entry carries none,
+checked by `npm run test:plugin`); bump it when the skills change.
 
 ## License
 

@@ -3,15 +3,28 @@
 [![CI](https://github.com/Miragon/modeler-suite/actions/workflows/ci.yml/badge.svg)](https://github.com/Miragon/modeler-suite/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](LICENSE)
 
-The Miragon modeler platform in one repository: ONE contract every Miragon modeler implements, the
-shared chrome around their canvases, and the six modelers built on the two. Each modeler is one
-notation: a plain-text file is the source of truth, a [diagram-js](https://github.com/bpmn-io/diagram-js)
-renderer shows and edits it, and a web app and a VS Code extension put the renderer in front of
-users. Every package and extension keeps its own version and its own npm or Marketplace name.
+**Strategy and architecture diagrams as plain text, right next to your code.**
+
+Six modelers for the notations teams use to think about their business and their systems:
+Wardley Maps, Event Storming, Team Topologies, Context Maps, Value Chain and the C4 model. Each
+one runs in the browser and in VS Code.
+
+[Documentation](https://miragon.github.io/modeler-suite/) ·
+[Extension pack](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.miragon-modeler-collection) ·
+[Issues](https://github.com/Miragon/modeler-suite/issues)
 
 ![The web apps of Wardley Maps, Event Storming, Team Topologies, Context Maps and Value Chain open their built-in examples one after another](docs/assets/demo.gif)
 
-## Modelers
+## Why we built this
+
+A Wardley Map on a whiteboard photo or a team topology in a slide deck goes stale the day after the
+workshop. Nobody can review it, nobody can see what changed, and nobody finds it again.
+
+So every modeler stores its diagram as a small text file. It lives in your repository, shows up as
+a readable diff in a pull request and evolves with the code it describes. You edit it on a canvas,
+in a text editor, or let your AI assistant write it.
+
+## The modelers
 
 | Modeler                                               | Files                                                 | Web app                                                                          | VS Code extension                                                                                                                                                                         |
 | ----------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -19,118 +32,54 @@ users. Every package and extension keeps its own version and its own npm or Mark
 | [Event Storming](modelers/event-storming/README.md)   | `.storm` (line DSL)                                   | [event-storming.modeler.miragon.io](https://event-storming.modeler.miragon.io)   | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.event-storming-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/event-storming-modeler)   |
 | [Team Topologies](modelers/team-topologies/README.md) | `.tt`, `.ttm.json`, editable `*.tt.png`               | [team-topologies.modeler.miragon.io](https://team-topologies.modeler.miragon.io) | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.team-topologies-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/team-topologies-modeler) |
 | [Context Maps](modelers/context-maps/README.md)       | `.cm`, `.cm.json`, editable `*.cm.png`; `.cml` in/out | [context-maps.modeler.miragon.io](https://context-maps.modeler.miragon.io)       | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.context-maps-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/context-maps-modeler)       |
-| [Value Chain](modelers/value-chain/README.md)         | `.vc`, `.vc.json`                                     | no public deployment yet; run it locally                                         | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.value-chain-modeler)                                                                                       |
+| [Value Chain](modelers/value-chain/README.md)         | `.vc`, `.vc.json`                                     | no public deployment yet                                                         | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.value-chain-modeler)                                                                                       |
 | [C4 model](modelers/c4/README.md)                     | `.c4`, `.dsl` (Structurizr DSL)                       | [c4.modeler.miragon.io](https://c4.modeler.miragon.io)                           | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.c4-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/c4-modeler)                           |
 
-Their libraries on npm, each in `modelers/<modeler>/packages/<package>`:
+Each modeler's README covers its features, its file format and how to embed it in your own app
+with its npm packages.
 
-- **Wardley Maps:** [`@miragon/wardley-schema-model`](https://www.npmjs.com/package/@miragon/wardley-schema-model), [`@miragon/wardley-dsl`](https://www.npmjs.com/package/@miragon/wardley-dsl), [`@miragon/wardley-transforms`](https://www.npmjs.com/package/@miragon/wardley-transforms), [`@miragon/wardley-renderer`](https://www.npmjs.com/package/@miragon/wardley-renderer)
-- **Event Storming:** [`@miragon/event-storming-schema-model`](https://www.npmjs.com/package/@miragon/event-storming-schema-model), [`@miragon/event-storming-dsl`](https://www.npmjs.com/package/@miragon/event-storming-dsl), [`@miragon/event-storming-transforms`](https://www.npmjs.com/package/@miragon/event-storming-transforms), [`@miragon/event-storming-renderer`](https://www.npmjs.com/package/@miragon/event-storming-renderer)
-- **Team Topologies:** [`@miragon/team-topologies-schema-model`](https://www.npmjs.com/package/@miragon/team-topologies-schema-model), [`@miragon/team-topologies-renderer`](https://www.npmjs.com/package/@miragon/team-topologies-renderer)
-- **Context Maps:** [`@miragon/context-maps-schema-model`](https://www.npmjs.com/package/@miragon/context-maps-schema-model), [`@miragon/context-maps-cml`](https://www.npmjs.com/package/@miragon/context-maps-cml), [`@miragon/context-maps-renderer`](https://www.npmjs.com/package/@miragon/context-maps-renderer)
-- **Value Chain:** [`@miragon/value-chain-schema-model`](https://www.npmjs.com/package/@miragon/value-chain-schema-model), [`@miragon/value-chain-renderer`](https://www.npmjs.com/package/@miragon/value-chain-renderer)
-- **C4 model:** [`@miragon/c4-schema-model`](https://www.npmjs.com/package/@miragon/c4-schema-model), [`@miragon/c4-dsl`](https://www.npmjs.com/package/@miragon/c4-dsl), [`@miragon/c4-layout`](https://www.npmjs.com/package/@miragon/c4-layout), [`@miragon/c4-renderer`](https://www.npmjs.com/package/@miragon/c4-renderer)
+The C4 Modeler is compatible with Structurizr DSL: it opens a Structurizr `workspace.dsl` as it is
+and keeps it a file Structurizr opens. Structurizr is a product of Structurizr Limited; this
+project is not affiliated with or endorsed by Structurizr Limited.
 
-The `schema-model`, `dsl`, `transforms`, `cml` and `layout` packages are DOM-free and run in any
-JavaScript runtime; the `renderer` packages are the diagram-js viewers and modelers. How to embed
-one is in its modeler's README.
+### Try it in 30 seconds
 
-The C4 Modeler is compatible with Structurizr DSL: its own `.c4` file holds a Structurizr DSL
-workspace, and it opens a Structurizr `workspace.dsl` as it is and keeps it a file Structurizr
-opens. Structurizr is a product of Structurizr Limited; this project is not affiliated with or
-endorsed by Structurizr Limited.
+> Open one of the web apps above and start from its built-in example. Or install the
+> [Miragon Modeler Collection](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.miragon-modeler-collection)
+> in VS Code and open any of the files above: the modeler opens as a custom editor.
 
-## Shared packages
+## With your AI assistant
 
-| Package                                    | Path             | Status                                                                                                                                                                                                                                                       |
-| ------------------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`@miragon/modeler-api`](packages/api)     | `packages/api`   | the collaborative-modeler contract and its conformance kit, 0 runtime dependencies                                                                                                                                                                           |
-| [`@miragon/modeler-shell`](packages/shell) | `packages/shell` | the shared chrome around diagram-js modelers (menu, palette skin, zoom panel, keys, fit, VS Code plumbing), its conformance kit and a smoke-test driver for a real VS Code (also in a Linux container), 0 runtime dependencies, [API](packages/shell/API.md) |
-
-Every renderer implements the contract and runs its conformance kit; both apps of every modeler
-mount the shell and run the shell's conformance kit. The contract's laws, the conformance kit, its
-versioning and its roadmap are documented in the [package README](packages/api/README.md). The plan
-for the shell and the rollout across the modelers started in
-[#4](https://github.com/Miragon/modeler-suite/issues/4) and continue in
-[#170](https://github.com/Miragon/modeler-suite/issues/170).
-
-- [Shell implementation notes](docs/shell/implementation-notes.md): how
-  `@miragon/modeler-shell` implements the chrome anatomy and the IDE-host
-  rules of the Miragon design system with diagram-js, VS Code and browser
-  APIs, section by section, with the rule each section implements.
-
-## Claude Code plugins
-
-One marketplace, [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json), serves the
-plugins of the suite:
+The Claude Code plugins teach Claude the methods and the file formats, so it can draft a map from
+a strategic question or review a board with feedback notes in the file:
 
 ```text
 /plugin marketplace add Miragon/modeler-suite
 /plugin install wardley-maps-modeler@modeler-suite
 /plugin install event-storming-modeler@modeler-suite
 /plugin install team-topologies-modeler@modeler-suite
-/plugin install modeler-kit@modeler-suite
-```
-
-| Plugin                                                                                | Skills                         | For                                                                            |
-| ------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------ |
-| [`wardley-maps-modeler`](modelers/wardley-maps/plugins/wardley-maps-modeler)          | `wardley-mapping`, `owm-dsl`   | the Wardley Mapping method and the `.wmap` / `.owm` text format                |
-| [`event-storming-modeler`](modelers/event-storming/plugins/event-storming-modeler)    | `event-storming`, `storm-dsl`  | the Event Storming method and the `.storm` text format                         |
-| [`team-topologies-modeler`](modelers/team-topologies/plugins/team-topologies-modeler) | `team-topologies`, `tt-format` | the Team Topologies method and the `.tt` / `.ttm.json` format, with a checker  |
-| [`modeler-kit`](plugins/modeler-kit)                                                  | `new-modeler`                  | building a new Miragon modeler on these two packages, with a runnable template |
-
-Value Chain's notation skill is a project skill in
-[`modelers/value-chain/.claude/skills/`](modelers/value-chain/.claude/skills/), not a plugin.
-Drift tests keep the plugins in step with the code (see [CONTRIBUTING.md](CONTRIBUTING.md#claude-code-plugins)).
-
-## Quick start
-
-Node `^22.22.2` or `>=24.15.0` and npm. From the repository root:
-
-```sh
-npm ci
-npm run build:shared                   # @miragon/modeler-api and @miragon/modeler-shell, which every modeler links
-npm run wardley-maps dev:webapp:plain  # the Wardley Maps web app on Vite, http://127.0.0.1:5180
-npm run wardley-maps build             # the Wardley Maps packages: its tests resolve them from dist
-npm run wardley-maps test              # its unit tests
-npm test                               # the shared packages, the repository checks and every modeler's unit tests
-npm run lint                           # type checks and ESLint, everywhere
-```
-
-`npm run <modeler> <script>` runs a script of one modeler (`wardley-maps`, `event-storming`,
-`team-topologies`, `context-maps`, `value-chain`, `c4`), `npm run modelers <script>` runs it for
-all six. [CONTRIBUTING.md](CONTRIBUTING.md) lists the scripts, the dev servers, the browser, e2e and
-VS Code tests, the pre-commit hook and the conventions for commits and pull requests;
-[docs/ci-and-releases.md](docs/ci-and-releases.md) explains CI and releases.
-
-## Layout
-
-```text
-packages/
-  api/                 @miragon/modeler-api: the collaborative-modeler contract and its conformance kit
-  shell/               @miragon/modeler-shell: the shared chrome, its conformance kit, the VS Code smoke driver
-modelers/
-  wardley-maps/        ─┐ each: packages/ (npm libraries), apps/webapp, apps/vscode, e2e/,
-  event-storming/       │ example/, docs/, and README.md, CLAUDE.md, CONTRIBUTING.md for what
-  team-topologies/      │ is special to its notation
-  context-maps/         │
-  value-chain/          │
-  c4/                  ─┘
-tooling/               the ESLint and dependency-cruiser presets; each modeler names its DOM-free packages in package.json
-plugins/modeler-kit/   the Claude Code plugin with the new-modeler skill and its template
-.claude-plugin/        the suite's Claude Code marketplace
-test/                  repository-level checks: the modeler-kit drift test, every modeler's boundaries, Dependabot auto-merge, CI's path decisions
-docs/                  shell implementation notes, CI and releases
 ```
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), and for each modeler its own
-[Wardley Maps](modelers/wardley-maps/CONTRIBUTING.md), [Event Storming](modelers/event-storming/CONTRIBUTING.md),
-[Team Topologies](modelers/team-topologies/CONTRIBUTING.md), [Context Maps](modelers/context-maps/CONTRIBUTING.md),
-[Value Chain](modelers/value-chain/CONTRIBUTING.md) and [C4 model](modelers/c4/CONTRIBUTING.md)
-notes. Agent-oriented rules are in [CLAUDE.md](CLAUDE.md).
+Found a bug or have an idea? Please [open an issue](https://github.com/Miragon/modeler-suite/issues/new).
+We currently don't accept pull requests from outside the team. To run a modeler locally:
+
+```sh
+npm ci
+npm run build:shared
+npm run wardley-maps dev:webapp:plain  # http://127.0.0.1:5180
+```
+
+The repository layout, setup, tests and conventions are in [CONTRIBUTING.md](CONTRIBUTING.md).
+Want to build a modeler for another notation? The `modeler-kit` plugin starts one from a runnable
+template.
+
+## Support
+
+Questions, ideas or commercial support? Write to [info@miragon.io](mailto:info@miragon.io) or open
+an [issue](https://github.com/Miragon/modeler-suite/issues).
 
 ## License
 
-MIT
+Distributed under the [MIT License](LICENSE).

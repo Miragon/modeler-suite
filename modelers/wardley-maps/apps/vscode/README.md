@@ -3,87 +3,46 @@
 [![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/miragon-gmbh.wardley-mapping-modeler?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.wardley-mapping-modeler)
 [![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/modelers/wardley-maps/LICENSE)
 
-[Wardley Maps](https://learnwardleymapping.com/) chart the components of a business by user value and
-evolution, so you can see your landscape and reason about strategy. This extension lets you create and
-edit them directly inside VS Code: it opens `.wmap` / `.owm` files (a simple plain-text format, the
-[Online-Wardley-Maps DSL](https://docs.onlinewardleymaps.com/)) in a graphical editor, while the
-text file stays the source of truth, so save, Git, and diff keep working.
+[Wardley Maps](https://learnwardleymapping.com/) chart the components of a business by user value
+(up and down: the higher, the more visible to your user) and evolution (left to right: genesis,
+custom-built, product, commodity). This extension opens `.wmap` / `.owm` files (the plain-text
+[Online-Wardley-Maps DSL](https://docs.onlinewardleymaps.com/)) in a graphical editor. The text file
+stays the source of truth, so save, Git and diff keep working.
 
 ![The Wardley Maps editor](https://raw.githubusercontent.com/Miragon/modeler-suite/main/modelers/wardley-maps/docs/screenshots/editor.png)
 
-New to Wardley Mapping? Start with [Learn Wardley Mapping](https://learnwardleymapping.com/).
-
 ## Getting started
 
-Install **Wardley Mapping Modeler** (publisher `miragon-gmbh`) from the VS Code Marketplace, then
-start from a filled-in Tea Shop example or a blank map. The built-in **Get Started with Wardley Maps**
-walkthrough is the recommended first stop: click its **Create map from example** button and you have a
-ready-made map to explore. From there you can open any `.wmap` or `.owm` file.
-
-Prefer commands? Run these from the Command Palette (`Cmd/Ctrl+Shift+P`, type _"Wardley"_):
-
-- **Wardley: New Map from Example**: pick a location, pre-filled with the Tea Shop example (also
-  under **File > New File…** as **New Wardley Map from Example**).
-- **Wardley: New Empty Map**: the same, but a blank map (also under **File > New File…** as
-  **Wardley Map**).
-
-## Reading a map
-
-Every component sits on two axes:
-
-- **Up and down** is the value chain: the higher a component sits, the more visible it is to your user.
-- **Left and right** is evolution: components mature from genesis (brand-new, experimental) on the
-  left, through custom-built and product, to commodity (standardised, ubiquitous) on the right.
-
-Together they show _what_ you depend on and _how mature_ each piece is.
+Install **Wardley Mapping Modeler** (publisher `miragon-gmbh`), then open the **Get Started with
+Wardley Maps** walkthrough and click **Create map from example**. Or run **Wardley: New Map from
+Example** / **Wardley: New Empty Map** from the Command Palette (also under **File > New File…**).
+Any `.wmap` or `.owm` file opens in the editor.
 
 ## Editing a map
 
-- **Custom editor for `.wmap` / `.owm`.** Open a map file and you get the full graphical editor,
-  backed by the plain-text file. VS Code tracks dirty state, saving and undo as for any text file.
-- **Text and diagram side by side.** The **Open Source to the Side** button in the editor title bar
-  opens the text next to the diagram; in the text editor, **Open Diagram to the Side** does the
-  reverse. Typing re-renders the canvas live, and a canvas edit rewrites only the lines it changes:
-  comments, blank lines, statement order and number formatting stay as you wrote them, and the text
-  editor's cursor stays where it is.
-- **Problems and highlighting.** Lines the parser cannot read (a typo, a link to a missing
-  component) are underlined in the text and listed in the **Problems** view; a pill in the
-  diagram's bottom-left corner shows how many there are and opens the view. The text has syntax
-  highlighting, and `Ctrl/Cmd+/` toggles `//` comments.
-- **Full modeler:** the tool palette at the top and the context pad on a selected element (append,
-  connect, evolve, settings, color, delete). Double-click an element to rename it (`Shift+Enter`
-  breaks the line in a name); placing a new one opens its name field right away. `Enter` on a
-  palette entry places the element in the middle of the visible map. Drag a component left or right
-  to evolve it, drag its label to move just the label (`Alt`+double-click puts it back).
-- **Links between maps:** **Link to map…** in the context pad of a submap or component lists the
-  other maps of the workspace and links the element to the one you choose; **Set link…** takes any
-  address, such as `details/payment.wmap` relative to the folder of the current map or a web
-  address. An element with a link carries a small link mark at its lower left. **Open link** opens
-  the linked map in its own tab, or a web address in your browser. So a large map can become an
-  overview plus detail maps you click through. Only `.wmap` and `.owm` files inside the workspace
-  open this way. A link that can't open is a problem like a parser warning, underlined at its
-  address and counted in the pill: a map that doesn't exist (or no longer does, after it was deleted
-  or moved), a file that isn't a map, or one outside the workspace. The check follows the workspace
-  as maps appear and go away; web and mail addresses aren't checked. When you rename or move maps,
-  or folders that hold them, in VS Code, the extension offers to update the links: those of other
-  maps to a moved map, and those of a moved map to the maps that stayed. Only the addresses change,
-  and one that started with `./` keeps it (see [Settings](#settings)).
-- **Map size:** drag the plot's right or bottom edge or its corner to resize it (`Shift` keeps the
-  ratio, `Alt` turns off snapping, double-click the corner to reset), or open **Map size…** in the
-  menu for a preset or an exact width × height, previewed on the map as you choose.
-- **Menu** (top left): **Map size…** and **X-axis labels…**, **Export as PNG**, **Export as SVG**
-  and **Export as PNG (4×, transparent)**, and **Keyboard shortcuts…**. Exports are pictures; the
-  `.wmap` / `.owm` file stays the editable source.
-- **Zoom** (bottom right): `−`, the zoom level (click for 100 %), `+` and **Fit**.
-- **Empty file:** a new, empty map shows a hint and **Insert example**, which adds the tea shop
-  example as one undoable edit.
-- **Invalid file:** should a text ever fail to render, the diagram keeps the last valid map
-  read-only until the text renders again.
-- **The Miragon modeler chrome** ([`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell)):
-  the same menu, palette, zoom panel and keys as every Miragon modeler. The diagram stays light in
-  dark VS Code themes (high contrast themes get the high-contrast chrome) until all Miragon
-  modelers turn dark together.
-- **Self-hosted fonts**: no CDN, offline-capable. Third-party licenses:
+- **Full modeler:** palette at the top, context pad on a selection (append, connect, evolve,
+  settings, color, delete). Double-click to rename (`Shift+Enter` breaks the line); drag a
+  component left or right to evolve it; drag a label to move it (`Alt`+double-click puts it back).
+  Undo, dirty state and save work as for any text file.
+- **Text and diagram side by side:** **Open Source to the Side** / **Open Diagram to the Side**.
+  Typing re-renders the canvas live; a canvas edit rewrites only the lines it changes, keeping
+  comments, blank lines, order and number formatting.
+- **Problems:** unreadable lines are underlined and listed in the **Problems** view; a pill at the
+  diagram's bottom left counts them. The text has syntax highlighting and `Ctrl/Cmd+/` comments.
+- **Links between maps:** **Link to map…** on a submap or component links it to another map of the
+  workspace; **Set link…** takes any address (relative to the current map's folder, or a web
+  address). Linked elements show a link mark; **Open link** opens the map in its own tab or the web
+  address in your browser. Broken links (missing map, not a map, outside the workspace) are reported
+  as problems. When you rename or move maps or their folders in VS Code, the extension offers to
+  update the links (see [Settings](#settings)).
+- **Map size:** drag the plot's edge or corner (`Shift` keeps the ratio, `Alt` turns off snapping,
+  double-click the corner resets), or use **Map size…** in the menu.
+- **Menu:** **Map size…**, **X-axis labels…**, PNG / SVG / transparent 4× PNG export, **Keyboard
+  shortcuts…**. Exports are pictures; the file stays the editable source.
+- **Empty file:** **Insert example** adds the tea shop map as one undoable edit. **Invalid text:**
+  the diagram shows the last valid map read-only until the text renders again.
+- The diagram stays light in dark themes (high contrast themes get a high-contrast chrome). Fonts
+  are bundled, nothing loads from a CDN. Third-party licenses:
   [THIRD_PARTY_NOTICES.md](https://github.com/Miragon/modeler-suite/blob/main/modelers/wardley-maps/apps/vscode/THIRD_PARTY_NOTICES.md).
 
 ## Commands
@@ -100,9 +59,9 @@ Run these from the Command Palette (type _"Wardley"_) or the editor title bar:
 
 ## Settings
 
-| Setting                                             | Default  | What it does                                                                                                                                                                                                                                                                                                                                                      |
-| --------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `miragon.wardleyMaps.updateLinksOnFileMove.enabled` | `prompt` | Whether the links between maps follow a `.wmap` / `.owm` file, or a folder that holds one, that you rename or move in VS Code: `prompt` asks first and says how many maps would change, `always` updates them without asking, `never` leaves the links as they are. The maps it changes stay unsaved, as with VS Code's `markdown.updateLinksOnFileMove.enabled`. |
+| Setting                                             | Default  | What it does                                                                                                                                      |
+| --------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `miragon.wardleyMaps.updateLinksOnFileMove.enabled` | `prompt` | Update links when a map or its folder is renamed or moved: `prompt` asks first, `always` updates, `never` leaves them. Changed maps stay unsaved. |
 
 ## Keyboard shortcuts on the canvas
 

@@ -1,157 +1,105 @@
 # Contributing to the Context Maps Modeler
 
-Thanks for helping improve the Context Maps Modeler. It lives in `modelers/context-maps` of the
-Miragon modeler suite: setup, the scripts, the pre-commit hook, the commit and pull-request
-conventions and how to report an issue are in the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md),
-CI and releases in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). This file adds what is
-special to this modeler. Agent-oriented notes live in [`CLAUDE.md`](CLAUDE.md).
+Setup, scripts, dev servers, the pre-commit hook, the VS Code smoke driver and the commit
+conventions are in the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md), CI and releases in
+[docs/ci-and-releases.md](../../docs/ci-and-releases.md), agent notes in [`CLAUDE.md`](CLAUDE.md).
+This file adds what is special to this modeler.
+
+## Architecture
+
+| Package                                           | Purpose                                                                          | DOM |
+| ------------------------------------------------- | -------------------------------------------------------------------------------- | --- |
+| [`schema-model`](packages/schema-model/README.md) | Types, the notation spec, Zod validation, migrations, deterministic JSON         | no  |
+| [`cml`](packages/cml)                             | Context Mapper CML ↔ document                                                    | no  |
+| [`renderer`](packages/renderer/README.md)         | diagram-js viewer/modeler, custom rendering, palette, context pad, import/export | yes |
+
+The renderer implements the collaborative-modeler contract of
+[`@miragon/modeler-api`](../../packages/api/README.md) and runs its conformance kit; both apps
+mount the [`@miragon/modeler-shell`](../../packages/shell/README.md) chrome. The apps consume the
+packages from TypeScript source (`vite.config.ts` aliases), so `build` is only needed to publish.
+Serialisation is deterministic (sorted, rounded, fixed key order) for small diffs and stable share
+URLs; everything imported is validated with Zod and migrated by `version`. The notation colours
+live in [`notation.ts`](packages/schema-model/src/notation.ts), tuned for text 4.5:1 and lines 3:1;
+a document stores only a context's own `fill` / `stroke`. `validateDocument()` checks thirteen
+rules: ten from Context Mapper, two advisory warnings (a core domain should not conform, a shared
+kernel should not span two teams) and at most one relationship per pair of contexts.
+
+The web app's `src/main.ts` mounts the renderer's `Modeler` inside `mountShell(…, { host: "web",
+themes: ["light"] })` and `connectDiagramJs`, with the map's parts from the renderer
+(`contextMapMenu`, `contextMapShortcuts`, `createTitleDialog`, `renderLegend`); PNG export uses
+`svgToPng` of `@miragon/modeler-shell/export`. On load a shared link (`#d=…`, LZ-compressed) wins
+over the `localStorage` autosave, which wins over the start screen. It deploys to Netlify
+([`netlify.toml`](netlify.toml)): `npm run build:webapp`, publish `apps/webapp/dist`, SPA
+catch-all to `index.html`.
 
 ## Inner loop
 
-From the repository root (or with `npm run <script>` inside `modelers/context-maps`):
-
 ```bash
-npm run build:shared           # once, and after changing packages/api or packages/shell
-npm run context-maps test      # vitest run (unit; the packages come from source)
-npm run context-maps lint      # eslint . + type-check (what the pre-commit hook runs for this modeler)
-npm run context-maps build     # builds packages/* (only needed to publish the libs)
+npm run build:shared              # once, and after changing packages/api or packages/shell
+npm run context-maps test         # unit tests; the packages come from source
+npm run context-maps lint         # eslint + type-check (what the pre-commit hook runs)
+npm run context-maps depcruise    # module-graph check
+npm run context-maps build        # builds packages/* (only needed to publish)
+npm run context-maps dev:webapp   # web app through Portless, see below
+npm run context-maps dev:vscode   # watch-build the extension, then F5 in VS Code
+npm run context-maps build:webapp # production build into apps/webapp/dist
 ```
 
-Useful extras: `npm run context-maps dev:webapp`, `npm run context-maps dev:vscode`,
-`npm run context-maps depcruise` (module-graph check), `npm run context-maps format` (Prettier).
+`dev:webapp` serves the app through Portless at
+`http://<worktree>.context-maps-modeler.localhost:8080` (`http://context-maps-modeler.localhost:8080`
+in the main checkout). It sets `PORTLESS_HTTPS=0 PORTLESS_PORT=8080`, so it needs no `sudo`, no CA
+trust and no `portless service install`, which lets a non-interactive Run button start it. The
+config is [`apps/webapp/portless.json`](apps/webapp/portless.json); `dev:app` binds `127.0.0.1`
+(Portless cannot proxy `::1`) on the injected `PORT`, and `vite.config.ts` allows `.localhost`
+hosts. `dev:webapp:plain` runs Vite directly on `:5181`.
 
-### Named local URL via Portless
+## Browser and e2e tests
 
-`npm run context-maps dev:webapp` (and `npm run context-maps dev`) serves the webapp through
-[Portless](https://portless.sh) at a stable, named `.localhost` URL instead of a Vite port
-(needs **Node ≥ 24.15**). Config lives in [`apps/webapp/portless.json`](apps/webapp/portless.json)
-(`{ "name": "context-maps-modeler", "script": "dev:app" }`): `dev:webapp` runs `portless`, which
-reads that config and starts the real Vite server (the `dev:app` script) behind the proxy.
-`dev:app` binds `--host 127.0.0.1` (Portless can't proxy the IPv6 `::1` that `localhost` resolves
-to on macOS) and `--port ${PORT}` (the ephemeral port Portless injects), and `vite.config.ts` sets
-`allowedHosts: ['.localhost']` so Vite accepts the proxied Host header.
+`test:browser` runs the renderer's integration tests and the `@miragon/modeler-api` conformance kit
+in Chromium. `test:e2e` (Playwright, `e2e/`) has three projects:
 
-The URL is `http://<worktree>.context-maps-modeler.localhost:8080` in a linked worktree and
-`http://context-maps-modeler.localhost:8080` in the main checkout. No setup beyond `npm ci` is
-needed: `dev:webapp` sets `PORTLESS_HTTPS=0 PORTLESS_PORT=8080`, so Portless serves plain **HTTP on
-the non-privileged port 8080** and auto-starts its proxy on first run: **no `sudo`, no CA trust,
-no `portless service install`**. That is what lets Conductor's non-TTY Run button start the webapp
-unattended. (Portless's _default_ is an HTTPS daemon on privileged port 443, which would need
-`sudo`; this modeler deliberately avoids that.)
+| Project          | What                                                    | Server, port                              |
+| ---------------- | ------------------------------------------------------- | ----------------------------------------- |
+| `chromium`       | the web app, with the shell's kit                       | `apps/webapp` dev server, `E2E_PORT` 5180 |
+| `webkit`         | the web app in Safari's engine, without the shell's kit | the same                                  |
+| `vscode-webview` | the VS Code webview in the shell's stub, with its kit   | `e2e/webview/`, `E2E_WEBVIEW_PORT` 5190   |
 
-Prefer a plain Vite server with no proxy? `npm run context-maps dev:webapp:plain` runs Vite
-directly on `:5181` and needs none of the above.
-
-## Browser & e2e tests
-
-`npm run context-maps test:browser` (Vitest browser mode) runs the renderer's integration tests and
-the `@miragon/modeler-api` conformance kit in Chromium. `npm run context-maps test:e2e` (Playwright,
-in `e2e/`) has three projects:
-
-| Project          | What                                                                  | Server, port                              |
-| ---------------- | --------------------------------------------------------------------- | ----------------------------------------- |
-| `chromium`       | the web app, with the shell's kit on the web host                     | `apps/webapp` dev server, `E2E_PORT` 5180 |
-| `webkit`         | the web app in Safari's engine (without the kit, see below)           | the same                                  |
-| `vscode-webview` | the VS Code webview in the shell's VS Code stub, with the shell's kit | `e2e/webview/`, `E2E_WEBVIEW_PORT` 5190   |
-
-Run one project with `npm run test:e2e -w modelers/context-maps/e2e -- --project=vscode-webview`,
-and only the tests whose title matches with `-- --grep "<title>"`; the alias `npm run context-maps`
-cannot pass Playwright's flags on (see the suite's
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)). Set both ports when another checkout already
-uses the defaults
-(`E2E_PORT=6201 E2E_WEBVIEW_PORT=6211 npm run context-maps test:e2e`). In the `vscode-webview`
-project the kit's `csp` case builds the production webview bundle and walks it behind the real
-webview CSP. With `?host` the webview test page runs the extension's document plumbing too
-(`registerModelerEditor` with `MAP_EDITOR_OPTIONS`) against the shell's stand-in for VS Code's
-documents, so `document-sync.spec.ts` moves a context and reads the document, and changes, refuses
-or undoes the document and reads the canvas. The shell's kit skips WebKit: its tab-order checks
-need a browser whose Tab reaches buttons and links, which WebKit does not do by default. After
-`npm run context-maps build:webapp`, `npm run check:build -w modelers/context-maps/apps/webapp`
-checks that the production `index.html` carries the mode markup and the bundle keeps the shell's
-Lucide licence comment. Locally, run `npx playwright install chromium webkit` once.
+Pass Playwright flags to the workspace:
+`npm run test:e2e -w modelers/context-maps/e2e -- --project=vscode-webview --grep "<title>"`. Set
+both ports when another checkout uses the defaults (`E2E_PORT=6201 E2E_WEBVIEW_PORT=6211`). With
+`?host` the webview page also runs the extension's document plumbing (`registerModelerEditor` with
+`MAP_EDITOR_OPTIONS`), which `document-sync.spec.ts` uses. WebKit skips the shell's kit because its
+Tab does not reach buttons and links by default. After `build:webapp`,
+`npm run check:build -w modelers/context-maps/apps/webapp` checks the mode markup and the Lucide
+licence comment in the bundle. Run `npx playwright install chromium webkit` once.
 
 ## VS Code smoke test
 
-`npm run context-maps test:vscode` (Vitest project `vscode`, not part of `npm test`) checks what
-only a real VS Code shows, with the shell's driver `@miragon/modeler-shell/testing/vscode-electron`;
-how it works for every modeler, locally and in Docker, is in the suite's
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md#tests). It packs the extension as the release does
-(`vsce package --no-dependencies`, which runs `vscode:prepublish`), unpacks the VSIX outside the
-repository and starts VS Code with it on a throwaway profile. There it opens
-`apps/vscode/test-smoke/fixtures/ordering.cm` in the custom editor, creates a context through the
-palette's keyboard path and saves: the file has to parse (`parseDocumentText`), hold one more
-context and be canonical JSON. Then it undoes (canvas and file are the fixture again) and switches
-through VS Code's four default themes, with one screenshot per theme in `test-results/vscode-smoke/`
-(gitignored). Since modeler-shell 0.8 the driver then also checks the zoom and selection keys, the
-view across a redo and an undo, reduced motion, a hidden tab and a window reload, so a run takes
-about half a minute once VS Code is downloaded. No build first: the test packs the extension itself.
+`test:vscode` packs the extension, opens `apps/vscode/test-smoke/fixtures/ordering.cm`, creates a
+context through the palette's keyboard path, saves (the file must parse, hold one more context and
+be canonical JSON), undoes, and screenshots VS Code's four default themes into
+`test-results/vscode-smoke/`; the shell's driver then checks zoom, selection, redo/undo, reduced
+motion, a hidden tab and a reload. Run it in Docker, not on your Mac:
 
 ```bash
-# in Docker, no window: the local way
 npm run context-maps test:vscode:docker
-# here the engines.vscode floor
 npm run test:vscode:docker -w @miragon/context-maps-modeler-workspace -- --env VSCODE_VERSION=1.96.0
-# brings VS Code's logs back
 npm run test:vscode:docker -w @miragon/context-maps-modeler-workspace -- --env VSCODE_SMOKE_KEEP=1
-# on the host, with a window
-npm run context-maps test:vscode
 ```
 
-The `--env` flags go to the modeler's workspace by its name: the alias `npm run context-maps` would
-take them for npm's own, and the path `modelers/context-maps` would select the workspaces beneath it
-too (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)).
-
-Packing in your checkout (`test:vscode` on the host) rebuilds `apps/vscode/dist` in production
-mode, so run `npm run context-maps build:vscode` (or `dev:vscode`) afterwards for a debug build; the
-Docker run packs its own copy. The VSIX is unpacked with `unzip` (macOS and Ubuntu have it).
-`VSCODE_SMOKE_VSIX` names a packed VSIX to test instead (a path relative to the repository root
-works too); the release smokes the VSIX it is about to upload that way.
-
-The test retries nothing. The shell's driver (since 0.3.2) reads the saved file only after the
-editor tab has turned clean, which VS Code does once its write has resolved, and only when two reads
-100 ms apart agree; a text the parser rejects is read again until it has stayed the same for 1 s. A
-broken save therefore fails with what went wrong ("Meta+s wrote nothing to disk", "the editor is
-still dirty after the save", "the saved text does not parse: …"; `Control+s` on Linux), and an
-extension that saves an empty file fails with "the extension saved an empty file". The driver's
-failures are a soft assertion: the test's own checks of the saved map run after them, so a failure
-in another step, such as a theme that never switched, cannot hide a broken save. A theme switch VS
-Code did not pick up needs no retry here either: the driver (since 0.4.1) writes the setting again,
-then detours through another theme and back, all within one timeout, and only then fails, naming
-the theme requested and the one VS Code shows.
+Packing on the host rebuilds `apps/vscode/dist` in production mode; run `build:vscode` afterwards
+for a debug build. `VSCODE_SMOKE_VSIX` tests a packed VSIX instead.
 
 ## Design tokens
 
-The design system's files in `packages/renderer/src/theme/` (`cd-tokens.generated.css`,
-`cd-tokens.generated.json`, `cd-canvas.css`) are copied unchanged from the
-`miragon-brand:modeler-tool-design` skill's `assets/`. To update them, copy the new release's files
-over the old ones, then update the hashes and the release in
-`packages/renderer/test/theme.sync.test.ts`, `MIRAGON` in `theme/palette.ts` where a value changed,
-and run `npm run context-maps test`. Never edit the files by hand, and keep Prettier away from them
-(the suite's `.prettierignore` lists them).
-
-## Monorepo map & the DOM boundary (P1)
-
-| Package                              | Purpose                                                         | DOM      |
-| ------------------------------------ | --------------------------------------------------------------- | -------- |
-| `@miragon/context-maps-schema-model` | Types, notation spec, Zod validation, serialization             | DOM-free |
-| `@miragon/context-maps-cml`          | Context Mapper CML parser and serializer                        | DOM-free |
-| `@miragon/context-maps-renderer`     | diagram-js bootstrap, renderer, viewer, import/export, contract | DOM      |
-| `apps/webapp`                        | Vite demo editor on the modeler shell                           | DOM      |
-| `apps/vscode`                        | VS Code custom editors for `.cm`/`.cm.json` and `*.cm.png`      | DOM      |
-
-**P1, the DOM boundary:** the DOM-free packages (`schema-model`, `cml`) must **never** import
-`diagram-js`/DOM libraries (`tiny-svg`, `min-dom`) or use the DOM (`window`/`document`). This is
-enforced twice, by ESLint (`no-restricted-imports`/`no-restricted-globals`) **and** by
-dependency-cruiser, so a violating import fails `npm run context-maps lint` and
-`npm run context-maps depcruise`. The same two checks keep `@miragon/modeler-shell` out of every
-package (only the apps mount the chrome) and let the DOM-free packages take only types from
-`@miragon/modeler-api`.
-
-Also keep JSON serialization deterministic.
+Update `cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css` in
+`packages/renderer/src/theme/` as the suite's
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md#design-system) says: copy them unchanged, update the
+hashes and release in `packages/renderer/test/theme.sync.test.ts` and `MIRAGON` in
+`theme/palette.ts`, then run `npm run context-maps test`.
 
 ## Pull requests
 
-- Make sure the local gates are green: `npm run context-maps lint`, `npm run context-maps test`,
-  `npm run context-maps depcruise`, `npm run context-maps build`.
-- Commit scope `context-maps`, e.g. `feat(context-maps): add an OHS/PL integration-role decorator`,
-  `fix(context-maps): keep colours on the migration round-trip`.
+Run `lint`, `test`, `depcruise` and `build` first. The DOM-free packages are `schema-model` and
+`cml`. Commit scope `context-maps`, e.g. `feat(context-maps): add an OHS/PL integration-role
+decorator`.

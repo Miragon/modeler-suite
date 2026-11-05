@@ -4,17 +4,11 @@
 [![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/modelers/c4/LICENSE)
 
 The DOM-free core of the [C4 Modeler](../../README.md): the [C4 model](https://c4model.com) of a
-Structurizr DSL workspace as plain data, and the rules that turn it into views. Elements,
-relationships, views and styles; identifiers; the view catalog and which elements and
-relationships each view shows; implied relationships; the style cascade; the format the modeler
-stores layout in; and the C4 colour palette.
-
-The package has no view, no DOM, no diagram-js and no runtime dependency: plain TypeScript that
-runs in a browser, in Node, in a VS Code extension host or in a CLI. It reads no text either:
-[`@miragon/c4-dsl`](../dsl) parses a workspace into the `Workspace` this package describes,
-[`@miragon/c4-layout`](../layout) lays its views out, and
-[`@miragon/c4-renderer`](../renderer) draws them. ESLint and dependency-cruiser keep diagram-js
-and the DOM out of it.
+Structurizr DSL workspace as plain data, and the rules that turn it into views: elements,
+relationships, views, styles, identifiers, the view catalog and membership, implied relationships,
+the style cascade, the layout format and the C4 colours. No DOM, no diagram-js, no runtime
+dependency, and no text parsing: [`@miragon/c4-dsl`](../dsl) parses,
+[`@miragon/c4-layout`](../layout) lays out, [`@miragon/c4-renderer`](../renderer) draws.
 
 Compatible with Structurizr DSL. Structurizr is a product of Structurizr Limited; this project is
 not affiliated with or endorsed by Structurizr Limited.
@@ -47,16 +41,13 @@ catalog.parentOf("Containers-bookshop"); // the view one level up
 ```
 
 `list()` holds the written views in document order, then the implicit views (Structurizr's
-default views, while the workspace has no view at all), then the drafts of the missing default
-views. A draft or an implicit view already carries the key it will be written under
-(`draftKey`), and a keyless written view carries Structurizr's generated key (`generateViewKey`,
-`SystemLandscape-001` …). `viewMembers` runs a view's `include` and `exclude` statements in order,
-as Structurizr does, for system landscape, system context, container and component views: the
-elements and relationships it shows (implied ones included), the boundaries around them and the
-groups, each one known by its scope and path: `groupKey(scopeId, path)` is `"<scopeId>/<path>"`,
-with an empty scope at model level, as the model and a system's block may both hold a group of one
-name. An expression term it does not support is reported and skipped, and the view is marked
-read-only rather than guessed.
+defaults, while the workspace has no view), then drafts of missing default views. Drafts and
+implicit views carry the key they will be written under (`draftKey`); keyless written views carry
+Structurizr's generated key (`generateViewKey`, `SystemLandscape-001` …). `viewMembers` runs a
+view's `include` and `exclude` statements in order, as Structurizr does, returning elements,
+relationships (implied included), boundaries and groups. A group is keyed by
+`groupKey(scopeId, path)` (`"<scopeId>/<path>"`, empty scope at model level). An unsupported
+expression term is reported and skipped, and the view is marked read-only.
 
 ## What's inside
 
@@ -100,30 +91,24 @@ encodeVertices([
 ]); // "10,20 30,40"
 ```
 
-The size is written only when it differs from the default of the element's shape; a
-relationship's value lists its bends, without its ends. A relationship's key is its identifier,
-else `<source>-><destination>` for the only unnamed relationship of a pair, `implied:<source>-><destination>`
-for an implied one. The `c4modeler.` prefix and these values are a public file format.
+The size is written only when it differs from the shape's default; a relationship's value lists
+its bends, without its ends. Its key is its identifier, else `<source>-><destination>` for the only
+unnamed relationship of a pair, `implied:<source>-><destination>` for an implied one. The
+`c4modeler.` prefix and these values are a public file format.
 
 ## The C4 colours
 
-`C4_COLOUR_STYLES` holds the tag styles the modeler's "Apply C4 colours" writes into a workspace:
-the classic C4 palette (Person, Software System, Container, Component, Existing System), adjusted
-where its text missed 4.5:1 on its fill or its outline 3:1 on the canvas, so the text of every
-element and every line stays readable. Every new workspace of the modeler starts with them, and
-"Apply C4 colours" writes them into one that lacks them; a workspace without styles is drawn
-monochrome, as Structurizr's default is.
+`C4_COLOUR_STYLES` is the classic C4 palette (Person, Software System, Container, Component,
+Existing System) as tag styles, adjusted where text missed 4.5:1 on its fill or the outline 3:1 on
+the canvas. New workspaces start with it, "Apply C4 colours" writes it, and a workspace without
+styles is drawn monochrome.
 
 ## Development
 
 Part of the [C4 Modeler](../../README.md) in the
-[Miragon modeler suite](https://github.com/Miragon/modeler-suite). From the suite's root:
-
-```bash
-npm run build -w @miragon/c4-schema-model   # tsup to dist/ (the other packages' tests read it)
-npm run c4 test                             # Vitest unit tests of the modeler
-npm run c4 lint                             # ESLint and the type checks
-```
+[Miragon modeler suite](https://github.com/Miragon/modeler-suite). Build with
+`npm run build -w @miragon/c4-schema-model` (the other packages' tests read `dist`); test and lint with `npm run c4 test` and
+`npm run c4 lint` from the suite's root.
 
 ## License
 

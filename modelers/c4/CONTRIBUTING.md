@@ -1,110 +1,107 @@
 # Contributing to the C4 Modeler
 
-The C4 Modeler lives in `modelers/c4` of the Miragon modeler suite: setup, the scripts, the
-pre-commit hook, the commit and pull-request conventions and how to report an issue are in the
-suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md), CI, Dependabot and releases in
-[docs/ci-and-releases.md](../../docs/ci-and-releases.md). This file adds what is special to this
-modeler. AI agents: start with [`CLAUDE.md`](CLAUDE.md).
+Setup, scripts, hooks, conventions and issues are in the suite's
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md), CI and releases in
+[docs/ci-and-releases.md](../../docs/ci-and-releases.md). This file adds what is special to C4. AI
+agents: start with [`CLAUDE.md`](CLAUDE.md).
+
+## Architecture and packages
+
+The canvas holds no model of its own: every gesture becomes an edit of the DSL text, which the
+`dsl` package computes, applies and verifies (it parses, nothing else changed) before the canvas
+command runs, or refuses with a reason. The renderer implements
+[`@miragon/modeler-api`](../../packages/api/README.md) and runs its conformance kit; both apps use
+the [`@miragon/modeler-shell`](../../packages/shell/README.md) chrome. Design rules are in
+[`CLAUDE.md`](CLAUDE.md).
+
+| Package                                             | Purpose                                                                         | DOM |
+| --------------------------------------------------- | ------------------------------------------------------------------------------- | --- |
+| [`@miragon/c4-schema-model`](packages/schema-model) | the C4 model as plain data: elements, relationships, views, styles, identifiers | no  |
+| [`@miragon/c4-dsl`](packages/dsl)                   | read and edit Structurizr DSL losslessly, with diagnostics                      | no  |
+| [`@miragon/c4-layout`](packages/layout)             | automatic layout and placement of new elements                                  | no  |
+| [`@miragon/c4-renderer`](packages/renderer)         | viewer and modeler on diagram-js, implementing `@miragon/modeler-api`           | yes |
+
+The web app keeps the workspace and its view in the URL hash (`#mz=`, compressed). The VS Code
+extension is a custom editor for `.c4` (and `.dsl` on request), adds the Structurizr DSL language
+and reports parser findings in the Problems view.
 
 ## Inner loop
 
-From the repository root (or with `npm run <script>` inside `modelers/c4`):
+Requires Node `^22.22.2` or `>=24.15.0` (Portless needs 24.15+). From the suite's root:
 
 ```bash
-npm run build:shared   # once, and after changing packages/api or packages/shell
-npm run c4 build       # schema-model, dsl, layout, renderer (the unit tests resolve them from dist)
-npm run c4 test        # Vitest, project unit
-npm run c4 lint        # eslint . + type check (what the pre-commit hook runs for this modeler)
+npm ci && npm run build:shared # once
+npm run c4 dev:webapp:plain    # http://127.0.0.1:5182
+npm run c4 dev:webapp          # https://<branch>.c4.localhost via Portless
+npm run c4 build   # schema-model, dsl, layout, renderer (unit tests resolve them from dist)
+npm run c4 test
+npm run c4 test:browser        # renderer in Chromium, modeler-api conformance kit
+npm run c4 test:e2e            # Playwright, shell conformance kit
+npm run c4 test:vscode:docker  # the extension in a real VS Code, in Docker
+npm run c4 lint    # what the pre-commit hook runs
 ```
 
-Build again after changing a package another one's unit tests read: the `dsl` and `layout` tests
-read `@miragon/c4-schema-model` from `dist` (the dsl's edit tests `@miragon/c4-layout` as well),
-the renderer's and the apps' unit tests the other packages. One package: `npm run build -w modelers/c4/packages/<name>`. One
-test file, from `modelers/c4`: `npx vitest run --project=unit packages/dsl/test/edit/golden.test.ts`.
-
-Extras: `npm run c4 dev:webapp` (Portless, `https://<branch>.c4.localhost`, Node 24.15 or later),
-`npm run c4 dev:webapp:plain` (`http://127.0.0.1:5182`, `PORT` overrides it), `npm run c4 dev:vscode`
-(extension watch build; start "Run C4 Modeler VS Code extension" of `.vscode/launch.json` from Run
-and Debug to debug it), `npm run c4 depcruise`, `npm run c4 format`.
+Rebuild after changing a package others' tests read: `dsl` and `layout` read `schema-model` from
+`dist` (the dsl's edit tests also `layout`), the renderer and apps read all of them. One package:
+`npm run build -w modelers/c4/packages/<name>`. One test file, from `modelers/c4`:
+`npx vitest run --project=unit packages/dsl/test/edit/golden.test.ts`. `dev:webapp:plain` honours
+`PORT`; debug `dev:vscode` with "Run C4 Modeler VS Code extension" in `.vscode/launch.json`.
 
 ## The DSL against Structurizr
 
-The `dsl` package is checked against Structurizr 6.2.4, the reference parser, in two ways that need
-Java 17 or later and Maven and so do not run in CI. The tests read what those runs recorded in
-`packages/dsl/test/fixtures/snapshots/`:
+The `dsl` package is checked against Structurizr 6.2.4 by runs that need Java 17+ and Maven and so
+stay out of CI; the tests read their records in `packages/dsl/test/fixtures/snapshots/`:
 
-- `structurizr-fixtures.json` and `semantic-cases.json`: what Structurizr makes of the vendored
-  fixtures (`packages/dsl/test/fixtures/structurizr/`, Apache-2.0, copied unchanged; `NOTICE.md`
-  names the commit) and of the builder's own cases in `packages/dsl/test/semantic/cases/`. Run the
-  snapshot script again after adding a case or vendoring newer fixtures
-  ([`packages/dsl/scripts/structurizr-snapshots/README.md`](packages/dsl/scripts/structurizr-snapshots/README.md)).
-- `edit-acceptance.json`: that Structurizr accepts every golden after-file of
-  `packages/dsl/test/edit/golden/` and 200 edit-fuzz outputs. `acceptance.test.ts` fails as soon as
-  the edit layer or a golden changes without a new run, so every change under
-  `packages/dsl/src/edit/` comes with one (commands in
-  [`packages/dsl/test/README.md`](packages/dsl/test/README.md)).
+- `structurizr-fixtures.json` and `semantic-cases.json`: Structurizr's result for the vendored
+  fixtures (`packages/dsl/test/fixtures/structurizr/`, Apache-2.0, unchanged; `NOTICE.md` names the
+  commit) and for `packages/dsl/test/semantic/cases/`. Rerun after adding a case or vendoring new
+  fixtures ([script README](packages/dsl/scripts/structurizr-snapshots/README.md)).
+- `edit-acceptance.json`: Structurizr accepts every golden of `packages/dsl/test/edit/golden/` and
+  200 edit-fuzz outputs. `acceptance.test.ts` fails when the edit layer or a golden changes without
+  a new run, so every change under `packages/dsl/src/edit/` brings one
+  ([`packages/dsl/test/README.md`](packages/dsl/test/README.md)).
 
 A deliberate change of what an edit writes rewrites the goldens
 (`UPDATE_GOLDENS=1 npx vitest run --project=unit packages/dsl/test/edit/golden.test.ts`); review
-the diff byte by byte before you run the acceptance again. Keep the vendored fixtures unchanged:
-the lexer's identity round trip reads every byte of them.
+the diff byte by byte, then rerun the acceptance. Never change the vendored fixtures: the lexer's
+round trip reads every byte.
 
 ## Browser and e2e tests
 
-- `npm run c4 test:browser`: renderer integration tests in real Chromium (Vitest browser mode;
-  jsdom has no `getBBox`), the `@miragon/modeler-api` conformance kit included
-  (`packages/renderer/test/browser/conformance.browser.test.ts`). Its canonical fixtures
-  `bookshop.dsl` and `library.dsl` in `test/browser/fixtures/` must stay the edit layer's own
-  output (contract L2): after a change of what an edit writes, write them again through the edit
-  layer and review them.
-- `npm run c4 test:e2e`: Playwright in `e2e/`, projects `webapp` (`E2E_PORT`, default 5182) and
-  `vscode-webview` (`E2E_WEBVIEW_PORT`, default 5192), each running the `@miragon/modeler-shell`
-  conformance kit, the navigation between views and the breadcrumb; the webview project also edits
-  the canvas and the document through the extension's plumbing against the shell's VS Code stub,
-  the web app project opens and exports `.c4` and `.dsl` files and keeps the workspace in the
-  address bar (`webapp-link.spec.ts`). A third
-  project, `webapp-webkit`, runs the web app's Share and focus hand-back specs in WebKit on the
-  `webapp` server (`npx playwright install webkit` once). One project:
-  `npm run test:e2e -w modelers/c4/e2e -- --project=vscode-webview`; the alias `npm run c4` passes
-  no Playwright flag on (see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#scripts)). Set
-  both ports when another checkout already serves the defaults, e.g.
+- `test:browser` runs in Chromium (jsdom has no `getBBox`) with the conformance kit
+  (`packages/renderer/test/browser/conformance.browser.test.ts`). Its fixtures `bookshop.dsl` and
+  `library.dsl` must stay the edit layer's own output (contract L2): regenerate them through the
+  edit layer after changing what an edit writes.
+- `test:e2e` has projects `webapp` (`E2E_PORT`, default 5182), `vscode-webview`
+  (`E2E_WEBVIEW_PORT`, default 5192) and `webapp-webkit` (Share and focus specs; run
+  `npx playwright install webkit` once). One project:
+  `npm run test:e2e -w modelers/c4/e2e -- --project=vscode-webview`. With the defaults taken:
   `E2E_PORT=6601 E2E_WEBVIEW_PORT=6611 npm run c4 test:e2e`.
 
 ## VS Code smoke test
 
-`npm run c4 test:vscode` packs the extension as the release does (`vsce package
---no-dependencies`, which runs `vscode:prepublish`), unpacks the VSIX and starts it in a real VS
-Code through `runVsCodeSmoke` of `@miragon/modeler-shell/testing/vscode-electron`; with
-`VSCODE_SMOKE_VSIX` set it tests that file instead. It opens the example as `workspace.c4` (in the
-editor of priority `default`; the driver associates the file with it in the profile as well),
-creates an element with Enter on the palette's first creating entry and Escape on its name
-editor, saves (the file must pass `parseWorkspace`), undoes that one step and switches through VS
-Code's four default themes. Screenshots land in `test-results/vscode-smoke/`. Locally run it
-without a window: `npm run c4 test:vscode:docker` (needs Docker); variables go in with `--env`,
-given to the workspace by name:
+`test:vscode:docker` packs the extension as the release does (or tests `VSCODE_SMOKE_VSIX`), opens
+the example as `workspace.c4`, creates an element from the palette, saves (the file must pass
+`parseWorkspace`), undoes and cycles VS Code's four default themes; screenshots land in
+`test-results/vscode-smoke/`. Pass variables by workspace name:
 `npm run test:vscode:docker -w @miragon/c4-modeler-workspace -- --env VSCODE_VERSION=1.96.0`.
 
-## Design tokens and notices
+## Design tokens, colours, notices
 
-`packages/renderer/src/theme/` vendors `cd-tokens.generated.css`, `cd-tokens.generated.json` and
-`cd-canvas.css` from the `miragon-brand:modeler-tool-design` skill (Miragon/corporate-identity)
-unchanged. To update, copy the three files again, put the vendoring header (with the new design
-system version) back on top of the two CSS files, update the release and its hashes in
-`packages/renderer/test/theme.sync.test.ts`, and run `npm run c4 test` and `npm run c4 test:e2e`.
-The C4 colours live in `C4_COLOUR_STYLES` of `packages/schema-model/src/notation.ts`; a changed
-value has to pass `notation-contrast.test.ts` (text 4.5:1, lines 3:1). They are also the styles of
-every new workspace (`newWorkspaceText()` of the `dsl` package) and of `example/bookshop.c4`, so a
-change also means: write the example's block again (the example tests of both apps compare it),
-rewrite the goldens that start from a blank file or apply the colours, and run the edit
-acceptance. When a dependency the VS Code extension bundles changes (dagre, a Lucide icon, the
-fonts), run `npm run notices -w modelers/c4/apps/vscode` and commit `THIRD_PARTY_NOTICES.md`.
+- Tokens: re-copy the three files into `packages/renderer/src/theme/`, restore the vendoring header
+  (with the new version) on the two CSS files, update release and hashes in
+  `packages/renderer/test/theme.sync.test.ts`, run `test` and `test:e2e`.
+- C4 colours (`C4_COLOUR_STYLES` in `packages/schema-model/src/notation.ts`) must pass
+  `notation-contrast.test.ts`. They are also in `newWorkspaceText()` and `example/bookshop.c4`, so
+  a change means: rewrite the example's block, the goldens that start blank or apply the colours,
+  and rerun the edit acceptance.
+- When a bundled dependency of the extension changes, run `npm run notices -w modelers/c4/apps/vscode`
+  and commit `THIRD_PARTY_NOTICES.md`.
 
 ## Pull requests
 
-Local gates: `npm run c4 lint`, `npm run c4 test`, `npm run c4 test:browser`,
-`npm run c4 depcruise`, `npm run c4 build`, `npm run c4 test:e2e`, for a web app change
-`npm run c4 build:webapp` with `npm run check:build -w modelers/c4/apps/webapp`, for an extension
-change `npm run c4 test:vscode:docker`, and for an edit-layer change the edit acceptance above.
-Commit scope `c4`, e.g. `feat(c4): draw deployment views`. Name Structurizr only descriptively
-("compatible with Structurizr DSL"), with the sentence that this project is not affiliated with
-Structurizr Limited where a page introduces the modeler.
+Gates: `lint`, `test`, `test:browser`, `depcruise`, `build`, `test:e2e`; for the web app also
+`build:webapp` and `npm run check:build -w modelers/c4/apps/webapp`, for the extension
+`test:vscode:docker`, for the edit layer the edit acceptance. Scope `c4`. Name Structurizr only
+descriptively ("compatible with Structurizr DSL"), with the non-affiliation sentence where a page
+introduces the modeler.
