@@ -19,6 +19,7 @@ export {
   TEAM_TOPOLOGIES_NOTATION,
   createCollaborativeModeler,
   createCollaborativeViewer,
+  mergeTeamTopologiesText,
   parseDocumentText,
 } from "./collaborative/index.js";
 export { TEAM_TOPOLOGIES_THEMES } from "./theme/themes.js";

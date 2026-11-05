@@ -2,6 +2,7 @@ import { afterAll, afterEach, describe, expect, test } from "vitest";
 import {
   attachedHost,
   registerConformance,
+  registerMergeConformance,
   type ConformanceHarness,
   type GestureKind,
   type HeldGesture,
@@ -15,8 +16,10 @@ import type { Shape } from "diagram-js/lib/model/Types";
 import {
   createCollaborativeModeler,
   createCollaborativeViewer,
+  mergeStormText,
   type CollaborativeEventStormingModeler,
 } from "../../src/index.js";
+import { STORM_MERGE_FIXTURES } from "../support/merge-fixtures.js";
 import type EventStormingElementFactory from "../../src/model/EventStormingElementFactory.js";
 import type EventStormingModeling from "../../src/modeling/EventStormingModeling.js";
 import type EventStormingLabelEditing from "../../src/label-editing/EventStormingLabelEditing.js";
@@ -271,4 +274,9 @@ describe("Event Storming implements the collaborative-modeler contract", () => {
   afterAll(() => {
     expect(advisories).toEqual([]);
   });
+});
+
+// The merge an IDE host (Orca) calls when an agent writes the file under the user's unsaved edits.
+describe("Event Storming merges an outside write into a draft", () => {
+  registerMergeConformance(mergeStormText, STORM_MERGE_FIXTURES, test);
 });

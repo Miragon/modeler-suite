@@ -148,7 +148,7 @@ by `dependency-cruiser`, the shell ban also by ESLint, so the pre-commit hook ca
 - `npm run team-topologies build:orca`: the Orca plugin into `apps/orca/plugin/` (the editor
   definition the VS Code webview mounts too, `createDiagramEditor` in the private workspace
   `apps/ide-editor`, with the examples, the PNG embedding and the shared esbuild options, on
-  `orcaEditorHost`; released in lockstep, see
+  `orcaEditorHost` with `mergeTeamTopologiesText`; released in lockstep, see
   [`apps/orca/README.md`](apps/orca/README.md)) · `npm run team-topologies test:orca:docker`: the
   plugin in a real Orca in a Linux container; the e2e project `orca-editor` runs it in the shell's
   Orca stub

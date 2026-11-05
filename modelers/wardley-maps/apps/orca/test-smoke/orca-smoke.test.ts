@@ -7,10 +7,17 @@ import { expect, it } from "vitest";
 
 const orcaApp = fileURLToPath(new URL("..", import.meta.url));
 const results = fileURLToPath(new URL("../../../test-results/orca-smoke", import.meta.url));
+const checksMerge = process.env.ORCA_SMOKE_MERGE === "1";
 
 /** An agent adds a component inside the plot, which the fitted view always shows whole. */
-function addOutside(text: string): string {
-  return `${text.trimEnd()}\ncomponent ${ORCA_SMOKE_AGENT_LABEL} [0.3, 0.3]\n`;
+function addOutside(text: string, count: number): string {
+  const evolution = count === 1 ? 0.3 : 0.45;
+  return `${text.trimEnd()}\ncomponent ${ORCA_SMOKE_AGENT_LABEL} ${count} [0.3, ${evolution}]\n`;
+}
+
+/** An agent moves the component the smoke deletes on the canvas at the same time. */
+function changeOutside(text: string): string {
+  return text.replace("component Payments [0.6, 0.75]", "component Payments [0.4, 0.75]");
 }
 
 it(
@@ -32,10 +39,16 @@ it(
         name: "smoke.owm",
         text: readFileSync(new URL("smoke.owm", import.meta.url), "utf8"),
       },
-      // Where a click hits it in the fitted 1200 × 800 editor; the plot is the content, so a
+      // Where a click hits them in the fitted 1200 × 800 editor; the plot is the content, so a
       // delete keeps the fit.
-      deletion: { at: [474, 346], label: "Cart" },
+      deletions: [
+        { at: [474, 346], label: "Cart" },
+        { at: [654, 346], label: "Checkout" },
+        { at: [834, 346], label: "Payments" },
+      ],
       addOutside,
+      changeOutside,
+      merge: checksMerge,
       results,
     });
     expect(result.steps).toEqual([
@@ -48,6 +61,7 @@ it(
       "undo",
       "edit",
       "external",
+      ...(checksMerge ? ["merge", "conflict"] : []),
       "logs",
       "close",
     ]);

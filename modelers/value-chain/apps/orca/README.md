@@ -4,8 +4,10 @@ The Value Chain Modeler as an [Orca](https://www.onorca.dev) custom editor: `.vc
 files open as a value chain diagram, with the same chrome as the VS Code extension. Orca keeps the file, its dirty state,
 saving and read-only tabs; the editor owns undo.
 
-When a coding agent writes the file, the editor shows the change right away. When it has
-unsaved edits, Orca shows its Reload/Overwrite banner and you decide.
+When a coding agent writes the file while the board has unsaved edits, Orca hands the write to the
+editor's merge (`mergeValueChainText` of `@miragon/value-chain-renderer`): changes to different
+steps, org units or connections are kept from both sides. When both sides changed the same
+element, Orca shows its Reload/Overwrite banner and you decide.
 
 ## Build and try it
 
@@ -37,3 +39,6 @@ take the focus): load, render, both themes, undo, a saved edit, an agent's write
 ```sh
 npm run value-chain test:orca:docker
 ```
+
+`ORCA_SMOKE_MERGE=1` adds an agent's write under unsaved edits; driven through `orca plugin shot`,
+Orca does not hand that write to the editor yet, so it stays off by default.

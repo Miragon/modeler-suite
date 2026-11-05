@@ -1,5 +1,5 @@
 import type { DocumentImportContext } from "../../vscode/webview/index.js";
-import { orcaEditorApi, type OrcaDocumentSession } from "./api.js";
+import { orcaEditorApi, type OrcaDocumentSession, type OrcaTextMerge } from "./api.js";
 
 export interface OrcaDocumentSyncOptions {
   /** As `DocumentSyncOptions.importText`: shows `text`, `false` when the canvas refused it. */
@@ -8,6 +8,14 @@ export interface OrcaDocumentSyncOptions {
   exportText(reconciledText: string): string;
   /** Whether the canvas may write the document; default always. */
   canWrite?: (() => boolean) | undefined;
+  /**
+   * The notation's three-way merge (`ModelTextMerge` of `@miragon/modeler-api`). Required: without
+   * it Orca drops the user's draft when an agent writes the file during an edit, and hands no write
+   * that comes in under unsaved edits to the editor.
+   */
+  merge: OrcaTextMerge;
+  /** Called with the error when `merge` throws; Orca then keeps its Reload/Overwrite banner. */
+  onMergeConflict?: ((error: unknown) => void) | undefined;
   /** Orca's quiet time before it sends a change, default 250 ms. */
   debounceMs?: number | undefined;
 }
@@ -30,16 +38,24 @@ export interface OrcaDocumentSync {
 
 /**
  * The Orca counterpart of `connectDocumentSync`: the session's first value is the `init`, a
- * replacement (an outside write) an `update`, and a change on the canvas goes out with
- * `session.change`. Imports run strictly one at a time. An outside write under unsaved edits gets
- * Orca's Reload/Overwrite banner; one that meets an edit still in flight wins over that edit.
+ * replacement (an outside write, or the result of `merge`) an `update`, and a change on the canvas
+ * goes out with `session.change`. Imports run strictly one at a time.
  */
 export async function connectOrcaDocumentSync(
   options: OrcaDocumentSyncOptions,
 ): Promise<OrcaDocumentSync> {
-  const session = await orcaEditorApi().document.session(
-    options.debounceMs === undefined ? {} : { debounceMs: options.debounceMs },
-  );
+  const merge: OrcaTextMerge = (lastSyncedText, externalText, draftText) => {
+    try {
+      return options.merge(lastSyncedText, externalText, draftText);
+    } catch (error) {
+      options.onMergeConflict?.(error);
+      throw error;
+    }
+  };
+  const session = await orcaEditorApi().document.session({
+    merge,
+    ...(options.debounceMs === undefined ? {} : { debounceMs: options.debounceMs }),
+  });
   let reconciledText = "";
   let initialized = false;
   let imports: Promise<void> = Promise.resolve();

@@ -4,8 +4,10 @@ The Team Topologies Modeler as an [Orca](https://www.onorca.dev) custom editor: 
 files open as a Team Topologies diagram, with the same chrome as the VS Code extension. Orca keeps the file, its dirty state,
 saving and read-only tabs; the editor owns undo.
 
-When a coding agent writes the file, the editor shows the change right away. When it has
-unsaved edits, Orca shows its Reload/Overwrite banner and you decide.
+When a coding agent writes the file while the board has unsaved edits, Orca hands the write to the
+editor's merge (`mergeTeamTopologiesText` of `@miragon/team-topologies-renderer`): changes to different
+teams, interactions, flows or annotations are kept from both sides. When both sides changed the same
+element, Orca shows its Reload/Overwrite banner and you decide.
 
 ## Build and try it
 
@@ -37,6 +39,9 @@ take the focus): load, render, both themes, undo, a saved edit, an agent's write
 ```sh
 npm run team-topologies test:orca:docker
 ```
+
+`ORCA_SMOKE_MERGE=1` adds an agent's write under unsaved edits; driven through `orca plugin shot`,
+Orca does not hand that write to the editor yet, so it stays off by default.
 
 The plugin is released with the modeler, in lockstep with its other packages. The `.tt.png` editor
 of the VS Code extension has no Orca counterpart yet.

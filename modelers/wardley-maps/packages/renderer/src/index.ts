@@ -94,6 +94,7 @@ export {
   WARDLEY_NOTATION,
   createCollaborativeModeler,
   createCollaborativeViewer,
+  mergeOwmText,
 } from "./collaborative/index.js";
 export type {
   CollaborativeWardleyModeler,

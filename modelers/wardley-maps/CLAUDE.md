@@ -148,7 +148,7 @@ to the console. The renderer has no shortcuts dialog and no rasterizer of its ow
   it ships) · `npm run wardley-maps build:vscode`
 - `npm run wardley-maps build:orca`: the Orca plugin into `apps/orca/plugin/` (the editor
   definition the VS Code webview mounts too, `createMapEditor` in `apps/ide-editor/src/editor.ts`, on
-  `orcaEditorHost`, see [`apps/orca/README.md`](apps/orca/README.md)) ·
+  `orcaEditorHost` with `mergeOwmText`, see [`apps/orca/README.md`](apps/orca/README.md)) ·
   `npm run wardley-maps test:orca:docker`: the plugin in a real Orca in a Linux container; the
   e2e project `orca-editor` runs it in the shell's Orca stub
 - `npm run wardley-maps dev:webapp` (alias: `npm run wardley-maps dev`) serves the webapp via

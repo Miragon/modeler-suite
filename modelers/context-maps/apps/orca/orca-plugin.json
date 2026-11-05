@@ -4,7 +4,7 @@
   "id": "context-maps-modeler",
   "name": "Context Maps Modeler",
   "version": "0.0.0",
-  "description": "Open .cm and .cm.json files as context maps: model bounded contexts and their relationships, and see an agent's changes to the file as they happen.",
+  "description": "Open .cm and .cm.json files as context maps: model bounded contexts and their relationships, and keep an agent's changes to the file merged with yours.",
   "author": { "name": "Miragon GmbH", "url": "https://www.miragon.io" },
   "repository": "https://github.com/Miragon/modeler-suite",
   "homepage": "https://miragon.github.io/modeler-suite/",
