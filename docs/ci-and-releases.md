@@ -124,6 +124,11 @@ run), or start the workflow by hand on a branch. The label is created once with
 
 [`vscode-smoke-weekly.yml`](../.github/workflows/vscode-smoke-weekly.yml) runs every modeler's smoke
 on Mondays; a failure opens, or comments on, the issue "VS Code smoke: the weekly run failed".
+[`orca-smoke-weekly.yml`](../.github/workflows/orca-smoke-weekly.yml) does the same for every
+modeler's Orca plugin in the newest Orca and the oldest its `engines.orca` accepts ("Orca smoke: the
+weekly run failed"); in CI, [`orca-smoke.yml`](../.github/workflows/orca-smoke.yml) runs per modeler
+when `ci-paths.sh orca-smoke` finds a change the plugin depends on, and succeeds without a run for a
+modeler without a plugin.
 
 ## Releases
 
@@ -227,8 +232,8 @@ releasing anything still unreleased on `main`.
 
 [`release-please.yml`](../.github/workflows/release-please.yml) runs on every push to `main`. When a
 release pull request is merged, it tags each released component, creates its GitHub release and
-publishes exactly what released (`.github/scripts/release-plan.mjs`: every public workspace and
-every extension at or below a released component's path):
+publishes exactly what released (`.github/scripts/release-plan.mjs`: every public workspace, every
+extension and every Orca plugin at or below a released component's path):
 
 - **npm**, one job per package in the environment `npm`, with OIDC trusted publishing and
   provenance, on Node 24 (npm 11.5.1 or later). A version already on the registry is skipped; a
@@ -239,8 +244,20 @@ every extension at or below a released component's path):
   `vsce package`, the smoke test of that very VSIX in VS Code, then `vsce publish` (secret
   `VSCE_PUBLISH`) or `ovsx publish` (secret `OVSX_PUBLISH`).
 
+- **Orca**, one job per plugin (a workspace with an `orca-plugin.json`, its own release-please
+  component `<modeler>-orca`, which also bumps the manifest's version): build the plugin folder,
+  smoke-test exactly that folder in a real Orca (`ORCA_SMOKE_PLUGIN`), then publish it with the
+  action `publish-plugin` of [miragon/orca-modelers](https://github.com/miragon/orca-modelers), the
+  one catalog of every Miragon modeler for Orca. The action runs with the release-please app's token
+  (`RELEASE_PLEASE_APP_CLIENT_ID`, `RELEASE_PLEASE_APP_PRIVATE_KEY`, scoped to that repository),
+  commits the folder and then its catalog entry (`orca plugin release-entry`) through GitHub's API,
+  and that repository tags the catalog change. The jobs share the concurrency group
+  `orca-modelers-publish` with every other source repository's publish. No build output lands in
+  this repository: Orca installs the files of the pinned commit in miragon/orca-modelers.
+
 Started by hand with `dry_run`, the workflow releases nothing: it packs every npm package
-(`npm publish --dry-run`) and packs and smoke-tests every extension.
+(`npm publish --dry-run`), packs and smoke-tests every extension, and builds and smoke-tests every
+Orca plugin.
 
 ### The first release of a new npm package
 
