@@ -37,6 +37,7 @@ jobs:
     outputs:
       npm: ${{ steps.plan.outputs.npm }}
       vscode: ${{ steps.plan.outputs.vscode }}
+      orca: ${{ steps.plan.outputs.orca }}
     steps:
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
@@ -243,6 +244,83 @@ jobs:
 
   # Every package and extension the suite releases, packed and smoke-tested as a release would,
   # without releasing or publishing anything.
+  # An Orca plugin goes into the output repository miragon/orca-modelers, whose catalog Orca reads:
+  # built and smoke-tested here in a real Orca, then published by that repository's action with the
+  # release-please app's token. The concurrency group runs publishes one at a time, also those of
+  # other source repositories (Miragon/bpmn-modeler).
+  publish-orca:
+    name: Orca (${{ matrix.plugin.id }})
+    needs: release-please
+    if: needs.release-please.outputs.orca != '' && needs.release-please.outputs.orca != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    concurrency:
+      group: orca-modelers-publish
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJSON(needs.release-please.outputs.orca) }}
+    env:
+      MODELER: ${{ matrix.plugin.modeler }}
+      PLUGIN_DIR: ${{ matrix.plugin.directory }}/plugin
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+        with:
+          node-version: 24
+      - run: npm run build:shared
+      - run: npm run "$MODELER" build:orca
+      - name: Download and extract the newest Orca
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/orca" && cd "$RUNNER_TEMP/orca"
+          gh release download --repo stablyai/orca --pattern orca-linux.AppImage
+          chmod +x orca-linux.AppImage
+          ./orca-linux.AppImage --appimage-extract > /dev/null
+      - name: Smoke-test exactly this plugin folder in Orca
+        run: xvfb-run -a npm run "$MODELER" test:orca
+        env:
+          ORCA_APP: ${{ runner.temp }}/orca/squashfs-root
+          ORCA_SMOKE_PLUGIN: ${{ github.workspace }}/${{ env.PLUGIN_DIR }}
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: orca-smoke-release-${{ matrix.plugin.modeler }}
+          path: modelers/${{ matrix.plugin.modeler }}/test-results/orca-smoke/
+          if-no-files-found: ignore
+          retention-days: 7
+      - id: changelog
+        name: Take the release's changelog section
+        env:
+          CHANGELOG: ${{ matrix.plugin.directory }}/CHANGELOG.md
+        run: |
+          section=$(awk '/^## /{n++} n==1' "$CHANGELOG" 2>/dev/null | tail -n +2 | head -c 1900 || true)
+          {
+            echo "text<<CHANGELOG_EOF"
+            echo "$section"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app-token
+        with:
+          client-id: ${{ vars.RELEASE_PLEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+          owner: miragon
+          repositories: orca-modelers
+      - uses: miragon/orca-modelers/.github/actions/publish-plugin@d20ddad5760295548d0a19addc37292eff5e9afc # main
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          plugin-id: ${{ matrix.plugin.id }}
+          plugin-dir: ${{ env.PLUGIN_DIR }}
+          source-repo: ${{ github.repository }}
+          source-ref: ${{ github.sha }}
+          source-tag: ${{ matrix.plugin.tag }}
+          changelog: ${{ steps.changelog.outputs.text }}
+
   dry-run-plan:
     if: github.event_name == 'workflow_dispatch' && inputs.dry_run
     runs-on: ubuntu-latest
@@ -252,6 +330,7 @@ jobs:
     outputs:
       npm: ${{ steps.plan.outputs.npm }}
       vscode: ${{ steps.plan.outputs.vscode }}
+      orca: ${{ steps.plan.outputs.orca }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: plan
@@ -324,3 +403,38 @@ jobs:
             ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
           if-no-files-found: ignore
           retention-days: 7
+
+  dry-run-orca:
+    name: dry run (${{ matrix.plugin.id }})
+    needs: dry-run-plan
+    if: needs.dry-run-plan.outputs.orca != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJSON(needs.dry-run-plan.outputs.orca) }}
+    env:
+      MODELER: ${{ matrix.plugin.modeler }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+        with:
+          node-version: 24
+      - run: npm run build:shared
+      - run: npm run "$MODELER" build:orca
+      - name: Download and extract the newest Orca
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/orca" && cd "$RUNNER_TEMP/orca"
+          gh release download --repo stablyai/orca --pattern orca-linux.AppImage
+          chmod +x orca-linux.AppImage
+          ./orca-linux.AppImage --appimage-extract > /dev/null
+      - name: Validate and smoke-test the plugin folder as a release would
+        run: xvfb-run -a npm run "$MODELER" test:orca
+        env:
+          ORCA_APP: ${{ runner.temp }}/orca/squashfs-root
+          ORCA_SMOKE_PLUGIN: ${{ github.workspace }}/${{ matrix.plugin.directory }}/plugin

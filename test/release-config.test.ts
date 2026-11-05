@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -198,6 +198,26 @@ describe("the suite's release-please config", () => {
         .filter(({ value }) => value !== manifest[path]),
     );
     expect(stale).toEqual([]);
+  });
+
+  // The catalog lists the manifest's version; a release that left it behind would publish a new
+  // package.json version as an Orca plugin version that is listed already, which the catalog refuses.
+  it("makes every Orca plugin's component bump its orca-plugin.json", () => {
+    const plugins = workspaces
+      .map(({ path }) => path)
+      .filter((path) => existsSync(join(ROOT, path, "orca-plugin.json")));
+    const unbumped = plugins.filter((path) => {
+      const component = owningComponent(path);
+      return (
+        component === undefined ||
+        !jsonExtraFiles(component).some(
+          (location) =>
+            location.path === `/${path}/orca-plugin.json` && location.jsonpath === "$.version",
+        )
+      );
+    });
+    expect(plugins.length).toBeGreaterThan(0);
+    expect(unbumped).toEqual([]);
   });
 
   it("names the bootstrap commit by its full SHA", () => {
