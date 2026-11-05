@@ -4402,6 +4402,37 @@ starts without it. Any other `cachePath` inside the repository is copied in on e
 host's VS Code builds (about 1 GB per version), and the container still downloads its Linux build
 into the copy, which the run then throws away.
 
+## `./testing/orca-electron`: smoke tests in a real Orca (0.11)
+
+```ts
+function runOrcaSmoke(options: {
+  plugin: string; // the built plugin folder
+  app?: string; // the extracted Orca AppImage (squashfs-root); default $ORCA_APP
+  document: { name: string; text: string };
+  // an interior element: a click point in the fitted editor of `size`, and the label
+  deletion: OrcaSmokeElement;
+  addOutside(text: string): string; // an agent adds an ORCA_SMOKE_AGENT_LABEL element
+  results?: string; // default test-results/orca-smoke
+  size?: { width: number; height: number }; // default 1200 × 800
+}): Promise<{ version: string; pluginKey: string; steps: string[] }>;
+```
+
+Drives a real Orca through its own CLI (`resources/bin/orca-ide`), on Linux under an X server and
+with a profile of its own (`HOME`, `ORCA_BACKGROUND_LAUNCH=1`): `resolve`, `launch` (until the
+runtime is ready), `validate` (`plugin validate` and `plugin check` without findings), `load`
+(`plugin system on`, `dev load`, again with the `approvalFingerprint` Orca asks for), `open` (a
+`plugin shot --editor` that subscribed and settled without errors), `themes`, `undo` (a delete and
+Ctrl+Z in the editor, saved: the element is still there), `edit` (a delete saved to the file; tried
+once more when it did not land), `external` (a write to the clean tab), `logs` (no blocked request
+and no other error) and `close`. Every shot loads the editor afresh and fits it, so the deletion
+is an interior element that keeps the fitted view. Each step saves a screenshot to `results`.
+
+`modeler-shell-orca-docker` runs a modeler's `test:orca` in a Linux container, as
+`modeler-shell-vscode-docker` runs `test:vscode`: the same image plus the Orca AppImage of
+`--orca <version>` (default `DEFAULT_ORCA_VERSION`) extracted to `$ORCA_APP`, the repository copied
+in, `npm ci`, the command under `xvfb-run -a`, and `test-results/orca-smoke` back. Never run the
+smoke on a Mac outside a container: Orca would open its window and take the focus.
+
 ## `./shell.css`
 
 One stylesheet for everything above, loaded last. Containment: `.cd-shell { container: cd-shell /

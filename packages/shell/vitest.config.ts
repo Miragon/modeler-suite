@@ -12,6 +12,7 @@ export default defineConfig({
           include: [
             "src/core/**/*.test.ts",
             "src/testing/vscode-electron/**/*.test.ts",
+            "src/testing/orca-electron/**/*.test.ts",
             "test/**/*.test.ts",
           ],
         },

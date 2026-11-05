@@ -1,0 +1,112 @@
+name: Orca smoke
+
+# One modeler's Orca plugin in a real Orca (its test:orca): load, render, edit, save, undo, both
+# themes, and an agent's writes to a clean and to a dirty tab, on the newest Orca release and on the
+# oldest that its engines.orca accepts. CI calls it once per modeler, so a red smoke fails ci-ok;
+# orca-smoke-weekly.yml calls it to catch a new Orca release. A modeler without an Orca plugin
+# succeeds without a run.
+on:
+  workflow_call:
+    inputs:
+      modeler:
+        description: The modeler, a folder under modelers/
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      modeler:
+        description: The modeler, a folder under modelers/
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: decide
+        name: Decide whether a path the Orca plugin depends on changed
+        run: .github/scripts/ci-paths.sh orca-smoke "$MODELER"
+        env:
+          MODELER: ${{ inputs.modeler }}
+          EVENT_NAME: ${{ github.event_name }}
+          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+
+  orca-smoke:
+    name: ${{ inputs.modeler }} / ${{ matrix.orca }}
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        orca: [latest, minimum]
+    env:
+      MODELER: ${{ inputs.modeler }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+        with:
+          modeler: ${{ inputs.modeler }}
+      - run: npm run build:shared
+
+      # The minimum comes from engines.orca at run time, so raising the floor moves the smoke along.
+      - id: orca
+        name: Resolve the Orca version
+        env:
+          CHANNEL: ${{ matrix.orca }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$CHANNEL" == minimum ]]; then
+            version=$(node -p "require('semver').minVersion(require('./modelers/$MODELER/apps/orca/orca-plugin.json').engines.orca).version")
+          else
+            version=$(gh release view --repo stablyai/orca --json tagName --jq '.tagName | ltrimstr("v")')
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::No Orca version for $CHANNEL: '$version'"
+            exit 1
+          fi
+          echo "Orca $CHANNEL: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache
+        with:
+          path: ${{ runner.temp }}/orca
+          key: orca-${{ runner.os }}-${{ runner.arch }}-${{ steps.orca.outputs.version }}
+
+      - if: steps.cache.outputs.cache-hit != 'true'
+        name: Download and extract the Orca AppImage
+        env:
+          VERSION: ${{ steps.orca.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/orca" && cd "$RUNNER_TEMP/orca"
+          gh release download "v$VERSION" --repo stablyai/orca --pattern orca-linux.AppImage
+          chmod +x orca-linux.AppImage
+          ./orca-linux.AppImage --appimage-extract > /dev/null
+          rm orca-linux.AppImage
+
+      - run: xvfb-run -a npm run "$MODELER" test:orca
+        env:
+          ORCA_APP: ${{ runner.temp }}/orca/squashfs-root
+
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: orca-smoke-${{ inputs.modeler }}-${{ matrix.orca }}
+          path: modelers/${{ inputs.modeler }}/test-results/orca-smoke/
+          retention-days: 7

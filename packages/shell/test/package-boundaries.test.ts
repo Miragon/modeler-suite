@@ -28,10 +28,12 @@ const sourceFiles = filesUnder(sourceDir, ".ts").filter((path) => !path.endsWith
 
 /** `./testing/vscode-electron` drives a real VS Code; only it may use these, as optional peers. */
 const DRIVER_PEERS = ["@vscode/test-electron", "playwright-core"];
-const driverDir = join(sourceDir, "testing", "vscode-electron");
+const driverDirs = ["vscode-electron", "orca-electron"].map((name) =>
+  join(sourceDir, "testing", name),
+);
 
 function isDriverFile(path: string): boolean {
-  return path === driverDir || path.startsWith(driverDir + sep);
+  return driverDirs.some((directory) => path === directory || path.startsWith(directory + sep));
 }
 
 function importSpecifiers(source: string): string[] {
@@ -88,13 +90,20 @@ describe("package.json", () => {
     ]);
   });
 
-  it("has one command, the VS Code smoke test in Docker, built from a source that starts with a shebang", () => {
-    expect(manifest.bin).toEqual({ "modeler-shell-vscode-docker": "./dist/vscode-docker.js" });
-    const cli = readFileSync(join(driverDir, "docker-cli.ts"), "utf8");
-    expect(cli.split("\n")[0]).toBe("#!/usr/bin/env node");
-    expect(readFileSync(join(packageDir, "tsup.config.ts"), "utf8")).toContain(
-      '"vscode-docker": "src/testing/vscode-electron/docker-cli.ts"',
-    );
+  it("has two commands, the VS Code and the Orca smoke test in Docker, built from sources that start with a shebang", () => {
+    expect(manifest.bin).toEqual({
+      "modeler-shell-vscode-docker": "./dist/vscode-docker.js",
+      "modeler-shell-orca-docker": "./dist/orca-docker.js",
+    });
+    const tsup = readFileSync(join(packageDir, "tsup.config.ts"), "utf8");
+    for (const [name, directory] of [
+      ["vscode-docker", "vscode-electron"],
+      ["orca-docker", "orca-electron"],
+    ] as const) {
+      const cli = readFileSync(join(sourceDir, "testing", directory, "docker-cli.ts"), "utf8");
+      expect(cli.split("\n")[0]).toBe("#!/usr/bin/env node");
+      expect(tsup).toContain(`"${name}": "src/testing/${directory}/docker-cli.ts"`);
+    }
   });
 });
 
@@ -159,9 +168,11 @@ describe("sources", () => {
   });
 
   it("keep the VS Code driver out of every entry but its own", () => {
-    const ownEntry = join(sourceDir, "testing-vscode-electron.ts");
+    const ownEntries = ["testing-vscode-electron.ts", "testing-orca-electron.ts"].map((name) =>
+      join(sourceDir, name),
+    );
     const offending = sourceFiles
-      .filter((path) => !isDriverFile(path) && path !== ownEntry)
+      .filter((path) => !isDriverFile(path) && !ownEntries.includes(path))
       .flatMap((path) =>
         importSpecifiers(readFileSync(path, "utf8"))
           .filter(

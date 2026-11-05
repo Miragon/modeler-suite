@@ -226,6 +226,45 @@ describe("the paths a change reaches in CI", () => {
     expect(afterCommitting({ [path]: null })).toEqual(reach);
   });
 
+  const orcaSmoke = (files: Record<string, string>, withPlugin = true) => {
+    git("reset", "-q", "--hard", base);
+    const before = withPlugin
+      ? commit({ "modelers/event-storming/apps/orca/orca-plugin.json": "{}" })
+      : base;
+    commit(files);
+    writeFileSync(outputFile, "");
+    execFileSync("bash", [CI_PATHS, "orca-smoke", "event-storming"], {
+      cwd: work,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...environment,
+        EVENT_NAME: "pull_request",
+        PULL_REQUEST_BASE_SHA: before,
+        PUSH_BEFORE_SHA: "",
+        MERGE_GROUP_BASE_SHA: "",
+        GITHUB_OUTPUT: outputFile,
+      },
+    });
+    return readFileSync(outputFile, "utf8").trim();
+  };
+
+  it.each([
+    ["modelers/event-storming/apps/orca/src/main.ts", "run=true"],
+    ["modelers/event-storming/apps/vscode/src/webview/editor.ts", "run=true"],
+    ["modelers/event-storming/packages/dsl/src/index.ts", "run=true"],
+    ["packages/shell/src/index.ts", "run=true"],
+    [".github/workflows/orca-smoke.yml", "run=true"],
+    ["modelers/wardley-maps/packages/dsl/src/index.ts", "run=false"],
+    ["modelers/event-storming/docs/guide.md", "run=false"],
+  ])("the Orca smoke after a change to %s: %s", (path, output) => {
+    expect(orcaSmoke({ [path]: "b" })).toBe(output);
+  });
+
+  it("skips the Orca smoke of a modeler without an Orca plugin", () => {
+    expect(orcaSmoke({ "packages/shell/src/index.ts": "b" }, false)).toBe("run=false");
+  });
+
   it("moving a page of the root docs", () => {
     expect(afterCommitting({ "docs/guide.md": null, "docs/guide/index.md": "a" })).toEqual(
       REPOSITORY_TESTS,

@@ -393,6 +393,19 @@ jobs:
     with:
       modeler: ${{ matrix.modeler }}
 
+  # Every modeler's Orca plugin in a real Orca; the reusable workflow succeeds without a run for a
+  # modeler without a plugin or a change that cannot reach it.
+  orca-smoke:
+    name: orca-smoke (${{ matrix.modeler }})
+    needs: changes
+    strategy:
+      fail-fast: false
+      matrix:
+        modeler: ${{ fromJSON(needs.changes.outputs.all-modelers) }}
+    uses: ./.github/workflows/orca-smoke.yml
+    with:
+      modeler: ${{ matrix.modeler }}
+
   # The merge gate, and the one check the ruleset requires (.github/scripts/ci-gate.sh): it needs
   # every other job of this workflow and fails on any failed, cancelled or unexpectedly skipped one.
   ci-ok:
@@ -415,6 +428,7 @@ jobs:
       - dependency-review
       - release-bootstrap
       - vscode-smoke
+      - orca-smoke
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
