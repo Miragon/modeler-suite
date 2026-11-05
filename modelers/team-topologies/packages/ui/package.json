@@ -23,7 +23,7 @@
     "@miragon/team-topologies-renderer": "0.18.0",
     "@miragon/team-topologies-schema-model": "0.18.0",
     "diagram-js": "15.28.1",
-    "lucide-react": "1.61.0"
+    "lucide-react": "1.66.0"
   },
   "peerDependencies": {
     "react": "19.3.1",

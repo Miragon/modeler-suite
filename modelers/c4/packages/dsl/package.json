@@ -39,6 +39,6 @@
     "@miragon/c4-layout": "0.1.0",
     "tsup": "9.0.0",
     "typescript": "6.0.3",
-    "vitest": "5.0.5"
+    "vitest": "5.1.0"
   }
 }
