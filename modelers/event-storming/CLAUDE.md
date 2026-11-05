@@ -18,15 +18,16 @@ links them to the local workspace because the local version satisfies the pin); 
 to exact pins are the consumer-shared runtime libs declared as ranged `peerDependencies` (see
 Conventions).
 
-| Package                                | Purpose                                                                                            | DOM |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------- | --- |
-| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, timeline sort, JSON serialization, vocabulary, aggregates         | no  |
-| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                                                    | no  |
-| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms (move, …)                                | no  |
-| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export, CSS                                         | yes |
-| `apps/webapp`                          | Vite demo editor                                                                                   | yes |
-| `apps/ide-editor`                      | The board's IDE editor (`IdeEditorDefinition`), mounted by `apps/vscode` and later the Orca plugin | yes |
-| `apps/vscode`                          | VS Code extension: custom editor for `.storm`                                                      | yes |
+| Package                                | Purpose                                                                                    | DOM |
+| -------------------------------------- | ------------------------------------------------------------------------------------------ | --- |
+| `@miragon/event-storming-schema-model` | Board metamodel, Zod validation, timeline sort, JSON serialization, vocabulary, aggregates | no  |
+| `@miragon/event-storming-dsl`          | `.storm` text DSL ↔ model (lossless round-trip)                                            | no  |
+| `@miragon/event-storming-transforms`   | Pure `EventStormingBoard → EventStormingBoard` transforms (move, …)                        | no  |
+| `@miragon/event-storming-renderer`     | diagram-js bootstrap, renderer, viewer, import/export, CSS                                 | yes |
+| `apps/webapp`                          | Vite demo editor                                                                           | yes |
+| `apps/ide-editor`                      | The board's IDE editor (`IdeEditorDefinition`), mounted by `apps/vscode` and `apps/orca`   | yes |
+| `apps/vscode`                          | VS Code extension: custom editor for `.storm`                                              | yes |
+| `apps/orca`                            | Orca plugin: the same editor as an Orca custom editor, built into `apps/orca/plugin/`      | yes |
 
 **P1, the DOM boundary:** the DOM-free packages (`schema-model`, `dsl`, `transforms`) must **never**
 import `diagram-js`/DOM libraries (`tiny-svg`, `min-dom`) or use the DOM (`window`/`document`).
@@ -38,7 +39,8 @@ so a violating import fails `npm run event-storming lint` and `npm run event-sto
 - `npm run event-storming build`: all packages; the unit tests resolve the workspace packages from
   `dist`, so build before `npm run event-storming test` · `npm run event-storming build:webapp`
   (then `npm run check:build -w modelers/event-storming/apps/webapp` checks the mode markup and the
-  shell's licence comment in `dist`, as CI does) · `npm run event-storming build:vscode`
+  shell's licence comment in `dist`, as CI does) · `npm run event-storming build:vscode` · `npm run event-storming build:orca` (the Orca plugin into
+  `apps/orca/plugin/`, see [`apps/orca/README.md`](apps/orca/README.md))
 - `npm run event-storming dev:webapp` (alias: `npm run event-storming dev`) serves the webapp via
   [Portless](https://portless.sh) at a per-worktree `https://<branch>.event-storming.localhost` URL
   (Portless-derived from the git worktree; config in
@@ -49,14 +51,19 @@ so a violating import fails `npm run event-storming lint` and `npm run event-sto
   `apps/webapp/vite.config.ts`, through `apps/webapp/tsconfig.config.json`) ·
   `npm run event-storming lint` (ESLint + typecheck)
 - `npm run event-storming test:browser`: Vitest in Chromium (renderer integration, the
-  `@miragon/modeler-api` conformance kit) · `npm run event-storming test:e2e`: Playwright, three
+  `@miragon/modeler-api` conformance kit) · `npm run event-storming test:e2e`: Playwright, four
   projects: `webapp` (the web app, incl. the shell conformance kit on the `web` host),
-  `vscode-webview` (the webview inside the shell's VS Code stub, incl. the kit on the `ide` host)
-  and `webapp-webkit` (the web app's Share and focus hand-back specs in WebKit;
+  `vscode-webview` (the webview inside the shell's VS Code stub, incl. the kit on the `ide` host),
+  `orca-editor` (the Orca editor inside the shell's Orca stub, the kit with `ideHost: "orca"` and
+  the document sync with an agent's writes) and `webapp-webkit` (the web app's Share and focus hand-back specs in WebKit;
   `npx playwright install chromium webkit` once); one project with
   `npm run test:e2e -w modelers/event-storming/e2e -- --project=vscode-webview` (the alias
   `npm run event-storming` passes no flag on, so neither `--project` nor `--grep`), other ports via
   `E2E_PORT` / `E2E_WEBVIEW_PORT` (default 5180 / 5190)
+- `npm run event-storming test:orca:docker`: the Orca plugin in a real Orca in a Linux container
+  (the shell's `modeler-shell-orca-docker` and `runOrcaSmoke`: load, render, themes, undo, a saved
+  edit, an agent's write, the plugin's logs; screenshots in `test-results/orca-smoke/`);
+  `test:orca` runs it on Linux under `xvfb-run -a` with `ORCA_APP` set and refuses the Mac.
 - `npm run event-storming test:vscode:docker`: the VS Code smoke test below in a Linux container
   under `xvfb-run -a` (the shell's `modeler-shell-vscode-docker`): the way to run it locally, since
   no VS Code window opens; needs Docker. It copies the suite in without `node_modules`/`.git`, runs

@@ -6,16 +6,21 @@ const WEBVIEW_PORT = process.env.E2E_WEBVIEW_PORT ?? "5190";
 const WEBVIEW_URL = `http://localhost:${WEBVIEW_PORT}`;
 
 const SHARE_SPEC = "webapp-share.spec.ts";
+// A regular expression, not "**/orca/**": a glob matches the absolute path, which may hold an
+// "orca" folder of its own.
+const ORCA_SPECS = /[\\/]tests[\\/]orca[\\/].*\.spec\.ts$/;
 const FOCUS_HAND_BACK_SPEC = "webapp-focus-hand-back.spec.ts";
 
 /**
- * Three projects:
+ * Four projects:
  *  - `webapp`: @miragon/event-storming-webapp. Its dev server resolves @miragon/event-storming-*
  *    via Vite source aliases (apps/webapp/vite.config.ts), so no package build is required.
  *    `cwd: '..'` runs the command from the repo root so the npm workspace resolves.
  *  - `vscode-webview`: the VS Code webview (apps/vscode/src/webview/main.ts) inside the shell's
  *    VS Code stub, served by its own Vite test page (webview/), also from the package sources.
  *    VS Code's webviews are Chromium.
+ *  - `orca-editor`: the Orca custom editor (apps/orca/src/main.ts) inside the shell's Orca stub,
+ *    on the same Vite test page server (webview/orca-test.html). Orca's frames are Chromium too.
  *  - `webapp-webkit`: the web app's Share and focus hand-back specs in Safari's engine, on the
  *    `webapp` server. Share writes a ClipboardItem whose value is a promise inside the click,
  *    because Safari drops the user activation at the first `await`; and Safari gives a clicked
@@ -37,12 +42,17 @@ export default defineConfig({
   projects: [
     {
       name: "webapp",
-      testIgnore: "**/vscode/**",
+      testIgnore: ["**/vscode/**", ORCA_SPECS],
       use: { ...devices["Desktop Chrome"], baseURL: WEBAPP_URL },
     },
     {
       name: "vscode-webview",
       testMatch: "**/vscode/**/*.spec.ts",
+      use: { ...devices["Desktop Chrome"], baseURL: WEBVIEW_URL },
+    },
+    {
+      name: "orca-editor",
+      testMatch: ORCA_SPECS,
       use: { ...devices["Desktop Chrome"], baseURL: WEBVIEW_URL },
     },
     {
