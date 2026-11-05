@@ -15,6 +15,8 @@ test-results/
 playwright-report/
 .playwright-mcp/
 **/e2e/.cache/
+modelers/*/apps/orca/plugin/
+modelers/*/apps/orca/.orca/
 
 # generated from the bundled packages' licences (npm run notices -w apps/vscode)
 modelers/*/apps/vscode/THIRD_PARTY_NOTICES.md

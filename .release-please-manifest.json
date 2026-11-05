@@ -14,6 +14,7 @@
   "modelers/event-storming/apps/ide-editor": "0.0.0",
   "modelers/event-storming/apps/vscode": "0.9.1",
   "modelers/event-storming/apps/webapp": "0.8.2",
+  "modelers/event-storming/apps/orca": "0.0.0",
   "modelers/team-topologies": "0.17.1",
   "modelers/context-maps/packages/schema-model": "0.5.1",
   "modelers/context-maps/packages/cml": "0.1.8",

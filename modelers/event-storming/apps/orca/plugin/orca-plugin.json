@@ -23,7 +23,9 @@
       {
         "id": "event-storming",
         "title": "Event Storming",
-        "extensions": [".storm"],
+        "extensions": [
+          ".storm"
+        ],
         "entry": "editor/index.html",
         "frame": "isolated"
       }

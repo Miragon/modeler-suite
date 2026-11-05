@@ -226,6 +226,11 @@
         {
           "type": "json",
           "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/event-storming/apps/orca'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/event-storming/apps/ide-editor'].dependencies['@miragon/modeler-shell']"
         }
       ]
@@ -431,6 +436,11 @@
         {
           "type": "json",
           "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/event-storming/apps/orca'].dependencies['@miragon/event-storming-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/event-storming/apps/ide-editor'].dependencies['@miragon/event-storming-renderer']"
         }
       ]
@@ -447,6 +457,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/event-storming/apps/vscode'].dependencies['event-storming-ide-editor']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/event-storming/apps/orca'].dependencies['event-storming-ide-editor']"
         }
       ]
     },
@@ -467,6 +482,21 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/event-storming/apps/webapp'].version"
+        }
+      ]
+    },
+    "modelers/event-storming/apps/orca": {
+      "component": "event-storming-orca",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "orca-plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/event-storming/apps/orca'].version"
         }
       ]
     },
