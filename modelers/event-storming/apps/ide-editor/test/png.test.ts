@@ -9,19 +9,16 @@ const svgToPng = vi.hoisted(() =>
 );
 vi.mock("@miragon/modeler-shell/export", () => ({ svgToPng }));
 // The real module imports the font files as data: URLs, which only the esbuild build resolves.
-vi.mock("../../src/webview/geist-faces.js", () => ({
+vi.mock("../src/geist-faces.js", () => ({
   GEIST_FACES: [{ src: "data:font/woff2;base64,AAAA", unicodeRange: "U+0000-00FF" }],
 }));
 
-const { GEIST_FACES } = await import("../../src/webview/geist-faces.js");
-const { PNG_BACKGROUND, blobToBase64, boardToPng } = await import("../../src/webview/io.js");
+const { GEIST_FACES } = await import("../src/geist-faces.js");
+const { PNG_BACKGROUND, boardPng } = await import("../src/io.js");
 
 const vendoredTokens = JSON.parse(
   readFileSync(
-    resolve(
-      import.meta.dirname,
-      "../../../../packages/renderer/src/theme/cd-tokens.generated.json",
-    ),
+    resolve(import.meta.dirname, "../../../packages/renderer/src/theme/cd-tokens.generated.json"),
     "utf8",
   ),
 ) as { hell: Record<string, string> };
@@ -41,7 +38,7 @@ describe("the webview's PNG export", () => {
   });
 
   it("draws at 2× on that ground, with Geist as data: URLs", async () => {
-    await boardToPng("<svg/>");
+    await boardPng("<svg/>");
 
     expect(svgToPng.mock.calls[0]![0]).toBe("<svg/>");
     expect(optionsOfLastCall()).toMatchObject({
@@ -52,7 +49,7 @@ describe("the webview's PNG export", () => {
   });
 
   it("draws the transparent variant at 4× without a ground", async () => {
-    await boardToPng("<svg/>", true);
+    await boardPng("<svg/>", true);
 
     expect(optionsOfLastCall()).toMatchObject({
       background: "transparent",
@@ -61,27 +58,26 @@ describe("the webview's PNG export", () => {
     });
   });
 
-  it("hands the PNG over as Base64 without the data-URL prefix", async () => {
-    const png = await boardToPng("<svg/>");
+  it("hands over the shell's PNG as it is, for the host to encode", async () => {
+    const { png } = await boardPng("<svg/>");
 
-    expect(png.data).toBe(Buffer.from("png!").toString("base64"));
-    expect(await blobToBase64(new Blob(["png!"]))).toBe(png.data);
+    expect(await png.text()).toBe("png!");
   });
 
   it("reports the system font only when the shell says the labels fell back", async () => {
-    expect((await boardToPng("<svg/>")).fontFallback).toBe(false);
+    expect((await boardPng("<svg/>")).fontFallback).toBe(false);
 
     svgToPng.mockImplementationOnce(async (_svg, options) => {
       options.onFontFallback?.(new Error("Geist could not be read"));
       return new Blob(["png!"], { type: "image/png" });
     });
 
-    expect((await boardToPng("<svg/>")).fontFallback).toBe(true);
+    expect((await boardPng("<svg/>")).fontFallback).toBe(true);
   });
 
   it("lets a rejection of the shell through, for the app to word", async () => {
     svgToPng.mockRejectedValueOnce(new Error("@miragon/modeler-shell/export: could not draw"));
 
-    await expect(boardToPng("<svg/>")).rejects.toThrow("could not draw");
+    await expect(boardPng("<svg/>")).rejects.toThrow("could not draw");
   });
 });

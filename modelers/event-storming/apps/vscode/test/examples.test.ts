@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseDSLWithDiagnostics } from "@miragon/event-storming-dsl";
-import { EMPTY_BOARD, EXAMPLE_BOARD, withExampleInserted } from "../src/examples.js";
+import {
+  EMPTY_BOARD,
+  EXAMPLE_BOARD,
+  withExampleInserted,
+} from "event-storming-ide-editor/examples";
 
 const EXAMPLE_ELEMENT_COUNT = parseDSLWithDiagnostics(EXAMPLE_BOARD).board.elements.length;
 

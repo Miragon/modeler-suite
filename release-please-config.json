@@ -222,6 +222,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/wardley-maps/apps/webapp'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/event-storming/apps/ide-editor'].dependencies['@miragon/modeler-shell']"
         }
       ]
     },
@@ -422,6 +427,26 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/event-storming/apps/webapp'].dependencies['@miragon/event-storming-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/event-storming/apps/ide-editor'].dependencies['@miragon/event-storming-renderer']"
+        }
+      ]
+    },
+    "modelers/event-storming/apps/ide-editor": {
+      "component": "event-storming-ide-editor",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/event-storming/apps/ide-editor'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/event-storming/apps/vscode'].dependencies['event-storming-ide-editor']"
         }
       ]
     },

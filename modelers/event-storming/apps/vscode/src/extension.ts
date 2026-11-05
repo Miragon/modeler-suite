@@ -4,7 +4,7 @@ import { registerBoardEditor } from "./boardEditor.js";
 import { BOARD_VIEW_TYPE } from "./boardEditorOptions.js";
 import { registerBoardCommands } from "./commands.js";
 import { BoardDiagnostics } from "./diagnostics.js";
-import { EMPTY_BOARD, EXAMPLE_BOARD } from "./examples.js";
+import { EMPTY_BOARD, EXAMPLE_BOARD } from "event-storming-ide-editor/examples";
 
 const NEW_BOARD = {
   viewType: BOARD_VIEW_TYPE,

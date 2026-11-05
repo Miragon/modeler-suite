@@ -6,7 +6,7 @@ import {
   type StubWebviewPanel,
 } from "@miragon/modeler-shell/testing/vscode-stub";
 import { BOARD_EDITOR_OPTIONS, BOARD_VIEW_TYPE } from "../../apps/vscode/src/boardEditorOptions.js";
-import { EMPTY_BOARD, EXAMPLE_BOARD } from "../../apps/vscode/src/examples.js";
+import { EMPTY_BOARD, EXAMPLE_BOARD } from "../../apps/ide-editor/src/examples.js";
 import { EVENT_STORMING_THEMES } from "../../packages/renderer/src/theme/themes.js";
 
 const search = new URLSearchParams(location.search);

@@ -18,5 +18,5 @@
     "apps/*/src/**/*.ts",
     "apps/*/test/**/*.ts"
   ],
-  "exclude": ["**/dist/**", "**/node_modules/**", "apps/vscode/**"]
+  "exclude": ["**/dist/**", "**/node_modules/**", "apps/vscode/**", "apps/ide-editor/**"]
 }

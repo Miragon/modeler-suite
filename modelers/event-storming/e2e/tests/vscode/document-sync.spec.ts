@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { EMPTY_BOARD, withExampleInserted } from "../../../apps/vscode/src/examples.js";
+import { EMPTY_BOARD, withExampleInserted } from "../../../apps/ide-editor/src/examples.js";
 import { openWebview, postedMessages } from "./support/webview.js";
 
 /**
