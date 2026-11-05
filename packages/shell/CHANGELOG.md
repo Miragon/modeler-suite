@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.10.0...modeler-shell-v0.11.0) (2026-11-05)
+
+
+### Features
+
+* **shell:** host one modeler editor in VS Code and Orca ([#540](https://github.com/Miragon/modeler-suite/issues/540)) ([641659d](https://github.com/Miragon/modeler-suite/commit/641659d6277289fd5178e902e092fd80077e77ae)), closes [#537](https://github.com/Miragon/modeler-suite/issues/537)
+* **shell:** smoke-test a modeler's Orca plugin in a real Orca ([#542](https://github.com/Miragon/modeler-suite/issues/542)) ([2e6e83f](https://github.com/Miragon/modeler-suite/commit/2e6e83f6dc31432ba5f56600651874dfba1e923b)), closes [#537](https://github.com/Miragon/modeler-suite/issues/537)
+
 ## [0.10.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.9.0...modeler-shell-v0.10.0) (2026-11-03)
 
 

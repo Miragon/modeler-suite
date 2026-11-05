@@ -1,6 +1,6 @@
 {
   "name": "context-maps-orca",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "The Context Maps Modeler as an Orca custom editor for .cm and .cm.json files.",
   "license": "MIT",
@@ -13,8 +13,8 @@
     "@fontsource-variable/geist": "5.3.0",
     "@fontsource-variable/geist-mono": "5.3.0",
     "@miragon/context-maps-renderer": "0.9.1",
-    "@miragon/modeler-shell": "0.10.0",
-    "context-maps-ide-editor": "0.0.0",
+    "@miragon/modeler-shell": "0.11.0",
+    "context-maps-ide-editor": "0.1.0",
     "diagram-js": "15.28.1",
     "didi": "12.0.0",
     "tiny-svg": "4.1.4",

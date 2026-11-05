@@ -1,7 +1,7 @@
 {
   "name": "value-chain-modeler",
   "private": true,
-  "version": "0.10.1",
+  "version": "0.11.0",
   "displayName": "Value Chain Modeler",
   "description": "View and edit value chain diagrams (Wertschöpfungskettendiagramme) directly in VS Code as *.vc or *.vc.json files.",
   "publisher": "miragon-gmbh",
@@ -240,14 +240,14 @@
   "dependencies": {
     "@fontsource-variable/geist": "5.3.0",
     "@fontsource-variable/geist-mono": "5.3.0",
-    "@miragon/modeler-shell": "0.10.0",
+    "@miragon/modeler-shell": "0.11.0",
     "@miragon/value-chain-renderer": "0.10.0",
     "@miragon/value-chain-schema-model": "0.7.3",
     "diagram-js": "15.28.1",
     "didi": "12.0.0",
     "jsonc-parser": "3.3.1",
     "tiny-svg": "4.1.4",
-    "value-chain-ide-editor": "0.0.0",
+    "value-chain-ide-editor": "0.1.0",
     "zod": "4.6.7"
   },
   "devDependencies": {

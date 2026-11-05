@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.18.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.17.1...team-topologies-v0.18.0) (2026-11-05)
+
+
+### Features
+
+* **team-topologies:** open Team Topologies diagrams in Orca ([#546](https://github.com/Miragon/modeler-suite/issues/546)) ([a47d33a](https://github.com/Miragon/modeler-suite/commit/a47d33afd670ceac322e59c9f1fc775b16e93e54)), closes [#537](https://github.com/Miragon/modeler-suite/issues/537)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @miragon/modeler-shell bumped from 0.10.0 to 0.11.0
+
 ## [0.17.1](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.17.0...team-topologies-v0.17.1) (2026-11-03)
 
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.3](https://github.com/Miragon/modeler-suite/compare/event-storming-webapp-v0.8.2...event-storming-webapp-v0.8.3) (2026-11-05)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.10.0 to 0.11.0
+
 ## [0.8.2](https://github.com/Miragon/modeler-suite/compare/event-storming-webapp-v0.8.1...event-storming-webapp-v0.8.2) (2026-11-03)
 
 

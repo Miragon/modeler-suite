@@ -1,6 +1,6 @@
 {
   "name": "context-maps-ide-editor",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "The context map editor that the VS Code extension and the Orca plugin both mount.",
   "license": "MIT",
@@ -22,7 +22,7 @@
     "@miragon/context-maps-cml": "0.1.8",
     "@miragon/context-maps-renderer": "0.9.1",
     "@miragon/context-maps-schema-model": "0.5.1",
-    "@miragon/modeler-shell": "0.10.0",
+    "@miragon/modeler-shell": "0.11.0",
     "zod": "4.6.7"
   }
 }

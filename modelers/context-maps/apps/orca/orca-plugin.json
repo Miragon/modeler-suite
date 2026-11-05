@@ -3,9 +3,12 @@
   "manifestVersion": 2,
   "id": "context-maps-modeler",
   "name": "Context Maps Modeler",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Open .cm and .cm.json files as context maps: model bounded contexts and their relationships, and see an agent's changes to the file as they happen.",
-  "author": { "name": "Miragon GmbH", "url": "https://www.miragon.io" },
+  "author": {
+    "name": "Miragon GmbH",
+    "url": "https://www.miragon.io"
+  },
   "repository": "https://github.com/Miragon/modeler-suite",
   "homepage": "https://miragon.github.io/modeler-suite/",
   "license": "MIT",
@@ -20,7 +23,10 @@
       {
         "id": "context-maps",
         "title": "Context Map",
-        "extensions": [".cm", ".cm.json"],
+        "extensions": [
+          ".cm",
+          ".cm.json"
+        ],
         "entry": "editor/index.html",
         "frame": "isolated"
       }
