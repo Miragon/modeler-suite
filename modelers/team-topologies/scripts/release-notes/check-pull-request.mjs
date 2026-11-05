@@ -86,7 +86,7 @@ lines.push(
   "",
   `${report.hasOverride ? "Fix the" : "Add a"} BEGIN_COMMIT_OVERRIDE … END_COMMIT_OVERRIDE block in the pull request's description:`,
   "one message per breaking change, each with its own one-paragraph BREAKING CHANGE footer whose text",
-  'starts on the footer\'s line, and no `!` in its header (CONTRIBUTING.md, "Breaking changes").',
+  'starts on the footer\'s line, and no `!` in its header (docs/ci-and-releases.md, "BEGIN_COMMIT_OVERRIDE").',
   "The check reruns when you save the description.",
 );
 console.error(lines.join("\n"));
