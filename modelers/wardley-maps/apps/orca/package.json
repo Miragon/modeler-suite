@@ -1,6 +1,6 @@
 {
   "name": "wardley-maps-orca",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "The Wardley Maps Modeler as an Orca custom editor for .wmap and .owm files.",
   "license": "MIT",
