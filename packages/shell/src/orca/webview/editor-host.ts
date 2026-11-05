@@ -1,9 +1,12 @@
 import type { IdeEditorHost } from "../../ide/index.js";
+import type { OrcaTextMerge } from "./api.js";
 import { connectOrcaDocumentSync } from "./document-sync.js";
 import { mountOrcaShell } from "./mount.js";
 import { saveExport } from "./save-export.js";
 
 export interface OrcaEditorHostOptions {
+  /** The notation's three-way merge (`ModelTextMerge` of `@miragon/modeler-api`). */
+  merge: OrcaTextMerge;
   /** Orca's quiet time before it sends a change, default 250 ms. */
   debounceMs?: number | undefined;
 }
@@ -31,12 +34,12 @@ function storeValue(key: string, value: unknown): void {
 const LEGEND_KEY = "legendOpen";
 
 /**
- * An Orca custom editor frame as an `IdeEditorHost`: `mountOrcaShell`, `orca.document.session()`,
- * exports through Orca's save dialog. Orca never tells the frame the
+ * An Orca custom editor frame as an `IdeEditorHost`: `mountOrcaShell`, `orca.document.session()`
+ * with the notation's `merge`, exports through Orca's save dialog. Orca never tells the frame the
  * file's path, so no view is kept per file; the legend and the modeler's own keys are kept per
  * plugin. The canvas owns undo, and Orca has neither diagnostics nor palette commands for an editor.
  */
-export function orcaEditorHost(options: OrcaEditorHostOptions = {}): IdeEditorHost {
+export function orcaEditorHost(options: OrcaEditorHostOptions): IdeEditorHost {
   const legendOpen = storedValue(LEGEND_KEY);
   return {
     kind: "orca",
@@ -55,7 +58,13 @@ export function orcaEditorHost(options: OrcaEditorHostOptions = {}): IdeEditorHo
         importText: documentOptions.importText,
         exportText: documentOptions.exportText,
         canWrite: documentOptions.canWrite,
+        merge: options.merge,
         debounceMs: options.debounceMs,
+        onMergeConflict: (error) =>
+          console.warn(
+            "@miragon/modeler-shell: the file changed outside the editor where it was edited; Orca asks to reload or overwrite",
+            error,
+          ),
       });
       const { withExampleInserted } = documentOptions;
       return {

@@ -264,7 +264,7 @@ violating import fails `npm run context-maps lint` and `npm run context-maps dep
   mode markup and licence comment in the bundle) · `npm run context-maps build:vscode`
 - `npm run context-maps build:orca`: the Orca plugin into `apps/orca/plugin/` (the editor
   definition the VS Code webview mounts too, `createContextMapEditor` in `apps/ide-editor/src/editor.ts`, on
-  `orcaEditorHost`, see [`apps/orca/README.md`](apps/orca/README.md)) ·
+  `orcaEditorHost` with `mergeContextMapText`, see [`apps/orca/README.md`](apps/orca/README.md)) ·
   `npm run context-maps test:orca:docker`: the plugin in a real Orca in a Linux container; the e2e
   project `orca-editor` runs it in the shell's Orca stub
 - `npm run context-maps dev:webapp` (alias: `npm run context-maps dev`) serves the webapp via

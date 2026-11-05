@@ -9,6 +9,7 @@ export {
   EVENT_STORMING_NOTATION,
   createCollaborativeModeler,
   createCollaborativeViewer,
+  mergeStormText,
 } from "./collaborative/index.js";
 export type {
   CollaborativeEventStormingModeler,

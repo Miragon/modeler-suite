@@ -20,6 +20,7 @@ export {
   CONTEXT_MAPS_NOTATION,
   createCollaborativeModeler,
   createCollaborativeViewer,
+  mergeContextMapText,
 } from "./collaborative/index.js";
 export type {
   CollaborativeContextMapsModeler,

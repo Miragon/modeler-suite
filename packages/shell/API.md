@@ -51,7 +51,7 @@ consumer is the Event Storming modeler, in VS Code (0.1, on the document plumbin
 | `@miragon/modeler-shell/ide`                        | one editor definition for every IDE host: `IdeEditorDefinition`, `IdeEditorHost`, `mountIdeEditor` (0.11)              | yes                            |
 | `@miragon/modeler-shell/vscode/extension`           | webview HTML, nonce, theme bridge, the document plumbing (0.8), the file commands (0.9) (extension host)               | no                             |
 | `@miragon/modeler-shell/vscode/webview`             | `mountVsCodeShell`, appearance handler, webview state, the document sync (0.8), `vsCodeEditorHost` (0.11)              | yes                            |
-| `@miragon/modeler-shell/orca/webview`               | an Orca custom editor frame: `mountOrcaShell`, the document sync, `saveExport`, `orcaEditorHost` (0.11)                | yes                            |
+| `@miragon/modeler-shell/orca/webview`               | an Orca custom editor frame: `mountOrcaShell`, the document sync with `merge`, `saveExport`, `orcaEditorHost` (0.11)   | yes                            |
 | `@miragon/modeler-shell/export`                     | the PNG export: `svgToPng` with Geist inside the SVG (0.7)                                                             | yes (at call time)             |
 | `@miragon/modeler-shell/testing`                    | Playwright-driven shell conformance kit                                                                                | runs in Node, drives a browser |
 | `@miragon/modeler-shell/testing/vscode-stub`        | a stand-in for VS Code around a webview test page and (0.8) for the extension host's documents                         | yes (in the test page)         |
@@ -2197,7 +2197,7 @@ custom editor; each entry is the definition on its host:
 // apps/vscode/src/webview/main.ts
 mountIdeEditor(vsCodeEditorHost(), boardEditor);
 // apps/orca/src/main.ts
-mountIdeEditor(orcaEditorHost(), boardEditor);
+mountIdeEditor(orcaEditorHost({ merge: mergeStormText }), boardEditor);
 ```
 
 ```ts
@@ -2246,11 +2246,11 @@ the shell through the host, connects diagram-js and the document, and wires the 
 
 `IdeEditorHost` is what differs between the IDEs:
 
-| Member              | `vsCodeEditorHost(options?, api?)`                                           | `orcaEditorHost({ debounceMs? })`                                            |
+| Member              | `vsCodeEditorHost(options?, api?)`                                           | `orcaEditorHost({ merge, debounceMs? })`                                     |
 | ------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `canvasOwnsHistory` | `false`: VS Code's document keeps the history                                | `true`: Orca keeps none for a custom editor                                  |
 | `mountShell`        | `mountVsCodeShell` with the problems pill                                    | `mountOrcaShell`, no pill (Orca has no diagnostics for an editor)            |
-| `connectDocument`   | `connectDocumentSync` with the commands and `onMessage`                      | `connectOrcaDocumentSync`                                                    |
+| `connectDocument`   | `connectDocumentSync` with the commands and `onMessage`                      | `connectOrcaDocumentSync` with `merge`                                       |
 | `state`             | the view and the legend per document, own keys in the webview state          | the legend and own keys per plugin in `localStorage`, no view (no file path) |
 | `saveExport`        | posts `{ type: "export", format, data, fontFallback? }`, a picture in Base64 | `orca.files.saveAs`                                                          |
 | `notify`            | posts `info` / `error`                                                       | logs, which `orca plugin logs` shows                                         |
@@ -2269,7 +2269,7 @@ function saveExport(file: { suggestedName; mimeType; data: string | ArrayBuffer 
   status: "saved" | "cancelled";
 }>;
 function openExternal(url: string): Promise<boolean>; // orca.shell.openExternal, from a click
-function orcaEditorHost(options?: { debounceMs?: number }): IdeEditorHost;
+function orcaEditorHost(options: { merge: OrcaTextMerge; debounceMs?: number }): IdeEditorHost;
 ```
 
 The frame's `window.orca` (plugin API 1) is typed structurally (`OrcaEditorApi`): Orca ships no
@@ -2281,15 +2281,20 @@ typings a package can depend on.
   `prefers-contrast: more` asks for high contrast and `prefers-reduced-motion` decides the motion.
 - **`connectOrcaDocumentSync`** is the Orca counterpart of `connectDocumentSync`, on
   `orca.document.session()`: the session's first value is the first import, `onReplace` (an outside
-  write) an update, and `pushEdit` sends `session.change(text)`. An outside write while the tab has
-  unsaved edits gets Orca's Reload/Overwrite banner, so the person decides; one that meets an edit
-  still in flight wins over that edit, which the canvas then shows. The session gets no `merge`
-  yet: Orca drops the frame's `editor.merges` announcement from isolated frames
-  ([stablyai/orca#38535](https://github.com/stablyai/orca/issues/38535)), so a merge would never
-  run for a write under unsaved edits. `replaceDocument(text)` writes and shows a text of the
+  write, or a merge) an update, and `pushEdit` sends `session.change(text)`. **`merge` is
+  required**: without it Orca drops the user's draft when an agent writes the file during an edit,
+  and hands a write under unsaved edits to its Reload/Overwrite banner. With it, Orca calls
+  `merge(base, outside, mine)` on both; disjoint changes merge, and a merge that throws (a
+  `MergeConflictError` of `@miragon/modeler-api`, see its README) keeps the banner, so the person
+  decides. `onMergeConflict` hears about it. `replaceDocument(text)` writes and shows a text of the
   editor's own, as the empty-file hint's example.
 - **`saveExport`**: Orca's save dialog; call it from a click or key press, and expect a rejection
   outside the desktop app.
+
+One gap remains on Orca's side: when an edit is refused because the file changed while it was in
+flight and `merge` throws, Orca's session keeps the draft against the newer document, so the
+user's next change overwrites the outside write without the banner. The window is a few
+milliseconds wide; the disk write under unsaved edits, the case an agent causes, keeps the banner.
 
 ## `./vscode/extension`
 
@@ -3795,7 +3800,7 @@ const ORCA_FRAME_POLICY: string; // from ./testing
 tab that keeps buffer, disk and banner. Its session follows the rules of Orca's own (one edit in
 flight, a baseline that moves only on an accepted edit, `merge` on a refused edit and on a disk
 write under unsaved edits, the outside text winning without `merge`), so a modeler's e2e suite
-tests its document sync against it. Install it before the editor's code runs; it is
+tests its document sync and its merge against it. Install it before the editor's code runs; it is
 also `window.__modelerShellOrcaStub`.
 
 `openOrcaEditorBundle` serves a built plugin folder the way Orca's isolated frame loads its editor:
@@ -4409,9 +4414,11 @@ function runOrcaSmoke(options: {
   plugin: string; // the built plugin folder
   app?: string; // the extracted Orca AppImage (squashfs-root); default $ORCA_APP
   document: { name: string; text: string };
-  // an interior element: a click point in the fitted editor of `size`, and the label
-  deletion: OrcaSmokeElement;
-  addOutside(text: string): string; // an agent adds an ORCA_SMOKE_AGENT_LABEL element
+  // three interior elements: a click point in the fitted editor of `size`, and the label
+  deletions: [OrcaSmokeElement, OrcaSmokeElement, OrcaSmokeElement];
+  addOutside(text: string, count: number): string; // an agent adds an ORCA_SMOKE_AGENT_LABEL element
+  changeOutside(text: string): string; // an agent changes the third deletion
+  merge?: boolean; // also the merge and conflict steps, see below
   results?: string; // default test-results/orca-smoke
   size?: { width: number; height: number }; // default 1200 × 800
 }): Promise<{ version: string; pluginKey: string; steps: string[] }>;
@@ -4424,8 +4431,13 @@ runtime is ready), `validate` (`plugin validate` and `plugin check` without find
 `plugin shot --editor` that subscribed and settled without errors), `themes`, `undo` (a delete and
 Ctrl+Z in the editor, saved: the element is still there), `edit` (a delete saved to the file; tried
 once more when it did not land), `external` (a write to the clean tab), `logs` (no blocked request
-and no other error) and `close`. Every shot loads the editor afresh and fits it, so the deletion
-is an interior element that keeps the fitted view. Each step saves a screenshot to `results`.
+and no other error) and `close`. Every shot loads the editor afresh and fits it, so the deletions
+are interior elements that keep the fitted view. Each step saves a screenshot to `results`.
+
+`merge` adds `merge` (a write under unsaved edits, merged and saved) and `conflict` (a write that
+changes what the user deleted leaves the file and logs the refused merge). They are off by default:
+driven through `plugin shot`, Orca 1.4.249 does not hand such a write to the editor, as its merge
+needs exactly one mounted editor view of the tab; the Orca stub's suites cover the merge instead.
 
 `modeler-shell-orca-docker` runs a modeler's `test:orca` in a Linux container, as
 `modeler-shell-vscode-docker` runs `test:vscode`: the same image plus the Orca AppImage of

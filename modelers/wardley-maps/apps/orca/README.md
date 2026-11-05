@@ -4,8 +4,12 @@ The Wardley Maps Modeler as an [Orca](https://www.onorca.dev) custom editor: `.w
 files open as a Wardley map, with the same chrome as the VS Code extension. Orca keeps the file, its dirty state,
 saving and read-only tabs; the editor owns undo.
 
-When a coding agent writes the file, the editor shows the change right away. When it has
-unsaved edits, Orca shows its Reload/Overwrite banner and you decide.
+When a coding agent writes the file while the board has unsaved edits, Orca hands the write to the
+editor's merge (`mergeOwmText` of `@miragon/wardley-renderer`): changes to different
+components, dependencies or map settings are kept from both sides, and the merge writes them into
+your text, so its comments and order stay. OWM writes no ids: a renamed component counts as a new
+one, which conflicts only when the agent changed the old one. When both sides changed the same
+element, Orca shows its Reload/Overwrite banner and you decide.
 
 ## Build and try it
 
@@ -37,6 +41,9 @@ take the focus): load, render, both themes, undo, a saved edit, an agent's write
 ```sh
 npm run wardley-maps test:orca:docker
 ```
+
+`ORCA_SMOKE_MERGE=1` adds an agent's write under unsaved edits; driven through `orca plugin shot`,
+Orca does not hand that write to the editor yet, so it stays off by default.
 
 A link to a web page opens in the browser after Orca asks; a link to another map does not open,
 since Orca lets no editor open a file. Pick its target in Orca's file tree.

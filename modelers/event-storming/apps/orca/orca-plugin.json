@@ -4,7 +4,7 @@
   "id": "event-storming-modeler",
   "name": "Event Storming Modeler",
   "version": "0.0.0",
-  "description": "Open .storm files as Event Storming boards: model with stickies, notes and arrows, and see an agent's changes to the file as they happen.",
+  "description": "Open .storm files as Event Storming boards: model with stickies, notes and arrows, and keep an agent's changes to the file merged with yours.",
   "author": { "name": "Miragon GmbH", "url": "https://www.miragon.io" },
   "repository": "https://github.com/Miragon/modeler-suite",
   "homepage": "https://miragon.github.io/modeler-suite/",
