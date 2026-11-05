@@ -3,7 +3,7 @@ import { MIRAGON } from "@miragon/context-maps-renderer";
 import { svgToPng } from "@miragon/modeler-shell/export";
 import type * as ShellExport from "@miragon/modeler-shell/export";
 import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../src/png.js";
-import { blobToBase64, svgToEmbeddedPng } from "../src/webview/io.js";
+import { blobToBase64, svgToEmbeddedPng } from "../src/io.js";
 import { PNG_SIGNATURE, pngChunk } from "./pngChunks.js";
 
 vi.mock("@miragon/modeler-shell/export", async (importOriginal) => ({

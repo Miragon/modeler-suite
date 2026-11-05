@@ -6,6 +6,9 @@ const WEBAPP_PORT = process.env.E2E_PORT ?? "5180";
 const WEBAPP_URL = `http://localhost:${WEBAPP_PORT}`;
 const WEBVIEW_PORT = process.env.E2E_WEBVIEW_PORT ?? "5190";
 const WEBVIEW_URL = `http://localhost:${WEBVIEW_PORT}`;
+// A regular expression, not "**/orca/**": a glob matches the absolute path, which may hold an
+// "orca" folder of its own.
+const ORCA_SPECS = /[\\/]tests[\\/]orca[\\/].*\.spec\.ts$/;
 
 /**
  * Three projects, one per host and engine:
@@ -34,13 +37,18 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: "**/vscode/**",
+      testIgnore: ["**/vscode/**", ORCA_SPECS],
       use: { ...devices["Desktop Chrome"], baseURL: WEBAPP_URL },
     },
     {
       name: "webkit",
-      testIgnore: ["**/vscode/**", "**/*shell-conformance.spec.ts"],
+      testIgnore: ["**/vscode/**", "**/*shell-conformance.spec.ts", ORCA_SPECS],
       use: { ...devices["Desktop Safari"], baseURL: WEBAPP_URL },
+    },
+    {
+      name: "orca-editor",
+      testMatch: ORCA_SPECS,
+      use: { ...devices["Desktop Chrome"], baseURL: WEBVIEW_URL },
     },
     {
       name: "vscode-webview",

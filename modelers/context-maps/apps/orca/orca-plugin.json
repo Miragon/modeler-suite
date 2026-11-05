@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stablyai/orca/main/docs/schemas/plugins/orca-plugin.v2.schema.json",
+  "manifestVersion": 2,
+  "id": "context-maps-modeler",
+  "name": "Context Maps Modeler",
+  "version": "0.0.0",
+  "description": "Open .cm and .cm.json files as context maps: model bounded contexts and their relationships, and see an agent's changes to the file as they happen.",
+  "author": { "name": "Miragon GmbH", "url": "https://www.miragon.io" },
+  "repository": "https://github.com/Miragon/modeler-suite",
+  "homepage": "https://miragon.github.io/modeler-suite/",
+  "license": "MIT",
+  "icon": "assets/icon.png",
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "sandboxed-ui",
+  "pluginApi": 1,
+  "contributes": {
+    "customEditors": [
+      {
+        "id": "context-maps",
+        "title": "Context Map",
+        "extensions": [".cm", ".cm.json"],
+        "entry": "editor/index.html",
+        "frame": "isolated"
+      }
+    ]
+  }
+}

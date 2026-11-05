@@ -1,5 +1,5 @@
 import type { ModelerEditorOptions } from "@miragon/modeler-shell/vscode/extension";
-import { withExampleInserted } from "./examples.js";
+import { withExampleInserted } from "context-maps-ide-editor/examples";
 import { WEBVIEW_THEMES } from "./themes.js";
 
 export const MAP_VIEW_TYPE = "contextMaps.editor";

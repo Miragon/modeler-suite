@@ -262,6 +262,16 @@
           "type": "json",
           "path": "/modelers/team-topologies/apps/ide-editor/package.json",
           "jsonpath": "$.dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/context-maps/apps/ide-editor'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/context-maps/apps/orca'].dependencies['@miragon/modeler-shell']"
         }
       ]
     },
@@ -809,6 +819,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/context-maps/packages/renderer'].dependencies['@miragon/context-maps-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/context-maps/apps/ide-editor'].dependencies['@miragon/context-maps-schema-model']"
         }
       ]
     },
@@ -829,6 +844,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/context-maps/apps/webapp'].dependencies['@miragon/context-maps-cml']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/context-maps/apps/ide-editor'].dependencies['@miragon/context-maps-cml']"
         }
       ]
     },
@@ -849,6 +869,36 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/context-maps/apps/webapp'].dependencies['@miragon/context-maps-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/context-maps/apps/ide-editor'].dependencies['@miragon/context-maps-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/context-maps/apps/orca'].dependencies['@miragon/context-maps-renderer']"
+        }
+      ]
+    },
+    "modelers/context-maps/apps/ide-editor": {
+      "component": "context-maps-ide-editor",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/context-maps/apps/ide-editor'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/context-maps/apps/vscode'].dependencies['context-maps-ide-editor']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/context-maps/apps/orca'].dependencies['context-maps-ide-editor']"
         }
       ]
     },
@@ -1130,6 +1180,21 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/value-chain/apps/orca'].version"
+        }
+      ]
+    },
+    "modelers/context-maps/apps/orca": {
+      "component": "context-maps-orca",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "orca-plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/context-maps/apps/orca'].version"
         }
       ]
     }

@@ -298,6 +298,7 @@
     "@miragon/context-maps-renderer": "0.9.1",
     "@miragon/context-maps-schema-model": "0.5.1",
     "@miragon/modeler-shell": "0.10.0",
+    "context-maps-ide-editor": "0.0.0",
     "diagram-js": "15.28.1",
     "didi": "12.0.0",
     "jsonc-parser": "3.3.1",

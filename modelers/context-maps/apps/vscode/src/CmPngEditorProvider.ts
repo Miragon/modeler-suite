@@ -6,10 +6,10 @@ import {
 } from "@miragon/modeler-shell/vscode/extension";
 import { PNG_VIEW_TYPE, type ActivePanels } from "./commands.js";
 import { toDiagnostics } from "./diagnostics.js";
-import { EMPTY_MAP, withExampleInserted } from "./examples.js";
+import { EMPTY_MAP, withExampleInserted } from "context-maps-ide-editor/examples";
 import { exportMap } from "./exportImage.js";
 import { WEBVIEW_TITLE } from "./mapEditorOptions.js";
-import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "./png.js";
+import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "context-maps-ide-editor/png";
 import { mapProblems, problemCounts } from "./problems.js";
 import type { HostToWebview, WebviewToHost } from "./protocol.js";
 import { WEBVIEW_THEMES } from "./themes.js";

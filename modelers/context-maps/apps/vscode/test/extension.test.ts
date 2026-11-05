@@ -8,7 +8,7 @@ import {
   PNG_VIEW_TYPE,
   WEBVIEW_COMMANDS,
 } from "../src/commands.js";
-import { EMPTY_MAP } from "../src/examples.js";
+import { EMPTY_MAP } from "context-maps-ide-editor/examples";
 import { activate } from "../src/extension.js";
 import { MAP_VIEW_TYPE } from "../src/mapEditorOptions.js";
 import { Disposable, EventEmitter, Uri, ViewColumn, vscodeMock } from "./__mocks__/vscode.js";

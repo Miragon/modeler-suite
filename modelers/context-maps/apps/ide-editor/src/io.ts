@@ -13,7 +13,7 @@ import cyrillic from "@fontsource-variable/geist/files/geist-cyrillic-wght-norma
 import vietnamese from "@fontsource-variable/geist/files/geist-vietnamese-wght-normal.woff2?dataurl";
 import latinExt from "@fontsource-variable/geist/files/geist-latin-ext-wght-normal.woff2?dataurl";
 import latin from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?dataurl";
-import { EMBED_KEYWORD, encodeDoc, pngInsertText } from "../png.js";
+import { EMBED_KEYWORD, encodeDoc, pngInsertText } from "./png.js";
 
 const SVG_ATTR = "data-tt-document";
 

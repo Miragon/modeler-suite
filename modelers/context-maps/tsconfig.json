@@ -14,5 +14,12 @@
     }
   },
   "include": ["packages/*/src", "packages/renderer/test", "apps/webapp/src", "apps/webapp/test"],
-  "exclude": ["**/dist/**", "**/node_modules/**", "apps/vscode/**", "e2e/**"]
+  "exclude": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "apps/vscode/**",
+    "apps/ide-editor/**",
+    "apps/orca/**",
+    "e2e/**"
+  ]
 }

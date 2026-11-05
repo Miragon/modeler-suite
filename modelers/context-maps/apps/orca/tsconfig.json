@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "baseUrl": ".",
+    "paths": {
+      "@miragon/context-maps-renderer": ["../../packages/renderer/src/index.ts"],
+      "@miragon/context-maps-schema-model": ["../../packages/schema-model/src/index.ts"],
+      "@miragon/context-maps-cml": ["../../packages/cml/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "../ide-editor/src/css.d.ts"]
+}

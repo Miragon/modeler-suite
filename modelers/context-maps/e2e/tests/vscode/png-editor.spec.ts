@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { parseDocumentText } from "@miragon/context-maps-schema-model";
-import { EXAMPLE_MAP } from "../../../apps/vscode/src/examples.js";
-import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/vscode/src/png.js";
-import { pngChunks, textChunksWith, textWith } from "../../../apps/vscode/test/pngChunks.js";
+import { EXAMPLE_MAP } from "../../../apps/ide-editor/src/examples.js";
+import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/ide-editor/src/png.js";
+import { pngChunks, textChunksWith, textWith } from "../../../apps/ide-editor/test/pngChunks.js";
 import { PNG_GROUND, pngFacts } from "../support/png.js";
 import {
   failFontEmbeddingOfNextExport,

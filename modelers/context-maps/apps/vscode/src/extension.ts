@@ -3,7 +3,7 @@ import { registerNewDocumentCommand } from "@miragon/modeler-shell/vscode/extens
 import { CmPngEditorProvider } from "./CmPngEditorProvider.js";
 import { ActivePanels, registerSideBySideCommands, registerWebviewCommands } from "./commands.js";
 import { DIAGNOSTIC_COLLECTION_NAME } from "./diagnostics.js";
-import { EMPTY_MAP, EXAMPLE_MAP } from "./examples.js";
+import { EMPTY_MAP, EXAMPLE_MAP } from "context-maps-ide-editor/examples";
 import { newDiagramFromCml } from "./importCml.js";
 import { registerMapEditor } from "./mapEditor.js";
 import { MAP_VIEW_TYPE } from "./mapEditorOptions.js";
