@@ -14,10 +14,12 @@ defaults:
   run:
     shell: bash
 
-# A new push to a pull request makes its running checks moot. Every other run has a group of its
-# own, so no run on main, in the merge queue or started by hand is ever cancelled or replaced.
+# A new push to a pull request makes its running checks moot. Pushes to main share one group: a
+# running check of main always finishes, and of the pushes waiting behind it only the newest runs,
+# so a burst of merges does not queue a full run per commit (each was checked in its pull request).
+# Runs in the merge queue or started by hand have a group of their own and are never replaced.
 concurrency:
-  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'push' && 'main' || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
