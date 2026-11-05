@@ -1,6 +1,6 @@
 {
   "name": "@miragon/c4-webapp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -17,7 +17,7 @@
     "@miragon/c4-layout": "0.1.0",
     "@miragon/c4-renderer": "0.1.0",
     "@miragon/c4-schema-model": "0.1.0",
-    "@miragon/modeler-shell": "0.10.0",
+    "@miragon/modeler-shell": "0.11.0",
     "diagram-js": "15.28.1",
     "didi": "12.0.0",
     "tiny-svg": "4.1.4"

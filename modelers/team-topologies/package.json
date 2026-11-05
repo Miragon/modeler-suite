@@ -1,6 +1,6 @@
 {
   "name": "@miragon/team-topologies-modeler-workspace",
-  "version": "0.17.1",
+  "version": "0.17.2",
   "private": true,
   "description": "A web-based modeler and VS Code extension for the Team Topologies notation (team types & interaction modes).",
   "license": "MIT",
@@ -17,9 +17,8 @@
     "build": "npm run build -w packages/schema-model -w packages/renderer",
     "build:webapp": "npm run build -w apps/webapp",
     "build:vscode": "npm run build -w apps/vscode",
-    "build:orca": "npm run build -w apps/orca",
     "package:vscode": "npm run package -w apps/vscode",
-    "typecheck": "tsc -p tsconfig.json && tsc -p apps/webapp/tsconfig.node.json && npm run typecheck -w apps/ide-editor && npm run typecheck -w apps/vscode && npm run typecheck -w apps/orca && npm run typecheck -w e2e",
+    "typecheck": "tsc -p tsconfig.json && tsc -p apps/webapp/tsconfig.node.json && npm run typecheck -w apps/vscode && npm run typecheck -w e2e",
     "lint": "eslint . && npm run typecheck",
     "format": "prettier --write . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",
     "format:check": "prettier --check . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",
@@ -27,8 +26,6 @@
     "test:browser": "vitest run --project=browser",
     "test:vscode": "vitest run --project=vscode --silent=false",
     "test:vscode:docker": "modeler-shell-vscode-docker --results modelers/team-topologies/test-results/vscode-smoke",
-    "test:orca": "vitest run --project=orca --silent=false",
-    "test:orca:docker": "modeler-shell-orca-docker --results modelers/team-topologies/test-results/orca-smoke",
     "test:e2e": "npm run test:e2e -w e2e",
     "dev": "npm run dev:webapp",
     "dev:webapp": "npm run dev -w apps/webapp",
@@ -38,7 +35,7 @@
     "check:release-notes": "node scripts/release-notes/check-pull-request.mjs"
   },
   "devDependencies": {
-    "@miragon/modeler-shell": "0.10.0",
+    "@miragon/modeler-shell": "0.11.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vscode/test-electron": "3.1.0",
