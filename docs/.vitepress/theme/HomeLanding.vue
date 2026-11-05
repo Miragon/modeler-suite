@@ -11,6 +11,7 @@ const modelers = [
     file: "tea.owm",
     shot: "/shots/wardley-maps/editor.png",
     link: "/modelers/wardley-maps",
+    orca: "https://onorca.dev/plugins/miragon.wardley-maps-modeler?catalog=https://github.com/miragon/orca-modelers.git",
     files: ".wmap .owm",
     effect: "Components on the value chain, evolved by drag.",
   },
@@ -21,6 +22,7 @@ const modelers = [
     file: "order-checkout.storm",
     shot: "/shots/event-storming/editor.png",
     link: "/modelers/event-storming",
+    orca: "https://onorca.dev/plugins/miragon.event-storming-modeler?catalog=https://github.com/miragon/orca-modelers.git",
     files: ".storm",
     effect: "Stickies on a timeline, one per line of text.",
   },
@@ -31,6 +33,7 @@ const modelers = [
     file: "sample.tt",
     shot: "/shots/team-topologies/editor.png",
     link: "/modelers/team-topologies",
+    orca: "https://onorca.dev/plugins/miragon.team-topologies-modeler?catalog=https://github.com/miragon/orca-modelers.git",
     files: ".tt .ttm.json",
     effect: "Four team types and three interaction modes.",
   },
@@ -41,6 +44,7 @@ const modelers = [
     file: "sample.cm",
     shot: "/shots/context-maps/editor.png",
     link: "/modelers/context-maps",
+    orca: "https://onorca.dev/plugins/miragon.context-maps-modeler?catalog=https://github.com/miragon/orca-modelers.git",
     files: ".cm .cml",
     effect: "Bounded contexts and their relationship patterns.",
   },
@@ -51,6 +55,7 @@ const modelers = [
     file: "porter.vc.json",
     shot: "/shots/value-chain/editor.png",
     link: "/modelers/value-chain",
+    orca: "https://onorca.dev/plugins/miragon.value-chain-modeler?catalog=https://github.com/miragon/orca-modelers.git",
     files: ".vc",
     effect: "Steps and the organizational units behind them.",
   },
@@ -61,6 +66,7 @@ const modelers = [
     file: "bookshop.c4",
     shot: "/shots/c4/editor.png",
     link: "/modelers/c4",
+    orca: undefined,
     files: ".c4 .dsl",
     effect: "One model, many views, from the landscape down to the components.",
   },
@@ -95,7 +101,16 @@ const installs = computed(() => [
   {
     name: "Web app",
     lines: [],
+    target: "webApp",
+    missing: "from source",
     note: "In the browser, no install and no account.",
+  },
+  {
+    name: "Orca",
+    lines: [],
+    target: "orca",
+    missing: "follows",
+    note: "Next to your coding agent: opens the plugin's page in Orca 1.4.248 or later, which adds the Miragon catalog on the first install.",
   },
   {
     name: "npm",
@@ -144,7 +159,8 @@ async function copyInstall() {
           <p class="slogan">Draw on a canvas, commit plain text.</p>
           <p class="lede">
             Wardley Maps, Event Storming, Team Topologies, Context Maps, Value Chains and C4 models
-            as text files, edited on a canvas in VS Code, in the browser or in your own app.
+            as text files, edited on a canvas in VS Code, in Orca, in the browser or in your own
+            app.
           </p>
 
           <div class="install">
@@ -178,11 +194,15 @@ async function copyInstall() {
                     :aria-hidden="index !== selected"
                   >
                     <li v-for="modeler in modelers" :key="modeler.name">
-                      <a v-if="modeler.webApp" :href="modeler.webApp" target="_blank" rel="noopener"
+                      <a
+                        v-if="modeler[install.target]"
+                        :href="modeler[install.target]"
+                        target="_blank"
+                        rel="noopener"
                         >{{ modeler.name }} <span aria-hidden="true">↗</span></a
                       >
                       <a v-else :href="withBase(modeler.link)" class="from-source"
-                        >{{ modeler.name }} <span>from source</span></a
+                        >{{ modeler.name }} <span>{{ install.missing }}</span></a
                       >
                     </li>
                   </ul>

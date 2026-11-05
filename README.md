@@ -7,10 +7,11 @@
 
 Six modelers for the notations teams use to think about their business and their systems:
 Wardley Maps, Event Storming, Team Topologies, Context Maps, Value Chain and the C4 model. Each
-one runs in the browser and in VS Code.
+one runs in the browser, in VS Code and in [Orca](https://www.onorca.dev).
 
 [Documentation](https://miragon.github.io/modeler-suite/) ·
 [Extension pack](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.miragon-modeler-collection) ·
+[Orca plugins](https://github.com/Miragon/orca-modelers) ·
 [Issues](https://github.com/Miragon/modeler-suite/issues)
 
 ![The web apps of Wardley Maps, Event Storming, Team Topologies, Context Maps and Value Chain open their built-in examples one after another](docs/assets/demo.gif)
@@ -34,6 +35,11 @@ in a text editor, or let your AI assistant write it.
 | [Context Maps](modelers/context-maps/README.md)       | `.cm`, `.cm.json`, editable `*.cm.png`; `.cml` in/out | [context-maps.modeler.miragon.io](https://context-maps.modeler.miragon.io)       | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.context-maps-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/context-maps-modeler)       |
 | [Value Chain](modelers/value-chain/README.md)         | `.vc`, `.vc.json`                                     | no public deployment yet                                                         | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.value-chain-modeler)                                                                                       |
 | [C4 model](modelers/c4/README.md)                     | `.c4`, `.dsl` (Structurizr DSL)                       | [c4.modeler.miragon.io](https://c4.modeler.miragon.io)                           | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.c4-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/c4-modeler)                           |
+
+Every modeler except C4 is also an [Orca](https://www.onorca.dev) plugin: the file
+opens as a diagram right next to your coding agent, and each change the agent writes shows up on
+the canvas. Install them from the [Miragon catalog for Orca](https://github.com/Miragon/orca-modelers#install)
+(Orca 1.4.248 or later); C4 follows.
 
 Each modeler's README covers its features, its file format and how to embed it in your own app
 with its npm packages.
