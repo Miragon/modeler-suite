@@ -5,13 +5,11 @@
 
 **Model-based design in VS Code. BPMN, Team Topologies, Wardley Maps, Context Maps, C4 models, Value Chains, Event Storming and Domain Storytelling in a single install.**
 
-This is an [Extension Pack](https://code.visualstudio.com/api/references/extension-manifest#extension-packs):
-one click installs the whole Miragon modeler family,
-so you can move between process, process landscape, organization, strategy, architecture, software architecture, discovery and domain diagrams without leaving your editor.
+An [Extension Pack](https://code.visualstudio.com/api/references/extension-manifest#extension-packs) that installs the whole Miragon modeler family in one click.
 
 ## What's inside
 
-Ordered top down, from the broad strategic lens to the concrete domain.
+Ordered from the strategic lens down to the concrete domain.
 
 | Modeler                            | What it's for                                                                                             | Marketplace                                                                                         | Open VSX                                                                       | Source                                                                              |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
@@ -24,27 +22,8 @@ Ordered top down, from the broad strategic lens to the concrete domain.
 | **Event Storming Modeler**         | Explore a domain as a timeline of domain events, commands and aggregates.                                 | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.event-storming-modeler)  | [Install](https://open-vsx.org/extension/miragon-gmbh/event-storming-modeler)  | [Repo](https://github.com/Miragon/modeler-suite/tree/main/modelers/event-storming)  |
 | **Egon.io (Domain Story Modeler)** | Capture domain stories in the language of the people who live the domain.                                 | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.egon-vscode-extension)   | [Install](https://open-vsx.org/extension/miragon-gmbh/egon-vscode-extension)   | [Repo](https://github.com/Miragon/egon.io)                                          |
 
-## Why a collection?
-
-Each modeler is a different lens on the same system,
-and they're strongest together:
-
-- **Strategy**. Where to invest and how components evolve (Wardley Maps).
-- **Organization**. Who does the work and how teams interact (Team Topologies).
-- **Architecture**. Where the domain boundaries run and how contexts relate (Context Maps).
-- **Software architecture**. How the software is built, from the system landscape down to its components (C4 model).
-- **Process landscape**. Which steps add value and who owns them (Value Chains).
-- **Process**. How work flows (BPMN).
-- **Discovery**. How the domain unfolds as events over time (Event Storming).
-- **Domain**. What the business actually does, told as stories (Egon.io).
-
-Installing them as a set means the whole toolkit is one command away when you switch perspectives.
-
-## Standalone by design
-
-Every modeler is also installable on its own and ships on its **own release cycle**.
-This pack simply bundles the current family for convenience.
-Install only what you need, or take the set.
+Each modeler is a different lens on the same system. Every one is also installable on its own and
+ships on its own release cycle; the pack bundles the current family for convenience.
 
 ## Feedback
 

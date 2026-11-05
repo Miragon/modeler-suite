@@ -84,17 +84,13 @@ const empty = createEmptyDocument("My value chain");
 }
 ```
 
-Unknown keys on the document, `meta`, elements and connections are kept through load and
-serialization (sorted, values unrounded), so vendor extensions survive an edit in the tools.
-`bounds` and waypoints reject unknown keys, an unknown `elementType` or `connectionType` is
-invalid, the ids `vc-root`, `__implicitroot…` and the names of built-in JavaScript object
-properties (`constructor`, `toString`, …) are reserved, coordinates and sizes stay within ±1e9
-(`COORDINATE_LIMIT`), and objects and arrays nest at most 100 levels (`MAX_NESTING_DEPTH`). Of
-the keys named `__proto__` and the objects and arrays nested too deep, `documentIssues` reports
-the first 100 in document order. An object or array that a JavaScript caller puts in several
-places is checked at its first place and again only where it lies deeper than before, so its
-findings may be missing at its other places; whether the document loads stays the same. A parsed
-file never shares one.
+Unknown keys on the document, `meta`, elements and connections survive load and serialization
+(sorted, unrounded), so vendor extensions survive an edit. `bounds` and waypoints reject unknown
+keys; unknown `elementType` or `connectionType` values are invalid. Reserved ids: `vc-root`,
+`__implicitroot…` and built-in JavaScript property names (`constructor`, `toString`, …).
+Coordinates and sizes stay within ±1e9 (`COORDINATE_LIMIT`), nesting within 100 levels
+(`MAX_NESTING_DEPTH`); `documentIssues` reports at most the first 100 `__proto__` keys and
+too-deep nestings.
 
 A complete example lives in
 [`example/porter.vc.json`](https://github.com/Miragon/modeler-suite/blob/main/modelers/value-chain/example/porter.vc.json).

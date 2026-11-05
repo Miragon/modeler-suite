@@ -7,12 +7,8 @@ The **DOM-free core** of the [Team Topologies Modeler](../../README.md): the dat
 specification, runtime validation, version migrations and deterministic JSON serialization for
 [Team Topologies](https://teamtopologies.com/) diagrams.
 
-This package has **no view, no DOM and no diagram-js**: it is plain TypeScript that runs anywhere
-(browser, Node, an edge function, a CLI). The browser renderer
-([`@miragon/team-topologies-renderer`](../renderer)), the web app and the VS Code extension all build
-on top of it. The DOM-freedom is enforced in CI (ESLint `no-restricted-imports` /
-`no-restricted-globals` **and** `dependency-cruiser`), so a stray `diagram-js`/`window`/`document`
-reference fails the build.
+Plain TypeScript with no DOM and no diagram-js, so it runs anywhere (browser, Node, a CLI). The
+[renderer](../renderer), the web app and the VS Code extension build on it.
 
 ## Install
 
@@ -22,18 +18,13 @@ npm install @miragon/team-topologies-schema-model
 
 ## What's inside
 
-- **The notation spec:** the four team types and three interaction modes, with their official
-  shapes, colours and stroke styles as plain data you can read and render against.
-- **The document model:** a small, stable shape (`TtDocument`) with `version`, `title`, `nodes`,
-  `interactions`, `flows` and `annotations`.
-- **Runtime validation:** Zod schemas + `parseDocument()` for everything that comes from a file, a
-  URL or `localStorage`.
-- **Forward migrations:** `parseDocument()` migrates older documents up to the current version
-  before validating, keyed by the document `version`.
-- **Deterministic serialization:** sorted, rounded and version-stamped output, so `.tt` /
-  `.ttm.json` files diff cleanly and share URLs stay stable.
-- **Factories & a sample:** helpers that create well-formed elements and documents, plus a complete
-  example topology.
+- **Notation spec:** the team types and interaction modes with their official shapes, colours and
+  strokes, as data.
+- **Document model** `TtDocument`: `version`, `title`, `nodes`, `interactions`, `flows`,
+  `annotations`.
+- **Validation and migration:** `parseDocument()` (Zod) upgrades older versions, then validates.
+- **Deterministic serialization** for clean diffs and stable share URLs.
+- **Factories** and a complete example, `SAMPLE_DOCUMENT`.
 
 ## The document format
 
@@ -168,31 +159,16 @@ console.log(SAMPLE_DOCUMENT.title);
   written in a fixed order. The same logical diagram always produces byte-identical JSON, which is
   what makes Git diffs small and share URLs stable. The pretty form (the default) is the file on
   disk and ends with a line break; the compact form (`serializeDocument(doc, false)`) has none.
-- **Unknown fields:** fields a document carries that this package does not know (a vendor's
-  `"x-vendor"` on the root or on an element) pass `parseDocument()` untouched and are written after
-  the known fields, sorted by name (nested keys too), so another tool's data survives a save. Only
-  they can nest deeper than the four levels of the known fields, and objects and arrays nest at
-  most 100 levels deep (`MAX_NESTING_DEPTH`), the document itself counting as the first:
-  `parseDocument()` refuses a deeper document with an issue at each first level too deep, the
-  first 100 of them in document order. The check runs without recursion, because the serializer
-  and JSON tools overflow the stack a few thousand levels down. It builds a path only for an
-  issue, so its memory grows with the number of containers, not with their number times their
-  depth, and it walks a container that a caller puts in several places or inside itself no more
-  than once per level.
-- **Ids:** `parseDocument()` rejects a document whose ids would collide on the canvas: an id used
-  twice, the diagram's own id `tt-root` (`DIAGRAM_ROOT_ID`), ids starting with `__implicitroot`,
-  `assoc_<annotation id>` (`associationId()`), the id of that annotation's connector, and the names
-  of JavaScript's built-in object properties (`constructor`, `toString`, `__proto__`, …), which the
-  canvas's element registry, a plain object, already resolves. `documentIdProblems()` lists them
-  with their path.
-- **Migrations:** `parseDocument()` upgrades older documents before validating (keyed by `version`).
-  The `1 → 2` step drops the legacy `showFlowOfChange` flag and the old edge-based interactions,
-  keeping only interactions that carry geometry (the placed-shape model). Only a version 1 file
-  loses interactions this way: from version 2 on, an interaction without `position` or `size` is
-  refused at its path like any other missing field, so it never vanishes on the next save. The
-  `2 → 3` step adds an empty `annotations` list, and because an empty list is not written back,
-  re-saving a v2 file changes nothing but its `version`. Issue paths always count in the input: an
-  invalid interaction after a dropped one is reported at its index in the file.
+- **Unknown fields** (e.g. a vendor's `"x-vendor"`) pass `parseDocument()` untouched and are
+  written after the known fields, sorted by name, so another tool's data survives a save. Objects
+  and arrays nest at most 100 levels (`MAX_NESTING_DEPTH`); deeper documents are refused with an
+  issue at each first too-deep level (at most 100).
+- **Ids:** `parseDocument()` rejects ids that would collide on the canvas: duplicates, `tt-root`
+  (`DIAGRAM_ROOT_ID`), `__implicitroot…`, `assoc_<annotation id>` (`associationId()`) and built-in
+  object property names (`constructor`, `__proto__`, …). `documentIdProblems()` lists them.
+- **Migrations:** `1 → 2` drops the legacy `showFlowOfChange` flag and interactions without
+  geometry (from version 2 on, such an interaction is refused instead); `2 → 3` adds an empty
+  `annotations` list, which is not written back. Issue paths count in the input.
 
 ## Development
 

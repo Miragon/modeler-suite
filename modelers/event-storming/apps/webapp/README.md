@@ -2,19 +2,11 @@
 
 [![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/modelers/event-storming/LICENSE)
 
-A browser editor for [Event Storming](https://www.eventstorming.com/) boards in the shared Miragon
-modeler chrome ([`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell)),
-the same as in the VS Code extension: URL sharing ("Share"), opening and dropping `.storm`, `.json`
-and `.txt` files, and the VS Code extension's exports (PNG, SVG, the transparent 4× PNG, JSON) plus
-`.storm`. A PNG draws its labels in Geist; if Geist can't be embedded, the PNG is still saved, in a
-system font, and a warning toast says so. Replacing a board offers it back ("Board replaced · Undo",
-or `Ctrl/Cmd+Z`), the tab names the board, and import findings are listed under the problems pill in
-plain words. While the board has a named aggregate, "Aggregates…" in the menu lists each named
-aggregate once (the default name of any kind of sticky is left out: "Aggregate 2", "Domain Event"
-on a sticky retyped to an aggregate, and also "Policy" or "Actor" on an aggregate, while a more
-specific name such as "Insurance Policy" counts), with the commands that lead into it and the
-events that follow, and a name selects its stickies on the board. The demo app for the
-`@miragon/event-storming-*` packages.
+A browser editor for [Event Storming](https://www.eventstorming.com/) boards. Nothing to install: share boards as links, open or drop
+`.storm`, `.json` and `.txt` files, and export PNG (Geist embedded, or a system font with a
+warning), SVG, transparent 4× PNG, JSON and `.storm`. Replacing a board can be undone; import
+problems are listed under the problems pill. "Aggregates…" lists each named aggregate with its
+commands and events and selects its stickies.
 
 **[Live demo](https://event-storming.modeler.miragon.io)**
 
@@ -29,13 +21,6 @@ npm ci && npm run build:shared            # once
 npm run event-storming dev:webapp         # named HTTPS URL via Portless; one-time setup in the suite's CONTRIBUTING.md
 npm run event-storming dev:webapp:plain   # plain Vite, http://127.0.0.1:5180
 ```
-
-## Build
-
-`npm run event-storming build:webapp` builds what Netlify ships;
-`npm run check:build -w modelers/event-storming/apps/webapp` then checks
-that `dist/index.html` carries the mode markup (theme-color, contrast line, `cd-shell-document`) and
-the bundle keeps the shell's Lucide licence comment. CI runs both.
 
 ## License
 

@@ -59,18 +59,10 @@ modeler.redo();
 > (it also pulls in `diagram-js`'s own stylesheet). Without it the palette, context pad and label
 > editor are unstyled.
 
-On a page without the Miragon modeler shell, the palette is a glass toolbar at the top centre of
-the canvas: `role="toolbar"` named "Tools", one tab stop ahead of the canvas `<svg>` (the palette
-moves before it in the DOM) that roves with ← → Home End, Enter or Space to arm a tool or create a
-context, and `aria-pressed` on the armed tool. Enter or Space on the armed lasso puts it down, and
-so does Escape before its drag has begun. An entry's tooltip stands 8px below the palette, centred
-on its entry and 12px from the canvas's sides, as `role="tooltip"`: after 300ms of hover, at once
-on keyboard focus or for a neighbour, never for touch, and hidden on a press or Escape. While
-`cmReadOnly` locks the canvas, a click, a drag or Enter on any entry but Lasso and Hand does
-nothing, a host's entry included, and while the lock's marks show (at once, or after the delay the
-host gave it, see below) those entries are `aria-disabled`, still focusable, their previews grey.
-Where the shell is mounted, or another chrome marks the palette `data-chrome="palette"`, the palette
-is that chrome's alone.
+Without the Miragon modeler shell, the palette is a glass toolbar at the top centre
+(`role="toolbar"`, roving focus with arrow keys, Enter or Space arms a tool or creates a context).
+Where the shell or another chrome marks a palette `data-chrome="palette"`, that palette is used
+instead.
 
 ## API
 
@@ -90,22 +82,13 @@ new Modeler({
 });
 ```
 
-- `undoRedoKeys: false` leaves the undo and redo keys unbound and unprevented, for a host whose
-  document owns the history (the VS Code extension).
-- `freeArea` names the part of the container a host's chrome leaves free, with the names of the
-  `@miragon/modeler-api` 1.2 factory options: `{ insets }` are the margins the chrome covers (the
-  modeler shell's `shell.fitInsets()`), `{ center }` is the free rectangle's centre in diagram
-  coordinates (`viewport.freeRectCenter()`). Enter or Space on a palette entry (a click with
-  `detail === 0`) places the new context in that centre, 24px further down and right while that
-  spot is taken, selected and with its name editor open, and the fit after an import centres the
-  content in what the insets leave. Without it, and for the fit when only `center` is given, the
-  renderer keeps room for its own palette. The viewer hands it unchanged to the palette as the
-  diagram config `cmPalette: { freeArea }` (`CmPaletteConfig`), the shape the other Miragon
-  renderers' palette configs have. The earlier option `freeRectInsets` and the palette config's
-  `freeRectInsets` and `freeRectCenter` are gone since 0.7.0: pass `freeArea: { insets }` or
-  `freeArea: { center }`.
-- `fitOnImport: false` leaves the view to a host whose chrome fits the content itself after every
-  import, so the view changes once per import.
+- `undoRedoKeys: false` leaves the undo and redo keys to a host whose document owns the history
+  (the VS Code extension).
+- `freeArea` names the part of the container a host's chrome leaves free (the `@miragon/modeler-api`
+  factory option): `{ insets }` (the shell's `shell.fitInsets()`) or `{ center }` in diagram
+  coordinates. A context created by keyboard lands in its centre, and the fit after an import
+  centres the content there. It replaces `freeRectInsets` / `freeRectCenter`, removed in 0.7.0.
+- `fitOnImport: false` leaves the fit to a host whose chrome fits the content itself.
 
 ### Shared methods (`Viewer` / `NavigatedViewer` / `Modeler`)
 
@@ -123,35 +106,13 @@ new Modeler({
 | `on(event, cb)` / `off(event, cb)` | `void`                          | Subscribe to diagram-js events.                   |
 | `get<T>(name)`                     | `T`                             | Resolve a diagram-js service (advanced).          |
 
-An import is **silent**: the previous document's undo history goes without a
-`commandStack.changed`, so a host that saves on every change never writes an import back. It
-**rejects without a trace**: a document with a duplicate id, an id of the engine's roots or the
-name of a built-in object property as an id throws before anything is removed. It is **lossless**:
-keys the model does not know and relationships whose ends are not on the map come back on export. A
-label edit open during an import is taken down and reopened on the element with the same id, with
-the typed text, and that element is selected again when nothing else is. A gesture that runs
-during an import (a move, a connect, a lasso, a create from the palette or the context pad, also
-while its preview is still off the canvas) is cancelled first, as Escape cancels it, and so is a
-press that has not reached the drag threshold yet: the release changes nothing and selects
-nothing. A palette tool that only waits for its next press is no gesture: the lasso tool armed in
-the palette stays armed, and the drag its next press starts is a gesture. Neither is a pan of the
-canvas: it runs on across the import. `clear()` ends a gesture the same way. A drop whose change
-the host imports over at once, from its change listener, has applied and is not cancelled: this
-synchronous `importDocument` replaces the map at once, while the collaborative modeler's
-`importText` waits for the user's action to finish (see below).
-
-`contentBounds()` is the tight box around what the canvas draws of the map in diagram coordinates,
-without a margin: the contexts, wider where a team row or a subdomain type's name runs past a
-context's sides (the renderer does not cut them), and the relationships' waypoints. It is the box a
-host's chrome fits to (the modeler shell's `connectDiagramJs` reads it from the instance it gets as
-`modeler`). It reads the live canvas, so a context created or moved counts at once, ignores zoom
-and scroll, and is `undefined` while the map is empty. The fit after an import centres this box in
-the free rectangle of `freeArea.insets`, or in the room the renderer's own palette needs.
-
-A **view change never commits** an open label edit or description prompt: a pan or zoom, the user's
-or the host's (`canvas.viewbox(…)`, `setViewState`, a fit), keeps it open with the typed text and
-moves it with its element or pad entry. Only the user's own gestures commit it: Enter, leaving the
-field, or starting a drag.
+An import is **silent** (no `commandStack.changed`, so a save-on-change host never writes it back),
+**atomic** (a document with a duplicate or reserved id throws before anything is removed) and
+**lossless** (unknown keys and relationships whose ends are missing come back on export). A running
+gesture is cancelled first, and an open label edit is reopened on the element with the same id.
+`contentBounds()` is the tight box around everything drawn, in diagram coordinates, `undefined`
+for an empty map; the shell's `connectDiagramJs` fits to it. A pan or zoom never commits an open
+label edit; only Enter, leaving the field or starting a drag does.
 
 ### Modeler-only
 
@@ -169,85 +130,27 @@ modeler.onContentChanged(() => save(modeler.exportText()));
 ```
 
 `createCollaborativeModeler` and `createCollaborativeViewer` implement the `CollaborativeModeler`
-contract of `@miragon/modeler-api` 1.5 (`meta.notation` is `"context-maps"`): the canonical JSON text
-as the text lane, `onContentChanged` for every user-visible change (element commands, the title,
-undo, redo) and never for an import or a view change, the viewbox as view state, and the `elements`
-surface over the context and relationship ids (their labels as names). `elements.bounds(id)` reads
-an element's box from the live canvas in diagram coordinates (a relationship: the box around its
-waypoints), `undefined` for an id `elements.list()` does not report. `contentBounds()` is the
-diagram's `contentBounds()`, the box around all of them, `undefined` before the first import, for
-an empty map and after `destroy()`. Both factories take the contract's
-`CollaborativeModelerOptions` (`freeArea`, `fitOnImport`, `undoRedoKeys`, which the viewer ignores)
-next to `additionalModules`. `modeler.diagram` is the wrapped
-`Modeler` or `NavigatedViewer`. The contract's conformance kit runs in this package's browser
-tests, every case and every hook, without a skip or an advisory.
+contract of `@miragon/modeler-api` 1.5 (`meta.notation` is `"context-maps"`): the canonical JSON
+text as the text lane, `onContentChanged` for every user change and never for an import or a view
+change, the viewbox as view state, and `elements` over the context and relationship ids
+(`elements.bounds(id)` reads the live canvas). Both take `CollaborativeModelerOptions` (`freeArea`,
+`fitOnImport`, `undoRedoKeys`) next to `additionalModules`; `modeler.diagram` is the wrapped
+`Modeler` or `NavigatedViewer`. The conformance kit runs in this package's browser tests with no
+skip or advisory.
 
-`importText` called while a user action runs (a host that echoes its own change back from
-`onContentChanged`, or imports from `elements.onSelection` or `interaction.onChange` inside the
-action) waits until the action has finished, with the steps it deferred, and then imports; its
-promise settles after that import, and imports called during the same action, or while an earlier
-import still waits, run in the order they were called. An action runs from the start of its first
-command, undo or redo, or from a drop's release. So an import from the selection listener inside a
-command waits too: diagram-js deselects an element its canvas removes before the change is
-reported. The action has finished once:
-
-- a drop: its release has run every listener, so diagram-js selects the moved context after a move;
-- an append from the context pad, clicked or dragged: its subdomain-type menu is open, which the
-  import then reopens beside the pad of the context with the same id;
-- a create from the palette with Enter or Space: the context is selected with its name editor
-  open, which the import reopens on the context with the same id, selected again;
-- a label commit with Enter or by leaving the field: the editor has closed, so it stays closed;
-- a toggle in the integration-roles menu: the menu has reopened, and the import reopens it beside
-  the pad of the relationship with the same id;
-- a label or description commit at a press (the press on another context, or on a palette entry
-  that starts a create): the handler of the press has returned, so diagram-js has set up the drag
-  the press starts. The import then ends that drag, as it ends every running gesture: the commit
-  is kept, the release moves or creates nothing, and no step of diagram-js runs on a replaced
-  map. A press that arms the lasso tool leaves the tool armed;
-- any other command, undo or redo, a delete for example: the handler that ran it has returned, so
-  the command has run whole and the import replaces its result.
-
-A drag's start is an action as well: diagram-js activates the drag (the first move past the drag
-threshold, or at once for a create from the palette or the context pad) by firing its start,
-deselecting and firing its first move in one call. An import from the selection or interaction
-listener there runs once that call has returned, and then ends the drag like any running gesture,
-so the release moves or creates nothing. A `destroy()` from either listener there throws nothing
-either: the map is torn down once the code that started the drag has returned, and no listener of
-the host hears anything after `destroy()`, also not the selection the cancelled drag brings back
-([#346](https://github.com/Miragon/modeler-suite/issues/346)). The same holds for a `destroy()`
-from any listener at a drop, at Escape (`interaction.onChange` hears the end inside diagram-js's
-cleanup of the drag) and at a create from the palette or the keyboard: the map is torn down once
-the handler of that input has returned. No delivery calls a listener that an earlier listener of
-the same delivery unsubscribed ([#380](https://github.com/Miragon/modeler-suite/issues/380),
-[#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a listener
-that a host's own call reaches: the selection listener of `elements.reveal`, or the interaction and
-selection listeners of an import, which ends a held gesture and empties the selection as it clears
-the canvas. The map is torn down once that call has returned. The import still draws its map,
-which `exportText()` then returns ([#415](https://github.com/Miragon/modeler-suite/issues/415)),
-and its Promise rejects with "The modeler was destroyed.", as an import does that waits when the
-modeler is destroyed.
-
-So no step of the action works on a replaced map. Only the imports that waited for an action
-reopen the menu it left open; a later import closes it like every other menu. An import called while Escape cancels a gesture (from `interaction.onChange`) waits for
-the cancel the same way. An import called while no action runs, a peer's text for example, cancels
-a running gesture as above. An import still waiting when the modeler is destroyed rejects.
+`importText` called during a user action (for example a host echoing its own change from
+`onContentChanged`) waits until the action has finished, then imports in call order, and reopens
+the menu or name editor the action left open. A `destroy()` from any listener tears the map down
+once the current input handler has returned; a waiting import then rejects with "The modeler was
+destroyed.".
 
 The optional surfaces of contract 1.5 are on both mounts:
 
-- `interaction.active()` is true from a gesture's start (the first move past the drag threshold,
-  or at once for a create the palette or the context pad started) until its drop or cancel, and
-  `interaction.onChange(callback)` reports each change once. A palette tool that only waits for
-  its next press and a pan of the canvas are no gesture; the viewer never reports one. An error a
-  listener throws surfaces on its own, as an uncaught error after the call: the drag still ends,
-  the other listeners still hear the change, and the next `importText` still runs.
-- `appearance.themes` is `CONTEXT_MAPS_THEMES`, `["light"]` until the Miragon modelers switch to
-  dark together, the same array on every instance and on the viewer. `appearance.set(request)`
-  draws the canvas light whatever theme is asked for, with high contrast for
-  `contrast: "high"`: it writes `data-cd-theme` and `data-cd-kontrast="hoch"` on the diagram's
-  container, so the token roles resolve there and not in the host's page. It works before
-  `attachTo` and before the first import, holds across imports, fires no change event, and leaves
-  the text, the SVG export, the view, the selection, the history and an open label edit as they
-  were.
+- `interaction.active()` / `interaction.onChange(callback)`: true from a gesture's start until its
+  drop or cancel; armed tools and panning are no gesture.
+- `appearance.themes` is `CONTEXT_MAPS_THEMES` (`["light"]`); `appearance.set(request)` draws light
+  with high contrast for `contrast: "high"` by writing `data-cd-theme` and `data-cd-kontrast` on
+  the container.
 
 ## Around the canvas
 
@@ -270,42 +173,22 @@ What a chrome around the canvas shows, typed structurally (a `@miragon/modeler-s
   field, Cancel and Apply; it lives in the chrome's root and goes with `destroy()`.
 - While a drag runs on the canvas, the chrome's legend island (`[data-chrome="legend"]`) lets the
   pointer through, so a connect drag released on a context behind it still connects.
-- `cmReadOnly` (part of the `Modeler`) locks every edit while a host cannot take edits from the
-  canvas, an invalid file in an IDE: no context pad, move, create, connect, delete or label editor;
-  selection, zoom, pan, select all and export stay. Guide §13.5 shows the lock of an invalid file
-  only after 800ms without a valid one, so typing in the text editor beside the canvas does not
-  flicker: `setReadOnly(true, { delayMs: 800 })` locks at once and marks the renderer's own
-  palette entries `aria-disabled` once the delay has passed, as the shell's `setReadOnly` does; a
-  call while the lock holds keeps its timer, and `setReadOnly(false)` unlocks and takes the marks
-  off at once. `setReadOnly(true)` marks at once, and `isReadOnlyShown()` tells whether the marks
-  show. `READ_ONLY_CHANGED_EVENT` carries `{ readOnly, shown }` and fires once more when the marks
-  show after the delay. The shell's palette shows its own marks after the delay given to it.
-- The keyboard acts only while the canvas itself has the focus, as diagram-js 15's own keyboard
-  does: on keys whose target is the canvas `<svg>` or inside it. Keys with nothing focused
-  (`<body>`), on a host's chrome, on the palette, the context pad or an editor in the canvas
-  container pass, and so do keys someone already handled (`defaultPrevented`) and keys of an IME
-  composition. `Cmd/Ctrl+A` selects every element. A pointer on a palette entry, on the context
-  pad's connect, swap ends or delete, or on a connect handle of `cmConnectHandlesModule` hands the
-  focus to the canvas, so Delete and `Cmd/Ctrl+Z` act at once; Enter or Space leave it on the entry,
-  unless the entry goes away with its action. Append opens the subdomain-type menu, which takes the
-  focus and hands it to the canvas when it closes.
-- A host that hides the canvas without destroying the modeler makes its container `inert` or hides
-  it with `display: none` or `visibility: hidden`, not only transparent: the browser moves the
-  focus off the `<svg>` at its next rendering update, and a key that reaches the `<svg>`, the name
-  editor, the description editor or the palette toolbar before then passes too, and the subdomain
-  type, pattern and integration roles menus pick no entry: nothing is saved, created or closed.
-  There is no separate switch to pause the keyboard.
+- `cmReadOnly` (part of the `Modeler`) locks every edit, for example while an IDE holds an invalid
+  file; selection, zoom, pan, select all and export stay. `setReadOnly(true, { delayMs: 800 })`
+  locks at once and marks the palette entries `aria-disabled` after the delay; `setReadOnly(false)`
+  unlocks. `isReadOnlyShown()` tells whether the marks show; `READ_ONLY_CHANGED_EVENT` carries
+  `{ readOnly, shown }`.
+- The keyboard acts only while the canvas `<svg>` has the focus, as in diagram-js 15;
+  `Cmd/Ctrl+A` selects all. To hide the canvas without destroying the modeler, make its container
+  `inert` or `display: none`, so no key reaches it.
 
 ### Helpers & types
 
 - **Type guards:** `isCmElement`, `isCmContext`, `isCmRelationship`.
 - **Runtime element types:** `CmContext`, `CmRelationship`, `CmElement`.
 - **Palette icon generators:** `contextIconSvg(type)`, `subdomainIconSvg(type, size)`,
-  `roleChipSvg(role)`, `relationshipIconSvg(pattern, size)`: WYSIWYG SVG glyphs matching what the
-  canvas draws, as markup for `innerHTML`. They take values read from an unvalidated document: an
-  unknown type draws the unclassified box (`contextIconSvg`) or the neutral dotted circle
-  (`subdomainIconSvg`), an unknown pattern the upstream-downstream line, a size that is not a finite
-  positive number the default size, and a role becomes escaped text.
+  `roleChipSvg(role)`, `relationshipIconSvg(pattern, size)`: SVG markup matching the canvas, safe
+  for unvalidated input (unknown values draw a neutral fallback, roles are escaped).
 - **Themes:** `CONTEXT_MAPS_THEMES`, the modes the map can be drawn in (`["light"]`), for a host's
   chrome and the contract's `appearance.themes`.
 - **Other:** `CmViewerOptions`, `ImportWarning`, `RootBusinessObject`, `ROOT_ID`, `saveSVG`.
@@ -336,32 +219,20 @@ viewer via `additionalModules`:
 
 ### Rendering
 
-A custom `ContextMapsRenderer` (priority `1500`, beating diagram-js's default) draws each element
-from the spec in [`@miragon/context-maps-schema-model`](../schema-model): bounded-context boxes
-coloured by subdomain type (core / supporting / generic) with their glyphs; and relationships drawn
-as lines styled per context-mapping pattern (partnership, shared kernel, customer-supplier,
-upstream-downstream, separate ways), carrying the pattern abbreviation, U/D end markers and the
-OHS/PL/ACL/CF integration-role badges. Labels are word-wrapped and centred. Per-element `fill`/`stroke`
-overrides win over the spec defaults. Every text keeps 4.5:1 on what it sits on; the box outlines,
-the relationship lines and the borders of the symmetric patterns' chips keep 3:1 on the canvas
-ground. The subdomain badge and the team caption are `--cd-text-leise`, and a context's name, a role
-badge's text and any text on a fill the author set are black or white, whichever has more contrast.
-A role badge is one filled chip named by its text; the frame around the badges is the decorative
-`--cd-linie`. A symmetric pattern's chip writes black on paper, bordered in the pattern's colour.
+`ContextMapsRenderer` (priority `1500`) draws contexts coloured by subdomain type with their glyphs,
+and relationships styled per pattern with the abbreviation, U/D markers and OHS/PL/ACL/CF badges,
+from the spec in [`@miragon/context-maps-schema-model`](../schema-model). Per-element
+`fill`/`stroke` overrides win. Text keeps 4.5:1, lines and outlines 3:1.
 
 ## Import / export
 
 The package reads and writes the canonical `CmDocument` (JSON) and exports a standalone **SVG**.
-PNG export and the embedded-scene round-trip (storing the document inside the exported image) live in
-the [web app](../../apps/webapp) and the [VS Code extension](../../apps/vscode). They rasterise the
-SVG with `svgToPng` of `@miragon/modeler-shell/export` (2×, Geist inside the image, on the ground
-`MIRAGON.grau` of guide §10.7), and the extension adds the embedded scene.
+PNG export and the embedded-PNG round-trip live in the [web app](../../apps/webapp) and the
+[VS Code extension](../../apps/vscode).
 
 ## Development
 
-Part of the [Context Maps Modeler](../../README.md) in the
-[Miragon modeler suite](https://github.com/Miragon/modeler-suite); consumed from source by the
-apps. From the suite's root:
+From the root of the [Miragon modeler suite](https://github.com/Miragon/modeler-suite):
 
 ```bash
 npm run build -w @miragon/context-maps-renderer   # Vite library build → dist/ (publish build)

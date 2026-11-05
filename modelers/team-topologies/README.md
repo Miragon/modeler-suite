@@ -5,13 +5,10 @@
 [![npm](https://img.shields.io/npm/v/@miragon/team-topologies-renderer)](https://www.npmjs.com/package/@miragon/team-topologies-renderer)
 [![VS Marketplace](https://vsmarketplacebadges.dev/version-short/miragon-gmbh.team-topologies-modeler.svg?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.team-topologies-modeler)
 
-A fast, offline-friendly modeler for **Team Topologies** diagrams: the four team types and three
-team-interaction modes from the book by Matthew Skelton & Manuel Pais. Ships as a **web app** and a
-**VS Code extension** sharing one diagram-js core.
-
-It is built with a "full-bleed canvas + floating chrome" editing feel, a clean DOM-free domain model
-and lossless, version-controllable files, as `modelers/team-topologies` of the
-[Miragon modeler suite](../../README.md).
+Draw and share **Team Topologies** diagrams: the four team types and three interaction modes from
+the book by Matthew Skelton & Manuel Pais. Use it to picture how your teams are organised today, to
+discuss changes, and to keep the result as a file next to your code. Works in the browser and in
+VS Code, offline.
 
 **[Try the web app →](https://team-topologies.modeler.miragon.io)**
 
@@ -21,8 +18,7 @@ and lossless, version-controllable files, as `modelers/team-topologies` of the
 
 Shapes, colours and stroke styles follow the official
 [Team-Shape-Templates](https://github.com/TeamTopologies/Team-Shape-Templates). Team shapes are
-**solid** (long-lived); interaction shapes are **dashed** (short-lived), their 50 % template fill
-premixed over white and drawn opaque. Every element is distinguished by shape as well as colour, so
+**solid** (long-lived); interaction shapes are **dashed** (short-lived). Every element is distinguished by shape as well as colour, so
 diagrams stay readable with colour-vision deficiency.
 
 ### Team types
@@ -42,84 +38,21 @@ diagrams stay readable with colour-vision deficiency.
 | X-as-a-Service | triangle (points provider → consumer) | `#B4B4B4` / `#999696` |
 | Facilitating   | circle                                | `#C9DFBE` / `#78996B` |
 
-## Targets
+## Where to use it
 
-- **Web app** ([`apps/webapp`](apps/webapp/README.md)): a Vite editor with a full-bleed canvas,
-  palette, inspector, legend, PNG/SVG/JSON export and a shareable, self-contained URL (LZ-compressed,
-  no backend), inside the shared chrome of the Miragon modelers
-  ([`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell), web host).
-  Deployed on Netlify.
-- **VS Code extension** ([`apps/vscode`](apps/vscode/README.md)): a custom editor for `.tt` /
-  `.ttm.json` files with the same chrome, inspector and legend as the web app (the shell's IDE host):
-  the JSON file stays the source of truth (save, Git, diff and undo keep working), its problems show
-  in the Problems view, and editable embedded-PNG diagrams (`*.tt.png`) let you drop a diagram into a
-  wiki or README and still edit it graphically.
-
-Both targets share two published packages:
-
-| Package                                                                    | Purpose                                                                                                               | DOM |
-| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | --- |
-| [`@miragon/team-topologies-schema-model`](packages/schema-model/README.md) | Types, the notation spec, Zod validation, migrations, deterministic JSON                                              | no  |
-| [`@miragon/team-topologies-renderer`](packages/renderer/README.md)         | diagram-js viewer/modeler, custom rendering, palette, context pad, import/export, the `@miragon/modeler-api` contract | yes |
-
-## Getting started
-
-Requires Node `^22.22.2` or `>=24.15.0` and npm. From the root of the suite:
-
-```bash
-npm ci && npm run build:shared                 # once: every workspace, the shared packages
-npm run team-topologies dev:webapp:plain       # start the webapp dev server (http://127.0.0.1:5181)
-npm run team-topologies dev:vscode             # watch-build the VS Code extension (then F5 in VS Code)
-npm run team-topologies test                   # unit tests (Vitest)
-npm run team-topologies test:vscode:docker     # the extension in a real VS Code, in Docker without a window
-npm run team-topologies test:vscode            # the same with a VS Code window here (see CONTRIBUTING.md)
-npm run team-topologies lint                   # eslint + type-check
-npm run team-topologies build                  # build the publishable packages (schema-model, renderer)
-```
-
-## Architecture
-
-npm workspaces inside the suite's one workspace, with a strict boundary between the pure model and
-the view:
-
-```
-packages/
-  schema-model/  @miragon/team-topologies-schema-model — DOM-free core: types, notation spec, Zod schema,
-                                            deterministic JSON, migrations, factory, the example.
-  renderer/      @miragon/team-topologies-renderer     — diagram-js bootstrap: viewer/modeler, renderer, palette,
-                                            context-pad, label editing, import/export, CSS, and what
-                                            a host's chrome shows (menu entries, legend rows,
-                                            shortcut groups and the title dialog).
-  ui/            @miragon/team-topologies-ui           — private: the React inspector for the chrome's
-                                            inspector slot, shared by the webapp and the VS Code
-                                            webview.
-apps/
-  webapp/        @miragon/team-topologies-webapp       — Vite editor on the modeler shell's web host.
-  vscode/        team-topologies-modeler  — VS Code custom editor for .tt / .ttm.json.
-e2e/                                       — Playwright end-to-end tests: the webapp, and the VS Code
-                                            webview inside the modeler shell's VS Code stub, each
-                                            held to the shell's conformance kit.
-```
-
-The `schema-model` package compiles **without the DOM lib**, so a stray browser import fails
-type-checking. The DOM boundary is enforced twice, by ESLint and by dependency-cruiser. The apps and
-tests consume the packages straight from their TS source via Vite/esbuild/tsconfig aliases, so there
-is no separate library build step for development (`npm run team-topologies build` is only needed to
-publish the libs).
-
-Design choices:
-
-- **Deterministic serialisation** (sorted, rounded, fixed key order) makes `.tt` / `.ttm.json` files
-  diff-friendly and gives stable share URLs.
-- **Runtime validation** (Zod) on everything imported from files / URLs / localStorage, with a
-  forward-migration hook keyed by document `version`.
-- **diagram-js** (MIT) as the editor engine: palette, move, resize, context pad,
-  inline label editing and undo/redo for free.
+- **[Web app](apps/webapp/README.md)** ([try it](https://team-topologies.modeler.miragon.io)):
+  nothing to install; share a diagram as a link, export PNG, SVG or JSON.
+- **[VS Code extension](apps/vscode/README.md)**: edit `.tt` / `.ttm.json` files graphically while
+  the file stays plain JSON for Git and review. Editable `*.tt.png` pictures drop into a wiki or
+  README and still open as diagrams.
+- **In your own app**: the npm packages
+  [`@miragon/team-topologies-renderer`](packages/renderer/README.md) (viewer and editor) and
+  [`@miragon/team-topologies-schema-model`](packages/schema-model/README.md) (the file format).
 
 ## Document format
 
-`.tt` / `.ttm.json` is a small, stable JSON document. Interactions are **placed shapes** overlaying the
-boundary between the teams they relate to (spatial overlap), so there is no source/target reference:
+A `.tt` / `.ttm.json` file is small, stable JSON that diffs cleanly. Interactions are shapes placed
+over the boundary between the teams they relate to, with no source/target reference:
 
 ```jsonc
 {
@@ -155,14 +88,12 @@ boundary between the teams they relate to (spatial overlap), so there is no sour
 }
 ```
 
-Text annotations are optional notes beside the diagram; `attachedTo` ties one to a team, interaction
-or flow (drawn as a dashed connector). An empty `annotations` list is left out of the file.
+Annotations are optional notes; `attachedTo` ties one to a team, interaction or flow. Full format:
+[`@miragon/team-topologies-schema-model`](packages/schema-model/README.md).
 
 ## Claude Code plugin
 
-The modeler ships two Claude skills as a [Claude Code](https://claude.com/claude-code) plugin, from
-the suite's marketplace, so an agent can design, draw, review and edit Team Topologies diagrams in
-any project:
+Two Claude skills let an agent design, review and edit diagrams in any project:
 
 ```
 /plugin marketplace add Miragon/modeler-suite
@@ -170,17 +101,13 @@ any project:
 ```
 
 `team-topologies` covers the method (team types, interaction modes, cognitive load, reviews);
-`tt-format` covers the `.tt` / `.ttm.json` format, a layout grid and a dependency-free checker that
-validates a file and reads back which teams each interaction connects. Details in
-[`plugins/team-topologies-modeler/`](plugins/team-topologies-modeler/README.md); the suite's
-marketplace manifest is [`.claude-plugin/marketplace.json`](../../.claude-plugin/marketplace.json).
+`tt-format` the file format, a layout grid and a checker. Details in
+[`plugins/team-topologies-modeler/`](plugins/team-topologies-modeler/README.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and the agent notes in [CLAUDE.md](CLAUDE.md) for this
-modeler, the suite's [CONTRIBUTING.md](../../CONTRIBUTING.md) for setup, scripts, hooks and
-conventions, and [docs/ci-and-releases.md](../../docs/ci-and-releases.md) for CI and releases.
-Issues go to [Miragon/modeler-suite](https://github.com/Miragon/modeler-suite/issues).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Issues go to
+[Miragon/modeler-suite](https://github.com/Miragon/modeler-suite/issues).
 
 ## Licence
 

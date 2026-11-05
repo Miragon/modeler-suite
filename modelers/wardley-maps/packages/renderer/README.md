@@ -35,26 +35,13 @@ const { svg } = await viewer.saveSVG();
 
 Swap `NavigatedViewer` for `Modeler` to get the editable map (palette, context pad, undo/redo).
 
-For a host without the Miragon modeler shell, the `Modeler`'s palette is the toolbar of the Miragon
-design guide: a glass island at the top centre of the container (opaque in high contrast), in the
-second row, 64px from the top, in a container at most 760px wide, and ahead of the canvas in the
-tab order, with one tab stop that the arrow keys, Home and End move. Its tooltip names the entry
-and its key 8px below the palette, centred on the entry and at least 12px from the container's
-sides; it shows after 300ms of hover, at once on keyboard focus or for a neighbour, never for a
-tap, and hides on a press, on Escape and when the pointer or the focus leaves. Where the palette
-scrolls sideways, the tooltip moves with its entry and hides once the entry has left the view. The
-palette lies before the canvas `<svg>` in the container, so a host finds the canvas with
-`canvas.getContainer().querySelector(":scope > svg")`, not as the first `svg`. A palette a chrome
-skins (`data-chrome="palette"`) is left to that chrome.
-
-The lasso is pressed (`aria-pressed="true"`) only while it is armed, in every host: Enter or Space
-on the armed lasso puts it down, as Escape does, and so does arming the draw tool; a pointer's click
-on the lasso arms it again. One tool is armed at a time: arming the lasso (a click, Enter or Space
-on its entry, or L) puts the armed draw tool down, and a click, Enter or Space on the lasso's entry
-saves a line the draw tool holds, as Escape does; L does nothing while it holds one. While the
-read-only lock shows (below), the palette without the shell marks every entry but the lasso
-`aria-disabled="true"` and mutes it (guide §13.5): it stays focusable, and a click, drag, Enter or
-Space on it does nothing from the lock on.
+Without the Miragon modeler shell, the `Modeler`'s palette is the design guide's toolbar: a glass
+island at the top centre, ahead of the canvas in the tab order (one tab stop; arrows, Home and End
+move), with tooltips. It lies before the canvas `<svg>` in the container, so find the canvas with
+`canvas.getContainer().querySelector(":scope > svg")`. A palette a chrome skins
+(`data-chrome="palette"`) is left to that chrome. One tool is armed at a time; the lasso is
+`aria-pressed="true"` only while armed. Under the read-only lock the palette marks every entry but
+the lasso `aria-disabled="true"`.
 
 ## API
 
@@ -75,18 +62,13 @@ Space on it does nothing from the lock on.
 `setEvolutionLabels` turns an empty stage into its default label and `->` into `→`, so the labels
 always write a valid `evolution` line; the default set is stored as `undefined`.
 
-An import validates the whole map first: a map that is not importable rejects before the canvas
-changes, and a rendering failure puts the previous map back. It then fits the view to the plot with
-its axis margins, centred in the free area and never above 100 %. Without a `freeArea` the pan
-constraint may still move a map smaller than the view, to keep its margins around it.
+An import validates the whole map first: an invalid map rejects before the canvas changes, and a
+rendering failure restores the previous map. It then fits the plot into the view (never above 100 %).
 
-An open inline editor (name, note, link annotation, flow value, link address) stays open with its
-typed text across a view change, a scroll, a zoom or a host's fit, and moves with its element;
-Enter, leaving the field, or a click or drag on the canvas saves it. Shift+Enter breaks the line in
-a name (a note's Enter breaks it, and Cmd/Ctrl+Enter saves); the editor of a name is a `<textarea>`
-that grows with its lines, `textarea.wardley-label-input`. A name's line breaks are drawn as lines
-of the label and written to the DSL as a literal `\n` (`@miragon/wardley-dsl`). A backslash typed
-before an `n` in a name is saved as `∖` (U+2216), because the DSL would read `\n` back as a break.
+An open inline editor (name, note, link annotation, flow value, link address) survives view changes
+and moves with its element; Enter, blur or a click on the canvas saves it. Names are a
+`textarea.wardley-label-input`; Shift+Enter breaks the line (in notes Enter breaks and Cmd/Ctrl+Enter
+saves), written to the DSL as a literal `\n`. A typed backslash before `n` is saved as `∖` (U+2216).
 
 Options (the names of the `@miragon/modeler-api` 1.2 factory options):
 
@@ -111,51 +93,23 @@ Options (the names of the `@miragon/modeler-api` 1.2 factory options):
   relative to the current map (`undefined` when the user cancels), which becomes the element's link
   in one undoable step.
 
-A component or submap whose link the editor can open, the cases where its context pad offers "Open
-link", carries a small link mark at its lower left (Lucide `link` in the `--cd-ui-link` role). It
-takes no pointer, the viewer shows none, and the export leaves it out, as the selection outline.
+A component or submap whose link the editor can open carries a small link mark (Lucide `link`,
+`--cd-ui-link`) at its lower left; the viewer and exports show none.
 
 The `wardleyReadOnly` service (`modeler.get<WardleyReadOnly>('wardleyReadOnly').setReadOnly(true)`)
-locks the canvas while its host cannot save an edit, e.g. while the document is invalid: every edit
-rule is vetoed, an open editor, popup or drag ends without saving, the handles hide, and selection,
-zoom, pan, select all and export stay. `setReadOnly(true, { delayMs: 800 })` locks at once but marks
-the palette only once the delay has passed without `setReadOnly(false)`, so typing an invalid file
-in an editor beside the canvas does not flicker (guide §13.5); a call while the delay runs keeps
-its timer, `setReadOnly(false)` takes the marks off at once, and `isReadOnlyShown()` tells whether
-they show. It fires `wardley.readOnly.changed` with `{ readOnly, shown }` when the lock changes and
-once more when delayed marks show.
+locks the canvas while the host cannot save, e.g. while the document is invalid: edits are vetoed,
+open editors and drags end without saving; selection, zoom, pan and export stay.
+`setReadOnly(true, { delayMs: 800 })` locks at once but shows the marks only after the delay
+(no flicker while typing); `isReadOnlyShown()` tells whether they show. It fires
+`wardley.readOnly.changed` with `{ readOnly, shown }`.
 
-The canvas's keys (undo and redo, delete, copy, paste and duplicate, select all, the arrows, Escape
-and the single-key tools C, U, N, P, L and A) act only while the canvas `<svg>` has the focus, as
-diagram-js' own keyboard does: a key aimed at a host's button or text field, or at a page with
-nothing focused, stays with the host. A pointer click on the canvas, a palette entry or a
-context-pad action that opens no editor or popup hands the focus to the canvas. From the keyboard,
-Enter and Space on a palette tool (lasso, draw) leave the focus on the entry; on a create entry
-they place the element and hand the focus to the canvas, or to the new element's name editor; on a
-context-pad action they keep the focus in the pad, and an action that closes or redraws the pad
-(delete, line style, remove evolve) returns it to the canvas. A host that hides the canvas without
-destroying it makes the container `inert` or hides it with `display: none` or `visibility: hidden`,
-not only transparent: the browser moves the focus off the canvas at its next rendering update. A
-key that reaches the canvas or the map's own chrome before then stays with the page, for each way
-of hiding: the canvas acts on no key, the palette triggers no entry and moves no focus, a line the
-draw tool holds stays as it is, the context pad, the name, annotation and link editors, the colour
-picker and the map menu's popovers take no key, Enter on one of their buttons included, and the
-element settings menu picks no entry: nothing is saved or closed, and the focus stays where it is.
-
-Escape on the canvas ends every drag without a change, as it ends a diagram-js drag: also a label
-drag, the point drag of a drawing (the drawing stays selected) and the drag of a component's red
-evolve target. These drags and the colour picker take only an Escape aimed at the canvas (the
-picker also one on its swatches); one aimed at the palette, the context pad, a name editor or a
-host's field, menu, dialog or overlay, inside the canvas container or next to it, stays with that
-control. While the draw tool holds the points of a line, the single-key tools and Cmd/Ctrl+V (the
-paste attaches to the pointer) do nothing until the line is finished or cancelled, and the canvas
-takes them with `preventDefault()`. Enter and Space on the Draw entry save the line, as Enter on
-the canvas does. While a point of a drawing is dragged,
-the keys that would change the drawing under the drag or start a second gesture next to it do
-nothing until the release, and the canvas takes them with `preventDefault()`: the single-key tools,
-the arrow keys, paste and duplicate. Delete still removes the drawing, which ends the drag without a
-commit. An undo, a redo or any other command before the release ends the drag without a commit too,
-and the drawing stays selected, as after Escape.
+Keyboard: the canvas's keys (undo/redo, delete, copy/paste/duplicate, select all, arrows, Escape and
+the tools C, U, N, P, L, A) act only while the canvas `<svg>` has the focus, so keys aimed at a
+host's controls stay with the host. A click on the canvas, a palette entry or a context-pad action
+hands it the focus. A host that hides the canvas without destroying it should use `inert`,
+`display: none` or `visibility: hidden`. Escape ends every drag without a change. While the draw
+tool holds a line or a drawing's point is dragged, keys that would start another gesture do
+nothing; an undo or other command ends such a drag without a commit.
 
 ## Collaborative hosts
 
@@ -173,123 +127,56 @@ await modeler.importText(documentText);
 modeler.onContentChanged(() => save(modeler.exportText()));
 ```
 
-An import is silent (no content change is reported back), keeps the selection and an open label
-editor and fits the view (unless `fitOnImport: false`); a host's view change (`setViewState`, a fit)
-never saves an open editor either. A gesture that runs during an import ends first, so its release
-changes nothing. A diagram-js drag is cancelled as Escape cancels it: a move, resize, connect or
-lasso drag, a create from the palette, the context pad or a quick-create key (`C`, `U`, `N`, `P`
-with the pointer over the canvas), a connect started with `A`, the evolve drag the context pad
-starts and the plot-corner drag. A label drag, the point drag of a drawing and the drag of a
-component's red evolve target end when the import removes their element. A line the draw tool holds
-ends without a drawing, and the draw tool with it. A tool that only waits for the user's next press
-stays armed: the lasso from the palette or `L`, and the draw tool before its first point. An
-`importText` called while a user's action runs (a host that echoes its own change back through its
-store imports from the action's change listener) waits until the action has finished, then imports,
-and its Promise settles after that import; imports that wait keep their call order. A drop has
-finished once it has ended and the steps it defers to the next task have run (the name editor of a
-create or an append with the pointer). Any other command, undo or redo has finished once the code
-that ran it has returned, so an import from any listener it calls waits too: a create without a
-pointer (C, U, N, P, a palette entry with Enter or Space, the context pad's append with Enter), the
-save of a name editor (Enter, leaving the field), the save a press on the map or the palette
-makes, and a delete, an undo or a redo that deselects what it removes. The import keeps what the
-action left, as any import does: a create keeps its new element selected and its name editor open
-on it, with what was typed, and a saved name keeps its element selected. A drag that a press started
-after it saved a name ends with the import, as an accepted import ends a running gesture and a press
-below the drag threshold (L1, 1.5;
+An import is silent (no change is reported back), keeps the selection and an open label editor,
+and fits the view unless `fitOnImport: false`. It ends a running gesture first, without a change;
+an armed tool that only waits for the next press stays armed. An `importText` called while a user
+action runs (e.g. from a change listener) waits until the action has finished; waiting imports keep
+their order. A `destroy()` from any listener tears the map down once the current input handler has
+returned, without errors, and no listener hears anything afterwards; a pending import then rejects
+with "The modeler was destroyed." (details:
 [#285](https://github.com/Miragon/modeler-suite/issues/285),
-[#305](https://github.com/Miragon/modeler-suite/issues/305)). The start of a diagram-js drag is an
-action too, until diagram-js has activated the drag: the start clears the selection, so an import
-from the selection listener at the start of a move, a resize, a connect, the evolve placement or a
-create from the palette, the context pad or a quick-create key runs right after it and then ends
-that drag, without an error and without a change
-([#336](https://github.com/Miragon/modeler-suite/issues/336)). A `destroy()` from the selection
-listener there, or from `interaction.onChange` as the drag starts, throws nothing either, also at
-the start of the renderer's own drags (a label, a point of a drawing, the evolve target): the map is
-torn down once the code that started the drag has returned, and no listener of the host hears
-anything after `destroy()`, also not the selection the cancelled drag brings back
-([#346](https://github.com/Miragon/modeler-suite/issues/346)). The same holds for a `destroy()`
-from any listener at a drop or at Escape, the renderer's own drags included, at a create from the
-palette or the keyboard and at a paste placed with a click: the map is torn down once the handler
-of that input has returned, and the name editor a create opens a task later stays closed. No
-delivery calls a listener that an earlier listener of the same delivery unsubscribed
-([#380](https://github.com/Miragon/modeler-suite/issues/380),
-[#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a listener
-that a host's own call reaches: the selection listener of `elements.reveal`, or the interaction and
-selection listeners of an import, which ends a held gesture, empties the selection as it clears the
-canvas and selects again what was selected before it. The map is torn down once that call has
-returned. The import still draws its map, which `exportText()` then returns
-([#415](https://github.com/Miragon/modeler-suite/issues/415)), and its Promise rejects with "The
-modeler was destroyed.", as an import does that waits when the modeler is destroyed.
-`exportText()` is the committed document, never a live preview: while the plot corner, an evolve target (its red circle
-or the evolve placement of the context pad) or a label is dragged, or the size or axis-label popover
-previews a change, it returns the document as it was before, and the change event of the commit
-brings the new one ([#347](https://github.com/Miragon/modeler-suite/issues/347)). A command during a
-size preview (an undo pressed mid-drag, a title the host sets) puts the preview back first, and a
-drag then ends without resizing, so the history stays in step with the document. A drawing's point
-drag, the drag of an evolve target and a label drag end the same way, without a commit, when a
-command runs before their release (an undo pressed mid-drag, or an arrow-key nudge during the other
-two, since a point drag leaves the arrow keys without effect).
-`elements` names components, anchors, pipelines, submaps and accelerators by the id the document
-gives them (`cmp_kettle`), also right after a canvas edit, and `elements.bounds(id)` gives an
-element's live box in diagram coordinates; `getViewState` and `setViewState` carry the viewbox.
-`contentBounds()` (contract 1.3) gives the box a host fits the view to, in diagram coordinates and
-without padding: the plot with its axes and everything drawn beyond it (a long label at the
-commodity edge, a note in the margin), the box the pan constraint keeps in view. It follows every
-edit at once and stays the same across zoom and scroll. A map without elements still has its plot,
-so it is never `undefined` while the modeler lives (before the first import it is the default plot);
-tell an empty map by its elements. `diagram` is the wrapped `Modeler` or `NavigatedViewer` for
-host-specific wiring. Both factories take the options above (`additionalModules`, `freeArea`,
-`fitOnImport`, `undoRedoKeys` and the link handlers); the viewer never edits and has no context
-pad, so it ignores the undo keys and the link handlers. Both pass the contract's conformance kit
-(1.3) without skips.
+[#336](https://github.com/Miragon/modeler-suite/issues/336),
+[#346](https://github.com/Miragon/modeler-suite/issues/346),
+[#415](https://github.com/Miragon/modeler-suite/issues/415)).
 
-`interaction` (contract 1.5) tells a host whether the user holds a gesture, so it can defer a remote
-re-import until the gesture ends: `active()` is true from the moment a move, resize, connect or
-lasso drag, a label drag, the point drag of a drawing, the drag of an evolve target, the evolve or
-plot-corner drag, a create from the palette, the context pad or a quick-create key with the pointer
-over the canvas (also while its preview is over the palette) or a connect started with `A` starts,
-until its drop or cancel. It stays false while the lasso or the draw tool only waits for the next
-press, during a pan and on the viewer. `onChange(callback)` reports each change once, and may run
-inside `importText` (its cancel of a gesture), so a host queues its re-import instead of importing
-from the callback. A callback that throws is reported as an uncaught error a microtask later; the
-gesture and the other callbacks go on as if it had returned.
+`exportText()` is the committed document, never a live preview: during a plot-corner, evolve or
+label drag or a size or axis-label preview it returns the previous text, and the commit's change
+event brings the new one ([#347](https://github.com/Miragon/modeler-suite/issues/347)).
 
-`appearance` (contract 1.5) takes a host's mode: `themes` is `WARDLEY_THEMES`, `["light"]` until the
-Miragon modelers turn dark together, and `set({ theme, contrast })` writes `data-cd-theme` (the theme
-when `themes` lists it, else `themes[0]`) and, for `contrast: "high"`, `data-cd-kontrast="hoch"` on
-the map's container, so the design tokens resolve there and not from the page: on a dark page the
-map stays light, and the contrast the host asks for holds. It is view state: no change event, the
-same text and SVG export, and the history, view, selection and an open editor are left as they are.
-Until the first `set` the map takes its mode from the page, as before. `WARDLEY_THEMES` is also
-`@miragon/wardley-renderer/themes`, which loads no DOM code, for hosts outside the browser (the VS
-Code extension's theme bridge).
+`elements` names components, anchors, pipelines, submaps and accelerators by their document id
+(`cmp_kettle`); `elements.bounds(id)` gives an element's live box. `getViewState` / `setViewState`
+carry the viewbox. `contentBounds()` (contract 1.3) gives the box to fit: the plot with its axes and
+everything drawn beyond it; never `undefined` while the modeler lives. `diagram` is the wrapped
+`Modeler` or `NavigatedViewer`. Both factories take the options above; the viewer ignores the undo
+keys and link handlers. Both pass the contract's conformance kit without skips.
+
+`interaction` (contract 1.5): `active()` is true while the user holds a gesture (a drag, a create,
+a connect), so a host can defer a remote re-import; false while a tool only waits, during a pan and
+on the viewer. `onChange(callback)` reports each change once and may run inside `importText`, so
+queue a re-import instead of importing from it.
+
+`appearance` (contract 1.5): `themes` is `WARDLEY_THEMES` (`["light"]` for now);
+`set({ theme, contrast })` writes `data-cd-theme` and, for `contrast: "high"`,
+`data-cd-kontrast="hoch"` on the map's container. It is view state: no change event, same exports.
+`@miragon/wardley-renderer/themes` exports `WARDLEY_THEMES` without DOM code.
 
 ### Menu entries and dialogs for a host's chrome
 
-The map's entries of a chrome menu (Model: "Map title…" where the host passes `mapTitle`, "Map
-size…" and "X-axis labels…"; Export; Help) come from `mapMenu(actions)`, in the shape the menu
-groups of [`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell) take.
-`createMapSizePopover(chrome, modeler)` and `createAxisLabelsPopover(chrome, modeler)` build the two
-popovers (a live preview, one undo step when done; an Escape that closes one keeps a tool armed from
-the palette, as the shell's own layers do), `createTitleDialog(chrome, modeler)` the "Map
-title…" dialog (one undo step on Apply, nothing for an unchanged title),
-`mapShortcuts(chrome, options)` the groups of its "Keyboard shortcuts…" dialog as data. A web app
-that binds Cmd/Ctrl+O, Cmd/Ctrl+S, Cmd/Ctrl+V on the canvas and `?` itself passes
-`{ fileKeys: true, shortcutsKey: '?' }`, so the dialog lists them too, and
-`mapMenu({ …, shortcutsKey: '?' })` shows the key's chip on "Keyboard shortcuts…". The shell opens
-the dialog: `shell.showShortcutsDialog(mapShortcuts(shell, options))`, or, in a host without a
-mounted shell, `showShortcutsDialog(mapShortcuts(chrome, options), { container })` of
-`@miragon/modeler-shell`.
-`createMapDialog(chrome, parts)` is the modal dialog all of them share (guide §8: header with Close,
-scrolling body, footer), for a host's own dialogs in the same look; `dialogButton(label, variant)`
-gives its buttons. `chrome` is the shell handle or anything of the same shape; the renderer never
-imports the shell itself.
+`mapMenu(actions)` gives the map's entries of a chrome menu (Model: "Map title…" when `mapTitle` is
+passed, "Map size…", "X-axis labels…"; Export; Help) in the shape of
+[`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell)'s menu groups.
+`createMapSizePopover(chrome, modeler)`, `createAxisLabelsPopover(chrome, modeler)` and
+`createTitleDialog(chrome, modeler)` build the popovers and the title dialog (one undo step each).
+`mapShortcuts(chrome, options)` returns the "Keyboard shortcuts…" groups as data; pass
+`{ fileKeys: true, shortcutsKey: '?' }` if the host binds Cmd/Ctrl+O/S/V and `?`, and open it with
+`shell.showShortcutsDialog(…)` (or `showShortcutsDialog(…, { container })` without a mounted shell).
+`createMapDialog(chrome, parts)` and `dialogButton(label, variant)` build dialogs in the same look.
+`chrome` is the shell handle or anything of its shape; the renderer never imports the shell.
 
 ### PNG export
 
-The package draws no PNG itself: `svgToPng` of `@miragon/modeler-shell/export` rasterizes the SVG of
-`saveSVG()`, embeds Geist, loads the SVG as a data: URL and fills the background the caller names. A
-map has a plot, so its PNG lies on `--cd-ui-plot` (guide §10.7), which is `COLORS.plotBackground`:
+`svgToPng` of `@miragon/modeler-shell/export` rasterizes `saveSVG()` and embeds Geist. A map's PNG
+lies on `COLORS.plotBackground`:
 
 ```ts
 import { COLORS } from "@miragon/wardley-renderer";
@@ -299,9 +186,6 @@ const { svg } = await modeler.saveSVG();
 const png = await svgToPng(svg, { background: COLORS.plotBackground }); // 2×
 const forSlides = await svgToPng(svg, { background: "transparent", scale: 4 });
 ```
-
-`blobToBase64(png)` gives the picture as Base64 without the data-URL prefix, e.g. to post it to a VS
-Code extension host.
 
 ## Events
 
@@ -314,17 +198,9 @@ Code extension host.
 
 ### Fonts
 
-The package ships no fonts and uses no CDN. The canvas typeface is **Geist** (Miragon corporate
-identity); provide it yourself, preferably self-hosted via [`@fontsource`](https://fontsource.org/)
-(one variable file covers all weights):
-
-```ts
-import "@fontsource-variable/geist/wght.css";
-```
-
-That package registers the family as `'Geist Variable'`; the renderer's font stack starts with
-`'Geist Variable', 'Geist', …` so it matches either that package or a locally installed Geist. Use
-`'Geist Variable'` in your own CSS too: `'Geist'` alone never matches the self-hosted face.
+No fonts ship and nothing loads from a CDN. Provide Geist, e.g.
+`import "@fontsource-variable/geist/wght.css"`; the font stack starts with
+`'Geist Variable', 'Geist', …`.
 
 Part of the [Wardley Maps Modeler](https://github.com/Miragon/modeler-suite/tree/main/modelers/wardley-maps) in the [Miragon modeler suite](https://github.com/Miragon/modeler-suite).
 

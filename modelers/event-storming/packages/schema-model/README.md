@@ -38,9 +38,8 @@ const restored = parseBoardJSON(json); // validated + migrated to the current sc
 
 ## Vocabulary
 
-The names a board uses, per sticky kind, so that an editor can suggest an established name and
-point at names spelled more than one way. It is derived from the board every time and never
-stored, so the schema and the `.storm` DSL stay as they are.
+The names a board uses per sticky kind, to suggest established names and flag spelling variants.
+Derived from the board, never stored.
 
 ```ts
 import {
@@ -56,39 +55,24 @@ suggestLabels(vocabulary, "aggregate", "Ord"); // what to offer while "Ord" is t
 normalizeLabel("Orders") === normalizeLabel("order"); // true
 ```
 
-- The vocabulary covers the kinds in `VOCABULARY_STICKY_KINDS`: domain events, commands, actors,
-  aggregates, policies, read models and external systems. Hotspots and notes are free text.
-- Two names are the same term when `normalizeLabel` gives them one key. It ignores case,
-  whitespace, line breaks, punctuation and camel case (`OrderPlaced`, `order placed`). It reads
-  simple plurals as their singular: English `-s`, `-es` and `-ies`, and the German endings
-  `-ungen`, `-heiten`, `-keiten`, `-schaften`, `-ionen`, `-täten`, `-innen` and `-nisse`. It also
-  reads `ß` as `ss`, `ä`, `ö`, `ü` as `ae`, `oe`, `ue`, American `-ize` as `-ise` and the British
-  doubled `l` as single (`cancelled`, `canceled`; `modelling`, `modeling`). Every other letter
-  counts: digits as written, so `Room 1` and `Room 11` stay apart, and a final `e` or a doubled
-  letter of the word itself, so `Plan` and `Plane`, `Akt` and `Akte` or `Filled` and `Filed` are
-  different names. A final `e` drops only where an `-es` plural would keep it, after `s`, `x`,
-  `z`, `ch`, `sh` and in `-ies`, in the singular too (`Purchase`, `Purchases`).
-- A term's `label` is the spelling most of its stickies use (on a tie, the one met first), and
-  `spellings` lists every spelling with the ids of the stickies that write it.
-- `suggestLabels` offers the terms of one kind whose name, or one of its later words, starts with
-  what is typed, the matches at the start first, then the most used, at most
-  `DEFAULT_SUGGESTION_LIMIT` (8). The last word counts as written so far, so `Pay` finds
-  `Payment Received`.
-- `isPlaceholderLabel(kind, label)` knows the names a new sticky gets until it is renamed: any
-  entry of `PLACEHOLDER_LABELS` with or without a number (`Domain Event`, `Domain Event 2`), on a
-  sticky of any kind, since a sticky keeps its label when its kind changes (an aggregate still
-  called `Domain Event` names nothing either). An editor offers no such name and
-  `groupByAggregate` counts no such aggregate, also where a board means it as a domain name (an
-  aggregate called `Policy`); a more specific name (`Insurance Policy`) counts. It reads the label
-  as a `.storm` file stores it: trimmed, and an empty one as the placeholder the file writes in its
-  place. Notes and drawings have no placeholder.
+- It covers `VOCABULARY_STICKY_KINDS` (all kinds but hotspots, notes and drawings).
+- `normalizeLabel` makes two names one term when they differ only in case, whitespace, line
+  breaks, punctuation or camel case, in simple English (`-s`, `-es`, `-ies`) or German (`-ungen`,
+  `-heiten`, `-keiten`, `-schaften`, `-ionen`, `-täten`, `-innen`, `-nisse`) plurals, `ß`/`ss`,
+  umlauts/`ae`, `-ize`/`-ise` or a doubled British `l`. Every other letter counts (`Room 1` vs
+  `Room 11`, `Plan` vs `Plane`).
+- A term's `label` is its most used spelling; `spellings` lists each spelling with its sticky ids.
+- `suggestLabels` offers terms of one kind whose name or a later word starts with the typed text,
+  prefix matches first, then by use, at most `DEFAULT_SUGGESTION_LIMIT` (8).
+- `isPlaceholderLabel(kind, label)` recognises the names a new sticky gets (`PLACEHOLDER_LABELS`,
+  with or without a number, of any kind, e.g. `Domain Event 2`); an empty label counts as one.
+  Editors suggest none and `groupByAggregate` ignores them; `Insurance Policy` is a real name.
 
 ## Aggregates
 
-Each aggregate of a board with the commands it handles and the domain events it leads to, read
-from the arrows of a design-level board (command → aggregate → event). "Repeat, never reuse" puts
-an aggregate on the timeline once per step; `groupByAggregate` brings its behaviour back together.
-Like the vocabulary, it is derived from the board every time and never stored.
+`groupByAggregate` collects each aggregate, repeated along the timeline, with the commands it
+handles and the events it leads to, read from the arrows (command → aggregate → event). Derived,
+never stored.
 
 ```ts
 import { groupByAggregate } from "@miragon/event-storming-schema-model";
@@ -102,28 +86,15 @@ for (const { aggregate, commands, events, pairs } of groupByAggregate(board)) {
 }
 ```
 
-- Aggregates whose names `normalizeLabel` reads alike form one group (`Order`, `order`, `Orders`).
-- An aggregate whose label is still a placeholder of any sticky kind (`Aggregate`, `Aggregate 2`,
-  or `Domain Event` on a sticky retyped to an aggregate: `isPlaceholderLabel`) forms no group, so
-  commands and events that reach only such aggregates are in no group either. That holds for an
-  aggregate called `Policy` too, while `Policies` and `Insurance Policy` form groups. An empty
-  aggregate is one too, as the file stores it as `Aggregate`.
+- Aggregates whose names normalise alike form one group; aggregates with a placeholder or empty
+  label form none.
 - A command counts through an arrow into one of the group's aggregates, an event through an arrow
-  out of one. Arrows the other way, a command's arrow straight to an event, and policies, read
-  models, actors, external systems, hotspots and notes leave the groups as they are.
-- Commands and events are listed once per name, with every sticky of that name an arrow joins to
-  the group, so a command that reaches two aggregates is in both groups.
-- A pair needs one and the same aggregate sticky: an arrow from the command into it and one from
-  it to the event. Two steps that repeat the aggregate never pair the command of one with the event
-  of the other.
-- An aggregate without arrows is a group with empty lists; commands and events that reach no
-  aggregate are in no group. Only the arrows join a sticky to an aggregate; how near it stands
-  does not.
-- A label without a word (`?`; an empty command or event) names nothing: such a sticky groups with
-  no other, and its `key` is empty.
-- Groups follow their first aggregate on the timeline (left to right, then top to bottom, then by
-  id, as in `sortByTimeline`), commands and events do the same within a group. Stickies on exactly
-  the same spot follow the code points of their ids, so the order is the same on every machine.
+  out of one; other arrows and kinds are ignored. Each is listed once per name, so a command that
+  reaches two aggregates is in both groups.
+- A pair needs the same aggregate sticky between command and event, so repeated steps never mix.
+- An aggregate without arrows is a group with empty lists. Only arrows join, not proximity.
+- Groups, commands and events follow timeline order (`sortByTimeline`), ties by id code points, so
+  the order is the same on every machine.
 
 Part of the [Event Storming Modeler](https://github.com/Miragon/modeler-suite/tree/main/modelers/event-storming) in the [Miragon modeler suite](https://github.com/Miragon/modeler-suite).
 

@@ -3,31 +3,22 @@
 [![VS Marketplace](https://vsmarketplacebadges.dev/version-short/miragon-gmbh.context-maps-modeler.svg)](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.context-maps-modeler)
 [![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/modelers/context-maps/LICENSE)
 
-[Context Maps](https://contextmapper.org/) are the strategic Domain-Driven Design view of a system:
-bounded contexts, coloured by subdomain type (core / supporting / generic), connected by
-context-mapping relationship patterns (partnership, shared kernel, customer-supplier,
-upstream-downstream, separate ways). This extension lets you create and edit those diagrams directly
-inside VS Code: it opens `.cm` / `.cm.json` files (a Context Maps diagram stored as plain,
-deterministic JSON) in a graphical editor, while the text file stays the source of truth, so save,
-Git, and diff keep working.
+[Context Maps](https://contextmapper.org/) show the strategic view of Domain-Driven Design: which
+parts of a business (bounded contexts) exist, how important each one is, and how their teams work
+together. This extension lets you draw them right in VS Code. Your map is a plain `.cm` /
+`.cm.json` text file, so saving, Git and diffs work as usual.
 
 ![A context map in VS Code](https://raw.githubusercontent.com/Miragon/modeler-suite/main/modelers/context-maps/docs/screenshots/vscode-editor.png)
 
 ## Getting started
 
-Install **Context Maps Modeler** (publisher `miragon-gmbh`) from the VS Code Marketplace, then
-start from a filled-in example context map or a blank diagram. The built-in **Get Started with Context
-Maps Modeler** walkthrough is the recommended first stop: open it from the Command Palette with
-**Welcome: Open Walkthrough…**, then click its **Create diagram from example** button and you have a
-ready-made diagram to explore. From there you can open any `.cm` or `.cm.json` file.
+Install **Context Maps Modeler** (publisher `miragon-gmbh`), then open the **Get Started with
+Context Maps Modeler** walkthrough (**Welcome: Open Walkthrough…**) and click **Create diagram from
+example**. Or run one of these from the Command Palette (also under **File > New File…**):
 
-Prefer commands? Run these from the Command Palette (`Cmd/Ctrl+Shift+P`, type _"Context Maps"_):
-
-- **Context Maps: New Diagram from Example:** pick a location, pre-filled with the example context
-  map (also under **File > New File…** as **New Context Maps Diagram from Example**).
-- **Context Maps: New Empty Diagram:** the same, but a blank diagram (also under
-  **File > New File…** as **Context Maps**).
-- **Context Maps: New Diagram from CML…:** turn a Context Mapper `.cml` file into a new `.cm` file.
+- **Context Maps: New Diagram from Example**
+- **Context Maps: New Empty Diagram**
+- **Context Maps: New Diagram from CML…** (turns a Context Mapper `.cml` file into a `.cm` file)
 
 ## Reading a diagram
 
@@ -47,52 +38,31 @@ A diagram shows bounded contexts and the relationships between them.
 
 ## Editing a diagram
 
-- **Custom editor for `.cm` / `.cm.json`.** Open a diagram file and you get the full graphical
-  editor, backed by the plain-text JSON file. Editing the text in a split view re-renders the canvas
-  live (two-way sync), and VS Code tracks dirty state as you go. To reopen a diagram as raw text, use
-  **View: Reopen Editor With…**, then pick **Text Editor**.
-- **File icon and JSON highlighting.** `*.cm` and `*.cm.json` files carry the Context Maps icon in
-  the Explorer and on editor tabs, in light and dark themes. In the text editor both get JSON syntax
-  highlighting, bracket matching and indentation.
-- **Full modeler** in the Miragon modeler chrome: the tool palette (top centre) places the three
-  subdomain types of bounded context: drag one onto the canvas, or press Enter on it to place a
-  context in the middle with its name editor open. Selecting an element opens its **context pad**:
-  append a connected context, connect (click the target), change subdomain type / relationship
-  pattern / integration roles via popup menus, set the owning team or a description, swap ends,
-  rename, delete. `Cmd/Ctrl+A` selects the whole map.
-- **Menu** (top left): **Map title…** (renames the map in one edit), the **Legend** checkbox,
-  **Export as PNG / SVG / JSON / CML**, and **Keyboard shortcuts…**. The legend starts closed and
-  remembers whether it is open.
-- **Zoom panel** (bottom right): `Cmd/Ctrl` + `+` / `−` zoom the diagram (not the VS Code window),
-  `Cmd/Ctrl+0` shows 100 %, `Shift+1` and the **Fit** button fit the map (never above 100 %).
-- **Undo through the document:** every change on the canvas is one edit of the file, so `Cmd/Ctrl+Z`
-  undoes it in VS Code's history, and the view and the selection stay. In the name editor the keys
-  undo only the field. A change VS Code does not write, as in a file opened read-only, goes back on
-  the canvas, which shows the file again.
-- **Text and diagram side by side:** **Open Source to the Side** (editor title of the diagram) and
-  **Open Diagram to the Side** (editor title of the text). Edit either one; the other follows.
-- **Problems:** JSON errors and the 13 semantic rules of strategic DDD appear in the Problems view
-  and on the problems pill at the bottom left. While the text is no valid map, the canvas shows the
-  last valid version, read-only, and says so.
-- **Commands:** Fit to View and Export as PNG/SVG/JSON/CML also run from the Command Palette and the
-  editor title's overflow menu.
-- **Empty file:** "Pick a tool from the palette to start." and **Insert example**, which writes the
-  example into the file as one edit.
-- **Editable embedded-PNG diagrams (`*.cm.png`).** Exported PNGs store the diagram
-  inside a `tEXt` chunk, so the file stays a normal image you can drop into a wiki, README, or chat,
-  and can be reopened and edited graphically. To start one, run **Context Maps: New Empty Diagram
-  (embedded PNG)** (also under **File > New File…**), pick a location, and press `Ctrl/Cmd+S` once to
-  render the first PNG.
-- **Offline-capable:** no CDN, no network; the Geist fonts ship with the extension.
-- **Light in every theme** for now: the Miragon modelers switch to dark together. High Contrast
+- **Graphical editor for `.cm` / `.cm.json`**, backed by the JSON file: edit the text in a split
+  view (**Open Source to the Side** / **Open Diagram to the Side**) and the other side follows. Use
+  **View: Reopen Editor With…** > **Text Editor** for raw text. The files get their own icon and
+  JSON highlighting.
+- **Palette and context pad:** drag a subdomain type onto the canvas, or press Enter to place it in
+  the middle. The context pad appends, connects, changes subdomain type, pattern and integration
+  roles, sets team or description, swaps ends, renames and deletes. `Cmd/Ctrl+A` selects all.
+- **Menu:** Map title…, Legend, Export as PNG / SVG / JSON / CML (also in the Command Palette) and
+  Keyboard shortcuts…. Zoom with `Cmd/Ctrl` + `+` / `−`, `Cmd/Ctrl+0` and `Shift+1` to fit.
+- **Undo through the document:** every canvas change is one edit of the file, so `Cmd/Ctrl+Z` works
+  in VS Code's history.
+- **Problems:** JSON errors and the 13 semantic rules of strategic DDD appear in the Problems view.
+  While the text is invalid, the canvas shows the last valid version read-only.
+- **Editable PNGs (`*.cm.png`):** the image stores the diagram, so you can drop it into a wiki and
+  still edit it. Start one with **Context Maps: New Empty Diagram (embedded PNG)** and save once.
+- **Offline**, with the Geist fonts bundled. Drawn light in every theme for now; High Contrast
   themes get the light high-contrast variant.
 
 Third-party licenses of everything the extension bundles are in
 [THIRD_PARTY_NOTICES.md](https://github.com/Miragon/modeler-suite/blob/main/modelers/context-maps/apps/vscode/THIRD_PARTY_NOTICES.md).
 
-## Development
+## Feedback and source
 
-Building from source and the dev loop are documented in
+Report issues at [Miragon/modeler-suite](https://github.com/Miragon/modeler-suite/issues); building
+from source is in
 [CONTRIBUTING.md](https://github.com/Miragon/modeler-suite/blob/main/modelers/context-maps/CONTRIBUTING.md).
 
 ## License

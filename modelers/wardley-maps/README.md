@@ -12,40 +12,17 @@ VS Code extension and a web app, all built on [diagram-js](https://github.com/bp
 
 ![In the Wardley Maps web app, the example opens and the custom-built Kettle is dragged towards product, along evolution](docs/demo.gif)
 
-## Install
-
-```bash
-npm install @miragon/wardley-renderer
-```
-
-```ts
-import { NavigatedViewer } from "@miragon/wardley-renderer";
-import "@miragon/wardley-renderer/assets/wardley.css";
-
-const viewer = new NavigatedViewer({ container: document.querySelector("#canvas")! });
-
-await viewer.importDSL(`title Tea Shop
-anchor Business [0.95, 0.63]
-component Kettle [0.43, 0.35]
-evolve Kettle 0.62
-Business -> Kettle`);
-
-const map = viewer.exportMap(); // canonical JSON model
-const dsl = viewer.exportDSL(); // back to OWM text
-const { svg } = await viewer.saveSVG();
-```
-
 ## What you get
 
-- **Embeddable viewer & modeler** on diagram-js: palette, context pad, move/connect/resize, inline
-  labels, undo/redo, evolve-by-drag.
-- **Lossless [OWM-DSL](https://docs.onlinewardleymaps.com/) round-trip** and a deterministic JSON model.
-- **VS Code extension**: a custom editor for `.wmap` / `.owm` files.
-- **Web app**: an Excalidraw-style editor with URL sharing and PNG/SVG picture export.
-- **Strict DOM-free core** (model, DSL, transforms), usable in any JavaScript runtime.
-- **Self-hosted fonts**: no CDN, offline-capable.
+- **A graphical editor** for maps: place components, connect them, drag them along evolution,
+  undo and redo.
+- **Plain text underneath:** maps are `.wmap` / `.owm` files in the
+  [OWM text format](https://docs.onlinewardleymaps.com/), so they diff, review and version in Git.
+- **[VS Code extension](apps/vscode)** for `.wmap` / `.owm` files, and a **[web app](apps/webapp)**
+  with share links and PNG/SVG export.
+- **A TypeScript library** to embed maps in your own app (see [Use it in your app](#use-it-in-your-app)).
 
-### Editor interactions
+## Editor interactions
 
 Press `?` in the web app for the same list, with the keys of your platform.
 
@@ -85,6 +62,29 @@ In the web app also:
 | Map size, axis labels       | Menu › Map size… (preset, exact width × height, or Reset to default) and Menu › X-axis labels…, previewed live                                  |
 | Keyboard shortcuts          | `?` or Menu › Keyboard shortcuts…                                                                                                               |
 
+## Use it in your app
+
+```bash
+npm install @miragon/wardley-renderer
+```
+
+```ts
+import { NavigatedViewer } from "@miragon/wardley-renderer";
+import "@miragon/wardley-renderer/assets/wardley.css";
+
+const viewer = new NavigatedViewer({ container: document.querySelector("#canvas")! });
+
+await viewer.importDSL(`title Tea Shop
+anchor Business [0.95, 0.63]
+component Kettle [0.43, 0.35]
+evolve Kettle 0.62
+Business -> Kettle`);
+
+const map = viewer.exportMap(); // canonical JSON model
+const dsl = viewer.exportDSL(); // back to OWM text
+const { svg } = await viewer.saveSVG();
+```
+
 ## Packages
 
 | Package                                                  | Description                                              |
@@ -98,8 +98,7 @@ In the web app also:
 
 ## Claude Code plugin
 
-Two Claude skills, the Wardley Mapping method and the OWM text format, ship from the Miragon
-modeler suite as a Claude Code plugin, so you can use them in any project:
+Two Claude skills let Claude read, review, edit and generate maps in any project:
 
 ```
 /plugin marketplace add Miragon/modeler-suite
@@ -111,27 +110,7 @@ modeler suite as a Claude Code plugin, so you can use them in any project:
 | `wardley-mapping` | Simon Wardley's method: evolution, doctrine, gameplay, creating maps, reviews with colour-coded notes   |
 | `owm-dsl`         | The `.wmap` / `.owm` format: grammar, coordinates and layout, pipelines, notes, diagnostics, round-trip |
 
-Claude can then read, review, edit and generate `.wmap` / `.owm` maps anywhere; the modeler
-renders what Claude writes. Details in [`plugins/wardley-maps-modeler/`](plugins/wardley-maps-modeler/);
-the suite's marketplace manifest is [`.claude-plugin/marketplace.json`](../../.claude-plugin/marketplace.json).
-
-## Fonts
-
-The renderer ships no fonts and loads nothing from a CDN. The typeface is **Geist** (Miragon
-corporate identity); provide it yourself, preferably self-hosted via
-[`@fontsource`](https://fontsource.org/) (one variable file covers all weights):
-
-```ts
-import "@fontsource-variable/geist/wght.css";
-```
-
-The variable package registers the family as **`'Geist Variable'`** (not `'Geist'`). The renderer's
-font stack (`FONT.family`, set on every SVG `<text>`, and `.wardley-container` in `wardley.css`)
-starts with `'Geist Variable', 'Geist', …`, so both that package and a locally installed Geist are
-picked up. Use the same name in your own CSS: `font-family: 'Geist', …` alone never matches the
-self-hosted face. Without a font the fallback chain degrades cleanly to system sans. An exported SVG
-only shows Geist where the font is available to the program that renders it; the web app and the VS
-Code extension embed Geist in their PNG exports.
+Details in [`plugins/wardley-maps-modeler/`](plugins/wardley-maps-modeler/).
 
 ## Supported Wardley elements
 
@@ -162,25 +141,8 @@ Code extension embed Geist in their PNG exports.
 
 ## Contributing
 
-The Wardley Maps Modeler is developed in the [Miragon modeler suite](../../README.md) as
-`modelers/wardley-maps`, next to the shared `@miragon/modeler-api` and `@miragon/modeler-shell`. Setup,
-scripts, hooks and conventions are in the suite's [CONTRIBUTING.md](../../CONTRIBUTING.md), what is
-special here in [this modeler's CONTRIBUTING.md](CONTRIBUTING.md), CI and releases in
-[docs/ci-and-releases.md](../../docs/ci-and-releases.md). Issues go to
+See [CONTRIBUTING.md](CONTRIBUTING.md). Issues go to
 [Miragon/modeler-suite](https://github.com/Miragon/modeler-suite/issues).
-
-```bash
-npm ci && npm run build:shared   # once, at the repository root
-npm run wardley-maps build
-npm run wardley-maps test
-npm run wardley-maps dev:webapp       # the web editor locally
-```
-
-The VS Code extension has a smoke test in a real VS Code: it packs the extension like the release,
-opens a map, edits, saves and undoes through VS Code, and screenshots VS Code's four default themes
-into `test-results/vscode-smoke/`. Locally run `npm run wardley-maps test:vscode:docker`: it runs the
-test in a Linux container, so no VS Code window opens (needs Docker). See
-[CONTRIBUTING.md](CONTRIBUTING.md#vs-code-smoke-test).
 
 ## License
 

@@ -45,66 +45,27 @@ npm install @miragon/team-topologies-renderer @miragon/team-topologies-schema-mo
 | Esc                                  | Clear the selection                                                     |
 | Enter / Space on a context-pad entry | Run it (rename, add annotation, delete)                                 |
 
-The shortcuts act only while the canvas itself has the focus, as diagram-js 15's own keyboard
-does: on keys whose target is the canvas `<svg>` or inside it. Keys with nothing focused
-(`<body>`), on host chrome, on the palette, the context pad or the label editor and keys while a
-modal dialog is open pass, and so do keys a closer listener already handled (`defaultPrevented`)
-and keys of an IME composition. A click or drag with a pointer on a palette entry, and the
-context pad's attach and delete, hand the focus to the canvas, so Delete and `Ctrl/Cmd+Z` act
-at once. Enter or Space leave it on the lasso, hand it to the canvas on the pad's delete, and
-on a creating palette entry open the label editor (see "Palette from the keyboard" below).
-Rename and "Add annotation" open the label editor too, which gives the focus back to the
-canvas when it closes. diagram-js rebuilds the context pad whenever its element changes, for
-example on an undo: a focused entry then moves to the same entry of the new pad, and to the
-canvas when the pad closes. Zoom and fit keys belong to the host's chrome (guide §5.8: only
-Cmd/Ctrl + `+` `-` `0` and Shift+1, each acting exactly once), so the canvas binds none; the
-[`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell) chrome provides
-them together with the zoom panel.
+Shortcuts act only while the canvas `<svg>` has the focus, so keys on host chrome, the palette,
+the context pad, the label editor or an open dialog pass. Pointer clicks on palette entries and the
+pad's attach and delete hand the focus to the canvas. Zoom and fit keys belong to the host's chrome
+(guide §5.8), so the canvas binds none. A host that hides the canvas without destroying it uses
+`inert`, `display: none` or `visibility: hidden`.
 
-A host that hides the canvas without destroying the modeler makes its container `inert` or hides
-it with `display: none` or `visibility: hidden`, not only transparent: the browser moves the focus
-off the `<svg>` at its next rendering update, and a key that reaches the `<svg>`, the context pad
-or the label editor before then passes too: nothing is deleted, saved or closed. There is no
-separate switch to pause the keyboard.
+**Palette from the keyboard.** Without a chrome that skins the palette (`data-chrome="palette"`),
+the palette is the guide §5.5 toolbar "Tools": one tab stop (← → Home End), `aria-pressed` on the
+armed lasso, tooltips with name and key (guide §5.6). Enter or Space on a creating entry places the
+element in the centre of `freeArea` (24px offset while taken) and opens its label editor. In a
+container up to 760px wide the palette takes a second row. A host that resizes the container calls
+`canvas.resized()`.
 
-**Palette from the keyboard.** Without a chrome that skins the palette (`data-chrome="palette"`,
-the modeler shell), the renderer makes its own palette the toolbar of guide §5.5: `role="toolbar"`
-named "Tools", ahead of the canvas in the tab order, one tab stop that ← → Home End move, and
-`aria-pressed` on the lasso. Enter or Space trigger an entry with a click whose `detail` is 0, as the
-shell does. On a creating entry that click places the element in the centre of the free part of the
-canvas (`freeArea`, else the centre of the view), 24px further diagonally while that spot is taken,
-selects it and opens its label editor. On the lasso it arms the tool, and on the armed lasso puts
-it down again; the lasso shows as pressed only while it is armed, also after Escape. A key on an
-entry the host made inert or hid stays with the page. The entry's tooltip (`role="tooltip"`, name
-and key chip) shows after 300ms of hover, at once on keyboard focus and at once for a neighbour
-while one is shown, never for touch, and hides on a press, Escape, leaving and blur (guide §5.6).
+**Label editor.** A view change never commits an open label editor; Enter, a click on the canvas or
+blur commits, Escape discards (law L5 of `@miragon/modeler-api` 1.2).
 
-**Embedded in a page.** Layout reads the modeler's container, not the page: in a container up to
-760px wide the renderer's own palette takes a second row, whatever the window's width. Its tooltip
-stands 8px below the palette, centred on its entry and 12px from the container's sides. Without
-`freeArea: { insets }`, the context pad keeps inside the container. A host that resizes the
-container calls diagram-js's `canvas.resized()`, as for any diagram-js canvas; the pad then keeps
-inside the new size as well.
-
-**Label editor and the view.** A change of the view (a host's `setViewState` or fit, a wheel zoom or
-scroll) never commits an open label editor: it stays open with what was typed and moves with its
-element. Enter, a click or drag on the canvas and leaving the field commit; Escape discards (law L5
-of `@miragon/modeler-api` 1.2).
-
-**Read-only lock.** `modeler.get("ttReadOnly").setReadOnly(true)` locks the canvas while the
-document behind it cannot be saved from it (an invalid file in an IDE host): no move, resize,
-create, connect, delete, paste, context pad or label editor; selection, zoom, pan, copy and export
-stay. It fires `READ_ONLY_CHANGED_EVENT` (`{ readOnly, shown }`) on every change of the lock and
-once more when delayed marks show. Without a chrome that skins the palette, every palette entry but
-Lasso and Hand does nothing while the lock holds and is `aria-disabled` while its marks show, drawn
-as guide §13.5 says: no hover, tool icons in `--cd-ui-text-leise`, notation previews grey.
-
-Guide §13.5 shows the lock of an invalid file only after 800ms without a valid one, so typing in the
-text editor beside the canvas does not flicker. `setReadOnly(true, { delayMs: 800 })` locks at once
-and marks the palette's entries once the delay has passed, as the modeler shell's `setReadOnly`
-does; a call while the delay runs keeps its timer, and `setReadOnly(false)` unlocks and takes the
-marks off at once. `isReadOnlyShown()` tells whether the marks show. Without `delayMs` the marks
-come with the lock.
+**Read-only lock.** `modeler.get("ttReadOnly").setReadOnly(true)` locks every edit while the
+document cannot be saved (an invalid file); selection, zoom, pan, copy and export stay.
+`setReadOnly(true, { delayMs: 800 })` locks at once and marks the palette (`aria-disabled`) only
+after the delay, so typing beside the canvas does not flicker; `isReadOnlyShown()` tells whether
+the marks show. `READ_ONLY_CHANGED_EVENT` carries `{ readOnly, shown }`.
 
 All three share a common base (`TtBaseViewer`) with the same import/export and lifecycle API.
 
@@ -181,73 +142,28 @@ await modeler.importText(text); // silent, fitted; rejects without a trace for a
 modeler.onContentChanged(() => save(modeler.exportText()));
 ```
 
-An import (`importText`, or `importDocument` of the wrapped diagram) that arrives while the user
-drags, such as a peer's text in a live sync, ends the gesture first, as Escape does: a move,
-resize, connect, lasso or palette create, also one whose pointer is still on the palette, applies
-nothing to the replaced elements and fires no change. An armed lasso tool that waits for its press
-stays armed.
+An import that arrives during a drag (a peer's text in a live sync) ends the gesture first, as
+Escape does, without a change; an armed lasso stays armed. An `importText` made while a user action
+runs (from the change listener of its command, or from `elements.onSelection` at a drag's start)
+waits until the action has finished, and its promise settles after that import; an open label
+editor comes back with what was typed. `importDocument` of the wrapped diagram cannot wait. A
+`destroy()` from any listener tears the diagram down once the current handler has returned, and no
+listener hears anything afterwards; a waiting import rejects with "The modeler was destroyed."
+([#346](https://github.com/Miragon/modeler-suite/issues/346),
+[#380](https://github.com/Miragon/modeler-suite/issues/380),
+[#415](https://github.com/Miragon/modeler-suite/issues/415)).
 
-An `importText` made while a user action runs (from the change listener its command fires, for
-example, by a host that echoes its own change back or answers it with a peer's text) waits until the
-action has finished and then imports; its promise settles after that import. A drop has finished
-once diagram-js has cleaned it up. Any other command (an annotation appended from the context pad, a
-create from the palette by keyboard, a label commit, a delete, an undo) has finished once the code
-that ran it has returned. So no part of the action sees a replaced diagram: neither diagram-js's
-selection behaviour after a drop, nor the selection and the label editor that an append or a
-keyboard create opens on its new element (the editor comes back, with what was typed, on the
-imported element with the same id), nor the rest of a command that a selection listener interrupts.
-A drag's start is an action as well, until the code that starts it has returned: diagram-js
-deselects there (a press moved past the drag threshold, a resize, a palette create, a connect) and
-then goes on with the drag, so an import from `elements.onSelection` comes afterwards and ends the
-drag. A `destroy()` from `elements.onSelection` there, or from `interaction.onChange` as the drag
-starts, throws nothing either: the diagram is torn down once the code that started the drag has
-returned, and no listener of the host hears anything after `destroy()`, also not the selection the
-cancelled drag brings back ([#346](https://github.com/Miragon/modeler-suite/issues/346)).
-The same holds for a `destroy()` from any listener at a drop, at Escape, at a create from the
-palette or the keyboard and at a paste placed with a click: the diagram is torn down once the
-handler of that input has returned. No delivery calls a listener that an earlier listener of the
-same delivery unsubscribed ([#380](https://github.com/Miragon/modeler-suite/issues/380),
-[#373](https://github.com/Miragon/modeler-suite/issues/373)). So does a `destroy()` from a listener
-that a host's own call reaches: the selection listener of `elements.reveal`, or the interaction and
-selection listeners of an import, which ends a held gesture and empties the selection as it clears
-the canvas. The diagram is torn down once that call has returned. The import still draws its
-diagram, which `exportText()` then returns
-([#415](https://github.com/Miragon/modeler-suite/issues/415)), and its Promise rejects with "The
-modeler was destroyed.", as an import does that waits when the modeler is destroyed.
-The label commit that a press on an element or on a resize handle makes counts too: the import comes
-after the press and then ends what the press began, as an accepted import does: the resize that
-diagram-js starts at once on a handle, or the move of a press that has not reached the drag
-threshold yet. A press on the palette blurs the editor first, and the blur commits the label before
-the click: the import runs before the click, so the create the click starts goes on.
-`importDocument` of the wrapped diagram cannot wait: called from the change listener of a drop, it
-leaves the drop to finish, with its change applied; called from a selection listener at a drag's
-start, it ends the drag inside diagram-js's start, which then throws.
+`interaction` (contract 1.5, modeler and viewer): `active()` is true from the start of a move,
+resize (from the press on its handle), connect, lasso drag or palette create until its drop or
+cancel; `onChange(listener)` reports each change once and may run inside `importText`, so queue
+the next import instead of starting it there.
 
-`interaction` (contract 1.5, modeler and viewer) tells a host whether the user holds a gesture, so
-it can defer a peer's text until the gesture ends instead of reading diagram-js's DOM classes:
-`active()` is true from the start of a move, resize, connect, lasso drag or palette create (also
-while its pointer is still on the palette) until its drop or cancel, and `onChange(listener)` reports
-each change once. A press below the drag threshold and the armed lasso tool are no gesture, nor is a
-pan of the view or a label editor. A resize counts from the press on its handle: diagram-js starts
-it at once, with no drag threshold. The listener runs where the gesture ends, which can be inside
-`importText`, so a host queues its next import instead of starting it there (the contract's
-README shows the queue).
-
-`appearance` (contract 1.5, modeler and viewer) takes a host's mode: `themes` is
-`TEAM_TOPOLOGIES_THEMES`, `["light"]` until the Miragon modelers move to dark together, and
-`set({ theme, contrast })` writes `data-cd-theme` (a theme the renderer does not draw falls back to
-light) and, for `contrast: "high"`, `data-cd-kontrast="hoch"` on the renderer's container. The
-canvas then follows that request, not the page: it stays light on a dark page, and normal contrast
-holds on a high-contrast one. Until the first `set` it takes its mode from the page, as both apps
-use it. The mode is view state: no change event, the text and the SVG export stay byte-identical,
-and an open label editor stays open. Under high contrast, each team or interaction contour that the
-official templates draw below 3:1 on the canvas (stream-aligned, enabling, complicated-subsystem and
-platform teams, X-as-a-Service and facilitating) lies on an underlay in `--cd-ui-kontur` (guide
-§10.6, the `cd-c-unterleger-hoch` class of `cd-canvas.css`), and so does its preview in the palette,
-the legend rows and the inspector, which follow the mode of the nearest carrier; a contour the user
-coloured has none.
-Without high contrast and in the export the contours stay as the templates draw them: the SVG
-export drops every `cd-c-*` class, so the underlay keeps its `stroke: none`.
+`appearance` (contract 1.5): `themes` is `TEAM_TOPOLOGIES_THEMES` (`["light"]`);
+`set({ theme, contrast })` writes `data-cd-theme` and, for `contrast: "high"`,
+`data-cd-kontrast="hoch"` on the container, so the canvas follows the request, not the page. View
+state only: no change event, identical exports. Under high contrast, the official contours below
+3:1 lie on a `--cd-ui-kontur` underlay (guide §10.6, `cd-c-unterleger-hoch`), also in palette,
+legend and inspector previews; exports drop it.
 
 Options: the contract's `CollaborativeModelerOptions` (1.2) and `additionalModules`:
 
@@ -260,16 +176,10 @@ Options: the contract's `CollaborativeModelerOptions` (1.2) and `additionalModul
   every import; a host whose chrome fits the diagram itself passes false.
 - `undoRedoKeys` (default true): false when the host owns the history (VS Code).
 
-The viewer takes the same options and ignores `freeArea` and `undoRedoKeys`. `modeler.diagram` is
-the wrapped `Modeler`. `elements.bounds(id)` (contract 1.2) returns a team's, interaction's, flow's
-or annotation's box in diagram coordinates from the live canvas, `undefined` for any other id.
-`contentBounds()` (contract 1.3, modeler and viewer) returns the tight box around every element and
-its label text, in diagram coordinates from the live canvas and the same at every zoom and scroll, or
-`undefined` while the diagram has no element. Label text counts where it reaches past its shape (a
-word longer than a line, more lines than the shape holds); like the label wrapping, its width is
-estimated from the characters rather than measured. A host that fits the view itself
-(`fitOnImport: false`) fits to it and adds its own margins; the modeler shell's
-`connectDiagramJs(shell, diagram, { modeler })` does so by default.
+The viewer ignores `freeArea` and `undoRedoKeys`. `modeler.diagram` is the wrapped `Modeler`.
+`elements.bounds(id)` (contract 1.2) gives an element's live box. `contentBounds()` (contract 1.3)
+gives the tight box around every element and its label text (estimated width), the same at every
+zoom, or `undefined` without elements; fit to it and add your own margins.
 
 ### Shared methods (`Viewer` / `NavigatedViewer` / `Modeler`)
 
@@ -421,16 +331,12 @@ viewer via `additionalModules`:
 
 ### Rendering
 
-A custom `TeamTopologiesRenderer` (priority `1500`, beating diagram-js's default) draws each element
-from the spec in [`@miragon/team-topologies-schema-model`](../schema-model): the four team outlines
-(octagon, vertical/horizontal rounded rectangles, square rectangle) drawn solid; the three
-interaction glyphs (parallelogram, triangle, circle) drawn dashed and opaque, their translucent
-template fill mixed over white (design guide §10.6); the flow-of-change as a dashed left-to-right
-band; an annotation as a BPMN-style open bracket with left-aligned text, tied to its element by a
-dashed connector. Labels are word-wrapped (explicit line breaks are kept) and centred. Per-element
-`fill`/`stroke` overrides win over the spec defaults (an interaction's own fill is mixed over white
-the same way), and stay visible while an element is selected or hovered (the selection is a
-separate blue outline). On a dark custom fill, team and interaction labels switch to white.
+`TeamTopologiesRenderer` (priority `1500`) draws each element from the spec in
+[`@miragon/team-topologies-schema-model`](../schema-model): solid team outlines, dashed opaque
+interaction glyphs (template fill mixed over white, guide §10.6), the flow of change as a dashed
+band, annotations as open brackets with a dashed connector. Labels wrap and centre, keeping explicit
+breaks. `fill` / `stroke` overrides win and stay visible when selected; labels on dark fills turn
+white.
 
 ## Import / export
 

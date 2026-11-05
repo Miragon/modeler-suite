@@ -4,20 +4,15 @@
 [![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/modelers/c4/LICENSE)
 
 Lay out [C4 model](https://c4model.com) views automatically and place new elements next to their
-neighbours, without the DOM: the geometry of the [C4 Modeler](../../README.md). Given the members
-of a view and what the workspace stores about their positions, it computes every box, the frames
-of boundaries and groups, the label boxes of relationships and where the title goes.
+neighbours, without the DOM: the geometry of the [C4 Modeler](../../README.md). It computes every
+box, the frames of boundaries and groups, relationship label boxes and the title position.
 
 A view without stored positions is laid out with [`@dagrejs/dagre`](https://github.com/dagrejs/dagre)
-(MIT), as Structurizr's own automatic layout in the browser is, honouring the view's `autoLayout`.
-A view with stored positions keeps them, and an element without one goes into the first free slot
-next to its first placed neighbour, preferring one where its lines to its neighbours run clear of
-the other boxes and labels. The result is deterministic, and it does not depend on any
-text: a rename or a new description never moves anything.
-
-Its dependencies are [`@miragon/c4-schema-model`](../schema-model) and `@dagrejs/dagre` (pinned
-exactly; its ESM build carries graphlib inline and needs no `eval`, so it runs under a strict
-content security policy). It runs in a browser, in Node or in a worker.
+(MIT), honouring its `autoLayout`; stored positions are kept, and an element without one goes into
+the first free slot next to its first placed neighbour. The result is deterministic and
+independent of text: a rename never moves anything. Dependencies: [`@miragon/c4-schema-model`](../schema-model)
+and `@dagrejs/dagre` (pinned; its ESM build needs no `eval`, so it runs under a strict CSP). Runs in
+a browser, Node or a worker.
 
 Compatible with Structurizr DSL. Structurizr is a product of Structurizr Limited; this project is
 not affiliated with or endorsed by Structurizr Limited.
@@ -78,43 +73,28 @@ geometry.mode; // "auto", "stored" or "mixed"
 
 ## How it lays out
 
-- Without stored positions: a dagre graph of the view's elements, each boundary and group a
-  cluster around its members, the relationships as edges. `autoLayout`'s direction and
-  separations map onto dagre's (Structurizr pixels × 8/15, at least 80 between ranks and 60
-  between nodes); a view without `autoLayout` is laid out top to bottom with Structurizr's
-  300 / 160. Lines are straight between the docked ends, so writing the computed positions into a
-  view changes no line.
-- With stored positions: they are used as they are. Each element without one, in document order,
-  goes right of, below, left of or above its first placed neighbour, 80 apart on an 8-unit grid,
-  else into a free cell of a row below everything; never on top of another box. A place in the
-  clear comes first: the straight lines to the placed neighbours cross no other box and no label
-  (8 units off), and no line or label already drawn runs over the new box. Where no slot beside a
-  neighbour is clear, the clear place nearest the neighbour wins (beside a member of its frame, or
-  on a 16-unit grid around the neighbour, with a label's room to it); only where none exists does
-  the first free slot stay. A frame never grows over a box or frame it did not reach, and a clear
-  place whose frames keep 40 units from what they do not hold, and that keeps a label's room
-  (192 across or 80 above and below) from every frame it does not belong to with the label of each
-  of its lines 16 units off that frame's edge, comes before one that grows a frame up to a stranger
-  or sits close to a frame.
-- Boundaries and groups are never stored: a frame is its members' union plus 32 of padding and a
-  40-high caption band at the bottom, nested frames grow around inner ones, and the boundary of an
-  empty container view is 320 × 200.
-- The title block goes 32 below the lowest box, at the left edge of the content, as in
-  Structurizr.
+- **Without stored positions:** a dagre graph, boundaries and groups as clusters. `autoLayout`'s
+  direction and separations map onto dagre's (Structurizr pixels × 8/15, at least 80 between ranks
+  and 60 between nodes); without `autoLayout`, top to bottom with 300 / 160. Lines are straight
+  between docked ends, so writing the computed positions changes no line.
+- **With stored positions:** used as they are. Each unplaced element, in document order, goes
+  right of, below, left of or above its first placed neighbour (80 apart, 8-unit grid), else into a
+  free row below everything, never on another box. Places whose lines cross no other box or label,
+  and whose frames keep clear of strangers, win; only when none exists does the first free slot
+  stay.
+- **Frames** are never stored: members' union plus 32 padding and a 40-high caption band at the
+  bottom; an empty container view's boundary is 320 × 200.
+- **Title block:** 32 below the lowest box, at the content's left edge, as in Structurizr.
 
-Relationship labels take a fixed 160 × 48 box, never measured, which is what keeps the layout
-independent of text and of font loading.
+Relationship labels take a fixed 160 × 48 box, never measured, which keeps the layout independent
+of text and font loading.
 
 ## Development
 
 Part of the [C4 Modeler](../../README.md) in the
-[Miragon modeler suite](https://github.com/Miragon/modeler-suite). From the suite's root:
-
-```bash
-npm run build -w @miragon/c4-layout   # tsup to dist/ (the renderer's and the dsl's tests read it)
-npm run c4 test                       # Vitest unit tests of the modeler (build the packages first)
-npm run c4 lint                       # ESLint and the type checks
-```
+[Miragon modeler suite](https://github.com/Miragon/modeler-suite). Build with
+`npm run build -w @miragon/c4-layout` (the renderer's and the dsl's tests read `dist`); test and lint with `npm run c4 test` and
+`npm run c4 lint` from the suite's root.
 
 ## License
 

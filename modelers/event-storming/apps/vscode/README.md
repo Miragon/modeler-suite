@@ -5,9 +5,8 @@
 
 [Event Storming](https://www.eventstorming.com) is a workshop format for exploring a business
 domain with sticky notes: domain events on a timeline, the commands that trigger them, and the
-people, policies and systems around them. This extension lets you create and edit Event Storming
-boards directly inside VS Code: it opens `.storm` files (a simple plain-text DSL) in a graphical
-editor, while the text file stays the source of truth, so save, Git, and diff keep working.
+people, policies and systems around them. This extension opens `.storm` files (a plain-text DSL) in
+a graphical editor. The text file stays the source of truth, so save, Git and diff keep working.
 
 ![The Event Storming board editor in VS Code](https://raw.githubusercontent.com/Miragon/modeler-suite/main/modelers/event-storming/docs/screenshots/vscode-editor.png)
 
@@ -16,87 +15,42 @@ Brandolini's book [Introducing EventStorming](https://leanpub.com/introducing_ev
 
 ## Getting started
 
-Install **Event Storming Modeler** (publisher `miragon-gmbh`) from the VS Code Marketplace, then
-start from a filled-in order-checkout example or a blank board. The built-in **Get Started with
-Event Storming** walkthrough is the recommended first stop: click its **Create board from example**
-button and you have a ready-made board to explore. From there you can open any `.storm` file.
+Install **Event Storming Modeler** (publisher `miragon-gmbh`), then open the **Get Started with
+Event Storming** walkthrough and click **Create board from example**. Or run **Event Storming: New
+Board from Example** / **New Empty Board** from the Command Palette (also under **File > New
+File…**). Any `.storm` file opens in the editor.
 
-Prefer commands? Run these from the Command Palette (`Cmd/Ctrl+Shift+P`, type _"Event Storming"_):
-
-- **Event Storming: New Board from Example**: pick a location, pre-filled with the order-checkout
-  example (also under **File > New File…** as **New Event Storming Board from Example**).
-- **Event Storming: New Empty Board**: the same, but a blank board (also under
-  **File > New File…** as **Event Storming Board**).
-
-## Reading a board
-
-Each sticky color has a meaning: **Domain Event** (orange), **Command** (blue), **Actor** (light
-yellow), **Aggregate** (yellow), **Policy** (purple), **Read Model** (green), **External System**
-(pink), **Hotspot** (red), plus free-text notes and freehand drawings. Time flows left to right
-(earlier events sit to the left of later ones), and arrows connect the stickies into a story.
+Sticky colours: **Domain Event** orange, **Command** blue, **Actor** light yellow, **Aggregate**
+yellow, **Policy** purple, **Read Model** green, **External System** pink, **Hotspot** red, plus
+notes and drawings. Time flows left to right; arrows connect the stickies into a story.
 
 ## Editing a board
 
-- **Custom editor for `.storm`.** Open a board file and you get the full graphical editor, backed
-  by the plain-text file. **Open Source to the Side** (the button in the editor title of a board)
-  opens the text beside it, **Open Board to the Side** (in the title of the text editor) does the
-  reverse; editing either re-renders the other live, and VS Code tracks dirty state as you go.
-- **Full modeler:** the tool palette at the top and the context pad on a selected sticky (append,
-  connect, change type, delete), free movement on an unbounded canvas, inline label editing, and
-  sticky color overrides. With the keyboard, Tab to the palette, pick a sticky with the arrow keys
-  and press Enter: it lands in the middle of the board with its label editor open. `Ctrl/Cmd+A`
-  selects the whole board.
-- **Undo and redo belong to the file.** Every change on the canvas is one edit of the document, so
-  `Ctrl/Cmd+Z` and `Ctrl/Cmd+Shift+Z` (or **Edit > Undo**) undo it like a text change, and the
-  canvas keeps its view and selection. Only the lines that changed are rewritten, so a text editor
-  open beside the board keeps its cursor. When VS Code refuses a change, as for a file it opened
-  read-only, the board goes back to what the file holds.
-- **Menu** (top left): the workshop **Level** and **Type captions** (the caption on each sticky),
-  **Aggregates…** while the board has a named aggregate, **Export as PNG**, **Export as SVG**,
-  **Export as PNG (4×, transparent)** (for slides) and **Export as JSON**, the same exports as the
-  web app, and **Keyboard shortcuts…**. A PNG draws its labels in Geist; if Geist can't be
-  embedded, the PNG is still saved, in a system font, and a warning says so. **Aggregates…** lists
-  every named aggregate once, however often the timeline repeats it, with the commands that lead
-  into it and the domain events that follow, as the arrows connect them; spellings such as `Order`
-  and `Orders` count as one name, and the default name of any kind of sticky counts as none:
-  `Aggregate 2`, `Domain Event` on a sticky retyped to an aggregate, and also `Policy` or `Actor`
-  on an aggregate (a more specific name such as `Insurance Policy` counts). Choose a name to
-  select its stickies on the board: that changes nothing in the file, and it works while the file
-  is invalid too.
-- **Zoom** (bottom right): zoom out, the current zoom (click for 100%), zoom in and fit. With the
-  board focused, `Ctrl/Cmd` + `+`, `-` and `0` zoom the canvas (not the window), `Shift+1` fits.
-- **Problems.** Lines the parser cannot fully use (an arrow to a missing sticky, an unreadable
-  line) are kept in the file and listed in the **Problems** view in plain words ("This arrow points
-  to “Nowhere”, which isn't on the board."); the pill at the bottom left counts them and opens that
-  view.
-- **Stable sticky ids.** A sticky you create or rename on the canvas keeps its id in the text
-  (`(id event_k3x9q2ab)`), so a reload, a peer or a tool that links to it finds the same sticky.
-  The id of a new sticky is random, so two people who each add one at the same time (on two
-  branches, say) do not get the same id.
-- **Commands** (Command Palette or the `…` menu of the editor title, while a board is focused):
-  **Event Storming: Fit to View**, **Export as PNG**, **Export as SVG**, **Export as PNG (4×,
-  Transparent)**, **Export as JSON**, and **Open Source to the Side** / **Open Board to the Side**.
-- **Empty board:** a hint in the middle offers **Insert example**, which adds the order-checkout
-  example as one undoable edit and keeps the title and comments already in the file.
-- **Light canvas in every theme.** The board stays light under dark color themes (high contrast is
-  honoured) until the Miragon modelers ship their dark mode together. A `style dark` line in the
-  file is kept, but the board follows the theme, not the file.
-- **Self-hosted fonts**: no CDN, offline-capable.
-
-The menu, palette skin, zoom panel, problems pill, status box, empty-board hint, the theme
-bridge and the sync between board and file come from
-[`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell), the chrome shared
-by all Miragon modelers.
+- **Text and board side by side:** **Open Source to the Side** / **Open Board to the Side**;
+  editing either re-renders the other live.
+- **Full modeler:** palette at the top, context pad on a sticky (append, connect, change type,
+  delete), inline labels, colour overrides. From the keyboard, Tab to the palette, pick with the
+  arrows and press Enter to place a sticky in the middle with its label editor open.
+- **Undo belongs to the file:** every canvas change is one document edit, so `Ctrl/Cmd+Z` undoes it
+  like a text change. Only changed lines are rewritten. A change VS Code refuses (a read-only file)
+  is taken back.
+- **Menu:** workshop **Level**, **Type captions**, **Aggregates…**, PNG / SVG / transparent 4× PNG
+  / JSON export, **Keyboard shortcuts…**. **Aggregates…** lists every named aggregate once (spelling
+  variants and placeholder names such as `Aggregate 2` aside) with the commands leading into it and
+  the events that follow; choosing one selects its stickies without changing the file.
+- **Zoom** (bottom right) and `Ctrl/Cmd` + `+` / `-` / `0`, `Shift+1` fits.
+- **Problems:** lines the parser cannot fully use stay in the file and are listed in the
+  **Problems** view in plain words; the pill at the bottom left counts them.
+- **Stable sticky ids:** a sticky created or renamed on the canvas keeps a random id in the text
+  (`(id event_k3x9q2ab)`), so reloads, peers and links find the same sticky.
+- **Commands:** **Event Storming: Fit to View**, the exports, and the two side-by-side commands.
+- **Empty board:** **Insert example** adds the order-checkout example as one undoable edit.
+- The board stays light in dark themes (high contrast is honoured); a `style dark` line is kept
+  but not applied. Fonts are bundled, nothing loads from a CDN.
 
 ## Development
 
-Building from source and the dev loop are documented in
-[CONTRIBUTING.md](https://github.com/Miragon/modeler-suite/blob/main/modelers/event-storming/CONTRIBUTING.md).
-
-The extension host bundle (`dist/extension.cjs`) is about 470 KB minified, nearly all of it zod,
-which the DSL validation needs for the Problems view. It is loaded once per window when the first
-board opens; this is accepted rather than moving the diagnostics into the webview. The webview
-loads its fonts as separate files from `dist/fonts`, so only the subsets a page uses are fetched.
+See [CONTRIBUTING.md](https://github.com/Miragon/modeler-suite/blob/main/modelers/event-storming/CONTRIBUTING.md).
 
 ## License
 
