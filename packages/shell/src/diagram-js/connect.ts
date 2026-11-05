@@ -35,6 +35,11 @@ export interface ConnectOptions {
    */
   isEmpty?: (() => boolean) | undefined;
   prefersReducedMotion?: (() => boolean) | undefined;
+  /**
+   * 0.11: whether the canvas keeps the history and takes Cmd/Ctrl+Z; default everywhere but the
+   * `ide` host, where VS Code's document keeps it. An Orca editor's canvas keeps it.
+   */
+  canvasOwnsHistory?: boolean | undefined;
 }
 
 export interface DiagramJsConnection {
@@ -156,7 +161,10 @@ export function connectDiagramJs(
     ...(prefersReducedMotion ? { prefersReducedMotion } : {}),
   });
   shell.setZoomTarget(viewport);
-  const detachPalette = service.attachShell(shell);
+  const detachPalette = service.attachShell(
+    shell,
+    options.canvasOwnsHistory === undefined ? {} : { canvasOwnsHistory: options.canvasOwnsHistory },
+  );
   // The shell has moved the canvas element into its slot; diagram-js caches the old size.
   viewport.resized();
 

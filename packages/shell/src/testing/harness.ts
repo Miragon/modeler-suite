@@ -8,6 +8,7 @@ import type {
   ToastStatus,
 } from "../core/index.js";
 import { createCases } from "./cases.js";
+import type { IdeHostKind } from "./csp-checks.js";
 import type { PageLike } from "./page.js";
 
 export interface OpenContext {
@@ -154,6 +155,12 @@ export type AbsentFeature =
 
 export interface ShellConformanceHarness<P extends PageLike = PageLike> {
   host: ShellHost;
+  /**
+   * 0.11, `ide` only: which IDE the page stands in for; default `"vscode"`. `"orca"` checks the
+   * `csp` case against Orca's frame policy and the Orca stub's records, and skips VS Code's own
+   * reduce-motion setting, which Orca does not have.
+   */
+  ideHost?: IdeHostKind | undefined;
   /** The modes the modeler declares (static); the appearance case requests dark from `["light"]`. */
   themes: readonly Theme[];
   /**

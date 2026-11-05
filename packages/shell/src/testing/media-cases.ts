@@ -215,7 +215,7 @@ export const reducedMotionCase: ShellConformanceCase = {
           "page.emulateMedia is undefined: the modeler under prefers-reduced-motion was not verified",
       });
     }
-    if (harness.host === "ide") {
+    if (harness.host === "ide" && harness.ideHost !== "orca") {
       await openHarness(page, harness, { size, requested: LIGHT });
       try {
         await walk("VS Code's reduce motion", () => inPage(page, hostReduceMotionProbe, true));

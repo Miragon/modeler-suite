@@ -43,19 +43,23 @@ consumer is the Event Storming modeler, in VS Code (0.1, on the document plumbin
 
 ## Entry points
 
-| Entry                                            | For                                                                                                                    | Needs a DOM                    |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `@miragon/modeler-shell`                         | the chrome (`mountShell`, web chrome included), the dialogs (0.7), icons, plus all of `./core`                         | yes (at call time)             |
-| `@miragon/modeler-shell/core`                    | fit math, keymap, zoom readout, appearance, sizes, messages, shortcut groups, the web host's decisions and head script | no                             |
-| `@miragon/modeler-shell/diagram-js`              | `shellModule`, viewport, `connectDiagramJs`                                                                            | yes                            |
-| `@miragon/modeler-shell/vscode/extension`        | webview HTML, nonce, theme bridge, the document plumbing (0.8), the file commands (0.9) (extension host)               | no                             |
-| `@miragon/modeler-shell/vscode/webview`          | `mountVsCodeShell`, appearance handler, webview state, the document sync (0.8)                                         | yes                            |
-| `@miragon/modeler-shell/export`                  | the PNG export: `svgToPng` with Geist inside the SVG (0.7)                                                             | yes (at call time)             |
-| `@miragon/modeler-shell/testing`                 | Playwright-driven shell conformance kit                                                                                | runs in Node, drives a browser |
-| `@miragon/modeler-shell/testing/vscode-stub`     | a stand-in for VS Code around a webview test page and (0.8) for the extension host's documents                         | yes (in the test page)         |
-| `@miragon/modeler-shell/testing/vscode-electron` | smoke tests of the modeler's extension in a real VS Code (0.3)                                                         | runs in Node, drives VS Code   |
-| `@miragon/modeler-shell/testing/webview-bundle`  | the production webview bundle under the webview CSP, for the kit's `csp` case (0.6)                                    | runs in Node, drives a browser |
-| `@miragon/modeler-shell/shell.css`               | every style of the shell                                                                                               | —                              |
+| Entry                                               | For                                                                                                                    | Needs a DOM                    |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `@miragon/modeler-shell`                            | the chrome (`mountShell`, web chrome included), the dialogs (0.7), icons, plus all of `./core`                         | yes (at call time)             |
+| `@miragon/modeler-shell/core`                       | fit math, keymap, zoom readout, appearance, sizes, messages, shortcut groups, the web host's decisions and head script | no                             |
+| `@miragon/modeler-shell/diagram-js`                 | `shellModule`, viewport, `connectDiagramJs`                                                                            | yes                            |
+| `@miragon/modeler-shell/ide`                        | one editor definition for every IDE host: `IdeEditorDefinition`, `IdeEditorHost`, `mountIdeEditor` (0.11)              | yes                            |
+| `@miragon/modeler-shell/vscode/extension`           | webview HTML, nonce, theme bridge, the document plumbing (0.8), the file commands (0.9) (extension host)               | no                             |
+| `@miragon/modeler-shell/vscode/webview`             | `mountVsCodeShell`, appearance handler, webview state, the document sync (0.8), `vsCodeEditorHost` (0.11)              | yes                            |
+| `@miragon/modeler-shell/orca/webview`               | an Orca custom editor frame: `mountOrcaShell`, the document sync, `saveExport`, `orcaEditorHost` (0.11)                | yes                            |
+| `@miragon/modeler-shell/export`                     | the PNG export: `svgToPng` with Geist inside the SVG (0.7)                                                             | yes (at call time)             |
+| `@miragon/modeler-shell/testing`                    | Playwright-driven shell conformance kit                                                                                | runs in Node, drives a browser |
+| `@miragon/modeler-shell/testing/vscode-stub`        | a stand-in for VS Code around a webview test page and (0.8) for the extension host's documents                         | yes (in the test page)         |
+| `@miragon/modeler-shell/testing/orca-stub`          | a stand-in for Orca's editor tab and frame around an editor test page (0.11)                                           | yes (in the test page)         |
+| `@miragon/modeler-shell/testing/vscode-electron`    | smoke tests of the modeler's extension in a real VS Code (0.3)                                                         | runs in Node, drives VS Code   |
+| `@miragon/modeler-shell/testing/webview-bundle`     | the production webview bundle under the webview CSP, for the kit's `csp` case (0.6)                                    | runs in Node, drives a browser |
+| `@miragon/modeler-shell/testing/orca-editor-bundle` | the built Orca plugin under Orca's frame CSP, for the kit's `csp` case (0.11)                                          | runs in Node, drives a browser |
+| `@miragon/modeler-shell/shell.css`                  | every style of the shell                                                                                               | —                              |
 
 All JavaScript entries ship as ESM and CJS with types (`typesVersions` covers `moduleResolution:
 node10`); importing any of them has no side effects. The package has one command (`bin`),
@@ -1969,6 +1973,7 @@ interface ConnectOptions {
   contentBounds?(): Bounds | undefined; // tight, no padding (§5.9); given, it wins; 0.4: optional with modeler
   isEmpty?(): boolean; // §13.5 empty file (no element); default: the content bounds are empty
   prefersReducedMotion?(): boolean;
+  canvasOwnsHistory?: boolean; // 0.11: default true but in the ide host; an Orca editor's canvas owns it
 }
 interface DiagramJsConnection {
   readonly viewport: Viewport;
@@ -2064,7 +2069,9 @@ registers one internal didi service named `modelerShell` (a modeler does not reu
 
 **`connectDiagramJs`** creates the viewport with `insets: shell.fitInsets`, binds it
 (`shell.setZoomTarget`), registers the palette and calls `canvas.resized()` (the canvas element has
-moved). After every `import.done` and `elements.changed` it calls `shell.setEmptyHint(isEmpty())`,
+moved). Undo and redo keys reach the canvas's `commandStack` only where it owns the history
+(`canvasOwnsHistory`, default everywhere but the `ide` host, where VS Code's document keeps it).
+After every `import.done` and `elements.changed` it calls `shell.setEmptyHint(isEmpty())`,
 so the first element the user creates on the canvas hides the hint (and its "Insert example").
 `isEmpty` defaults to empty content bounds; a notation whose bounds are never empty (Wardley's plot)
 passes its own. It throws when `shellModule` is missing. A later connection to another shell takes
@@ -2180,6 +2187,109 @@ entries["create.domain-event"] = {
 When the centre is already taken, the provider steps 24px diagonally until it is free (§5.5); a
 shared helper for that is a later candidate. The kit's `create` case presses Enter on the first
 creating entry and expects exactly one new, selected shape inside the free rectangle.
+
+## `./ide`: one editor for every IDE host (0.11)
+
+A modeler's IDE editor is one `IdeEditorDefinition`, shared by its VS Code webview and its Orca
+custom editor; each entry is the definition on its host:
+
+```ts
+// apps/vscode/src/webview/main.ts
+mountIdeEditor(vsCodeEditorHost(), boardEditor);
+// apps/orca/src/main.ts
+mountIdeEditor(orcaEditorHost(), boardEditor);
+```
+
+```ts
+interface IdeEditorDefinition<M extends IdeCollaborativeModeler> {
+  name: string; // the canvas's label and the invalid-file status's subject
+  themes: readonly Theme[];
+  createModeler(options: IdeModelerOptions): M; // { additionalModules, undoRedoKeys, fitInsets, freeRectCenter }
+  setCanvasReadOnly(modeler: M, readOnly: boolean, options?: { delayMs?: number }): void;
+  isEmpty(modeler: M): boolean;
+  menu(context: IdeEditorContext<M>): MenuGroups; // exportAction(format), refreshMenu()
+  sameText(text: string, exported: string, reconciledText: string): boolean; // no import needed
+  imported?(context, import_: { first: boolean; wasEmpty: boolean }): void; // after an accepted import
+  exportText?(modeler: M, reconciledText: string): string; // default modeler.exportText()
+  exports: Record<string, IdeExportDefinition<M>>; // by format: png, png-transparent, svg, json, …
+  withExampleInserted?(text: string): string; // the empty-file hint, for a host that inserts it
+  shellOptions?(modeler: M, host: IdeEditorHost): Partial<IdeShellOptions>; // legend, inspector
+  afterMount?(context: IdeEditorContext<M>): (() => void) | void; // dialogs, popovers, listeners
+}
+interface IdeExportDefinition<M> {
+  suggestedName: string;
+  mimeType: string;
+  failure: string; // the notification when produce throws
+  picture?: boolean; // hides the selection while it runs
+  produce(modeler: M): Promise<{ data: string | Blob; fontFallback?: boolean }>;
+}
+function mountIdeEditor<M>(
+  host: IdeEditorHost,
+  definition: IdeEditorDefinition<M>,
+  root?: HTMLElement | null, // default #app
+): { shell; modeler; connection; ready: Promise<void>; document: Promise<IdeDocument> };
+```
+
+`mountIdeEditor` creates the diagram (with `shellModule`, and `undoRedoKeys` from the host), mounts
+the shell through the host, connects diagram-js and the document, and wires the exports:
+
+- **Imports** keep the viewbox and the selection; the first takes the view the host kept (VS Code's
+  webview state) or fits. A text the canvas already shows (`sameText`) is not imported again. A
+  refused text locks canvas and shell at once, hides the empty-file hint and shows the invalid-file
+  status after `INVALID_STATUS_DELAY_MS`; a read-only document (Orca's agent transcripts) stays locked. The menu
+  is built again after each import and on `commandStack.changed`.
+- **Exports** run from the menu (`context.exportAction(format)`) and, in VS Code, from the commands
+  `export<Format>` (`png-transparent` is `exportPngTransparent`), next to `fitView`. A failure is
+  logged and notified with the export's `failure`.
+- **The menu** may read `context.shell` and `context.connection` only in its actions: the first menu
+  is built before the shell exists.
+
+`IdeEditorHost` is what differs between the IDEs:
+
+| Member              | `vsCodeEditorHost(options?, api?)`                                           | `orcaEditorHost({ debounceMs? })`                                            |
+| ------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `canvasOwnsHistory` | `false`: VS Code's document keeps the history                                | `true`: Orca keeps none for a custom editor                                  |
+| `mountShell`        | `mountVsCodeShell` with the problems pill                                    | `mountOrcaShell`, no pill (Orca has no diagnostics for an editor)            |
+| `connectDocument`   | `connectDocumentSync` with the commands and `onMessage`                      | `connectOrcaDocumentSync`                                                    |
+| `state`             | the view and the legend per document, own keys in the webview state          | the legend and own keys per plugin in `localStorage`, no view (no file path) |
+| `saveExport`        | posts `{ type: "export", format, data, fontFallback? }`, a picture in Base64 | `orca.files.saveAs`                                                          |
+| `notify`            | posts `info` / `error`                                                       | logs, which `orca plugin logs` shows                                         |
+| Insert example      | posts `insertExample`; the extension inserts it                              | the editor inserts `withExampleInserted(text)` and writes it                 |
+
+`vsCodeEditorHost` acquires the VS Code API, so call it once; `options.onMessage` takes the
+extension's own messages (a save flush, a PNG request).
+
+## `./orca/webview`: an Orca custom editor (0.11)
+
+```ts
+function mountOrcaShell(root: HTMLElement, options: OrcaShellOptions): ShellHandle;
+function connectOrcaAppearance(themes: readonly Theme[]): () => void;
+function connectOrcaDocumentSync(options: OrcaDocumentSyncOptions): Promise<OrcaDocumentSync>;
+function saveExport(file: { suggestedName; mimeType; data: string | ArrayBuffer | Blob }): Promise<{
+  status: "saved" | "cancelled";
+}>;
+function openExternal(url: string): Promise<boolean>; // orca.shell.openExternal, from a click
+function orcaEditorHost(options?: { debounceMs?: number }): IdeEditorHost;
+```
+
+The frame's `window.orca` (plugin API 1) is typed structurally (`OrcaEditorApi`): Orca ships no
+typings a package can depend on.
+
+- **`mountOrcaShell`**: `host: "ide"`, the key listener on `document`, and Orca's mode: the
+  `light`/`dark` class Orca bakes into `<html>` before the first paint, then its `theme` event,
+  resolved against `themes`. Orca has neither a high-contrast theme nor a reduce-motion setting, so
+  `prefers-contrast: more` asks for high contrast and `prefers-reduced-motion` decides the motion.
+- **`connectOrcaDocumentSync`** is the Orca counterpart of `connectDocumentSync`, on
+  `orca.document.session()`: the session's first value is the first import, `onReplace` (an outside
+  write) an update, and `pushEdit` sends `session.change(text)`. An outside write while the tab has
+  unsaved edits gets Orca's Reload/Overwrite banner, so the person decides; one that meets an edit
+  still in flight wins over that edit, which the canvas then shows. The session gets no `merge`
+  yet: Orca drops the frame's `editor.merges` announcement from isolated frames
+  ([stablyai/orca#38535](https://github.com/stablyai/orca/issues/38535)), so a merge would never
+  run for a write under unsaved edits. `replaceDocument(text)` writes and shows a text of the
+  editor's own, as the empty-file hint's example.
+- **`saveExport`**: Orca's save dialog; call it from a click or key press, and expect a rejection
+  outside the desktop app.
 
 ## `./vscode/extension`
 
@@ -3642,6 +3752,57 @@ export async function openShippedWebview(page: Page, { size, requested }: OpenCo
 Pass what the extension passes `renderWebviewHtml` (`title`, `body`, `styles`, `inlineStyles`), so
 the page runs under the policy the extension ships. The stub's script is an IIFE in `dist` next to
 this entry; `stubScript` replaces it, as the shell's own e2e suite does with a build from source.
+
+### `./testing/orca-stub` and `./testing/orca-editor-bundle`: the `ide` host without Orca (0.11)
+
+```ts
+function installOrcaEditorStub(options: {
+  text: string; // the file when the tab opens
+  colorScheme?: "light" | "dark";
+  readOnly?: boolean;
+  files?: boolean; // orca.files, default true (the desktop app)
+}): OrcaEditorStub;
+interface OrcaEditorStub {
+  readonly text: string; // the tab's buffer
+  readonly disk: string;
+  readonly dirty: boolean;
+  readonly banner: boolean; // Orca's Reload/Overwrite banner
+  readonly edits: readonly { baseVersion: number; text: string; refused?: string }[];
+  readonly saved: readonly OrcaSaveAsRequest[];
+  readonly merges: boolean; // the editor passed merge
+  replace(text: string): void; // an outside change Orca hands a clean tab
+  conflictNext(): void; // the next edit is refused with conflict
+  diskWriteWhileDirty(text: string): void; // an agent's write under unsaved edits
+  reload(): void; // the banner's Reload
+  save(): Promise<void>; // flush, then write the buffer (the banner's Overwrite too)
+  setColorScheme(colorScheme: "light" | "dark"): void;
+  idle(): Promise<void>; // sends what the session holds back
+  cspViolations(): readonly CspViolation[];
+  errors(): readonly string[];
+}
+function openOrcaEditorBundle(
+  page,
+  options: OrcaEditorStubOptions & {
+    plugin: string; // the built plugin folder
+    entry?: string; // default "editor/index.html"
+  },
+): Promise<void>;
+const ORCA_FRAME_POLICY: string; // from ./testing
+```
+
+`installOrcaEditorStub` stands in for Orca around an editor test page: `window.orca` with
+`document.session()`, `files.saveAs` and `on("theme")`, Orca's mode class on `<html>`, and an editor
+tab that keeps buffer, disk and banner. Its session follows the rules of Orca's own (one edit in
+flight, a baseline that moves only on an accepted edit, `merge` on a refused edit and on a disk
+write under unsaved edits, the outside text winning without `merge`), so a modeler's e2e suite
+tests its document sync against it. Install it before the editor's code runs; it is
+also `window.__modelerShellOrcaStub`.
+
+`openOrcaEditorBundle` serves a built plugin folder the way Orca's isolated frame loads its editor:
+the entry with `ORCA_FRAME_POLICY` (header and `<meta>`), the stub first in `<head>`, every other
+request a file of the plugin (a 404 outside it). A harness with `host: "ide"` and `ideHost: "orca"`
+passes it as `csp.open`: the `csp` case then checks Orca's frame policy and the Orca stub's
+records, and the `reducedMotion` case skips VS Code's own reduce-motion setting.
 
 ### `./testing/vscode-electron`: smoke tests in a real VS Code (0.3)
 

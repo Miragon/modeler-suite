@@ -45,6 +45,16 @@
         "default": "./dist/diagram-js.cjs"
       }
     },
+    "./ide": {
+      "import": {
+        "types": "./dist/ide.d.ts",
+        "default": "./dist/ide.js"
+      },
+      "require": {
+        "types": "./dist/ide.d.cts",
+        "default": "./dist/ide.cjs"
+      }
+    },
     "./vscode/extension": {
       "import": {
         "types": "./dist/vscode-extension.d.ts",
@@ -63,6 +73,16 @@
       "require": {
         "types": "./dist/vscode-webview.d.cts",
         "default": "./dist/vscode-webview.cjs"
+      }
+    },
+    "./orca/webview": {
+      "import": {
+        "types": "./dist/orca-webview.d.ts",
+        "default": "./dist/orca-webview.js"
+      },
+      "require": {
+        "types": "./dist/orca-webview.d.cts",
+        "default": "./dist/orca-webview.cjs"
       }
     },
     "./export": {
@@ -95,6 +115,16 @@
         "default": "./dist/testing-vscode-stub.cjs"
       }
     },
+    "./testing/orca-stub": {
+      "import": {
+        "types": "./dist/testing-orca-stub.d.ts",
+        "default": "./dist/testing-orca-stub.js"
+      },
+      "require": {
+        "types": "./dist/testing-orca-stub.d.cts",
+        "default": "./dist/testing-orca-stub.cjs"
+      }
+    },
     "./testing/vscode-electron": {
       "import": {
         "types": "./dist/testing-vscode-electron.d.ts",
@@ -115,6 +145,16 @@
         "default": "./dist/testing-webview-bundle.cjs"
       }
     },
+    "./testing/orca-editor-bundle": {
+      "import": {
+        "types": "./dist/testing-orca-editor-bundle.d.ts",
+        "default": "./dist/testing-orca-editor-bundle.js"
+      },
+      "require": {
+        "types": "./dist/testing-orca-editor-bundle.d.cts",
+        "default": "./dist/testing-orca-editor-bundle.cjs"
+      }
+    },
     "./shell.css": "./dist/shell.css",
     "./package.json": "./package.json"
   },
@@ -129,11 +169,17 @@
       "diagram-js": [
         "./dist/diagram-js.d.ts"
       ],
+      "ide": [
+        "./dist/ide.d.ts"
+      ],
       "vscode/extension": [
         "./dist/vscode-extension.d.ts"
       ],
       "vscode/webview": [
         "./dist/vscode-webview.d.ts"
+      ],
+      "orca/webview": [
+        "./dist/orca-webview.d.ts"
       ],
       "export": [
         "./dist/export.d.ts"
@@ -144,11 +190,17 @@
       "testing/vscode-stub": [
         "./dist/testing-vscode-stub.d.ts"
       ],
+      "testing/orca-stub": [
+        "./dist/testing-orca-stub.d.ts"
+      ],
       "testing/vscode-electron": [
         "./dist/testing-vscode-electron.d.ts"
       ],
       "testing/webview-bundle": [
         "./dist/testing-webview-bundle.d.ts"
+      ],
+      "testing/orca-editor-bundle": [
+        "./dist/testing-orca-editor-bundle.d.ts"
       ]
     }
   },

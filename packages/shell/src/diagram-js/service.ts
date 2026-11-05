@@ -114,10 +114,13 @@ export class ShellDiagramService {
    * Hands the palette (now or once diagram-js creates it) to `shell`; returns the detach
    * function. A later call replaces the earlier shell.
    */
-  attachShell(shell: ShellHandle): () => void {
+  private canvasOwnsHistory = true;
+
+  attachShell(shell: ShellHandle, options: { canvasOwnsHistory?: boolean } = {}): () => void {
     this.detachShell();
     if (this.destroyed) return () => undefined;
     this.shell = shell;
+    this.canvasOwnsHistory = options.canvasOwnsHistory ?? shell.host !== "ide";
     this.skin?.setLabel(shell.messages.tools);
     this.nameCanvas();
     this.registerPalette();
@@ -237,8 +240,8 @@ export class ShellDiagramService {
   /**
    * `true` stops the diagram-js keyboard (and makes it call `preventDefault`), `false` stops it
    * without: a chrome key in a text field inside the `<svg>` stays the field's (Shift+1 types "!"),
-   * and in the IDE host undo and redo stay the document's (guide §13.5), so they reach VS Code
-   * instead of the canvas `commandStack`.
+   * and where the canvas does not own the history (the IDE host but Orca) undo and redo stay the
+   * document's (guide §13.5), so they reach VS Code instead of the canvas `commandStack`.
    */
   private readonly onKeyboardKeydown = (context: KeyboardEventContext): boolean | undefined => {
     const event = context.keyEvent;
@@ -247,7 +250,7 @@ export class ShellDiagramService {
     // field the field keeps it, behind the web app's start screen the browser zooms the page.
     if (matchChromeKey(event))
       return !isTextField(event.target) && this.shell?.isEmptyStateShown?.() !== true;
-    if (this.shell?.host === "ide" && isUndoRedoKey(event)) return false;
+    if (this.shell && !this.canvasOwnsHistory && isUndoRedoKey(event)) return false;
     return undefined;
   };
 

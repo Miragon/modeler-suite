@@ -16,6 +16,7 @@ import { DEFAULT_ROOT } from "./geometry.js";
 import type { ShellConformanceCase, ShellConformanceHarness, ShellSkip } from "./harness.js";
 import type { PageLike } from "./page.js";
 import { findTarget, inPage, settle, type ToolWindow } from "./page-tools.js";
+import type { OrcaStubWindow } from "./orca-stub.js";
 import type { StubWindow } from "./vscode-stub.js";
 
 /** Room for what an action starts after its click: an export's image, a dialog's font. */
@@ -86,7 +87,9 @@ const rootProbe = ({ root }: { root: string }): boolean => document.querySelecto
  * two fonts (the first family of `--modeler-shell-font` and `--modeler-shell-font-mono`).
  */
 const cspFactsProbe = async ({ root }: { root: string }): Promise<CspFacts> => {
-  const stub = (window as StubWindow).__modelerShellVsCodeStub;
+  const stub =
+    (window as StubWindow).__modelerShellVsCodeStub ??
+    (window as OrcaStubWindow).__modelerShellOrcaStub;
   const recording = typeof stub?.cspViolations === "function" && typeof stub.errors === "function";
   const policy =
     [...document.querySelectorAll("meta[http-equiv]")]
@@ -319,7 +322,7 @@ export const cspCase: ShellConformanceCase = {
             `csp: no element matches the shell root selector "${root}" once csp.open resolved; the bundle did not mount the shell`,
           ]),
       ...walked,
-      ...(facts ? cspProblems(facts) : []),
+      ...(facts ? cspProblems(facts, harness.ideHost) : []),
     ];
     return finish("csp", harness.host, problems, skipped);
   },

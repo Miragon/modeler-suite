@@ -5,7 +5,16 @@ import { describe, expect, it } from "vitest";
 
 const packageDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDir = join(packageDir, "src");
-const modules = ["core", "dom", "diagram-js", "vscode", "export", "testing"] as const;
+const modules = [
+  "core",
+  "dom",
+  "diagram-js",
+  "ide",
+  "vscode",
+  "orca",
+  "export",
+  "testing",
+] as const;
 
 function filesUnder(directory: string, extension: string): string[] {
   return readdirSync(directory).flatMap((name) => {
@@ -179,7 +188,9 @@ describe("sources", () => {
           const publicEntries =
             target === "vscode"
               ? ["vscode/extension/index.js", "vscode/webview/index.js"]
-              : [`${target}/index.js`];
+              : target === "orca"
+                ? ["orca/webview/index.js"]
+                : [`${target}/index.js`];
           return !publicEntries.includes(targetPath);
         })
         .map((specifier) => `${relative(packageDir, path)} → ${specifier}`);

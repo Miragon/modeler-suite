@@ -5,17 +5,13 @@ import {
   type ProblemCounts,
   type TypedMessage,
 } from "../protocol.js";
+import type { DocumentImportContext } from "../../ide/index.js";
+
+export type { DocumentImportContext } from "../../ide/index.js";
 
 /** `acquireVsCodeApi()` as far as the document sync posts through it. */
 export interface DocumentSyncApi {
   postMessage(message: unknown): void;
-}
-
-export interface DocumentImportContext {
-  /** The `init` text, the first one this webview shows. */
-  first: boolean;
-  /** The text the canvas showed last, "" before the first import. */
-  reconciledText: string;
 }
 
 export interface DocumentSyncOptions {

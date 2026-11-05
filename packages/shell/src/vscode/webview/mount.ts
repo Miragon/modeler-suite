@@ -1,4 +1,5 @@
 import { mountShell, type ShellHandle, type ShellOptions } from "../../dom/index.js";
+import { withBeforeDestroy } from "../../ide/index.js";
 import {
   connectAppearance,
   connectReducedMotion,
@@ -12,64 +13,6 @@ export interface VsCodeShellOptions
   extends
     Omit<ShellOptions, "host" | "keyScope" | "themes" | WebHostOptionKey>,
     AppearanceListenerOptions {}
-
-/** The shell's handle with a `destroy` that runs `beforeDestroy` first; every other member delegates. */
-function withDestroyHook(shell: ShellHandle, beforeDestroy: () => void): ShellHandle {
-  return {
-    get root() {
-      return shell.root;
-    },
-    get canvas() {
-      return shell.canvas;
-    },
-    get host() {
-      return shell.host;
-    },
-    get lang() {
-      return shell.lang;
-    },
-    get platform() {
-      return shell.platform;
-    },
-    get messages() {
-      return shell.messages;
-    },
-    get menu() {
-      return shell.menu;
-    },
-    get tooltip() {
-      return shell.tooltip;
-    },
-    get legend() {
-      return shell.legend;
-    },
-    get inspector() {
-      return shell.inspector;
-    },
-    get primary() {
-      return shell.primary;
-    },
-    get appearance() {
-      return shell.appearance;
-    },
-    setZoomTarget: (target) => shell.setZoomTarget(target),
-    fitInsets: () => shell.fitInsets(),
-    registerPalette: (palette) => shell.registerPalette(palette),
-    setProblems: (summary) => shell.setProblems(summary),
-    setStatus: (status, options) => shell.setStatus(status, options),
-    setEmptyHint: (visible) => shell.setEmptyHint(visible),
-    setReadOnly: (readOnly, options) => shell.setReadOnly(readOnly, options),
-    isReadOnly: () => shell.isReadOnly(),
-    setEmptyState: (shown) => shell.setEmptyState(shown),
-    isEmptyStateShown: () => shell.isEmptyStateShown(),
-    toast: (request) => shell.toast(request),
-    showShortcutsDialog: (groups) => shell.showShortcutsDialog(groups),
-    destroy() {
-      beforeDestroy();
-      shell.destroy();
-    },
-  };
-}
 
 /**
  * `mountShell` for a VS Code webview: `host: "ide"`, the key listener on `document` (VS Code's own
@@ -91,5 +34,5 @@ export function mountVsCodeShell(root: HTMLElement, options: VsCodeShellOptions)
     disconnect();
     throw error;
   }
-  return withDestroyHook(shell, disconnect);
+  return withBeforeDestroy(shell, disconnect);
 }
