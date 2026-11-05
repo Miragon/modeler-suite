@@ -58,6 +58,16 @@ export default defineConfig({
           fileParallelism: false,
         },
       },
+      {
+        // The Orca plugin in a real Orca (`npm run test:orca`, on Linux under xvfb-run, or
+        // `test:orca:docker`): it needs a display and the extracted Orca in ORCA_APP.
+        test: {
+          name: "orca",
+          environment: "node",
+          include: ["apps/orca/test-smoke/**/*.test.ts"],
+          fileParallelism: false,
+        },
+      },
     ],
   },
 });

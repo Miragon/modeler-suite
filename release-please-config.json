@@ -242,6 +242,26 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/value-chain/apps/orca'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/team-topologies/apps/orca'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/team-topologies/apps/orca/package.json",
+          "jsonpath": "$.dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/team-topologies/apps/ide-editor'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/team-topologies/apps/ide-editor/package.json",
+          "jsonpath": "$.dependencies['@miragon/modeler-shell']"
         }
       ]
     },
@@ -674,6 +694,91 @@
           "type": "json",
           "path": "plugins/team-topologies-modeler/.claude-plugin/plugin.json",
           "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "apps/orca/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "apps/orca/orca-plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "apps/orca/package.json",
+          "jsonpath": "$.dependencies['@miragon/team-topologies-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/team-topologies/apps/orca'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/team-topologies/apps/orca'].dependencies['@miragon/team-topologies-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "apps/ide-editor/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/team-topologies/apps/ide-editor'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/team-topologies/apps/ide-editor'].dependencies['@miragon/team-topologies-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "apps/ide-editor/package.json",
+          "jsonpath": "$.dependencies['@miragon/team-topologies-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/team-topologies/apps/ide-editor'].dependencies['@miragon/team-topologies-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "apps/ide-editor/package.json",
+          "jsonpath": "$.dependencies['@miragon/team-topologies-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/team-topologies/apps/ide-editor'].dependencies['@miragon/team-topologies-ui']"
+        },
+        {
+          "type": "json",
+          "path": "apps/ide-editor/package.json",
+          "jsonpath": "$.dependencies['@miragon/team-topologies-ui']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/team-topologies/apps/orca'].dependencies['team-topologies-ide-editor']"
+        },
+        {
+          "type": "json",
+          "path": "apps/orca/package.json",
+          "jsonpath": "$.dependencies['team-topologies-ide-editor']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/team-topologies/apps/vscode'].dependencies['team-topologies-ide-editor']"
+        },
+        {
+          "type": "json",
+          "path": "apps/vscode/package.json",
+          "jsonpath": "$.dependencies['team-topologies-ide-editor']"
         }
       ]
     },

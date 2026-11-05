@@ -18,7 +18,8 @@ const { exportImage } = await import("./exportImage.js");
 const { FLUSH_TIMEOUT_MS, INSERT_EXAMPLE_FAILED, registerDiagramEditor } =
   await import("./diagramEditor.js");
 const { DIAGRAM_VIEW_TYPE } = await import("./diagramEditorOptions.js");
-const { EMPTY_MAP, EXAMPLE_MAP, withExampleInserted } = await import("./examples.js");
+const { EMPTY_MAP, EXAMPLE_MAP, withExampleInserted } =
+  await import("team-topologies-ide-editor/examples");
 const { documentProblems } = await import("./problems.js");
 
 const RENAMED = EXAMPLE_MAP.replace('"label": "Checkout & Payments"', '"label": "Payments"');

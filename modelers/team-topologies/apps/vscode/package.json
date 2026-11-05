@@ -273,6 +273,7 @@
     "jsonc-parser": "3.3.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "team-topologies-ide-editor": "0.17.1",
     "tiny-svg": "4.1.4",
     "zod": "4.6.7"
   },

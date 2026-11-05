@@ -6,7 +6,7 @@ import {
 } from "@miragon/modeler-shell/vscode/extension";
 import { documentDiagnostics, problemCounts } from "./diagnostics.js";
 import { DIAGRAM_EDITOR_OPTIONS } from "./diagramEditorOptions.js";
-import { withExampleInserted } from "./examples.js";
+import { withExampleInserted } from "team-topologies-ide-editor/examples";
 import { exportImage } from "./exportImage.js";
 import type { HostToWebview, WebviewToHost } from "./protocol.js";
 

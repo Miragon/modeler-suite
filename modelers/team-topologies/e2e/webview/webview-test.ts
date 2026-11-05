@@ -9,7 +9,7 @@ import {
   DIAGRAM_EDITOR_OPTIONS,
   DIAGRAM_VIEW_TYPE,
 } from "../../apps/vscode/src/diagramEditorOptions.js";
-import { EMPTY_MAP, EXAMPLE_MAP } from "../../apps/vscode/src/examples.js";
+import { EMPTY_MAP, EXAMPLE_MAP } from "../../apps/ide-editor/src/examples.js";
 import { documentProblems } from "../../apps/vscode/src/problems.js";
 import { TEAM_TOPOLOGIES_THEMES } from "../../packages/renderer/src/theme/themes.js";
 

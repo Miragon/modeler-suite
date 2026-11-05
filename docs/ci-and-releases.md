@@ -244,8 +244,9 @@ extension and every Orca plugin at or below a released component's path):
   `vsce package`, the smoke test of that very VSIX in VS Code, then `vsce publish` (secret
   `VSCE_PUBLISH`) or `ovsx publish` (secret `OVSX_PUBLISH`).
 
-- **Orca**, one job per plugin (a workspace with an `orca-plugin.json`, its own release-please
-  component `<modeler>-orca`, which also bumps the manifest's version): build the plugin folder,
+- **Orca**, one job per plugin (a workspace with an `orca-plugin.json` and its own release-please
+  component `<modeler>-orca`, which also bumps the manifest's version; Team Topologies releases its
+  plugin in lockstep with the modeler's component): build the plugin folder,
   smoke-test exactly that folder in a real Orca (`ORCA_SMOKE_PLUGIN`), then publish it with the
   action `publish-plugin` of [miragon/orca-modelers](https://github.com/miragon/orca-modelers), the
   one catalog of every Miragon modeler for Orca. The action runs with the release-please app's token

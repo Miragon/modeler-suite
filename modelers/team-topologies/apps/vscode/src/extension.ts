@@ -5,7 +5,7 @@ import { DIAGNOSTIC_COLLECTION_NAME } from "./diagnostics.js";
 import { registerDiagramEditor } from "./diagramEditor.js";
 import { DIAGRAM_VIEW_TYPE } from "./diagramEditorOptions.js";
 import { DiagramPanels } from "./diagramPanels.js";
-import { EMPTY_MAP, EXAMPLE_MAP } from "./examples.js";
+import { EMPTY_MAP, EXAMPLE_MAP } from "team-topologies-ide-editor/examples";
 import { TtPngEditorProvider } from "./TtPngEditorProvider.js";
 
 const NEW_DIAGRAM = {

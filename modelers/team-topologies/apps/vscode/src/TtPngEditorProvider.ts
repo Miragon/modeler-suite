@@ -2,9 +2,9 @@ import * as vscode from "vscode";
 import { PNG_VIEW_TYPE } from "./commands.js";
 import { documentDiagnostics, problemCounts } from "./diagnostics.js";
 import type { DiagramPanels } from "./diagramPanels.js";
-import { EMPTY_MAP, withExampleInserted } from "./examples.js";
+import { EMPTY_MAP, withExampleInserted } from "team-topologies-ide-editor/examples";
 import { exportImage } from "./exportImage.js";
-import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "./png.js";
+import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "team-topologies-ide-editor/png";
 import type { HostToWebview, WebviewToHost } from "./protocol.js";
 
 /** The warning of a PNG whose labels came out in the system sans (the webview says so). */

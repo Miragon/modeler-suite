@@ -1,5 +1,5 @@
 import type { ModelerEditorOptions } from "@miragon/modeler-shell/vscode/extension";
-import { withExampleInserted } from "./examples.js";
+import { withExampleInserted } from "team-topologies-ide-editor/examples";
 import { TEAM_TOPOLOGIES_THEMES } from "../../../packages/renderer/src/theme/themes.js";
 
 export const DIAGRAM_VIEW_TYPE = "teamTopologies.editor";

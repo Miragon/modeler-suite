@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { EMPTY_MAP, EXAMPLE_MAP, withExampleInserted } from "../../../apps/vscode/src/examples.js";
+import {
+  EMPTY_MAP,
+  EXAMPLE_MAP,
+  withExampleInserted,
+} from "../../../apps/ide-editor/src/examples.js";
 import { openWebview } from "./support/webview.js";
 
 /**
