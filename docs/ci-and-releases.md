@@ -8,8 +8,10 @@ workflows live in [`.github/workflows/`](../.github/workflows), their logic in
 ## CI and the merge gate
 
 [`ci.yml`](../.github/workflows/ci.yml) runs on every pull request, every push to `main`, the merge
-queue and by hand. A new push to a pull request cancels its running checks; no other run is ever
-cancelled.
+queue and by hand. A new push to a pull request cancels its running checks. Pushes to `main` share
+one group: a running check of `main` always finishes, and of the pushes waiting behind it only the
+newest runs, so a burst of merges does not queue a full run per commit. CodeQL does the same; no
+other run is ever cancelled or replaced.
 
 ### What a change runs
 
