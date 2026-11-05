@@ -171,15 +171,15 @@ renderer README's licence notice, in the VSIX's `THIRD_PARTY_NOTICES.md` (writte
   `@miragon/modeler-shell/export`: 2×, on `MIRAGON.grau` (guide §10.7, `hell['--cd-ui-grund']`;
   `theme.sync.test.ts` pins it), Geist inside the image. The web app lets the shell read the page's
   Geist faces. The webview can't fetch its font files (the CSP has no `connect-src`), so
-  `webview/io.ts` passes the five Geist subsets as `data:` URLs: esbuild inlines the `?dataurl`
-  imports with the plugin in `esbuild.config.mjs`, the webview test page's Vite config
+  `apps/ide-editor/src/io.ts` passes the five Geist subsets as `data:` URLs: esbuild inlines the
+  `?dataurl` imports with the plugin in `apps/ide-editor/esbuild.mjs`, the webview test page's Vite config
   (`e2e/webview/vite.config.ts`) with `?inline`, and `test/webviewBundle.test.ts` counts the five in
   the shipped bundle. When Geist can't be embedded the PNG still comes out, in the system font: the
   web app shows a warning toast, the webview sets `fontFallback` on its `export` and `pngResponse`
   messages and the host shows a warning notification (after the export, or after the save of a
   `.cm.png`). The webview's faces are data: URLs, so no request can be blocked to provoke the
   fallback there: the e2e cases break the page's `XMLSerializer` after `saveSVG`
-  (`failFontEmbeddingOfNextExport`), and `webviewIo.test.ts` and `cmPngEditorProvider.test.ts` pin
+  (`failFontEmbeddingOfNextExport`), and `apps/ide-editor/test/io.test.ts` and `cmPngEditorProvider.test.ts` pin
   the flag and the notices. A rejection shows the app's own text, never the rejection's message (guide §2). The
   `.cm.png` editor's image goes through the same `svgToEmbeddedPng`, which inserts the map's tEXt
   chunk into the shell's PNG as before (`png.ts`).
@@ -249,6 +249,7 @@ VS Code smoke driver; keep `playwright-core` equal to the root `playwright`.
 | `@miragon/context-maps-cml`          | Context Mapper CML ↔ document (parse and serialize)                          | no  |
 | `@miragon/context-maps-renderer`     | diagram-js viewer/modeler, the collaborative-modeler contract, import/export | yes |
 | `apps/webapp`                        | Vite demo editor on the modeler shell (web host)                             | yes |
+| `apps/ide-editor`                    | The map's IDE editor, mounted by `apps/vscode` and `apps/orca`               | yes |
 | `apps/vscode`                        | VS Code extension: custom editors for `.cm`/`.cm.json` and `*.cm.png`        | yes |
 
 **P1, the DOM boundary:** the DOM-free packages (`schema-model`, `cml`) must **never** import
@@ -261,6 +262,11 @@ violating import fails `npm run context-maps lint` and `npm run context-maps dep
 - `npm run context-maps build`: packages (schema-model, cml, then renderer) ·
   `npm run context-maps build:webapp` (then `npm run check:build -w modelers/context-maps/apps/webapp`:
   mode markup and licence comment in the bundle) · `npm run context-maps build:vscode`
+- `npm run context-maps build:orca`: the Orca plugin into `apps/orca/plugin/` (the editor
+  definition the VS Code webview mounts too, `createContextMapEditor` in `apps/ide-editor/src/editor.ts`, on
+  `orcaEditorHost`, see [`apps/orca/README.md`](apps/orca/README.md)) ·
+  `npm run context-maps test:orca:docker`: the plugin in a real Orca in a Linux container; the e2e
+  project `orca-editor` runs it in the shell's Orca stub
 - `npm run context-maps dev:webapp` (alias: `npm run context-maps dev`) serves the webapp via
   [Portless](https://portless.sh) at a stable per-worktree
   `http://<worktree>.context-maps-modeler.localhost:8080` URL (Portless-derived from the git

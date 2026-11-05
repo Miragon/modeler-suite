@@ -5,7 +5,7 @@ import {
   serializeDocumentText,
 } from "@miragon/context-maps-schema-model";
 import { ActivePanels } from "../src/commands.js";
-import { EMPTY_MAP, withExampleInserted } from "../src/examples.js";
+import { EMPTY_MAP, withExampleInserted } from "context-maps-ide-editor/examples";
 import { registerMapEditor } from "../src/mapEditor.js";
 import { MAP_VIEW_TYPE } from "../src/mapEditorOptions.js";
 import type { HostToWebview, WebviewToHost } from "../src/protocol.js";

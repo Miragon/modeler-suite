@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { EMPTY_MAP, EXAMPLE_MAP } from "../../../apps/vscode/src/examples.js";
-import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/vscode/src/png.js";
+import { EMPTY_MAP, EXAMPLE_MAP } from "../../../apps/ide-editor/src/examples.js";
+import { EMBED_KEYWORD, decodeDoc, pngExtractText } from "../../../apps/ide-editor/src/png.js";
 import { PNG_GROUND, pngFacts, rasterisedSvgs, recordRasterisedSvgs } from "../support/png.js";
 import {
   INVALID_MAP,
@@ -326,7 +326,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
 
     const exported = await waitForPosted(page, "export");
     expect(exported.format).toBe("png");
-    expect(exported.fontFallback).toBe(false);
+    expect(exported).not.toHaveProperty("fontFallback");
     const png = new Uint8Array(Buffer.from(exported.data as string, "base64"));
     expect((await pngFacts(page, png)).corners).toEqual([
       PNG_GROUND,
@@ -365,7 +365,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
     await expect
       .poll(async () => (await postedMessages(page)).filter((m) => m.type === "export").length)
       .toBe(2);
-    expect((await waitForPosted(page, "export")).fontFallback).toBe(false);
+    expect(await waitForPosted(page, "export")).not.toHaveProperty("fontFallback");
   });
 
   test("a picture the browser cannot draw reaches the host as the app's own text", async ({
