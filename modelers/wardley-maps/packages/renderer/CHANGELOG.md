@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.16.1](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.16.0...wardley-renderer-v0.16.1) (2026-11-05)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/wardley-dsl bumped from 0.9.0 to 0.10.0
+
 ## [0.16.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.15.0...wardley-renderer-v0.16.0) (2026-11-03)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/Miragon/modeler-suite/compare/wardley-dsl-v0.9.0...wardley-dsl-v0.10.0) (2026-11-05)
+
+
+### Features
+
+* **wardley-maps:** open Wardley maps in Orca ([#548](https://github.com/Miragon/modeler-suite/issues/548)) ([646ef3d](https://github.com/Miragon/modeler-suite/commit/646ef3d4c22f00f7b9337fc2ba5d5de77052f8ad)), closes [#537](https://github.com/Miragon/modeler-suite/issues/537)
+
 ## [0.9.0](https://github.com/Miragon/modeler-suite/compare/wardley-dsl-v0.8.1...wardley-dsl-v0.9.0) (2026-11-03)
 
 
