@@ -5,3 +5,4 @@ export {
   type CollaborativeContextMapsModeler,
   type CollaborativeContextMapsOptions,
 } from "./CollaborativeContextMaps.js";
+export { mergeContextMapText } from "./merge.js";
