@@ -13,6 +13,17 @@
   "homepage": "https://miragon.github.io/modeler-suite/",
   "license": "MIT",
   "icon": "assets/icon.png",
+  "cover": {
+    "path": "images/cover.webp",
+    "alt": "Miragon Modeler for Value Chain: Value chains from plain .vc files, edited by you and your agents."
+  },
+  "screenshots": [
+    {
+      "path": "images/screenshot-porter.webp",
+      "alt": "Porter's value chain from inbound logistics to service, with operations split into assembly and testing and an org unit attached",
+      "caption": "Process steps, sub-steps and org units"
+    }
+  ],
   "engines": {
     "orca": ">=1.4.248"
   },
