@@ -4,7 +4,10 @@ import { readFileSync } from "node:fs";
 import { Errors, Manifest, setLogger } from "release-please";
 import type { Commit, GitHub } from "release-please";
 import { beforeAll, describe, expect, it } from "vitest";
-import { breakingChangeReport, squashCommitMessage } from "./breaking-changes.mjs";
+import {
+  breakingChangeReport,
+  squashCommitMessage,
+} from "../../.github/scripts/release-notes/breaking-changes.mjs";
 import {
   mergedPullRequest,
   overrideBody,
@@ -16,8 +19,6 @@ import {
 
 const repositoryFile = (path: string) =>
   readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
-const suiteFile = (path: string) =>
-  readFileSync(new URL(`../../../../${path}`, import.meta.url), "utf8");
 
 const MODELER_PATH = "modelers/team-topologies";
 
@@ -28,7 +29,9 @@ interface SuiteReleaseConfig {
 // The suite's config narrowed to this modeler's component: the other components and the workspace
 // plugin read files the fixture does not hold, and none of them changes this modeler's notes.
 function modelerReleaseConfig(): { config: string; component: string } {
-  const suiteConfig = JSON.parse(suiteFile("release-please-config.json")) as SuiteReleaseConfig;
+  const suiteConfig = JSON.parse(
+    repositoryFile("release-please-config.json"),
+  ) as SuiteReleaseConfig;
   const modelerPackage = suiteConfig.packages[MODELER_PATH]!;
   return {
     config: JSON.stringify({
@@ -86,6 +89,7 @@ async function releaseNotes(history: FixtureHistory): Promise<string> {
     ".release-please-manifest.json",
   );
   const [releasePullRequest] = await manifest.buildPullRequests();
+  if (!releasePullRequest) throw new Error("release-please built no release pull request");
   return releasePullRequest.body.toString();
 }
 
@@ -122,7 +126,7 @@ function breakingChangeBullets(markdown: string): string[] {
 }
 
 function changelogSection(version: string): string {
-  const changelog = repositoryFile("CHANGELOG.md");
+  const changelog = repositoryFile(`${MODELER_PATH}/CHANGELOG.md`);
   const start = changelog.indexOf(`## [${version}]`);
   expect(start, `CHANGELOG.md has a section for ${version}`).toBeGreaterThan(-1);
   const end = changelog.indexOf("\n## [", start + 1);

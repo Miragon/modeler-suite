@@ -93,12 +93,11 @@ the pins together. The VSIX bundles the packages from source, so changes in `pac
 
 The rules are in the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#commits-and-pull-requests);
 0.11.0 and 0.12.0 of this modeler each lost a breaking change by breaking them.
-`npm run team-topologies check:release-notes -- <number>` runs release-please's own parser on a pull
-request's squash commit and names every breaking change that would be lost. Its tests in
-[`scripts/release-notes/`](scripts/release-notes/) replay #122 and #129 offline. The parser comes
-from the `release-please` devDependency, which must match the version the Release workflow's action
-bundles (17.6.0 in release-please-action v5.0.0);
-[`parser-version.test.ts`](scripts/release-notes/parser-version.test.ts) fails when they drift.
+`npm run check:release-notes -- <number>` (from the root) runs release-please's own parser on a
+pull request's squash commit and names every breaking change that would be lost. The check lives in
+[`.github/scripts/release-notes/`](../../.github/scripts/release-notes/), since it reads any pull
+request of the suite; its tests in [`test/release-notes/`](../../test/release-notes/) replay #122
+and #129 offline.
 
 ## Pull requests
 

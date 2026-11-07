@@ -5,6 +5,15 @@ pull request for every package, extension and web app, and one Netlify site per 
 workflows live in [`.github/workflows/`](../.github/workflows), their logic in
 [`.github/scripts/`](../.github/scripts), so it runs locally too.
 
+| Event                        | Workflow                                                                                                                                              | Jobs                                                                                                                                     |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| pull request                 | [`ci.yml`](../.github/workflows/ci.yml)                                                                                                               | `changes`, then what it reaches: shared, per modeler, template, docs, VS Code and Orca smokes; always-on checks; `ci-ok`, the merge gate |
+| pull request                 | [`pr-title.yml`](../.github/workflows/pr-title.yml), [`release-notes.yml`](../.github/workflows/release-notes.yml)                                    | `validate-pr-title` (required next to `ci-ok`), `breaking-changes`                                                                       |
+| pull request, `main`, weekly | [`codeql.yml`](../.github/workflows/codeql.yml)                                                                                                       | `analyze` (not for a pull request that changes only prose)                                                                               |
+| Dependabot pull request      | [`dependabot-automerge.yml`](../.github/workflows/dependabot-automerge.yml)                                                                           | `auto-merge` of npm patch and minor updates                                                                                              |
+| push to `main`               | [`ci.yml`](../.github/workflows/ci.yml), [`release-please.yml`](../.github/workflows/release-please.yml), [`docs.yml`](../.github/workflows/docs.yml) | CI as on a pull request; `plan`, `build / …`, `publish / …` when a release pull request is merged; the docs deploy when `docs/` changed  |
+| Mondays                      | [`smoke-weekly.yml`](../.github/workflows/smoke-weekly.yml)                                                                                           | every modeler's VS Code smoke and every Orca plugin's smoke; an issue when one fails                                                     |
+
 ## CI and the merge gate
 
 [`ci.yml`](../.github/workflows/ci.yml) runs on every pull request, every push to `main` and by hand. A new push to a pull request cancels its running checks. Pushes to `main` share
@@ -17,12 +26,13 @@ other run is ever cancelled or replaced.
 The first job, `changes` (`.github/scripts/ci-paths.sh affected`), compares the change with its base
 commit and decides which jobs it can break:
 
-| Changed path                                                                                                                                                                                                 | Runs                                                  |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| `modelers/<m>/**`                                                                                                                                                                                            | the jobs of modeler `<m>` and its smokes              |
-| `packages/**`, `.github/workflows/{ci,vscode-smoke,orca-smoke}.yml`, `.github/{actions,scripts}/**`, any other root file                                                                                     | the shared jobs, the template job and every modeler   |
-| `plugins/modeler-kit/**`, `modelers/event-storming/packages/renderer/src/theme/**`                                                                                                                           | the template job (and, for the theme, Event Storming) |
-| `docs/**`, `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`, `plugins/**`, `test/**`, `extensions/**`, `.claude-plugin/**`, `.husky/**`, every other file under `.github/` | nothing but the always-on jobs                        |
+| Changed path                                                                                                                                                                                      | Runs                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `modelers/<m>/**`                                                                                                                                                                                 | the jobs of modeler `<m>` and its smokes              |
+| `packages/**`, `.github/workflows/{ci,vscode-smoke,orca-smoke}.yml`, `.github/{actions,scripts}/**`, any other root file                                                                          | the shared jobs, the template job and every modeler   |
+| `plugins/modeler-kit/**`, `modelers/event-storming/packages/renderer/src/theme/**`                                                                                                                | the template job (and, for the theme, Event Storming) |
+| `docs/**`                                                                                                                                                                                         | the docs job                                          |
+| `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`, `plugins/**`, `test/**`, `extensions/**`, `.claude-plugin/**`, `.husky/**`, every other file under `.github/` | nothing but the always-on jobs                        |
 
 Markdown elsewhere is no documentation here: skills under `modelers/<m>/plugins/` feed drift tests,
 and a package or an extension ships its README. The always-on jobs read the rest: the
@@ -65,6 +75,9 @@ that cannot be fetched run everything; so does any path no rule names.
   (`npm run build:shared`, then `node .github/scripts/template-instance.mjs <empty folder>`;
   `npx playwright install chromium` once). The drift test of `test:plugin` only type-checks the
   template against the sources.
+- **Docs** (`docs`): the VitePress site in `docs/` as [`docs.yml`](../.github/workflows/docs.yml)
+  deploys it from `main`: the vendored Miragon docs kit checked unchanged, and a build, which fails
+  on a dead link.
 - **VS Code smoke** ([`vscode-smoke.yml`](../.github/workflows/vscode-smoke.yml)), called once with
   the modelers the change reaches: each packaged extension in a real VS Code under `xvfb`, on the
   newest stable release and on the oldest that `engines.vscode` accepts. Every run takes all of the
@@ -174,8 +187,11 @@ END_COMMIT_OVERRIDE
 
 release-please reads the merged pull request's body on every run, so a block can be added or fixed
 after the merge, until the release pull request is merged.
-`npm run team-topologies check:release-notes -- <number>` runs release-please's parser on a pull
-request and names every breaking change that would be lost.
+`npm run check:release-notes -- <number>` runs release-please's parser on a pull request and names
+every breaking change that would be lost. The parser comes from the root's `release-please`
+devDependency, which must match the version the Release workflow's action bundles;
+[`test/release-notes/parser-version.test.ts`](../test/release-notes/parser-version.test.ts) fails when
+they drift.
 
 ### Deprecations
 
@@ -268,11 +284,10 @@ packages or the root install changed. Site settings (Site configuration → Buil
 ## Other workflows
 
 - [`pr-title.yml`](../.github/workflows/pr-title.yml) (`validate-pr-title`): the title is a
-  Conventional Commit, and a single-commit pull request's commit says the same. Dependabot's commit
-  only has to be a Conventional Commit: its grouped security updates commit a shorter headline than
-  their title, and no Dependabot setting changes that.
-- [`codeql.yml`](../.github/workflows/codeql.yml): JavaScript and TypeScript, on pull requests,
-  `main` and weekly.
+  Conventional Commit. The suite squashes with the PR title, so no commit message of a pull request
+  lands on `main`.
+- [`codeql.yml`](../.github/workflows/codeql.yml): JavaScript and TypeScript, on pull requests that
+  change more than prose, on `main` and weekly.
 - [`dependabot.yml`](../.github/dependabot.yml): npm weekly (minor and patch grouped, the suite's
   `@miragon/*` workspaces ignored), GitHub Actions monthly. Both entries also cover the new-modeler
   template (its `package.json` files, workflows and composite action), so a group pull request moves

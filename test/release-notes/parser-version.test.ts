@@ -9,11 +9,9 @@ const RELEASE_PLEASE_BUNDLED_BY_ACTION: Record<string, string> = { "v5.0.0": "17
 
 const repositoryFile = (path: string) =>
   readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
-const suiteFile = (path: string) =>
-  readFileSync(new URL(`../../../../${path}`, import.meta.url), "utf8");
 
 it("checks with the release-please the Release workflow's action bundles", () => {
-  const actionVersion = suiteFile(".github/workflows/release-please.yml").match(
+  const actionVersion = repositoryFile(".github/workflows/release-please.yml").match(
     /googleapis\/release-please-action@[0-9a-f]{40} # (v\S+)/,
   )?.[1];
   expect(actionVersion, "release-please.yml pins release-please-action").toBeDefined();

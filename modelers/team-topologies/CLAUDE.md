@@ -182,9 +182,6 @@ by `dependency-cruiser`, the shell ban also by ESLint, so the pre-commit hook ca
 - `npm run team-topologies typecheck` · `npm run team-topologies lint` (ESLint + typecheck)
 - `npm run team-topologies format`: Prettier · `npm run team-topologies depcruise`: check the
   module graph
-- `npm run team-topologies check:release-notes -- <number>`: release-please's parser on a pull
-  request: names every breaking change the squash merge would lose (the rules in the suite's
-  [`CONTRIBUTING.md`](../../CONTRIBUTING.md#commits-and-pull-requests))
 
 The packages are consumed from **source** (Vite/esbuild/tsconfig aliases), so neither the apps nor
 the tests need a prior package build; `npm run team-topologies build` is for publishing the

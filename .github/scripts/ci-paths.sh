@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The path decisions of CI, so a change runs the jobs it can break and no more:
 #   ci-paths.sh affected   which modelers a change reaches (and which of them have an Orca plugin),
-#                          and whether it reaches the shared packages and the new-modeler template
+#                          and whether it reaches the shared packages, the new-modeler template and
+#                          the docs site
 #   ci-paths.sh modelers   every modeler and every modeler with an Orca plugin (the weekly smokes)
 # Each writes key=value lines to $GITHUB_OUTPUT. The event comes from EVENT_NAME and the base commit
 # from PULL_REQUEST_BASE_SHA or PUSH_BEFORE_SHA. Whenever there is nothing to compare with, or a
@@ -109,7 +110,7 @@ reaches_template() {
 
 affected() {
   local changed reach path all
-  local everything=false template=false modelers=""
+  local everything=false template=false docs=false modelers=""
   all=$(all_modelers)
   changed=$(mktemp)
   if ! changed_paths "$changed"; then
@@ -119,6 +120,7 @@ affected() {
       reach=$(classify "$path")
       echo "$path: $reach"
       if reaches_template "$path"; then template=true; fi
+      if [[ "$path" == docs/* ]]; then docs=true; fi
       case "$reach" in
         all) everything=true ;;
         "modeler "*) modelers+="${reach#modeler }"$'\n' ;;
@@ -127,12 +129,14 @@ affected() {
   fi
   if [[ "$everything" == true ]]; then
     template=true
+    docs=true
     modelers=$all
   fi
   modelers=$(printf '%s' "$modelers" | sort -u | sed '/^$/d')
-  echo "Shared jobs: $everything. Template job: $template. Modelers: $(printf '%s' "${modelers:-none}" | tr '\n' ' ')"
+  echo "Shared jobs: $everything. Template job: $template. Docs: $docs. Modelers: $(printf '%s' "${modelers:-none}" | tr '\n' ' ')"
   output shared "$everything"
   output template "$template"
+  output docs "$docs"
   output modelers "$(lines_to_json "$modelers")"
   output orca-modelers "$(lines_to_json "$(with_orca_plugin "$modelers")")"
 }
