@@ -92,7 +92,9 @@ jobs:
       - if: env.MODELER == ''
         run: npm run publint -w "$PACKAGE_DIR"
       # The very tarball publish-npm puts on the registry.
-      - run: npm pack -w "$PACKAGE_DIR" --pack-destination "$RUNNER_TEMP/npm"
+      - run: |
+          mkdir -p "$RUNNER_TEMP/npm"
+          npm pack -w "$PACKAGE_DIR" --pack-destination "$RUNNER_TEMP/npm"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: npm-${{ strategy.job-index }}
