@@ -2,10 +2,10 @@
   "folder": "strategy-workshop",
   "plugins": [
     {
-      "plugin": "wardley-maps/apps/orca/plugin",
+      "plugin": "../modelers/wardley-maps/apps/orca/plugin",
       "examples": [
         {
-          "file": "wardley-maps/plugins/wardley-maps-modeler/skills/wardley-mapping/examples/online-grocery/online-grocery.wmap"
+          "file": "../modelers/wardley-maps/plugins/wardley-maps-modeler/skills/wardley-mapping/examples/online-grocery/online-grocery.wmap"
         }
       ],
       "features": [
@@ -70,13 +70,13 @@
       ],
       "title": "Wardley Maps",
       "claim": "Wardley maps from plain .wmap files, edited by you and your agents.",
-      "out": "wardley-maps/apps/orca/images"
+      "out": "../modelers/wardley-maps/apps/orca/images"
     },
     {
-      "plugin": "event-storming/apps/orca/plugin",
+      "plugin": "../modelers/event-storming/apps/orca/plugin",
       "examples": [
         {
-          "file": "event-storming/example/order-checkout.storm"
+          "file": "../modelers/event-storming/example/order-checkout.storm"
         }
       ],
       "features": [
@@ -138,13 +138,13 @@
       ],
       "title": "Event Storming",
       "claim": "Event Storming boards from plain .storm files, edited by you and your agents.",
-      "out": "event-storming/apps/orca/images"
+      "out": "../modelers/event-storming/apps/orca/images"
     },
     {
-      "plugin": "team-topologies/apps/orca/plugin",
+      "plugin": "../modelers/team-topologies/apps/orca/plugin",
       "examples": [
         {
-          "file": "team-topologies/plugins/team-topologies-modeler/skills/tt-format/examples/ride-hailing.tt"
+          "file": "../modelers/team-topologies/plugins/team-topologies-modeler/skills/tt-format/examples/ride-hailing.tt"
         }
       ],
       "features": [
@@ -215,13 +215,13 @@
       ],
       "title": "Team Topologies",
       "claim": "Team Topologies diagrams from plain .tt files, edited by you and your agents.",
-      "out": "team-topologies/apps/orca/images"
+      "out": "../modelers/team-topologies/apps/orca/images"
     },
     {
-      "plugin": "context-maps/apps/orca/plugin",
+      "plugin": "../modelers/context-maps/apps/orca/plugin",
       "examples": [
         {
-          "file": "context-maps/example/sample.cm",
+          "file": "../modelers/context-maps/example/sample.cm",
           "name": "conference-program.cm"
         }
       ],
@@ -290,13 +290,13 @@
       ],
       "title": "Context Maps",
       "claim": "Context maps from plain .cm files, edited by you and your agents.",
-      "out": "context-maps/apps/orca/images"
+      "out": "../modelers/context-maps/apps/orca/images"
     },
     {
-      "plugin": "value-chain/apps/orca/plugin",
+      "plugin": "../modelers/value-chain/apps/orca/plugin",
       "examples": [
         {
-          "file": "value-chain/example/porter.vc.json"
+          "file": "../modelers/value-chain/example/porter.vc.json"
         }
       ],
       "features": [
@@ -364,7 +364,7 @@
       ],
       "title": "Value Chain",
       "claim": "Value chains from plain .vc files, edited by you and your agents.",
-      "out": "value-chain/apps/orca/images"
+      "out": "../modelers/value-chain/apps/orca/images"
     }
   ]
 }
