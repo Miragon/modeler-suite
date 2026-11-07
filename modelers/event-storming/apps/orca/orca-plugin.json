@@ -13,6 +13,17 @@
   "homepage": "https://miragon.github.io/modeler-suite/",
   "license": "MIT",
   "icon": "assets/icon.png",
+  "cover": {
+    "path": "images/cover.webp",
+    "alt": "Miragon Modeler for Event Storming: Event Storming boards from plain .storm files, edited by you and your agents."
+  },
+  "screenshots": [
+    {
+      "path": "images/screenshot-order-checkout.webp",
+      "alt": "An Event Storming board of a checkout flow with an actor, commands, aggregates, domain events, a policy, a read model, an external system and a hotspot",
+      "caption": "Model a process with stickies and arrows"
+    }
+  ],
   "engines": {
     "orca": ">=1.4.248"
   },
