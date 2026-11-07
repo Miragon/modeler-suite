@@ -1,5 +1,6 @@
 // Builds the Orca plugin into plugin/: the manifest, the icon and the editor. The bundle is not
-// minified and ships its sourcemap, as Orca's listing policy wants a readable plugin.
+// minified, as Orca's listing policy wants a readable plugin, and ships no sourcemap, as with it
+// the plugin stays in Orca's size review (#563; #564 brings it back).
 import * as esbuild from "esbuild";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -16,7 +17,7 @@ await esbuild.build({
   entryPoints: [resolve(here, "src/main.ts")],
   outfile: resolve(plugin, "editor/dist/main.js"),
   format: "esm",
-  sourcemap: true,
+  sourcemap: false,
   minify: false,
   logLevel: "warning",
 });
