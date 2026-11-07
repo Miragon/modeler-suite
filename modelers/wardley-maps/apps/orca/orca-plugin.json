@@ -13,6 +13,22 @@
   "homepage": "https://miragon.github.io/modeler-suite/",
   "license": "MIT",
   "icon": "assets/icon.png",
+  "cover": {
+    "path": "images/cover.webp",
+    "alt": "Miragon Modeler for Wardley Maps: Wardley maps from plain .wmap files, edited by you and your agents."
+  },
+  "screenshots": [
+    {
+      "path": "images/screenshot-online-grocery.webp",
+      "alt": "A Wardley map of an online grocery, from the household's needs down to cloud hosting, with Fulfilment moving from build to buy",
+      "caption": "Decide what to build, buy or outsource"
+    },
+    {
+      "path": "images/screenshot-ai-startup.webp",
+      "alt": "A Wardley map of an AI coding startup whose components evolve, with notes on moat, inertia and managed retrieval",
+      "caption": "See where your components evolve next"
+    }
+  ],
   "engines": {
     "orca": ">=1.4.248"
   },
