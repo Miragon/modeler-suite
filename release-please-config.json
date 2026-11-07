@@ -397,7 +397,6 @@
     },
     "modelers/wardley-maps/apps/ide-editor": {
       "component": "wardley-maps-ide-editor",
-      "initial-version": "0.1.0",
       "extra-files": [
         {
           "type": "json",
@@ -438,7 +437,6 @@
     },
     "modelers/wardley-maps/apps/orca": {
       "component": "wardley-maps-orca",
-      "initial-version": "0.1.0",
       "extra-files": [
         {
           "type": "json",
@@ -554,7 +552,6 @@
     },
     "modelers/event-storming/apps/ide-editor": {
       "component": "event-storming-ide-editor",
-      "initial-version": "0.1.0",
       "extra-files": [
         {
           "type": "json",
@@ -595,7 +592,6 @@
     },
     "modelers/event-storming/apps/orca": {
       "component": "event-storming-orca",
-      "initial-version": "0.1.0",
       "extra-files": [
         {
           "type": "json",
@@ -953,7 +949,6 @@
     },
     "modelers/context-maps/apps/ide-editor": {
       "component": "context-maps-ide-editor",
-      "initial-version": "0.1.0",
       "extra-files": [
         {
           "type": "json",
@@ -1054,7 +1049,6 @@
     },
     "modelers/value-chain/apps/ide-editor": {
       "component": "value-chain-ide-editor",
-      "initial-version": "0.1.0",
       "extra-files": [
         {
           "type": "json",
@@ -1241,7 +1235,6 @@
     },
     "modelers/value-chain/apps/orca": {
       "component": "value-chain-orca",
-      "initial-version": "0.1.0",
       "extra-files": [
         {
           "type": "json",
@@ -1257,7 +1250,6 @@
     },
     "modelers/context-maps/apps/orca": {
       "component": "context-maps-orca",
-      "initial-version": "0.1.0",
       "extra-files": [
         {
           "type": "json",
