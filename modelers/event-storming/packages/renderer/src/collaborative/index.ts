@@ -6,3 +6,4 @@ export {
   type CollaborativeEventStormingOptions,
   type EventStormingElementsSurface,
 } from "./CollaborativeEventStorming.js";
+export { mergeStormText } from "./merge.js";

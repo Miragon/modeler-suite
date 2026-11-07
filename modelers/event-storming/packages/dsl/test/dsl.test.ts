@@ -1073,33 +1073,65 @@ actor Manager [250, 280] (on #cmd_approve_2)`;
     expect(board.elements.find((e) => e.elementType === "actor")).not.toHaveProperty("attachedTo");
   });
 
-  it("`(id …)` on a note line yields a diagnostic; `(id …)` inside note text stays", () => {
+  it("keeps a note's `(id …)` after the coordinates; `(id …)` inside the note text stays text", () => {
     const src = "title T\nnote use (id x) sparingly [80, 80]\nnote Kickoff [80, 200] (id note_1)";
     const { board, diagnostics } = parseDSLWithDiagnostics(src);
-    expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]!.line).toBe(3);
-    expect(diagnostics[0]!.message).toContain("Only a sticky takes (id …)");
+    expect(diagnostics).toEqual([]);
     const notes = board.elements.filter((e) => e.elementType === "note");
     expect(notes[0]!.label).toBe("use (id x) sparingly");
-    expect(notes[1]!.id).toBe("note_kickoff");
+    expect(notes[1]!.id).toBe("note_1");
     const once = serializeDSL(board);
-    expect(once).toContain("note use (id x) sparingly [80, 80]");
-    expect(once).toContain("note Kickoff [80, 200]");
-    expect(once).not.toContain("(id note_1)");
+    expect(once).toContain("note use (id x) sparingly [80, 80]\n");
+    expect(once).toContain("note Kickoff [80, 200] (id note_1)\n");
     expect(serializeDSL(parseDSL(once))).toBe(once);
   });
 
-  it("`(id …)` on a drawing yields a diagnostic and is ignored", () => {
+  it("keeps a drawing's `(id …)` and writes it after the colour", () => {
     const { board, diagnostics } = parseDSLWithDiagnostics(
-      "title T\nline [[100, 100], [200, 150]] (dashed) (id d1)",
+      "title T\nline [[100, 100], [200, 150]] (dashed) (id d1) (color red)",
     );
-    expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]!.message).toContain("Only a sticky takes (id …)");
-    expect(board.elements[0]!.id).toBe("draw_line");
+    expect(diagnostics).toEqual([]);
+    expect(board.elements[0]!.id).toBe("d1");
     const once = serializeDSL(board);
-    expect(once).toContain("line [[100, 100], [200, 150]] (dashed)");
-    expect(once).not.toContain("(id");
+    expect(once).toContain("line [[100, 100], [200, 150]] (dashed) (color red) (id d1)\n");
     expect(serializeDSL(parseDSL(once))).toBe(once);
+  });
+
+  it("leaves a derived note or drawing id implicit, so boards without ids stay byte-identical", () => {
+    const src = "title T\nnote Kickoff [80, 200]\nline [[1, 2], [3, 4]]\nline [[5, 6], [7, 8]]\n";
+    expect(serializeDSL(parseDSL(src))).toBe(src);
+  });
+
+  it("writes the id of a renamed note and of drawings behind a removed one, so they keep it", () => {
+    const board = parseDSL(
+      "title T\nnote Kickoff [80, 200]\nline [[1, 2], [3, 4]]\nline [[5, 6], [7, 8]]",
+    );
+    const renamed = {
+      ...board,
+      elements: board.elements
+        .filter((element) => element.id !== "draw_line")
+        .map((element) =>
+          element.elementType === "note" ? { ...element, label: "Kick-off meeting" } : element,
+        ),
+    };
+    const once = serializeDSL(renamed);
+    expect(once).toContain("note Kick-off meeting [80, 200] (id note_kickoff)\n");
+    expect(once).toContain("line [[5, 6], [7, 8]] (id draw_line_2)\n");
+    expect(parseDSL(once).elements.map((element) => element.id)).toEqual([
+      "note_kickoff",
+      "draw_line_2",
+    ]);
+  });
+
+  it("gives a note or a drawing whose id is taken a new id and says so", () => {
+    const { board, diagnostics } = parseDSLWithDiagnostics(
+      "title T\nevent A [0, 0] (id x)\nnote N [10, 10] (id x)\nline [[1, 2], [3, 4]] (id x)",
+    );
+    expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+      "The id “x” is already taken, so this note got a new id.",
+      "The id “x” is already taken, so this drawing got a new id.",
+    ]);
+    expect(board.elements.map((element) => element.id)).toEqual(["x", "note_n", "draw_line"]);
   });
 
   it("substitutes ids outside the DSL charset on emit (JSON-authored boards stay parseable)", () => {
@@ -1755,7 +1787,7 @@ describe("diagnostic wording (guide §2)", () => {
 
   it("speaks to the reader: no em dash, typographic quotes, whole sentences", () => {
     const { diagnostics } = parseDSLWithDiagnostics(BROKEN);
-    expect(diagnostics.length).toBeGreaterThanOrEqual(15);
+    expect(diagnostics.length).toBeGreaterThanOrEqual(14);
     for (const { message } of diagnostics) {
       expect(message).not.toMatch(/—|"|rawPassthrough/);
       expect(message).toMatch(/^[A-Z“].*\.$/);
