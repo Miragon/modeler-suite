@@ -17,57 +17,40 @@ other run is ever cancelled or replaced.
 The first job, `changes` (`.github/scripts/ci-paths.sh affected`), compares the change with its base
 commit and decides which jobs it can break:
 
-| Changed path                                                                                                     | Runs                                                |
-| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `modelers/<m>/**`                                                                                                | the jobs of modeler `<m>`                           |
-| `modelers/<m>/plugins/**`, the manifests and configs of `<m>` named below, a file added to or deleted from `<m>` | the jobs of modeler `<m>` and `shared-test`         |
-| `packages/**`, `.github/**`, root `package.json`, `package-lock.json`, `.npmrc`, any other root file or folder   | the shared jobs, the template job and every modeler |
-| `plugins/modeler-kit/**`                                                                                         | the shared jobs and the template job                |
-| `plugins/**`, `test/**`, `extensions/**`, `.claude-plugin/**`, `.husky/**`                                       | the shared jobs                                     |
-| a `.miragon/` folder in `docs/**` or `modelers/<m>/docs/**`, a file added to or deleted from `docs/`             | `shared-test`                                       |
-| `docs/**` (an edit), `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`          | nothing but the always-on jobs                      |
+| Changed path                                                                                                                                                                                                 | Runs                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| `modelers/<m>/**`                                                                                                                                                                                            | the jobs of modeler `<m>` and its smokes              |
+| `packages/**`, `.github/workflows/{ci,vscode-smoke,orca-smoke}.yml`, `.github/{actions,scripts}/**`, any other root file                                                                                     | the shared jobs, the template job and every modeler   |
+| `plugins/modeler-kit/**`, `modelers/event-storming/packages/renderer/src/theme/**`                                                                                                                           | the template job (and, for the theme, Event Storming) |
+| `docs/**`, `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`, `plugins/**`, `test/**`, `extensions/**`, `.claude-plugin/**`, `.husky/**`, every other file under `.github/` | nothing but the always-on jobs                        |
 
-Markdown elsewhere is no documentation here: skills under `plugins/` feed drift tests, and a
-package or an extension ships its README. A modeler's Claude plugin reaches `shared-test` because
-`test:plugin` checks the manifest and the skills of every plugin in the marketplace. Other checks
-in `test:plugin` read these files of a modeler, so they reach `shared-test` too: the
-`package.json` of the modeler and of each of its workspaces (`packages/*`, `apps/*`, `e2e`), read
-by the release config, extension pack and boundary checks; and every `eslint.config.*` in it (the
-nearest one of a file wins) and its `.dependency-cruiser.cjs`, read by the boundary checks. A
-`.miragon/` folder anywhere, the docs included, reaches `shared-test` as well, because it would
-replace the suite's one brand-lint config. Those checks also read which files a modeler has: the
-brand-lint config check holds the name of every file against its ignore list, and the template and
-third-party text checks need some files to exist. So a file of a modeler that a change adds,
-deletes or moves reaches `shared-test` as well, its documentation aside. The same holds for a file
-of the root `docs/`, because the modeler kit links to pages there. Adding, deleting or moving a
-page of a modeler's docs or a Markdown file at the root or at the top of a modeler runs nothing but
-the always-on jobs, as an edit of one does. No other shared job reads these files, so these paths
-add only `shared-test`: `changes` reports them as `repository-tests`, not as `shared`, which starts
-all four shared jobs. Every shared change sets `repository-tests` too. `.husky/**` runs in no job,
-but the template check reads the pre-commit hook. The template job also runs when the
-design-system files it borrows change (`modelers/event-storming/packages/renderer/src/theme/**`).
-A run without a base commit (started by hand, a new branch) and a base that cannot be fetched run
-everything; so does any path no rule names.
+Markdown elsewhere is no documentation here: skills under `modelers/<m>/plugins/` feed drift tests,
+and a package or an extension ships its README. The always-on jobs read the rest: the
+repository-level tests in `test/` check the plugins, the release config, the extension pack,
+every modeler's manifests and boundaries, the brand-lint config and the workflows that CI does not
+run, so a path that only they read needs no rule. The template job runs when the design-system
+files it borrows change. A run without a base commit (started by hand, a new branch) and a base
+that cannot be fetched run everything; so does any path no rule names.
 
 ### Jobs
 
-- **Shared** (`shared-lint`, `shared-test`, `shared-test-browser`, `shared-e2e`): the type check of
-  modeler-api, modeler-shell and the root tests; their unit tests plus `test:plugin` (the
-  repository-level checks in `test/`: the modeler-kit and release-config drift tests, the manifests
-  and skills of every plugin in the marketplace, every modeler's boundaries, the Dependabot
-  auto-merge workflow, the path decisions of `ci-paths.sh affected` and the skips `ci-ok` accepts
-  on their word), build and `publint`; the shell's browser tests (`test:browser:shared`: the PNG
-  export and the palette skin in Chromium and WebKit, in the Playwright image of the root's
-  `playwright` pin); the shell's Playwright suite in four shards, each of which runs a quarter of
-  the other tests and then a quarter of the saboteurs that run the whole kit (sharded together,
-  those all fell into one shard). `shared-test` also runs on its own, for a change of a modeler or
-  of the docs that only `test:plugin` reads.
-- **Per modeler**, a matrix over the modelers the change reaches, each job named
-  `<modeler> / <check>`: `lint` (ESLint, type check, dependency-cruiser), `test` (build, unit tests),
-  `test:browser` and `e2e` (in the Playwright image of the root's `playwright` pin), `build` (web app
-  build and `check:build`, VSIX via `package:vscode`). Every job builds the shared packages first.
-  The Node version is the floor of the root's `engines.node`, raised to the modeler's own (Node
-  24.15.0 for context-maps).
+- **Always** (`format-check`, `pin-check`, `shared-test`, `dependency-review`): Prettier over the
+  whole suite; exact pins in every `package.json` and every Playwright pin equal to the root's; the
+  type check of modeler-api, modeler-shell and the root tests, their unit tests plus `test:plugin`
+  (the repository-level checks in `test/`: the modeler-kit and release-config drift tests, the
+  manifests and skills of every plugin in the marketplace, every modeler's boundaries, the
+  Dependabot auto-merge workflow, the path decisions of `ci-paths.sh` and the verdict of `ci-ok`),
+  build, `publint` and the extension pack; `dependency-review` on pull requests.
+- **Shared** (`shared-test-browser`, `shared-e2e`): the shell's browser tests
+  (`test:browser:shared`: the PNG export and the palette skin in Chromium and WebKit, in the
+  Playwright image of the root's `playwright` pin); the shell's Playwright suite in four shards,
+  each of which runs a quarter of the other tests and then a quarter of the saboteurs that run the
+  whole kit (sharded together, those all fell into one shard).
+- **Per modeler**, a matrix over the modelers the change reaches: `modeler-check` (ESLint, type
+  check, dependency-cruiser, build, unit tests, web app build and `check:build`, VSIX via
+  `package:vscode`), `modeler-test-browser` and `modeler-e2e` (in the Playwright image of the
+  root's `playwright` pin). Every job builds the shared packages first. The Node version is the
+  floor of the root's `engines.node`, raised to the modeler's own (Node 24.15.0 for context-maps).
 - **Template** (`template`): a modeler created from the new-modeler template, to run what nothing
   else runs. The shared packages are built and packed as they are published (`npm pack` of
   `packages/api` and `packages/shell`, so a release pull request tests the unreleased versions),
@@ -82,32 +65,24 @@ everything; so does any path no rule names.
   (`npm run build:shared`, then `node .github/scripts/template-instance.mjs <empty folder>`;
   `npx playwright install chromium` once). The drift test of `test:plugin` only type-checks the
   template against the sources.
-- **Always**: `format-check` (Prettier over the whole suite), `pin-check` (exact pins in every
-  `package.json`, every Playwright pin equal to the root's), `dependency-review` (pull requests).
-- **VS Code smoke** ([`vscode-smoke.yml`](../.github/workflows/vscode-smoke.yml)), called once per
-  modeler: the packaged extension in a real VS Code under `xvfb`, on the newest stable release and on
-  the oldest that `engines.vscode` accepts. The workflow decides itself whether the change can reach
-  that VSIX (`ci-paths.sh vscode-smoke <modeler>`); when it cannot, a job that succeeds stands in, so
-  the smoke always reports. Every run takes all of the driver's steps, its default since
-  modeler-shell 0.8: besides open, edit, save, undo and the themes, the zoom and selection keys, the
-  view and selection across a redo and an undo, and the workbench steps (reduced motion, a hidden
-  tab and Developer: Reload Window). So does the smoke the release runs on the VSIX it publishes.
+- **VS Code smoke** ([`vscode-smoke.yml`](../.github/workflows/vscode-smoke.yml)), called once with
+  the modelers the change reaches: each packaged extension in a real VS Code under `xvfb`, on the
+  newest stable release and on the oldest that `engines.vscode` accepts. Every run takes all of the
+  driver's steps, its default since modeler-shell 0.8: besides open, edit, save, undo and the
+  themes, the zoom and selection keys, the view and selection across a redo and an undo, and the
+  workbench steps (reduced motion, a hidden tab and Developer: Reload Window). So does the smoke the
+  release runs on the VSIX it publishes.
+- **Orca smoke** ([`orca-smoke.yml`](../.github/workflows/orca-smoke.yml)), called once with the
+  modelers the change reaches that have an Orca plugin: each plugin in the newest Orca and in the
+  oldest its `engines.orca` accepts.
 
 ### `ci-ok`
 
-`ci-ok` (`.github/scripts/ci-gate.sh`) is the one check the ruleset requires. It needs every other
-job of `ci.yml` (and fails if one is missing from its `needs`), and it fails on any failed or
-cancelled job and on every skip except these, each checked against its reason:
-
-| Job                                                | Skipped by design when                                                      |
-| -------------------------------------------------- | --------------------------------------------------------------------------- |
-| `dependency-review`                                | the run is no pull request                                                  |
-| `shared-lint`, `shared-test-browser`, `shared-e2e` | `changes` succeeded and reports no shared change (`shared=false`)           |
-| `shared-test`                                      | `changes` succeeded and reports `shared=false` and `repository-tests=false` |
-| `template`                                         | `changes` succeeded and reports no template change (`template=false`)       |
-| the five `modeler-*` jobs                          | `changes` succeeded and reports no modeler (`modelers=[]`)                  |
-
-A skip after a failed or cancelled `changes` is never accepted, and the smoke never skips.
+`ci-ok` (`.github/scripts/ci-gate.sh`) is the merge gate; the ruleset requires it and the PR title
+check `validate-pr-title`. It needs every other job of `ci.yml` (and fails if one is missing from
+its `needs`), and it fails on any failed or cancelled job. Every job that needs another needs
+`changes` alone, so a job skipped because `changes` failed comes with that failure, and a skip
+passes.
 
 ### Template smoke (opt-in)
 
@@ -126,9 +101,7 @@ run), or start the workflow by hand on a branch. The label is created once with
 on Mondays; a failure opens, or comments on, the issue "VS Code smoke: the weekly run failed".
 [`orca-smoke-weekly.yml`](../.github/workflows/orca-smoke-weekly.yml) does the same for every
 modeler's Orca plugin in the newest Orca and the oldest its `engines.orca` accepts ("Orca smoke: the
-weekly run failed"); in CI, [`orca-smoke.yml`](../.github/workflows/orca-smoke.yml) runs per modeler
-when `ci-paths.sh orca-smoke` finds a change the plugin depends on, and succeeds without a run for a
-modeler without a plugin.
+weekly run failed"). Both take their lists from `ci-paths.sh modelers`.
 
 ## Releases
 

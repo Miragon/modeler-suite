@@ -22,18 +22,17 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which modelers, and whether the shared packages, the repository-level tests and the new-modeler
-  # template a change reaches (.github/scripts/ci-paths.sh).
-  # A path filter on the trigger is no way out: ci-ok has to report on every run.
+  # Which modelers, and whether the shared packages and the new-modeler template a change reaches
+  # (.github/scripts/ci-paths.sh). A path filter on the trigger is no way out: ci-ok has to report
+  # on every run.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       shared: ${{ steps.paths.outputs.shared }}
-      repository-tests: ${{ steps.paths.outputs.repository-tests }}
       template: ${{ steps.paths.outputs.template }}
       modelers: ${{ steps.paths.outputs.modelers }}
-      all-modelers: ${{ steps.paths.outputs.all-modelers }}
+      orca-modelers: ${{ steps.paths.outputs.orca-modelers }}
       playwright: ${{ steps.playwright.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -54,28 +53,50 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-  shared-lint:
-    needs: changes
-    if: needs.changes.outputs.shared == 'true'
+  format-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - run: npm run typecheck:shared
+      - run: npm run format:check
 
-  # Also the one shared job for a change of a modeler or of the docs that only the repository-level
-  # tests read (repository-tests, which every shared change sets too).
+  pin-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Scans every package.json below the root: the shared packages, all workspaces of every
+      # modeler and the modeler-kit template.
+      - uses: miragon/pin-npm-dependencies@3f7f02fa2454cdd2cdb65df19b081c0d77d301a5 # v1.2.2
+      # The browser jobs run in the image of the root's playwright pin, which carries the browsers
+      # of that version only.
+      - name: Check that every Playwright pin agrees with the root's
+        run: |
+          root=$(jq -r '.devDependencies.playwright' package.json)
+          mismatches=$(git ls-files -z -- 'package.json' '*/package.json' | xargs -0 jq -r --arg root "$root" "$PIN_QUERY")
+          if [[ -n "$mismatches" ]]; then
+            while read -r mismatch; do echo "::error::$mismatch"; done <<< "$mismatches"
+            exit 1
+          fi
+          echo "Every Playwright pin is $root."
+        env:
+          PIN_QUERY: >-
+            [(.dependencies // {}), (.devDependencies // {})] | add | to_entries[]
+            | select(.key == "playwright" or .key == "@playwright/test" or .key == "playwright-core")
+            | select(.value != $root)
+            | "\(input_filename): \(.key) \(.value), the root pins playwright \($root)"
+
+  # The type check and unit tests of the shared packages and the repository's own tests
+  # (test:plugin), which read files of every modeler, the docs and .github: run on every change, so
+  # no path rule has to know them.
   shared-test:
-    needs: changes
-    if: needs.changes.outputs.repository-tests == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      # modeler-api and modeler-shell, then the repository's own drift tests (test:plugin): the
-      # modeler-kit plugin and the release config.
+      - run: npm run typecheck:shared
       - run: npm run test:shared
       - run: npm run build:shared
       # The published shape: exports map, dual types, files, which is what consumers resolve.
@@ -98,7 +119,6 @@ jobs:
       - run: npm run test:browser:shared
 
   shared-e2e:
-    name: shared-e2e (${{ matrix.shard }}/4)
     needs: changes
     if: needs.changes.outputs.shared == 'true'
     runs-on: ubuntu-latest
@@ -139,8 +159,7 @@ jobs:
   # The per-modeler jobs run once for each modeler the change reaches. Every one builds the shared
   # packages first: the modelers resolve @miragon/modeler-api and @miragon/modeler-shell from their
   # dist, as their published consumers do.
-  modeler-lint:
-    name: ${{ matrix.modeler }} / lint
+  modeler-check:
     needs: changes
     if: needs.changes.outputs.modelers != '[]'
     runs-on: ubuntu-latest
@@ -149,6 +168,8 @@ jobs:
       fail-fast: false
       matrix:
         modeler: ${{ fromJSON(needs.changes.outputs.modelers) }}
+    env:
+      MODELER: ${{ matrix.modeler }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
@@ -156,37 +177,16 @@ jobs:
           modeler: ${{ matrix.modeler }}
       - run: npm run build:shared
       - run: npm run "$MODELER" lint
-        env:
-          MODELER: ${{ matrix.modeler }}
       - run: npm run "$MODELER" depcruise
-        env:
-          MODELER: ${{ matrix.modeler }}
-
-  modeler-test:
-    name: ${{ matrix.modeler }} / test
-    needs: changes
-    if: needs.changes.outputs.modelers != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        modeler: ${{ fromJSON(needs.changes.outputs.modelers) }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-        with:
-          modeler: ${{ matrix.modeler }}
-      - run: npm run build:shared
       - run: npm run "$MODELER" build
-        env:
-          MODELER: ${{ matrix.modeler }}
       - run: npm run "$MODELER" test
-        env:
-          MODELER: ${{ matrix.modeler }}
+      # The production web app: e2e runs the dev server, so only this build shows what Netlify ships.
+      - run: npm run "$MODELER" build:webapp
+      - run: npm run check:build -w "modelers/$MODELER/apps/webapp"
+      # The VSIX as the release packs it (vscode:prepublish, .vscodeignore).
+      - run: npm run "$MODELER" package:vscode
 
   modeler-test-browser:
-    name: ${{ matrix.modeler }} / test:browser
     needs: changes
     if: needs.changes.outputs.modelers != '[]'
     runs-on: ubuntu-latest
@@ -197,6 +197,8 @@ jobs:
         modeler: ${{ fromJSON(needs.changes.outputs.modelers) }}
     container:
       image: mcr.microsoft.com/playwright:v${{ needs.changes.outputs.playwright }}-noble
+    env:
+      MODELER: ${{ matrix.modeler }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
@@ -204,14 +206,9 @@ jobs:
           modeler: ${{ matrix.modeler }}
       - run: npm run build:shared
       - run: npm run "$MODELER" build
-        env:
-          MODELER: ${{ matrix.modeler }}
       - run: npm run "$MODELER" test:browser
-        env:
-          MODELER: ${{ matrix.modeler }}
 
   modeler-e2e:
-    name: ${{ matrix.modeler }} / e2e
     needs: changes
     if: needs.changes.outputs.modelers != '[]'
     runs-on: ubuntu-latest
@@ -222,6 +219,8 @@ jobs:
         modeler: ${{ fromJSON(needs.changes.outputs.modelers) }}
     container:
       image: mcr.microsoft.com/playwright:v${{ needs.changes.outputs.playwright }}-noble
+    env:
+      MODELER: ${{ matrix.modeler }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
@@ -231,48 +230,13 @@ jobs:
       # Some specs import web-app and extension sources in Node, which resolve the modeler's
       # packages through their built dist.
       - run: npm run "$MODELER" build
-        env:
-          MODELER: ${{ matrix.modeler }}
       - run: npm run "$MODELER" test:e2e
-        env:
-          MODELER: ${{ matrix.modeler }}
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: playwright-report-${{ matrix.modeler }}
           path: modelers/${{ matrix.modeler }}/e2e/playwright-report/
           retention-days: 7
-
-  modeler-build:
-    name: ${{ matrix.modeler }} / build
-    needs: changes
-    if: needs.changes.outputs.modelers != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        modeler: ${{ fromJSON(needs.changes.outputs.modelers) }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-        with:
-          modeler: ${{ matrix.modeler }}
-      - run: npm run build:shared
-      - run: npm run "$MODELER" build
-        env:
-          MODELER: ${{ matrix.modeler }}
-      # The production web app: e2e runs the dev server, so only this build shows what Netlify ships.
-      - run: npm run "$MODELER" build:webapp
-        env:
-          MODELER: ${{ matrix.modeler }}
-      - run: npm run check:build -w "modelers/$MODELER/apps/webapp"
-        env:
-          MODELER: ${{ matrix.modeler }}
-      # The VSIX as the release packs it (vscode:prepublish, .vscodeignore).
-      - run: npm run "$MODELER" package:vscode
-        env:
-          MODELER: ${{ matrix.modeler }}
 
   # A modeler created from the new-modeler template (plugins/modeler-kit), on the shared packages of
   # this checkout packed as they are published, with that modeler's own checks. The drift test only
@@ -281,7 +245,6 @@ jobs:
   # starts (.github/scripts/template-instance.mjs). The opt-in VS Code smoke of the instance is
   # template-vscode-smoke.yml.
   template:
-    name: template / checks
     needs: changes
     if: needs.changes.outputs.template == 'true'
     runs-on: ubuntu-latest
@@ -327,40 +290,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  format-check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-      - run: npm run format:check
-
-  pin-check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Scans every package.json below the root: the shared packages, all workspaces of every
-      # modeler and the modeler-kit template.
-      - uses: miragon/pin-npm-dependencies@3f7f02fa2454cdd2cdb65df19b081c0d77d301a5 # v1.2.2
-      # The browser jobs run in the image of the root's playwright pin, which carries the browsers
-      # of that version only.
-      - name: Check that every Playwright pin agrees with the root's
-        run: |
-          root=$(jq -r '.devDependencies.playwright' package.json)
-          mismatches=$(git ls-files -z -- 'package.json' '*/package.json' | xargs -0 jq -r --arg root "$root" "$PIN_QUERY")
-          if [[ -n "$mismatches" ]]; then
-            while read -r mismatch; do echo "::error::$mismatch"; done <<< "$mismatches"
-            exit 1
-          fi
-          echo "Every Playwright pin is $root."
-        env:
-          PIN_QUERY: >-
-            [(.dependencies // {}), (.devDependencies // {})] | add | to_entries[]
-            | select(.key == "playwright" or .key == "@playwright/test" or .key == "playwright-core")
-            | select(.value != $root)
-            | "\(input_filename): \(.key) \(.value), the root pins playwright \($root)"
-
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -369,51 +298,37 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
 
-  # Every modeler's packaged extension in a real VS Code; the reusable workflow decides on its own
-  # whether the change can reach the extension and succeeds without a run when it cannot.
+  # Every reached modeler's packaged extension in a real VS Code.
   vscode-smoke:
-    name: vscode-smoke (${{ matrix.modeler }})
     needs: changes
-    strategy:
-      fail-fast: false
-      matrix:
-        modeler: ${{ fromJSON(needs.changes.outputs.all-modelers) }}
+    if: needs.changes.outputs.modelers != '[]'
     uses: ./.github/workflows/vscode-smoke.yml
     with:
-      modeler: ${{ matrix.modeler }}
+      modelers: ${{ needs.changes.outputs.modelers }}
 
-  # Every modeler's Orca plugin in a real Orca; the reusable workflow succeeds without a run for a
-  # modeler without a plugin or a change that cannot reach it.
+  # Every reached modeler's Orca plugin in a real Orca.
   orca-smoke:
-    name: orca-smoke (${{ matrix.modeler }})
     needs: changes
-    strategy:
-      fail-fast: false
-      matrix:
-        modeler: ${{ fromJSON(needs.changes.outputs.all-modelers) }}
+    if: needs.changes.outputs.orca-modelers != '[]'
     uses: ./.github/workflows/orca-smoke.yml
     with:
-      modeler: ${{ matrix.modeler }}
+      modelers: ${{ needs.changes.outputs.orca-modelers }}
 
-  # The merge gate, and the one check the ruleset requires (.github/scripts/ci-gate.sh): it needs
-  # every other job of this workflow and fails on any failed, cancelled or unexpectedly skipped one.
+  # The merge gate, required by the ruleset next to validate-pr-title (.github/scripts/ci-gate.sh):
+  # it needs every other job of this workflow and fails on any failed or cancelled one.
   ci-ok:
-    name: ci-ok
     if: always()
     needs:
       - changes
-      - shared-lint
+      - format-check
+      - pin-check
       - shared-test
       - shared-test-browser
       - shared-e2e
-      - modeler-lint
-      - modeler-test
+      - modeler-check
       - modeler-test-browser
       - modeler-e2e
-      - modeler-build
       - template
-      - format-check
-      - pin-check
       - dependency-review
       - vscode-smoke
       - orca-smoke
@@ -421,9 +336,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Require every job to succeed or to be skipped by design
+      - name: Require every job to succeed or to be skipped
         run: .github/scripts/ci-gate.sh
         env:
           NEEDS: ${{ toJSON(needs) }}
-          EVENT_NAME: ${{ github.event_name }}
           WORKFLOW_FILE: .github/workflows/ci.yml

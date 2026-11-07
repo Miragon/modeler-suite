@@ -12,75 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  # The smoke costs a VS Code download (about 350 MB per version) and two runs, wasted on a change
-  # that cannot reach the extension. A path filter on the trigger is no way out: CI has to report
-  # this job on every run.
-  changes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      run: ${{ steps.decide.outputs.run }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # The extension bundles every package from source and the test imports the DSL from its dist
-      # (esbuild and tsup, both with the compiler options of tsconfig.base.json), the lockfile's
-      # resolved versions are inlined, and the setup action installs them.
-      - id: decide
-        name: Decide whether a path the extension depends on changed
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PUSH_BEFORE_SHA: ${{ github.event.before }}
-        run: |
-          set -euo pipefail
-          decide() {
-            echo "run=$1" >> "$GITHUB_OUTPUT"
-            echo "$2"
-          }
-          is_relevant() {
-            case "$1" in
-              package-lock.json | package.json | */package.json) ;;
-              apps/vscode/* | packages/*) ;;
-              tsconfig.base.json | .github/actions/setup/*) ;;
-              .github/workflows/ci.yml | .github/workflows/vscode-smoke.yml | .github/workflows/vscode-smoke-weekly.yml) ;;
-              *) return 1 ;;
-            esac
-          }
-          case "$EVENT_NAME" in
-            pull_request) base="$PULL_REQUEST_BASE_SHA" ;;
-            push) base="$PUSH_BEFORE_SHA" ;;
-            *)
-              decide true "A $EVENT_NAME run always runs the smoke."
-              exit 0
-              ;;
-          esac
-          if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
-            decide true "No base commit to compare with: the smoke runs."
-            exit 0
-          fi
-          # Comparing two trees needs the base commit only, not the history in between. --no-renames
-          # lists a moved file under its old path too, and -z prints every path as it is, never
-          # quoted (a non-ASCII name, a quote), so both still match a pattern above.
-          changed=$(mktemp)
-          if ! git fetch --no-tags --depth=1 origin "$base" ||
-            ! git diff --no-renames --name-only -z "$base" HEAD > "$changed"; then
-            decide true "Cannot compare with the base $base: the smoke runs."
-            exit 0
-          fi
-          relevant=()
-          while IFS= read -r -d '' path; do
-            if is_relevant "$path"; then relevant+=("$path"); fi
-          done < "$changed"
-          if [[ ${#relevant[@]} -gt 0 ]]; then
-            decide true "${#relevant[@]} relevant path(s) changed since $base, the smoke runs: ${relevant[*]}"
-          else
-            decide false "No relevant path changed since $base: the smoke is skipped."
-          fi
-
   vscode-smoke:
-    needs: changes
-    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -144,13 +76,3 @@ jobs:
           path: ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
           if-no-files-found: ignore
           retention-days: 7
-
-  # A skipped smoke ends in a job that succeeds, so the caller sees success, never a skip that
-  # ci-ok would have to tell apart from a skip after a failure.
-  skipped:
-    needs: changes
-    if: needs.changes.outputs.run != 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - run: echo "::notice title=VS Code smoke skipped::No path the extension depends on changed."

@@ -1,20 +1,20 @@
 name: VS Code smoke
 
-# One modeler's packaged extension in a real VS Code (its test:vscode), on the newest stable VS Code
-# and on the oldest that its engines.vscode accepts. CI calls it once per modeler, so a red smoke
-# fails ci-ok, the merge gate; vscode-smoke-weekly.yml calls it to catch a new VS Code release, and
-# alerts when that run fails.
+# The packaged extension of each given modeler in a real VS Code (its test:vscode), on the newest
+# stable VS Code and on the oldest that its engines.vscode accepts. CI calls it with the modelers a
+# change reaches, so a red smoke fails ci-ok, the merge gate; vscode-smoke-weekly.yml calls it with
+# every modeler to catch a new VS Code release, and alerts when that run fails.
 on:
   workflow_call:
     inputs:
-      modeler:
-        description: The modeler, a folder under modelers/
+      modelers:
+        description: The modelers, a JSON array of folders under modelers/
         required: true
         type: string
   workflow_dispatch:
     inputs:
-      modeler:
-        description: The modeler, a folder under modelers/
+      modelers:
+        description: The modelers, a JSON array of folders under modelers/, e.g. ["c4"]
         required: true
         type: string
 
@@ -26,28 +26,8 @@ defaults:
     shell: bash
 
 jobs:
-  # The smoke costs a VS Code download and two runs, wasted on a change that cannot reach the VSIX.
-  # A path filter on the trigger is no way out: CI has to report this workflow on every run.
-  changes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      run: ${{ steps.decide.outputs.run }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - id: decide
-        name: Decide whether a path the packaged extension depends on changed
-        run: .github/scripts/ci-paths.sh vscode-smoke "$MODELER"
-        env:
-          MODELER: ${{ inputs.modeler }}
-          EVENT_NAME: ${{ github.event_name }}
-          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PUSH_BEFORE_SHA: ${{ github.event.before }}
-
   vscode-smoke:
-    name: ${{ inputs.modeler }} / ${{ matrix.vscode }}
-    needs: changes
-    if: needs.changes.outputs.run == 'true'
+    name: ${{ matrix.modeler }} / ${{ matrix.vscode }}
     # Pinned rather than ubuntu-latest: VS Code needs the image's X server and GTK libraries, and a
     # label migration should not break this job unnoticed.
     runs-on: ubuntu-24.04
@@ -55,14 +35,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        modeler: ${{ fromJSON(inputs.modelers) }}
         vscode: [stable, minimum]
     env:
-      MODELER: ${{ inputs.modeler }}
+      MODELER: ${{ matrix.modeler }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
         with:
-          modeler: ${{ inputs.modeler }}
+          modeler: ${{ matrix.modeler }}
       # The VSIX bundles the shared packages from their build, and the smoke's driver comes from
       # @miragon/modeler-shell/testing.
       - run: npm run build:shared
@@ -107,27 +88,14 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: vscode-smoke-${{ inputs.modeler }}-${{ matrix.vscode }}
-          path: modelers/${{ inputs.modeler }}/test-results/vscode-smoke/
+          name: vscode-smoke-${{ matrix.modeler }}-${{ matrix.vscode }}
+          path: modelers/${{ matrix.modeler }}/test-results/vscode-smoke/
           retention-days: 7
 
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: vscode-smoke-logs-${{ inputs.modeler }}-${{ matrix.vscode }}
+          name: vscode-smoke-logs-${{ matrix.modeler }}-${{ matrix.vscode }}
           path: ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
           if-no-files-found: ignore
           retention-days: 7
-
-  # A skipped smoke ends in a job that succeeds, so the caller sees success, never a skip that
-  # ci-ok would have to tell apart from a skip after a failure.
-  skipped:
-    name: ${{ inputs.modeler }} / skipped
-    needs: changes
-    if: needs.changes.outputs.run != 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - run: echo "::notice title=VS Code smoke skipped::No path the $MODELER extension depends on changed."
-        env:
-          MODELER: ${{ inputs.modeler }}

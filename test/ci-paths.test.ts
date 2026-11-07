@@ -1,8 +1,8 @@
 /**
- * The path decisions of CI (`.github/scripts/ci-paths.sh affected`), run on a throwaway repository,
- * and the skips `ci-ok` accepts on their word (`.github/scripts/ci-gate.sh`). A path that reaches a
- * check must start the job that runs it: a job the script leaves out is skipped, and `ci-ok`
- * accepts that skip, so a change that breaks the check merges on green CI.
+ * The path decisions of CI (`.github/scripts/ci-paths.sh`), run on a throwaway repository, and the
+ * verdict of `ci-ok` (`.github/scripts/ci-gate.sh`). A path that reaches a check must start the job
+ * that runs it: a job the script leaves out is skipped, and `ci-ok` passes a skip, so a change that
+ * breaks the check merges on green CI.
  */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -17,87 +17,71 @@ const CI_PATHS = join(ROOT, ".github/scripts/ci-paths.sh");
 const CI_GATE = join(ROOT, ".github/scripts/ci-gate.sh");
 const CI_WORKFLOW = ".github/workflows/ci.yml";
 const MODELERS = ["event-storming", "wardley-maps"];
+const MODELERS_WITH_ORCA_PLUGIN = ["event-storming"];
 
-/** `repositoryTests` starts shared-test, the job of `npm run test:plugin`, which `shared` implies. */
 interface Reach {
   shared: boolean;
-  repositoryTests: boolean;
   template: boolean;
   modelers: string[];
+  orcaModelers: string[];
 }
 
-const NOTHING: Reach = { shared: false, repositoryTests: false, template: false, modelers: [] };
-const SHARED: Reach = { ...NOTHING, shared: true, repositoryTests: true };
-const REPOSITORY_TESTS: Reach = { ...NOTHING, repositoryTests: true };
+const NOTHING: Reach = { shared: false, template: false, modelers: [], orcaModelers: [] };
+const TEMPLATE_ONLY: Reach = { ...NOTHING, template: true };
 const EVERYTHING: Reach = {
   shared: true,
-  repositoryTests: true,
   template: true,
   modelers: MODELERS,
+  orcaModelers: MODELERS_WITH_ORCA_PLUGIN,
 };
-const modelerOnly = (modeler: string): Reach => ({ ...NOTHING, modelers: [modeler] });
-const modelerAndRepositoryTests = (modeler: string): Reach => ({
-  ...modelerOnly(modeler),
-  repositoryTests: true,
+const modeler = (name: string): Reach => ({
+  ...NOTHING,
+  modelers: [name],
+  orcaModelers: MODELERS_WITH_ORCA_PLUGIN.filter((withPlugin) => withPlugin === name),
 });
 
-/** Edits only: the base commit holds each of these files, as adding one to a modeler reaches more. */
+/** Edits only: the base commit holds each of these files. */
 const REACH_OF_AN_EDIT: [string, Reach][] = [
   ["docs/guide.md", NOTHING],
+  ["docs/.miragon/brand.json", NOTHING],
   ["README.md", NOTHING],
   ["LICENSE", NOTHING],
-  [".husky/pre-commit", SHARED],
+  [".husky/pre-commit", NOTHING],
+  ["test/release-config.test.ts", NOTHING],
+  [".claude-plugin/marketplace.json", NOTHING],
+  ["extensions/modeler-collection/package.json", NOTHING],
+  [".github/CODEOWNERS", NOTHING],
+  [".github/dependabot.yml", NOTHING],
+  [".github/ISSUE_TEMPLATE/bug.yml", NOTHING],
+  [".github/workflows/release-please.yml", NOTHING],
+  [".github/workflows/pr-title.yml", NOTHING],
+  ["plugins/modeler-kit/README.md", TEMPLATE_ONLY],
   ["modelers/wardley-maps/docs/guide.md", NOTHING],
   ["modelers/wardley-maps/README.md", NOTHING],
-  ["modelers/wardley-maps/packages/dsl/src/index.ts", modelerOnly("wardley-maps")],
-  ["modelers/wardley-maps/packages/dsl/README.md", modelerOnly("wardley-maps")],
-  ["modelers/wardley-maps/vitest.config.ts", modelerOnly("wardley-maps")],
-  ["modelers/wardley-maps/packages/renderer/src/plugins/index.ts", modelerOnly("wardley-maps")],
-  ["modelers/wardley-maps/packages/schema-model/src/index.ts", modelerOnly("wardley-maps")],
-  ["modelers/event-storming/.claude/rules/rule.md", modelerOnly("event-storming")],
+  ["modelers/wardley-maps/packages/dsl/src/index.ts", modeler("wardley-maps")],
+  ["modelers/wardley-maps/packages/dsl/README.md", modeler("wardley-maps")],
+  ["modelers/wardley-maps/vitest.config.ts", modeler("wardley-maps")],
+  ["modelers/wardley-maps/package.json", modeler("wardley-maps")],
+  ["modelers/wardley-maps/eslint.config.js", modeler("wardley-maps")],
   [
     "modelers/wardley-maps/plugins/wardley-maps-modeler/.claude-plugin/plugin.json",
-    modelerAndRepositoryTests("wardley-maps"),
+    modeler("wardley-maps"),
   ],
-  [
-    "modelers/event-storming/plugins/event-storming-modeler/skills/storm-dsl/SKILL.md",
-    modelerAndRepositoryTests("event-storming"),
-  ],
-  ["modelers/wardley-maps/package.json", modelerAndRepositoryTests("wardley-maps")],
-  ["modelers/wardley-maps/packages/dsl/package.json", modelerAndRepositoryTests("wardley-maps")],
-  ["modelers/event-storming/apps/vscode/package.json", modelerAndRepositoryTests("event-storming")],
-  ["modelers/event-storming/apps/webapp/package.json", modelerAndRepositoryTests("event-storming")],
-  ["modelers/wardley-maps/e2e/package.json", modelerAndRepositoryTests("wardley-maps")],
-  [
-    "modelers/wardley-maps/packages/renderer/test/fixtures/package.json",
-    modelerOnly("wardley-maps"),
-  ],
-  ["modelers/wardley-maps/eslint.config.js", modelerAndRepositoryTests("wardley-maps")],
-  ["modelers/event-storming/eslint.config.mjs", modelerAndRepositoryTests("event-storming")],
-  [
-    "modelers/wardley-maps/packages/dsl/eslint.config.js",
-    modelerAndRepositoryTests("wardley-maps"),
-  ],
-  ["modelers/wardley-maps/.dependency-cruiser.cjs", modelerAndRepositoryTests("wardley-maps")],
-  ["modelers/wardley-maps/packages/dsl/.dependency-cruiser.cjs", modelerOnly("wardley-maps")],
-  ["modelers/event-storming/.miragon/brand.json", modelerAndRepositoryTests("event-storming")],
-  [
-    "modelers/wardley-maps/packages/renderer/.miragon/brand.json",
-    modelerAndRepositoryTests("wardley-maps"),
-  ],
-  ["modelers/wardley-maps/docs/.miragon/brand.json", REPOSITORY_TESTS],
-  ["docs/.miragon/brand.json", REPOSITORY_TESTS],
+  ["modelers/event-storming/apps/ide-editor/src/editor.ts", modeler("event-storming")],
+  ["modelers/event-storming/apps/orca/src/main.ts", modeler("event-storming")],
+  ["modelers/event-storming/.claude/rules/rule.md", modeler("event-storming")],
   [
     "modelers/event-storming/packages/renderer/src/theme/cd-canvas.css",
-    { ...modelerOnly("event-storming"), template: true },
+    { ...modeler("event-storming"), template: true },
   ],
-  ["modelers/wardley-maps/packages/renderer/src/theme/cd-canvas.css", modelerOnly("wardley-maps")],
-  ["plugins/modeler-kit/README.md", { ...SHARED, template: true }],
-  ["test/release-config.test.ts", SHARED],
-  [".claude-plugin/marketplace.json", SHARED],
-  ["extensions/modeler-collection/package.json", SHARED],
+  ["modelers/wardley-maps/packages/renderer/src/theme/cd-canvas.css", modeler("wardley-maps")],
   ["packages/api/src/index.ts", EVERYTHING],
+  ["packages/shell/README.md", EVERYTHING],
   [".github/workflows/ci.yml", EVERYTHING],
+  [".github/workflows/vscode-smoke.yml", EVERYTHING],
+  [".github/workflows/orca-smoke.yml", EVERYTHING],
+  [".github/scripts/ci-gate.sh", EVERYTHING],
+  [".github/actions/setup/action.yml", EVERYTHING],
   ["package-lock.json", EVERYTHING],
   ["modelers/capability-map/src/index.ts", EVERYTHING],
 ];
@@ -146,14 +130,19 @@ describe("the paths a change reaches in CI", () => {
   };
   const base = commit({
     ...Object.fromEntries(REACH_OF_AN_EDIT.map(([path]) => [path, "a"])),
-    ...Object.fromEntries(MODELERS.map((modeler) => [`modelers/${modeler}/package.json`, "{}"])),
-    "modelers/event-storming/packages/dsl/src/index.ts": "a",
+    ...Object.fromEntries(MODELERS.map((name) => [`modelers/${name}/package.json`, "{}"])),
+    ...Object.fromEntries(
+      MODELERS_WITH_ORCA_PLUGIN.map((name) => [
+        `modelers/${name}/apps/orca/orca-plugin.json`,
+        "{}",
+      ]),
+    ),
   });
   afterAll(() => rmSync(sandbox, { recursive: true, force: true }));
 
-  const affected = (event: string, baseVariable: string, baseSha: string) => {
+  const run = (command: string, event: string, baseVariable: string, baseSha: string) => {
     writeFileSync(outputFile, "");
-    execFileSync("bash", [CI_PATHS, "affected"], {
+    execFileSync("bash", [CI_PATHS, command], {
       cwd: work,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -166,24 +155,27 @@ describe("the paths a change reaches in CI", () => {
         GITHUB_OUTPUT: outputFile,
       },
     });
-    const outputs = new Map(
+    return new Map(
       readFileSync(outputFile, "utf8")
         .split("\n")
         .filter((line) => line.length > 0)
         .map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)]),
     );
-    expect(JSON.parse(outputs.get("all-modelers") ?? "null")).toEqual(MODELERS);
-    // A job whose condition reads a missing output is skipped, and ci-ok rejects that skip.
+  };
+  const affected = (event: string, baseVariable: string, baseSha: string): Reach => {
+    const outputs = run("affected", event, baseVariable, baseSha);
+    // A job whose condition reads a missing output is skipped, and ci-ok passes that skip.
     const flag = (name: string) => {
       expect(outputs.get(name), name).toMatch(/^(true|false)$/);
       return outputs.get(name) === "true";
     };
+    const list = (name: string) => JSON.parse(outputs.get(name) ?? "null") as string[];
     return {
       shared: flag("shared"),
-      repositoryTests: flag("repository-tests"),
       template: flag("template"),
-      modelers: JSON.parse(outputs.get("modelers") ?? "null") as string[],
-    } satisfies Reach;
+      modelers: list("modelers"),
+      orcaModelers: list("orca-modelers"),
+    };
   };
   const afterCommitting = (files: Record<string, string | null>) => {
     git("reset", "-q", "--hard", base);
@@ -197,103 +189,32 @@ describe("the paths a change reaches in CI", () => {
     expect(afterChanging(path)).toEqual(reach);
   });
 
-  it.each<[string, Reach]>([
-    [
-      "modelers/wardley-maps/packages/renderer/src/Legend.spec.tsx",
-      modelerAndRepositoryTests("wardley-maps"),
-    ],
-    [
-      "modelers/event-storming/apps/vscode/scripts/licence.txt",
-      modelerAndRepositoryTests("event-storming"),
-    ],
-    ["modelers/wardley-maps/docs/added.md", NOTHING],
-    ["modelers/wardley-maps/ADDED.md", NOTHING],
-    ["docs/added.md", REPOSITORY_TESTS],
-    ["docs/.vitepress/theme/Badge.spec.tsx", REPOSITORY_TESTS],
-  ])("adding %s", (path, reach) => {
-    expect(afterChanging(path)).toEqual(reach);
-  });
-
-  it.each<[string, Reach]>([
-    [
-      "modelers/wardley-maps/packages/schema-model/src/index.ts",
-      modelerAndRepositoryTests("wardley-maps"),
-    ],
-    ["modelers/wardley-maps/docs/guide.md", NOTHING],
-    ["docs/guide.md", REPOSITORY_TESTS],
-  ])("deleting %s", (path, reach) => {
-    expect(afterCommitting({ [path]: null })).toEqual(reach);
-  });
-
-  const orcaSmoke = (files: Record<string, string>, withPlugin = true) => {
-    git("reset", "-q", "--hard", base);
-    const before = withPlugin
-      ? commit({ "modelers/event-storming/apps/orca/orca-plugin.json": "{}" })
-      : base;
-    commit(files);
-    writeFileSync(outputFile, "");
-    execFileSync("bash", [CI_PATHS, "orca-smoke", "event-storming"], {
-      cwd: work,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...environment,
-        EVENT_NAME: "pull_request",
-        PULL_REQUEST_BASE_SHA: before,
-        PUSH_BEFORE_SHA: "",
-        GITHUB_OUTPUT: outputFile,
-      },
-    });
-    return readFileSync(outputFile, "utf8").trim();
-  };
-
-  it.each([
-    ["modelers/event-storming/apps/orca/src/main.ts", "run=true"],
-    ["modelers/event-storming/apps/vscode/src/webview/editor.ts", "run=true"],
-    ["modelers/event-storming/apps/ide-editor/src/editor.ts", "run=true"],
-    ["modelers/event-storming/packages/dsl/src/index.ts", "run=true"],
-    ["packages/shell/src/index.ts", "run=true"],
-    [".github/workflows/orca-smoke.yml", "run=true"],
-    ["modelers/wardley-maps/packages/dsl/src/index.ts", "run=false"],
-    ["modelers/event-storming/docs/guide.md", "run=false"],
-  ])("the Orca smoke after a change to %s: %s", (path, output) => {
-    expect(orcaSmoke({ [path]: "b" })).toBe(output);
-  });
-
-  it("skips the Orca smoke of a modeler without an Orca plugin", () => {
-    expect(orcaSmoke({ "packages/shell/src/index.ts": "b" }, false)).toBe("run=false");
-  });
-
-  it("moving a page of the root docs", () => {
-    expect(afterCommitting({ "docs/guide.md": null, "docs/guide/index.md": "a" })).toEqual(
-      REPOSITORY_TESTS,
-    );
-  });
-
   it("moving a file of a modeler", () => {
     expect(
       afterCommitting({
         "modelers/wardley-maps/packages/dsl/src/index.ts": null,
         "modelers/wardley-maps/packages/dsl/src/main.ts": "a",
       }),
-    ).toEqual(modelerAndRepositoryTests("wardley-maps"));
+    ).toEqual(modeler("wardley-maps"));
   });
 
   it("joins what every changed path reaches", () => {
     expect(
       afterChanging(
-        "modelers/wardley-maps/plugins/wardley-maps-modeler/skills/wardley-maps/SKILL.md",
-        "modelers/event-storming/packages/dsl/src/index.ts",
+        "modelers/wardley-maps/packages/dsl/src/index.ts",
+        "modelers/event-storming/apps/orca/src/main.ts",
         "docs/guide.md",
       ),
-    ).toEqual({ shared: false, repositoryTests: true, template: false, modelers: MODELERS });
+    ).toEqual({
+      ...NOTHING,
+      modelers: MODELERS,
+      orcaModelers: MODELERS_WITH_ORCA_PLUGIN,
+    });
   });
 
   it("compares a push with its base too", () => {
-    afterChanging("modelers/wardley-maps/plugins/wardley-maps-modeler/.claude-plugin/plugin.json");
-    expect(affected("push", "PUSH_BEFORE_SHA", base)).toEqual(
-      modelerAndRepositoryTests("wardley-maps"),
-    );
+    afterChanging("modelers/wardley-maps/packages/dsl/src/index.ts");
+    expect(affected("push", "PUSH_BEFORE_SHA", base)).toEqual(modeler("wardley-maps"));
   });
 
   it.each([
@@ -306,71 +227,54 @@ describe("the paths a change reaches in CI", () => {
     const baseVariable = event === "push" ? "PUSH_BEFORE_SHA" : "PULL_REQUEST_BASE_SHA";
     expect(affected(event, baseVariable, baseSha)).toEqual(EVERYTHING);
   });
+
+  it("lists every modeler, and those with an Orca plugin, for the weekly smokes", () => {
+    const outputs = run("modelers", "schedule", "PUSH_BEFORE_SHA", "");
+    expect(JSON.parse(outputs.get("all-modelers") ?? "null")).toEqual(MODELERS);
+    expect(JSON.parse(outputs.get("orca-modelers") ?? "null")).toEqual(MODELERS_WITH_ORCA_PLUGIN);
+  });
 });
 
-describe("the skips ci-ok accepts on the word of the path decisions", () => {
+describe("the verdict of ci-ok", () => {
   const workflow = parseYaml(readFileSync(join(ROOT, CI_WORKFLOW), "utf8")) as {
-    jobs: Record<string, { if?: string; outputs?: Record<string, string> }>;
+    jobs: Record<string, { if?: string; needs?: string | string[] }>;
   };
-  const SHARED_JOBS_BESIDE_THE_TESTS = ["shared-lint", "shared-test-browser", "shared-e2e"];
-  const gatedBy = (output: string) => `needs.changes.outputs.${output} == 'true'`;
+  const otherJobs = Object.keys(workflow.jobs).filter((job) => job !== "ci-ok");
 
-  it("starts shared-test on the repository-level tests and the other shared jobs on shared", () => {
-    expect(workflow.jobs.changes?.outputs?.["repository-tests"]).toBe(
-      "${{ steps.paths.outputs.repository-tests }}",
-    );
-    expect(workflow.jobs["shared-test"]?.if).toBe(gatedBy("repository-tests"));
-    for (const job of SHARED_JOBS_BESIDE_THE_TESTS) {
-      expect(workflow.jobs[job]?.if, job).toBe(gatedBy("shared"));
+  it("lets a job need changes alone, so a skip after a failure comes with that failure", () => {
+    for (const job of otherJobs.filter((name) => workflow.jobs[name]?.needs !== undefined)) {
+      expect(workflow.jobs[job]?.needs, job).toBe("changes");
     }
   });
 
-  /** ci-ok on a pull request whose jobs of ci.yml all succeeded, except the skipped ones. */
-  const verdictOnSkipping = (skipped: string[], outputs: Record<string, string>) => {
+  const verdict = (results: Record<string, string>, leftOut: string[] = []) => {
     const needs = Object.fromEntries(
-      Object.keys(workflow.jobs)
-        .filter((job) => job !== "ci-ok")
-        .map((job) => [
-          job,
-          {
-            result: skipped.includes(job) ? "skipped" : "success",
-            outputs: job === "changes" ? outputs : {},
-          },
-        ]),
+      otherJobs
+        .filter((job) => !leftOut.includes(job))
+        .map((job) => [job, { result: results[job] ?? "success", outputs: {} }]),
     );
     try {
       execFileSync("bash", [CI_GATE], {
         cwd: ROOT,
         stdio: ["ignore", "pipe", "pipe"],
-        env: {
-          ...process.env,
-          NEEDS: JSON.stringify(needs),
-          EVENT_NAME: "pull_request",
-          WORKFLOW_FILE: CI_WORKFLOW,
-        },
+        env: { ...process.env, NEEDS: JSON.stringify(needs), WORKFLOW_FILE: CI_WORKFLOW },
       });
       return "accepts";
     } catch {
       return "rejects";
     }
   };
-  const aModelerChange = { shared: "false", template: "false", modelers: '["wardley-maps"]' };
-  const theOtherSharedJobs = [...SHARED_JOBS_BESIDE_THE_TESTS, "template"];
-  const sharedTestToo = [...theOtherSharedJobs, "shared-test"];
 
-  it.each<["accepts" | "rejects", string, "true" | "false" | "missing", string[]]>([
-    ["accepts", "the other shared jobs and the template", "true", theOtherSharedJobs],
-    ["rejects", "shared-test", "true", sharedTestToo],
-    ["accepts", "shared-test", "false", sharedTestToo],
-    ["rejects", "shared-test", "missing", sharedTestToo],
-  ])(
-    "ci-ok %s a skip of %s for a modeler change, repository-tests %s",
-    (verdict, _, repositoryTests, skipped) => {
-      const outputs =
-        repositoryTests === "missing"
-          ? aModelerChange
-          : { ...aModelerChange, "repository-tests": repositoryTests };
-      expect(verdictOnSkipping(skipped, outputs)).toBe(verdict);
-    },
-  );
+  it("accepts every job succeeding", () => {
+    expect(verdict({})).toBe("accepts");
+  });
+  it("accepts a skip", () => {
+    expect(verdict({ "shared-e2e": "skipped", "orca-smoke": "skipped" })).toBe("accepts");
+  });
+  it.each(["failure", "cancelled"])("rejects a job that ended in %s", (result) => {
+    expect(verdict({ "modeler-e2e": result })).toBe("rejects");
+  });
+  it("rejects a job of the workflow that ci-ok does not need", () => {
+    expect(verdict({}, ["template"])).toBe("rejects");
+  });
 });

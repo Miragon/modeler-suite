@@ -7,7 +7,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   existsSync,
-  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -15,13 +14,13 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { devNull, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { basename, dirname, join, posix, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import { getFileInfo as getPrettierFileInfo } from "prettier";
 import ts from "typescript";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import {
   ENGLISH_MODELER_RULES_OFF,
@@ -1284,40 +1283,26 @@ describe("the template's CI gate", () => {
     expect(gateStep).toMatchObject({ shell: "bash", env: { NEEDS: "${{ toJSON(needs) }}" } });
   });
 
-  it("accepts a skip only from the jobs whose own `if:` skips them on the event", () => {
-    const conditional = others.filter((id) => ci.jobs[id]!.if !== undefined);
-    expect(conditional).toEqual(["dependency-review"]);
-    expect(ci.jobs["dependency-review"]!.if).toBe("github.event_name == 'pull_request'");
-    expect(gateStep.env?.SKIPPED_BY_DESIGN).toBe(
-      "${{ github.event_name != 'pull_request' && 'dependency-review' || '' }}",
-    );
+  it("lets a job need only jobs of ci.yml, so a skip after a failure comes with that failure", () => {
+    for (const id of others) {
+      for (const needed of needsOf(ci.jobs[id]!))
+        expect(others, `${id} needs ${needed}`).toContain(needed);
+    }
   });
 
-  describe("fails on any job that did not succeed", () => {
-    const verdict = (results: Record<string, string>, skippedByDesign = "", jobs = others) => {
+  describe("fails on any job that failed or was cancelled", () => {
+    const verdict = (results: Record<string, string>, jobs = others) => {
       const needs = Object.fromEntries(
         jobs.map((id) => [id, { result: results[id] ?? "success", outputs: {} }]),
       );
-      return runScript(gateStep.run ?? MISSING_STEP, {
-        NEEDS: JSON.stringify(needs),
-        SKIPPED_BY_DESIGN: skippedByDesign,
-      });
+      return runScript(gateStep.run ?? MISSING_STEP, { NEEDS: JSON.stringify(needs) });
     };
 
     it("passes when every job succeeded", () => {
       expect(verdict({})).toMatchObject({ code: 0, errors: [] });
     });
     it("passes when dependency-review is skipped outside a pull request", () => {
-      expect(verdict({ "dependency-review": "skipped" }, "dependency-review")).toMatchObject({
-        code: 0,
-        errors: [],
-      });
-    });
-    it("fails when dependency-review is skipped on a pull request", () => {
-      expect(verdict({ "dependency-review": "skipped" })).toMatchObject({
-        code: 1,
-        errors: ["::error::dependency-review: skipped"],
-      });
+      expect(verdict({ "dependency-review": "skipped" })).toMatchObject({ code: 0, errors: [] });
     });
     it("fails on a failed job", () => {
       expect(verdict({ test: "failure" })).toMatchObject({
@@ -1331,20 +1316,13 @@ describe("the template's CI gate", () => {
         errors: ["::error::vscode-smoke: cancelled"],
       });
     });
-    it("fails on a failed lint and the jobs it skipped", () => {
+    it("fails on a failed lint, which the jobs it skipped come with", () => {
       expect(verdict({ lint: "failure", "test-browser": "skipped", e2e: "skipped" })).toMatchObject(
-        {
-          code: 1,
-          errors: [
-            "::error::lint: failure",
-            "::error::test-browser: skipped",
-            "::error::e2e: skipped",
-          ],
-        },
+        { code: 1, errors: ["::error::lint: failure"] },
       );
     });
     it("fails when it needs no job at all", () => {
-      expect(verdict({}, "", [])).toMatchObject({
+      expect(verdict({}, [])).toMatchObject({
         code: 1,
         errors: ["::error::ci-ok needs no job"],
       });
@@ -1369,16 +1347,10 @@ describe("the template's VS Code smoke workflows", () => {
     expect(weekly.jobs["vscode-smoke"]).toEqual({ uses: SMOKE_WORKFLOW });
   });
 
-  it("end in a job that succeeds when the smoke test is skipped, so CI never sees the skip", () => {
-    expect(Object.keys(smoke.jobs)).toEqual(["changes", "vscode-smoke", "skipped"]);
-    expect(smokeJob).toMatchObject({ needs: "changes", if: "needs.changes.outputs.run == 'true'" });
-    expect(smoke.jobs.skipped).toMatchObject({
-      needs: "changes",
-      if: "needs.changes.outputs.run != 'true'",
-    });
-    expect(smoke.jobs.skipped!.steps?.map((candidate) => candidate.run)).toEqual([
-      expect.stringMatching(/^echo "::notice title=VS Code smoke skipped::/),
-    ]);
+  it("smoke on every call, with one job and no condition", () => {
+    expect(Object.keys(smoke.jobs)).toEqual(["vscode-smoke"]);
+    expect(smokeJob.needs).toBeUndefined();
+    expect(smokeJob.if).toBeUndefined();
   });
 
   it("open or update the tracking issue from the weekly run only, the one job that writes issues", () => {
@@ -1474,129 +1446,6 @@ describe("the template's VS Code smoke workflows", () => {
     expect(readText(join(TEMPLATE, `${SMOKE_STEP}vscode-smoke.test.ts`))).toContain(
       "process.env.VSCODE_SMOKE_EXTENSION ||",
     );
-  });
-
-  describe("decide from the changed paths whether VS Code runs", () => {
-    // A hook or `git rebase --exec` exports GIT_DIR and GIT_INDEX_FILE of the repository it runs in;
-    // inherited, they would point the sandbox's commits, resets and pushes at that repository.
-    const environment = () => ({
-      ...Object.fromEntries(
-        Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
-      ),
-      GIT_CONFIG_GLOBAL: devNull,
-      GIT_CONFIG_NOSYSTEM: "1",
-    });
-    const git = (cwd: string, ...args: string[]) =>
-      execFileSync("git", args, { cwd, encoding: "utf8", env: environment() }).trim();
-    const sandbox = mkdtempSync(join(tmpdir(), "modeler-kit-paths-"));
-    const work = join(sandbox, "work");
-    git(sandbox, "init", "-q", "--bare", "origin.git");
-    git(sandbox, "init", "-q", "-b", "main", "work");
-    git(work, "remote", "add", "origin", join(sandbox, "origin.git"));
-    const commit = (files: Record<string, string>, remove: string[] = []) => {
-      for (const [path, text] of Object.entries(files)) {
-        mkdirSync(dirname(join(work, path)), { recursive: true });
-        writeFileSync(join(work, path), text);
-      }
-      for (const path of remove) git(work, "rm", "-q", path);
-      git(work, "add", "-A");
-      git(
-        work,
-        "-c",
-        "user.name=kit",
-        "-c",
-        "user.email=kit@example.invalid",
-        "commit",
-        "-q",
-        "-m",
-        "change",
-      );
-      git(work, "push", "-q", "origin", "main");
-      return git(work, "rev-parse", "HEAD");
-    };
-    const base = commit({
-      "README.md": "a",
-      "docs/guide.md": "a",
-      "apps/vscode/src/extension.ts": "a",
-    });
-    afterAll(() => rmSync(sandbox, { recursive: true, force: true }));
-
-    const baseOf: Record<string, string> = {
-      pull_request: "PULL_REQUEST_BASE_SHA",
-      push: "PUSH_BEFORE_SHA",
-    };
-    const decision = (event: string, baseSha: string) =>
-      stepOutputs(
-        step(smoke.jobs.changes, "decide").run ?? MISSING_STEP,
-        {
-          EVENT_NAME: event,
-          PULL_REQUEST_BASE_SHA: "",
-          PUSH_BEFORE_SHA: "",
-          ...(baseOf[event] ? { [baseOf[event]]: baseSha } : {}),
-        },
-        work,
-      ).run;
-    const afterChanging = (files: Record<string, string>, remove: string[] = []) => {
-      git(work, "reset", "-q", "--hard", base);
-      git(work, "push", "-q", "--force", "origin", "main");
-      commit(files, remove);
-      return decision("pull_request", base);
-    };
-
-    it("skips when only paths outside the extension's inputs changed", () => {
-      expect(afterChanging({ "README.md": "b", "docs/guide.md": "b" })).toBe("false");
-    });
-    it.each([
-      "apps/vscode/src/extension.ts",
-      "packages/dsl/src/index.ts",
-      "package.json",
-      "package-lock.json",
-      "e2e/package.json",
-      "tsconfig.base.json",
-      ".github/workflows/ci.yml",
-      ".github/workflows/vscode-smoke.yml",
-      ".github/workflows/vscode-smoke-weekly.yml",
-      ".github/actions/setup/action.yml",
-    ])("runs when %s changed", (path) => {
-      expect(afterChanging({ [path]: "b" })).toBe("true");
-    });
-    it("runs when a file moved out of apps/vscode", () => {
-      expect(afterChanging({ "docs/extension.ts": "a" }, ["apps/vscode/src/extension.ts"])).toBe(
-        "true",
-      );
-    });
-    it("runs when only a file with a non-ASCII name changed in apps/vscode", () => {
-      expect(afterChanging({ "apps/vscode/test/Übersicht.example": "b" })).toBe("true");
-    });
-    it("runs when only a file with a quote in its name changed in apps/vscode", () => {
-      expect(afterChanging({ 'apps/vscode/test/a "quoted" name.example': "b" })).toBe("true");
-    });
-    it("compares a push with its base too", () => {
-      afterChanging({ "README.md": "b" });
-      expect(decision("push", base)).toBe("false");
-    });
-    it.each([
-      ["a zero base (a new branch)", "0".repeat(40)],
-      ["no base", ""],
-      ["a base the remote does not have", "1".repeat(40)],
-    ])("runs with %s", (_, baseSha) => {
-      afterChanging({ "README.md": "b" });
-      expect(decision("push", baseSha)).toBe("true");
-    });
-    it.each(["schedule", "workflow_dispatch"])("always runs on %s", (event) => {
-      expect(decision(event, "")).toBe("true");
-    });
-    it("keeps the sandbox's commits out of the repository an inherited GIT_DIR names", () => {
-      const elsewhere = join(sandbox, "elsewhere");
-      git(sandbox, "init", "-q", "-b", "main", "elsewhere");
-      vi.stubEnv("GIT_DIR", join(elsewhere, ".git"));
-      try {
-        expect(afterChanging({ "README.md": "c" })).toBe("false");
-      } finally {
-        vi.unstubAllEnvs();
-      }
-      expect(git(elsewhere, "rev-list", "--all")).toBe("");
-    });
   });
 });
 
