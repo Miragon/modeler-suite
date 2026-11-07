@@ -20,6 +20,8 @@ get a one-page overview of a process landscape before you model single processes
 
 - **In VS Code**: install the [Value Chain Modeler extension](apps/vscode/README.md) and open or
   create a `.vc` / `.vc.json` file.
+- **In Orca**: install the [Orca plugin](apps/orca/README.md), and each change your coding agent
+  writes to a `.vc` file shows up on the canvas as it happens.
 - **In the browser**: the web app opens with an example or a new diagram, saves your last diagram
   in the browser and exports PNG, SVG and JSON. **Share** copies a link that contains the whole
   diagram.
@@ -29,6 +31,7 @@ Diagrams are plain JSON files, so they fit into Git, reviews and diffs like any 
 ## Learn more
 
 - [VS Code extension](apps/vscode/README.md): features, commands and shortcuts.
+- [Orca plugin](apps/orca/README.md): what it does in Orca.
 - [`@miragon/value-chain-renderer`](packages/renderer/README.md): embed the editor or viewer in
   your own app.
 - [`@miragon/value-chain-schema-model`](packages/schema-model/README.md): the file format and its

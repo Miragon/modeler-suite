@@ -1,52 +1,90 @@
-# Team Topologies Modeler for Orca
+# Team Topologies for Orca
 
-The Team Topologies Modeler as an [Orca](https://www.onorca.dev) custom editor: `.tt` and `.ttm.json`
-files open as a Team Topologies diagram, with the same chrome as the VS Code extension. Orca keeps the file, its dirty state,
-saving and read-only tabs; the editor owns undo.
+[![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/modelers/team-topologies/LICENSE)
 
-When a coding agent writes the file, the editor shows the change right away. When it has
-unsaved edits, Orca shows its Reload/Overwrite banner and you decide.
+![Miragon Modeler for Team Topologies: Team Topologies diagrams from plain .tt files, edited by you and your agents](images/cover.webp)
 
-## Build and try it
+See the team topologies your agent writes, and edit them right next to it. In
+[Orca](https://www.onorca.dev), a `.tt` or `.ttm.json` file opens as a
+[Team Topologies](https://teamtopologies.com/) diagram instead of text: the teams, how they
+interact, and the flow of change. The file stays plain JSON, so your agent reads and writes it
+like code.
 
-```sh
-npm ci && npm run build:shared
-npm run team-topologies build:orca          # writes apps/orca/plugin/
-cd modelers/team-topologies/apps/orca/plugin
-orca plugin validate . && orca plugin check .
-orca plugin dev load . --json              # prints the --approve fingerprint
-orca plugin dev load . --json --approve <fingerprint>
+Free and open source (MIT). No account, no network access, and it sees only the file you open.
+
+**[Open in Orca](https://www.onorca.dev/plugins/miragon/orca-modelers/team-topologies-modeler)**
+
+## Get started
+
+1. Turn on plugins in Orca once: Settings → Plugins → **Turn on plugins**.
+2. Open the plugin's page with the link above, or search for **Miragon** in Settings → Plugins,
+   and install it. New releases reach you through Orca.
+3. Open any `.tt` or `.ttm.json` file.
+4. New to Team Topologies? It organises software teams for a fast flow of change, with four team
+   types and three interaction modes.
+
+## Live while your agent writes
+
+![Orca with the strategy-workshop folder open and ride-hailing.tt in the Team Topologies editor, next to the project sidebar and the file tree](images/screenshot-orca.webp)
+
+Each change your agent makes to the file shows up on the canvas right away. If it writes while you
+have unsaved edits, Orca asks whether to reload the file or keep yours.
+
+## Draw on the canvas
+
+![The Team Topologies editor with the Booking & Dispatch team selected and its properties open: type, name, description and colours](images/feature-inspector.webp)
+
+Place teams, interactions, the flow of change and annotations from the palette. Drop an
+interaction where two teams meet. Select an element to rename, annotate or delete it, and edit its
+type, name, description and colours in the inspector on the right. Undo and save work as you
+expect.
+
+## Read the shapes
+
+![The Team Topologies editor with its legend open, explaining the team types, interaction modes and other elements](images/feature-legend.webp)
+
+- **Team types:** stream-aligned (horizontal rounded rectangle) owns a slice of the product end to
+  end; enabling (vertical rounded rectangle) helps other teams grow a capability;
+  complicated-subsystem (octagon) owns a part that needs deep specialist knowledge; platform
+  (square-cornered rectangle) provides internal services.
+- **Interaction modes**, where two teams meet: collaboration (parallelogram), X-as-a-Service
+  (triangle, pointing from provider to consumer) and facilitating (circle).
+- **Legend** in the menu explains every shape on the diagram.
+
+## Export for slides
+
+Export a diagram as PNG or SVG from the menu. Orca's save dialog asks where to put the file. The
+`.tt` file stays the source you edit.
+
+## Let your agent write the diagrams
+
+For Claude Code, the `team-topologies-modeler` plugin teaches your agent the method and the file
+format, with a checker for the files it writes, so you can ask it to design a topology from your
+organisation or to review one:
+
+```text
+/plugin marketplace add Miragon/modeler-suite
+/plugin install team-topologies-modeler@modeler-suite
 ```
 
-`plugin/` is the folder Orca loads and the release publishes. The bundle is not minified and ships
-no sourcemap, as with it the plugin stays in the size review of Orca's community directory
-([#563](https://github.com/Miragon/modeler-suite/issues/563));
-[#564](https://github.com/Miragon/modeler-suite/issues/564) brings it back. Of zod's error messages
-it keeps only the English ones ([#568](https://github.com/Miragon/modeler-suite/issues/568)). The
-editor needs Orca 1.4.248 or later (`"frame": "isolated"`, the desktop app).
+## Good to know
 
-`images/` holds the cover and the screenshots that Orca's plugin directory shows
-([#572](https://github.com/Miragon/modeler-suite/issues/572)). They come from
-`scripts/listing-images.mjs` of [Miragon/orca-modelers](https://github.com/Miragon/orca-modelers)
-(see its CONTRIBUTING.md), run with `--listing tooling/orca-listing.json` after building the
-plugins.
+- Needs the Orca desktop app, version 1.4.248 or later.
+- Orca shows no problems list for the editor. While the JSON can't be read, the diagram shows the
+  last valid version.
+- Editable pictures (`*.tt.png`) open in [VS Code](../vscode/README.md) and the web app, not yet
+  in Orca.
+- The diagram stays light in Orca's dark theme. The team colours follow the official Team
+  Topologies templates.
+- **Keyboard shortcuts…** in the diagram's menu lists every key and gesture.
+- Also available for [VS Code](../vscode/README.md) and as a
+  [web app](https://team-topologies.modeler.miragon.io) that makes share links.
 
-## Tests
+## Links
 
-The `orca-editor` project of `modelers/team-topologies/e2e` runs the editor inside the shell's Orca
-stub: the shell's conformance kit on the `ide` host (`ideHost: "orca"`, the `csp` case on the built
-plugin under Orca's frame policy) and the document sync with an agent's writes.
+[Changelog](../../CHANGELOG.md) · [Report an issue](https://github.com/Miragon/modeler-suite/issues) ·
+[Source and contributing](../../../../CONTRIBUTING.md#orca-plugins) ·
+[All Miragon modelers for Orca](https://github.com/Miragon/orca-modelers)
 
-```sh
-npm run test:e2e -w modelers/team-topologies/e2e -- --project=orca-editor
-```
-
-The plugin in a real Orca, in a Linux container (never on the Mac itself, where Orca's window would
-take the focus): load, render, both themes, undo, a saved edit, an agent's write and Orca's logs.
-
-```sh
-npm run team-topologies test:orca:docker
-```
-
-The plugin is released with the modeler, in lockstep with its other packages. The `.tt.png` editor
-of the VS Code extension has no Orca counterpart yet.
+Made by [Miragon](https://www.miragon.io). MIT licence. "Team Topologies" is a trademark of Team
+Topologies Ltd; this is an independent tool that implements their openly published notation.

@@ -1,34 +1,65 @@
 # Miragon Modeler Collection
 
-[![VS Code Marketplace](https://badgen.net/vs-marketplace/v/miragon-gmbh.miragon-modeler-collection?label=VS%20Code%20Marketplace&icon=visualstudio)](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.miragon-modeler-collection)
-[![Open VSX](https://img.shields.io/open-vsx/v/miragon-gmbh/miragon-modeler-collection?label=Open%20VSX&logo=eclipseide)](https://open-vsx.org/extension/miragon-gmbh/miragon-modeler-collection)
+[![VS Marketplace](https://vsmarketplacebadges.dev/version-short/miragon-gmbh.miragon-modeler-collection.svg?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.miragon-modeler-collection)
+[![Open VSX](https://img.shields.io/open-vsx/v/miragon-gmbh/miragon-modeler-collection?label=Open%20VSX)](https://open-vsx.org/extension/miragon-gmbh/miragon-modeler-collection)
+[![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/LICENSE)
 
-**Model-based design in VS Code. BPMN, Team Topologies, Wardley Maps, Context Maps, C4 models, Value Chains, Event Storming and Domain Storytelling in a single install.**
+Eight modelers for the diagrams teams use to think about their business and their software, in one
+install: from strategy and organisation down to processes and the domain. Each diagram is a plain
+file in your repository, so it shows up as a readable diff and evolves with the code it describes.
 
-An [Extension Pack](https://code.visualstudio.com/api/references/extension-manifest#extension-packs) that installs the whole Miragon modeler family in one click.
+Free and open source, and no account needed.
+
+![The web apps of Wardley Maps, Event Storming, Team Topologies, Context Maps and Value Chain open their built-in examples one after another](/docs/assets/demo.gif)
+
+## Get started
+
+1. Install the pack. VS Code installs the eight modelers with it.
+2. Open the walkthrough **Get Started with the Miragon Modeler Collection**. It shows each modeler
+   and opens its own tutorial.
+3. Or open any of the files below: each one opens on a canvas.
 
 ## What's inside
 
-Ordered from the strategic lens down to the concrete domain.
+Ordered from the strategic lens down to the concrete domain:
 
-| Modeler                            | What it's for                                                                                             | Marketplace                                                                                         | Open VSX                                                                       | Source                                                                              |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| **Wardley Mapping Modeler**        | Reason about strategy along the value chain and evolution axis.                                           | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.wardley-mapping-modeler) | [Install](https://open-vsx.org/extension/miragon-gmbh/wardley-mapping-modeler) | [Repo](https://github.com/Miragon/modeler-suite/tree/main/modelers/wardley-maps)    |
-| **Team Topologies Modeler**        | Map team types and interaction modes to evolve your organization.                                         | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.team-topologies-modeler) | [Install](https://open-vsx.org/extension/miragon-gmbh/team-topologies-modeler) | [Repo](https://github.com/Miragon/modeler-suite/tree/main/modelers/team-topologies) |
-| **Context Maps Modeler**           | Cut the domain into bounded contexts and map their relationships (strategic DDD).                         | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.context-maps-modeler)    | [Install](https://open-vsx.org/extension/miragon-gmbh/context-maps-modeler)    | [Repo](https://github.com/Miragon/modeler-suite/tree/main/modelers/context-maps)    |
-| **C4 Modeler**                     | Draw the systems, containers and components of your software as one Structurizr DSL workspace (C4 model). | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.c4-modeler)              | [Install](https://open-vsx.org/extension/miragon-gmbh/c4-modeler)              | [Repo](https://github.com/Miragon/modeler-suite/tree/main/modelers/c4)              |
-| **Value Chain Modeler**            | Lay out the value-adding steps of a business and who is responsible for them (ARIS-style value chains).   | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.value-chain-modeler)     | [Install](https://open-vsx.org/extension/miragon-gmbh/value-chain-modeler)     | [Repo](https://github.com/Miragon/modeler-suite/tree/main/modelers/value-chain)     |
-| **BPMN Modeler**                   | Design and edit BPMN 2.0 process diagrams as a native custom editor.                                      | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.vs-code-bpmn-modeler)    | [Install](https://open-vsx.org/extension/miragon-gmbh/vs-code-bpmn-modeler)    | [Repo](https://github.com/Miragon/bpmn-modeler)                                     |
-| **Event Storming Modeler**         | Explore a domain as a timeline of domain events, commands and aggregates.                                 | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.event-storming-modeler)  | [Install](https://open-vsx.org/extension/miragon-gmbh/event-storming-modeler)  | [Repo](https://github.com/Miragon/modeler-suite/tree/main/modelers/event-storming)  |
-| **Egon.io (Domain Story Modeler)** | Capture domain stories in the language of the people who live the domain.                                 | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.egon-vscode-extension)   | [Install](https://open-vsx.org/extension/miragon-gmbh/egon-vscode-extension)   | [Repo](https://github.com/Miragon/egon.io)                                          |
+| Modeler                                                                                                     | For                                                                         | Files              |
+| ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------ |
+| [Wardley Maps](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.wardley-mapping-modeler)    | strategy: what users need and how mature each part is                       | `.wmap`, `.owm`    |
+| [Team Topologies](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.team-topologies-modeler) | organisation: team types and how teams interact                             | `.tt`, `.ttm.json` |
+| [Context Maps](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.context-maps-modeler)       | strategic DDD: bounded contexts and their relationships                     | `.cm`, `.cm.json`  |
+| [C4 model](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.c4-modeler)                     | software architecture: systems, containers and components (Structurizr DSL) | `.c4`, `.dsl`      |
+| [Value Chain](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.value-chain-modeler)         | process landscape: the value-adding steps and who owns them                 | `.vc`, `.vc.json`  |
+| [BPMN](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.vs-code-bpmn-modeler)               | processes: BPMN 2.0 diagrams and DMN decisions                              | `.bpmn`, `.dmn`    |
+| [Event Storming](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.event-storming-modeler)   | discovery: domain events on a timeline                                      | `.storm`           |
+| [Egon.io](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.egon-vscode-extension)           | domain: domain stories in the words of the people who live them             | `.egn`             |
 
-Each modeler is a different lens on the same system. Every one is also installable on its own and
-ships on its own release cycle; the pack bundles the current family for convenience.
+Every modeler is also an extension of its own, with its own releases. The pack installs the
+current family in one go.
 
-## Feedback
+## Diagrams written by an AI agent
 
-The pack is part of the [Miragon modeler suite](https://github.com/Miragon/modeler-suite/tree/main/extensions/modeler-collection). Report issues and ideas in its [issue tracker](https://github.com/Miragon/modeler-suite/issues).
+Every diagram is a text file, so a coding agent can write it, and the canvas redraws when the file
+changes. For Claude Code, plugins teach the methods and the formats of Wardley Maps, Event Storming
+and Team Topologies:
 
----
+```text
+/plugin marketplace add Miragon/modeler-suite
+/plugin install wardley-maps-modeler@modeler-suite
+```
 
-Made by [Miragon](https://www.miragon.io).
+## Good to know
+
+- Needs VS Code 1.96 or later on the desktop.
+- Most modelers also run in the browser and in [Orca](https://github.com/Miragon/orca-modelers),
+  next to your coding agent. See the [Miragon modeler suite](https://github.com/Miragon/modeler-suite).
+
+## Links
+
+[Changelog](https://github.com/Miragon/modeler-suite/blob/main/extensions/modeler-collection/CHANGELOG.md)
+·
+[Report an issue](https://github.com/Miragon/modeler-suite/issues)
+·
+[Source](https://github.com/Miragon/modeler-suite/tree/main/extensions/modeler-collection)
+
+Made by [Miragon](https://www.miragon.io). MIT licence.
