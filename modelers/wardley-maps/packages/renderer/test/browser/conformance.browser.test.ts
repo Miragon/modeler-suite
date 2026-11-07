@@ -2,6 +2,7 @@ import { afterAll, afterEach, describe, expect, test } from "vitest";
 import {
   attachedHost,
   registerConformance,
+  registerMergeConformance,
   type ConformanceHarness,
   type GestureKind,
   type HeldGesture,
@@ -18,7 +19,9 @@ import {
   createCollaborativeViewer,
   type CollaborativeWardleyModeler,
   type Modeler,
+  mergeOwmText,
 } from "../../src/index.js";
+import { OWM_MERGE_FIXTURES } from "./merge-fixtures.js";
 import type WardleyElementFactory from "../../src/model/WardleyElementFactory.js";
 import type WardleyLabelEditing from "../../src/label-editing/WardleyLabelEditing.js";
 import type { WardleyShape } from "../../src/model/di-types.js";
@@ -243,4 +246,9 @@ describe("Wardley maps implement the collaborative-modeler contract", () => {
   afterAll(() => {
     expect(advisories).toEqual([]);
   });
+});
+
+// The merge an IDE host (Orca) calls when an agent writes the file under the user's unsaved edits.
+describe("Wardley Maps merges an outside write into a draft", () => {
+  registerMergeConformance(mergeOwmText, OWM_MERGE_FIXTURES, test);
 });
