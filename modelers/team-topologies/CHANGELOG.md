@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.21.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.20.0...team-topologies-v0.21.0) (2026-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **shell:** merge an agent's write into a modeler's unsaved edits in Orca ([#580](https://github.com/Miragon/modeler-suite/issues/580))
+
+### Features
+
+* **shell:** merge an agent's write into a modeler's unsaved edits in Orca ([#580](https://github.com/Miragon/modeler-suite/issues/580)) ([c4bc3be](https://github.com/Miragon/modeler-suite/commit/c4bc3be7b506381b08047fd0460e1336cf1a5fec)), closes [#539](https://github.com/Miragon/modeler-suite/issues/539)
+* **team-topologies:** merge an outside write into a draft ([#576](https://github.com/Miragon/modeler-suite/issues/576)) ([7511829](https://github.com/Miragon/modeler-suite/commit/751182918d7ddd7ec891328816b0bc178187db69)), closes [#539](https://github.com/Miragon/modeler-suite/issues/539)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @miragon/modeler-shell bumped from 0.11.0 to 0.12.0
+
 ## [0.20.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.19.0...team-topologies-v0.20.0) (2026-11-07)
 
 

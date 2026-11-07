@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.11.1](https://github.com/Miragon/modeler-suite/compare/value-chain-vscode-v0.11.0...value-chain-vscode-v0.11.1) (2026-11-07)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.11.0 to 0.12.0
+    * @miragon/value-chain-renderer bumped from 0.10.0 to 0.11.0
+    * value-chain-ide-editor bumped from 0.1.0 to 0.1.1
+
 ## [0.11.0](https://github.com/Miragon/modeler-suite/compare/value-chain-vscode-v0.10.1...value-chain-vscode-v0.11.0) (2026-11-05)
 
 

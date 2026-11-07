@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.0](https://github.com/Miragon/modeler-suite/compare/event-storming-renderer-v0.9.0...event-storming-renderer-v0.10.0) (2026-11-07)
+
+
+### Features
+
+* **event-storming:** merge an outside write into a draft ([#575](https://github.com/Miragon/modeler-suite/issues/575)) ([1bbf331](https://github.com/Miragon/modeler-suite/commit/1bbf33112aecce65d0f9e9a56d6eeab5dd6dadc7)), closes [#539](https://github.com/Miragon/modeler-suite/issues/539)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/event-storming-dsl bumped from 0.3.4 to 0.4.0
+    * @miragon/modeler-api bumped from 1.6.0 to 1.7.0
+
 ## [0.9.0](https://github.com/Miragon/modeler-suite/compare/event-storming-renderer-v0.8.0...event-storming-renderer-v0.9.0) (2026-10-30)
 
 

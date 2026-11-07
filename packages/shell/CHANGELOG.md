@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.12.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.11.0...modeler-shell-v0.12.0) (2026-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **shell:** merge an agent's write into a modeler's unsaved edits in Orca ([#580](https://github.com/Miragon/modeler-suite/issues/580))
+
+### Features
+
+* **shell:** merge an agent's write into a modeler's unsaved edits in Orca ([#580](https://github.com/Miragon/modeler-suite/issues/580)) ([c4bc3be](https://github.com/Miragon/modeler-suite/commit/c4bc3be7b506381b08047fd0460e1336cf1a5fec)), closes [#539](https://github.com/Miragon/modeler-suite/issues/539)
+
 ## [0.11.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.10.0...modeler-shell-v0.11.0) (2026-11-05)
 
 

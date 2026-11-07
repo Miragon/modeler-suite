@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.10.0](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.9.1...context-maps-renderer-v0.10.0) (2026-11-07)
+
+
+### Features
+
+* **context-maps:** merge an outside write into a draft ([#577](https://github.com/Miragon/modeler-suite/issues/577)) ([2ef6ade](https://github.com/Miragon/modeler-suite/commit/2ef6adef362023cc72c5addc17799204b866bbea)), closes [#539](https://github.com/Miragon/modeler-suite/issues/539)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.6.0 to 1.7.0
+
 ## [0.9.1](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.9.0...context-maps-renderer-v0.9.1) (2026-10-31)
 
 

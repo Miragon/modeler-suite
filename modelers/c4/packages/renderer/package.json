@@ -1,6 +1,6 @@
 {
   "name": "@miragon/c4-renderer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "View and edit C4 diagrams of Structurizr DSL workspaces in the browser: a diagram-js viewer and modeler implementing @miragon/modeler-api.",
   "license": "MIT",
   "repository": {
@@ -43,7 +43,7 @@
     "@miragon/c4-dsl": "0.1.0",
     "@miragon/c4-layout": "0.1.0",
     "@miragon/c4-schema-model": "0.1.0",
-    "@miragon/modeler-api": "1.6.0"
+    "@miragon/modeler-api": "1.7.0"
   },
   "peerDependencies": {
     "diagram-js": "^15.28.0",

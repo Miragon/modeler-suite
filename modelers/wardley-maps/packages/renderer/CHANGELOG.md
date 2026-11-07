@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.17.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.16.1...wardley-renderer-v0.17.0) (2026-11-07)
+
+
+### Features
+
+* **wardley-maps:** merge an outside write into a draft ([#574](https://github.com/Miragon/modeler-suite/issues/574)) ([3577bda](https://github.com/Miragon/modeler-suite/commit/3577bda2d29dd337d82cee3a9f01aa86f57028cd)), closes [#539](https://github.com/Miragon/modeler-suite/issues/539)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.6.0 to 1.7.0
+
 ## [0.16.1](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.16.0...wardley-renderer-v0.16.1) (2026-11-05)
 
 
