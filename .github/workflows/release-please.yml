@@ -242,9 +242,9 @@ jobs:
         env:
           OVSX_PAT: ${{ secrets.OVSX_PUBLISH }}
 
-  # Each job that names an environment waits for its own approval when it starts, and the matrix of
-  # publish-orca starts its plugins one after another. This one job waits once, next to the npm and
-  # VS Code jobs, so one "Review deployments" approves all three environments.
+  # Each job that names an environment waits for its own approval when it starts. This one job waits
+  # once, next to the npm and VS Code jobs, so one "Review deployments" approves all three
+  # environments.
   orca-approval:
     name: Orca approval
     needs: release-please
@@ -256,15 +256,13 @@ jobs:
     steps:
       - run: echo "Approved the Orca plugins of this release"
 
-  # An Orca plugin goes into the output repository miragon/orca-modelers, whose catalog Orca reads:
-  # built and smoke-tested here in a real Orca, then published by that repository's action with the
-  # release-please app's token. The matrix publishes one plugin at a time; a concurrency group would
-  # cancel all but one pending plugin. A publish from another source repository
-  # (Miragon/bpmn-modeler) is not serialized here, as concurrency groups are per repository: the
-  # action starts over when miragon/orca-modelers' main moved.
-  publish-orca:
+  # An Orca plugin goes into the output repository miragon/orca-modelers, whose catalog Orca reads.
+  # Each plugin is built and smoke-tested here in a real Orca, in parallel, and uploaded as the
+  # artifact orca-plugin-<id> with its release tag and changelog (release.json). publish-orca then
+  # publishes all of them at once.
+  build-orca:
     name: Orca (${{ matrix.plugin.id }})
-    needs: [release-please, orca-approval]
+    needs: release-please
     if: needs.release-please.outputs.orca != '' && needs.release-please.outputs.orca != '[]'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -272,7 +270,6 @@ jobs:
       contents: read
     strategy:
       fail-fast: false
-      max-parallel: 1
       matrix:
         plugin: ${{ fromJSON(needs.release-please.outputs.orca) }}
     env:
@@ -305,17 +302,43 @@ jobs:
           path: modelers/${{ matrix.plugin.modeler }}/test-results/orca-smoke/
           if-no-files-found: ignore
           retention-days: 7
-      - id: changelog
-        name: Take the release's changelog section
+      - name: Write the release's tag and changelog section
         env:
           CHANGELOG: ${{ matrix.plugin.directory }}/CHANGELOG.md
+          TAG: ${{ matrix.plugin.tag }}
+          RELEASE: ${{ matrix.plugin.directory }}/release.json
         run: |
           section=$(awk '/^## /{n++} n==1' "$CHANGELOG" 2>/dev/null | tail -n +2 | head -c 1900 || true)
-          {
-            echo "text<<CHANGELOG_EOF"
-            echo "$section"
-            echo "CHANGELOG_EOF"
-          } >> "$GITHUB_OUTPUT"
+          jq -n --arg tag "$TAG" --arg changelog "$section" '{tag: $tag, changelog: $changelog}' > "$RELEASE"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: orca-plugin-${{ matrix.plugin.id }}
+          path: |
+            ${{ env.PLUGIN_DIR }}
+            ${{ matrix.plugin.directory }}/release.json
+          if-no-files-found: error
+          include-hidden-files: true
+          overwrite: true
+          retention-days: 7
+
+  # One publish for every plugin of this release, by miragon/orca-modelers' action with the
+  # release-please app's token: it opens a pull request for the plugin folders and then one for the
+  # catalog, and merges each once that repository's checks pass, so the release is one catalog
+  # change and one tag. A failed publish closes its pull request; re-running this job retries and
+  # skips the plugin folders when they are on main already.
+  publish-orca:
+    name: Orca publish
+    needs: [release-please, build-orca, orca-approval]
+    if: needs.release-please.outputs.orca != '' && needs.release-please.outputs.orca != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: orca-plugin-*
+          path: orca-plugins
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         with:
@@ -323,15 +346,12 @@ jobs:
           private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
           owner: miragon
           repositories: orca-modelers
-      - uses: miragon/orca-modelers/.github/actions/publish-plugin@d20ddad5760295548d0a19addc37292eff5e9afc # main
+      - uses: miragon/orca-modelers/.github/actions/publish-plugin@e48874dd694e42a3d6e9960d5754134f001d2587 # main
         with:
           token: ${{ steps.app-token.outputs.token }}
-          plugin-id: ${{ matrix.plugin.id }}
-          plugin-dir: ${{ env.PLUGIN_DIR }}
+          plugins-dir: orca-plugins
           source-repo: ${{ github.repository }}
           source-ref: ${{ github.sha }}
-          source-tag: ${{ matrix.plugin.tag }}
-          changelog: ${{ steps.changelog.outputs.text }}
 
   # Every package and extension the suite releases, packed and smoke-tested as a release would,
   # without releasing or publishing anything.
