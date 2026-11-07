@@ -1,9 +1,9 @@
 # Wardley Maps for VS Code
 
-[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/miragon-gmbh.wardley-mapping-modeler?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.wardley-mapping-modeler)
+[![VS Marketplace](https://vsmarketplacebadges.dev/version-short/miragon-gmbh.wardley-mapping-modeler.svg?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.wardley-mapping-modeler)
 [![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/modelers/wardley-maps/LICENSE)
 
-![Miragon Modeler for Wardley Maps: Wardley maps from plain .wmap files, right in VS Code](https://raw.githubusercontent.com/Miragon/modeler-suite/main/modelers/wardley-maps/docs/screenshots/vscode/cover.png)
+![Miragon Modeler for Wardley Maps: Wardley maps from plain .wmap files, right in VS Code](/modelers/wardley-maps/docs/screenshots/vscode/cover.png)
 
 Draw [Wardley maps](https://learnwardleymapping.com/) on a canvas in VS Code. Each map is a
 plain-text `.wmap` or `.owm` file in the [Online Wardley Maps](https://onlinewardleymaps.com/)
@@ -21,7 +21,7 @@ Free and open source (MIT). No account, no telemetry, and it works offline.
 
 ## Draw on the canvas
 
-![A Wardley map open in VS Code, with the context pad of the selected Meal Planner component](https://raw.githubusercontent.com/Miragon/modeler-suite/main/modelers/wardley-maps/docs/screenshots/vscode/editor.png)
+![A Wardley map open in VS Code, with the context pad of the selected Meal Planner component](/modelers/wardley-maps/docs/screenshots/vscode/editor.png)
 
 Add components, users, notes and pipelines from the palette. Select an element to connect, evolve,
 colour, link or delete it. Drag a component left or right to move it along evolution. Undo and save
@@ -29,24 +29,24 @@ work as for any other file.
 
 ## Export for slides
 
-![The editor's menu with Export as PNG, Export as SVG and Export as PNG (4x, transparent)](https://raw.githubusercontent.com/Miragon/modeler-suite/main/modelers/wardley-maps/docs/screenshots/vscode/export.png)
+![The editor's menu with Export as PNG, Export as SVG and Export as PNG (4x, transparent)](/modelers/wardley-maps/docs/screenshots/vscode/export.png)
 
 Export a map as PNG or SVG from the menu, or as a transparent PNG at four times the size for slides
 and reports. The `.wmap` file stays the source you edit.
 
 ## Text and diagram side by side
 
-![Dragging Product Catalogue to the right on the canvas changes its line in the text beside it](https://raw.githubusercontent.com/Miragon/modeler-suite/main/modelers/wardley-maps/docs/screenshots/vscode/side-by-side.gif)
+![Dragging Product Catalogue to the right on the canvas changes its line in the text beside it](/modelers/wardley-maps/docs/screenshots/vscode/side-by-side.gif)
 
 **Wardley: Open Source to the Side** shows the map's text, with syntax highlighting, next to the
 diagram. Type in the text and the diagram follows. Edit the diagram and the text changes, but only
 the lines you touched: your comments, blank lines and order stay as you wrote them.
 
-![Compared with the saved file, the drag changed one line: Product Catalogue from 0.62 to 0.76](https://raw.githubusercontent.com/Miragon/modeler-suite/main/modelers/wardley-maps/docs/screenshots/vscode/diff.png)
+![Compared with the saved file, the drag changed one line: Product Catalogue from 0.62 to 0.76](/modelers/wardley-maps/docs/screenshots/vscode/diff.png)
 
 ## Mistakes show up as problems
 
-![A misspelled line is underlined in the text and listed in the Problems view, while the diagram still draws the map](https://raw.githubusercontent.com/Miragon/modeler-suite/main/modelers/wardley-maps/docs/screenshots/vscode/problems.png)
+![A misspelled line is underlined in the text and listed in the Problems view, while the diagram still draws the map](/modelers/wardley-maps/docs/screenshots/vscode/problems.png)
 
 Lines the editor can't read are underlined and listed in the **Problems** view, and they stay in
 the file as written. The diagram keeps drawing everything else.
