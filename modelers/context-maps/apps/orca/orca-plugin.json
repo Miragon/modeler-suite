@@ -19,9 +19,14 @@
   },
   "screenshots": [
     {
-      "path": "images/screenshot-conference.webp",
-      "alt": "A context map of a conference program with core, supporting and generic subdomains connected by ACL, OHS, shared kernel and partnership relationships",
-      "caption": "Bounded contexts and their relationships"
+      "path": "images/cover.webp",
+      "alt": "Miragon Modeler for Context Maps: Context maps from plain .cm files, edited by you and your agents.",
+      "caption": "Context Maps from plain .cm files"
+    },
+    {
+      "path": "images/screenshot-orca.webp",
+      "alt": "Orca with the strategy-workshop folder open and conference-program.cm in the Context Maps editor, next to the project sidebar and the file tree",
+      "caption": "Runs right inside Orca, next to your files"
     }
   ],
   "engines": {
