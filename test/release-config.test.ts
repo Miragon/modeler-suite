@@ -40,7 +40,6 @@ interface ComponentConfig {
 }
 
 interface ReleaseConfig {
-  "bootstrap-sha"?: string;
   plugins?: (string | { type: string })[];
   packages: Record<string, ComponentConfig>;
 }
@@ -218,9 +217,5 @@ describe("the suite's release-please config", () => {
     });
     expect(plugins.length).toBeGreaterThan(0);
     expect(unbumped).toEqual([]);
-  });
-
-  it("names the bootstrap commit by its full SHA", () => {
-    expect(config["bootstrap-sha"] ?? "").toMatch(/^([0-9a-f]{40})?$/);
   });
 });

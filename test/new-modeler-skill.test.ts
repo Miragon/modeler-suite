@@ -1524,7 +1524,6 @@ describe("the template's VS Code smoke workflows", () => {
     const baseOf: Record<string, string> = {
       pull_request: "PULL_REQUEST_BASE_SHA",
       push: "PUSH_BEFORE_SHA",
-      merge_group: "MERGE_GROUP_BASE_SHA",
     };
     const decision = (event: string, baseSha: string) =>
       stepOutputs(
@@ -1533,7 +1532,6 @@ describe("the template's VS Code smoke workflows", () => {
           EVENT_NAME: event,
           PULL_REQUEST_BASE_SHA: "",
           PUSH_BEFORE_SHA: "",
-          MERGE_GROUP_BASE_SHA: "",
           ...(baseOf[event] ? { [baseOf[event]]: baseSha } : {}),
         },
         work,
@@ -1573,9 +1571,9 @@ describe("the template's VS Code smoke workflows", () => {
     it("runs when only a file with a quote in its name changed in apps/vscode", () => {
       expect(afterChanging({ 'apps/vscode/test/a "quoted" name.example': "b" })).toBe("true");
     });
-    it.each(["push", "merge_group"])("compares a %s with its base too", (event) => {
+    it("compares a push with its base too", () => {
       afterChanging({ "README.md": "b" });
-      expect(decision(event, base)).toBe("false");
+      expect(decision("push", base)).toBe("false");
     });
     it.each([
       ["a zero base (a new branch)", "0".repeat(40)],

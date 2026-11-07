@@ -4,7 +4,6 @@ on:
   pull_request:
   push:
     branches: [main]
-  merge_group:
   workflow_dispatch:
 
 permissions:
@@ -17,7 +16,7 @@ defaults:
 # A new push to a pull request makes its running checks moot. Pushes to main share one group: a
 # running check of main always finishes, and of the pushes waiting behind it only the newest runs,
 # so a burst of merges does not queue a full run per commit (each was checked in its pull request).
-# Runs in the merge queue or started by hand have a group of their own and are never replaced.
+# A run started by hand has a group of its own and is never replaced.
 concurrency:
   group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'push' && 'main' || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -44,7 +43,6 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PUSH_BEFORE_SHA: ${{ github.event.before }}
-          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
       # The browser jobs run in the Playwright image of the root's exact playwright pin (pin-check
       # holds every other Playwright pin to it), and Dependabot does not bump job containers.
       - id: playwright
@@ -371,17 +369,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
 
-  # release-please's bootstrap-sha keeps the modelers' imported history out of the changelogs
-  # (.github/scripts/release-bootstrap.sh).
-  release-bootstrap:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-      - run: .github/scripts/release-bootstrap.sh
-
   # Every modeler's packaged extension in a real VS Code; the reusable workflow decides on its own
   # whether the change can reach the extension and succeeds without a run when it cannot.
   vscode-smoke:
@@ -428,7 +415,6 @@ jobs:
       - format-check
       - pin-check
       - dependency-review
-      - release-bootstrap
       - vscode-smoke
       - orca-smoke
     runs-on: ubuntu-latest

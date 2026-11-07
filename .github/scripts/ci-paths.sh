@@ -7,7 +7,7 @@
 #   ci-paths.sh orca-smoke <modeler>   whether the change can reach that modeler's Orca plugin
 #   ci-paths.sh modelers               every modeler (for the weekly smoke)
 # Each writes key=value lines to $GITHUB_OUTPUT. The event comes from EVENT_NAME and the base commit
-# from PULL_REQUEST_BASE_SHA, PUSH_BEFORE_SHA or MERGE_GROUP_BASE_SHA. Whenever there is nothing to
+# from PULL_REQUEST_BASE_SHA or PUSH_BEFORE_SHA. Whenever there is nothing to
 # compare with, or a path fits no rule, everything runs: a wrong guess may cost minutes, never a
 # check that should have failed.
 set -euo pipefail
@@ -37,7 +37,6 @@ changed_paths() {
   case "${EVENT_NAME:-}" in
     pull_request) base="${PULL_REQUEST_BASE_SHA:-}" ;;
     push) base="${PUSH_BEFORE_SHA:-}" ;;
-    merge_group) base="${MERGE_GROUP_BASE_SHA:-}" ;;
     *)
       echo "A ${EVENT_NAME:-local} run checks everything."
       return 1
@@ -185,9 +184,10 @@ affected() {
   output all-modelers "$(lines_to_json "$all")"
 }
 
-# The VSIX bundles the extension, its webview and the modeler's packages from source and the shared
-# packages from their build (esbuild, with the compiler options of tsconfig.base.json), the
-# lockfile's resolved versions are inlined, and the test's setup decides what it runs.
+# The VSIX bundles the extension, its webview, the ide-editor and the modeler's packages from
+# source and the shared packages from their build (esbuild, with the compiler options of
+# tsconfig.base.json), the lockfile's resolved versions are inlined, and the test's setup decides
+# what it runs.
 reaches_extension() {
   local path=$1 modeler=$2
   case "$path" in
@@ -196,7 +196,8 @@ reaches_extension() {
     .github/actions/* | .github/scripts/*) ;;
     .github/workflows/ci.yml | .github/workflows/vscode-smoke.yml | .github/workflows/vscode-smoke-weekly.yml) ;;
     "modelers/$modeler/"*package.json) ;;
-    "modelers/$modeler/apps/vscode/"* | "modelers/$modeler/packages/"* | "modelers/$modeler/example/"*) ;;
+    "modelers/$modeler/apps/vscode/"* | "modelers/$modeler/apps/ide-editor/"*) ;;
+    "modelers/$modeler/packages/"* | "modelers/$modeler/example/"*) ;;
     "modelers/$modeler/tsconfig"*.json | "modelers/$modeler/vitest.config.ts") ;;
     *) return 1 ;;
   esac

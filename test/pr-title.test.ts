@@ -1,10 +1,11 @@
 /**
  * The PR title check, in the suite and in the modeler-kit template. Squash merges take the title as
- * the one Conventional Commit on main, so the title is checked, a single commit too, and the single
- * commit of every author but Dependabot must say what the title says. Dependabot's grouped security
- * updates commit a shorter headline than their title, which no Dependabot setting changes: its pull
- * requests are held to Conventional Commits only, or every security update fails the required
- * check.
+ * the one Conventional Commit on main. The suite squashes with the PR title only, so it checks the
+ * title alone. A new repository from the template squashes a single commit with that commit's
+ * message, so the template checks a single commit too, and the single commit of every author but
+ * Dependabot must say what the title says. Dependabot's grouped security updates commit a shorter
+ * headline than their title, which no Dependabot setting changes: its pull requests are held to
+ * Conventional Commits only, or every security update fails the required check.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -61,6 +62,18 @@ describe.each([
       "revert",
     ]);
   });
+});
+
+describe("the PR title check in the suite", () => {
+  it("checks the title alone, which is the only part of a pull request that lands", () => {
+    const inputs = titleCheckInputs(ROOT);
+    expect(inputs.validateSingleCommit).toBeUndefined();
+    expect(inputs.validateSingleCommitMatchesPrTitle).toBeUndefined();
+  });
+});
+
+describe("the PR title check in the modeler-kit template", () => {
+  const inputs = titleCheckInputs(TEMPLATE);
 
   it("checks a single commit as a Conventional Commit, Dependabot's too", () => {
     expect(inputs.validateSingleCommit).toBe(true);

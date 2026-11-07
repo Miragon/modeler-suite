@@ -3,7 +3,6 @@ name: Docs
 # The docs (docs/) as a VitePress site on GitHub Pages: https://miragon.github.io/modeler-suite/.
 # A pull request that touches docs/ checks the vendored Miragon docs kit and builds the site
 # (VitePress fails the build on a dead link). A push to main also deploys it.
-# Template from Miragon/corporate-identity (skill docs-site). Replace modeler-suite with the repo name.
 
 on:
   push:
@@ -24,6 +23,7 @@ jobs:
   build:
     name: Build the docs
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -64,6 +64,7 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pages: write
       id-token: write
