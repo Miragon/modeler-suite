@@ -234,7 +234,7 @@ missing at its other places; the verdict stays the same).
   container. **From an agent, run this one, never `test:vscode` on macOS**: its VS Code window
   takes the user's focus (see [`CONTRIBUTING.md`](CONTRIBUTING.md#vs-code-smoke-test))
 - `npm run value-chain build:orca`: the Orca plugin into `apps/orca/plugin/` (the editor definition
-  the VS Code webview mounts too, `apps/ide-editor/src/editor.ts`, on `orcaEditorHost`, see
+  the VS Code webview mounts too, `apps/ide-editor/src/editor.ts`, on `orcaEditorHost` with `mergeValueChainText`, see
   [`apps/orca/README.md`](apps/orca/README.md)) ·
   `npm run value-chain test:orca:docker`: the plugin in a real Orca in a Linux container
   (`modeler-shell-orca-docker`); the e2e project `orca-editor` runs it in the shell's Orca stub
