@@ -19,7 +19,10 @@ orca plugin dev load . --json --approve <fingerprint>
 ```
 
 `plugin/` is the folder Orca loads and the release publishes. The bundle is not minified and ships
-its sourcemap. The editor needs Orca 1.4.248 or later (`"frame": "isolated"`, the desktop app).
+no sourcemap, as with it the plugin stays in the size review of Orca's community directory
+([#563](https://github.com/Miragon/modeler-suite/issues/563));
+[#564](https://github.com/Miragon/modeler-suite/issues/564) brings it back. The editor needs Orca
+1.4.248 or later (`"frame": "isolated"`, the desktop app).
 
 The plugin ships no web fonts, because Orca's community directory refuses `.woff2` files
 ([stablyai/orca#38607](https://github.com/stablyai/orca/issues/38607)):
