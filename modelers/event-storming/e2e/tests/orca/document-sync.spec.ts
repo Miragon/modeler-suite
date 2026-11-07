@@ -3,8 +3,9 @@ import { openOrcaEditor, orcaTab } from "./support/orca.js";
 
 /**
  * The Orca editor's document sync against the stub's tab, which follows the rules of Orca's own
- * session: an agent's write to a clean tab reaches the canvas, one under unsaved edits leaves the
- * user's draft and Orca's banner, and the canvas owns undo.
+ * session: an agent's write to a clean tab reaches the canvas, one under unsaved edits is merged
+ * with them by `mergeStormText`, a conflicting one leaves the user's draft and Orca's banner, and
+ * the canvas owns undo.
  */
 const BOARD = [
   "title Checkout",
@@ -66,7 +67,7 @@ test.describe("Orca editor: document sync", () => {
       .toContain("command Place Order [240, 300]");
   });
 
-  test("an agent's write under unsaved edits keeps the draft and leaves the choice to Orca's banner", async ({
+  test("an agent's write under unsaved edits is merged with them, without the banner", async ({
     page,
   }) => {
     await openOrcaEditor(page, { text: BOARD });
@@ -76,13 +77,30 @@ test.describe("Orca editor: document sync", () => {
       (text) => window.__modelerShellOrcaStub!.diskWriteWhileDirty(text),
       `${BOARD}policy Ship it [800, 300]\n`,
     );
+    await expect.poll(() => canvasText(page)).toContain("policy Ship it [800, 300]");
+    expect(await canvasText(page)).toContain("command Place Order [280, 300]");
+    const tab = await orcaTab(page);
+    expect(tab.banner).toBe(false);
+    expect(tab.dirty).toBe(true);
+    expect(tab.text).toContain("policy Ship it [800, 300]");
+    expect(tab.text).toContain("command Place Order [280, 300]");
+  });
+
+  test("a write that changes what the user changed keeps the draft and leaves the choice to Orca's banner", async ({
+    page,
+  }) => {
+    await openOrcaEditor(page, { text: BOARD });
+    await moveOnCanvas(page, "cmd_place_order", 40);
+    await orcaTab(page);
+    await page.evaluate(
+      (text) => window.__modelerShellOrcaStub!.diskWriteWhileDirty(text),
+      BOARD.replace("command Place Order [240, 300]", "command Place Order [240, 500]"),
+    );
     await expect.poll(async () => (await orcaTab(page)).banner).toBe(true);
     expect(await canvasText(page)).toContain("command Place Order [280, 300]");
-    expect(await canvasText(page)).not.toContain("policy Ship it");
 
     await page.evaluate(() => window.__modelerShellOrcaStub!.reload());
-    await expect.poll(() => canvasText(page)).toContain("policy Ship it [800, 300]");
-    expect(await canvasText(page)).toContain("command Place Order [240, 300]");
+    await expect.poll(() => canvasText(page)).toContain("command Place Order [240, 500]");
   });
 
   test("a read-only file opens locked", async ({ page }) => {

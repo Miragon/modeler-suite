@@ -4,7 +4,7 @@
   "id": "team-topologies-modeler",
   "name": "Team Topologies Modeler",
   "version": "0.18.2",
-  "description": "Open .tt and .ttm.json files as Team Topologies diagrams: model teams, their interactions and the flow of change, and see an agent's changes to the file as they happen.",
+  "description": "Open .tt and .ttm.json files as Team Topologies diagrams: model teams, their interactions and the flow of change, and keep an agent's changes to the file merged with yours.",
   "author": {
     "name": "Miragon GmbH",
     "url": "https://www.miragon.io"
@@ -14,7 +14,7 @@
   "license": "MIT",
   "icon": "assets/icon.png",
   "engines": {
-    "orca": ">=1.4.248"
+    "orca": ">=1.4.252"
   },
   "execution": "sandboxed-ui",
   "pluginApi": 1,
