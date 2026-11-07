@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 # The path decisions of CI, so a change runs the jobs it can break and no more:
-#   ci-paths.sh affected               which modelers, and whether the shared packages, the
-#                                      repository-level tests and the new-modeler template a change
-#                                      reaches
-#   ci-paths.sh vscode-smoke <modeler> whether the change can reach that modeler's packaged extension
-#   ci-paths.sh orca-smoke <modeler>   whether the change can reach that modeler's Orca plugin
-#   ci-paths.sh modelers               every modeler (for the weekly smoke)
+#   ci-paths.sh affected   which modelers a change reaches (and which of them have an Orca plugin),
+#                          and whether it reaches the shared packages and the new-modeler template
+#   ci-paths.sh modelers   every modeler and every modeler with an Orca plugin (the weekly smokes)
 # Each writes key=value lines to $GITHUB_OUTPUT. The event comes from EVENT_NAME and the base commit
-# from PULL_REQUEST_BASE_SHA or PUSH_BEFORE_SHA. Whenever there is nothing to
-# compare with, or a path fits no rule, everything runs: a wrong guess may cost minutes, never a
-# check that should have failed.
+# from PULL_REQUEST_BASE_SHA or PUSH_BEFORE_SHA. Whenever there is nothing to compare with, or a
+# path fits no rule, everything runs: a wrong guess may cost minutes, never a check that should
+# have failed. The repository-level tests (shared-test) run on every change, so a path that only
+# they read needs no rule here.
 set -euo pipefail
 
 output() {
@@ -29,9 +27,15 @@ all_modelers() {
   done
 }
 
-# Writes the changed paths, NUL-separated, to the file $1 and, when $2 names a file, the ones the
-# change adds or deletes to $2. Fails when there is nothing to compare with: a run without a base
-# commit checks everything.
+with_orca_plugin() {
+  local modeler
+  while IFS= read -r modeler; do
+    if [[ -f "modelers/$modeler/apps/orca/orca-plugin.json" ]]; then echo "$modeler"; fi
+  done <<< "$1"
+}
+
+# Writes the changed paths, NUL-separated, to the file $1. Fails when there is nothing to compare
+# with: a run without a base commit checks everything.
 changed_paths() {
   local base
   case "${EVENT_NAME:-}" in
@@ -57,28 +61,13 @@ changed_paths() {
     echo "Cannot compare with the base $base: everything runs."
     return 1
   fi
-  if [[ -n "${2:-}" ]] && ! git diff --no-renames --name-only --diff-filter=AD -z "$base" HEAD > "$2"; then
-    echo "Cannot compare with the base $base: everything runs."
-    return 1
-  fi
   echo "Compared with $base."
 }
 
-# What a changed path reaches: none (documentation only), shared (the shared jobs), all (the
-# shared jobs and every modeler) or "modeler <name>".
+# What a changed path reaches: none (only the always-on jobs read it), all (the shared jobs and
+# every modeler) or "modeler <name>".
 classify() {
   local path=$1 modeler rest
-  case "$path" in
-    docs/* | LICENSE)
-      echo none
-      return
-      ;;
-    */*) ;;
-    *.md)
-      echo none
-      return
-      ;;
-  esac
   case "$path" in
     modelers/*/*)
       rest=${path#modelers/}
@@ -97,8 +86,12 @@ classify() {
         *) echo "modeler $modeler" ;;
       esac
       ;;
-    # The pre-commit hook runs in no job, but the template drift test (test:plugin) reads it.
-    plugins/* | test/* | extensions/* | .claude-plugin/* | .husky/*) echo shared ;;
+    .github/workflows/ci.yml | .github/workflows/vscode-smoke.yml | .github/workflows/orca-smoke.yml) echo all ;;
+    .github/actions/* | .github/scripts/*) echo all ;;
+    .github/* | docs/* | plugins/* | test/* | extensions/* | .claude-plugin/* | .husky/*) echo none ;;
+    LICENSE) echo none ;;
+    */*) echo all ;;
+    *.md) echo none ;;
     *) echo all ;;
   esac
 }
@@ -114,160 +107,44 @@ reaches_template() {
   esac
 }
 
-# test:plugin (in shared-test) runs the repository-level checks in test/, which hold these files of
-# a modeler against the rest of the suite, as its own jobs never do: its Claude plugin (the
-# manifests and skills of the marketplace), the package.json of the modeler and of each workspace
-# in it (release config, extension pack, boundaries), its ESLint configs (boundaries; the nearest
-# config of a file wins, so at any depth) and its dependency-cruiser config (boundaries). A
-# .miragon folder anywhere, the docs included, is a second brand-lint config, which the brand-lint
-# config check rejects. A `*` of a case pattern also matches `/`, so regexes keep the same names
-# deeper in a modeler out. Which files a modeler and the docs have matters too, see affected. No
-# other shared job reads these files, so these paths start shared-test alone.
-reaches_repository_tests() {
-  local plugin='^modelers/[^/]+/plugins/'
-  local manifest='^modelers/[^/]+/((packages|apps)/[^/]+/|e2e/)?package\.json$'
-  local eslint_config='^modelers/[^/]+/(.+/)?eslint\.config\.[^/]+$'
-  local dependency_cruiser_config='^modelers/[^/]+/\.dependency-cruiser\.cjs$'
-  local brand_lint_config='(^|/)\.miragon/'
-  [[ "$1" =~ $plugin || "$1" =~ $manifest || "$1" =~ $eslint_config ||
-    "$1" =~ $dependency_cruiser_config || "$1" =~ $brand_lint_config ]]
-}
-
 affected() {
-  local changed added_or_deleted reach path all
-  local everything=false shared=false repository_tests=false template=false modelers=""
+  local changed reach path all
+  local everything=false template=false modelers=""
   all=$(all_modelers)
   changed=$(mktemp)
-  added_or_deleted=$(mktemp)
-  if ! changed_paths "$changed" "$added_or_deleted"; then
+  if ! changed_paths "$changed"; then
     everything=true
   else
     while IFS= read -r -d '' path; do
       reach=$(classify "$path")
       echo "$path: $reach"
       if reaches_template "$path"; then template=true; fi
-      if reaches_repository_tests "$path"; then
-        echo "$path: the repository-level tests"
-        repository_tests=true
-      fi
       case "$reach" in
         all) everything=true ;;
-        shared) shared=true ;;
         "modeler "*) modelers+="${reach#modeler }"$'\n' ;;
       esac
     done < "$changed"
-    # The repository-level tests hold the name of every file against the brand-lint config's
-    # ignore list and need some files to exist (a modeler's schema-model entry, a licence text, the
-    # pages of the root docs the modeler kit links to), so a file of a modeler or of the root docs
-    # that a change adds, deletes or moves reaches them as well.
-    while IFS= read -r -d '' path; do
-      if [[ "$(classify "$path")" == "modeler "* || "$path" == docs/* ]]; then
-        echo "$path: the repository-level tests (added or deleted, they read the file names)"
-        repository_tests=true
-      fi
-    done < "$added_or_deleted"
   fi
   if [[ "$everything" == true ]]; then
-    shared=true
     template=true
     modelers=$all
   fi
-  # shared-test runs the repository-level tests on every shared change as well, so
-  # repository-tests says whether that job runs.
-  if [[ "$shared" == true ]]; then repository_tests=true; fi
   modelers=$(printf '%s' "$modelers" | sort -u | sed '/^$/d')
-  echo "Shared jobs: $shared. Repository-level tests: $repository_tests. Template job: $template. Modelers: $(printf '%s' "${modelers:-none}" | tr '\n' ' ')"
-  output shared "$shared"
-  output repository-tests "$repository_tests"
+  echo "Shared jobs: $everything. Template job: $template. Modelers: $(printf '%s' "${modelers:-none}" | tr '\n' ' ')"
+  output shared "$everything"
   output template "$template"
   output modelers "$(lines_to_json "$modelers")"
-  output all-modelers "$(lines_to_json "$all")"
-}
-
-# The VSIX bundles the extension, its webview, the ide-editor and the modeler's packages from
-# source and the shared packages from their build (esbuild, with the compiler options of
-# tsconfig.base.json), the lockfile's resolved versions are inlined, and the test's setup decides
-# what it runs.
-reaches_extension() {
-  local path=$1 modeler=$2
-  case "$path" in
-    package-lock.json | package.json | .npmrc) ;;
-    packages/*) ;;
-    .github/actions/* | .github/scripts/*) ;;
-    .github/workflows/ci.yml | .github/workflows/vscode-smoke.yml | .github/workflows/vscode-smoke-weekly.yml) ;;
-    "modelers/$modeler/"*package.json) ;;
-    "modelers/$modeler/apps/vscode/"* | "modelers/$modeler/apps/ide-editor/"*) ;;
-    "modelers/$modeler/packages/"* | "modelers/$modeler/example/"*) ;;
-    "modelers/$modeler/tsconfig"*.json | "modelers/$modeler/vitest.config.ts") ;;
-    *) return 1 ;;
-  esac
-}
-
-vscode_smoke() {
-  local modeler=$1 changed path relevant=""
-  if [[ ! -f "modelers/$modeler/apps/vscode/package.json" ]]; then
-    echo "::error::modelers/$modeler has no VS Code extension"
-    return 1
-  fi
-  changed=$(mktemp)
-  if ! changed_paths "$changed"; then
-    output run true
-    return
-  fi
-  while IFS= read -r -d '' path; do
-    if reaches_extension "$path" "$modeler"; then relevant+=" $path"; fi
-  done < "$changed"
-  if [[ -n "$relevant" ]]; then
-    echo "Paths the $modeler extension depends on changed, the smoke runs:$relevant"
-    output run true
-  else
-    echo "No path the $modeler extension depends on changed: the smoke is skipped."
-    output run false
-  fi
-}
-
-# The Orca plugin bundles the VS Code webview's editor definition, so it reaches what the VSIX
-# reaches, plus its own app.
-reaches_orca_plugin() {
-  local path=$1 modeler=$2
-  case "$path" in
-    .github/workflows/orca-smoke.yml | .github/workflows/orca-smoke-weekly.yml) ;;
-    "modelers/$modeler/apps/orca/"*) ;;
-    *) reaches_extension "$path" "$modeler" ;;
-  esac
-}
-
-orca_smoke() {
-  local modeler=$1 changed path relevant=""
-  if [[ ! -f "modelers/$modeler/apps/orca/orca-plugin.json" ]]; then
-    echo "modelers/$modeler has no Orca plugin: the smoke is skipped."
-    output run false
-    return
-  fi
-  changed=$(mktemp)
-  if ! changed_paths "$changed"; then
-    output run true
-    return
-  fi
-  while IFS= read -r -d '' path; do
-    if reaches_orca_plugin "$path" "$modeler"; then relevant+=" $path"; fi
-  done < "$changed"
-  if [[ -n "$relevant" ]]; then
-    echo "Paths the $modeler Orca plugin depends on changed, the smoke runs:$relevant"
-    output run true
-  else
-    echo "No path the $modeler Orca plugin depends on changed: the smoke is skipped."
-    output run false
-  fi
+  output orca-modelers "$(lines_to_json "$(with_orca_plugin "$modelers")")"
 }
 
 case "${1:-}" in
   affected) affected ;;
-  orca-smoke) orca_smoke "${2:?usage: ci-paths.sh orca-smoke <modeler>}" ;;
-  vscode-smoke) vscode_smoke "${2:?usage: ci-paths.sh vscode-smoke <modeler>}" ;;
-  modelers) output all-modelers "$(lines_to_json "$(all_modelers)")" ;;
+  modelers)
+    output all-modelers "$(lines_to_json "$(all_modelers)")"
+    output orca-modelers "$(lines_to_json "$(with_orca_plugin "$(all_modelers)")")"
+    ;;
   *)
-    echo "usage: ci-paths.sh affected | vscode-smoke <modeler> | orca-smoke <modeler> | modelers" >&2
+    echo "usage: ci-paths.sh affected | modelers" >&2
     exit 2
     ;;
 esac

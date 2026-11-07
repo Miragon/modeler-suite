@@ -1,21 +1,21 @@
 name: Orca smoke
 
-# One modeler's Orca plugin in a real Orca (its test:orca): load, render, edit, save, undo, both
-# themes, and an agent's writes to a clean and to a dirty tab, on the newest Orca release and on the
-# oldest that its engines.orca accepts. CI calls it once per modeler, so a red smoke fails ci-ok;
-# orca-smoke-weekly.yml calls it to catch a new Orca release. A modeler without an Orca plugin
-# succeeds without a run.
+# The Orca plugin of each given modeler in a real Orca (its test:orca): load, render, edit, save,
+# undo, both themes, and an agent's writes to a clean and to a dirty tab, on the newest Orca release
+# and on the oldest that its engines.orca accepts. CI calls it with the modelers a change reaches
+# that have a plugin, so a red smoke fails ci-ok; orca-smoke-weekly.yml calls it with every such
+# modeler to catch a new Orca release.
 on:
   workflow_call:
     inputs:
-      modeler:
-        description: The modeler, a folder under modelers/
+      modelers:
+        description: The modelers with an Orca plugin, a JSON array of folders under modelers/
         required: true
         type: string
   workflow_dispatch:
     inputs:
-      modeler:
-        description: The modeler, a folder under modelers/
+      modelers:
+        description: The modelers with an Orca plugin, a JSON array of folders under modelers/, e.g. ["wardley-maps"]
         required: true
         type: string
 
@@ -27,39 +27,22 @@ defaults:
     shell: bash
 
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      run: ${{ steps.decide.outputs.run }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - id: decide
-        name: Decide whether a path the Orca plugin depends on changed
-        run: .github/scripts/ci-paths.sh orca-smoke "$MODELER"
-        env:
-          MODELER: ${{ inputs.modeler }}
-          EVENT_NAME: ${{ github.event_name }}
-          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PUSH_BEFORE_SHA: ${{ github.event.before }}
-
   orca-smoke:
-    name: ${{ inputs.modeler }} / ${{ matrix.orca }}
-    needs: changes
-    if: needs.changes.outputs.run == 'true'
+    name: ${{ matrix.modeler }} / ${{ matrix.orca }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
+        modeler: ${{ fromJSON(inputs.modelers) }}
         orca: [latest, minimum]
     env:
-      MODELER: ${{ inputs.modeler }}
+      MODELER: ${{ matrix.modeler }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
         with:
-          modeler: ${{ inputs.modeler }}
+          modeler: ${{ matrix.modeler }}
       - run: npm run build:shared
 
       # The minimum comes from engines.orca at run time, so raising the floor moves the smoke along.
@@ -106,6 +89,6 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: orca-smoke-${{ inputs.modeler }}-${{ matrix.orca }}
-          path: modelers/${{ inputs.modeler }}/test-results/orca-smoke/
+          name: orca-smoke-${{ matrix.modeler }}-${{ matrix.orca }}
+          path: modelers/${{ matrix.modeler }}/test-results/orca-smoke/
           retention-days: 7

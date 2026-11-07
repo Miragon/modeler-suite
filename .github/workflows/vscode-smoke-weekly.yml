@@ -15,22 +15,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      all: ${{ steps.list.outputs.all-modelers }}
+      modelers: ${{ steps.list.outputs.all-modelers }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: list
         run: .github/scripts/ci-paths.sh modelers
 
   vscode-smoke:
-    name: vscode-smoke (${{ matrix.modeler }})
     needs: modelers
-    strategy:
-      fail-fast: false
-      matrix:
-        modeler: ${{ fromJSON(needs.modelers.outputs.all) }}
     uses: ./.github/workflows/vscode-smoke.yml
     with:
-      modeler: ${{ matrix.modeler }}
+      modelers: ${{ needs.modelers.outputs.modelers }}
 
   alert:
     needs: [modelers, vscode-smoke]

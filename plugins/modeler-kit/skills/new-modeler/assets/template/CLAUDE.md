@@ -69,9 +69,8 @@ Build the packages before the tests: workspace dependencies resolve to `dist`.
   the shell in both apps and the theme bridge read it.
 - CI: `ci-ok` is the merge gate, so a new job in `ci.yml` goes into its `needs`. `ci-ok` and the
   PR title check `validate-pr-title` are the checks for the `main` ruleset to require, not the
-  single jobs. The VS Code smoke test runs in CI when a change touches `apps/vscode/`,
-  `packages/`, a `package.json`, the lockfile or `tsconfig.base.json`, every week, and before each
-  publish of the VSIX.
+  single jobs. The VS Code smoke test runs in every CI run, every week, and before each publish of
+  the VSIX.
   See [`CONTRIBUTING.md`](CONTRIBUTING.md#ci-and-the-merge-gate).
 - Comments only where they explain why.
 

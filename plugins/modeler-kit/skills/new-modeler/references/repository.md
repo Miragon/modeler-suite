@@ -98,32 +98,23 @@ tag as a comment.
 ### The merge gate
 
 `ci-ok` runs after every other job of `ci.yml`, also when one failed (`if: always()`), and fails
-when any of them failed, was cancelled or was skipped, with one error line per job. Only
-`dependency-review` may be skipped, outside pull requests, where its own `if:` skips it. Make
-`ci-ok` and the PR title check `validate-pr-title` the only required checks on `main`: a required
-check that is skipped counts as passed, so a list of required jobs lets a lint failure through
-that skips `e2e` and `test-browser`, and Dependabot's auto-merge waits only for the listed checks.
-A new job in `ci.yml` goes into the `needs` of `ci-ok`; one that its own `if:` skips on some
-events also goes into `SKIPPED_BY_DESIGN` for those events. Switch the required checks once
+when any of them failed or was cancelled, with one error line per job; a job skipped because a job
+it needs failed comes with that failure, so a skip passes. Make `ci-ok` and the PR title check
+`validate-pr-title` the only required checks on `main`: a required check that is skipped counts as
+passed, so a list of required jobs lets a lint failure through that skips `e2e` and
+`test-browser`, and Dependabot's auto-merge waits only for the listed checks. A new job in `ci.yml`
+goes into the `needs` of `ci-ok`. Switch the required checks once
 `ci-ok` has run on `main`, since GitHub offers only checks it has seen.
 
 ### The VS Code smoke test in CI
 
 [`vscode-smoke.yml`](../assets/template/.github/workflows/vscode-smoke.yml) is a reusable workflow,
-so it reports to `ci-ok` on every run instead of being a check of its own that a path filter skips.
-Of its three jobs, `changes` decides whether VS Code starts: on a pull request, a push or a merge
-group it compares the change with its base (the pull request's base, the commit before the push, the
-merge group's base) and starts VS Code only when `package-lock.json`, any `package.json`,
-`apps/vscode/`, `packages/`, `tsconfig.base.json` (the bundles and the libraries' `dist` are built
-with its compiler options), `ci.yml`, the two smoke workflows or the setup action changed. The diff
-lists a moved file under its old path too and every path as it is (`git diff -z`, never quoted, a
-non-ASCII name or a quote included), so neither slips past the patterns. A scheduled or manual
-run, and a run without a base to compare with (a new branch), always start it. `vscode-smoke` runs
-the matrix `stable` (the newest stable VS Code) and `minimum` (the `engines.vscode` floor, read
-from `apps/vscode/package.json` at run time), each cached by version and run with
+so it reports to `ci-ok` on every run instead of being a check of its own. Its one job,
+`vscode-smoke`, runs on every CI run, the weekly schedule and by hand, with the matrix `stable`
+(the newest stable VS Code) and `minimum` (the `engines.vscode` floor, read from
+`apps/vscode/package.json` at run time), each cached by version and run with
 `VSCODE_SMOKE_KEEP=1`, so a failed run uploads VS Code's logs (`vscode-smoke-logs-<stable|minimum>`)
-next to the screenshots. When `changes` skips it, `skipped` succeeds with a notice, so the skip
-reaches `ci-ok` as a success.
+next to the screenshots.
 
 [`vscode-smoke-weekly.yml`](../assets/template/.github/workflows/vscode-smoke-weekly.yml) runs it
 every Monday, because a new VS Code release can break the extension without a change in the
