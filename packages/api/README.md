@@ -441,6 +441,76 @@ this reading; no kit case checks it, since `create()` takes no options. A host
 whose first view must leave its chrome free passes `fitOnImport: false` and
 fits itself, to `contentBounds()` where the renderer has it.
 
+## The text merge (1.7)
+
+An IDE host (Orca) keeps the file on disk and the user's draft in the editor apart. When an agent
+writes the file while the draft has unsaved edits, the host calls a three-way merge:
+
+```ts
+import { MergeConflictError, mergeItemsById, type ModelTextMerge } from "@miragon/modeler-api";
+
+export const mergeBoardText: ModelTextMerge = (lastSyncedText, externalText, draftText) => {
+  const [base, external, draft] = [lastSyncedText, externalText, draftText].map(parseOrConflict);
+  const elements = mergeItemsById(base.elements, external.elements, draft.elements);
+  if (elements.conflictingIds) throw new MergeConflictError(elements.conflictingIds);
+  return serialize({ ...draft, elements: elements.merged });
+};
+```
+
+`ModelTextMerge` takes the text both sides started from, the outside text and the draft, all
+canonical, and returns the merged text, canonical too. Its laws:
+
+| Law | Requirement                                                                                                 |
+| --- | ----------------------------------------------------------------------------------------------------------- |
+| M1  | `merge(base, base, draft) === draft`, `merge(base, external, base) === external`, `merge(base, x, x) === x` |
+| M2  | changes to different elements are all kept, in a text the modeler imports                                   |
+| M3  | two different changes of one element, or a change against its removal, throw a `MergeConflictError`         |
+| M4  | a text that does not parse throws a `MergeConflictError`, never another error                               |
+| M5  | deterministic: the same three texts give the same text                                                      |
+
+A conflict is not resolved silently: the host shows it to the person (Orca keeps its
+Reload/Overwrite banner). `isMergeConflict(error)` tells a conflict apart also when the error
+comes from another copy of this package.
+
+The helpers are pure and have no dependencies, so a renderer imports them at runtime:
+
+- `mergeItemsById(lastSynced, external, draft, options?)` merges a list of keyed elements. Per
+  key, the side that changed, added or removed the element wins; two different changes, a change
+  against a removal and a key that occurs twice in one list conflict. The order is the one of the
+  side that reordered (the draft when the outside kept the order), with the other side's new
+  elements after the element that precedes them there. `idOf` keys an element by something other
+  than its `id` (an arrow by its ends), `isSameItem` compares two of them (default:
+  `sameJsonValue`, structural equality).
+- `mergeValue(lastSynced, external, draft, isSame?)` is the same rule for one value (a title, a
+  config block), `undefined` standing for an absent one.
+- `mergeRecord(lastSynced, external, draft, { keyedLists })` merges a JSON document: the fields
+  named in `keyedLists` by element id, every other field, a foreign one included, as one value.
+- `mergeTextLines(lastSynced, external, draft)` merges two texts line by line (diff3): the side that
+  changed a region wins, two different changes of one region (two insertions at one place
+  included) conflict. For a notation whose text is its own source, kept losslessly (C4's
+  Structurizr DSL); the modeler parses the result to know it is valid.
+
+The kit's merge cases check M1 to M5. None is optional and none needs a DOM:
+
+```ts
+import { registerMergeConformance } from "@miragon/modeler-api/conformance";
+import { test } from "vitest";
+
+registerMergeConformance(
+  mergeBoardText,
+  {
+    base: CANONICAL_SAMPLE,
+    disjoint: [{ name: "a rename outside, a new element in the draft", external, draft, merged }],
+    conflicting: [{ name: "one element renamed on both sides", external, draft }],
+    invalidTexts: [HALF_TYPED_SAMPLE],
+    parse: (text) => parseOrThrow(text),
+  },
+  test,
+);
+```
+
+Each disjoint fixture names the exact merged text, so a reviewer sees where both sides end up.
+
 ## The conformance kit
 
 ```ts
@@ -963,6 +1033,11 @@ aimed at `<body>` stays the page's (RECOMMENDED since 1.4). A 1.5 modeler
 stays a conforming 1.6 modeler. The Miragon renderers and the new-modeler template,
 whose harnesses fail on every skip and every advisory, fill the four fields
 before the cases land, and every one of them passes the cases.
+
+1.7 adds the text merge: `ModelTextMerge`, `MergeConflictError` and the pure helpers in the
+package root, `registerMergeConformance` in the kit. Nothing in the contract of 1.6 changes, and a
+1.6 modeler stays a conforming 1.7 modeler; a host that merges (an IDE host) asks the renderer for
+its merge function.
 
 ### Candidates for 2.0
 
