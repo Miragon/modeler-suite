@@ -1,60 +1,95 @@
 # Event Storming for VS Code
 
-[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/miragon-gmbh.event-storming-modeler?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.event-storming-modeler)
+[![VS Marketplace](https://vsmarketplacebadges.dev/version-short/miragon-gmbh.event-storming-modeler.svg?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.event-storming-modeler)
 [![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/modelers/event-storming/LICENSE)
 
-[Event Storming](https://www.eventstorming.com) is a workshop format for exploring a business
-domain with sticky notes: domain events on a timeline, the commands that trigger them, and the
-people, policies and systems around them. This extension opens `.storm` files (a plain-text DSL) in
-a graphical editor. The text file stays the source of truth, so save, Git and diff keep working.
+![Miragon Modeler for Event Storming: Event Storming boards from plain .storm files, right in VS Code](/modelers/event-storming/docs/screenshots/vscode/cover.png)
 
-![The Event Storming board editor in VS Code](https://raw.githubusercontent.com/Miragon/modeler-suite/main/modelers/event-storming/docs/screenshots/vscode-editor.png)
+Run [Event Storming](https://www.eventstorming.com) on a board in VS Code: domain events on a
+timeline, the commands that trigger them, and the people, policies and systems around them. Each
+board is a plain-text `.storm` file, so it stays in your own repository, next to your code.
 
-New to Event Storming? Start with [eventstorming.com](https://www.eventstorming.com) and Alberto
-Brandolini's book [Introducing EventStorming](https://leanpub.com/introducing_eventstorming).
+Free and open source (MIT). No account, no telemetry, and it works offline.
 
-## Getting started
+## Get started
 
-Install **Event Storming Modeler** (publisher `miragon-gmbh`), then open the **Get Started with
-Event Storming** walkthrough and click **Create board from example**. Or run **Event Storming: New
-Board from Example** / **New Empty Board** from the Command Palette (also under **File > New
-File…**). Any `.storm` file opens in the editor.
+1. Run **Event Storming: New Board from Example** from the Command Palette (`Ctrl/Cmd+Shift+P`), or
+   open any `.storm` file.
+2. New to Event Storming? It is a workshop format for exploring a business domain with sticky
+   notes. The walkthrough **Get Started with Event Storming** shows you how to read and edit a
+   board, and Alberto Brandolini's book
+   [Introducing EventStorming](https://leanpub.com/introducing_eventstorming) explains the method.
 
-Sticky colours: **Domain Event** orange, **Command** blue, **Actor** light yellow, **Aggregate**
-yellow, **Policy** purple, **Read Model** green, **External System** pink, **Hotspot** red, plus
-notes and drawings. Time flows left to right; arrows connect the stickies into a story.
+## Draw on the canvas
 
-## Editing a board
+![An Event Storming board open in VS Code, with the context pad of the selected Order aggregate](/modelers/event-storming/docs/screenshots/vscode/editor.png)
 
-- **Text and board side by side:** **Open Source to the Side** / **Open Board to the Side**;
-  editing either re-renders the other live.
-- **Full modeler:** palette at the top, context pad on a sticky (append, connect, change type,
-  delete), inline labels, colour overrides. From the keyboard, Tab to the palette, pick with the
-  arrows and press Enter to place a sticky in the middle with its label editor open.
-- **Undo belongs to the file:** every canvas change is one document edit, so `Ctrl/Cmd+Z` undoes it
-  like a text change. Only changed lines are rewritten. A change VS Code refuses (a read-only file)
-  is taken back.
-- **Menu:** workshop **Level**, **Type captions**, **Aggregates…**, PNG / SVG / transparent 4× PNG
-  / JSON export, **Keyboard shortcuts…**. **Aggregates…** lists every named aggregate once (spelling
-  variants and placeholder names such as `Aggregate 2` aside) with the commands leading into it and
-  the events that follow; choosing one selects its stickies without changing the file.
-- **Zoom** (bottom right) and `Ctrl/Cmd` + `+` / `-` / `0`, `Shift+1` fits.
-- **Problems:** lines the parser cannot fully use stay in the file and are listed in the
-  **Problems** view in plain words; the pill at the bottom left counts them.
-- **Stable sticky ids:** a sticky created or renamed on the canvas keeps a random id in the text
-  (`(id event_k3x9q2ab)`), so reloads, peers and links find the same sticky.
-- **Commands:** **Event Storming: Fit to View**, the exports, and the two side-by-side commands.
-- **Empty board:** **Insert example** adds the order-checkout example as one undoable edit.
-- The board stays light in dark themes (high contrast is honoured); a `style dark` line is kept
-  but not applied. Fonts are bundled, nothing loads from a CDN.
+Place stickies from the palette: **Domain Event** orange, **Command** blue, **Actor** light yellow,
+**Aggregate** yellow, **Policy** purple, **Read Model** green, **External System** pink and
+**Hotspot** red, plus notes and drawings. Select a sticky to append, connect, change its type or
+delete it. Time flows left to right, and arrows connect the stickies into a story. Undo and save
+work as for any other file.
 
-## Development
+## Export for slides
 
-See [CONTRIBUTING.md](https://github.com/Miragon/modeler-suite/blob/main/modelers/event-storming/CONTRIBUTING.md).
+![The board's menu with the workshop level, Aggregates… and the exports as PNG, SVG, transparent PNG and JSON](/modelers/event-storming/docs/screenshots/vscode/export.png)
 
-## License
+Export a board as PNG or SVG from the menu, as a transparent PNG at four times the size for slides,
+or as JSON. The `.storm` file stays the source you edit.
 
-MIT. The extension bundles third-party software (Lucide icons, the Geist fonts, diagram-js and
-its dependencies, zod); their licenses are in
-[THIRD_PARTY_NOTICES.md](https://github.com/Miragon/modeler-suite/blob/main/modelers/event-storming/apps/vscode/THIRD_PARTY_NOTICES.md),
-which ships in the extension as well.
+## Text and board side by side
+
+![Dragging Payment Provider to the right on the board changes its line in the text beside it](/modelers/event-storming/docs/screenshots/vscode/side-by-side.png)
+
+**Event Storming: Open Source to the Side** shows the board's text next to the board. Type in the
+text and the board follows. Move or edit a sticky and its line in the text changes.
+
+The editor keeps the text in one order: stickies first, then arrows, then comments. The first
+canvas edit in a hand-written file may move lines into that order and drop blank lines.
+
+## Mistakes show up as problems
+
+![An arrow to a sticky that doesn't exist is listed in the Problems view, while the board still draws everything else](/modelers/event-storming/docs/screenshots/vscode/problems.png)
+
+Lines the editor can't use are listed in the **Problems** view in plain words, and they stay in the
+file as written. The board keeps drawing everything else.
+
+## Workshop levels and aggregates
+
+**Level** in the menu switches between big picture, process modeling and software design. Each
+level offers the stickies of that workshop format. **Aggregates…** lists every aggregate with the
+commands that lead into it and the events that follow, and selects its stickies on the board.
+
+A sticky created or renamed on the canvas gets a stable id in the text, such as
+`(id event_k3x9q2ab)`, so it stays the same sticky after a reload.
+
+## Boards written by an AI agent
+
+A board is a text file, so a coding agent can write it, and the board redraws when the file
+changes. For Claude Code, the `event-storming-modeler` plugin teaches the method and the `.storm`
+format, so you can ask Claude to draft a board from your notes or to review one:
+
+```text
+/plugin marketplace add Miragon/modeler-suite
+/plugin install event-storming-modeler@modeler-suite
+```
+
+## Good to know
+
+- Needs VS Code 1.96 or later on the desktop. VS Code for the Web is not supported.
+- There is no live co-editing. Share boards through Git, or open them in the
+  [web app](https://event-storming.modeler.miragon.io).
+- **Keyboard shortcuts…** in the board's menu lists every key and gesture.
+- The board stays light in dark themes.
+
+## Links
+
+[Changelog](https://github.com/Miragon/modeler-suite/blob/main/modelers/event-storming/apps/vscode/CHANGELOG.md)
+·
+[Report an issue](https://github.com/Miragon/modeler-suite/issues)
+·
+[Source and contributing](https://github.com/Miragon/modeler-suite/blob/main/modelers/event-storming/CONTRIBUTING.md)
+·
+[Third-party licences](https://github.com/Miragon/modeler-suite/blob/main/modelers/event-storming/apps/vscode/THIRD_PARTY_NOTICES.md)
+
+Made by [Miragon](https://www.miragon.io). MIT licence.

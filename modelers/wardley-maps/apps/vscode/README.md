@@ -7,7 +7,7 @@
 
 Draw [Wardley maps](https://learnwardleymapping.com/) on a canvas in VS Code. Each map is a
 plain-text `.wmap` or `.owm` file in the [Online Wardley Maps](https://onlinewardleymaps.com/)
-format, so it stays in your own repository and shows up in Git diffs line by line.
+format, so it stays in your own repository, next to your code.
 
 Free and open source (MIT). No account, no telemetry, and it works offline.
 
@@ -41,8 +41,6 @@ and reports. The `.wmap` file stays the source you edit.
 **Wardley: Open Source to the Side** shows the map's text, with syntax highlighting, next to the
 diagram. Type in the text and the diagram follows. Edit the diagram and the text changes, but only
 the lines you touched: your comments, blank lines and order stay as you wrote them.
-
-![Compared with the saved file, the drag changed one line: Product Catalogue from 0.62 to 0.76](/modelers/wardley-maps/docs/screenshots/vscode/diff.png)
 
 ## Mistakes show up as problems
 

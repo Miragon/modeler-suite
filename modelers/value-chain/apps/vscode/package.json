@@ -6,6 +6,10 @@
   "description": "View and edit value chain diagrams (Wertschöpfungskettendiagramme) directly in VS Code as *.vc or *.vc.json files.",
   "publisher": "miragon-gmbh",
   "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#335DE5",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Miragon/modeler-suite.git",
