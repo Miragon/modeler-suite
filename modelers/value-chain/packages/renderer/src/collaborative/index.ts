@@ -6,3 +6,4 @@ export {
   type CollaborativeValueChainModeler,
   type CollaborativeValueChainOptions,
 } from "./CollaborativeValueChain.js";
+export { mergeValueChainText } from "./merge.js";

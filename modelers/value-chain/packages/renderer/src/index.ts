@@ -42,6 +42,7 @@ export {
   VALUE_CHAIN_NOTATION,
   createCollaborativeModeler,
   createCollaborativeViewer,
+  mergeValueChainText,
   type CollaborativeValueChainModeler,
   type CollaborativeValueChainOptions,
 } from "./collaborative/index.js";
