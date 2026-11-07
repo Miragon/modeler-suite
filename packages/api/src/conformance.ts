@@ -32,6 +32,14 @@ import {
 } from "./index.js";
 
 export { apiVersionsCompatible };
+export {
+  mergeConformanceCases,
+  registerMergeConformance,
+  type ConflictingMergeFixture,
+  type DisjointMergeFixture,
+  type MergeConformanceCase,
+  type MergeFixtures,
+} from "./merge-conformance.js";
 
 export interface UserMutation {
   /** names the failing mutation in the kit's error message */

@@ -611,3 +611,18 @@ export interface CollaborativeModelerOptions {
    */
   undoRedoKeys?: boolean | undefined;
 }
+
+export {
+  isMergeConflict,
+  MergeConflictError,
+  mergeItemsById,
+  mergeRecord,
+  mergeValue,
+  sameJsonValue,
+  type ItemsMergeOptions,
+  type RecordMergeOptions,
+  type MergeResult,
+  type ModelTextMerge,
+  type SameItem,
+} from "./merge.js";
+export { mergeTextLines } from "./merge-lines.js";
