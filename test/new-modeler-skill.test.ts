@@ -1405,11 +1405,7 @@ describe("the template's VS Code smoke workflows", () => {
     const smoking = Object.entries(release.jobs).filter(([, job]) =>
       job.steps?.some((candidate) => candidate.run?.includes("npm run test:vscode-smoke")),
     );
-    expect(smoking.map(([id]) => id).sort()).toEqual([
-      "dry-run",
-      "publish-open-vsx",
-      "publish-vscode",
-    ]);
+    expect(smoking.map(([id]) => id)).toEqual(["build"]);
     for (const [id, job] of smoking) {
       const smoked = job.steps!.find((candidate) =>
         candidate.run?.includes("npm run test:vscode-smoke"),
@@ -1427,22 +1423,26 @@ describe("the template's VS Code smoke workflows", () => {
     }
   });
 
-  it("smoke-test the packed VSIX in every job that publishes it, before the upload", () => {
+  it("smoke-test the packed VSIX once, before both marketplaces upload that very file", () => {
+    const build = release.jobs.build!;
+    const runs = build.steps!.map((candidate) => candidate.run ?? "");
+    const packed = runs.findIndex((run) => run.includes("vsce package"));
+    const smoked = runs.findIndex((run) => run.includes("xvfb-run -a npm run test:vscode-smoke"));
+    expect(packed >= 0 && packed < smoked).toBe(true);
+    expect(build.steps![smoked]!.env).toMatchObject({
+      VSCODE_VERSION: "stable",
+      VSCODE_SMOKE_EXTENSION: "${{ runner.temp }}/vsix/extension",
+    });
     const publishing = Object.entries(release.jobs).filter(([, job]) =>
       job.steps?.some((candidate) => /\b(vsce|ovsx) publish\b/.test(candidate.run ?? "")),
     );
-    expect(publishing.map(([id]) => id).sort()).toEqual(["publish-open-vsx", "publish-vscode"]);
-    for (const [id, job] of publishing) {
-      const runs = job.steps!.map((candidate) => candidate.run ?? "");
-      const packed = runs.findIndex((run) => run.includes("vsce package"));
-      const smoked = runs.findIndex((run) => run.includes("xvfb-run -a npm run test:vscode-smoke"));
-      const published = runs.findIndex((run) => /\b(vsce|ovsx) publish\b/.test(run));
-      expect([id, packed < smoked && smoked < published && packed >= 0]).toEqual([id, true]);
-      expect(job.steps![smoked]!.env).toMatchObject({
-        VSCODE_VERSION: "stable",
-        VSCODE_SMOKE_EXTENSION: "${{ runner.temp }}/vsix/extension",
-      });
-    }
+    expect(publishing.map(([id]) => id)).toEqual(["publish-vscode"]);
+    expect(needsOf(release.jobs["publish-vscode"]!)).toEqual(["release-please", "build"]);
+    expect(
+      release.jobs["publish-vscode"]!.steps?.some((candidate) =>
+        candidate.run?.includes("vsce package"),
+      ),
+    ).toBe(false);
     expect(readText(join(TEMPLATE, `${SMOKE_STEP}vscode-smoke.test.ts`))).toContain(
       "process.env.VSCODE_SMOKE_EXTENSION ||",
     );

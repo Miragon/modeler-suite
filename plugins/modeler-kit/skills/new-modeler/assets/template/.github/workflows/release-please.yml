@@ -6,13 +6,17 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Validate packaging and publishing without releasing'
+        description: 'Build, pack and smoke-test without releasing'
         type: boolean
         default: false
 
 permissions:
   contents: write
   pull-requests: write
+
+# Every target takes the same steps: build and check without an environment, then one approval,
+# then publish. Each publish job needs the build, so the environments ask for approval at the same
+# moment.
 
 jobs:
   release-please:
@@ -40,42 +44,12 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  publish-npm-schema-model:
+  # The VSIX, packed and smoke-tested once, for both marketplaces; in a dry run also the npm packs.
+  build:
     needs: release-please
-    if: needs.release-please.outputs.schema_model_released == 'true'
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/publish-npm-package.yml
-    with:
-      package: schema-model
-
-  publish-npm-dsl:
-    needs: release-please
-    if: needs.release-please.outputs.dsl_released == 'true'
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/publish-npm-package.yml
-    with:
-      package: dsl
-
-  publish-npm-renderer:
-    needs: release-please
-    if: needs.release-please.outputs.renderer_released == 'true'
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/publish-npm-package.yml
-    with:
-      package: renderer
-
-  publish-vscode:
-    needs: release-please
-    if: needs.release-please.outputs.vscode_released == 'true'
+    if: ${{ !cancelled() && (inputs.dry_run || needs.release-please.outputs.vscode_released == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: vscode-marketplace
     permissions:
       contents: read
     steps:
@@ -85,13 +59,15 @@ jobs:
           node-version: 24
       # The smoke test imports the DSL through node_modules, which resolves to its dist.
       - run: npm run build
+      - if: inputs.dry_run
+        run: npm publish -w packages/schema-model -w packages/dsl -w packages/renderer --dry-run
       - run: npm run build:vscode
       - name: Package extension
         working-directory: apps/vscode
         run: npx vsce package --no-dependencies -o __REPO__.vsix
-      # The VSIX this job uploads, in a real VS Code: a package that does not activate never ships.
-      # The test takes an extension folder, so it gets the VSIX's files unpacked, not the folder
-      # the VSIX was packed from.
+      # The VSIX the publish jobs upload, in a real VS Code: a package that does not activate never
+      # ships. The test takes an extension folder, so it gets the VSIX's files unpacked, not the
+      # folder the VSIX was packed from.
       - name: Smoke-test the VSIX in VS Code
         run: |
           unzip -q apps/vscode/__REPO__.vsix 'extension/*' -d "$RUNNER_TEMP/vsix"
@@ -106,94 +82,78 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: vscode-smoke-marketplace
+          name: vscode-smoke-release
           path: |
             test-results/vscode-smoke/
             ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
           if-no-files-found: ignore
           retention-days: 7
-      - name: Publish to VS Code Marketplace
-        working-directory: apps/vscode
-        run: npx vsce publish --packagePath __REPO__.vsix
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PUBLISH }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vsix
+          path: apps/vscode/__REPO__.vsix
+          if-no-files-found: error
+          retention-days: 7
 
-  publish-open-vsx:
-    needs: release-please
-    if: needs.release-please.outputs.vscode_released == 'true'
+  publish-npm-schema-model:
+    needs: [release-please, build]
+    if: ${{ !cancelled() && needs.build.result != 'failure' && needs.release-please.outputs.schema_model_released == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/publish-npm-package.yml
+    with:
+      package: schema-model
+
+  publish-npm-dsl:
+    needs: [release-please, build]
+    if: ${{ !cancelled() && needs.build.result != 'failure' && needs.release-please.outputs.dsl_released == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/publish-npm-package.yml
+    with:
+      package: dsl
+
+  publish-npm-renderer:
+    needs: [release-please, build]
+    if: ${{ !cancelled() && needs.build.result != 'failure' && needs.release-please.outputs.renderer_released == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/publish-npm-package.yml
+    with:
+      package: renderer
+
+  # --skip-duplicate lets a re-run pass a marketplace that already has the version.
+  publish-vscode:
+    needs: [release-please, build]
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.release-please.outputs.vscode_released == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     environment: vscode-marketplace
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        marketplace: [vscode-marketplace, open-vsx]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
         with:
           node-version: 24
-      - run: npm run build
-      - run: npm run build:vscode
-      - name: Package extension
-        working-directory: apps/vscode
-        run: npx vsce package --no-dependencies -o __REPO__.vsix
-      # The VSIX this job uploads, in a real VS Code: a package that does not activate never ships.
-      - name: Smoke-test the VSIX in VS Code
-        run: |
-          unzip -q apps/vscode/__REPO__.vsix 'extension/*' -d "$RUNNER_TEMP/vsix"
-          xvfb-run -a npm run test:vscode-smoke
-        env:
-          VSCODE_VERSION: stable
-          VSCODE_SMOKE_EXTENSION: ${{ runner.temp }}/vsix/extension
-          VSCODE_SMOKE_KEEP: '1'
-          TMPDIR: ${{ runner.temp }}
-      # The release is already tagged when this smoke fails, so its screenshots and VS Code's logs are
-      # all there is to tell why.
-      - if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: vscode-smoke-open-vsx
-          path: |
-            test-results/vscode-smoke/
-            ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
-          if-no-files-found: ignore
-          retention-days: 7
-      - name: Publish to Open VSX Marketplace
+          name: vsix
+          path: apps/vscode
+      - if: matrix.marketplace == 'vscode-marketplace'
         working-directory: apps/vscode
-        run: npx ovsx publish --packagePath __REPO__.vsix --pat "$OVSX_PAT"
+        run: npx vsce publish --packagePath __REPO__.vsix --skip-duplicate
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PUBLISH }}
+      - if: matrix.marketplace == 'open-vsx'
+        working-directory: apps/vscode
+        run: npx ovsx publish --packagePath __REPO__.vsix --pat "$OVSX_PAT" --skip-duplicate
         env:
           OVSX_PAT: ${{ secrets.OVSX_PUBLISH }}
-
-  dry-run:
-    if: github.event_name == 'workflow_dispatch' && inputs.dry_run
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-        with:
-          node-version: 24
-      - run: npm run build
-      - run: npm publish -w packages/schema-model -w packages/dsl -w packages/renderer --dry-run
-      - run: npm run build:vscode
-      - name: Package extension
-        working-directory: apps/vscode
-        run: npx vsce package --no-dependencies -o __REPO__.vsix
-      # The publish jobs' smoke, so a dry run shows it passes before a release depends on it.
-      - name: Smoke-test the VSIX in VS Code
-        run: |
-          unzip -q apps/vscode/__REPO__.vsix 'extension/*' -d "$RUNNER_TEMP/vsix"
-          xvfb-run -a npm run test:vscode-smoke
-        env:
-          VSCODE_VERSION: stable
-          VSCODE_SMOKE_EXTENSION: ${{ runner.temp }}/vsix/extension
-          VSCODE_SMOKE_KEEP: '1'
-          TMPDIR: ${{ runner.temp }}
-      - if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: vscode-smoke-dry-run
-          path: |
-            test-results/vscode-smoke/
-            ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
-          if-no-files-found: ignore
-          retention-days: 7

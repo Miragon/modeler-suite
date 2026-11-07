@@ -194,38 +194,44 @@ release pull request is merged, it tags each released component, creates its Git
 publishes exactly what released (`.github/scripts/release-plan.mjs`: every public workspace, every
 extension and every Orca plugin at or below a released component's path):
 
-- **npm**, one job per package in the environment `npm`, with OIDC trusted publishing and
-  provenance, on Node 24 (npm 11.5.1 or later). A version already on the registry is skipped; a
-  package that was never published fails with a hint (publish it once by hand, then attach the
-  trusted publisher). After `npm publish` the job waits up to five minutes for the registry to list
-  the version: that, not the exit status of `npm publish`, is the verdict.
-- **VS Code**, one job per extension and marketplace in the environment `vscode-marketplace`: build,
-  `vsce package`, the smoke test of that very VSIX in VS Code, then `vsce publish` (secret
-  `VSCE_PUBLISH`) or `ovsx publish` (secret `OVSX_PUBLISH`).
+Every target takes the same three steps. A **build** job without an environment builds and checks
+it; then each **publish** job, which needs every build job, waits for its environment's approval,
+so the environments `npm`, `vscode-marketplace` and `orca` ask at the same moment and one "Review
+deployments" approves all of them. If one build fails, nothing is published; re-running the failed
+jobs builds again and then publishes.
 
-- **Orca**, one build job per plugin (a workspace with an `orca-plugin.json` and its own release-please
-  component `<modeler>-orca`, which also bumps the manifest's version; Team Topologies releases its
-  plugin in lockstep with the modeler's component), all in parallel: build the plugin folder,
-  smoke-test exactly that folder in a real Orca (`ORCA_SMOKE_PLUGIN`), and upload it with its release
-  tag and changelog section (`release.json`) as the artifact `orca-plugin-<id>`. After one approval in
-  the environment `orca` (the job `Orca approval`, which waits next to the npm and VS Code jobs, so
-  one "Review deployments" approves all three environments), the job `Orca publish` hands all of them
-  at once to the action `publish-plugin` of [miragon/orca-modelers](https://github.com/miragon/orca-modelers),
+- **npm**: `build / npm (<package>)` builds the package (`publint` for the shared packages) and
+  packs it with `npm pack`; `publish / npm (<package>)` publishes that very tarball in the
+  environment `npm`, with OIDC trusted publishing and provenance, on Node 24 (npm 11.5.1 or
+  later). A version already on the registry is skipped; a package that was never published fails
+  with a hint (publish it once by hand, then attach the trusted publisher). After `npm publish` the
+  job waits up to five minutes for the registry to list the version: that, not the exit status of
+  `npm publish`, is the verdict.
+- **VS Code**: `build / vscode (<extension>)` builds and packs the VSIX and smoke-tests that very
+  VSIX in the newest stable VS Code; `publish / vscode-marketplace (<extension>)` and
+  `publish / open-vsx (<extension>)` upload it in the environment `vscode-marketplace` with
+  `vsce publish` (secret `VSCE_PUBLISH`) or `ovsx publish` (secret `OVSX_PUBLISH`), both with
+  `--skip-duplicate`, so a re-run passes a marketplace that has the version already.
+- **Orca**: `build / orca (<plugin>)` builds the plugin folder (a workspace with an
+  `orca-plugin.json` and its own release-please component `<modeler>-orca`, which also bumps the
+  manifest's version; Team Topologies releases its plugin in lockstep with the modeler's
+  component), smoke-tests exactly that folder in the newest Orca (`ORCA_SMOKE_PLUGIN`) and uploads
+  it with its release tag and changelog section (`release.json`) as the artifact
+  `orca-plugin-<id>`. `publish / orca`, in the environment `orca`, hands all of them at once to
+  the action `publish-plugin` of [miragon/orca-modelers](https://github.com/miragon/orca-modelers),
   the one catalog of every Miragon modeler for Orca. The action runs with the release-please app's
   token (`RELEASE_PLEASE_APP_CLIENT_ID`, `RELEASE_PLEASE_APP_PRIVATE_KEY`, scoped to that
   repository). It opens a pull request with the plugin folders and then one with their catalog
   entries (`orca plugin release-entry`), and squash-merges each once that repository's `validate`
-  passes, so a release is one catalog change and one tag there. If one plugin fails to build,
-  nothing is published. A failed publish closes its pull request; re-running `Orca publish` retries
-  and skips the plugin folders when they are on main of miragon/orca-modelers already. A publish
-  from another source repository is not serialized with this one (concurrency groups are per
-  repository): a pull request that conflicts fails, and a re-run starts from the new main. No build
-  output lands in this repository: Orca installs the files of the pinned commit in
-  miragon/orca-modelers.
+  passes, so a release is one catalog change and one tag there. A failed publish closes its pull
+  request; re-running `publish / orca` retries and skips the plugin folders when they are on main
+  of miragon/orca-modelers already. A publish from another source repository is not serialized
+  with this one (concurrency groups are per repository): a pull request that conflicts fails, and
+  a re-run starts from the new main. No build output lands in this repository: Orca installs the
+  files of the pinned commit in miragon/orca-modelers.
 
-Started by hand with `dry_run`, the workflow releases nothing: it packs every npm package
-(`npm publish --dry-run`), packs and smoke-tests every extension, and builds and smoke-tests every
-Orca plugin.
+A release runs from `main` only. Started by hand with `dry_run`, on any branch, the workflow runs
+every build job for every package, extension and plugin and publishes nothing.
 
 ### The first release of a new npm package
 
