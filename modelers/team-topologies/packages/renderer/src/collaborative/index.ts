@@ -7,3 +7,4 @@ export {
   type CollaborativeTeamTopologiesOptions,
   type TtElementsSurface,
 } from "./CollaborativeTeamTopologies.js";
+export { mergeTeamTopologiesText } from "./merge.js";
