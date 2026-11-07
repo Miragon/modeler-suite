@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.2](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.18.1...team-topologies-v0.18.2) (2026-11-07)
+
+
+### Bug Fixes
+
+* ship the Orca plugins without sourcemaps ([#565](https://github.com/Miragon/modeler-suite/issues/565)) ([32241a3](https://github.com/Miragon/modeler-suite/commit/32241a33cc36a13ec7720719cb5eaec7b425d0fb)), closes [#563](https://github.com/Miragon/modeler-suite/issues/563)
+
 ## [0.18.1](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.18.0...team-topologies-v0.18.1) (2026-11-05)
 
 
