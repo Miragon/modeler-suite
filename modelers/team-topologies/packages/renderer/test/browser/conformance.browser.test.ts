@@ -2,6 +2,7 @@ import { afterAll, afterEach, describe, expect, test } from "vitest";
 import {
   attachedHost,
   registerConformance,
+  registerMergeConformance,
   type ConformanceHarness,
   type GestureKind,
   type HeldGesture,
@@ -21,12 +22,14 @@ import {
   type TtElementFactory,
   type TtLabelEditing,
   type TtModeling,
+  mergeTeamTopologiesText,
 } from "@miragon/team-topologies-renderer";
 import onlineShop from "../../../../example/sample.tt?raw";
 import rideHailing from "../../../../plugins/team-topologies-modeler/skills/tt-format/examples/ride-hailing.tt?raw";
 import onlineShopLoose from "./fixtures/online-shop.loose.tt?raw";
 import onlineShopV2 from "./fixtures/online-shop.v2.tt?raw";
 import onlineShopForeign from "./fixtures/online-shop.foreign.tt?raw";
+import { TEAM_TOPOLOGIES_MERGE_FIXTURES } from "./support/merge-fixtures.js";
 import { holdGesture, paletteEntry, Pointer, type Point } from "./support/pointer.js";
 
 const hostWrappers: HTMLElement[] = [];
@@ -266,4 +269,9 @@ describe("Team Topologies implements the collaborative-modeler contract", () => 
   afterAll(() => {
     expect(advisories).toEqual([]);
   });
+});
+
+// The merge an IDE host (Orca) calls when an agent writes the file under the user's unsaved edits.
+describe("Team Topologies merges an outside write into a draft", () => {
+  registerMergeConformance(mergeTeamTopologiesText, TEAM_TOPOLOGIES_MERGE_FIXTURES, test);
 });
