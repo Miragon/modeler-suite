@@ -22,15 +22,24 @@ const MODELERS_WITH_ORCA_PLUGIN = ["event-storming"];
 interface Reach {
   shared: boolean;
   template: boolean;
+  docs: boolean;
   modelers: string[];
   orcaModelers: string[];
 }
 
-const NOTHING: Reach = { shared: false, template: false, modelers: [], orcaModelers: [] };
+const NOTHING: Reach = {
+  shared: false,
+  template: false,
+  docs: false,
+  modelers: [],
+  orcaModelers: [],
+};
+const DOCS: Reach = { ...NOTHING, docs: true };
 const TEMPLATE_ONLY: Reach = { ...NOTHING, template: true };
 const EVERYTHING: Reach = {
   shared: true,
   template: true,
+  docs: true,
   modelers: MODELERS,
   orcaModelers: MODELERS_WITH_ORCA_PLUGIN,
 };
@@ -42,8 +51,9 @@ const modeler = (name: string): Reach => ({
 
 /** Edits only: the base commit holds each of these files. */
 const REACH_OF_AN_EDIT: [string, Reach][] = [
-  ["docs/guide.md", NOTHING],
-  ["docs/.miragon/brand.json", NOTHING],
+  ["docs/guide.md", DOCS],
+  ["docs/.miragon/brand.json", DOCS],
+  [".github/workflows/docs.yml", NOTHING],
   ["README.md", NOTHING],
   ["LICENSE", NOTHING],
   [".husky/pre-commit", NOTHING],
@@ -173,6 +183,7 @@ describe("the paths a change reaches in CI", () => {
     return {
       shared: flag("shared"),
       template: flag("template"),
+      docs: flag("docs"),
       modelers: list("modelers"),
       orcaModelers: list("orca-modelers"),
     };
@@ -206,7 +217,7 @@ describe("the paths a change reaches in CI", () => {
         "docs/guide.md",
       ),
     ).toEqual({
-      ...NOTHING,
+      ...DOCS,
       modelers: MODELERS,
       orcaModelers: MODELERS_WITH_ORCA_PLUGIN,
     });

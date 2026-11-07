@@ -1,7 +1,11 @@
 name: CodeQL
 
 on:
+  # A pull request that changes only prose has no code to scan; main and the weekly run scan all.
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   push:
     branches: [main]
   schedule:

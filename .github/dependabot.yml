@@ -42,7 +42,7 @@ updates:
         update-types:
           - "version-update:semver-major"
       # The Release notes check's parser stays on the release-please that release-please-action
-      # bundles (team-topologies' parser-version test): bump it by hand, together with the action.
+      # bundles (test/release-notes/parser-version.test.ts): bump it by hand, together with the action.
       - dependency-name: "release-please"
     groups:
       npm-minor-patch:

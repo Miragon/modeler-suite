@@ -22,8 +22,8 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which modelers, and whether the shared packages and the new-modeler template a change reaches
-  # (.github/scripts/ci-paths.sh). A path filter on the trigger is no way out: ci-ok has to report
+  # Which modelers, and whether the shared packages, the new-modeler template and the docs site a
+  # change reaches (.github/scripts/ci-paths.sh). A path filter on the trigger is no way out: ci-ok has to report
   # on every run.
   changes:
     runs-on: ubuntu-latest
@@ -31,6 +31,7 @@ jobs:
     outputs:
       shared: ${{ steps.paths.outputs.shared }}
       template: ${{ steps.paths.outputs.template }}
+      docs: ${{ steps.paths.outputs.docs }}
       modelers: ${{ steps.paths.outputs.modelers }}
       orca-modelers: ${{ steps.paths.outputs.orca-modelers }}
       playwright: ${{ steps.playwright.outputs.version }}
@@ -334,6 +335,33 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # The docs site (docs/, its own npm project) as docs.yml deploys it from main: the vendored Miragon
+  # docs kit unchanged, and a build, which fails on a dead link.
+  docs:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The full history: VitePress reads "last updated" from git.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - run: npm ci
+        working-directory: docs
+      - run: node .vitepress/miragon/check.mjs
+        working-directory: docs
+      - run: npm run build
+        working-directory: docs
+        env:
+          DOCS_BASE: /modeler-suite/
+
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -374,6 +402,7 @@ jobs:
       - modeler-e2e
       - template
       - template-vscode-smoke
+      - docs
       - dependency-review
       - vscode-smoke
       - orca-smoke

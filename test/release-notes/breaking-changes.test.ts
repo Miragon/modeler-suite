@@ -3,7 +3,10 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { breakingChangeReport, squashCommitMessage } from "./breaking-changes.mjs";
+import {
+  breakingChangeReport,
+  squashCommitMessage,
+} from "../../.github/scripts/release-notes/breaking-changes.mjs";
 import { mergedPullRequest, overrideBody } from "./fixtures/merged-pull-requests";
 
 const DUPLICATE_IDS =
@@ -172,7 +175,7 @@ describe("docs/ci-and-releases.md", () => {
   it("shows a BEGIN_COMMIT_OVERRIDE block like the one #129 needed, and it keeps both breaking changes", () => {
     // the suite's release docs hold the example
     const contributing = readFileSync(
-      new URL("../../../../docs/ci-and-releases.md", import.meta.url),
+      new URL("../../docs/ci-and-releases.md", import.meta.url),
       "utf8",
     );
     const indented = contributing.match(
@@ -180,7 +183,7 @@ describe("docs/ci-and-releases.md", () => {
     );
     const indent = indented?.[1] ?? "";
     const example = indented?.[2]
-      .split("\n")
+      ?.split("\n")
       .map((line) => (line.startsWith(indent) ? line.slice(indent.length) : line))
       .join("\n");
     expect(example).toBeDefined();
