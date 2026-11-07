@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/Miragon/modeler-suite/compare/wardley-maps-orca-v0.1.3...wardley-maps-orca-v0.2.0) (2026-11-07)
+
+
+### Features
+
+* **wardley-maps:** show a cover and screenshots in Orca's plugin directory ([#582](https://github.com/Miragon/modeler-suite/issues/582)) ([746feb5](https://github.com/Miragon/modeler-suite/commit/746feb5f3c9fc99c5efad5a2b79530f159077c27)), closes [#572](https://github.com/Miragon/modeler-suite/issues/572)
+
+
+### Bug Fixes
+
+* bundle Geist in the Orca plugins again now that Orca's directory accepts web fonts ([#587](https://github.com/Miragon/modeler-suite/issues/587)) ([85c4fd5](https://github.com/Miragon/modeler-suite/commit/85c4fd5d165a9a63b574de9d584f7e8593c83977))
+
 ## [0.1.3](https://github.com/Miragon/modeler-suite/compare/wardley-maps-orca-v0.1.2...wardley-maps-orca-v0.1.3) (2026-11-07)
 
 
