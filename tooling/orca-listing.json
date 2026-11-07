@@ -1,0 +1,370 @@
+{
+  "folder": "strategy-workshop",
+  "plugins": [
+    {
+      "plugin": "../modelers/wardley-maps/apps/orca/plugin",
+      "examples": [
+        {
+          "file": "../modelers/wardley-maps/plugins/wardley-maps-modeler/skills/wardley-mapping/examples/online-grocery/online-grocery.wmap"
+        }
+      ],
+      "features": [
+        {
+          "name": "settings",
+          "act": [
+            {
+              "click": [741, 520]
+            },
+            {
+              "click": [912, 560]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "x-axis",
+          "act": [
+            {
+              "click": [32, 32]
+            },
+            {
+              "click": [120, 121]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        }
+      ],
+      "title": "Wardley Maps",
+      "claim": "Wardley maps from plain .wmap files, edited by you and your agents.",
+      "out": "../modelers/wardley-maps/apps/orca/images"
+    },
+    {
+      "plugin": "../modelers/event-storming/apps/orca/plugin",
+      "examples": [
+        {
+          "file": "../modelers/event-storming/example/order-checkout.storm"
+        }
+      ],
+      "features": [
+        {
+          "name": "aggregates",
+          "act": [
+            {
+              "click": [32, 32]
+            },
+            {
+              "click": [120, 261]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "levels",
+          "act": [
+            {
+              "click": [32, 32]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        }
+      ],
+      "title": "Event Storming",
+      "claim": "Event Storming boards from plain .storm files, edited by you and your agents.",
+      "out": "../modelers/event-storming/apps/orca/images"
+    },
+    {
+      "plugin": "../modelers/team-topologies/apps/orca/plugin",
+      "examples": [
+        {
+          "file": "../modelers/team-topologies/plugins/team-topologies-modeler/skills/tt-format/examples/ride-hailing.tt"
+        }
+      ],
+      "features": [
+        {
+          "name": "inspector",
+          "act": [
+            {
+              "click": [604, 539]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "legend",
+          "act": [
+            {
+              "click": [32, 32]
+            },
+            {
+              "click": [120, 85]
+            },
+            {
+              "click": [1169, 1075]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        }
+      ],
+      "title": "Team Topologies",
+      "claim": "Team Topologies diagrams from plain .tt files, edited by you and your agents.",
+      "out": "../modelers/team-topologies/apps/orca/images"
+    },
+    {
+      "plugin": "../modelers/context-maps/apps/orca/plugin",
+      "examples": [
+        {
+          "file": "../modelers/context-maps/example/sample.cm",
+          "name": "conference-program.cm"
+        }
+      ],
+      "features": [
+        {
+          "name": "pattern",
+          "act": [
+            {
+              "click": [497, 445]
+            },
+            {
+              "click": [519, 507]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "legend",
+          "act": [
+            {
+              "click": [32, 32]
+            },
+            {
+              "click": [120, 121]
+            },
+            {
+              "click": [700, 950]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        }
+      ],
+      "title": "Context Maps",
+      "claim": "Context maps from plain .cm files, edited by you and your agents.",
+      "out": "../modelers/context-maps/apps/orca/images"
+    },
+    {
+      "plugin": "../modelers/value-chain/apps/orca/plugin",
+      "examples": [
+        {
+          "file": "../modelers/value-chain/example/porter.vc.json"
+        }
+      ],
+      "features": [
+        {
+          "name": "align",
+          "act": [
+            {
+              "click": [551, 32]
+            },
+            {
+              "drag": [
+                [120, 360],
+                [1160, 460]
+              ]
+            },
+            {
+              "click": [1170, 397]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "step",
+          "act": [
+            {
+              "click": [444, 414]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        }
+      ],
+      "title": "Value Chain",
+      "claim": "Value chains from plain .vc files, edited by you and your agents.",
+      "out": "../modelers/value-chain/apps/orca/images"
+    }
+  ]
+}
