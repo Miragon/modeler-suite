@@ -1,0 +1,19 @@
+ContextMap InsuranceLandscape {
+  type = SYSTEM_LANDSCAPE
+  state = AS_IS
+
+  contains CustomerManagement, PolicyManagement, RiskManagement, ClaimsHandling, Billing
+
+  CustomerManagement [U,OHS,PL]->[D,ACL] PolicyManagement {
+    implementationTechnology = "RESTful HTTP"
+  }
+  PolicyManagement [SK]<->[SK] RiskManagement
+  PolicyManagement [U,PL]->[D,CF] ClaimsHandling
+  Billing [U,OHS]->[D,ACL] ClaimsHandling
+}
+
+BoundedContext CustomerManagement
+BoundedContext PolicyManagement
+BoundedContext RiskManagement
+BoundedContext ClaimsHandling
+BoundedContext Billing

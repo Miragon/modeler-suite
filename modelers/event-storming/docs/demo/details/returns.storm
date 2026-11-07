@@ -1,0 +1,13 @@
+title Returns
+level process
+actor Customer [80, 300]
+command Request Return [250, 300]
+event Return Requested [450, 300]
+policy When a return is requested, approve it [680, 300]
+command Approve Return [920, 300]
+event Return Approved [1120, 300]
+Customer -> Request Return
+Request Return -> Return Requested
+Return Requested -> When a return is requested, approve it
+When a return is requested, approve it -> Approve Return
+Approve Return -> Return Approved

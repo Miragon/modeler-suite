@@ -173,8 +173,7 @@ with the modeler's other packages.
 
 `images/` holds the cover and the screenshots of Orca's plugin directory
 ([#572](https://github.com/Miragon/modeler-suite/issues/572)), named in `orca-plugin.json`. They
-come from `scripts/listing-images.mjs` of Miragon/orca-modelers (see its CONTRIBUTING.md), run
-with `--listing tooling/orca-listing.json` after building the plugins. Orca shows no README, so
+come from the `product-shots` skill, see [Store images](#store-images). Orca shows no README, so
 `apps/orca/README.md` is the page for people who install the plugin from GitHub.
 
 The e2e project `orca-editor` runs the editor inside the shell's Orca stub: the shell's
@@ -190,6 +189,27 @@ write to the editor, as its merge needs exactly one mounted editor view of the t
 npm run test:e2e -w modelers/wardley-maps/e2e -- --project=orca-editor
 npm run wardley-maps test:orca:docker
 ```
+
+## Store images
+
+The covers and screenshots of the VS Code Marketplace pages (`modelers/<modeler>/docs/screenshots/vscode/`,
+linked from each `apps/vscode/README.md`) and of Orca's plugin directory (`apps/orca/images/`) come
+from the `product-shots` skill of the `miragon-brand` plugin
+([Miragon/corporate-identity](https://github.com/Miragon/corporate-identity)). Every product, its
+target, title, claim, icon and the recipe's options are in
+[`.miragon/product-shots.json`](.miragon/product-shots.json); `skillVersion` is the skill release
+the images were made with. Each modeler's VS Code images show its demo workspace in
+`modelers/<modeler>/docs/demo/`. Build the VSIX (`npm run <modeler> package:vscode`) and the Orca
+plugins (`npm run <modeler> build:orca`) first, then, from the repository root:
+
+```sh
+node <miragon-brand plugin>/skills/product-shots/scripts/listing.mjs --product wardley-maps-vscode
+node <miragon-brand plugin>/skills/product-shots/scripts/listing.mjs --check
+```
+
+VS Code runs headless (`code serve-web`), so the VS Code images can be made on the Mac. Orca runs
+only in a Linux container, see the skill's `references/orca.md`. `--check` reports a newer skill
+than `skillVersion`: then make the images again and raise `skillVersion`.
 
 ## Pre-commit hook
 

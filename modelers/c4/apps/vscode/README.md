@@ -46,7 +46,7 @@ edit.
 
 ## Text and diagram side by side
 
-![Dragging Catalogue Service to the right on the canvas changes its position line in the DSL beside it](/modelers/c4/docs/screenshots/vscode/side-by-side.png)
+![Dragging Catalogue Service to the left on the canvas changes its position line in the DSL beside it](/modelers/c4/docs/screenshots/vscode/side-by-side.png)
 
 **C4: Open Source to the Side** shows the workspace's DSL next to the diagram. Type in the DSL and
 the diagram follows. Edit the diagram and the DSL changes, but only the lines you touched: your

@@ -1,0 +1,88 @@
+workspace "Northwind Shop" "An online shop for outdoor gear and the systems it works with." {
+
+    model {
+        customer = person "Customer" "Browses the catalogue and orders gear."
+
+        shop = softwareSystem "Northwind Shop" "Sells outdoor gear online." {
+            webApp = container "Web App" "Shows the catalogue and takes orders in the browser." "TypeScript, React"
+            api = container "API" "Serves the catalogue and accepts orders." "Kotlin, Spring Boot"
+            orderService = container "Order Service" "Places orders, takes payment and sends confirmations." "Kotlin, Spring Boot"
+            catalogueService = container "Catalogue Service" "Keeps products, prices and stock." "Kotlin, Spring Boot"
+            orderDatabase = container "Order Database" "Stores orders and their payments." "PostgreSQL" "Database"
+            catalogueDatabase = container "Catalogue Database" "Stores products, prices and stock." "PostgreSQL" "Database"
+        }
+
+        payments = softwareSystem "Payment Provider" "Takes card payments." "Existing System"
+        mail = softwareSystem "E-mail System" "Delivers e-mails to customers." "Existing System"
+
+        customer -> webApp "Browses and orders with" "HTTPS"
+        webApp -> api "Makes API calls to" "JSON/HTTPS"
+        api -> catalogueService "Reads products from" "gRPC"
+        api -> orderService "Places orders with" "gRPC"
+        orderService -> orderDatabase "Reads from and writes to" "SQL"
+        catalogueService -> catalogueDatabase "Reads from and writes to" "SQL"
+        orderService -> payments "Charges cards with" "HTTPS"
+        orderService -> mail "Sends confirmations with" "SMTP"
+    }
+
+    views {
+        systemContext shop "SystemContext-shop" "Who uses the shop and what it depends on." {
+            include *
+            autoLayout tb 300 160
+            properties {
+                "c4modeler.element.customer" "492,0"
+                "c4modeler.element.mail" "960,456"
+                "c4modeler.element.payments" "0,456"
+                "c4modeler.element.shop" "480,456"
+            }
+        }
+        container shop "Containers-shop" "The parts the shop is built from." {
+            default
+            include *
+            autoLayout lr 300 160
+            properties {
+                "c4modeler.element.api" "864,320"
+                "c4modeler.element.catalogueDatabase" "1728,640"
+                "c4modeler.element.catalogueService" "1296,640"
+                "c4modeler.element.customer" "0,292"
+                "c4modeler.element.mail" "1296,320"
+                "c4modeler.element.orderDatabase" "1728,320"
+                "c4modeler.element.orderService" "1296,0"
+                "c4modeler.element.payments" "1728,0"
+                "c4modeler.element.webApp" "432,320"
+            }
+        }
+
+        styles {
+            element "Person" {
+                shape person
+                background "#08427B"
+                color "#FFFFFF"
+                stroke "#052E57"
+            }
+            element "Software System" {
+                background "#1168BD"
+                color "#FFFFFF"
+                stroke "#0B4F91"
+            }
+            element "Container" {
+                background "#2D72B8"
+                color "#FFFFFF"
+                stroke "#1F5A96"
+            }
+            element "Component" {
+                background "#85BBF0"
+                color "#1D1D1D"
+                stroke "#4F86C0"
+            }
+            element "Existing System" {
+                background "#6B6B6B"
+                color "#FFFFFF"
+                stroke "#4D4D4D"
+            }
+            element "Database" {
+                shape cylinder
+            }
+        }
+    }
+}

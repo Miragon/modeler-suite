@@ -1,0 +1,10 @@
+title Meal Planner
+anchor Household [0.95, 0.5]
+component Weekly Plan [0.8, 0.45]
+component Recipe Library [0.6, 0.62]
+component Recommendation [0.45, 0.25] (build)
+component Nutrition Data [0.3, 0.85] (buy)
+Household -> Weekly Plan
+Weekly Plan -> Recipe Library
+Weekly Plan -> Recommendation
+Recommendation -> Nutrition Data

@@ -1,0 +1,297 @@
+{
+  "version": 1,
+  "title": "Online shop: context map",
+  "contexts": [
+    {
+      "id": "ctx_advisor",
+      "label": "Product Advisor",
+      "position": {
+        "x": 940,
+        "y": 40
+      },
+      "size": {
+        "width": 200,
+        "height": 110
+      },
+      "subdomainType": "core",
+      "team": "Pricing Team",
+      "description": "Personalised product suggestions from browsing and order history."
+    },
+    {
+      "id": "ctx_catalog",
+      "label": "Product Catalog",
+      "position": {
+        "x": 340,
+        "y": 40
+      },
+      "size": {
+        "width": 200,
+        "height": 110
+      },
+      "subdomainType": "supporting",
+      "team": "Merchandising Team",
+      "description": "Products, variants and media, published to every sales channel."
+    },
+    {
+      "id": "ctx_checkout",
+      "label": "Checkout",
+      "position": {
+        "x": 640,
+        "y": 280
+      },
+      "size": {
+        "width": 200,
+        "height": 110
+      },
+      "subdomainType": "core",
+      "team": "Shopping Team",
+      "description": "Turns a basket into an order."
+    },
+    {
+      "id": "ctx_fulfillment",
+      "label": "Fulfillment",
+      "position": {
+        "x": 640,
+        "y": 520
+      },
+      "size": {
+        "width": 200,
+        "height": 110
+      },
+      "subdomainType": "supporting",
+      "team": "Logistics Team",
+      "description": "Picking, packing and shipping of orders."
+    },
+    {
+      "id": "ctx_identity",
+      "label": "Identity & Access",
+      "position": {
+        "x": 40,
+        "y": 280
+      },
+      "size": {
+        "width": 200,
+        "height": 110
+      },
+      "subdomainType": "generic",
+      "team": "Platform Team",
+      "description": "Sign-in, accounts and consent, bought from an identity provider."
+    },
+    {
+      "id": "ctx_inventory",
+      "label": "Inventory",
+      "position": {
+        "x": 340,
+        "y": 520
+      },
+      "size": {
+        "width": 200,
+        "height": 110
+      },
+      "subdomainType": "supporting",
+      "team": "Logistics Team",
+      "description": "Stock levels per warehouse."
+    },
+    {
+      "id": "ctx_legacy_erp",
+      "label": "Legacy ERP",
+      "position": {
+        "x": 940,
+        "y": 520
+      },
+      "size": {
+        "width": 200,
+        "height": 110
+      },
+      "subdomainType": "supporting",
+      "team": "Finance IT",
+      "description": "Invoicing and bookkeeping, still on the old system."
+    },
+    {
+      "id": "ctx_notifications",
+      "label": "Notifications",
+      "position": {
+        "x": 40,
+        "y": 520
+      },
+      "size": {
+        "width": 200,
+        "height": 110
+      },
+      "subdomainType": "generic",
+      "team": "Platform Team",
+      "description": "Order mails and push messages."
+    },
+    {
+      "id": "ctx_payments",
+      "label": "Payments",
+      "position": {
+        "x": 940,
+        "y": 280
+      },
+      "size": {
+        "width": 200,
+        "height": 110
+      },
+      "subdomainType": "generic",
+      "team": "Platform Team",
+      "description": "Card and wallet payments through an external provider."
+    },
+    {
+      "id": "ctx_pricing",
+      "label": "Pricing & Promotions",
+      "position": {
+        "x": 640,
+        "y": 40
+      },
+      "size": {
+        "width": 200,
+        "height": 110
+      },
+      "subdomainType": "core",
+      "team": "Pricing Team",
+      "description": "Price rules, discounts and campaigns that set us apart."
+    },
+    {
+      "id": "ctx_storefront",
+      "label": "Storefront",
+      "position": {
+        "x": 340,
+        "y": 280
+      },
+      "size": {
+        "width": 200,
+        "height": 110
+      },
+      "subdomainType": "core",
+      "team": "Shopping Team",
+      "description": "The web shop: browsing, search and the basket."
+    }
+  ],
+  "relationships": [
+    {
+      "id": "rel_catalog_pricing",
+      "from": "ctx_catalog",
+      "to": "ctx_pricing",
+      "pattern": "partnership"
+    },
+    {
+      "id": "rel_catalog_storefront",
+      "from": "ctx_catalog",
+      "to": "ctx_storefront",
+      "pattern": "upstream-downstream",
+      "upstreamRoles": [
+        "OHS",
+        "PL"
+      ],
+      "downstreamRoles": [
+        "ACL"
+      ]
+    },
+    {
+      "id": "rel_checkout_fulfillment",
+      "from": "ctx_checkout",
+      "to": "ctx_fulfillment",
+      "pattern": "upstream-downstream",
+      "upstreamRoles": [
+        "PL"
+      ],
+      "downstreamRoles": [
+        "CF"
+      ],
+      "label": "order events"
+    },
+    {
+      "id": "rel_erp_fulfillment",
+      "from": "ctx_legacy_erp",
+      "to": "ctx_fulfillment",
+      "pattern": "upstream-downstream",
+      "downstreamRoles": [
+        "ACL"
+      ]
+    },
+    {
+      "id": "rel_identity_notifications",
+      "from": "ctx_identity",
+      "to": "ctx_notifications",
+      "pattern": "upstream-downstream",
+      "upstreamRoles": [
+        "OHS",
+        "PL"
+      ],
+      "downstreamRoles": [
+        "CF"
+      ]
+    },
+    {
+      "id": "rel_identity_storefront",
+      "from": "ctx_identity",
+      "to": "ctx_storefront",
+      "pattern": "upstream-downstream",
+      "upstreamRoles": [
+        "OHS"
+      ],
+      "downstreamRoles": [
+        "ACL"
+      ],
+      "implementationTechnology": "OpenID Connect"
+    },
+    {
+      "id": "rel_inventory_fulfillment",
+      "from": "ctx_inventory",
+      "to": "ctx_fulfillment",
+      "pattern": "shared-kernel"
+    },
+    {
+      "id": "rel_inventory_storefront",
+      "from": "ctx_inventory",
+      "to": "ctx_storefront",
+      "pattern": "upstream-downstream",
+      "upstreamRoles": [
+        "OHS"
+      ],
+      "downstreamRoles": [
+        "ACL"
+      ]
+    },
+    {
+      "id": "rel_payments_checkout",
+      "from": "ctx_payments",
+      "to": "ctx_checkout",
+      "pattern": "upstream-downstream",
+      "upstreamRoles": [
+        "OHS",
+        "PL"
+      ],
+      "downstreamRoles": [
+        "ACL"
+      ],
+      "implementationTechnology": "RESTful HTTP"
+    },
+    {
+      "id": "rel_payments_erp",
+      "from": "ctx_payments",
+      "to": "ctx_legacy_erp",
+      "pattern": "separate-ways"
+    },
+    {
+      "id": "rel_pricing_advisor",
+      "from": "ctx_pricing",
+      "to": "ctx_advisor",
+      "pattern": "shared-kernel"
+    },
+    {
+      "id": "rel_pricing_checkout",
+      "from": "ctx_pricing",
+      "to": "ctx_checkout",
+      "pattern": "customer-supplier",
+      "label": "price quotes"
+    },
+    {
+      "id": "rel_storefront_checkout",
+      "from": "ctx_storefront",
+      "to": "ctx_checkout",
+      "pattern": "partnership"
+    }
+  ]
+}
