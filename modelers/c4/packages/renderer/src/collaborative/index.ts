@@ -7,3 +7,4 @@ export {
   type CollaborativeOptions,
   type DiagramElementsSurface,
 } from "./collaborative.js";
+export { mergeC4Text } from "./merge.js";
