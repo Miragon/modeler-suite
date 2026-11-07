@@ -84,24 +84,24 @@ its `needs`), and it fails on any failed or cancelled job. Every job that needs 
 `changes` alone, so a job skipped because `changes` failed comes with that failure, and a skip
 passes.
 
-### Template smoke (opt-in)
+### Template smoke
 
-[`template-vscode-smoke.yml`](../.github/workflows/template-vscode-smoke.yml) runs the VS Code
-smoke of a modeler created from the template (the instance of the `template` job, its
-`test:vscode` under `xvfb-run -a`) on the newest stable VS Code and on the oldest that the
-template's `engines.vscode` accepts, with every step of the driver like the VS Code smoke.
-It downloads VS Code twice, so it is no part of `ci-ok`: add the label `template-vscode-smoke` to a
-pull request (it runs again on every push while the label stays; adding another label starts no
-run), or start the workflow by hand on a branch. The label is created once with
-`gh label create template-vscode-smoke`.
+`template-vscode-smoke` runs the VS Code smoke of a modeler created from the template (the same
+instance as the `template` job, its `test:vscode` under `xvfb-run -a`) on the newest stable VS Code
+and on the oldest that the template's `engines.vscode` accepts, with every step of the driver like
+the VS Code smoke. It runs whenever the `template` job does, on the runner image rather than the
+Playwright image, because VS Code needs the image's X server and GTK libraries.
+
+The VS Code version and its cache come from [`.github/actions/vscode`](../.github/actions/vscode),
+the Orca version and its extracted AppImage from [`.github/actions/orca`](../.github/actions/orca),
+for every smoke alike.
 
 ### Weekly smoke
 
-[`vscode-smoke-weekly.yml`](../.github/workflows/vscode-smoke-weekly.yml) runs every modeler's smoke
-on Mondays; a failure opens, or comments on, the issue "VS Code smoke: the weekly run failed".
-[`orca-smoke-weekly.yml`](../.github/workflows/orca-smoke-weekly.yml) does the same for every
-modeler's Orca plugin in the newest Orca and the oldest its `engines.orca` accepts ("Orca smoke: the
-weekly run failed"). Both take their lists from `ci-paths.sh modelers`.
+[`smoke-weekly.yml`](../.github/workflows/smoke-weekly.yml) runs every modeler's VS Code smoke and
+every Orca plugin's smoke on Mondays, with the lists of `ci-paths.sh modelers`, because a new VS Code
+or Orca release can break them without a change here. A failure opens, or comments on, the issue
+"Smoke: the weekly run failed", which names the smoke that failed.
 
 ## Releases
 

@@ -2,7 +2,7 @@ name: VS Code smoke
 
 # The packaged extension of each given modeler in a real VS Code (its test:vscode), on the newest
 # stable VS Code and on the oldest that its engines.vscode accepts. CI calls it with the modelers a
-# change reaches, so a red smoke fails ci-ok, the merge gate; vscode-smoke-weekly.yml calls it with
+# change reaches, so a red smoke fails ci-ok, the merge gate; smoke-weekly.yml calls it with
 # every modeler to catch a new VS Code release, and alerts when that run fails.
 on:
   workflow_call:
@@ -48,35 +48,14 @@ jobs:
       # @miragon/modeler-shell/testing.
       - run: npm run build:shared
 
-      # The cache key needs the version before the test resolves it; the test then runs exactly it.
-      # The minimum comes from engines.vscode at run time, so raising the floor moves the smoke along.
-      # The stable list is the one the driver checks a version against (released=true), so a build
-      # still rolling out is never picked.
       - id: vscode
-        name: Resolve the VS Code version and its cache folder
-        env:
-          CHANNEL: ${{ matrix.vscode }}
-        run: |
-          if [[ "$CHANNEL" == minimum ]]; then
-            version=$(node -p "require('semver').minVersion(require('./modelers/$MODELER/apps/vscode/package.json').engines.vscode).version")
-          else
-            version=$(curl -fsSL --retry 3 'https://update.code.visualstudio.com/api/releases/stable?released=true' | jq -r '.[0]')
-          fi
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::No VS Code version for $CHANNEL: '$version'"
-            exit 1
-          fi
-          echo "VS Code $CHANNEL: $version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "cache=${XDG_CACHE_HOME:-$HOME/.cache}/miragon-modeler-shell/vscode-test" >> "$GITHUB_OUTPUT"
-
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: ./.github/actions/vscode
         with:
-          path: ${{ steps.vscode.outputs.cache }}
-          key: vscode-${{ runner.os }}-${{ runner.arch }}-${{ steps.vscode.outputs.version }}
+          channel: ${{ matrix.vscode }}
+          extension-manifest: modelers/${{ matrix.modeler }}/apps/vscode/package.json
 
       # VS Code needs an X server; -a picks a free display number. Not test:vscode:docker: the runner
-      # is Linux with VS Code's libraries already, and the cache above keeps VS Code on the runner,
+      # is Linux with VS Code's libraries already, and the action's cache keeps VS Code on the runner,
       # where a Docker volume would start empty on every run. The runner is thrown away anyway, so the
       # run keeps VS Code's profile in RUNNER_TEMP, for its logs when it fails.
       - run: xvfb-run -a npm run "$MODELER" test:vscode

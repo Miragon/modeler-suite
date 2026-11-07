@@ -49,5 +49,5 @@ node .github/scripts/template-instance.mjs <empty folder>
 ```
 
 then run the checks in that folder. A plain copy with `npm install` tests the last release, not
-your change. The label `template-vscode-smoke` adds the VS Code smoke to a pull request; see
+your change. CI runs the instance's checks and its VS Code smoke whenever the template changes; see
 [docs/ci-and-releases.md](../../docs/ci-and-releases.md).
