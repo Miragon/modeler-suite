@@ -4,8 +4,8 @@ import { openOrcaEditor, orcaTab } from "./support/orca.js";
 
 /**
  * The Orca editor's document sync against the stub's tab, which follows the rules of Orca's own
- * session: an agent's write under unsaved edits leaves the user's draft and Orca's banner, and a
- * reload shows it.
+ * session: an agent's write under unsaved edits is merged with them by `mergeValueChainText`, a
+ * conflicting one leaves the user's draft and Orca's banner.
  */
 const DIAGRAM = readFileSync(
   new URL("../../../apps/orca/test-smoke/smoke.vc.json", import.meta.url),
@@ -35,7 +35,7 @@ const withStep = (text: string, id: string, name: string): string => {
 const canvasText = (page: Page) => page.evaluate(() => window.modeler!.exportText());
 
 test.describe("Orca editor: document sync", () => {
-  test("an agent's write under unsaved edits keeps the draft and leaves the choice to Orca's banner", async ({
+  test("an agent's write under unsaved edits is merged with them, without the banner", async ({
     page,
   }) => {
     await openOrcaEditor(page, { text: DIAGRAM });
@@ -45,12 +45,24 @@ test.describe("Orca editor: document sync", () => {
       (text) => window.__modelerShellOrcaStub!.diskWriteWhileDirty(text),
       withStep(DIAGRAM, "step_agent", "Written by an agent"),
     );
-    await expect.poll(async () => (await orcaTab(page)).banner).toBe(true);
-    expect(await canvasText(page)).not.toContain('"Pick"');
-    expect(await canvasText(page)).not.toContain("Written by an agent");
-
-    await page.evaluate(() => window.__modelerShellOrcaStub!.reload());
     await expect.poll(() => canvasText(page)).toContain("Written by an agent");
-    expect(await canvasText(page)).toContain('"Pick"');
+    expect(await canvasText(page)).not.toContain('"Pick"');
+    const tab = await orcaTab(page);
+    expect(tab.banner).toBe(false);
+    expect(tab.text).toContain("Written by an agent");
+  });
+
+  test("a write that changes what the user removed leaves the choice to Orca's banner", async ({
+    page,
+  }) => {
+    await openOrcaEditor(page, { text: DIAGRAM });
+    await removeOnCanvas(page, "step_pick");
+    await orcaTab(page);
+    await page.evaluate(
+      (text) => window.__modelerShellOrcaStub!.diskWriteWhileDirty(text),
+      DIAGRAM.replace('"name": "Pick"', '"name": "Pick items"'),
+    );
+    await expect.poll(async () => (await orcaTab(page)).banner).toBe(true);
+    expect(await canvasText(page)).not.toContain('"Pick');
   });
 });

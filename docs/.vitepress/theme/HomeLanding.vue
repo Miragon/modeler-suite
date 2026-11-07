@@ -110,7 +110,7 @@ const installs = computed(() => [
     lines: [],
     target: "orca",
     missing: "follows",
-    note: "Next to your coding agent: opens the plugin's page in Orca 1.4.248 or later, which adds the Miragon catalog on the first install.",
+    note: "Next to your coding agent: opens the plugin's page in Orca 1.4.252 or later, which adds the Miragon catalog on the first install.",
   },
   {
     name: "npm",

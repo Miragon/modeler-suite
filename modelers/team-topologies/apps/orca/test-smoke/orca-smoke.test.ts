@@ -7,18 +7,24 @@ import { expect, it } from "vitest";
 
 const orcaApp = fileURLToPath(new URL("..", import.meta.url));
 const results = fileURLToPath(new URL("../../../test-results/orca-smoke", import.meta.url));
+const checksMerge = process.env.ORCA_SMOKE_MERGE === "1";
 
 /** An agent adds a team inside the diagram's bounds, so the fitted view stays as it was. */
-function addOutside(text: string): string {
+function addOutside(text: string, count: number): string {
   const document = JSON.parse(text) as { nodes: unknown[] };
   document.nodes.push({
-    id: "team_agent",
+    id: `team_agent_${count}`,
     type: "stream-aligned",
-    label: ORCA_SMOKE_AGENT_LABEL,
-    position: { x: 300, y: 200 },
+    label: `${ORCA_SMOKE_AGENT_LABEL} ${count}`,
+    position: { x: count === 1 ? 300 : 800, y: 200 },
     size: { width: 200, height: 60 },
   });
   return `${JSON.stringify(document, null, 2)}\n`;
+}
+
+/** An agent renames the team the smoke deletes on the canvas at the same time. */
+function changeOutside(text: string): string {
+  return text.replace('"label": "Payments"', '"label": "Payments and refunds"');
 }
 
 it(
@@ -40,10 +46,16 @@ it(
         name: "smoke.tt",
         text: readFileSync(new URL("smoke.tt", import.meta.url), "utf8"),
       },
-      // Where a click hits it in the fitted 1200 × 800 editor: a team between the first and the
-      // last, so a delete keeps the fit.
-      deletion: { at: [361, 297], label: "Cart" },
+      // Where a click hits them in the fitted 1200 × 800 editor: the teams between the first and
+      // the last, so a delete keeps the fit.
+      deletions: [
+        { at: [361, 297], label: "Cart" },
+        { at: [600, 297], label: "Checkout" },
+        { at: [838, 297], label: "Payments" },
+      ],
       addOutside,
+      changeOutside,
+      merge: checksMerge,
       results,
     });
     expect(result.steps).toEqual([
@@ -56,6 +68,7 @@ it(
       "undo",
       "edit",
       "external",
+      ...(checksMerge ? ["merge", "conflict"] : []),
       "logs",
       "close",
     ]);

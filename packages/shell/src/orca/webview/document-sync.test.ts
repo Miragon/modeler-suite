@@ -1,15 +1,31 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { installOrcaEditorStub, type OrcaStubWindow } from "../../testing/orca-stub.js";
 import { connectOrcaDocumentSync, type OrcaDocumentSyncOptions } from "./document-sync.js";
 
 const later = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
+class Conflict extends Error {
+  override readonly name = "MergeConflictError";
+}
+
+/** Lines merge: each side's new lines are kept; a line removed on one side is gone. */
+function mergeLines(base: string, external: string, draft: string): string {
+  const lines = (text: string) => text.split("\n").filter((line) => line !== "");
+  const removed = new Set(lines(base).filter((line) => !lines(external).includes(line)));
+  const added = lines(draft).filter((line) => !lines(base).includes(line));
+  if (added.some((line) => line.startsWith("!"))) throw new Conflict("both changed");
+  const merged = [...lines(external), ...added].filter((line) => !removed.has(line));
+  return merged.map((line) => `${line}\n`).join("");
+}
+
 function canvas(options: Partial<OrcaDocumentSyncOptions> = {}) {
   const imported: string[] = [];
   let shown = "";
+  const conflicts: unknown[] = [];
   return {
     imported,
+    conflicts,
     edit(text: string) {
       shown = text;
     },
@@ -20,6 +36,8 @@ function canvas(options: Partial<OrcaDocumentSyncOptions> = {}) {
         return !text.includes("broken");
       },
       exportText: () => shown,
+      merge: mergeLines,
+      onMergeConflict: (error: unknown) => conflicts.push(error),
       debounceMs: 0,
       ...options,
     } satisfies OrcaDocumentSyncOptions,
@@ -52,7 +70,7 @@ describe("connectOrcaDocumentSync", () => {
     sync.pushEdit();
     await orca.save();
     expect(orca.disk).toBe("a\nmine\n");
-    expect(orca.merges).toBe(false);
+    expect(orca.merges).toBe(true);
   });
 
   it("sends nothing before the first import, while read-only or while the canvas refuses writes", async () => {
@@ -70,7 +88,7 @@ describe("connectOrcaDocumentSync", () => {
     expect(orca.edits).toEqual([]);
   });
 
-  it("leaves an agent's write under unsaved edits to Orca's banner, and shows it on reload", async () => {
+  it("merges an agent's write under unsaved edits into the canvas, without the banner", async () => {
     const orca = installOrcaEditorStub({ text: "a\n" });
     const board = canvas();
     const sync = await connectOrcaDocumentSync(board.options);
@@ -83,9 +101,33 @@ describe("connectOrcaDocumentSync", () => {
     orca.diskWriteWhileDirty("a\nagent\n");
     await later();
     await sync.imported();
+    await orca.idle();
+    expect(board.imported.at(-1)).toBe("a\nagent\nmine\n");
+    expect(orca.text).toBe("a\nagent\nmine\n");
+    expect(orca.dirty).toBe(true);
+    expect(orca.banner).toBe(false);
+  });
+
+  it("leaves a conflicting write to Orca's banner and reports the conflict", async () => {
+    const orca = installOrcaEditorStub({ text: "a\n" });
+    const board = canvas();
+    const sync = await connectOrcaDocumentSync(board.options);
+    await sync.ready;
+    board.edit("a\n!mine\n");
+    sync.pushEdit();
+    await orca.idle();
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      orca.diskWriteWhileDirty("a\nagent\n");
+      await later();
+      await sync.imported();
+    } finally {
+      error.mockRestore();
+    }
     expect(orca.banner).toBe(true);
+    expect(board.conflicts).toHaveLength(1);
     expect(board.imported).toEqual(["a\n"]);
-    expect(orca.text).toBe("a\nmine\n");
+    expect(orca.text).toBe("a\n!mine\n");
 
     orca.reload();
     await later();
@@ -93,7 +135,7 @@ describe("connectOrcaDocumentSync", () => {
     expect(board.imported.at(-1)).toBe("a\nagent\n");
   });
 
-  it("shows the outside write when it meets an edit still in flight", async () => {
+  it("merges an edit Orca refused because the file changed while it was in flight", async () => {
     const orca = installOrcaEditorStub({ text: "a\n" });
     const board = canvas();
     const sync = await connectOrcaDocumentSync(board.options);
@@ -104,9 +146,9 @@ describe("connectOrcaDocumentSync", () => {
     await later();
     await sync.imported();
     await orca.idle();
-    expect(orca.edits.map((edit) => edit.refused)).toEqual(["conflict"]);
-    expect(orca.text).toBe("a\nagent\n");
-    expect(board.imported.at(-1)).toBe("a\nagent\n");
+    expect(orca.edits.map((edit) => edit.refused)).toEqual(["conflict", undefined]);
+    expect(orca.text).toBe("a\nagent\nmine\n");
+    expect(board.imported.at(-1)).toBe("a\nagent\nmine\n");
   });
 
   it("writes and shows an inserted example", async () => {

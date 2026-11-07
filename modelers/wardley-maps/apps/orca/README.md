@@ -27,7 +27,10 @@ Free and open source (MIT). No account, no network access, and it sees only the 
 ![Orca with the strategy-workshop folder open and online-grocery.wmap in the Wardley Maps editor, next to the project sidebar and the file tree](images/screenshot-orca.webp)
 
 Each change your agent makes to the file shows up on the canvas right away. If it writes while you
-have unsaved edits, Orca asks whether to reload the file or keep yours.
+have unsaved edits, the editor merges its changes with yours when they touch different components,
+dependencies or map settings. Your comments and the order of your lines stay. A component you rename
+counts as a new one, so it conflicts only when your agent changed the old one. Only when you both
+changed the same element does Orca ask whether to reload the file or keep yours.
 
 ## Draw on the canvas
 
@@ -62,7 +65,7 @@ you can ask it to draft a map from your strategy notes or to review one:
 
 ## Good to know
 
-- Needs the Orca desktop app, version 1.4.248 or later.
+- Needs the Orca desktop app, version 1.4.252 or later.
 - A link to a web page opens in your browser after Orca asks. A link to another map does not open,
   as Orca lets no editor open a file: pick the map in Orca's file tree.
 - Orca shows no problems list for the editor. Lines it can't read stay in the file as written,

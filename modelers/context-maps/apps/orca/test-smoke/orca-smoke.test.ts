@@ -7,17 +7,23 @@ import { expect, it } from "vitest";
 
 const orcaApp = fileURLToPath(new URL("..", import.meta.url));
 const results = fileURLToPath(new URL("../../../test-results/orca-smoke", import.meta.url));
+const checksMerge = process.env.ORCA_SMOKE_MERGE === "1";
 
 /** An agent adds a context inside the map's bounds, so the fitted view stays as it was. */
-function addOutside(text: string): string {
+function addOutside(text: string, count: number): string {
   const document = JSON.parse(text) as { contexts: unknown[] };
   document.contexts.push({
-    id: "ctx_agent",
-    label: ORCA_SMOKE_AGENT_LABEL,
-    position: { x: 300, y: 250 },
+    id: `ctx_agent_${count}`,
+    label: `${ORCA_SMOKE_AGENT_LABEL} ${count}`,
+    position: { x: count === 1 ? 300 : 800, y: 250 },
     size: { width: 200, height: 80 },
   });
   return `${JSON.stringify(document, null, 2)}\n`;
+}
+
+/** An agent renames the context the smoke deletes on the canvas at the same time. */
+function changeOutside(text: string): string {
+  return text.replace('"label": "Billing"', '"label": "Billing and invoicing"');
 }
 
 it(
@@ -39,10 +45,16 @@ it(
         name: "smoke.cm.json",
         text: readFileSync(new URL("smoke.cm.json", import.meta.url), "utf8"),
       },
-      // Where a click hits it in the fitted 1200 × 800 editor: a context between the first and the
-      // last, so a delete keeps the fit.
-      deletion: { at: [362, 300], label: "Cart" },
+      // Where a click hits them in the fitted 1200 × 800 editor: the contexts between the first and
+      // the last, so a delete keeps the fit.
+      deletions: [
+        { at: [362, 300], label: "Cart" },
+        { at: [600, 300], label: "Orders" },
+        { at: [838, 300], label: "Billing" },
+      ],
       addOutside,
+      changeOutside,
+      merge: checksMerge,
       results,
     });
     expect(result.steps).toEqual([
@@ -55,6 +67,7 @@ it(
       "undo",
       "edit",
       "external",
+      ...(checksMerge ? ["merge", "conflict"] : []),
       "logs",
       "close",
     ]);
