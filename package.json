@@ -40,7 +40,8 @@
     "context-maps": "npm run -w @miragon/context-maps-modeler-workspace",
     "value-chain": "npm run -w @miragon/value-chain-modeler-workspace",
     "c4": "npm run -w @miragon/c4-modeler-workspace",
-    "prepare": "husky"
+    "prepare": "husky",
+    "orca:listing-images": "node tooling/orca-listing-images/render.mjs"
   },
   "lint-staged": {
     "{modelers,plugins}/**/*.{ts,tsx}": [
