@@ -132,8 +132,8 @@ export function parseOn(line: string): { host?: string; rest: string } {
   return { host, rest: `${line.slice(0, m.index)} ${line.slice(close + 1)}` };
 }
 
-// Internal-id extension: `(id <id>)` — emitted on sticky lines only when the name alone would
-// be ambiguous. The charset is deliberately tight (letters/digits/underscore/hyphen) so an id
+// Internal-id extension: `(id <id>)` — emitted on sticky, note and drawing lines only when the
+// parser would not derive the same id from the line. The charset is deliberately tight (letters/digits/underscore/hyphen) so an id
 // can never collide with the line grammar (`)`/whitespace/`#` are all illegal).
 export const ID_CHARSET_RE = /^[A-Za-z0-9_-]+$/;
 

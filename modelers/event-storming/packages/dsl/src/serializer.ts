@@ -176,9 +176,10 @@ export function serializeDSL(board: EventStormingBoard): string {
 }
 
 /**
- * The stickies whose line carries `(id …)`: those referenced as `#id`, plus every sticky whose id
- * the parser would not allocate again at its line — one created on the canvas (`event_3`),
- * renamed after its id was derived from the old label, or declared with an explicit id. Hosts
+ * The elements whose line carries `(id …)`: stickies referenced as `#id`, plus every sticky, note
+ * or drawing whose id the parser would not allocate again at its line — one created on the canvas
+ * (`event_k3x9q2ab`), renamed after its id was derived from the old label, or declared with an
+ * explicit id. Hosts
  * anchor todos, presence and deep links to these ids, so they must survive a save and re-open.
  * Replays the parser's allocation in emit order; an id equal to the allocated one stays implicit,
  * which keeps boards authored without ids byte-identical.
@@ -194,7 +195,13 @@ function idsToDeclare(
   for (const el of board.elements) {
     const prefix = STICKY_ID_PREFIXES[el.elementType];
     if (prefix === undefined) {
-      allocator.alloc(el.elementType === "note" ? "note" : "draw", noteOrDrawingName(el));
+      const freePrefix = el.elementType === "note" ? "note" : "draw";
+      const derivedId = allocator.peek(freePrefix, noteOrDrawingName(el));
+      if (derivedId !== el.id && ID_CHARSET_RE.test(el.id) && allocator.claim(el.id)) {
+        declared.add(el.id);
+      } else {
+        allocator.alloc(freePrefix, noteOrDrawingName(el));
+      }
       continue;
     }
     const parsedName = decodeName(nameOf(el));
@@ -237,14 +244,14 @@ function elementLine(el: BoardElement, name: string, idSuffix: string, attach: s
       // stays last (final-paren rule, see above); size/align/attachment are only present when
       // set, so plain boards stay byte-identical.
       const size = el.size ? ` (size ${r(el.size.width)}x${r(el.size.height)})` : "";
-      return `note ${escapeText(name)} [${r(p.x)}, ${r(p.y)}]${colorSuffix(el)}${size}${alignSuffix(el)}${attach}`;
+      return `note ${escapeText(name)} [${r(p.x)}, ${r(p.y)}]${colorSuffix(el)}${idSuffix}${size}${alignSuffix(el)}${attach}`;
     }
     case "drawing": {
       // Project extension (freeform drawing): tuple list + style flags.
       const pts = el.points.map((q) => `[${r(q.x)}, ${r(q.y)}]`).join(", ");
       const closed = el.closed ? " (closed)" : "";
       const stroke = el.strokeStyle && el.strokeStyle !== "solid" ? ` (${el.strokeStyle})` : "";
-      return `line [${pts}]${closed}${stroke}${colorSuffix(el)}`;
+      return `line [${pts}]${closed}${stroke}${colorSuffix(el)}${idSuffix}`;
     }
   }
 }
