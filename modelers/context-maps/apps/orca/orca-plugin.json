@@ -13,6 +13,17 @@
   "homepage": "https://miragon.github.io/modeler-suite/",
   "license": "MIT",
   "icon": "assets/icon.png",
+  "cover": {
+    "path": "images/cover.webp",
+    "alt": "Miragon Modeler for Context Maps: Context maps from plain .cm files, edited by you and your agents."
+  },
+  "screenshots": [
+    {
+      "path": "images/screenshot-conference.webp",
+      "alt": "A context map of a conference program with core, supporting and generic subdomains connected by ACL, OHS, shared kernel and partnership relationships",
+      "caption": "Bounded contexts and their relationships"
+    }
+  ],
   "engines": {
     "orca": ">=1.4.248"
   },
