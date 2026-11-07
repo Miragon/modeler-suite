@@ -84,8 +84,8 @@ All suffixes are read **only after the coordinates**, so `(color …)` inside a 
 | `(size <w>x<h>)`    | `note`                     | Manual box size. Absent = auto-size to the text.                        |
 | `(align <h> <v>)`   | `note`                     | `left\|center\|right` + `top\|middle\|bottom`. Default `left top`.      |
 
-Canonical order: `(color …) (id …) (on …)` on stickies, `(color …) (size …) (align …) (on …)` on
-notes. `(on …)` is last because its host name runs to the line's final `)`, which is what lets host
+Canonical order: `(color …) (id …) (on …)` on stickies, `(color …) (id …) (size …) (align …)
+(on …)` on notes, `(closed) (dashed) (color …) (id …)` on drawings. `(on …)` is last because its host name runs to the line's final `)`, which is what lets host
 labels contain parentheses.
 
 Hosts must be `event`, `command`, `aggregate`, `policy`, `readmodel` or `external`. Attach chains
@@ -219,8 +219,9 @@ Two DSL consequences:
 - **Keep the `(id …)` the modeler wrote.** A sticky created or renamed on the canvas carries its id
   in the text (`event Order Confirmed [620, 300] (id event_order_placed)` after a rename,
   `event Domain Event [860, 300] (id event_k3x9q2ab)` with the random id of a new sticky), so todos,
-  deep links and presence in other tools keep pointing at it after a reload. Keep the suffix when
-  you edit the line; a new sticky you write yourself needs none unless its label repeats.
+  deep links and presence in other tools keep pointing at it after a reload. Notes and drawings
+  keep theirs the same way. Keep the suffix when you edit the line; a new element you write
+  yourself needs none unless its label repeats.
 - **Empty labels** are replaced by the per-kind default (`Domain Event`, `Command`, `Actor`, …).
 - **An unresolved arrow or an unreadable line is not an error**: it lands in `rawPassthrough` and
   is reported as a diagnostic. It also means the arrow silently does not exist on the board, so

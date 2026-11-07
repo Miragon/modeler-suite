@@ -106,15 +106,15 @@ Charset `[A-Za-z0-9_-]+`, deliberately tight so an id can never collide with the
   element's serialized name is shared by two or more stickies, it literally starts with `#`, or the
   id differs from the one the parser would allocate at that line. The last case covers a sticky
   created on the canvas (a random id such as `event_k3x9q2ab`), a renamed one (it keeps the id
-  derived from its old label) and any explicit id you chose. That way every sticky keeps its id across a save and a re-open, and
+  derived from its old label) and any explicit id you chose. That way every element keeps its id across a save and a re-open, and
   tools that anchor todos or links to it keep finding it. An explicit id equal to the auto-allocated
   one is dropped on the next serialize.
 - `event-storming-root` and ids starting with `__implicitroot` are reserved for the board itself: a
   sticky that claims one gets a fresh id and a diagnostic.
 - A malformed id yields a diagnostic; a duplicate id yields a diagnostic and the element gets a
   fresh one.
-- Notes and drawings cannot carry `(id …)`, since they are never referenced. Attempting it is a
-  diagnostic.
+- Notes and drawings carry `(id …)` by the same rule, so a note keeps its id when its text
+  changes and a drawing keeps its id when one before it goes. They are still never referenced.
 - Elements and arrows share one id namespace (diagram-js has a single element registry). Arrow ids
   are `arrow_1`, `arrow_2`, … skipping any value an element already occupies.
 
@@ -136,7 +136,7 @@ stored.
 ## Note declarations
 
 ```
-note <Text> [x, y] (color …) (size <w>x<h>) (align <h> <v>) (on <Host Label>)
+note <Text> [x, y] (color …) (id …) (size <w>x<h>) (align <h> <v>) (on <Host Label>)
 ```
 
 - `(size …)`: positive numbers, board pixels. Absent = the note auto-sizes to its text (minimum
@@ -154,13 +154,13 @@ note <Text> [x, y] (color …) (size <w>x<h>) (align <h> <v>) (on <Host Label>)
 ## Drawing declarations
 
 ```
-line [[x,y], [x,y], …] (closed) (dashed|dotted) (color …)
+line [[x,y], [x,y], …] (closed) (dashed|dotted) (color …) (id …)
 ```
 
 - At least two points; absolute board pixels. `position` mirrors the first point.
 - `(closed)` closes the polyline into a polygon. Stroke styles: `solid` (default, never emitted),
   `dashed`, `dotted`.
-- `(on …)`, `(id …)`, `(size …)` and `(align …)` on a drawing are ignored with a diagnostic.
+- `(on …)`, `(size …)` and `(align …)` on a drawing are ignored with a diagnostic.
 
 ## Arrows
 

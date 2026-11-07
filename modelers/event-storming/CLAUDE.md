@@ -51,7 +51,8 @@ so a violating import fails `npm run event-storming lint` and `npm run event-sto
   `apps/webapp/vite.config.ts`, through `apps/webapp/tsconfig.config.json`) ·
   `npm run event-storming lint` (ESLint + typecheck)
 - `npm run event-storming test:browser`: Vitest in Chromium (renderer integration, the
-  `@miragon/modeler-api` conformance kit) · `npm run event-storming test:e2e`: Playwright, four
+  `@miragon/modeler-api` conformance kit and the merge kit of `mergeStormText`) ·
+  `npm run event-storming test:e2e`: Playwright, four
   projects: `webapp` (the web app, incl. the shell conformance kit on the `web` host),
   `vscode-webview` (the webview inside the shell's VS Code stub, incl. the kit on the `ide` host),
   `orca-editor` (the Orca editor inside the shell's Orca stub, the kit with `ideHost: "orca"` and
@@ -126,8 +127,9 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   the suite. The DOM-free packages may take only type-only imports from the contract (ESLint and
   dependency-cruiser). The elements surface lists stickies only, with their live box
   (`elements.bounds`): their ids survive a save and re-open because the serializer writes `(id …)`
-  back whenever the parser would not derive the same id at that line; notes, drawings and arrows
-  have no id grammar yet. New sticky ids are `<prefix>_<8 random [0-9a-z]>` (`allocateId`, e.g.
+  back whenever the parser would not derive the same id at that line, and so do notes and drawings
+  (`(id …)` since the Orca editor's merge keys elements by id); arrows have no id grammar and
+  are keyed by their ends. New sticky ids are `<prefix>_<8 random [0-9a-z]>` (`allocateId`, e.g.
   `event_k3x9q2ab`), so stickies two peers add at the same time do not collide. `contentBounds()`
   (on the contract instances and on `Modeler`/`Viewer`/`NavigatedViewer`) is the tight box around
   what the board draws, `boardBounds.contentBounds(0)` (every shape, a hotspot's tilt and every
@@ -185,8 +187,9 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
   as a drop unless something was selected before the drag, since the clear removes the moved
   shape, and `SelectionBehavior` then throws and the drag ends as `drag.canceled`. The kind
   chooser an import closes reopens on the sticky with the same id while it is still blank; a label
-  editor an import closes reopens on the element with the same id, a note's on the note in its
-  place, since a note created since the last import comes back under the id its text derives. The
+  editor an import closes reopens on the element with the same id (a note created since the last
+  import keeps its id through the `(id …)` the serializer writes; one that comes back without it
+  is found in its place). The
   contract's optional `interaction` reads the same service (true from diagram-js's first drag move
   or a point drag's first move until the end; an armed tool, a pan and a line the draw tool holds
   point by point are none, #243, and a drag that an import or a clear from the selection listener
