@@ -14,6 +14,7 @@ export {
   NOTATION,
   createCollaborativeModeler,
   createCollaborativeViewer,
+  mergeC4Text,
   type C4ViewState,
   type CollaborativeDiagram,
   type CollaborativeOptions,
