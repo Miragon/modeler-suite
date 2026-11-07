@@ -6,3 +6,4 @@ export {
   type CollaborativeWardleyOptions,
   type WardleyElementsSurface,
 } from "./CollaborativeWardley.js";
+export { mergeOwmText } from "./merge.js";
