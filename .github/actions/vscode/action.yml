@@ -1,0 +1,48 @@
+name: VS Code
+description: >-
+  Resolve the VS Code version of a smoke channel and restore that VS Code from the cache, so the
+  smoke driver (VSCODE_VERSION) runs exactly it.
+
+inputs:
+  channel:
+    description: stable (the newest released stable VS Code) or minimum (the floor of engines.vscode)
+    required: true
+  extension-manifest:
+    description: The extension's package.json, whose engines.vscode sets the minimum
+    required: true
+
+outputs:
+  version:
+    description: The VS Code version to pass as VSCODE_VERSION
+    value: ${{ steps.resolve.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    # The minimum comes from engines.vscode at run time, so raising the floor moves the smoke along.
+    # The stable list is the one the driver checks a version against (released=true), so a build
+    # still rolling out is never picked.
+    - id: resolve
+      shell: bash
+      env:
+        CHANNEL: ${{ inputs.channel }}
+        MANIFEST: ${{ inputs.extension-manifest }}
+      run: |
+        set -euo pipefail
+        if [[ "$CHANNEL" == minimum ]]; then
+          version=$(node -p "require('semver').minVersion(require(process.argv[1]).engines.vscode).version" "$(realpath "$MANIFEST")")
+        else
+          version=$(curl -fsSL --retry 3 'https://update.code.visualstudio.com/api/releases/stable?released=true' | jq -r '.[0]')
+        fi
+        if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::No VS Code version for $CHANNEL: '$version'"
+          exit 1
+        fi
+        echo "VS Code $CHANNEL: $version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "cache=${XDG_CACHE_HOME:-$HOME/.cache}/miragon-modeler-shell/vscode-test" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.resolve.outputs.cache }}
+        key: vscode-${{ runner.os }}-${{ runner.arch }}-${{ steps.resolve.outputs.version }}

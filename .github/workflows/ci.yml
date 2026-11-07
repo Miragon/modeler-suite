@@ -242,8 +242,7 @@ jobs:
   # this checkout packed as they are published, with that modeler's own checks. The drift test only
   # type-checks the template; this is the one place that installs, builds and runs it, so a kit case
   # the template's harness fails or a bundling problem shows here and not when the next modeler
-  # starts (.github/scripts/template-instance.mjs). The opt-in VS Code smoke of the instance is
-  # template-vscode-smoke.yml.
+  # starts (.github/scripts/template-instance.mjs).
   template:
     needs: changes
     if: needs.changes.outputs.template == 'true'
@@ -290,6 +289,51 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # The same instance's packaged extension in a real VS Code, as the template's own CI smokes it
+  # before a repository exists. Not in the template job: VS Code needs the runner image's X server
+  # and GTK libraries, which the Playwright image lacks.
+  template-vscode-smoke:
+    needs: changes
+    if: needs.changes.outputs.template == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        vscode: [stable, minimum]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: npm run build:shared
+      - id: instance
+        run: |
+          node .github/scripts/template-instance.mjs "$INSTANCE"
+          echo "directory=$INSTANCE" >> "$GITHUB_OUTPUT"
+        env:
+          INSTANCE: ${{ runner.temp }}/capability-map-modeler
+      - id: vscode
+        uses: ./.github/actions/vscode
+        with:
+          channel: ${{ matrix.vscode }}
+          extension-manifest: ${{ steps.instance.outputs.directory }}/apps/vscode/package.json
+      # The runner is thrown away anyway, so the run keeps VS Code's profile in RUNNER_TEMP, for its
+      # logs when it fails.
+      - run: xvfb-run -a npm run test:vscode
+        working-directory: ${{ steps.instance.outputs.directory }}
+        env:
+          VSCODE_VERSION: ${{ steps.vscode.outputs.version }}
+          VSCODE_SMOKE_KEEP: "1"
+          TMPDIR: ${{ runner.temp }}
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: template-vscode-smoke-${{ matrix.vscode }}
+          path: |
+            ${{ steps.instance.outputs.directory }}/test-results/vscode-smoke/
+            ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -329,6 +373,7 @@ jobs:
       - modeler-test-browser
       - modeler-e2e
       - template
+      - template-vscode-smoke
       - dependency-review
       - vscode-smoke
       - orca-smoke
