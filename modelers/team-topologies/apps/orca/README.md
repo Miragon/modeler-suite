@@ -25,6 +25,9 @@ no sourcemap, as with it the plugin stays in the size review of Orca's community
 it keeps only the English ones ([#568](https://github.com/Miragon/modeler-suite/issues/568)). The
 editor needs Orca 1.4.248 or later (`"frame": "isolated"`, the desktop app).
 
+`images/` holds the cover and the screenshots that Orca's plugin directory shows
+([#572](https://github.com/Miragon/modeler-suite/issues/572)).
+
 ## Tests
 
 The `orca-editor` project of `modelers/team-topologies/e2e` runs the editor inside the shell's Orca

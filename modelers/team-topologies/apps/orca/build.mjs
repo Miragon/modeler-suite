@@ -49,6 +49,7 @@ if (!zodLocalesRedirected) {
 }
 await cp(resolve(here, "editor/index.html"), resolve(plugin, "editor/index.html"));
 await cp(resolve(here, "assets/icon.png"), resolve(plugin, "assets/icon.png"));
+await cp(resolve(here, "images"), resolve(plugin, "images"), { recursive: true });
 const manifest = JSON.parse(await readFile(resolve(here, "orca-plugin.json"), "utf8"));
 await writeFile(resolve(plugin, "orca-plugin.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 await cp(resolve(here, "CHANGELOG.md"), resolve(plugin, "CHANGELOG.md")).catch(() => undefined);
