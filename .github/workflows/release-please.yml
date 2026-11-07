@@ -273,8 +273,9 @@ jobs:
           echo "publish $name@$version"
           # npm publish's exit status is not the verdict: its OIDC client can fail a request after
           # the registry accepted the tarball, so the registry decides.
+          # ./ keeps npm from reading npm/<file>.tgz as the GitHub repository npm/<file>.tgz.
           publish_status=0
-          npm publish "$tarball" --provenance --access public || publish_status=$?
+          npm publish "./$tarball" --provenance --access public || publish_status=$?
           # The registry can take minutes to list a version it accepted; giving up sooner turns a
           # good release into a red run. Each poll gets a short fetch timeout and no npm retries:
           # with npm's defaults one stalled npm view could block longer than the whole wait.
