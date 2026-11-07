@@ -2,6 +2,7 @@ import { afterAll, afterEach, describe, expect, test } from "vitest";
 import {
   attachedHost,
   registerConformance,
+  registerMergeConformance,
   type ConformanceHarness,
   type HeldPan,
 } from "@miragon/modeler-api/conformance";
@@ -18,7 +19,9 @@ import {
   type CmElementFactory,
   type CmLabelEditing,
   type CollaborativeContextMapsModeler,
+  mergeContextMapText,
 } from "@miragon/context-maps-renderer";
+import { CONTEXT_MAP_MERGE_FIXTURES } from "./merge-fixtures.js";
 import conferencePlanner from "./fixtures/conference-planner.cm?raw";
 import conferencePlannerLoose from "./fixtures/conference-planner.loose.cm?raw";
 import orderFulfilment from "./fixtures/order-fulfilment.cm?raw";
@@ -218,4 +221,9 @@ describe("Context Maps implements the collaborative-modeler contract", () => {
   afterAll(() => {
     expect(advisories).toEqual([]);
   });
+});
+
+// The merge an IDE host (Orca) calls when an agent writes the file under the user's unsaved edits.
+describe("Context Maps merges an outside write into a draft", () => {
+  registerMergeConformance(mergeContextMapText, CONTEXT_MAP_MERGE_FIXTURES, test);
 });
