@@ -1,0 +1,28 @@
+title Checkout and Shipping
+level design
+actor Customer [80, 300]
+command Place Order [250, 300]
+aggregate Order [450, 290] (id agg_order_place)
+event Order Placed [660, 300]
+policy When an order is placed, ship it [860, 300]
+command Ship Order [1070, 300]
+aggregate Order [1270, 290] (id agg_order_ship)
+event Order Shipped [1480, 300]
+actor Warehouse Clerk [1120, 265] (on Ship Order)
+readmodel Order Status [660, 120]
+readmodel Shipping Dashboard [1480, 120]
+external Payment Provider [450, 520]
+external Carrier API [1270, 520]
+hotspot Double charge on retry? [860, 520]
+note Design-level session: checkout flow and shipping [250, 120] (size 260x90)
+Customer -> Place Order
+Place Order -> #agg_order_place
+Place Order -> Payment Provider
+#agg_order_place -> Order Placed
+Order Placed -> Order Status
+Order Placed -> When an order is placed, ship it
+When an order is placed, ship it -> Ship Order
+Ship Order -> #agg_order_ship
+Ship Order -> Carrier API
+#agg_order_ship -> Order Shipped
+Order Shipped -> Shipping Dashboard

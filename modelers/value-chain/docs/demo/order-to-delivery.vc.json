@@ -1,0 +1,279 @@
+{
+  "connections": [
+    {
+      "connectionType": "assignment",
+      "id": "assign-1",
+      "source": "step-development",
+      "target": "org-engineering",
+      "waypoints": [
+        {
+          "x": 130,
+          "y": 144
+        },
+        {
+          "x": 130,
+          "y": 240
+        }
+      ]
+    },
+    {
+      "connectionType": "assignment",
+      "id": "assign-2",
+      "source": "step-procurement",
+      "target": "org-purchasing",
+      "waypoints": [
+        {
+          "x": 340,
+          "y": 144
+        },
+        {
+          "x": 340,
+          "y": 240
+        }
+      ]
+    },
+    {
+      "connectionType": "assignment",
+      "id": "assign-3",
+      "source": "step-distribution",
+      "target": "org-logistics",
+      "waypoints": [
+        {
+          "x": 790,
+          "y": 144
+        },
+        {
+          "x": 790,
+          "y": 240
+        }
+      ]
+    },
+    {
+      "connectionType": "hierarchy",
+      "id": "hier-1",
+      "source": "step-production",
+      "target": "step-assembly",
+      "waypoints": [
+        {
+          "x": 550,
+          "y": 144
+        },
+        {
+          "x": 550,
+          "y": 230
+        },
+        {
+          "x": 605,
+          "y": 230
+        }
+      ]
+    },
+    {
+      "connectionType": "hierarchy",
+      "id": "hier-2",
+      "source": "step-production",
+      "target": "step-quality",
+      "waypoints": [
+        {
+          "x": 550,
+          "y": 144
+        },
+        {
+          "x": 550,
+          "y": 300
+        },
+        {
+          "x": 605,
+          "y": 300
+        }
+      ]
+    },
+    {
+      "connectionType": "hierarchy",
+      "id": "hier-3",
+      "source": "step-production",
+      "target": "step-packaging",
+      "waypoints": [
+        {
+          "x": 550,
+          "y": 144
+        },
+        {
+          "x": 550,
+          "y": 370
+        },
+        {
+          "x": 605,
+          "y": 370
+        }
+      ]
+    },
+    {
+      "connectionType": "sequence",
+      "id": "seq-1",
+      "source": "step-development",
+      "target": "step-procurement",
+      "waypoints": [
+        {
+          "x": 220,
+          "y": 112
+        },
+        {
+          "x": 282,
+          "y": 112
+        }
+      ]
+    },
+    {
+      "connectionType": "sequence",
+      "id": "seq-2",
+      "source": "step-procurement",
+      "target": "step-production",
+      "waypoints": [
+        {
+          "x": 430,
+          "y": 112
+        },
+        {
+          "x": 492,
+          "y": 112
+        }
+      ]
+    },
+    {
+      "connectionType": "sequence",
+      "id": "seq-3",
+      "source": "step-production",
+      "target": "step-distribution",
+      "waypoints": [
+        {
+          "x": 640,
+          "y": 112
+        },
+        {
+          "x": 732,
+          "y": 112
+        }
+      ]
+    }
+  ],
+  "elements": [
+    {
+      "bounds": {
+        "height": 60,
+        "width": 120,
+        "x": 70,
+        "y": 240
+      },
+      "elementType": "orgUnit",
+      "id": "org-engineering",
+      "name": "Engineering"
+    },
+    {
+      "bounds": {
+        "height": 60,
+        "width": 120,
+        "x": 730,
+        "y": 240
+      },
+      "elementType": "orgUnit",
+      "id": "org-logistics",
+      "name": "Logistics"
+    },
+    {
+      "bounds": {
+        "height": 60,
+        "width": 120,
+        "x": 280,
+        "y": 240
+      },
+      "elementType": "orgUnit",
+      "id": "org-purchasing",
+      "name": "Purchasing"
+    },
+    {
+      "bounds": {
+        "height": 60,
+        "width": 140,
+        "x": 575,
+        "y": 200
+      },
+      "elementType": "step",
+      "id": "step-assembly",
+      "name": "Assembly"
+    },
+    {
+      "bounds": {
+        "height": 64,
+        "width": 180,
+        "x": 40,
+        "y": 80
+      },
+      "elementType": "step",
+      "id": "step-development",
+      "name": "Product Development"
+    },
+    {
+      "bounds": {
+        "height": 64,
+        "width": 180,
+        "x": 700,
+        "y": 80
+      },
+      "color": "#00E676",
+      "elementType": "step",
+      "id": "step-distribution",
+      "name": "Distribution"
+    },
+    {
+      "bounds": {
+        "height": 60,
+        "width": 140,
+        "x": 575,
+        "y": 340
+      },
+      "elementType": "step",
+      "id": "step-packaging",
+      "name": "Packaging"
+    },
+    {
+      "bounds": {
+        "height": 64,
+        "width": 180,
+        "x": 250,
+        "y": 80
+      },
+      "elementType": "step",
+      "id": "step-procurement",
+      "name": "Procurement"
+    },
+    {
+      "bounds": {
+        "height": 64,
+        "width": 180,
+        "x": 460,
+        "y": 80
+      },
+      "color": "#335DE5",
+      "elementType": "step",
+      "id": "step-production",
+      "link": "production-detail",
+      "name": "Production"
+    },
+    {
+      "bounds": {
+        "height": 60,
+        "width": 140,
+        "x": 575,
+        "y": 270
+      },
+      "elementType": "step",
+      "id": "step-quality",
+      "name": "Quality Check"
+    }
+  ],
+  "meta": {
+    "name": "Order to Delivery"
+  },
+  "schemaVersion": 1
+}

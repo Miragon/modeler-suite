@@ -1,0 +1,178 @@
+{
+  "version": 3,
+  "title": "Streaming service team topology",
+  "nodes": [
+    {
+      "id": "team_discovery",
+      "type": "stream-aligned",
+      "label": "Discovery & Search",
+      "position": {
+        "x": 220,
+        "y": 150
+      },
+      "size": {
+        "width": 600,
+        "height": 96
+      }
+    },
+    {
+      "id": "team_platform",
+      "type": "platform",
+      "label": "Media Platform",
+      "position": {
+        "x": 220,
+        "y": 552
+      },
+      "size": {
+        "width": 600,
+        "height": 110
+      }
+    },
+    {
+      "id": "team_playback",
+      "type": "stream-aligned",
+      "label": "Playback",
+      "position": {
+        "x": 220,
+        "y": 276
+      },
+      "size": {
+        "width": 600,
+        "height": 96
+      }
+    },
+    {
+      "id": "team_recommendations",
+      "type": "complicated-subsystem",
+      "label": "Recommendation Engine",
+      "position": {
+        "x": 880,
+        "y": 123
+      },
+      "size": {
+        "width": 170,
+        "height": 150
+      }
+    },
+    {
+      "id": "team_sre",
+      "type": "enabling",
+      "label": "Reliability Enablement",
+      "position": {
+        "x": 40,
+        "y": 150
+      },
+      "size": {
+        "width": 120,
+        "height": 222
+      }
+    },
+    {
+      "id": "team_subscriptions",
+      "type": "stream-aligned",
+      "label": "Subscriptions & Billing",
+      "position": {
+        "x": 220,
+        "y": 402
+      },
+      "size": {
+        "width": 600,
+        "height": 96
+      }
+    }
+  ],
+  "interactions": [
+    {
+      "id": "int_discovery_recommendations",
+      "mode": "collaboration",
+      "position": {
+        "x": 794,
+        "y": 162
+      },
+      "size": {
+        "width": 112,
+        "height": 72
+      },
+      "label": "ranking"
+    },
+    {
+      "id": "int_platform_subscriptions",
+      "mode": "x-as-a-service",
+      "position": {
+        "x": 476,
+        "y": 486
+      },
+      "size": {
+        "width": 88,
+        "height": 78
+      },
+      "label": "CI/CD"
+    },
+    {
+      "id": "int_sre_discovery",
+      "mode": "facilitating",
+      "position": {
+        "x": 148,
+        "y": 156
+      },
+      "size": {
+        "width": 84,
+        "height": 84
+      }
+    },
+    {
+      "id": "int_sre_playback",
+      "mode": "facilitating",
+      "position": {
+        "x": 148,
+        "y": 282
+      },
+      "size": {
+        "width": 84,
+        "height": 84
+      }
+    }
+  ],
+  "flows": [
+    {
+      "id": "flow_main",
+      "position": {
+        "x": 40,
+        "y": 40
+      },
+      "size": {
+        "width": 1010,
+        "height": 56
+      },
+      "label": "Flow of change"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "ann_recommendations",
+      "text": "Collaboration until the ranking API is stable",
+      "position": {
+        "x": 880,
+        "y": 309
+      },
+      "size": {
+        "width": 200,
+        "height": 64
+      },
+      "attachedTo": "int_discovery_recommendations"
+    },
+    {
+      "id": "ann_sre",
+      "text": "Facilitating for one quarter, then both teams run their own on-call",
+      "position": {
+        "x": 40,
+        "y": 396
+      },
+      "size": {
+        "width": 156,
+        "height": 88
+      },
+      "attachedTo": "team_sre"
+    }
+  ]
+}

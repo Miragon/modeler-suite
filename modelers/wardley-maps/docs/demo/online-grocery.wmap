@@ -1,0 +1,28 @@
+title Online Grocery
+// Q1 workshop: build, buy or outsource?
+anchor Household [0.96, 0.55]
+
+component Online Order [0.84, 0.58]
+component Home Delivery [0.82, 0.8]
+component Meal Planner [0.7, 0.3] (build) url(Planner)
+component Product Catalogue [0.6, 0.62]
+component Payment [0.48, 0.88] (buy)
+component Fulfilment [0.4, 0.42] (build) inertia
+component Cloud Hosting [0.14, 0.9] (outsource)
+
+evolve Fulfilment 0.7 (buy)
+
+Household -> Online Order
+Household -> Home Delivery
+Online Order -> Meal Planner
+Online Order -> Product Catalogue
+Online Order -> Payment
+Meal Planner -> Product Catalogue
+Home Delivery -> Fulfilment
+Product Catalogue -> Fulfilment
+Fulfilment -> Cloud Hosting
+Product Catalogue -> Cloud Hosting
+
+url Planner [details/meal-planner.wmap]
+note Differentiator: build it [0.62, 0.22]
+note Inertia: own store picking [0.32, 0.3]
