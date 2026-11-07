@@ -2,6 +2,7 @@ import { describe, test } from "vitest";
 import {
   attachedHost,
   registerConformance,
+  registerMergeConformance,
   type ConformanceHarness,
   type GestureKind,
   type HeldGesture,
@@ -20,7 +21,9 @@ import {
   type CollaborativeValueChainModeler,
   type VcElementFactory,
   type VcLabelEditingProvider,
+  mergeValueChainText,
 } from "../../src/index.js";
+import { VALUE_CHAIN_MERGE_FIXTURES } from "../support/merge-fixtures.js";
 import "../../src/assets/value-chain.css";
 import PORTER from "../../../../example/porter.vc.json?raw";
 import ORDER_TO_CASH from "./fixtures/order-to-cash.vc.json?raw";
@@ -293,4 +296,9 @@ describe("@miragon/modeler-api conformance", () => {
       throw new Error(`conformance case "${caseName}" advises: ${advice}`);
     },
   });
+});
+
+// The merge an IDE host (Orca) calls when an agent writes the file under the user's unsaved edits.
+describe("Value Chain merges an outside write into a draft", () => {
+  registerMergeConformance(mergeValueChainText, VALUE_CHAIN_MERGE_FIXTURES, test);
 });
