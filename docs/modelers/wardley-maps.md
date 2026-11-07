@@ -12,7 +12,7 @@ Create, edit and embed [Wardley Maps](https://learnwardleymapping.com/): compone
 
 - **Web app:** [wardley-maps.modeler.miragon.io](https://wardley-maps.modeler.miragon.io)
 - **VS Code:** [Wardley Mapping Modeler](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.wardley-mapping-modeler)
-- **Orca:** [Open in Orca](https://onorca.dev/plugins/miragon.wardley-maps-modeler?catalog=https://github.com/miragon/orca-modelers.git), the plugin from Miragon's [catalog for Orca](https://github.com/Miragon/orca-modelers) ([what it does in Orca](https://github.com/Miragon/modeler-suite/tree/main/modelers/wardley-maps/apps/orca#readme))
+- **Orca:** [Open in Orca](https://www.onorca.dev/plugins/miragon/orca-modelers/wardley-maps-modeler), in Orca's plugin directory ([what it does in Orca](https://github.com/Miragon/modeler-suite/tree/main/modelers/wardley-maps/apps/orca#readme))
 - **Library:** `npm install @miragon/wardley-renderer`
 
 ## Next steps

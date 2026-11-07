@@ -11,7 +11,7 @@ ARIS-style value-added chain diagrams: steps as chevrons, organizational units a
 ## Use it
 
 - **From source:** `npm run value-chain dev:webapp` opens the editor at `http://localhost:5181`.
-- **Orca:** [Open in Orca](https://onorca.dev/plugins/miragon.value-chain-modeler?catalog=https://github.com/miragon/orca-modelers.git), the plugin from Miragon's [catalog for Orca](https://github.com/Miragon/orca-modelers) ([what it does in Orca](https://github.com/Miragon/modeler-suite/tree/main/modelers/value-chain/apps/orca#readme))
+- **Orca:** [Open in Orca](https://www.onorca.dev/plugins/miragon/orca-modelers/value-chain-modeler), in Orca's plugin directory ([what it does in Orca](https://github.com/Miragon/modeler-suite/tree/main/modelers/value-chain/apps/orca#readme))
 - **Library:** `@miragon/value-chain-renderer`
 
 ## Next steps
