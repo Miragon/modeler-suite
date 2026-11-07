@@ -12,7 +12,7 @@ Digital [Event Storming](https://www.eventstorming.com/) boards for big picture,
 
 - **Web app:** [event-storming.modeler.miragon.io](https://event-storming.modeler.miragon.io)
 - **VS Code:** [Event Storming Modeler](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.event-storming-modeler)
-- **Orca:** [Open in Orca](https://onorca.dev/plugins/miragon.event-storming-modeler?catalog=https://github.com/miragon/orca-modelers.git), the plugin from Miragon's [catalog for Orca](https://github.com/Miragon/orca-modelers) ([what it does in Orca](https://github.com/Miragon/modeler-suite/tree/main/modelers/event-storming/apps/orca#readme))
+- **Orca:** [Open in Orca](https://www.onorca.dev/plugins/miragon/orca-modelers/event-storming-modeler), in Orca's plugin directory ([what it does in Orca](https://github.com/Miragon/modeler-suite/tree/main/modelers/event-storming/apps/orca#readme))
 - **Library:** `npm install @miragon/event-storming-renderer`
 
 ## Next steps

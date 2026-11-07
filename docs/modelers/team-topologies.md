@@ -12,7 +12,7 @@ The four team types and three interaction modes of Team Topologies, drawn in the
 
 - **Web app:** [team-topologies.modeler.miragon.io](https://team-topologies.modeler.miragon.io)
 - **VS Code:** [Team Topologies Modeler](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.team-topologies-modeler)
-- **Orca:** [Open in Orca](https://onorca.dev/plugins/miragon.team-topologies-modeler?catalog=https://github.com/miragon/orca-modelers.git), the plugin from Miragon's [catalog for Orca](https://github.com/Miragon/orca-modelers) ([what it does in Orca](https://github.com/Miragon/modeler-suite/tree/main/modelers/team-topologies/apps/orca#readme))
+- **Orca:** [Open in Orca](https://www.onorca.dev/plugins/miragon/orca-modelers/team-topologies-modeler), in Orca's plugin directory ([what it does in Orca](https://github.com/Miragon/modeler-suite/tree/main/modelers/team-topologies/apps/orca#readme))
 - **Library:** `npm install @miragon/team-topologies-renderer`
 
 ## Next steps
