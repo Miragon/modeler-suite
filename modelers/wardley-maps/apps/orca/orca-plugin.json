@@ -27,6 +27,16 @@
       "path": "images/screenshot-orca.webp",
       "alt": "Orca with the strategy-workshop folder open and online-grocery.wmap in the Wardley Maps editor, next to the project sidebar and the file tree",
       "caption": "Runs right inside Orca, next to your files"
+    },
+    {
+      "path": "images/feature-settings.webp",
+      "alt": "The Wardley Maps editor with Product Catalogue selected and its settings open: type, sourcing (build, buy, outsource) and inertia",
+      "caption": "Set a component's type, sourcing and inertia"
+    },
+    {
+      "path": "images/feature-x-axis.webp",
+      "alt": "The Wardley Maps editor with the X-axis labels dialog open, showing a preset and the four evolution stages",
+      "caption": "Name the evolution stages your way"
     }
   ],
   "engines": {

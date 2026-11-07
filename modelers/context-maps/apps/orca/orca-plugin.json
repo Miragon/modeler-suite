@@ -27,6 +27,16 @@
       "path": "images/screenshot-orca.webp",
       "alt": "Orca with the strategy-workshop folder open and conference-program.cm in the Context Maps editor, next to the project sidebar and the file tree",
       "caption": "Runs right inside Orca, next to your files"
+    },
+    {
+      "path": "images/feature-pattern.webp",
+      "alt": "The Context Maps editor with a relationship selected and its pattern menu open: partnership, shared kernel, customer-supplier",
+      "caption": "Pick the DDD pattern of each relationship"
+    },
+    {
+      "path": "images/feature-legend.webp",
+      "alt": "The Context Maps editor with its legend open, explaining subdomain types, integration roles and relationship patterns",
+      "caption": "A legend explains subdomains, roles and patterns"
     }
   ],
   "engines": {

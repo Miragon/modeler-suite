@@ -8,6 +8,66 @@
           "file": "wardley-maps/plugins/wardley-maps-modeler/skills/wardley-mapping/examples/online-grocery/online-grocery.wmap"
         }
       ],
+      "features": [
+        {
+          "name": "settings",
+          "act": [
+            {
+              "click": [888, 454]
+            },
+            {
+              "click": [1059, 494]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "x-axis",
+          "act": [
+            {
+              "click": [32, 32]
+            },
+            {
+              "click": [120, 121]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        }
+      ],
       "title": "Wardley Maps",
       "claim": "Wardley maps from plain .wmap files, edited by you and your agents.",
       "out": "wardley-maps/apps/orca/images"
@@ -19,6 +79,63 @@
           "file": "event-storming/example/order-checkout.storm"
         }
       ],
+      "features": [
+        {
+          "name": "aggregates",
+          "act": [
+            {
+              "click": [32, 32]
+            },
+            {
+              "click": [120, 261]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "levels",
+          "act": [
+            {
+              "click": [32, 32]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        }
+      ],
       "title": "Event Storming",
       "claim": "Event Storming boards from plain .storm files, edited by you and your agents.",
       "out": "event-storming/apps/orca/images"
@@ -28,6 +145,72 @@
       "examples": [
         {
           "file": "team-topologies/plugins/team-topologies-modeler/skills/tt-format/examples/ride-hailing.tt"
+        }
+      ],
+      "features": [
+        {
+          "name": "inspector",
+          "act": [
+            {
+              "click": [756, 476]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "legend",
+          "act": [
+            {
+              "click": [32, 32]
+            },
+            {
+              "click": [120, 85]
+            },
+            {
+              "click": [120, 470]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
         }
       ],
       "title": "Team Topologies",
@@ -42,6 +225,69 @@
           "name": "conference-program.cm"
         }
       ],
+      "features": [
+        {
+          "name": "pattern",
+          "act": [
+            {
+              "click": [622, 368]
+            },
+            {
+              "click": [662, 439]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "legend",
+          "act": [
+            {
+              "click": [32, 32]
+            },
+            {
+              "click": [120, 121]
+            },
+            {
+              "click": [900, 850]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        }
+      ],
       "title": "Context Maps",
       "claim": "Context maps from plain .cm files, edited by you and your agents.",
       "out": "context-maps/apps/orca/images"
@@ -51,6 +297,69 @@
       "examples": [
         {
           "file": "value-chain/example/porter.vc.json"
+        }
+      ],
+      "features": [
+        {
+          "name": "align",
+          "act": [
+            {
+              "click": [707, 31]
+            },
+            {
+              "drag": [
+                [300, 300],
+                [1300, 420]
+              ]
+            },
+            {
+              "click": [1326, 342]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "step",
+          "act": [
+            {
+              "click": [596, 346]
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            },
+            {
+              "key": "Shift"
+            }
+          ]
         }
       ],
       "title": "Value Chain",
