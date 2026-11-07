@@ -36,7 +36,7 @@ and reports. The `.wmap` file stays the source you edit.
 
 ## Text and diagram side by side
 
-![Dragging Product Catalogue to the right on the canvas changes its line in the text beside it](/modelers/wardley-maps/docs/screenshots/vscode/side-by-side.gif)
+![Dragging Product Catalogue to the right on the canvas changes its line in the text beside it](/modelers/wardley-maps/docs/screenshots/vscode/side-by-side.png)
 
 **Wardley: Open Source to the Side** shows the map's text, with syntax highlighting, next to the
 diagram. Type in the text and the diagram follows. Edit the diagram and the text changes, but only
