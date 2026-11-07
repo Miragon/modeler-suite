@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/Miragon/modeler-suite/compare/value-chain-orca-v0.1.3...value-chain-orca-v0.2.0) (2026-11-07)
+
+
+### Features
+
+* **value-chain:** show a cover and screenshots in Orca's plugin directory ([#586](https://github.com/Miragon/modeler-suite/issues/586)) ([e8306c4](https://github.com/Miragon/modeler-suite/commit/e8306c49e89030a814be9f591b09678f6ba282a3)), closes [#572](https://github.com/Miragon/modeler-suite/issues/572)
+
+
+### Bug Fixes
+
+* bundle Geist in the Orca plugins again now that Orca's directory accepts web fonts ([#587](https://github.com/Miragon/modeler-suite/issues/587)) ([85c4fd5](https://github.com/Miragon/modeler-suite/commit/85c4fd5d165a9a63b574de9d584f7e8593c83977))
+
 ## [0.1.3](https://github.com/Miragon/modeler-suite/compare/value-chain-orca-v0.1.2...value-chain-orca-v0.1.3) (2026-11-07)
 
 

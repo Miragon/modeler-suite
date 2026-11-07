@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.19.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.18.3...team-topologies-v0.19.0) (2026-11-07)
+
+
+### Features
+
+* **team-topologies:** show a cover and screenshots in Orca's plugin directory ([#584](https://github.com/Miragon/modeler-suite/issues/584)) ([ded1b2d](https://github.com/Miragon/modeler-suite/commit/ded1b2d4ac6c5d1ef8b61a8affcda2f1dda543b2)), closes [#572](https://github.com/Miragon/modeler-suite/issues/572)
+
+
+### Bug Fixes
+
+* bundle Geist in the Orca plugins again now that Orca's directory accepts web fonts ([#587](https://github.com/Miragon/modeler-suite/issues/587)) ([85c4fd5](https://github.com/Miragon/modeler-suite/commit/85c4fd5d165a9a63b574de9d584f7e8593c83977))
+
 ## [0.18.3](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.18.2...team-topologies-v0.18.3) (2026-11-07)
 
 

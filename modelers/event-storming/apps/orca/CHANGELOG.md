@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/Miragon/modeler-suite/compare/event-storming-orca-v0.1.3...event-storming-orca-v0.2.0) (2026-11-07)
+
+
+### Features
+
+* **event-storming:** show a cover and screenshots in Orca's plugin directory ([#583](https://github.com/Miragon/modeler-suite/issues/583)) ([47c7c5d](https://github.com/Miragon/modeler-suite/commit/47c7c5d86def0e48f43ad934318d0a7855d41aba)), closes [#572](https://github.com/Miragon/modeler-suite/issues/572)
+
+
+### Bug Fixes
+
+* bundle Geist in the Orca plugins again now that Orca's directory accepts web fonts ([#587](https://github.com/Miragon/modeler-suite/issues/587)) ([85c4fd5](https://github.com/Miragon/modeler-suite/commit/85c4fd5d165a9a63b574de9d584f7e8593c83977))
+
 ## [0.1.3](https://github.com/Miragon/modeler-suite/compare/event-storming-orca-v0.1.2...event-storming-orca-v0.1.3) (2026-11-07)
 
 

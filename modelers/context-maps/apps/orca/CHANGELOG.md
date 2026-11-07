@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/Miragon/modeler-suite/compare/context-maps-orca-v0.1.3...context-maps-orca-v0.2.0) (2026-11-07)
+
+
+### Features
+
+* **context-maps:** show a cover and screenshots in Orca's plugin directory ([#585](https://github.com/Miragon/modeler-suite/issues/585)) ([77ab60e](https://github.com/Miragon/modeler-suite/commit/77ab60eaba4c458e63dc3091e16f5dbf150b0843)), closes [#572](https://github.com/Miragon/modeler-suite/issues/572)
+
+
+### Bug Fixes
+
+* bundle Geist in the Orca plugins again now that Orca's directory accepts web fonts ([#587](https://github.com/Miragon/modeler-suite/issues/587)) ([85c4fd5](https://github.com/Miragon/modeler-suite/commit/85c4fd5d165a9a63b574de9d584f7e8593c83977))
+
 ## [0.1.3](https://github.com/Miragon/modeler-suite/compare/context-maps-orca-v0.1.2...context-maps-orca-v0.1.3) (2026-11-07)
 
 
