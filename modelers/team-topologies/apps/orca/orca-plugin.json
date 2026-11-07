@@ -13,6 +13,22 @@
   "homepage": "https://miragon.github.io/modeler-suite/",
   "license": "MIT",
   "icon": "assets/icon.png",
+  "cover": {
+    "path": "images/cover.webp",
+    "alt": "Miragon Modeler for Team Topologies: Team Topologies diagrams from plain .tt files, edited by you and your agents."
+  },
+  "screenshots": [
+    {
+      "path": "images/screenshot-ride-hailing.webp",
+      "alt": "A team topology of a ride-hailing company with stream-aligned teams, an enabling team, a complicated-subsystem team and a platform along the flow of change",
+      "caption": "Team types and the flow of change"
+    },
+    {
+      "path": "images/screenshot-online-shop.webp",
+      "alt": "A team topology of an online shop with collaboration, facilitating and X-as-a-Service interactions between its teams",
+      "caption": "Interaction modes between teams"
+    }
+  ],
   "engines": {
     "orca": ">=1.4.248"
   },
