@@ -3,7 +3,7 @@
   "manifestVersion": 2,
   "id": "team-topologies-modeler",
   "name": "Team Topologies Modeler",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "description": "Open .tt and .ttm.json files as Team Topologies diagrams: model teams, their interactions and the flow of change, and see an agent's changes to the file as they happen.",
   "author": {
     "name": "Miragon GmbH",
