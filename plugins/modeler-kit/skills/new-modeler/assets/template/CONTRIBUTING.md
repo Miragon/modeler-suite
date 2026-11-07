@@ -36,10 +36,9 @@ because a job it needs failed comes with that failure, so `ci-ok` passes a skip.
 - **Every Monday** `vscode-smoke-weekly.yml` runs it, because a new VS Code release can break the
   extension without a change here; a failure opens the issue "VS Code smoke: the weekly run
   failed", or comments on it while it is open.
-- **The release** smoke-tests the VSIX it publishes, unpacked, in the newest stable VS Code, before
-  it uploads it to the Marketplace and Open VSX. When that smoke fails, its screenshots and VS
-  Code's logs are uploaded as the artifact `vscode-smoke-marketplace`, `vscode-smoke-open-vsx` or
-  `vscode-smoke-dry-run`.
+- **The release** smoke-tests the VSIX it publishes, unpacked, in the newest stable VS Code, once,
+  before it uploads that very file to the Marketplace and Open VSX. When that smoke fails, its
+  screenshots and VS Code's logs are uploaded as the artifact `vscode-smoke-release`.
 
 ## Commits and releases
 

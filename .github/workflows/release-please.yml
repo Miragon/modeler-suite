@@ -3,13 +3,17 @@ name: Release
 # npm trusted publishing (OIDC, no token) is bound to this file name and to the `npm` environment of
 # publish-npm: renaming either breaks publishing until every package's trusted publisher on
 # npmjs.com is updated.
+#
+# Every target takes the same three steps: build and check (no environment), one approval, publish.
+# Each publish job needs every build job, so all three environments ask for approval at the same
+# moment and one "Review deployments" approves them; a build that fails publishes nothing.
 on:
   push:
     branches: [main]
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Validate packaging/publish without releasing"
+        description: "Build and smoke-test every package, extension and plugin without releasing"
         type: boolean
         default: false
 
@@ -28,128 +32,88 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release-please:
-    if: github.event_name != 'workflow_dispatch' || !inputs.dry_run
+  # What this run publishes (.github/scripts/release-plan.mjs): a package, an extension or a plugin
+  # only when its own component released, or all of them for a dry run, which releases nothing and
+  # runs on any branch. A release runs from main only.
+  plan:
+    if: github.ref == 'refs/heads/main' || inputs.dry_run
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # What the components released this run publish (.github/scripts/release-plan.mjs): a package
-    # or an extension is published only when its own component released.
     outputs:
-      npm: ${{ steps.plan.outputs.npm }}
-      vscode: ${{ steps.plan.outputs.vscode }}
-      orca: ${{ steps.plan.outputs.orca }}
+      npm: ${{ steps.plan.outputs.npm || '[]' }}
+      vscode: ${{ steps.plan.outputs.vscode || '[]' }}
+      orca: ${{ steps.plan.outputs.orca || '[]' }}
     steps:
-      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      - if: ${{ !inputs.dry_run }}
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         with:
           client-id: ${{ vars.RELEASE_PLEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
-      - id: release_please
+      - if: ${{ !inputs.dry_run }}
+        id: release_please
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-      - if: steps.release_please.outputs.releases_created == 'true'
+      - if: inputs.dry_run || steps.release_please.outputs.releases_created == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: plan
-        if: steps.release_please.outputs.releases_created == 'true'
-        run: node .github/scripts/release-plan.mjs "$PATHS_RELEASED"
+        if: inputs.dry_run || steps.release_please.outputs.releases_created == 'true'
+        run: node .github/scripts/release-plan.mjs "${PATHS_RELEASED:---all}"
         env:
-          PATHS_RELEASED: ${{ steps.release_please.outputs.paths_released }}
+          PATHS_RELEASED: ${{ !inputs.dry_run && steps.release_please.outputs.paths_released || '' }}
 
-  publish-npm:
-    name: npm (${{ matrix.package.name }})
-    needs: release-please
-    if: needs.release-please.outputs.npm != '' && needs.release-please.outputs.npm != '[]'
+  build-npm:
+    name: build / npm (${{ matrix.package.name }})
+    needs: plan
+    if: needs.plan.outputs.npm != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: npm
     permissions:
       contents: read
-      id-token: write
     strategy:
       fail-fast: false
       matrix:
-        package: ${{ fromJSON(needs.release-please.outputs.npm) }}
+        package: ${{ fromJSON(needs.plan.outputs.npm) }}
     env:
       PACKAGE_DIR: ${{ matrix.package.directory }}
       MODELER: ${{ matrix.package.modeler }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Node 24's npm brings OIDC trusted publishing; one setup-node pin for the whole repository.
       - uses: ./.github/actions/setup
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
-      # npm before 11.5.1 fails a trusted publish after the registry accepted the tarball.
-      - name: Require an npm that publishes with OIDC cleanly
-        run: |
-          npm_version=$(npm --version)
-          if ! node -e "process.exit(require('semver').gte(process.argv[1], '11.5.1') ? 0 : 1)" "$npm_version"; then
-            echo "::error::npm $npm_version is older than 11.5.1"
-            exit 1
-          fi
       - run: npm run build:shared
       - if: env.MODELER != ''
         run: npm run "$MODELER" build
       # The published shape of the shared packages: exports map, dual types, files.
       - if: env.MODELER == ''
         run: npm run publint -w "$PACKAGE_DIR"
-      - name: Publish ${{ matrix.package.name }}
-        run: |
-          name="$(node -p "require('./$PACKAGE_DIR/package.json').name")"
-          version="$(node -p "require('./$PACKAGE_DIR/package.json').version")"
-          if npm view "$name@$version" version > /dev/null 2>&1; then
-            echo "$name@$version is already published, skipping"
-            exit 0
-          fi
-          if ! npm view "$name" name > /dev/null 2>&1; then
-            echo "::error::$name does not exist on npm yet: publish it once by hand, attach the trusted publisher (Miragon/modeler-suite, release-please.yml, environment npm), then re-run this job."
-            exit 1
-          fi
-          echo "publish $name@$version"
-          # npm publish's exit status is not the verdict: its OIDC client can fail a request after
-          # the registry accepted the tarball, so the registry decides.
-          publish_status=0
-          npm publish -w "$PACKAGE_DIR" --provenance --access public || publish_status=$?
-          # The registry can take minutes to list a version it accepted; giving up sooner turns a
-          # good release into a red run. Each poll gets a short fetch timeout and no npm retries:
-          # with npm's defaults one stalled npm view could block longer than the whole wait.
-          poll_interval_seconds=15
-          poll_timeout_seconds=300
-          waited_seconds=0
-          attempt=1
-          until registry_answer="$(npm view "$name@$version" version --fetch-timeout=30000 --fetch-retries=0 2>&1)"; do
-            if [[ "$waited_seconds" -ge "$poll_timeout_seconds" ]]; then
-              echo "::error::$name@$version did not land on the registry after $attempt attempts, ${poll_interval_seconds}s apart (npm publish exited $publish_status)"
-              echo "last registry answer to npm view $name@$version version:"
-              echo "$registry_answer"
-              exit 1
-            fi
-            echo "waiting for $name@$version to appear on the registry (attempt $attempt, ${waited_seconds}s of ${poll_timeout_seconds}s)"
-            sleep "$poll_interval_seconds"
-            waited_seconds=$((waited_seconds + poll_interval_seconds))
-            attempt=$((attempt + 1))
-          done
-          echo "confirmed $name@$version on the registry (npm publish exited $publish_status)"
+      # The very tarball publish-npm puts on the registry.
+      - run: npm pack -w "$PACKAGE_DIR" --pack-destination "$RUNNER_TEMP/npm"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/npm/*.tgz
+          if-no-files-found: error
+          retention-days: 7
 
-  # Each marketplace job packs and smoke-tests the very VSIX it uploads: a package that does not
-  # activate never ships.
-  publish-vscode:
-    name: VS Code Marketplace (${{ matrix.extension.name }})
-    needs: release-please
-    if: needs.release-please.outputs.vscode != '' && needs.release-please.outputs.vscode != '[]'
+  # Each extension is packed and smoke-tested once; both marketplaces get that very VSIX.
+  build-vscode:
+    name: build / vscode (${{ matrix.extension.name }})
+    needs: plan
+    if: needs.plan.outputs.vscode != '[]'
     # Pinned like the smoke workflow: VS Code needs the image's X server and GTK libraries.
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment: vscode-marketplace
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        extension: ${{ fromJSON(needs.release-please.outputs.vscode) }}
+        extension: ${{ fromJSON(needs.plan.outputs.vscode) }}
     env:
       MODELER: ${{ matrix.extension.modeler }}
       VSIX: ${{ matrix.extension.vsix }}
@@ -165,11 +129,17 @@ jobs:
       - name: Package extension
         working-directory: ${{ matrix.extension.directory }}
         run: npx vsce package --no-dependencies -o "$VSIX"
+      - id: vscode
+        if: env.MODELER != ''
+        uses: ./.github/actions/vscode
+        with:
+          channel: stable
+          extension-manifest: ${{ matrix.extension.directory }}/package.json
       - name: Smoke-test the VSIX in VS Code
         if: env.MODELER != ''
         run: xvfb-run -a npm run "$MODELER" test:vscode
         env:
-          VSCODE_VERSION: stable
+          VSCODE_VERSION: ${{ steps.vscode.outputs.version }}
           VSCODE_SMOKE_VSIX: ${{ github.workspace }}/${{ matrix.extension.directory }}/${{ matrix.extension.vsix }}
           VSCODE_SMOKE_KEEP: "1"
           TMPDIR: ${{ runner.temp }}
@@ -178,92 +148,27 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: vscode-smoke-marketplace-${{ matrix.extension.modeler }}
+          name: vscode-smoke-release-${{ matrix.extension.modeler }}
           path: |
             modelers/${{ matrix.extension.modeler }}/test-results/vscode-smoke/
             ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
           if-no-files-found: ignore
           retention-days: 7
-      - name: Publish to VS Code Marketplace
-        working-directory: ${{ matrix.extension.directory }}
-        run: npx vsce publish --packagePath "$VSIX"
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PUBLISH }}
-
-  publish-open-vsx:
-    name: Open VSX (${{ matrix.extension.name }})
-    needs: release-please
-    if: needs.release-please.outputs.vscode != '' && needs.release-please.outputs.vscode != '[]'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    environment: vscode-marketplace
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        extension: ${{ fromJSON(needs.release-please.outputs.vscode) }}
-    env:
-      MODELER: ${{ matrix.extension.modeler }}
-      VSIX: ${{ matrix.extension.vsix }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          node-version: 24
-      - run: npm run build:shared
-      # An extension pack (extensions/) has nothing to build and no editor to smoke-test.
-      - if: env.MODELER != ''
-        run: npm run "$MODELER" build:vscode
-      - name: Package extension
-        working-directory: ${{ matrix.extension.directory }}
-        run: npx vsce package --no-dependencies -o "$VSIX"
-      - name: Smoke-test the VSIX in VS Code
-        if: env.MODELER != ''
-        run: xvfb-run -a npm run "$MODELER" test:vscode
-        env:
-          VSCODE_VERSION: stable
-          VSCODE_SMOKE_VSIX: ${{ github.workspace }}/${{ matrix.extension.directory }}/${{ matrix.extension.vsix }}
-          VSCODE_SMOKE_KEEP: "1"
-          TMPDIR: ${{ runner.temp }}
-      - if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: vscode-smoke-open-vsx-${{ matrix.extension.modeler }}
-          path: |
-            modelers/${{ matrix.extension.modeler }}/test-results/vscode-smoke/
-            ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
-          if-no-files-found: ignore
+          name: vsix-${{ matrix.extension.name }}
+          path: ${{ matrix.extension.directory }}/${{ matrix.extension.vsix }}
+          if-no-files-found: error
           retention-days: 7
-      # ovsx is no dependency of the suite, so npx fetches it: pinned, it cannot change under a release.
-      - name: Publish to Open VSX
-        working-directory: ${{ matrix.extension.directory }}
-        run: npx --yes ovsx@1.3.0 publish --packagePath "$VSIX" --pat "$OVSX_PAT"
-        env:
-          OVSX_PAT: ${{ secrets.OVSX_PUBLISH }}
-
-  # Each job that names an environment waits for its own approval when it starts. This one job waits
-  # once, next to the npm and VS Code jobs, so one "Review deployments" approves all three
-  # environments.
-  orca-approval:
-    name: Orca approval
-    needs: release-please
-    if: needs.release-please.outputs.orca != '' && needs.release-please.outputs.orca != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    environment: orca
-    permissions: {}
-    steps:
-      - run: echo "Approved the Orca plugins of this release"
 
   # An Orca plugin goes into the output repository miragon/orca-modelers, whose catalog Orca reads.
-  # Each plugin is built and smoke-tested here in a real Orca, in parallel, and uploaded as the
-  # artifact orca-plugin-<id> with its release tag and changelog (release.json). publish-orca then
-  # publishes all of them at once.
+  # Each plugin is built and smoke-tested here in a real Orca and uploaded as the artifact
+  # orca-plugin-<id> with its release tag and changelog (release.json); publish-orca publishes all
+  # of them at once.
   build-orca:
-    name: Orca (${{ matrix.plugin.id }})
-    needs: release-please
-    if: needs.release-please.outputs.orca != '' && needs.release-please.outputs.orca != '[]'
+    name: build / orca (${{ matrix.plugin.id }})
+    needs: plan
+    if: needs.plan.outputs.orca != '[]'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -271,7 +176,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        plugin: ${{ fromJSON(needs.release-please.outputs.orca) }}
+        plugin: ${{ fromJSON(needs.plan.outputs.orca) }}
     env:
       MODELER: ${{ matrix.plugin.modeler }}
       PLUGIN_DIR: ${{ matrix.plugin.directory }}/plugin
@@ -282,18 +187,15 @@ jobs:
           node-version: 24
       - run: npm run build:shared
       - run: npm run "$MODELER" build:orca
-      - name: Download and extract the newest Orca
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/orca" && cd "$RUNNER_TEMP/orca"
-          gh release download --repo stablyai/orca --pattern orca-linux.AppImage
-          chmod +x orca-linux.AppImage
-          ./orca-linux.AppImage --appimage-extract > /dev/null
+      - id: orca
+        uses: ./.github/actions/orca
+        with:
+          channel: latest
+          plugin-manifest: ${{ matrix.plugin.directory }}/orca-plugin.json
       - name: Smoke-test exactly this plugin folder in Orca
         run: xvfb-run -a npm run "$MODELER" test:orca
         env:
-          ORCA_APP: ${{ runner.temp }}/orca/squashfs-root
+          ORCA_APP: ${{ steps.orca.outputs.app }}
           ORCA_SMOKE_PLUGIN: ${{ github.workspace }}/${{ env.PLUGIN_DIR }}
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -321,17 +223,128 @@ jobs:
           overwrite: true
           retention-days: 7
 
+  publish-npm:
+    name: publish / npm (${{ matrix.package.name }})
+    needs: [plan, build-npm, build-vscode, build-orca]
+    if: ${{ !cancelled() && !inputs.dry_run && !contains(needs.*.result, 'failure') && needs.plan.outputs.npm != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.plan.outputs.npm) }}
+    steps:
+      # Node 24's npm brings OIDC trusted publishing.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      # npm before 11.5.1 fails a trusted publish after the registry accepted the tarball.
+      - name: Require an npm that publishes with OIDC cleanly
+        run: |
+          npm_version=$(npm --version)
+          if [[ "$(printf '%s\n' 11.5.1 "$npm_version" | sort -V | head -n 1)" != 11.5.1 ]]; then
+            echo "::error::npm $npm_version is older than 11.5.1"
+            exit 1
+          fi
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: npm-${{ strategy.job-index }}
+          path: npm
+      - name: Publish ${{ matrix.package.name }}
+        run: |
+          tarball=$(ls npm/*.tgz)
+          name="$(tar -xOzf "$tarball" package/package.json | jq -r .name)"
+          version="$(tar -xOzf "$tarball" package/package.json | jq -r .version)"
+          if npm view "$name@$version" version > /dev/null 2>&1; then
+            echo "$name@$version is already published, skipping"
+            exit 0
+          fi
+          if ! npm view "$name" name > /dev/null 2>&1; then
+            echo "::error::$name does not exist on npm yet: publish it once by hand, attach the trusted publisher (Miragon/modeler-suite, release-please.yml, environment npm), then re-run this job."
+            exit 1
+          fi
+          echo "publish $name@$version"
+          # npm publish's exit status is not the verdict: its OIDC client can fail a request after
+          # the registry accepted the tarball, so the registry decides.
+          publish_status=0
+          npm publish "$tarball" --provenance --access public || publish_status=$?
+          # The registry can take minutes to list a version it accepted; giving up sooner turns a
+          # good release into a red run. Each poll gets a short fetch timeout and no npm retries:
+          # with npm's defaults one stalled npm view could block longer than the whole wait.
+          poll_interval_seconds=15
+          poll_timeout_seconds=300
+          waited_seconds=0
+          attempt=1
+          until registry_answer="$(npm view "$name@$version" version --fetch-timeout=30000 --fetch-retries=0 2>&1)"; do
+            if [[ "$waited_seconds" -ge "$poll_timeout_seconds" ]]; then
+              echo "::error::$name@$version did not land on the registry after $attempt attempts, ${poll_interval_seconds}s apart (npm publish exited $publish_status)"
+              echo "last registry answer to npm view $name@$version version:"
+              echo "$registry_answer"
+              exit 1
+            fi
+            echo "waiting for $name@$version to appear on the registry (attempt $attempt, ${waited_seconds}s of ${poll_timeout_seconds}s)"
+            sleep "$poll_interval_seconds"
+            waited_seconds=$((waited_seconds + poll_interval_seconds))
+            attempt=$((attempt + 1))
+          done
+          echo "confirmed $name@$version on the registry (npm publish exited $publish_status)"
+
+  # --skip-duplicate lets a re-run pass a marketplace that already has the version.
+  publish-vscode:
+    name: publish / ${{ matrix.marketplace }} (${{ matrix.extension.name }})
+    needs: [plan, build-npm, build-vscode, build-orca]
+    if: ${{ !cancelled() && !inputs.dry_run && !contains(needs.*.result, 'failure') && needs.plan.outputs.vscode != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: vscode-marketplace
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        extension: ${{ fromJSON(needs.plan.outputs.vscode) }}
+        marketplace: [vscode-marketplace, open-vsx]
+    env:
+      VSIX: ${{ github.workspace }}/vsix/${{ matrix.extension.vsix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # vsce on the extensions' own pinned version.
+      - uses: ./.github/actions/setup
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: vsix-${{ matrix.extension.name }}
+          path: vsix
+      - if: matrix.marketplace == 'vscode-marketplace'
+        working-directory: ${{ matrix.extension.directory }}
+        run: npx vsce publish --packagePath "$VSIX" --skip-duplicate
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PUBLISH }}
+      # ovsx is no dependency of the suite, so npx fetches it: pinned, it cannot change under a release.
+      - if: matrix.marketplace == 'open-vsx'
+        working-directory: ${{ matrix.extension.directory }}
+        run: npx --yes ovsx@1.3.0 publish --packagePath "$VSIX" --pat "$OVSX_PAT" --skip-duplicate
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PUBLISH }}
+
   # One publish for every plugin of this release, by miragon/orca-modelers' action with the
   # release-please app's token: it opens a pull request for the plugin folders and then one for the
   # catalog, and merges each once that repository's checks pass, so the release is one catalog
   # change and one tag. A failed publish closes its pull request; re-running this job retries and
   # skips the plugin folders when they are on main already.
   publish-orca:
-    name: Orca publish
-    needs: [release-please, build-orca, orca-approval]
-    if: needs.release-please.outputs.orca != '' && needs.release-please.outputs.orca != '[]'
-    runs-on: ubuntu-24.04
+    name: publish / orca
+    needs: [plan, build-npm, build-vscode, build-orca]
+    if: ${{ !cancelled() && !inputs.dry_run && !contains(needs.*.result, 'failure') && needs.plan.outputs.orca != '[]' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: orca
     permissions:
       contents: read
     steps:
@@ -352,123 +365,3 @@ jobs:
           plugins-dir: orca-plugins
           source-repo: ${{ github.repository }}
           source-ref: ${{ github.sha }}
-
-  # Every package and extension the suite releases, packed and smoke-tested as a release would,
-  # without releasing or publishing anything.
-  dry-run-plan:
-    if: github.event_name == 'workflow_dispatch' && inputs.dry_run
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    outputs:
-      npm: ${{ steps.plan.outputs.npm }}
-      vscode: ${{ steps.plan.outputs.vscode }}
-      orca: ${{ steps.plan.outputs.orca }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - id: plan
-        run: node .github/scripts/release-plan.mjs --all
-
-  dry-run-npm:
-    needs: dry-run-plan
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-      - run: npm run build:shared
-      - run: npm run build:modelers
-      - run: npm run publint
-      - name: Pack every npm package as npm publish would
-        run: |
-          jq -r '.[].directory' <<< "$NPM_PACKAGES" | while read -r directory; do
-            npm publish -w "$directory" --access public --dry-run
-          done
-        env:
-          NPM_PACKAGES: ${{ needs.dry-run-plan.outputs.npm }}
-
-  dry-run-vscode:
-    name: dry run (${{ matrix.extension.name }})
-    needs: dry-run-plan
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        extension: ${{ fromJSON(needs.dry-run-plan.outputs.vscode) }}
-    env:
-      MODELER: ${{ matrix.extension.modeler }}
-      VSIX: ${{ matrix.extension.vsix }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-        with:
-          node-version: 24
-      - run: npm run build:shared
-      # An extension pack (extensions/) has nothing to build and no editor to smoke-test.
-      - if: env.MODELER != ''
-        run: npm run "$MODELER" build:vscode
-      - name: Package extension
-        working-directory: ${{ matrix.extension.directory }}
-        run: npx vsce package --no-dependencies -o "$VSIX"
-      # The publish jobs' smoke, so a dry run shows it passes before a release depends on it.
-      - name: Smoke-test the VSIX in VS Code
-        if: env.MODELER != ''
-        run: xvfb-run -a npm run "$MODELER" test:vscode
-        env:
-          VSCODE_VERSION: stable
-          VSCODE_SMOKE_VSIX: ${{ github.workspace }}/${{ matrix.extension.directory }}/${{ matrix.extension.vsix }}
-          VSCODE_SMOKE_KEEP: "1"
-          TMPDIR: ${{ runner.temp }}
-      - if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: vscode-smoke-dry-run-${{ matrix.extension.modeler }}
-          path: |
-            modelers/${{ matrix.extension.modeler }}/test-results/vscode-smoke/
-            ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
-          if-no-files-found: ignore
-          retention-days: 7
-
-  dry-run-orca:
-    name: dry run (${{ matrix.plugin.id }})
-    needs: dry-run-plan
-    if: needs.dry-run-plan.outputs.orca != '[]'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        plugin: ${{ fromJSON(needs.dry-run-plan.outputs.orca) }}
-    env:
-      MODELER: ${{ matrix.plugin.modeler }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/setup
-        with:
-          node-version: 24
-      - run: npm run build:shared
-      - run: npm run "$MODELER" build:orca
-      - name: Download and extract the newest Orca
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/orca" && cd "$RUNNER_TEMP/orca"
-          gh release download --repo stablyai/orca --pattern orca-linux.AppImage
-          chmod +x orca-linux.AppImage
-          ./orca-linux.AppImage --appimage-extract > /dev/null
-      - name: Validate and smoke-test the plugin folder as a release would
-        run: xvfb-run -a npm run "$MODELER" test:orca
-        env:
-          ORCA_APP: ${{ runner.temp }}/orca/squashfs-root
-          ORCA_SMOKE_PLUGIN: ${{ github.workspace }}/${{ matrix.plugin.directory }}/plugin
