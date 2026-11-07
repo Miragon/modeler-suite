@@ -1,0 +1,41 @@
+{
+  "folder": "strategy-workshop",
+  "plugins": [
+    {
+      "plugin": "wardley-maps/apps/orca/plugin",
+      "example": "wardley-maps/plugins/wardley-maps-modeler/skills/wardley-mapping/examples/online-grocery/online-grocery.wmap",
+      "title": "Wardley Maps",
+      "claim": "Wardley maps from plain .wmap files, edited by you and your agents.",
+      "out": "wardley-maps/apps/orca/images"
+    },
+    {
+      "plugin": "event-storming/apps/orca/plugin",
+      "example": "event-storming/example/order-checkout.storm",
+      "title": "Event Storming",
+      "claim": "Event Storming boards from plain .storm files, edited by you and your agents.",
+      "out": "event-storming/apps/orca/images"
+    },
+    {
+      "plugin": "team-topologies/apps/orca/plugin",
+      "example": "team-topologies/plugins/team-topologies-modeler/skills/tt-format/examples/ride-hailing.tt",
+      "title": "Team Topologies",
+      "claim": "Team Topologies diagrams from plain .tt files, edited by you and your agents.",
+      "out": "team-topologies/apps/orca/images"
+    },
+    {
+      "plugin": "context-maps/apps/orca/plugin",
+      "example": "context-maps/example/sample.cm",
+      "name": "conference-program.cm",
+      "title": "Context Maps",
+      "claim": "Context maps from plain .cm files, edited by you and your agents.",
+      "out": "context-maps/apps/orca/images"
+    },
+    {
+      "plugin": "value-chain/apps/orca/plugin",
+      "example": "value-chain/example/porter.vc.json",
+      "title": "Value Chain",
+      "claim": "Value chains from plain .vc files, edited by you and your agents.",
+      "out": "value-chain/apps/orca/images"
+    }
+  ]
+}
