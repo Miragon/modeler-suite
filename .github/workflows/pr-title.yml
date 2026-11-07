@@ -14,19 +14,15 @@ concurrency:
 jobs:
   validate-pr-title:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Squash merges take the PR title as the commit subject, so the title is the one
-          # Conventional Commit on main. A single commit is checked as a Conventional Commit too
-          # and, except for Dependabot's, must match the title: Dependabot's grouped security
-          # updates commit a shorter headline than their title ("chore(deps): Bump x" for
-          # "chore(deps): Bump x from 1.0.0 to 1.1.0 in the npm-security group across 1
-          # directory"), and no Dependabot setting aligns the two.
-          validateSingleCommit: true
-          validateSingleCommitMatchesPrTitle: ${{ github.event.pull_request.user.login != 'dependabot[bot]' }}
+          # Squash merges take the PR title as the commit subject (the repository's squash setting
+          # is PR_TITLE), so the title is the one Conventional Commit on main and no commit message
+          # of the pull request ever lands.
           types: |
             feat
             fix

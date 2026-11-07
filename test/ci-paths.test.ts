@@ -162,7 +162,6 @@ describe("the paths a change reaches in CI", () => {
         EVENT_NAME: event,
         PULL_REQUEST_BASE_SHA: "",
         PUSH_BEFORE_SHA: "",
-        MERGE_GROUP_BASE_SHA: "",
         [baseVariable]: baseSha,
         GITHUB_OUTPUT: outputFile,
       },
@@ -242,7 +241,6 @@ describe("the paths a change reaches in CI", () => {
         EVENT_NAME: "pull_request",
         PULL_REQUEST_BASE_SHA: before,
         PUSH_BEFORE_SHA: "",
-        MERGE_GROUP_BASE_SHA: "",
         GITHUB_OUTPUT: outputFile,
       },
     });
@@ -252,6 +250,7 @@ describe("the paths a change reaches in CI", () => {
   it.each([
     ["modelers/event-storming/apps/orca/src/main.ts", "run=true"],
     ["modelers/event-storming/apps/vscode/src/webview/editor.ts", "run=true"],
+    ["modelers/event-storming/apps/ide-editor/src/editor.ts", "run=true"],
     ["modelers/event-storming/packages/dsl/src/index.ts", "run=true"],
     ["packages/shell/src/index.ts", "run=true"],
     [".github/workflows/orca-smoke.yml", "run=true"],
@@ -290,12 +289,11 @@ describe("the paths a change reaches in CI", () => {
     ).toEqual({ shared: false, repositoryTests: true, template: false, modelers: MODELERS });
   });
 
-  it.each([
-    ["push", "PUSH_BEFORE_SHA"],
-    ["merge_group", "MERGE_GROUP_BASE_SHA"],
-  ])("compares a %s with its base too", (event, baseVariable) => {
+  it("compares a push with its base too", () => {
     afterChanging("modelers/wardley-maps/plugins/wardley-maps-modeler/.claude-plugin/plugin.json");
-    expect(affected(event, baseVariable, base)).toEqual(modelerAndRepositoryTests("wardley-maps"));
+    expect(affected("push", "PUSH_BEFORE_SHA", base)).toEqual(
+      modelerAndRepositoryTests("wardley-maps"),
+    );
   });
 
   it.each([

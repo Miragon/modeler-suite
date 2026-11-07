@@ -15,6 +15,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # npm's trusted publisher names this environment and the CALLING workflow, release-please.yml
     environment: npm
     permissions:

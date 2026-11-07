@@ -7,8 +7,7 @@ workflows live in [`.github/workflows/`](../.github/workflows), their logic in
 
 ## CI and the merge gate
 
-[`ci.yml`](../.github/workflows/ci.yml) runs on every pull request, every push to `main`, the merge
-queue and by hand. A new push to a pull request cancels its running checks. Pushes to `main` share
+[`ci.yml`](../.github/workflows/ci.yml) runs on every pull request, every push to `main` and by hand. A new push to a pull request cancels its running checks. Pushes to `main` share
 one group: a running check of `main` always finishes, and of the pushes waiting behind it only the
 newest runs, so a burst of merges does not queue a full run per commit. CodeQL does the same; no
 other run is ever cancelled or replaced.
@@ -84,8 +83,7 @@ everything; so does any path no rule names.
   `npx playwright install chromium` once). The drift test of `test:plugin` only type-checks the
   template against the sources.
 - **Always**: `format-check` (Prettier over the whole suite), `pin-check` (exact pins in every
-  `package.json`, every Playwright pin equal to the root's), `dependency-review` (pull requests),
-  `release-bootstrap` (see [the imported history](#the-imported-history)).
+  `package.json`, every Playwright pin equal to the root's), `dependency-review` (pull requests).
 - **VS Code smoke** ([`vscode-smoke.yml`](../.github/workflows/vscode-smoke.yml)), called once per
   modeler: the packaged extension in a real VS Code under `xvfb`, on the newest stable release and on
   the oldest that `engines.vscode` accepts. The workflow decides itself whether the change can reach
@@ -215,20 +213,6 @@ the package's first breaking release ([#183](https://github.com/Miragon/modeler-
 [#161](https://github.com/Miragon/modeler-suite/issues/161) named it, and the minor shipped without
 the removal both times. The pull request that adds the deprecation files the issue, with the
 modeler's label (`modeler: wardley`, …).
-
-### The imported history
-
-The modelers came with their full history, whose `feat` and `fix` commits must not reach the new
-changelogs. `bootstrap-sha` in [`release-please-config.json`](../release-please-config.json) names
-the migration's last commit before CI and releases moved to the root: as long as a component has
-no release in this repository, release-please collects commits only back to it. Once every
-component has released here it has no effect, and it can go.
-
-The `release-bootstrap` job guards it: the commit has to be on the branch (else release-please would
-read the whole history), and no releasable commit to a component with a release here may lie
-before it or beside it (one merged to `main` next to the migration), because release-please could
-walk past such a commit. Land the migration with its history (a merge, not a squash), after
-releasing anything still unreleased on `main`.
 
 ## Publishing
 

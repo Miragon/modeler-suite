@@ -32,7 +32,6 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PUSH_BEFORE_SHA: ${{ github.event.before }}
-          MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
         run: |
           set -euo pipefail
           decide() {
@@ -51,7 +50,6 @@ jobs:
           case "$EVENT_NAME" in
             pull_request) base="$PULL_REQUEST_BASE_SHA" ;;
             push) base="$PUSH_BEFORE_SHA" ;;
-            merge_group) base="$MERGE_GROUP_BASE_SHA" ;;
             *)
               decide true "A $EVENT_NAME run always runs the smoke."
               exit 0
