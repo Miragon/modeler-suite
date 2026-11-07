@@ -1,52 +1,81 @@
-# Wardley Maps Modeler for Orca
+# Wardley Maps for Orca
 
-The Wardley Maps Modeler as an [Orca](https://www.onorca.dev) custom editor: `.wmap` and `.owm`
-files open as a Wardley map, with the same chrome as the VS Code extension. Orca keeps the file, its dirty state,
-saving and read-only tabs; the editor owns undo.
+[![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/modelers/wardley-maps/LICENSE)
 
-When a coding agent writes the file, the editor shows the change right away. When it has
-unsaved edits, Orca shows its Reload/Overwrite banner and you decide.
+![Miragon Modeler for Wardley Maps: Wardley maps from plain .wmap files, edited by you and your agents](images/cover.webp)
 
-## Build and try it
+See the [Wardley maps](https://learnwardleymapping.com/) your agent writes, and edit them right
+next to it. In [Orca](https://www.onorca.dev), a `.wmap` or `.owm` file opens as a map instead of
+text. The file stays plain text in the [Online Wardley Maps](https://onlinewardleymaps.com/)
+format, so your agent reads and writes it like code.
 
-```sh
-npm ci && npm run build:shared
-npm run wardley-maps build:orca          # writes apps/orca/plugin/
-cd modelers/wardley-maps/apps/orca/plugin
-orca plugin validate . && orca plugin check .
-orca plugin dev load . --json              # prints the --approve fingerprint
-orca plugin dev load . --json --approve <fingerprint>
+Free and open source (MIT). No account, no network access, and it sees only the file you open.
+
+**[Open in Orca](https://www.onorca.dev/plugins/miragon/orca-modelers/wardley-maps-modeler)**
+
+## Get started
+
+1. Turn on plugins in Orca once: Settings → Plugins → **Turn on plugins**.
+2. Open the plugin's page with the link above, or search for **Miragon** in Settings → Plugins,
+   and install it. New releases reach you through Orca.
+3. Open any `.wmap` or `.owm` file. Maps from onlinewardleymaps.com open unchanged.
+4. New to Wardley Mapping? A map places what your users need by how visible it is to them (up and
+   down) and how mature it is, from genesis to commodity (left to right).
+
+## Live while your agent writes
+
+![Orca with the strategy-workshop folder open and online-grocery.wmap in the Wardley Maps editor, next to the project sidebar and the file tree](images/screenshot-orca.webp)
+
+Each change your agent makes to the file shows up on the canvas right away. If it writes while you
+have unsaved edits, Orca asks whether to reload the file or keep yours.
+
+## Draw on the canvas
+
+![The Wardley Maps editor with Product Catalogue selected and its settings open: type, sourcing (build, buy, outsource) and inertia](images/feature-settings.webp)
+
+Add components, users, notes and pipelines from the palette. Select an element to connect, evolve,
+colour, link or delete it, and set its type, sourcing and inertia. Drag a component left or right
+to move it along evolution. Undo and save work as you expect.
+
+## Name the evolution stages your way
+
+![The Wardley Maps editor with the X-axis labels dialog open, showing a preset and the four evolution stages](images/feature-x-axis.webp)
+
+**X-axis labels…** in the menu names the four stages of evolution, from a preset or in your own
+words. **Map size…** sets the size of the map.
+
+## Export for slides
+
+Export a map as PNG or SVG from the menu, or as a transparent PNG at four times the size for slides
+and reports. Orca's save dialog asks where to put the file. The `.wmap` file stays the source you
+edit.
+
+## Let your agent write the maps
+
+For Claude Code, the `wardley-maps-modeler` plugin teaches your agent the method and the format, so
+you can ask it to draft a map from your strategy notes or to review one:
+
+```text
+/plugin marketplace add Miragon/modeler-suite
+/plugin install wardley-maps-modeler@modeler-suite
 ```
 
-`plugin/` is the folder Orca loads and the release publishes. The bundle is not minified and ships
-no sourcemap, as with it the plugin stays in the size review of Orca's community directory
-([#563](https://github.com/Miragon/modeler-suite/issues/563));
-[#564](https://github.com/Miragon/modeler-suite/issues/564) brings it back. Of zod's error messages
-it keeps only the English ones ([#568](https://github.com/Miragon/modeler-suite/issues/568)). The
-editor needs Orca 1.4.248 or later (`"frame": "isolated"`, the desktop app).
+## Good to know
 
-`images/` holds the cover and the screenshots that Orca's plugin directory shows
-([#572](https://github.com/Miragon/modeler-suite/issues/572)). They come from
-`scripts/listing-images.mjs` of [Miragon/orca-modelers](https://github.com/Miragon/orca-modelers)
-(see its CONTRIBUTING.md), run with `--listing tooling/orca-listing.json` after building the
-plugins.
+- Needs the Orca desktop app, version 1.4.248 or later.
+- A link to a web page opens in your browser after Orca asks. A link to another map does not open,
+  as Orca lets no editor open a file: pick the map in Orca's file tree.
+- Orca shows no problems list for the editor. Lines it can't read stay in the file as written,
+  and the map keeps drawing everything else.
+- The editor stays light in Orca's dark theme.
+- **Keyboard shortcuts…** in the editor's menu lists every key and gesture.
+- Also available for [VS Code](../vscode/README.md) and as a
+  [web app](https://wardley-maps.modeler.miragon.io) that makes share links.
 
-## Tests
+## Links
 
-The `orca-editor` project of `modelers/wardley-maps/e2e` runs the editor inside the shell's Orca
-stub: the shell's conformance kit on the `ide` host (`ideHost: "orca"`, the `csp` case on the built
-plugin under Orca's frame policy) and the document sync with an agent's writes.
+[Changelog](CHANGELOG.md) · [Report an issue](https://github.com/Miragon/modeler-suite/issues) ·
+[Source and contributing](../../../../CONTRIBUTING.md#orca-plugins) ·
+[All Miragon modelers for Orca](https://github.com/Miragon/orca-modelers)
 
-```sh
-npm run test:e2e -w modelers/wardley-maps/e2e -- --project=orca-editor
-```
-
-The plugin in a real Orca, in a Linux container (never on the Mac itself, where Orca's window would
-take the focus): load, render, both themes, undo, a saved edit, an agent's write and Orca's logs.
-
-```sh
-npm run wardley-maps test:orca:docker
-```
-
-A link to a web page opens in the browser after Orca asks; a link to another map does not open,
-since Orca lets no editor open a file. Pick its target in Orca's file tree.
+Made by [Miragon](https://www.miragon.io). MIT licence.

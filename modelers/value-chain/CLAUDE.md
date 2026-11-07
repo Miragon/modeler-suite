@@ -235,7 +235,7 @@ missing at its other places; the verdict stays the same).
   takes the user's focus (see [`CONTRIBUTING.md`](CONTRIBUTING.md#vs-code-smoke-test))
 - `npm run value-chain build:orca`: the Orca plugin into `apps/orca/plugin/` (the editor definition
   the VS Code webview mounts too, `apps/ide-editor/src/editor.ts`, on `orcaEditorHost`, see
-  [`apps/orca/README.md`](apps/orca/README.md)) ·
+  the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#orca-plugins)) ·
   `npm run value-chain test:orca:docker`: the plugin in a real Orca in a Linux container
   (`modeler-shell-orca-docker`); the e2e project `orca-editor` runs it in the shell's Orca stub
 - `npm run check:build -w modelers/value-chain/apps/webapp`: after `build:webapp`, checks the head

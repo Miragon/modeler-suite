@@ -40,7 +40,7 @@ so a violating import fails `npm run event-storming lint` and `npm run event-sto
   `dist`, so build before `npm run event-storming test` · `npm run event-storming build:webapp`
   (then `npm run check:build -w modelers/event-storming/apps/webapp` checks the mode markup and the
   shell's licence comment in `dist`, as CI does) · `npm run event-storming build:vscode` · `npm run event-storming build:orca` (the Orca plugin into
-  `apps/orca/plugin/`, see [`apps/orca/README.md`](apps/orca/README.md))
+  `apps/orca/plugin/`, see the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#orca-plugins))
 - `npm run event-storming dev:webapp` (alias: `npm run event-storming dev`) serves the webapp via
   [Portless](https://portless.sh) at a per-worktree `https://<branch>.event-storming.localhost` URL
   (Portless-derived from the git worktree; config in
