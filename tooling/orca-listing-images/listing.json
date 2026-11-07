@@ -1,0 +1,28 @@
+{
+  "wardley-maps": {
+    "title": "Wardley Maps",
+    "claim": "Wardley maps from plain .wmap files, edited by you and your agents.",
+    "example": "modelers/wardley-maps/plugins/wardley-maps-modeler/skills/wardley-mapping/examples/online-grocery/online-grocery.wmap"
+  },
+  "event-storming": {
+    "title": "Event Storming",
+    "claim": "Event Storming boards from plain .storm files, edited by you and your agents.",
+    "example": "modelers/event-storming/example/order-checkout.storm"
+  },
+  "team-topologies": {
+    "title": "Team Topologies",
+    "claim": "Team Topologies diagrams from plain .tt files, edited by you and your agents.",
+    "example": "modelers/team-topologies/plugins/team-topologies-modeler/skills/tt-format/examples/ride-hailing.tt"
+  },
+  "context-maps": {
+    "title": "Context Maps",
+    "claim": "Context maps from plain .cm files, edited by you and your agents.",
+    "example": "modelers/context-maps/example/sample.cm",
+    "name": "conference-program.cm"
+  },
+  "value-chain": {
+    "title": "Value Chain",
+    "claim": "Value chains from plain .vc files, edited by you and your agents.",
+    "example": "modelers/value-chain/example/porter.vc.json"
+  }
+}
