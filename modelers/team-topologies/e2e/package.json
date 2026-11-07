@@ -1,6 +1,6 @@
 {
   "name": "@miragon/team-topologies-e2e",
-  "version": "0.18.2",
+  "version": "0.18.3",
   "private": true,
   "type": "module",
   "scripts": {
