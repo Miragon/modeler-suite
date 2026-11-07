@@ -933,7 +933,17 @@ describe("broken variants fail exactly their law's case set", () => {
   });
 
   test("the package root carries no kit code — a host bundle that binds from it stays free of the kit", () => {
-    expect(Object.keys(root).sort()).toEqual(["MODELER_API_VERSION", "apiVersionsCompatible"]);
+    expect(Object.keys(root).sort()).toEqual([
+      "MODELER_API_VERSION",
+      "MergeConflictError",
+      "apiVersionsCompatible",
+      "isMergeConflict",
+      "mergeItemsById",
+      "mergeRecord",
+      "mergeTextLines",
+      "mergeValue",
+      "sameJsonValue",
+    ]);
   });
 });
 
