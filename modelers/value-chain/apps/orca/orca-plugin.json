@@ -19,9 +19,14 @@
   },
   "screenshots": [
     {
-      "path": "images/screenshot-porter.webp",
-      "alt": "Porter's value chain from inbound logistics to service, with operations split into assembly and testing and an org unit attached",
-      "caption": "Process steps, sub-steps and org units"
+      "path": "images/cover.webp",
+      "alt": "Miragon Modeler for Value Chain: Value chains from plain .vc files, edited by you and your agents.",
+      "caption": "Value Chain from plain .vc files"
+    },
+    {
+      "path": "images/screenshot-orca.webp",
+      "alt": "Orca with the strategy-workshop folder open and porter.vc.json in the Value Chain editor, next to the project sidebar and the file tree",
+      "caption": "Runs right inside Orca, next to your files"
     }
   ],
   "engines": {
