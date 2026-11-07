@@ -1,6 +1,6 @@
 {
   "name": "event-storming-orca",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "The Event Storming Modeler as an Orca custom editor for .storm files.",
   "license": "MIT",

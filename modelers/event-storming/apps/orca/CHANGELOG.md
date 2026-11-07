@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/Miragon/modeler-suite/compare/event-storming-orca-v0.1.2...event-storming-orca-v0.1.3) (2026-11-07)
+
+
+### Bug Fixes
+
+* bundle only zod's English messages in the Orca plugins ([#571](https://github.com/Miragon/modeler-suite/issues/571)) ([dbe0258](https://github.com/Miragon/modeler-suite/commit/dbe0258ee6e80897af3b637ca87b22ca4849217a))
+
 ## [0.1.2](https://github.com/Miragon/modeler-suite/compare/event-storming-orca-v0.1.1...event-storming-orca-v0.1.2) (2026-11-07)
 
 
