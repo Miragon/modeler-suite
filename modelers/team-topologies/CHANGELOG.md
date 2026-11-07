@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.19.0...team-topologies-v0.20.0) (2026-11-07)
+
+
+### Features
+
+* show two features of each modeler on its Orca page ([#589](https://github.com/Miragon/modeler-suite/issues/589)) ([3a6f05b](https://github.com/Miragon/modeler-suite/commit/3a6f05bec6c99253e1fd2814a8d3984a7fe989be)), closes [#572](https://github.com/Miragon/modeler-suite/issues/572)
+
 ## [0.19.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.18.3...team-topologies-v0.19.0) (2026-11-07)
 
 

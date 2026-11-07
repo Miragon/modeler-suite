@@ -1,6 +1,6 @@
 {
   "name": "context-maps-orca",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "The Context Maps Modeler as an Orca custom editor for .cm and .cm.json files.",
   "license": "MIT",
