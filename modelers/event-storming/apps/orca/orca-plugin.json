@@ -13,6 +13,22 @@
   "homepage": "https://miragon.github.io/modeler-suite/",
   "license": "MIT",
   "icon": "assets/icon.png",
+  "cover": {
+    "path": "images/cover.webp",
+    "alt": "Miragon Modeler for Event Storming: Event Storming boards from plain .storm files, edited by you and your agents."
+  },
+  "screenshots": [
+    {
+      "path": "images/cover.webp",
+      "alt": "Miragon Modeler for Event Storming: Event Storming boards from plain .storm files, edited by you and your agents.",
+      "caption": "Event Storming from plain .storm files"
+    },
+    {
+      "path": "images/screenshot-orca.webp",
+      "alt": "Orca with the strategy-workshop folder open and order-checkout.storm in the Event Storming editor, next to the project sidebar and the file tree",
+      "caption": "Runs right inside Orca, next to your files"
+    }
+  ],
   "engines": {
     "orca": ">=1.4.248"
   },
