@@ -148,9 +148,10 @@ The driver and the container are documented in the shell's README,
 ### Orca plugins
 
 Every modeler but C4 is also an [Orca](https://www.onorca.dev) custom editor in `apps/orca`: the
-editor the VS Code webview mounts too (`apps/ide-editor`), on the shell's `orcaEditorHost`. Orca
-keeps the file, its dirty state, saving and read-only tabs; the editor owns undo. Build one and
-load it into your Orca:
+editor the VS Code webview mounts too (`apps/ide-editor`), on the shell's `orcaEditorHost` with
+the notation's merge (`mergeOwmText`, `mergeStormText`, …), which Orca calls for an agent's write
+under unsaved edits. Orca keeps the file, its dirty state, saving and read-only tabs; the editor
+owns undo. Build one and load it into your Orca:
 
 ```sh
 npm run wardley-maps build:orca          # writes apps/orca/plugin/
@@ -166,7 +167,7 @@ ships no sourcemap, so the plugin stays within the size review of Orca's communi
 ([#563](https://github.com/Miragon/modeler-suite/issues/563));
 [#564](https://github.com/Miragon/modeler-suite/issues/564) brings the sourcemap back. Of zod's
 error messages it keeps only the English ones
-([#568](https://github.com/Miragon/modeler-suite/issues/568)). The editor needs Orca 1.4.248 or
+([#568](https://github.com/Miragon/modeler-suite/issues/568)). The editor needs Orca 1.4.252 or
 later (`"frame": "isolated"`, the desktop app). Team Topologies' plugin is released in lockstep
 with the modeler's other packages.
 
@@ -181,6 +182,9 @@ conformance kit on the `ide` host (`ideHost: "orca"`, the `csp` case on the buil
 Orca's frame policy) and the document sync with an agent's writes. `test:orca:docker` runs the
 plugin in a real Orca in a Linux container (never on the Mac itself, where Orca's window would
 take the focus): load, render, both themes, undo, a saved edit, an agent's write and Orca's logs.
+`ORCA_SMOKE_MERGE=1` adds an agent's write under unsaved edits (`merge`) and a conflicting one
+(`conflict`). Both stay off by default: driven through `orca plugin shot`, Orca does not hand that
+write to the editor, as its merge needs exactly one mounted editor view of the tab.
 
 ```sh
 npm run test:e2e -w modelers/wardley-maps/e2e -- --project=orca-editor

@@ -40,7 +40,7 @@ Every modeler except C4 is also an [Orca](https://www.onorca.dev) plugin: the fi
 opens as a diagram right next to your coding agent, and each change the agent writes shows up on
 the canvas. Install them from Orca's plugin directory: search for **Miragon** in Settings →
 Plugins, or open a modeler's page from [Miragon/orca-modelers](https://github.com/Miragon/orca-modelers#install)
-(Orca 1.4.248 or later); C4 follows.
+(Orca 1.4.252 or later); C4 follows.
 
 Each modeler's README covers its features, its file format and how to embed it in your own app
 with its npm packages.

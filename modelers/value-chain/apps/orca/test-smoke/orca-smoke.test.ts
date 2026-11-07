@@ -7,17 +7,23 @@ import { expect, it } from "vitest";
 
 const orcaApp = fileURLToPath(new URL("..", import.meta.url));
 const results = fileURLToPath(new URL("../../../test-results/orca-smoke", import.meta.url));
+const checksMerge = process.env.ORCA_SMOKE_MERGE === "1";
 
 /** An agent adds a step inside the diagram's bounds, so the fitted view stays as it was. */
-function addOutside(text: string): string {
+function addOutside(text: string, count: number): string {
   const document = JSON.parse(text) as { elements: unknown[] };
   document.elements.push({
-    id: "step_agent",
+    id: `step_agent_${count}`,
     elementType: "step",
-    name: ORCA_SMOKE_AGENT_LABEL,
-    bounds: { x: 100, y: 220, width: 160, height: 60 },
+    name: `${ORCA_SMOKE_AGENT_LABEL} ${count}`,
+    bounds: { x: count === 1 ? 100 : 700, y: 220, width: 160, height: 60 },
   });
   return `${JSON.stringify(document, null, 2)}\n`;
+}
+
+/** An agent renames the step the smoke deletes on the canvas at the same time. */
+function changeOutside(text: string): string {
+  return text.replace('"name": "Ship"', '"name": "Ship goods"');
 }
 
 it(
@@ -39,10 +45,16 @@ it(
         name: "smoke.vc.json",
         text: readFileSync(new URL("smoke.vc.json", import.meta.url), "utf8"),
       },
-      // Where a click hits it in the fitted 1200 × 800 editor: a step between the first and the
-      // last, so a delete keeps the fit.
-      deletion: { at: [400, 312], label: "Pick" },
+      // Where a click hits them in the fitted 1200 × 800 editor: the steps between the first and
+      // the last, so a delete keeps the fit.
+      deletions: [
+        { at: [400, 312], label: "Pick" },
+        { at: [600, 312], label: "Pack" },
+        { at: [800, 312], label: "Ship" },
+      ],
       addOutside,
+      changeOutside,
+      merge: checksMerge,
       results,
     });
     expect(result.steps).toEqual([
@@ -55,6 +67,7 @@ it(
       "undo",
       "edit",
       "external",
+      ...(checksMerge ? ["merge", "conflict"] : []),
       "logs",
       "close",
     ]);

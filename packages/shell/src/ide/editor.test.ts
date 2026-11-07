@@ -192,11 +192,14 @@ describe("mountIdeEditor in VS Code", () => {
 });
 
 describe("mountIdeEditor in Orca", () => {
+  const merge = (_base: string, external: string, draft: string): string =>
+    external === draft ? draft : `${external}${draft}`;
+
   it("owns the history, syncs through the session and saves exports through Orca's dialog", async () => {
     const orca = installOrcaEditorStub({ text: "title A\n" });
     const board = definition();
     appRoot();
-    const editor = mountIdeEditor(orcaEditorHost({ debounceMs: 0 }), board);
+    const editor = mountIdeEditor(orcaEditorHost({ merge, debounceMs: 0 }), board);
     await editor.ready;
     const [modeler] = board.created as [FakeModeler];
     expect(modeler.options.undoRedoKeys).toBe(true);
@@ -216,7 +219,7 @@ describe("mountIdeEditor in Orca", () => {
     installOrcaEditorStub({ text: "title A\n", readOnly: true });
     const board = definition();
     appRoot();
-    const editor = mountIdeEditor(orcaEditorHost(), board);
+    const editor = mountIdeEditor(orcaEditorHost({ merge }), board);
     await editor.ready;
     expect(board.created[0]?.locks.at(-1)).toEqual([true, undefined]);
     expect(editor.shell.isReadOnly()).toBe(true);
@@ -226,7 +229,7 @@ describe("mountIdeEditor in Orca", () => {
     const orca = installOrcaEditorStub({ text: "" });
     const board = definition();
     appRoot();
-    const editor = mountIdeEditor(orcaEditorHost({ debounceMs: 0 }), board);
+    const editor = mountIdeEditor(orcaEditorHost({ merge, debounceMs: 0 }), board);
     await editor.ready;
     (await editor.document).insertExample();
     await (await editor.document).imported();
@@ -238,7 +241,7 @@ describe("mountIdeEditor in Orca", () => {
   it("follows Orca's mode, resolved against the modeler's themes", async () => {
     const orca = installOrcaEditorStub({ text: "", colorScheme: "dark" });
     appRoot();
-    const editor = mountIdeEditor(orcaEditorHost(), {
+    const editor = mountIdeEditor(orcaEditorHost({ merge }), {
       ...definition(),
       themes: ["light", "dark"],
     });

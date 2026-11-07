@@ -28,7 +28,9 @@ Free and open source (MIT). No account, no network access, and it sees only the 
 ![Orca with the strategy-workshop folder open and ride-hailing.tt in the Team Topologies editor, next to the project sidebar and the file tree](images/screenshot-orca.webp)
 
 Each change your agent makes to the file shows up on the canvas right away. If it writes while you
-have unsaved edits, Orca asks whether to reload the file or keep yours.
+have unsaved edits, the editor merges its changes with yours when they touch different teams,
+interactions, flows or annotations. Only when you both changed the same element does Orca ask
+whether to reload the file or keep yours.
 
 ## Draw on the canvas
 
@@ -69,7 +71,7 @@ organisation or to review one:
 
 ## Good to know
 
-- Needs the Orca desktop app, version 1.4.248 or later.
+- Needs the Orca desktop app, version 1.4.252 or later.
 - Orca shows no problems list for the editor. While the JSON can't be read, the diagram shows the
   last valid version.
 - Editable pictures (`*.tt.png`) open in [VS Code](../vscode/README.md) and the web app, not yet

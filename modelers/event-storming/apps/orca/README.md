@@ -29,7 +29,9 @@ Free and open source (MIT). No account, no network access, and it sees only the 
 ![Orca with the strategy-workshop folder open and order-checkout.storm in the Event Storming editor, next to the project sidebar and the file tree](images/screenshot-orca.webp)
 
 Each change your agent makes to the file shows up on the board right away. If it writes while you
-have unsaved edits, Orca asks whether to reload the file or keep yours.
+have unsaved edits, the editor merges its changes with yours when they touch different stickies,
+notes, drawings or arrows. Only when you both changed the same element does Orca ask whether to
+reload the file or keep yours.
 
 ## Draw on the board
 
@@ -71,7 +73,7 @@ format, so you can ask it to draft a board from your notes or to review one:
 
 ## Good to know
 
-- Needs the Orca desktop app, version 1.4.248 or later.
+- Needs the Orca desktop app, version 1.4.252 or later.
 - Orca shows no problems list for the editor. Lines it can't use stay in the file as written, and
   the board keeps drawing everything else.
 - The board stays light in Orca's dark theme.

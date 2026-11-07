@@ -3,13 +3,14 @@ import "@fontsource-variable/geist/wght.css";
 import "@fontsource-variable/geist/wght-italic.css";
 import "@fontsource-variable/geist-mono/wght.css";
 import "@miragon/modeler-shell/shell.css";
+import { mergeOwmText } from "@miragon/wardley-renderer";
 import { mountIdeEditor } from "@miragon/modeler-shell/ide";
 import { openExternal, orcaEditorHost } from "@miragon/modeler-shell/orca/webview";
 import { createMapEditor } from "wardley-maps-ide-editor";
 
 // Orca gives a custom editor no way to open another file, so a link to a map stays where it is.
 export const editor = mountIdeEditor(
-  orcaEditorHost(),
+  orcaEditorHost({ merge: mergeOwmText }),
   createMapEditor({
     openExternalLink: (address) => void openExternal(address),
     openRelativeLink: (address) =>

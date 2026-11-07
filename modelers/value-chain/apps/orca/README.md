@@ -28,7 +28,9 @@ Free and open source (MIT). No account, no network access, and it sees only the 
 ![Orca with the strategy-workshop folder open and porter.vc.json in the Value Chain editor, next to the project sidebar and the file tree](images/screenshot-orca.webp)
 
 Each change your agent makes to the file shows up on the canvas right away. If it writes while you
-have unsaved edits, Orca asks whether to reload the file or keep yours.
+have unsaved edits, the editor merges its changes with yours when they touch different steps, org
+units or connections. Only when you both changed the same element does Orca ask whether to reload
+the file or keep yours.
 
 ## Draw on the canvas
 
@@ -53,7 +55,7 @@ Export a diagram as PNG or SVG from the menu. Orca's save dialog asks where to p
 
 ## Good to know
 
-- Needs the Orca desktop app, version 1.4.248 or later.
+- Needs the Orca desktop app, version 1.4.252 or later.
 - Orca shows no problems list for the editor. While the JSON can't be read, the diagram shows the
   last valid version.
 - The diagram stays light in Orca's dark theme.
