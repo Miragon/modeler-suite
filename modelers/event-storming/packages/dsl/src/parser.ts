@@ -163,6 +163,30 @@ export function parseDSLWithDiagnostics(text: string): ParseResult {
   };
   /** Board pixels, unbounded — no clamping on the free canvas. */
   const pos = (x: number, y: number): Coordinate => ({ x, y });
+  /** An explicit `(id …)` the element may keep; `undefined` lets the caller derive one. */
+  const claimedId = (
+    suffix: {
+      id?: string | undefined;
+      idInvalid?: string | undefined;
+      invalid?: string | undefined;
+    },
+    kind: "sticky" | "note" | "drawing",
+  ): string | undefined => {
+    const unreadable = suffix.idInvalid ?? suffix.invalid;
+    if (unreadable) {
+      diag(
+        `Couldn't read the id “${unreadable.trim()}”. An id has letters, digits, “_” or “-”, as in (id order_1).`,
+      );
+    }
+    if (suffix.id === undefined) return undefined;
+    if (ids.claim(suffix.id)) return suffix.id;
+    diag(
+      isEngineId(suffix.id)
+        ? `The id “${suffix.id}” belongs to the board itself, so this ${kind} got a new id.`
+        : `The id “${suffix.id}” is already taken, so this ${kind} got a new id.`,
+    );
+    return undefined;
+  };
 
   const sourceLines = text.split(/\r?\n/);
   for (let i = 0; i < sourceLines.length; i++) {
@@ -259,20 +283,8 @@ export function parseDSLWithDiagnostics(text: string): ParseResult {
           failed(line);
           break;
         }
-        if (node.idInvalid) {
-          diag(
-            `Couldn't read the id “${node.idInvalid.trim()}”. An id has letters, digits, “_” or “-”, as in (id order_1).`,
-          );
-        }
-        const explicit = node.id !== undefined && ids.claim(node.id) ? node.id : undefined;
-        if (node.id !== undefined && explicit === undefined) {
-          diag(
-            isEngineId(node.id)
-              ? `The id “${node.id}” belongs to the board itself, so this sticky got a new id.`
-              : `The id “${node.id}” is already taken, so this sticky got a new id.`,
-          );
-        }
-        const id = explicit ?? ids.alloc(STICKY_ID_PREFIXES[kw as ElementType]!, node.name);
+        const id =
+          claimedId(node, "sticky") ?? ids.alloc(STICKY_ID_PREFIXES[kw as ElementType]!, node.name);
         elements.push(
           compact({
             id,
@@ -329,12 +341,9 @@ export function parseDSLWithDiagnostics(text: string): ParseResult {
             `Couldn't read the size “${sz.invalid.trim()}”. Write (size <w>x<h>) with positive numbers.`,
           );
         }
-        if (idp.id !== undefined || idp.invalid) {
-          diag("A note can't have an id. Only a sticky takes (id …).");
-        }
         // Literal `\n` back into real line breaks (multi-line notes).
         const textPart = decodeName((split ? split.name : col.rest).trim());
-        const id = ids.alloc("note", textPart || "note");
+        const id = claimedId(idp, "note") ?? ids.alloc("note", textPart || "note");
         const note: NoteElement = compact({
           id,
           elementType: "note",
@@ -372,9 +381,6 @@ export function parseDSLWithDiagnostics(text: string): ParseResult {
           diag("A drawing can't be aligned. Only a note takes (align …).");
         }
         const idDrawing = parseId(onDrawing.rest);
-        if (idDrawing.id !== undefined || idDrawing.invalid) {
-          diag("A drawing can't have an id. Only a sticky takes (id …).");
-        }
         const flags = onDrawing.rest.toLowerCase();
         const strokeStyle: DrawingStrokeStyle | undefined = flags.includes("(dashed)")
           ? "dashed"
@@ -383,7 +389,7 @@ export function parseDSLWithDiagnostics(text: string): ParseResult {
             : undefined;
         const points = multi.tuples.map((t) => pos(t.a, t.b));
         const drawing: DrawingElement = {
-          id: ids.alloc("draw", "line"),
+          id: claimedId(idDrawing, "drawing") ?? ids.alloc("draw", "line"),
           elementType: "drawing",
           label: "",
           position: points[0]!,

@@ -766,7 +766,10 @@ describe("an import from inside the change listener of the label commit a press 
     await userEvent.keyboard("XY");
     const handle = modeler.diagram.container.querySelector(".djs-resizer-se .djs-resizer-hit")!;
     const corner = { x: note.x + note.width, y: note.y + note.height };
-    const committed = BOARD.replace("note Agenda [", "note XY [");
+    const committed = BOARD.replace(
+      "note Agenda [560, 520] (size 200x120)",
+      "note XY [560, 520] (id note_agenda) (size 200x120)",
+    );
 
     pointer.press(handle, corner);
     await expect(reimport()).resolves.toBeDefined();
@@ -793,7 +796,7 @@ describe("an import from inside the change listener of the label commit a press 
     expect(uncaught).toEqual([]);
     expect(changes()).toBe(2);
     expect(resizeStarts).toBe(1);
-    expect(modeler.exportText()).toContain("note XY [580, 530] (size 240x140)");
+    expect(modeler.exportText()).toContain("note XY [580, 530] (id note_agenda) (size 240x140)");
   });
 });
 
@@ -1252,7 +1255,7 @@ describe("an import from inside the change listener of a user action waits for t
     expect(modeler.exportText()).not.toBe(RENAMED_POLICY);
   });
 
-  it("keeps the text typed after a keyboard create of a note, whose id the echo changes", async () => {
+  it("keeps the text typed after a keyboard create of a note, whose id the echo keeps", async () => {
     const modeler = await editorWithBoard();
     const changes = changesOf(modeler);
     const echo = echoEveryChange(modeler);
@@ -1262,12 +1265,10 @@ describe("an import from inside the change listener of a user action waits for t
     expect(labelEditing.openEdit()?.elementId).toBe(created.id);
     await echo.settled();
     await nextTask();
-    // A note has no id grammar: the import derives its id from its text.
-    expect(service<ElementRegistry>(modeler, "elementRegistry").get(created.id)).toBeUndefined();
-    const echoed = shapeOf(
-      modeler,
-      (shape) => shape.eventStormingType === "note" && shape.id !== "note_agenda",
-    );
+    const echoed = service<ElementRegistry>(modeler, "elementRegistry").get(created.id) as
+      EventStormingShape | undefined;
+    if (!echoed) throw new Error("the echo dropped the note's id");
+    expect(echoed).not.toBe(created);
     expect(centre(echoed).x).toBeCloseTo(centre(created).x, 2);
     expect(centre(echoed).y).toBeCloseTo(centre(created).y, 2);
     expect(labelEditing.openEdit()?.elementId).toBe(echoed.id);
