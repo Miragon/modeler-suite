@@ -6,6 +6,10 @@
   "description": "View and edit Team Topologies diagrams directly in VS Code, including .tt and .ttm.json files.",
   "publisher": "miragon-gmbh",
   "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#335DE5",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Miragon/modeler-suite.git",

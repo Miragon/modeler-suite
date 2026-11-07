@@ -1,90 +1,103 @@
 # Wardley Maps for VS Code
 
-[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/miragon-gmbh.wardley-mapping-modeler?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.wardley-mapping-modeler)
+[![VS Marketplace](https://vsmarketplacebadges.dev/version-short/miragon-gmbh.wardley-mapping-modeler.svg?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.wardley-mapping-modeler)
 [![License: MIT](https://img.shields.io/github/license/Miragon/modeler-suite)](https://github.com/Miragon/modeler-suite/blob/main/modelers/wardley-maps/LICENSE)
 
-[Wardley Maps](https://learnwardleymapping.com/) chart the components of a business by user value
-(up and down: the higher, the more visible to your user) and evolution (left to right: genesis,
-custom-built, product, commodity). This extension opens `.wmap` / `.owm` files (the plain-text
-[Online-Wardley-Maps DSL](https://docs.onlinewardleymaps.com/)) in a graphical editor. The text file
-stays the source of truth, so save, Git and diff keep working.
+![Miragon Modeler for Wardley Maps: Wardley maps from plain .wmap files, right in VS Code](/modelers/wardley-maps/docs/screenshots/vscode/cover.png)
 
-![The Wardley Maps editor](https://raw.githubusercontent.com/Miragon/modeler-suite/main/modelers/wardley-maps/docs/screenshots/editor.png)
+Draw [Wardley maps](https://learnwardleymapping.com/) on a canvas in VS Code. Each map is a
+plain-text `.wmap` or `.owm` file in the [Online Wardley Maps](https://onlinewardleymaps.com/)
+format, so it stays in your own repository, next to your code.
 
-## Getting started
+Free and open source (MIT). No account, no telemetry, and it works offline.
 
-Install **Wardley Mapping Modeler** (publisher `miragon-gmbh`), then open the **Get Started with
-Wardley Maps** walkthrough and click **Create map from example**. Or run **Wardley: New Map from
-Example** / **Wardley: New Empty Map** from the Command Palette (also under **File > New File…**).
-Any `.wmap` or `.owm` file opens in the editor.
+## Get started
 
-## Editing a map
+1. Run **Wardley: New Map from Example** from the Command Palette (`Ctrl/Cmd+Shift+P`), or open any
+   `.wmap` or `.owm` file. Maps from onlinewardleymaps.com open unchanged.
+2. New to Wardley Mapping? A map places what your users need by how visible it is to them (up and
+   down) and how mature it is, from genesis to commodity (left to right). The walkthrough **Get
+   Started with Wardley Maps** shows you how to read and edit one.
 
-- **Full modeler:** palette at the top, context pad on a selection (append, connect, evolve,
-  settings, color, delete). Double-click to rename (`Shift+Enter` breaks the line); drag a
-  component left or right to evolve it; drag a label to move it (`Alt`+double-click puts it back).
-  Undo, dirty state and save work as for any text file.
-- **Text and diagram side by side:** **Open Source to the Side** / **Open Diagram to the Side**.
-  Typing re-renders the canvas live; a canvas edit rewrites only the lines it changes, keeping
-  comments, blank lines, order and number formatting.
-- **Problems:** unreadable lines are underlined and listed in the **Problems** view; a pill at the
-  diagram's bottom left counts them. The text has syntax highlighting and `Ctrl/Cmd+/` comments.
-- **Links between maps:** **Link to map…** on a submap or component links it to another map of the
-  workspace; **Set link…** takes any address (relative to the current map's folder, or a web
-  address). Linked elements show a link mark; **Open link** opens the map in its own tab or the web
-  address in your browser. Broken links (missing map, not a map, outside the workspace) are reported
-  as problems. When you rename or move maps or their folders in VS Code, the extension offers to
-  update the links (see [Settings](#settings)).
-- **Map size:** drag the plot's edge or corner (`Shift` keeps the ratio, `Alt` turns off snapping,
-  double-click the corner resets), or use **Map size…** in the menu.
-- **Menu:** **Map size…**, **X-axis labels…**, PNG / SVG / transparent 4× PNG export, **Keyboard
-  shortcuts…**. Exports are pictures; the file stays the editable source.
-- **Empty file:** **Insert example** adds the tea shop map as one undoable edit. **Invalid text:**
-  the diagram shows the last valid map read-only until the text renders again.
-- The diagram stays light in dark themes (high contrast themes get a high-contrast chrome). Fonts
-  are bundled, nothing loads from a CDN. Third-party licenses:
-  [THIRD_PARTY_NOTICES.md](https://github.com/Miragon/modeler-suite/blob/main/modelers/wardley-maps/apps/vscode/THIRD_PARTY_NOTICES.md).
+## Draw on the canvas
 
-## Commands
+![A Wardley map open in VS Code, with the context pad of the selected Meal Planner component](/modelers/wardley-maps/docs/screenshots/vscode/editor.png)
 
-Run these from the Command Palette (type _"Wardley"_) or the editor title bar:
+Add components, users, notes and pipelines from the palette. Select an element to connect, evolve,
+colour, link or delete it. Drag a component left or right to move it along evolution. Undo and save
+work as for any other file.
 
-| Command                                      | What it does                                        |
-| -------------------------------------------- | --------------------------------------------------- |
-| **Wardley: Open Source to the Side**         | Opens the map's text next to the diagram.           |
-| **Wardley: Open Diagram to the Side**        | Opens the diagram next to the map's text.           |
-| **Wardley: Fit to View**                     | Zooms the diagram to show the whole map.            |
-| **Wardley: Export as PNG / SVG**             | Opens a save dialog (defaults to next to the file). |
-| **Wardley: Export as PNG (4×, Transparent)** | High-resolution PNG without background, for slides. |
+## Export for slides
 
-## Settings
+![The editor's menu with Export as PNG, Export as SVG and Export as PNG (4x, transparent)](/modelers/wardley-maps/docs/screenshots/vscode/export.png)
 
-| Setting                                             | Default  | What it does                                                                                                                                      |
-| --------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `miragon.wardleyMaps.updateLinksOnFileMove.enabled` | `prompt` | Update links when a map or its folder is renamed or moved: `prompt` asks first, `always` updates, `never` leaves them. Changed maps stay unsaved. |
+Export a map as PNG or SVG from the menu, or as a transparent PNG at four times the size for slides
+and reports. The `.wmap` file stays the source you edit.
 
-## Keyboard shortcuts on the canvas
+## Text and diagram side by side
 
-| Keys                                | Action                                        |
-| ----------------------------------- | --------------------------------------------- |
-| `C` · `U` · `N` · `P`               | Add a component · user · note · pipeline      |
-| `A`                                 | Connect from the selected element             |
-| `L`                                 | Lasso selection                               |
-| Arrow keys (`Shift` = bigger steps) | Nudge the selection                           |
-| `Delete` / `Backspace`              | Delete the selection                          |
-| `Ctrl/Cmd+C` · `V` · `D` · `A`      | Copy · paste · duplicate · select all         |
-| `Ctrl/Cmd+Z` · `Ctrl/Cmd+Shift+Z`   | Undo · redo (the file's undo history)         |
-| `Ctrl/Cmd+Plus` · `Minus` · `0`     | Zoom in · zoom out · 100 %                    |
-| `Shift+1`                           | Fit the map                                   |
-| `Esc`                               | Clear the selection, close the menu or dialog |
+![Dragging Product Catalogue to the right on the canvas changes its line in the text beside it](/modelers/wardley-maps/docs/screenshots/vscode/side-by-side.png)
 
-**Keyboard shortcuts…** in the menu lists every key and gesture.
+**Wardley: Open Source to the Side** shows the map's text, with syntax highlighting, next to the
+diagram. Type in the text and the diagram follows. Edit the diagram and the text changes, but only
+the lines you touched: your comments, blank lines and order stay as you wrote them.
 
-## Development
+## Mistakes show up as problems
 
-Building from source and the dev loop are documented in
-[CONTRIBUTING.md](https://github.com/Miragon/modeler-suite/blob/main/modelers/wardley-maps/CONTRIBUTING.md).
+![A misspelled line is underlined in the text and listed in the Problems view, while the diagram still draws the map](/modelers/wardley-maps/docs/screenshots/vscode/problems.png)
 
-## License
+Lines the editor can't read are underlined and listed in the **Problems** view, and they stay in
+the file as written. The diagram keeps drawing everything else.
 
-MIT
+## Your existing maps
+
+Paste the text of a map from onlinewardleymaps.com into a `.owm` file:
+
+```text
+title Tea Shop
+anchor Business [0.95, 0.63]
+component Cup of Tea [0.79, 0.61]
+component Kettle [0.43, 0.35]
+evolve Kettle 0.62
+Business -> Cup of Tea
+```
+
+Components, users, evolve, inertia, pipelines, submaps, notes and annotations are drawn on the
+canvas. Anything else stays in the file as written and shows up in **Problems**.
+
+## Link maps
+
+**Link to map…** on a component or submap links it to another map in your workspace, and **Open
+link** opens it. Links to maps that don't exist show up in **Problems**. When you rename or move
+maps in VS Code, the extension offers to update the links.
+
+## Maps written by an AI agent
+
+A map is a text file, so a coding agent can write it, and the diagram redraws when the file
+changes. For Claude Code, the `wardley-maps-modeler` plugin teaches the method and the format, so
+you can ask Claude to draft a map from your strategy notes or to review one:
+
+```text
+/plugin marketplace add Miragon/modeler-suite
+/plugin install wardley-maps-modeler@modeler-suite
+```
+
+## Good to know
+
+- Needs VS Code 1.96 or later on the desktop. VS Code for the Web is not supported.
+- There is no live co-editing. Share maps through Git, or open them in the
+  [web app](https://wardley-maps.modeler.miragon.io), which makes share links.
+- **Keyboard shortcuts…** in the editor's menu lists every key and gesture.
+- The diagram stays light in dark themes.
+
+## Links
+
+[Changelog](https://github.com/Miragon/modeler-suite/blob/main/modelers/wardley-maps/apps/vscode/CHANGELOG.md)
+·
+[Report an issue](https://github.com/Miragon/modeler-suite/issues)
+·
+[Source and contributing](https://github.com/Miragon/modeler-suite/blob/main/modelers/wardley-maps/CONTRIBUTING.md)
+·
+[Third-party licences](https://github.com/Miragon/modeler-suite/blob/main/modelers/wardley-maps/apps/vscode/THIRD_PARTY_NOTICES.md)
+
+Made by [Miragon](https://www.miragon.io). MIT licence.
