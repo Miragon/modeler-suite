@@ -30,12 +30,12 @@
     },
     {
       "path": "images/feature-align.webp",
-      "alt": "The Value Chain editor with five steps selected and the align menu open: align left, center, right, top, middle, bottom, distribute",
+      "alt": "Orca with the Value Chain editor and five steps selected and the align menu open: align left, center, right, top, middle, bottom, distribute",
       "caption": "Align and distribute steps in one go"
     },
     {
       "path": "images/feature-step.webp",
-      "alt": "The Value Chain editor with the Operations step selected and its context pad for appending steps, sub-steps and units",
+      "alt": "Orca with the Value Chain editor and the Operations step selected and its context pad for appending steps, sub-steps and units",
       "caption": "Append steps, sub-steps and units from the context pad"
     }
   ],

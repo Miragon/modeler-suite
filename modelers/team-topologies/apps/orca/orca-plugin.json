@@ -30,12 +30,12 @@
     },
     {
       "path": "images/feature-inspector.webp",
-      "alt": "The Team Topologies editor with the Booking & Dispatch team selected and its properties open: type, name, description and colours",
+      "alt": "Orca with the Team Topologies editor and the Booking & Dispatch team selected and its properties open: type, name, description and colours",
       "caption": "Edit a team's type, purpose and colours in place"
     },
     {
       "path": "images/feature-legend.webp",
-      "alt": "The Team Topologies editor with its legend open, explaining the team types, interaction modes and other elements",
+      "alt": "Orca with the Team Topologies editor and its legend open, explaining the team types, interaction modes and other elements",
       "caption": "A legend explains team types and interaction modes"
     }
   ],

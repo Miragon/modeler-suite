@@ -30,12 +30,12 @@
     },
     {
       "path": "images/feature-settings.webp",
-      "alt": "The Wardley Maps editor with Product Catalogue selected and its settings open: type, sourcing (build, buy, outsource) and inertia",
+      "alt": "Orca with the Wardley Maps editor and Product Catalogue selected and its settings open: type, sourcing (build, buy, outsource) and inertia",
       "caption": "Set a component's type, sourcing and inertia"
     },
     {
       "path": "images/feature-x-axis.webp",
-      "alt": "The Wardley Maps editor with the X-axis labels dialog open, showing a preset and the four evolution stages",
+      "alt": "Orca with the Wardley Maps editor and the X-axis labels dialog open, showing a preset and the four evolution stages",
       "caption": "Name the evolution stages your way"
     }
   ],

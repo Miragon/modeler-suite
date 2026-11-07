@@ -30,12 +30,12 @@
     },
     {
       "path": "images/feature-aggregates.webp",
-      "alt": "The Event Storming editor with the Aggregates dialog listing each aggregate with its commands and events",
+      "alt": "Orca with the Event Storming editor and the Aggregates dialog listing each aggregate with its commands and events",
       "caption": "See each aggregate with its commands and events"
     },
     {
       "path": "images/feature-levels.webp",
-      "alt": "The Event Storming editor with its menu open at the levels big picture, process modeling and software design",
+      "alt": "Orca with the Event Storming editor and its menu open at the levels big picture, process modeling and software design",
       "caption": "Switch between big picture, process and design level"
     }
   ],

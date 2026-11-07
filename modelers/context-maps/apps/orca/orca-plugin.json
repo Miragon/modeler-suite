@@ -30,12 +30,12 @@
     },
     {
       "path": "images/feature-pattern.webp",
-      "alt": "The Context Maps editor with a relationship selected and its pattern menu open: partnership, shared kernel, customer-supplier",
+      "alt": "Orca with the Context Maps editor and a relationship selected and its pattern menu open: partnership, shared kernel, customer-supplier",
       "caption": "Pick the DDD pattern of each relationship"
     },
     {
       "path": "images/feature-legend.webp",
-      "alt": "The Context Maps editor with its legend open, explaining subdomain types, integration roles and relationship patterns",
+      "alt": "Orca with the Context Maps editor and its legend open, explaining subdomain types, integration roles and relationship patterns",
       "caption": "A legend explains subdomains, roles and patterns"
     }
   ],
