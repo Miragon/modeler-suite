@@ -53,17 +53,8 @@ await cp(resolve(here, "images"), resolve(plugin, "images"), { recursive: true }
 const manifest = JSON.parse(await readFile(resolve(here, "orca-plugin.json"), "utf8"));
 await writeFile(resolve(plugin, "orca-plugin.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 await cp(resolve(here, "CHANGELOG.md"), resolve(plugin, "CHANGELOG.md")).catch(() => undefined);
-const examples = await esbuild.build({
-  stdin: { contents: 'export * from "event-storming-ide-editor/examples";', resolveDir: here },
-  bundle: true,
-  write: false,
-  format: "esm",
-  platform: "node",
-  logLevel: "warning",
-});
-const { EXAMPLE_BOARD } = await import(
-  `data:text/javascript,${encodeURIComponent(examples.outputFiles[0].text)}`
+await cp(
+  resolve(here, "../../example/order-checkout.storm"),
+  resolve(plugin, "templates/example.storm"),
 );
-await mkdir(resolve(plugin, "templates"), { recursive: true });
-await writeFile(resolve(plugin, "templates/example.storm"), EXAMPLE_BOARD);
 console.log(`[event-storming-orca] built ${plugin}`);

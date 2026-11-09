@@ -53,17 +53,5 @@ await cp(resolve(here, "images"), resolve(plugin, "images"), { recursive: true }
 const manifest = JSON.parse(await readFile(resolve(here, "orca-plugin.json"), "utf8"));
 await writeFile(resolve(plugin, "orca-plugin.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 await cp(resolve(here, "CHANGELOG.md"), resolve(plugin, "CHANGELOG.md")).catch(() => undefined);
-const examples = await esbuild.build({
-  stdin: { contents: 'export * from "context-maps-ide-editor/examples";', resolveDir: here },
-  bundle: true,
-  write: false,
-  format: "esm",
-  platform: "node",
-  logLevel: "warning",
-});
-const { EXAMPLE_MAP } = await import(
-  `data:text/javascript,${encodeURIComponent(examples.outputFiles[0].text)}`
-);
-await mkdir(resolve(plugin, "templates"), { recursive: true });
-await writeFile(resolve(plugin, "templates/example.cm"), EXAMPLE_MAP);
+await cp(resolve(here, "../../example/sample.cm"), resolve(plugin, "templates/example.cm"));
 console.log(`[context-maps-orca] built ${plugin}`);

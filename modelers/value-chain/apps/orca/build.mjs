@@ -53,17 +53,8 @@ await cp(resolve(here, "images"), resolve(plugin, "images"), { recursive: true }
 const manifest = JSON.parse(await readFile(resolve(here, "orca-plugin.json"), "utf8"));
 await writeFile(resolve(plugin, "orca-plugin.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 await cp(resolve(here, "CHANGELOG.md"), resolve(plugin, "CHANGELOG.md")).catch(() => undefined);
-const examples = await esbuild.build({
-  stdin: { contents: 'export * from "value-chain-ide-editor/examples";', resolveDir: here },
-  bundle: true,
-  write: false,
-  format: "esm",
-  platform: "node",
-  logLevel: "warning",
-});
-const { EXAMPLE_DOCUMENT } = await import(
-  `data:text/javascript,${encodeURIComponent(examples.outputFiles[0].text)}`
+await cp(
+  resolve(here, "../../example/porter.vc.json"),
+  resolve(plugin, "templates/example.vc.json"),
 );
-await mkdir(resolve(plugin, "templates"), { recursive: true });
-await writeFile(resolve(plugin, "templates/example.vc.json"), EXAMPLE_DOCUMENT);
 console.log(`[value-chain-orca] built ${plugin}`);
