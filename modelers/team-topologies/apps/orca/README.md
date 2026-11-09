@@ -19,7 +19,8 @@ Free and open source (MIT). No account, no network access, and it sees only the 
 1. Turn on plugins in Orca once: Settings → Plugins → **Turn on plugins**.
 2. Open the plugin's page with the link above, or search for **Miragon** in Settings → Plugins,
    and install it. New releases reach you through Orca.
-3. Open any `.tt` or `.ttm.json` file.
+3. Click **Try it** to open an example team topology, or open any `.tt` or `.ttm.json` file. **+**
+   in the tab bar starts a new one from the example too.
 4. New to Team Topologies? It organises software teams for a fast flow of change, with four team
    types and three interaction modes.
 

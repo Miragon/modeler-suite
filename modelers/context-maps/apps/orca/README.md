@@ -19,7 +19,8 @@ Free and open source (MIT). No account, no network access, and it sees only the 
 1. Turn on plugins in Orca once: Settings → Plugins → **Turn on plugins**.
 2. Open the plugin's page with the link above, or search for **Miragon** in Settings → Plugins,
    and install it. New releases reach you through Orca.
-3. Open any `.cm` or `.cm.json` file.
+3. Click **Try it** to open an example context map, or open any `.cm` or `.cm.json` file. **+**
+   in the tab bar starts a new one from the example too.
 4. New to context maps? A context map shows which bounded contexts a business has and how they
    integrate, from partnership to separate ways.
 

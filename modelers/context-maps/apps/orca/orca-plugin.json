@@ -56,6 +56,14 @@
         "entry": "editor/index.html",
         "frame": "isolated"
       }
+    ],
+    "newFiles": [
+      {
+        "id": "context-map",
+        "title": "New context map from example",
+        "extension": ".cm",
+        "template": "templates/example.cm"
+      }
     ]
   }
 }

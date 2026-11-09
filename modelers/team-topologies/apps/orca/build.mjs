@@ -1,6 +1,7 @@
-// Builds the Orca plugin into plugin/: the manifest, the icon and the editor. The bundle is not
-// minified, as Orca's listing policy wants a readable plugin, and ships no sourcemap, as with it
-// the plugin stays in Orca's size review (#563; #564 brings it back).
+// Builds the Orca plugin into plugin/: the manifest, the icon, the editor and the example a new
+// file starts from. The bundle is not minified, as Orca's listing policy wants a readable plugin,
+// and ships no sourcemap, as with it the plugin stays in Orca's size review (#563; #564 brings it
+// back).
 // Of zod's error messages it bundles only the English ones, the only ones the editor shows (#568).
 import * as esbuild from "esbuild";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -53,4 +54,17 @@ await cp(resolve(here, "images"), resolve(plugin, "images"), { recursive: true }
 const manifest = JSON.parse(await readFile(resolve(here, "orca-plugin.json"), "utf8"));
 await writeFile(resolve(plugin, "orca-plugin.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 await cp(resolve(here, "CHANGELOG.md"), resolve(plugin, "CHANGELOG.md")).catch(() => undefined);
+const examples = await esbuild.build({
+  stdin: { contents: 'export * from "team-topologies-ide-editor/examples";', resolveDir: here },
+  bundle: true,
+  write: false,
+  format: "esm",
+  platform: "node",
+  logLevel: "warning",
+});
+const { EXAMPLE_MAP } = await import(
+  `data:text/javascript,${encodeURIComponent(examples.outputFiles[0].text)}`
+);
+await mkdir(resolve(plugin, "templates"), { recursive: true });
+await writeFile(resolve(plugin, "templates/example.tt"), EXAMPLE_MAP);
 console.log(`[team-topologies-orca] built ${plugin}`);

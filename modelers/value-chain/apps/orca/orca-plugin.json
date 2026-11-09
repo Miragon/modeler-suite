@@ -56,6 +56,14 @@
         "entry": "editor/index.html",
         "frame": "isolated"
       }
+    ],
+    "newFiles": [
+      {
+        "id": "value-chain",
+        "title": "New value chain from example",
+        "extension": ".vc.json",
+        "template": "templates/example.vc.json"
+      }
     ]
   }
 }
