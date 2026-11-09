@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.0](https://github.com/Miragon/modeler-suite/compare/wardley-maps-orca-v0.3.0...wardley-maps-orca-v0.4.0) (2026-11-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **shell:** merge an agent's write into a modeler's unsaved edits in Orca ([#580](https://github.com/Miragon/modeler-suite/issues/580))
+
+### Features
+
+* open each modeler's example from Orca's Try it button and + menu ([#608](https://github.com/Miragon/modeler-suite/issues/608)) ([26aa275](https://github.com/Miragon/modeler-suite/commit/26aa2758376744a1c3d8544ea640bbd823f3f508))
+* **shell:** merge an agent's write into a modeler's unsaved edits in Orca ([#580](https://github.com/Miragon/modeler-suite/issues/580)) ([c4bc3be](https://github.com/Miragon/modeler-suite/commit/c4bc3be7b506381b08047fd0460e1336cf1a5fec)), closes [#539](https://github.com/Miragon/modeler-suite/issues/539)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.11.0 to 0.12.0
+    * @miragon/wardley-renderer bumped from 0.16.1 to 0.17.0
+    * wardley-maps-ide-editor bumped from 0.1.0 to 0.1.1
+
 ## [0.3.0](https://github.com/Miragon/modeler-suite/compare/wardley-maps-orca-v0.2.0...wardley-maps-orca-v0.3.0) (2026-11-07)
 
 
