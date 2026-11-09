@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/Miragon/modeler-suite/compare/modeler-api-v1.6.0...modeler-api-v1.7.0) (2026-11-09)
+
+
+### Features
+
+* **api:** add a three-way merge of model texts and its conformance kit ([#573](https://github.com/Miragon/modeler-suite/issues/573)) ([40fcdcc](https://github.com/Miragon/modeler-suite/commit/40fcdcce3c579aba6b895fd30af229f720db1cac)), closes [#539](https://github.com/Miragon/modeler-suite/issues/539)
+
 ## [1.6.0](https://github.com/Miragon/modeler-suite/compare/modeler-api-v1.5.0...modeler-api-v1.6.0) (2026-10-30)
 
 

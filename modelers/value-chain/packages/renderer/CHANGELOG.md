@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.0](https://github.com/Miragon/modeler-suite/compare/value-chain-renderer-v0.10.0...value-chain-renderer-v0.11.0) (2026-11-09)
+
+
+### Features
+
+* **value-chain:** merge an outside write into a draft ([#578](https://github.com/Miragon/modeler-suite/issues/578)) ([855f89d](https://github.com/Miragon/modeler-suite/commit/855f89dff2f89715fd122ec3b8edcb4896829117)), closes [#539](https://github.com/Miragon/modeler-suite/issues/539)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.6.0 to 1.7.0
+
 ## [0.10.0](https://github.com/Miragon/modeler-suite/compare/value-chain-renderer-v0.9.0...value-chain-renderer-v0.10.0) (2026-10-30)
 
 

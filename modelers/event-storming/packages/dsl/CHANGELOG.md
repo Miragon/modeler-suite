@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Miragon/modeler-suite/compare/event-storming-dsl-v0.3.4...event-storming-dsl-v0.4.0) (2026-11-09)
+
+
+### Features
+
+* **event-storming:** merge an outside write into a draft ([#575](https://github.com/Miragon/modeler-suite/issues/575)) ([1bbf331](https://github.com/Miragon/modeler-suite/commit/1bbf33112aecce65d0f9e9a56d6eeab5dd6dadc7)), closes [#539](https://github.com/Miragon/modeler-suite/issues/539)
+
 ## [0.3.4](https://github.com/Miragon/modeler-suite/compare/event-storming-dsl-v0.3.3...event-storming-dsl-v0.3.4) (2026-10-30)
 
 
