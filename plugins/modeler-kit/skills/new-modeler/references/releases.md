@@ -69,9 +69,14 @@ that VSIX, unpacked, in the newest stable VS Code (the
 [smoke test](shell.md#the-vs-code-smoke-test) with `VSCODE_SMOKE_EXTENSION`, so a VSIX that does not
 open, save or switch themes is never uploaded) and uploads it as the artifact `vsix`. Then
 `publish-vscode`, in the environment `vscode-marketplace`, publishes that very file with
-`npx vsce publish --packagePath …` (secret `VSCE_PUBLISH`) and `npx ovsx publish --packagePath …`
-(secret `OVSX_PUBLISH`; `ovsx` is an exact devDependency, so `npx` runs the pinned version), both
-with `--skip-duplicate`, so a re-run passes a marketplace that has the version already. The npm
+`npx vsce publish --packagePath … --oidc` (Marketplace trusted publishing, no token) and
+`npx ovsx publish --packagePath …` (secret `OVSX_PUBLISH`; `ovsx` is an exact devDependency, so
+`npx` runs the pinned version), both with `--skip-duplicate`, so a re-run passes a marketplace that
+has the version already. `--oidc` needs vsce 4.1.0 or later, `id-token: write` on the job and a
+Trusted Publishing policy on the publisher (publisher management page → Trusted Publishing →
+Create) with the repository owner, the repository name, the workflow `release-please.yml` and the
+environment `vscode-marketplace`. The policy belongs to the publisher, so the extension needs no
+manual first publish. The npm
 publish jobs need `build` as well, so the environments `npm` and `vscode-marketplace` ask for
 approval at the same moment. The publisher is `miragon-gmbh`; the extension needs `icon`, `repository`, a `README.md` and a `LICENSE`
 in `apps/vscode`, and `engines.vscode` at the floor `@types/vscode` is pinned to. Add the extension

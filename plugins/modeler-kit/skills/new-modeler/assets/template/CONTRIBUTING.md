@@ -54,8 +54,8 @@ change. "The next minor" is no target. The pull request that adds the deprecatio
 and refers to it. A deprecation without a tracked removal outlives the minor it promises.
 
 Merging the release PR publishes the `packages/*` libraries to npm (OIDC trusted publishing,
-environment `npm`) and the extension to the VS Code Marketplace and Open VSX (environment
-`vscode-marketplace`, secrets `VSCE_PUBLISH`, `OVSX_PUBLISH`).
+environment `npm`) and the extension to the VS Code Marketplace (OIDC trusted publishing) and Open
+VSX (secret `OVSX_PUBLISH`), both in the environment `vscode-marketplace`.
 
 The first release of every npm package needs one manual step: trusted publishing binds only to a
 package that exists. Merge the first release PR (its publish job fails with E404), publish that

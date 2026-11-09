@@ -226,8 +226,9 @@ jobs builds again and then publishes.
 - **VS Code**: `build / vscode (<extension>)` builds and packs the VSIX and smoke-tests that very
   VSIX in the newest stable VS Code; `publish / vscode-marketplace (<extension>)` and
   `publish / open-vsx (<extension>)` upload it in the environment `vscode-marketplace` with
-  `vsce publish` (secret `VSCE_PUBLISH`) or `ovsx publish` (secret `OVSX_PUBLISH`), both with
-  `--skip-duplicate`, so a re-run passes a marketplace that has the version already.
+  `vsce publish --oidc` (Marketplace trusted publishing, no token) or `ovsx publish` (secret
+  `OVSX_PUBLISH`), both with `--skip-duplicate`, so a re-run passes a marketplace that has the
+  version already.
 - **Orca**: `build / orca (<plugin>)` builds the plugin folder (a workspace with an
   `orca-plugin.json` and its own release-please component `<modeler>-orca`, which also bumps the
   manifest's version; Team Topologies releases its plugin in lockstep with the modeler's
@@ -265,6 +266,24 @@ of a new name fails with E404. This is how `@miragon/modeler-api@1.0.0` was boot
 
 Packages published before the suite existed were bound for their old repository and need the
 binding of step 3 for `Miragon/modeler-suite` before their first release from here.
+
+### VS Code Marketplace trusted publishing
+
+`vsce publish --oidc` (vsce 4.1.0 or later) trades the job's GitHub OIDC token for a Marketplace
+credential that lasts 15 minutes. It needs `id-token: write` on the job and one Trusted Publishing
+policy on the publisher `miragon-gmbh` (publisher management page → Trusted Publishing → Create),
+which covers every extension of the publisher:
+
+| Field            | Value                |
+| ---------------- | -------------------- |
+| Repository owner | `Miragon`            |
+| Repository       | `modeler-suite`      |
+| Workflow         | `release-please.yml` |
+| Environment      | `vscode-marketplace` |
+
+Unlike npm, an extension needs no manual first publish: the policy belongs to the publisher, so a
+new extension of `miragon-gmbh` publishes with it from its first release. Open VSX still publishes
+with the token in `OVSX_PUBLISH`.
 
 ## Web apps on Netlify
 

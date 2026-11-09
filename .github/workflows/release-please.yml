@@ -1,8 +1,9 @@
 name: Release
 
-# npm trusted publishing (OIDC, no token) is bound to this file name and to the `npm` environment of
-# publish-npm: renaming either breaks publishing until every package's trusted publisher on
-# npmjs.com is updated.
+# Trusted publishing (OIDC, no token) is bound to this file name and to the environment of the
+# publish job: `npm` for every package's trusted publisher on npmjs.com, `vscode-marketplace` for the
+# publisher miragon-gmbh's Trusted Publishing policy on the VS Code Marketplace. Renaming the file or
+# an environment breaks publishing until those are updated.
 #
 # Every target takes the same three steps: build and check (no environment), one approval, publish.
 # Each publish job needs every build job, so all three environments ask for approval at the same
@@ -307,6 +308,7 @@ jobs:
     environment: vscode-marketplace
     permissions:
       contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -316,7 +318,7 @@ jobs:
       VSIX: ${{ github.workspace }}/vsix/${{ matrix.extension.vsix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # vsce on the extensions' own pinned version.
+      # vsce on the extensions' own pinned version, 4.1.0 or later for the Marketplace's OIDC exchange.
       - uses: ./.github/actions/setup
         with:
           node-version: 24
@@ -326,9 +328,7 @@ jobs:
           path: vsix
       - if: matrix.marketplace == 'vscode-marketplace'
         working-directory: ${{ matrix.extension.directory }}
-        run: npx vsce publish --packagePath "$VSIX" --skip-duplicate
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PUBLISH }}
+        run: npx vsce publish --packagePath "$VSIX" --skip-duplicate --oidc
       # ovsx is no dependency of the suite, so npx fetches it: pinned, it cannot change under a release.
       - if: matrix.marketplace == 'open-vsx'
         working-directory: ${{ matrix.extension.directory }}
