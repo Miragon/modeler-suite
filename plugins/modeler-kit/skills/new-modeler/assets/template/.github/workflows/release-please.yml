@@ -16,8 +16,8 @@ permissions:
 
 # Trusted publishing (OIDC, no token) is bound to this file name and to the environment of the
 # publish job: `npm` on npmjs.com, `vscode-marketplace` for the publisher's Trusted Publishing policy
-# on the VS Code Marketplace. Renaming the file or an environment breaks publishing until those are
-# updated.
+# on the VS Code Marketplace and for the extension's trusted publisher on Open VSX. Renaming the file
+# or an environment breaks publishing until those are updated.
 #
 # Every target takes the same steps: build and check without an environment, then one approval,
 # then publish. Each publish job needs the build, so the environments ask for approval at the same
@@ -158,6 +158,4 @@ jobs:
         run: npx vsce publish --packagePath __REPO__.vsix --skip-duplicate --oidc
       - if: matrix.marketplace == 'open-vsx'
         working-directory: apps/vscode
-        run: npx ovsx publish --packagePath __REPO__.vsix --pat "$OVSX_PAT" --skip-duplicate
-        env:
-          OVSX_PAT: ${{ secrets.OVSX_PUBLISH }}
+        run: npx ovsx publish --packagePath __REPO__.vsix --skip-duplicate --trusted-publishing

@@ -2,8 +2,9 @@ name: Release
 
 # Trusted publishing (OIDC, no token) is bound to this file name and to the environment of the
 # publish job: `npm` for every package's trusted publisher on npmjs.com, `vscode-marketplace` for the
-# publisher miragon-gmbh's Trusted Publishing policy on the VS Code Marketplace. Renaming the file or
-# an environment breaks publishing until those are updated.
+# publisher miragon-gmbh's Trusted Publishing policy on the VS Code Marketplace and for every
+# extension's trusted publisher on Open VSX. Renaming the file or an environment breaks publishing
+# until those are updated.
 #
 # Every target takes the same three steps: build and check (no environment), one approval, publish.
 # Each publish job needs every build job, so all three environments ask for approval at the same
@@ -332,9 +333,7 @@ jobs:
       # ovsx is no dependency of the suite, so npx fetches it: pinned, it cannot change under a release.
       - if: matrix.marketplace == 'open-vsx'
         working-directory: ${{ matrix.extension.directory }}
-        run: npx --yes ovsx@1.3.0 publish --packagePath "$VSIX" --pat "$OVSX_PAT" --skip-duplicate
-        env:
-          OVSX_PAT: ${{ secrets.OVSX_PUBLISH }}
+        run: npx --yes ovsx@1.3.0 publish --packagePath "$VSIX" --skip-duplicate --trusted-publishing
 
   # One publish for every plugin of this release, by miragon/orca-modelers' action with the
   # release-please app's token: it opens a pull request for the plugin folders and then one for the
