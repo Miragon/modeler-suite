@@ -56,6 +56,14 @@
         "entry": "editor/index.html",
         "frame": "isolated"
       }
+    ],
+    "newFiles": [
+      {
+        "id": "map",
+        "title": "New Wardley map from example",
+        "extension": ".wmap",
+        "template": "templates/example.wmap"
+      }
     ]
   }
 }

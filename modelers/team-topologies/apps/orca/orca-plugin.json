@@ -56,6 +56,14 @@
         "entry": "editor/index.html",
         "frame": "isolated"
       }
+    ],
+    "newFiles": [
+      {
+        "id": "team-topology",
+        "title": "New team topology from example",
+        "extension": ".tt",
+        "template": "templates/example.tt"
+      }
     ]
   }
 }

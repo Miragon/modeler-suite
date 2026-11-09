@@ -1,6 +1,7 @@
-// Builds the Orca plugin into plugin/: the manifest, the icon and the editor. The bundle is not
-// minified, as Orca's listing policy wants a readable plugin, and ships no sourcemap, as with it
-// the plugin stays in Orca's size review (#563; #564 brings it back).
+// Builds the Orca plugin into plugin/: the manifest, the icon, the editor and the example a new
+// file starts from. The bundle is not minified, as Orca's listing policy wants a readable plugin,
+// and ships no sourcemap, as with it the plugin stays in Orca's size review (#563; #564 brings it
+// back).
 // Of zod's error messages it bundles only the English ones, the only ones the editor shows (#568).
 import * as esbuild from "esbuild";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -52,4 +53,8 @@ await cp(resolve(here, "images"), resolve(plugin, "images"), { recursive: true }
 const manifest = JSON.parse(await readFile(resolve(here, "orca-plugin.json"), "utf8"));
 await writeFile(resolve(plugin, "orca-plugin.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 await cp(resolve(here, "CHANGELOG.md"), resolve(plugin, "CHANGELOG.md")).catch(() => undefined);
+await cp(
+  resolve(here, "../../example/order-checkout.storm"),
+  resolve(plugin, "templates/example.storm"),
+);
 console.log(`[event-storming-orca] built ${plugin}`);

@@ -19,7 +19,8 @@ Free and open source (MIT). No account, no network access, and it sees only the 
 1. Turn on plugins in Orca once: Settings → Plugins → **Turn on plugins**.
 2. Open the plugin's page with the link above, or search for **Miragon** in Settings → Plugins,
    and install it. New releases reach you through Orca.
-3. Open any `.storm` file.
+3. Click **Try it** to open an example board, or open any `.storm` file. **+** in the tab bar
+   starts a new board from the example too.
 4. New to Event Storming? It is a workshop format for exploring a business domain with sticky
    notes. Alberto Brandolini's book
    [Introducing EventStorming](https://leanpub.com/introducing_eventstorming) explains the method.

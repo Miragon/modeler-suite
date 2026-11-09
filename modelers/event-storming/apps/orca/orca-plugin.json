@@ -55,6 +55,14 @@
         "entry": "editor/index.html",
         "frame": "isolated"
       }
+    ],
+    "newFiles": [
+      {
+        "id": "board",
+        "title": "New Event Storming board from example",
+        "extension": ".storm",
+        "template": "templates/example.storm"
+      }
     ]
   }
 }

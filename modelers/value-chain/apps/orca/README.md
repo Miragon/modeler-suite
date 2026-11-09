@@ -19,7 +19,8 @@ Free and open source (MIT). No account, no network access, and it sees only the 
 1. Turn on plugins in Orca once: Settings → Plugins → **Turn on plugins**.
 2. Open the plugin's page with the link above, or search for **Miragon** in Settings → Plugins,
    and install it. New releases reach you through Orca.
-3. Open any `.vc` or `.vc.json` file.
+3. Click **Try it** to open an example value chain, or open any `.vc` or `.vc.json` file. **+** in
+   the tab bar starts a new one from the example too.
 4. New to value chains? A value chain shows the steps that create value, in order from left to
    right, broken down into sub-steps, with the organizational units that own them.
 
