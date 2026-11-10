@@ -94,9 +94,8 @@ for a debug build. `VSCODE_SMOKE_VSIX` tests a packed VSIX instead.
 
 Update `cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css` in
 `packages/renderer/src/theme/` as the suite's
-[`CONTRIBUTING.md`](../../CONTRIBUTING.md#design-system) says: copy them unchanged, update the
-hashes and release in `packages/renderer/test/theme.sync.test.ts` and `MIRAGON` in
-`theme/palette.ts`, then run `npm run context-maps test`.
+[`CONTRIBUTING.md`](../../CONTRIBUTING.md#design-system) says: re-copy them with
+`brand-assets.mjs`, update `MIRAGON` in `theme/palette.ts`, then run `npm run context-maps test`.
 
 ## Pull requests
 

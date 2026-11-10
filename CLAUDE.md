@@ -185,7 +185,8 @@ Install once: `/plugin marketplace add Miragon/corporate-identity` then
 - Each renderer vendors the skill's `cd-tokens.generated.css`, `cd-tokens.generated.json` and
   `cd-canvas.css` unchanged into `modelers/<modeler>/packages/renderer/src/theme/`, the shell into
   `packages/shell/fixtures/tokens/`. Never edit, reformat (they are Prettier-ignored) or fork a hex
-  value: re-copy from the skill to update and run the drift tests (`theme.sync`, `tokens.sync`).
+  value: re-copy them with the `miragon-brand` plugin's `scripts/brand-assets.mjs`, which reads
+  `.miragon/brand-assets.yaml`, and run the drift tests (`theme.sync`, `tokens.sync`).
 - The chrome of both apps is the shell's; a renderer's own CSS reads only the `--cd-ui-*` roles
   and the mode-independent tokens (radii, shadows, motion). The one fixed value is guide §8's fill
   of a primary and a destructive button: `--cd-blau` (hover `--cd-blau-link`) and `--cd-danger`,

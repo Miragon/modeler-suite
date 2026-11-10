@@ -136,20 +136,25 @@ interface VendoredTokens {
 }
 const vendoredJson = JSON.parse(vendoredJsonText) as VendoredTokens;
 
-/** sha256 of the files of design system 1.27.0, the token files unchanged since 1.12.0. */
-const DESIGN_SYSTEM_1_27_0 = {
-  "cd-tokens.generated.css": {
-    source: vendoredTokens,
-    sha256: "36ccd5bbcb732c57143e32f13172967467dd574ae1ac5d84d6c601d0ab0847a1",
-  },
-  "cd-tokens.generated.json": {
-    source: vendoredJsonText,
-    sha256: "549a244fba0951e9b77fed0f5d2172cb793191913326f08749e167ac7fdbb127",
-  },
-  "cd-canvas.css": {
-    source: vendoredCanvas,
-    sha256: "b49da7068bcbc95a682d93e19267c1d8308033ef421f6c120ce30eeb62eeb13a",
-  },
+/**
+ * sha256 of every copy of a design-system file, as `.miragon/brand-assets.sha256` records it:
+ * `brand-assets.mjs` of the `miragon-brand` plugin writes it whenever it re-copies the files.
+ */
+const BRAND_ASSET_CHECKSUMS = new Map(
+  readFileSync(
+    fileURLToPath(new URL("../../../../../.miragon/brand-assets.sha256", import.meta.url)),
+    "utf8",
+  )
+    .trim()
+    .split("\n")
+    .map((line) => line.split(/\s+/).reverse() as [string, string]),
+);
+const THEME_DIRECTORY = "modelers/wardley-maps/packages/renderer/src/theme";
+
+const VENDORED_FILES = {
+  "cd-tokens.generated.css": vendoredTokens,
+  "cd-tokens.generated.json": vendoredJsonText,
+  "cd-canvas.css": vendoredCanvas,
 };
 
 /** The CSS without comments: what the browser parses. */
@@ -171,10 +176,12 @@ function normalized(values: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(values).map(([name, value]) => [name, norm(value)]));
 }
 
-describe("theme.sync — the vendored files are complete, unchanged copies (design system 1.27.0)", () => {
-  for (const [file, { source, sha256 }] of Object.entries(DESIGN_SYSTEM_1_27_0)) {
-    it(`${file} is byte-identical to the release`, () => {
-      expect(createHash("sha256").update(source, "utf8").digest("hex")).toBe(sha256);
+describe("theme.sync — the vendored files are complete, unchanged copies (.miragon/brand-assets.yaml)", () => {
+  for (const [file, source] of Object.entries(VENDORED_FILES)) {
+    it(`${file} is byte-identical to the copy brand-assets.mjs recorded`, () => {
+      expect(createHash("sha256").update(source, "utf8").digest("hex")).toBe(
+        BRAND_ASSET_CHECKSUMS.get(`${THEME_DIRECTORY}/${file}`),
+      );
     });
   }
 

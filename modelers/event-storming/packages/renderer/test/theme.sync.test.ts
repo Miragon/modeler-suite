@@ -39,30 +39,22 @@ interface VendoredTokens {
 }
 const tokens = JSON.parse(vendoredTokensJson) as VendoredTokens;
 
-const VENDORED_HEADER =
-  "/* Vendored unchanged from Miragon/corporate-identity (design system 1.27.0, plugins/miragon-brand/skills/modeler-tool-design/assets). Do not edit; re-copy to update. */";
-
-function withoutVendoringHeader(source: string): string {
-  return source.slice(source.indexOf("\n") + 1);
-}
-
 /**
- * sha256 of the files of design system 1.27.0, the token files unchanged since 1.12.0. The CSS
- * files are hashed without the vendoring header, which the release does not carry.
+ * sha256 of every copy of a design-system file, as `.miragon/brand-assets.sha256` records it:
+ * `brand-assets.mjs` of the `miragon-brand` plugin writes it whenever it re-copies the files.
  */
-const DESIGN_SYSTEM_1_27_0 = {
-  "cd-tokens.generated.css": {
-    source: withoutVendoringHeader(vendoredTokensCss),
-    sha256: "36ccd5bbcb732c57143e32f13172967467dd574ae1ac5d84d6c601d0ab0847a1",
-  },
-  "cd-tokens.generated.json": {
-    source: vendoredTokensJson,
-    sha256: "549a244fba0951e9b77fed0f5d2172cb793191913326f08749e167ac7fdbb127",
-  },
-  "cd-canvas.css": {
-    source: withoutVendoringHeader(vendoredCanvasCss),
-    sha256: "b49da7068bcbc95a682d93e19267c1d8308033ef421f6c120ce30eeb62eeb13a",
-  },
+const BRAND_ASSET_CHECKSUMS = new Map(
+  readSource("../../../../../.miragon/brand-assets.sha256")
+    .trim()
+    .split("\n")
+    .map((line) => line.split(/\s+/).reverse() as [string, string]),
+);
+const THEME_DIRECTORY = "modelers/event-storming/packages/renderer/src/theme";
+
+const VENDORED_FILES = {
+  "cd-tokens.generated.css": vendoredTokensCss,
+  "cd-tokens.generated.json": vendoredTokensJson,
+  "cd-canvas.css": vendoredCanvasCss,
 };
 
 /**
@@ -247,21 +239,21 @@ describe("theme.sync — event-storming.css wires the vendored design-system fil
   });
 });
 
-describe("theme.sync — the vendored files are complete, unchanged copies (design system 1.27.0)", () => {
-  for (const [file, { source, sha256 }] of Object.entries(DESIGN_SYSTEM_1_27_0)) {
-    it(`${file} is byte-identical to the release below its header`, () => {
-      expect(createHash("sha256").update(source, "utf8").digest("hex")).toBe(sha256);
+describe("theme.sync — the vendored files are complete, unchanged copies (.miragon/brand-assets.yaml)", () => {
+  for (const [file, source] of Object.entries(VENDORED_FILES)) {
+    it(`${file} is byte-identical to the copy brand-assets.mjs recorded`, () => {
+      expect(createHash("sha256").update(source, "utf8").digest("hex")).toBe(
+        BRAND_ASSET_CHECKSUMS.get(`${THEME_DIRECTORY}/${file}`),
+      );
     });
   }
 
-  it("both CSS files start with the vendoring header, followed by the generated banner", () => {
+  it("both CSS files start with the generated banner", () => {
     for (const [name, source] of [
       ["cd-tokens.generated.css", vendoredTokensCss],
       ["cd-canvas.css", vendoredCanvasCss],
     ] as const) {
-      const [header, banner] = source.split("\n");
-      expect(header, name).toBe(VENDORED_HEADER);
-      expect(banner, name).toMatch(/^\/\* AUTOMATISCH GENERIERT aus brand\/tokens\.json\./);
+      expect(source, name).toMatch(/^\/\* AUTOMATISCH GENERIERT aus brand\/tokens\.json\./);
     }
   });
 

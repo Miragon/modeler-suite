@@ -36,3 +36,6 @@ docs/.vitepress/miragon/
 # the new-modeler template's Markdown: placeholders such as __DISPLAY_NAME__ read as emphasis, which
 # Prettier would rewrite to **DISPLAY_NAME**; the new repository formats them once instantiated
 plugins/modeler-kit/skills/new-modeler/assets/template/**/*.md
+
+# written by brand-assets.mjs of the miragon-brand plugin (re-run it to update, never reformat)
+.miragon/brand-assets.yaml

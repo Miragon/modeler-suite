@@ -273,10 +273,8 @@ describe("token fixture", () => {
     shell: Record<string, string>;
   };
 
-  it("carries the vendoring header", () => {
-    expect(css.split("\n")[0]).toMatch(
-      /^\/\* Vendored unchanged from Miragon\/corporate-identity .*Do not edit; re-copy to update\. \*\/$/,
-    );
+  it("is the generated file, which brand-assets.mjs copies unchanged", () => {
+    expect(css).toMatch(/^\/\* AUTOMATISCH GENERIERT aus brand\/tokens\.json\./);
   });
 
   it("has the same shell sizes in its CSS and JSON", () => {

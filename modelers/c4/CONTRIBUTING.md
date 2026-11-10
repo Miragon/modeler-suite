@@ -88,9 +88,8 @@ the example as `workspace.c4`, creates an element from the palette, saves (the f
 
 ## Design tokens, colours, notices
 
-- Tokens: re-copy the three files into `packages/renderer/src/theme/`, restore the vendoring header
-  (with the new version) on the two CSS files, update release and hashes in
-  `packages/renderer/test/theme.sync.test.ts`, run `test` and `test:e2e`.
+- Tokens: re-copy the three files into `packages/renderer/src/theme/` with `brand-assets.mjs` (see
+  the suite's [`CONTRIBUTING.md`](../../CONTRIBUTING.md#design-system)), run `test` and `test:e2e`.
 - C4 colours (`C4_COLOUR_STYLES` in `packages/schema-model/src/notation.ts`) must pass
   `notation-contrast.test.ts`. They are also in `newWorkspaceText()` and `example/bookshop.c4`, so
   a change means: rewrite the example's block, the goldens that start blank or apply the colours,
