@@ -151,6 +151,14 @@ describe("emptyViewProblems", () => {
 });
 
 describe("emptyHintProblems", () => {
+  it("asks for no hint from a modeler whose empty canvas explains itself", () => {
+    const none = hint({ visible: false, content: null, text: "" });
+    expect(emptyHintProblems(none, FREE, "ide", "en", "none")).toEqual([]);
+    expect(emptyHintProblems(hint(), FREE, "web", "en", "none")).toEqual([
+      'hint: the empty-file hint (.cd-shell-hint) shows, although the modeler\'s empty canvas explains itself (emptyHint: "none")',
+    ]);
+  });
+
   it("passes the hint in the middle of the free rectangle, with Insert example outside the web app", () => {
     expect(emptyHintProblems(hint(), FREE, "ide", "en")).toEqual([]);
     expect(
@@ -318,6 +326,22 @@ describe("firstElementProblems", () => {
     expect(firstElementProblems(placed({ after: [labelled], bounds }))).toEqual([]);
     expect(firstElementProblems(placed({ after: [labelled], bounds: null }))).toEqual([
       'first element: "component_1" is centred at (678, 462)px, expected the middle of the free rectangle at (640, 462)px, where the hint stood: Enter places it there while that spot is free (guide §5.5, §5.9)',
+    ]);
+  });
+
+  it("lets a notation with slots place the first element in its slot inside the free rectangle", () => {
+    const inSlot = element("sticky_1", { box: { left: 300, top: 150, width: 120, height: 84 } });
+    expect(firstElementProblems(placed({ after: [inSlot], placement: "slot" }))).toEqual([]);
+    const outsideFree = element("sticky_1", {
+      box: { left: 300, top: -200, width: 120, height: 84 },
+    });
+    expect(firstElementProblems(placed({ after: [outsideFree], placement: "slot" }))).toEqual([
+      'first element: "sticky_1" is centred at (360, -158)px, outside the free rectangle; its slot must show without moving the view (guide §5.5, §5.9)',
+    ]);
+    expect(
+      firstElementProblems(placed({ after: [inSlot], placement: "slot", hint: hint() })),
+    ).toEqual([
+      'hint: still visible after Enter on palette entry "create.box" placed "sticky_1"; the hint goes with the first element (guide §13.5)',
     ]);
   });
 

@@ -22,4 +22,5 @@ export type {
 } from "./harness.js";
 export { registerShellConformance, shellConformanceCases, vsCodeStubSearch } from "./harness.js";
 export type { IdeHostKind } from "./csp-checks.js";
+export type { EmptyHintExpectation, FirstElementPlacement } from "./empty-file-checks.js";
 export { ORCA_FRAME_POLICY } from "./orca-frame.js";

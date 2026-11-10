@@ -110,11 +110,19 @@ export function emptyViewProblems(
  * A tool in another language (`lang`, `<html lang>`) says both in its own words (guide §2), so
  * there the hint needs a line and outside the web app at most one button.
  */
+/**
+ * Whether an empty diagram shows the empty-file hint: `"shown"` (default), or `"none"` for a
+ * notation whose empty canvas explains itself, such as the Business Model Canvas, where every
+ * empty block carries a hint of its own.
+ */
+export type EmptyHintExpectation = "shown" | "none";
+
 export function emptyHintProblems(
   hint: EmptyHintFacts,
   free: Rectangle,
   host: ShellHost,
   lang: string,
+  expected: EmptyHintExpectation = "shown",
 ): string[] {
   const english = speaksEnglish(lang);
   const problems: string[] = [];
@@ -125,6 +133,14 @@ export function emptyHintProblems(
         ? "start screen: the card still shows on the empty diagram; once it is gone the middle shows the empty-file hint (guide §8)"
         : `start screen: a start screen card in the ${host} host; it shows the empty-file hint instead (guide §13.5)`,
     );
+  }
+  if (expected === "none") {
+    if (hint.visible) {
+      problems.push(
+        `hint: the empty-file hint (.cd-shell-hint) shows, although the modeler's empty canvas explains itself (emptyHint: "none")`,
+      );
+    }
+    return problems;
   }
   if (!hint.visible) {
     problems.push(
@@ -200,6 +216,18 @@ export interface FirstElementFacts {
   viewBefore: EmptyViewFacts;
   viewAfter: EmptyViewFacts;
   free: Rectangle;
+  /**
+   * Where the notation puts it: `"centre"` (default) in the middle of the free rectangle, `"slot"`
+   * in a slot of its own layout, which then only has to lie in the free rectangle.
+   */
+  placement?: FirstElementPlacement | undefined;
+}
+
+/** Where Enter on the palette places the first element of an empty document. */
+export type FirstElementPlacement = "centre" | "slot";
+
+function outside(point: { x: number; y: number }, free: Rectangle): boolean {
+  return point.x < free.left || point.x > free.right || point.y < free.top || point.y > free.bottom;
 }
 
 /**
@@ -236,6 +264,14 @@ export function firstElementProblems(facts: FirstElementFacts): string[] {
     );
   }
   const centre = centreOf(facts.bounds ?? shape.box);
+  if (facts.placement === "slot") {
+    if (outside(centre, facts.free)) {
+      problems.push(
+        `first element: "${shape.id}" is centred at ${at(centre)}, outside the free rectangle; its slot must show without moving the view (guide §5.5, §5.9)`,
+      );
+    }
+    return problems;
+  }
   if (offCentre(centre, facts.free, FIRST_ELEMENT_TOLERANCE_PX)) {
     problems.push(
       `first element: "${shape.id}" is centred at ${at(centre)}, expected the middle of the free rectangle at ${at(freeCentre(facts.free))}, where the hint stood: Enter places it there while that spot is free (guide §5.5, §5.9)`,
@@ -261,6 +297,7 @@ export function lastElementProblems(
   facts: LastElementFacts,
   host: ShellHost,
   lang: string,
+  expected: EmptyHintExpectation = "shown",
 ): string[] {
   if (facts.removedBy === "Escape") {
     return [
@@ -272,7 +309,7 @@ export function lastElementProblems(
       `last element: Delete on the selected "${facts.id}" kept it, so the hint's return on an emptied diagram was not verified`,
     ];
   }
-  return emptyHintProblems(facts.hint, facts.free, host, lang).map(
+  return emptyHintProblems(facts.hint, facts.free, host, lang, expected).map(
     (problem) => `after Delete removed the last element: ${problem}`,
   );
 }
