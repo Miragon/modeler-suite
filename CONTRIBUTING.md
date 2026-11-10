@@ -197,7 +197,7 @@ linked from each `apps/vscode/README.md`) and of Orca's plugin directory (`apps/
 from the `product-shots` skill of the `miragon-brand` plugin
 ([Miragon/corporate-identity](https://github.com/Miragon/corporate-identity)). Every product, its
 target, title, claim, icon and the recipe's options are in
-[`.miragon/product-shots.json`](.miragon/product-shots.json); `skillVersion` is the skill release
+[`.miragon/product-shots.yaml`](.miragon/product-shots.yaml); `skillVersion` is the skill release
 the images were made with. Each modeler's VS Code images show its demo workspace in
 `modelers/<modeler>/docs/demo/`. Build the VSIX (`npm run <modeler> package:vscode`) and the Orca
 plugins (`npm run <modeler> build:orca`) first, then, from the repository root:
