@@ -23,7 +23,9 @@ modelers/*/apps/orca/.orca/
 # generated from the bundled packages' licences (npm run notices -w apps/vscode)
 modelers/*/apps/vscode/THIRD_PARTY_NOTICES.md
 
-# vendored unchanged from Miragon/corporate-identity (re-copy to update, never reformat)
+# vendored unchanged from Miragon/corporate-identity (re-copy to update, never reformat); brand-assets.mjs
+# writes .miragon/brand-assets.* and checks the copies byte for byte
+.miragon/brand-assets.*
 packages/shell/fixtures/tokens/
 *.generated.css
 *.generated.json

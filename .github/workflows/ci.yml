@@ -59,6 +59,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The design-system files copied from miragon-brand with brand-assets.mjs
+      # (.miragon/brand-assets.yaml) are unchanged since they were copied.
+      - run: sha256sum -c .miragon/brand-assets.sha256
       - uses: ./.github/actions/setup
       - run: npm run format:check
 

@@ -77,8 +77,8 @@ missing at its other places; the verdict stays the same).
   tokens; `test/color-options.test.ts` pins them. Labels drawn before the web font arrived are
   laid out again once it has. Tool and chrome icons are Lucide, inlined in `draw/lucide.ts`.
 - `src/theme/` holds the design system's `cd-tokens.generated.css`/`.json` and `cd-canvas.css`
-  (1.27.0), vendored unchanged with a header; re-copy them from the
-  `miragon-brand:modeler-tool-design` skill, never edit. `assets/value-chain.css` loads tokens
+  (1.32.0), vendored unchanged without a header; re-copy them with `brand-assets.mjs` (root
+  `.miragon/brand-assets.yaml`), never edit. `assets/value-chain.css` loads tokens
   (layered), `diagram-js.css`, `cd-canvas.css`, then styles only on `--cd-ui-*` roles;
   `test/theme.sync.test.ts` guards both, `apps/vscode/test/tokens.sync.test.ts` pins the shell's
   sizes to the vendored `shell` tokens. In-canvas overlays stay at `z-index` 100 or below.

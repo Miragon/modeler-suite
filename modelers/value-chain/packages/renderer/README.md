@@ -42,7 +42,7 @@ const { svg } = modeler.saveSVG(); // standalone SVG
 
 The stylesheet is required. It bundles the design-system tokens (in a cascade layer, so a host's
 own `--cd-*` tokens win), diagram-js' CSS and `cd-canvas.css` (vendored unchanged from the
-`miragon-brand:modeler-tool-design` skill, design system 1.27.0) and styles the canvas chrome on the
+`miragon-brand:modeler-tool-design` skill, design system 1.32.0) and styles the canvas chrome on the
 `--cd-ui-*` roles. The diagram itself is drawn in light colours, so SVG and PNG exports stay light.
 
 Labels use `'Geist Variable', 'Geist', ui-sans-serif, system-ui, sans-serif`. The font is not

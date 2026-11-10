@@ -41,11 +41,11 @@ const tokens = JSON.parse(tokensJson) as VendoredTokens;
 const TOKENS_LAYER = "team-topologies-tokens";
 
 /**
- * sha256 of the files of design system 1.27.0 (skill `miragon-brand:modeler-tool-design`),
- * the token files unchanged since 1.12.0.
+ * sha256 of the files of design system 1.32.0 (skill `miragon-brand:modeler-tool-design`),
+ * copied unchanged with brand-assets.mjs.
  */
-const DESIGN_SYSTEM_1_27_0: Record<string, string> = {
-  "cd-tokens.generated.css": "36ccd5bbcb732c57143e32f13172967467dd574ae1ac5d84d6c601d0ab0847a1",
+const DESIGN_SYSTEM_1_32_0: Record<string, string> = {
+  "cd-tokens.generated.css": "3a6d628685274163294fd45a65f042009501a98026a3d7cd7400776bebb76fc9",
   "cd-tokens.generated.json": "549a244fba0951e9b77fed0f5d2172cb793191913326f08749e167ac7fdbb127",
   "cd-canvas.css": "b49da7068bcbc95a682d93e19267c1d8308033ef421f6c120ce30eeb62eeb13a",
 };
@@ -217,8 +217,8 @@ function styledSourceFiles(): string[] {
   );
 }
 
-describe("theme.sync — the vendored files are unchanged copies of design system 1.27.0", () => {
-  for (const [file, hash] of Object.entries(DESIGN_SYSTEM_1_27_0)) {
+describe("theme.sync — the vendored files are unchanged copies of design system 1.32.0", () => {
+  for (const [file, hash] of Object.entries(DESIGN_SYSTEM_1_32_0)) {
     it(`${file} is byte-identical to the release`, () => {
       expect(
         createHash("sha256")

@@ -473,7 +473,7 @@ React, no `packages/ui`.
 ## Drawing and design system
 
 - `cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css` are vendored unchanged
-  (design system 1.27.0) into `packages/renderer/src/theme/`; re-copy them to update, never edit
+  (design system 1.32.0) into `packages/renderer/src/theme/`; re-copy them to update, never edit
   them. [`assets/c4.css`](packages/renderer/src/assets/c4.css) loads them in guide §10.3's order and
   reads only the `--cd-ui-*` roles and the mode-independent tokens. The dialogs' `navigation/forms.css`
   fills the primary and the destructive button with guide §8's fixed `--cd-blau` and `--cd-danger`,

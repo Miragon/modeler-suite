@@ -88,8 +88,8 @@ the example as `workspace.c4`, creates an element from the palette, saves (the f
 
 ## Design tokens, colours, notices
 
-- Tokens: re-copy the three files into `packages/renderer/src/theme/`, restore the vendoring header
-  (with the new version) on the two CSS files, update release and hashes in
+- Tokens: re-copy the three files with `brand-assets.mjs` (root `.miragon/brand-assets.yaml`),
+  without a header of their own, update release and hashes in
   `packages/renderer/test/theme.sync.test.ts`, run `test` and `test:e2e`.
 - C4 colours (`C4_COLOUR_STYLES` in `packages/schema-model/src/notation.ts`) must pass
   `notation-contrast.test.ts`. They are also in `newWorkspaceText()` and `example/bookshop.c4`, so

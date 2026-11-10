@@ -241,10 +241,11 @@ to `v0.5.0`) and is no longer written.
 All UI/visual work follows the Miragon product design system (the `miragon-brand:modeler-tool-design`
 skill; see the suite's [`CLAUDE.md`](../../CLAUDE.md#design-system-mandatory)). Here:
 
-The skill's design-system files are vendored **verbatim** (guide 1.27.0) into
+The skill's design-system files are vendored **verbatim** (guide 1.32.0) into
 [`packages/renderer/src/theme/`](packages/renderer/src/theme/): `cd-tokens.generated.css`,
 `cd-tokens.generated.json` and `cd-canvas.css`; do not fork hex values or edit them; to update,
-re-copy all three from the skill and put the new release's sha256 values into the drift test.
+re-copy all three with `brand-assets.mjs` (root `.miragon/brand-assets.yaml`) and put the new
+release's sha256 values into the drift test.
 Reference implementation in this modeler: tokens
 [`packages/renderer/src/theme/palette.ts`](packages/renderer/src/theme/palette.ts) · drift test
 [`packages/renderer/test/theme.sync.test.ts`](packages/renderer/test/theme.sync.test.ts) (the three

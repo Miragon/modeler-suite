@@ -63,9 +63,9 @@ undoes and switches through the four default themes. Locally run
 
 ## Design tokens
 
-To update the vendored files in `packages/renderer/src/theme/`, copy the three files again, put the
-vendoring header (with the new design-system version) back on both CSS files and update the
-release and sha256 values in `theme.sync.test.ts` (hashed without the header). When a dependency of
+To update the vendored files in `packages/renderer/src/theme/`, re-copy the three files with
+`brand-assets.mjs` (root `.miragon/brand-assets.yaml`, no header) and update the release and sha256
+values in `theme.sync.test.ts`. When a dependency of
 the VS Code extension changes, run `npm run notices -w modelers/value-chain/apps/vscode` and commit
 `THIRD_PARTY_NOTICES.md`.
 

@@ -136,11 +136,11 @@ interface VendoredTokens {
 }
 const vendoredJson = JSON.parse(vendoredJsonText) as VendoredTokens;
 
-/** sha256 of the files of design system 1.27.0, the token files unchanged since 1.12.0. */
-const DESIGN_SYSTEM_1_27_0 = {
+/** sha256 of the files of design system 1.32.0, copied unchanged with brand-assets.mjs. */
+const DESIGN_SYSTEM_1_32_0 = {
   "cd-tokens.generated.css": {
     source: vendoredTokens,
-    sha256: "36ccd5bbcb732c57143e32f13172967467dd574ae1ac5d84d6c601d0ab0847a1",
+    sha256: "3a6d628685274163294fd45a65f042009501a98026a3d7cd7400776bebb76fc9",
   },
   "cd-tokens.generated.json": {
     source: vendoredJsonText,
@@ -171,8 +171,8 @@ function normalized(values: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(values).map(([name, value]) => [name, norm(value)]));
 }
 
-describe("theme.sync — the vendored files are complete, unchanged copies (design system 1.27.0)", () => {
-  for (const [file, { source, sha256 }] of Object.entries(DESIGN_SYSTEM_1_27_0)) {
+describe("theme.sync — the vendored files are complete, unchanged copies (design system 1.32.0)", () => {
+  for (const [file, { source, sha256 }] of Object.entries(DESIGN_SYSTEM_1_32_0)) {
     it(`${file} is byte-identical to the release`, () => {
       expect(createHash("sha256").update(source, "utf8").digest("hex")).toBe(sha256);
     });

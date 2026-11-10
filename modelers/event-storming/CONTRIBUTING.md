@@ -86,9 +86,9 @@ the webview.
 ## Design tokens
 
 To update the vendored `cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css` in
-`packages/renderer/src/theme/`: copy all three from the `miragon-brand:modeler-tool-design` skill,
-put the vendoring header back as the first line of the two CSS files, update the release and sha256
-values in `packages/renderer/test/theme.sync.test.ts` (CSS hashed without the header), then run
+`packages/renderer/src/theme/`: re-copy all three with `brand-assets.mjs` from the `miragon-brand`
+plugin (root `.miragon/brand-assets.yaml`, no header), update the release and sha256 values in
+`packages/renderer/test/theme.sync.test.ts`, then run
 `npm run event-storming test` and the `vscode-webview` e2e project.
 
 ## Pull requests

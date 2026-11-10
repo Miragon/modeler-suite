@@ -17,10 +17,10 @@ All UI/visual work follows the Miragon product design system (the
 **`miragon-brand:modeler-tool-design`** skill; see the suite's
 [`CLAUDE.md`](../../CLAUDE.md#design-system-mandatory)). Here:
 
-The design system **1.27.0** is **vendored** from that skill, byte-identical:
+The design system **1.32.0** is **vendored** from that skill, byte-identical:
 [`packages/renderer/src/theme/cd-tokens.generated.css`](packages/renderer/src/theme/cd-tokens.generated.css),
 `cd-tokens.generated.json` and `cd-canvas.css`. Do **not** fork or reformat them; re-copy all three
-from the skill to update and update their hashes in the drift test
+with `brand-assets.mjs` (root `.miragon/brand-assets.yaml`) to update and update their hashes in the drift test
 (`packages/renderer/src/theme/theme.sync.test.ts`), which also checks that
 [`palette.ts`](packages/renderer/src/theme/palette.ts) (the pure-TS mirror for canvas colours) and the
 vendored files agree and that `team-topologies.css` reads only `--cd-ui-*` roles (the dialogs'

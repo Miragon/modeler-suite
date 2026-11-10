@@ -208,12 +208,12 @@ release, are in [docs/ci-and-releases.md](../../docs/ci-and-releases.md). A rele
 All UI/visual work follows the Miragon product design system (the `miragon-brand:modeler-tool-design`
 skill; see the suite's [`CLAUDE.md`](../../CLAUDE.md#design-system-mandatory)). Here:
 
-The design-system files are vendored **unchanged** from that skill (design system 1.27.0) into
+The design-system files are vendored **unchanged** from that skill (design system 1.32.0) into
 [`packages/renderer/src/theme/`](packages/renderer/src/theme/): `cd-tokens.generated.css`,
-`cd-tokens.generated.json` and `cd-canvas.css`. The two CSS files carry one extra first line, the
-vendoring header; the JSON is byte-identical. Never edit or reformat them (Prettier-ignored, marked
-`linguist-generated`) and never fork a hex value: re-copy all three from the skill's `assets/` to
-update, re-add the header, and run `npm run event-storming test`.
+`cd-tokens.generated.json` and `cd-canvas.css`, byte-identical and without a header. Never edit or
+reformat them (Prettier-ignored, marked `linguist-generated`) and never fork a hex value: re-copy all
+three with `brand-assets.mjs` (root `.miragon/brand-assets.yaml`) to update, and run
+`npm run event-storming test`.
 [`event-storming.css`](packages/renderer/src/assets/event-storming.css) starts with
 `@import '../theme/cd-tokens.generated.css' layer(event-storming-tokens)`, then `diagram-js.css`,
 then `cd-canvas.css` (unlayered, so its `--bio-*`/`.djs-parent` mapping beats diagram-js's
