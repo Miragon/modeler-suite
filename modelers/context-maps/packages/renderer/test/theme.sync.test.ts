@@ -9,8 +9,8 @@ import { CD_TOKENS, MIRAGON } from "../src/theme/palette.js";
  * Drift guard for the design system (the `miragon-brand:modeler-tool-design` skill; CLAUDE.md
  * § "Design system"): the three files in `src/theme/` are unchanged copies of one release, the TS
  * mirror `MIRAGON` holds their values, and `assets/context-maps.css` takes every colour from the
- * roles. Re-copying the files from a new release fails here until the hashes, the mirror and the
- * CSS follow.
+ * roles. Re-copying the files with brand-assets.mjs fails here until the mirror and the CSS
+ * follow.
  */
 function readSource(relativePath: string): string {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
@@ -23,12 +23,17 @@ const vendored = {
   "cd-canvas.css": readSource("../src/theme/cd-canvas.css"),
 };
 
-/** SHA-256 of the files as published in design system 1.27.0, the token files unchanged since 1.12.0. */
-const RELEASE_1_27_0: Record<keyof typeof vendored, string> = {
-  "cd-tokens.generated.css": "36ccd5bbcb732c57143e32f13172967467dd574ae1ac5d84d6c601d0ab0847a1",
-  "cd-tokens.generated.json": "549a244fba0951e9b77fed0f5d2172cb793191913326f08749e167ac7fdbb127",
-  "cd-canvas.css": "b49da7068bcbc95a682d93e19267c1d8308033ef421f6c120ce30eeb62eeb13a",
-};
+/**
+ * sha256 of every copy of a design-system file, as `.miragon/brand-assets.sha256` records it:
+ * `brand-assets.mjs` of the `miragon-brand` plugin writes it whenever it re-copies the files.
+ */
+const BRAND_ASSET_CHECKSUMS = new Map(
+  readSource("../../../../../.miragon/brand-assets.sha256")
+    .trim()
+    .split("\n")
+    .map((line) => line.split(/\s+/).reverse() as [string, string]),
+);
+const THEME_DIRECTORY = "modelers/context-maps/packages/renderer/src/theme";
 
 interface VendoredTokens {
   hell: Record<string, string>;
@@ -148,10 +153,10 @@ function zIndexOf(selector: string): number {
 }
 
 describe("theme.sync — the vendored design-system files", () => {
-  it("are unchanged copies of design system 1.27.0", () => {
+  it("are unchanged copies, as brand-assets.mjs recorded them", () => {
     for (const [name, source] of Object.entries(vendored)) {
       const hash = createHash("sha256").update(source, "utf8").digest("hex");
-      expect(hash, name).toBe(RELEASE_1_27_0[name as keyof typeof vendored]);
+      expect(hash, name).toBe(BRAND_ASSET_CHECKSUMS.get(`${THEME_DIRECTORY}/${name}`));
     }
   });
 

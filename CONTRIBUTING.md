@@ -197,7 +197,7 @@ linked from each `apps/vscode/README.md`) and of Orca's plugin directory (`apps/
 from the `product-shots` skill of the `miragon-brand` plugin
 ([Miragon/corporate-identity](https://github.com/Miragon/corporate-identity)). Every product, its
 target, title, claim, icon and the recipe's options are in
-[`.miragon/product-shots.json`](.miragon/product-shots.json); `skillVersion` is the skill release
+[`.miragon/product-shots.yaml`](.miragon/product-shots.yaml); `skillVersion` is the skill release
 the images were made with. Each modeler's VS Code images show its demo workspace in
 `modelers/<modeler>/docs/demo/`. Build the VSIX (`npm run <modeler> package:vscode`) and the Orca
 plugins (`npm run <modeler> build:orca`) first, then, from the repository root:
@@ -266,8 +266,11 @@ modelers' tests; maintaining the modeler-kit and its template is described in
 
 All UI follows the Miragon design system (skill `miragon-brand:modeler-tool-design`). Every
 renderer vendors its `cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css`
-unchanged into `packages/renderer/src/theme/`: to update, copy all three again and follow the
-modeler's `CONTRIBUTING.md`. Never edit them by hand.
+unchanged into `packages/renderer/src/theme/`: to update, re-copy them with
+`node <miragon-brand plugin>/scripts/brand-assets.mjs .` (the copies are listed in
+[`.miragon/brand-assets.yaml`](.miragon/brand-assets.yaml), their checksums in
+`.miragon/brand-assets.sha256`, which CI checks) and follow the modeler's `CONTRIBUTING.md`. Never
+edit them by hand.
 
 [`.miragon/brand.json`](.miragon/brand.json) turns on brand-lint for the whole suite (plugin
 `miragon-brand` 1.7.0 or later). Claude Code runs it on every file it writes; by hand:

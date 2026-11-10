@@ -13,8 +13,8 @@ import { CD_TOKENS, MIRAGON } from "./palette.js";
  * files are unchanged copies of one design-system release, `palette.ts` mirrors their values, and
  * the renderer stylesheet takes every colour from the `--cd-ui-*` roles, so the canvas chrome
  * follows the mode with the host's chrome. The tokens ship in a cascade layer, so a host page's own
- * tokens win. Re-copying the files from the skill changes their hashes on purpose: update them here
- * together with the release name.
+ * tokens win. Re-copy the files with brand-assets.mjs, which records their hashes in
+ * `.miragon/brand-assets.sha256`.
  */
 
 // `fileURLToPath(import.meta.url)` instead of `new URL('./file', import.meta.url)`, which Vite
@@ -41,14 +41,17 @@ const tokens = JSON.parse(tokensJson) as VendoredTokens;
 const TOKENS_LAYER = "team-topologies-tokens";
 
 /**
- * sha256 of the files of design system 1.27.0 (skill `miragon-brand:modeler-tool-design`),
- * the token files unchanged since 1.12.0.
+ * sha256 of every copy of a design-system file, as `.miragon/brand-assets.sha256` records it:
+ * `brand-assets.mjs` of the `miragon-brand` plugin writes it whenever it re-copies the files.
  */
-const DESIGN_SYSTEM_1_27_0: Record<string, string> = {
-  "cd-tokens.generated.css": "36ccd5bbcb732c57143e32f13172967467dd574ae1ac5d84d6c601d0ab0847a1",
-  "cd-tokens.generated.json": "549a244fba0951e9b77fed0f5d2172cb793191913326f08749e167ac7fdbb127",
-  "cd-canvas.css": "b49da7068bcbc95a682d93e19267c1d8308033ef421f6c120ce30eeb62eeb13a",
-};
+const BRAND_ASSET_CHECKSUMS = new Map(
+  readFileSync(join(repoRoot, "../../.miragon/brand-assets.sha256"), "utf8")
+    .trim()
+    .split("\n")
+    .map((line) => line.split(/\s+/).reverse() as [string, string]),
+);
+const THEME_DIRECTORY = "modelers/team-topologies/packages/renderer/src/theme";
+const VENDORED_FILES = ["cd-tokens.generated.css", "cd-tokens.generated.json", "cd-canvas.css"];
 
 /** Colours by meaning, not bytes: hex case and whitespace inside `rgba(…)` do not count. */
 function norm(value: string): string {
@@ -217,14 +220,14 @@ function styledSourceFiles(): string[] {
   );
 }
 
-describe("theme.sync — the vendored files are unchanged copies of design system 1.27.0", () => {
-  for (const [file, hash] of Object.entries(DESIGN_SYSTEM_1_27_0)) {
-    it(`${file} is byte-identical to the release`, () => {
+describe("theme.sync — the vendored files are unchanged copies (.miragon/brand-assets.yaml)", () => {
+  for (const file of VENDORED_FILES) {
+    it(`${file} is byte-identical to the copy brand-assets.mjs recorded`, () => {
       expect(
         createHash("sha256")
           .update(readFileSync(join(here, file)))
           .digest("hex"),
-      ).toBe(hash);
+      ).toBe(BRAND_ASSET_CHECKSUMS.get(`${THEME_DIRECTORY}/${file}`));
     });
   }
 
