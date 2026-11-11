@@ -73,8 +73,7 @@ known version), and the new repository's Dependabot moves them on.
    Code inside a Linux container, so no window opens and takes the focus; it needs Docker, and its
    first run builds the image and downloads VS Code. `brand-assets.mjs --check` reports no
    finding. All green before the first commit, which is signed (`git commit -S -m "feat: …"`).
-5. **GitHub**: the environments `npm` and `vscode-marketplace`, the secrets `VSCE_PUBLISH` and
-   `OVSX_PUBLISH` (in `vscode-marketplace`), the release-please app (`RELEASE_PLEASE_APP_CLIENT_ID`,
+5. **GitHub**: the environments `npm` and `vscode-marketplace`, the release-please app (`RELEASE_PLEASE_APP_CLIENT_ID`,
    `RELEASE_PLEASE_APP_PRIVATE_KEY`; Dependabot's auto-merge uses it too), required signed commits,
    and `ci-ok` (the CI gate) and `validate-pr-title` as the only required checks on `main`, once
    `ci-ok` has run there (see [repository](references/repository.md#the-merge-gate)). A public

@@ -976,8 +976,6 @@ const NON_API_NAMES = new Map<string, string>([
   ["exactOptionalPropertyTypes", "tsconfig"],
   ["verbatimModuleSyntax", "tsconfig"],
   ["moduleResolution", "tsconfig"],
-  ["VSCE_PUBLISH", "a GitHub secret"],
-  ["OVSX_PUBLISH", "a GitHub secret"],
   ["RELEASE_PLEASE_APP_CLIENT_ID", "a GitHub variable"],
   ["RELEASE_PLEASE_APP_PRIVATE_KEY", "a GitHub secret"],
   ["GITHUB_TOKEN", "GitHub Actions' token of a workflow run"],

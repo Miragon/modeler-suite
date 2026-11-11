@@ -226,8 +226,9 @@ jobs builds again and then publishes.
 - **VS Code**: `build / vscode (<extension>)` builds and packs the VSIX and smoke-tests that very
   VSIX in the newest stable VS Code; `publish / vscode-marketplace (<extension>)` and
   `publish / open-vsx (<extension>)` upload it in the environment `vscode-marketplace` with
-  `vsce publish` (secret `VSCE_PUBLISH`) or `ovsx publish` (secret `OVSX_PUBLISH`), both with
-  `--skip-duplicate`, so a re-run passes a marketplace that has the version already.
+  `vsce publish --oidc` or `ovsx publish --trusted-publishing` (trusted publishing on both, no
+  token), both with `--skip-duplicate`, so a re-run passes a marketplace that has the version
+  already.
 - **Orca**: `build / orca (<plugin>)` builds the plugin folder (a workspace with an
   `orca-plugin.json` and its own release-please component `<modeler>-orca`, which also bumps the
   manifest's version; Team Topologies releases its plugin in lockstep with the modeler's
@@ -265,6 +266,40 @@ of a new name fails with E404. This is how `@miragon/modeler-api@1.0.0` was boot
 
 Packages published before the suite existed were bound for their old repository and need the
 binding of step 3 for `Miragon/modeler-suite` before their first release from here.
+
+### Trusted publishing on the VS Code Marketplace and Open VSX
+
+Both marketplaces trade the job's GitHub OIDC token (`id-token: write`) for a short-lived
+publishing token, so the workflow stores no token for either.
+
+The **VS Code Marketplace** (`vsce publish --oidc`, vsce 4.1.0 or later) needs one Trusted
+Publishing policy on the publisher `miragon-gmbh` (publisher management page → Trusted Publishing →
+Create), which covers every extension of the publisher:
+
+| Field            | Value                |
+| ---------------- | -------------------- |
+| Repository owner | `Miragon`            |
+| Repository       | `modeler-suite`      |
+| Workflow         | `release-please.yml` |
+| Environment      | `vscode-marketplace` |
+
+The policy belongs to the publisher, so a new extension of `miragon-gmbh` publishes with it from
+its first release.
+
+**Open VSX** (`ovsx publish --trusted-publishing`, ovsx 1.3.0 or later) registers a trusted
+publisher per extension: as a namespace owner of `miragon-gmbh`, Settings → Trusted Publishers
+(`https://open-vsx.org/user-settings/trusted-publishers`), namespace `miragon-gmbh`, the extension,
+provider GitHub Actions, with the same four values (organization `Miragon`, repository
+`modeler-suite`, workflow filename `release-please.yml`, environment `vscode-marketplace`). A
+registration cannot be edited, only deleted and created again. Like npm, it binds only to an
+extension that exists, so the first release of a new extension needs one manual step:
+
+1. Merge the extension's first release PR. `publish / open-vsx (<extension>)` fails.
+2. A namespace owner downloads the artifact `vsix-<extension>` of that run and publishes it once
+   with an Open VSX access token: `npx --yes ovsx@1.3.0 publish --packagePath <file>.vsix -p <token>`.
+3. Register the trusted publisher for the extension as above.
+4. Re-run the failed publish job. It passes with `--skip-duplicate`; later releases publish without
+   a token.
 
 ## Web apps on Netlify
 

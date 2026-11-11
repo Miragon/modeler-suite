@@ -54,8 +54,8 @@ change. "The next minor" is no target. The pull request that adds the deprecatio
 and refers to it. A deprecation without a tracked removal outlives the minor it promises.
 
 Merging the release PR publishes the `packages/*` libraries to npm (OIDC trusted publishing,
-environment `npm`) and the extension to the VS Code Marketplace and Open VSX (environment
-`vscode-marketplace`, secrets `VSCE_PUBLISH`, `OVSX_PUBLISH`).
+environment `npm`) and the extension to the VS Code Marketplace and Open VSX (OIDC trusted
+publishing, environment `vscode-marketplace`).
 
 The first release of every npm package needs one manual step: trusted publishing binds only to a
 package that exists. Merge the first release PR (its publish job fails with E404), publish that
@@ -63,3 +63,11 @@ version once by hand from a clean checkout of the tag (`npm ci && npm run build 
 npm publish -w packages/<name>`, in a terminal for the 2FA prompt), bind the publisher with
 `npm trust github @miragon/__NOTATION__-<name> --repo Miragon/__REPO__ --file release-please.yml --env npm --allow-publish`,
 then re-run the failed job.
+
+The extension's first Open VSX release needs the same kind of step: a trusted publisher on Open VSX
+binds only to an extension that exists. Merge the first release PR (its Open VSX publish fails),
+publish the VSIX of that run's artifact `vsix` once with an access token
+(`npx ovsx publish --packagePath __REPO__.vsix -p <token>`), register the trusted publisher under
+Settings → Trusted Publishers on open-vsx.org (organization `Miragon`, repository `__REPO__`,
+workflow filename `release-please.yml`, environment `vscode-marketplace`), then re-run the failed
+job.
