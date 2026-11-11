@@ -50,7 +50,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-## @dagrejs/dagre 3.1.1 (MIT)
+## @dagrejs/dagre 3.1.3 (MIT)
 
 ```text
 Copyright (c) 2012-2014 Chris Pettitt
@@ -74,7 +74,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-## @dagrejs/graphlib 4.0.5 (MIT)
+## @dagrejs/graphlib 4.0.6 (MIT)
 
 ```text
 Copyright (c) 2012-2014 Chris Pettitt
