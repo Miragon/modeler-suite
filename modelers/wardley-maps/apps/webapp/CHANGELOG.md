@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.16.0](https://github.com/Miragon/modeler-suite/compare/wardley-webapp-v0.15.2...wardley-webapp-v0.16.0) (2026-11-11)
+
+
+### Features
+
+* **wardley-maps:** add an explore mode ([#616](https://github.com/Miragon/modeler-suite/issues/616)) ([a8d2e1a](https://github.com/Miragon/modeler-suite/commit/a8d2e1acfd9fbf79d01e4901b4f7178f03fed096))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/wardley-renderer bumped from 0.17.0 to 0.18.0
+
 ## [0.15.2](https://github.com/Miragon/modeler-suite/compare/wardley-webapp-v0.15.1...wardley-webapp-v0.15.2) (2026-11-11)
 
 
