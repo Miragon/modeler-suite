@@ -79,7 +79,9 @@ Build the packages before the tests: workspace dependencies resolve to `dist`.
 All UI follows the Miragon product design system, the `miragon-brand:modeler-tool-design` skill
 (`/plugin marketplace add Miragon/corporate-identity`, `/plugin install miragon-brand@miragon`).
 `cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css` are vendored unchanged
-into `packages/renderer/src/theme/`; re-copy them to update, never edit them. The chrome is
+into `packages/renderer/src/theme/`; re-copy them with the `miragon-brand` plugin's
+`scripts/brand-assets.mjs`, which reads `.miragon/brand-assets.yaml` and writes the checksums CI
+checks (`.miragon/brand-assets.sha256`), and never edit them. The chrome is
 `@miragon/modeler-shell` in both apps; the renderer's stylesheet reads only `--cd-ui-*` roles.
 
 [`.miragon/brand.json`](.miragon/brand.json) turns on the plugin's brand-lint hook (`miragon-brand`

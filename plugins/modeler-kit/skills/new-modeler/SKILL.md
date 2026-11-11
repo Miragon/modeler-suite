@@ -26,7 +26,7 @@ the one closest to your notation:
 ## Start from the template
 
 [`assets/template/`](assets/template/) is a minimal, runnable modeler for a toy notation (labelled
-nodes in a line DSL). Once the design-system files are copied in (step 1 of
+nodes in a line DSL). Once `brand-assets.mjs` has copied the design-system files in (step 1 of
 [After copying](#after-copying)), it builds, passes both conformance kits on the `web` and `ide`
 hosts and packages a VSIX. Copy it with the script, which fills every placeholder and refuses a
 non-empty target:
@@ -53,11 +53,13 @@ known version), and the new repository's Dependabot moves them on.
 
 ### After copying
 
-1. **Design-system files** (see [design system](references/design-system.md#vendor-the-files)): copy
-   `cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css` unchanged from the
-   `miragon-brand:modeler-tool-design` skill into `packages/renderer/src/theme/` (the two CSS files
-   get the vendoring header line), and `miragon-komet-blau.svg` from the `miragon-brand:corporate-design`
-   skill (`assets/logo/`) into `apps/webapp/public/`.
+1. **Design-system files** (see [design system](references/design-system.md#vendor-the-files)): from
+   the repository root, `node <miragon-brand plugin>/scripts/brand-assets.mjs --init`, then
+   `brand-assets.mjs --add skills/modeler-tool-design/assets/<file> packages/renderer/src/theme/<file>`
+   for `cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css`. This writes
+   `.miragon/brand-assets.yaml` and `.miragon/brand-assets.sha256`, which CI checks; never edit the
+   copies. Then `miragon-komet-blau.svg` from the `miragon-brand:corporate-design` skill
+   (`assets/logo/`) into `apps/webapp/public/`.
 2. **Icons**: the notation's modeler icon from the `miragon-brand:icon-design` skill
    (`assets/modeler-icons/`; a new notation gets one there first) as
    `apps/webapp/public/favicon.svg`, and as `apps/vscode/icon.png` with `"icon": "icon.png"` in
@@ -69,8 +71,8 @@ known version), and the new repository's Dependabot moves them on.
    `npm run build:vscode` and `npm run test:vscode:docker`, once as it is and once with
    `VSCODE_VERSION=1.96.0` (the `engines.vscode` floor). It runs the built extension in a real VS
    Code inside a Linux container, so no window opens and takes the focus; it needs Docker, and its
-   first run builds the image and downloads VS Code. All green before the first commit, which is
-   signed (`git commit -S -m "feat: …"`).
+   first run builds the image and downloads VS Code. `brand-assets.mjs --check` reports no
+   finding. All green before the first commit, which is signed (`git commit -S -m "feat: …"`).
 5. **GitHub**: the environments `npm` and `vscode-marketplace`, the secrets `VSCE_PUBLISH` and
    `OVSX_PUBLISH` (in `vscode-marketplace`), the release-please app (`RELEASE_PLEASE_APP_CLIENT_ID`,
    `RELEASE_PLEASE_APP_PRIVATE_KEY`; Dependabot's auto-merge uses it too), required signed commits,
