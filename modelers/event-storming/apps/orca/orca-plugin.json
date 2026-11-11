@@ -3,7 +3,7 @@
   "manifestVersion": 2,
   "id": "event-storming-modeler",
   "name": "Event Storming Modeler",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Open .storm files as Event Storming boards: model with stickies, notes and arrows, and keep an agent's changes to the file merged with yours.",
   "author": {
     "name": "Miragon GmbH",

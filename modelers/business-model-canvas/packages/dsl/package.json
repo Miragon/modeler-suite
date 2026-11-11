@@ -1,6 +1,6 @@
 {
   "name": "@miragon/business-model-canvas-dsl",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Read and write the .bmc text format of the Business Model Canvas, losslessly.",
   "license": "MIT",
@@ -17,7 +17,7 @@
     "test": "npm --prefix ../.. run test"
   },
   "dependencies": {
-    "@miragon/business-model-canvas-schema-model": "0.0.0",
+    "@miragon/business-model-canvas-schema-model": "0.1.0",
     "yaml": "2.9.1"
   },
   "devDependencies": {

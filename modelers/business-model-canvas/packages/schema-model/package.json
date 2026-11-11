@@ -1,6 +1,6 @@
 {
   "name": "@miragon/business-model-canvas-schema-model",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "The Business Model Canvas document model: blocks, stickies, notes, validation, edits and the canvas layout.",
   "license": "MIT",
