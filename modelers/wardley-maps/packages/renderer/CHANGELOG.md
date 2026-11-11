@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.17.0...wardley-renderer-v0.18.0) (2026-11-11)
+
+
+### Features
+
+* **wardley-maps:** add an explore mode ([#616](https://github.com/Miragon/modeler-suite/issues/616)) ([a8d2e1a](https://github.com/Miragon/modeler-suite/commit/a8d2e1acfd9fbf79d01e4901b4f7178f03fed096))
+
 ## [0.17.0](https://github.com/Miragon/modeler-suite/compare/wardley-renderer-v0.16.1...wardley-renderer-v0.17.0) (2026-11-09)
 
 
