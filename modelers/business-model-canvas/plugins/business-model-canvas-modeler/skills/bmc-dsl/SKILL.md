@@ -313,7 +313,8 @@ Fields the canvas does not know inside `canvas`, an item or a note stay without 
 - Start a new file with `version: 1` and a `canvas` with a `title`. Leave authors, dates and
   versions to Git; write today's model and a planned one as two files.
 - Write the blocks in the method's order (customer-segments first).
-- One idea per sticky, a few words. The canvas cuts longer text with an ellipsis.
+- One idea per sticky, a few words. The canvas sets a longer text smaller and cuts what still
+  does not fit with an ellipsis.
 - Give every item an id. Use `color` for one convention across the canvas, such as one palette
   colour per customer segment, given to the segment and to every sticky that serves only that
   segment. A sticky has one colour; one that serves several segments stays without.

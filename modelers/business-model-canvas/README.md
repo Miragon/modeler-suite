@@ -42,10 +42,10 @@ the order of the file, and a block that fills up grows its whole row.
 | Tape in a colour | what the colour stands for on your canvas |
 | Folded corner    | notes, on hover                           |
 
-Every sticky is white paper. Select one and pick **Colour** in its context pad: one of eight
-colours, shown as a strip of tape across its top edge, or no colour. A common way is one colour
-per customer segment, on the segment and on every sticky that serves it. Click the title to edit
-it in **Canvas title…**.
+Every sticky is white paper, stuck on with a strip of plain grey tape and leaning slightly, as on
+a wall. Select one and pick **Colour** in its context pad: one of eight colours for its tape, or no
+colour. A common way is one colour per customer segment, on the segment and on every sticky that
+serves it. Click the title to edit it in **Canvas title…**.
 
 Notes go on a sticky, on a block or on the canvas as a whole: a remark, a question, an
 assumption to test. Read and write them in the **Notes** panel. It opens from the comment

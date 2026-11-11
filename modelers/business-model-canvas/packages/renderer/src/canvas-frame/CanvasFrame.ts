@@ -166,7 +166,7 @@ export default class CanvasFrame {
 
   private drawHint(layer: SVGElement, block: BlockLayout): void {
     const width = block.rect.width - 2 * BLOCK_PADDING;
-    const hint = fittedText(BLOCK_HINTS[block.blockId], {
+    const { element: hint } = fittedText(BLOCK_HINTS[block.blockId], {
       box: { width, height: 3 * FONT.hint * FONT.lineHeight },
       fontSize: FONT.hint,
       fill: COLORS.quiet,

@@ -125,8 +125,9 @@ the code adds:
   container).
 - `layoutCanvas(document)` lives in `schema-model` (`layout.ts`; the renderer's `io/layoutOf` caches
   it per document object): fixed sticky size (120 × 84, gap 12, 18 from the cell's edge), two
-  columns in the top blocks, more in the bottom halves; a block that overflows grows its whole row,
-  both halves of a stacked column grow together, and every block floors at two rows of stickies
+  columns in the top blocks, more in the bottom halves; a block that overflows grows its whole row.
+  The halves of a stacked column split it by what each holds and share the row's left-over height
+  evenly, so an empty canvas splits them in the middle; every block floors at two rows of stickies
   under its heading (`TWO_ROWS`, for the stacked halves and the bottom row alike). The header band
   is `HEADER_BAND_HEIGHT` (56). Notes take no room in the layout. A block fills from the top left
   under its heading, as on the poster, so a sticky never moves when another one is added after it.
@@ -140,9 +141,16 @@ the code adds:
   palette places in the free area's centre flows into its slot. They open the notes panel as the
   shell's inspector (`e2e/tests/support/notes-panel.ts`).
 - `draw/StickyRenderer` draws every sticky as white paper (`COLORS.plot`), radius 3, no edge, a
-  two-layer paper shadow set as an attribute so exports carry it. A sticky's `color` is tape,
-  never paper: one strip across the top edge (`tapeColor`, class `bmc-tape`), without an edge.
-  Text 13px/500 in ink, with an ellipsis (`draw/text.ts`). A sticky with notes has its bottom
+  two-layer paper shadow set as an attribute so exports carry it. Every sticky has one strip of
+  tape across its top edge, without an edge: its `color` (`tapeColor`, class `bmc-tape`), or plain
+  `--cd-ui-linie` (class `bmc-tape-plain`, decorative, no meaning) without one; a colour is tape,
+  never paper. Every sticky leans the same `STICKY_LEAN` (−1°, rising from bottom left to top
+  right), a `rotate` on its `.djs-visual`, so the selection outline, hit area and layout stay
+  square; its tape adds `TAPE.tilt`. Text 13px/500 in ink (`draw/text.ts`): a text that does not
+  fit is set a pixel smaller at a time down to 11px, a word wider than the sticky breaks with a
+  hyphen (at a hyphen it has, else between two consonants or before a consonant between vowels),
+  and what still does not fit ends in an ellipsis. Every sticky's text sits in the same band under
+  its tape (`TEXT_BAND`), so a colour never resizes it. A sticky with notes has its bottom
   right corner folded down (`NOTE_FOLD`, a `kontur` edge). The canvas has no native `<title>`:
   `draw/StickyTooltip` shows the notes card (`notes-panel/notesCard.ts`, the same card as the
   markers') on a truncated or noted sticky that is not selected: the full text, then the texts of

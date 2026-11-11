@@ -257,6 +257,19 @@ describe("colours", () => {
     expect(tapes("order")).toHaveLength(1);
     expect(tapes("order")).toEqual(tapes("shoppers"));
     expect(tapes("pay")).toEqual([]);
+    expect(graphics("pay").querySelectorAll(".bmc-tape-plain")).toHaveLength(1);
+    expect(graphics("order").querySelectorAll(".bmc-tape-plain")).toHaveLength(0);
+  });
+
+  it("leans every sticky the same slight way, rising to the right", () => {
+    const lean = (id: string) =>
+      service<ElementRegistry>("elementRegistry")
+        .getGraphics(id)
+        .querySelector(".djs-visual")!
+        .getAttribute("transform");
+    expect(lean("order")).toMatch(/^rotate\(-1 /);
+    expect(lean("pay")).toBe(lean("order"));
+    expect(lean("shoppers")).toBe(lean("order"));
   });
 
   it("the legend explains the folded corner and names no colour", () => {
