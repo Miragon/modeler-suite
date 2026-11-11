@@ -7,7 +7,7 @@ implements it, so a modeler mostly has to keep the values in one place and not f
 
 ## Vendor the files
 
-Copy three files of the skill's `assets/` **unchanged** into `packages/renderer/src/theme/`:
+Three files of the skill's `assets/` go **unchanged** into `packages/renderer/src/theme/`:
 
 - `cd-tokens.generated.css`: the fixed `--cd-*` tokens, the `--cd-ui-*` roles per mode and the
   `--cd-shell-*` chrome sizes;
@@ -15,13 +15,32 @@ Copy three files of the skill's `assets/` **unchanged** into `packages/renderer/
   `shell`) for TypeScript (canvas colours, the theme-color, drift tests);
 - `cd-canvas.css`: the mapping of diagram-js's variables onto the roles and the `cd-c-*` classes.
 
-Give the two CSS files one header line,
-`/* Vendored unchanged from Miragon/corporate-identity (design system 1.27.0, plugins/miragon-brand/skills/modeler-tool-design/assets). Do not edit; re-copy to update. */`,
-keep the JSON byte-identical, mark all three `linguist-generated` in `.gitattributes` and
-Prettier-ignore them. Never edit or reformat them, never fork a hex value: re-copy all three to
-update. Design system 1.12.0 to 1.27.0 ship identical token files; `cd-canvas.css` is the same from
-1.12.0 to 1.26.0 and changed in 1.27.0 (underlay switches and dark rules scoped to the nearest
-`data-cd-theme` carrier), so a modeler is current on 1.27.0. The public copies of the two token files live at
+Never copy them by hand: `scripts/brand-assets.mjs` of the `miragon-brand` plugin copies them and
+lists them in `.miragon/brand-assets.yaml`. From the repository root:
+
+```sh
+node <miragon-brand plugin>/scripts/brand-assets.mjs --init
+node <miragon-brand plugin>/scripts/brand-assets.mjs --add skills/modeler-tool-design/assets/cd-tokens.generated.css packages/renderer/src/theme/cd-tokens.generated.css
+node <miragon-brand plugin>/scripts/brand-assets.mjs --add skills/modeler-tool-design/assets/cd-tokens.generated.json packages/renderer/src/theme/cd-tokens.generated.json
+node <miragon-brand plugin>/scripts/brand-assets.mjs --add skills/modeler-tool-design/assets/cd-canvas.css packages/renderer/src/theme/cd-canvas.css
+```
+
+`--init` writes an empty `.miragon/brand-assets.yaml`; each `--add` adds an entry, copies the file
+and rewrites the checksums in `.miragon/brand-assets.sha256`. A modeler inside a larger repository
+(the suite) runs no `--init` and adds its three entries to that repository's root
+`.miragon/brand-assets.yaml`, with `modelers/<notation>/packages/renderer/src/theme/<file>` as the
+target. Run `brand-assets.mjs --check` before every commit: it reports a copy that is missing or
+differs from the plugin, and stale checksums. Commit the YAML, the checksums and the copies
+together; CI's `format-check` job runs `sha256sum -c .miragon/brand-assets.sha256`. To update, run
+`brand-assets.mjs` without an option: it copies every file again, records the plugin release in the
+YAML and rewrites the checksums.
+
+The copies carry no header of their own: their first line says they are generated, and
+`.miragon/brand-assets.yaml` says where they come from. Never edit or reformat them, never fork a
+hex value. Mark all three `linguist-generated` in `.gitattributes` and Prettier-ignore them and
+`.miragon/brand-assets.yaml`. A drift test that hashes the copies (Event Storming's
+`theme.sync.test.ts`) reads the expected hashes from `.miragon/brand-assets.sha256`, never pins its
+own. The public copies of the two token files live at
 <https://corporate-identity.netlify.app/brand/>; `cd-canvas.css` comes from the skill.
 
 ## Stylesheet rules
