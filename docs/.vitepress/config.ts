@@ -36,7 +36,7 @@ export default miragonDocs({
   repo: "Miragon/modeler-suite",
   title: "Miragon Modeler Suite",
   description:
-    "Seven diagram-js modelers for strategy and architecture notations, as web apps, VS Code extensions and npm libraries.",
+    "Seven modelers for strategy and architecture notations: draw on a canvas in your browser, VS Code, Orca or your own app, and commit plain text.",
   footerMessage: "Released under the MIT License.",
   srcExclude: ["assets/**"],
   markdown: { config: linkRepositoryFilesOutsideDocsToGitHub },
@@ -60,6 +60,12 @@ export default miragonDocs({
         { text: "Shell implementation notes", link: "/shell/implementation-notes" },
       ],
     },
-    { text: "Project", items: [{ text: "CI and releases", link: "/ci-and-releases" }] },
+    {
+      text: "Project",
+      items: [
+        { text: "Build from source", link: "/build-from-source" },
+        { text: "CI and releases", link: "/ci-and-releases" },
+      ],
+    },
   ],
 });
