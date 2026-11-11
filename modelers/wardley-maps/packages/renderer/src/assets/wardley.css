@@ -818,8 +818,11 @@
 /* The chips on a component that shows (src/explore/): how many of its dependents (above) and
    dependencies (below) are hidden; a click reveals them. Overlays the same size at every zoom, so
    they scale from the point they hang on. */
+/* The chip is moved off its anchor by a transform, while its overlay's box stays on the component:
+   only the chip may take the pointer, or a click on the component would land on that box. */
 .wardley-container .djs-overlay-wardley-explore {
   transform-origin: 0 0;
+  pointer-events: none;
 }
 .wardley-container .wardley-explore-chip {
   display: inline-flex;
@@ -830,6 +833,7 @@
   height: 24px;
   margin: 0;
   padding: 0 6px 0 3px;
+  pointer-events: auto;
   border: 1px solid var(--cd-ui-linie);
   border-radius: var(--cd-radius-sm);
   background: var(--cd-ui-flaeche-hoch);

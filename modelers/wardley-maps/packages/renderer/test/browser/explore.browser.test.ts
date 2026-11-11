@@ -2081,6 +2081,32 @@ describe("explore mode's chips", () => {
     });
   });
 
+  it("leave the component they hang on to the pointer, and take it only on the chip itself", async () => {
+    const target = await mount();
+    const explore = exploreOf(target);
+    const hotWater = node(target, "Hot Water");
+    const kettle = node(target, "Kettle");
+    explore.enter(hotWater.id);
+    explore.revealNeighbours(hotWater.id, "dependencies");
+    expect(chipOf(target, hotWater, "dependents")).toBeDefined();
+    expect(chipOf(target, kettle, "dependencies")).toBeDefined();
+
+    for (const shape of [kettle, hotWater]) {
+      const point = centreOfCircle(target, shape);
+      expect(graphicsOf(target, shape).contains(document.elementFromPoint(point.x, point.y))).toBe(
+        true,
+      );
+      clickAt(point);
+      expect(selectedIds(target)).toEqual([shape.id]);
+    }
+
+    const up = chipOf(target, hotWater, "dependents")!;
+    const box = up.getBoundingClientRect();
+    expect(
+      up.contains(document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)),
+    ).toBe(true);
+  });
+
   it("reveal one level on a click, and are built again after every step", async () => {
     const target = await mount();
     const explore = exploreOf(target);
