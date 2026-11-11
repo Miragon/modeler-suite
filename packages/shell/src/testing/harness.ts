@@ -213,7 +213,7 @@ export interface ShellConformanceHarness<P extends PageLike = PageLike> {
    */
   documents?: readonly string[] | undefined;
   /**
-   * After 0.11.0: where Enter on the palette places the first element of an empty document in the
+   * After 0.12.0: where Enter on the palette places the first element of an empty document in the
    * `emptyFile` case. `"centre"` (default): in the middle of the free rectangle, where the hint
    * stood (guide §5.5). `"slot"`: a notation that lays every element out in a slot of its own, such
    * as the Business Model Canvas, which flows a sticky into its block; the element then has to lie
@@ -221,7 +221,7 @@ export interface ShellConformanceHarness<P extends PageLike = PageLike> {
    */
   firstElement?: FirstElementPlacement | undefined;
   /**
-   * After 0.11.0: `"none"` for a notation whose empty canvas explains itself, such as the Business
+   * After 0.12.0: `"none"` for a notation whose empty canvas explains itself, such as the Business
    * Model Canvas, where every empty block carries a hint of its own. The `emptyFile` case then
    * asks that no empty-file hint shows and still checks the view and the first and last element.
    */
