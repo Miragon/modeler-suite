@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" role="img">
+  <title>Miragon Modeler für Context Maps</title>
+  <rect width="24" height="24" rx="5.25" fill="#335DE5"/>
+  <path d="M4 14A2 2 0 0 1 2 12V6A2 2 0 0 1 4 4H15A2 2 0 0 1 17 6" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M20 10A2 2 0 0 1 22 12V18A2 2 0 0 1 20 20H9A2 2 0 0 1 7 18" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="8" y="9" width="8" height="6" rx="1" fill="#00E676"/>
+</svg>

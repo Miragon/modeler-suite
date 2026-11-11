@@ -1,43 +1,64 @@
 # Getting started
 
-Every modeler of the suite runs as a web app, as a VS Code extension, as an [Orca](https://www.onorca.dev) plugin (all but C4, from [Orca's plugin directory](https://github.com/Miragon/orca-modelers#install)) and as an npm library (all but Business Model Canvas, which publishes no package). To try one, open its web app from the [modelers](#the-modelers). To work on the suite, build it from the repository.
+The Miragon Modeler Suite draws Wardley Maps, Event Storming boards, team topologies, context maps, value chains, C4 models and business model canvases on a canvas, and saves each one as a plain-text file you keep in your repository.
 
-## The modelers
+## Why your diagrams belong next to your code
 
-| Modeler                                                  | Files                           |
-| -------------------------------------------------------- | ------------------------------- |
-| [Wardley Maps](/modelers/wardley-maps)                   | `.wmap`, `.owm`                 |
-| [Event Storming](/modelers/event-storming)               | `.storm`                        |
-| [Team Topologies](/modelers/team-topologies)             | `.tt`, `.ttm.json`              |
-| [Context Maps](/modelers/context-maps)                   | `.cm`, `.cm.json`, `.cml`       |
-| [Value Chain](/modelers/value-chain)                     | `.vc`, `.vc.json`               |
-| [C4 model](/modelers/c4)                                 | `.c4`, `.dsl` (Structurizr DSL) |
-| [Business Model Canvas](/modelers/business-model-canvas) | `.bmc`                          |
+A Wardley map on a whiteboard photo or a team topology in a slide deck goes stale the day after the workshop. Nobody reviews it, nobody sees what changed, and your coding agent never finds it. As a text file in your repository, a diagram works like code:
 
-## Build from source
+- **Your AI gets the context.** Your coding agent reads the strategy, domains and architecture behind the code, and can draft or update a diagram itself. In [Orca](https://www.onorca.dev) you watch its edits appear on the canvas.
+- **Changes you can review.** A pull request shows what moved, line by line, next to the code change that caused it.
+- **History for free.** Git versions every diagram on the same branch as the code it describes.
+- **No lock-in.** Open formats such as OWM, Structurizr DSL and Context Mapper, free and open source (MIT), no account.
 
-You need Node `^22.22.2 || >=24.15.0` and npm.
+## Where each modeler runs
+
+| Modeler                                                  | File           | Browser                                                  | VS Code                                                                                                   | Orca                                                                                          | Your app                                                               |
+| -------------------------------------------------------- | -------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [Wardley Maps](/modelers/wardley-maps)                   | `.wmap` `.owm` | [Open](https://wardley-maps.modeler.miragon.io)          | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.wardley-mapping-modeler)       | [Install](https://www.onorca.dev/plugins/miragon/orca-modelers/wardley-maps-modeler)          | [npm](https://www.npmjs.com/package/@miragon/wardley-renderer)         |
+| [Event Storming](/modelers/event-storming)               | `.storm`       | [Open](https://event-storming.modeler.miragon.io)        | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.event-storming-modeler)        | [Install](https://www.onorca.dev/plugins/miragon/orca-modelers/event-storming-modeler)        | [npm](https://www.npmjs.com/package/@miragon/event-storming-renderer)  |
+| [Team Topologies](/modelers/team-topologies)             | `.tt`          | [Open](https://team-topologies.modeler.miragon.io)       | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.team-topologies-modeler)       | [Install](https://www.onorca.dev/plugins/miragon/orca-modelers/team-topologies-modeler)       | [npm](https://www.npmjs.com/package/@miragon/team-topologies-renderer) |
+| [Context Maps](/modelers/context-maps)                   | `.cm`          | [Open](https://context-maps.modeler.miragon.io)          | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.context-maps-modeler)          | [Install](https://www.onorca.dev/plugins/miragon/orca-modelers/context-maps-modeler)          | [npm](https://www.npmjs.com/package/@miragon/context-maps-renderer)    |
+| [Value Chain](/modelers/value-chain)                     | `.vc`          | not yet                                                  | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.value-chain-modeler)           | [Install](https://www.onorca.dev/plugins/miragon/orca-modelers/value-chain-modeler)           | [npm](https://www.npmjs.com/package/@miragon/value-chain-renderer)     |
+| [C4 model](/modelers/c4)                                 | `.c4` `.dsl`   | [Open](https://c4.modeler.miragon.io)                    | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.c4-modeler)                    | not yet                                                                                       | [npm](https://www.npmjs.com/package/@miragon/c4-renderer)              |
+| [Business Model Canvas](/modelers/business-model-canvas) | `.bmc`         | [Open](https://business-model-canvas.modeler.miragon.io) | [Install](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.business-model-canvas-modeler) | [Install](https://www.onorca.dev/plugins/miragon/orca-modelers/business-model-canvas-modeler) | not yet                                                                |
+
+## In the browser
+
+No install, no account.
+
+1. Open a modeler's web app from the table.
+2. Pick **Show example** or **New diagram**, or drop one of your files onto the page.
+3. Edit on the canvas, then export the file and commit it.
+
+## In VS Code
+
+The [Miragon Modeler Collection](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.miragon-modeler-collection) brings all seven modelers, plus Miragon's BPMN and Domain Storytelling modelers:
 
 ```sh
-npm ci
-npm run build:shared
-npm run wardley-maps dev:webapp
+code --install-extension miragon-gmbh.miragon-modeler-collection
 ```
 
-Every modeler takes the same scripts: `npm run <modeler> <script>` with `build`, `test`, `test:browser`, `test:e2e`, `lint` and `dev:webapp`.
+Or install one modeler from the table. Then open or create a file with its ending, such as `map.wmap`: it opens as a diagram. In VSCodium or Cursor, install the same extensions from [Open VSX](https://open-vsx.org/namespace/miragon-gmbh).
 
-## How the suite fits together
+## In Orca
 
-```mermaid
-flowchart LR
-  api["@miragon/modeler-api"] --> renderer["renderer of a modeler"]
-  shell["@miragon/modeler-shell"] --> apps["web app and VS Code extension"]
-  renderer --> apps
+[Orca](https://www.onorca.dev) runs your coding agent next to your files; with a modeler plugin, the agent's edits show up on the canvas live. The plugins need Orca 1.4.252 or later.
+
+1. Open a modeler's plugin page from the table and install it.
+2. Open or create a file with its ending.
+
+## In your own app
+
+Install a modeler's renderer from npm:
+
+```sh
+npm install @miragon/wardley-renderer
 ```
 
-Each renderer implements the [modeler API](/platform/api) and passes its conformance kit. Both apps of each modeler mount the [shell](/platform/shell), the chrome they share.
+Each renderer implements the [modeler API](/platform/api); its README has the details. Business Model Canvas has no npm package yet.
 
 ## Next steps
 
-- [CI and releases](/ci-and-releases): workflows, publishing and versioning.
-- [Contributing](https://github.com/Miragon/modeler-suite/blob/main/CONTRIBUTING.md)
+- Pick a modeler in the sidebar: what it draws, its file format and where to try it.
+- [Build from source](/build-from-source) to run Value Chain in the browser.

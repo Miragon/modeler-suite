@@ -1,301 +1,167 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, provide, ref, watch } from "vue";
 import { withBase } from "vitepress";
-import LandingDemo from "./LandingDemo.vue";
 
-const modelers = [
+type Client = { name: string; href: string; icon: keyof typeof icons };
+
+const marketplace = (id: string) => `https://marketplace.visualstudio.com/items?itemName=${id}`;
+const orca = (slug: string) => `https://www.onorca.dev/plugins/miragon/orca-modelers/${slug}`;
+const npm = (name: string) => `https://www.npmjs.com/package/${name}`;
+
+const icons = {
+  web: [
+    "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z",
+    "M2 12h20",
+    "M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z",
+  ],
+  vscode: ["M16 18l6-6-6-6", "M8 6l-6 6 6 6"],
+  orca: [
+    "M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z",
+    "M9 4v16",
+    "M13 9l3 3-3 3",
+  ],
+  npm: [
+    "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z",
+  ],
+};
+
+const modelers: { name: string; slug: string; clients: Client[] }[] = [
   {
     name: "Wardley Maps",
-    npmPackage: "@miragon/wardley-renderer",
-    webApp: "https://wardley-maps.modeler.miragon.io",
-    file: "tea.owm",
-    shot: "/shots/wardley-maps/editor.png",
-    link: "/modelers/wardley-maps",
-    orca: "https://www.onorca.dev/plugins/miragon/orca-modelers/wardley-maps-modeler",
-    files: ".wmap .owm",
-    effect: "Components on the value chain, evolved by drag.",
+    slug: "wardley-maps",
+    clients: [
+      { name: "Browser", href: "https://wardley-maps.modeler.miragon.io", icon: "web" },
+      {
+        name: "VS Code",
+        href: marketplace("miragon-gmbh.wardley-mapping-modeler"),
+        icon: "vscode",
+      },
+      { name: "Orca", href: orca("wardley-maps-modeler"), icon: "orca" },
+      { name: "npm", href: npm("@miragon/wardley-renderer"), icon: "npm" },
+    ],
   },
   {
     name: "Event Storming",
-    npmPackage: "@miragon/event-storming-renderer",
-    webApp: "https://event-storming.modeler.miragon.io",
-    file: "order-checkout.storm",
-    shot: "/shots/event-storming/editor.png",
-    link: "/modelers/event-storming",
-    orca: "https://www.onorca.dev/plugins/miragon/orca-modelers/event-storming-modeler",
-    files: ".storm",
-    effect: "Stickies on a timeline, one per line of text.",
+    slug: "event-storming",
+    clients: [
+      { name: "Browser", href: "https://event-storming.modeler.miragon.io", icon: "web" },
+      { name: "VS Code", href: marketplace("miragon-gmbh.event-storming-modeler"), icon: "vscode" },
+      { name: "Orca", href: orca("event-storming-modeler"), icon: "orca" },
+      { name: "npm", href: npm("@miragon/event-storming-renderer"), icon: "npm" },
+    ],
   },
   {
     name: "Team Topologies",
-    npmPackage: "@miragon/team-topologies-renderer",
-    webApp: "https://team-topologies.modeler.miragon.io",
-    file: "sample.tt",
-    shot: "/shots/team-topologies/editor.png",
-    link: "/modelers/team-topologies",
-    orca: "https://www.onorca.dev/plugins/miragon/orca-modelers/team-topologies-modeler",
-    files: ".tt .ttm.json",
-    effect: "Four team types and three interaction modes.",
+    slug: "team-topologies",
+    clients: [
+      { name: "Browser", href: "https://team-topologies.modeler.miragon.io", icon: "web" },
+      {
+        name: "VS Code",
+        href: marketplace("miragon-gmbh.team-topologies-modeler"),
+        icon: "vscode",
+      },
+      { name: "Orca", href: orca("team-topologies-modeler"), icon: "orca" },
+      { name: "npm", href: npm("@miragon/team-topologies-renderer"), icon: "npm" },
+    ],
   },
   {
     name: "Context Maps",
-    npmPackage: "@miragon/context-maps-renderer",
-    webApp: "https://context-maps.modeler.miragon.io",
-    file: "sample.cm",
-    shot: "/shots/context-maps/editor.png",
-    link: "/modelers/context-maps",
-    orca: "https://www.onorca.dev/plugins/miragon/orca-modelers/context-maps-modeler",
-    files: ".cm .cml",
-    effect: "Bounded contexts and their relationship patterns.",
+    slug: "context-maps",
+    clients: [
+      { name: "Browser", href: "https://context-maps.modeler.miragon.io", icon: "web" },
+      { name: "VS Code", href: marketplace("miragon-gmbh.context-maps-modeler"), icon: "vscode" },
+      { name: "Orca", href: orca("context-maps-modeler"), icon: "orca" },
+      { name: "npm", href: npm("@miragon/context-maps-renderer"), icon: "npm" },
+    ],
   },
   {
     name: "Value Chain",
-    npmPackage: "@miragon/value-chain-renderer",
-    webApp: undefined,
-    file: "porter.vc.json",
-    shot: "/shots/value-chain/editor.png",
-    link: "/modelers/value-chain",
-    orca: "https://www.onorca.dev/plugins/miragon/orca-modelers/value-chain-modeler",
-    files: ".vc",
-    effect: "Steps and the organizational units behind them.",
+    slug: "value-chain",
+    clients: [
+      { name: "VS Code", href: marketplace("miragon-gmbh.value-chain-modeler"), icon: "vscode" },
+      { name: "Orca", href: orca("value-chain-modeler"), icon: "orca" },
+      { name: "npm", href: npm("@miragon/value-chain-renderer"), icon: "npm" },
+    ],
   },
   {
     name: "C4 model",
-    npmPackage: "@miragon/c4-renderer",
-    webApp: "https://c4.modeler.miragon.io",
-    file: "bookshop.c4",
-    shot: "/shots/c4/editor.png",
-    link: "/modelers/c4",
-    orca: undefined,
-    files: ".c4 .dsl",
-    effect: "One model, many views, from the landscape down to the components.",
+    slug: "c4",
+    clients: [
+      { name: "Browser", href: "https://c4.modeler.miragon.io", icon: "web" },
+      { name: "VS Code", href: marketplace("miragon-gmbh.c4-modeler"), icon: "vscode" },
+      { name: "npm", href: npm("@miragon/c4-renderer"), icon: "npm" },
+    ],
   },
   {
     name: "Business Model Canvas",
-    npmPackage: undefined,
-    webApp: "https://business-model-canvas.modeler.miragon.io",
-    file: "miragon.bmc",
-    shot: "/shots/business-model-canvas/editor.png",
-    link: "/modelers/business-model-canvas",
-    orca: "https://www.onorca.dev/plugins/miragon/orca-modelers/business-model-canvas-modeler",
-    files: ".bmc",
-    effect: "Nine blocks of stickies, with tape colours and notes.",
+    slug: "business-model-canvas",
+    clients: [
+      { name: "Browser", href: "https://business-model-canvas.modeler.miragon.io", icon: "web" },
+      {
+        name: "VS Code",
+        href: marketplace("miragon-gmbh.business-model-canvas-modeler"),
+        icon: "vscode",
+      },
+      { name: "Orca", href: orca("business-model-canvas-modeler"), icon: "orca" },
+    ],
   },
 ];
-const next = { text: "Pick a modeler and open its example", link: "/getting-started#the-modelers" };
-const stage = "raster";
 
-const selected = ref(0);
-const copied = ref(false);
-
-// One clock per page (landingpage.md, Bewegung): the demo's Pause button stops it. Only the
-// modelers on the rail switch, every 6 s, and hold while the visitor hovers or focuses one; the
-// install tabs stand still.
-const moving = ref(false);
-provide("landing-moving", moving);
-const activeModeler = ref(0);
-const railHeld = ref(false);
-const cycling = computed(() => moving.value && !railHeld.value);
-let tick: ReturnType<typeof setInterval> | undefined;
-watch(cycling, (on) => {
-  clearInterval(tick);
-  if (on) tick = setInterval(showNextModeler, 6000);
-});
-onBeforeUnmount(() => clearInterval(tick));
-
-const installs = computed(() => [
-  {
-    name: "VS Code",
-    lines: ["code --install-extension miragon-gmbh.miragon-modeler-collection"],
-    note: "The Miragon Modeler Collection, with BPMN and Domain Storytelling. Each modeler also installs on its own, see its page.",
-  },
-  {
-    name: "Web app",
-    lines: [],
-    target: "webApp",
-    missing: "from source",
-    note: "In the browser, no install and no account.",
-  },
-  {
-    name: "Orca",
-    lines: [],
-    target: "orca",
-    missing: "follows",
-    note: "Next to your coding agent: opens the plugin's page in Orca 1.4.252 or later, which adds the Miragon catalog on the first install.",
-  },
-  npmInstall(modelers[activeModeler.value]),
-]);
-
-// A modeler without an npm package (Business Model Canvas) shows no install line on this tab.
-function npmInstall(modeler: { name: string; npmPackage: string | undefined }) {
-  return modeler.npmPackage
-    ? {
-        name: "npm",
-        lines: [`npm install ${modeler.npmPackage}`],
-        note: `The renderer of ${modeler.name}. Every modeler with a library has its own package.`,
-      }
-    : {
-        name: "npm",
-        lines: [],
-        note: `${modeler.name} has no npm package: use its web app, VS Code extension or Orca plugin.`,
-      };
-}
-
-function showNextModeler() {
-  activeModeler.value = (activeModeler.value + 1) % modelers.length;
-}
-
-function showModeler(index: number) {
-  activeModeler.value = index;
-}
-
-function step(offset: number) {
-  selected.value = (selected.value + offset + installs.value.length) % installs.value.length;
-}
-
-function choose(index: number) {
-  selected.value = index;
-}
-
-// Arrow keys move the selection and the focus together (ARIA tabs pattern).
-const tabButtons = ref([] as HTMLButtonElement[]);
-async function selectBy(offset: number) {
-  step(offset);
-  await nextTick();
-  tabButtons.value[selected.value]?.focus();
-}
-
-async function copyInstall() {
-  await navigator.clipboard.writeText(installs.value[selected.value].lines.join("\n"));
-  copied.value = true;
-  setTimeout(() => (copied.value = false), 1600);
-}
+// The strip runs the list twice so it can loop; the copy is hidden from assistive technology
+// and the keyboard.
+const passes = [false, true];
 </script>
 
 <template>
   <div class="landing">
     <section class="hero">
-      <div class="frame hero-frame">
-        <div class="pitch">
-          <h1>Model strategy where your <em>code</em> lives.</h1>
-          <p class="slogan">Draw on a canvas, commit plain text.</p>
-          <p class="lede">
-            Wardley Maps, Event Storming, Team Topologies, Context Maps, Value Chains, C4 models and
-            Business Model Canvases as text files, edited on a canvas in VS Code, in Orca, in the
-            browser or in your own app.
-          </p>
-
-          <div class="install">
-            <div
-              class="tabs"
-              role="tablist"
-              aria-label="Install"
-              @keydown.right.prevent="selectBy(1)"
-              @keydown.left.prevent="selectBy(-1)"
-            >
-              <button
-                v-for="(install, index) in installs"
-                :key="install.name"
-                ref="tabButtons"
-                class="tab"
-                role="tab"
-                :aria-selected="index === selected"
-                :tabindex="index === selected ? 0 : -1"
-                @click="choose(index)"
-              >
-                {{ install.name }}
-              </button>
-            </div>
-            <div class="command" role="tabpanel">
-              <div class="channels">
-                <template v-for="(install, index) in installs" :key="install.name">
-                  <ul
-                    v-if="install.target"
-                    class="web-apps"
-                    :class="{ hidden: index !== selected }"
-                    :aria-hidden="index !== selected"
-                  >
-                    <li v-for="modeler in modelers" :key="modeler.name">
-                      <a
-                        v-if="modeler[install.target]"
-                        :href="modeler[install.target]"
-                        target="_blank"
-                        rel="noopener"
-                        >{{ modeler.name }} <span aria-hidden="true">↗</span></a
-                      >
-                      <a v-else :href="withBase(modeler.link)" class="from-source"
-                        >{{ modeler.name }} <span>{{ install.missing }}</span></a
-                      >
-                    </li>
-                  </ul>
-                  <pre
-                    v-else
-                    :class="{ hidden: index !== selected }"
-                    :aria-hidden="index !== selected"
-                  ><template v-for="line in install.lines" :key="line"><span class="prompt">$ </span>{{ line }}
-</template></pre>
-                </template>
-              </div>
-              <button
-                v-if="installs[selected].lines.length > 0"
-                class="copy"
-                type="button"
-                @click="copyInstall"
-              >
-                {{ copied ? "Copied" : "Copy" }}
-              </button>
-            </div>
-          </div>
-          <div class="install-notes">
-            <p
-              v-for="(install, index) in installs"
-              :key="install.name"
-              :class="{ hidden: index !== selected }"
-              :aria-hidden="index !== selected"
-            >
-              {{ install.note }}
-            </p>
-          </div>
-          <a class="start" :href="withBase(next.link)"
-            >{{ next.text }} <span aria-hidden="true">→</span></a
-          >
-        </div>
-
-        <div class="stage" :class="stage" :data-cd-theme="stage === 'schwarz' ? 'dark' : undefined">
-          <LandingDemo :modelers="modelers" :active="activeModeler" />
-        </div>
-      </div>
+      <h1>Model strategy where your <em>code</em> lives.</h1>
+      <p class="slogan">
+        Diagrams as plain text, next to your code: readable for your AI, versioned by Git,
+        reviewable in a pull request. In your browser, VS Code, Orca or your own app.
+      </p>
     </section>
 
-    <section class="loop" aria-label="The modelers">
-      <div class="frame">
-        <ol
-          class="steps"
-          :class="{ cycling }"
-          :style="{ '--steps': modelers.length }"
-          @mouseenter="railHeld = true"
-          @mouseleave="railHeld = false"
-          @focusin="railHeld = true"
-          @focusout="railHeld = false"
-        >
-          <li
-            v-for="(modeler, index) in modelers"
-            :key="modeler.name"
-            class="step"
-            :class="{ active: index === activeModeler }"
-            @mouseenter="showModeler(index)"
-            @focusin="showModeler(index)"
+    <section class="rail" aria-label="The modelers">
+      <div class="track">
+        <template v-for="copy in passes" :key="String(copy)">
+          <article
+            v-for="modeler in modelers"
+            :key="modeler.slug"
+            class="card"
+            :aria-hidden="copy || undefined"
           >
-            <div class="rail" />
-            <h3>
-              <a :href="withBase(modeler.link)"
-                >{{ modeler.name }} <span class="go" aria-hidden="true">→</span></a
+            <a
+              class="shot"
+              :href="withBase(`/modelers/${modeler.slug}`)"
+              :tabindex="copy ? -1 : undefined"
+            >
+              <img
+                class="thumb"
+                :src="withBase(`/shots/${modeler.slug}/editor.png`)"
+                :alt="copy ? '' : `The ${modeler.name} modeler`"
+                loading="lazy"
+              />
+              <h3>
+                <img :src="withBase(`/icons/${modeler.slug}.svg`)" alt="" />{{ modeler.name }}
+              </h3>
+            </a>
+            <p class="clients">
+              <a
+                v-for="client in modeler.clients"
+                :key="client.name"
+                :href="client.href"
+                target="_blank"
+                rel="noopener"
+                :tabindex="copy ? -1 : undefined"
               >
-            </h3>
-            <code>{{ modeler.files }}</code>
-            <p>{{ modeler.effect }}</p>
-          </li>
-        </ol>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path v-for="d in icons[client.icon]" :key="d" :d="d" />
+                </svg>
+                {{ client.name }}
+              </a>
+            </p>
+          </article>
+        </template>
       </div>
     </section>
   </div>
@@ -303,463 +169,237 @@ async function copyInstall() {
 
 <style scoped>
 .landing {
-  --gutter: 32px;
-  --line: 1px solid var(--cd-ui-linie);
-  display: flex;
-  flex-direction: column;
-  border-top: var(--line);
-}
-
-/* The frame lines up with the navigation bar above it. */
-.frame {
-  width: 100%;
-  max-width: var(--vp-layout-max-width);
-  margin: 0 auto;
-}
-@media (min-width: 1441px) {
-  .frame {
-    border-right: var(--line);
-    border-left: var(--line);
-  }
-}
-
-/* Hero: name and install on the left, the demo on the right, split 50/50. */
-.hero {
-  flex: 1;
-  display: flex;
-  min-height: 0;
-}
-.hero-frame {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  row-gap: clamp(28px, 7vh, 96px);
+  min-height: calc(100dvh - var(--vp-nav-height) - 53px);
+  padding: 32px 0;
+  overflow: hidden;
+  border-top: 1px solid var(--cd-ui-linie);
+  background:
+    radial-gradient(
+      ellipse 70% 60% at 50% 110%,
+      color-mix(in srgb, var(--cd-blau) 16%, transparent),
+      transparent 70%
+    ),
+    var(--cd-ui-seite);
 }
-.pitch {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 48px var(--gutter);
-  border-bottom: var(--line);
+
+.hero {
+  padding: 0 16px;
+  text-align: center;
 }
 h1 {
-  margin: 0;
-  font-size: clamp(56px, 8.4vh, 80px);
-  line-height: 1;
+  max-width: 16ch;
+  margin: 0 auto;
+  font-size: clamp(38px, min(8vw, 8.4vh), 92px);
+  line-height: 0.98;
   font-weight: 700;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
 }
 h1 em {
   font-style: normal;
   color: var(--cd-ui-link);
 }
 .slogan {
-  margin: 14px 0 0;
-  font-size: 24px;
-  line-height: 1.3;
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  text-wrap: balance;
-}
-.lede {
-  max-width: 46ch;
-  margin: 14px 0 0;
-  color: var(--cd-ui-text-leise);
-  line-height: 1.55;
-}
-
-.install {
-  margin-top: 28px;
-  border: var(--line);
-  border-radius: var(--cd-radius-sm);
-  background: var(--cd-ui-abschnitt);
-}
-.tabs {
-  display: flex;
-  border-bottom: var(--line);
-}
-.tab {
-  position: relative;
-  padding: 11px 14px;
-  border-right: var(--line);
-  font: 500 13px/1 var(--vp-font-family-mono);
-  color: var(--cd-ui-text-leise);
-}
-.tab:first-child {
-  border-top-left-radius: var(--cd-radius-sm);
-}
-.tab[aria-selected="true"] {
-  color: var(--cd-ui-text);
-  background: var(--cd-ui-seite);
-}
-.tab[aria-selected="true"]::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 2px;
-  background: var(--cd-ui-interaktion);
-  transform-origin: left;
-}
-/* While the tabs switch on their own, the line under the active tab fills in the 6 s. */
-/* While the modelers switch on their own, the rail above the active one fills in the 6 s. */
-.cycling .step.active .rail::after {
-  animation: fill 6s linear;
-}
-@keyframes fill-down {
-  from {
-    transform: scaleY(0);
-  }
-}
-@keyframes fill {
-  from {
-    transform: scaleX(0);
-  }
-}
-.command {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 12px 12px 16px;
-}
-.channels {
-  display: grid;
-  align-items: center;
-  flex: 1;
-  min-width: 0;
-}
-.command pre {
-  grid-area: 1 / 1;
-  margin: 0;
-  font: 400 14px/1.7 var(--vp-font-family-mono);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.web-apps {
-  grid-area: 1 / 1;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 6px 16px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 14px;
-  line-height: 1.7;
-}
-.web-apps a {
-  white-space: nowrap;
-  color: var(--cd-ui-link);
-  font-weight: 500;
-  text-decoration: none;
-}
-.web-apps a:hover {
-  text-decoration: underline;
-}
-.web-apps .from-source {
-  color: var(--cd-ui-text);
-}
-.web-apps .from-source span {
-  color: var(--cd-ui-text-leise);
-  font-weight: 400;
-}
-.web-apps.hidden,
-.command pre.hidden {
-  visibility: hidden;
-}
-.command .prompt {
-  color: var(--cd-ui-text-leise);
-  user-select: none;
-}
-.copy {
-  flex: none;
-  height: 32px;
-  padding: 0 10px;
-  border: var(--line);
-  border-radius: var(--cd-radius-sm);
-  font: 500 12px/1 var(--vp-font-family-mono);
-  color: var(--cd-ui-text);
-}
-.copy:hover {
-  background: var(--cd-ui-hover);
-}
-
-.install-notes {
-  display: grid;
-  margin-top: 10px;
-}
-.install-notes p {
-  grid-area: 1 / 1;
-  margin: 0;
-  font-size: 13px;
+  max-width: 44ch;
+  margin: 18px auto 0;
+  font-size: clamp(16px, 1.45vw, 19px);
   line-height: 1.5;
   color: var(--cd-ui-text-leise);
-}
-.install-notes p.hidden {
-  visibility: hidden;
-}
-.start {
-  align-self: flex-start;
-  margin-top: 24px;
-  font-weight: 600;
-  color: var(--cd-ui-link);
-  text-decoration: none;
-}
-.start:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  text-wrap: balance;
 }
 
-/* The demo stands on a quiet grid, the drawing surface of a modeler. */
-.stage {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  padding: 32px var(--gutter);
-}
-.stage.raster {
-  background-image:
-    linear-gradient(var(--cd-ui-linie) 1px, transparent 1px),
-    linear-gradient(90deg, var(--cd-ui-linie) 1px, transparent 1px);
-  background-size: 32px 32px;
-  background-position: -1px -1px;
-}
-.stage.grau {
-  background: var(--cd-ui-abschnitt);
-}
-.stage.frei :deep(.window) {
-  border-color: var(--cd-ui-kontur);
-}
-.stage.schwarz {
-  background: var(--cd-ui-seite);
-  color: var(--cd-ui-text);
-}
-
-/* The modelers on one rail, each linking to its page. */
-.loop {
-  flex: none;
-  border-top: var(--line);
-}
-.steps {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.step {
-  padding: 0 var(--gutter) 24px;
-}
+/* The modelers drift by; a pointer or the keyboard on a card holds them. */
 .rail {
-  position: relative;
+  --fade: 8%;
+  min-width: 0;
+  padding: 6px 0 8px;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    var(--cd-schwarz) var(--fade),
+    var(--cd-schwarz) calc(100% - var(--fade)),
+    transparent
+  );
+}
+.track {
   display: flex;
-  align-items: center;
-  height: 56px;
+  gap: 24px;
+  width: max-content;
+  animation: drift 70s linear infinite;
 }
-.rail::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: calc(-1 * var(--gutter));
-  left: calc(-1 * var(--gutter));
-  height: 2px;
-  margin-top: -1px;
-  background: var(--cd-ui-linie);
+.rail:hover .track,
+.rail:focus-within .track {
+  animation-play-state: paused;
 }
-.step.active .rail::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  right: calc(-1 * var(--gutter));
-  left: calc(-1 * var(--gutter));
-  height: 2px;
-  margin-top: -1px;
-  background: var(--cd-ui-interaktion);
-  transform-origin: left;
+@keyframes drift {
+  to {
+    transform: translateX(calc(-50% - 12px));
+  }
 }
-.step.active h3 a {
-  color: var(--cd-ui-link);
+
+.card {
+  flex: none;
+  width: clamp(230px, min(23vw, 36vh), 360px);
 }
-.step h3 {
-  margin: 2px 0 10px;
-  font-size: 26px;
-  line-height: 1.15;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-}
-.step h3 a {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 10px;
+.shot {
+  display: block;
+  border-radius: var(--cd-radius-md);
   color: inherit;
   text-decoration: none;
 }
-.step h3 a:hover {
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-decoration-color: var(--cd-ui-interaktion);
-  text-underline-offset: 5px;
-}
-.go {
-  font: 500 18px/1 var(--vp-font-family-mono);
-  color: var(--cd-ui-text-leise);
-  transition:
-    transform var(--cd-motion-fast) var(--cd-ease),
-    color var(--cd-motion-fast) var(--cd-ease);
-}
-.step h3 a:hover .go {
-  color: var(--cd-ui-link);
-  transform: translateX(3px);
-}
-.step code {
+.thumb {
   display: block;
-  padding: 6px 10px;
-  border: var(--line);
-  border-radius: 4px;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: left 40%;
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-md);
   background: var(--cd-ui-abschnitt);
-  font: 400 14px/1.5 var(--vp-font-family-mono);
+  box-shadow: var(--cd-shadow-1);
+  transition:
+    transform var(--cd-motion-base) var(--cd-ease),
+    box-shadow var(--cd-motion-base) var(--cd-ease);
 }
-.step p {
-  margin: 10px 0 0;
-  font-size: 15px;
+.shot:hover .thumb,
+.shot:focus-visible .thumb {
+  transform: translateY(-4px);
+  box-shadow: var(--cd-shadow-2);
+}
+.shot:focus-visible {
+  outline: none;
+}
+.shot:focus-visible .thumb {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+.shot:hover h3 {
+  color: var(--cd-ui-link);
+}
+h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+h3 img {
+  width: 20px;
+  height: 20px;
+}
+.clients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0 0 28px;
+  font-size: 13px;
+}
+.clients a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
   color: var(--cd-ui-text-leise);
+  text-decoration: none;
+}
+.clients a:hover {
+  color: var(--cd-ui-link);
+}
+.clients svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--cd-ui-icon-akzent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-@media (min-width: 960px) {
-  .hero-frame {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .pitch {
-    border-right: var(--line);
-    border-bottom: 0;
-  }
-  .steps {
-    grid-template-columns: repeat(var(--steps), minmax(0, 1fr));
-  }
-  .step {
-    border-right: var(--line);
-  }
-  .step:last-child {
-    border-right: 0;
+@media (min-width: 1200px) {
+  .rail {
+    --fade: 16%;
   }
 }
-
-/* Six names in one row run out of width below 1366px ("Team Topologies"): two rows of three. */
-@media (min-width: 960px) and (max-width: 1365px) {
-  .steps {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .step:nth-child(3n) {
-    border-right: 0;
+@media (min-width: 1680px) {
+  .rail {
+    --fade: 22%;
   }
 }
-
-/* One screen on desktop: navigation, hero, loop and the legal row (53px) fill the viewport; on a
-   short screen the page grows and scrolls instead of squeezing the hero. */
-@media (min-width: 960px) and (min-height: 700px) {
-  .landing {
-    min-height: calc(100dvh - var(--vp-nav-height) - 53px);
-  }
-  .pitch {
-    padding-top: 20px;
-    padding-bottom: 20px;
-  }
+@media (min-width: 761px) and (max-height: 760px) {
   h1 {
-    font-size: clamp(48px, 7vh, 72px);
-  }
-  .slogan,
-  .lede {
-    margin-top: 10px;
-  }
-  .install {
-    margin-top: 20px;
-  }
-  .start {
-    margin-top: 16px;
-  }
-  .stage {
-    container-type: size;
-  }
-  /* Fits the window into the stage height: 64px stage padding, 40px titlebar, 1.6 the width-to-height
-     ratio of the screenshot. */
-  .stage :deep(.window) {
-    width: min(100%, calc((100cqh - 64px - 40px) * 1.6));
-  }
-}
-
-@media (max-width: 640px) {
-  .landing {
-    --gutter: 20px;
-  }
-  .step.active .rail::after {
-    top: 0;
-    right: auto;
-    bottom: 0;
-    left: 50%;
-    width: 2px;
-    height: auto;
-    margin: 0 0 0 -1px;
-    transform-origin: top;
-  }
-  .cycling .step.active .rail::after {
-    animation-name: fill-down;
-  }
-  .pitch {
-    padding: 44px var(--gutter) 40px;
-  }
-  h1 {
-    font-size: clamp(36px, 11.5vw, 56px);
+    font-size: clamp(34px, 7.4vh, 72px);
   }
   .slogan {
-    font-size: 21px;
+    margin-top: 10px;
   }
-  .stage {
-    padding: 24px 12px;
-  }
-  .command {
-    flex-direction: column;
-    gap: 10px;
-    padding: 12px;
-  }
-  .command pre {
-    width: 100%;
-    font-size: 12px;
-  }
-  .copy {
-    align-self: flex-end;
-  }
-  .step {
-    display: grid;
-    grid-template-columns: 34px 1fr;
-    column-gap: 16px;
-    padding: 0 var(--gutter);
-  }
-  .rail {
-    grid-row: 1 / span 3;
-    flex-direction: column;
-    align-items: center;
-    height: auto;
-    padding-top: 22px;
-  }
-  .rail::before {
-    top: 0;
-    right: auto;
-    bottom: 0;
-    left: 50%;
-    width: 2px;
-    height: auto;
-    margin: 0 0 0 -1px;
-  }
-  .step h3 {
-    margin: 20px 0 10px;
-    font-size: 24px;
-  }
-  .step p {
-    padding-bottom: 28px;
+  .card {
+    width: clamp(210px, min(20vw, 31vh), 280px);
   }
 }
-
+@media (max-width: 760px) {
+  /* The legal row wraps to two lines here. */
+  .landing {
+    min-height: calc(100dvh - var(--vp-nav-height) - 101px);
+  }
+  .card {
+    width: 70vw;
+  }
+}
+@media (max-height: 520px) {
+  .slogan {
+    display: none;
+  }
+  h1 {
+    max-width: none;
+    font-size: 26px;
+  }
+  .landing {
+    min-height: calc(100dvh - var(--vp-nav-height) - 53px);
+    row-gap: 12px;
+    padding: 12px 0;
+  }
+  .card {
+    width: 140px;
+  }
+  h3 {
+    margin-top: 6px;
+    font-size: 14px;
+  }
+  .clients {
+    gap: 2px 8px;
+    margin: 4px 0 0;
+    font-size: 12px;
+  }
+}
+@media (max-width: 760px) and (max-height: 700px) {
+  .slogan {
+    display: none;
+  }
+  h1 {
+    font-size: 32px;
+  }
+  .landing {
+    row-gap: 16px;
+  }
+  .card {
+    width: 52vw;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .go {
+  .track {
+    animation: none;
+  }
+  .rail {
+    overflow-x: auto;
+  }
+  .thumb {
     transition: none;
   }
 }
