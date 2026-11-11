@@ -1,0 +1,259 @@
+{
+  "name": "business-model-canvas-modeler",
+  "private": true,
+  "version": "0.0.0",
+  "displayName": "Business Model Canvas Modeler",
+  "description": "View and edit Business Model Canvases directly in VS Code as plain-text *.bmc files.",
+  "publisher": "miragon-gmbh",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#335DE5",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Miragon/modeler-suite.git",
+    "directory": "modelers/business-model-canvas/apps/vscode"
+  },
+  "bugs": "https://github.com/Miragon/modeler-suite/issues",
+  "homepage": "https://github.com/Miragon/modeler-suite/tree/main/modelers/business-model-canvas/apps/vscode#readme",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "business model canvas",
+    "bmc",
+    "business model",
+    "strategy",
+    "canvas"
+  ],
+  "main": "./dist/extension.cjs",
+  "type": "module",
+  "activationEvents": [
+    "onCustomEditor:businessModelCanvas.canvasEditor"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "bmc",
+        "aliases": [
+          "Business Model Canvas",
+          "bmc"
+        ],
+        "extensions": [
+          ".bmc"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bmc",
+        "scopeName": "source.bmc",
+        "path": "./syntaxes/bmc.tmLanguage.json"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "businessModelCanvas.canvasEditor",
+        "displayName": "Business Model Canvas",
+        "selector": [
+          {
+            "filenamePattern": "*.bmc"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "businessModelCanvas.newDiagram",
+        "title": "New Empty Business Model Canvas",
+        "category": "Business Model Canvas",
+        "shortTitle": "Business Model Canvas"
+      },
+      {
+        "command": "businessModelCanvas.newDiagramFromExample",
+        "title": "New Business Model Canvas from Example",
+        "category": "Business Model Canvas"
+      },
+      {
+        "command": "businessModelCanvas.openSource",
+        "title": "Open Source to the Side",
+        "category": "Business Model Canvas",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "businessModelCanvas.openDiagram",
+        "title": "Open Diagram to the Side",
+        "category": "Business Model Canvas",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "businessModelCanvas.fitView",
+        "title": "Fit to View",
+        "category": "Business Model Canvas"
+      },
+      {
+        "command": "businessModelCanvas.exportPng",
+        "title": "Export as PNG",
+        "category": "Business Model Canvas"
+      },
+      {
+        "command": "businessModelCanvas.exportSvg",
+        "title": "Export as SVG",
+        "category": "Business Model Canvas"
+      }
+    ],
+    "menus": {
+      "file/newFile": [
+        {
+          "command": "businessModelCanvas.newDiagram",
+          "group": "businessModelCanvas@1"
+        },
+        {
+          "command": "businessModelCanvas.newDiagramFromExample",
+          "group": "businessModelCanvas@2"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "businessModelCanvas.openSource",
+          "when": "activeCustomEditorId == businessModelCanvas.canvasEditor",
+          "group": "navigation"
+        },
+        {
+          "command": "businessModelCanvas.openDiagram",
+          "when": "editorLangId == bmc",
+          "group": "navigation"
+        },
+        {
+          "command": "businessModelCanvas.fitView",
+          "when": "activeCustomEditorId == businessModelCanvas.canvasEditor",
+          "group": "businessModelCanvas@1"
+        },
+        {
+          "command": "businessModelCanvas.exportPng",
+          "when": "activeCustomEditorId == businessModelCanvas.canvasEditor",
+          "group": "businessModelCanvas@2"
+        },
+        {
+          "command": "businessModelCanvas.exportSvg",
+          "when": "activeCustomEditorId == businessModelCanvas.canvasEditor",
+          "group": "businessModelCanvas@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "businessModelCanvas.openSource",
+          "when": "activeCustomEditorId == businessModelCanvas.canvasEditor"
+        },
+        {
+          "command": "businessModelCanvas.openDiagram",
+          "when": "editorLangId == bmc"
+        },
+        {
+          "command": "businessModelCanvas.fitView",
+          "when": "activeCustomEditorId == businessModelCanvas.canvasEditor"
+        },
+        {
+          "command": "businessModelCanvas.exportPng",
+          "when": "activeCustomEditorId == businessModelCanvas.canvasEditor"
+        },
+        {
+          "command": "businessModelCanvas.exportSvg",
+          "when": "activeCustomEditorId == businessModelCanvas.canvasEditor"
+        }
+      ]
+    },
+    "walkthroughs": [
+      {
+        "id": "getStarted",
+        "title": "Get Started with the Business Model Canvas",
+        "description": "A Business Model Canvas describes how an organisation creates, delivers and captures value, in nine building blocks. This extension lets you create and edit canvases in VS Code as plain-text *.bmc files.",
+        "steps": [
+          {
+            "id": "new",
+            "title": "Create a canvas",
+            "description": "Start from an empty canvas: a plain-text file that opens with all nine blocks.\n[Create empty canvas](command:businessModelCanvas.newDiagram)",
+            "media": {
+              "markdown": "media/walkthrough/new.md"
+            },
+            "completionEvents": [
+              "onCommand:businessModelCanvas.newDiagram"
+            ]
+          },
+          {
+            "id": "example",
+            "title": "Open the example",
+            "description": "See a finished canvas: the Miragon Modeler Suite, with stickies in tape colours and two notes.\n[Create canvas from example](command:businessModelCanvas.newDiagramFromExample)",
+            "media": {
+              "markdown": "media/walkthrough/example.md"
+            },
+            "completionEvents": [
+              "onCommand:businessModelCanvas.newDiagramFromExample"
+            ]
+          },
+          {
+            "id": "source",
+            "title": "Open the source to the side",
+            "description": "The file is the canvas: edit the text beside it and watch both stay in sync.\n[Open Source to the Side](command:businessModelCanvas.openSource)",
+            "media": {
+              "markdown": "media/walkthrough/source.md"
+            },
+            "completionEvents": [
+              "onCommand:businessModelCanvas.openSource"
+            ]
+          },
+          {
+            "id": "learn",
+            "title": "Learn the basics",
+            "description": "Drag stickies from the palette into a block, give them a tape colour from their context pad, then export the canvas as PNG or SVG.",
+            "media": {
+              "markdown": "media/walkthrough/learn.md"
+            },
+            "completionEvents": [
+              "onStepSelected"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "typecheck": "tsc -p tsconfig.json",
+    "notices": "node scripts/third-party-notices.mjs",
+    "vscode:prepublish": "node esbuild.config.mjs --production",
+    "package": "vsce package --no-dependencies -o business-model-canvas-modeler.vsix"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/geist-mono": "5.3.0",
+    "@miragon/business-model-canvas-dsl": "0.0.0",
+    "@miragon/business-model-canvas-renderer": "0.0.0",
+    "@miragon/business-model-canvas-schema-model": "0.0.0",
+    "@miragon/modeler-shell": "0.12.0",
+    "business-model-canvas-ide-editor": "0.0.0",
+    "diagram-js": "15.28.1",
+    "didi": "12.0.0",
+    "tiny-svg": "4.1.4",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "@types/vscode": "1.96.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.1.0",
+    "esbuild": "0.28.2",
+    "playwright-core": "1.64.1",
+    "typescript": "6.0.3"
+  }
+}

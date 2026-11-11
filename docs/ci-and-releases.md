@@ -136,6 +136,14 @@ lockstep: one component whose `extra-files` move every one of its packages, the 
 marketplace entry to the same version, with its changelog in `modelers/team-topologies/CHANGELOG.md`.
 Every other changelog stays in its package.
 
+Business Model Canvas (`modelers/business-model-canvas`) **publishes nothing to npm**: every one of
+its workspaces is `private`, so `release-plan.mjs` publishes none of its packages, which its web app,
+VS Code extension and Orca plugin bundle from source. Its seven components still get a version, a
+changelog and a tag on every release: `business-model-canvas-schema-model`, `-dsl`, `-renderer`,
+`-ide-editor`, `-vscode` (Marketplace and Open VSX), `-webapp` (nothing) and `-orca` (the catalog
+for Orca, its `extra-files` move `orca-plugin.json`). Each starts with `initial-version` 0.1.0;
+remove that key once the components have been released.
+
 - **The squash title decides.** A pull request lands as one commit whose message is its title and
   description; the title's type decides the bump (`feat` minor, `fix` patch, before 1.0 a breaking
   change is a minor). A commit counts for every component whose files it touches.

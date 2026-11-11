@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@miragon/business-model-canvas-renderer": ["../../packages/renderer/src/index.ts"],
+      "@miragon/business-model-canvas-schema-model": ["../../packages/schema-model/src/index.ts"],
+      "@miragon/business-model-canvas-dsl": ["../../packages/dsl/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

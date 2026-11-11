@@ -1,0 +1,53 @@
+// The browser bundle options of the editor, shared by the VS Code webview and the Orca plugin: the
+// modeler's packages from source, font files next to the bundle, and the `?dataurl` imports the
+// PNG export needs.
+import { readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const r = (path) => resolve(root, path);
+
+/** Package aliases pointing at the TS source (mirrors apps/webapp/vite.config.ts). */
+export const alias = {
+  "@miragon/business-model-canvas-renderer": r("packages/renderer/src/index.ts"),
+  "@miragon/business-model-canvas-schema-model": r("packages/schema-model/src/index.ts"),
+  "@miragon/business-model-canvas-dsl": r("packages/dsl/src/index.ts"),
+};
+
+/**
+ * `import url from "file?dataurl"` inlines that one file as a data: URL, while every other import of
+ * the same file type keeps its loader. The PNG export needs Geist inline: an SVG drawn as an image
+ * can't load the frame's font files.
+ * @type {import('esbuild').Plugin}
+ */
+const dataUrlImports = {
+  name: "dataurl-imports",
+  setup(build) {
+    build.onResolve({ filter: /\?dataurl$/ }, async (args) => {
+      const resolved = await build.resolve(args.path.slice(0, -"?dataurl".length), {
+        kind: args.kind,
+        resolveDir: args.resolveDir,
+      });
+      if (resolved.errors.length > 0) return { errors: resolved.errors };
+      return { path: resolved.path, namespace: "dataurl" };
+    });
+    build.onLoad({ filter: /.*/, namespace: "dataurl" }, async (args) => ({
+      contents: await readFile(args.path),
+      loader: "dataurl",
+    }));
+  },
+};
+
+/** @type {import('esbuild').BuildOptions} */
+export const editorBundle = {
+  bundle: true,
+  platform: "browser",
+  target: "es2022",
+  alias,
+  // Font files next to the bundle, not inlined: as separate files the browser fetches only the
+  // subsets a page's unicode-range needs.
+  loader: { ".woff2": "file", ".woff": "file", ".ttf": "file" },
+  assetNames: "fonts/[name]-[hash]",
+  plugins: [dataUrlImports],
+};

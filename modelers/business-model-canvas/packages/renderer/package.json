@@ -1,0 +1,35 @@
+{
+  "name": "@miragon/business-model-canvas-renderer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "View and edit a Business Model Canvas in the browser: a diagram-js viewer and modeler implementing @miragon/modeler-api.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./assets/business-model-canvas.css": "./src/assets/business-model-canvas.css",
+    "./package.json": "./package.json"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "npm --prefix ../.. run test",
+    "test:browser": "npm --prefix ../.. run test:browser"
+  },
+  "dependencies": {
+    "@miragon/business-model-canvas-dsl": "0.0.0",
+    "@miragon/business-model-canvas-schema-model": "0.0.0",
+    "@miragon/modeler-api": "1.7.0",
+    "diagram-js": "15.28.1",
+    "didi": "12.0.0",
+    "tiny-svg": "4.1.4"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "yaml": "2.9.1"
+  }
+}

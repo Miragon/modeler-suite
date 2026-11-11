@@ -1,0 +1,11 @@
+
+value-propositions:
+    items:
+    -   { color: sky, text: Place order, id: order }
+    -   text:   Pay
+        id: pay
+    -   id: ship
+        text: "Ship"
+canvas: { title: Orders }
+version: 1
+customer-segments: { items: [ { id: shoppers, color: sky, text: 'Online shoppers' } ] }

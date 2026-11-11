@@ -5,7 +5,8 @@ special to it ([Wardley Maps](modelers/wardley-maps/CONTRIBUTING.md),
 [Event Storming](modelers/event-storming/CONTRIBUTING.md),
 [Team Topologies](modelers/team-topologies/CONTRIBUTING.md),
 [Context Maps](modelers/context-maps/CONTRIBUTING.md),
-[Value Chain](modelers/value-chain/CONTRIBUTING.md), [C4 model](modelers/c4/CONTRIBUTING.md)).
+[Value Chain](modelers/value-chain/CONTRIBUTING.md), [C4 model](modelers/c4/CONTRIBUTING.md),
+[Business Model Canvas](modelers/business-model-canvas/CONTRIBUTING.md)).
 CI, releases and publishing are in [docs/ci-and-releases.md](docs/ci-and-releases.md), the rules
 for agents in [CLAUDE.md](CLAUDE.md).
 
@@ -25,7 +26,8 @@ keeps its own version, npm name and extension id.
 packages/
   api/                   @miragon/modeler-api: the collaborative-modeler contract and its conformance kit
   shell/                 @miragon/modeler-shell: the shared chrome, its conformance kit, the VS Code smoke driver
-modelers/<modeler>/      wardley-maps, event-storming, team-topologies, context-maps, value-chain, c4
+modelers/<modeler>/      wardley-maps, event-storming, team-topologies, context-maps, value-chain, c4,
+                         business-model-canvas
   packages/              the npm libraries: schema-model, dsl / cml / layout / transforms, renderer
   apps/webapp            the web app
   apps/vscode            the VS Code extension
@@ -55,13 +57,14 @@ npx playwright install chromium webkit   # once, for the browser and e2e tests
 
 The modelers read the shared packages from `dist`, so run `npm run build:shared` again after
 changing them. Wardley Maps, Event Storming, Value Chain and C4 also resolve their own packages from
-`dist` in their unit tests: run `npm run <modeler> build` before `npm run <modeler> test`.
+`dist` in their unit tests: run `npm run <modeler> build` before `npm run <modeler> test`. Team
+Topologies, Context Maps and Business Model Canvas read their packages from source.
 
 ## Scripts
 
 Everything runs from the root. `npm run <modeler> <script>` runs a script of one modeler
-(`wardley-maps`, `event-storming`, `team-topologies`, `context-maps`, `value-chain`, `c4`),
-`npm run modelers <script>` runs it in all six.
+(`wardley-maps`, `event-storming`, `team-topologies`, `context-maps`, `value-chain`, `c4`,
+`business-model-canvas`), `npm run modelers <script>` runs it in all seven.
 
 | Root script                                 | Does                                                                          |
 | ------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -102,14 +105,15 @@ named `.localhost` URL (Node 24 or later); in a linked worktree the branch becom
 parallel checkouts never collide. `dev:webapp:plain` is plain Vite on `127.0.0.1` (`PORT` overrides
 the port).
 
-| Modeler         | `dev:webapp`                                          | `dev:webapp:plain`      |
-| --------------- | ----------------------------------------------------- | ----------------------- |
-| Wardley Maps    | `https://<branch>.wardley.localhost`                  | `http://127.0.0.1:5180` |
-| Event Storming  | `https://<branch>.event-storming.localhost`           | `http://127.0.0.1:5180` |
-| Team Topologies | `https://<branch>.team-topologies-modeler.localhost`  | `http://127.0.0.1:5181` |
-| Context Maps    | `http://<branch>.context-maps-modeler.localhost:8080` | `http://127.0.0.1:5181` |
-| Value Chain     | plain Vite: `http://localhost:5181`                   | (no Portless)           |
-| C4 model        | `https://<branch>.c4.localhost`                       | `http://127.0.0.1:5182` |
+| Modeler               | `dev:webapp`                                          | `dev:webapp:plain`      |
+| --------------------- | ----------------------------------------------------- | ----------------------- |
+| Wardley Maps          | `https://<branch>.wardley.localhost`                  | `http://127.0.0.1:5180` |
+| Event Storming        | `https://<branch>.event-storming.localhost`           | `http://127.0.0.1:5180` |
+| Team Topologies       | `https://<branch>.team-topologies-modeler.localhost`  | `http://127.0.0.1:5181` |
+| Context Maps          | `http://<branch>.context-maps-modeler.localhost:8080` | `http://127.0.0.1:5181` |
+| Value Chain           | plain Vite: `http://localhost:5181`                   | (no Portless)           |
+| C4 model              | `https://<branch>.c4.localhost`                       | `http://127.0.0.1:5182` |
+| Business Model Canvas | plain Vite: `http://localhost:5183`                   | (no Portless)           |
 
 The HTTPS URLs need Portless's proxy, installed once per machine (asks for `sudo`):
 `npx portless trust` and `npx portless service install`. `npm run <modeler> dev:vscode`

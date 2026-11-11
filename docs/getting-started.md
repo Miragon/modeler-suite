@@ -1,17 +1,18 @@
 # Getting started
 
-Every modeler of the suite runs as a web app, as a VS Code extension, as an [Orca](https://www.onorca.dev) plugin (all but C4, from [Orca's plugin directory](https://github.com/Miragon/orca-modelers#install)) and as an npm library. To try one, open its web app from the [modelers](#the-modelers). To work on the suite, build it from the repository.
+Every modeler of the suite runs as a web app, as a VS Code extension, as an [Orca](https://www.onorca.dev) plugin (all but C4, from [Orca's plugin directory](https://github.com/Miragon/orca-modelers#install), which Business Model Canvas joins with its first release) and as an npm library (all but Business Model Canvas, which publishes no package). To try one, open its web app from the [modelers](#the-modelers). To work on the suite, build it from the repository.
 
 ## The modelers
 
-| Modeler                                      | Files                           |
-| -------------------------------------------- | ------------------------------- |
-| [Wardley Maps](/modelers/wardley-maps)       | `.wmap`, `.owm`                 |
-| [Event Storming](/modelers/event-storming)   | `.storm`                        |
-| [Team Topologies](/modelers/team-topologies) | `.tt`, `.ttm.json`              |
-| [Context Maps](/modelers/context-maps)       | `.cm`, `.cm.json`, `.cml`       |
-| [Value Chain](/modelers/value-chain)         | `.vc`, `.vc.json`               |
-| [C4 model](/modelers/c4)                     | `.c4`, `.dsl` (Structurizr DSL) |
+| Modeler                                                  | Files                           |
+| -------------------------------------------------------- | ------------------------------- |
+| [Wardley Maps](/modelers/wardley-maps)                   | `.wmap`, `.owm`                 |
+| [Event Storming](/modelers/event-storming)               | `.storm`                        |
+| [Team Topologies](/modelers/team-topologies)             | `.tt`, `.ttm.json`              |
+| [Context Maps](/modelers/context-maps)                   | `.cm`, `.cm.json`, `.cml`       |
+| [Value Chain](/modelers/value-chain)                     | `.vc`, `.vc.json`               |
+| [C4 model](/modelers/c4)                                 | `.c4`, `.dsl` (Structurizr DSL) |
+| [Business Model Canvas](/modelers/business-model-canvas) | `.bmc`                          |
 
 ## Build from source
 

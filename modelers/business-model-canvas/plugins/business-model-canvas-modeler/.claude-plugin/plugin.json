@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "business-model-canvas-modeler",
+  "displayName": "Business Model Canvas Modeler",
+  "version": "0.1.0",
+  "description": "The Business Model Canvas for Claude: the method in Miragon's own words (the nine building blocks, tape colours a team gives meaning to, assumptions to test, canvas reviews with feedback notes) and the complete `.bmc` file format (YAML with the canvas fields, the nine blocks, items with their keys, notes, diagnostics and the round-trip guarantee), so Claude can read, write, review and generate business model canvases as plain text.",
+  "author": {
+    "name": "Miragon",
+    "url": "https://miragon.io"
+  },
+  "homepage": "https://github.com/Miragon/modeler-suite/tree/main/modelers/business-model-canvas/plugins/business-model-canvas-modeler#readme",
+  "repository": "https://github.com/Miragon/modeler-suite",
+  "license": "MIT",
+  "keywords": [
+    "business-model-canvas",
+    "bmc",
+    "business-model",
+    "strategy",
+    "lean",
+    "dsl",
+    "modeling",
+    "miragon"
+  ]
+}

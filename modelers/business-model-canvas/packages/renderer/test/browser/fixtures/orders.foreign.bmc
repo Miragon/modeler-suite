@@ -1,0 +1,16 @@
+version: 1
+canvas:
+  title: Orders
+  x-vendor: keep-me
+customer-segments:
+  items:
+    - id: shoppers
+      text: Online shoppers
+value-propositions:
+  items:
+    - id: order
+      text: Place order
+      color: sky
+      x-owner: sales
+    - id: pay
+      text: Pay

@@ -1,0 +1,60 @@
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { formatVsCodeSmoke, runVsCodeSmoke } from "@miragon/modeler-shell/testing/vscode-electron";
+import { readText } from "@miragon/business-model-canvas-dsl";
+import { createVSIX } from "@vscode/vsce";
+import { afterAll, beforeAll, expect, it } from "vitest";
+import { THEMES } from "../../../packages/renderer/src/themes.js";
+
+const extensionRoot = fileURLToPath(new URL("..", import.meta.url));
+const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
+
+// The release passes the VSIX it is about to publish, so the file users get is the one tested.
+const prebuiltVsix = process.env.VSCODE_SMOKE_VSIX;
+
+let packageDirectory: string;
+
+async function packVsix(directory: string): Promise<string> {
+  const vsix = join(directory, "business-model-canvas-modeler.vsix");
+  await createVSIX({ cwd: extensionRoot, dependencies: false, packagePath: vsix });
+  return vsix;
+}
+
+// VS Code runs the extension unpacked from the VSIX, without node_modules: a module the bundle
+// requires but does not contain fails to activate there, while the workspace folder would find it.
+beforeAll(async () => {
+  packageDirectory = await mkdtemp(join(tmpdir(), "business-model-canvas-vsix-"));
+  const vsix = prebuiltVsix ? resolve(prebuiltVsix) : await packVsix(packageDirectory);
+  await promisify(execFile)("unzip", ["-q", vsix, "extension/*", "-d", packageDirectory]);
+}, 120_000);
+
+afterAll(async () => {
+  if (packageDirectory) await rm(packageDirectory, { recursive: true, force: true });
+});
+
+it(
+  "opens, edits, saves, undoes and themes a canvas in a real VS Code",
+  { timeout: 600_000 },
+  async () => {
+    const result = await runVsCodeSmoke({
+      extensionPath: join(packageDirectory, "extension"),
+      fixture: {
+        fileName: "miragon.bmc",
+        text: await readFile(join(repositoryRoot, "example/miragon.bmc"), "utf8"),
+      },
+      parse: (text) => readText(text).document,
+      themes: THEMES,
+      name: "business-model-canvas",
+      screenshotDir: join(repositoryRoot, "test-results/vscode-smoke"),
+      vscodeVersion: process.env.VSCODE_VERSION || undefined,
+      keepTemporaryFiles: process.env.VSCODE_SMOKE_KEEP === "1",
+      log: (line) => console.log(`[vscode-smoke] ${line}`),
+    });
+    console.log(formatVsCodeSmoke(result));
+    expect(result.failures, result.failures.join("\n")).toEqual([]);
+  },
+);

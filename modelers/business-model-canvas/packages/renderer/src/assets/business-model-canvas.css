@@ -1,0 +1,481 @@
+/* The design-system files are vendored unchanged (../theme/). The tokens sit in a cascade layer,
+   so a host page's own --cd-* tokens (unlayered) win over this copy. cd-canvas.css stays unlayered
+   and comes after diagram-js.css, so its mapping of diagram-js's variables onto the --cd-ui-* roles
+   wins. Every rule below reads the roles and the mode-independent tokens only, and sits below the
+   renderer's own root class or its own classes: a host may prefix every rule with a descendant
+   selector, and the canvas drawing keeps its light SVG attributes, so exports stay light. */
+@import "../theme/cd-tokens.generated.css" layer(business-model-canvas-tokens);
+@import "diagram-js/assets/diagram-js.css";
+@import "../theme/cd-canvas.css";
+
+/* Guide §10.1: the surround in --cd-ui-grund with the dot grid in --cd-ui-linie. The text colour
+   is a role too, so a theme the host requests through `appearance` holds against the page's. */
+.business-model-canvas-container {
+  position: relative;
+  overflow: hidden;
+  color: var(--cd-ui-text);
+  background-color: var(--cd-ui-grund);
+  background-image: radial-gradient(var(--cd-ui-linie) 1px, transparent 1px);
+  background-size: 20px 20px;
+  font-family:
+    "Geist Variable",
+    "Geist",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+.business-model-canvas-container svg text {
+  user-select: none;
+}
+
+/* Guide §10.4: hover and selection are a dashed outline in the interaction blue. */
+.business-model-canvas-container .djs-outline {
+  stroke: var(--cd-ui-interaktion);
+  stroke-dasharray: 3 3;
+}
+
+.business-model-canvas-container .djs-parent {
+  --element-selected-outline-stroke-color: var(--cd-ui-interaktion);
+}
+
+/* The colour popup: a floating menu of the family (guide §5.3, §8). */
+.business-model-canvas-container .djs-popup {
+  border-radius: var(--cd-radius-md);
+  box-shadow: var(--cd-shadow-3);
+  font-size: 13px;
+}
+.business-model-canvas-container .djs-popup .djs-popup-entry-icon {
+  display: inline-flex;
+  width: 24px;
+  height: 18px;
+  font-size: 1em;
+}
+/* The entry that matches the sticky: accent and a trailing check, as in Context Maps. */
+.business-model-canvas-container .djs-popup .djs-popup-entry-name.bmc-popup-active {
+  color: var(--cd-ui-interaktion);
+  font-weight: 600;
+}
+.business-model-canvas-container
+  .djs-popup
+  .djs-popup-entry-name.bmc-popup-active
+  .djs-popup-label::after {
+  content: " ✓";
+}
+
+/* Context pad (context-pad/): one opaque island (guide §8) with 28 × 28 entries, at most three per
+   row, and 16px icons, as the siblings draw it. It stays at diagram-js's z-index 100, below the
+   palette (guide §5.13). */
+.business-model-canvas-container .djs-context-pad.open {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(3 * 28px + 2 * 2px + 2 * 3px + 2px);
+  padding: 3px;
+  background: var(--cd-ui-flaeche-hoch);
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-md);
+  box-shadow: var(--cd-shadow-2);
+  pointer-events: auto;
+}
+.business-model-canvas-container .djs-context-pad .group {
+  display: contents;
+}
+.business-model-canvas-container .djs-context-pad.open:empty {
+  display: none;
+}
+.business-model-canvas-container .djs-context-pad .entry.bmc-cp-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  border-radius: var(--cd-radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--cd-ui-text);
+  transition:
+    background-color 150ms var(--cd-ease),
+    color 150ms var(--cd-ease);
+}
+.business-model-canvas-container .djs-context-pad .entry.bmc-cp-entry:hover {
+  background: var(--cd-ui-hover);
+  color: var(--cd-ui-interaktion);
+}
+.business-model-canvas-container .bmc-cp-entry svg {
+  display: block;
+}
+
+/* The renderer's own palette, where no host chrome skins it (the shell sets data-chrome). */
+.business-model-canvas-container .djs-palette:not([data-chrome="palette"]) .entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The label editor: an overlay on the canvas, at most at diagram-js's z-index 100 (§5.13). */
+.business-model-canvas-container .diagram-label-editor {
+  z-index: 100;
+  box-sizing: border-box;
+  margin: 0;
+  resize: none;
+  overflow: hidden;
+  text-align: center;
+  color: var(--cd-ui-text);
+  background: var(--cd-ui-flaeche-hoch);
+  border: 1px solid var(--cd-ui-interaktion);
+  border-radius: var(--cd-radius-sm);
+  outline: none;
+}
+
+/* The title dialog (guide §8) on the shell's panel: its field, Cancel and Apply. */
+.bmc-title-dialog .bmc-dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.bmc-title-dialog .bmc-dialog-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bmc-title-dialog .bmc-dialog-label {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cd-ui-text);
+}
+
+.bmc-title-dialog .bmc-dialog-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  margin: 0;
+  padding: 8px 12px;
+  font: inherit;
+  color: var(--cd-ui-text);
+  background: var(--cd-ui-grund);
+  border: 1px solid var(--cd-ui-kontur);
+  border-radius: var(--cd-radius-sm);
+}
+
+.bmc-title-dialog .bmc-dialog-input:focus {
+  border-color: var(--cd-ui-interaktion);
+}
+
+/* Guide §8: a ghost icon button, its icon in the text colour, hover on the hover surface. */
+.bmc-notes-panel .bmc-dialog-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--cd-ui-text);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: var(--cd-radius-sm);
+}
+
+.bmc-notes-panel .bmc-dialog-icon-button:hover {
+  background: var(--cd-ui-hover);
+}
+
+.bmc-title-dialog .bmc-dialog-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--cd-ui-linie);
+}
+
+:is(.bmc-title-dialog, .bmc-notes-panel) .bmc-dialog-button {
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: var(--cd-radius-md);
+  transition:
+    background-color var(--cd-motion-fast) var(--cd-ease),
+    box-shadow var(--cd-motion-fast) var(--cd-ease);
+}
+
+:is(.bmc-title-dialog, .bmc-notes-panel) .bmc-dialog-button[data-variant="secondary"] {
+  color: var(--cd-ui-text);
+  background: var(--cd-ui-flaeche-hoch);
+  border: 1px solid var(--cd-ui-linie);
+}
+
+:is(.bmc-title-dialog, .bmc-notes-panel) .bmc-dialog-button[data-variant="secondary"]:hover {
+  color: var(--cd-ui-link);
+  background: var(--cd-ui-hover);
+  border-color: var(--cd-ui-interaktion);
+}
+
+/* The one place with fixed palette tokens: guide §8 fills the primary button with --cd-blau and
+   white text in both modes, hover --cd-blau-link. */
+.bmc-title-dialog .bmc-dialog-button[data-variant="primary"] {
+  color: var(--cd-weiss);
+  background: var(--cd-blau);
+  border: 1px solid transparent;
+  box-shadow: var(--cd-shadow-1);
+}
+
+.bmc-title-dialog .bmc-dialog-button[data-variant="primary"]:hover {
+  background: var(--cd-blau-link);
+  box-shadow: var(--cd-shadow-2);
+}
+
+:is(.bmc-title-dialog, .bmc-notes-panel)
+  :is(.bmc-dialog-input, .bmc-dialog-button, .bmc-dialog-icon-button):focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.bmc-title-dialog, .bmc-notes-panel) .bmc-dialog-button {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .bmc-title-dialog .bmc-dialog-input,
+  .bmc-title-dialog .bmc-dialog-button {
+    border-color: CanvasText;
+  }
+}
+
+/* The web app's start card stands on the plain dot grid (apps/webapp, guide §8). */
+.business-model-canvas-container .bmc-start .layer-bmc-frame {
+  display: none;
+}
+
+/* One hover card for the notes of a sticky, a block and the whole canvas (notes-panel/notesCard.ts),
+   opaque with shadow-3 like the chrome's popovers (guide §5.6, §6). */
+.bmc-notes-card {
+  position: absolute;
+  z-index: 100;
+  width: 300px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--cd-ui-flaeche-hoch);
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-md);
+  box-shadow: var(--cd-shadow-3);
+  color: var(--cd-ui-text);
+  font-size: 13px;
+  line-height: 18px;
+  pointer-events: none;
+}
+.bmc-notes-card[hidden] {
+  display: none;
+}
+.bmc-notes-card-note {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.bmc-notes-card-note .bmc-note-glyph {
+  margin-top: 1px;
+}
+.bmc-notes-card-more {
+  color: var(--cd-ui-text-leise);
+  font-size: 12px;
+}
+
+/* The notes markers over the canvas and the notes panel in the inspector (notes-panel/). */
+.bmc-note-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 5;
+}
+.bmc-note-markers[hidden] {
+  display: none;
+}
+.bmc-note-marker {
+  position: absolute;
+  /* Sized like the heading it sits on: it grows and shrinks with the canvas, around its anchor. */
+  transform-origin: 0 0;
+  transform: scale(var(--bmc-zoom, 1)) translate(-100%, -50%);
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.bmc-note-marker[data-anchor="left"] {
+  transform: scale(var(--bmc-zoom, 1)) translate(0, -50%);
+}
+.bmc-start .bmc-note-markers {
+  display: none;
+}
+.bmc-note-marker button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--cd-radius-sm);
+  font: inherit;
+  cursor: pointer;
+}
+/* 22px tall around the heading's text, so it ends above the selection frame of the stickies. */
+.bmc-note-marker-comment {
+  gap: 4px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--cd-ui-linie);
+  background: var(--cd-ui-flaeche-hoch);
+  color: var(--cd-ui-text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.bmc-note-marker-comment:hover {
+  background: var(--cd-ui-hover);
+  color: var(--cd-ui-interaktion);
+}
+.bmc-note-marker-empty {
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--cd-ui-text-leise);
+}
+.bmc-note-marker-empty:hover {
+  border-color: var(--cd-ui-linie);
+}
+/* Inside its edge, so the open place's marker takes no room from the stickies below. */
+.bmc-note-marker-active {
+  border-color: var(--cd-ui-interaktion);
+  box-shadow: inset 0 0 0 1px var(--cd-ui-interaktion);
+}
+.bmc-note-marker-count {
+  font-weight: 600;
+}
+.bmc-notes-card-title {
+  font-weight: 600;
+}
+.bmc-notes-card-small {
+  width: auto;
+  padding: 3px 8px;
+}
+.bmc-notes-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--cd-ui-text);
+}
+/* The place whose notes these are, under the title; a marker or the selection changes it. */
+.bmc-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cd-ui-linie);
+}
+.bmc-panel-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.bmc-panel-place {
+  margin: 2px 0 0;
+  color: var(--cd-ui-text-leise);
+  overflow-wrap: anywhere;
+}
+.bmc-panel-add {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.bmc-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: calc(100vh - 300px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+/* A note: the grey dot, its text and, when it can be changed, the bin (guide §5: 32px target). */
+.bmc-panel-note {
+  display: grid;
+  grid-template-columns: 16px 1fr 32px;
+  gap: 8px;
+  align-items: start;
+}
+.bmc-panel-note .bmc-note-glyph {
+  margin-top: 8px;
+}
+.bmc-panel-note-read {
+  grid-column: 2 / -1;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.bmc-panel-text {
+  box-sizing: border-box;
+  width: 100%;
+  resize: none;
+  overflow: hidden;
+  padding: 6px 8px;
+  border: 1px solid var(--cd-ui-kontur);
+  border-radius: var(--cd-radius-sm);
+  background: var(--cd-ui-grund);
+  color: var(--cd-ui-text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.bmc-panel-text:focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 0;
+}
+.bmc-panel-empty {
+  margin: 0;
+  color: var(--cd-ui-text-leise);
+}
+
+/* The header's title opens "Canvas title" on itself (canvas-header/HeaderEditing.ts). */
+.bmc-header-edit {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 4;
+}
+.bmc-start .bmc-header-edit {
+  display: none;
+}
+.bmc-header-title {
+  position: absolute;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  pointer-events: auto;
+  border: 1px solid transparent;
+  border-radius: var(--cd-radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+/* Over the text, so the hover is a contour, never a fill (guide §8: hover contour in interaktion). */
+.bmc-header-title:hover {
+  border-color: var(--cd-ui-interaktion);
+}

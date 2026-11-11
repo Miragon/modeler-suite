@@ -37,5 +37,12 @@
   "modelers/c4/packages/renderer": "0.2.0",
   "modelers/c4/apps/vscode": "0.1.3",
   "modelers/c4/apps/webapp": "0.1.3",
+  "modelers/business-model-canvas/packages/schema-model": "0.0.0",
+  "modelers/business-model-canvas/packages/dsl": "0.0.0",
+  "modelers/business-model-canvas/packages/renderer": "0.0.0",
+  "modelers/business-model-canvas/apps/ide-editor": "0.0.0",
+  "modelers/business-model-canvas/apps/vscode": "0.0.0",
+  "modelers/business-model-canvas/apps/webapp": "0.0.0",
+  "modelers/business-model-canvas/apps/orca": "0.0.0",
   "extensions/modeler-collection": "1.5.0"
 }

@@ -1,0 +1,17 @@
+version: 1
+canvas:
+  title: Orders
+customer-segments:
+  items:
+    - id: shoppers
+      text: Online shoppers
+      color: sky
+value-propositions:
+  items:
+    - id: order
+      text: Place order
+      color: sky
+    - id: pay
+      text: Pay
+    - id: ship
+      text: Ship

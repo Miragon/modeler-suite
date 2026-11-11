@@ -60,6 +60,16 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/wardley-maps/packages/renderer'].dependencies['@miragon/modeler-api']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/business-model-canvas/packages/renderer/package.json",
+          "jsonpath": "$.dependencies['@miragon/modeler-api']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/packages/renderer'].dependencies['@miragon/modeler-api']"
         }
       ]
     },
@@ -281,6 +291,56 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/wardley-maps/apps/ide-editor'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/business-model-canvas/apps/ide-editor/package.json",
+          "jsonpath": "$.dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/ide-editor'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/business-model-canvas/apps/vscode/package.json",
+          "jsonpath": "$.dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/vscode'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/business-model-canvas/apps/webapp/package.json",
+          "jsonpath": "$.dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/webapp'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/business-model-canvas/apps/orca/package.json",
+          "jsonpath": "$.dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/orca'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/business-model-canvas/e2e/package.json",
+          "jsonpath": "$.devDependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/e2e'].devDependencies['@miragon/modeler-shell']"
         }
       ]
     },
@@ -1259,6 +1319,163 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/context-maps/apps/orca'].version"
+        }
+      ]
+    },
+    "modelers/business-model-canvas/packages/schema-model": {
+      "component": "business-model-canvas-schema-model",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/packages/schema-model'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/packages/dsl'].dependencies['@miragon/business-model-canvas-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/packages/renderer'].dependencies['@miragon/business-model-canvas-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/ide-editor'].dependencies['@miragon/business-model-canvas-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/vscode'].dependencies['@miragon/business-model-canvas-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/webapp'].dependencies['@miragon/business-model-canvas-schema-model']"
+        }
+      ]
+    },
+    "modelers/business-model-canvas/packages/dsl": {
+      "component": "business-model-canvas-dsl",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/packages/dsl'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/packages/renderer'].dependencies['@miragon/business-model-canvas-dsl']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/ide-editor'].dependencies['@miragon/business-model-canvas-dsl']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/vscode'].dependencies['@miragon/business-model-canvas-dsl']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/webapp'].dependencies['@miragon/business-model-canvas-dsl']"
+        }
+      ]
+    },
+    "modelers/business-model-canvas/packages/renderer": {
+      "component": "business-model-canvas-renderer",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/packages/renderer'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/ide-editor'].dependencies['@miragon/business-model-canvas-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/vscode'].dependencies['@miragon/business-model-canvas-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/webapp'].dependencies['@miragon/business-model-canvas-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/orca'].dependencies['@miragon/business-model-canvas-renderer']"
+        }
+      ]
+    },
+    "modelers/business-model-canvas/apps/ide-editor": {
+      "component": "business-model-canvas-ide-editor",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/ide-editor'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/vscode'].dependencies['business-model-canvas-ide-editor']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/orca'].dependencies['business-model-canvas-ide-editor']"
+        }
+      ]
+    },
+    "modelers/business-model-canvas/apps/vscode": {
+      "component": "business-model-canvas-vscode",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/vscode'].version"
+        }
+      ]
+    },
+    "modelers/business-model-canvas/apps/webapp": {
+      "component": "business-model-canvas-webapp",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/webapp'].version"
+        }
+      ]
+    },
+    "modelers/business-model-canvas/apps/orca": {
+      "component": "business-model-canvas-orca",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "orca-plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/business-model-canvas/apps/orca'].version"
         }
       ]
     }

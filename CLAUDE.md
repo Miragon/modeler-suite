@@ -1,8 +1,9 @@
 # CLAUDE.md
 
 The Miragon modeler suite: the collaborative-modeler contract `@miragon/modeler-api`, the shared
-chrome `@miragon/modeler-shell`, and the six modelers built on them (Wardley Maps, Event
-Storming, Team Topologies, Context Maps, Value Chain, C4 model). Each modeler is one notation on
+chrome `@miragon/modeler-shell`, and the seven modelers built on them (Wardley Maps, Event
+Storming, Team Topologies, Context Maps, Value Chain, C4 model, Business Model Canvas). Each
+modeler is one notation on
 [diagram-js](https://github.com/bpmn-io/diagram-js) (MIT): DOM-free model packages, a renderer, a
 web app and a VS Code extension. One npm workspace, one lockfile, one pre-commit hook; every package
 keeps its own version, npm name and extension id.
@@ -22,6 +23,7 @@ special to its notation (packages, DSL or file format, renderer architecture, te
 | `modelers/context-maps`           | Context Maps, `.cm` / `.cm.json`, Context Mapper `.cml`                                                                                                                          | [CLAUDE.md](modelers/context-maps/CLAUDE.md)                                                                                                          |
 | `modelers/value-chain`            | Value Chain, `.vc` / `.vc.json`                                                                                                                                                  | [CLAUDE.md](modelers/value-chain/CLAUDE.md)                                                                                                           |
 | `modelers/c4`                     | C4 model, `.c4` / `.dsl` (Structurizr DSL, read and written losslessly)                                                                                                          | [CLAUDE.md](modelers/c4/CLAUDE.md)                                                                                                                    |
+| `modelers/business-model-canvas`  | Business Model Canvas, `.bmc` (YAML: the nine blocks and their stickies)                                                                                                         | [CLAUDE.md](modelers/business-model-canvas/CLAUDE.md)                                                                                                 |
 | `extensions/modeler-collection`   | the VS Code extension pack of every Miragon modeler, `miragon-modeler-collection`                                                                                                | `test/modeler-collection.test.ts`                                                                                                                     |
 | `plugins/modeler-kit`             | Claude plugin: the `new-modeler` skill and its template                                                                                                                          | [README](plugins/modeler-kit/README.md)                                                                                                               |
 | `.claude-plugin/marketplace.json` | the suite's one Claude plugin marketplace (`modeler-suite`)                                                                                                                      |                                                                                                                                                       |
@@ -43,11 +45,12 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
 - Setup: `npm ci`, then `npm run build:shared`. The modelers link `@miragon/modeler-api` and
   `@miragon/modeler-shell` from this workspace and read their `dist`, so build them again after
   changing them. Wardley Maps, Event Storming, Value Chain and C4 also resolve their own packages
-  from `dist` in their unit tests: `npm run <modeler> build` first. Team Topologies and Context
-  Maps consume their packages from source.
+  from `dist` in their unit tests: `npm run <modeler> build` first. Team Topologies, Context Maps
+  and Business Model Canvas consume their packages from source.
 - One modeler: `npm run <modeler> <script>` with the aliases `wardley-maps`, `event-storming`,
-  `team-topologies`, `context-maps`, `value-chain`, `c4` (e.g. `npm run wardley-maps test`). All
-  six: `npm run modelers <script>`. One workspace: `npm run <script> -w <name or path>`. A flag
+  `team-topologies`, `context-maps`, `value-chain`, `c4`, `business-model-canvas` (e.g.
+  `npm run wardley-maps test`). All seven: `npm run modelers <script>`. One workspace:
+  `npm run <script> -w <name or path>`. A flag
   after an alias never reaches the script, since npm takes it for an option of its own: npm 10
   and 11 (Node 22, 24 and 26) drop it and run the whole script, npm 11 after a warning; npm 12
   stops with `EUNKNOWNCONFIG`; `-g` means `--global`. Give flags to the workspace instead:
@@ -60,8 +63,8 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   (ESLint + type check), `test` (Vitest unit), `test:browser` (Vitest in Chromium, the contract's
   conformance kit), `test:e2e` (Playwright: the web app and the VS Code webview, the shell's kit),
   `test:vscode` and `test:vscode:docker` (the packed extension in a real VS Code), `depcruise`,
-  `format`, `format:check`, `dev:webapp`, `dev:webapp:plain` (not in value-chain, whose
-  `dev:webapp` is plain Vite), `dev:vscode`.
+  `format`, `format:check`, `dev:webapp`, `dev:webapp:plain` (not in value-chain and
+  business-model-canvas, whose `dev:webapp` is plain Vite), `dev:vscode`.
 - Root: `npm run build` (shared, modelers, apps), `npm test` (shared packages, plugin drift test,
   every modeler's unit tests), `npm run lint`, `npm run typecheck`, `npm run format` /
   `format:check`, `npm run depcruise`, `npm run publint`, `npm run test:plugin`,
@@ -84,14 +87,15 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
 - **DOM boundary (P1), per modeler.** These packages must never import `diagram-js` or DOM libraries
   (`tiny-svg`, `min-dom`) and never use `window` / `document`:
 
-  | Modeler         | DOM-free packages                   |
-  | --------------- | ----------------------------------- |
-  | Wardley Maps    | `schema-model`, `dsl`, `transforms` |
-  | Event Storming  | `schema-model`, `dsl`, `transforms` |
-  | Team Topologies | `schema-model`                      |
-  | Context Maps    | `schema-model`, `cml`               |
-  | Value Chain     | `schema-model`                      |
-  | C4 model        | `schema-model`, `dsl`, `layout`     |
+  | Modeler               | DOM-free packages                   |
+  | --------------------- | ----------------------------------- |
+  | Wardley Maps          | `schema-model`, `dsl`, `transforms` |
+  | Event Storming        | `schema-model`, `dsl`, `transforms` |
+  | Team Topologies       | `schema-model`                      |
+  | Context Maps          | `schema-model`, `cml`               |
+  | Value Chain           | `schema-model`                      |
+  | C4 model              | `schema-model`, `dsl`, `layout`     |
+  | Business Model Canvas | `schema-model`, `dsl`               |
 
   ESLint (`no-restricted-imports` / `no-restricted-globals`) and dependency-cruiser enforce it, so a
   violation fails `npm run <modeler> lint` and `npm run <modeler> depcruise`. Both configs come from
@@ -116,7 +120,7 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   `packages/shell/test/package-boundaries.test.ts` enforces both.
 - **Shared code changes reach every modeler at once.** The modelers pin the workspace's current
   `@miragon/modeler-api` and `@miragon/modeler-shell` and npm links them, so a change in
-  `packages/` is live in all six: rebuild (`npm run build:shared`) and run the affected modelers'
+  `packages/` is live in all seven: rebuild (`npm run build:shared`) and run the affected modelers'
   `test:browser` (contract) or `test:e2e` (shell) before pushing, and `npm run test:browser:shared`
   (the shell's `./export` and palette skin in Chromium and WebKit) after a change to the shell.
 
@@ -136,7 +140,9 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   (`webapp`, `vscode`) declare it as an exact `dependency`. Neither npm nor pin-check notices a peer
   range that rejects those exact versions; the peer-dependency tests of the Wardley Maps, Event
   Storming, Context Maps and C4 renderers do. Details per modeler in its
-  `.claude/rules/package-json-fixed-versions.md`.
+  `.claude/rules/package-json-fixed-versions.md`. Business Model Canvas has no ranged peers: every
+  one of its workspaces is `private` and publishes nothing to npm, so no host dedupes its packages,
+  and the apps bundle them from source with exact `dependencies` only.
 - The toolchain (TypeScript, Vitest, tsup, Vite, ESLint, Prettier, Playwright, …) is pinned once in
   the root `package.json`, with `overrides` for `vite` and `@types/node`; a workspace declares only
   what it alone needs. Keep `@playwright/test` in the `e2e` workspaces and `playwright-core` in
@@ -154,8 +160,9 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
 
 - **Conventional Commits**, checked on the PR title: `feat`, `fix`, `chore`, `docs`, `refactor`,
   `ci`, `build`, `test`, `revert`. The scope names the area: a modeler (`wardley-maps`,
-  `event-storming`, `team-topologies`, `context-maps`, `value-chain`, `c4`), `api`, `shell` or
-  `plugin`, e.g. `feat(wardley-maps): add an inertia decorator`.
+  `event-storming`, `team-topologies`, `context-maps`, `value-chain`, `c4`,
+  `business-model-canvas`), `api`, `shell` or `plugin`, e.g.
+  `feat(wardley-maps): add an inertia decorator`.
 - **Every commit is GPG-signed** (`git commit -S`); after rewriting history, sign again
   (`git rebase -S`).
 - Pull requests are squash-merged with the PR title as the subject. More than one changelog entry,
@@ -229,8 +236,9 @@ Install once: `/plugin marketplace add Miragon/corporate-identity` then
 ## Claude Code plugins
 
 - [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) (`modeler-suite`) lists
-  `modeler-kit` (`plugins/modeler-kit`), `wardley-maps-modeler`, `event-storming-modeler` and
-  `team-topologies-modeler` (`modelers/<modeler>/plugins/<plugin>`). Install with
+  `modeler-kit` (`plugins/modeler-kit`), `wardley-maps-modeler`, `event-storming-modeler`,
+  `team-topologies-modeler` and `business-model-canvas-modeler`
+  (`modelers/<modeler>/plugins/<plugin>`). Install with
   `/plugin marketplace add Miragon/modeler-suite` and `/plugin install <plugin>@modeler-suite`.
   Value Chain's skill is a project skill in `modelers/value-chain/.claude/skills/`.
 - Plugin and skill names are public: installed copies and other repositories use them, so never
@@ -240,7 +248,9 @@ Install once: `/plugin marketplace add Miragon/corporate-identity` then
   commits); the modelers' plugins keep theirs in `plugin.json`.
 - Drift tests: `npm run test:plugin` (manifests of every listed plugin, the `new-modeler` skill and
   template); `npm run wardley-maps test` (every OWM example parses and round-trips, note colours);
-  `npm run team-topologies test` (the `tt-format` checker against the schema model).
+  `npm run team-topologies test` (the `tt-format` checker against the schema model);
+  `npm run business-model-canvas test` (every `bmc` example of its skills parses without a finding
+  and is canonical).
   `claude plugin validate .` checks the marketplace; its one warning, modeler-kit's missing
   `version`, is intended.
 - CI creates a modeler from the `new-modeler` template on the packed shared packages and runs its

@@ -16,6 +16,7 @@ const allModelers = [
   "context-maps",
   "value-chain",
   "c4",
+  "business-model-canvas",
 ];
 const modelers = process.argv.length > 2 ? process.argv.slice(2) : allModelers;
 const firstPort = Number(process.env.SHOTS_PORT ?? 4780);

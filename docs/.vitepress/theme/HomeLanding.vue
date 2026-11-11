@@ -70,6 +70,17 @@ const modelers = [
     files: ".c4 .dsl",
     effect: "One model, many views, from the landscape down to the components.",
   },
+  {
+    name: "Business Model Canvas",
+    npmPackage: undefined,
+    webApp: undefined,
+    file: "miragon.bmc",
+    shot: "/shots/business-model-canvas/editor.png",
+    link: "/modelers/business-model-canvas",
+    orca: undefined,
+    files: ".bmc",
+    effect: "Nine blocks of stickies, with tape colours and notes.",
+  },
 ];
 const next = { text: "Pick a modeler and open its example", link: "/getting-started#the-modelers" };
 const stage = "raster";
@@ -112,12 +123,23 @@ const installs = computed(() => [
     missing: "follows",
     note: "Next to your coding agent: opens the plugin's page in Orca 1.4.252 or later, which adds the Miragon catalog on the first install.",
   },
-  {
-    name: "npm",
-    lines: [`npm install ${modelers[activeModeler.value].npmPackage}`],
-    note: `The renderer of ${modelers[activeModeler.value].name}. Every modeler has its own package.`,
-  },
+  npmInstall(modelers[activeModeler.value]),
 ]);
+
+// A modeler without an npm package (Business Model Canvas) shows no install line on this tab.
+function npmInstall(modeler: { name: string; npmPackage: string | undefined }) {
+  return modeler.npmPackage
+    ? {
+        name: "npm",
+        lines: [`npm install ${modeler.npmPackage}`],
+        note: `The renderer of ${modeler.name}. Every modeler with a library has its own package.`,
+      }
+    : {
+        name: "npm",
+        lines: [],
+        note: `${modeler.name} has no npm package: use its web app, VS Code extension or Orca plugin.`,
+      };
+}
 
 function showNextModeler() {
   activeModeler.value = (activeModeler.value + 1) % modelers.length;
@@ -158,9 +180,9 @@ async function copyInstall() {
           <h1>Model strategy where your <em>code</em> lives.</h1>
           <p class="slogan">Draw on a canvas, commit plain text.</p>
           <p class="lede">
-            Wardley Maps, Event Storming, Team Topologies, Context Maps, Value Chains and C4 models
-            as text files, edited on a canvas in VS Code, in Orca, in the browser or in your own
-            app.
+            Wardley Maps, Event Storming, Team Topologies, Context Maps, Value Chains, C4 models and
+            Business Model Canvases as text files, edited on a canvas in VS Code, in Orca, in the
+            browser or in your own app.
           </p>
 
           <div class="install">
@@ -188,7 +210,7 @@ async function copyInstall() {
               <div class="channels">
                 <template v-for="(install, index) in installs" :key="install.name">
                   <ul
-                    v-if="install.lines.length === 0"
+                    v-if="install.target"
                     class="web-apps"
                     :class="{ hidden: index !== selected }"
                     :aria-hidden="index !== selected"

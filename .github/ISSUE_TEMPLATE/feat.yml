@@ -21,6 +21,7 @@ body:
         - Context Maps modeler
         - Value Chain modeler
         - C4 Modeler
+        - Business Model Canvas modeler
         - modeler-api or modeler-shell
         - Repository, CI or releases
     validations:

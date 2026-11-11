@@ -5,8 +5,9 @@
 
 **Strategy and architecture diagrams as plain text, right next to your code.**
 
-Six modelers for the notations teams use to think about their business and their systems:
-Wardley Maps, Event Storming, Team Topologies, Context Maps, Value Chain and the C4 model. Each
+Seven modelers for the notations teams use to think about their business and their systems:
+Wardley Maps, Event Storming, Team Topologies, Context Maps, Value Chain, the C4 model and the
+Business Model Canvas. Each
 one runs in the browser, in VS Code and in [Orca](https://www.onorca.dev).
 
 [Documentation](https://miragon.github.io/modeler-suite/) ·
@@ -27,27 +28,34 @@ in a text editor, or let your AI assistant write it.
 
 ## The modelers
 
-| Modeler                                               | Files                                                 | Web app                                                                          | VS Code extension                                                                                                                                                                         |
-| ----------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Wardley Maps](modelers/wardley-maps/README.md)       | `.wmap`, `.owm` (OWM text DSL)                        | [wardley-maps.modeler.miragon.io](https://wardley-maps.modeler.miragon.io)       | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.wardley-mapping-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/wardley-mapping-modeler) |
-| [Event Storming](modelers/event-storming/README.md)   | `.storm` (line DSL)                                   | [event-storming.modeler.miragon.io](https://event-storming.modeler.miragon.io)   | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.event-storming-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/event-storming-modeler)   |
-| [Team Topologies](modelers/team-topologies/README.md) | `.tt`, `.ttm.json`, editable `*.tt.png`               | [team-topologies.modeler.miragon.io](https://team-topologies.modeler.miragon.io) | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.team-topologies-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/team-topologies-modeler) |
-| [Context Maps](modelers/context-maps/README.md)       | `.cm`, `.cm.json`, editable `*.cm.png`; `.cml` in/out | [context-maps.modeler.miragon.io](https://context-maps.modeler.miragon.io)       | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.context-maps-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/context-maps-modeler)       |
-| [Value Chain](modelers/value-chain/README.md)         | `.vc`, `.vc.json`                                     | no public deployment yet                                                         | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.value-chain-modeler)                                                                                       |
-| [C4 model](modelers/c4/README.md)                     | `.c4`, `.dsl` (Structurizr DSL)                       | [c4.modeler.miragon.io](https://c4.modeler.miragon.io)                           | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.c4-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/c4-modeler)                           |
+| Modeler                                                           | Files                                                 | Web app                                                                          | VS Code extension                                                                                                                                                                         |
+| ----------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Wardley Maps](modelers/wardley-maps/README.md)                   | `.wmap`, `.owm` (OWM text DSL)                        | [wardley-maps.modeler.miragon.io](https://wardley-maps.modeler.miragon.io)       | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.wardley-mapping-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/wardley-mapping-modeler) |
+| [Event Storming](modelers/event-storming/README.md)               | `.storm` (line DSL)                                   | [event-storming.modeler.miragon.io](https://event-storming.modeler.miragon.io)   | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.event-storming-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/event-storming-modeler)   |
+| [Team Topologies](modelers/team-topologies/README.md)             | `.tt`, `.ttm.json`, editable `*.tt.png`               | [team-topologies.modeler.miragon.io](https://team-topologies.modeler.miragon.io) | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.team-topologies-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/team-topologies-modeler) |
+| [Context Maps](modelers/context-maps/README.md)                   | `.cm`, `.cm.json`, editable `*.cm.png`; `.cml` in/out | [context-maps.modeler.miragon.io](https://context-maps.modeler.miragon.io)       | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.context-maps-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/context-maps-modeler)       |
+| [Value Chain](modelers/value-chain/README.md)                     | `.vc`, `.vc.json`                                     | no public deployment yet                                                         | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.value-chain-modeler)                                                                                       |
+| [C4 model](modelers/c4/README.md)                                 | `.c4`, `.dsl` (Structurizr DSL)                       | [c4.modeler.miragon.io](https://c4.modeler.miragon.io)                           | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.c4-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/c4-modeler)                           |
+| [Business Model Canvas](modelers/business-model-canvas/README.md) | `.bmc` (YAML: the nine blocks and their stickies)     | no public deployment yet                                                         | not published yet                                                                                                                                                                         |
 
 Every modeler except C4 is also an [Orca](https://www.onorca.dev) plugin: the file
 opens as a diagram right next to your coding agent, and each change the agent writes shows up on
 the canvas. Install them from Orca's plugin directory: search for **Miragon** in Settings →
 Plugins, or open a modeler's page from [Miragon/orca-modelers](https://github.com/Miragon/orca-modelers#install)
-(Orca 1.4.252 or later); C4 follows.
+(Orca 1.4.252 or later); C4 follows, and Business Model Canvas joins with its first release.
 
 Each modeler's README covers its features, its file format and how to embed it in your own app
-with its npm packages.
+with its npm packages. Business Model Canvas publishes no npm package: it ships as the web app, the
+VS Code extension and the Orca plugin only.
 
 The C4 Modeler is compatible with Structurizr DSL: it opens a Structurizr `workspace.dsl` as it is
 and keeps it a file Structurizr opens. Structurizr is a product of Structurizr Limited; this
 project is not affiliated with or endorsed by Structurizr Limited.
+
+The Business Model Canvas is by Strategyzer AG (strategyzer.com) and licensed under
+[CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); every canvas and every export of
+the modeler carries that attribution. The hints are Miragon's own. This project is
+not affiliated with or endorsed by Strategyzer AG.
 
 ### Try it in 30 seconds
 
@@ -65,6 +73,7 @@ a strategic question or review a board with feedback notes in the file:
 /plugin install wardley-maps-modeler@modeler-suite
 /plugin install event-storming-modeler@modeler-suite
 /plugin install team-topologies-modeler@modeler-suite
+/plugin install business-model-canvas-modeler@modeler-suite
 ```
 
 ## Contributing

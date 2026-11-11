@@ -1,0 +1,115 @@
+import { expect, test, type Page } from "@playwright/test";
+import { allowClipboardWrite, clickButtonsLikeSafari } from "./support/safari.js";
+import {
+  canvasSlot,
+  diagramPoint,
+  exportDocument,
+  exportText,
+  openApp,
+  openExample,
+  openMenu,
+  toast,
+  type Point,
+} from "./support/webapp.js";
+
+/**
+ * The canvas keys act only while the canvas `<svg>` has the focus. Under Safari's click model
+ * (support/safari.ts) a click on zoom in, zoom out or Share hands the focus to the canvas (guide
+ * §5.8, §5.7), so Cmd/Ctrl+Z and Cmd/Ctrl+A act at once; Enter on Share leaves it on the button. A dialog of
+ * the menu returns the focus to the menu trigger (§5.4), so for it the spec checks where the focus
+ * went and that the keys act once a click on the canvas has given it the focus back. Every project
+ * clicks that way; `webapp-webkit` runs this spec in WebKit itself.
+ */
+
+/** An empty spot of the example, under the Key Partners heading, in diagram coordinates. */
+const EMPTY_SPOT: Point = { x: 135, y: 150 };
+
+interface HandBackCase {
+  readonly name: string;
+  /** Clicks the chrome control; ends where the canvas holds the focus. */
+  run(page: Page): Promise<void>;
+}
+
+function canvas(page: Page) {
+  return canvasSlot(page).locator('svg[role="application"]');
+}
+
+function selectedCount(page: Page): Promise<number> {
+  return page.evaluate(
+    () =>
+      window.__businessModelCanvasApp!.modeler.diagram.get<{ get(): unknown[] }>("selection").get()
+        .length,
+  );
+}
+
+async function clickEmptySpot(page: Page): Promise<void> {
+  const spot = await diagramPoint(page, EMPTY_SPOT);
+  await page.mouse.click(spot.x, spot.y);
+}
+
+const HAND_BACK_CASES: readonly HandBackCase[] = [
+  ...(["in", "out"] as const).map((direction): HandBackCase => ({
+    name: `a click on zoom ${direction}`,
+    async run(page) {
+      await page.locator(`[data-chrome="zoom"] [data-zoom="${direction}"]`).click();
+    },
+  })),
+  {
+    name: "the menu's dialog closes (the focus on the menu trigger) and a click on the canvas",
+    async run(page) {
+      await (await openMenu(page)).locator('[data-menu-id="keyboard-shortcuts"]').click();
+      const dialog = page.getByRole("dialog", { name: "Keyboard shortcuts" });
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("button", { name: "Close" }).click();
+      // The dialog is hidden and the focus is on the trigger at once, but the shell removes the
+      // dialog and restores the focus again on the close event, which can follow a click on the
+      // canvas and take the focus from it. A role locator ignores a hidden dialog, so match the
+      // element.
+      await expect(page.locator("dialog.cd-shell-dialog")).toHaveCount(0);
+      await expect(page.locator('[data-chrome="menu"]')).toBeFocused();
+      await clickEmptySpot(page);
+    },
+  },
+  {
+    name: "a click on Share",
+    async run(page) {
+      await page.locator('[data-chrome="primary"]').click();
+      await expect(toast(page, "Link copied")).toBeVisible();
+    },
+  },
+];
+
+test.beforeEach(async ({ page, context, browserName }) => {
+  await clickButtonsLikeSafari(page);
+  await allowClipboardWrite(context, browserName);
+  await openApp(page);
+  await openExample(page);
+});
+
+test("Enter on Share leaves the focus on the button", async ({ page }) => {
+  const share = page.locator('[data-chrome="primary"]');
+  await share.focus();
+  await page.keyboard.press("Enter");
+  await expect(toast(page, "Link copied")).toBeVisible();
+  await expect(share).toBeFocused();
+  await expect(canvas(page)).not.toBeFocused();
+});
+
+for (const handBack of HAND_BACK_CASES) {
+  test(`Cmd/Ctrl+Z and Cmd/Ctrl+A act on the canvas after ${handBack.name}`, async ({ page }) => {
+    const original = await exportText(page);
+    await page.locator('.djs-shape[data-element-id="workshops"]').click();
+    await page.keyboard.press("Delete");
+    await expect.poll(() => exportText(page)).not.toBe(original);
+
+    await handBack.run(page);
+
+    await expect(canvas(page)).toBeFocused();
+    await page.keyboard.press("ControlOrMeta+z");
+    await expect.poll(() => exportText(page)).toBe(original);
+
+    await page.keyboard.press("ControlOrMeta+a");
+    const stickies = (await exportDocument(page)).blocks.flatMap((block) => block.items);
+    await expect.poll(() => selectedCount(page)).toBe(stickies.length);
+  });
+}

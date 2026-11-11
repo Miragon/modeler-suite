@@ -1,0 +1,68 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stablyai/orca/main/docs/schemas/plugins/orca-plugin.v2.schema.json",
+  "manifestVersion": 2,
+  "id": "business-model-canvas-modeler",
+  "name": "Business Model Canvas Modeler",
+  "version": "0.0.0",
+  "description": "Open .bmc files as a Business Model Canvas: fill the nine blocks, colour stickies by what matters to your team, write notes on what to test, and keep an agent's changes to the file merged with yours.",
+  "author": {
+    "name": "Miragon GmbH",
+    "url": "https://www.miragon.io"
+  },
+  "repository": "https://github.com/Miragon/modeler-suite",
+  "homepage": "https://miragon.github.io/modeler-suite/",
+  "license": "MIT",
+  "icon": "assets/icon.png",
+  "cover": {
+    "path": "images/cover.webp",
+    "alt": "Miragon Modeler for the Business Model Canvas: business models from plain .bmc files, edited by you and your agents."
+  },
+  "screenshots": [
+    {
+      "path": "images/cover.webp",
+      "alt": "Miragon Modeler for the Business Model Canvas: business models from plain .bmc files, edited by you and your agents.",
+      "caption": "Business Model Canvas from plain .bmc files"
+    },
+    {
+      "path": "images/screenshot-orca.webp",
+      "alt": "Orca with the strategy-workshop folder open and miragon.bmc in the Business Model Canvas editor, next to the project sidebar and the file tree",
+      "caption": "Runs right inside Orca, next to your files"
+    },
+    {
+      "path": "images/feature-notes.webp",
+      "alt": "Orca with the Business Model Canvas editor and the Notes panel open on Cost Structure, showing its note and Add note",
+      "caption": "Notes on a sticky, a block or the whole canvas"
+    },
+    {
+      "path": "images/feature-colour.webp",
+      "alt": "Orca with the Business Model Canvas editor, a sticky in Value Propositions selected and its colour menu open with eight tape colours",
+      "caption": "Give a sticky a tape colour that means what your team decides"
+    }
+  ],
+  "engines": {
+    "orca": ">=1.4.252"
+  },
+  "execution": "sandboxed-ui",
+  "pluginApi": 1,
+  "contributes": {
+    "customEditors": [
+      {
+        "id": "business-model-canvas",
+        "title": "Business Model Canvas",
+        "extensions": [
+          ".bmc"
+        ],
+        "entry": "editor/index.html",
+        "frame": "isolated"
+      }
+    ],
+    "newFiles": [
+      {
+        "id": "business-model-canvas",
+        "title": "New business model canvas from example",
+        "extension": ".bmc",
+        "template": "templates/example.bmc"
+      }
+    ]
+  }
+}

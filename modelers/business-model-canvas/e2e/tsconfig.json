@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@miragon/business-model-canvas-schema-model": ["../packages/schema-model/src/index.ts"],
+      "@miragon/business-model-canvas-renderer": ["../packages/renderer/src/index.ts"],
+      "@miragon/business-model-canvas-dsl": ["../packages/dsl/src/index.ts"]
+    }
+  },
+  "include": ["tests/**/*.ts", "webview/**/*.ts", "playwright.config.ts"]
+}

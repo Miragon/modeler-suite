@@ -1,0 +1,77 @@
+version: 1
+canvas:
+  title: Bike subscription
+customer-segments:
+  items:
+    - id: commuters
+      text: Commuters in the city
+      color: sky
+    - id: students
+      text: Students
+      color: peach
+    - id: companies
+      text: Companies with bike leasing
+      color: lagoon
+value-propositions:
+  items:
+    - id: always-fixed
+      text: A bike that is always fixed
+    - id: flat-fee
+      text: One monthly fee, no deposit
+      color: peach
+    - id: staff-benefit
+      text: Bikes as a staff benefit
+      color: lagoon
+      notes:
+        - text: Do HR teams buy this, or facility managers?
+channels:
+  items:
+    - id: station-pop-ups
+      text: Pop-up stores at stations
+      color: sky
+    - id: campus
+      text: Campus partners
+      color: peach
+    - id: sales
+      text: Sales team
+      color: lagoon
+customer-relationships:
+  items:
+    - id: repair-app
+      text: App with repair booking
+    - id: account-manager
+      text: Account manager
+      color: lagoon
+revenue-streams:
+  items:
+    - id: subscription
+      text: Monthly subscription
+    - id: fleet-contracts
+      text: Fleet contracts
+      color: lagoon
+key-resources:
+  items:
+    - id: fleet
+      text: Bike fleet
+    - id: repair-vans
+      text: Repair vans
+key-activities:
+  items:
+    - id: street-repair
+      text: Repair on the street
+    - id: logistics
+      text: Fleet logistics
+key-partners:
+  items:
+    - id: bike-maker
+      text: Bike maker
+    - id: city-transport
+      text: City transport
+cost-structure:
+  items:
+    - id: parts
+      text: Bikes and parts
+    - id: mechanics
+      text: Mechanics
+      notes:
+        - text: Repairs cost more in winter
