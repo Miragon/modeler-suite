@@ -1,7 +1,7 @@
 {
   "name": "miragon-modeler-collection",
   "displayName": "Miragon Modeler Collection",
-  "description": "Model-based design in VS Code: BPMN, Team Topologies, Wardley Maps, Context Maps, C4 models, Value Chains, Event Storming and Domain Storytelling in a single install.",
+  "description": "Model-based design in VS Code: Business Model Canvas, BPMN, Team Topologies, Wardley Maps, Context Maps, C4 models, Value Chains, Event Storming and Domain Storytelling in a single install.",
   "version": "1.5.0",
   "private": true,
   "publisher": "miragon-gmbh",
@@ -19,6 +19,7 @@
   ],
   "keywords": [
     "bpmn",
+    "business model canvas",
     "wardley maps",
     "team topologies",
     "context maps",
@@ -46,6 +47,7 @@
     "url": "https://github.com/Miragon/modeler-suite/issues"
   },
   "extensionPack": [
+    "miragon-gmbh.business-model-canvas-modeler",
     "miragon-gmbh.vs-code-bpmn-modeler",
     "miragon-gmbh.team-topologies-modeler",
     "miragon-gmbh.wardley-mapping-modeler",
@@ -60,8 +62,19 @@
       {
         "id": "getStarted",
         "title": "Get Started with the Miragon Modeler Collection",
-        "description": "Seven modeling lenses on your system: strategy, organization, architecture, process landscape, process, discovery and domain.",
+        "description": "Nine modeling lenses on your system: business model, strategy, organization, architecture, software architecture, process landscape, process, discovery and domain.",
         "steps": [
+          {
+            "id": "business-model-canvas",
+            "title": "Business model: Business Model Canvas",
+            "description": "Describe how the business creates, delivers and captures value, in nine blocks.\n[Open the Business Model Canvas tutorial](command:workbench.action.openWalkthrough?%22miragon-gmbh.business-model-canvas-modeler%23getStarted%22)",
+            "media": {
+              "markdown": "media/business-model-canvas.md"
+            },
+            "completionEvents": [
+              "onStepSelected"
+            ]
+          },
           {
             "id": "wardley",
             "title": "Strategy: Wardley Maps",
