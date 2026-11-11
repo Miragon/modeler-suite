@@ -16,8 +16,8 @@ Free and open source (MIT). No account, and it works offline. Part of the
 
 ## Use it where you work
 
-- **In the browser:** the web app needs no install (no public deployment yet; run it with
-  `npm run business-model-canvas dev:webapp`). Open or drop a `.bmc` file. **Share** copies a link
+- **In the browser:** the [web app](https://business-model-canvas.modeler.miragon.io) needs no install. Open or drop a `.bmc`
+  file. **Share** copies a link
   that holds the whole canvas. Export PNG, SVG or `.bmc`.
 - **In VS Code:** the [Business Model Canvas Modeler](apps/vscode/README.md) opens `.bmc` files as
   canvases, with the text side by side and problems in the Problems view.

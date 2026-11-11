@@ -73,7 +73,7 @@ const modelers = [
   {
     name: "Business Model Canvas",
     npmPackage: undefined,
-    webApp: undefined,
+    webApp: "https://business-model-canvas.modeler.miragon.io",
     file: "miragon.bmc",
     shot: "/shots/business-model-canvas/editor.png",
     link: "/modelers/business-model-canvas",
