@@ -36,13 +36,13 @@ in a text editor, or let your AI assistant write it.
 | [Context Maps](modelers/context-maps/README.md)                   | `.cm`, `.cm.json`, editable `*.cm.png`; `.cml` in/out | [context-maps.modeler.miragon.io](https://context-maps.modeler.miragon.io)       | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.context-maps-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/context-maps-modeler)       |
 | [Value Chain](modelers/value-chain/README.md)                     | `.vc`, `.vc.json`                                     | no public deployment yet                                                         | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.value-chain-modeler)                                                                                       |
 | [C4 model](modelers/c4/README.md)                                 | `.c4`, `.dsl` (Structurizr DSL)                       | [c4.modeler.miragon.io](https://c4.modeler.miragon.io)                           | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.c4-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/c4-modeler)                           |
-| [Business Model Canvas](modelers/business-model-canvas/README.md) | `.bmc` (YAML: the nine blocks and their stickies)     | no public deployment yet                                                         | not published yet                                                                                                                                                                         |
+| [Business Model Canvas](modelers/business-model-canvas/README.md) | `.bmc` (YAML: the nine blocks and their stickies)     | no public deployment yet                                                         | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.business-model-canvas-modeler)                                                                             |
 
 Every modeler except C4 is also an [Orca](https://www.onorca.dev) plugin: the file
 opens as a diagram right next to your coding agent, and each change the agent writes shows up on
 the canvas. Install them from Orca's plugin directory: search for **Miragon** in Settings →
 Plugins, or open a modeler's page from [Miragon/orca-modelers](https://github.com/Miragon/orca-modelers#install)
-(Orca 1.4.252 or later); C4 follows, and Business Model Canvas joins with its first release.
+(Orca 1.4.252 or later); C4 follows.
 
 Each modeler's README covers its features, its file format and how to embed it in your own app
 with its npm packages. Business Model Canvas publishes no npm package: it ships as the web app, the
