@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.12.0...modeler-shell-v0.13.0) (2026-11-11)
+
+
+### Features
+
+* **shell:** let a modeler's empty file show no hint and place its first element in a slot ([#614](https://github.com/Miragon/modeler-suite/issues/614)) ([661d45c](https://github.com/Miragon/modeler-suite/commit/661d45c4bdd816c81a2cd22b3d929cb24dad0929))
+
 ## [0.12.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.11.0...modeler-shell-v0.12.0) (2026-11-09)
 
 
