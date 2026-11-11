@@ -27,7 +27,7 @@ function readManifest(directory: string): ExtensionManifest {
  * extension in parallel, so the new extension's first release comes first; the pull request after
  * it adds the pack entry and the walkthrough step and takes the modeler off this list.
  */
-const PENDING_FIRST_PUBLISH: readonly string[] = ["business-model-canvas"];
+const PENDING_FIRST_PUBLISH: readonly string[] = [];
 
 const collection = readManifest(COLLECTION);
 const walkthroughSteps =

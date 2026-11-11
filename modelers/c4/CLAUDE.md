@@ -636,10 +636,8 @@ React, no `packages/ui`.
   (`public/miragon-komet-blau.svg`). `contributions.test.ts` checks the manifest's icons and that
   the VSIX ships them, `apps/webapp/test/icons.test.ts` the links and their files, and
   `check:build` that the build carries them and the comet.
-- `miragon-gmbh.c4-modeler` joins the extension pack `extensions/modeler-collection` only after its
-  first release, since a pack member that is not on the Marketplace breaks installing the pack.
-  Until then `test/modeler-collection.test.ts` lists `c4` in `PENDING_FIRST_PUBLISH`; the follow-up
-  adds the pack entry, the walkthrough step and `media/c4.md` and empties the list.
+- `miragon-gmbh.c4-modeler` is in the extension pack `extensions/modeler-collection`, with its
+  walkthrough step and `media/c4.md`; `test/modeler-collection.test.ts` requires both.
 
 ## Commands
 
