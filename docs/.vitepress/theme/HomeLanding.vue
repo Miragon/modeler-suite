@@ -77,7 +77,7 @@ const modelers = [
     file: "miragon.bmc",
     shot: "/shots/business-model-canvas/editor.png",
     link: "/modelers/business-model-canvas",
-    orca: undefined,
+    orca: "https://www.onorca.dev/plugins/miragon/orca-modelers/business-model-canvas-modeler",
     files: ".bmc",
     effect: "Nine blocks of stickies, with tape colours and notes.",
   },

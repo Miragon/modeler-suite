@@ -13,7 +13,6 @@ your agent reads and writes it like code.
 Free and open source (MIT). No account, no network access, and it sees only the file you open.
 
 **[Open in Orca](https://www.onorca.dev/plugins/miragon/orca-modelers/business-model-canvas-modeler)**
-(with the plugin's first release)
 
 ## Get started
 
