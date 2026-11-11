@@ -1,4 +1,5 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
+import { EXPLORE_MARKERS } from "../draw/styles.js";
 import type { SvgBounds } from "./saveSvg.js";
 
 /** Name of the diagram-js layer the evolution grid draws its axes into. */
@@ -88,9 +89,10 @@ function drawnContentBox(canvas: Canvas): SvgBounds | undefined {
     let right = -Infinity;
     let bottom = -Infinity;
     // diagram-js draws the previews of a move or create into the same layer; they are no part of
-    // the document, and a cancelled drag would otherwise leave its box behind.
+    // the document, and a cancelled drag would otherwise leave its box behind. What explore mode
+    // hides is no part of the export either.
     const visuals = layer.querySelectorAll<SVGGraphicsElement>(
-      ".djs-visual:not(.djs-drag-group .djs-visual)",
+      `.djs-visual:not(.djs-drag-group .djs-visual):not(.${EXPLORE_MARKERS.hidden} .djs-visual)`,
     );
     for (const visual of visuals) {
       const local = visual.getBBox();

@@ -139,7 +139,7 @@ describe("palette", () => {
     const paletteBox = palette.getBoundingClientRect();
     expect(paletteBox.width).toBeGreaterThan(500);
     const entries = Array.from(palette.querySelectorAll<HTMLElement>(".entry"));
-    expect(entries.length).toBeGreaterThanOrEqual(14);
+    expect(entries.length).toBeGreaterThanOrEqual(15);
     const rows = new Set(entries.map((entry) => Math.round(entry.getBoundingClientRect().top)));
     expect(rows.size).toBe(1);
     for (const entry of entries)
@@ -178,6 +178,7 @@ describe("palette", () => {
     );
     expect(shortcuts).toMatchObject({
       "lasso-tool": "L",
+      explore: "E",
       "create.component": "C",
       "create.anchor": "U",
       "create.note": "N",
@@ -300,7 +301,7 @@ describe("palette", () => {
   it("draws the tools with the Lucide icons in currentColor, so the chrome colours them", () => {
     const target = mount();
     void target.get<Canvas>("canvas");
-    for (const tool of ["lasso-tool", "draw-tool"]) {
+    for (const tool of ["lasso-tool", "draw-tool", "explore"]) {
       const glyph = target.container.querySelector(
         `.djs-palette .entry[data-action="${tool}"] svg`,
       );

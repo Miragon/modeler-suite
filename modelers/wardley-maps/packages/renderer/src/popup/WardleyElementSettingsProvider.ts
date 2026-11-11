@@ -18,9 +18,9 @@ const PROP_GROUP = { id: "props", name: "Properties" };
 /**
  * The menu handles its own keys (arrows select, Enter picks), so no listener further up acts on
  * them too. Escape must still bubble: diagram-js closes the menu from a document listener. A key
- * on a menu the host made inert or hid is the page's.
+ * on a menu the host made inert or hid is the page's. Explore mode's start menu uses it too.
  */
-function keepKeysInsidePopup(event: KeyboardEvent): void {
+export function keepKeysInsidePopup(event: KeyboardEvent): void {
   if (event.key !== "Escape" && !isKeyOnHiddenTarget(event)) event.stopPropagation();
 }
 

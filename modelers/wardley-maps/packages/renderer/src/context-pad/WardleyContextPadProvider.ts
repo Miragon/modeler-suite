@@ -49,9 +49,9 @@ function escapeAttribute(value: string): string {
 
 /**
  * ContextPad entry as a focusable icon button. `draggable=true` is mandatory for entries with a
- * `dragstart` action — otherwise diagram-js does not fire the drag.
+ * `dragstart` action, or diagram-js does not fire the drag. Explore mode's pad uses it too.
  */
-function cpHtml(iconSvg: string, label: string, draggable = false): string {
+export function cpHtml(iconSvg: string, label: string, draggable = false): string {
   const name = escapeAttribute(label);
   return `<div class="entry wardley-cp-entry" role="button" tabindex="0" aria-label="${name}"${draggable ? ' draggable="true"' : ""} title="${name}">${iconSvg}</div>`;
 }

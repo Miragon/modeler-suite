@@ -1,13 +1,14 @@
-/*! @miragon/wardley-renderer icon geometry: the context pad icons. Lucide (lucide-static 1.59.0)
- * @license ISC Copyright (c) 2026 Lucide Icons and Contributors
- * arrow-right, chevrons-right, circle-plus, external-link, link, map and trash derive from Feather
+/*! @miragon/wardley-renderer icon geometry: the context pad icons and explore mode's icons.
+ * Lucide (lucide-static 1.59.0) @license ISC Copyright (c) 2026 Lucide Icons and Contributors
+ * arrow-right, chevron-down, chevron-up, chevrons-down, chevrons-right, chevrons-up, circle-plus,
+ * external-link, link, map, search and trash derive from Feather
  * @license MIT, Copyright (c) 2013-present Cole Bemis
  * Full notices: README.md of @miragon/wardley-renderer */
 
 /**
- * The Lucide icons of the context pad (guide §5.14), inlined so the renderer has no icon runtime
- * dependency. Copied unchanged from lucide-static 1.59.0 (`icon-nodes.json`), except
- * `chevrons-right-x`.
+ * The Lucide icons of the context pad and of explore mode's toolbar, pad and chips (guide §5.14),
+ * inlined so the renderer has no icon runtime dependency. Copied unchanged from lucide-static
+ * 1.59.0 (`icon-nodes.json`), except `chevrons-right-x`.
  */
 export const LUCIDE = {
   pencil:
@@ -33,6 +34,20 @@ export const LUCIDE = {
   "external-link":
     '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
   map: '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+  "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+  "chevron-up": '<path d="m18 15-6-6-6 6"/>',
+  "chevrons-down": '<path d="m7 6 5 5 5-5"/><path d="m7 13 5 5 5-5"/>',
+  "chevrons-up": '<path d="m17 11-5-5-5 5"/><path d="m17 18-5-5-5 5"/>',
+  "eye-off":
+    '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
+  eye: '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+  telescope:
+    '<path d="m10.065 12.493-6.18 1.318a.934.934 0 0 1-1.108-.702l-.537-2.15a1.07 1.07 0 0 1 .691-1.265l13.504-4.44"/><path d="m13.56 11.747 4.332-.924"/><path d="m16 21-3.105-6.21"/><path d="M16.485 5.94a2 2 0 0 1 1.455-2.425l1.09-.272a1 1 0 0 1 1.212.727l1.515 6.06a1 1 0 0 1-.727 1.213l-1.09.272a2 2 0 0 1-2.425-1.455z"/><path d="m6.158 8.633 1.114 4.456"/><path d="m8 21 3.105-6.21"/><circle cx="12" cy="13" r="2"/>',
+  search: '<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>',
+  "step-back":
+    '<path d="M13.971 4.285A2 2 0 0 1 17 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z"/><path d="M21 20V4"/>',
+  "rotate-ccw": '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  blend: '<circle cx="15" cy="9" r="7"/><circle cx="9" cy="15" r="7"/>',
 } as const;
 
 export type LucideIconName = keyof typeof LUCIDE;

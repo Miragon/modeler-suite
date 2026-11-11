@@ -1,10 +1,17 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type Canvas from "diagram-js/lib/core/Canvas";
 import type ElementRegistry from "diagram-js/lib/core/ElementRegistry";
+import type ContextPad from "diagram-js/lib/features/context-pad/ContextPad";
+import type Palette from "diagram-js/lib/features/palette/Palette";
 import type Rules from "diagram-js/lib/features/rules/Rules";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type { Element } from "diagram-js/lib/model/Types";
-import { Modeler, type WardleyReadOnly } from "../../src/index.js";
+import {
+  Modeler,
+  READ_ONLY_CHANGED,
+  type WardleyReadOnly,
+  type WardleyReadOnlyChangedEvent,
+} from "../../src/index.js";
 import { isWardleyShape, type WardleyShape } from "../../src/model/di-types.js";
 import type WardleyLabelEditing from "../../src/label-editing/WardleyLabelEditing.js";
 import type WardleyColorPicker from "../../src/color-picker/WardleyColorPicker.js";
@@ -44,6 +51,30 @@ function shape(target: Modeler, label: string): WardleyShape {
 
 function lock(target: Modeler, readOnly = true): void {
   target.get<WardleyReadOnly>("wardleyReadOnly").setReadOnly(readOnly);
+}
+
+function readOnlyOf(target: Modeler): WardleyReadOnly {
+  return target.get<WardleyReadOnly>("wardleyReadOnly");
+}
+
+function exploreLock(target: Modeler, locked = true): void {
+  readOnlyOf(target).setExploreLock(locked);
+}
+
+function moveContextOf(target: Modeler): { shapes: Element[]; delta: { x: number; y: number } } {
+  return { shapes: [shape(target, "Kettle") as unknown as Element], delta: { x: 10, y: 0 } };
+}
+
+function movesAllowed(target: Modeler): boolean {
+  return target.get<Rules>("rules").allowed("elements.move", moveContextOf(target)) !== false;
+}
+
+function lockEvents(target: Modeler): WardleyReadOnlyChangedEvent[] {
+  const events: WardleyReadOnlyChangedEvent[] = [];
+  target.on(READ_ONLY_CHANGED, (event: WardleyReadOnlyChangedEvent) => {
+    events.push({ readOnly: event.readOnly, shown: event.shown, reasons: [...event.reasons] });
+  });
+  return events;
 }
 
 function press(target: Modeler, key: string, modifiers: KeyboardEventInit = {}): void {
@@ -123,5 +154,171 @@ describe("the read-only lock of a canvas (guide §13.5)", () => {
     expect(getComputedStyle(resize).display).toBe("none");
     lock(target, false);
     expect(target.container.classList.contains("wardley-read-only")).toBe(false);
+  });
+});
+
+describe("the reasons of the lock: the document and explore mode", () => {
+  it("keeps the explore lock through the host's setReadOnly(false) of a valid import", async () => {
+    const target = await mount();
+    exploreLock(target);
+    lock(target, false);
+    expect(readOnlyOf(target).isLockedBy("explore")).toBe(true);
+    expect(readOnlyOf(target).isReadOnly()).toBe(true);
+    expect(movesAllowed(target)).toBe(false);
+
+    lock(target);
+    lock(target, false);
+    expect(readOnlyOf(target).isLockedBy("explore")).toBe(true);
+    expect(movesAllowed(target)).toBe(false);
+
+    exploreLock(target, false);
+    expect(readOnlyOf(target).isReadOnly()).toBe(false);
+    expect(movesAllowed(target)).toBe(true);
+  });
+
+  it("keeps the document lock, its marks and its class when explore mode ends", async () => {
+    const target = await mount();
+    lock(target);
+    exploreLock(target);
+    exploreLock(target, false);
+    const readOnly = readOnlyOf(target);
+    expect(readOnly.isLockedBy("document")).toBe(true);
+    expect(readOnly.isLockedBy("explore")).toBe(false);
+    expect(readOnly.isReadOnly()).toBe(true);
+    expect(readOnly.isReadOnlyShown()).toBe(true);
+    expect(target.container.classList.contains("wardley-read-only")).toBe(true);
+    expect(movesAllowed(target)).toBe(false);
+  });
+
+  it("is read-only while any reason holds", async () => {
+    const target = await mount();
+    const readOnly = readOnlyOf(target);
+    const state = () => [
+      readOnly.isLockedBy("document"),
+      readOnly.isLockedBy("explore"),
+      readOnly.isReadOnly(),
+    ];
+    expect(state()).toEqual([false, false, false]);
+    exploreLock(target);
+    expect(state()).toEqual([false, true, true]);
+    lock(target);
+    expect(state()).toEqual([true, true, true]);
+    exploreLock(target, false);
+    expect(state()).toEqual([true, false, true]);
+    lock(target, false);
+    expect(state()).toEqual([false, false, false]);
+    expect(movesAllowed(target)).toBe(true);
+  });
+
+  it("shows only the document lock: the explore lock marks neither the container nor the palette", async () => {
+    const target = await mount();
+    const readOnly = readOnlyOf(target);
+    const markedEntries = () =>
+      target.container.querySelectorAll('.djs-palette .entry[aria-disabled="true"]').length;
+    exploreLock(target);
+    expect(readOnly.isReadOnlyShown()).toBe(false);
+    expect(target.container.classList.contains("wardley-read-only")).toBe(false);
+    expect(markedEntries()).toBe(0);
+
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      readOnly.setReadOnly(true, { delayMs: 800 });
+      vi.advanceTimersByTime(799);
+      expect(readOnly.isReadOnlyShown()).toBe(false);
+      vi.advanceTimersByTime(1);
+      expect(readOnly.isReadOnlyShown()).toBe(true);
+      expect(markedEntries()).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
+    lock(target, false);
+    expect(readOnly.isReadOnlyShown()).toBe(false);
+    expect(markedEntries()).toBe(0);
+  });
+
+  it("vetoes the palette's entries without the shell for the document lock only", async () => {
+    const target = await mount();
+    const clicks: string[] = [];
+    target.get<Palette>("palette").registerProvider({
+      getPaletteEntries: () => ({
+        "host.count": {
+          group: "host",
+          title: "Host entry",
+          html: '<div class="entry">H</div>',
+          action: { click: () => clicks.push("host.count") },
+        },
+      }),
+    });
+    const click = () =>
+      target.container
+        .querySelector<HTMLElement>('.djs-palette .entry[data-action="host.count"]')!
+        .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    exploreLock(target);
+    click();
+    expect(clicks).toEqual(["host.count"]);
+    lock(target);
+    click();
+    expect(clicks).toEqual(["host.count"]);
+    lock(target, false);
+    click();
+    expect(clicks).toEqual(["host.count", "host.count"]);
+  });
+
+  it("ends what is open when explore mode locks an unlocked canvas", async () => {
+    const target = await mount();
+    const before = target.exportDSL();
+    target.get<WardleyLabelEditing>("wardleyLabelEditing").activate(shape(target, "Kettle"));
+    const field = target.container.querySelector<HTMLTextAreaElement>(".wardley-label-input")!;
+    field.value = "Typed, not saved";
+    exploreLock(target);
+    expect(target.container.querySelector(".wardley-label-input")).toBeNull();
+    expect(target.exportDSL()).toBe(before);
+    target.get<WardleyDrawTool>("wardleyDrawTool").activate();
+    expect(target.get<WardleyDrawTool>("wardleyDrawTool").isActive()).toBe(false);
+  });
+
+  it("hides the context pad under the document lock, but not while exploring", async () => {
+    const target = await mount();
+    lock(target);
+    target.get<ContextPad>("contextPad").open(shape(target, "Kettle") as unknown as Element);
+    const pad = target.container.querySelector(".djs-context-pad.open")!;
+    expect(getComputedStyle(pad).display).toBe("none");
+    target.container.classList.add("wardley-exploring");
+    expect(getComputedStyle(pad).display).not.toBe("none");
+  });
+
+  it("fires a change with its reasons whenever a reason comes or goes, and none for a repeat", async () => {
+    const target = await mount();
+    const events = lockEvents(target);
+    exploreLock(target);
+    exploreLock(target);
+    lock(target);
+    lock(target);
+    lock(target, false);
+    lock(target, false);
+    exploreLock(target, false);
+    exploreLock(target, false);
+    expect(events).toEqual([
+      { readOnly: true, shown: false, reasons: ["explore"] },
+      { readOnly: true, shown: true, reasons: ["document", "explore"] },
+      { readOnly: true, shown: false, reasons: ["explore"] },
+      { readOnly: false, shown: false, reasons: [] },
+    ]);
+  });
+
+  it("names the reasons of a document lock alone, as before with readOnly and shown", async () => {
+    const target = await mount();
+    const events = lockEvents(target);
+    lock(target);
+    exploreLock(target);
+    exploreLock(target, false);
+    lock(target, false);
+    expect(events).toEqual([
+      { readOnly: true, shown: true, reasons: ["document"] },
+      { readOnly: true, shown: true, reasons: ["document", "explore"] },
+      { readOnly: true, shown: true, reasons: ["document"] },
+      { readOnly: false, shown: false, reasons: [] },
+    ]);
   });
 });

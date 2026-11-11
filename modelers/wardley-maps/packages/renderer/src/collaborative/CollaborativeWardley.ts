@@ -22,6 +22,7 @@ import { NavigatedViewer } from "../NavigatedViewer.js";
 import type { WardleyViewerOptions } from "../WardleyBaseViewer.js";
 import { WARDLEY_THEMES } from "../appearance/index.js";
 import { restoreEditorState, setAsideEditorState } from "../editor-state.js";
+import type { WardleyExplore } from "../explore/index.js";
 import {
   INTERACTION_CHANGED,
   type InteractionChangedEvent,
@@ -293,6 +294,23 @@ function importTurns(
   };
 }
 
+/**
+ * Selects an element for `reveal`; explore mode shows it first, never selected out of sight. A
+ * listener of that step may destroy the modeler, and reading a destroyed map would build a new one
+ * on the detached container: then nothing is selected, and the result is false.
+ */
+function selectShown(
+  diagram: Modeler | NavigatedViewer,
+  editable: boolean,
+  element: WardleyShape,
+  isDestroyed: () => boolean,
+): boolean {
+  if (editable) diagram.get<WardleyExplore>("wardleyExplore").revealElement(element.id);
+  if (isDestroyed()) return false;
+  diagram.get<Selection>("selection").select(element as unknown as Element);
+  return true;
+}
+
 function collaborative(
   diagram: Modeler | NavigatedViewer,
   editable: boolean,
@@ -356,7 +374,7 @@ function collaborative(
       if (destroyed) return false;
       const element = elementRegistry.get(ids.canvasIdOf(id));
       if (!isAddressable(element)) return false;
-      selection.select(element as unknown as Element);
+      if (!selectShown(diagram, editable, element, () => destroyed)) return false;
       canvas.scrollToElement(element as unknown as Element);
       return true;
     },

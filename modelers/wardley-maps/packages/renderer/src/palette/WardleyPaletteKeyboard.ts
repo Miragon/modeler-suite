@@ -15,14 +15,16 @@ const ACTIVATE_KEYS = new Set(["Enter", " "]);
  * roving tabindex, arrow keys / Home / End move between tools, Enter or Space activates the focused
  * one. A create tool has no pointer position to attach the new element to, so it is placed at the
  * centre of the free rectangle instead (see `WardleyPaletteProvider.createAtFreeCenter`). The
- * palette comes before the canvas in the tab order. Only for hosts without the Miragon modeler
- * shell, which brings these keys and that order itself.
+ * palette comes before the canvas in the tab order, and a rebuild of the entries (explore mode
+ * swaps them) gives the focus back to the entry of the same action. Only for hosts without the
+ * Miragon modeler shell, which brings these keys, that order and that focus itself.
  */
 export default class WardleyPaletteKeyboard {
   static $inject = ["eventBus", "palette", "wardleyPaletteProvider", "injector"];
 
   private container: HTMLElement | undefined;
   private activeAction: string | undefined;
+  private focusedEntry: HTMLElement | undefined;
 
   constructor(
     eventBus: EventBus,
@@ -39,6 +41,7 @@ export default class WardleyPaletteKeyboard {
     eventBus.on("palette.changed", () => {
       this.moveBeforeCanvas();
       this.updateTabStops();
+      this.restoreFocus();
     });
     const existing = (palette as unknown as { _container?: HTMLElement })._container;
     if (existing) {
@@ -77,10 +80,43 @@ export default class WardleyPaletteKeyboard {
     container.addEventListener("focusin", (event) => {
       const entry = this.entryOf(event.target);
       if (!entry) return;
+      this.focusedEntry = entry;
       this.activeAction = entry.getAttribute("data-action") ?? undefined;
       this.updateTabStops();
     });
+    container.addEventListener("focusout", (event) => this.onFocusOut(event));
     this.updateTabStops();
+  }
+
+  // A focus that leaves the palette is not brought back by a later rebuild. Chromium reports the
+  // removal of the focused entry as a focusout too, while the entry is still in the document, and
+  // the rebuild's `palette.changed` follows in the same task: so the entry counts as left only once
+  // that task is over and the focus has not come back to it.
+  private onFocusOut(event: FocusEvent): void {
+    const entry = this.entryOf(event.target);
+    if (!entry || entry !== this.focusedEntry) return;
+    const next = event.relatedTarget;
+    if (next instanceof Node && this.container?.contains(next)) return;
+    queueMicrotask(() => {
+      if (this.focusedEntry === entry && entry.ownerDocument.activeElement !== entry) {
+        this.focusedEntry = undefined;
+      }
+    });
+  }
+
+  // A rebuild removes the focused entry, which would drop the focus onto <body>: it goes to the
+  // entry of the same action, or to the tab stop where the rebuilt palette no longer offers it.
+  private restoreFocus(): void {
+    const lost = this.focusedEntry;
+    if (!lost || lost.isConnected) return;
+    this.focusedEntry = undefined;
+    const entries = this.entries();
+    const action = lost.getAttribute("data-action");
+    const replacement =
+      entries.find((entry) => entry.getAttribute("data-action") === action) ??
+      entries.find((entry) => entry.tabIndex === 0);
+    const active = lost.ownerDocument.activeElement;
+    if (replacement && (!active || active === lost.ownerDocument.body)) replacement.focus();
   }
 
   private entries(): HTMLElement[] {

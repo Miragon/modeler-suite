@@ -1,4 +1,5 @@
 import {
+  EXPLORE_CHANGED,
   WARDLEY_THEMES,
   createAxisLabelsPopover,
   createCollaborativeModeler,
@@ -10,6 +11,7 @@ import {
   type CollaborativeWardleyOptions,
   type LabelDeduplicatedEvent,
   type Modeler,
+  type WardleyExplore,
   type WardleyReadOnly,
 } from "@miragon/wardley-renderer";
 import { patchDSL } from "@miragon/wardley-dsl";
@@ -71,6 +73,7 @@ export function createMapEditor(links: MapLinks): IdeEditorDefinition<Collaborat
     isEmpty,
     menu: (context) =>
       mapMenu({
+        explore: diagramOf(context.modeler).get<WardleyExplore>("wardleyExplore"),
         mapSize: () => popovers?.mapSize.open(),
         axisLabels: () => popovers?.axisLabels.open(),
         exports: {
@@ -106,8 +109,10 @@ export function createMapEditor(links: MapLinks): IdeEditorDefinition<Collaborat
         connection.viewport.fit({ animate: false });
       }
     },
-    afterMount({ shell, modeler, host }) {
+    afterMount({ shell, modeler, host, refreshMenu }) {
       const diagram = diagramOf(modeler);
+      // Explore mode runs no command, so the shell's refresh on commandStack.changed misses it.
+      diagram.on(EXPLORE_CHANGED, () => refreshMenu());
       const mapSize = createMapSizePopover(shell, diagram);
       const axisLabels = createAxisLabelsPopover(shell, diagram);
       popovers = { mapSize, axisLabels };

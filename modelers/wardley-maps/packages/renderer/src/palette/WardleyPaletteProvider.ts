@@ -155,26 +155,55 @@ const SPECS: readonly PaletteSpec[] = [
   },
 ];
 
-interface ToolSpec {
+/** A tool entry of the palette: an action on the canvas that creates nothing. */
+export interface PaletteToolSpec {
   key: string;
   title: string;
   shortcut?: string;
   icon: string;
+  /** `aria-pressed`: a toggle's state. */
+  pressed?: boolean;
+  /** `aria-disabled`: the entry stays focusable, and its action must do nothing by itself. */
+  disabled?: boolean;
+}
+
+/** The structural part of explore mode (`src/explore/`) its palette entry needs. */
+interface ExploreToggle {
+  isActive(): boolean;
+  toggle(): void;
+}
+
+interface EntryHtmlOptions {
+  draggable?: boolean;
+  pressed?: boolean | undefined;
+  disabled?: boolean | undefined;
 }
 
 // Names in sentence case, keys apart (guide §5.6): the chrome tooltip shows the key as a chip, and
 // the gestures (Shift+drag, how a drawing ends) are listed in the keyboard shortcuts.
-const LASSO_TOOL: ToolSpec = {
+const LASSO_TOOL: PaletteToolSpec = {
   key: "lasso-tool",
   title: "Lasso",
   shortcut: "L",
   icon: PALETTE_ICONS.lasso!,
 };
 
-const DRAW_TOOL: ToolSpec = {
+const DRAW_TOOL: PaletteToolSpec = {
   key: "draw-tool",
   title: "Draw",
   icon: PALETTE_ICONS.draw!,
+};
+
+/**
+ * A toggle, not one of diagram-js's tools: its key has no `-tool`, so neither the shell nor
+ * `WardleyPaletteArmedTool` writes its `aria-pressed`.
+ */
+export const EXPLORE_ENTRY = "explore";
+const EXPLORE_TOOL: PaletteToolSpec = {
+  key: EXPLORE_ENTRY,
+  title: "Explore mode",
+  shortcut: "E",
+  icon: PALETTE_ICONS.explore!,
 };
 
 /** Leaves room so a keyboard-created shape is not clipped by the plot edge. */
@@ -233,38 +262,27 @@ export default class WardleyPaletteProvider implements PaletteProvider {
 
     // Selection tool first. Group MUST be called "tools" and the key end in "-tool" — that is
     // what diagram-js' palette uses to highlight the active tool (tool-manager.update).
-    entries[LASSO_TOOL.key] = {
-      group: "tools",
-      ...this.describe(LASSO_TOOL.title, LASSO_TOOL.shortcut),
-      html: this.entryHtml(LASSO_TOOL.title, LASSO_TOOL.icon, LASSO_TOOL.shortcut),
-      action: {
-        click: (event: Event) => {
-          // A pointer's press has already ended the waiting drag, so its click arms the lasso again.
-          if (isKeyboardClick(event) && this.lassoArmed()) {
-            this.putLassoDown();
-            return;
-          }
-          this.lassoTool.activateSelection(event as MouseEvent);
-          this.focusCanvasAfterPointer(event);
-        },
-      },
-    };
+    entries[LASSO_TOOL.key] = this.toolEntry(LASSO_TOOL, (event) => {
+      // A pointer's press has already ended the waiting drag, so its click arms the lasso again.
+      if (isKeyboardClick(event) && this.lassoArmed()) {
+        this.putLassoDown();
+        return;
+      }
+      this.lassoTool.activateSelection(event as MouseEvent);
+      this.focusCanvasAfterPointer(event);
+    });
 
-    entries[DRAW_TOOL.key] = {
-      group: "tools",
-      ...this.describe(DRAW_TOOL.title, DRAW_TOOL.shortcut),
-      html: this.entryHtml(DRAW_TOOL.title, DRAW_TOOL.icon, DRAW_TOOL.shortcut),
-      action: {
-        click: (event: Event) => {
-          // A pointer's press ends the lasso's waiting drag first; without one, that drag would wait
-          // on behind the draw tool and take the canvas's next press as well. The lock refuses the
-          // draw tool and leaves the lasso active, so the lasso stays armed then.
-          if (isKeyboardClick(event) && !isReadOnly(this.injector)) this.putLassoDown();
-          this.drawTool.toggle();
-          this.focusCanvasAfterPointer(event);
-        },
-      },
-    };
+    entries[DRAW_TOOL.key] = this.toolEntry(DRAW_TOOL, (event) => {
+      // A pointer's press ends the lasso's waiting drag first; without one, that drag would wait
+      // on behind the draw tool and take the canvas's next press as well. The lock refuses the
+      // draw tool and leaves the lasso active, so the lasso stays armed then.
+      if (isKeyboardClick(event) && !isReadOnly(this.injector)) this.putLassoDown();
+      this.drawTool.toggle();
+      this.focusCanvasAfterPointer(event);
+    });
+
+    const explore = this.injector.get<ExploreToggle | null>("wardleyExplore", false);
+    if (explore) entries[EXPLORE_ENTRY] = this.exploreToggleEntry(explore);
 
     for (const spec of SPECS) {
       const start = (event: Event) => {
@@ -279,11 +297,46 @@ export default class WardleyPaletteProvider implements PaletteProvider {
       entries[`create.${spec.key}`] = {
         group: spec.group,
         ...this.describe(spec.title, spec.shortcut),
-        html: this.entryHtml(spec.title, spec.icon, spec.shortcut, true),
+        html: this.entryHtml(spec.title, spec.icon, spec.shortcut, { draggable: true }),
         action: { dragstart: start, click },
       };
     }
     return entries;
+  }
+
+  /**
+   * A tool entry in the palette's look (group `tools`, a tooltip with the key), which explore mode's
+   * toolbar uses as well. With `handsFocusToCanvas`, a pointer click then hands the focus to the
+   * canvas (guide §5.8); Enter and Space leave it on the entry.
+   */
+  toolEntry(
+    tool: PaletteToolSpec,
+    click: (event: Event) => void,
+    { handsFocusToCanvas = false }: { handsFocusToCanvas?: boolean } = {},
+  ): PaletteEntry {
+    return {
+      group: "tools",
+      ...this.describe(tool.title, tool.shortcut),
+      html: this.entryHtml(tool.title, tool.icon, tool.shortcut, {
+        pressed: tool.pressed,
+        disabled: tool.disabled,
+      }),
+      action: {
+        click: (event: Event) => {
+          click(event);
+          if (handsFocusToCanvas) this.focusCanvasAfterPointer(event);
+        },
+      },
+    };
+  }
+
+  /** The toggle of explore mode, pressed while it runs (its toolbar then shows this entry). */
+  exploreToggleEntry(explore: ExploreToggle): PaletteEntry {
+    return this.toolEntry(
+      { ...EXPLORE_TOOL, pressed: explore.isActive() },
+      () => explore.toggle(),
+      { handsFocusToCanvas: true },
+    );
   }
 
   /**
@@ -393,13 +446,21 @@ export default class WardleyPaletteProvider implements PaletteProvider {
     return shortcut ? { title, shortcut } : { title };
   }
 
-  private entryHtml(title: string, icon: string, shortcut?: string, draggable = false): string {
+  private entryHtml(
+    title: string,
+    icon: string,
+    shortcut: string | undefined,
+    { draggable = false, pressed, disabled }: EntryHtmlOptions = {},
+  ): string {
     // Next to a styled tooltip a native `title` would pop up a second, slower one.
     const nativeTitle = this.needsNativeTitle
       ? ` title="${escapeAttribute(shortcut ? `${title} (${shortcut})` : title)}"`
       : "";
     const keyShortcut = shortcut ? ` aria-keyshortcuts="${escapeAttribute(shortcut)}"` : "";
-    return `<div class="entry wardley-palette-entry"${draggable ? ' draggable="true"' : ""}${nativeTitle}${keyShortcut}>${icon}</div>`;
+    const state =
+      (pressed === undefined ? "" : ` aria-pressed="${String(pressed)}"`) +
+      (disabled ? ' aria-disabled="true"' : "");
+    return `<div class="entry wardley-palette-entry"${draggable ? ' draggable="true"' : ""}${nativeTitle}${keyShortcut}${state}>${icon}</div>`;
   }
 }
 

@@ -5,8 +5,10 @@ export type {
   MapMenu,
   MapMenuAction,
   MapMenuActions,
+  MapMenuCheckbox,
   MapMenuDialog,
   MapMenuEntry,
+  MapMenuExplore,
   MapMenuIcon,
 } from "./menu.js";
 export { mapShortcuts } from "./shortcuts.js";

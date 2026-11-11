@@ -547,8 +547,9 @@
 
 /* Element settings popup (type / sourcing / inertia): show every option — diagram-js caps the result
    list at 280px, which always hid Inertia below an invisible scroll edge. Unscoped because
-   diagram-js may mount popups outside the canvas container. */
-.djs-popup.wardley-element-settings {
+   diagram-js may mount popups outside the canvas container. Explore mode's "Start from…" menu
+   looks the same, and keeps the cap: it lists every component of the map. */
+.djs-popup:is(.wardley-element-settings, .wardley-explore-start) {
   border: 1px solid var(--cd-ui-linie);
   border-radius: var(--cd-radius-md);
   box-shadow: var(--cd-shadow-3);
@@ -559,10 +560,12 @@
 }
 /* The result list keeps focus while arrow keys move the active entry; its own ring would be cut by
    the popup's rounded border (or cross the group headings), so the popup frame carries it. */
-.djs-popup.wardley-element-settings .djs-popup-results:focus-visible {
+.djs-popup:is(.wardley-element-settings, .wardley-explore-start) .djs-popup-results:focus-visible {
   outline: none;
 }
-.djs-popup.wardley-element-settings:has(.djs-popup-results:focus-visible) {
+.djs-popup:is(.wardley-element-settings, .wardley-explore-start):has(
+    .djs-popup-results:focus-visible
+  ) {
   outline: 2px solid var(--cd-ui-fokus);
   outline-offset: 2px;
 }
@@ -573,7 +576,8 @@
   :where(button, a, select, input, textarea, [role="button"], [tabindex]):focus-visible,
 .djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
   :where(.entry, [role="button"], [tabindex]):focus-visible,
-.djs-popup.wardley-element-settings :where(.entry, [tabindex]):focus-visible {
+.djs-popup:is(.wardley-element-settings, .wardley-explore-start)
+  :where(.entry, [tabindex]):focus-visible {
   outline: 2px solid var(--cd-ui-fokus);
   outline-offset: 2px;
 }
@@ -637,15 +641,221 @@
 }
 
 /* Read-only canvas (an invalid file in an IDE, guide §13.5): no context pad, no handles, and
-   labels and evolve targets no longer offer a drag. */
-.wardley-container.wardley-read-only .djs-context-pad,
+   labels and evolve targets no longer offer a drag. Explore mode brings its own context pad, which
+   stays under this lock. */
+.wardley-container.wardley-read-only:not(.wardley-exploring) .djs-context-pad,
 .wardley-container.wardley-read-only .layer-wardley-map-resize,
-.wardley-container.wardley-read-only .layer-wardley-drawing-handles {
+.wardley-container.wardley-read-only .layer-wardley-drawing-handles,
+.wardley-container.wardley-exploring .layer-wardley-map-resize,
+.wardley-container.wardley-exploring .layer-wardley-drawing-handles {
   display: none;
 }
 .wardley-container.wardley-read-only .wardley-label-handle,
-.wardley-container.wardley-read-only .wardley-evolve-handle {
+.wardley-container.wardley-read-only .wardley-evolve-handle,
+.wardley-container.wardley-exploring .wardley-label-handle,
+.wardley-container.wardley-exploring .wardley-evolve-handle {
   cursor: default;
+}
+
+/* Explore mode (src/explore/): the map shows what the user revealed. A hidden element takes no
+   room and no pointer; !important because diagram-js writes `display` as an inline style. The
+   markers reach an element's overlays too, so its chips go with it. */
+.wardley-container:not(.wardley-explore-faded) .djs-element.wardley-explore-hidden,
+.wardley-container.wardley-explore-picking .djs-element.wardley-explore-commentary,
+.wardley-container .djs-overlays.wardley-explore-hidden {
+  display: none !important;
+}
+/* The faded rest, and the whole map while a start is picked: drawn in the neutral roles, opaque, as
+   guide §8 and §9 draw a muted state (never by opacity). !important because tiny-svg writes stroke
+   and fill as inline styles. A shape's fill takes the plot, but what is drawn by its fill alone (an
+   anchor's person, a market's dots, an accelerator's arrows, a line's arrowheads) takes the line
+   colour, or it would vanish on the plot. A region's translucent tint drops out instead of turning
+   into an opaque block, and the knock-out under an evolve arrow keeps the plot's colour. Under forced
+   colours the roles turn into the system's colours while the map keeps its light plot, which would
+   draw a faded element white on white: the rules after this block mark it there. */
+@media not (forced-colors: active) {
+  .wardley-container.wardley-explore-faded
+    .djs-element.wardley-explore-hidden
+    > .djs-visual
+    :not(text, tspan, .wardley-movement-underlay)[style*="stroke:"]:not([style*="stroke: none"]) {
+    stroke: var(--cd-ui-linie) !important;
+  }
+  .wardley-container.wardley-explore-faded
+    .djs-element.wardley-explore-hidden
+    > .djs-visual
+    :not(text, tspan)[style*="fill:"]:not([style*="fill: none"], [style*="fill: rgba"]) {
+    fill: var(--cd-ui-plot) !important;
+  }
+  .wardley-container.wardley-explore-faded
+    .djs-element.wardley-explore-hidden
+    > .djs-visual
+    :not(text, tspan)[style*="fill:"]:not([style*="fill: none"]):is(
+      [style*="stroke: none"],
+      :not([style*="stroke:"])
+    ) {
+    fill: var(--cd-ui-linie) !important;
+  }
+  .wardley-container.wardley-explore-faded
+    .djs-element.wardley-explore-hidden
+    > .djs-visual
+    [style*="fill: rgba"] {
+    fill: none !important;
+  }
+  .wardley-container.wardley-explore-faded
+    .djs-element.wardley-explore-hidden
+    > .djs-visual
+    .wardley-link-badge
+    > circle {
+    stroke: var(--cd-ui-linie);
+  }
+  .wardley-container.wardley-explore-faded .djs-element.wardley-explore-hidden > .djs-visual text {
+    fill: var(--cd-ui-text-leise) !important;
+  }
+}
+/* A faded element keeps its own colours on the light plot under forced colours: its solid lines turn
+   dashed, and its labels GrayText on a Canvas halo, a pair the system keeps legible. */
+@media (forced-colors: active) {
+  .wardley-container.wardley-explore-faded
+    .djs-element.wardley-explore-hidden
+    > .djs-visual
+    :not(text, tspan, .wardley-movement-underlay)[style*="stroke:"]:not(
+      [style*="stroke: none"],
+      [style*="stroke-dasharray"]
+    ) {
+    stroke-dasharray: 4 3;
+  }
+  .wardley-container.wardley-explore-faded
+    .djs-element.wardley-explore-hidden
+    > .djs-visual
+    text[style*="stroke:"]:not([style*="stroke: none"]) {
+    forced-color-adjust: none;
+    fill: GrayText !important;
+    stroke: Canvas !important;
+  }
+}
+/* While a start is picked, each component stays a target: a click starts from it. */
+.wardley-container.wardley-explore-faded
+  .djs-element.wardley-explore-hidden:not(.wardley-explore-pickable),
+.wardley-container.wardley-explore-faded
+  .djs-element.wardley-explore-hidden:not(.wardley-explore-pickable)
+  * {
+  pointer-events: none !important;
+}
+.wardley-container.wardley-explore-picking .djs-element.wardley-explore-pickable,
+.wardley-container.wardley-explore-picking .djs-element.wardley-explore-pickable * {
+  cursor: pointer !important;
+}
+/* What the last step revealed: a solid outline in the interaction blue (the selection's is dashed)
+   until the next step, and a fade-in as it enters (guide §7). */
+.wardley-container .djs-shape.wardley-explore-new:not(.selected) > .djs-outline {
+  visibility: visible;
+  stroke: var(--cd-ui-interaktion);
+  stroke-width: 2px;
+  stroke-dasharray: none;
+}
+.wardley-container .djs-element.wardley-explore-new > .djs-visual {
+  animation: wardley-explore-fade-in var(--cd-motion-base) var(--cd-ease-out);
+}
+@keyframes wardley-explore-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+/* One line below the palette row: the pick phase's prompt, then how much of the map shows. */
+.wardley-container .wardley-explore-hint {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  z-index: 10;
+  box-sizing: border-box;
+  max-width: calc(100% - 32px);
+  padding: 4px 10px;
+  overflow: hidden;
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-sm);
+  background: var(--cd-ui-flaeche-hoch);
+  color: var(--cd-ui-text-leise);
+  font-size: 13px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+/* Outside explore mode the hint stays as an empty live region that draws nothing, so its first line
+   is announced as a change (not display: none, which takes it out of the accessibility tree). */
+.wardley-container .wardley-explore-hint:empty {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+}
+/* Below the second palette row (guide §5.15), where the shell puts its status box: in a container at
+   most 760px wide, and wherever the shell measured the top row too tight for the palette. */
+@container wardley (max-width: 760px) {
+  .wardley-container .wardley-explore-hint {
+    top: calc(var(--cd-shell-frei) + var(--cd-shell-zeile) + var(--cd-shell-rand));
+  }
+}
+:where(.cd-shell[data-palette="second-row"]) .wardley-container .wardley-explore-hint {
+  top: calc(var(--cd-shell-frei) + var(--cd-shell-zeile) + var(--cd-shell-rand));
+}
+/* Below the shell's status box (guide §5.12), which shows under the document lock, where explore
+   mode still runs. Its invalid-file message takes two lines of 13px/1.5 text in 12px padding (65px)
+   below the top row and up to three (85px) below the second, where the box gets narrow. */
+:where(.cd-shell:has(> .cd-shell-status:not([hidden]))) .wardley-container .wardley-explore-hint {
+  top: calc(var(--cd-shell-frei) + 65px + var(--cd-shell-luecke));
+}
+:where(.cd-shell[data-palette="second-row"]:has(> .cd-shell-status:not([hidden])))
+  .wardley-container
+  .wardley-explore-hint {
+  top: calc(
+    var(--cd-shell-frei) + var(--cd-shell-zeile) + var(--cd-shell-rand) + 85px +
+      var(--cd-shell-luecke)
+  );
+}
+/* The chips on a component that shows (src/explore/): how many of its dependents (above) and
+   dependencies (below) are hidden; a click reveals them. Overlays the same size at every zoom, so
+   they scale from the point they hang on. */
+.wardley-container .djs-overlay-wardley-explore {
+  transform-origin: 0 0;
+}
+.wardley-container .wardley-explore-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  box-sizing: border-box;
+  min-width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0 6px 0 3px;
+  border: 1px solid var(--cd-ui-linie);
+  border-radius: var(--cd-radius-sm);
+  background: var(--cd-ui-flaeche-hoch);
+  color: var(--cd-ui-text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--cd-motion-fast) var(--cd-ease),
+    color var(--cd-motion-fast) var(--cd-ease);
+}
+.wardley-container .wardley-explore-chip[data-direction="dependents"] {
+  transform: translate(-50%, calc(-100% - 4px));
+}
+.wardley-container .wardley-explore-chip[data-direction="dependencies"] {
+  transform: translate(-50%, 4px);
+}
+.wardley-container .wardley-explore-chip:hover {
+  background: var(--cd-ui-hover);
+}
+.wardley-container .wardley-explore-chip:hover > svg {
+  color: var(--cd-ui-interaktion);
 }
 
 /* The popovers of the Model menu ("Map size…", "X-axis labels…", guide §5.4): opaque, at the
@@ -921,7 +1131,7 @@
   }
   :scope .wardley-button[data-variant="primary"],
   :scope .djs-palette.wardley-palette:where(:not([data-chrome="palette"])),
-  :scope .djs-popup.wardley-element-settings {
+  :scope .djs-popup:is(.wardley-element-settings, .wardley-explore-start) {
     box-shadow: none;
   }
   :is(:scope.wardley-container, :scope .wardley-container)
@@ -947,8 +1157,13 @@
   :scope
     .djs-palette.wardley-palette:where(:not([data-chrome="palette"]))
     :where(.entry, [role="button"], [tabindex]):focus-visible,
-  :scope .djs-popup.wardley-element-settings :where(.entry, [tabindex]):focus-visible,
-  :scope .djs-popup.wardley-element-settings:has(.djs-popup-results:focus-visible) {
+  :scope
+    .djs-popup:is(.wardley-element-settings, .wardley-explore-start)
+    :where(.entry, [tabindex]):focus-visible,
+  :scope
+    .djs-popup:is(.wardley-element-settings, .wardley-explore-start):has(
+      .djs-popup-results:focus-visible
+    ) {
     outline-width: 3px;
   }
   :scope
@@ -975,6 +1190,12 @@
   }
   .wardley-container .wardley-link-badge {
     color: LinkText;
+  }
+  .wardley-container .wardley-explore-hint {
+    border-color: CanvasText;
+  }
+  .wardley-container .wardley-explore-chip {
+    border-color: ButtonText;
   }
   .wardley-container .wardley-link-badge > circle {
     fill: Canvas;
@@ -1063,7 +1284,8 @@
   }
 }
 /* VS Code's own reduce-motion setting, mirrored onto <html> by the Miragon modeler shell. */
-.cd-shell-reduce-motion .wardley-popover {
+.cd-shell-reduce-motion .wardley-popover,
+.cd-shell-reduce-motion .wardley-container .djs-element.wardley-explore-new > .djs-visual {
   animation: none;
 }
 .cd-shell-reduce-motion .wardley-button[data-variant="primary"]:is(:hover, :active) {

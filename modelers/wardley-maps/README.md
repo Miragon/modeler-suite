@@ -38,6 +38,10 @@ and inertia; pipelines; build, buy and outsource; markets and ecosystems; accele
 pioneers, settlers and town planners; notes, annotations and submaps that link to other maps.
 **X-axis labels…** names the stages of evolution your way.
 
+**Explore mode** (`E`) tells a map one step at a time: start at a component and reveal what it
+needs and what needs it, a level or a whole chain at once, while the rest stays hidden. The file
+stays as it is, and an export shows only what you revealed.
+
 ## Your existing maps
 
 Maps from onlinewardleymaps.com open unchanged. Edit the map on the canvas and only the lines you

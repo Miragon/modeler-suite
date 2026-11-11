@@ -12,6 +12,7 @@ import type Rules from "diagram-js/lib/features/rules/Rules";
 import type Selection from "diagram-js/lib/features/selection/Selection";
 import type Modeling from "diagram-js/lib/features/modeling/Modeling";
 import type { Element, Shape } from "diagram-js/lib/model/Types";
+import type { ElementLike } from "diagram-js/lib/core/Types";
 import type { Injector } from "didi";
 import type WardleyCopyPaste from "../modeling/WardleyCopyPaste.js";
 import type WardleyElementFactory from "../model/WardleyElementFactory.js";
@@ -20,6 +21,8 @@ import type WardleyDrawTool from "../draw-tool/WardleyDrawTool.js";
 import type WardleyDrawingHandles from "../draw-tool/WardleyDrawingHandles.js";
 import type WardleyLabelEditing from "../label-editing/WardleyLabelEditing.js";
 import type { FreeRect } from "../free-rect/index.js";
+import type { ExploreDirection, WardleyExplore } from "../explore/index.js";
+import type { WardleyInteraction } from "../interaction/index.js";
 import { isReadOnly } from "../read-only/index.js";
 import { isCanvasKey } from "../a11y/index.js";
 import {
@@ -56,6 +59,12 @@ const QUICK_CREATE: Record<string, { type: WardleyShapeType; label: string }> = 
   p: { type: "pipeline", label: "Pipeline" },
 };
 
+/** What ArrowDown and ArrowUp reveal of the selected component in explore mode. */
+const EXPLORE_ARROWS: Record<string, ExploreDirection> = {
+  arrowdown: "dependencies",
+  arrowup: "dependents",
+};
+
 /** The single-key tools C, U, N, P, A and L, pressed without Alt. */
 function isSingleKeyTool(e: KeyboardEvent, key: string): boolean {
   return !e.altKey && (key in QUICK_CREATE || key === "a" || key === "l");
@@ -89,6 +98,10 @@ interface PlotBounds {
  * a paste attaches its copies to the pointer, where the next press belongs to the line. While a
  * point of a drawing is dragged, the arrow keys, paste, duplicate and the single-key tools do
  * nothing, and the canvas takes them; Escape ends that drag and Delete removes the drawing.
+ * E toggles explore mode, also on a locked canvas; while it runs, ArrowDown and ArrowUp reveal the
+ * dependencies and dependents of the selected component (with Shift the whole chain), H hides it,
+ * B steps back, R starts over, F toggles the faded rest, L does nothing and Cmd/Ctrl+A selects
+ * only what shows.
  */
 export default class WardleyKeyboard {
   static $inject = [
@@ -113,6 +126,7 @@ export default class WardleyKeyboard {
   private readonly freeRect: FreeRect | null;
   private readonly drawingHandles: WardleyDrawingHandles | null;
   private readonly drawTool: WardleyDrawTool | null;
+  private readonly explore: WardleyExplore | null;
 
   constructor(
     private readonly canvas: Canvas,
@@ -126,7 +140,7 @@ export default class WardleyKeyboard {
     lassoTool: LassoTool,
     eventBus: EventBus,
     private readonly elementRegistry: ElementRegistry,
-    injector: Injector,
+    private readonly injector: Injector,
     config: WardleyKeyboardConfig | undefined,
   ) {
     const container = canvas.getContainer();
@@ -142,6 +156,7 @@ export default class WardleyKeyboard {
       injector.get<WardleyLabelEditing | null>("wardleyLabelEditing", false) ?? null;
     this.grid = injector.get<EvolutionGrid | null>("evolutionGrid", false) ?? null;
     this.freeRect = injector.get<FreeRect | null>("wardleyFreeRect", false) ?? null;
+    this.explore = injector.get<WardleyExplore | null>("wardleyExplore", false) ?? null;
 
     // getLastMoveEvent() never returns null (it fabricates an event at 0,0), so whether the
     // pointer really is over the canvas has to be tracked here.
@@ -205,9 +220,7 @@ export default class WardleyKeyboard {
         else commandStack.redo();
       } else if (key === "a") {
         e.preventDefault();
-        selection.select(
-          elementRegistry.filter((el) => isWardleyShape(el) || isWardleyConnection(el)),
-        );
+        selection.select(this.selectableElements());
       } else if (key === "c") {
         if (copyPaste.copy()) {
           e.preventDefault();
@@ -225,6 +238,7 @@ export default class WardleyKeyboard {
     };
 
     const onPlainKey = (e: KeyboardEvent, key: string) => {
+      if (this.exploreKey(e, key)) return;
       if (locked() && key !== "escape" && key !== "l") return;
       // While the draw tool holds the points of a line or a point of a drawing is dragged, that
       // gesture owns the canvas keys as it owns the pointer: a tool started next to it would take
@@ -355,6 +369,53 @@ export default class WardleyKeyboard {
     return candidate;
   }
 
+  /** Every element, or in explore mode every element that shows. */
+  private selectableElements(): ElementLike[] {
+    return this.elementRegistry.filter(
+      (el) => (isWardleyShape(el) || isWardleyConnection(el)) && !this.explore?.isHidden(el),
+    );
+  }
+
+  /**
+   * The keys of explore mode, which act on a canvas that explore mode or the document locks. Escape
+   * keeps deselecting. E does nothing while a gesture runs, whose release would still change the
+   * map under explore mode's lock.
+   */
+  private exploreKey(e: KeyboardEvent, key: string): boolean {
+    const explore = this.explore;
+    if (!explore || e.altKey) return false;
+    if (key === "e") {
+      e.preventDefault();
+      if (!this.gestureRuns()) explore.toggle();
+      return true;
+    }
+    if (!explore.isActive()) return false;
+    const direction = EXPLORE_ARROWS[key];
+    if (direction) {
+      const node = this.singleSelectedShape();
+      if (!node || !explore.isVisibleNode(node)) return false;
+      e.preventDefault();
+      if (e.shiftKey) explore.revealChain(node.id, direction);
+      else explore.revealNeighbours(node.id, direction);
+      return true;
+    }
+    const action: Record<string, () => void> = {
+      h: () => {
+        const node = this.singleSelectedShape();
+        if (node && explore.canHide(node.id)) explore.hide(node.id);
+      },
+      b: () => explore.stepBack(),
+      r: () => explore.restart(),
+      f: () => explore.setFadeRest(!explore.isFadeRest()),
+      l: () => undefined,
+    };
+    const run = action[key];
+    if (!run) return false;
+    e.preventDefault();
+    run();
+    return true;
+  }
+
   private singleSelectedShape(): WardleyShape | undefined {
     const selected = this.selection.get();
     return selected.length === 1 && isWardleyShape(selected[0]) ? selected[0] : undefined;
@@ -367,6 +428,15 @@ export default class WardleyKeyboard {
    */
   private pointDragged(): boolean {
     return !!this.drawingHandles?.isDraggingPoint();
+  }
+
+  /**
+   * A gesture that ends with its release: a line the draw tool holds, a point drag, and every drag
+   * the interaction follows (a label, the evolve target, a diagram-js drag).
+   */
+  private gestureRuns(): boolean {
+    const interaction = this.injector.get<WardleyInteraction | null>("wardleyInteraction", false);
+    return this.pointDragged() || !!this.drawTool?.holdsLine() || !!interaction?.isActive();
   }
 
   /**
