@@ -9,6 +9,7 @@ import type {
 } from "../core/index.js";
 import { createCases } from "./cases.js";
 import type { IdeHostKind } from "./csp-checks.js";
+import type { EmptyHintExpectation, FirstElementPlacement } from "./empty-file-checks.js";
 import type { PageLike } from "./page.js";
 
 export interface OpenContext {
@@ -211,6 +212,20 @@ export interface ShellConformanceHarness<P extends PageLike = PageLike> {
    * harness's own, such as one in a style the renderer paints differently.
    */
   documents?: readonly string[] | undefined;
+  /**
+   * After 0.12.0: where Enter on the palette places the first element of an empty document in the
+   * `emptyFile` case. `"centre"` (default): in the middle of the free rectangle, where the hint
+   * stood (guide §5.5). `"slot"`: a notation that lays every element out in a slot of its own, such
+   * as the Business Model Canvas, which flows a sticky into its block; the element then has to lie
+   * in the free rectangle, the hint still goes and the view still stays.
+   */
+  firstElement?: FirstElementPlacement | undefined;
+  /**
+   * After 0.12.0: `"none"` for a notation whose empty canvas explains itself, such as the Business
+   * Model Canvas, where every empty block carries a hint of its own. The `emptyFile` case then
+   * asks that no empty-file hint shows and still checks the view and the first and last element.
+   */
+  emptyHint?: EmptyHintExpectation | undefined;
 }
 
 /** One part of a case the harness could not feed. */

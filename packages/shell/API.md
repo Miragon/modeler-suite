@@ -3268,6 +3268,8 @@ interface ShellConformanceHarness<P extends PageLike = PageLike> {
   absent?: readonly AbsentFeature[]; // islands, states, the drop zone and a label editor the modeler does not have
   sizes?: readonly Size[]; // default 1280 × 900, 720 × 700, 420 × 700
   documents?: readonly string[]; // after 0.5.0: documents open loads by key besides its default one
+  emptyHint?: "shown" | "none"; // after 0.12.0, emptyFile: "none" for a notation whose empty canvas explains itself (no hint, no Insert example)
+  firstElement?: "centre" | "slot"; // after 0.12.0, emptyFile: Enter places the first element in the free rectangle's middle (default) or, for a notation of fixed slots, in its slot inside the free rectangle
 }
 interface ShellSkip {
   // the harness field that would feed the skipped part

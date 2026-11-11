@@ -28,6 +28,8 @@ import {
   emptyViewProblems,
   firstElementProblems,
   lastElementProblems,
+  type EmptyHintExpectation,
+  type FirstElementPlacement,
 } from "./empty-file-checks.js";
 import {
   elementBoundsProbe,
@@ -124,6 +126,8 @@ async function firstAndLastElement(
   host: ShellHost,
   free: Rectangle,
   lang: string,
+  placement: FirstElementPlacement | undefined,
+  expected: EmptyHintExpectation,
 ): Promise<string[]> {
   const entry = firstCreatingEntry(await inPage(page, paletteEntriesProbe, { root }));
   // A notation whose palette only switches tools has nothing to place.
@@ -153,6 +157,7 @@ async function firstAndLastElement(
     viewBefore,
     viewAfter: await viewFacts(page, root, host),
     free,
+    placement,
   });
   if (added.length !== 1) return problems;
   const id = added[0]!.id;
@@ -161,7 +166,12 @@ async function firstAndLastElement(
   const current = (await shapes(page, root)).find((shape) => shape.id === id);
   if (!current) {
     problems.push(
-      ...lastElementProblems({ id, removedBy: "Escape", hint: NO_HINT, free }, host, lang),
+      ...lastElementProblems(
+        { id, removedBy: "Escape", hint: NO_HINT, free },
+        host,
+        lang,
+        expected,
+      ),
     );
     return problems;
   }
@@ -182,6 +192,7 @@ async function firstAndLastElement(
       { id, removedBy: removed ? "Delete" : null, hint: returned, free },
       host,
       lang,
+      expected,
     ),
   );
   return problems;
@@ -228,7 +239,7 @@ async function newDiagramAfterDocument<P extends PageLike>(
   await page.mouse.move(PARK.x, PARK.y);
   const opened = await stillView(page, root, host);
   const free = freeRectangle(await measureChrome(page, root), host);
-  const problems = emptyHintProblems(hint, free, host, lang);
+  const problems = emptyHintProblems(hint, free, host, lang, harness.emptyHint ?? "shown");
   const refitted = opened.fitDisabled ? undefined : await refit(page, root, host, opened);
   problems.push(...emptyViewProblems(opened, refitted));
   return problems;
@@ -251,6 +262,7 @@ export const emptyFileCase: ShellConformanceCase = {
     const skipped = emptyDocumentSkips(host, listed);
     const documents = EMPTY_DOCUMENTS.filter((key) => listed.includes(key));
     const root = harness.root ?? DEFAULT_ROOT;
+    const hintExpected = harness.emptyHint ?? "shown";
     const problems: string[] = [];
     for (const document of documents) {
       for (const [index, size] of emptyFileSizes(harness.sizes ?? DEFAULT_SIZES).entries()) {
@@ -263,7 +275,9 @@ export const emptyFileCase: ShellConformanceCase = {
         const opened = await viewFacts(page, root, host);
         const free = freeRectangle(await measureChrome(page, root), host);
         problems.push(
-          ...emptyHintProblems(await hintFacts(page, root), free, host, lang).map(where),
+          ...emptyHintProblems(await hintFacts(page, root), free, host, lang, hintExpected).map(
+            where,
+          ),
         );
         const refitted = opened.fitDisabled ? undefined : await refit(page, root, host, opened);
         problems.push(...emptyViewProblems(opened, refitted).map(where));
@@ -272,7 +286,19 @@ export const emptyFileCase: ShellConformanceCase = {
         await page.waitForTimeout(INVALID_STATUS_DELAY_MS);
         const state = await inPage(page, readOnlyStateProbe, { root });
         if (state) problems.push(...emptyNotInvalidProblems(state).map(where));
-        problems.push(...(await firstAndLastElement(page, root, host, free, lang)).map(where));
+        problems.push(
+          ...(
+            await firstAndLastElement(
+              page,
+              root,
+              host,
+              free,
+              lang,
+              harness.firstElement,
+              hintExpected,
+            )
+          ).map(where),
+        );
       }
     }
     if (host === "web" && documents.includes("empty")) {
