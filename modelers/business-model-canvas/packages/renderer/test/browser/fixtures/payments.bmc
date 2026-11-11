@@ -1,0 +1,9 @@
+version: 1
+canvas:
+  title: Payments
+revenue-streams:
+  items:
+    - id: invoice
+      text: Send invoice
+    - id: remind
+      text: Remind "late" payers

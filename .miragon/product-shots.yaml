@@ -1,6 +1,6 @@
 # miragon-brand/product-shots: neu erzeugen mit listing.mjs, Bilder nie von Hand ändern
 # Cover und Galerie der Store-Seiten dieses Repos. Pfade sind relativ zum Repo.
-skillVersion: 1.29.0
+skillVersion: 1.32.0
 orca:
   folder: strategy-workshop
 products:
@@ -131,6 +131,29 @@ products:
         fit: visible
       dragSelect: true
       revealText: '"c4modeler.element.catalogueService"'
+  - id: business-model-canvas-vscode
+    target: vscode
+    title: Business Model Canvas
+    claim: Business models from plain .bmc files, right in VS Code.
+    icon: modelers/business-model-canvas/apps/vscode/icon.png
+    out: modelers/business-model-canvas/docs/screenshots/vscode
+    vscode:
+      extension: modelers/business-model-canvas/apps/vscode/business-model-canvas-modeler.vsix
+      workspace: modelers/business-model-canvas/docs/demo
+    shots:
+      showcase: bike-subscription.bmc
+      category: Business Model Canvas
+      readyId: commuters
+      selectId: staff-benefit
+      dragId: sales
+      dragDistance: 0
+      dragDy: -190
+      broken:
+        append: |2
+              - id: parts
+                text: Lockers at stations
+      hero:
+        fit: visible
   - id: wardley-maps-orca
     target: orca
     title: Wardley Maps
@@ -322,6 +345,48 @@ products:
             - click:
                 - 444
                 - 414
+            - key: Shift
+            - key: Shift
+            - key: Shift
+            - key: Shift
+            - key: Shift
+            - key: Shift
+  - id: business-model-canvas-orca
+    target: orca
+    title: Business Model Canvas
+    claim: Business models from plain .bmc files, edited by you and your agents.
+    out: modelers/business-model-canvas/apps/orca/images
+    orca:
+      plugin: modelers/business-model-canvas/apps/orca/plugin
+      examples:
+        - file: modelers/business-model-canvas/example/miragon.bmc
+      features:
+        - name: colour
+          act:
+            - click:
+                - 701
+                - 319
+            - click:
+                - 842
+                - 296
+            - key: Shift
+            - key: Shift
+            - key: Shift
+            - key: Shift
+            - key: Shift
+            - key: Shift
+        - name: notes
+          act:
+            - key: Escape
+            - click:
+                - 1100
+                - 1000
+            - click:
+                - 613
+                - 704
+            - click:
+                - 1050
+                - 112
             - key: Shift
             - key: Shift
             - key: Shift
