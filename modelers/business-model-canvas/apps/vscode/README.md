@@ -75,7 +75,8 @@ changes. For Claude Code, the `business-model-canvas-modeler` plugin teaches the
 ## Good to know
 
 - Needs VS Code 1.96 or later on the desktop. VS Code for the Web is not supported.
-- There is no live co-editing. Share canvases through Git.
+- There is no live co-editing. Share canvases through Git, or open them in the
+  [web app](https://business-model-canvas.modeler.miragon.io), which makes share links.
 - **Keyboard shortcuts…** in the canvas's menu lists every key and gesture.
 - The canvas stays light in dark themes.
 - The Business Model Canvas is by Strategyzer AG, [strategyzer.com](https://www.strategyzer.com),

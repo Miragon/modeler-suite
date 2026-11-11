@@ -12,13 +12,16 @@ and evolves with the plans it explains.
 Free and open source (MIT). No account, and it works offline. Part of the
 [Miragon modeler suite](../../README.md).
 
+**[Try the web app →](https://business-model-canvas.modeler.miragon.io)**
+
 ![In the Business Model Canvas web app, a sticky in Channels is selected and its colour menu is open with eight tape colours](docs/screenshots/web/demo.png)
 
 ## Use it where you work
 
-- **In the browser:** the web app needs no install (no public deployment yet; run it with
-  `npm run business-model-canvas dev:webapp`). Open or drop a `.bmc` file. **Share** copies a link
-  that holds the whole canvas. Export PNG, SVG or `.bmc`.
+- **In the browser:** open
+  [business-model-canvas.modeler.miragon.io](https://business-model-canvas.modeler.miragon.io), no
+  install needed. Open or drop a `.bmc` file. **Share** copies a link that holds the whole canvas.
+  Export PNG, SVG or `.bmc`.
 - **In VS Code:** the [Business Model Canvas Modeler](apps/vscode/README.md) opens `.bmc` files as
   canvases, with the text side by side and problems in the Problems view.
 - **In Orca:** the [Orca plugin](apps/orca/README.md) shows each change your coding agent writes

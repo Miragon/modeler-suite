@@ -10,6 +10,7 @@ The [Business Model Canvas](https://www.strategyzer.com/library/the-business-mod
 
 ## Use it
 
+- **Web app:** [business-model-canvas.modeler.miragon.io](https://business-model-canvas.modeler.miragon.io)
 - **From source:** `npm run business-model-canvas dev:webapp` opens the editor at `http://localhost:5183`.
 - **VS Code:** [Business Model Canvas Modeler](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.business-model-canvas-modeler)
 - **Orca:** [Open in Orca](https://www.onorca.dev/plugins/miragon/orca-modelers/business-model-canvas-modeler), in Orca's plugin directory ([what it does in Orca](https://github.com/Miragon/modeler-suite/tree/main/modelers/business-model-canvas/apps/orca#readme))
