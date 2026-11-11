@@ -17,9 +17,9 @@ const output = join(app, "THIRD_PARTY_NOTICES.md");
 // Inlined as geometry (no npm dependency), so not visible in the metafile.
 const LUCIDE = `## Lucide (lucide-static 1.59.0)
 
-The palette's tool icons, the dialogs' Close icon and the context pad's icons
-(\`@miragon/wardley-renderer\`) and the chrome icons (\`@miragon/modeler-shell\`) are Lucide icons,
-copied into the sources.
+The palette's tool icons, the dialogs' Close icon, the context pad's icons and explore mode's
+icons (\`@miragon/wardley-renderer\`) and the chrome icons (\`@miragon/modeler-shell\`) are Lucide
+icons, copied into the sources.
 
 ISC License
 
@@ -37,9 +37,10 @@ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-The icons \`arrow-right\`, \`check\`, \`chevrons-right\`, \`circle-plus\`, \`circle-x\`,
-\`external-link\`, \`link\`, \`map\`, \`maximize\`, \`minus\`, \`plus\`, \`trash\`, \`triangle-alert\` and
-\`x\` are derived from the Feather project:
+The icons \`arrow-right\`, \`check\`, \`chevron-down\`, \`chevron-up\`, \`chevrons-down\`,
+\`chevrons-right\`, \`chevrons-up\`, \`circle-plus\`, \`circle-x\`, \`external-link\`, \`link\`, \`map\`,
+\`maximize\`, \`minus\`, \`plus\`, \`search\`, \`trash\`, \`triangle-alert\` and \`x\` are derived from
+the Feather project:
 
 The MIT License (MIT)
 

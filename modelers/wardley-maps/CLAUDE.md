@@ -97,6 +97,28 @@ host ([`apps/webapp/src/main.ts`](apps/webapp/src/main.ts)); the shell's conform
 against both, in the `vscode-webview` Playwright project (`e2e/tests/vscode/`) and in the `webapp`
 project (`e2e/tests/webapp-shell-conformance.spec.ts`).
 
+Explore mode ([`src/explore/`](packages/renderer/src/explore/), `Modeler` only) shows a map step by
+step along its dependency links and edits nothing: no command runs and no element changes. It keeps
+the revealed components as document ids (`readBackIds` of the export), so an import re-applies them;
+the graph and visibility rules are DOM-free in `explore-graph.ts`, where a pipeline's membership is
+one more step of a chain (down from the anchor or the standalone pipeline to its members, up from a
+member to them) while its members still show with their anchor. E does nothing during a gesture
+(`WardleyKeyboard`: a held line, a point drag, or any drag `wardleyInteraction` follows), whose
+release would still commit under the lock, and `enter()` saves a held line first (#485). It locks
+the canvas for a reason of its own (`setExploreLock` of `WardleyReadOnly`, whose `setReadOnly`
+drives only `"document"`, the one reason that marks the palette and adds `wardley-read-only`), so a
+host's `setReadOnly(false)` on every valid import never ends it. The canvas shows it with markers
+(`EXPLORE_MARKERS` in `draw/styles.ts`: `wardley-explore-hidden`, `-new`, `-pickable`,
+`-commentary`; the outline of what a step revealed is drawn at once, as diagram-js draws one only
+on hover or selection) and the container classes `wardley-exploring`, `wardley-explore-picking`
+and `wardley-explore-faded`; `saveSVG` removes the hidden elements and strips the markers
+(byte-identical outside explore mode) and `exportBounds` skips them. Its toolbar is a second
+palette provider (priority 100), its context pad a second provider (priority 500) and its chips
+diagram-js overlays of type `wardley-explore`; they listen to `wardley.explore.changed` at 1500, so
+a host hears it last. Both apps pass the service to `mapMenu` (the "Explore mode" checkbox) and
+refresh the menu on that event. Pinned by `explore-graph.test.ts`, `explore.browser.test.ts`,
+`read-only.browser.test.ts` and `e2e/tests/webapp-explore.spec.ts`.
+
 The extension's document plumbing is the shell's too: [`mapEditor.ts`](apps/vscode/src/mapEditor.ts)
 registers the custom editor with `registerModelerEditor` of `@miragon/modeler-shell/vscode/extension`
 (sync, echo suppression, minimal line edits, undo through the document, "Insert example", the

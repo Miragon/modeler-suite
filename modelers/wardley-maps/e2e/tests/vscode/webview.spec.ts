@@ -106,7 +106,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(countOf(messages, "edit")).toBe(0);
   });
 
-  test("the menu holds Model (map size, x-axis labels), Export (without the file) and Help", async ({
+  test("the menu holds Model (explore mode, map size, x-axis labels), Export (without the file) and Help", async ({
     page,
   }) => {
     await openWebview(page);
@@ -118,6 +118,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
       ),
     );
     expect(layout).toEqual([
+      "explore-mode",
       "map-size",
       "x-axis-labels",
       "|",
@@ -128,6 +129,10 @@ test.describe("VS Code webview: protocol and chrome", () => {
       "keyboard-shortcuts",
     ]);
 
+    const exploreMode = dropdown.locator('[data-menu-id="explore-mode"]');
+    await expect(exploreMode).toHaveText("Explore mode");
+    await expect(exploreMode).toHaveAttribute("role", "menuitemcheckbox");
+    await expect(exploreMode).toHaveAttribute("aria-checked", "false");
     await expect(dropdown.locator('[data-menu-id="map-size"]')).toHaveText("Map size…");
     await expect(dropdown.locator('[data-menu-id="map-size"]')).toHaveAttribute(
       "aria-haspopup",
@@ -795,6 +800,11 @@ test.describe("VS Code webview: canvas", () => {
 
     const dropdown = await openMenu(page);
     await expect(dropdown.locator('[data-menu-id="map-size"]')).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    // Exploring changes no document, and the checkbox is the way out of explore mode here.
+    await expect(dropdown.locator('[data-menu-id="explore-mode"]')).not.toHaveAttribute(
       "aria-disabled",
       "true",
     );

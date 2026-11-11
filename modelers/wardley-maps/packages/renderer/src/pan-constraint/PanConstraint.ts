@@ -4,6 +4,7 @@ import type { Injector } from "didi";
 import type EvolutionGrid from "../evolution-grid/EvolutionGrid.js";
 import type { FreeRect, FreeRectInsets } from "../free-rect/index.js";
 import { exportBounds } from "../io/index.js";
+import { EXPLORE_MARKERS } from "../draw/styles.js";
 
 /** Margins in diagram px, for hosts that report no chrome insets. */
 const PAD_TOP = 180;
@@ -141,6 +142,11 @@ export default class PanConstraint {
       this.measured = undefined;
     };
     eventBus.on(["element.changed", "import.done"], invalidate);
+    // Explore mode hides elements by marker, which fires no element.changed, and scrolls what it
+    // reveals into view before its own event.
+    eventBus.on("element.marker.update", (event: { marker?: string }) => {
+      if (event.marker === EXPLORE_MARKERS.hidden) invalidate();
+    });
     // Shrinking the plot while scrolled into its far corner must never leave a blank viewport.
     // A transient change (live resize preview) is skipped: moving the viewport under a dragged
     // plot corner would feed back into the drag.

@@ -12,5 +12,5 @@ export const wardleyContextPadModule: ModuleDeclaration = {
   wardleyContextPadProvider: ["type", WardleyContextPadProvider],
 };
 
-export { default as WardleyContextPadProvider } from "./WardleyContextPadProvider.js";
+export { default as WardleyContextPadProvider, cpHtml } from "./WardleyContextPadProvider.js";
 export { default as WardleyContextPad } from "./WardleyContextPad.js";

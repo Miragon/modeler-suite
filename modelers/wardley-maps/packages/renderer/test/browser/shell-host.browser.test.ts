@@ -89,8 +89,11 @@ describe("inside a host chrome (the Miragon modeler shell)", () => {
     for (const element of palette.querySelectorAll<HTMLElement>(".entry")) {
       expect(element.hasAttribute("title"), element.dataset["action"]).toBe(false);
       expect(element.hasAttribute("tabindex"), element.dataset["action"]).toBe(false);
+      // Explore mode's toggle is no tool of diagram-js's: no chrome writes its state, so it does.
+      if (element.dataset["action"] === "explore") continue;
       expect(element.hasAttribute("aria-pressed"), element.dataset["action"]).toBe(false);
     }
+    expect(entry(target, "explore").getAttribute("aria-pressed")).toBe("false");
     target.get<WardleyDrawTool>("wardleyDrawTool").cancel();
     expect(entry(target, "lasso-tool").getAttribute("aria-label")).toBe("Lasso");
     expect(entry(target, "draw-tool").getAttribute("aria-label")).toBe("Draw");

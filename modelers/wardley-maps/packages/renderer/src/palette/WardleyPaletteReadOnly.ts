@@ -1,6 +1,6 @@
 import type EventBus from "diagram-js/lib/core/EventBus";
 import type { Injector } from "didi";
-import { isReadOnly, isReadOnlyShown, READ_ONLY_CHANGED } from "../read-only/index.js";
+import { isLockedBy, isReadOnlyShown, READ_ONLY_CHANGED } from "../read-only/index.js";
 
 const ENTRY_SELECTOR = ".djs-palette-entries .entry[data-action]";
 
@@ -22,7 +22,8 @@ interface PaletteTriggerEvent {
  * `delayMs`, and again after every rebuild of the entries; its click, drag or Enter does nothing
  * from the lock on, and it stays focusable. The lasso stays active (guide §13.5). `wardley.css`
  * mutes the marked entries. A palette any chrome skins (`data-chrome="palette"`) is left to that
- * chrome.
+ * chrome. Only the document lock counts: explore mode locks the canvas too, but its own toolbar
+ * replaces the entries and must stay active.
  */
 export default class WardleyPaletteReadOnly {
   static $inject = ["eventBus", "injector"];
@@ -45,9 +46,9 @@ export default class WardleyPaletteReadOnly {
     );
   }
 
-  /** Whether `entry` does nothing while the lock holds, read from its element where there is one. */
+  /** Whether `entry` does nothing while the document lock holds, read from its element. */
   isDisabled(entry: Element): boolean {
-    return this.ownsPalette() && isReadOnly(this.injector) && refusedWhileLocked(entry);
+    return this.ownsPalette() && isLockedBy(this.injector, "document") && refusedWhileLocked(entry);
   }
 
   private ownsPalette(): boolean {
@@ -78,7 +79,7 @@ export default class WardleyPaletteReadOnly {
   // A trigger without an entry element in this palette (a host's `triggerEntry`) passes only for
   // the tools, whose draw tool refuses the lock by itself.
   private vetoes({ entry, event }: PaletteTriggerEvent): boolean {
-    if (!this.ownsPalette() || !isReadOnly(this.injector)) return false;
+    if (!this.ownsPalette() || !isLockedBy(this.injector, "document")) return false;
     const target = event?.delegateTarget ?? event?.target;
     const element =
       target instanceof Element ? target.closest<HTMLElement>(".entry[data-action]") : null;

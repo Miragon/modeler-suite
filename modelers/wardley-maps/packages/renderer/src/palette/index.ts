@@ -28,7 +28,8 @@ export const wardleyPaletteModule: ModuleDeclaration = {
   paletteTooltip: ["type", WardleyPaletteTooltip],
 };
 
-export { default as WardleyPaletteProvider } from "./WardleyPaletteProvider.js";
+export { default as WardleyPaletteProvider, EXPLORE_ENTRY } from "./WardleyPaletteProvider.js";
+export type { PaletteToolSpec } from "./WardleyPaletteProvider.js";
 export { default as WardleyPaletteKeyboard } from "./WardleyPaletteKeyboard.js";
 export { default as WardleyPaletteArmedTool } from "./WardleyPaletteArmedTool.js";
 export { default as WardleyPaletteTooltip } from "./WardleyPaletteTooltip.js";

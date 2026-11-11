@@ -27,6 +27,17 @@ export const COMPONENT_INNER_RADIUS = 12;
  * chrome in the `--cd-ui-*` roles of `wardley.css`, which the export leaves out.
  */
 export const LINK_BADGE_CLASS = "wardley-link-badge";
+/**
+ * The markers explore mode (`src/explore/`) sets on elements. The export leaves out every element
+ * with the hidden marker, also one drawn faded, and strips the others: a picture shows what the
+ * map shows, never the state of the canvas.
+ */
+export const EXPLORE_MARKERS = {
+  hidden: "wardley-explore-hidden",
+  revealed: "wardley-explore-new",
+  pickable: "wardley-explore-pickable",
+  commentary: "wardley-explore-commentary",
+} as const;
 export const LINK_BADGE_RADIUS = 8;
 export const LINK_BADGE_ICON_SIZE = 11;
 export const ANCHOR_ICON_SIZE = 26;

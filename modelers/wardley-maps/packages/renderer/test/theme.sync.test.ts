@@ -95,6 +95,7 @@ describe("theme.sync — wardley.css takes every colour from the roles", () => {
       ".wardley-container .wardley-label-input",
       ".wardley-container .wardley-label-caption",
       ".wardley-container .wardley-map-resize-badge",
+      ".wardley-container .wardley-explore-hint",
     ]) {
       expect(zIndexOf(overlay), overlay).toBeLessThanOrEqual(100);
     }

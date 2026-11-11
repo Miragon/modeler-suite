@@ -9,6 +9,7 @@ import "@miragon/wardley-renderer/assets/wardley.css";
 import "./style.css";
 import "@miragon/modeler-shell/shell.css";
 import {
+  EXPLORE_CHANGED,
   WARDLEY_THEMES,
   createAxisLabelsPopover,
   createCollaborativeModeler,
@@ -21,6 +22,7 @@ import {
   type LabelDeduplicatedEvent,
   type MapMenu,
   type Modeler,
+  type WardleyExplore,
 } from "@miragon/wardley-renderer";
 import { createEmptyMap, serializeMap } from "@miragon/wardley-schema-model";
 import { parseDSLWithDiagnostics } from "@miragon/wardley-dsl";
@@ -99,6 +101,7 @@ const collaborative = createCollaborativeModeler({
 const viewer = collaborative.diagram as Modeler;
 viewer.get("canvas");
 const registry = viewer.get<ElementRegistryLike>("elementRegistry");
+const explore = viewer.get<WardleyExplore>("wardleyExplore");
 const currentDSL = trackSourceText(viewer);
 Object.assign(globalThis as Record<string, unknown>, { __wardleyViewer: viewer });
 
@@ -112,6 +115,7 @@ const SHORTCUTS_KEY = "?";
 /** The map's menu groups, the same as in VS Code, plus the web app's title and text views. */
 function webMenu(): MapMenu {
   const map = mapMenu({
+    explore,
     mapTitle: () => titleDialog.open(),
     mapSize: () => mapSizePopover.open(),
     axisLabels: () => axisLabelsPopover.open(),
@@ -133,6 +137,7 @@ function webMenu(): MapMenu {
         kind: "dialog",
         id: "edit-dsl",
         label: "Edit as OWM-DSL…",
+        disabled: () => explore.isActive(),
         onSelect: () => textDialogs.open("dsl", currentDSL()),
       },
       {
@@ -255,6 +260,8 @@ function updateDocumentTitle(): void {
 }
 
 async function openDocument(load: MapLoad): Promise<readonly ImportWarning[]> {
+  // Another map: what was revealed of this one means nothing there.
+  explore.exit();
   viewport.newDocument();
   let warnings: readonly ImportWarning[];
   try {
@@ -461,7 +468,8 @@ function anyDialogOpen(): boolean {
 
 // Capture phase: runs before the canvas's own Cmd/Ctrl+Z, which has nothing left to undo here.
 function onUndoReplaceKey(event: KeyboardEvent): void {
-  if (!mapReplacer.hasPendingUndo() || viewer.canUndo()) return;
+  // Exploring changes nothing to take back, and must not bring back the previous map either.
+  if (!mapReplacer.hasPendingUndo() || viewer.canUndo() || explore.isActive()) return;
   if (event.shiftKey || event.altKey || event.isComposing || !isUndoRedoKey(event)) return;
   // Cmd/Ctrl+Y is redo; the typed letter decides (QWERTZ swaps the keys), as in isUndoRedoKey.
   const ascii = event.key.length === 1 && event.key.charCodeAt(0) < 0x80;
@@ -550,6 +558,8 @@ viewer.on("import.done", () => {
   updateDocumentTitle();
   syncUrl();
 });
+// The checkbox and the entries explore mode disables; a toggle by key or palette runs no command.
+viewer.on(EXPLORE_CHANGED, () => shell.menu.refresh());
 // Live previews (axis labels, map size, plot-handle drags) are committed later as one change.
 viewer.on<{ transient?: boolean }>("wardley.config.changed", (event) => {
   if (event.transient) return;

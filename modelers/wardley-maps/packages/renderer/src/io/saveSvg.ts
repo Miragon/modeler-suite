@@ -1,5 +1,5 @@
 import type Canvas from "diagram-js/lib/core/Canvas";
-import { LINK_BADGE_CLASS, PLOT } from "../draw/styles.js";
+import { EXPLORE_MARKERS, LINK_BADGE_CLASS, PLOT } from "../draw/styles.js";
 
 export interface SvgBounds {
   x: number;
@@ -34,6 +34,18 @@ export function saveSVG(canvas: Canvas, bounds?: SvgBounds): { svg: string } {
     element.classList.remove("selected", "hover");
     if (!element.classList.length) element.removeAttribute("class");
   });
+  // Explore mode exports what it shows: an element it hides is no part of the picture, also when
+  // the canvas draws it faded.
+  clone.querySelectorAll(`.djs-element.${EXPLORE_MARKERS.hidden}`).forEach((element) => {
+    (element.closest(".djs-group") ?? element).remove();
+  });
+  const exploreMarkers = Object.values(EXPLORE_MARKERS);
+  clone
+    .querySelectorAll(exploreMarkers.map((marker) => `.${marker}`).join(", "))
+    .forEach((element) => {
+      element.classList.remove(...exploreMarkers);
+      if (!element.classList.length) element.removeAttribute("class");
+    });
 
   const box = bounds ?? {
     x: 0,

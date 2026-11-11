@@ -4,6 +4,7 @@
  * Full notice: README.md of @miragon/wardley-renderer */
 import { COLORS, ATTITUDE_COLORS, FONT } from "./styles.js";
 import { ICON_FAST_FORWARD, ICON_FAST_REWIND, ICON_PERSON } from "./icons.js";
+import { LUCIDE, type LucideIconName } from "./lucide.js";
 
 /**
  * Palette icons: the creating entries are a mini preview of the ACTUAL canvas rendering
@@ -21,6 +22,11 @@ const wrap = (inner: string): string =>
  */
 const toolIcon = (inner: string): string =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="wardley-palette-svg">${inner}</svg>`;
+
+/** A Lucide icon of `LUCIDE` (explore mode's toolbar) as a palette tool glyph. */
+export function paletteToolIcon(name: LucideIconName): string {
+  return toolIcon(LUCIDE[name]);
+}
 
 const LUCIDE_SQUARE_DASHED_MOUSE_POINTER =
   '<path d="M12.034 12.681a.498.498 0 0 1 .647-.647l9 3.5a.5.5 0 0 1-.033.943l-3.444 1.068a1 1 0 0 0-.66.66l-1.067 3.443a.5.5 0 0 1-.943.033z"/>' +
@@ -52,6 +58,7 @@ export const PALETTE_ICONS: Record<string, string> = {
   // notation colours because they preview the element.
   draw: toolIcon(LINE_SEGMENT),
   lasso: toolIcon(LUCIDE_SQUARE_DASHED_MOUSE_POINTER),
+  explore: paletteToolIcon("telescope"),
   component: wrap(eventCircle()),
   // Canon: market = three dots in a triangle (like drawComponent).
   market: wrap(

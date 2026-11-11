@@ -11,6 +11,8 @@ interface MapMenuItem {
   readonly id: string;
   readonly label: string;
   readonly icon?: MapMenuIcon;
+  /** Read whenever the menu opens or refreshes; a disabled entry stays focusable. */
+  readonly disabled?: () => boolean;
   readonly keepEnabledWhenReadOnly?: boolean;
 }
 
@@ -27,7 +29,14 @@ export interface MapMenuDialog extends MapMenuItem {
   onSelect(): void;
 }
 
-export type MapMenuEntry = MapMenuAction | MapMenuDialog;
+/** A toggle that keeps the menu open; its check mark carries the state. */
+export interface MapMenuCheckbox extends MapMenuItem {
+  readonly kind: "checkbox";
+  checked(): boolean;
+  onToggle(checked: boolean): void;
+}
+
+export type MapMenuEntry = MapMenuAction | MapMenuDialog | MapMenuCheckbox;
 
 export interface MapMenu {
   readonly model: readonly MapMenuEntry[];
@@ -54,7 +63,18 @@ export interface MapExports {
   readonly wmap?: MapExport | undefined;
 }
 
+/** Explore mode as the menu reads and toggles it; the `wardleyExplore` service fits. */
+export interface MapMenuExplore {
+  isActive(): boolean;
+  toggle(): void;
+}
+
 export interface MapMenuActions {
+  /**
+   * Explore mode: the Model group then starts with its "Explore mode" checkbox, and the entries
+   * that change the document are disabled while it runs.
+   */
+  readonly explore?: MapMenuExplore | undefined;
   /** Opens the "Map title…" dialog; without it the Model group has no title entry. */
   mapTitle?: (() => void) | undefined;
   /** Opens the "Map size…" popover. */
@@ -107,24 +127,57 @@ function exportEntries(exports: MapExports): MapMenuAction[] {
   return entries;
 }
 
+function exploreCheckbox(explore: MapMenuExplore): MapMenuCheckbox {
+  return {
+    kind: "checkbox",
+    id: "explore-mode",
+    label: "Explore mode",
+    // Exploring changes only the view, and the checkbox is the way out of it under the host's lock.
+    keepEnabledWhenReadOnly: true,
+    checked: () => explore.isActive(),
+    onToggle: (checked) => {
+      if (checked !== explore.isActive()) explore.toggle();
+    },
+  };
+}
+
 /**
- * The menu groups of a map (guide §5.4): Model with the title dialog where the host offers it and
- * the two popovers (all three change the document, so a read-only canvas disables them), Export
- * with PNG first, Help with the shortcuts dialog.
+ * The menu groups of a map (guide §5.4): Model with the explore mode checkbox where the host offers
+ * it, the title dialog where the host offers it and the two popovers (all three change the
+ * document, so a read-only canvas and explore mode disable them), Export with PNG first, Help with
+ * the shortcuts dialog.
  */
 export function mapMenu(actions: MapMenuActions): MapMenu {
-  const { mapTitle, shortcutsKey } = actions;
+  const { explore, mapTitle, shortcutsKey } = actions;
+  const changesDocument = explore ? { disabled: () => explore.isActive() } : {};
+  const exploreEntries: MapMenuEntry[] = explore ? [exploreCheckbox(explore)] : [];
   const titleEntries: MapMenuEntry[] = mapTitle
-    ? [{ kind: "dialog", id: "map-title", label: "Map title…", onSelect: () => mapTitle() }]
+    ? [
+        {
+          kind: "dialog",
+          id: "map-title",
+          label: "Map title…",
+          ...changesDocument,
+          onSelect: () => mapTitle(),
+        },
+      ]
     : [];
   return {
     model: [
+      ...exploreEntries,
       ...titleEntries,
-      { kind: "dialog", id: "map-size", label: "Map size…", onSelect: () => actions.mapSize() },
+      {
+        kind: "dialog",
+        id: "map-size",
+        label: "Map size…",
+        ...changesDocument,
+        onSelect: () => actions.mapSize(),
+      },
       {
         kind: "dialog",
         id: "x-axis-labels",
         label: "X-axis labels…",
+        ...changesDocument,
         onSelect: () => actions.axisLabels(),
       },
     ],

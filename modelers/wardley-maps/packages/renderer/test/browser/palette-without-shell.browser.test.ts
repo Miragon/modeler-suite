@@ -1310,8 +1310,8 @@ describe("the read-only lock in the palette without the shell (guide §13.5, #46
     const mapped = await mount();
     const { host } = mapped;
     const unlocked = disabledStates(host);
-    expect(Object.keys(unlocked)).toHaveLength(14);
-    expect(Object.values(unlocked)).toEqual(Array(14).fill(null));
+    expect(Object.keys(unlocked)).toHaveLength(15);
+    expect(Object.values(unlocked)).toEqual(Array(15).fill(null));
     const locked = Object.fromEntries(
       Object.keys(unlocked).map((action) => [action, action === "lasso-tool" ? null : "true"]),
     );
@@ -1484,7 +1484,7 @@ describe("the read-only lock in the palette without the shell (guide §13.5, #46
     const mapped = await mount(HOST, Modeler, { additionalModules: [ANOTHER_CHROME] });
     const before = mapped.modeler.exportDSL();
     lock(mapped);
-    expect(Object.values(disabledStates(mapped.host))).toEqual(Array(14).fill(null));
+    expect(Object.values(disabledStates(mapped.host))).toEqual(Array(15).fill(null));
 
     focusFromKeyboard(entry(mapped.host, "create.note"));
     await userEvent.keyboard("{Enter}");

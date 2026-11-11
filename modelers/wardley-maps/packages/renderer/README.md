@@ -40,8 +40,8 @@ island at the top centre, ahead of the canvas in the tab order (one tab stop; ar
 move), with tooltips. It lies before the canvas `<svg>` in the container, so find the canvas with
 `canvas.getContainer().querySelector(":scope > svg")`. A palette a chrome skins
 (`data-chrome="palette"`) is left to that chrome. One tool is armed at a time; the lasso is
-`aria-pressed="true"` only while armed. Under the read-only lock the palette marks every entry but
-the lasso `aria-disabled="true"`.
+`aria-pressed="true"` only while armed. Under the host's read-only lock (`setReadOnly`) the palette
+marks every entry but the lasso `aria-disabled="true"`; explore mode's toolbar is not marked.
 
 ## API
 
@@ -100,16 +100,79 @@ The `wardleyReadOnly` service (`modeler.get<WardleyReadOnly>('wardleyReadOnly').
 locks the canvas while the host cannot save, e.g. while the document is invalid: edits are vetoed,
 open editors and drags end without saving; selection, zoom, pan and export stay.
 `setReadOnly(true, { delayMs: 800 })` locks at once but shows the marks only after the delay
-(no flicker while typing); `isReadOnlyShown()` tells whether they show. It fires
-`wardley.readOnly.changed` with `{ readOnly, shown }`.
+(no flicker while typing); `isReadOnlyShown()` tells whether they show. The lock has two reasons:
+`setReadOnly` sets `"document"`, explore mode sets `"explore"` (`setExploreLock`), and neither ends
+the other, so a valid import's `setReadOnly(false)` keeps explore mode locked. `isReadOnly()` is
+true while any reason holds, `isLockedBy(reason)` asks for one; only the document reason marks the
+palette and adds the container class `wardley-read-only`. It fires `wardley.readOnly.changed` with
+`{ readOnly, shown, reasons }` whenever a reason comes or goes.
 
-Keyboard: the canvas's keys (undo/redo, delete, copy/paste/duplicate, select all, arrows, Escape and
-the tools C, U, N, P, L, A) act only while the canvas `<svg>` has the focus, so keys aimed at a
-host's controls stay with the host. A click on the canvas, a palette entry or a context-pad action
-hands it the focus. A host that hides the canvas without destroying it should use `inert`,
+Keyboard: the canvas's keys (undo/redo, delete, copy/paste/duplicate, select all, arrows, Escape,
+the tools C, U, N, P, L, A and E for explore mode) act only while the canvas `<svg>` has the focus,
+so keys aimed at a host's controls stay with the host. A click on the canvas, a palette entry or a
+context-pad action hands it the focus. A host that hides the canvas without destroying it should use `inert`,
 `display: none` or `visibility: hidden`. Escape ends every drag without a change. While the draw
 tool holds a line or a drawing's point is dragged, keys that would start another gesture do
-nothing; an undo or other command ends such a drag without a commit.
+nothing; an undo or other command ends such a drag without a commit. E does nothing while a line
+is held or any drag runs (a label, a point, the evolve target, a diagram-js drag), whose release
+still edits the map; explore mode's palette entry and menu checkbox save a held line first, as
+the switch to another tool does.
+
+## Explore mode
+
+The `Modeler` can show a map step by step along its value chain instead of all at once. The
+palette's "Explore mode" entry, the E key and a host's "Explore mode" menu checkbox switch it on
+and off. It starts at the one selected component, else it asks to pick one ("Pick a component to
+start from."; the components show faded and a click on one starts there; "Start from…" in the
+toolbar lists them by name). From a component that shows, the user reveals what it needs (its
+dependencies, downwards) or what needs it (its dependents, upwards), one level or the whole chain:
+with the chips above and below it, which count what is hidden, with its context pad, or with ↓ and
+↑ (Shift for the whole chain). Only dependency links are followed, and a pipeline's membership as
+one more step: downwards a pipeline's anchor (or a standalone pipeline) leads to its members, so a
+chain goes on to what they need, and upwards a member leads to its anchor (or its standalone
+pipeline). Members show with their anchor, so they never count as hidden next to it. A link or
+flow shows once both its ends do, a pipeline frame once its anchor or a member does, notes and
+other commentary and the links to them once every component does. While it runs the palette is
+its toolbar: "Explore mode" (pressed), "Start from…", "Step back" (B), "Show all", "Start over"
+(R) and "Faded rest" (F, draws what is hidden faded instead of leaving it out); H and the context
+pad's Hide hide the selected component when that hides something (a member stays while its anchor
+shows). A line at the top says how many components show ("3 of 14 components"); it is a live
+region that stays in the canvas, empty outside explore mode.
+
+Exploring edits nothing: no command runs, the undo history, `exportDSL()` and the contract's
+`exportText()` stay as they are, and the canvas is locked for the reason `"explore"` (see the
+read-only lock above). `saveSVG()`, and so every PNG, holds only what shows, also when the rest is
+drawn faded; outside explore mode the SVG is the same as before. The revealed components are kept
+by document id, so an import while exploring (a host's echo, an outside edit) keeps them, and new
+elements stay hidden. In a collaborative host, `elements.reveal(id)` shows a hidden element first:
+a component as a step, a pipeline by its anchor, an accelerator by showing everything; what explore
+mode cannot show (an accelerator on a map without components) ends explore mode. Then it selects
+the element as before.
+
+The `wardleyExplore` service (`modeler.get<WardleyExplore>("wardleyExplore")`) takes the ids of
+the elements on the canvas:
+
+| Member                                                           | What it does                                                                                                                                                                                                          |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `isActive()` / `phase()`                                         | Whether explore mode runs; `"pick"` until a start is chosen, then `"exploring"`.                                                                                                                                      |
+| `enter(startId?)` / `exit()` / `toggle()`                        | Starts at `startId`, else at the one selected component, else with the pick phase; `exit()` shows everything and keeps the selection.                                                                                 |
+| `startFrom(id)`                                                  | Shows that component alone.                                                                                                                                                                                           |
+| `revealNeighbours(id, direction)` / `revealChain(id, direction)` | Reveals one level or the whole chain of `"dependencies"` or `"dependents"` of a component that shows.                                                                                                                 |
+| `hide(id)` / `showAll()` / `stepBack()` / `restart()`            | Hides a revealed component, shows the whole map, goes back one step, or goes back to the pick phase.                                                                                                                  |
+| `canHide(id)`                                                    | Whether `hide(id)` hides something: false for a member its anchor brings along, where `hide` does nothing.                                                                                                            |
+| `setFadeRest(on)` / `isFadeRest()`                               | Draws what is hidden faded.                                                                                                                                                                                           |
+| `canStepBack()` / `counts()`                                     | Whether there is a step to go back to; `{ visible, total }` components.                                                                                                                                               |
+| `isHidden(element)` / `revealElement(id)`                        | Whether explore mode hides an element; shows a hidden one (a component as a step, a link by its ends, anything else by showing everything; what still cannot show ends explore mode) and tells whether it shows then. |
+
+`wardley.explore.changed` (`EXPLORE_CHANGED`) fires after every change, once the canvas shows it,
+with `{ active, phase, visibleCount, totalCount, fadeRest, canStepBack }`. While it runs the
+canvas container carries `wardley-exploring` (and `wardley-explore-picking` in the pick phase,
+`wardley-explore-faded` while the rest shows faded), and hidden elements carry the marker
+`wardley-explore-hidden`.
+
+Under the IDE host's document lock (an invalid file) the shell disables every palette entry but
+the lasso, the explore toolbar included; the E key and the menu checkbox still switch explore mode
+on and off there.
 
 ## Collaborative hosts
 
@@ -162,9 +225,13 @@ queue a re-import instead of importing from it.
 
 ### Menu entries and dialogs for a host's chrome
 
-`mapMenu(actions)` gives the map's entries of a chrome menu (Model: "Map title…" when `mapTitle` is
-passed, "Map size…", "X-axis labels…"; Export; Help) in the shape of
+`mapMenu(actions)` gives the map's entries of a chrome menu (Model: the "Explore mode" checkbox
+when `explore` is passed, "Map title…" when `mapTitle` is passed, "Map size…", "X-axis labels…";
+Export; Help) in the shape of
 [`@miragon/modeler-shell`](https://www.npmjs.com/package/@miragon/modeler-shell)'s menu groups.
+Pass the `wardleyExplore` service as `explore`: the checkbox stays usable on a read-only canvas,
+the entries that change the document are disabled while exploring, and the host refreshes its
+menu on `wardley.explore.changed`, as explore mode runs no command.
 `createMapSizePopover(chrome, modeler)`, `createAxisLabelsPopover(chrome, modeler)` and
 `createTitleDialog(chrome, modeler)` build the popovers and the title dialog (one undo step each).
 `mapShortcuts(chrome, options)` returns the "Keyboard shortcuts…" groups as data; pass
@@ -195,6 +262,8 @@ const forSlides = await svgToPng(svg, { background: "transparent", scale: 4 });
 | `commandStack.changed`       | `{ trigger }`                     | `Modeler`: after every committed edit, undo and redo, including size, title and label changes.                                    |
 | `wardley.config.changed`     | `WardleyConfigChangedEvent`       | Title, size or axis labels changed. `transient` events are live previews (typing, dragging the plot corner): do not persist them. |
 | `wardley.label.deduplicated` | `{ element, requested, applied }` | A typed name was taken and a free variant (`Tea 2`) was used instead.                                                             |
+| `wardley.readOnly.changed`   | `{ readOnly, shown, reasons }`    | A reason of the lock came or went (`"document"`, `"explore"`), or the marks of a delayed document lock show.                      |
+| `wardley.explore.changed`    | `ExploreChangedEvent`             | `Modeler`: explore mode started, ended or took a step. No command runs, so a host refreshes its menu here.                        |
 
 ### Fonts
 
@@ -208,11 +277,14 @@ Part of the [Wardley Maps Modeler](https://github.com/Miragon/modeler-suite/tree
 
 MIT
 
-The tool icons of the palette (`square-dashed-mouse-pointer`, and for Draw `spline` with a
-straight segment), the Close icon of the dialogs (`x`) and the icons of the context pad (`pencil`,
-`trash`, `circle-plus`, `arrow-right`, `chevrons-right`, `sliders-horizontal`, `line-style`,
-`palette`, `link`, `map`, `external-link`, and for Remove evolve `chevrons-right` with the corner
-`x` of `calendar-x-2`) are copied from [Lucide](https://lucide.dev) (`lucide-static` 1.59.0):
+The tool icons of the palette (`square-dashed-mouse-pointer`, `telescope`, for Draw `spline` with a
+straight segment, and in explore mode `search`, `step-back`, `eye`, `rotate-ccw` and `blend`), the
+Close icon of the dialogs (`x`), the icons of the context pad (`pencil`, `trash`, `circle-plus`,
+`arrow-right`, `chevrons-right`, `sliders-horizontal`, `line-style`, `palette`, `link`, `map`,
+`external-link`, for Remove evolve `chevrons-right` with the corner `x` of `calendar-x-2`, and in
+explore mode `chevron-down`, `chevron-up`, `chevrons-down`, `chevrons-up` and `eye-off`) and of
+explore mode's chips (`chevron-up`, `chevron-down`) are copied from [Lucide](https://lucide.dev)
+(`lucide-static` 1.59.0):
 
 > ISC License
 >
@@ -229,8 +301,9 @@ straight segment), the Close icon of the dialogs (`x`) and the icons of the cont
 > NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 > PERFORMANCE OF THIS SOFTWARE.
 
-`arrow-right`, `chevrons-right`, `circle-plus`, `external-link`, `link`, `map`, `trash` and `x` are
-derived from [Feather](https://feathericons.com):
+`arrow-right`, `chevron-down`, `chevron-up`, `chevrons-down`, `chevrons-right`, `chevrons-up`,
+`circle-plus`, `external-link`, `link`, `map`, `search`, `trash` and `x` are derived from
+[Feather](https://feathericons.com):
 
 > The MIT License (MIT)
 >

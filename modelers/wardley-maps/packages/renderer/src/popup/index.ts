@@ -10,4 +10,5 @@ export const wardleyPopupModule: ModuleDeclaration = {
 export {
   default as WardleyElementSettingsProvider,
   POPUP_PROVIDER_ID,
+  keepKeysInsidePopup,
 } from "./WardleyElementSettingsProvider.js";

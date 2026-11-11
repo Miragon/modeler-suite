@@ -62,7 +62,24 @@ export {
 } from "./link-editing/index.js";
 export { wardleyLabelDragModule, WardleyLabelDragging } from "./label-drag/index.js";
 export { readOnlyModule, WardleyReadOnly, READ_ONLY_CHANGED } from "./read-only/index.js";
-export type { WardleyReadOnlyOptions } from "./read-only/index.js";
+export type {
+  WardleyLockReason,
+  WardleyReadOnlyChangedEvent,
+  WardleyReadOnlyOptions,
+} from "./read-only/index.js";
+export {
+  exploreModule,
+  WardleyExplore,
+  EXPLORE_CHANGED,
+  EXPLORE_OVERLAY_TYPE,
+} from "./explore/index.js";
+export type {
+  ExploreChangedEvent,
+  ExploreCounts,
+  ExploreDirection,
+  ExploreNode,
+  ExplorePhase,
+} from "./explore/index.js";
 export type { LabelRole } from "./label-drag/index.js";
 export { canvasAccessibilityModule } from "./a11y/index.js";
 export { wardleyLassoModule, WardleyLassoBehavior } from "./lasso/index.js";
@@ -123,8 +140,10 @@ export type {
   MapMenu,
   MapMenuAction,
   MapMenuActions,
+  MapMenuCheckbox,
   MapMenuDialog,
   MapMenuEntry,
+  MapMenuExplore,
   MapMenuIcon,
   PopoverChrome,
   PopoverHandle,

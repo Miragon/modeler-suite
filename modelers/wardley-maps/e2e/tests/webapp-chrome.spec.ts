@@ -214,6 +214,7 @@ test.describe("the menu", () => {
       "open",
       "show-example",
       "|",
+      "explore-mode",
       "map-title",
       "map-size",
       "x-axis-labels",
