@@ -1,42 +1,27 @@
-# Auto-merge Dependabot's npm patch and minor updates; majors, GitHub Actions updates and the shared
-# modeler packages stay manual.
+# Enables auto-merge for the updates dependabot-automerge-eligibility.yml labelled, with the
+# release-please app's token: a merge made with GITHUB_TOKEN starts no workflow on main. workflow_run
+# runs this file from main with the Actions secrets, so it never runs code of the pull request.
 name: Dependabot auto-merge
 
-# A run Dependabot starts on pull_request gets Dependabot secrets only, without the app's key.
-# pull_request_target runs this file as it is on main, with the Actions secrets, so it must never
-# check out or run code of the pull request. From 2 December 2026 GitHub blocks pull_request_target
-# in public repositories unless an Actions policy (Settings → Actions → Policies) allows it for
-# this workflow.
-on: pull_request_target
+on:
+  workflow_run:
+    workflows:
+      - 'Dependabot auto-merge eligibility'
+    types: [completed]
 
-permissions:
-  pull-requests: read
+permissions: {}
 
 jobs:
   auto-merge:
-    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
+      github.event.workflow_run.pull_requests[0]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Fetch Dependabot metadata
-        id: meta
-        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      # A chore(deps) merge is never released, and a 0.x minor of @miragon/modeler-shell is a
-      # breaking change of the chrome. Only npm updates get the token: a GitHub Actions update
-      # changes .github/workflows, which GitHub merges only for a token with the workflows
-      # permission, and an ecosystem added later stays manual until it is named here. GitHub
-      # merges in the name of whoever enabled auto-merge, and a merge made with GITHUB_TOKEN starts
-      # no workflow on main.
-      - name: Create a release-please app token for npm patch and minor updates
+      - name: Create a release-please app token
         id: app-token
-        if: >-
-          steps.meta.outputs.package-ecosystem == 'npm_and_yarn' &&
-          !contains(steps.meta.outputs.dependency-names, '@miragon/modeler-') &&
-          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
-          steps.meta.outputs.update-type == 'version-update:semver-minor')
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.RELEASE_PLEASE_APP_CLIENT_ID }}
@@ -44,9 +29,11 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - name: Enable auto-merge
-        if: steps.app-token.outcome == 'success'
-        run: gh pr merge --auto --squash "$PR_URL"
+      - name: Enable auto-merge for a labelled update
+        run: |
+          gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' | grep -qx auto-merge || exit 0
+          gh pr merge --auto --squash "$PR_NUMBER"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}

@@ -74,11 +74,10 @@ known version), and the new repository's Dependabot moves them on.
    first run builds the image and downloads VS Code. `brand-assets.mjs --check` reports no
    finding. All green before the first commit, which is signed (`git commit -S -m "feat: …"`).
 5. **GitHub**: the environments `npm` and `vscode-marketplace`, the release-please app (`RELEASE_PLEASE_APP_CLIENT_ID`,
-   `RELEASE_PLEASE_APP_PRIVATE_KEY`; Dependabot's auto-merge uses it too), required signed commits,
-   and `ci-ok` (the CI gate) and `validate-pr-title` as the only required checks on `main`, once
-   `ci-ok` has run there (see [repository](references/repository.md#the-merge-gate)). A public
-   repository also needs an Actions policy that allows `pull_request_target` for
-   `dependabot-automerge.yml` (see [repository](references/repository.md#dependabot)). The first
+   `RELEASE_PLEASE_APP_PRIVATE_KEY`; Dependabot's auto-merge uses it too, with the label `auto-merge`),
+   required signed commits, and `ci-ok` (the CI gate) and `validate-pr-title` as the only required
+   checks on `main`, once `ci-ok` has run there (see
+   [repository](references/repository.md#the-merge-gate)). The first
    release of every npm package is published by hand once, see
    [releases](references/releases.md#first-release-of-a-package).
 6. Replace the toy notation, test by test: the grammar in `packages/dsl`, the model in

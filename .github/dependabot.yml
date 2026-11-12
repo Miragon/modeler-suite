@@ -54,7 +54,7 @@ updates:
           - "patch"
       # group-by works for version updates only and gives each dependency its own PR across all
       # directories above. A dependency whose directories cannot take the same version still gets a
-      # PR per directory. The PR's highest update type is major, so dependabot-automerge.yml leaves
+      # PR per directory. The PR's highest update type is major, so dependabot-automerge-eligibility.yml leaves
       # it for a human.
       npm-major:
         applies-to: version-updates

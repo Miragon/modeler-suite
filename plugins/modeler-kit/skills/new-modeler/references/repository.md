@@ -137,21 +137,21 @@ commit only has to be a Conventional Commit.
 [`.github/dependabot.yml`](../assets/template/.github/dependabot.yml): weekly npm updates with
 minor and patch grouped, majors one PR each, a 3-day cooldown, `@types/vscode` held at the
 `engines.vscode` floor, and the group `modeler-platform` for `@miragon/modeler-*`. That group is
-never auto-merged ([`dependabot-automerge.yml`](../assets/template/.github/workflows/dependabot-automerge.yml)):
+never auto-merged ([`dependabot-automerge-eligibility.yml`](../assets/template/.github/workflows/dependabot-automerge-eligibility.yml)):
 Dependabot commits as `chore(deps)`, which release-please does not release, and a 0.x minor of the
 shell changes the chrome. Adopt it by hand as `fix(deps): adopt modeler-shell x.y` (with the code
 changes the release notes ask for). GitHub Actions update monthly, all grouped, and are merged by
 hand as well: they change `.github/workflows`, which GitHub merges only for a token with the
 `workflows` permission, and the auto-merge token gets `contents` and `pull-requests` only.
 
-`dependabot-automerge.yml` enables auto-merge for npm updates only, with a token of the
-release-please app: GitHub merges in the name of whoever enabled auto-merge, and a merge made with
-`GITHUB_TOKEN` starts no workflow on `main`, so neither `ci-ok` nor CodeQL nor release-please would
-see the update. It runs on `pull_request_target`, because a run Dependabot starts on `pull_request`
-gets only Dependabot secrets; that event runs the workflow from `main` with the Actions secrets, so
-it must never check out or run code of the pull request. GitHub blocks `pull_request_target` in
-public repositories from 2 December 2026: give a public repository an Actions policy (Settings →
-Actions → Policies) that allows the event for `.github/workflows/dependabot-automerge.yml`.
+`dependabot-automerge-eligibility.yml` labels npm patch and minor updates `auto-merge`, and
+`dependabot-automerge.yml` enables auto-merge for them with a token of the release-please app:
+GitHub merges in the name of whoever enabled auto-merge, and a merge made with `GITHUB_TOKEN` starts
+no workflow on `main`, so neither `ci-ok` nor CodeQL nor release-please would see the update. The
+work is split because a run Dependabot starts on `pull_request` gets only Dependabot secrets: the
+eligibility workflow decides there with `GITHUB_TOKEN`, and the merge workflow runs on its
+`workflow_run`, from `main` with the Actions secrets, so it must never check out or run code of the
+pull request. Create the label once: `gh label create auto-merge`.
 
 ## Commits
 

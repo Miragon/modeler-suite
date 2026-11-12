@@ -1,0 +1,35 @@
+# Labels Dependabot's npm patch and minor updates for dependabot-automerge.yml; majors, GitHub
+# Actions updates and the shared modeler packages stay manual.
+name: Dependabot auto-merge eligibility
+
+on: pull_request
+
+permissions:
+  pull-requests: write
+
+jobs:
+  label-eligible:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # A chore(deps) merge is never released, and a 0.x minor of @miragon/modeler-shell is a
+      # breaking change of the chrome. Only npm updates: a GitHub Actions update changes
+      # .github/workflows, which GitHub merges only for a token with the workflows permission, and
+      # an ecosystem added later stays manual until it is named here.
+      - name: Label npm patch and minor updates for auto-merge
+        if: >-
+          steps.meta.outputs.package-ecosystem == 'npm_and_yarn' &&
+          !contains(steps.meta.outputs.dependency-names, '@miragon/modeler-') &&
+          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+          steps.meta.outputs.update-type == 'version-update:semver-minor')
+        run: gh pr edit "$PR_URL" --add-label auto-merge
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
