@@ -1,33 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { vsCodeSmokeDockerfile } from "../vscode-electron/docker.js";
 import {
   DEFAULT_ORCA_VERSION,
   orcaSmokeDockerImage,
-  orcaSmokeDockerfile,
   parseOrcaSmokeDockerArguments,
 } from "./docker.js";
 
 describe("the Orca smoke image", () => {
-  it("is the VS Code smoke image plus the release's AppImage for the architecture, extracted", () => {
-    const dockerfile = orcaSmokeDockerfile("24.15.0", "1.4.249");
-    expect(dockerfile.startsWith(vsCodeSmokeDockerfile("24.15.0").trimEnd())).toBe(true);
-    expect(dockerfile).toContain(
-      "https://github.com/stablyai/orca/releases/download/v1.4.249/$asset",
-    );
-    expect(dockerfile).toContain("orca-linux-arm64.AppImage || echo orca-linux.AppImage");
-    expect(dockerfile).toContain("--appimage-extract");
-    expect(dockerfile).toContain("ENV ORCA_APP=/opt/orca/squashfs-root");
-  });
-
-  it("gets a tag per Node, Orca and platform", () => {
-    const tag = orcaSmokeDockerImage("24.15.0", "1.4.249", "linux/amd64");
-    expect(tag).toMatch(
-      /^modeler-shell-orca-smoke:node24\.15\.0-orca1\.4\.249-[0-9a-f]{12}-linux-amd64$/,
-    );
-    expect(orcaSmokeDockerImage("24.15.0", "1.4.248")).not.toBe(
-      orcaSmokeDockerImage("24.15.0", "1.4.249"),
-    );
+  it("is Miragon/orca-modelers' image of the Orca release", () => {
+    expect(orcaSmokeDockerImage("1.4.254")).toBe("ghcr.io/miragon/orca:1.4.254");
   });
 });
 

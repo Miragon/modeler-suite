@@ -5,7 +5,6 @@ export {
   DEFAULT_ORCA_VERSION,
   ORCA_SMOKE_DOCKER_USAGE,
   orcaSmokeDockerImage,
-  orcaSmokeDockerfile,
   parseOrcaSmokeDockerArguments,
   runOrcaSmokeInDocker,
 } from "./docker.js";
