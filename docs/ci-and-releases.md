@@ -106,8 +106,8 @@ the VS Code smoke. It runs whenever the `template` job does, on the runner image
 Playwright image, because VS Code needs the image's X server and GTK libraries.
 
 The VS Code version and its cache come from [`.github/actions/vscode`](../.github/actions/vscode),
-the Orca version and its extracted AppImage from Miragon/orca-modelers'
-[`setup-orca`](https://github.com/Miragon/orca-modelers/blob/main/.github/actions/setup-orca/action.yml),
+the Orca version and its extracted AppImage from Miragon/orca-plugin-kit's
+[`setup-orca`](https://github.com/Miragon/orca-plugin-kit/blob/main/setup-orca/action.yml),
 for every smoke alike.
 
 ### Weekly smoke
@@ -244,17 +244,18 @@ jobs builds again and then publishes.
   component), smoke-tests exactly that folder in the newest Orca (`ORCA_SMOKE_PLUGIN`) and uploads
   it with its release tag and changelog section (`release.json`) as the artifact
   `orca-plugin-<id>`. `publish / orca`, in the environment `orca`, hands all of them at once to
-  the action `publish-plugin` of [miragon/orca-modelers](https://github.com/miragon/orca-modelers),
-  the one catalog of every Miragon modeler for Orca. The action runs with the release-please app's
+  the action `publish-plugin` of [Miragon/orca-plugin-kit](https://github.com/Miragon/orca-plugin-kit),
+  which publishes into [Miragon/orca-plugins](https://github.com/Miragon/orca-plugins), the one
+  catalog of every Miragon modeler for Orca. The action runs with the release-please app's
   token (`RELEASE_PLEASE_APP_CLIENT_ID`, `RELEASE_PLEASE_APP_PRIVATE_KEY`, scoped to that
   repository). It opens a pull request with the plugin folders and then one with their catalog
   entries (`orca plugin release-entry`), and squash-merges each once that repository's `validate`
   passes, so a release is one catalog change and one tag there. A failed publish closes its pull
   request; re-running `publish / orca` retries and skips the plugin folders when they are on main
-  of miragon/orca-modelers already. A publish from another source repository is not serialized
+  of miragon/orca-plugins already. A publish from another source repository is not serialized
   with this one (concurrency groups are per repository): a pull request that conflicts fails, and
   a re-run starts from the new main. No build output lands in this repository: Orca installs the
-  files of the pinned commit in miragon/orca-modelers.
+  files of the pinned commit in miragon/orca-plugins.
 
 A release runs from `main` only. Started by hand with `dry_run`, on any branch, the workflow runs
 every build job for every package, extension and plugin and publishes nothing.

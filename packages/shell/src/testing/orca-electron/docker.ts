@@ -11,7 +11,7 @@ export const DEFAULT_ORCA_RESULTS = "test-results/orca-smoke";
 export const DEFAULT_ORCA_COMMAND: readonly string[] = ["npm", "run", "test:orca"];
 
 /**
- * Miragon/orca-modelers' image of an Orca release: Node 22 on Debian bookworm with Orca's
+ * Miragon/orca-plugin-kit's image of an Orca release: Node 22 on Debian bookworm with Orca's
  * libraries, xvfb and the extracted Orca, whose folder `ORCA_APP` names.
  */
 export function orcaSmokeDockerImage(orcaVersion: string): string {

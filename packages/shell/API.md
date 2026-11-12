@@ -4434,7 +4434,7 @@ writes: every shot loads the editor afresh from the file, so a shot after a writ
 document, never the write reaching an open tab.
 
 `modeler-shell-orca-docker` runs a modeler's `test:orca` in a Linux container, as
-`modeler-shell-vscode-docker` runs `test:vscode`, on Miragon/orca-modelers' image
+`modeler-shell-vscode-docker` runs `test:vscode`, on Miragon/orca-plugin-kit's image
 `ghcr.io/miragon/orca:<version>` of `--orca <version>` (default `DEFAULT_ORCA_VERSION`, see
 `orcaSmokeDockerImage`) with Orca in `$ORCA_APP`: the repository copied in, `npm ci`, the command
 under `xvfb-run -a`, and `test-results/orca-smoke` back. Never run the

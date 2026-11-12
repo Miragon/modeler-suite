@@ -7,7 +7,7 @@ import {
 } from "./docker.js";
 
 describe("the Orca smoke image", () => {
-  it("is Miragon/orca-modelers' image of the Orca release", () => {
+  it("is Miragon/orca-plugin-kit's image of the Orca release", () => {
     expect(orcaSmokeDockerImage("1.4.254")).toBe("ghcr.io/miragon/orca:1.4.254");
   });
 });

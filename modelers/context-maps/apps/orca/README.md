@@ -76,6 +76,6 @@ CML. Orca's save dialog asks where to put the file. The `.cm` file stays the sou
 
 [Changelog](CHANGELOG.md) · [Report an issue](https://github.com/Miragon/modeler-suite/issues) ·
 [Source and contributing](../../../../CONTRIBUTING.md#orca-plugins) ·
-[All Miragon modelers for Orca](https://github.com/Miragon/orca-modelers)
+[All Miragon modelers for Orca](https://github.com/Miragon/orca-plugins)
 
 Made by [Miragon](https://www.miragon.io). MIT licence.

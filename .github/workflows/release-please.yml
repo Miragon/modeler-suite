@@ -165,7 +165,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # An Orca plugin goes into the output repository miragon/orca-modelers, whose catalog Orca reads.
+  # An Orca plugin goes into the output repository miragon/orca-plugins, whose catalog Orca reads.
   # Each plugin is built and smoke-tested here in a real Orca and uploaded as the artifact
   # orca-plugin-<id> with its release tag and changelog (release.json); publish-orca publishes all
   # of them at once.
@@ -192,7 +192,7 @@ jobs:
       - run: npm run build:shared
       - run: npm run "$MODELER" build:orca
       - id: orca
-        uses: miragon/orca-modelers/.github/actions/setup-orca@7207762e896fe49cc949dc86edb2170ae35035dd # main
+        uses: Miragon/orca-plugin-kit/setup-orca@6b56b4938c9352a8be5c666019b2f43e557235aa # v1.0.0
         with:
           channel: latest
           plugin-manifest: ${{ matrix.plugin.directory }}/orca-plugin.json
@@ -335,11 +335,12 @@ jobs:
         working-directory: ${{ matrix.extension.directory }}
         run: npx --yes ovsx@1.3.0 publish --packagePath "$VSIX" --skip-duplicate --trusted-publishing
 
-  # One publish for every plugin of this release, by miragon/orca-modelers' action with the
-  # release-please app's token: it opens a pull request for the plugin folders and then one for the
-  # catalog, and merges each once that repository's checks pass, so the release is one catalog
-  # change and one tag. A failed publish closes its pull request; re-running this job retries and
-  # skips the plugin folders when they are on main already.
+  # One publish for every plugin of this release, by the publish-plugin action of
+  # Miragon/orca-plugin-kit with the release-please app's token: it opens a pull request for the
+  # plugin folders and then one for the catalog, and merges each once that repository's checks
+  # pass, so the release is one catalog change and one tag. A failed publish closes its pull
+  # request; re-running this job retries and skips the plugin folders when they are on main
+  # already.
   publish-orca:
     name: publish / orca
     needs: [plan, build-npm, build-vscode, build-orca]
@@ -360,8 +361,8 @@ jobs:
           client-id: ${{ vars.RELEASE_PLEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
           owner: miragon
-          repositories: orca-modelers
-      - uses: miragon/orca-modelers/.github/actions/publish-plugin@e48874dd694e42a3d6e9960d5754134f001d2587 # main
+          repositories: orca-plugins
+      - uses: Miragon/orca-plugin-kit/publish-plugin@6b56b4938c9352a8be5c666019b2f43e557235aa # v1.0.0
         with:
           token: ${{ steps.app-token.outputs.token }}
           plugins-dir: orca-plugins
