@@ -23,13 +23,13 @@ function linkRepositoryFilesOutsideDocsToGitHub(markdown: MarkdownIt) {
 }
 
 const modelers = [
+  { text: "Business Model Canvas", link: "/modelers/business-model-canvas" },
+  { text: "Value Chain", link: "/modelers/value-chain" },
   { text: "Wardley Maps", link: "/modelers/wardley-maps" },
   { text: "Event Storming", link: "/modelers/event-storming" },
-  { text: "Team Topologies", link: "/modelers/team-topologies" },
   { text: "Context Maps", link: "/modelers/context-maps" },
-  { text: "Value Chain", link: "/modelers/value-chain" },
+  { text: "Team Topologies", link: "/modelers/team-topologies" },
   { text: "C4 model", link: "/modelers/c4" },
-  { text: "Business Model Canvas", link: "/modelers/business-model-canvas" },
 ];
 
 export default miragonDocs({
