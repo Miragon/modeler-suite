@@ -1,6 +1,6 @@
 {
   "name": "@miragon/team-topologies-modeler-workspace",
-  "version": "0.22.0",
+  "version": "0.22.1",
   "private": true,
   "description": "A web-based modeler and VS Code extension for the Team Topologies notation (team types & interaction modes).",
   "license": "MIT",
@@ -37,7 +37,7 @@
     "depcruise": "depcruise packages apps --config .dependency-cruiser.cjs"
   },
   "devDependencies": {
-    "@miragon/modeler-shell": "0.14.0",
+    "@miragon/modeler-shell": "0.14.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vscode/test-electron": "3.1.0",

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.22.1](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.22.0...team-topologies-v0.22.1) (2026-11-12)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @miragon/modeler-shell bumped from 0.14.0 to 0.14.1
+
 ## [0.22.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.21.1...team-topologies-v0.22.0) (2026-11-12)
 
 

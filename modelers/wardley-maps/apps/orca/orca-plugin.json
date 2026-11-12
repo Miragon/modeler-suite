@@ -3,7 +3,7 @@
   "manifestVersion": 2,
   "id": "wardley-maps-modeler",
   "name": "Wardley Maps Modeler",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Open .wmap and .owm files as Wardley maps: place components on the evolution axis, draw their dependencies, and keep an agent's changes to the file merged with yours.",
   "author": {
     "name": "Miragon GmbH",

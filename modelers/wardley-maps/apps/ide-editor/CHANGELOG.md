@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.2](https://github.com/Miragon/modeler-suite/compare/wardley-maps-ide-editor-v0.2.1...wardley-maps-ide-editor-v0.2.2) (2026-11-12)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.14.0 to 0.14.1
+
 ## [0.2.1](https://github.com/Miragon/modeler-suite/compare/wardley-maps-ide-editor-v0.2.0...wardley-maps-ide-editor-v0.2.1) (2026-11-12)
 
 

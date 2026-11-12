@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.2](https://github.com/Miragon/modeler-suite/compare/business-model-canvas-ide-editor-v0.1.1...business-model-canvas-ide-editor-v0.1.2) (2026-11-12)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.14.0 to 0.14.1
+
 ## [0.1.1](https://github.com/Miragon/modeler-suite/compare/business-model-canvas-ide-editor-v0.1.0...business-model-canvas-ide-editor-v0.1.1) (2026-11-12)
 
 
