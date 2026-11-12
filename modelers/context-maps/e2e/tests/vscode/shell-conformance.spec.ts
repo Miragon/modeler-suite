@@ -81,7 +81,7 @@ test.describe("VS Code webview: shell conformance", () => {
         },
       },
       // A commit shows as an edit the webview posts to the extension host, which writes the file.
-      labelEditor: contextNameEditor((page) =>
+      documentState: (page) =>
         page.evaluate(() =>
           String(
             (window.__modelerShellVsCodeStub?.posted ?? []).filter(
@@ -89,7 +89,7 @@ test.describe("VS Code webview: shell conformance", () => {
             ).length,
           ),
         ),
-      ),
+      labelEditor: contextNameEditor(),
       shortcutsDialog: contextMapShortcutsDialog("webview"),
     },
     test,

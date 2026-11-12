@@ -56,6 +56,7 @@ describe("shellConformanceCases", () => {
       "keys",
       "focusHandBack",
       "create",
+      "paletteDrag",
       "emptyFile",
       "labelEditor",
       "readOnly",
@@ -92,6 +93,7 @@ describe("registerShellConformance", () => {
       "shell conformance: keys",
       "shell conformance: focusHandBack",
       "shell conformance: create",
+      "shell conformance: paletteDrag",
       "shell conformance: emptyFile",
       "shell conformance: labelEditor",
       "shell conformance: readOnly",
@@ -191,7 +193,7 @@ describe("registerShellConformance", () => {
       page: emptyPage(),
     });
     expect(onSkip).not.toHaveBeenCalled();
-    const labelEditor = { open: async () => "Renamed", documentChanged: async () => false };
+    const labelEditor = { open: async () => "Renamed" };
     await expect(
       register(harness({ open, labelEditor, absent: ["labelEditor"] })).get(
         "shell conformance: labelEditor",
@@ -204,11 +206,31 @@ describe("registerShellConformance", () => {
     expect(open).not.toHaveBeenCalled();
   });
 
+  it("skips the label editor case without harness.documentState, before opening anything", async () => {
+    const onSkip = vi.fn();
+    const open = vi.fn(async () => {});
+    const labelEditor = { open: vi.fn(async () => "Renamed") };
+    await register(harness({ open, labelEditor }), onSkip).get("shell conformance: labelEditor")!({
+      page: emptyPage(),
+    });
+    expect(onSkip).toHaveBeenCalledWith("labelEditor", [
+      {
+        hook: "documentState",
+        reason:
+          "harness.documentState is undefined: that the shell's zoom, fit and refit never commit an open label editor was not verified",
+      },
+    ]);
+    expect(open).not.toHaveBeenCalled();
+  });
+
   it("opens the harness for the label editor case and needs the shell root before the editor", async () => {
     const open = vi.fn(async () => {});
-    const labelEditor = { open: vi.fn(async () => "Renamed"), documentChanged: async () => false };
+    const labelEditor = { open: vi.fn(async () => "Renamed") };
+    const documentState = async () => "";
     await expect(
-      register(harness({ open, labelEditor })).get("shell conformance: labelEditor")!({
+      register(harness({ open, labelEditor, documentState })).get(
+        "shell conformance: labelEditor",
+      )!({
         page: emptyPage(),
       }),
     ).rejects.toThrow(

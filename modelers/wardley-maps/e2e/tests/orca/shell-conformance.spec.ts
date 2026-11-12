@@ -64,7 +64,8 @@ test.describe("Orca editor: shell conformance", () => {
           });
         },
       },
-      labelEditor: kettleLabelEditor(async (page) => String((await orcaTab(page)).edits)),
+      documentState: async (page) => String((await orcaTab(page)).edits),
+      labelEditor: kettleLabelEditor(),
       shortcutsDialog: mapShortcutsDialog("webview"),
     },
     test,

@@ -28,6 +28,7 @@ import {
   optionalIslandProblems,
   paletteColorProblems,
   paletteShortcutProblems,
+  readOnlyDocumentProblems,
   readOnlyMenuProblems,
   readOnlyPaletteProblems,
   readOnlyStateProblems,
@@ -115,8 +116,10 @@ import { emptyFileCase } from "./empty-file-case.js";
 import { labelEditorCase } from "./label-editor-case.js";
 import { forcedColorsCase, reducedMotionCase } from "./media-cases.js";
 import { overlayLayersCase } from "./overlay-layers-case.js";
+import { paletteDragCase } from "./palette-drag-case.js";
 import { createWebCases } from "./web-cases.js";
 import {
+  CREATE_WAIT_MS,
   DEFAULT_SIZES,
   HOVER_MARGIN_MS,
   LIGHT,
@@ -124,6 +127,8 @@ import {
   SHOWN_ISLANDS,
   assertHooksConsistent,
   closeByEscape,
+  documentChangedFrom,
+  documentStateSkip,
   enterOnEntry,
   fail,
   finish,
@@ -1175,6 +1180,8 @@ const createCase: ShellConformanceCase = {
     if (!entry) return undefined;
     await page.mouse.move(PARK.x, PARK.y);
     const free = freeRectangle(await measureChrome(page, root), harness.host);
+    const { documentState } = harness;
+    const documentBefore = await documentState?.(page);
     const before = await shapes(page, root);
     const after = await enterOnEntry(page, root, entry.action, before);
     if (!after) {
@@ -1183,9 +1190,23 @@ const createCase: ShellConformanceCase = {
       ]);
     }
     const canvas = await inPage(page, canvasStateProbe, { root });
-    const problems = createProblems({ entry: entry.action, before, after, canvas, free });
+    const documentChanged =
+      documentState && documentBefore !== undefined
+        ? await documentChangedFrom(page, documentState, documentBefore, CREATE_WAIT_MS)
+        : undefined;
+    const problems = createProblems({
+      entry: entry.action,
+      before,
+      after,
+      canvas,
+      free,
+      documentChanged,
+    });
     await closeByEscape(page);
-    return finish("create", harness.host, problems, []);
+    const skipped = documentState
+      ? []
+      : [documentStateSkip("that a created element reaches the document")];
+    return finish("create", harness.host, problems, skipped);
   },
 };
 
@@ -1282,6 +1303,8 @@ const readOnlyCase: ShellConformanceCase = {
       fail("readOnly", harness.host, [`no element matches the shell root selector "${root}"`]);
     await settle(page);
     problems.push(...readOnlyStateProblems(state));
+    const { documentState } = harness;
+    const documentLocked = await documentState?.(page);
 
     const entries = await inPage(page, paletteEntriesProbe, { root });
     problems.push(...readOnlyPaletteProblems(entries));
@@ -1311,6 +1334,15 @@ const readOnlyCase: ShellConformanceCase = {
         reason:
           "the opened document shows no shape a pointer reaches: context pad, move, delete and label editor of the read-only canvas not verified",
       });
+    }
+    if (documentState && documentLocked !== undefined) {
+      problems.push(
+        ...readOnlyDocumentProblems(
+          await documentChangedFrom(page, documentState, documentLocked, CREATE_WAIT_MS),
+        ),
+      );
+    } else {
+      skipped.push(documentStateSkip("that the locked canvas leaves the document as it was"));
     }
     return finish("readOnly", harness.host, problems, skipped);
   },
@@ -1385,6 +1417,7 @@ export function createBaseCases(): ShellConformanceCase[] {
     keysCase,
     focusHandBackCase,
     createCase,
+    paletteDragCase,
     emptyFileCase,
     labelEditorCase,
     readOnlyCase,

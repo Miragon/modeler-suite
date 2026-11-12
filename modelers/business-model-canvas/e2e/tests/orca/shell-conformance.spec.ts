@@ -56,7 +56,8 @@ test.describe("Orca editor: shell conformance", () => {
         });
       },
       absent: ["problems", "canvasMenuAction"],
-      labelEditor: labelEditorHooks(async (page) => `${(await orcaTab(page)).edits} edits`),
+      documentState: async (page) => `${(await orcaTab(page)).edits} edits`,
+      labelEditor: labelEditorHooks(),
       show: {
         inspector: openNotesPanel,
         async legend(page) {

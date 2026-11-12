@@ -189,11 +189,8 @@ export function registerBreadcrumbTests(host: BreadcrumbHost): void {
  * The label editor of the kit's `overlayLayers` case on a view with boundaries: a double-click on
  * its first element, not on a boundary, whose inside reaches the members.
  */
-export function elementLabelEditorHooks(
-  exportText: (page: Page) => Promise<string>,
-): LabelEditorHooks<Page> {
+export function elementLabelEditorHooks(): LabelEditorHooks<Page> {
   let opens = 0;
-  let exportedAtOpen = "";
   return {
     async open(page) {
       await page
@@ -204,11 +201,7 @@ export function elementLabelEditorHooks(
       opens += 1;
       const typed = `Renamed ${opens}`;
       await page.keyboard.type(typed);
-      exportedAtOpen = await exportText(page);
       return typed;
-    },
-    async documentChanged(page) {
-      return (await exportText(page)) !== exportedAtOpen;
     },
   };
 }

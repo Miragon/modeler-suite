@@ -23,6 +23,9 @@ declare global {
       flaws: {
         /** Enter or Space on a creating palette entry adds nothing (case `create`). */
         noKeyboardCreate: boolean;
+        noPointerCreate: boolean;
+        misplacedPointerCreate: boolean;
+        unsavedCreate: boolean;
         /** The read-only lock leaves context pad, move and delete working (case `readOnly`). */
         canvasUnlocked: boolean;
         /** Cmd/Ctrl+A on the canvas does nothing, so VS Code runs its Select All (case `keys`). */

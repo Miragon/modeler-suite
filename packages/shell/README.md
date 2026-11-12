@@ -446,7 +446,8 @@ pointer click on the zoom panel, a palette tool, a File or Model menu action wit
 in the web app, Share hands the focus to the canvas while Enter and Space leave it on the zoom
 button or on Share and Enter on that menu entry returns it to the menu trigger, that nothing is
 ever half-dark (the painted canvas surround and the palette's colours included, on every document
-the harness lists), that Enter on a creating palette entry adds one selected element, that an empty
+the harness lists), that Enter on a creating palette entry adds one selected element and a drag of
+it with the mouse adds one under the drop point, both into the document, that an empty
 document opens at 100 % (or fitted to a plot that always counts) with the empty-file hint in the
 middle of the free rectangle, which the first element takes away and deleting the last brings back
 (in the web app also after File > New diagram on a document; a harness with `emptyHint: "none"`
@@ -511,7 +512,6 @@ import { registerShellConformance, vsCodeStubSearch } from "@miragon/modeler-she
 test.describe("shell conformance", () => {
   test.describe.configure({ timeout: 60_000 }); // geometry measures three sizes
   let opens = 0;
-  let exportedAtOpen = "";
   registerShellConformance(
     {
       host: "ide",
@@ -534,17 +534,15 @@ test.describe("shell conformance", () => {
           window.shell.destroy();
         });
       },
+      // what the host would save or send: a commit, a created or dropped element changes it
+      documentState: (page) => page.evaluate(() => window.modeler.exportText()),
       labelEditor: {
         // like a user: a double-click on a shape, then typing; a new text on every call
         async open(page) {
           await page.locator(".djs-shape[data-element-id]").first().dblclick();
           const typed = `Renamed ${++opens}`;
           await page.keyboard.type(typed);
-          exportedAtOpen = await page.evaluate(() => window.modeler.exportText());
           return typed;
-        },
-        async documentChanged(page) {
-          return (await page.evaluate(() => window.modeler.exportText())) !== exportedAtOpen;
         },
       },
       shortcutsDialog: {
@@ -673,7 +671,8 @@ page keeps the legend's earlier start state (go to `about:blank` first). A store
 outside the kit, because `open` has no way to pass one: the legend starts closed unless the host
 passes its stored `legend.open`, which the shell's unit tests cover. A skip names the harness field
 it misses (`{ hook: "legend", reason }`; `hook: "labelEditor"` without a `labelEditor`, or `absent:
-["labelEditor"]` for a notation without labels on the canvas; `hook: "shortcutsDialog"` without a
+["labelEditor"]` for a notation without labels on the canvas; `hook: "documentState"` without a
+`documentState`; `hook: "shortcutsDialog"` without a
 `shortcutsDialog`, which no `absent` excuses; `hook: "destroy"` without a `destroy`;
 `hook: "documents"` when `documents` lacks `"empty"`, or in the IDE host `"blank"`; `hook: "open"`
 when the opened document lacks what a case needs, such as a shape for `readOnly`); without `onSkip`

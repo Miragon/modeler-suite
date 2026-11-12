@@ -120,7 +120,8 @@ test.describe("web app: shell conformance", () => {
           );
         },
       },
-      labelEditor: labelEditorHooks(exportText),
+      documentState: exportText,
+      labelEditor: labelEditorHooks(),
       shortcutsDialog: shortcutsDialogHooks("webapp"),
       drop: {
         // The native .c4 file has no MIME type the browser knows; a picture is refused while dragged.

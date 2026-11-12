@@ -28,8 +28,6 @@ const describeSkips = (skips: readonly ShellSkip[]): string =>
 const editsSent = async (page: Page): Promise<number> =>
   (await postedMessages(page)).filter((message) => message.type === "edit").length;
 
-const editsAtLabelEditorOpen = new WeakMap<Page, number>();
-
 test.describe("VS Code webview: shell conformance", () => {
   test.describe.configure({ timeout: 60_000 });
 
@@ -60,16 +58,8 @@ test.describe("VS Code webview: shell conformance", () => {
       absent: ["legend", "inspector", "canvasMenuAction"],
       // A sticky's label editor over the shell's zoom, fit and refit (contract L5): an edit the
       // webview posts is what VS Code would write into the document.
-      labelEditor: {
-        async open(page) {
-          const typed = await typeIntoStickyLabel(page);
-          editsAtLabelEditorOpen.set(page, await editsSent(page));
-          return typed;
-        },
-        async documentChanged(page) {
-          return (await editsSent(page)) !== editsAtLabelEditorOpen.get(page);
-        },
-      },
+      documentState: async (page) => String(await editsSent(page)),
+      labelEditor: { open: typeIntoStickyLabel },
       show: {
         async problems(page) {
           await page.evaluate(() =>

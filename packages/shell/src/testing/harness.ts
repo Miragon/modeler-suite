@@ -99,7 +99,8 @@ export interface DropFixtures {
 export type ShowHook = keyof ShowHooks;
 
 /**
- * How the `labelEditor` case opens the modeler's label editor and sees a commit of it (0.4).
+ * How the `labelEditor` case opens the modeler's label editor (0.4). It sees a commit as a change
+ * of `ShellConformanceHarness.documentState`.
  */
 export interface LabelEditorHooks<P extends PageLike = PageLike> {
   /**
@@ -110,11 +111,6 @@ export interface LabelEditorHooks<P extends PageLike = PageLike> {
    * view that step left.
    */
   open(page: P): Promise<string>;
-  /**
-   * Whether the document changed since `open` last resolved: what the host would save or hand to
-   * its peers (a content change of the modeler, an edit message to the extension).
-   */
-  documentChanged(page: P): Promise<boolean>;
 }
 
 /**
@@ -176,6 +172,15 @@ export interface ShellConformanceHarness<P extends PageLike = PageLike> {
   destroy?: ((page: P) => Promise<void>) | undefined;
   /** CSS selector of the shell root; default `.cd-shell`. */
   root?: string | undefined;
+  /**
+   * After 0.13.0: what the host would save or hand to its peers, as text: the modeler's export in
+   * the web host, the edit messages posted to the extension, the embedded host's edits. Two calls
+   * return the same text exactly when the document did not change between them. `labelEditor` sees
+   * a commit by it, `paletteDrag` that a dropped element reaches the document. Without it,
+   * `labelEditor` is skipped and `paletteDrag` skips its document check, both with
+   * `hook: "documentState"`.
+   */
+  documentState?: ((page: P) => Promise<string>) | undefined;
   /** Hooks for the islands and states the modeler has; one that is neither given nor `absent` is reported as skipped. */
   show?: ShowHooks<P> | undefined;
   /** Web host: the files the `dropZone` case drops; without them (and not `absent`) it is skipped with `hook: "drop"`. */
@@ -217,7 +222,9 @@ export interface ShellConformanceHarness<P extends PageLike = PageLike> {
    * `emptyFile` case. `"centre"` (default): in the middle of the free rectangle, where the hint
    * stood (guide §5.5). `"slot"`: a notation that lays every element out in a slot of its own, such
    * as the Business Model Canvas, which flows a sticky into its block; the element then has to lie
-   * in the free rectangle, the hint still goes and the view still stays.
+   * in the free rectangle, the hint still goes and the view still stays. After 0.13.0 also where
+   * `paletteDrag` expects a dropped element: under the drop point, or with `"slot"` in the free
+   * rectangle.
    */
   firstElement?: FirstElementPlacement | undefined;
   /**
@@ -231,14 +238,15 @@ export interface ShellConformanceHarness<P extends PageLike = PageLike> {
 /** One part of a case the harness could not feed. */
 export interface ShellSkip {
   /**
-   * The harness field that would feed it: a show hook, `drop`, `labelEditor`, `csp`,
-   * `shortcutsDialog`, `destroy`, `documents`, or `open` when the document it opens lacks what the
-   * case needs (a shape on the canvas).
+   * The harness field that would feed it: a show hook, `drop`, `labelEditor`, `documentState`,
+   * `csp`, `shortcutsDialog`, `destroy`, `documents`, or `open` when the document it opens lacks
+   * what the case needs (a shape on the canvas).
    */
   hook:
     | ShowHook
     | "drop"
     | "labelEditor"
+    | "documentState"
     | "csp"
     | "shortcutsDialog"
     | "destroy"
@@ -270,7 +278,10 @@ export interface ShellConformanceCase {
  * action without a dialog or, in the web host, the primary action leaves the focus on the canvas;
  * Enter and Space on zoom in and on the primary action leave it on the button, Enter on that menu
  * entry returns it to the trigger), `create` (Enter on the first creating palette entry places one
- * selected element in the free rectangle and focuses the canvas),
+ * selected element in the free rectangle and focuses the canvas), `paletteDrag` (the pointer drags
+ * the first creating palette entry to an empty spot of the free rectangle: one element lies under
+ * the drop point, or in the free rectangle where `firstElement` is `"slot"`, and the document
+ * changes),
  * `emptyFile` (each empty document of `documents` opens at 100 %, or fitted to a plot that always
  * counts, with the empty-file hint in the middle of the free rectangle and no invalid-file state;
  * the first element takes the hint away without moving the view, deleting it brings the hint back;

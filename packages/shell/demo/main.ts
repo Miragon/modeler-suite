@@ -194,6 +194,9 @@ if (host === "web") {
 
 const flaws: DemoFlaws = {
   noKeyboardCreate: false,
+  noPointerCreate: false,
+  misplacedPointerCreate: false,
+  unsavedCreate: false,
   canvasUnlocked: false,
   noSelectAll: false,
   commitLabelOnViewChange: false,
@@ -212,7 +215,7 @@ const diagram = createDemoDiagram(canvasElement, {
   freeRectCenter: () => connection.viewport.freeRectCenter(),
 });
 
-const documentChanges = countDocumentChanges(diagram);
+const documentChanges = countDocumentChanges(diagram, flaws);
 
 const options = {
   canvas: canvasElement,

@@ -84,9 +84,9 @@ test.describe("VS Code webview: shell conformance", () => {
         },
       },
       // Every edit reaches VS Code as an `edit` message, which writes it into the document.
-      labelEditor: kettleLabelEditor(async (page) =>
+      documentState: async (page) =>
         JSON.stringify((await postedMessages(page)).filter((message) => message.type === "edit")),
-      ),
+      labelEditor: kettleLabelEditor(),
       shortcutsDialog: mapShortcutsDialog("webview"),
     },
     test,

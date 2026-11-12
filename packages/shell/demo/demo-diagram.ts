@@ -45,6 +45,12 @@ import { shellModule, type CollaborativeModelerLike } from "../src/diagram-js.js
 export interface DemoFlaws {
   /** Enter or Space on a creating palette entry adds nothing (case `create`). */
   noKeyboardCreate: boolean;
+  /** A drag from a creating palette entry onto the canvas adds nothing (case `paletteDrag`). */
+  noPointerCreate: boolean;
+  /** A drag from the palette places the element 200px right of the drop point (case `paletteDrag`). */
+  misplacedPointerCreate: boolean;
+  /** A new element shows on the canvas but never reaches the document's changes (cases `create`, `paletteDrag`). */
+  unsavedCreate: boolean;
   /** The read-only lock leaves the canvas editable: context pad, move, delete (case `readOnly`). */
   canvasUnlocked: boolean;
   /** Cmd/Ctrl+A on the canvas does nothing, so VS Code runs its own Select All (case `keys`). */
@@ -130,8 +136,10 @@ class DemoPaletteProvider {
   }
 
   getPaletteEntries(): PaletteEntries {
-    const startCreate = (width: number, height: number) => (event: Event) =>
+    const startCreate = (width: number, height: number) => (event: Event) => {
+      if (this.hooks.flaws.noPointerCreate) return;
       this.create.start(event, this.elementFactory.createShape({ width, height }));
+    };
     // The shell activates an entry from the keyboard with a synthetic click: `detail` is 0.
     const clickCreate = (width: number, height: number) => (event: Event) => {
       if ((event as MouseEvent).detail === 0) this.createAtFreeRectCenter(width, height);
@@ -206,6 +214,24 @@ class DemoPaletteProvider {
       position = { x: position.x + KEYBOARD_CREATE_OFFSET, y: position.y + KEYBOARD_CREATE_OFFSET };
     }
     return position;
+  }
+}
+
+const MISPLACED_DROP_OFFSET = 200;
+
+/** Flaw `misplacedPointerCreate`: an element dropped from the palette lands off the drop point. */
+class DemoMisplacedDrop {
+  static $inject = ["eventBus", "demoHooks"];
+
+  constructor(eventBus: EventBus, hooks: DemoHooks) {
+    eventBus.on(
+      "commandStack.elements.create.preExecute",
+      (event: { context: { position: Point } }) => {
+        if (!hooks.flaws.misplacedPointerCreate) return;
+        const { position } = event.context;
+        event.context.position = { x: position.x + MISPLACED_DROP_OFFSET, y: position.y };
+      },
+    );
   }
 }
 
@@ -556,10 +582,20 @@ class DemoLabelEditing {
 }
 
 /** Counts the commands that changed the diagram (create, move, delete, a label): its document changes. */
-export function countDocumentChanges(diagram: Diagram): () => number {
+/** The document's changes: one per command stack change, without a creation under `unsavedCreate`. */
+export function countDocumentChanges(diagram: Diagram, flaws: DemoFlaws): () => number {
+  const eventBus = diagram.get<EventBus>("eventBus");
   let changes = 0;
-  diagram.get<EventBus>("eventBus").on("commandStack.changed", () => {
-    changes += 1;
+  let creationToDrop = false;
+  eventBus.on(
+    ["commandStack.shape.create.postExecuted", "commandStack.elements.create.postExecuted"],
+    () => {
+      creationToDrop = flaws.unsavedCreate;
+    },
+  );
+  eventBus.on("commandStack.changed", () => {
+    if (creationToDrop) creationToDrop = false;
+    else changes += 1;
   });
   return () => changes;
 }
@@ -569,6 +605,7 @@ export function createDemoDiagram(container: HTMLElement, hooks: DemoHooks): Dia
   const demoModule: ModuleDeclaration = {
     __init__: [
       "demoPaletteProvider",
+      "demoMisplacedDrop",
       "demoRules",
       "demoContextPadProvider",
       "demoSelectAll",
@@ -577,6 +614,7 @@ export function createDemoDiagram(container: HTMLElement, hooks: DemoHooks): Dia
     ],
     demoHooks: ["value", hooks],
     demoPaletteProvider: ["type", DemoPaletteProvider],
+    demoMisplacedDrop: ["type", DemoMisplacedDrop],
     demoRules: ["type", DemoRules],
     demoContextPadProvider: ["type", DemoContextPadProvider],
     demoSelectAll: ["type", DemoSelectAll],

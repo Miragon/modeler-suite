@@ -222,8 +222,14 @@ webview CSP, the web column and a clean `destroy`.
   back once it is deleted, and on the web the same after File > New diagram on a document; the
   appearance case runs on those documents too. Without them the case skips with
   `hook: "documents"`, and `onSkip` fails the run.
+- `documentState` (modeler-shell 0.14.0 or later): what the host would save or send, as text; the
+  template reads `modeler.exportText()`. The kit compares it before and after a step, so two calls
+  differ exactly when the document changed. The `labelEditor` case sees a commit by it, and the
+  kit's palette drag drags the first creating palette entry onto an empty spot of the free
+  rectangle with the mouse and expects one element under the drop point (with
+  `firstElement: "slot"` in the free rectangle) and a changed document.
 - `labelEditor` (modeler-shell 0.4.0 or later): `open` double-clicks a node and types a new text on
-  every call, `documentChanged` compares `modeler.exportText()` with the text at `open` (template:
+  every call (template:
   [`label-editor.ts`](../assets/template/e2e/tests/support/label-editor.ts)). The kit then zooms,
   fits and resizes through the shell and expects no commit (L5) and the typed text still in the
   editor (L5 recommends it, the shell kit requires it), so the label editor stays open across a view

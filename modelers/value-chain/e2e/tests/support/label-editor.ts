@@ -13,22 +13,12 @@ const reachableShapeProbe = (): { x: number; y: number } | null => {
   return null;
 };
 
-interface OpenedEditor {
-  /** Each open types a text no earlier open wrote into a label. */
-  opens: number;
-  /** The document as the host sees it when the last open resolved. */
-  document: string;
-}
-
 /**
  * The shell kit's `labelEditor` hooks, the way a user edits a label: a double-click on a step or an
- * organizational unit opens its editor and the typed text goes after the label. `documentOf` reads
- * what the host would save or send, so a commit shows as a change of it.
+ * organizational unit opens its editor and the typed text goes after the label.
  */
-export function labelEditorHooks(
-  documentOf: (page: Page) => Promise<string>,
-): LabelEditorHooks<Page> {
-  const opened = new WeakMap<Page, OpenedEditor>();
+export function labelEditorHooks(): LabelEditorHooks<Page> {
+  const opensByPage = new WeakMap<Page, number>();
   return {
     async open(page) {
       const target = await page.evaluate(reachableShapeProbe);
@@ -37,16 +27,12 @@ export function labelEditorHooks(
       await page.waitForFunction(
         () => document.activeElement?.classList.contains("djs-direct-editing-content") === true,
       );
-      const opens = (opened.get(page)?.opens ?? 0) + 1;
+      const opens = (opensByPage.get(page) ?? 0) + 1;
+      opensByPage.set(page, opens);
       // No space: a contenteditable holds a trailing one as a no-break space for a moment.
       const typed = `Edited${opens}`;
       await page.keyboard.type(typed);
-      opened.set(page, { opens, document: await documentOf(page) });
       return typed;
-    },
-    async documentChanged(page) {
-      const editor = opened.get(page);
-      return editor !== undefined && (await documentOf(page)) !== editor.document;
     },
   };
 }
