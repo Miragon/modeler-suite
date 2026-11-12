@@ -3,7 +3,7 @@
   "manifestVersion": 2,
   "id": "context-maps-modeler",
   "name": "Context Maps Modeler",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Open .cm and .cm.json files as context maps: model bounded contexts and their relationships, and keep an agent's changes to the file merged with yours.",
   "author": {
     "name": "Miragon GmbH",

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.3](https://github.com/Miragon/modeler-suite/compare/value-chain-webapp-v0.10.2...value-chain-webapp-v0.10.3) (2026-11-12)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.13.0 to 0.14.0
+
 ## [0.10.2](https://github.com/Miragon/modeler-suite/compare/value-chain-webapp-v0.10.1...value-chain-webapp-v0.10.2) (2026-11-11)
 
 
