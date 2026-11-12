@@ -38,24 +38,10 @@ in a text editor, or let your AI assistant write it.
 | [C4 model](modelers/c4/README.md)                                 | `.c4`, `.dsl` (Structurizr DSL)                       | [c4.modeler.miragon.io](https://c4.modeler.miragon.io)                                       | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.c4-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/c4-modeler)                           |
 | [Business Model Canvas](modelers/business-model-canvas/README.md) | `.bmc` (YAML: the nine blocks and their stickies)     | [business-model-canvas.modeler.miragon.io](https://business-model-canvas.modeler.miragon.io) | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.business-model-canvas-modeler)                                                                             |
 
-Every modeler except C4 is also an [Orca](https://www.onorca.dev) plugin: the file
-opens as a diagram right next to your coding agent, and each change the agent writes shows up on
-the canvas. Install them from Orca's plugin directory: search for **Miragon** in Settings →
-Plugins, or open a modeler's page from [Miragon/orca-modelers](https://github.com/Miragon/orca-modelers#install)
-(Orca 1.4.252 or later); C4 follows.
-
-Each modeler's README covers its features, its file format and how to embed it in your own app
-with its npm packages. Business Model Canvas publishes no npm package: it ships as the web app, the
-VS Code extension and the Orca plugin only.
-
-The C4 Modeler is compatible with Structurizr DSL: it opens a Structurizr `workspace.dsl` as it is
-and keeps it a file Structurizr opens. Structurizr is a product of Structurizr Limited; this
-project is not affiliated with or endorsed by Structurizr Limited.
-
-The Business Model Canvas is by Strategyzer AG (strategyzer.com) and licensed under
-[CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); every canvas and every export of
-the modeler carries that attribution. The hints are Miragon's own. This project is
-not affiliated with or endorsed by Strategyzer AG.
+Every modeler except C4 is also an [Orca](https://www.onorca.dev) plugin (Orca 1.4.252 or later):
+search for **Miragon** in Settings → Plugins, or see
+[Miragon/orca-modelers](https://github.com/Miragon/orca-modelers#install). Each modeler's README
+covers its features, its file format and its npm packages.
 
 ### Try it in 30 seconds
 
@@ -95,6 +81,29 @@ template.
 
 Questions, ideas or commercial support? Write to [info@miragon.io](mailto:info@miragon.io) or open
 an [issue](https://github.com/Miragon/modeler-suite/issues).
+
+## Attributions
+
+The notations belong to the people who created them. The modelers are independent tools that
+implement them, not affiliated with or endorsed by their authors.
+
+- **Wardley Maps** by Simon Wardley, described in his book [_Wardley Maps_](https://medium.com/wardleymaps)
+  (CC BY-SA 4.0). The file format is the one of [Online Wardley Maps](https://onlinewardleymaps.com/).
+- **Event Storming** by Alberto Brandolini, [_Introducing EventStorming_](https://leanpub.com/introducing_eventstorming).
+- **Team Topologies** by Matthew Skelton and Manuel Pais, [_Team Topologies_](https://teamtopologies.com/book).
+- **Context Maps** after strategic Domain-Driven Design; `.cml` files and most of the rules come
+  from [Context Mapper](https://contextmapper.org/).
+- **Value Chain** by Michael Porter, _Competitive Advantage_ (1985).
+- **C4 model** by Simon Brown, [c4model.com](https://c4model.com). The C4 Modeler is compatible with
+  Structurizr DSL: it opens a Structurizr `workspace.dsl` as it is and keeps it a file Structurizr
+  opens. Structurizr is a product of Structurizr Limited; this project is not affiliated with or
+  endorsed by Structurizr Limited.
+- **Business Model Canvas** by Strategyzer AG (strategyzer.com), licensed under
+  [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); every canvas and every export of
+  the modeler carries that attribution. The hints are Miragon's own. This project is not affiliated
+  with or endorsed by Strategyzer AG.
+
+The canvases are built on [diagram-js](https://github.com/bpmn-io/diagram-js) by bpmn.io (MIT).
 
 ## License
 
