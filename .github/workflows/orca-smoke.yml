@@ -46,7 +46,7 @@ jobs:
       - run: npm run build:shared
 
       - id: orca
-        uses: ./.github/actions/orca
+        uses: miragon/orca-modelers/.github/actions/setup-orca@7207762e896fe49cc949dc86edb2170ae35035dd # main
         with:
           channel: ${{ matrix.orca }}
           plugin-manifest: modelers/${{ matrix.modeler }}/apps/orca/orca-plugin.json

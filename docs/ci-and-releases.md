@@ -106,7 +106,8 @@ the VS Code smoke. It runs whenever the `template` job does, on the runner image
 Playwright image, because VS Code needs the image's X server and GTK libraries.
 
 The VS Code version and its cache come from [`.github/actions/vscode`](../.github/actions/vscode),
-the Orca version and its extracted AppImage from [`.github/actions/orca`](../.github/actions/orca),
+the Orca version and its extracted AppImage from Miragon/orca-modelers'
+[`setup-orca`](https://github.com/Miragon/orca-modelers/blob/main/.github/actions/setup-orca/action.yml),
 for every smoke alike.
 
 ### Weekly smoke
