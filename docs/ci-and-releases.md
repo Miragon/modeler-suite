@@ -229,9 +229,8 @@ jobs builds again and then publishes.
   packs it with `npm pack`; `publish / npm (<package>)` publishes that very tarball in the
   environment `npm`, with OIDC trusted publishing and provenance, on Node 24 (npm 11.5.1 or
   later). A version already on the registry is skipped; a package that was never published fails
-  with a hint (publish it once by hand, then attach the trusted publisher). After `npm publish` the
-  job waits up to five minutes for the registry to list the version: that, not the exit status of
-  `npm publish`, is the verdict.
+  with a hint (publish it once by hand, then attach the trusted publisher). The exit status of
+  `npm publish` is the verdict; the registry can take minutes to list an accepted version.
 - **VS Code**: `build / vscode (<extension>)` builds and packs the VSIX and smoke-tests that very
   VSIX in the newest stable VS Code; `publish / vscode-marketplace (<extension>)` and
   `publish / open-vsx (<extension>)` upload it in the environment `vscode-marketplace` with
