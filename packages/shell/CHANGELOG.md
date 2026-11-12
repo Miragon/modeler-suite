@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.13.0...modeler-shell-v0.14.0) (2026-11-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **shell:** add a palette drag case and a document hook to the conformance kit ([#645](https://github.com/Miragon/modeler-suite/issues/645))
+
+### Features
+
+* **shell:** add a palette drag case and a document hook to the conformance kit ([#645](https://github.com/Miragon/modeler-suite/issues/645)) ([bec53d1](https://github.com/Miragon/modeler-suite/commit/bec53d1365dde7c4185a5d570f07b779149ee934))
+* **shell:** run the Orca smoke container on Miragon/orca-modelers' image ([#631](https://github.com/Miragon/modeler-suite/issues/631)) ([636d26b](https://github.com/Miragon/modeler-suite/commit/636d26be86f19597019a6c1bdbd0508bd06742a5))
+
 ## [0.13.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.12.0...modeler-shell-v0.13.0) (2026-11-11)
 
 

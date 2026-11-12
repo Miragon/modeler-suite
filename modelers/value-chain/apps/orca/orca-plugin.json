@@ -3,7 +3,7 @@
   "manifestVersion": 2,
   "id": "value-chain-modeler",
   "name": "Value Chain Modeler",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Open .vc and .vc.json files as value chain diagrams: model process steps, org units and their connections, and keep an agent's changes to the file merged with yours.",
   "author": {
     "name": "Miragon GmbH",

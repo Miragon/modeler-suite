@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.22.0](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.21.1...team-topologies-v0.22.0) (2026-11-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **shell:** add a palette drag case and a document hook to the conformance kit ([#645](https://github.com/Miragon/modeler-suite/issues/645))
+
+### Features
+
+* **shell:** add a palette drag case and a document hook to the conformance kit ([#645](https://github.com/Miragon/modeler-suite/issues/645)) ([bec53d1](https://github.com/Miragon/modeler-suite/commit/bec53d1365dde7c4185a5d570f07b779149ee934))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @miragon/modeler-shell bumped from 0.13.0 to 0.14.0
+
 ## [0.21.1](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.21.0...team-topologies-v0.21.1) (2026-11-11)
 
 

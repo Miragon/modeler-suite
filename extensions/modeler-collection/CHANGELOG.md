@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/Miragon/modeler-suite/compare/modeler-collection-v1.5.0...modeler-collection-v1.6.0) (2026-11-12)
+
+
+### Features
+
+* **modeler-collection:** add the Business Model Canvas Modeler to the extension pack ([#619](https://github.com/Miragon/modeler-suite/issues/619)) ([b2ba35b](https://github.com/Miragon/modeler-suite/commit/b2ba35b802554345e29794f9338e07e3f3fcc868))
+
 ## [1.5.0](https://github.com/Miragon/modeler-suite/compare/modeler-collection-v1.4.1...modeler-collection-v1.5.0) (2026-11-02)
 
 
