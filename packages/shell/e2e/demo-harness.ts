@@ -127,9 +127,9 @@ export function demoHarness(
       await page.evaluate(() => window.__demo?.destroy());
     },
     show,
-    labelEditor: demoLabelEditor((page) =>
-      page.evaluate(() => window.__demo?.documentChanges() ?? 0),
-    ),
+    documentState: async (page) =>
+      String(await page.evaluate(() => window.__demo?.documentChanges() ?? 0)),
+    labelEditor: demoLabelEditor(),
     // The demo has no shortcut groups of its own: the kit's fixture stands in for them.
     shortcutsDialog: {
       async show(page, fixture) {

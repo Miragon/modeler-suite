@@ -306,6 +306,44 @@ test.describe("saboteurs", () => {
       ]);
     });
 
+    test("paletteDrag fails when a drag from a creating palette entry places nothing", async ({
+      page,
+    }) => {
+      const harness = sabotaged(() => {
+        window.__demo!.flaws.noPointerCreate = true;
+      });
+      await expectOnlyCaseFails(page, harness, "paletteDrag", [
+        /palette drag: dragging palette entry "create\.box" to \([\d.]+, [\d.]+\)px added no element/,
+      ]);
+    });
+
+    test("paletteDrag fails when the dropped element lands away from the drop point", async ({
+      page,
+    }) => {
+      const harness = sabotaged(() => {
+        window.__demo!.flaws.misplacedPointerCreate = true;
+      });
+      await expectOnlyCaseFails(page, harness, "paletteDrag", [
+        /palette drag: dragging palette entry "create\.box" to \([\d.]+, [\d.]+\)px placed "[^"]+" at .+, away from the drop point/,
+      ]);
+    });
+
+    test("create and paletteDrag fail when a new element never reaches the document", async ({
+      page,
+    }) => {
+      const harness = sabotaged(() => {
+        window.__demo!.flaws.unsavedCreate = true;
+      });
+      await expectOnlyCasesFail(page, harness, {
+        create: [
+          /create: Enter on palette entry "create\.box" placed "[^"]+" but left documentState as it was/,
+        ],
+        paletteDrag: [
+          /palette drag: dragging palette entry "create\.box" to .+ drew "[^"]+" but left documentState as it was/,
+        ],
+      });
+    });
+
     test("legendStart fails a shell that opens the legend by default", async ({ page }) => {
       // shell 0.4's rule, open above 440px width and 820px height, before the decision of 2026-10-24
       const harness = sabotaged(() => {
@@ -414,6 +452,7 @@ test.describe("saboteurs", () => {
         /read-only: selecting "[^"]+" shows the context pad/,
         /read-only: a 40px drag changed "[^"]+"/,
         /read-only: Delete on the canvas deleted "[^"]+"/,
+        /read-only: Enter on the palette, a drag, a double-click and Delete on the locked canvas changed documentState/,
       ]);
     });
 
@@ -777,7 +816,7 @@ test.describe("saboteurs", () => {
         window.__demo!.flaws.commitLabelOnViewChange = true;
       });
       await expectOnlyCaseFails(page, harness, "labelEditor", [
-        /label editor: a click on Fit committed the open label editor \(labelEditor\.documentChanged\); a view change the host makes never commits it \(contract L5\)/,
+        /label editor: a click on Fit committed the open label editor \(documentState changed\); a view change the host makes never commits it \(contract L5\)/,
         /label editor: Cmd\/Ctrl\+0 on the canvas committed the open label editor/,
         /label editor: Shift\+1 on the canvas committed the open label editor/,
         /label editor: a container resize committed the open label editor/,
@@ -977,17 +1016,14 @@ test.describe("saboteurs", () => {
     expect(await runCase("focusHandBack", page, declared)).toBeUndefined();
   });
 
-  test("labelEditor fails for a documentChanged probe that never sees the commit", async ({
-    page,
-  }) => {
-    const base = demoHarness("ide");
+  test("labelEditor fails for a documentState that never sees the commit", async ({ page }) => {
     const harness: ShellConformanceHarness<Page> = {
-      ...base,
+      ...demoHarness("ide"),
       sizes: WIDE_ONLY,
-      labelEditor: { open: base.labelEditor!.open, documentChanged: async () => false },
+      documentState: async () => "unchanged",
     };
     await expect(runCase("labelEditor", page, harness)).rejects.toThrow(
-      /label editor: a click on an empty spot of the canvas after the view changes left labelEditor\.documentChanged false, so the case proved nothing/,
+      /label editor: a click on an empty spot of the canvas after the view changes left documentState as it was, so the case proved nothing/,
     );
   });
 

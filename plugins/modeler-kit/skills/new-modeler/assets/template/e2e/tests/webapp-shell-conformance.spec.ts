@@ -91,9 +91,8 @@ test.describe('web app: shell conformance', () => {
           );
         },
       },
-      labelEditor: labelEditorHooks((page) =>
-        page.evaluate(() => window.app!.modeler.exportText()),
-      ),
+      documentState: (page) => page.evaluate(() => window.app!.modeler.exportText()),
+      labelEditor: labelEditorHooks(),
       shortcutsDialog: shortcutsDialogHooks('webapp'),
       drop: {
         // A .__EXT__ file has no MIME type the browser knows; a picture is refused while dragged.

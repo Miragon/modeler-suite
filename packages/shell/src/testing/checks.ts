@@ -23,10 +23,11 @@ import {
   type SurroundFacts,
   type ZoomButton,
 } from "./facts.js";
+import type { FirstElementPlacement } from "./empty-file-checks.js";
 import { GEOMETRY_TOLERANCE_PX, type Rectangle } from "./geometry.js";
 import type { AbsentFeature, ShellConformanceHarness, ShowHook } from "./harness.js";
 import { shortcutChipProblems } from "./key-shortcut-checks.js";
-import type { ElementFacts, LeftoverFacts, RecordedKey } from "./page-tools.js";
+import type { ElementFacts, LeftoverFacts, RecordedKey, RelativeBox } from "./page-tools.js";
 import type { PageLike } from "./page.js";
 import { legalAriaProblems, primaryAriaProblems } from "./web-checks.js";
 
@@ -859,6 +860,8 @@ export interface CreateFacts {
   canvas: CanvasStateFacts;
   /** The free rectangle when Enter was pressed (guide §5.9). */
   free: Rectangle;
+  /** Whether `documentState` changed with the new element; `undefined` without `documentState`. */
+  documentChanged?: boolean | undefined;
 }
 
 const round = (value: number): number => Math.round(value * 10) / 10;
@@ -906,6 +909,104 @@ export function createProblems(facts: CreateFacts): string[] {
       `create: the new element "${shape.id}" is centred at (${round(centre.x)}, ${round(centre.y)})px, outside the free rectangle ${round(free.left)}–${round(free.right)} × ${round(free.top)}–${round(free.bottom)}px (guide §5.5, §5.9)`,
     );
   }
+  if (facts.documentChanged === false) {
+    problems.push(
+      `create: ${pressed} placed "${shape.id}" but left documentState as it was; the host would not save it`,
+    );
+  }
+  return problems;
+}
+
+/**
+ * How far a dropped element may lie from the drop point on the screen: a notation that snaps its
+ * elements to a raster moves them a few pixels.
+ */
+export const DROP_TOLERANCE_PX = 16;
+
+/**
+ * The drop point and the new element in diagram coordinates, with the view's scale at the drop. A
+ * modeler may move the view after the drop, to keep the new element clear of its inspector; the
+ * element still lies where the pointer let go.
+ */
+export interface DiagramDropFacts {
+  drop: { x: number; y: number };
+  added: RelativeBox;
+  scale: number;
+}
+
+export interface PaletteDragFacts {
+  /** `data-action` of the entry the kit dragged. */
+  entry: string;
+  /** Where the pointer let go, relative to the root's padding box. */
+  drop: { x: number; y: number };
+  before: readonly ShapeFacts[];
+  after: readonly ShapeFacts[];
+  /** The free rectangle when the drag started (guide §5.9). */
+  free: Rectangle;
+  /** `ShellConformanceHarness.firstElement`: `"slot"` lays the element out in a slot of its own. */
+  placement?: FirstElementPlacement | undefined;
+  /** Read once exactly one element was added. */
+  diagram?: DiagramDropFacts | undefined;
+  /** Whether `documentState` changed with the drop; `undefined` without `documentState`. */
+  documentChanged?: boolean | undefined;
+}
+
+function liesUnder(point: { x: number; y: number }, box: RelativeBox, tolerance: number): boolean {
+  return (
+    point.x >= box.left - tolerance &&
+    point.x <= box.left + box.width + tolerance &&
+    point.y >= box.top - tolerance &&
+    point.y <= box.top + box.height + tolerance
+  );
+}
+
+function span(box: RelativeBox): string {
+  return `${round(box.left)}–${round(box.left + box.width)} × ${round(box.top)}–${round(box.top + box.height)}`;
+}
+
+/**
+ * A drag from the palette onto the canvas creates one element where the pointer let go, or in the
+ * free rectangle for a notation that lays it out in a slot, and the host sees it in the document.
+ */
+export function paletteDragProblems(facts: PaletteDragFacts): string[] {
+  const known = new Set(facts.before.map((shape) => shape.id));
+  const added = facts.after.filter((shape) => !known.has(shape.id));
+  const dropped = `dragging palette entry "${facts.entry}" to (${round(facts.drop.x)}, ${round(facts.drop.y)})px`;
+  if (added.length === 0) return [`palette drag: ${dropped} added no element`];
+  if (added.length > 1) {
+    return [
+      `palette drag: ${dropped} added ${added.length} elements (${added.map((shape) => shape.id).join(", ")}), expected exactly one`,
+    ];
+  }
+  const [shape] = added as [ShapeFacts];
+  const { free, diagram } = facts;
+  const problems: string[] = [];
+  if (facts.placement === "slot") {
+    const { box } = shape;
+    const centre = { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+    const inFree =
+      centre.x >= free.left &&
+      centre.x <= free.right &&
+      centre.y >= free.top &&
+      centre.y <= free.bottom;
+    if (!inFree) {
+      problems.push(
+        `palette drag: ${dropped} placed "${shape.id}" at ${span(box)}px, outside the free rectangle ${round(free.left)}–${round(free.right)} × ${round(free.top)}–${round(free.bottom)}px`,
+      );
+    }
+  } else if (
+    diagram &&
+    !liesUnder(diagram.drop, diagram.added, DROP_TOLERANCE_PX / diagram.scale)
+  ) {
+    problems.push(
+      `palette drag: ${dropped} placed "${shape.id}" at ${span(diagram.added)} in diagram units, away from the drop point (${round(diagram.drop.x)}, ${round(diagram.drop.y)}); a dropped element lies under the pointer`,
+    );
+  }
+  if (facts.documentChanged === false) {
+    problems.push(
+      `palette drag: ${dropped} drew "${shape.id}" but left documentState as it was; the host would not save it`,
+    );
+  }
   return problems;
 }
 
@@ -914,12 +1015,8 @@ function holdsTyped(facts: LabelEditorFacts, typed: string): boolean {
   return facts.editing && facts.text.includes(typed);
 }
 
-/** Right after `labelEditor.open`: the editor has the focus and the typed text, and nothing changed yet. */
-export function labelEditorOpenProblems(
-  typed: string,
-  facts: LabelEditorFacts,
-  documentChanged: boolean,
-): string[] {
+/** Right after `labelEditor.open`: the editor has the focus and the typed text. */
+export function labelEditorOpenProblems(typed: string, facts: LabelEditorFacts): string[] {
   const problems: string[] = [];
   if (typed === "") {
     problems.push("label editor: labelEditor.open typed nothing, so the case would prove nothing");
@@ -930,11 +1027,6 @@ export function labelEditorOpenProblems(
   } else if (!holdsTyped(facts, typed)) {
     problems.push(
       `label editor: after labelEditor.open the focused field holds "${facts.text}", expected the typed "${typed}"`,
-    );
-  }
-  if (documentChanged) {
-    problems.push(
-      "label editor: labelEditor.documentChanged reports a change right after labelEditor.open; typing alone changes no document, so it counts from the moment open resolved",
     );
   }
   return problems;
@@ -949,7 +1041,7 @@ export interface LabelEditorStepFacts {
   /** The view before the step (`LabelEditorFacts.view`). */
   viewBefore: string | null;
   after: LabelEditorFacts;
-  /** `labelEditor.documentChanged` after the step. */
+  /** Whether `documentState` after the step differs from the one when `labelEditor.open` resolved. */
   documentChanged: boolean;
 }
 
@@ -967,7 +1059,7 @@ export function labelEditorStepProblems(facts: LabelEditorStepFacts): string[] {
   }
   if (facts.documentChanged) {
     problems.push(
-      `label editor: ${step} committed the open label editor (labelEditor.documentChanged); a view change the host makes never commits it (contract L5)`,
+      `label editor: ${step} committed the open label editor (documentState changed); a view change the host makes never commits it (contract L5)`,
     );
   } else if (!after.editing) {
     problems.push(
@@ -996,14 +1088,23 @@ export function isViewAtActualSize(view: string | null): boolean {
 
 /**
  * After every step kept the editor open: the user's own commit, a click on an empty spot of the
- * canvas, must show in `labelEditor.documentChanged`, or the steps proved nothing.
+ * canvas, must show in `documentState`, or the steps proved nothing.
  */
 export function labelEditorCommitProblems(documentChanged: boolean): string[] {
   return documentChanged
     ? []
     : [
-        "label editor: a click on an empty spot of the canvas after the view changes left labelEditor.documentChanged false, so the case proved nothing; open types text the element's label does not hold yet, and documentChanged reports the commit a click elsewhere makes",
+        "label editor: a click on an empty spot of the canvas after the view changes left documentState as it was, so the case proved nothing; labelEditor.open types text the element's label does not hold yet, and documentState shows the commit a click elsewhere makes",
       ];
+}
+
+/** Guide §13.5: nothing a user tries on the locked canvas reaches the document. */
+export function readOnlyDocumentProblems(documentChanged: boolean): string[] {
+  return documentChanged
+    ? [
+        "read-only: Enter on the palette, a drag, a double-click and Delete on the locked canvas changed documentState; a read-only canvas changes no document (guide §13.5)",
+      ]
+    : [];
 }
 
 /** The read-only marks once the invalid-file state shows (guide §5.12, §13.5). */

@@ -14,8 +14,6 @@ import { openOrcaEditor, openShippedOrcaEditor, orcaTab } from "./support/orca.j
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
 
-const editsAtOpen = new WeakMap<Page, number>();
-
 test.describe("Orca editor: shell conformance", () => {
   test.describe.configure({ timeout: 90_000 });
 
@@ -78,16 +76,8 @@ test.describe("Orca editor: shell conformance", () => {
           });
         },
       },
-      labelEditor: {
-        async open(page) {
-          const typed = await typeIntoLabelEditor(page);
-          editsAtOpen.set(page, (await orcaTab(page)).edits);
-          return typed;
-        },
-        async documentChanged(page) {
-          return (await orcaTab(page)).edits > (editsAtOpen.get(page) ?? 0);
-        },
-      },
+      documentState: async (page) => String((await orcaTab(page)).edits),
+      labelEditor: { open: typeIntoLabelEditor },
       shortcutsDialog: diagramShortcutsDialog("webview"),
     },
     test,

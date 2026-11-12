@@ -55,6 +55,9 @@ if (!app) throw new Error("web demo: #app is missing");
 
 const flaws: DemoFlaws = {
   noKeyboardCreate: false,
+  noPointerCreate: false,
+  misplacedPointerCreate: false,
+  unsavedCreate: false,
   canvasUnlocked: false,
   noSelectAll: false,
   commitLabelOnViewChange: false,
@@ -75,7 +78,7 @@ const diagram = createDemoDiagram(canvasElement, {
   // palette moves below 784px.
   extraShapes: 14,
 });
-const documentChanges = countDocumentChanges(diagram);
+const documentChanges = countDocumentChanges(diagram, flaws);
 const modeling = diagram.get<Modeling>("modeling");
 const elementRegistry = diagram.get<ElementRegistry>("elementRegistry");
 const selection = diagram.get<Selection>("selection");

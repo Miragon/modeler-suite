@@ -26,9 +26,6 @@ import { openShippedWebview, postedMessages } from "./support/webview.js";
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
 
-/** How many edits the webview had sent to the extension host when `labelEditor.open` last resolved. */
-const editsAtOpen = new WeakMap<Page, number>();
-
 async function sentEdits(page: Page): Promise<number> {
   return (await postedMessages(page)).filter((message) => message.type === "edit").length;
 }
@@ -103,16 +100,8 @@ test.describe("VS Code webview: shell conformance", () => {
           });
         },
       },
-      labelEditor: {
-        async open(page) {
-          const typed = await typeIntoLabelEditor(page);
-          editsAtOpen.set(page, await sentEdits(page));
-          return typed;
-        },
-        async documentChanged(page) {
-          return (await sentEdits(page)) > (editsAtOpen.get(page) ?? 0);
-        },
-      },
+      documentState: async (page) => String(await sentEdits(page)),
+      labelEditor: { open: typeIntoLabelEditor },
       shortcutsDialog: diagramShortcutsDialog("webview"),
     },
     test,

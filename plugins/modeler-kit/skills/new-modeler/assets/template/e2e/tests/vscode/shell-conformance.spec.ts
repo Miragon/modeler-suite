@@ -88,7 +88,8 @@ test.describe('VS Code webview: shell conformance', () => {
       // No legend, no inspector; VS Code has no File group and the menu no Model group, so no
       // entry acts on the canvas (a Model action without a dialog would: then drop it from here).
       absent: ['legend', 'inspector', 'canvasMenuAction'],
-      labelEditor: labelEditorHooks((page) => page.evaluate(() => window.modeler!.exportText())),
+      documentState: (page) => page.evaluate(() => window.modeler!.exportText()),
+      labelEditor: labelEditorHooks(),
       shortcutsDialog: shortcutsDialogHooks('webview'),
       show: {
         async problems(page) {

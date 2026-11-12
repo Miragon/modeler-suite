@@ -108,9 +108,8 @@ test.describe("web app: shell conformance", () => {
         },
       },
       // A commit shows in the map the app saves to the browser and writes into the link.
-      labelEditor: contextNameEditor((page) =>
-        page.evaluate(() => window.__cmModeler.exportText()),
-      ),
+      documentState: (page) => page.evaluate(() => window.__cmModeler.exportText()),
+      labelEditor: contextNameEditor(),
       drop: {
         accepted: {
           name: "conference.cm.json",

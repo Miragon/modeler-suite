@@ -26,9 +26,7 @@ const describeSkips = (skips: readonly ShellSkip[]): string =>
 /** Pages that start every visit without the browser's copy of a diagram or a legend state. */
 const freshPages = new WeakSet<Page>();
 
-/** The document as the web app would save it when `labelEditor.open` last resolved. */
-const documentAtOpen = new WeakMap<Page, string>();
-
+/** The document as the web app would save it. */
 function currentDocument(page: Page): Promise<string> {
   return page.evaluate(() =>
     JSON.stringify(
@@ -138,16 +136,8 @@ test.describe("web app: shell conformance", () => {
           );
         },
       },
-      labelEditor: {
-        async open(page) {
-          const typed = await typeIntoLabelEditor(page);
-          documentAtOpen.set(page, await currentDocument(page));
-          return typed;
-        },
-        async documentChanged(page) {
-          return (await currentDocument(page)) !== documentAtOpen.get(page);
-        },
-      },
+      documentState: currentDocument,
+      labelEditor: { open: typeIntoLabelEditor },
       drop: {
         // A .tt file has no MIME type the browser knows; a picture is refused already while it is
         // dragged and, dropped all the same, opens nothing.

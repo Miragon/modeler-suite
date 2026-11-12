@@ -91,9 +91,9 @@ export function webDemoHarness(options: WebDemoHarnessOptions = {}): ShellConfor
     },
     show,
     drop: WEB_DROP,
-    labelEditor: demoLabelEditor((page) =>
-      page.evaluate(() => window.__webDemo?.documentChanges() ?? 0),
-    ),
+    documentState: async (page) =>
+      String(await page.evaluate(() => window.__webDemo?.documentChanges() ?? 0)),
+    labelEditor: demoLabelEditor(),
     // The demo has no shortcut groups of its own: the kit's fixture stands in for them.
     shortcutsDialog: {
       async show(page, fixture) {

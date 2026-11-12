@@ -53,9 +53,8 @@ test.describe("VS Code webview: shell conformance", () => {
       },
       absent: ["legend", "inspector", "canvasMenuAction"],
       // A commit shows as an edit message to the extension host, which writes the document.
-      labelEditor: labelEditorHooks(
-        async (page) => `${countOf(await postedMessages(page), "edit")} edits`,
-      ),
+      documentState: async (page) => `${countOf(await postedMessages(page), "edit")} edits`,
+      labelEditor: labelEditorHooks(),
       show: {
         // The way the extension host reports diagnostics: a `problems` message.
         async problems(page) {

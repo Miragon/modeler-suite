@@ -14,8 +14,6 @@ import { openOrcaEditor, openShippedOrcaEditor, orcaTab } from "./support/orca.j
 const describeSkips = (skips: readonly ShellSkip[]): string =>
   skips.map((skip) => `${skip.hook}: ${skip.reason}`).join("; ");
 
-const editsAtLabelEditorOpen = new WeakMap<Page, number>();
-
 test.describe("Orca editor: shell conformance", () => {
   test.describe.configure({ timeout: 60_000 });
 
@@ -43,16 +41,8 @@ test.describe("Orca editor: shell conformance", () => {
         });
       },
       absent: ["problems", "legend", "inspector", "canvasMenuAction"],
-      labelEditor: {
-        async open(page) {
-          const typed = await typeIntoStickyLabel(page);
-          editsAtLabelEditorOpen.set(page, (await orcaTab(page)).edits);
-          return typed;
-        },
-        async documentChanged(page) {
-          return (await orcaTab(page)).edits !== editsAtLabelEditorOpen.get(page);
-        },
-      },
+      documentState: async (page) => String((await orcaTab(page)).edits),
+      labelEditor: { open: typeIntoStickyLabel },
       show: {
         async status(page) {
           await page.evaluate(() => {

@@ -4,6 +4,8 @@ import {
   LIGHT,
   POLL_MS,
   assertHooksConsistent,
+  documentChangedFrom,
+  documentStateSkip,
   fail,
   finish,
   openHarness,
@@ -136,23 +138,29 @@ async function afterViewChange(
   return editorFacts(page, root, host);
 }
 
-/** `labelEditor.open`, checked; the typed text. Without an open editor the case cannot go on. */
+interface OpenedEditor {
+  typed: string;
+  /** `documentState` once the editor was open with the typed text. */
+  documentAtOpen: string;
+}
+
+/**
+ * `labelEditor.open`, checked; the typed text and the document it left. Without an open editor
+ * the case cannot go on.
+ */
 async function openEditor<P extends PageLike>(
   page: P,
   root: string,
   hooks: LabelEditorHooks<P>,
+  documentState: (page: P) => Promise<string>,
   harness: ShellConformanceHarness<P>,
   problems: readonly string[],
-): Promise<string> {
+): Promise<OpenedEditor> {
   const typed = await hooks.open(page);
   await settle(page);
-  const opened = labelEditorOpenProblems(
-    typed,
-    await editorFacts(page, root, harness.host),
-    await hooks.documentChanged(page),
-  );
+  const opened = labelEditorOpenProblems(typed, await editorFacts(page, root, harness.host));
   if (opened.length > 0) fail("labelEditor", harness.host, [...problems, ...opened]);
-  return typed;
+  return { typed, documentAtOpen: await documentState(page) };
 }
 
 /**
@@ -179,13 +187,23 @@ export const labelEditorCase: ShellConformanceCase = {
         ],
       };
     }
+    const { documentState } = harness;
+    if (!documentState) {
+      return {
+        skipped: [
+          documentStateSkip(
+            "that the shell's zoom, fit and refit never commit an open label editor",
+          ),
+        ],
+      };
+    }
     const root = harness.root ?? DEFAULT_ROOT;
     const size = (harness.sizes ?? DEFAULT_SIZES)[0] ?? DEFAULT_SIZES[0]!;
     await openHarness(page, harness, { size, requested: LIGHT });
     await settle(page);
     await editorFacts(page, root, harness.host);
     const problems: string[] = [];
-    let typed = await openEditor(page, root, hooks, harness, problems);
+    let editor = await openEditor(page, root, hooks, documentState, harness, problems);
     let committed = false;
 
     for (const step of VIEW_STEPS) {
@@ -196,11 +214,11 @@ export const labelEditorCase: ShellConformanceCase = {
         continue;
       }
       const after = await afterViewChange(page, root, harness.host, before.view);
-      const documentChanged = await hooks.documentChanged(page);
+      const documentChanged = (await documentState(page)) !== editor.documentAtOpen;
       problems.push(
         ...labelEditorStepProblems({
           step: step.name,
-          typed,
+          typed: editor.typed,
           viewBefore: before.view,
           after,
           documentChanged,
@@ -208,8 +226,8 @@ export const labelEditorCase: ShellConformanceCase = {
       );
       committed ||= documentChanged;
       // The next step needs an editor with typed text that no commit has written yet.
-      if (documentChanged || !after.editing || !after.text.includes(typed)) {
-        typed = await openEditor(page, root, hooks, harness, problems);
+      if (documentChanged || !after.editing || !after.text.includes(editor.typed)) {
+        editor = await openEditor(page, root, hooks, documentState, harness, problems);
       }
     }
 
@@ -219,17 +237,16 @@ export const labelEditorCase: ShellConformanceCase = {
       if (spot) {
         await page.mouse.click(spot.x, spot.y);
         await settle(page);
-        let documentChanged = await hooks.documentChanged(page);
-        for (let waited = 0; !documentChanged && waited < COMMIT_WAIT_MS; waited += POLL_MS) {
-          await page.waitForTimeout(POLL_MS);
-          documentChanged = await hooks.documentChanged(page);
-        }
-        problems.push(...labelEditorCommitProblems(documentChanged));
+        problems.push(
+          ...labelEditorCommitProblems(
+            await documentChangedFrom(page, documentState, editor.documentAtOpen, COMMIT_WAIT_MS),
+          ),
+        );
       } else {
         skipped.push({
           hook: "open",
           reason:
-            "the canvas shows no empty spot a pointer reaches: that labelEditor.documentChanged sees a commit was not verified",
+            "the canvas shows no empty spot a pointer reaches: that documentState sees a commit was not verified",
         });
       }
     }

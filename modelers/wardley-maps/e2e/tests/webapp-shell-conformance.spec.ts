@@ -98,9 +98,8 @@ test.describe("web app: shell conformance", () => {
         rejected: { name: "map.png", type: "image/png", text: "x" },
       },
       // Every edit goes into the map the link and the download carry.
-      labelEditor: kettleLabelEditor((page) =>
-        page.evaluate(() => window.__wardleyViewer.exportDSL()),
-      ),
+      documentState: (page) => page.evaluate(() => window.__wardleyViewer.exportDSL()),
+      labelEditor: kettleLabelEditor(),
       // The groups of the web app's Help entry: its File keys and "?" (apps/webapp/src/main.ts).
       shortcutsDialog: mapShortcutsDialog("webapp", { fileKeys: true, shortcutsKey: "?" }),
     },

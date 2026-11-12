@@ -29,9 +29,6 @@ const BOARD_WITH_FINDINGS = `${EXAMPLE_BOARD}\nevent Broken [abc, 20]\nOrder Pla
 /** Pages that start every visit without a stored preference (type captions, appearance). */
 const freshPages = new WeakSet<Page>();
 
-/** The board text when the label editor last opened: what a save or a share would carry. */
-const boardAtLabelEditorOpen = new WeakMap<Page, string>();
-
 /** The web host's empty document: the start screen of a fresh visit, then its "New diagram". */
 async function openNewDiagram(page: Page): Promise<void> {
   await page.goto("about:blank");
@@ -111,16 +108,8 @@ test.describe("web app: shell conformance", () => {
       },
       // A sticky's label editor over the chrome's zoom, fit and refit (contract L5): the board
       // text is what Export as .storm and Share would carry.
-      labelEditor: {
-        async open(page) {
-          const typed = await typeIntoStickyLabel(page);
-          boardAtLabelEditorOpen.set(page, await exportDSL(page));
-          return typed;
-        },
-        async documentChanged(page) {
-          return (await exportDSL(page)) !== boardAtLabelEditorOpen.get(page);
-        },
-      },
+      documentState: exportDSL,
+      labelEditor: { open: typeIntoStickyLabel },
       drop: {
         // A .storm file has no MIME type the browser knows; a picture is refused already while
         // it is dragged and, dropped all the same, opens nothing.

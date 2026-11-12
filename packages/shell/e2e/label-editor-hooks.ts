@@ -2,14 +2,8 @@ import type { Page } from "@playwright/test";
 
 import type { LabelEditorHooks } from "../src/testing.js";
 
-interface OpenedEditor {
-  /** How often the editor was opened on this page; each open types a text no commit wrote yet. */
-  opens: number;
-  /** The demo's document changes when the last open resolved. */
-  changes: number;
-}
-
-const openedEditors = new WeakMap<Page, OpenedEditor>();
+/** How often the editor was opened on each page; each open types a text no commit wrote yet. */
+const opensByPage = new WeakMap<Page, number>();
 
 /** The centre of the first demo box a pointer reaches, in viewport coordinates. */
 const reachableBoxProbe = (_: null): { x: number; y: number } | null => {
@@ -25,10 +19,9 @@ const reachableBoxProbe = (_: null): { x: number; y: number } | null => {
 
 /**
  * The `labelEditor` hooks for a demo page, as a modeler's suite writes them: a double-click on a box
- * opens its editor, the typed text replaces the selected label, and a document change is a change
- * of the demo's command stack (`changes` reads it from the page's handle).
+ * opens its editor and the typed text replaces the selected label.
  */
-export function demoLabelEditor(changes: (page: Page) => Promise<number>): LabelEditorHooks<Page> {
+export function demoLabelEditor(): LabelEditorHooks<Page> {
   return {
     async open(page) {
       const box = await page.evaluate(reachableBoxProbe, null);
@@ -37,15 +30,11 @@ export function demoLabelEditor(changes: (page: Page) => Promise<number>): Label
       await page.waitForFunction(() =>
         document.activeElement?.classList.contains("demo-label-editor"),
       );
-      const opens = (openedEditors.get(page)?.opens ?? 0) + 1;
+      const opens = (opensByPage.get(page) ?? 0) + 1;
+      opensByPage.set(page, opens);
       const typed = `Renamed box ${opens}`;
       await page.keyboard.type(typed);
-      openedEditors.set(page, { opens, changes: await changes(page) });
       return typed;
-    },
-    async documentChanged(page) {
-      const opened = openedEditors.get(page);
-      return opened !== undefined && (await changes(page)) !== opened.changes;
     },
   };
 }

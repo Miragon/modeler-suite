@@ -34,9 +34,12 @@ import {
   readOnlyStateProblems,
   surroundProblems,
   tabSequenceProblems,
+  paletteDragProblems,
+  readOnlyDocumentProblems,
   type CreateFacts,
   type KeyReach,
   type LockedShapeFacts,
+  type PaletteDragFacts,
 } from "./checks.js";
 import type {
   AppearanceFacts,
@@ -1015,7 +1018,7 @@ describe("absent islands and the harness's own consistency", () => {
       host: "ide" as const,
       themes: ["light" as const],
       open: async () => {},
-      labelEditor: { open: async () => "Renamed", documentChanged: async () => false },
+      labelEditor: { open: async () => "Renamed" },
       absent: ["labelEditor"] as const,
     };
     expect(harnessHookProblems(harness, ["labelEditor"])).toEqual([
@@ -1381,27 +1384,27 @@ describe("label editor checks (contract L5, and the keep-open it recommends)", (
     };
   }
 
-  it("accepts an open editor holding the typed text, the document unchanged", () => {
-    expect(labelEditorOpenProblems("Renamed box 1", EDITING, false)).toEqual([]);
-    expect(labelEditorOpenProblems("box 1", EDITING, false)).toEqual([]);
+  it("accepts an open editor holding the typed text", () => {
+    expect(labelEditorOpenProblems("Renamed box 1", EDITING)).toEqual([]);
+    expect(labelEditorOpenProblems("box 1", EDITING)).toEqual([]);
   });
 
-  it("reports an open that typed nothing, left no editor or not the typed text, or already changed the document", () => {
-    expect(labelEditorOpenProblems("", EDITING, false)).toEqual([
+  it("reports an open that typed nothing, left no editor or not the typed text", () => {
+    expect(labelEditorOpenProblems("", EDITING)).toEqual([
       "label editor: labelEditor.open typed nothing, so the case would prove nothing",
     ]);
     expect(
-      labelEditorOpenProblems(
-        "Renamed box 1",
-        { ...EDITING, editing: false, focused: "svg", text: "" },
-        false,
-      ),
+      labelEditorOpenProblems("Renamed box 1", {
+        ...EDITING,
+        editing: false,
+        focused: "svg",
+        text: "",
+      }),
     ).toEqual([
       'label editor: after labelEditor.open the focus is on svg, expected the label editor (a text field) holding "Renamed box 1"',
     ]);
-    expect(labelEditorOpenProblems("Renamed box 2", EDITING, true)).toEqual([
+    expect(labelEditorOpenProblems("Renamed box 2", EDITING)).toEqual([
       'label editor: after labelEditor.open the focused field holds "Renamed box 1", expected the typed "Renamed box 2"',
-      "label editor: labelEditor.documentChanged reports a change right after labelEditor.open; typing alone changes no document, so it counts from the moment open resolved",
     ]);
   });
 
@@ -1415,7 +1418,7 @@ describe("label editor checks (contract L5, and the keep-open it recommends)", (
         step({ documentChanged: true, after: { ...EDITING, editing: false, text: "" } }),
       ),
     ).toEqual([
-      "label editor: a click on Fit committed the open label editor (labelEditor.documentChanged); a view change the host makes never commits it (contract L5)",
+      "label editor: a click on Fit committed the open label editor (documentState changed); a view change the host makes never commits it (contract L5)",
     ]);
   });
 
@@ -1463,10 +1466,10 @@ describe("label editor checks (contract L5, and the keep-open it recommends)", (
     expect(isViewAtActualSize("1 0 0 1 0")).toBe(false);
   });
 
-  it("wants the user's commit after the view changes to show in documentChanged", () => {
+  it("wants the user's commit after the view changes to show in documentState", () => {
     expect(labelEditorCommitProblems(true)).toEqual([]);
     expect(labelEditorCommitProblems(false)).toEqual([
-      "label editor: a click on an empty spot of the canvas after the view changes left labelEditor.documentChanged false, so the case proved nothing; open types text the element's label does not hold yet, and documentChanged reports the commit a click elsewhere makes",
+      "label editor: a click on an empty spot of the canvas after the view changes left documentState as it was, so the case proved nothing; labelEditor.open types text the element's label does not hold yet, and documentState shows the commit a click elsewhere makes",
     ]);
   });
 });
@@ -1507,6 +1510,116 @@ describe("createProblems", () => {
   it("allows the geometry tolerance at the free rectangle's edge", () => {
     const atEdge = shape("b", { selected: true, box: { left: 3, top: 67, width: 40, height: 40 } });
     expect(createProblems(created({ after: [shape("a"), atEdge] }))).toEqual([]);
+  });
+
+  it("reports a new element the document does not hold, and checks nothing without documentState", () => {
+    expect(createProblems(created({ documentChanged: true }))).toEqual([]);
+    expect(createProblems(created({ documentChanged: false }))).toEqual([
+      'create: Enter on palette entry "create.box" placed "b" but left documentState as it was; the host would not save it',
+    ]);
+  });
+});
+
+describe("readOnlyDocumentProblems", () => {
+  it("accepts a locked canvas that left the document as it was", () => {
+    expect(readOnlyDocumentProblems(false)).toEqual([]);
+  });
+
+  it("reports a locked canvas that changed the document", () => {
+    expect(readOnlyDocumentProblems(true)).toEqual([
+      "read-only: Enter on the palette, a drag, a double-click and Delete on the locked canvas changed documentState; a read-only canvas changes no document (guide §13.5)",
+    ]);
+  });
+});
+
+const UNDER_DROP = { left: 580, top: 410, width: 120, height: 80 };
+
+function dragged(overrides: Partial<PaletteDragFacts> = {}): PaletteDragFacts {
+  return {
+    entry: "create.box",
+    drop: { x: 640, y: 450 },
+    before: [shape("a", { box: { left: 100, top: 120, width: 120, height: 80 } })],
+    after: [
+      shape("a", { box: { left: 100, top: 120, width: 120, height: 80 } }),
+      shape("b", { box: UNDER_DROP }),
+    ],
+    free: { left: 24, top: 88, right: 1256, bottom: 836 },
+    diagram: {
+      drop: { x: 740, y: 330 },
+      added: { left: 680, top: 290, width: 120, height: 80 },
+      scale: 1,
+    },
+    documentChanged: true,
+    ...overrides,
+  };
+}
+
+describe("paletteDragProblems", () => {
+  it("accepts one element under the drop point that changed the document", () => {
+    expect(paletteDragProblems(dragged())).toEqual([]);
+  });
+
+  it("reports a drop that adds nothing, or more than one element", () => {
+    expect(paletteDragProblems(dragged({ after: dragged().before }))).toEqual([
+      'palette drag: dragging palette entry "create.box" to (640, 450)px added no element',
+    ]);
+    expect(paletteDragProblems(dragged({ after: [...dragged().after, shape("c")] }))).toEqual([
+      'palette drag: dragging palette entry "create.box" to (640, 450)px added 2 elements (b, c), expected exactly one',
+    ]);
+  });
+
+  it("reports an element away from the drop point in the diagram", () => {
+    const away = {
+      drop: { x: 740, y: 330 },
+      added: { left: 940, top: 290, width: 120, height: 80 },
+      scale: 1,
+    };
+    expect(paletteDragProblems(dragged({ diagram: away }))).toEqual([
+      'palette drag: dragging palette entry "create.box" to (640, 450)px placed "b" at 940–1060 × 290–370 in diagram units, away from the drop point (740, 330); a dropped element lies under the pointer',
+    ]);
+  });
+
+  it("allows a raster's few pixels on the screen, in diagram units at the view's scale", () => {
+    const snapped = { left: 750, top: 340, width: 40, height: 40 };
+    expect(
+      paletteDragProblems(
+        dragged({ diagram: { drop: { x: 740, y: 330 }, added: snapped, scale: 1 } }),
+      ),
+    ).toEqual([]);
+    expect(
+      paletteDragProblems(
+        dragged({ diagram: { drop: { x: 740, y: 330 }, added: snapped, scale: 2 } }),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("takes the element where the view left it after the drop, as long as the diagram holds it under the drop point", () => {
+    const scrolledAway = shape("b", { box: { left: 380, top: 410, width: 120, height: 80 } });
+    expect(paletteDragProblems(dragged({ after: [...dragged().before, scrolledAway] }))).toEqual(
+      [],
+    );
+  });
+
+  it("takes an element in a slot of its own anywhere in the free rectangle, not outside it", () => {
+    const inSlot = shape("b", { box: { left: 900, top: 600, width: 120, height: 80 } });
+    expect(
+      paletteDragProblems(dragged({ placement: "slot", after: [...dragged().before, inSlot] })),
+    ).toEqual([]);
+    const outsideFree = shape("b", { box: { left: 0, top: 0, width: 20, height: 20 } });
+    expect(
+      paletteDragProblems(
+        dragged({ placement: "slot", after: [...dragged().before, outsideFree] }),
+      ),
+    ).toEqual([
+      'palette drag: dragging palette entry "create.box" to (640, 450)px placed "b" at 0–20 × 0–20px, outside the free rectangle 24–1256 × 88–836px',
+    ]);
+  });
+
+  it("reports an element the document does not hold, and checks nothing without documentState", () => {
+    expect(paletteDragProblems(dragged({ documentChanged: false }))).toEqual([
+      'palette drag: dragging palette entry "create.box" to (640, 450)px drew "b" but left documentState as it was; the host would not save it',
+    ]);
+    expect(paletteDragProblems(dragged({ documentChanged: undefined }))).toEqual([]);
   });
 });
 

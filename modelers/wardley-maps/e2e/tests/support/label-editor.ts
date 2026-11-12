@@ -7,14 +7,10 @@ const LABEL_FIELD = "textarea.wardley-label-input";
 
 /**
  * The shell kit's label editor on the Tea Shop example: a double-click on Kettle opens its name,
- * and the typed name is one the map does not hold yet. `documentState` reads what the host would
- * save or send, so a commit shows as a change of it.
+ * and the typed name is one the map does not hold yet.
  */
-export function kettleLabelEditor(
-  documentState: (page: Page) => Promise<string>,
-): LabelEditorHooks<Page> {
+export function kettleLabelEditor(): LabelEditorHooks<Page> {
   let drafts = 0;
-  let stateAtOpen: string | undefined;
   return {
     async open(page) {
       // A step that committed the previous draft left it on the map: the next one differs.
@@ -25,11 +21,7 @@ export function kettleLabelEditor(
       await expect(field).toBeFocused();
       await field.fill(typed);
       await expect(field).toHaveValue(typed);
-      stateAtOpen = await documentState(page);
       return typed;
-    },
-    async documentChanged(page) {
-      return (await documentState(page)) !== stateAtOpen;
     },
   };
 }

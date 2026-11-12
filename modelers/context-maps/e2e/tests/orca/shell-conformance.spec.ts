@@ -59,7 +59,8 @@ test.describe("Orca editor: shell conformance", () => {
           await page.evaluate((text) => window.__modelerShellOrcaStub!.replace(text), INVALID_MAP);
         },
       },
-      labelEditor: contextNameEditor(async (page) => String((await orcaTab(page)).edits)),
+      documentState: async (page) => String((await orcaTab(page)).edits),
+      labelEditor: contextNameEditor(),
       shortcutsDialog: contextMapShortcutsDialog("webview"),
     },
     test,

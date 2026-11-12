@@ -95,7 +95,8 @@ test.describe("web app: shell conformance", () => {
         },
       },
       // A commit shows in what the app autosaves: the canonical text of the canvas.
-      labelEditor: labelEditorHooks(exportText),
+      documentState: exportText,
+      labelEditor: labelEditorHooks(),
       drop: {
         accepted: {
           name: "porter.vc.json",

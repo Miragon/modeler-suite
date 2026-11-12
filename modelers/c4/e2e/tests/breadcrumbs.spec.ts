@@ -53,7 +53,8 @@ const harness: ShellConformanceHarness<Page> = {
     legend: showLegend,
     inspector: showInspector,
   },
-  labelEditor: elementLabelEditorHooks(exportText),
+  documentState: exportText,
+  labelEditor: elementLabelEditorHooks(),
 };
 
 /**

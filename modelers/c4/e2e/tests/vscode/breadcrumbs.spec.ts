@@ -48,7 +48,8 @@ const harness: ShellConformanceHarness<Page> = {
     legend: showLegend,
     inspector: showInspector,
   },
-  labelEditor: elementLabelEditorHooks(canvasText),
+  documentState: canvasText,
+  labelEditor: elementLabelEditorHooks(),
 };
 
 /**

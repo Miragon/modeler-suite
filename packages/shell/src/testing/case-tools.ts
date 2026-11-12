@@ -161,6 +161,30 @@ export async function pollUntil<T>(
   return value;
 }
 
+/** Whether `documentState` turns away from `before` within `timeoutMs`. */
+export async function documentChangedFrom<P extends PageLike>(
+  page: P,
+  documentState: (page: P) => Promise<string>,
+  before: string,
+  timeoutMs: number,
+): Promise<boolean> {
+  const current = await pollUntil(
+    page,
+    () => documentState(page),
+    (value) => value !== before,
+    timeoutMs,
+  );
+  return current !== before;
+}
+
+/** The skip of a document check the harness cannot feed. */
+export function documentStateSkip(unverified: string): ShellSkip {
+  return {
+    hook: "documentState",
+    reason: `harness.documentState is undefined: ${unverified} was not verified`,
+  };
+}
+
 /** Hovers `target` long enough for its chrome tooltip; the hovered control, `null` when there is none. */
 export async function hover(
   page: PageLike,

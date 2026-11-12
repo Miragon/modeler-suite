@@ -164,7 +164,8 @@ test.describe("VS Code webview: shell conformance", () => {
         });
       },
       absent: [],
-      labelEditor: labelEditorHooks((page) => page.evaluate(() => window.modeler!.exportText())),
+      documentState: (page) => page.evaluate(() => window.modeler!.exportText()),
+      labelEditor: labelEditorHooks(),
       shortcutsDialog: shortcutsDialogHooks("webview"),
       show: {
         async problems(page) {
