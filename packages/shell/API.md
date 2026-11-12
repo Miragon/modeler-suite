@@ -4442,9 +4442,10 @@ driven through `plugin shot`, Orca 1.4.249 does not hand such a write to the edi
 needs exactly one mounted editor view of the tab; the Orca stub's suites cover the merge instead.
 
 `modeler-shell-orca-docker` runs a modeler's `test:orca` in a Linux container, as
-`modeler-shell-vscode-docker` runs `test:vscode`: the same image plus the Orca AppImage of
-`--orca <version>` (default `DEFAULT_ORCA_VERSION`) extracted to `$ORCA_APP`, the repository copied
-in, `npm ci`, the command under `xvfb-run -a`, and `test-results/orca-smoke` back. Never run the
+`modeler-shell-vscode-docker` runs `test:vscode`, on Miragon/orca-modelers' image
+`ghcr.io/miragon/orca:<version>` of `--orca <version>` (default `DEFAULT_ORCA_VERSION`, see
+`orcaSmokeDockerImage`) with Orca in `$ORCA_APP`: the repository copied in, `npm ci`, the command
+under `xvfb-run -a`, and `test-results/orca-smoke` back. Never run the
 smoke on a Mac outside a container: Orca would open its window and take the focus.
 
 ## `./shell.css`
