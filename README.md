@@ -12,7 +12,7 @@ one runs in the browser, in VS Code and in [Orca](https://www.onorca.dev).
 
 [Documentation](https://miragon.github.io/modeler-suite/) ·
 [Extension pack](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.miragon-modeler-collection) ·
-[Orca plugins](https://github.com/Miragon/orca-modelers) ·
+[Orca plugins](https://github.com/Miragon/orca-plugins) ·
 [Issues](https://github.com/Miragon/modeler-suite/issues)
 
 ![The web apps of Wardley Maps, Event Storming, Team Topologies, Context Maps and Value Chain open their built-in examples one after another](docs/assets/demo.gif)
@@ -40,7 +40,7 @@ in a text editor, or let your AI assistant write it.
 
 Every modeler except C4 is also an [Orca](https://www.onorca.dev) plugin (Orca 1.4.252 or later):
 search for **Miragon** in Settings → Plugins, or see
-[Miragon/orca-modelers](https://github.com/Miragon/orca-modelers#install). Each modeler's README
+[Miragon/orca-plugins](https://github.com/Miragon/orca-plugins#install). Each modeler's README
 covers its features, its file format and its npm packages.
 
 ### Try it in 30 seconds

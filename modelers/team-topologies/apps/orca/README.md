@@ -87,7 +87,7 @@ organisation or to review one:
 
 [Changelog](../../CHANGELOG.md) · [Report an issue](https://github.com/Miragon/modeler-suite/issues) ·
 [Source and contributing](../../../../CONTRIBUTING.md#orca-plugins) ·
-[All Miragon modelers for Orca](https://github.com/Miragon/orca-modelers)
+[All Miragon modelers for Orca](https://github.com/Miragon/orca-plugins)
 
 Made by [Miragon](https://www.miragon.io). MIT licence. "Team Topologies" is a trademark of Team
 Topologies Ltd; this is an independent tool that implements their openly published notation.

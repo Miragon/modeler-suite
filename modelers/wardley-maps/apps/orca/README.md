@@ -80,6 +80,6 @@ you can ask it to draft a map from your strategy notes or to review one:
 
 [Changelog](CHANGELOG.md) · [Report an issue](https://github.com/Miragon/modeler-suite/issues) ·
 [Source and contributing](../../../../CONTRIBUTING.md#orca-plugins) ·
-[All Miragon modelers for Orca](https://github.com/Miragon/orca-modelers)
+[All Miragon modelers for Orca](https://github.com/Miragon/orca-plugins)
 
 Made by [Miragon](https://www.miragon.io). MIT licence.

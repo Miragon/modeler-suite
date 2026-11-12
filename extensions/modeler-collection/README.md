@@ -53,7 +53,7 @@ Team Topologies and the Business Model Canvas:
 ## Good to know
 
 - Needs VS Code 1.96 or later on the desktop.
-- Most modelers also run in the browser and in [Orca](https://github.com/Miragon/orca-modelers),
+- Most modelers also run in the browser and in [Orca](https://github.com/Miragon/orca-plugins),
   next to your coding agent. See the [Miragon modeler suite](https://github.com/Miragon/modeler-suite).
 
 ## Links

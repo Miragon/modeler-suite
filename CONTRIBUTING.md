@@ -166,7 +166,7 @@ orca plugin dev load . --json --approve <fingerprint>
 ```
 
 `plugin/` is the folder Orca loads and the release publishes to
-[Miragon/orca-modelers](https://github.com/Miragon/orca-modelers). The bundle is not minified and
+[Miragon/orca-plugins](https://github.com/Miragon/orca-plugins). The bundle is not minified and
 ships no sourcemap, so the plugin stays within the size review of Orca's community directory
 ([#563](https://github.com/Miragon/modeler-suite/issues/563));
 [#564](https://github.com/Miragon/modeler-suite/issues/564) brings the sourcemap back. Of zod's
