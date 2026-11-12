@@ -59,6 +59,8 @@ const SAVE: OrcaAct = { key: "s", modifiers: ["control"] };
 const UNDO: OrcaAct = { key: "z", modifiers: ["control"] };
 /** Chromium's error for a capture of a frame its compositor has not drawn yet. */
 const UNDRAWN_FRAME = "UnknownVizError";
+/** Electron's error when Orca disposes the window of a shot while its acts still run. */
+const DESTROYED_WINDOW = "Object has been destroyed";
 const CONFLICT_WARNING = "the file changed outside the editor where it was edited";
 
 /** The label of the element `addOutside` adds. */
@@ -165,6 +167,18 @@ export async function runOrcaSmoke(options: OrcaSmokeOptions): Promise<OrcaSmoke
   };
   const act = (name: string, acts: readonly OrcaAct[]): Record<string, unknown> =>
     shot(name, ["--in-place", "--act", JSON.stringify(acts)]);
+  // The file on disk tells whether a lost window applied the acts, so the caller checks it and may
+  // run them again; every shot loads the editor afresh from that file.
+  const actUnlessWindowDestroyed = (name: string, acts: readonly OrcaAct[]): boolean => {
+    try {
+      act(name, acts);
+      return true;
+    } catch (error) {
+      if (!String(error).includes(DESTROYED_WINDOW)) throw error;
+      log(`${name}: Orca destroyed the window of the shot`);
+      return false;
+    }
+  };
 
   let child: ChildProcess | undefined;
   let loadedKey = "";
@@ -225,14 +239,15 @@ export async function runOrcaSmoke(options: OrcaSmokeOptions): Promise<OrcaSmoke
     // Orca focuses what the last click hit, the deleted element: a click on the empty canvas gives
     // the keys back to it, as a person's next click would.
     const blank: OrcaAct = { click: [Math.round(size.width / 2), size.height - 120] };
-    act("undo", [...remove(edited), blank, UNDO, SAVE]);
+    const undo = [...remove(edited), blank, UNDO, SAVE];
+    if (!actUnlessWindowDestroyed("undo", undo)) act("undo", undo);
     if (!holds(edited.label)) throw new Error(`undo: "${edited.label}" did not come back`);
     step("undo", "the editor's own history undid a delete");
 
     for (let attempt = 1; holds(edited.label); attempt++) {
       if (attempt > 2) throw new Error(`edit: the saved file still holds "${edited.label}"`);
       if (attempt === 2) log("edit: the delete did not reach the file, once more");
-      act("edit", [...remove(edited), SAVE]);
+      actUnlessWindowDestroyed("edit", [...remove(edited), SAVE]);
     }
     step("edit", "a delete reached the file through a save");
 
