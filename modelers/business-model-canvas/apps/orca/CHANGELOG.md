@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.2](https://github.com/Miragon/modeler-suite/compare/business-model-canvas-orca-v0.1.1...business-model-canvas-orca-v0.1.2) (2026-11-12)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.14.0 to 0.14.1
+    * business-model-canvas-ide-editor bumped from 0.1.1 to 0.1.2
+
 ## [0.1.1](https://github.com/Miragon/modeler-suite/compare/business-model-canvas-orca-v0.1.0...business-model-canvas-orca-v0.1.1) (2026-11-12)
 
 

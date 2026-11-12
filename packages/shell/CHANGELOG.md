@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.14.0...modeler-shell-v0.14.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **shell:** retry removing the Orca smoke's profile while Orca still writes to it ([#648](https://github.com/Miragon/modeler-suite/issues/648)) ([8cdf3ab](https://github.com/Miragon/modeler-suite/commit/8cdf3ab721ad32f22c72d4e2df1283b2bb41dbf2))
+
 ## [0.14.0](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.13.0...modeler-shell-v0.14.0) (2026-11-12)
 
 

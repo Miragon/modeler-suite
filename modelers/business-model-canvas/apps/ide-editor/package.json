@@ -1,6 +1,6 @@
 {
   "name": "business-model-canvas-ide-editor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "The Business Model Canvas editor that the VS Code extension and the Orca plugin both mount.",
   "license": "MIT",
@@ -21,7 +21,7 @@
     "@miragon/business-model-canvas-dsl": "0.1.0",
     "@miragon/business-model-canvas-renderer": "0.1.0",
     "@miragon/business-model-canvas-schema-model": "0.1.0",
-    "@miragon/modeler-shell": "0.14.0",
+    "@miragon/modeler-shell": "0.14.1",
     "yaml": "2.9.1",
     "zod": "4.6.7"
   }
