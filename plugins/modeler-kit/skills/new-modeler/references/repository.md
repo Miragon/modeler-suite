@@ -10,8 +10,10 @@ An npm workspace, the `workspaces` array in build order. Every package owns `src
 | `packages/schema-model` | `@miragon/<notation>-schema-model` | Node, workers, extension host | tsup, ESM + CJS + d.ts        |
 | `packages/dsl`          | `@miragon/<notation>-dsl`          | Node, workers, extension host | tsup                          |
 | `packages/renderer`     | `@miragon/<notation>-renderer`     | the browser                   | Vite library mode + d.ts, CSS |
+| `apps/ide-editor`       | private, the editor of both IDEs   | the VS Code webview, Orca     | - (bundled by the two below)  |
 | `apps/webapp`           | private                            | the browser                   | Vite                          |
 | `apps/vscode`           | private, the VS Code extension     | extension host + webview      | esbuild, two bundles          |
+| `apps/orca`             | private, the Orca plugin           | Orca's isolated editor frame  | esbuild, into `plugin/`       |
 | `e2e`                   | private                            | Playwright                    | -                             |
 
 Optional packages the five added where their notation needed them: `transforms` (pure
@@ -25,13 +27,15 @@ resolve them through `node_modules` to `dist`, so `npm run build` comes first.
 
 ## Scripts
 
-`build`, `build:webapp`, `build:vscode`, `typecheck` (every tsconfig: root, the web app's Vite
-config, `apps/vscode`, `e2e`), `lint` (ESLint, then `typecheck`), `format`, `format:check`, `test`
-(Vitest project `unit`), `test:browser` (Vitest project `browser`, Chromium through
-`@vitest/browser-playwright`), `test:e2e`, `test:vscode-smoke` (the built extension in a real VS
+`build`, `build:webapp`, `build:vscode`, `build:orca`, `typecheck` (every tsconfig: root, the web
+app's Vite config, `apps/vscode`, `apps/orca`, `e2e`), `lint` (ESLint, then `typecheck`),
+`format`, `format:check`, `test` (Vitest project `unit`), `test:browser` (Vitest project `browser`,
+Chromium through `@vitest/browser-playwright`), `test:e2e`, `test:vscode-smoke` (the built extension in a real VS
 Code, see [shell](shell.md#the-vs-code-smoke-test)), `test:vscode` (builds, then
 `test:vscode-smoke`), `test:vscode:docker` (`test:vscode` in a Linux container, no window on the
-host), `depcruise`, `dev:webapp`
+host), `test:orca` (the built plugin in a real Orca, see
+[shell](shell.md#the-orca-smoke-test)), `test:orca:docker` (`test:orca` in a Linux container),
+`depcruise`, `dev:webapp`
 (Portless, which needs Node 24.15.0 or later; `dev:webapp:plain` for plain Vite on 5180, on Node 22
 as well), `dev:vscode`. The Husky pre-commit hook runs lint-staged and `npm run lint` only.
 
@@ -63,9 +67,10 @@ violating import fails two jobs:
   `diagram-js`, `didi` and `tiny-svg` (renderer). Two copies break `instanceof`, zod schema
   identity and diagram-js's injector. Each peer has an exact `devDependency` inside its range (the
   template's `didi` peer is `^11.0.0 || ^12.0.0` because diagram-js 15 brings didi 11 while the
-  renderer builds against 12), and both apps declare the same exact versions as `dependencies`.
+  renderer builds against 12), and the bundling apps (`webapp`, `vscode`, `orca`) declare the same
+  exact versions as `dependencies`.
 - `@miragon/modeler-api` is an exact `dependency` of the renderer; `@miragon/modeler-shell` an
-  exact `dependency` of both apps and a `devDependency` of `e2e`.
+  exact `dependency` of the apps (`ide-editor` included) and a `devDependency` of `e2e`.
 - The rule is written down for agents in
   [`.claude/rules/package-json-fixed-versions.md`](../assets/template/.claude/rules/package-json-fixed-versions.md).
 - The root `engines` is the suite's Node range `^22.22.2 || >=24.15.0`. Pin tool versions whose own
@@ -84,12 +89,15 @@ on the major `typescript-eslint` accepts (Dependabot ignores the next major).
 ## CI
 
 [`.github/workflows/ci.yml`](../assets/template/.github/workflows/ci.yml): `lint`, `format-check`,
-`depcruise`, `test` (build, then unit tests), `build` (packages, web app, extension),
+`depcruise`, `test` (build, then unit tests), `build` (packages, web app, extension, Orca plugin),
 `test-browser` and `e2e` in the `mcr.microsoft.com/playwright:v<version>-noble` image whose version
 `playwright-version` reads from the root `devDependencies` (bump image and `playwright` together;
 `npx playwright install --with-deps chromium` in a plain runner works as well),
 `pin-check`, `dependency-review`, `vscode-smoke` (the reusable
-[`vscode-smoke.yml`](../assets/template/.github/workflows/vscode-smoke.yml)) and `ci-ok`. A
+[`vscode-smoke.yml`](../assets/template/.github/workflows/vscode-smoke.yml)), `orca-smoke` (the
+reusable [`orca-smoke.yml`](../assets/template/.github/workflows/orca-smoke.yml): `test:orca` under
+`xvfb-run -a` in the newest Orca and in the oldest that `engines.orca` accepts, both from
+Miragon/orca-plugin-kit's `setup-orca`) and `ci-ok`. A
 shared [setup action](../assets/template/.github/actions/setup/action.yml) installs the floor of
 `engines` (Node 22.22.2), so CI verifies the declared minimum, unless a job passes `node-version`
 (the publish jobs pass 24), and runs `npm ci`. Every `uses:` is pinned to a commit SHA with the

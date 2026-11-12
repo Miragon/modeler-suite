@@ -11,5 +11,5 @@
       "@miragon/__NOTATION__-dsl": ["../../packages/dsl/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "test-smoke/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "test-smoke/**/*.ts", "../ide-editor/src/css.d.ts"]
 }

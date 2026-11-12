@@ -11,3 +11,9 @@ package-lock.json
 **/*.generated.json
 **/cd-canvas.css
 .miragon/brand-assets.yaml
+
+# The built Orca plugin and Orca's dev state
+apps/orca/plugin/
+apps/orca/.orca/
+# Rewritten by release-please's extra-files with JSON.stringify
+apps/orca/orca-plugin.json

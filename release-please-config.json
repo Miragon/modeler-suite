@@ -84,7 +84,17 @@
         },
         {
           "type": "json",
+          "path": "/plugins/modeler-kit/skills/new-modeler/assets/template/apps/ide-editor/package.json",
+          "jsonpath": "$.dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
           "path": "/plugins/modeler-kit/skills/new-modeler/assets/template/apps/vscode/package.json",
+          "jsonpath": "$.dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/plugins/modeler-kit/skills/new-modeler/assets/template/apps/orca/package.json",
           "jsonpath": "$.dependencies['@miragon/modeler-shell']"
         },
         {

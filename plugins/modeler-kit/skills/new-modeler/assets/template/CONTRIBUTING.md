@@ -15,8 +15,9 @@ real VS Code inside a Linux container, so no window takes your focus (it needs D
 `VSCODE_VERSION=1.96.0` picks another VS Code, `VSCODE_SMOKE_KEEP=1` keeps VS Code's logs in
 `test-results/vscode-smoke/vscode-logs`, `VSCODE_SMOKE_SKIP=keys,history,workbench` skips the
 driver's steps it names; CI runs the smoke test when a change touches the
-extension, see [CI and the merge gate](#ci-and-the-merge-gate)). Every commit is signed
-(`git commit -S`).
+extension, see [CI and the merge gate](#ci-and-the-merge-gate)), and after a change to the Orca
+editor `npm run test:orca:docker`, the plugin in a real Orca in a Linux container. Every commit is
+signed (`git commit -S`).
 
 ## CI and the merge gate
 
@@ -33,6 +34,10 @@ because a job it needs failed comes with that failure, so `ci-ok` passes a skip.
   `minimum`, the `engines.vscode` floor of `apps/vscode/package.json`. The screenshots are uploaded
   as the artifacts `vscode-smoke-stable` and `vscode-smoke-minimum` and, when a run failed, VS
   Code's logs as `vscode-smoke-logs-stable` or `vscode-smoke-logs-minimum`.
+- **The Orca smoke test** (`.github/workflows/orca-smoke.yml`, which `ci.yml` calls) runs on every
+  CI run and by hand: `latest`, the newest Orca release, and `minimum`, the `engines.orca` floor of
+  `apps/orca/orca-plugin.json`. The screenshots and Orca's log are uploaded as the artifacts
+  `orca-smoke-latest` and `orca-smoke-minimum`.
 - **Every Monday** `vscode-smoke-weekly.yml` runs it, because a new VS Code release can break the
   extension without a change here; a failure opens the issue "VS Code smoke: the weekly run
   failed", or comments on it while it is open.

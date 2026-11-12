@@ -16,7 +16,10 @@ const dataUrlImports: Plugin = {
   },
 };
 
-/** The VS Code webview test page: apps/vscode/src/webview/main.ts inside the shell's VS Code stub. */
+/**
+ * The test pages of the IDE hosts: apps/vscode/src/webview/main.ts inside the shell's VS Code stub
+ * (webview-test.html) and apps/orca/src/main.ts inside its Orca stub (orca-test.html).
+ */
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
   plugins: [dataUrlImports],

@@ -1,6 +1,6 @@
 import type { ModelerEditorOptions } from '@miragon/modeler-shell/vscode/extension';
 import { THEMES } from '@miragon/__NOTATION__-renderer/themes';
-import { withExampleInserted } from './examples.js';
+import { withExampleInserted } from '@miragon/__NOTATION__-ide-editor/examples';
 
 export const DIAGRAM_VIEW_TYPE = '__NOTATION__.editor';
 

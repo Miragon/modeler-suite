@@ -3,7 +3,7 @@ import { registerNewDocumentCommand } from '@miragon/modeler-shell/vscode/extens
 import { NEW_DIAGRAM_COMMAND, NEW_DIAGRAM_FROM_EXAMPLE_COMMAND } from './commands.js';
 import { registerDiagramEditor } from './diagramEditor.js';
 import { DIAGRAM_VIEW_TYPE } from './diagramEditorOptions.js';
-import { EMPTY_DIAGRAM, EXAMPLE_DIAGRAM } from './examples.js';
+import { EMPTY_DIAGRAM, EXAMPLE_DIAGRAM } from '@miragon/__NOTATION__-ide-editor/examples';
 
 /** The save dialog's file type: a computed key, so the name may hold a space. */
 const FILE_TYPE = '__DISPLAY_NAME__';

@@ -1,0 +1,43 @@
+name: Orca smoke
+
+# The built Orca plugin in a real Orca (apps/orca/test-smoke, `npm run test:orca`): Orca's validate
+# and check, the load with its approval, the editor in both themes and Orca's logs, on the newest
+# Orca release and on the oldest that engines.orca accepts. CI calls it as its job orca-smoke, so a
+# red smoke fails ci-ok, the merge gate.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  orca-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        orca: [latest, minimum]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      - id: orca
+        uses: Miragon/orca-plugin-kit/setup-orca@6b56b4938c9352a8be5c666019b2f43e557235aa # v1.0.0
+        with:
+          channel: ${{ matrix.orca }}
+          plugin-manifest: apps/orca/orca-plugin.json
+
+      # Orca needs an X server; -a picks a free display number.
+      - run: xvfb-run -a npm run test:orca
+        env:
+          ORCA_APP: ${{ steps.orca.outputs.app }}
+
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: orca-smoke-${{ matrix.orca }}
+          path: test-results/orca-smoke/
+          if-no-files-found: ignore
+          retention-days: 7

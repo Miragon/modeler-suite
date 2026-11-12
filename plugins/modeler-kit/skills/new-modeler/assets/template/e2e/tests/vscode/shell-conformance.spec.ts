@@ -11,7 +11,7 @@ import {
 } from '@miragon/modeler-shell/testing';
 import { openWebviewBundle } from '@miragon/modeler-shell/testing/webview-bundle';
 import { THEMES } from '@miragon/__NOTATION__-renderer/themes';
-import { EXAMPLE_DIAGRAM } from '../../../apps/vscode/src/examples.js';
+import { EXAMPLE_DIAGRAM } from '../../../apps/ide-editor/src/examples.js';
 import { labelEditorHooks } from '../support/label-editor.js';
 import { shortcutsDialogHooks } from '../support/shortcuts-dialog.js';
 

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stablyai/orca/main/docs/schemas/plugins/orca-plugin.v2.schema.json",
+  "manifestVersion": 2,
+  "id": "__NOTATION__-modeler",
+  "name": "__DISPLAY_NAME__ Modeler",
+  "version": "0.0.0",
+  "description": "Open .__EXT__ files as __DISPLAY_NAME__ diagrams, and keep an agent's changes to the file merged with yours.",
+  "author": {
+    "name": "Miragon GmbH",
+    "url": "https://www.miragon.io"
+  },
+  "repository": "https://github.com/Miragon/__REPO__",
+  "license": "MIT",
+  "engines": {
+    "orca": ">=1.4.252"
+  },
+  "execution": "sandboxed-ui",
+  "pluginApi": 1,
+  "contributes": {
+    "customEditors": [
+      {
+        "id": "__NOTATION__",
+        "title": "__DISPLAY_NAME__",
+        "extensions": [".__EXT__"],
+        "entry": "editor/index.html",
+        "frame": "isolated"
+      }
+    ],
+    "newFiles": [
+      {
+        "id": "__NOTATION__",
+        "title": "New __DISPLAY_NAME__ diagram from example",
+        "extension": ".__EXT__",
+        "template": "templates/example.__EXT__"
+      }
+    ]
+  }
+}
