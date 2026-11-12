@@ -273,31 +273,8 @@ jobs:
             exit 1
           fi
           echo "publish $name@$version"
-          # npm publish's exit status is not the verdict: its OIDC client can fail a request after
-          # the registry accepted the tarball, so the registry decides.
           # ./ keeps npm from reading npm/<file>.tgz as the GitHub repository npm/<file>.tgz.
-          publish_status=0
-          npm publish "./$tarball" --provenance --access public || publish_status=$?
-          # The registry can take minutes to list a version it accepted; giving up sooner turns a
-          # good release into a red run. Each poll gets a short fetch timeout and no npm retries:
-          # with npm's defaults one stalled npm view could block longer than the whole wait.
-          poll_interval_seconds=15
-          poll_timeout_seconds=300
-          waited_seconds=0
-          attempt=1
-          until registry_answer="$(npm view "$name@$version" version --fetch-timeout=30000 --fetch-retries=0 2>&1)"; do
-            if [[ "$waited_seconds" -ge "$poll_timeout_seconds" ]]; then
-              echo "::error::$name@$version did not land on the registry after $attempt attempts, ${poll_interval_seconds}s apart (npm publish exited $publish_status)"
-              echo "last registry answer to npm view $name@$version version:"
-              echo "$registry_answer"
-              exit 1
-            fi
-            echo "waiting for $name@$version to appear on the registry (attempt $attempt, ${waited_seconds}s of ${poll_timeout_seconds}s)"
-            sleep "$poll_interval_seconds"
-            waited_seconds=$((waited_seconds + poll_interval_seconds))
-            attempt=$((attempt + 1))
-          done
-          echo "confirmed $name@$version on the registry (npm publish exited $publish_status)"
+          npm publish "./$tarball" --provenance --access public
 
   # --skip-duplicate lets a re-run pass a marketplace that already has the version.
   publish-vscode:
