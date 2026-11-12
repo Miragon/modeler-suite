@@ -62,8 +62,8 @@ so a violating import fails `npm run event-storming lint` and `npm run event-sto
   `npm run event-storming` passes no flag on, so neither `--project` nor `--grep`), other ports via
   `E2E_PORT` / `E2E_WEBVIEW_PORT` (default 5180 / 5190)
 - `npm run event-storming test:orca:docker`: the Orca plugin in a real Orca in a Linux container
-  (the shell's `modeler-shell-orca-docker` and `runOrcaSmoke`: load, render, themes, undo, a saved
-  edit, an agent's write, the plugin's logs; screenshots in `test-results/orca-smoke/`);
+  (the shell's `modeler-shell-orca-docker` and `runOrcaSmoke`: validate, load, render, themes, the
+  plugin's logs; screenshots in `test-results/orca-smoke/`);
   `test:orca` runs it on Linux under `xvfb-run -a` with `ORCA_APP` set and refuses the Mac.
 - `npm run event-storming test:vscode:docker`: the VS Code smoke test below in a Linux container
   under `xvfb-run -a` (the shell's `modeler-shell-vscode-docker`): the way to run it locally, since

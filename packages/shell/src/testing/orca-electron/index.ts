@@ -1,5 +1,5 @@
-export type { OrcaAct, OrcaSmokeElement, OrcaSmokeOptions, OrcaSmokeResult } from "./driver.js";
-export { ORCA_SMOKE_AGENT_LABEL, runOrcaSmoke } from "./driver.js";
+export type { OrcaSmokeOptions, OrcaSmokeResult } from "./driver.js";
+export { runOrcaSmoke } from "./driver.js";
 export type { OrcaSmokeDockerArguments, OrcaSmokeDockerOptions } from "./docker.js";
 export {
   DEFAULT_ORCA_VERSION,

@@ -184,10 +184,10 @@ The e2e project `orca-editor` runs the editor inside the shell's Orca stub: the 
 conformance kit on the `ide` host (`ideHost: "orca"`, the `csp` case on the built plugin under
 Orca's frame policy) and the document sync with an agent's writes. `test:orca:docker` runs the
 plugin in a real Orca in a Linux container (never on the Mac itself, where Orca's window would
-take the focus): load, render, both themes, undo, a saved edit, an agent's write and Orca's logs.
-`ORCA_SMOKE_MERGE=1` adds an agent's write under unsaved edits (`merge`) and a conflicting one
-(`conflict`). Both stay off by default: driven through `orca plugin shot`, Orca does not hand that
-write to the editor, as its merge needs exactly one mounted editor view of the tab.
+take the focus): Orca's validate and check, the load with its approval, the editor in both themes
+and Orca's logs. Edits, saves and undo are the stub's, since in a real Orca only
+`orca plugin shot --act` types into an editor and a shot may lose the editor it acts on; so are an
+agent's writes, since every shot loads the editor afresh from the file.
 
 ```sh
 npm run test:e2e -w modelers/wardley-maps/e2e -- --project=orca-editor

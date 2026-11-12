@@ -4416,11 +4416,6 @@ function runOrcaSmoke(options: {
   plugin: string; // the built plugin folder
   app?: string; // the extracted Orca AppImage (squashfs-root); default $ORCA_APP
   document: { name: string; text: string };
-  // three interior elements: a click point in the fitted editor of `size`, and the label
-  deletions: [OrcaSmokeElement, OrcaSmokeElement, OrcaSmokeElement];
-  addOutside(text: string, count: number): string; // an agent adds an ORCA_SMOKE_AGENT_LABEL element
-  changeOutside(text: string): string; // an agent changes the third deletion
-  merge?: boolean; // also the merge and conflict steps, see below
   results?: string; // default test-results/orca-smoke
   size?: { width: number; height: number }; // default 1200 × 800
 }): Promise<{ version: string; pluginKey: string; steps: string[] }>;
@@ -4430,16 +4425,13 @@ Drives a real Orca through its own CLI (`resources/bin/orca-ide`), on Linux unde
 with a profile of its own (`HOME`, `ORCA_BACKGROUND_LAUNCH=1`): `resolve`, `launch` (until the
 runtime is ready), `validate` (`plugin validate` and `plugin check` without findings), `load`
 (`plugin system on`, `dev load`, again with the `approvalFingerprint` Orca asks for), `open` (a
-`plugin shot --editor` that subscribed and settled without errors), `themes`, `undo` (a delete and
-Ctrl+Z in the editor, saved: the element is still there), `edit` (a delete saved to the file; tried
-once more when it did not land), `external` (a write to the clean tab), `logs` (no blocked request
-and no other error) and `close`. Every shot loads the editor afresh and fits it, so the deletions
-are interior elements that keep the fitted view. Each step saves a screenshot to `results`.
+`plugin shot --editor` that subscribed and settled without errors), `themes`, `logs` (no blocked
+request and no other error) and `close`. Each step saves a screenshot to `results`.
 
-`merge` adds `merge` (a write under unsaved edits, merged and saved) and `conflict` (a write that
-changes what the user deleted leaves the file and logs the refused merge). They are off by default:
-driven through `plugin shot`, Orca 1.4.249 does not hand such a write to the editor, as its merge
-needs exactly one mounted editor view of the tab; the Orca stub's suites cover the merge instead.
+Edits, saves and undo stay with the Orca stub's suites: in a real Orca only `plugin shot --act`
+types into an editor, and a shot may lose the editor it acts on while it runs. So do an agent's
+writes: every shot loads the editor afresh from the file, so a shot after a write only shows another
+document, never the write reaching an open tab.
 
 `modeler-shell-orca-docker` runs a modeler's `test:orca` in a Linux container, as
 `modeler-shell-vscode-docker` runs `test:vscode`, on Miragon/orca-modelers' image

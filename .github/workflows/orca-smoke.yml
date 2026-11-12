@@ -1,10 +1,9 @@
 name: Orca smoke
 
-# The Orca plugin of each given modeler in a real Orca (its test:orca): load, render, edit, save,
-# undo, both themes, and an agent's writes to a clean and to a dirty tab, on the newest Orca release
-# and on the oldest that its engines.orca accepts. CI calls it with the modelers a change reaches
-# that have a plugin, so a red smoke fails ci-ok; smoke-weekly.yml calls it with every such
-# modeler to catch a new Orca release.
+# The Orca plugin of each given modeler in a real Orca (its test:orca): validate, load, render, both
+# themes and the plugin's logs, on the newest Orca release and on the oldest that its engines.orca
+# accepts. CI calls it with the modelers a change reaches that have a plugin, so a red smoke fails
+# ci-ok; smoke-weekly.yml calls it with every such modeler to catch a new Orca release.
 on:
   workflow_call:
     inputs:
