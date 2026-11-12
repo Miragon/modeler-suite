@@ -21,8 +21,11 @@ updates:
       - "dependencies"
     # majors arrive as one PR per dependency, which needs headroom above the default of 5
     open-pull-requests-limit: 10
+    # A runtime bump is released: fix(deps) cuts a patch release of every package whose
+    # dependencies it changes. A dev bump stays chore(deps-dev) and is never released.
     commit-message:
-      prefix: "chore"
+      prefix: "fix"
+      prefix-development: "chore"
       include: "scope"
     cooldown:
       default-days: 3
@@ -45,8 +48,20 @@ updates:
       # bundles (test/release-notes/parser-version.test.ts): bump it by hand, together with the action.
       - dependency-name: "release-please"
     groups:
-      npm-minor-patch:
+      # Minor and patch come as two PRs by dependency type: a group commit takes `prefix` as soon as
+      # it holds one runtime bump, so a shared PR would release every package whose dev
+      # dependencies it moved.
+      npm-production-minor-patch:
         applies-to: version-updates
+        dependency-type: "production"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      npm-development-minor-patch:
+        applies-to: version-updates
+        dependency-type: "development"
         patterns:
           - "*"
         update-types:
