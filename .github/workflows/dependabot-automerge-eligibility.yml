@@ -1,0 +1,34 @@
+name: Dependabot auto-merge eligibility
+
+# Labels the Dependabot updates that may merge on their own; dependabot-automerge.yml merges them.
+# A run Dependabot starts on pull_request gets Dependabot secrets only, so this workflow decides
+# with GITHUB_TOKEN and leaves the release-please app's token to the workflow_run that follows.
+on: pull_request
+
+permissions:
+  pull-requests: write
+
+jobs:
+  label-eligible:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Only npm updates: a GitHub Actions update changes .github/workflows, which GitHub merges
+      # only for a token with the workflows permission, and an ecosystem added later stays manual
+      # until it is named here.
+      - name: Label npm patch and minor updates for auto-merge
+        if: >-
+          steps.meta.outputs.package-ecosystem == 'npm_and_yarn' &&
+          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+          steps.meta.outputs.update-type == 'version-update:semver-minor')
+        run: gh pr edit "$PR_URL" --add-label auto-merge
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

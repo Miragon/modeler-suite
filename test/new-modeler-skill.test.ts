@@ -980,7 +980,7 @@ const NON_API_NAMES = new Map<string, string>([
   ["RELEASE_PLEASE_APP_PRIVATE_KEY", "a GitHub secret"],
   ["GITHUB_TOKEN", "GitHub Actions' token of a workflow run"],
   ["pull_request", "a GitHub Actions event"],
-  ["pull_request_target", "a GitHub Actions event"],
+  ["workflow_run", "a GitHub Actions event"],
   ["dry_run", "the release workflow's input"],
   ["always", "GitHub Actions' status check function"],
   ["SKIPPED_BY_DESIGN", "the template's CI gate"],

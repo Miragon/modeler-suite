@@ -5,14 +5,14 @@ pull request for every package, extension and web app, and one Netlify site per 
 workflows live in [`.github/workflows/`](../.github/workflows), their logic in
 [`.github/scripts/`](../.github/scripts), so it runs locally too.
 
-| Event                        | Workflow                                                                                                                                              | Jobs                                                                                                                                     |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| pull request                 | [`ci.yml`](../.github/workflows/ci.yml)                                                                                                               | `changes`, then what it reaches: shared, per modeler, template, docs, VS Code and Orca smokes; always-on checks; `ci-ok`, the merge gate |
-| pull request                 | [`pr-title.yml`](../.github/workflows/pr-title.yml), [`release-notes.yml`](../.github/workflows/release-notes.yml)                                    | `validate-pr-title` (required next to `ci-ok`), `breaking-changes`                                                                       |
-| pull request, `main`, weekly | [`codeql.yml`](../.github/workflows/codeql.yml)                                                                                                       | `analyze` (not for a pull request that changes only prose)                                                                               |
-| Dependabot pull request      | [`dependabot-automerge.yml`](../.github/workflows/dependabot-automerge.yml)                                                                           | `auto-merge` of npm patch and minor updates                                                                                              |
-| push to `main`               | [`ci.yml`](../.github/workflows/ci.yml), [`release-please.yml`](../.github/workflows/release-please.yml), [`docs.yml`](../.github/workflows/docs.yml) | CI as on a pull request; `plan`, `build / …`, `publish / …` when a release pull request is merged; the docs deploy when `docs/` changed  |
-| Mondays                      | [`smoke-weekly.yml`](../.github/workflows/smoke-weekly.yml)                                                                                           | every modeler's VS Code smoke and every Orca plugin's smoke; an issue when one fails                                                     |
+| Event                        | Workflow                                                                                                                                                                              | Jobs                                                                                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| pull request                 | [`ci.yml`](../.github/workflows/ci.yml)                                                                                                                                               | `changes`, then what it reaches: shared, per modeler, template, docs, VS Code and Orca smokes; always-on checks; `ci-ok`, the merge gate |
+| pull request                 | [`pr-title.yml`](../.github/workflows/pr-title.yml), [`release-notes.yml`](../.github/workflows/release-notes.yml)                                                                    | `validate-pr-title` (required next to `ci-ok`), `breaking-changes`                                                                       |
+| pull request, `main`, weekly | [`codeql.yml`](../.github/workflows/codeql.yml)                                                                                                                                       | `analyze` (not for a pull request that changes only prose)                                                                               |
+| Dependabot pull request      | [`dependabot-automerge-eligibility.yml`](../.github/workflows/dependabot-automerge-eligibility.yml), then [`dependabot-automerge.yml`](../.github/workflows/dependabot-automerge.yml) | `label-eligible`, then `auto-merge` of npm patch and minor updates                                                                       |
+| push to `main`               | [`ci.yml`](../.github/workflows/ci.yml), [`release-please.yml`](../.github/workflows/release-please.yml), [`docs.yml`](../.github/workflows/docs.yml)                                 | CI as on a pull request; `plan`, `build / …`, `publish / …` when a release pull request is merged; the docs deploy when `docs/` changed  |
+| Mondays                      | [`smoke-weekly.yml`](../.github/workflows/smoke-weekly.yml)                                                                                                                           | every modeler's VS Code smoke and every Orca plugin's smoke; an issue when one fails                                                     |
 
 ## CI and the merge gate
 
@@ -341,16 +341,17 @@ packages or the root install changed. Site settings (Site configuration → Buil
   ahead of every version the suite installs. Dependabot still opens a pull request per directory
   for a dependency whose directories cannot take the same version. A major is never auto-merged:
   the update type of a group pull request is its highest one, so a maintainer decides each major.
-  [`dependabot-automerge.yml`](../.github/workflows/dependabot-automerge.yml) merges green npm
-  patch and minor updates once auto-merge is enabled for the repository. It enables auto-merge with
-  a token of the release-please app: GitHub merges in the name of whoever enabled it, and a merge
-  made with `GITHUB_TOKEN` starts no workflow on `main` (no `ci-ok`, no CodeQL, no release-please).
-  The token gets `contents` and `pull-requests` only and is minted for npm updates only: GitHub
-  merges a change to `.github/workflows` only for a token with the `workflows` permission, so
-  GitHub Actions updates are merged by hand, and so is any ecosystem added to `dependabot.yml`
-  until the workflow names it. It runs on `pull_request_target`, because a run Dependabot starts on
-  `pull_request` gets only Dependabot secrets; that event runs the workflow from `main` with the
-  Actions secrets, so the workflow must never check out or run code of the pull request. GitHub
-  blocks `pull_request_target` in public repositories from 2 December 2026 unless an Actions policy
-  (Settings → Actions → Policies) allows it, so the suite needs one that allows the event for this
-  workflow.
+  [`dependabot-automerge-eligibility.yml`](../.github/workflows/dependabot-automerge-eligibility.yml)
+  labels npm patch and minor updates `auto-merge`, and
+  [`dependabot-automerge.yml`](../.github/workflows/dependabot-automerge.yml) merges them once green
+  and once auto-merge is enabled for the repository. It enables auto-merge with a token of the
+  release-please app: GitHub merges in the name of whoever enabled it, and a merge made with
+  `GITHUB_TOKEN` starts no workflow on `main` (no `ci-ok`, no CodeQL, no release-please). The token
+  gets `contents` and `pull-requests` only and is used for labelled npm updates only: GitHub merges
+  a change to `.github/workflows` only for a token with the `workflows` permission, so GitHub
+  Actions updates are merged by hand, and so is any ecosystem added to `dependabot.yml` until the
+  eligibility workflow names it. The work is split because a run Dependabot starts on
+  `pull_request` gets only Dependabot secrets: the eligibility workflow decides there with
+  `GITHUB_TOKEN`, and the merge workflow runs on its `workflow_run`, which runs from `main` with the
+  Actions secrets, so it must never check out or run code of the pull request. Neither needs an
+  Actions policy: GitHub's default block from 2 December 2026 covers `pull_request_target` only.
