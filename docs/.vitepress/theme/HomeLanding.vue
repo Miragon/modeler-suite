@@ -26,6 +26,28 @@ const icons = {
 
 const modelers: { name: string; slug: string; clients: Client[] }[] = [
   {
+    name: "Business Model Canvas",
+    slug: "business-model-canvas",
+    clients: [
+      { name: "Browser", href: "https://business-model-canvas.modeler.miragon.io", icon: "web" },
+      {
+        name: "VS Code",
+        href: marketplace("miragon-gmbh.business-model-canvas-modeler"),
+        icon: "vscode",
+      },
+      { name: "Orca", href: orca("business-model-canvas-modeler"), icon: "orca" },
+    ],
+  },
+  {
+    name: "Value Chain",
+    slug: "value-chain",
+    clients: [
+      { name: "VS Code", href: marketplace("miragon-gmbh.value-chain-modeler"), icon: "vscode" },
+      { name: "Orca", href: orca("value-chain-modeler"), icon: "orca" },
+      { name: "npm", href: npm("@miragon/value-chain-renderer"), icon: "npm" },
+    ],
+  },
+  {
     name: "Wardley Maps",
     slug: "wardley-maps",
     clients: [
@@ -50,6 +72,16 @@ const modelers: { name: string; slug: string; clients: Client[] }[] = [
     ],
   },
   {
+    name: "Context Maps",
+    slug: "context-maps",
+    clients: [
+      { name: "Browser", href: "https://context-maps.modeler.miragon.io", icon: "web" },
+      { name: "VS Code", href: marketplace("miragon-gmbh.context-maps-modeler"), icon: "vscode" },
+      { name: "Orca", href: orca("context-maps-modeler"), icon: "orca" },
+      { name: "npm", href: npm("@miragon/context-maps-renderer"), icon: "npm" },
+    ],
+  },
+  {
     name: "Team Topologies",
     slug: "team-topologies",
     clients: [
@@ -64,44 +96,12 @@ const modelers: { name: string; slug: string; clients: Client[] }[] = [
     ],
   },
   {
-    name: "Context Maps",
-    slug: "context-maps",
-    clients: [
-      { name: "Browser", href: "https://context-maps.modeler.miragon.io", icon: "web" },
-      { name: "VS Code", href: marketplace("miragon-gmbh.context-maps-modeler"), icon: "vscode" },
-      { name: "Orca", href: orca("context-maps-modeler"), icon: "orca" },
-      { name: "npm", href: npm("@miragon/context-maps-renderer"), icon: "npm" },
-    ],
-  },
-  {
-    name: "Value Chain",
-    slug: "value-chain",
-    clients: [
-      { name: "VS Code", href: marketplace("miragon-gmbh.value-chain-modeler"), icon: "vscode" },
-      { name: "Orca", href: orca("value-chain-modeler"), icon: "orca" },
-      { name: "npm", href: npm("@miragon/value-chain-renderer"), icon: "npm" },
-    ],
-  },
-  {
     name: "C4 model",
     slug: "c4",
     clients: [
       { name: "Browser", href: "https://c4.modeler.miragon.io", icon: "web" },
       { name: "VS Code", href: marketplace("miragon-gmbh.c4-modeler"), icon: "vscode" },
       { name: "npm", href: npm("@miragon/c4-renderer"), icon: "npm" },
-    ],
-  },
-  {
-    name: "Business Model Canvas",
-    slug: "business-model-canvas",
-    clients: [
-      { name: "Browser", href: "https://business-model-canvas.modeler.miragon.io", icon: "web" },
-      {
-        name: "VS Code",
-        href: marketplace("miragon-gmbh.business-model-canvas-modeler"),
-        icon: "vscode",
-      },
-      { name: "Orca", href: orca("business-model-canvas-modeler"), icon: "orca" },
     ],
   },
 ];
