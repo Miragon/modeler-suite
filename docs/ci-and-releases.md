@@ -332,8 +332,12 @@ packages or the root install changed. Site settings (Site configuration → Buil
   lands on `main`.
 - [`codeql.yml`](../.github/workflows/codeql.yml): JavaScript and TypeScript, on pull requests that
   change more than prose, on `main` and weekly.
-- [`dependabot.yml`](../.github/dependabot.yml): npm weekly (minor and patch grouped, the suite's
-  `@miragon/*` workspaces ignored), GitHub Actions monthly. Both entries also cover the new-modeler
+- [`dependabot.yml`](../.github/dependabot.yml): npm weekly (minor and patch grouped, runtime and
+  dev dependencies in separate pull requests, the suite's `@miragon/*` workspaces ignored), GitHub
+  Actions monthly. A runtime bump is committed as `fix(deps)`, so release-please cuts a patch
+  release of every package whose `dependencies` it changed; a dev bump stays `chore(deps-dev)` and
+  is not released. Runtime and dev dependencies come apart because a group commit is `fix` as soon
+  as it holds one runtime bump, which would release every package whose dev dependencies it moved. Both entries also cover the new-modeler
   template (its `package.json` files, workflows and composite action), so a group pull request moves
   the suite and the template together. An npm major gets one pull request per dependency
   (`npm-major`, `group-by: dependency-name`): it moves that dependency in the suite and in the
