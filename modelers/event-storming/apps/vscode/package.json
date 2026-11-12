@@ -1,7 +1,7 @@
 {
   "name": "event-storming-modeler",
   "private": true,
-  "version": "0.9.4",
+  "version": "0.9.5",
   "displayName": "Event Storming Modeler",
   "description": "View and edit Event Storming boards directly in VS Code, backed by plain-text .storm files.",
   "publisher": "miragon-gmbh",
@@ -264,9 +264,9 @@
     "@miragon/event-storming-dsl": "0.4.0",
     "@miragon/event-storming-renderer": "0.10.0",
     "@miragon/event-storming-schema-model": "0.3.1",
-    "@miragon/modeler-shell": "0.13.0",
+    "@miragon/modeler-shell": "0.14.0",
     "diagram-js": "15.28.1",
-    "event-storming-ide-editor": "0.0.3",
+    "event-storming-ide-editor": "0.0.4",
     "didi": "12.0.0",
     "tiny-svg": "4.1.4",
     "zod": "4.6.7"

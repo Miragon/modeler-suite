@@ -3,7 +3,7 @@
   "manifestVersion": 2,
   "id": "business-model-canvas-modeler",
   "name": "Business Model Canvas Modeler",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Open .bmc files as a Business Model Canvas: fill the nine blocks, colour stickies by what matters to your team, write notes on what to test, and keep an agent's changes to the file merged with yours.",
   "author": {
     "name": "Miragon GmbH",
