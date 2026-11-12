@@ -183,7 +183,7 @@ export async function runOrcaSmoke(options: OrcaSmokeOptions): Promise<OrcaSmoke
     child?.kill("SIGTERM");
     await sleep(500);
     step("close");
-    rmSync(profile, { recursive: true, force: true });
+    rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 }
 
