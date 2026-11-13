@@ -1,15 +1,15 @@
 ---
 name: new-modeler
 disable-model-invocation: true
-description: Build a new Miragon modeler end to end, or bring an existing diagram-js modeler onto the Miragon modeler platform - one notation per repository with a DOM-free schema-model and text DSL, a diagram-js renderer that implements the @miragon/modeler-api contract (conformance kit in the browser tests), a web app and a VS Code custom editor on @miragon/modeler-shell (shell conformance kit in e2e), the Miragon design system, exact pins with ranged peers, release-please with npm trusted publishing and the VS Code Marketplace and Open VSX. Use when the user wants to start a modeler for a new notation, scaffold a modeler repository from the template, check a modeler repository against the platform conventions, upgrade one to a new contract or shell release, or prepare a renderer for Design IQ.
+description: Build a new Miragon modeler end to end, or bring an existing diagram-js modeler onto the Miragon modeler platform - one notation per repository with a DOM-free schema-model and text DSL, a diagram-js renderer that implements the @miragon/modeler-api contract (conformance kit in the browser tests), a web app, a VS Code custom editor and an Orca plugin on @miragon/modeler-shell (shell conformance kit in e2e), the Miragon design system, exact pins with ranged peers, release-please with npm trusted publishing and the VS Code Marketplace and Open VSX. Use when the user wants to start a modeler for a new notation, scaffold a modeler repository from the template, check a modeler repository against the platform conventions, upgrade one to a new contract or shell release, or prepare a renderer for Design IQ.
 ---
 
 # Build a Miragon modeler
 
 A Miragon modeler is one notation in one repository: a plain-text file is the source of truth, a
-diagram-js renderer shows and edits it, and two apps put the renderer in front of users, a web app
-and a VS Code custom editor. Two shared packages keep the family uniform:
-[`@miragon/modeler-api`][api] (the collaborative-modeler contract every host binds, with its
+diagram-js renderer shows and edits it, and three apps put the renderer in front of users, a web
+app, a VS Code custom editor and an [Orca](https://www.onorca.dev) custom editor. Two shared
+packages keep the family uniform: [`@miragon/modeler-api`][api] (the collaborative-modeler contract every host binds, with its
 conformance kit) and [`@miragon/modeler-shell`][shell] (the chrome around the canvas, with its
 conformance kit). Five modelers follow this recipe, all in
 [Miragon/modeler-suite](https://github.com/Miragon/modeler-suite) next to the two packages; read
@@ -28,8 +28,8 @@ the one closest to your notation:
 [`assets/template/`](assets/template/) is a minimal, runnable modeler for a toy notation (labelled
 nodes in a line DSL). Once `brand-assets.mjs` has copied the design-system files in (step 1 of
 [After copying](#after-copying)), it builds, passes both conformance kits on the `web` and `ide`
-hosts and packages a VSIX. Copy it with the script, which fills every placeholder and refuses a
-non-empty target:
+hosts and packages a VSIX and an Orca plugin. Copy it with the script, which fills every
+placeholder and refuses a non-empty target:
 
 ```sh
 node ${CLAUDE_PLUGIN_ROOT}/skills/new-modeler/scripts/new-modeler.mjs ../capability-map-modeler \
@@ -62,16 +62,19 @@ known version), and the new repository's Dependabot moves them on.
    (`assets/logo/`) into `apps/webapp/public/`.
 2. **Icons**: the notation's modeler icon from the `miragon-brand:icon-design` skill
    (`assets/modeler-icons/`; a new notation gets one there first) as
-   `apps/webapp/public/favicon.svg`, and as `apps/vscode/icon.png` with `"icon": "icon.png"` in
-   `apps/vscode/package.json` (the Marketplace needs it).
+   `apps/webapp/public/favicon.svg`, as `apps/vscode/icon.png` with `"icon": "icon.png"` in
+   `apps/vscode/package.json` (the Marketplace needs it), and as `apps/orca/assets/icon.png` with
+   `"icon": "assets/icon.png"` in `apps/orca/orca-plugin.json` (Orca's plugin directory shows it;
+   its `cover` and `screenshots` go in `apps/orca/images/`).
 3. `git init`, then `npm install` (writes the lockfile CI's `npm ci` needs),
    `npx playwright install chromium` and `npm run format` (the placeholders changed line lengths).
 4. Run every check once: `npm run lint`, `npm run format:check`, `npm run depcruise`,
    `npm run build`, `npm test`, `npm run test:browser`, `npm run test:e2e`, `npm run build:webapp`,
-   `npm run build:vscode` and `npm run test:vscode:docker`, once as it is and once with
-   `VSCODE_VERSION=1.96.0` (the `engines.vscode` floor). It runs the built extension in a real VS
-   Code inside a Linux container, so no window opens and takes the focus; it needs Docker, and its
-   first run builds the image and downloads VS Code. `brand-assets.mjs --check` reports no
+   `npm run build:vscode`, `npm run build:orca` and `npm run test:vscode:docker`, once as it is
+   and once with `VSCODE_VERSION=1.96.0` (the `engines.vscode` floor). It runs the built extension
+   in a real VS Code inside a Linux container, so no window opens and takes the focus; it needs
+   Docker, and its first run builds the image and downloads VS Code. `npm run test:orca:docker`
+   does the same for the Orca plugin. `brand-assets.mjs --check` reports no
    finding. All green before the first commit, which is signed (`git commit -S -m "feat: …"`).
 5. **GitHub**: the environments `npm` and `vscode-marketplace`, the release-please app (`RELEASE_PLEASE_APP_CLIENT_ID`,
    `RELEASE_PLEASE_APP_PRIVATE_KEY`; Dependabot's auto-merge uses it too, with the label `auto-merge`),
@@ -82,7 +85,8 @@ known version), and the new repository's Dependabot moves them on.
    [releases](references/releases.md#first-release-of-a-package).
 6. Replace the toy notation, test by test: the grammar in `packages/dsl`, the model in
    `packages/schema-model`, shapes and tools in `packages/renderer`, the fixtures of the
-   conformance test, the examples of both apps, and the extension's walkthrough
+   conformance test and of the merge, the examples (`apps/webapp/src/example.ts`,
+   `apps/ide-editor/src/examples.ts`, `example/`), and the extension's walkthrough
    (`apps/vscode/media/walkthrough/`, its step texts in `apps/vscode/package.json`), which
    describes the example and the notation.
 
@@ -95,9 +99,10 @@ known version), and the new repository's Dependabot moves them on.
 2. **Renderer and contract.** The renderer exports `createCollaborativeModeler` and
    `createCollaborativeViewer`; the conformance kit runs in `npm run test:browser` with every hook
    filled, so a skip or an advisory fails. See [contract](references/contract.md).
-3. **Apps on the shell.** The web app on the `web` host, the VS Code webview on the `ide` host,
-   both through the contract factory; the shell's kit runs in `e2e` against both, and a smoke test
-   opens the built extension in a real VS Code. See [shell](references/shell.md).
+3. **Apps on the shell.** The web app on the `web` host, the VS Code webview and the Orca editor
+   on the `ide` host (one editor in `apps/ide-editor` for both), all through the contract factory;
+   the shell's kit runs in `e2e` against all three, and smoke tests open the built extension in a
+   real VS Code and the built plugin in a real Orca. See [shell](references/shell.md).
 4. **Design system.** Vendored tokens in a cascade layer, roles only, light until the joint
    dark-mode release, brand-lint on. See [design system](references/design-system.md).
 5. **Releases.** One release-please component per package, npm trusted publishing, VSIX to the
@@ -108,13 +113,16 @@ known version), and the new repository's Dependabot moves them on.
 ## Done when
 
 - CI is green, which `ci-ok` sums up: lint, format, depcruise, pin check, unit tests,
-  `test:browser` with zero skips and zero advisories of the contract kit, `test:e2e` with both
-  shell kits, the production webview bundle under the webview CSP included, the web app's
-  `check:build`, and the VS Code smoke test on the newest stable VS Code and the `engines.vscode`
-  floor.
+  `test:browser` with zero skips and zero advisories of the contract kit and the merge cases,
+  `test:e2e` with the shell kit on every host, the production webview bundle under the webview CSP
+  and the built plugin under Orca's frame policy included, the web app's `check:build`, the VS Code
+  smoke test on the newest stable VS Code and the `engines.vscode` floor, and the Orca smoke test
+  on the newest Orca and the `engines.orca` floor.
 - `npm run test:vscode:docker` passes on the newest stable VS Code and the `engines.vscode` floor:
   edit, save, undo and VS Code's four default themes in a real VS Code
   ([shell](references/shell.md#the-vs-code-smoke-test)).
+- `npm run test:orca:docker` passes: Orca's validate and check, the load and the editor in both
+  of Orca's themes in a real Orca ([shell](references/shell.md#the-orca-smoke-test)).
 - The renderer's `meta.apiVersion` is the pinned `MODELER_API_VERSION`, the factories accept the
   1.2 options `freeArea`, `fitOnImport` and `undoRedoKeys`, both mounts report
   `contentBounds()` (1.3), which the apps and Design IQ fit to, and the canvas acts on a key only
@@ -128,18 +136,20 @@ known version), and the new repository's Dependabot moves them on.
 - Neither app has chrome of its own: menu, palette skin, zoom, keys, problems, status, empty state,
   toasts and the shortcuts dialog come from the shell, and the menu content and the shortcut rows
   come from the renderer.
-- The extension syncs the document through the shell's document plumbing, `registerModelerEditor`
-  in the extension host and `connectDocumentSync` in the webview, with no writer, echo filter or
-  import queue of its own ([shell](references/shell.md#the-ide-host-vs-code)).
+- Both IDE apps mount one `IdeEditorDefinition` of `apps/ide-editor` with `mountIdeEditor`:
+  the extension syncs the document through the shell's document plumbing, `registerModelerEditor`
+  in the extension host and `vsCodeEditorHost` in the webview, and the Orca editor through
+  `orcaEditorHost` with the notation's merge, with no writer, echo filter or import queue of their
+  own ([shell](references/shell.md#the-ide-hosts-vs-code-and-orca)).
 - The PNG export is the shell's `svgToPng` (`@miragon/modeler-shell/export`): Geist inside the
   picture and the background of guide §10.7, in both apps, with no rasteriser of their own.
 - The extension creates a diagram natively (guide §13.5): "New Empty Diagram" and "New Diagram
   from Example" as commands, in File › New File… and in the walkthrough, whose steps are New,
   Example and Source to the side; "Open Source to the Side" and "Open Diagram to the Side" in the
-  editor titles ([shell](references/shell.md#the-ide-host-vs-code)).
+  editor titles ([shell](references/shell.md#the-ide-hosts-vs-code-and-orca)).
 - The extension's save dialogs and their notifications are the shell's: `registerNewDocumentCommand`
   for both new-diagram commands and `exportToFile` for the PNG and SVG export, with no dialog,
-  write or notification text of its own ([shell](references/shell.md#the-ide-host-vs-code)).
+  write or notification text of its own ([shell](references/shell.md#the-ide-hosts-vs-code-and-orca)).
 - brand-lint reports no hard finding with the template's `.miragon/brand.json`
   ([design system](references/design-system.md#brand-lint)).
 - A VSIX packages (`npx vsce package --no-dependencies`) and `npm publish --dry-run` packs every

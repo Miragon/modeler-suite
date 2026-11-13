@@ -284,6 +284,8 @@ jobs:
       # The VSIX as the template's release packs it (vscode:prepublish, .vscodeignore).
       - run: npm run package -w apps/vscode
         working-directory: ${{ steps.instance.outputs.directory }}
+      - run: npm run build:orca
+        working-directory: ${{ steps.instance.outputs.directory }}
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -334,6 +336,44 @@ jobs:
           path: |
             ${{ steps.instance.outputs.directory }}/test-results/vscode-smoke/
             ${{ runner.temp }}/modeler-shell-vscode-*/user-data/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # The same instance's Orca plugin in a real Orca, as the template's own CI smokes it. Not in the
+  # template job, for the same reason as template-vscode-smoke.
+  template-orca-smoke:
+    needs: changes
+    if: needs.changes.outputs.template == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        orca: [latest, minimum]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: npm run build:shared
+      - id: instance
+        run: |
+          node .github/scripts/template-instance.mjs "$INSTANCE"
+          echo "directory=$INSTANCE" >> "$GITHUB_OUTPUT"
+        env:
+          INSTANCE: ${{ runner.temp }}/capability-map-modeler
+      - id: orca
+        uses: Miragon/orca-plugin-kit/setup-orca@6b56b4938c9352a8be5c666019b2f43e557235aa # v1.0.0
+        with:
+          channel: ${{ matrix.orca }}
+          plugin-manifest: ${{ steps.instance.outputs.directory }}/apps/orca/orca-plugin.json
+      - run: xvfb-run -a npm run test:orca
+        working-directory: ${{ steps.instance.outputs.directory }}
+        env:
+          ORCA_APP: ${{ steps.orca.outputs.app }}
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: template-orca-smoke-${{ matrix.orca }}
+          path: ${{ steps.instance.outputs.directory }}/test-results/orca-smoke/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -404,6 +444,7 @@ jobs:
       - modeler-e2e
       - template
       - template-vscode-smoke
+      - template-orca-smoke
       - docs
       - dependency-review
       - vscode-smoke

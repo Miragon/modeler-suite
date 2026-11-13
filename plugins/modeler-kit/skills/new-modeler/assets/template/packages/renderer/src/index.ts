@@ -13,6 +13,7 @@ export {
   NOTATION,
   createCollaborativeModeler,
   createCollaborativeViewer,
+  mergeDiagramText,
   type CollaborativeDiagram,
   type CollaborativeOptions,
   type DiagramElementsSurface,

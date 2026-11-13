@@ -9,7 +9,8 @@ release PR open; merging it tags, writes the changelogs and publishes.
 [`release-please-config.json`](../assets/template/release-please-config.json) and
 [`.release-please-manifest.json`](../assets/template/.release-please-manifest.json):
 
-- **One component per package** (`schema-model`, `dsl`, `renderer`, `vscode`, `webapp`) with
+- **One component per package** (`schema-model`, `dsl`, `renderer`, `ide-editor`, `vscode`,
+  `orca`, `webapp`) with
   `include-component-in-tag: true`, so each is versioned and tagged on its own
   (`renderer-v0.3.0`) with its own `CHANGELOG.md`; `separate-pull-requests: false` keeps one PR.
   A commit belongs to the components whose directories it touches: `feat` bumps the minor, `fix`
@@ -92,6 +93,13 @@ owner, the repository name, the workflow `release-please.yml` and the environmen
   to the Miragon modeler extension pack (`Miragon/vscode-modeler-collection`) after its first release.
   A manual run of the release workflow with `dry_run` runs `build`, which then also packs the
   libraries (`npm publish --dry-run`), and releases nothing.
+
+## Orca
+
+`apps/orca` is the `orca` component; `extra-files` keep the `version` of `orca-plugin.json` on the
+package's. `apps/ide-editor` is a component of its own, so a change there releases both IDE apps
+through `node-workspace`. The template's release does not publish the plugin yet: build it
+(`npm run build:orca`) and load `apps/orca/plugin/` into Orca with `orca plugin dev load .`.
 
 The web app is no npm package and is not published by release-please; deploy `main` with the
 hosting of your choice (the five use Netlify with a `netlify.toml`).

@@ -3,7 +3,7 @@ import { expect, it } from 'vitest';
 import { formatVsCodeSmoke, runVsCodeSmoke } from '@miragon/modeler-shell/testing/vscode-electron';
 import { parseText } from '@miragon/__NOTATION__-dsl';
 import { THEMES } from '@miragon/__NOTATION__-renderer/themes';
-import { EXAMPLE_DIAGRAM } from '../src/examples.js';
+import { EXAMPLE_DIAGRAM } from '@miragon/__NOTATION__-ide-editor/examples';
 
 /*
  * The built extension in a real VS Code, what the stub of e2e cannot show: the webview inside VS

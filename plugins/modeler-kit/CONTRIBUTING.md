@@ -40,8 +40,8 @@ warns about the missing version; that is intended.
 ## The template in CI
 
 The CI job `template` packs `packages/api` and `packages/shell` from the branch, creates a modeler
-from the template, installs the packs and runs its lint, depcruise, build, tests, both kits, both
-app builds and the VSIX packaging. To reproduce it:
+from the template, installs the packs and runs its lint, depcruise, build, tests, both kits, the
+app builds, the VSIX packaging and the Orca plugin's build. To reproduce it:
 
 ```sh
 npm run build:shared
@@ -49,5 +49,5 @@ node .github/scripts/template-instance.mjs <empty folder>
 ```
 
 then run the checks in that folder. A plain copy with `npm install` tests the last release, not
-your change. CI runs the instance's checks and its VS Code smoke whenever the template changes; see
-[docs/ci-and-releases.md](../../docs/ci-and-releases.md).
+your change. CI runs the instance's checks and its VS Code and Orca smokes whenever the template
+changes; see [docs/ci-and-releases.md](../../docs/ci-and-releases.md).

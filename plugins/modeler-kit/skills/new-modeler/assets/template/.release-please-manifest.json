@@ -2,6 +2,8 @@
   "packages/schema-model": "0.0.0",
   "packages/dsl": "0.0.0",
   "packages/renderer": "0.0.0",
+  "apps/ide-editor": "0.0.0",
   "apps/vscode": "0.0.0",
+  "apps/orca": "0.0.0",
   "apps/webapp": "0.0.0"
 }

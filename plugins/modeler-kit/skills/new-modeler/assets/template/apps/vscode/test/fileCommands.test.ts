@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as vscode from 'vscode';
 import { revealFileLabel } from '@miragon/modeler-shell/vscode/extension';
 import { DIAGRAM_VIEW_TYPE } from '../src/diagramEditorOptions.js';
-import { EMPTY_DIAGRAM, EXAMPLE_DIAGRAM } from '../src/examples.js';
+import { EMPTY_DIAGRAM, EXAMPLE_DIAGRAM } from '@miragon/__NOTATION__-ide-editor/examples';
 import { activate } from '../src/extension.js';
 import { FakeUri, fakeVsCode } from './fakeVsCode.js';
 

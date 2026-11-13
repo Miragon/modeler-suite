@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "paths": {
+      "@miragon/__NOTATION__-renderer": ["../../packages/renderer/src/index.ts"],
+      "@miragon/__NOTATION__-renderer/themes": ["../../packages/renderer/src/themes.ts"],
+      "@miragon/__NOTATION__-schema-model": ["../../packages/schema-model/src/index.ts"],
+      "@miragon/__NOTATION__-dsl": ["../../packages/dsl/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test-smoke/**/*.ts", "../ide-editor/src/css.d.ts"]
+}

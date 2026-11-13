@@ -10,7 +10,7 @@ import {
   DIAGRAM_EDITOR_OPTIONS,
   DIAGRAM_VIEW_TYPE,
 } from '../../apps/vscode/src/diagramEditorOptions.js';
-import { EMPTY_DIAGRAM, EXAMPLE_DIAGRAM } from '../../apps/vscode/src/examples.js';
+import { EMPTY_DIAGRAM, EXAMPLE_DIAGRAM } from '../../apps/ide-editor/src/examples.js';
 
 // `?doc=empty` is EMPTY_DIAGRAM, the file the "New Empty Diagram" command writes, `?doc=blank` a
 // file of zero bytes.

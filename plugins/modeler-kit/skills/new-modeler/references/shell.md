@@ -1,13 +1,16 @@
 # The chrome: `@miragon/modeler-shell`
 
-Both apps mount the shell; renderers never import it. Every option, type and rule is in the
+The apps mount the shell; renderers never import it. Every option, type and rule is in the
 [README](https://github.com/Miragon/modeler-suite/blob/main/packages/shell/README.md) and
 [API.md](https://github.com/Miragon/modeler-suite/blob/main/packages/shell/API.md), the why in the
 [implementation notes](https://github.com/Miragon/modeler-suite/blob/main/docs/shell/implementation-notes.md).
-Template: [`apps/webapp/src/main.ts`](../assets/template/apps/webapp/src/main.ts) and
-[`apps/vscode/src/webview/main.ts`](../assets/template/apps/vscode/src/webview/main.ts).
+Template: [`apps/webapp/src/main.ts`](../assets/template/apps/webapp/src/main.ts) and, for both IDE
+hosts, [`apps/ide-editor/src/editor.ts`](../assets/template/apps/ide-editor/src/editor.ts).
 
 ## Mounting, in this order
+
+The web app mounts by hand, in this order; in the IDE hosts `mountIdeEditor` takes the same steps
+from the editor's definition (see [The IDE hosts](#the-ide-hosts-vs-code-and-orca)).
 
 1. **The diagram**, through the contract factory with `additionalModules: [shellModule]`,
    `fitOnImport: false` and `freeArea: { insets: () => shell.fitInsets() }`; then
@@ -93,12 +96,26 @@ tokens, while the dev server and e2e show nothing wrong. Neither app has a style
 - **An SVG export** takes the canvas container's own `<svg>` child (the palette's icons are
   `<svg>`s too) and strips `tabindex`, `role` and `aria-label` from its copy.
 
-## The IDE host (VS Code)
+## The IDE hosts (VS Code and Orca)
 
-The document is the source of truth, and its sync is the shell's document plumbing (modeler-shell
-0.8.0 or later): `registerModelerEditor` in the extension host, `connectDocumentSync` in the
-webview. Neither side keeps a writer, an echo filter or an import queue of its own. Undo is VS
-Code's.
+One editor serves both IDE hosts: `apps/ide-editor` holds an `IdeEditorDefinition` (modeler-shell
+0.11.0 or later; template:
+[`editor.ts`](../assets/template/apps/ide-editor/src/editor.ts)) with the canvas's name, the themes,
+the factory call (`fitOnImport: false`, `freeArea: { insets: fitInsets }`, the host's
+`undoRedoKeys`), the read-only lock, `isEmpty`, the menu, `sameText`, the exports and
+`withExampleInserted`, next to the examples, zod's `config({ jitless: true })` and the esbuild
+options both bundles share (`editorBundle`, `alias`). Each host's entry is one line:
+`mountIdeEditor(vsCodeEditorHost(), definition)` in the VS Code webview,
+`mountIdeEditor(orcaEditorHost({ merge }), definition)` in the Orca editor. `mountIdeEditor`
+mounts the diagram, the shell and `connectDiagramJs`, imports every text one after another, keeps
+the view and the selection across a re-import, locks an invalid file at once and shows its marks
+and status after `INVALID_STATUS_DELAY_MS`, holds an edit back while the canvas does not show the
+document, and hands each export to the host. The modeler writes none of that itself.
+
+In VS Code the document is the source of truth, and its sync is the shell's document plumbing
+(modeler-shell 0.8.0 or later): `registerModelerEditor` in the extension host,
+`vsCodeEditorHost` (on `connectDocumentSync`) in the webview. Neither side keeps a writer, an echo
+filter or an import queue of its own. Undo is VS Code's.
 
 - The extension's half: `registerModelerEditor(vscode, context, options)` registers the custom
   text editor with `retainContextWhenHidden` and does per editor what each modeler did itself before
@@ -113,26 +130,18 @@ Code's.
   in a module of their own, so the e2e test page registers the same plumbing (template:
   [`diagramEditorOptions.ts`](../assets/template/apps/vscode/src/diagramEditorOptions.ts) and
   [`diagramEditor.ts`](../assets/template/apps/vscode/src/diagramEditor.ts)).
-- The webview's half: `connectDocumentSync({ api, importText, exportText, canWrite, onProblems })`
-  is connected last, since it posts `ready` at once. It imports `init` and every `update` strictly
-  one after another; `importText` resolves to `false` when the canvas refused the text. An update
-  that differs from `exportText()` only in its formatting (the line breaks, the final newline a save
-  adds) is not imported again, since an import ends a running drag: `importText` then only shows
-  the file as valid and resolves to `true`. Every content change of the contract calls its
-  `pushEdit`, which posts the canonical text as an `edit` unless it is the text the canvas showed
-  last, or `canWrite: () => !shell.isReadOnly()` holds it back while the file is invalid (template:
+- The webview's half: `vsCodeEditorHost()` posts `ready` once the editor is mounted, imports
+  `init` and every `update` strictly one after another, and posts every canvas edit's canonical
+  text as an `edit` unless it is the text the canvas showed last. An update that `sameText` finds
+  equal to the canvas (the line breaks, the final newline a save adds) is not imported again, since
+  an import ends a running drag. `problems` opens the Problems view and shows the diagnostics'
+  counts; the empty-file hint's "Insert example" has the host write the example as one edit
+  (template:
   [`apps/vscode/src/webview/main.ts`](../assets/template/apps/vscode/src/webview/main.ts)).
-- **An invalid file**: when an update cannot be imported, lock the canvas at once (the renderer's
-  own read-only service: rules veto every edit, the label editor stays shut), call
-  `shell.setReadOnly(true, { delayMs: INVALID_STATUS_DELAY_MS })` and `shell.setStatus(…)` with the
-  same delay and resolve `importText` to `false`; the next valid import unlocks.
-- `problems: { onActivate }` opens the Problems view; the extension host posts the diagnostics'
-  counts for `shell.setProblems`. `emptyHint: { onInsertExample }` lets the host write the example
-  as one edit.
-- The webview bundle: fonts as files (esbuild `loader` `file`, `assetNames: 'fonts/[name]-[hash]'`)
-  under the CSP's `font-src`, zod's `config({ jitless: true })` imported before any schema, the
-  Lucide legal comment kept. Exports go to the host, never a toast: `onMessage` hands the
-  webview's `export` to `exportToFile` (modeler-shell 0.9.0 or later) with the kind of
+- The webview bundle: the ide-editor's `editorBundle` (fonts as files under the CSP's `font-src`,
+  the packages from source, the `?dataurl` plugin), zod's `config({ jitless: true })` imported
+  before any schema, the Lucide legal comment kept. Exports go to the host, never a toast:
+  `onMessage` hands the webview's `export` to `exportToFile` (modeler-shell 0.9.0 or later) with the kind of
   `IMAGE_EXPORT_KINDS`, the document as `sourceUri`, the notation as `defaultName` and the
   message's font fallback. The shell's save dialog ("Export as PNG", "Export") suggests the
   document's name beside it, writes the file and names it in a notification with the action that
@@ -163,6 +172,29 @@ Code's.
   walkthrough. There is no keybindings contribution. A unit test pins all of it (template:
   [`contributions.test.ts`](../assets/template/apps/vscode/test/contributions.test.ts), media in
   [`media/walkthrough/`](../assets/template/apps/vscode/media/walkthrough/)).
+
+### Orca
+
+`apps/orca` is the same editor as an [Orca](https://www.onorca.dev) custom editor (template:
+[`apps/orca/`](../assets/template/apps/orca/)). Orca keeps the file, its dirty state, saving and
+read-only tabs; the editor owns undo. `orcaEditorHost` needs the notation's `merge`, a
+`ModelTextMerge` of the contract that Orca calls when an agent writes the file under the user's
+unsaved edits (its laws in the contract's
+[README](https://github.com/Miragon/modeler-suite/blob/main/packages/api/README.md)); without a merge, or when it throws a
+`MergeConflictError`, Orca shows its Reload/Overwrite banner. The template's `mergeDiagramText`
+merges the nodes by id with the contract's `mergeRecord`, and the renderer's browser test runs
+`registerMergeConformance` on it.
+
+- `orca-plugin.json`: manifest version 2, `execution: sandboxed-ui`, one `customEditors` entry
+  with `frame: isolated` and a `newFiles` entry from the example, `engines.orca` `>=1.4.252` (the
+  first release that hands the merge to an isolated frame). An `icon` and the directory's `cover`
+  and `screenshots` come later, see [After copying](../SKILL.md#after-copying).
+- `build.mjs` writes `plugin/`, the folder Orca loads: the editor bundle from `editorBundle` as
+  ESM, not minified (Orca's listing wants a readable plugin) and without a sourcemap (Orca's size
+  review), with only zod's English messages; `editor/index.html`, the manifest and the example.
+  `orca plugin validate .` and `orca plugin check .` in `plugin/` check it, and
+  `orca plugin dev load .` loads it into your Orca.
+- Orca has no diagnostics for a custom editor, so the shell kit declares `problems` absent.
 
 ## The web host
 
@@ -199,7 +231,8 @@ editor across the shell's zoom, fit and refit, the read-only lock, reduced motio
 colours, the canvas's overlay layers, the shortcuts dialog, the production webview bundle under the
 webview CSP, the web column and a clean `destroy`.
 
-- `ide`: a Vite test page runs the webview's `main.ts` inside `installVsCodeWebviewStub` (with
+- `ide` in VS Code (project `vscode-webview`): a Vite test page runs the webview's `main.ts` inside
+  `installVsCodeWebviewStub` (with
   `stubOptionsFromSearch`), opened with `vsCodeStubSearch(requested)` and a `doc` key for the
   document it posts in `init`; the page, not the bundle, publishes the handles on `window`.
   `show.invalid` posts an update the renderer rejects. With a `host` key the page registers the
@@ -208,6 +241,12 @@ webview CSP, the web column and a clean `destroy`.
   [`document-sync.spec.ts`](../assets/template/e2e/tests/vscode/document-sync.spec.ts) renames and
   moves a node and reads the one line the edit rewrote, changes the text, undoes and redoes in the
   document, inserts the example, has VS Code refuse an edit and saves.
+- `ide` in Orca (project `orca-editor`, `ideHost: 'orca'`): a second page on the same server runs
+  the Orca editor's `main.ts` inside `installOrcaEditorStub` of
+  `@miragon/modeler-shell/testing/orca-stub`; `csp` opens the built plugin under Orca's frame policy with `openOrcaEditorBundle`. The
+  template's [`orca/document-sync.spec.ts`](../assets/template/e2e/tests/orca/document-sync.spec.ts)
+  edits the canvas, has an agent write the file under the edit (merged, no banner) and write a
+  change to what the user removed (Orca's banner).
 - `web`: the app's own page with its link format. A navigation that only changes the fragment keeps
   the page, so `open` waits for the diagram, not just for the app. With a legend, `open` goes to
   `about:blank` first: the kit's case for the legend's start state (modeler-shell 0.4.0 or later)
@@ -324,6 +363,18 @@ What each step checks and every option are in the shell's
 [README](https://github.com/Miragon/modeler-suite/blob/main/packages/shell/README.md) (section "Smoke
 tests in a real VS Code") and [API.md](https://github.com/Miragon/modeler-suite/blob/main/packages/shell/API.md)
 (`./testing/vscode-electron`).
+
+## The Orca smoke test
+
+`runOrcaSmoke` of `@miragon/modeler-shell/testing/orca-electron` (template:
+[`orca-smoke.test.ts`](../assets/template/apps/orca/test-smoke/orca-smoke.test.ts)) runs the built
+plugin in a real Orca: Orca's `validate` and `check`, the load with its approval, the editor with
+the example in both of Orca's themes, and Orca's logs. Edits, saves, undo and the merge are the
+stub's in e2e: in a real Orca only `orca plugin shot --act` types into an editor, and a shot may
+lose its editor. `test:orca` needs a display and the extracted Orca in `ORCA_APP`, so it runs on
+Linux under `xvfb-run -a` (CI) or as `test:orca:docker` in a container; on a Mac Orca's window
+would take the focus, so the test refuses to run there without `ORCA_APP`. `ORCA_SMOKE_PLUGIN`
+points it at another build of the plugin.
 
 ## Upgrades
 

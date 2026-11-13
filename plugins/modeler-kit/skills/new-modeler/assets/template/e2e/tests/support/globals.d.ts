@@ -7,6 +7,7 @@ import type {
   VsCodeHostStub,
   VsCodeWebviewStub,
 } from '@miragon/modeler-shell/testing/vscode-stub';
+import type { OrcaEditorStub } from '@miragon/modeler-shell/testing/orca-stub';
 
 /** What the test pages publish for the suite; the shipped bundles publish nothing. */
 declare global {
@@ -17,6 +18,10 @@ declare global {
     vscodeHost?: { host: VsCodeHostStub; document: StubTextDocument; panel: StubWebviewPanel };
     /** The VS Code webview test page: true once the first `init` import settled. */
     webviewReady?: boolean;
+    /** The shell's Orca stub, on the Orca test page and around the built plugin alike. */
+    __modelerShellOrcaStub?: OrcaEditorStub;
+    /** The Orca test page: true once the first import settled. */
+    editorReady?: boolean;
     shell?: ShellHandle;
     modeler?: CollaborativeDiagram;
     connection?: DiagramJsConnection;

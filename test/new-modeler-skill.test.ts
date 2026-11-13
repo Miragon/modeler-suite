@@ -135,6 +135,16 @@ function templateEntryPaths(): Record<string, string[]> {
       paths[`@miragon/__NOTATION__-${name}${subpath.slice(1)}`] = [join(directory, source)];
     }
   }
+  // The IDE editor is a private workspace whose `exports` name its sources themselves.
+  const ideEditor = join(TEMPLATE, "apps/ide-editor");
+  const { exports } = readJson<{ exports: Record<string, string> }>(
+    join(ideEditor, "package.json"),
+  );
+  for (const [subpath, source] of Object.entries(exports)) {
+    if (source.endsWith(".ts")) {
+      paths[`@miragon/__NOTATION__-ide-editor${subpath.slice(1)}`] = [join(ideEditor, source)];
+    }
+  }
   return paths;
 }
 
@@ -361,12 +371,14 @@ describe("the template pins the modeler platform's current releases", () => {
     );
   });
 
-  it("pins the contract in the renderer and the shell in both apps and e2e", () => {
+  it("pins the contract in the renderer and the shell in the apps and e2e", () => {
     expect(
       platformPins
         .map((pin) => `${dirname(pin.file).split("/assets/template/")[1] ?? "."} ${pin.name}`)
         .sort(),
     ).toEqual([
+      "apps/ide-editor @miragon/modeler-shell",
+      "apps/orca @miragon/modeler-shell",
       "apps/vscode @miragon/modeler-shell",
       "apps/webapp @miragon/modeler-shell",
       "e2e @miragon/modeler-shell",
@@ -947,6 +959,10 @@ const NON_API_NAMES = new Map<string, string>([
   ["contractNotation", "Design IQ's renderer spec"],
   ["load", "Design IQ's renderer spec"],
   ["engines.vscode", "VS Code's package.json"],
+  ["engines.orca", "Orca's plugin manifest"],
+  ["newFiles", "Orca's plugin manifest"],
+  ["editorBundle", "the template ide-editor's shared esbuild options"],
+  ["mergeDiagramText", "the template renderer's ModelTextMerge"],
   ["retainContextWhenHidden", "VS Code"],
   ["config", "zod"],
   ["looseObject", "zod"],
@@ -985,6 +1001,8 @@ const NON_API_NAMES = new Map<string, string>([
   ["always", "GitHub Actions' status check function"],
   ["SKIPPED_BY_DESIGN", "the template's CI gate"],
   ["VSCODE_VERSION", "the template's VS Code smoke test"],
+  ["ORCA_APP", "the template's Orca smoke test"],
+  ["ORCA_SMOKE_PLUGIN", "the template's Orca smoke test"],
   ["VSCODE_SMOKE_EXTENSION", "the template's VS Code smoke test"],
   ["VSCODE_SMOKE_KEEP", "the template's VS Code smoke test"],
   ["VSCODE_SMOKE_SKIP", "the shell's VS Code smoke driver"],

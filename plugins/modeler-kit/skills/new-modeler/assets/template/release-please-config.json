@@ -10,7 +10,12 @@
     "packages/schema-model": { "component": "schema-model" },
     "packages/dsl": { "component": "dsl" },
     "packages/renderer": { "component": "renderer" },
+    "apps/ide-editor": { "component": "ide-editor" },
     "apps/vscode": { "component": "vscode" },
+    "apps/orca": {
+      "component": "orca",
+      "extra-files": [{ "type": "json", "path": "orca-plugin.json", "jsonpath": "$.version" }]
+    },
     "apps/webapp": { "component": "webapp" }
   }
 }

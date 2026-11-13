@@ -2,12 +2,15 @@ import { afterAll, afterEach, describe, expect, test } from 'vitest';
 import {
   attachedHost,
   registerConformance,
+  registerMergeConformance,
   type ConformanceHarness,
   type GestureKind,
   type HeldGesture,
   type HeldPan,
 } from '@miragon/modeler-api/conformance';
 import type { CollaborativeModeler } from '@miragon/modeler-api';
+import { parseText } from '@miragon/__NOTATION__-dsl';
+import { validateDocument } from '@miragon/__NOTATION__-schema-model';
 import type Canvas from 'diagram-js/lib/core/Canvas';
 import type CommandStack from 'diagram-js/lib/command/CommandStack';
 import type ElementRegistry from 'diagram-js/lib/core/ElementRegistry';
@@ -16,6 +19,7 @@ import type { Shape } from 'diagram-js/lib/model/Types';
 import {
   createCollaborativeModeler,
   createCollaborativeViewer,
+  mergeDiagramText,
   type CollaborativeDiagram,
   type DomainModeling,
   type LabelEditing,
@@ -282,4 +286,51 @@ describe('the renderer implements the collaborative-modeler contract', () => {
   afterAll(() => {
     expect(advisories).toEqual([]);
   });
+});
+
+const ORDER = 'node order "Place order" [40, 40]';
+const PAY = 'node pay "Pay" [280, 40]';
+const SHIP = 'node ship "Ship" [520, 40]';
+const withLine = (line: string, replacement: string): string => orders.replace(line, replacement);
+
+// The merge an IDE host (Orca) calls when an agent writes the file under the user's unsaved edits.
+describe('the diagram merges an outside write into a draft', () => {
+  registerMergeConformance(
+    mergeDiagramText,
+    {
+      base: orders,
+      disjoint: [
+        {
+          name: 'a rename outside, a move in the draft',
+          external: withLine(ORDER, 'node order "Order placed" [40, 40]'),
+          draft: withLine(SHIP, 'node ship "Ship" [520, 200]'),
+          merged: withLine(ORDER, 'node order "Order placed" [40, 40]').replace(
+            SHIP,
+            'node ship "Ship" [520, 200]',
+          ),
+        },
+        {
+          name: 'a node added outside, one removed in the draft',
+          external: `${orders}node pack "Pack" [760, 40]\n`,
+          draft: withLine(`${PAY}\n`, ''),
+          merged: `${withLine(`${PAY}\n`, '')}node pack "Pack" [760, 40]\n`,
+        },
+      ],
+      conflicting: [
+        {
+          name: 'two renames of one node',
+          external: withLine(PAY, 'node pay "Take payment" [280, 40]'),
+          draft: withLine(PAY, 'node pay "Collect payment" [280, 40]'),
+        },
+        {
+          name: 'a rename against a removal',
+          external: withLine(PAY, 'node pay "Take payment" [280, 40]'),
+          draft: withLine(`${PAY}\n`, ''),
+        },
+      ],
+      invalidTexts: ['node order "Twice" [0, 0]\nnode order "Twice" [200, 0]\n'],
+      parse: (text) => validateDocument(parseText(text).document),
+    },
+    test,
+  );
 });

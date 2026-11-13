@@ -70,8 +70,9 @@ that cannot be fetched run everything; so does any path no rule names.
   packages at the packs, installs without a lockfile, as a new modeler's first install does, and
   checks the lockfile for a copy from the registry. Then the instance runs `lint`, `depcruise`,
   `build`, `test`, `test:browser` (the contract's conformance kit), `test:e2e` (the shell's kit on
-  the `web` and `ide` hosts), `build:webapp`, `check:build`, `build:vscode` and the VSIX
-  (`package`), in the Playwright image of the root's `playwright` pin. The script runs locally too
+  the `web` host and on the `ide` host in the VS Code webview and the Orca editor), `build:webapp`,
+  `check:build`, `build:vscode`, the VSIX (`package`) and the Orca plugin (`build:orca`), in the
+  Playwright image of the root's `playwright` pin. The script runs locally too
   (`npm run build:shared`, then `node .github/scripts/template-instance.mjs <empty folder>`;
   `npx playwright install chromium` once). The drift test of `test:plugin` only type-checks the
   template against the sources.
@@ -104,6 +105,8 @@ instance as the `template` job, its `test:vscode` under `xvfb-run -a`) on the ne
 and on the oldest that the template's `engines.vscode` accepts, with every step of the driver like
 the VS Code smoke. It runs whenever the `template` job does, on the runner image rather than the
 Playwright image, because VS Code needs the image's X server and GTK libraries.
+`template-orca-smoke` runs the same instance's `test:orca` under `xvfb-run -a` in the newest Orca
+and in the oldest that the template's `engines.orca` accepts, like the Orca smoke.
 
 The VS Code version and its cache come from [`.github/actions/vscode`](../.github/actions/vscode),
 the Orca version and its extracted AppImage from Miragon/orca-plugin-kit's

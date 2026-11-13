@@ -6,3 +6,4 @@ export {
   type CollaborativeOptions,
   type DiagramElementsSurface,
 } from './collaborative.js';
+export { mergeDiagramText } from './merge.js';

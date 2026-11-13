@@ -1,8 +1,8 @@
 # CLAUDE.md
 
 TypeScript library for viewing and editing __DISPLAY_NAME__ diagrams, built on
-[diagram-js](https://github.com/bpmn-io/diagram-js) (MIT): a web app and a VS Code extension on one
-renderer. The plain-text `.__EXT__` file is the source of truth.
+[diagram-js](https://github.com/bpmn-io/diagram-js) (MIT): a web app, a VS Code extension and an
+Orca plugin on one renderer. The plain-text `.__EXT__` file is the source of truth.
 
 ## Monorepo (npm workspaces)
 
@@ -11,9 +11,11 @@ renderer. The plain-text `.__EXT__` file is the source of truth.
 | `@miragon/__NOTATION__-schema-model` | data model, zod validation, the empty document        | no  |
 | `@miragon/__NOTATION__-dsl`          | `.__EXT__` text ↔ model (lossless round trip)         | no  |
 | `@miragon/__NOTATION__-renderer`     | diagram-js viewer and modeler, the contract factories | yes |
+| `apps/ide-editor`                    | the editor both IDE apps mount (`mountIdeEditor`)     | yes |
 | `apps/webapp`                        | web app on `@miragon/modeler-shell` (`web` host)      | yes |
 | `apps/vscode`                        | VS Code custom editor (`ide` host)                    | yes |
-| `e2e`                                | Playwright, both hosts                                | yes |
+| `apps/orca`                          | Orca custom editor (`ide` host), built into `plugin/` | yes |
+| `e2e`                                | Playwright, every host                                | yes |
 
 **P1, the DOM boundary:** `schema-model` and `dsl` never import `diagram-js`, `tiny-svg`, `min-dom`
 or use `window`/`document`, and take only types from `@miragon/modeler-api`. No package under
@@ -25,15 +27,18 @@ ESLint (`npm run lint`) and dependency-cruiser (`npm run depcruise`).
 Node `^22.22.2 || >=24.15.0` (`engines`; CI runs the floor, Node 22.22.2), npm.
 
 - `npm run build` (packages) · `npm run build:webapp` (then `npm run check:build -w apps/webapp`) ·
-  `npm run build:vscode`
+  `npm run build:vscode` · `npm run build:orca` (writes `apps/orca/plugin/`, the folder Orca loads)
 - `npm test` · `npm run test:browser` (the `@miragon/modeler-api` conformance kit) ·
-  `npm run test:e2e` (the `@miragon/modeler-shell` conformance kit on the `web` and `ide` hosts;
-  ports `E2E_PORT`, `E2E_WEBVIEW_PORT`)
+  `npm run test:e2e` (the `@miragon/modeler-shell` conformance kit on the `web` host and on the
+  `ide` host in the VS Code webview and the Orca editor; ports `E2E_PORT`, `E2E_WEBVIEW_PORT`)
 - `npm run test:vscode:docker`: the extension in a real VS Code inside a Linux container (needs
   Docker; it builds first, and no window opens on the host). `VSCODE_VERSION` picks the VS Code
   (default the newest stable release; `1.96.0` is the `engines.vscode` floor).
   `npm run test:vscode-smoke` is the same without Docker and without the build, for CI under
   `xvfb-run -a`; on a desktop its VS Code window takes the focus.
+- `npm run test:orca:docker`: the plugin in a real Orca inside a Linux container.
+  `npm run test:orca` needs the extracted Orca in `ORCA_APP` and a display (CI: `xvfb-run -a`);
+  never run it on a Mac, where Orca's window takes the focus.
 - `npm run lint` (ESLint + every tsconfig) · `npm run format` · `npm run depcruise`
 - `npm run dev:webapp` (also `npm run dev`): the web app through Portless at a named `.localhost`
   URL; Portless needs Node 24.15.0 or later. `npm run dev:webapp:plain` serves plain Vite on

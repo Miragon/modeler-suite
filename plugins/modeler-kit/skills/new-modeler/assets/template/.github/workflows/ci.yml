@@ -60,6 +60,7 @@ jobs:
       - run: npm run build:webapp
       - run: npm run check:build -w apps/webapp
       - run: npm run build:vscode
+      - run: npm run build:orca
 
   playwright-version:
     runs-on: ubuntu-latest
@@ -96,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      # webapp + vscode-webview, each with the @miragon/modeler-shell conformance kit
+      # webapp, vscode-webview and orca-editor, each with the @miragon/modeler-shell conformance kit
       - run: npm run test:e2e
       - if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -108,6 +109,10 @@ jobs:
   # The built extension in a real VS Code on the newest stable release and the engines floor.
   vscode-smoke:
     uses: ./.github/workflows/vscode-smoke.yml
+
+  # The built Orca plugin in a real Orca on the newest release and the engines floor.
+  orca-smoke:
+    uses: ./.github/workflows/orca-smoke.yml
 
   pin-check:
     runs-on: ubuntu-latest
@@ -141,6 +146,7 @@ jobs:
       - test-browser
       - e2e
       - vscode-smoke
+      - orca-smoke
       - pin-check
       - dependency-review
     runs-on: ubuntu-latest

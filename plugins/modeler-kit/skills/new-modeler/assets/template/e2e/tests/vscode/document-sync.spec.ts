@@ -4,7 +4,7 @@ import {
   EMPTY_DIAGRAM,
   EXAMPLE_DIAGRAM,
   withExampleInserted,
-} from '../../../apps/vscode/src/examples.js';
+} from '../../../apps/ide-editor/src/examples.js';
 
 /**
  * The webview and the extension's document plumbing (`registerModelerEditor` of the shell, with the
