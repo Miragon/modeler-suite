@@ -110,7 +110,7 @@ and in the oldest that the template's `engines.orca` accepts, like the Orca smok
 
 The VS Code version and its cache come from [`.github/actions/vscode`](../.github/actions/vscode),
 the Orca version and its extracted AppImage from Miragon/orca-plugin-kit's
-[`setup-orca`](https://github.com/Miragon/orca-plugin-kit/blob/main/setup-orca/action.yml),
+[`setup-orca`](https://github.com/Miragon/orca-plugin-kit/blob/main/actions/setup-orca/action.yml),
 for every smoke alike.
 
 ### Weekly smoke
