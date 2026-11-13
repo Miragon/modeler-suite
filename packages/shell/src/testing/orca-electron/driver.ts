@@ -34,6 +34,34 @@ interface CliResult {
 
 const sleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
 
+function groupAlive(groupId: number): boolean {
+  try {
+    process.kill(-groupId, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ends Orca with every process it started. AppRun is the AppImage's start script, so a signal to
+ * it alone leaves Orca and its helpers running, still writing into the profile.
+ */
+async function stopOrca(child: ChildProcess): Promise<void> {
+  const groupId = child.pid;
+  if (groupId === undefined) return;
+  for (const [signal, waitMs] of [
+    ["SIGTERM", 10_000],
+    ["SIGKILL", 5_000],
+  ] as const) {
+    if (!groupAlive(groupId)) return;
+    process.kill(-groupId, signal);
+    for (const started = Date.now(); groupAlive(groupId) && Date.now() - started < waitMs;) {
+      await sleep(100);
+    }
+  }
+}
+
 /**
  * Runs a modeler's Orca plugin in a real Orca, on Linux under an X server (`xvfb-run -a`), with an
  * isolated profile: launch, `validate` and `check`, load with the approval Orca asks for, open the
@@ -127,6 +155,7 @@ export async function runOrcaSmoke(options: OrcaSmokeOptions): Promise<OrcaSmoke
     child = spawn(join(app, "AppRun"), ["--no-sandbox", "--password-store=basic"], {
       env,
       stdio: ["ignore", "ignore", "pipe"],
+      detached: true,
     });
     let stderr = "";
     child.stderr?.on("data", (chunk: Buffer) => (stderr = `${stderr}${chunk}`.slice(-4000)));
@@ -180,8 +209,7 @@ export async function runOrcaSmoke(options: OrcaSmokeOptions): Promise<OrcaSmoke
     writeFileSync(join(results, "plugin.log"), pluginLogs(cli, env, String(loadedKey)));
     throw error;
   } finally {
-    child?.kill("SIGTERM");
-    await sleep(500);
+    if (child) await stopOrca(child);
     step("close");
     rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
