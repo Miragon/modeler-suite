@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.5](https://github.com/Miragon/modeler-suite/compare/wardley-maps-orca-v0.4.4...wardley-maps-orca-v0.4.5) (2026-11-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.14.1 to 0.14.2
+    * wardley-maps-ide-editor bumped from 0.2.2 to 0.2.3
+
 ## [0.4.4](https://github.com/Miragon/modeler-suite/compare/wardley-maps-orca-v0.4.3...wardley-maps-orca-v0.4.4) (2026-11-12)
 
 

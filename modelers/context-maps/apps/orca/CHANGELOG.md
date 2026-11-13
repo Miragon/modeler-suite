@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.4](https://github.com/Miragon/modeler-suite/compare/context-maps-orca-v0.4.3...context-maps-orca-v0.4.4) (2026-11-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.14.1 to 0.14.2
+    * context-maps-ide-editor bumped from 0.1.4 to 0.1.5
+
 ## [0.4.3](https://github.com/Miragon/modeler-suite/compare/context-maps-orca-v0.4.2...context-maps-orca-v0.4.3) (2026-11-12)
 
 
