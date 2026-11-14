@@ -6,6 +6,7 @@ export type {
   DiagramMenuActions,
   DiagramMenuDialog,
   DiagramMenuIcon,
+  DiagramMenuRadio,
   DiagramModelActions,
 } from "./menu.js";
 export { commandKeyLabel, diagramShortcuts } from "./shortcuts.js";

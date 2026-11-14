@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  columnsOf,
   createEmptyDocument,
   insertSticky,
   moveSticky,
@@ -9,6 +10,7 @@ import {
   titleOf,
   validateDocument,
   withBlock,
+  withColumns,
   withTitle,
   type CanvasDocument,
   type Sticky,
@@ -91,6 +93,27 @@ describe("canvas fields", () => {
       { key: "title", value: "Bakery" },
     ]);
     expect(titleOf(withTitle(document, "  "))).toBeUndefined();
+  });
+
+  test("sets the columns in place and drops them at the default of two", () => {
+    const titled = createEmptyDocument("Shop");
+    expect(columnsOf(titled)).toBe(2);
+    let document = withColumns(titled, 3);
+    document = withColumns(document, 4);
+    expect(document.header).toEqual([
+      { key: "title", value: "Shop" },
+      { key: "columns", value: 4 },
+    ]);
+    expect(columnsOf(document)).toBe(4);
+    expect(withColumns(document, 2).header).toEqual([{ key: "title", value: "Shop" }]);
+  });
+
+  test("reads a column count it does not know as the default", () => {
+    const odd: CanvasDocument = {
+      ...createEmptyDocument(),
+      header: [{ key: "columns", value: 7 }],
+    };
+    expect(columnsOf(odd)).toBe(2);
   });
 });
 

@@ -86,7 +86,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
     expect(countOf(messages, "edit")).toBe(0);
   });
 
-  test("the menu holds Model (Canvas title, Notes and the legend), Export (PNG before SVG) and Help", async ({
+  test("the menu holds Model (Canvas title, Stickies side by side, Notes and the legend), Export (PNG before SVG) and Help", async ({
     page,
   }) => {
     await openWebview(page);
@@ -99,6 +99,7 @@ test.describe("VS Code webview: protocol and chrome", () => {
     );
     expect(layout).toEqual([
       "canvas-title",
+      "sticky-columns",
       "notes",
       "legend",
       "|",

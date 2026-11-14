@@ -1,5 +1,5 @@
 import type { BlockId } from "./blocks.js";
-import { blockOf, stickiesOf } from "./document.js";
+import { blockOf, columnsOf, stickiesOf } from "./document.js";
 import type { CanvasDocument } from "./types.js";
 
 export interface Point {
@@ -22,10 +22,6 @@ export const BLOCK_HEADING_HEIGHT = 44;
 const HEADER_BAND_HEIGHT = 56;
 const FOOTER_HEIGHT = 40;
 
-const COLUMN_STICKIES = 2;
-const COLUMN_WIDTH = COLUMN_STICKIES * STICKY_SIZE.width + STICKY_GAP + 2 * BLOCK_PADDING;
-const CANVAS_WIDTH = 5 * COLUMN_WIDTH;
-const HALF_WIDTH = CANVAS_WIDTH / 2;
 /** Room for two rows of stickies in every block before it grows: enough for most canvases. */
 const TWO_ROWS = BLOCK_HEADING_HEIGHT + 2 * (STICKY_SIZE.height + STICKY_GAP) + BLOCK_PADDING;
 
@@ -98,27 +94,35 @@ function blockLayout(blockId: BlockId, rect: Rect): BlockLayout {
   };
 }
 
+function columnWidthFor(stickies: number): number {
+  return stickies * STICKY_SIZE.width + (stickies - 1) * STICKY_GAP + 2 * BLOCK_PADDING;
+}
+
 /**
  * Where everything sits: the blocks in the proportions of the canvas, stickies flowing in file
- * order. A block that overflows grows its whole row, and both halves of a stacked column grow
- * together, so the grid stays aligned.
+ * order, `columnsOf(document)` stickies side by side in each block of the top row. A block that
+ * overflows grows its whole row, and both halves of a stacked column grow together, so the grid
+ * stays aligned.
  */
 export function layoutCanvas(document: CanvasDocument): CanvasLayout {
+  const columnWidth = columnWidthFor(columnsOf(document));
+  const canvasWidth = 5 * columnWidth;
+  const halfWidth = canvasWidth / 2;
   const topHeight = Math.max(
     2 * TWO_ROWS,
     ...TOP_COLUMNS.map((column) =>
       column.kind === "full"
-        ? neededHeight(document, column.blockId, COLUMN_WIDTH)
+        ? neededHeight(document, column.blockId, columnWidth)
         : 2 *
           Math.max(
-            neededHeight(document, column.upper, COLUMN_WIDTH),
-            neededHeight(document, column.lower, COLUMN_WIDTH),
+            neededHeight(document, column.upper, columnWidth),
+            neededHeight(document, column.lower, columnWidth),
           ),
     ),
   );
   const bottomHeight = Math.max(
     TWO_ROWS,
-    ...BOTTOM_BLOCKS.map((blockId) => neededHeight(document, blockId, HALF_WIDTH)),
+    ...BOTTOM_BLOCKS.map((blockId) => neededHeight(document, blockId, halfWidth)),
   );
   const top = HEADER_BAND_HEIGHT;
   const bottom = top + topHeight;
@@ -126,13 +130,13 @@ export function layoutCanvas(document: CanvasDocument): CanvasLayout {
 
   const blocks: BlockLayout[] = [];
   TOP_COLUMNS.forEach((column, index) => {
-    const x = index * COLUMN_WIDTH;
+    const x = index * columnWidth;
     if (column.kind === "full") {
       blocks.push(
         blockLayout(column.blockId, {
           x,
           y: top,
-          width: COLUMN_WIDTH,
+          width: columnWidth,
           height: topHeight,
         }),
       );
@@ -140,16 +144,16 @@ export function layoutCanvas(document: CanvasDocument): CanvasLayout {
     }
     const half = topHeight / 2;
     blocks.push(
-      blockLayout(column.upper, { x, y: top, width: COLUMN_WIDTH, height: half }),
-      blockLayout(column.lower, { x, y: top + half, width: COLUMN_WIDTH, height: half }),
+      blockLayout(column.upper, { x, y: top, width: columnWidth, height: half }),
+      blockLayout(column.lower, { x, y: top + half, width: columnWidth, height: half }),
     );
   });
   BOTTOM_BLOCKS.forEach((blockId, index) => {
     blocks.push(
       blockLayout(blockId, {
-        x: index * HALF_WIDTH,
+        x: index * halfWidth,
         y: bottom,
-        width: HALF_WIDTH,
+        width: halfWidth,
         height: bottomHeight,
       }),
     );
@@ -163,10 +167,10 @@ export function layoutCanvas(document: CanvasDocument): CanvasLayout {
   }
 
   return {
-    bounds: { x: 0, y: 0, width: CANVAS_WIDTH, height: footerTop + FOOTER_HEIGHT },
-    topRow: { x: 0, y: top, width: CANVAS_WIDTH, height: topHeight },
-    header: { x: 0, y: 0, width: CANVAS_WIDTH, height: HEADER_BAND_HEIGHT },
-    footer: { x: 0, y: footerTop, width: CANVAS_WIDTH, height: FOOTER_HEIGHT },
+    bounds: { x: 0, y: 0, width: canvasWidth, height: footerTop + FOOTER_HEIGHT },
+    topRow: { x: 0, y: top, width: canvasWidth, height: topHeight },
+    header: { x: 0, y: 0, width: canvasWidth, height: HEADER_BAND_HEIGHT },
+    footer: { x: 0, y: footerTop, width: canvasWidth, height: FOOTER_HEIGHT },
     blocks,
     stickies,
   };

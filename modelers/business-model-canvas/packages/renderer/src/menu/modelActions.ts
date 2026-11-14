@@ -43,6 +43,8 @@ export function canvasModelActions(
   launcher?.registerCanvasTitle(showCanvasTitle);
   return {
     showCanvasTitle,
+    stickyColumns: () => modeling.stickyColumns(),
+    setStickyColumns: (columns) => modeling.setStickyColumns(columns),
     close: () => open?.close(),
   };
 }

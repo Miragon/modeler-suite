@@ -91,6 +91,8 @@ describe("the renderer's menu and shortcuts against @miragon/modeler-shell", () 
     const groups: MenuGroups = diagramMenu({
       model: {
         showCanvasTitle() {},
+        stickyColumns: () => 2,
+        setStickyColumns() {},
       },
       exports: { png: action, svg: action },
       showKeyboardShortcuts() {},

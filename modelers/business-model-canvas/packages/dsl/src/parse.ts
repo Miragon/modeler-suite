@@ -15,6 +15,7 @@ import {
   FORMAT_VERSION,
   isBlockId,
   isKnownColor,
+  isStickyColumns,
   isUsableStickyId,
   type Attribute,
   type Block,
@@ -217,9 +218,15 @@ function readCanvas(reader: Reader, value: JsonValue): Pick<CanvasDocument, "hea
   }
   const title = "title" in value ? reader.textOf(value["title"], [...path, "title"]) : undefined;
   if ("title" in value && title === undefined) reader.error([...path, "title"], "Text: title: ….");
+  const columns = value["columns"];
+  const knownColumns = isStickyColumns(columns) ? columns : undefined;
+  if ("columns" in value && knownColumns === undefined) {
+    reader.error([...path, "columns"], "2, 3 or 4 stickies side by side: columns: 3.");
+  }
   return {
     header: [
       ...(title === undefined ? [] : [{ key: "title", value: title }]),
+      ...(knownColumns === undefined ? [] : [{ key: "columns", value: knownColumns }]),
       ...reader.foreignFields(value, CANVAS_FIELDS, path),
     ],
     notes: readNotes(reader, value["notes"], [...path, "notes"]),

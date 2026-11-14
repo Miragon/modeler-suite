@@ -10,6 +10,7 @@ import {
   insertSticky,
   layoutCanvas,
   slotAt,
+  withColumns,
   type BlockId,
   type CanvasDocument,
 } from "../src/index.js";
@@ -58,6 +59,17 @@ describe("layoutCanvas", () => {
     expect(rectOf(crowded, "channels").height).toBe(resources.height);
     expect(rectOf(crowded, "value-propositions").height).toBe(2 * resources.height);
     expect(rectOf(crowded, "cost-structure").height).toBe(rectOf(empty, "cost-structure").height);
+  });
+
+  test("puts the canvas's columns of stickies side by side in each block of the top row", () => {
+    const narrow = layoutCanvas(withStickies("channels", 11));
+    const wide = layoutCanvas(withColumns(withStickies("channels", 11), 3));
+    expect(narrow.blocks.find((block) => block.blockId === "channels")!.columns).toBe(2);
+    expect(wide.blocks.find((block) => block.blockId === "channels")!.columns).toBe(3);
+    expect(wide.bounds.width).toBeGreaterThan(narrow.bounds.width);
+    expect(wide.bounds.height).toBeLessThan(narrow.bounds.height);
+    const revenue = wide.blocks.find((block) => block.blockId === "revenue-streams")!;
+    expect(revenue.rect.width).toBe(wide.bounds.width / 2);
   });
 
   test("flows stickies in file order, row by row, inside their block", () => {
