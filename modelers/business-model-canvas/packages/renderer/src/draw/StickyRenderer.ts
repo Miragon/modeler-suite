@@ -10,8 +10,13 @@ import { fittedText } from "./text.js";
 /** Above diagram-js's default renderer (1000). */
 const RENDER_PRIORITY = 1500;
 const SHADOW_FILTER_ID = "bmc-paper-shadow";
-/** A strip of tape across the top edge, in the sticky's colour. */
-const TAPE = { width: 44, height: 12, overhang: 5, tilt: -2, room: 4 } as const;
+/** A strip of tape across the top edge, in the sticky's colour or plain. */
+const TAPE = { width: 44, height: 12, overhang: 5, tilt: -2 } as const;
+/** Every sticky leans the same slight way, rising from bottom left to top right, as if pinned up. */
+const STICKY_LEAN = -1;
+/** Every sticky's text sits in the same band under its tape, so a colour never resizes it. */
+const TEXT_BAND = { top: 10, bottom: 6 } as const;
+const SMALLEST_FONT_SIZE = 11;
 
 type Attributes = Record<string, string | number>;
 
@@ -99,9 +104,11 @@ export default class StickyRenderer extends BaseRenderer {
         }),
       );
     }
-    const tape = tapeColor(sticky.color);
-    if (tape) this.drawTape(visuals, shape, tape);
-    const truncated = this.drawText(visuals, shape, tape !== undefined);
+    this.drawTape(visuals, shape, tapeColor(sticky.color));
+    const truncated = this.drawText(visuals, shape);
+    svgAttr(visuals, {
+      transform: `rotate(${STICKY_LEAN} ${shape.width / 2} ${shape.height / 2})`,
+    });
     svgAttr(visuals, { "data-bmc-description": stickyDescription(sticky) });
     if (truncated || folded) {
       svgAttr(visuals, { "data-bmc-tooltip": "true" });
@@ -109,37 +116,36 @@ export default class StickyRenderer extends BaseRenderer {
     return paper;
   }
 
-  private drawTape(visuals: SVGElement, shape: StickyShape, tape: string): void {
+  /** Coloured tape carries the sticky's colour; plain tape only holds it up. */
+  private drawTape(visuals: SVGElement, shape: StickyShape, tape: string | undefined): void {
     const strip = create("rect", {
-      class: "bmc-tape",
+      class: tape ? "bmc-tape" : "bmc-tape-plain",
       x: -TAPE.width / 2,
       y: -TAPE.overhang,
       width: TAPE.width,
       height: TAPE.height,
-      fill: tape,
+      fill: tape ?? COLORS.line,
       transform: `translate(${shape.width / 2}, 0) rotate(${TAPE.tilt})`,
     });
     svgAppend(visuals, strip);
   }
 
   /** Whether the text did not fit and ends in an ellipsis. */
-  private drawText(visuals: SVGElement, shape: StickyShape, taped: boolean): boolean {
+  private drawText(visuals: SVGElement, shape: StickyShape): boolean {
     if (shape.sticky.text === "") return false;
-    const top = taped ? TAPE.room : 0;
-    const label = fittedText(shape.sticky.text, {
-      box: { width: shape.width, height: shape.height - top },
+    const { element, truncated } = fittedText(shape.sticky.text, {
+      box: { width: shape.width, height: shape.height - TEXT_BAND.top - TEXT_BAND.bottom },
       align: "center-middle",
       fontSize: FONT.sticky,
+      smallestFontSize: SMALLEST_FONT_SIZE,
       fontWeight: 500,
       fill: COLORS.ink,
       padding: STICKY_PADDING,
-      // Three lines still fit under the tape (§4: the content leads).
-      ...(taped ? { verticalPadding: STICKY_PADDING - 2 - top / 2 } : {}),
+      verticalPadding: 0,
     });
-    if (top > 0) svgAttr(label, { transform: `translate(0, ${top})` });
-    svgAppend(visuals, label);
-    const shown = (label.textContent ?? "").replace(/\s/g, "");
-    return shown !== shape.sticky.text.replace(/\s/g, "");
+    svgAttr(element, { transform: `translate(0, ${TEXT_BAND.top})` });
+    svgAppend(visuals, element);
+    return truncated;
   }
 
   override getShapePath(shape: Shape): string {

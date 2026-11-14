@@ -14,7 +14,7 @@ export interface Rect {
   height: number;
 }
 
-export const STICKY_SIZE = { width: 120, height: 84 } as const;
+export const STICKY_SIZE = { width: 152, height: 92 } as const;
 export const STICKY_GAP = 12;
 /** The block's surface sits 6 inside its cell (the gap between blocks), its stickies 12 further in. */
 export const BLOCK_PADDING = 18;
