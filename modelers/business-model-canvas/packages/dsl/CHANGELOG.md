@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/Miragon/modeler-suite/compare/business-model-canvas-dsl-v0.1.0...business-model-canvas-dsl-v0.2.0) (2026-11-14)
+
+
+### Features
+
+* **business-model-canvas:** set how many stickies stand side by side in the top row ([#624](https://github.com/Miragon/modeler-suite/issues/624)) ([ee397aa](https://github.com/Miragon/modeler-suite/commit/ee397aa987436b6320ddbf47e458486d8ef04f46))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/business-model-canvas-schema-model bumped from 0.1.0 to 0.2.0
+
 ## 0.1.0 (2026-11-11)
 
 

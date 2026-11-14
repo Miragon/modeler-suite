@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.22.2](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.22.1...team-topologies-v0.22.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **deps:** bump lucide-react from 1.68.0 to 1.70.0 in the npm-production-minor-patch group across 1 directory ([#643](https://github.com/Miragon/modeler-suite/issues/643)) ([7bafa22](https://github.com/Miragon/modeler-suite/commit/7bafa22d426b52a4a32bba2d8d1528398dae7ea8))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * devDependencies
+    * @miragon/modeler-shell bumped from 0.14.1 to 0.14.2
+
 ## [0.22.1](https://github.com/Miragon/modeler-suite/compare/team-topologies-v0.22.0...team-topologies-v0.22.1) (2026-11-12)
 
 

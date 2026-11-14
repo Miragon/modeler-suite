@@ -1,6 +1,6 @@
 {
   "name": "@miragon/team-topologies-e2e",
-  "version": "0.22.1",
+  "version": "0.22.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@miragon/modeler-shell": "0.14.1",
+    "@miragon/modeler-shell": "0.14.2",
     "@playwright/test": "1.65.0",
     "lz-string": "1.5.0",
     "typescript": "6.0.3",

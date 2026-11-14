@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.0](https://github.com/Miragon/modeler-suite/compare/business-model-canvas-vscode-v0.1.2...business-model-canvas-vscode-v0.2.0) (2026-11-14)
+
+
+### Features
+
+* **business-model-canvas:** set how many stickies stand side by side in the top row ([#624](https://github.com/Miragon/modeler-suite/issues/624)) ([ee397aa](https://github.com/Miragon/modeler-suite/commit/ee397aa987436b6320ddbf47e458486d8ef04f46))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/business-model-canvas-dsl bumped from 0.1.0 to 0.2.0
+    * @miragon/business-model-canvas-renderer bumped from 0.1.0 to 0.2.0
+    * @miragon/business-model-canvas-schema-model bumped from 0.1.0 to 0.2.0
+    * @miragon/modeler-shell bumped from 0.14.1 to 0.14.2
+    * business-model-canvas-ide-editor bumped from 0.1.2 to 0.1.3
+
 ## [0.1.2](https://github.com/Miragon/modeler-suite/compare/business-model-canvas-vscode-v0.1.1...business-model-canvas-vscode-v0.1.2) (2026-11-12)
 
 
