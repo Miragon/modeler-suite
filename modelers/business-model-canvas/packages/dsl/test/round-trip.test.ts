@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import {
   blockOf,
+  columnsOf,
   createEmptyDocument,
   titleOf,
   moveSticky,
@@ -222,6 +223,25 @@ describe("the canvas fields", () => {
     expect(errorsOf(yaml({ version: 1, canvas: { title: [2] } }))).toEqual([
       { path: ["canvas", "title"], message: "Text: title: ….", severity: "error" },
     ]);
+  });
+
+  test("the columns stand after the title, and a count the canvas does not show is an error", () => {
+    const text = lines("version: 1", "canvas:", "  title: Shop", "  columns: 3");
+    const { document, diagnostics } = parseText(text);
+    expect(diagnostics).toEqual([]);
+    expect(columnsOf(document)).toBe(3);
+    expect(roundTrip(lines("version: 1", "canvas:", "  columns: 4", "  title: Shop"))).toBe(
+      lines("version: 1", "canvas:", "  title: Shop", "  columns: 4"),
+    );
+    for (const columns of [1, 5, "3", 2.5]) {
+      expect(errorsOf(yaml({ version: 1, canvas: { columns } }))).toEqual([
+        {
+          path: ["canvas", "columns"],
+          message: "2, 3 or 4 stickies side by side: columns: 3.",
+          severity: "error",
+        },
+      ]);
+    }
   });
 });
 

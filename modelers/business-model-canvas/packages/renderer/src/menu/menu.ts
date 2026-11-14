@@ -6,6 +6,12 @@
  * read-only canvas.
  */
 
+import {
+  STICKY_COLUMNS,
+  isStickyColumns,
+  type StickyColumns,
+} from "@miragon/business-model-canvas-schema-model";
+
 /** The icons the guide gives these entries (guide §5.14, the shell's common set). */
 export type DiagramMenuIcon = "file-image" | "file-code-corner" | "keyboard";
 
@@ -36,8 +42,22 @@ export interface DiagramMenuCheckbox extends DiagramMenuItem {
   onToggle(checked: boolean): void;
 }
 
+export interface DiagramMenuRadioOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+export interface DiagramMenuRadio {
+  readonly kind: "radio";
+  readonly id: string;
+  readonly label: string;
+  readonly options: readonly DiagramMenuRadioOption[];
+  value(): string | undefined;
+  onSelect(value: string): void;
+}
+
 export interface DiagramMenu {
-  readonly model: readonly (DiagramMenuDialog | DiagramMenuCheckbox)[];
+  readonly model: readonly (DiagramMenuDialog | DiagramMenuRadio | DiagramMenuCheckbox)[];
   readonly export: readonly DiagramMenuAction[];
   readonly help: readonly DiagramMenuDialog[];
 }
@@ -50,6 +70,8 @@ export interface DiagramExport {
 
 export interface DiagramModelActions {
   showCanvasTitle(): void;
+  stickyColumns(): StickyColumns;
+  setStickyColumns(columns: StickyColumns): void;
 }
 
 /** The notes panel, opened and closed from the Model group. */
@@ -89,6 +111,20 @@ function exportEntry(id: string, label: string, action: DiagramExport, icon?: Di
   };
 }
 
+function stickyColumnsEntry(model: DiagramModelActions): DiagramMenuRadio {
+  return {
+    kind: "radio",
+    id: "sticky-columns",
+    label: "Stickies side by side",
+    options: STICKY_COLUMNS.map((columns) => ({ value: String(columns), label: String(columns) })),
+    value: () => String(model.stickyColumns()),
+    onSelect: (value) => {
+      const columns = Number(value);
+      if (isStickyColumns(columns)) model.setStickyColumns(columns);
+    },
+  };
+}
+
 function notesEntry(notes: DiagramNotesToggle): DiagramMenuCheckbox {
   return {
     kind: "checkbox",
@@ -110,6 +146,7 @@ export function diagramMenu(actions: DiagramMenuActions): DiagramMenu {
         label: "Canvas title…",
         onSelect: () => model.showCanvasTitle(),
       },
+      stickyColumnsEntry(model),
       ...(actions.notes ? [notesEntry(actions.notes)] : []),
     ],
     export: [

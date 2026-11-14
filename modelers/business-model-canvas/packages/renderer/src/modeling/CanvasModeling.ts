@@ -14,6 +14,9 @@ import {
   updateSticky,
   titleOf,
   withTitle,
+  columnsOf,
+  withColumns,
+  type StickyColumns,
   type BlockId,
   type CanvasDocument,
   type Direction,
@@ -125,6 +128,16 @@ export default class CanvasModeling {
 
   title(): string | undefined {
     return titleOf(this.document());
+  }
+
+  stickyColumns(): StickyColumns {
+    return columnsOf(this.document());
+  }
+
+  setStickyColumns(columns: StickyColumns): void {
+    if (columns !== this.stickyColumns()) {
+      this.updateDocument(withColumns(this.document(), columns));
+    }
   }
 
   /** A blank title removes the field. */

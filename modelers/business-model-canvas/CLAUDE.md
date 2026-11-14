@@ -2,9 +2,9 @@
 
 TypeScript modeler for the Business Model Canvas (Strategyzer AG, CC BY-SA 3.0), built on
 [diagram-js](https://github.com/bpmn-io/diagram-js) (MIT) and styled by the Miragon design system.
-The file is a `.bmc` text in YAML: `version`, `canvas` (the title and the notes on the canvas as
-a whole) and one field per building block holding its `items` (the stickies) and `notes`. Its
-renderer started from the new-modeler template's
+The file is a `.bmc` text in YAML: `version`, `canvas` (the title, the stickies side by side in
+the top row and the notes on the canvas as a whole) and one field per building block holding its
+`items` (the stickies) and `notes`. Its renderer started from the new-modeler template's
 (`plugins/modeler-kit/skills/new-modeler/assets/template/packages/renderer`), its apps from Value
 Chain's ([`modelers/value-chain`](../value-chain/CLAUDE.md)).
 
@@ -50,7 +50,9 @@ the code adds:
   `validateDocument` (schema-model) checks a document that comes as an object, not as text
   (`importDocument`, the exporter).
 - Where the fields land: the `canvas` map in `CanvasDocument.header` (the title as text, read with
-  `titleOf` and set with `withTitle`; any other field with its value) and `CanvasDocument.notes`;
+  `titleOf` and set with `withTitle`; `columns` as a number, read with `columnsOf` and set with
+  `withColumns`, which drops the default 2; any other field with its value) and
+  `CanvasDocument.notes`;
   root fields that name no block (`isBlockId`) in `extras`; the unknown fields of a block, a sticky
   and a note in their `attributes`. An unknown colour stays a sticky attribute until the canvas
   sets a known one. The known fields of each map, in the order the file writes them, are
@@ -124,9 +126,12 @@ the code adds:
   attribution. The web app hides the layer behind its start card (`bmc-start` on the canvas
   container).
 - `layoutCanvas(document)` lives in `schema-model` (`layout.ts`; the renderer's `io/layoutOf` caches
-  it per document object): fixed sticky size (152 × 92, gap 12, 18 from the cell's edge), two
-  columns in the top blocks, more in the bottom halves; a block that overflows grows its whole row,
-  both halves of a stacked column grow together, and every block floors at two rows of stickies
+  it per document object): fixed sticky size (152 × 92, gap 12, 18 from the cell's edge),
+  `columnsOf(document)` stickies side by side in the top blocks (2, 3 or 4, `canvas.columns`, so a
+  full canvas grows wider rather than taller; the document's count, never derived from the
+  stickies, so adding one never reflows the whole canvas), more in the bottom halves; a block that
+  overflows grows its whole row, both halves of a stacked column grow together, and every block
+  floors at two rows of stickies
   under its heading (`TWO_ROWS`, for the stacked halves and the bottom row alike). The header band
   is `HEADER_BAND_HEIGHT` (56). Notes take no room in the layout. A block fills from the top left
   under its heading, as on the poster, so a sticky never moves when another one is added after it.
@@ -176,7 +181,9 @@ the code adds:
   keyboard or the pad.
 - `menu/`: the Model group "Canvas title…" (id `canvas-title`, the dialog "Canvas title" with one
   field "Title", on the shell's dialog, typed structurally as `ChromeDialog` / `ChromeDialogOptions`
-  in `dialogs/form.ts`, connected in `menu/modelActions.ts`) and the checkbox "Notes"
+  in `dialogs/form.ts`, connected in `menu/modelActions.ts`), the radio group "Stickies side by
+  side" (id `sticky-columns`, 2, 3 or 4, `CanvasModeling.setStickyColumns`, one undo step) and the
+  checkbox "Notes"
   (`DiagramNotesToggle`, which opens and closes the notes panel, usable on a read-only canvas too),
   next to the shell's legend toggle; Export and Help as in the template. The shortcuts dialog lists
   "Show or hide notes" (N). `legend/` is static: `renderLegend(body)` writes its one row, "Has

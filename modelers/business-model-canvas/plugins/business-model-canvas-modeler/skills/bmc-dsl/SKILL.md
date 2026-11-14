@@ -129,16 +129,20 @@ canvas edit writes it as YAML.
 
 ## The canvas fields
 
-| Field   | Meaning                                                        |
-| ------- | -------------------------------------------------------------- |
-| `title` | The canvas title in the header band. Absent: "Untitled canvas" |
-| `notes` | Notes on the canvas as a whole, see [Notes](#notes)            |
+| Field     | Meaning                                                                  |
+| --------- | ------------------------------------------------------------------------ |
+| `title`   | The canvas title in the header band. Absent: "Untitled canvas"           |
+| `columns` | 2, 3 or 4: stickies side by side in each block of the top row. Absent: 2 |
+| `notes`   | Notes on the canvas as a whole, see [Notes](#notes)                      |
 
 `title` is text. A value YAML reads as a number or as `true`/`false` (`title: 2026`, `title: true`)
 is taken as it is written (`title: 1.50` stays "1.50") and written back quoted
 (`title: "2026"`), so quote it from the start. An empty value (`title:`), `null`, a list or a map
-is an error. Other fields (`x-owner: sales`) are kept with any value, but the canvas shows only
-`title` and `notes`: write no others.
+is an error. `columns` widens the canvas: with more stickies side by side, a full block takes
+fewer rows, so a canvas with many stickies stays wider than tall. Set `columns: 3` when a block
+of the top row holds more than about eight stickies, `columns: 4` above about twelve; any other
+value is an error. Other fields (`x-owner: sales`) are kept with any value, but the canvas shows
+only `title`, `columns` and `notes`: write no others.
 
 ## Blocks
 
@@ -251,7 +255,7 @@ What the modeler writes, and what you should write:
   folded however long, and a final line break. Quotes only where YAML needs them, as above.
 - The root: `version`, `canvas`, the blocks in the method's order, then the fields the canvas does
   not know, sorted by name.
-- `canvas`: `title`, `notes`, then other fields sorted by name.
+- `canvas`: `title`, `columns`, `notes`, then other fields sorted by name.
 - A block: `items`, then `notes`; an item: `id`, `text`, `color`, `notes`; a note: `text`;
   each followed by its other fields sorted by name. An unknown colour keeps its place among the
   known fields. Empty lists and an empty `canvas` are left out. An empty
@@ -284,6 +288,7 @@ Errors (the text does not open):
 | `version`             | `The modeler reads version: 1, not <value>.`                                              |
 | `canvas`              | `A map of text fields, such as title: Shop.`                                              |
 | `canvas.title`        | `Text: title: ….` (a title that is no text)                                               |
+| `canvas.columns`      | `2, 3 or 4 stickies side by side: columns: 3.`                                            |
 | `<block>`             | `A block is a map: { items: [{ id: shop, text: Shop }] }.`                                |
 | `<block>.items`       | `A list of items: [{ id: shop, text: Shop }].`                                            |
 | `<block>.items[n]`    | `An item is a map: { id: shop, text: Shop }.`                                             |
@@ -324,7 +329,7 @@ Fields the canvas does not know inside `canvas`, an item or a note stay without 
 - When editing a file, change only the entries you mean to change; unknown fields must survive.
 - Before handing a file over, read it back against this page: valid YAML (spaces, never tabs,
   two per level), no comments, texts quoted where they need it, every item with an id and a text,
-  ids unique, no canvas field but `title` and `notes`.
+  ids unique, no canvas field but `title`, `columns` and `notes`.
 
 The licence of the canvas itself (it is by Strategyzer AG, CC BY-SA 3.0) and what each block means
 are in the `business-model-canvas` skill.

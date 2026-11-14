@@ -62,6 +62,35 @@ export function withTitle(document: CanvasDocument, title: string): CanvasDocume
   };
 }
 
+/** How many stickies stand side by side in each block of the top row: the canvas's width. */
+export const STICKY_COLUMNS = [2, 3, 4] as const;
+export type StickyColumns = (typeof STICKY_COLUMNS)[number];
+export const DEFAULT_STICKY_COLUMNS: StickyColumns = 2;
+
+export function isStickyColumns(value: unknown): value is StickyColumns {
+  return STICKY_COLUMNS.includes(value as StickyColumns);
+}
+
+export function columnsOf(document: CanvasDocument): StickyColumns {
+  const value = document.header.find((field) => field.key === "columns")?.value;
+  return isStickyColumns(value) ? value : DEFAULT_STICKY_COLUMNS;
+}
+
+/** Sets the columns in place, or after the canvas's other fields; the default removes them. */
+export function withColumns(document: CanvasDocument, columns: StickyColumns): CanvasDocument {
+  const others = document.header.filter((field) => field.key !== "columns");
+  if (columns === DEFAULT_STICKY_COLUMNS) return { ...document, header: others };
+  if (others.length === document.header.length) {
+    return { ...document, header: [...document.header, { key: "columns", value: columns }] };
+  }
+  return {
+    ...document,
+    header: document.header.map((field) =>
+      field.key === "columns" ? { ...field, value: columns } : field,
+    ),
+  };
+}
+
 /** A block the file does not have yet goes to its place in the method's order. */
 export function withBlock(document: CanvasDocument, blockId: BlockId): CanvasDocument {
   if (blockOf(document, blockId)) return document;

@@ -11,20 +11,47 @@ const MESSAGES = {
 
 const MODEL = {
   showCanvasTitle() {},
+  stickyColumns: () => 2 as const,
+  setStickyColumns() {},
 };
 
 describe("the diagram menu", () => {
   it("opens the canvas title from the Model group", () => {
     let opened = false;
     const menu = diagramMenu({
-      model: { showCanvasTitle: () => (opened = true) },
+      model: { ...MODEL, showCanvasTitle: () => (opened = true) },
       exports: { png: { onSelect() {} }, svg: { onSelect() {} } },
       showKeyboardShortcuts() {},
     });
-    expect(menu.model.map((entry) => entry.label)).toEqual(["Canvas title…"]);
+    expect(menu.model.map((entry) => entry.label)).toEqual([
+      "Canvas title…",
+      "Stickies side by side",
+    ]);
     const canvasTitle = menu.model[0];
     if (canvasTitle?.kind === "dialog") canvasTitle.onSelect();
     expect(opened).toBe(true);
+  });
+
+  it("sets how many stickies stand side by side from the Model group", () => {
+    let columns: 2 | 3 | 4 = 2;
+    const menu = diagramMenu({
+      model: {
+        ...MODEL,
+        stickyColumns: () => columns,
+        setStickyColumns: (next) => (columns = next),
+      },
+      exports: { png: { onSelect() {} }, svg: { onSelect() {} } },
+      showKeyboardShortcuts() {},
+    });
+    const entry = menu.model.find((candidate) => candidate.id === "sticky-columns");
+    expect(entry?.kind).toBe("radio");
+    if (entry?.kind !== "radio") return;
+    expect(entry.options.map((option) => option.value)).toEqual(["2", "3", "4"]);
+    expect(entry.value()).toBe("2");
+    entry.onSelect("3");
+    expect(entry.value()).toBe("3");
+    entry.onSelect("7");
+    expect(columns).toBe(3);
   });
 
   it("toggles the notes panel from the Model group, also on a read-only canvas", () => {

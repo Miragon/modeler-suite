@@ -47,6 +47,10 @@ a wall. Select one and pick **Colour** in its context pad: one of eight colours 
 colour. A common way is one colour per customer segment, on the segment and on every sticky that
 serves it. Click the title to edit it in **Canvas title…**.
 
+A canvas with many stickies grows wider instead of taller when you set **Stickies side by side**
+in the menu to 3 or 4: each block of the top row then holds that many stickies in a row. The
+file keeps the choice as `columns` in its `canvas`.
+
 Notes go on a sticky, on a block or on the canvas as a whole: a remark, a question, an
 assumption to test. Read and write them in the **Notes** panel. It opens from the comment
 after the canvas title or at the end of a block heading, which shows how many notes that place

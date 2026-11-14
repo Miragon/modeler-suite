@@ -16,7 +16,8 @@ modeler.onContentChanged(() => save(modeler.exportText()));
 - The canvas frame (nine blocks, header band, the Strategyzer attribution) is drawn from the
   layout of the schema model; stickies flow in file order and land in the block and slot they are
   dropped on, one undo step per edit.
-- `diagramMenu` gives the apps the Model group ("Canvas title…" and the checkbox "Notes"),
+- `diagramMenu` gives the apps the Model group ("Canvas title…", the radio group "Stickies side
+  by side" and the checkbox "Notes"),
   Export and Help; `renderLegend` the legend's one row, the folded corner of a sticky with notes;
   `connectNotes` the notes panel in the shell's inspector and the notes markers over the canvas;
   `saveSVG()` an SVG export with the attribution and without the hints of empty blocks.
