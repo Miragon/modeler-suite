@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.13.5](https://github.com/Miragon/modeler-suite/compare/context-maps-vscode-v0.13.4...context-maps-vscode-v0.13.5) (2026-11-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.14.1 to 0.14.2
+    * context-maps-ide-editor bumped from 0.1.4 to 0.1.5
+
 ## [0.13.4](https://github.com/Miragon/modeler-suite/compare/context-maps-vscode-v0.13.3...context-maps-vscode-v0.13.4) (2026-11-12)
 
 

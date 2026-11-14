@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.2](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.14.1...modeler-shell-v0.14.2) (2026-11-13)
+
+
+### Bug Fixes
+
+* **shell:** stop Orca's whole process group before removing the smoke's profile ([#653](https://github.com/Miragon/modeler-suite/issues/653)) ([a62a75c](https://github.com/Miragon/modeler-suite/commit/a62a75c3df7b8ea65261cf0826baafd379bca402))
+
 ## [0.14.1](https://github.com/Miragon/modeler-suite/compare/modeler-shell-v0.14.0...modeler-shell-v0.14.1) (2026-11-12)
 
 

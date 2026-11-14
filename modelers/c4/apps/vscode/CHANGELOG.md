@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.7](https://github.com/Miragon/modeler-suite/compare/c4-vscode-v0.1.6...c4-vscode-v0.1.7) (2026-11-13)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.14.1 to 0.14.2
+
 ## [0.1.6](https://github.com/Miragon/modeler-suite/compare/c4-vscode-v0.1.5...c4-vscode-v0.1.6) (2026-11-12)
 
 
