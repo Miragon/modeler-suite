@@ -124,7 +124,7 @@ the code adds:
   attribution. The web app hides the layer behind its start card (`bmc-start` on the canvas
   container).
 - `layoutCanvas(document)` lives in `schema-model` (`layout.ts`; the renderer's `io/layoutOf` caches
-  it per document object): fixed sticky size (120 × 84, gap 12, 18 from the cell's edge), two
+  it per document object): fixed sticky size (152 × 92, gap 12, 18 from the cell's edge), two
   columns in the top blocks, more in the bottom halves; a block that overflows grows its whole row,
   both halves of a stacked column grow together, and every block floors at two rows of stickies
   under its heading (`TWO_ROWS`, for the stacked halves and the bottom row alike). The header band

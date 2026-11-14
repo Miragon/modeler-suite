@@ -52,11 +52,11 @@ const INVALID_TEXT = JSON.stringify({
   },
 });
 /** From Value Propositions into Key Partners: a move within its slot would change nothing. */
-const MOVE_TO_KEY_PARTNERS = 400;
+const MOVE_TO_KEY_PARTNERS = 560;
 /** Where the one sticky of Key Partners sits: under the heading at the block's padding. */
 const FIRST_SLOT_OF_KEY_PARTNERS = 18;
-/** Where `order` sits in `orders`, first in Value Propositions (the third column, 288 wide). */
-const ORDER_SLOT = 594;
+/** Where `order` sits in `orders`, first in Value Propositions (the third column, 352 wide). */
+const ORDER_SLOT = 722;
 
 /** Inside the Key Partners block, which `orders` leaves empty. */
 const FREE_SPOT: Point = { x: 135, y: 400 };
