@@ -9,7 +9,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "devDependencies": {
-    "@miragon/modeler-shell": "0.14.1",
+    "@miragon/modeler-shell": "0.14.2",
     "@playwright/test": "1.65.0",
     "typescript": "6.0.3",
     "vite": "8.3.7"
