@@ -98,26 +98,28 @@ function blockLayout(blockId: BlockId, rect: Rect): BlockLayout {
   };
 }
 
-/** A block's own height: its stickies' rows, at least two. */
-function blockHeight(document: CanvasDocument, blockId: BlockId, width: number): number {
-  return Math.max(TWO_ROWS, neededHeight(document, blockId, width));
-}
-
 /**
  * Where everything sits: the blocks in the proportions of the canvas, stickies flowing in file
- * order. A block that overflows grows its whole row. The two halves of a stacked column split it
- * by what each holds, and share what the row has left over, so an empty canvas splits them evenly.
+ * order. A block that overflows grows its whole row, and both halves of a stacked column grow
+ * together, so the grid stays aligned.
  */
 export function layoutCanvas(document: CanvasDocument): CanvasLayout {
-  const height = (blockId: BlockId, width: number) => blockHeight(document, blockId, width);
   const topHeight = Math.max(
+    2 * TWO_ROWS,
     ...TOP_COLUMNS.map((column) =>
       column.kind === "full"
-        ? Math.max(2 * TWO_ROWS, neededHeight(document, column.blockId, COLUMN_WIDTH))
-        : height(column.upper, COLUMN_WIDTH) + height(column.lower, COLUMN_WIDTH),
+        ? neededHeight(document, column.blockId, COLUMN_WIDTH)
+        : 2 *
+          Math.max(
+            neededHeight(document, column.upper, COLUMN_WIDTH),
+            neededHeight(document, column.lower, COLUMN_WIDTH),
+          ),
     ),
   );
-  const bottomHeight = Math.max(...BOTTOM_BLOCKS.map((blockId) => height(blockId, HALF_WIDTH)));
+  const bottomHeight = Math.max(
+    TWO_ROWS,
+    ...BOTTOM_BLOCKS.map((blockId) => neededHeight(document, blockId, HALF_WIDTH)),
+  );
   const top = HEADER_BAND_HEIGHT;
   const bottom = top + topHeight;
   const footerTop = bottom + bottomHeight;
@@ -127,21 +129,19 @@ export function layoutCanvas(document: CanvasDocument): CanvasLayout {
     const x = index * COLUMN_WIDTH;
     if (column.kind === "full") {
       blocks.push(
-        blockLayout(column.blockId, { x, y: top, width: COLUMN_WIDTH, height: topHeight }),
+        blockLayout(column.blockId, {
+          x,
+          y: top,
+          width: COLUMN_WIDTH,
+          height: topHeight,
+        }),
       );
       return;
     }
-    const upperHeight = height(column.upper, COLUMN_WIDTH);
-    const leftOver = topHeight - upperHeight - height(column.lower, COLUMN_WIDTH);
-    const split = upperHeight + leftOver / 2;
+    const half = topHeight / 2;
     blocks.push(
-      blockLayout(column.upper, { x, y: top, width: COLUMN_WIDTH, height: split }),
-      blockLayout(column.lower, {
-        x,
-        y: top + split,
-        width: COLUMN_WIDTH,
-        height: topHeight - split,
-      }),
+      blockLayout(column.upper, { x, y: top, width: COLUMN_WIDTH, height: half }),
+      blockLayout(column.lower, { x, y: top + half, width: COLUMN_WIDTH, height: half }),
     );
   });
   BOTTOM_BLOCKS.forEach((blockId, index) => {

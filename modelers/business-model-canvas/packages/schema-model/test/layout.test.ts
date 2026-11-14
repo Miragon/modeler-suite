@@ -49,36 +49,15 @@ describe("layoutCanvas", () => {
     expect(cost.y).toBe(partners.y + partners.height);
   });
 
-  test("grows the whole top row when one block overflows", () => {
+  test("grows the whole top row when one block overflows, and stacked pairs together", () => {
     const empty = createEmptyDocument();
     const crowded = withStickies("key-resources", 12);
     const resources = rectOf(crowded, "key-resources");
-    const activities = rectOf(crowded, "key-activities");
     expect(resources.height).toBeGreaterThan(rectOf(empty, "key-resources").height);
-    expect(activities.height + resources.height).toBe(rectOf(crowded, "value-propositions").height);
+    expect(rectOf(crowded, "key-activities").height).toBe(resources.height);
+    expect(rectOf(crowded, "channels").height).toBe(resources.height);
+    expect(rectOf(crowded, "value-propositions").height).toBe(2 * resources.height);
     expect(rectOf(crowded, "cost-structure").height).toBe(rectOf(empty, "cost-structure").height);
-  });
-
-  test("splits a stacked column by what each half holds, not in two equal halves", () => {
-    const crowded = withStickies("channels", 11, withStickies("customer-relationships", 4));
-    const relationships = rectOf(crowded, "customer-relationships");
-    const channels = rectOf(crowded, "channels");
-    const sixRows = BLOCK_HEADING_HEIGHT + 6 * (STICKY_SIZE.height + STICKY_GAP) + BLOCK_PADDING;
-    expect(channels.height).toBe(sixRows);
-    expect(relationships.height).toBeLessThan(channels.height);
-    expect(channels.y).toBe(relationships.y + relationships.height);
-    expect(rectOf(crowded, "customer-segments").height).toBe(
-      relationships.height + channels.height,
-    );
-  });
-
-  test("shares the left-over height evenly between the halves of a stacked column", () => {
-    const crowded = withStickies("channels", 11);
-    const activities = rectOf(crowded, "key-activities");
-    const resources = rectOf(crowded, "key-resources");
-    expect(activities.height).toBe(resources.height);
-    const empty = createEmptyDocument();
-    expect(rectOf(empty, "channels").height).toBe(rectOf(empty, "customer-relationships").height);
   });
 
   test("flows stickies in file order, row by row, inside their block", () => {

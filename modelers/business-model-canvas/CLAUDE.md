@@ -125,9 +125,8 @@ the code adds:
   container).
 - `layoutCanvas(document)` lives in `schema-model` (`layout.ts`; the renderer's `io/layoutOf` caches
   it per document object): fixed sticky size (120 × 84, gap 12, 18 from the cell's edge), two
-  columns in the top blocks, more in the bottom halves; a block that overflows grows its whole row.
-  The halves of a stacked column split it by what each holds and share the row's left-over height
-  evenly, so an empty canvas splits them in the middle; every block floors at two rows of stickies
+  columns in the top blocks, more in the bottom halves; a block that overflows grows its whole row,
+  both halves of a stacked column grow together, and every block floors at two rows of stickies
   under its heading (`TWO_ROWS`, for the stacked halves and the bottom row alike). The header band
   is `HEADER_BAND_HEIGHT` (56). Notes take no room in the layout. A block fills from the top left
   under its heading, as on the poster, so a sticky never moves when another one is added after it.
