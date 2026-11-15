@@ -15,24 +15,23 @@ The board brings no editor of its own. The editors of the models, the images, wh
 about each other and the cursors of other people come from the host it is mounted in (the option
 `host`).
 
-The canvas was built and measured in designIQ and is being moved here as it is. It type-checks,
-and its first tests here mount a board in Chromium with a host's editor in a model node. Most of
-what it does has no test in this repository yet.
+The canvas was built and measured in designIQ and was moved here as it is. It is under tests in
+Chromium: a board mounts with a host's editor in a model node, the rules for editing a model run
+against traces recorded before their code was split, and the contract's conformance kit runs
+against the factory. Its stylesheet stands on the design system's roles and on a base of its own,
+so a board mounted here has the light picture that was measured; dark is not designed. The
+batteries the canvas was measured with need designIQ's editors and have not run here.
 
 Still to come before this is a modeler like the others:
 
-- the rest of that move: tests for the rest of the canvas, four long functions split, the
-  contract's conformance kit bound to the board, and the stylesheet on the design system's roles.
-  Today the sheet still reads the variable names it had in designIQ, so a board mounted here is
-  not yet the picture that was measured;
 - what the contract's kit asks of a modeler and the board does not have: a viewer, themes, an
-  image export and gestures a host can follow. The kit is to run with eight of its cases skipped,
-  each pinned by name, where the suite's rule for a renderer is none;
+  image export and gestures a host can follow. The kit runs with seven of its cases skipped, each
+  pinned by name, where the suite's rule for a renderer is none;
 - the web app, the VS Code extension and the Orca plugin. Until then one repository-level check
   fails for this folder (`test/modeler-collection.test.ts` wants an `apps/vscode`).
 
-[`CLAUDE.md`](CLAUDE.md) says what is in the tree, what the host brings and what must not change
-while the move runs.
+[`CLAUDE.md`](CLAUDE.md) says what is in the tree, what was run on it, what the host brings and
+what must not change in passing.
 
 ## Not on diagram-js
 
@@ -44,5 +43,5 @@ to it as it is.
 
 ## Commands
 
-From the repository root: `npm run board lint`, `npm run board test`, `npm run board depcruise`,
-`npm run board format`.
+From the repository root: `npm run board lint`, `npm run board test`, `npm run board test:browser`
+(Chromium), `npm run board depcruise`, `npm run board format`.

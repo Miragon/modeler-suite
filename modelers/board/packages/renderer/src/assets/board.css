@@ -1,18 +1,53 @@
 @import "../theme/cd-tokens.generated.css" layer(board-tokens);
 @import "@xyflow/react/dist/style.css";
+@import "./board-base.css" layer(board-base);
 
 /* The board (src/notations/board): its page, React Flow on the CI tokens, the node frames, the
    toolbar, the editor's host and the layer above the board, notes, images, groups and arrows.
    Every colour, radius, shadow and duration is a token of the design system (ui-kit), every font
    Geist. The measuring bench adds its own sheet (src/board-spike/board-spike.css). */
+
+/* The names the rules below read. Each was an alias of the ui-kit the sheet was written on and
+   now reads the design-system role whose light value is the one that alias had, so the light
+   picture is the measured one. Dark is not designed: on a dark page the board follows the page's
+   roles. The hover and the text of a primary button are the two fixed values of guide §8. */
+.board-root {
+  --board-background: var(--cd-ui-flaeche);
+  --board-foreground: var(--cd-ui-text);
+  --board-card: var(--cd-ui-flaeche);
+  --board-card-foreground: var(--cd-ui-text);
+  --board-canvas-background: var(--cd-ui-plot);
+  --board-secondary: var(--cd-ui-grund);
+  --board-muted-foreground: var(--cd-ui-text-leise);
+  --board-border: var(--cd-ui-linie);
+  --board-input: var(--cd-ui-kontur);
+  --board-ring: var(--cd-ui-fokus);
+  --board-link: var(--cd-ui-link);
+  --board-primary: var(--cd-ui-interaktion);
+  --board-primary-hover: var(--cd-blau-link);
+  --board-primary-foreground: var(--cd-weiss);
+  --board-accent: color-mix(in srgb, var(--cd-ui-interaktion) 10%, transparent);
+  --board-destructive: var(--cd-ui-danger);
+  --board-destructive-soft: var(--cd-ui-danger-flaeche);
+  --board-success: var(--cd-ui-success);
+  --board-success-soft: var(--cd-ui-success-flaeche);
+  --board-warning: var(--cd-ui-warning);
+  --board-warning-soft: var(--cd-ui-warning-flaeche);
+  --board-info: var(--cd-ui-info);
+  --board-font-sans:
+    "Geist Variable", Geist, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --board-font-mono:
+    "Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 /* ── foundation: page, React Flow on the CI tokens ────────────────────────── */
 
 .board-root {
   display: flex;
   height: 100%;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--designiq-font-sans);
+  background: var(--board-background);
+  color: var(--board-foreground);
+  font-family: var(--board-font-sans);
 }
 .board-root__canvas {
   position: relative;
@@ -21,44 +56,44 @@
 }
 /* the canvas takes the board's keys (board.tsx): a Tab into it shows where they go */
 .board-root .react-flow__pane:focus-visible {
-  outline: 2px solid var(--ring);
+  outline: 2px solid var(--board-ring);
   outline-offset: -2px;
 }
 
 /* react-flow.md 8.2 and 8.4: the library reads --xy-NAME before its own default */
 .board-root .react-flow {
-  --xy-background-color: var(--secondary);
-  --xy-background-pattern-color: var(--input);
-  --xy-node-background-color: var(--card);
-  --xy-node-color: var(--card-foreground);
-  --xy-node-border: 1px solid var(--border);
+  --xy-background-color: var(--board-secondary);
+  --xy-background-pattern-color: var(--board-input);
+  --xy-node-background-color: var(--board-card);
+  --xy-node-color: var(--board-card-foreground);
+  --xy-node-border: 1px solid var(--board-border);
   --xy-node-border-radius: var(--cd-radius-md);
-  --xy-handle-background-color: var(--primary);
-  --xy-handle-border-color: var(--background);
-  --xy-edge-stroke: var(--input);
-  --xy-edge-stroke-selected: var(--primary);
+  --xy-handle-background-color: var(--board-primary);
+  --xy-handle-border-color: var(--board-background);
+  --xy-edge-stroke: var(--board-input);
+  --xy-edge-stroke-selected: var(--board-primary);
   --xy-edge-stroke-width: 1.5;
-  --xy-connectionline-stroke: var(--primary);
-  --xy-edge-label-background-color: var(--background);
-  --xy-edge-label-color: var(--foreground);
-  --xy-selection-background-color: var(--accent);
-  --xy-selection-border: 1px dashed var(--primary);
-  --xy-resize-background-color: var(--primary);
-  --xy-attribution-background-color: color-mix(in srgb, var(--background) 60%, transparent);
-  font-family: var(--designiq-font-sans);
+  --xy-connectionline-stroke: var(--board-primary);
+  --xy-edge-label-background-color: var(--board-background);
+  --xy-edge-label-color: var(--board-foreground);
+  --xy-selection-background-color: var(--board-accent);
+  --xy-selection-border: 1px dashed var(--board-primary);
+  --xy-resize-background-color: var(--board-primary);
+  --xy-attribution-background-color: color-mix(in srgb, var(--board-background) 60%, transparent);
+  font-family: var(--board-font-sans);
 }
 /* the raw colours no variable of the library covers */
 .board-root .react-flow__attribution a {
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
 }
 .board-root .react-flow__edge.updating .react-flow__edge-path {
-  stroke: var(--primary);
+  stroke: var(--board-primary);
 }
 .board-root .react-flow__resize-control.handle {
-  border-color: var(--background);
+  border-color: var(--board-background);
 }
 .board-root .react-flow__edge-text {
-  font-family: var(--designiq-font-sans);
+  font-family: var(--board-font-sans);
 }
 /* the board's group node is its own component: off with the look of the library's built-in "group" */
 .board-root .react-flow__node-group {
@@ -110,20 +145,20 @@
   height: 100%;
   overflow: hidden;
   border-radius: var(--cd-radius-md);
-  background: var(--card);
+  background: var(--board-card);
   /* a ring, not a border: the body is exactly the node minus the header (SurfaceProps) */
   box-shadow:
-    0 0 0 1px var(--border),
+    0 0 0 1px var(--board-border),
     var(--cd-shadow-1);
 }
 .react-flow__node.selected > .board-node {
   box-shadow:
-    0 0 0 2px var(--primary),
+    0 0 0 2px var(--board-primary),
     var(--cd-shadow-1);
 }
 .board-node[data-armed="true"] {
   box-shadow:
-    0 0 0 2px var(--primary),
+    0 0 0 2px var(--board-primary),
     var(--cd-shadow-2);
 }
 /* 32px: HEADER_HEIGHT in nodes/model-node.tsx */
@@ -134,8 +169,8 @@
   gap: 8px;
   height: 32px;
   padding: 0 6px 0 4px;
-  border-bottom: 1px solid var(--border);
-  background: var(--secondary);
+  border-bottom: 1px solid var(--board-border);
+  background: var(--board-secondary);
   font-size: 12px;
   cursor: grab;
   user-select: none;
@@ -144,7 +179,7 @@
   flex: none;
   width: 14px;
   height: 14px;
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
 }
 .board-node__title {
   overflow: hidden;
@@ -153,7 +188,7 @@
   white-space: nowrap;
 }
 .board-node__notation {
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
   white-space: nowrap;
 }
 .board-node__arm {
@@ -165,10 +200,10 @@
   gap: 4px;
   height: 22px;
   padding: 0 8px;
-  border: 1px solid var(--input);
+  border: 1px solid var(--board-input);
   border-radius: var(--cd-radius-sm);
-  background: var(--background);
-  color: var(--link);
+  background: var(--board-background);
+  color: var(--board-link);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -178,16 +213,16 @@
   height: 12px;
 }
 .board-node[data-armed="true"] .board-node__arm {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: var(--primary-foreground);
+  border-color: var(--board-primary);
+  background: var(--board-primary);
+  color: var(--board-primary-foreground);
 }
 .board-node__body {
   position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  background: var(--canvas-background);
+  background: var(--board-canvas-background);
 }
 /* armed (react-flow.md 3.6, item 7): the node's grab cursor and its user-select: none end here */
 .board-node__body.nodrag {
@@ -206,50 +241,16 @@
   height: 100%;
   padding: 12px;
   overflow: auto;
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
   font-size: 12px;
   text-align: center;
 }
 .board-slot--error {
   align-items: flex-start;
   justify-content: flex-start;
-  background: var(--destructive-soft);
-  color: var(--foreground);
+  background: var(--board-destructive-soft);
+  color: var(--board-foreground);
   text-align: left;
-}
-
-.board-stub {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 100%;
-  padding: 12px;
-  color: var(--muted-foreground);
-  font-size: 12px;
-  text-align: center;
-}
-.board-stub strong {
-  color: var(--foreground);
-}
-.board-stub code {
-  max-width: 100%;
-  overflow: hidden;
-  font-family: var(--designiq-font-mono);
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.board-frame {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-/* preview: the body is inert, and the frame takes no pointer either */
-.board-node__body[inert] .board-frame {
-  pointer-events: none;
 }
 
 .board-text {
@@ -258,9 +259,9 @@
   padding: 12px 14px;
   overflow: hidden;
   border-radius: var(--cd-radius-md);
-  background: var(--card);
+  background: var(--board-card);
   box-shadow:
-    0 0 0 1px var(--border),
+    0 0 0 1px var(--board-border),
     var(--cd-shadow-1);
   font-size: 13px;
   line-height: 1.45;
@@ -274,29 +275,29 @@
   gap: 4px;
   width: 100%;
   height: 100%;
-  border: 1px dashed var(--input);
+  border: 1px dashed var(--board-input);
   border-radius: var(--cd-radius-md);
-  background: var(--card);
-  color: var(--muted-foreground);
+  background: var(--board-card);
+  color: var(--board-muted-foreground);
   font-size: 12px;
 }
 .board-group {
   width: 100%;
   height: 100%;
-  border: 1px dashed var(--input);
+  border: 1px dashed var(--board-input);
   border-radius: var(--cd-radius-lg);
-  background: color-mix(in srgb, var(--primary) 4%, transparent);
+  background: color-mix(in srgb, var(--board-primary) 4%, transparent);
 }
 .board-group__label {
   position: absolute;
   top: 12px;
   left: 16px;
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
   font-size: 13px;
   font-weight: 600;
 }
 .react-flow__node.selected > :is(.board-text, .board-image, .board-group) {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--board-primary);
   outline-offset: -1px;
 }
 
@@ -309,9 +310,9 @@
   gap: 12px;
   padding: 6px 8px;
   border-radius: var(--cd-radius-md);
-  background: var(--card);
+  background: var(--board-card);
   box-shadow:
-    0 0 0 1px var(--border),
+    0 0 0 1px var(--board-border),
     var(--cd-shadow-1);
   font-size: 12px;
 }
@@ -320,7 +321,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
 }
 .board-toolbar :is(select, button) {
   display: inline-flex;
@@ -329,17 +330,17 @@
   min-width: 28px;
   height: 28px;
   padding: 0 8px;
-  border: 1px solid var(--input);
+  border: 1px solid var(--board-input);
   border-radius: var(--cd-radius-sm);
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--board-background);
+  color: var(--board-foreground);
   font: inherit;
   cursor: pointer;
 }
 .board-toolbar :is(select, button):not(:disabled):hover {
-  border-color: var(--primary);
-  background: var(--accent);
-  color: var(--link);
+  border-color: var(--board-primary);
+  background: var(--board-accent);
+  color: var(--board-link);
 }
 .board-toolbar :is(select, button):disabled {
   /* Chromium dispatches no mouseup for a release over a disabled button, to nobody: a pan or a node
@@ -373,14 +374,14 @@
   }
 }
 .board-toolbar .board-toolbar__done:not(:disabled) {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: var(--primary-foreground);
+  border-color: var(--board-primary);
+  background: var(--board-primary);
+  color: var(--board-primary-foreground);
 }
 .board-toolbar .board-toolbar__done:not(:disabled):hover {
-  border-color: var(--primary-hover);
-  background: var(--primary-hover);
-  color: var(--primary-foreground);
+  border-color: var(--board-primary-hover);
+  background: var(--board-primary-hover);
+  color: var(--board-primary-foreground);
 }
 .board-toolbar__done > svg {
   flex: none;
@@ -403,7 +404,7 @@
   font-variant-numeric: tabular-nums;
 }
 .board-root :is(.board-toolbar select, .board-toolbar button, .board-node__arm):focus-visible {
-  outline: 2px solid var(--ring);
+  outline: 2px solid var(--board-ring);
   outline-offset: 2px;
 }
 
@@ -421,8 +422,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--secondary);
-  color: var(--muted-foreground);
+  background: var(--board-secondary);
+  color: var(--board-muted-foreground);
   font-size: 12px;
 }
 
@@ -437,7 +438,7 @@
   width: 100%;
   height: 100%;
   transform-origin: 0 0;
-  background: var(--canvas-background);
+  background: var(--board-canvas-background);
   /* React Flow sets pointer-events: all on the node's wrapper, and the value is inherited. Under
      `all` an SVG shape without a fill takes the pointer over its whole area: diagram-js's outline
      around a selection of several shapes then swallows every press on them, and the selection
@@ -449,7 +450,7 @@
   /* the layer itself takes no pointer */
   pointer-events: auto;
   cursor: auto;
-  box-shadow: 0 0 0 2px var(--primary);
+  box-shadow: 0 0 0 2px var(--board-primary);
 }
 /* Overlay: an editor's `position: fixed` popup is laid out against the window (no transformed
    ancestor), but it is PAINTED inside the board's stacking context (.react-flow has z-index: 0).
@@ -461,50 +462,9 @@
 .board-engine--failed {
   padding: 12px;
   overflow: auto;
-  background: var(--destructive-soft);
-  color: var(--foreground);
+  background: var(--board-destructive-soft);
+  color: var(--board-foreground);
   font-size: 12px;
-}
-
-/* Preview: the full modeler is mounted from the start, its editing chrome is not shown until the
-   node is armed. The bpmn.io mark (.bjs-powered-by) stays in every state: it is the licence's
-   condition for bpmn-js and dmn-js. Chrome that lies over the canvas (absolutely positioned, or
-   an empty box that holds such) is taken out */
-.board-engine:not([data-mount="product"])[data-armed="false"]
-  :is(
-    .djs-palette,
-    .djs-context-pad-parent,
-    .djs-popup-parent,
-    .djs-hover-tooltip-container,
-    .djs-direct-editing-parent,
-    .djs-search-container,
-    .dmn-definitions,
-    .dmn-sim-decision-requirements-diagram-panel,
-    .wardley-explore-hint
-  ) {
-  display: none !important;
-}
-/* Chrome in the layout flow keeps its room and is only not drawn, so that arming moves nothing:
-   the decision table's View DRD bar is 49 px of the flow above the table */
-.board-engine[data-armed="false"] .view-drd {
-  visibility: hidden !important;
-}
-/* The product's own editor in the node (overlay-product.tsx): hidden, not removed, as in the embed
-   frame. The product's first fit measures the palette and the cards and leaves their room free, so
-   the boxes keep their size and arming moves nothing */
-.board-engine[data-mount="product"][data-armed="false"]
-  :is(
-    .djs-palette,
-    .djs-context-pad,
-    .djs-popup-parent,
-    .djs-hover-tooltip,
-    .djs-direct-editing-parent,
-    .djs-search-container,
-    .dmn-definitions,
-    .dmn-sim-decision-requirements-diagram-panel,
-    .wardley-explore-hint
-  ) {
-  visibility: hidden !important;
 }
 
 /* ── board features (FE): notes, images, groups, arrows, add actions, Files panel ──
@@ -535,9 +495,9 @@
 }
 .board-root .react-flow__handle::after {
   inset: -1px;
-  border: 2px solid var(--background);
-  background: var(--primary);
-  box-shadow: 0 0 0 1px var(--primary);
+  border: 2px solid var(--board-background);
+  background: var(--board-primary);
+  box-shadow: 0 0 0 1px var(--board-primary);
 }
 .board-root .react-flow[data-board-view="mid"] .react-flow__handle::before,
 .board-root .react-flow[data-board-view="mid"] .react-flow__handle::after {
@@ -565,35 +525,35 @@
   display: flex;
   flex-direction: column;
   padding: 0;
-  background: var(--note-ground, var(--card));
+  background: var(--note-ground, var(--board-card));
   box-shadow:
-    0 0 0 1px var(--note-line, var(--border)),
+    0 0 0 1px var(--note-line, var(--board-border)),
     var(--cd-shadow-1);
-  color: var(--foreground);
+  color: var(--board-foreground);
   font-size: 14px;
   line-height: 1.5;
   white-space: normal;
 }
 /* the CI's status tints: opaque grounds under text, their strong colour only as the line */
 .board-text[data-color="amber"] {
-  --note-ground: var(--warning-soft);
-  --note-line: color-mix(in srgb, var(--warning) 60%, var(--warning-soft));
+  --note-ground: var(--board-warning-soft);
+  --note-line: color-mix(in srgb, var(--board-warning) 60%, var(--board-warning-soft));
 }
 .board-text[data-color="green"] {
-  --note-ground: var(--success-soft);
-  --note-line: color-mix(in srgb, var(--success) 60%, var(--success-soft));
+  --note-ground: var(--board-success-soft);
+  --note-line: color-mix(in srgb, var(--board-success) 60%, var(--board-success-soft));
 }
 .board-text[data-color="blue"] {
-  --note-ground: var(--cd-info-soft);
-  --note-line: color-mix(in srgb, var(--info) 35%, var(--cd-info-soft));
+  --note-ground: var(--cd-ui-info-flaeche);
+  --note-line: color-mix(in srgb, var(--board-info) 35%, var(--cd-ui-info-flaeche));
 }
 .board-text[data-color="red"] {
-  --note-ground: var(--destructive-soft);
-  --note-line: color-mix(in srgb, var(--destructive) 30%, var(--destructive-soft));
+  --note-ground: var(--board-destructive-soft);
+  --note-line: color-mix(in srgb, var(--board-destructive) 30%, var(--board-destructive-soft));
 }
 .board-text[data-editing="true"] {
   box-shadow:
-    0 0 0 2px var(--ring),
+    0 0 0 2px var(--board-ring),
     var(--cd-shadow-2);
   cursor: auto;
 }
@@ -605,7 +565,7 @@
   overflow-wrap: anywhere;
 }
 .board-text__body[data-empty="true"]::before {
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
   content: "Double-click to write";
 }
 /* the page's base sheet resets headings and lists: a note gets them back, small */
@@ -653,22 +613,22 @@
   font-weight: 650;
 }
 .board-text__body a[href] {
-  color: var(--link);
+  color: var(--board-link);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 .board-text__body code {
   padding: 1px 5px;
   border-radius: calc(var(--cd-radius-sm) - 2px);
-  background: color-mix(in srgb, var(--foreground) 7%, transparent);
-  font-family: var(--designiq-font-mono);
+  background: color-mix(in srgb, var(--board-foreground) 7%, transparent);
+  font-family: var(--board-font-mono);
   font-size: 0.88em;
 }
 .board-text__body pre {
   padding: 8px 10px;
   overflow: hidden;
   border-radius: var(--cd-radius-sm);
-  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  background: color-mix(in srgb, var(--board-foreground) 5%, transparent);
   white-space: pre-wrap;
 }
 .board-text__body pre code {
@@ -677,17 +637,17 @@
 }
 .board-text__body blockquote {
   padding-left: 10px;
-  border-left: 3px solid var(--note-line, var(--border));
-  color: var(--muted-foreground);
+  border-left: 3px solid var(--note-line, var(--board-border));
+  color: var(--board-muted-foreground);
 }
 .board-text__body hr {
   margin: 10px 0;
   border: 0;
-  border-top: 1px solid var(--note-line, var(--border));
+  border-top: 1px solid var(--note-line, var(--board-border));
 }
 .board-text__body :is(th, td) {
   padding: 2px 8px 2px 0;
-  border-bottom: 1px solid var(--note-line, var(--border));
+  border-bottom: 1px solid var(--note-line, var(--board-border));
   text-align: left;
 }
 .board-text__editor {
@@ -700,14 +660,14 @@
   outline: 0;
   background: none;
   color: inherit;
-  font-family: var(--designiq-font-mono);
+  font-family: var(--board-font-mono);
   font-size: 13px;
   line-height: 1.55;
   cursor: text;
   resize: none;
 }
 .board-text__editor::placeholder {
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
 }
 
 /* the strip React Flow keeps above a selected node at its size on screen (NodeToolbar) */
@@ -717,12 +677,12 @@
   gap: 6px;
   padding: 5px 6px;
   border-radius: var(--cd-radius-md);
-  background: var(--card);
+  background: var(--board-card);
   box-shadow:
-    0 0 0 1px var(--border),
+    0 0 0 1px var(--board-border),
     var(--cd-shadow-2);
-  color: var(--foreground);
-  font-family: var(--designiq-font-sans);
+  color: var(--board-foreground);
+  font-family: var(--board-font-sans);
   font-size: 12px;
 }
 .board-swatch {
@@ -735,35 +695,35 @@
   cursor: pointer;
 }
 .board-swatch[data-color="plain"] {
-  --swatch: var(--card);
-  --swatch-line: var(--input);
+  --swatch: var(--board-card);
+  --swatch-line: var(--board-input);
 }
 .board-swatch[data-color="amber"] {
-  --swatch: var(--warning-soft);
-  --swatch-line: var(--warning);
+  --swatch: var(--board-warning-soft);
+  --swatch-line: var(--board-warning);
 }
 .board-swatch[data-color="green"] {
-  --swatch: var(--success-soft);
-  --swatch-line: var(--success);
+  --swatch: var(--board-success-soft);
+  --swatch-line: var(--board-success);
 }
 .board-swatch[data-color="blue"] {
-  --swatch: var(--cd-info-soft);
-  --swatch-line: var(--info);
+  --swatch: var(--cd-ui-info-flaeche);
+  --swatch-line: var(--board-info);
 }
 .board-swatch[data-color="red"] {
-  --swatch: var(--destructive-soft);
-  --swatch-line: var(--destructive);
+  --swatch: var(--board-destructive-soft);
+  --swatch-line: var(--board-destructive);
 }
 .board-swatch[aria-pressed="true"] {
   box-shadow:
-    0 0 0 2px var(--card),
-    0 0 0 4px var(--primary);
+    0 0 0 2px var(--board-card),
+    0 0 0 4px var(--board-primary);
 }
 .board-node-toolbar__rule {
   width: 1px;
   height: 18px;
   margin: 0 2px;
-  background: var(--border);
+  background: var(--board-border);
 }
 .board-node-toolbar__button {
   display: inline-flex;
@@ -771,17 +731,17 @@
   gap: 4px;
   height: 24px;
   padding: 0 8px;
-  border: 1px solid var(--input);
+  border: 1px solid var(--board-input);
   border-radius: var(--cd-radius-sm);
-  background: var(--background);
-  color: var(--link);
+  background: var(--board-background);
+  color: var(--board-link);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 .board-node-toolbar__button:hover {
-  border-color: var(--primary);
-  background: var(--accent);
+  border-color: var(--board-primary);
+  background: var(--board-accent);
 }
 .board-node-toolbar__button svg {
   width: 12px;
@@ -797,9 +757,9 @@
   overflow: hidden;
   border: 0;
   /* the ground an image with other proportions than its node is letterboxed on */
-  background: var(--secondary);
+  background: var(--board-secondary);
   box-shadow:
-    0 0 0 1px var(--border),
+    0 0 0 1px var(--board-border),
     var(--cd-shadow-1);
 }
 .board-image__picture {
@@ -818,9 +778,9 @@
   gap: 6px;
   width: 100%;
   height: 100%;
-  border: 1px dashed var(--input);
+  border: 1px dashed var(--board-input);
   border-radius: inherit;
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
   font-size: 12px;
   text-align: center;
 }
@@ -838,10 +798,10 @@
   max-width: calc(100% - 12px);
   padding: 2px 7px;
   border-radius: var(--cd-radius-sm);
-  background: var(--card);
-  box-shadow: 0 0 0 1px var(--border);
-  color: var(--muted-foreground);
-  font-family: var(--designiq-font-mono);
+  background: var(--board-card);
+  box-shadow: 0 0 0 1px var(--board-border);
+  color: var(--board-muted-foreground);
+  font-family: var(--board-font-mono);
   font-size: 11px;
   white-space: nowrap;
   opacity: 0;
@@ -849,7 +809,7 @@
 }
 .board-image__path {
   overflow: hidden;
-  color: var(--foreground);
+  color: var(--board-foreground);
   text-overflow: ellipsis;
 }
 .react-flow__node:is(:hover, .selected) .board-image__caption,
@@ -877,17 +837,17 @@
 .board-group {
   position: relative;
   border: 0;
-  outline: 1.5px dashed var(--input);
+  outline: 1.5px dashed var(--board-input);
   outline-offset: -1px;
-  background: color-mix(in srgb, var(--primary) 4%, transparent);
+  background: color-mix(in srgb, var(--board-primary) 4%, transparent);
   transition:
     background var(--cd-motion-fast) var(--cd-ease),
     outline-color var(--cd-motion-fast) var(--cd-ease);
 }
 /* a node is dragged over it and would join if dropped now */
 .board-group[data-receiving="true"] {
-  outline: 2px solid var(--primary);
-  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  outline: 2px solid var(--board-primary);
+  background: color-mix(in srgb, var(--board-primary) 10%, transparent);
 }
 .board-group__edge {
   position: absolute;
@@ -924,7 +884,7 @@
   padding: 2px 8px;
   overflow: hidden;
   border-radius: var(--cd-radius-sm);
-  color: var(--foreground);
+  color: var(--board-foreground);
   font-size: clamp(16px, calc(13px / var(--board-zoom, 1)), 48px);
   font-weight: 650;
   line-height: 1.3;
@@ -933,17 +893,17 @@
   cursor: grab;
 }
 .board-group__label[data-empty="true"] {
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
 }
 
 /* a name or a label while it is typed (nodes/inline-edit.tsx): the input stands where the text stood */
 .board-inline-input {
   min-width: 6ch;
   border: 0;
-  outline: 2px solid var(--ring);
+  outline: 2px solid var(--board-ring);
   outline-offset: 1px;
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--board-background);
+  color: var(--board-foreground);
   font-family: inherit;
   cursor: text;
 }
@@ -952,10 +912,10 @@
 
 /* a drawn arrow is ink; a derived one is quiet (the dashes: the foundation's rule above) */
 .board-root .react-flow__edge-arrow {
-  --xy-edge-stroke: var(--foreground);
+  --xy-edge-stroke: var(--board-foreground);
 }
 .board-root .react-flow__edge-derived {
-  --xy-edge-stroke: var(--muted-foreground);
+  --xy-edge-stroke: var(--board-muted-foreground);
 }
 /* a line keeps its width on screen: at the zoom a whole board fits in, 1.5 board units are no line */
 .board-arrow__line,
@@ -967,7 +927,7 @@
   stroke-width: 2.25;
 }
 .board-arrow[data-moving="true"] .board-arrow__line {
-  stroke: var(--primary);
+  stroke: var(--board-primary);
   stroke-dasharray: 5 4;
 }
 /* the heads keep a least size on screen (--board-zoom on the edge layers: board-gestures.tsx) */
@@ -981,7 +941,7 @@
 }
 .board-root .react-flow__edge.selected .board-arrow__head,
 .board-arrow[data-moving="true"] .board-arrow__head {
-  fill: var(--primary);
+  fill: var(--board-primary);
 }
 .board-derived__head {
   fill: none;
@@ -1011,32 +971,32 @@
   display: block;
   padding: 0.15em 0.6em;
   border-radius: 0.45em;
-  background: var(--background);
-  box-shadow: 0 0 0 calc(1px / var(--board-zoom, 1)) var(--input);
-  color: var(--foreground);
+  background: var(--board-background);
+  box-shadow: 0 0 0 calc(1px / var(--board-zoom, 1)) var(--board-input);
+  color: var(--board-foreground);
   font-weight: 500;
 }
 .board-arrow-label__text[data-empty="true"] {
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
   font-weight: 400;
 }
 .board-arrow-label[data-selected="true"] .board-arrow-label__text {
-  box-shadow: 0 0 0 calc(2px / var(--board-zoom, 1)) var(--primary);
+  box-shadow: 0 0 0 calc(2px / var(--board-zoom, 1)) var(--board-primary);
 }
 .board-arrow-label .board-inline-input {
   outline: 0;
-  box-shadow: 0 0 0 calc(2px / var(--board-zoom, 1)) var(--ring);
+  box-shadow: 0 0 0 calc(2px / var(--board-zoom, 1)) var(--board-ring);
 }
 .board-derived-label {
   display: inline-flex;
   align-items: center;
   gap: 0.35em;
   padding: 0.1em 0.6em;
-  border: calc(1px / var(--board-zoom, 1)) dashed var(--input);
+  border: calc(1px / var(--board-zoom, 1)) dashed var(--board-input);
   border-radius: var(--cd-radius-pill);
-  background: var(--secondary);
-  color: var(--muted-foreground);
-  font-family: var(--designiq-font-mono);
+  background: var(--board-secondary);
+  color: var(--board-muted-foreground);
+  font-family: var(--board-font-mono);
   font-size: clamp(11px, calc(10px / var(--board-zoom, 1)), 40px);
   pointer-events: none;
 }
@@ -1049,15 +1009,15 @@
   position: absolute;
   width: calc(12px / var(--board-zoom, 1));
   height: calc(12px / var(--board-zoom, 1));
-  border: calc(2px / var(--board-zoom, 1)) solid var(--primary);
+  border: calc(2px / var(--board-zoom, 1)) solid var(--board-primary);
   border-radius: 50%;
-  background: var(--background);
+  background: var(--board-background);
   pointer-events: all;
   cursor: grab;
   touch-action: none;
 }
 .board-arrow-grip:hover {
-  background: var(--primary);
+  background: var(--board-primary);
 }
 
 /* ── toolbar: the add actions ── */
@@ -1069,9 +1029,9 @@
   max-width: 104px;
 }
 .board-toolbar .board-toolbar__delete:not(:disabled):hover {
-  border-color: var(--destructive);
-  background: var(--destructive-soft);
-  color: var(--destructive);
+  border-color: var(--board-destructive);
+  background: var(--board-destructive-soft);
+  color: var(--board-destructive);
 }
 /* what the board says about a file it took or refused: under the toolbar */
 .board-notices {
@@ -1090,11 +1050,11 @@
   gap: 8px;
   padding: 8px 8px 8px 10px;
   border-radius: var(--cd-radius-md);
-  background: var(--card);
+  background: var(--board-card);
   box-shadow:
-    0 0 0 1px var(--border),
+    0 0 0 1px var(--board-border),
     var(--cd-shadow-2);
-  color: var(--foreground);
+  color: var(--board-foreground);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -1103,20 +1063,20 @@
   width: 16px;
   height: 16px;
   margin-top: 1px;
-  color: var(--primary);
+  color: var(--board-primary);
 }
 .board-notice > span {
   flex: 1;
   overflow-wrap: anywhere;
 }
 .board-notice[data-kind="refused"] {
-  background: var(--destructive-soft);
+  background: var(--board-destructive-soft);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--destructive) 40%, var(--destructive-soft)),
+    0 0 0 1px color-mix(in srgb, var(--board-destructive) 40%, var(--board-destructive-soft)),
     var(--cd-shadow-2);
 }
 .board-notice[data-kind="refused"] > svg {
-  color: var(--destructive);
+  color: var(--board-destructive);
 }
 .board-toolbar .board-notice button,
 .board-toolbar .board-notice button:not(:disabled):hover {
@@ -1127,10 +1087,10 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
 }
 .board-toolbar .board-notice button:not(:disabled):hover {
-  color: var(--foreground);
+  color: var(--board-foreground);
 }
 /* while a file is dragged over the page: a frame around the board and a card that says what a drop does */
 .board-drop-hint {
@@ -1140,10 +1100,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px dashed var(--primary);
+  border: 2px dashed var(--board-primary);
   border-radius: var(--cd-radius-lg);
-  background: color-mix(in srgb, var(--primary) 8%, transparent);
-  font-family: var(--designiq-font-sans);
+  background: color-mix(in srgb, var(--board-primary) 8%, transparent);
+  font-family: var(--board-font-sans);
   pointer-events: none;
 }
 .board-drop-hint__card {
@@ -1154,21 +1114,21 @@
   max-width: 420px;
   padding: 18px 24px;
   border-radius: var(--cd-radius-lg);
-  background: var(--card);
+  background: var(--board-card);
   box-shadow:
-    0 0 0 1px var(--border),
+    0 0 0 1px var(--board-border),
     var(--cd-shadow-3);
-  color: var(--foreground);
+  color: var(--board-foreground);
   font-size: 14px;
   text-align: center;
 }
 .board-drop-hint__card svg {
   width: 28px;
   height: 28px;
-  color: var(--primary);
+  color: var(--board-primary);
 }
 .board-drop-hint__card span {
-  color: var(--muted-foreground);
+  color: var(--board-muted-foreground);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -1204,7 +1164,7 @@
   display: block;
   overflow: visible;
   fill: currentColor;
-  stroke: var(--primary-foreground);
+  stroke: var(--board-primary-foreground);
   stroke-width: 0.75;
 }
 .board-presence__name {
@@ -1214,7 +1174,20 @@
   height: 16px;
   padding: 0 6px;
   border-radius: var(--cd-radius-sm);
-  color: var(--primary-foreground);
-  font: 600 10px/16px var(--designiq-font-sans);
+  color: var(--board-primary-foreground);
+  font: 600 10px/16px var(--board-font-sans);
   white-space: nowrap;
+}
+
+/* Motion is a courtesy (CI §7): under the OS setting nothing of the board's own moves, whatever a
+   rule above says. Scoped as the base is (board-base.css): what a host mounts below .board-engine
+   is the host's to still. */
+@media (prefers-reduced-motion: reduce) {
+  .board-root :where(*):not(:where(.board-engine *)),
+  .board-root :where(*):not(:where(.board-engine *))::before,
+  .board-root :where(*):not(:where(.board-engine *))::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

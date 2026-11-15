@@ -1,0 +1,4510 @@
+{
+  "armed at once when the board stands at its target": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "armed at once under armzoom off, wherever the board stands": {
+    "policy": "off, disarm, stay (given: armzoom), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "20, 30, 0.5",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "armed at once while the node is not measured": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_unmeasured by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_unmeasured)",
+        "settled": "step 1",
+        "state": "armed: n_unmeasured, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "20, 30, 0.5",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a node that is no model is not armed": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_note by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "20, 30, 0.5",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a move, then armed in the same task as the last write": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 50,
+        "calls": "setViewport(7.141, 20.088, 0.567)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 150,
+        "calls": "setViewport(-64.093, -34.822, 0.938)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "6. frame",
+        "at": 250,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 5,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "armed by a double-click: the zoom changes about the pointer": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "200, 150, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by pointer at 340, 280",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(138.641, 88.641, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 200,
+        "calls": "setViewport(102.473, 52.473, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 300,
+        "calls": "setViewport(100, 50, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "100, 50, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "pointer",
+        "anchor": "pointer",
+        "from": "200, 150, 0.5",
+        "to": "100, 50, 1",
+        "end": "100, 50, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "armed by the button from the same place: the zoom changes about the node's centre": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "200, 150, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(107.961, 67.165, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 200,
+        "calls": "setViewport(53.71, 18.339, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 300,
+        "calls": "setViewport(50, 15, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "50, 15, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "200, 150, 0.5",
+        "to": "50, 15, 1",
+        "end": "50, 15, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "a node longer than the box, armed by a double-click: the point stays under the pointer": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-900, 0, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_long by pointer at 440, 330",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_long, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-1697.673, -184.078, 0.807)",
+        "state": "armed: none, moving: yes, target: n_long, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 200,
+        "calls": "setViewport(-2167.848, -292.58, 0.988)",
+        "state": "armed: none, moving: yes, target: n_long, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 300,
+        "calls": "setViewport(-2200, -300, 1), setArmedId(n_long)",
+        "settled": "step 1",
+        "state": "armed: n_long, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-2200, -300, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_long",
+        "by": "pointer",
+        "anchor": "pointer",
+        "from": "-900, 0, 0.5",
+        "to": "-2200, -300, 1",
+        "end": "-2200, -300, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "a node longer than the box, armed by the button: its start goes to the margin": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-900, 0, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_long by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_long, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-1560.228, 46.633, 0.807)",
+        "state": "armed: none, moving: yes, target: n_long, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 200,
+        "calls": "setViewport(-1949.388, 74.12, 0.988)",
+        "state": "armed: none, moving: yes, target: n_long, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 300,
+        "calls": "setViewport(-1976, 76, 1), setArmedId(n_long)",
+        "settled": "step 1",
+        "state": "armed: n_long, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-1976, 76, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_long",
+        "by": "button",
+        "anchor": "centre",
+        "from": "-900, 0, 0.5",
+        "to": "-1976, 76, 1",
+        "end": "-1976, 76, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "armzoom min1 above 1: the zoom stays and the board pans": {
+    "policy": "min1, disarm, stay (given: armzoom), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "500, 100, 1.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(209.156, 5.506, 1.5)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 200,
+        "calls": "setViewport(37.723, -50.191, 1.5)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 300,
+        "calls": "setViewport(26, -54, 1.5), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "26, -54, 1.5",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "500, 100, 1.5",
+        "to": "26, -54, 1.5",
+        "end": "26, -54, 1.5",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "a zoom that is nearly 1 becomes exactly 1": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "0, 0, 0.997",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-0.614, -0.614, 0.999)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 200,
+        "calls": "setViewport(-0.975, -0.975, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 300,
+        "calls": "setViewport(-1, -1, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-1, -1, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "0, 0, 0.997",
+        "to": "-1, -1, 1",
+        "end": "-1, -1, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "a board without a toolbar: the box begins at its top edge": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -47.313, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -92.884, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 300,
+        "calls": "setViewport(-76, -96, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -96, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -96, 1",
+        "end": "-76, -96, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "armed at once while the board has no size": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. the board's box becomes 0 x 0",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 2",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "20, 30, 0.5",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "armed without a word on who asked: by other, about the node's centre": {
+    "policy": "exact1, disarm, stay (given: none), motion 0 ms from url, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "other",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "a second request for the same node joins the move": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. arm n_order by pointer at 150, 150",
+        "at": 100,
+        "result": "the promise of step 1",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "arming another node while one is armed: a preview before the first write": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. arm n_invoice by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: yes, target: n_invoice, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 100,
+        "calls": "setViewport(-301.803, -240.35, 1)",
+        "state": "armed: none, moving: yes, target: n_invoice, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "setViewport(-434.898, -356.086, 1)",
+        "state": "armed: none, moving: yes, target: n_invoice, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "setViewport(-444, -364, 1), setArmedId(n_invoice)",
+        "settled": "step 2",
+        "state": "armed: n_invoice, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-444, -364, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_invoice",
+        "by": "button",
+        "anchor": "centre",
+        "from": "-76, -44, 1",
+        "to": "-444, -364, 1",
+        "end": "-444, -364, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "arming the armed node again changes nothing": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "settled": "step 2",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "the move interrupted by a wheel on the board": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. wheel on the toolbar, deltaY -100",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. wheel on the pane, deltaY -100",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. frame",
+        "at": 200,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "6. frame",
+        "at": 300,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-38.905, -15.406, 0.807",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-38.905, -15.406, 0.807",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "wheel"
+      }
+    ],
+    "lastTransition": 1
+  },
+  "the move interrupted by a press on the board": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. press on a button beside the board",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. release by pointerup",
+        "at": 100,
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. press on the pane",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "6. release by pointerup",
+        "at": 100,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "7. frame",
+        "at": 200,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "8. frame",
+        "at": 300,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-38.905, -15.406, 0.807",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-38.905, -15.406, 0.807",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "pointer"
+      }
+    ],
+    "lastTransition": 1
+  },
+  "the move interrupted by Escape": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. key Escape on the pane",
+        "at": 100,
+        "result": "not prevented, stopped on the way",
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-38.905, -15.406, 0.807",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-38.905, -15.406, 0.807",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "key"
+      }
+    ],
+    "lastTransition": 1
+  },
+  "the move interrupted by a foreign viewport write": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. a script writes the viewport 0, 0, 0.5",
+        "at": 100,
+        "calls": "setViewport(0, 0, 0.5)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "0, 0, 0.5",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "0, 0, 0.5",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "foreign"
+      }
+    ],
+    "lastTransition": 1
+  },
+  "the move interrupted by another arming, which starts its own move from there": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. arm n_invoice by button",
+        "at": 100,
+        "result": "a new promise",
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: none, moving: yes, target: n_invoice, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "setViewport(-287.469, -229.301, 0.925)",
+        "state": "armed: none, moving: yes, target: n_invoice, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "setViewport(-433.981, -355.378, 0.995)",
+        "state": "armed: none, moving: yes, target: n_invoice, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "6. frame",
+        "at": 400,
+        "calls": "setViewport(-444, -364, 1), setArmedId(n_invoice)",
+        "settled": "step 3",
+        "state": "armed: n_invoice, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-444, -364, 1",
+    "counters": {
+      "transitions": 2,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-38.905, -15.406, 0.807",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "arm"
+      },
+      {
+        "id": 2,
+        "purpose": "arm",
+        "nodeId": "n_invoice",
+        "by": "button",
+        "anchor": "centre",
+        "from": "-38.905, -15.406, 0.807",
+        "to": "-444, -364, 1",
+        "end": "-444, -364, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 2
+  },
+  "the move interrupted by a disarm": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. arm none by pane",
+        "at": 100,
+        "result": "a new promise",
+        "calls": "none",
+        "settled": "step 1, step 3",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-38.905, -15.406, 0.807",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-38.905, -15.406, 0.807",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "disarm"
+      }
+    ],
+    "lastTransition": 1
+  },
+  "the move interrupted by a zoom of the toolbar": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. ask beforeZoom(true)",
+        "at": 100,
+        "result": "true",
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-38.905, -15.406, 0.807",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-38.905, -15.406, 0.807",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "zoom"
+      }
+    ],
+    "lastTransition": 1
+  },
+  "keys while the board moves reach nobody, but for a modifier, a text field and a control beside the board": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. key a on the pane",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. key a on the pane",
+        "at": 100,
+        "result": "not prevented, stopped on the way",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. key Delete on the pane",
+        "at": 100,
+        "result": "not prevented, stopped on the way",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "6. key Shift on the pane",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "7. key a on a text field on the board",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "8. key a on an editable text on the board",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "9. key a on a button beside the board",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "10. key Escape on a button beside the board",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "11. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "12. key Escape on the pane",
+        "at": 200,
+        "result": "not prevented, stopped on the way",
+        "calls": "none",
+        "settled": "step 2",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "13. frame",
+        "at": 300,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "14. key Escape on the pane",
+        "at": 300,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-73.626, -42.17, 0.988",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-73.626, -42.17, 0.988",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 2,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "key"
+      }
+    ],
+    "lastTransition": 1
+  },
+  "keys while the board moves under the scope page: a control beside the board loses them too": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. key a on a button beside the board",
+        "at": 100,
+        "result": "not prevented, stopped on the way",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. key a on a text field beside the board",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. key Escape on a button beside the board",
+        "at": 100,
+        "result": "not prevented, stopped on the way",
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "6. frame",
+        "at": 200,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-38.905, -15.406, 0.807",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-38.905, -15.406, 0.807",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "key"
+      }
+    ],
+    "lastTransition": 1
+  },
+  "one more move when the box changed under the first": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "500, 100, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(362.555, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. the board's box becomes 700 x 600",
+        "at": 100,
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "setViewport(281.54, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "setViewport(276, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "6. frame",
+        "at": 400,
+        "calls": "setViewport(214.641, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "7. frame",
+        "at": 500,
+        "calls": "setViewport(178.473, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "8. frame",
+        "at": 600,
+        "calls": "setViewport(176, 100, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "176, 100, 1",
+    "counters": {
+      "transitions": 2,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "500, 100, 1",
+        "to": "276, 100, 1",
+        "end": "276, 100, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": false
+      },
+      {
+        "id": 2,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "276, 100, 1",
+        "to": "176, 100, 1",
+        "end": "176, 100, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 2
+  },
+  "three moves at most when the box changes under each": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "500, 100, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(362.555, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. the board's box becomes 700 x 600",
+        "at": 100,
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "setViewport(281.54, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "setViewport(276, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "6. frame",
+        "at": 400,
+        "calls": "setViewport(214.641, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "7. the board's box becomes 600 x 600",
+        "at": 400,
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "8. frame",
+        "at": 500,
+        "calls": "setViewport(178.473, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "9. frame",
+        "at": 600,
+        "calls": "setViewport(176, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "10. frame",
+        "at": 700,
+        "calls": "setViewport(114.641, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "11. the board's box becomes 500 x 600",
+        "at": 700,
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "12. frame",
+        "at": 800,
+        "calls": "setViewport(78.473, 100, 1)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "13. frame",
+        "at": 900,
+        "calls": "setViewport(76, 100, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "14. frame",
+        "at": 1000,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "76, 100, 1",
+    "counters": {
+      "transitions": 3,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "500, 100, 1",
+        "to": "276, 100, 1",
+        "end": "276, 100, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": false
+      },
+      {
+        "id": 2,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "276, 100, 1",
+        "to": "176, 100, 1",
+        "end": "176, 100, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": false
+      },
+      {
+        "id": 3,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "176, 100, 1",
+        "to": "76, 100, 1",
+        "end": "76, 100, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 3
+  },
+  "the node is gone when the board arrives": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. n_order is no model any more",
+        "at": 100,
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "setViewport(-76, -44, 1)",
+        "settled": "step 1",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "gone"
+      }
+    ],
+    "lastTransition": 1
+  },
+  "0 ms under prefers-reduced-motion: one write, inside the call": {
+    "policy": "exact1, disarm, stay (given: none), motion 0 ms from reduced-motion, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "0 ms with armmotion 0: one write, inside the call": {
+    "policy": "exact1, disarm, stay (given: none), motion 0 ms from url, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "0 ms on a page without the motion token": {
+    "policy": "exact1, disarm, stay (given: none), motion 0 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "armmotion beats the token and prefers-reduced-motion": {
+    "policy": "exact1, disarm, stay (given: none), motion 100 ms from url, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 50,
+        "calls": "setViewport(-54.454, -27.392, 0.888)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 100,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 100,
+        "measuredMs": 0,
+        "writes": 2,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "a token in seconds, and linear on a page without the ease token": {
+    "policy": "exact1, disarm, stay (given: none), motion 200 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 50,
+        "calls": "setViewport(-4, 11.5, 0.625)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 100,
+        "calls": "setViewport(-28, -7, 0.75)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 150,
+        "calls": "setViewport(-52, -25.5, 0.875)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. frame",
+        "at": 200,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 200,
+        "measuredMs": 0,
+        "writes": 4,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "beforeZoom under disarm: a preview before the zoom": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. ask beforeZoom(true)",
+        "at": 0,
+        "result": "true",
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 2",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. ask beforeZoom(false)",
+        "at": 0,
+        "result": "true",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. ask beforeZoom(true)",
+        "at": 0,
+        "result": "true",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 1,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "beforeZoom under lock: refused": {
+    "policy": "exact1, lock, stay (given: armedzoom), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. ask beforeZoom(false)",
+        "at": 0,
+        "result": "true",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. ask beforeZoom(true)",
+        "at": 0,
+        "result": "false",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 1,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "beforeZoom under free: nothing is done": {
+    "policy": "exact1, free, stay (given: armedzoom), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. ask beforeZoom(true)",
+        "at": 0,
+        "result": "true",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "beforeZoom with a press held in the armed editor: refused until the release": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. press on the armed node's body",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. ask beforeZoom(true)",
+        "at": 0,
+        "result": "false",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. release by pointercancel",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. press on the editor in the overlay layer",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "6. ask beforeZoom(true)",
+        "at": 0,
+        "result": "false",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "7. release by blur",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "8. press on the armed node's body",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "9. ask beforeZoom(true)",
+        "at": 0,
+        "result": "false",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "10. release by pointerup",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "11. press on the pane",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "12. ask beforeZoom(true)",
+        "at": 0,
+        "result": "true",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 1,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 3,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a wheel on the board under disarm: a preview before the zoom gets it": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. wheel on the pane, deltaY -100",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 1,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a wheel on the board under lock: refused, and not handed on": {
+    "policy": "exact1, lock, stay (given: armedzoom), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. wheel on the pane, deltaY 100",
+        "at": 0,
+        "result": "prevented, stopped on the way",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 1,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a wheel with a press held in the armed editor: refused until the release": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. press on the editor in the overlay layer",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. wheel on the pane, deltaY -100",
+        "at": 0,
+        "result": "prevented, stopped on the way",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. release by pointerup",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. wheel on the pane, deltaY -100",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 1,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 1,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a wheel that cannot change the zoom is not asked about": {
+    "policy": "off, lock, stay (given: armzoom and armedzoom), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "0, 0, 4",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. wheel on the pane, deltaY -100",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. wheel on the pane, deltaY 0",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. wheel on the pane, deltaY 100",
+        "at": 0,
+        "result": "prevented, stopped on the way",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "0, 0, 4",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 1,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a wheel against the lower end of the range is not asked about": {
+    "policy": "off, lock, stay (given: armzoom and armedzoom), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "0, 0, 0.1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. wheel on the pane, deltaY 100",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. wheel on the pane, deltaY -100",
+        "at": 0,
+        "result": "prevented, stopped on the way",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "0, 0, 0.1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 1,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a wheel in the armed editor or beside the renderer is not the board's": {
+    "policy": "exact1, lock, stay (given: armedzoom), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. wheel on the armed node's body, deltaY -100",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. wheel on the editor in the overlay layer, deltaY -100",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. wheel on the toolbar, deltaY -100",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a zoom tick not seen coming under disarm: disarmed inside the tick": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. a script writes the viewport -76, -44, 0.8",
+        "at": 0,
+        "calls": "setViewport(-76, -44, 0.8), setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 0.8",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 1,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a zoom tick not seen coming under lock: undone inside the tick": {
+    "policy": "exact1, lock, stay (given: armedzoom), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. a script writes the viewport -76, -44, 0.8",
+        "at": 0,
+        "calls": "setViewport(-76, -44, 0.8), setViewport(-76, -44, 1)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 1,
+      "zoomsUndone": 1,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a zoom tick with a press held in the armed editor: undone, and disarmed after the release": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. press on the armed node's body",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. a script writes the viewport -76, -44, 0.8",
+        "at": 0,
+        "calls": "setViewport(-76, -44, 0.8), setViewport(-76, -44, 1)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. release by pointerup",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. a script writes the viewport -76, -44, 0.8",
+        "at": 0,
+        "calls": "setViewport(-76, -44, 0.8), setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 0.8",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 1,
+      "zoomsRefused": 1,
+      "zoomsUndone": 1,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a zoom tick under free: counted, and the node stays armed": {
+    "policy": "exact1, free, stay (given: armedzoom), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. a script writes the viewport -76, -44, 0.8",
+        "at": 0,
+        "calls": "setViewport(-76, -44, 0.8)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. a script writes the viewport -76, -44, 0.6",
+        "at": 0,
+        "calls": "setViewport(-76, -44, 0.6)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. a script writes the viewport 0, 0, 0.6",
+        "at": 0,
+        "calls": "setViewport(0, 0, 0.6)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "0, 0, 0.6",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 2,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "a zoom tick while a fit is queued: disarmed, and counted late": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. a fit is queued",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. a script writes the viewport 10, 20, 0.7",
+        "at": 0,
+        "calls": "setViewport(10, 20, 0.7), setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "10, 20, 0.7",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 1,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 1
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "the rules' own writes are no zoom to guard against": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. the runtime arms n_invoice, past the rules",
+        "at": 100,
+        "calls": "setArmedId(n_invoice)",
+        "state": "armed: n_invoice, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: n_invoice, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "a pan under an armed node disarms nothing": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. a script writes the viewport 0, 0, 1",
+        "at": 0,
+        "calls": "setViewport(0, 0, 1)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "0, 0, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "the first fit of a loading board is no zoom under an armed node": {
+    "policy": "off, disarm, stay (given: armzoom), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. a script writes the viewport 10, 10, 0.9",
+        "at": 0,
+        "calls": "setViewport(10, 10, 0.9)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. the fit is through",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. a script writes the viewport 10, 10, 0.7",
+        "at": 0,
+        "calls": "setViewport(10, 10, 0.7), setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "10, 10, 0.7",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 1,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "armreturn back after Done: a preview first, then the board goes back": {
+    "policy": "exact1, disarm, back (given: armreturn), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 300,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. arm none by done",
+        "at": 300,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: yes, target: none, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "6. frame",
+        "at": 400,
+        "calls": "setViewport(-17.095, 1.406, 0.693)",
+        "state": "armed: none, moving: yes, target: none, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "7. frame",
+        "at": 500,
+        "calls": "setViewport(17.626, 28.17, 0.512)",
+        "state": "armed: none, moving: yes, target: none, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "8. frame",
+        "at": 600,
+        "calls": "setViewport(20, 30, 0.5)",
+        "settled": "step 5",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "20, 30, 0.5",
+    "counters": {
+      "transitions": 2,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      },
+      {
+        "id": 2,
+        "purpose": "return",
+        "nodeId": "n_order",
+        "by": "done",
+        "from": "-76, -44, 1",
+        "to": "20, 30, 0.5",
+        "end": "20, 30, 0.5",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": false
+      }
+    ],
+    "lastTransition": 2
+  },
+  "armreturn back after a click on the bare board": {
+    "policy": "exact1, disarm, back (given: armreturn), motion 0 ms from url, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. arm none by pane",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(null), setViewport(20, 30, 0.5)",
+        "settled": "step 2",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "20, 30, 0.5",
+    "counters": {
+      "transitions": 2,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      },
+      {
+        "id": 2,
+        "purpose": "return",
+        "nodeId": "n_order",
+        "by": "pane",
+        "from": "-76, -44, 1",
+        "to": "20, 30, 0.5",
+        "end": "20, 30, 0.5",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": false
+      }
+    ],
+    "lastTransition": 2
+  },
+  "armreturn back after the hook's disarm": {
+    "policy": "exact1, disarm, back (given: armreturn), motion 0 ms from url, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by hook",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. arm none by hook",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(null), setViewport(20, 30, 0.5)",
+        "settled": "step 2",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "20, 30, 0.5",
+    "counters": {
+      "transitions": 2,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "hook",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      },
+      {
+        "id": 2,
+        "purpose": "return",
+        "nodeId": "n_order",
+        "by": "hook",
+        "from": "-76, -44, 1",
+        "to": "20, 30, 0.5",
+        "end": "20, 30, 0.5",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": false
+      }
+    ],
+    "lastTransition": 2
+  },
+  "armreturn back: a disarm by anything else stays": {
+    "policy": "exact1, disarm, back (given: armreturn), motion 0 ms from url, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. arm none",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "settled": "step 2",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "armreturn back: a zoom seen coming forgets the way back": {
+    "policy": "exact1, disarm, back (given: armreturn), motion 0 ms from url, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. ask beforeZoom(true)",
+        "at": 0,
+        "result": "true",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. the runtime arms n_order, past the rules",
+        "at": 0,
+        "calls": "setArmedId(n_order)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. arm none by done",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "settled": "step 4",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 1,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "armreturn back: a zoom tick forgets the way back": {
+    "policy": "exact1, disarm, back (given: armreturn), motion 0 ms from url, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. a script writes the viewport -76, -44, 0.8",
+        "at": 0,
+        "calls": "setViewport(-76, -44, 0.8), setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. the runtime arms n_order, past the rules",
+        "at": 0,
+        "calls": "setArmedId(n_order)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. arm none by done",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "settled": "step 4",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 0.8",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 1,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "armreturn back: nothing moves when the board stands there already": {
+    "policy": "min1, disarm, back (given: armzoom and armreturn), motion 0 ms from url, margin 24, tolerance 0.01",
+    "starts": "500, 100, 1.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(26, -54, 1.5), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. a script writes the viewport 500, 100, 1.5",
+        "at": 0,
+        "calls": "setViewport(500, 100, 1.5)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. arm none by done",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "settled": "step 3",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "500, 100, 1.5",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "500, 100, 1.5",
+        "to": "26, -54, 1.5",
+        "end": "26, -54, 1.5",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "the way back interrupted by a wheel, also one with no vertical part": {
+    "policy": "exact1, disarm, back (given: armreturn), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 300,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. arm none by done",
+        "at": 300,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: yes, target: none, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "6. frame",
+        "at": 400,
+        "calls": "setViewport(-17.095, 1.406, 0.693)",
+        "state": "armed: none, moving: yes, target: none, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "7. wheel on the pane, deltaY 0",
+        "at": 400,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "settled": "step 5",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "8. frame",
+        "at": 500,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-17.095, 1.406, 0.693",
+    "counters": {
+      "transitions": 2,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      },
+      {
+        "id": 2,
+        "purpose": "return",
+        "nodeId": "n_order",
+        "by": "done",
+        "from": "-76, -44, 1",
+        "to": "20, 30, 0.5",
+        "end": "-17.095, 1.406, 0.693",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "wheel"
+      }
+    ],
+    "lastTransition": 2
+  },
+  "arming the node again while the board goes back starts anew": {
+    "policy": "exact1, disarm, back (given: armreturn), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 300,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. arm none by done",
+        "at": 300,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: yes, target: none, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "6. frame",
+        "at": 400,
+        "calls": "setViewport(-17.095, 1.406, 0.693)",
+        "state": "armed: none, moving: yes, target: none, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "7. arm n_order by button",
+        "at": 400,
+        "result": "a new promise",
+        "calls": "none",
+        "settled": "step 5",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "8. frame",
+        "at": 500,
+        "calls": "setViewport(-53.239, -26.455, 0.881)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "9. frame",
+        "at": 600,
+        "calls": "setViewport(-74.543, -42.877, 0.992)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "10. frame",
+        "at": 700,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 7",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 3,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      },
+      {
+        "id": 2,
+        "purpose": "return",
+        "nodeId": "n_order",
+        "by": "done",
+        "from": "-76, -44, 1",
+        "to": "20, 30, 0.5",
+        "end": "-17.095, 1.406, 0.693",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "arm"
+      },
+      {
+        "id": 3,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "-17.095, 1.406, 0.693",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 3
+  },
+  "armreturn back: the way back belongs to the node the board moved for": {
+    "policy": "exact1, disarm, back (given: armreturn), motion 0 ms from url, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. the runtime arms n_invoice, past the rules",
+        "at": 0,
+        "calls": "setArmedId(n_invoice)",
+        "state": "armed: n_invoice, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. arm none by done",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "settled": "step 3",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. the runtime arms n_order, past the rules",
+        "at": 0,
+        "calls": "setArmedId(n_order)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. arm none by done",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "settled": "step 5",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "armreturn back: an interrupted arming leaves no way back": {
+    "policy": "exact1, disarm, back (given: armreturn), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. wheel on the pane, deltaY -100",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. the runtime arms n_order, past the rules",
+        "at": 100,
+        "calls": "setArmedId(n_order)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. arm none by done",
+        "at": 100,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "settled": "step 5",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "6. frame",
+        "at": 200,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-38.905, -15.406, 0.807",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-38.905, -15.406, 0.807",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": true,
+        "armed": false,
+        "interruptedBy": "wheel"
+      }
+    ],
+    "lastTransition": 1
+  },
+  "armreturn back: a node armed at once has no way back": {
+    "policy": "exact1, disarm, back (given: armreturn), motion 0 ms from url, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. the runtime disarms, past the rules",
+        "at": 0,
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 3",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. arm none by done",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "settled": "step 4",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "armreturn stay: Done leaves the board where it is": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm none by pane",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 2",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "6. arm none by done",
+        "at": 300,
+        "result": "a new promise",
+        "calls": "setArmedId(null)",
+        "settled": "step 6",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "7. frame",
+        "at": 400,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "the URL's arm waits for the first fit and for the editor, then goes through the rule": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. ask when the board rests",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "2. frame",
+        "at": 16,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "3. the fit is through",
+        "at": 16,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "4. frame",
+        "at": 32,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "5. the editor of n_order is up",
+        "at": 32,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "6. frame",
+        "at": 48,
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "7. frame",
+        "at": 148,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "8. frame",
+        "at": 248,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "9. frame",
+        "at": 348,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "10. frame",
+        "at": 364,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "11. frame",
+        "at": 380,
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "url",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "the URL's arm is dropped with the undo of watch": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. the editor of n_order is up",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 1"
+      },
+      {
+        "step": "2. undo watch",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 0"
+      },
+      {
+        "step": "3. frame",
+        "at": 16,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 0"
+      },
+      {
+        "step": "4. frame",
+        "at": 32,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 0"
+      }
+    ],
+    "rests": "20, 30, 0.5",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "the URL names a node that is no model: nothing is pending": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. frame",
+        "at": 16,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "20, 30, 0.5",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "whenRest resolves the frame after the board came to rest": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. ask when the board rests",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 2"
+      },
+      {
+        "step": "3. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 2"
+      },
+      {
+        "step": "4. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 2"
+      },
+      {
+        "step": "5. frame",
+        "at": 300,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "6. frame",
+        "at": 316,
+        "calls": "none",
+        "settled": "step 2",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "whenRest on a board at rest resolves with the next frame": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. ask when the board rests",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 16,
+        "calls": "none",
+        "settled": "step 1",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "20, 30, 0.5",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "after the undo of attach and of watch nothing is guarded": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "2. frame",
+        "at": 100,
+        "calls": "setViewport(-38.905, -15.406, 0.807)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "3. undo attach",
+        "at": 100,
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "4. wheel on the pane, deltaY -100",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "5. key Escape on the pane",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "6. press on the pane",
+        "at": 100,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "7. frame",
+        "at": 200,
+        "calls": "setViewport(-73.626, -42.17, 0.988)",
+        "state": "armed: none, moving: yes, target: n_order, urlPending: no, frames asked: 1"
+      },
+      {
+        "step": "8. frame",
+        "at": 300,
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "9. press on the armed node's body",
+        "at": 300,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "10. wheel on the pane, deltaY -100",
+        "at": 300,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "11. undo watch",
+        "at": 300,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "12. a script writes the viewport -76, -44, 0.8",
+        "at": 300,
+        "calls": "setViewport(-76, -44, 0.8)",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "13. ask beforeZoom(true)",
+        "at": 300,
+        "result": "true",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 0.8",
+    "counters": {
+      "transitions": 1,
+      "disarmsBeforeZoom": 1,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 1,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "20, 30, 0.5",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 250,
+        "measuredMs": 0,
+        "writes": 3,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "lastTransition": 1
+  },
+  "a press held when attach is undone stays held: no release is heard any more": {
+    "policy": "exact1, disarm, stay (given: none), motion 250 ms from token, margin 24, tolerance 0.01",
+    "starts": "-76, -44, 1",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "2. press on the armed node's body",
+        "at": 0,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "3. undo attach",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "4. release by pointerup",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "5. release by pointercancel",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "6. release by blur",
+        "at": 0,
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "7. ask beforeZoom(true)",
+        "at": 0,
+        "result": "false",
+        "calls": "none",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 0,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 1,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [],
+    "lastTransition": null
+  },
+  "more than 200 moves: the oldest records go": {
+    "policy": "exact1, disarm, stay (given: none), motion 0 ms from url, margin 24, tolerance 0.01",
+    "starts": "20, 30, 0.5",
+    "steps": [
+      {
+        "step": "1. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 1",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "201. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(null), setViewport(-76, -44, 1), setArmedId(n_order)",
+        "settled": "step 201",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      }
+    ],
+    "stepsLeftOut": 199,
+    "rests": "-76, -44, 1",
+    "counters": {
+      "transitions": 201,
+      "disarmsBeforeZoom": 0,
+      "disarmsAtTick": 0,
+      "zoomsRefused": 0,
+      "zoomsUndone": 0,
+      "armedZoomTicks": 0,
+      "lateDisarms": 0
+    },
+    "transitions": [
+      {
+        "id": 2,
+        "purpose": "arm",
+        "nodeId": "n_invoice",
+        "by": "button",
+        "anchor": "centre",
+        "from": "-76, -44, 1",
+        "to": "-444, -364, 1",
+        "end": "-444, -364, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      },
+      {
+        "id": 201,
+        "purpose": "arm",
+        "nodeId": "n_order",
+        "by": "button",
+        "anchor": "centre",
+        "from": "-444, -364, 1",
+        "to": "-76, -44, 1",
+        "end": "-76, -44, 1",
+        "askedMs": 0,
+        "measuredMs": 0,
+        "writes": 1,
+        "running": false,
+        "interrupted": false,
+        "armed": true
+      }
+    ],
+    "transitionsLeftOut": 198,
+    "lastTransition": 201
+  }
+}

@@ -27,12 +27,10 @@ import {
 import {
   type ComponentType,
   lazy,
-  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useSyncExternalStore,
 } from "react";
 import { flushSync } from "react-dom";
@@ -47,6 +45,8 @@ import {
   Slot,
   useBoardContext,
 } from "../runtime/board-context.js";
+import { useCanvasKeys } from "./canvas-keys.js";
+import { useClickOwnership } from "./click-ownership.js";
 
 type NodeComponent = ComponentType<NodeProps<BoardFlowNode>>;
 type EdgeComponent = ComponentType<EdgeProps<BoardFlowEdge>>;
@@ -151,7 +151,6 @@ function ArmGuards() {
   return null;
 }
 
-// eslint-disable-next-line max-lines-per-function -- port: split by P2
 function Canvas() {
   const board = useBoardContext();
   const { arm, counters, host, params, store, subscribeViewport } = board;
@@ -160,145 +159,14 @@ function Canvas() {
   const derived = useDerivedEdges(host, flow.view);
   const edges = useMemo(() => [...flow.edges, ...derived], [flow.edges, derived]);
 
-  // Whose click is it? Nothing stops a click inside the armed editor on its way up (model-node.tsx
-  // says why), so the board's own handlers ask where it began. Not the board's are
-  // - a click or double-click inside the armed editor, and a click whose press began there;
-  // - a click on the pane whose press began anywhere else: the tail of a drag. The browser sends a
-  //   click to the nearest common ancestor of press and release, which is the pane for a drag out
-  //   of an editor that lives in a node, and a pane click disarms (measured: every such drag did).
-  // React Flow selects and unselects in click handlers of its own (node wrapper, pane) that the
-  // board cannot guard: the select changes it raises WHILE such a click is dispatched are dropped,
-  // and the rectangle of a box selection, which those handlers hide first, is shown again.
   const flowStore = useStoreApi<BoardFlowNode, BoardFlowEdge>();
-  const press = useRef<{ target: EventTarget; inEditor: boolean } | null>(null);
-  /** the last press on the board began inside the armed editor (kept after its click) */
-  const lastPressInEditor = useRef(false);
-  const notOurs = useRef<Event | null>(null);
-  /** React Flow showed the rectangle of a box selection when that click began */
-  const rectangleShown = useRef(false);
-  /** scope "board": a press that holds Control or Command adds to the selection; React Flow's own key for it is off */
-  const multiSelects = board.inputScope === "board";
-  const onPress = useCallback(
-    (event: ReactMouseEvent) => {
-      // read off the press itself: no key listener on the page for it
-      if (multiSelects)
-        flowStore.setState({ multiSelectionActive: event.metaKey || event.ctrlKey });
-      // the primary button only: no other press ends in a click
-      if (event.button !== 0) return;
-      press.current = { target: event.target, inEditor: inArmedEditor(event.target) };
-      lastPressInEditor.current = press.current.inEditor;
-    },
-    [flowStore, multiSelects],
-  );
-  const onClickFirst = useCallback(
-    (event: ReactMouseEvent) => {
-      const pressed = press.current;
-      // one press, one click: a click made by a key or by a script has no press of its own
-      press.current = null;
-      if (multiSelects)
-        flowStore.setState({ multiSelectionActive: event.metaKey || event.ctrlKey });
-      const { target } = event;
-      const onPane = target instanceof Element && target.classList.contains("react-flow__pane");
-      const editors = inArmedEditor(target) || pressed?.inEditor === true;
-      const dragTail = onPane && pressed !== null && pressed.target !== target;
-      notOurs.current = editors || dragTail ? event.nativeEvent : null;
-      rectangleShown.current = flowStore.getState().nodesSelectionActive;
-    },
-    [flowStore, multiSelects],
-  );
-  const onClickLast = useCallback(
-    (event: ReactMouseEvent) => {
-      if (notOurs.current === event.nativeEvent && rectangleShown.current) {
-        flowStore.setState({ nodesSelectionActive: true });
-      }
-    },
-    [flowStore],
-  );
-  /** an event's phase is NONE again as soon as its dispatch is through: no flag to forget */
-  const duringForeignClick = useCallback(
-    (): boolean => notOurs.current !== null && notOurs.current.eventPhase !== Event.NONE,
-    [],
-  );
-  // Whose Backspace is it? After a press inside the armed editor the keys are the editor's, also
-  // when that press left the focus on <body>: a palette entry or a list entry has nothing focusable
-  // under it, and the armed node's wrapper no longer catches the focus (board-flow.tsx,
-  // ARMED_FIELDS). React Flow's delete key acts on <body>. The armed node is not deletable, but
-  // another node or arrow that is selected would go (measured). "Inside the armed editor" is the
-  // armed node's body AND the overlay layer (ARMED_EDITOR in board-arming.ts): an overlaid editor
-  // lies outside its node, and counted by the node's body alone its presses were nobody's (measured:
-  // Backspace after a press on its palette deleted the other selected node). The toolbar's delete
-  // button is a press of its own, outside the editor, and passes
-  const { armedId: armedNow } = board;
-  const onBeforeDelete = useCallback(
-    (): Promise<boolean> =>
-      Promise.resolve(
-        !(
-          armedNow() !== null &&
-          lastPressInEditor.current &&
-          document.activeElement === document.body
-        ),
-      ),
-    [armedNow],
-  );
+  const { onPress, onClickFirst, onClickLast, duringForeignClick, onBeforeDelete, isForeignClick } =
+    useClickOwnership(board, flowStore);
 
-  // Keys stay on the canvas (scope "board"). React Flow listens on the document: Delete and
-  // Backspace delete the selection wherever the focus is, Space is taken from every element that
-  // is no button. So its own key codes are switched off below and the board answers the keys
-  // itself, on the element that holds the nodes (the pane), which takes the focus with a click on
-  // the board or a Tab into it. The pane and not the board's root: the layer of an armed editor is
-  // a child of the root, and a press on a part of that editor that cannot take the focus has to
-  // leave the focus on <body> (board-flow.tsx, ARMED_FIELDS), not on a focusable ancestor.
   const ownKeys = board.inputScope === "board";
   const reactFlow = useReactFlow<BoardFlowNode, BoardFlowEdge>();
   const boardElement = useStore(selectBoardElement);
-  const { arming, undoRedoKeys } = board;
-  useEffect(() => {
-    const pane = ownKeys ? boardElement?.querySelector<HTMLElement>(".react-flow__pane") : null;
-    if (!pane) return undefined;
-    pane.tabIndex = 0;
-    pane.setAttribute("aria-label", "Board");
-    const onKeyDown = (event: KeyboardEvent): void => {
-      // a keydown without a key (browser autofill dispatches one) is nobody's
-      if (event.defaultPrevented || typeof event.key !== "string") return;
-      const { target } = event;
-      // a field of the board (a note's editor, a label's input) and an armed node keep their keys
-      if (
-        !(target instanceof Element) ||
-        target.closest("input, textarea, select, [contenteditable], .nokey")
-      )
-        return;
-      // a board that moves takes no key: not the delete key for the node the double-click selected, either
-      if (arming.state().moving) return;
-      const command = event.ctrlKey || event.metaKey;
-      if (!command && !event.altKey && (event.key === "Delete" || event.key === "Backspace")) {
-        const state = flowStore.getState();
-        const nodes = state.nodes.filter((node) => node.selected);
-        const selectedEdges = state.edges.filter((edge) => edge.selected);
-        if (nodes.length === 0 && selectedEdges.length === 0) return;
-        event.preventDefault();
-        void reactFlow.deleteElements({ nodes, edges: selectedEdges });
-        flowStore.setState({ nodesSelectionActive: false });
-        // the node that had the focus may be the one that goes: the next key is the board's again
-        pane.focus({ preventScroll: true });
-        return;
-      }
-      if (command && !event.altKey && undoRedoKeys) {
-        const key = event.key.toLowerCase();
-        const undo = key === "z" && !event.shiftKey;
-        const redo = (key === "z" && event.shiftKey) || (key === "y" && !event.shiftKey);
-        if (!undo && !redo) return;
-        event.preventDefault();
-        if (undo) store.undo.undo();
-        else store.undo.redo();
-      }
-    };
-    pane.addEventListener("keydown", onKeyDown);
-    return () => {
-      pane.removeEventListener("keydown", onKeyDown);
-      pane.removeAttribute("tabindex");
-      pane.removeAttribute("aria-label");
-    };
-  }, [ownKeys, boardElement, arming, undoRedoKeys, flowStore, reactFlow, store]);
+  useCanvasKeys(board, flowStore, reactFlow, boardElement);
 
   const { onNodesChange: applyNodes, onEdgesChange: applyEdges } = flow;
   const onNodesChange = useCallback<OnNodesChange<BoardFlowNode>>(
@@ -376,7 +244,7 @@ function Canvas() {
         }
       }}
       onPaneClick={(event) => {
-        if (notOurs.current !== event.nativeEvent) void arm(null, { source: "pane" });
+        if (!isForeignClick(event)) void arm(null, { source: "pane" });
       }}
       connectionMode={ConnectionMode.Loose}
       minZoom={0.1}

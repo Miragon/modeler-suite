@@ -53,53 +53,17 @@
  * GOING BACK (armreturn=back). Done, a pane click and the hook's arm(null) bring the board back to
  * where it stood before the arming moved it: the node is a preview first, then the board moves.
  */
-import type { Point } from "@miragon/board-schema-model";
-import { flushSync } from "react-dom";
+import { ARM_MARGIN, ARM_ZOOM_TOLERANCE, resolveRules } from "./arm-rules.js";
+import type { ArmingHost, BoardArming, FlowStore } from "./arming-api.js";
+import { createArmMotion } from "./arming-motion.js";
+import { armPlacement } from "./arming-placement.js";
+import { createArmingState } from "./arming-state.js";
+import { createArmTransitions } from "./arming-transitions.js";
+import { createViewportWatch } from "./viewport-watch.js";
+import { createZoomGuards } from "./zoom-guards.js";
 
-import { screenRect } from "../geometry.js";
-import {
-  ARM_MARGIN,
-  ARM_ZOOM_TOLERANCE,
-  armViewport,
-  parseDuration,
-  parseEase,
-  resolveRules,
-  sameViewport,
-  viewportBetween,
-  wheelChangesZoom,
-} from "./arm-rules.js";
-import { inArmedEditor } from "./armed-editor.js";
-import type {
-  ArmBy,
-  ArmingHost,
-  ArmPolicy,
-  ArmTransition,
-  BoardArming,
-  FlowStore,
-} from "./arming-api.js";
-import type { ArmAnchor, Viewport } from "./types.js";
-
-/** how long a move takes and how it eases: the design system's tokens, read off the page */
-const MOTION_TOKEN = "--cd-motion-base";
-const EASE_TOKEN = "--cd-ease";
-/** transitions kept for hooks.transitions() */
-const KEPT = 200;
-/** moves in a row for one arming: the first, and two more looks at a box that changed under it */
-const MOVES_AT_MOST = 3;
-
-interface Move {
-  record: ArmTransition;
-  started: number;
-  /** what this move wrote last: the board standing anywhere else is someone else's doing */
-  last: Viewport;
-  frame: number;
-  end(interrupted: boolean, record: ArmTransition): void;
-}
-
-// eslint-disable-next-line max-lines-per-function -- port: split by P1
 export function createBoardArming(host: ArmingHost, flowStore: FlowStore): BoardArming {
   const { params } = host;
-  const counters = host.counters.arm;
   const given = {
     armzoom: params.armzoom,
     armedzoom: params.armedzoom,
@@ -107,312 +71,26 @@ export function createBoardArming(host: ArmingHost, flowStore: FlowStore): Board
   };
   const rulesOf = (_nodeId: string) => resolveRules(given);
 
-  const token = (name: string): string =>
-    getComputedStyle(document.documentElement).getPropertyValue(name);
-  const motion = (): Pick<ArmPolicy, "motion" | "motionFrom"> => {
-    if (params.armmotion !== null) return { motion: params.armmotion, motionFrom: "url" };
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-      return { motion: 0, motionFrom: "reduced-motion" };
-    // a page without the token moves at once: no duration of this module's own
-    return { motion: parseDuration(token(MOTION_TOKEN)) ?? 0, motionFrom: "token" };
-  };
-
-  const viewport = (): Viewport => {
-    const [x, y, zoom] = flowStore.getState().transform;
-    return { x, y, zoom };
-  };
-  /** this module is writing the viewport: not a zoom to guard against */
-  let writing = false;
-  /** at once: React Flow applies a viewport without a duration inside the call */
-  const write = (to: Viewport): void => {
-    writing = true;
-    try {
-      void flowStore.getState().panZoom?.setViewport(to);
-    } finally {
-      writing = false;
-    }
-  };
-
-  /**
-   * The viewport `nodeId` is armed at, null while the board or the node is not measured. True
-   * screen geometry (native-geometry.ts): the board's viewport is in real px, also while the
-   * `shim` strategy gives another node's editor a virtual space. `anchorKind` is the arming's,
-   * also in a look that has no pointer any more (`point` undefined).
-   */
-  const placement = (
-    nodeId: string,
-    point: Point | undefined,
-    anchorKind: ArmAnchor,
-  ): Viewport | null => {
-    const state = flowStore.getState();
-    const node = state.nodeLookup.get(nodeId);
-    const width = node?.measured.width ?? node?.width ?? 0;
-    const height = node?.measured.height ?? node?.height ?? 0;
-    if (
-      !node ||
-      !state.panZoom ||
-      !state.domNode ||
-      !(width > 0) ||
-      !(height > 0) ||
-      !(state.width > 0)
-    )
-      return null;
-    const now = viewport();
-    const frame = screenRect(state.domNode);
-    // clear of the toolbar: the box a node may use begins under the toolbar's band. The band is the
-    // same before and after the arming: the toolbar's Done control keeps one box in both states
-    const toolbar = state.domNode.querySelector(".board-toolbar");
-    const band = toolbar ? Math.max(0, screenRect(toolbar).bottom - frame.top) : 0;
-    const { x, y } = node.internals.positionAbsolute;
-    return armViewport({
-      viewport: now,
-      node: { x, y, width, height },
-      box: { x: 0, y: band, width: state.width, height: state.height - band },
-      anchor: point
-        ? { x: point.x - frame.left, y: point.y - frame.top }
-        : { x: now.x + (x + width / 2) * now.zoom, y: now.y + (y + height / 2) * now.zoom },
-      anchorKind,
-      rule: rulesOf(nodeId).armzoom,
-    });
-  };
-
-  // ── the move ──
-
-  let move: Move | null = null;
-  let serial = 0;
-  const records: ArmTransition[] = [];
-
-  /** ends the running move where the board stands; `interruptedBy` when it did not reach its target */
-  const finish = (interruptedBy?: string): void => {
-    const current = move;
-    if (!current) return;
-    move = null;
-    cancelAnimationFrame(current.frame);
-    const { record } = current;
-    record.running = false;
-    record.interrupted = interruptedBy !== undefined;
-    if (interruptedBy !== undefined) record.interruptedBy = interruptedBy;
-    record.end = viewport();
-    record.measuredMs = performance.now() - current.started;
-    current.end(record.interrupted, record);
-  };
-
-  const run = (
-    purpose: ArmTransition["purpose"],
-    nodeId: string,
-    by: string,
-    to: Viewport,
-    end: Move["end"],
-    anchor?: ArmAnchor,
-  ): void => {
-    const from = viewport();
-    const askedMs = motion().motion;
-    const record: ArmTransition = {
-      id: ++serial,
-      purpose,
-      nodeId,
-      by,
-      ...(anchor ? { anchor } : {}),
-      from,
-      to,
-      end: from,
-      askedMs,
-      measuredMs: 0,
-      writes: 0,
-      running: true,
-      interrupted: false,
-      armed: false,
-    };
-    records.push(record);
-    if (records.length > KEPT) records.shift();
-    counters.transitions++;
-    const ease = parseEase(token(EASE_TOKEN));
-    const current: Move = { record, started: performance.now(), last: from, frame: 0, end };
-    move = current;
-    const step = (): void => {
-      if (move !== current) return;
-      if (!sameViewport(viewport(), current.last)) {
-        finish("foreign");
-        return;
-      }
-      const t = askedMs > 0 ? (performance.now() - current.started) / askedMs : 1;
-      write(t >= 1 ? to : viewportBetween(from, to, ease(t)));
-      record.writes++;
-      current.last = viewport();
-      if (t >= 1) finish();
-      else current.frame = requestAnimationFrame(step);
-    };
-    // 0 ms: one write, inside this call
-    if (askedMs > 0) current.frame = requestAnimationFrame(step);
-    else step();
-  };
-
-  // ── arming and disarming ──
-
-  /** armreturn=back: where the board stood before the arming of `nodeId` moved it */
-  let home: { nodeId: string; viewport: Viewport } | null = null;
-  /** the arming a running move belongs to: a second request for the same node joins it */
-  let arming: { nodeId: string; settled: Promise<void> } | null = null;
-  /** `&arm=<nodeId>` under a rule that may move the board: armed once the board and the node are measured */
-  let urlPending = params.arm !== null && host.isModel(params.arm) && host.armedId() !== params.arm;
-
-  /** what the page shows of an armed node: its frame's flag, or a host that is still in the overlay layer */
-  const STILL_ARMED = '.board-node[data-armed="true"], .board-overlay-layer > .board-engine';
-  /** a preview when this returns: React commits inside the call, and with it the surface's own disarm */
-  const disarmNow = (): void => {
-    flushSync(() => host.setArmedId(null));
-    // the check behind counters().arm.lateDisarms: it stays 0 while the commit is synchronous
-    if (document.querySelector(STILL_ARMED) !== null) counters.lateDisarms++;
-  };
-
-  const armNode = (nodeId: string, by: ArmBy): Promise<void> => {
-    if (move?.record.purpose === "arm" && arming?.nodeId === nodeId) return arming.settled;
-    if (move) finish("arm");
-    if (host.armedId() === nodeId) return Promise.resolve();
-    // fixed here for the whole arming: every look at the target is taken with it
-    const anchorKind: ArmAnchor = by.point ? "pointer" : "centre";
-    const target =
-      rulesOf(nodeId).armzoom === "off" ? null : placement(nodeId, by.point, anchorKind);
-    if (target === null || sameViewport(target, viewport())) {
-      // nothing to move: armed at once, as before the rules
-      home = null;
-      host.setArmedId(nodeId);
-      return Promise.resolve();
-    }
-    // the node that is armed becomes a preview before the first write, as a pane click makes it one
-    if (host.armedId() !== null) disarmNow();
-    home = { nodeId, viewport: viewport() };
-    const settled = new Promise<void>((resolve) => {
-      const go = (to: Viewport, moves: number): void => {
-        const arrived = (interrupted: boolean, record: ArmTransition): void => {
-          if (interrupted) {
-            home = null;
-            resolve();
-            return;
-          }
-          // The box may have changed under the move (a window resize), or the node may be gone.
-          // No pointer in this look: the zoom is the rule's already, so no anchor is needed, and
-          // the arming's own kind keeps a node the pointer placed where the pointer put it
-          const again = host.isModel(nodeId) ? placement(nodeId, undefined, anchorKind) : null;
-          if (again === null) {
-            record.interrupted = true;
-            record.interruptedBy = "gone";
-            home = null;
-            resolve();
-            return;
-          }
-          if (!sameViewport(again, viewport()) && moves < MOVES_AT_MOST) {
-            go(again, moves + 1);
-            return;
-          }
-          // in the same task as the last write: the editor mounts its armed layout at this viewport
-          flushSync(() => host.setArmedId(nodeId));
-          record.armed = true;
-          resolve();
-        };
-        run("arm", nodeId, by.source, to, arrived, anchorKind);
-      };
-      go(target, 1);
-    });
-    arming = { nodeId, settled };
-    return settled;
-  };
-
-  const disarm = (by: ArmBy): Promise<void> => {
-    if (move) finish("disarm");
-    const armedId = host.armedId();
-    if (armedId === null) return Promise.resolve();
-    const back =
-      rulesOf(armedId).armreturn === "back" &&
-      (by.source === "done" || by.source === "pane" || by.source === "hook") &&
-      home?.nodeId === armedId
-        ? home.viewport
-        : null;
-    home = null;
-    if (back === null || sameViewport(back, viewport())) {
-      host.setArmedId(null);
-      return Promise.resolve();
-    }
-    // a preview first, then the board moves: no editor sees a zoom step
-    disarmNow();
-    return new Promise((resolve) => run("return", armedId, by.source, back, () => resolve()));
-  };
-
-  // ── the zoom under an armed node ──
-
-  /** a button is down on a press that began in the armed editor */
-  let pressHeld = false;
-
-  /** the zoom is about to change by a gesture the board sees coming: true when it may */
-  const zoomComes = (): boolean => {
-    const armedId = host.armedId();
-    if (armedId === null) return true;
-    const { armedzoom } = rulesOf(armedId);
-    if (armedzoom === "free") return true;
-    if (armedzoom === "lock" || pressHeld) {
-      counters.zoomsRefused++;
-      return false;
-    }
-    disarmNow();
-    // a disarm by a zoom never goes back
-    home = null;
-    counters.disarmsBeforeZoom++;
-    return true;
-  };
-
-  const onWheel = (event: WheelEvent): void => {
-    const { target } = event;
-    // d3-zoom listens on the renderer and passes over what lies in a `nowheel` element: no other wheel is the board's
-    if (
-      !(target instanceof Element) ||
-      !target.closest(".react-flow__renderer") ||
-      target.closest(".nowheel")
-    )
-      return;
-    if (move) {
-      // the person's: the board zooms from where it stands, nothing is armed
-      finish("wheel");
-      return;
-    }
-    const { transform, minZoom, maxZoom } = flowStore.getState();
-    if (!wheelChangesZoom(transform[2], event.deltaY, minZoom, maxZoom)) return;
-    if (zoomComes()) return;
-    // refused: not to d3-zoom, and no page zoom for a pinch
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
-  const onBoardPress = (): void => {
-    // a press on the board while it moves: the person takes over, the press goes on as what it is
-    if (move) finish("pointer");
-  };
-
-  const onPress = (event: PointerEvent): void => {
-    pressHeld = host.armedId() !== null && inArmedEditor(event.target);
-  };
-  const onRelease = (): void => {
-    pressHeld = false;
-  };
-
-  const MODIFIERS = new Set(["Shift", "Control", "Alt", "Meta"]);
-  /** the board's own element, while the guards are attached */
-  let boardElement: HTMLElement | null = null;
-  const onKey = (event: KeyboardEvent): void => {
-    if (!move || MODIFIERS.has(event.key)) return;
-    const { target } = event;
-    // scope "board": a key aimed at a control beside the board is the page's, also while the board moves
-    if (host.inputScope === "board" && !(target instanceof Node && boardElement?.contains(target)))
-      return;
-    // a text field elsewhere on the page keeps its keys
-    if (
-      target instanceof HTMLElement &&
-      (target.isContentEditable || target.matches("input, textarea, select"))
-    )
-      return;
-    if (event.key === "Escape") finish("key");
-    // a board that moves takes no key: not the delete key for the node the double-click selected, either
-    event.stopPropagation();
-  };
+  const state = createArmingState(host);
+  const armMotion = createArmMotion(host, flowStore, state);
+  const { motion, viewport, finish } = armMotion;
+  const placement = armPlacement(flowStore, viewport, rulesOf);
+  const { disarmNow, armNode, disarm } = createArmTransitions(
+    host,
+    state,
+    rulesOf,
+    placement,
+    armMotion,
+  );
+  const { zoomComes, attach } = createZoomGuards(
+    host,
+    flowStore,
+    state,
+    rulesOf,
+    finish,
+    disarmNow,
+  );
+  const watch = createViewportWatch(host, flowStore, state, rulesOf, disarmNow, armNode);
 
   return {
     policy(nodeId) {
@@ -429,128 +107,29 @@ export function createBoardArming(host: ArmingHost, flowStore: FlowStore): Board
     },
 
     beforeZoom(changes) {
-      if (move) finish("zoom");
+      if (state.move) finish("zoom");
       return changes ? zoomComes() : true;
     },
 
     state: () => ({
       armed: host.armedId(),
-      moving: move !== null,
-      target: move?.record.purpose === "arm" ? move.record.nodeId : null,
-      urlPending,
+      moving: state.move !== null,
+      target: state.move?.record.purpose === "arm" ? state.move.record.nodeId : null,
+      urlPending: state.urlPending,
     }),
     lastTransition: () => {
-      const last = records[records.length - 1];
+      const last = state.records[state.records.length - 1];
       return last ? { ...last } : null;
     },
-    transitions: () => records.map((record) => ({ ...record })),
+    transitions: () => state.records.map((record) => ({ ...record })),
     whenRest: () =>
       new Promise((resolve) => {
         const look = (): void =>
-          void requestAnimationFrame(move || urlPending ? look : () => resolve());
+          void requestAnimationFrame(state.move || state.urlPending ? look : () => resolve());
         look();
       }),
 
-    watch() {
-      let undoing = false;
-      /** the board has its first viewport: the one of the URL, or the first fit */
-      let stands = false;
-      const off = flowStore.subscribe((state, previous) => {
-        if (!stands) {
-          // finding that first viewport is the board loading, not a zoom under an armed node (`&arm=` with armzoom=off)
-          stands = previous.panZoom !== null && !previous.fitViewQueued;
-          if (!stands) return;
-        }
-        if (state.transform === previous.transform || writing || undoing) return;
-        const before = previous.transform[2];
-        // a pan never disarms
-        if (state.transform[2] === before) return;
-        const armedId = host.armedId();
-        if (armedId === null) return;
-        const { armedzoom } = rulesOf(armedId);
-        if (armedzoom === "free") {
-          counters.armedZoomTicks++;
-          return;
-        }
-        if (state.fitViewQueued) {
-          // React Flow runs a fit inside a layout effect, where React cannot flush: disarmed, but
-          // only with React's next commit. The board's own Fit button never comes by here: it asks
-          // first (beforeZoom). Counted as late, so a fit by any other caller shows
-          host.setArmedId(null);
-          home = null;
-          counters.disarmsAtTick++;
-          counters.lateDisarms++;
-          return;
-        }
-        if (armedzoom === "lock" || pressHeld) {
-          // not seen coming, so undone: inside this tick, before a surface hears of it
-          undoing = true;
-          try {
-            void state.panZoom?.setViewport({
-              x: previous.transform[0],
-              y: previous.transform[1],
-              zoom: before,
-            });
-          } finally {
-            undoing = false;
-          }
-          counters.zoomsRefused++;
-          counters.zoomsUndone++;
-          return;
-        }
-        disarmNow();
-        home = null;
-        counters.disarmsAtTick++;
-      });
-
-      // `&arm=`: through the rule, once the first fit is through and the node's editor is up
-      let frame = 0;
-      const tryUrl = (): void => {
-        const nodeId = params.arm;
-        if (!urlPending || nodeId === null) return;
-        const state = flowStore.getState();
-        const measured = state.nodeLookup.get(nodeId)?.measured.width !== undefined;
-        if (
-          !state.panZoom ||
-          state.fitViewQueued ||
-          !measured ||
-          host.mounted(nodeId) === undefined
-        ) {
-          frame = requestAnimationFrame(tryUrl);
-          return;
-        }
-        void armNode(nodeId, { source: "url" }).finally(() => void (urlPending = false));
-      };
-      if (urlPending) frame = requestAnimationFrame(tryUrl);
-
-      return () => {
-        off();
-        cancelAnimationFrame(frame);
-      };
-    },
-
-    attach(container) {
-      const capture = { capture: true } as const;
-      boardElement = container;
-      // not passive: a refused wheel is prevented. Capture on the board's element: before d3-zoom's listener on the renderer
-      container.addEventListener("wheel", onWheel, { capture: true, passive: false });
-      container.addEventListener("pointerdown", onBoardPress, capture);
-      window.addEventListener("pointerdown", onPress, capture);
-      window.addEventListener("pointerup", onRelease, capture);
-      window.addEventListener("pointercancel", onRelease, capture);
-      // a press whose release went to another window
-      window.addEventListener("blur", onRelease);
-      window.addEventListener("keydown", onKey, capture);
-      return () => {
-        container.removeEventListener("wheel", onWheel, capture);
-        container.removeEventListener("pointerdown", onBoardPress, capture);
-        window.removeEventListener("pointerdown", onPress, capture);
-        window.removeEventListener("pointerup", onRelease, capture);
-        window.removeEventListener("pointercancel", onRelease, capture);
-        window.removeEventListener("blur", onRelease);
-        window.removeEventListener("keydown", onKey, capture);
-        boardElement = null;
-      };
-    },
+    watch,
+    attach,
   };
 }
