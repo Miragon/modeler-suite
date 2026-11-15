@@ -1,0 +1,28 @@
+{
+  "name": "@miragon/board-renderer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "View and edit a board in the browser: a canvas of a repository's own files that implements @miragon/modeler-api.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "npm --prefix ../.. run test"
+  },
+  "dependencies": {
+    "@miragon/board-schema-model": "0.0.0",
+    "yjs": "13.6.33"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}
