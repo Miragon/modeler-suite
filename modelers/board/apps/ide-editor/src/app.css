@@ -1,0 +1,22 @@
+/*
+ * The board under the suite's shell. The board keeps its own toolbar (Done, the add actions, the
+ * model picker, delete, the notices) and the shell brings the menu, the zoom panel and the
+ * status box. Three rules make one picture of the two, and they are all this sheet may hold:
+ * every other look of the board is the renderer's.
+ */
+
+/* The toolbar starts where the shell's top row is free of the menu trigger. */
+.cd-shell .board-root .board-toolbar {
+  margin-left: var(--cd-shell-frei);
+}
+
+/* One zoom control: the shell's panel, which steps on the raster of every other modeler. */
+.cd-shell .board-root .board-toolbar__group[aria-label="Zoom"] {
+  display: none;
+}
+
+/* React Flow's attribution stays in sight: above the zoom panel, whose corner it would share. */
+.cd-shell .board-root .react-flow__attribution {
+  right: var(--cd-shell-rand);
+  bottom: calc(var(--cd-shell-rand) + var(--cd-shell-zeile) + var(--cd-shell-luecke));
+}

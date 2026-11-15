@@ -1,7 +1,8 @@
 /**
  * What stands on the canvas and reads the host (src/canvas/toolbar.tsx, board-gestures.tsx,
  * board-presence.tsx, src/flow/board-flow.tsx): the model picker, the image actions, the Done
- * control, the arrows derived from the host's references, and the presence layer.
+ * control, the two rules a host's sheet may put on the toolbar, the arrows derived from the
+ * host's references, and the presence layer.
  */
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -282,6 +283,70 @@ describe("the Done control", () => {
       expect(host.events.at(-1)).toMatchObject({ event: "armed", armed: false });
     },
   );
+});
+
+describe("a host with chrome of its own", () => {
+  // The two rules a host's sheet may put on the toolbar (the DOM contract of the guide): a start
+  // margin that clears the host's own control in that corner, and the Zoom group hidden where the
+  // host has a zoom control of its own. apps/ide-editor writes them under the shell's root.
+  const HOST_RULES = `
+    .board-root .board-toolbar { margin-left: 64px; }
+    .board-root .board-toolbar__group[aria-label="Zoom"] { display: none; }
+  `;
+
+  it("may give the toolbar a start margin and hide its Zoom group: the Done control keeps its size and the toolbar its band", async () => {
+    const board = await mount(BOARD_A);
+    const toolbar = within<HTMLElement>(board, ".board-toolbar");
+    const done = within<HTMLElement>(board, "[data-board-done]");
+    const zoom = within<HTMLElement>(board, '.board-toolbar__group[aria-label="Zoom"]');
+    const add = within<HTMLElement>(board, '.board-toolbar__group[aria-label="Add to the board"]');
+    const left = (): number => board.element.getBoundingClientRect().left;
+    const before = {
+      toolbar: toolbar.getBoundingClientRect(),
+      done: done.getBoundingClientRect(),
+      add: add.getBoundingClientRect(),
+      zoom: zoom.getBoundingClientRect(),
+    };
+    // as the board draws it alone: React Flow's panel margin, and the Zoom group in sight
+    expect(before.toolbar.left - left()).toBe(15);
+    expect(zoom.checkVisibility()).toBe(true);
+    expect(before.zoom.width).toBeGreaterThan(0);
+
+    const rules = document.createElement("style");
+    rules.textContent = HOST_RULES;
+    document.head.append(rules);
+    try {
+      const after = {
+        toolbar: toolbar.getBoundingClientRect(),
+        done: done.getBoundingClientRect(),
+        add: add.getBoundingClientRect(),
+      };
+      // the toolbar starts at the margin
+      expect(after.toolbar.left - left()).toBe(64);
+      // the Zoom group is not rendered: no box, and nothing of it takes a place in the toolbar
+      expect(zoom.checkVisibility()).toBe(false);
+      expect(zoom.getClientRects()).toHaveLength(0);
+      expect(within<HTMLElement>(board, "[data-board-zoom]").getClientRects()).toHaveLength(0);
+      // 12 px is the toolbar's gap, which went with the group
+      expect(before.toolbar.width - after.toolbar.width).toBeCloseTo(before.zoom.width + 12, 3);
+      // the Done control keeps its size and still leads the toolbar, the add actions right behind it
+      expect([after.done.width, after.done.height]).toEqual([
+        before.done.width,
+        before.done.height,
+      ]);
+      expect(after.done.left - after.toolbar.left).toBe(before.done.left - before.toolbar.left);
+      expect(after.add.left - after.done.right).toBeCloseTo(12, 3);
+      expect(after.add.width).toBe(before.add.width);
+      // the band the arm rules keep free is the one it was: one row, the same top and bottom edge
+      expect(after.toolbar.top).toBe(before.toolbar.top);
+      expect(after.toolbar.bottom).toBe(before.toolbar.bottom);
+    } finally {
+      rules.remove();
+    }
+    // without the rules the board is as it was
+    expect(toolbar.getBoundingClientRect().left - left()).toBe(15);
+    expect(zoom.checkVisibility()).toBe(true);
+  });
 });
 
 describe("the arrows derived from the host's references", () => {

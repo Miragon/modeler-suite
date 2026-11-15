@@ -7,11 +7,16 @@ images, groups and arrows. The board stores where a file sits, never what is in 
 [React Flow](https://github.com/xyflow/xyflow) (`@xyflow/react`, MIT) on React, not diagram-js: it
 lays out HTML nodes that hold whole editors.
 
-**Work in progress.** The board was built and measured in designIQ
-(`apps/web/src/notations/board` there, at commit `ce12684`), and its canvas was moved here as it
-was measured. The move is done and was reviewed. Of the apps around the board the first
-increment is in the tree: a web app that shows an example repository in memory, with the seven
-modelers of the suite as the editors of its model nodes. There is no VS Code extension yet.
+**Work in progress.** The board was built and measured in designIQ (`apps/web/src/notations/board`
+there, at commit `ce12684`), and its canvas was moved here as it was measured. The move is done and
+was reviewed. Of the apps around the board two increments are in the tree. The first is a web app
+that shows an example repository in memory, with the seven modelers of the suite as the editors of
+its model nodes. The second is a VS Code extension: a `.board` file opens in a custom editor inside
+the suite's shell, and the models of the workspace are edited in place through VS Code's own text
+documents. It packs into a VSIX. The extension was built against stand-ins for VS Code and then
+run in a real one, in the suite's Docker runner: its smoke passes there on VS Code 1.146.0 and on
+1.96.0, and what the code takes for granted about VS Code was walked through item by item, with
+what was seen under [Taken for granted about VS Code](#taken-for-granted-about-vs-code).
 [State of the port](#state-of-the-port) says what is in the tree, what was run on it and what is
 still to come.
 
@@ -25,27 +30,30 @@ from the repository root as `npm run board <script>`, or as `npm run <script>` i
 ## State of the port
 
 In the tree: `schema-model`; the renderer with its document half (`store/`, `host/`,
-`arming/arm-rules.ts`, `arming/types.ts`), the canvas, moved from designIQ and cut over to the
-host interface (every other folder of `packages/renderer/src`), the contract factory with the
-options `host` and `liveDocument`, and the stylesheet on the design system's roles;
-`CONTRIBUTING.md` and `.claude/rules/package-json-fixed-versions.md`. With the first increment of
-the apps: `packages/files` and `packages/host` (what every host of a board shares),
-`apps/editors` (the seven modelers of the suite as the editors of model nodes), `apps/webapp` on
-the example repository `example/`, and `e2e/` with the project `webapp`. That increment changed
-no file of `packages/renderer/src` or `packages/schema-model/src`. 38 unit files with 734 tests,
-23 browser files with 784 tests, and 2 Playwright tests.
+`arming/arm-rules.ts`, `arming/types.ts`), the canvas, moved from designIQ and cut over to the host
+interface (every other folder of `packages/renderer/src`), the contract factory with the options
+`host` and `liveDocument`, and the stylesheet on the design system's roles; `CONTRIBUTING.md` and
+`.claude/rules/package-json-fixed-versions.md`. With the first increment of the apps:
+`packages/files` and `packages/host` (what every host of a board shares), `apps/editors` (the seven
+modelers of the suite as the editors of model nodes), `apps/webapp` on the example repository
+`example/`, and `e2e/` with the project `webapp`. With the second: `apps/ide-editor` (the board
+inside the suite's shell), `apps/vscode` (the extension, a host half in Node and a webview half),
+the webview test page `e2e/webview` with the project `vscode-webview`, and a files port that is fit
+for a disk (`PROTOCOL` 2). Neither increment changed a file of `packages/renderer/src` or
+`packages/schema-model/src`. 61 unit files with 1147 tests, 24 browser files with 825 tests, 19
+Playwright tests, and the smoke of the extension in a real VS Code.
 
-Read the browser count by what it stands on. 661 tests are the renderer's: 297 run the arm rules
-on a bench of fakes (73 scripts, each run once and read by four tests, plus five), 82 hold static
-markup under the sheet, 7 a bare React Flow, 73 are the contract's kit, 201 are in the eleven
-files that mount a board, and one holds a filter of the test support. Every editor in them is the
-recording stand-in of `createTestHost` and every input is synthetic, which ignores `inert`: none
-of them can fail when a preview takes real input or when the pointer math of an armed editor is
-off. That is held outside the renderer, with real mouse and keyboard input
-(`commands.realInput`): 57 tests of `packages/host` (8 of the command itself, 49 on a stand-in
-modeler of the contract that draws boxes, alone and on the real board), 53 of `apps/editors` (49
-with the seven real modelers on a board, 2 for the order of their sheets, 2 for the watch the
-battery ends every test on) and 13 of `apps/webapp`.
+Read the browser count by what it stands on. 662 tests are the renderer's: 297 run the arm rules on
+a bench of fakes (73 scripts, each run once and read by four tests, plus five), 82 hold static
+markup under the sheet, 7 a bare React Flow, 73 are the contract's kit, 202 are in the eleven files
+that mount a board, and one holds a filter of the test support. Every editor in them is the
+recording stand-in of `createTestHost` and every input is synthetic, which ignores `inert`: none of
+them can fail when a preview takes real input or when the pointer math of an armed editor is off.
+That is held outside the renderer, with real mouse and keyboard input (`commands.realInput`): 66
+tests of `packages/host` (8 of the command itself, 58 on a stand-in modeler of the contract that
+draws boxes, alone and on the real board), 53 of `apps/editors` (49 with the seven real modelers on
+a board, 2 for the order of their sheets, 2 for the watch the battery ends every test on), 14 of
+`apps/webapp` and 30 of `apps/ide-editor` (the board under the shell's real `mountShell`).
 
 **After the move, a review.** Seven reviewers looked for what is wrong with the moved board. What
 they found is fixed and under a test, or stands under [Deferred](#deferred) as it was measured.
@@ -61,37 +69,56 @@ runs only under `BoardProvider`); `placeHost` takes the board's log and `createI
 `callEditor`, and `gestures/images.ts` exports `setBoardEnded`, which the factory's `destroy()`
 calls.
 
-**What was run, and what was not.** On the machine the first increment of the apps was
-integrated on (the Miragon agent VM), with the tree as it stands:
+**What was run, and what was not.** On the machine the second increment of the apps was integrated
+on (the Miragon agent VM), with the tree as it stands:
 
-- `npm run board lint`, `test` (38 files, 734 tests), `depcruise` (no violation, with and without a
-  built web app in the tree) and `format:check` pass; so do the root tests
-  `test/modeler-boundaries.test.ts` and `test/release-config.test.ts` (82 tests), and the checksums
-  of the theme files verify.
-- The whole browser project passes five runs in a row through the local sandbox config (23 files,
-  784 tests each; see [Commands](#commands)), one shuffled run and one run on a cold Vite cache.
-  Before the review's fixes, at 774 tests, it also passed four shuffled runs and twelve runs with
-  three at once.
-- The e2e project passes three runs in a row through the local Playwright sandbox config (2 tests
-  each), on the dev server it starts.
-- `npm run board build:webapp` and the web app's `check:build` pass, and the dev server serves its
-  page and its modules on port 5184.
-- No Chromium command line carried `--no-sandbox` in any sample of the process table taken during
-  these runs. While the work packages of the increment ran side by side, one system-wide sample
-  showed 160 of 448 Chromium command lines with the flag. The run it came from was not found; a
-  sample attributed by parent chain to the board's own runs at that time had none.
+- `npm run board lint`, `test` (61 files, 1147 tests), `depcruise` (no violation, with and without
+  a built web app in the tree, and with a built extension) and `format:check` pass; so do the root
+  tests `test/modeler-boundaries.test.ts` and `test/release-config.test.ts` (82 tests), and the
+  checksums of the theme files verify.
+- The whole browser project passes through the local sandbox config (24 files, 825 tests each; see
+  [Commands](#commands)).
+- Both e2e projects pass through the local Playwright sandbox config, on the dev servers they
+  start: `webapp` (2 tests) and `vscode-webview` (17 tests, two of them on the production bundle,
+  which the spec builds itself).
+- `npm run board build:webapp` and the web app's `check:build` pass. `npm run board build:vscode`
+  and `package:vscode` pass and write `apps/vscode/board-modeler.vsix`: 19 files, 1.01 MB (see
+  [The webview half](#the-webview-half-srcwebview)).
+- **The extension ran in a real VS Code**, inside the suite's Docker runner, which the owner
+  allowed on that machine for exactly this. The smoke passes on VS Code 1.146.0, on 1.96.0 (the
+  manifest's minimum) and with a VSIX packed beforehand
+  ([The smoke in a real VS Code](#the-smoke-in-a-real-vs-code-test-smoke)). What the code takes
+  for granted about VS Code was walked through there on both versions, with real input, a real
+  folder and a probe in the extension host: most of it holds, and where VS Code does something
+  else the code and the fake were changed (what a file watcher names for a folder, a paste, the
+  first fit of a board that is covered, the document of a deleted file). The list has each item
+  with its outcome, and what the runner could not reach
+  ([Taken for granted about VS Code](#taken-for-granted-about-vs-code)). After the closing
+  round's two changes of the host half the smoke passed there once more, on VS Code 1.146.0 and
+  on a snapshot of the tree as it stands. And the way to a VSIX from a checkout was run there
+  once: on a snapshot with no built file in it, `npm ci`, `npm run build:shared` and
+  `npm run board package:vscode` gave a VSIX, and the smoke passed with that file.
+- No Chromium command line outside a container carried `--no-sandbox` in any sample of the process
+  table taken during these runs, nor in any that the parts of the second increment took while they
+  were built; the processes of VS Code inside the runner's container carry the flag, and were
+  counted apart by their cgroup. While the work packages of the first increment ran side by side,
+  one system-wide sample showed 160 of 448 Chromium command lines with the flag. The run it came
+  from was not found; a sample attributed by parent chain to the board's own runs at that time had
+  none.
 - Not run: `npm run board test:browser` and `test:e2e` with the committed configs (that machine
-  must not start Chromium without its sandbox), CI, brand-lint (the `miragon-brand` plugin was not
-  on that machine), designIQ's batteries, and any browser but Chromium. The web app was opened by
-  tests and by the review below, which drove it with Playwright; its owner has not opened it.
+  must not start Chromium without its sandbox), `npm run board test:vscode` outside the Docker
+  runner, CI, brand-lint (the `miragon-brand` plugin was not on that machine), designIQ's
+  batteries, any browser but Chromium, and VS Code on macOS or Windows. The web app was opened by
+  tests and by the review below, which drove it with Playwright; the owner has opened neither the
+  web app nor the extension.
 
-**A review of the increment.** After the increment was integrated, an independent reviewer ran its
-gate again, drove the web app with Playwright's mouse and keyboard (the dev server and the built
-app, at 1600 x 1000, 760 x 600 and 400 x 800, and at a device pixel ratio of 1.25 and 2, in scratch
-specs that are not in the tree), read the code, and tried 17 single edits of the sources and 25
-malformed messages against it. All seven notations passed every step there: the preview, the
-arming, a drag, a label, a delete, Done, a zoom of the board and a reload, each with its own file
-written and never the board's. What the review found:
+**A review of the first increment.** After the first increment was integrated, an independent
+reviewer ran its gate again, drove the web app with Playwright's mouse and keyboard (the dev server
+and the built app, at 1600 x 1000, 760 x 600 and 400 x 800, and at a device pixel ratio of 1.25 and
+2, in scratch specs that are not in the tree), read the code, and tried 17 single edits of the
+sources and 25 malformed messages against it. All seven notations passed every step there: the
+preview, the arming, a drag, a label, a delete, Done, a zoom of the board and a reload, each with
+its own file written and never the board's. What the review found:
 
 - **Fixed, each under a test.** `packages-no-other-modeler` caught an import by a package's name
   only, and nothing kept diagram-js and React out of the host package's sources
@@ -104,43 +131,81 @@ written and never the board's. What the review found:
 - **Under a test now**, where this guide had said without one: a zoom of the board as the end of an
   edit for all seven modelers, a second node on one file, and a change from outside while a real
   editor is armed ([Real editors, as measured](#real-editors-as-measured)).
-- **Named and not changed:** what a page may reach inside the repository's root, which is the
-  owner's to settle before a host with a disk is written (The files port); the notices the web
-  app's build lacks, an armed editor in a window narrower than its node, and the invalid line's
-  advice in a host that has no editor for the file (The web app).
-  **CI and the root scripts with this branch.** The suite has no state for a modeler without a VS
-  Code extension: a pull request with this branch cannot pass `ci-ok`, and on `main` the branch
-  would fail every later pull request. By a reading of the workflows (and, before the apps, a run
-  of `ci-paths.sh`), not by a CI run:
+- **Named and not changed:** the notices the web app's build lacks, an armed editor in a window
+  narrower than its node, and the invalid line's advice in a host that has no editor for the file
+  (The web app; the line's text is the host's since the second increment). What a page may reach
+  inside the repository's root was named as the owner's to settle; the lead of the second increment
+  decided it, and it is built (The files port).
 
-- `shared-test` fails in `npm run test:plugin`: `test/modeler-collection.test.ts` reads
-  `modelers/board/apps/vscode/package.json` and fails while it is collected, so none of its tests
-  runs and its guard for the seven published extensions is off. Nothing else fails in that script
-  (13 files and 289 tests pass here). The job runs for every pull request, a docs-only one too.
-- `modeler-check (board)` has its scripts up to the web app's build and `check:build`, each of
-  which passes here, and fails at `package:vscode` (no such script). `vscode-smoke (board)` fails
-  at `test:vscode` and in the action that reads `apps/vscode/package.json`.
-  `modeler-test-browser (board)` and `modeler-e2e (board)` run the committed browser and
-  Playwright configs, which nobody has run: the machine the apps were built on runs both only
-  through local configs that keep Chromium's sandbox.
+**A review of the second increment.** After the extension had run in a real VS Code, an
+independent reviewer ran the gate again; tried the files channel as a page that is not the
+board's (111 scratch tests against the extension as `activate` registers it on the fake VS Code,
+and 36 of the same messages handed to the real extension in VS Code 1.146.0 and 1.96.0); ran a
+real VS Code in the runner (the kept smoke, five runs of its own on both versions, and once with
+the VSIX installed by `code --install-extension`); drove the webview test page with Playwright's
+mouse and keyboard at 1280 x 800, 900 x 600 and 600 x 800, with each of the seven notations armed
+and edited in place; and held 30 sentences of this guide against the tree. None of its scripts
+is in the tree. It found no way to read or write a file that is no model and no picture. What it
+found:
+
+- **Fixed, each under a test and seen again in the runner.** Through a linked folder a page read
+  and wrote a model, and read a picture, outside the repository: every folder on the way to a
+  file is asked now. A page could write a model larger than a board opens: such a write is
+  refused ([The host half](#the-host-half)).
+- **Named and not changed.** Nothing bounds how many new files a page stores or how many reads it
+  asks for at once, and two names that a folding file system reads as a dot folder
+  ([The files port](#the-files-port-packagesfiles)). An armed model does not fit an editor that
+  is narrower than its node, and the keys do not come back by themselves after a broken text is
+  repaired under an armed model
+  ([The board inside the shell](#the-board-inside-the-shell-appside-editor)). The shell shows any
+  text of a page as a notification, its policy leaves `base-uri` open, and a refused edit into a
+  disposed panel rejects inside it ([Deferred](#deferred)). With the VSIX installed, a `.board`
+  file given on the command line at the first start opens as text
+  ([The smoke in a real VS Code](#the-smoke-in-a-real-vs-code-test-smoke)).
+- **Corrected here**, four sentences the review found untrue: the toolbar's width and where the
+  status box stands under the shell, what the smoke's window is to VS Code, and, in the
+  extension's README, which files a board lists and reaches.
+
+**CI and the root scripts with this branch.** The suite has no state for a modeler that is not
+complete: a pull request with this branch cannot pass `ci-ok`, and on `main` the branch would fail
+every later pull request. By a reading of the workflows (and, before the apps, a run of
+`ci-paths.sh`), not by a CI run:
+
+- `shared-test` fails in `npm run test:plugin`. With `apps/vscode/package.json` in the tree
+  `test/modeler-collection.test.ts` is collected again, so its guard for the seven published
+  extensions is back, and two of its 18 tests fail: `packs miragon-gmbh.board-modeler` ("expected [
+  …(9) ] to include 'miragon-gmbh.board-modeler'") and `walks through miragon-gmbh.board-modeler`
+  ("expected [] to have a length of 1 but got +0"). The board is neither in the extension pack with
+  a walkthrough step nor in `PENDING_FIRST_PUBLISH`. Nothing else fails in that script (13 files
+  and 305 tests pass here). The job runs for every pull request, a docs-only one too. That file and
+  every other root file are the next increment's to change.
+- `modeler-check (board)` has every script it calls (`lint`, `depcruise`, `build`, `test`,
+  `build:webapp`, the web app's `check:build`, `package:vscode`), and each passes here.
+  `vscode-smoke (board)` calls `test:vscode` under `xvfb-run` on VS Code stable and on the
+  manifest's minimum: the smoke passes on both in the Docker runner, and the job itself has not
+  run. `modeler-test-browser (board)`
+  and `modeler-e2e (board)` run the committed browser and Playwright configs, which nobody has run:
+  the machine the apps were built on runs both only through local configs that keep Chromium's
+  sandbox. The committed Playwright config has two projects and two `webServer` entries, and the
+  spec of the shipped bundle reads `packages/shell/dist` and builds the extension itself.
 - After a merge a change of the lockfile reaches every modeler, so every Dependabot pull request
-  runs the board's failing jobs, and the weekly smoke fails every Monday and opens its issue.
-- The board is in the root `modelers` alias: `npm test` stops in `test:shared` before any
-  modeler's unit tests run, `npm run build` fails in `build:apps` at `build:vscode`, and
-  `npm run package:vscode` and `npm run modelers <a script of the extension>` exit 1.
+  runs the board's failing job.
+- The board is in the root `modelers` alias: `npm test` stops in `test:shared` before any modeler's
+  unit tests run.
 
 Business Model Canvas and C4 each arrived complete in one pull request. Either this branch stays
 off `main` until the apps exist, or the suite gets one in-progress marker that `ci-paths.sh`, the
 root `modelers` alias and `test/modeler-collection.test.ts` all read: the owner's to settle.
 
-**Still to come:** `apps/ide-editor` (the board inside the shell), `apps/vscode` with the e2e
-project `vscode-webview`, the Orca plugin, `docs/`, a README per package, a third-party notices
-file for the web app, and the root files a modeler arrives with: the board's rows in the suite's
-`CLAUDE.md` (paths, aliases, the DOM-free table, the commit scopes) and its sentences that are
-untrue with the board in the tree ("all seven", "one notation on diagram-js", "a skipped case or
-an advisory fails the run"), the root `CONTRIBUTING.md` and `README.md`, the issue templates, the
-release-please components and manifest, `.miragon/product-shots.yaml`, the docs site,
-`netlify.toml` and the entry in the modeler collection.
+**Still to come:** the owner's own walk with the VSIX, and what the walk in the runner did not
+reach; the web app inside the shell through `apps/ide-editor`; the Orca plugin, `docs/`, a README per package, the third-party notices of the
+web app and of the extension, the extension's CHANGELOG and icon, and the root files a modeler
+arrives with: the board's rows in the suite's `CLAUDE.md` (paths, aliases, the DOM-free table, the
+commit scopes) and its sentences that are untrue with the board in the tree ("all seven", "one
+notation on diagram-js", "a skipped case or an advisory fails the run"), the root `CONTRIBUTING.md`
+and `README.md`, the issue templates, the release-please components of the workspaces but
+`apps/vscode`, `.miragon/product-shots.yaml`, the docs site, `netlify.toml` and the entry in the
+modeler collection.
 
 **Without a test**: the gestures and behaviours the test README lists under "Without a test",
 among them the group that takes a dragged node, the resize of a model and of an image node, and
@@ -153,82 +218,113 @@ Every workspace is `private`: the modeler publishes nothing to npm. The packages
 TypeScript source (`"exports": { ".": "./src/index.ts" }`), have no `dist`, and `build` is a type
 check.
 
-| Package                       | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                  | DOM |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| `@miragon/board-schema-model` | The file format and its strict reader (`format.ts`), the elements of a board (`types.ts`), their paint order as fractional indices (`order.ts`), what a canvas draws of a snapshot (`view.ts`)                                                                                                                                                                                                                                           | no  |
-| `@miragon/board-renderer`     | The board as a live document on Yjs, its store and actions, the arm rules, the React Flow canvas, the contract factory `createCollaborativeModeler`, the stylesheet (`@miragon/board-renderer/assets/board.css`)                                                                                                                                                                                                                         | yes |
-| `@miragon/board-files`        | The files of a repository as a board's page reads and writes them: the port `BoardFiles`, the protocol between a page and the host that keeps the files, its client (`createFilesClient`) and its server (`serveFiles`, which keeps every path a page sends inside the repository's root), a memory backend, and `connectBackend` for a host whose files are in the page                                                                 | no  |
-| `@miragon/board-host`         | What every host of a board shares: a modeler of `@miragon/modeler-api` as the editor of a model node (`embedModeler`), its binding to a text session (`bindTextSession`), the facade a host's `open()` returns at once (`openEditor`), a board host from the files of a repository and a registry of editors (`createFilesHost`, `modelsFrom`, `imagesFrom`), the registry's types, and the sheet `@miragon/board-host/assets/embed.css` | yes |
+| Package                       | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                              | DOM |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| `@miragon/board-schema-model` | The file format and its strict reader (`format.ts`), the elements of a board (`types.ts`), their paint order as fractional indices (`order.ts`), what a canvas draws of a snapshot (`view.ts`)                                                                                                                                                                                                                                                       | no  |
+| `@miragon/board-renderer`     | The board as a live document on Yjs, its store and actions, the arm rules, the React Flow canvas, the contract factory `createCollaborativeModeler`, the stylesheet (`@miragon/board-renderer/assets/board.css`)                                                                                                                                                                                                                                     | yes |
+| `@miragon/board-files`        | The files of a repository as a board's page reads and writes them: the port `BoardFiles`, the protocol between a page and the host that keeps the files, its client (`createFilesClient`) and its server (`serveFiles`, which keeps every path a page sends inside the repository's root, out of its dot folders and on the files the host's rule lets a board reach), a memory backend, and `connectBackend` for a host whose files are in the page | no  |
+| `@miragon/board-host`         | What every host of a board shares: a modeler of `@miragon/modeler-api` as the editor of a model node (`embedModeler`), its binding to a text session (`bindTextSession`), the facade a host's `open()` returns at once (`openEditor`), a board host from the files of a repository and a registry of editors (`createFilesHost`, `modelsFrom`, `imagesFrom`), the registry's types, and the sheet `@miragon/board-host/assets/embed.css`             | yes |
 
-Three app workspaces stand on the packages. They are no packages: nothing under `packages/`
+Five app workspaces stand on the packages. They are no packages: nothing under `packages/`
 imports one.
 
 | Workspace                               | What                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `board-suite-editors` (`apps/editors`)  | The seven modelers of the suite as the editors of a board's model nodes: the suffix table (`./suffixes`, plain data without an import, for a host in Node), the registry `SUITE_EDITORS` (`.`), the shared sheet base (`./base`), `./zod-jitless` for a page under a CSP without eval, and the build helpers (`./build/*`). The one workspace of the board that imports another modeler |
+| `board-ide-editor` (`apps/ide-editor`)  | The board inside the suite's shell for an IDE host: `mountBoardEditor(host, options)` (`.`) and the sheet that makes one picture of the shell's chrome and the board's toolbar (`./app.css`). It imports the shell and is handed its editors: no source of it imports `apps/editors`                                                                                                    |
+| `board-modeler` (`apps/vscode`)         | The VS Code extension `miragon-gmbh.board-modeler` (a preview, `engines.vscode` `^1.96.0`): the custom editor `board.boardEditor` for `*.board`. Its host half is every source outside `src/webview` and runs in Node; `src/webview` is the page, bundled into one script and one sheet                                                                                                 |
 | `@miragon/board-webapp` (`apps/webapp`) | The board on the example repository `example/`, held in memory: a Vite app on port 5184 (strict)                                                                                                                                                                                                                                                                                        |
-| `@miragon/board-e2e` (`e2e`)            | Playwright, with the project `webapp`                                                                                                                                                                                                                                                                                                                                                   |
+| `@miragon/board-e2e` (`e2e`)            | Playwright, with the projects `webapp` and `vscode-webview`, and the webview test page (`e2e/webview`, a Vite page on port 5194, strict)                                                                                                                                                                                                                                                |
 
 - **Boundaries.** `schema-model` and `files` are the DOM-free packages
   (`modelerSuite.domFreePackages`). `files` has no dependency, and its own `tsconfig.json` has no
   DOM lib: `npx tsc -p packages/files/tsconfig.json` is the check that it uses nothing of a browser
   (`Blob`, `btoa`, `atob` and `MessageChannel` come from the Node types and exist in a page as
-  well). Six rules of the board's own in `.dependency-cruiser.cjs` add what the presets do not
+  well). Eight rules of the board's own in `.dependency-cruiser.cjs` add what the presets do not
   stop. Two are the renderer's: `schema-model-no-canvas-libraries` (no React, React Flow or Yjs in
   the schema model) and `document-half-no-canvas` (`store/`, `host/`, `arming/arm-rules.ts` and
   `arming/types.ts` import neither React nor React Flow, nor anything under `runtime/`, `flow/`,
   `gestures/`, `parts/`, `canvas/`, `nodes/`, `edges/`, `surface/` and `collaborative/`, nor any
   other file of `arming/`, nor `geometry.ts`). That rule names paths: a new folder or top-level
   file of `src` that is not of the document half is added to its `to`, and `test/layers.test.ts`
-  fails until it is. Four came with the apps. `packages-no-other-modeler`: no file under
-  `packages/` and no app but `apps/editors` imports another modeler, tests included, neither a
-  package of one by its name nor a file of one by a relative path, which the cruiser names
-  `../<modeler>/...` from here; the contract and the shell are no modelers. The rule first caught
-  the name alone, and a relative import from `packages/host/src` into
+  fails until it is. Four came with the first increment of the apps. `packages-no-other-modeler`:
+  no file under `packages/` and no app but `apps/editors` imports another modeler, tests included,
+  neither a package of one by its name nor a file of one by a relative path, which the cruiser
+  names `../<modeler>/...` from here; the contract and the shell are no modelers. The rule first
+  caught the name alone, and a relative import from `packages/host/src` into
   `../wardley-maps/packages/renderer/src` passed the cruise and ESLint. `packages-no-apps`: no
-  package imports an app workspace, or `apps/editors` would bring the seven renderers in unseen.
-  `files-no-canvas-libraries`: no React, React Flow or Yjs in `files`, and nothing of the board's
-  renderer or host package. `host-no-editor-libraries`: no diagram-js, no React and no React Flow
-  in the sources of `packages/host`, not as a type either; its tests mount the real board and are
-  left alone. `npm run board depcruise` cruises `packages` and `apps` and leaves out the apps'
-  build output (`^apps/[^/]+/dist/`): the web app's build is code-split and its chunks import each
-  other in circles, 14 `no-circular` errors without the exclusion. No wider pattern: `(^|/)dist/`
-  would also hide the contract's `dist` from `dom-free-contract-types-only`.
-  `apps/editors/test/cruise-rules.test.ts` holds the reach of the four rules and of the exclusion
-  against the workspaces the suite has today. `@miragon/board-host` imports `@miragon/board-files`,
-  and types only from `@miragon/board-renderer` and `@miragon/modeler-api`; it names no renderer of
-  the suite, no diagram-js, no shell and no React. The rules and the preset's `packages-no-shell`
-  hold that sentence but for one part: that the renderer and the contract are imported for their
-  types alone is how the code stands, and no rule asks for it. `eslint.config.js` adds
-  `eslint-plugin-react-hooks` for the renderer (`rules-of-hooks` an error, `exhaustive-deps` a
-  warning).
+  package imports an app workspace, by its path or by its name, or `apps/editors` would bring the
+  seven renderers in unseen; the rule names every app workspace, and its test reads their names
+  from disk. `files-no-canvas-libraries`: no React, React Flow or Yjs in `files`, and nothing of
+  the board's renderer or host package. `host-no-editor-libraries`: no diagram-js, no React and no
+  React Flow in the sources of `packages/host`, not as a type either; its tests mount the real
+  board and are left alone. Two came with the extension. `ide-editor-no-suite-editors`: no source
+  of `apps/ide-editor` imports `apps/editors`, by name or by path, since the seven renderers would
+  come in through it; its tests may take an editor from there. `vscode-host-no-page-code`: no
+  source of `apps/vscode` outside `src/webview` imports React, React Flow, Yjs, diagram-js or a DOM
+  library, the board's renderer or its host package, one of the shell's entries for a page (`.`,
+  `ide`, `diagram-js`, `export`, `vscode/webview`, `orca/webview`, `shell.css`), anything of
+  `apps/ide-editor`, or anything of `apps/editors` but the suffix table, not as a type either. What
+  a host in Node reads stays open: `@miragon/board-files`, `@miragon/board-schema-model`, the
+  contract, and the shell's `vscode/extension`, `core` and `testing/*`. A host file that needs
+  something the rule forbids changes the rule and its test, with the reason.
+  `npm run board depcruise` cruises `packages` and `apps` and leaves out the apps' build output
+  (`^apps/[^/]+/dist/`): the web app's build is code-split and its chunks import each other in
+  circles, 14 `no-circular` errors without the exclusion. No wider pattern: `(^|/)dist/` would also
+  hide the contract's `dist` from `dom-free-contract-types-only`.
+  `apps/editors/test/cruise-rules.test.ts` holds the reach of the six rules for packages and apps
+  and of the exclusion against the workspaces the suite has today; for the shell it reads the
+  export map, so an entry the shell adds fails there until it is decided as a page's or a host's.
+  The exclusion also leaves out the extension's bundles. `@miragon/board-host` imports
+  `@miragon/board-files`, and types only from `@miragon/board-renderer` and `@miragon/modeler-api`;
+  it names no renderer of the suite, no diagram-js, no shell and no React. The rules and the
+  preset's `packages-no-shell` hold that sentence but for one part: that the renderer and the
+  contract are imported for their types alone is how the code stands, and no rule asks for it.
+  `eslint.config.js` adds `eslint-plugin-react-hooks` for the renderer (`rules-of-hooks` an error,
+  `exhaustive-deps` a warning).
 - **The owner's open decision: may an app workspace of the board depend on the other modelers'
-  renderers?** Not answered. The tree is built on the plan's recommendation: yes, in
-  `apps/editors` and nowhere else, kept so by `packages-no-other-modeler`. If the answer is no,
-  what goes is the 13 pins of `apps/editors/package.json` on the other modelers, 26 of the 28
-  `extra-files` entries this increment added (all but the two for `packages/host`'s pin on the
+  renderers?** Not answered by the owner. The tree is built on the plan's recommendation, and the
+  lead of the second increment let it stand (L8 under
+  [The second increment of the apps against its plan](#the-second-increment-of-the-apps-against-its-plan)):
+  yes, in `apps/editors` and nowhere else, kept so by `packages-no-other-modeler`. `apps/vscode`
+  bundles the editors through `apps/editors` and names no other modeler itself. If the answer is
+  no, what goes is the 13 pins of `apps/editors/package.json` on the other modelers, 26 of the 28
+  `extra-files` entries the first increment added (all but the two for `packages/host`'s pin on the
   contract), the rule's exception for `apps/editors`, and with them the notation modules, their
-  battery and every model the web app draws: `apps/webapp` takes `SUITE_EDITORS` and
-  `board-suite-editors/base` in `src/app.ts`, the suffix table in `test/example.test.ts` and
-  the three build helpers in `vite.config.ts`.
+  battery and every model the web app and the extension draw: `apps/webapp` takes `SUITE_EDITORS`
+  and `board-suite-editors/base` in `src/app.ts`, the suffix table in `src/reach.ts` and
+  `test/example.test.ts` and the three build helpers in `vite.config.ts`; `apps/vscode` takes the
+  suffix table in its host half, `SUITE_EDITORS`, the base and `zod-jitless` in its webview, and
+  `webviewBundle` in its build; the test page `e2e/webview` takes the build helpers.
 - **Dependencies.** Exact pins and no ranged peers while nothing is published (the Business Model
   Canvas rule; see `.claude/rules/package-json-fixed-versions.md`). The renderer depends on
   `@xyflow/react`, `react`, `react-dom`, `yjs`, `lucide-react`, `markdown-it`, `dompurify` and
   `@miragon/modeler-api`; `packages/host` pins the contract as well, and `apps/editors` pins
-  thirteen packages of the other modelers (the seven renderers and the six packages its text
-  rules call: `wardley-dsl`, `wardley-schema-model`, `value-chain-schema-model`,
-  `business-model-canvas-dsl`, `team-topologies-schema-model`, `context-maps-schema-model`)
-  beside `diagram-js`, `didi`, `tiny-svg` and `zod`. Every pin on a release component has its
-  two `extra-files` entries in `release-please-config.json`: `test/release-config.test.ts` names
-  each missing one, and a further pin on a workspace package is a manifest line, an
-  `npm install` and the two entries that test then asks for. The tests of `apps/editors` import
+  thirteen packages of the other modelers (the seven renderers and the six packages its text rules
+  call: `wardley-dsl`, `wardley-schema-model`, `value-chain-schema-model`,
+  `business-model-canvas-dsl`, `team-topologies-schema-model`, `context-maps-schema-model`) beside
+  `diagram-js`, `didi`, `tiny-svg` and `zod`. Every pin on a release component has its two
+  `extra-files` entries in `release-please-config.json`: `test/release-config.test.ts` names each
+  missing one, and a further pin on a workspace package is a manifest line, an `npm install` and
+  the two entries that test then asks for. The tests of `apps/editors` import
   `@miragon/board-files`, `@miragon/board-renderer` and `@miragon/board-schema-model` without a
-  line in its manifest; they resolve through the workspace links, as the test-only imports of
-  the other modelers' `e2e` workspaces do, and no check asks for more. There must be one copy
-  each of `yjs`, `react`, `react-dom` and `@xyflow/react` under this modeler: the store tells
-  its elements by `instanceof Y.Map`, and a second React breaks every hook.
-  `test/single-copy.test.ts` reads the lockfile for it, the job ranged peers do in the published
-  modelers.
+  line in its manifest; they resolve through the workspace links, as the test-only imports of the
+  other modelers' `e2e` workspaces do, and no check asks for more. So do the browser test of
+  `apps/ide-editor` (`board-suite-editors`) and the test page and specs of `e2e`
+  (`@miragon/board-files`, `board-ide-editor` and files of `apps/vscode` and `apps/webapp`).
+  `apps/ide-editor`, `apps/vscode` and `e2e` pin the shell (0.14.2), each with its `extra-files`
+  entries under `packages/shell` (two per pin for a workspace that is no release component, its
+  `package.json` and the lockfile; one, the lockfile's, for `apps/vscode`). `apps/editors` has
+  `esbuild` as a devDependency, for the test of its bundle options. `apps/vscode` is the board's
+  one release component so far (`board-vscode`, `initial-version` 0.1.0, at 0.0.0 in the manifest):
+  `test/release-config.test.ts` asks one of every workspace with `engines.vscode`, and the
+  components of the other workspaces are the owner's to confirm in the next increment. Its
+  devDependencies are what the smoke and the VSIX need: `@vscode/vsce`, `@vscode/test-electron`,
+  `playwright-core` on the root's `playwright` version, and `@types/vscode` 1.96.0, equal to the
+  `engines.vscode` floor, which vsce checks. There must be one copy each of `yjs`, `react`,
+  `react-dom` and `@xyflow/react` under this modeler: the store tells its elements by
+  `instanceof Y.Map`, and a second React breaks every hook. `test/single-copy.test.ts` reads the
+  lockfile for it, the job ranged peers do in the published modelers.
 - **A bump is a change of what was measured.** A new version of `@xyflow/react`, `react`,
   `react-dom`, `yjs`, `markdown-it` or `dompurify` falls under
   [the rule of this port](#the-rule-of-this-port-moved-as-measured). The suite's Dependabot
@@ -632,86 +728,171 @@ pointer and pan parts also at a device pixel ratio of 1.25 and 2.
 
 `src/port.ts` is what a page asks for (`BoardFiles`, `TextSession`), `src/server.ts` what a host
 implements with its own file API (`FilesBackend`, `BackendText`), and `src/protocol.ts` the
-messages between the two. `src/client.ts` is the page's side, `src/memory.ts` a backend in
-memory (the web app's repository and every test's double), `src/local.ts` `connectBackend`:
-client and server on a `MessageChannel` of the page's own, so that a host in the page runs the
-same path checks and the same message order as one behind a webview. `src/paths.ts` has the path
-rules. The entry exports `createFilesClient`, `connectBackend`, `createMemoryBackend`,
-`serveFiles`, `bySuffix`, `isNewAssetPath`, `repoPath`, `fromBase64`, `toBase64`,
-`isBoardMessage`, `PROTOCOL`, `NEW_FILE_LIMIT_BYTES` and the types.
+messages between the two. `src/client.ts` is the page's side, `src/memory.ts` a backend in memory
+(the web app's repository and every test's double), `src/local.ts` `connectBackend`: client and
+server on a `MessageChannel` of the page's own, so that a host in the page runs the same path
+checks and the same message order as one behind a webview. `src/paths.ts` has the path rules and
+the rule a host hands in. The entry exports `createFilesClient`, `connectBackend`,
+`createMemoryBackend`, `serveFiles`, `suffixRule`, `PICTURE_SUFFIXES`, `bySuffix`,
+`isNewAssetPath`, `repoPath`, `fromBase64`, `toBase64`, `isBoardMessage`, `PROTOCOL`,
+`NEW_FILE_LIMIT_BYTES` and the types, `FilesRule` among them.
 
-- **The messages are frozen.** Every type starts with `board.`, so they share a webview's
-  channel with the shell's. The VS Code host of the next increment is written against the names
-  and shapes: a change to one is a new `PROTOCOL`, and a table in `protocol.test.ts` fails the
-  type check when a type is added and not listed.
+**Decided by the lead of the second increment, not by the owner, who was told and may turn each
+round:** what a page may reach (the dot segments and the host's rule, below) and the version of a
+text (`PROTOCOL` 2, below). Both are built, and the VS Code backend is written against them.
+
+- **The messages are frozen, at `PROTOCOL` 2.** Every type starts with `board.`, so they share a
+  webview's channel with the shell's. The VS Code host is written against the names and shapes: a
+  change to one is a new `PROTOCOL`, and a table in `protocol.test.ts` fails the type check when a
+  type is added and not listed. Protocol 1 had no version of a text and no settle. Nothing was
+  published with it and no host speaks it: a hello of protocol 1 is answered as every hello of
+  another protocol.
 - **The rules both sides keep.** Nothing is pushed before the hello. Whatever the page awaits
   carries a `requestId`, a whole number, and ends in its answer or in `board.failed`; a request
   with any other id (none, a text, a fraction, `NaN`) is dropped, since no answer could reach it.
-  The page never gets its own edit back; the other sessions on the path hear it at once, in the
-  page. A write the place refused is answered with the text the place has, once the last write of
-  that path settled. One path is one subscription at the host however many nodes show it.
-- **A hello starts the life of a page.** A second hello on the same channel (a reloaded
-  webview) closes what the page before had open and sends the list again; an answer that was
-  awaited across it is never sent. A hello of another protocol is none: every request is then
-  failed with a message that names both numbers. A request before the hello is answered with
-  `board.failed` ("the page has not said hello"); an edit and a close before it are dropped. The
-  client says hello once, when it is made, so a server listens before the page starts.
+  An answer comes when its own work is done, not in the order of the requests: a page matches it by
+  the id. The page never gets its own edit back; the other sessions on the path hear it at once, in
+  the page. A write the place refused is answered with the text the place has, once the last write
+  of that path settled, and not at all where the page was told a text since it made that write. One
+  path is one subscription at the host however many nodes show it.
+- **A version of a text.** The host counts it and the page only repeats it. `board.text.opened`
+  carries 1, and every `board.text.update` of that open text one more: a change from outside, a
+  file that is back, the answer to a refused write. The page's own edits do not count.
+  `board.text.edit` carries the last version the page heard, and the server hands the edit to the
+  place only while that is still the last version it told, asked when the edit's turn comes. An
+  edit made on an older version crossed a text the page had not heard of: it is dropped, the place
+  keeps its text, and the update that is already on its way puts that text in the edit's place on
+  the page. So after a crossing, page and place hold the same text, and it is the outside's. No
+  outside change is lost. The page's own edit is in neither, and the person sees it go, because the
+  editor imports the text that took its place; nothing says so in words. The outside wins because
+  an edit is a whole text and the board has no text merge. A dropped edit gets no answer of its
+  own: that would be one more version and would cost the page whatever it wrote after it heard the
+  first. The count is the server's, per open text and per life of a page (a text that is closed and
+  opened again starts at 1); a backend never sees it. A change that brings the text the place
+  handed out last (a save, an echo that comes late) is no version and no message, unless the file
+  was gone.
+- **A hello starts the life of a page.** A second hello on the same channel (a reloaded webview)
+  closes what the page before had open and sends the list again; an answer that was awaited across
+  it is never sent. A hello of another protocol is none: every request is then failed with a
+  message that names both numbers. A request before the hello is answered with `board.failed` ("the
+  page has not said hello"); an edit and a close before it are dropped. The client says hello once,
+  when it is made, so a server listens before the page starts.
 - **Paths.** `repoPath` refuses whatever is no repository-relative path with forward slashes (no
   string, empty, more than 1024 characters, a backslash, a control character such as a NUL or a
-  line break, a scheme or a drive letter, an absolute path, a segment that is empty, `.` or `..`).
-  The server runs it on every path before a backend sees one. A backend refuses a path that is in
-  use: the server does not check the list.
+  line break, a scheme or a drive letter, an absolute path, an empty segment) and every path with a
+  segment that starts with a dot, at every depth: `.`, `..`, `.git/config`,
+  `.github/workflows/ci.yml`, `.vscode/settings.json`, `.env`, `models/.drafts/tea.owm`. A model in
+  a dot folder is on no board. The server runs it on every path before a backend sees one, and
+  answers a dot path with a message of its own. A backend refuses a path that is in use: the server
+  does not check the list.
+- **What a page may reach.** A page reaches only what a board can show.
+  `serveFiles(channel, backend, rule)` and `connectBackend(backend, rule)` take the host's rule
+  (`FilesRule`: `model(path)` and `picture(path)`), and it is not optional, so that no host forgets
+  it. A text is opened only for a path the rule calls a model; bytes are read, and a new file is
+  stored, only for a path it calls a picture. A path the rule refuses never reaches the backend and
+  is answered with a message of its own. The page is told no other path either: the list, the
+  changed bytes and the moves are sent without the paths a board does not reach (a move only where
+  both of its paths are reached; a file that moves out of reach is gone for its readers). An edit
+  is written only into a path that is open, and so was checked. `suffixRule({ models, pictures })`
+  is the rule by the end of a file's name, as `bySuffix` reads it: a host passes the suffixes of
+  the editors it shows and `PICTURE_SUFFIXES`, the suffixes the board draws. The files package
+  cannot import the board, and `packages/host/test/files-host.test.ts` holds that list against the
+  board's `IMAGE_TYPES`. A board file is no model by any host's rule here: its text is never opened
+  through the port (see [The VS Code extension](#the-vs-code-extension-appsvscode)).
 - **A new file** is taken only as `assets/<name>` with a name of letters, digits, dot, dash and
-  underscore, which is what the board makes of a picture's name, and not as a dot file
-  (`.gitignore`), a name that ends in a dot, which Windows drops, or a device name of Windows
-  (`nul`, `con.png`, `COM1.svg`). Its bytes are a base64 text: any other value is refused, where
-  `atob` would take `null` for the four letters of its name and store three bytes. They are at most
-  `NEW_FILE_LIMIT_BYTES`, 10 MiB, the board's own limit for a picture; the files package cannot
-  import the board, and `packages/host/test/files-host.test.ts` holds the two numbers equal. A type
-  that is no text is taken for none. One refused name is one the board itself makes: a picture a
-  person called `aux.png` or `con.png` is answered with "a new file cannot have this name", which
-  the board puts into its notice.
-- **The path check reads the path's text and nothing else.** It keeps a path inside the
-  repository's root and does not say that the file is one a page should have. `.git/config`,
-  `.git/hooks/pre-commit`, `.env`, `.vscode/settings.json`, a name with percent signs
-  (`%2e%2e/secret`), `models/a.owm.` and a path through a link that leads out of the root all pass
-  and reach the backend's `openText` and `readBytes`, and a text that is open is written by
-  `board.text.edit` (a review sent each to a recording backend; of 21 paths that lie outside the
-  root as a text none got there). The memory backend has only its own files, so the web app is not
-  exposed. A backend with a disk checks a path again: against what it lists, against links, and
-  against how its file system folds names. Whether the server does part of that for every backend
-  is **open, and the owner's to settle before the VS Code backend is written**. Either it serves
-  `openText` and `readBytes` only for a path of `backend.list()`, whose list then has to be
-  complete before the first hello is answered (a node whose file is not listed yet fails, and the
-  facade has no retry); or `repoPath` refuses a segment that starts with a dot, which keeps a model
-  in a dot folder off every board.
+  underscore, which is what the board makes of a picture's name, only as a picture by the host's
+  rule, and not as a dot file (`.gitignore`), a name that ends in a dot, which Windows drops, or a
+  device name of Windows (`nul`, `con.png`, `COM1.svg`). Its bytes are a base64 text: any other
+  value is refused, where `atob` would take `null` for the four letters of its name and store three
+  bytes. They are at most `NEW_FILE_LIMIT_BYTES`, 10 MiB, the board's own limit for a picture;
+  `packages/host/test/files-host.test.ts` holds the two numbers equal. A type that is no text is
+  taken for none. One refused name is one the board itself makes: a picture a person called
+  `aux.png` or `con.png` is answered with "a new file cannot have this name", which the board puts
+  into its notice.
+- **What the checks do not do.** They read the path's text and nothing else. A name with percent
+  signs (`%2e%2e/secret`) and `models/tea.owm.` pass `repoPath` and fail the rule; a path through a
+  link that leads out of the root, and a name the file system folds onto another one, pass both.
+  Such names are another case, a dot or a space at the end on Windows, and two that name a dot
+  folder without a dot at the start of a segment (by a review's reading, not run: its machine was
+  Linux, where both ended in "does not exist"): a short name of NTFS (`GIT~1/hooks/x.owm` is a
+  file in `.git` there) and a code point HFS+ leaves out of a name (U+200C before `.git`). The
+  suffix rule holds for them too, so only a model or a picture in a dot folder would be reached,
+  and a page makes a new file nowhere but under `assets/`. Refusing a segment with `~` and a
+  digit, or every format character, would also refuse honest names (Persian writes U+200C inside
+  words): the owner's to settle. A backend with a disk checks what a path's text
+  cannot say: that no link is on the way to the file and the file is none, its size, and that a
+  create never replaces a file. The memory backend has only its own files.
 - **Writes.** A place gets the writes of one path one at a time and in the page's order, and
   `close()` after the last of them, also when the page went in the middle of one. `false` and a
-  rejection both mean refused.
+  rejection both mean refused. `write(text, base)` names the text the write was made on: the one
+  the place handed out last, through `text()` or `onChange`. The server reads `text()` again after
+  every write the place took, since a place may make its own text of a write (line breaks), so
+  `base` is always a text of the place's own and a plain comparison is right. A place that has
+  another text by the time it writes resolves false, as the memory backend does, or the write would
+  replace a change nobody was told of; the page is then told the text the place has. `onChange` is
+  never the echo of a write: every call is a new version, and what the page wrote on the version
+  before is dropped.
+- **Waiting for the writes, and a page that goes.** `BoardFiles.settled()` posts
+  `board.text.settle` behind the page's edits and resolves once the host dealt with every write
+  made before the call: each is in the place, was refused there, or was dropped as made on an older
+  text. It rejects when the files are closed first. It is a round trip to the host, so in a page
+  nobody answers it stays pending until `dispose()`: whoever awaits it before a dispose must be
+  able to give up. An edit that reached the server lands though its page goes right after it (a
+  dispose, a second hello, a webview that closes): the text is closed after the write. An edit the
+  host never received, posted in the task in which the channel ended, is lost. A page that ends on
+  purpose awaits `settled()` first.
+- **A session's write says what it was made from.** `TextSession.write(text, base)`: where the path
+  has another text than `base` by now, the write is dropped, since its writer was told that text
+  and has not taken it in yet. Without `base` a write counts as made on the text the path has. The
+  binding of `packages/host` always passes it.
 - **A file that goes.** Its sessions hear `onAvailable(false)` and keep their text; a write does
-  nothing meanwhile; when the file is back they hear `onAvailable(true)` and then its text. A
-  reader that comes while the file is gone is rejected with `<path> is gone`: a session cannot
-  say that its file was gone before it was made.
+  nothing meanwhile; when the file is back they hear `onAvailable(true)` and then its text, which
+  is a new version. A reader that comes while the file is gone is rejected with `<path> is gone`: a
+  session cannot say that its file was gone before it was made.
 - **`connectBackend`.** Each message is a task: `paths()` is empty until the hello was answered,
   and `onPaths` says when the list is there. `dispose()` ends client and server in one call and
   drops what the page posted in that task.
-- **Messages a node may show** (the facade prints them behind "This file could not be opened."):
-  "this path is outside the repository", "a new file goes into assets/", "`<path>` exists
-  already", "`<path>` is no text file of this repository", "`<path>` is gone", "the page has not
-  said hello", "the files were closed", "a new file cannot have this name", "the bytes of the new
-  file are no base64 text", "a new file may have up to 10 MiB".
-- **Known and not cured.** The protocol has no version of a text and no acknowledgement: an edit
-  and a change from outside that cross leave the page showing the outside text and the place
-  holding the page's edit, until the next change of either (run once in scratch on the test
-  channel; a cure needs a version or an acknowledgement, a new `PROTOCOL`). `BoardFiles` has no
-  flush, so a caller cannot wait for a write to land before it disposes, and `TextSession`
-  cannot be asked whether its file is there. The memory backend's `writes` is a log for tests
-  and grows with every write: whoever keeps a backend for long empties it, as the web app does.
+- **Messages a node may show** (the facade prints them behind "This file could not be opened.").
+  From the server: "this path is outside the repository", "a board reaches no dot file and no file
+  in a dot folder", "`<path>` is no model a board shows here", "`<path>` is no picture a board
+  shows here", "a new file goes into assets/", "a new file cannot have this name", "the bytes of
+  the new file are no base64 text", "a new file may have up to 10 MiB", "`<path>` is gone", "the
+  page has not said hello". From the client: "the files were closed". From the memory backend:
+  "`<path>` exists already", "`<path>` is no text file of this repository". From the VS Code
+  backend: "this board is in no repository and in no open folder, so it has no files", "`<path>`
+  does not exist", "`<path>` is behind a link, and a board opens no link", "`<path>` is a link,
+  and a board opens no link", "`<path>` is no file", "`<path>` is larger than 2 MiB, too large for
+  a board", "`<path>` cannot be read as a text", "`<path>` is behind a link, and a board reads no
+  link", "`<path>` is a link, and a board reads no link", "`<path>` is larger than 10 MiB", "assets is a
+  link, and a board stores nothing through a link", "assets is a file, so a new picture has no
+  folder", "`<path>` exists already". From an extension that hands a board no backend: "this board
+  has no files".
+- **Known and not cured.** A crossing is settled for the outside and never merged: the edit that
+  crossed is dropped whole. The protocol has no acknowledgement of a write the place took: a page
+  learns that its writes are dealt with only through `settled()`. Where a place makes its own text
+  of a write and tells no change (line breaks in a CRLF document), the page shows the bytes it
+  wrote and the place has its own, until the next update; the next write is made on the place's
+  text, so nothing is refused for it. `TextSession` cannot be asked whether its file is there. The
+  memory backend's `writes` is a log for tests and grows with every write: whoever keeps a backend
+  for long empties it, as the web app does.
+- **Nothing bounds how much a page asks of a host**: how many new files it stores, each up to 10
+  MiB, how many reads it has on their way at once, and, in the server itself, how long a written
+  text is. A review made each as a page that is not the board's would. On the fake VS Code, 400
+  new files of 1 KiB and 20 of 10 MiB were each answered `board.done`, and 5000 edits in a row
+  were applied one by one. In a real VS Code 1.146.0, 12 new files of 10 MiB were on disk after
+  1.07 s, and 60 reads of one 10 MiB picture were answered after 28.8 s, while the extension host
+  grew from 210 MiB to 904 MiB and VS Code wrote "UNRESPONSIVE extension host" into its log twice;
+  the page and the extension answered afterwards. The size of a written text is a backend's to
+  bound, and the VS Code backend does since the closing round of the second increment
+  ([The host half](#the-host-half)). A budget for the new files of one open editor (a count and a
+  sum of bytes, kept across a second hello, then `board.failed`) and the reads of one path
+  answered together, a few at a time, are not built: either number also meets a person who adds
+  many pictures in one sitting, so both are the owner's to settle.
 - **Without a test:** `port.start()` in `local.ts`, which only a browser needs (the browser files
   of `packages/host` and of the apps run through `connectBackend`), and the two `port.close()`
-  calls there. Of 110 single edits of the sources that were tried against the tests, those two
-  pass. A review's edit that let a create decode any value as its bytes passed as well; it fails
-  now, as do twelve further edits of the path rules and of the server's checks of a message.
+  calls there. Of 110 single edits of the first increment's sources those two passed. Of 75 single
+  edits of the lines the second increment changed (66 against the unit tests, 9 against the browser
+  files of `packages/host` and `apps/webapp`), none passes.
 
 ## The host package (`packages/host`)
 
@@ -739,19 +920,25 @@ all the same and gets no fit and no focus.
   read: that counts as not the same, and the import says what is wrong. `text(modeler)` is
   called once per mounted modeler, `exported` once per change event and only after the first
   text was accepted.
-- **The binding (`bindTextSession`).** Imports run one after the other and read the session's
-  text when they start, so the canvas always ends on what the file has: a text that waited
-  behind a gesture or behind another import is not imported over what this session wrote
-  meanwhile. A re-import keeps the view: the view state the contract answers, while the picture
-  is drawn anew and its scale may come out rounded (Value Chain's first fit drew 0.759596, the
-  re-import 0.76). A change on the canvas is one write, and none when the
-  text did not change, before the first text was accepted, while the last text was refused, or
-  into a read-only file. A change from outside waits for the end of a gesture the person holds
-  (`interaction`). A host with another kind of document passes its own `BindModel` to
-  `embedModeler`; the adapter fits on the first `{ kind: "ok" }` such a binding reports.
-- **A limit of every text host.** A change from outside that arrives while a person holds a
-  gesture is overwritten by that gesture's drop: the write is made from the text the canvas was
-  last reconciled with. The contract asks for a merge there, and the board has no text merge.
+- **The binding (`bindTextSession`).** Imports run one after the other and read the session's text
+  when they start, so the canvas always ends on what the file has: a text that waited behind a
+  gesture or behind another import is not imported over what this session wrote meanwhile. A
+  re-import keeps the view: the view state the contract answers, while the picture is drawn anew
+  and its scale may come out rounded (Value Chain's first fit drew 0.759596, the re-import 0.76). A
+  change on the canvas is one write, and none when the text did not change, before the first text
+  was accepted, while the last text was refused, or into a read-only file. Every write names the
+  text of the file it was made from (`session.write(written, base)`): where the file has another
+  text by then, the session drops the write, and the import of that text, which waits behind a
+  gesture or behind another import, takes the canvas to what the file has. A change from outside
+  waits for the end of a gesture the person holds (`interaction`). A host with another kind of
+  document passes its own `BindModel` to `embedModeler`; the adapter fits on the first
+  `{ kind: "ok" }` such a binding reports.
+- **A change from outside under a held gesture wins.** A change from outside that arrives while a
+  person holds a gesture waits for its end. The drop is made from the text before that change, so
+  the session drops it: the file keeps the outside's text, the canvas imports it when the gesture
+  ends, and the person sees the item back where it was. Nothing says so in words. The contract asks
+  for a merge there, and the board has no text merge. Before the second increment the drop was
+  written over the outside's text.
 - **What the adapter writes** on the `.board-engine` it is given, classes and data attributes
   only: `data-embed="diagram-js"` and `data-notation` once the editor is mounted,
   `data-embed-state` = `loading`, `ready`, `invalid`, `gone` or `failed` from the first moment,
@@ -759,18 +946,26 @@ all the same and gets no fit and no focus.
   `div.board-host-editor` (the modeler's host element: absolute, inset 0, clipped, a stacking
   context of its own). It sets no position and no size on the element, and takes everything back
   on destroy.
-- **The states.** `loading`: the code or the text is on its way; the board has no loading look,
-  so the facade says it in the element. `ready`: the canvas shows the file. `invalid`: the
-  modeler refused the file's text; the last canvas stays in sight under a line whose `title` is
-  the modeler's reason, nothing is written, and the next valid text is imported. `gone`: the
-  file went away; the board keeps the node, and the file's next text brings it back. `failed`:
-  the editor could not be made (a path outside the repository, a file that is no text, code that
-  did not load, another notation), with the message. While the state is `invalid` or `gone` the
-  editor is `inert`: a change of such a canvas could not be written and the next text would
-  replace it. A file that is not there when the board opens stays `failed` until its node is
-  mounted anew: there is no retry. The line of an invalid file reads "This file cannot be shown
-  as it is. Open it in its own editor to repair it.", which is advice for a host that has such
-  an editor; a host cannot set the line's text.
+- **The states.** `loading`: the code or the text is on its way; the board has no loading look, so
+  the facade says it in the element. `ready`: the canvas shows the file. `invalid`: the modeler
+  refused the file's text; the last canvas stays in sight under a line whose `title` is the
+  modeler's reason, nothing is written, and the next valid text is imported. `gone`: the file went
+  away; the board keeps the node, and the file's next text brings it back. `failed`: the editor
+  could not be made (a path outside the repository, a file that is no text, code that did not load,
+  another notation), with the message. While the state is `invalid` or `gone` the editor is
+  `inert`: a change of such a canvas could not be written and the next text would replace it. A
+  file that could not be opened is asked for again whenever the list of paths changes and has its
+  path: a checkout, a file made beside the board. The facade listens to `onPaths` for it, one try
+  at a time, and shows no loading line for a later try. `ready` stays as the first try settled it,
+  so `runtime.mounted(id)` stays false and the board's log keeps the first message, while the
+  element shows the editor. A path the host refuses is on no list and is never asked for again. Not
+  cured: a node mounted on a path whose file is gone under another node's open session asks one
+  message too early and waits for the next change of the list; and a file that is listed and could
+  not be opened is asked for again only when the list changes, not when its content does. The line
+  of an invalid file reads "This file cannot be shown as it is. Open it in its own editor to repair
+  it." (`INVALID_TEXT`), which is true in a host that has such an editor, as VS Code is. A host
+  that has none passes its own sentence: `invalidText` of `createFilesHost`, `modelsFrom` and
+  `openEditor`.
 - **The first fit** is the adapter's, never the modeler's (`create({ fitOnImport: false })`):
   the content centred in the element minus the entry's insets, at most at 100 %, from the
   canvas's layout size. It is made once, for the first text the modeler accepts, also when a
@@ -796,15 +991,15 @@ all the same and gets no fit and no focus.
   the document, as the last stop before the window, because Wardley Maps and Team Topologies
   take their undo in a listener on the document; on the element it would keep the key from
   them. A test holds that the editor still undoes.
-- **The host from files.** `createFilesHost({ files, editors })` gives the board `models` and
-  `images` and keeps them the same objects; `dispose()` ends what it listens to on the port and
-  leaves the port to its owner. The model list is the port's paths with a registered suffix, the
-  same array until the port has a new list. `describe(path)`: the kind is the entry's, the title
-  is the file name without the matched suffix, `<name> in <folder>` where two listed files share
-  the name, and with the suffix kept where they also share the folder (the example's
-  `sample.tt` and `sample.cm` are titled "sample.tt in models" and "sample.cm in models").
-  `open()` answers undefined for a path without an entry, a `.board` among them. A file that
-  moves is followed with `context.relocate`: one change of the board per node that shows it.
+- **The host from files.** `createFilesHost({ files, editors, containHistoryKeys?, invalidText? })`
+  gives the board `models` and `images` and keeps them the same objects; `dispose()` ends what it
+  listens to on the port and leaves the port to its owner. The model list is the port's paths with
+  a registered suffix, the same array until the port has a new list. `describe(path)`: the kind is
+  the entry's, the title is the file name without the matched suffix, `<name> in <folder>` where
+  two listed files share the name, and with the suffix kept where they also share the folder (the
+  example's `sample.tt` and `sample.cm` are titled "sample.tt in models" and "sample.cm in
+  models"). `open()` answers undefined for a path without an entry, a `.board` among them. A file
+  that moves is followed with `context.relocate`: one change of the board per node that shows it.
 - **The images.** `read(path)` loads the bytes when a node first asks and hands out the same
   Blob until `onChange`; a changed image keeps its old Blob until the new bytes are there; an
   image that goes is told. `taken(path)` answers from the port's list, loaded or not. `store` is
@@ -861,15 +1056,31 @@ all the same and gets no fit and no focus.
   writes references anew when an element is renamed or removed (`#agg_order` as `Order`): the
   modeler's own rules, written as they are. C4 hands back its text byte for byte and takes a
   text that differs only in formatting or comments with `rebaseText`, which empties its history.
-- **The build helpers (`build/`)**, for Vite, Vitest and, in the next increment, esbuild.
-  `aliases.mjs` reads the folders under `modelers/*/packages` and maps each package name to its
-  `src/index.ts`, every exported subpath of a package before the package (39 entries over 27
-  packages), so that no other modeler is built first. `prebundle.mjs` names every third-party
-  module those sources load (82), for `optimizeDeps.include`: a dependency Vite meets only when
-  a notation loads would reload the page in the middle of a run or of an edit. `css-base.mjs` is
-  under [Stylesheet and theme files](#stylesheet-and-theme-files). A new package under any
-  modeler's `packages/` adds an alias, and `apps/editors/tsconfig.json` then needs the matching
-  path, or `aliases.sync.test.ts` fails for a change made in another modeler.
+- **The build helpers (`build/`)**, for Vite, Vitest and esbuild. `aliases.mjs` reads the folders
+  under `modelers/*/packages` and maps each package name to its `src/index.ts`, every exported
+  subpath of a package before the package (39 entries over 27 packages), so that no other modeler
+  is built first. `prebundle.mjs` names every third-party module those sources load (82), for
+  `optimizeDeps.include`: a dependency Vite meets only when a notation loads would reload the page
+  in the middle of a run or of an edit. `css-base.mjs` is under
+  [Stylesheet and theme files](#stylesheet-and-theme-files). A new package under any modeler's
+  `packages/` adds an alias, and `apps/editors/tsconfig.json` then needs the matching path, or
+  `aliases.sync.test.ts` fails for a change made in another modeler.
+- **`webviewBundle` (`build/esbuild.mjs`)** is the set of esbuild options the VS Code webview is
+  bundled with: every package of the suite from its source (`esbuildAlias`), the base-once plugin,
+  the automatic JSX runtime, React's production build in a watch build too
+  (`process.env.NODE_ENV`), and the font files beside the bundle under `fonts/`. The caller adds
+  its entry, its output and `format: "iife"`. It sets no `tsconfigRaw` on purpose: esbuild then
+  reads the tsconfig next to each source file, so every modeler's sources are compiled as in that
+  modeler's own bundle and in strict mode, as the modules they are in the browser tests. With a
+  `tsconfigRaw` the same build came out with 788 fewer `"use strict"` directives and otherwise the
+  same bytes, and Team Topologies and Context Maps would be compiled under another
+  `verbatimModuleSyntax` than their own. `test/webview-bundle.test.ts` builds a page that loads the
+  fonts, the board and the seven notations through the registry in memory, and holds: one script
+  without a dynamic import left, one sheet with diagram-js's base rule and the canvas mapping once
+  and before every renderer's own rules, the font files as files, no warning; eight single edits of
+  the helper fail it. A build that imports the shell prints esbuild's `ignored-bare-import` warning
+  for the shell's own chunks (four in a webview bundle, one in a host bundle), as every modeler's
+  does: a warning is no failed build there.
 - **Without a test:** a notation's first fit at any size but 800 x 508 and 420 x 508; the left
   inset of C4 and Business Model Canvas against a narrow node; a label editor, a popup or a held
   drag open at Done or at a zoom; an edit by the palette or the context pad; a change from outside
@@ -897,14 +1108,18 @@ and the changed files in the browser's local storage; there is no disk behind it
 - **`startApp(root, { storage, search })`** (`src/app.ts`; `src/main.ts` calls it with
   `window.localStorage`, or a store in memory where the browser blocks its own, and
   `location.search`). It gives `root` the class `board-page` and two children:
-  `div.board-page__board`, which the board is attached to, and `footer.board-page__note` with
-  one status line (`.board-page__kept`, `role="status"`; `data-warning` on the footer) and the
-  link "Reset the example" (`href="?reset"`, a plain navigation). It builds
-  `createMemoryBackend` from the example and what is kept, wraps it (`src/keeping.ts`) so that
-  every write the backend took and every new file is kept, then `connectBackend`,
-  `createFilesHost({ files, editors: SUITE_EDITORS })` and `createCollaborativeModeler({ host })`,
-  imports the kept board text or the example's, and keeps the board text on every
-  `onContentChanged`. It returns `{ modeler, ready, destroy() }`.
+  `div.board-page__board`, which the board is attached to, and `footer.board-page__note` with one
+  status line (`.board-page__kept`, `role="status"`; `data-warning` on the footer) and the link
+  "Reset the example" (`href="?reset"`, a plain navigation). It builds `createMemoryBackend` from
+  the example and what is kept, wraps it (`src/keeping.ts`) so that every write the backend took
+  and every new file is kept, then `connectBackend` with the page's rule `REACH` (`src/reach.ts`:
+  the suffixes of the suite's table as models, `PICTURE_SUFFIXES` as pictures; `example.test.ts`
+  holds that every file of the example is reached, a model as a text and a picture as bytes),
+  `createFilesHost({ files, editors: SUITE_EDITORS, invalidText })` and
+  `createCollaborativeModeler({ host })`, imports the kept board text or the example's, and keeps
+  the board text on every `onContentChanged`. It returns `{ modeler, ready, destroy() }`. No test
+  holds that `startApp` hands `REACH` and not another rule to `connectBackend`: with the example's
+  files the difference cannot be seen from the page.
 - **The sheets** are imported by name in `src/app.ts`, in this order:
   `@miragon/board-renderer/assets/board.css`, `board-suite-editors/base` (diagram-js's sheet and
   the canvas mapping once, then the host package's `embed.css`), `./page.css`. Each renderer's
@@ -958,16 +1173,20 @@ and the changed files in the browser's local storage; there is no disk behind it
   `lucide-react` and the icon-geometry comments of the Wardley Maps, Context Maps, Value Chain,
   C4 and Business Model Canvas renderers (Event Storming and Team Topologies have none in their
   sources).
-- **The e2e project.** `e2e/playwright.config.ts` has one project, `webapp`
-  (`**/webapp/**/*.spec.ts`, base URL `http://localhost:5184`, `E2E_PORT` overrides), and starts
-  `npm run dev -w apps/webapp -- --port 5184 --strictPort`. Outside CI it takes whatever answers
-  on that port for the app. Port 5194 is reserved for the project `vscode-webview`.
-- **`destroy()` is synchronous** and ends the host and the files in the call that ends the
-  board. The board unmounts its editors a microtask later (see
-  [The public API](#the-public-api)), so a write an editor makes while it is released or
-  destroyed, a label editor that commits on the blur for instance, goes into a port that is
-  already disposed and is dropped without a word. By reading, not run. Nothing in the page
-  calls `destroy()`; the tests do.
+- **The e2e project.** `e2e/playwright.config.ts` has two projects. `webapp`
+  (`**/webapp/**/*.spec.ts`, base URL `http://localhost:5184`, `E2E_PORT` overrides) runs on
+  `npm run dev -w apps/webapp -- --port 5184 --strictPort`; `vscode-webview` is under
+  [The webview test page and the project `vscode-webview`](#the-webview-test-page-and-the-project-vscode-webview-e2e).
+  Playwright starts every `webServer` entry, so either project starts both dev servers. Outside CI
+  it takes whatever answers on a port for the app.
+- **`destroy()` is synchronous** and ends the host and the files in the call that ends the board.
+  The board unmounts its editors a microtask later (see [The public API](#the-public-api)), so a
+  write an editor makes while it is released or destroyed, a label editor that commits on the blur
+  for instance, goes into a port that is already disposed and is dropped without a word. By
+  reading, not run. Nothing in the page calls `destroy()`; the tests do. The port has `settled()`
+  since the second increment and `destroy()` does not await it. The board inside the shell ends in
+  the other order (see [The board inside the shell](#the-board-inside-the-shell-appside-editor));
+  the web app's own end is still as it was.
 - **Without a test of the web app itself:** a pasted or a dropped picture (a picked one is held;
   paste and drop are held on the renderer's test host), a group or an arrow made by hand, Done and
   a zoom of the board as the end of an edit (both held for the seven modelers in `apps/editors` and
@@ -984,11 +1203,12 @@ and the changed files in the browser's local storage; there is no disk behind it
   the window; at 760 x 600 at left -64 px, with its header under the board's toolbar. A pan of the
   board reaches the rest, and a delete and Done work in both. Arming at the fitted zoom where a
   node does not fit is a change of the measured arm rules and the owner's.
-- **A file its modeler refuses** shows the host package's line, which tells the person to open the
-  file in its own editor. The web app has none: there only "Reset the example" brings the file
-  back, and it forgets every other change with it. The app itself writes no such text; the review
-  got there by writing the storage by hand, and found that Wardley Maps and Event Storming take
-  the same garbage for an empty canvas in the state `ready`.
+- **A file its modeler refuses** shows the web app's own line, "This file cannot be shown as it is.
+  “Reset the example” restores it, and undoes every other change.", since the page has no editor
+  for the file and the reset is the one way back (`app.browser.test.ts` holds the line on a kept
+  Value Chain text that is no JSON). The app itself writes no such text; the review got there by
+  writing the storage by hand, and found that Wardley Maps and Event Storming take the same garbage
+  for an empty canvas in the state `ready`.
 - **The notices the build lacks.** The built C4 chunk carries dagre's line "For license information
   please see dagre.esm.js.LEGAL.txt", and the build holds no such file (it is in
   `node_modules/@dagrejs/dagre/dist`, MIT). The built sheet drops Tailwind's notice (see
@@ -998,6 +1218,838 @@ and the changed files in the browser's local storage; there is no disk behind it
   a script that names a licence file the build does not hold.
 - **Not known for it:** more than a handful of model nodes at once, any browser but Chromium, and
   touch.
+
+## The board inside the shell (`apps/ide-editor`)
+
+`mountBoardEditor(host, { root?, files?, editors, containHistoryKeys })` (`src/board-editor.ts`) is
+for the board what the shell's `mountIdeEditor` is for a modeler on diagram-js, without its
+diagram-js lines. `host` is the shell's `IdeEditorHost` (`vsCodeEditorHost()` in the webview). It
+mounts the shell through `host.mountShell` into `root` (default: the element with the id `app`)
+with the themes `["light"]`, a Help entry "Keyboard shortcuts…" (`shortcuts.ts`: the board's own
+keys and gestures; the shell adds its zoom and fit keys itself) and the empty-file hint "Add a
+note, a group or a model from the toolbar to start.", which shows while an accepted board has no
+node. With `files` it builds `createFilesHost({ files, editors, containHistoryKeys })`; without,
+the board is one of notes, groups and arrows. The board is
+`createCollaborativeModeler({ host, undoRedoKeys: host.canvasOwnsHistory, fitOnImport: false, freeArea })`,
+attached to `shell.canvas`. Then `host.connectDocument`: every change of the board is `pushEdit`,
+`exportText` is the board's canonical text, and the host is offered the command `fitView`. The
+shell and the board exist before anything is awaited, so a page without a host that answers shows
+an empty board. It resolves to `{ shell, modeler, document, ready, destroy() }`; `ready` settles
+with the first text, imported or refused. The editors of the model nodes come in as a parameter: no
+source of the workspace imports `apps/editors` or another modeler.
+
+- **A text the board shows is not imported.** After a first accepted text, a text equal to
+  `modeler.exportText()` is taken as accepted without an import. An accepted import gives up a move
+  by the arrow keys that still rests, and a host's echo of an edit is such a text.
+- **The zoom target (`zoom-target.ts`).** The shell's zoom panel and its four keys act on the board
+  through an adapter on the board's public calls alone: `getViewState`, `setViewState` and
+  `contentBounds`. A step is one step on the shell's raster (the raster of diagram-js's ZoomScroll,
+  laid through 100 %: 20, 30, 41, 55, 74, 100, 135, 182, 246, 331, 400 %) around the middle of the
+  slot, and never a step out below 20 %, which would zoom in. The fit is the shell's `fitViewbox`:
+  the content in the middle of the slot minus `shell.fitInsets()`, the insets the only margin, at
+  most at 100 % and never below the board's own 10 %. It is a jump, as the board's own Fit button
+  is. `focus()` goes to `.react-flow__pane`; the shell's own search for a canvas would find the svg
+  of a model's editor. `BOARD_MIN_ZOOM` repeats the renderer's lower limit, which the entry does
+  not export, and a browser test holds the two equal.
+- **A step of the shell's zoom ends an editing.** The adapter sets a view like any host, so the arm
+  rules take a step for a zoom nobody saw coming: a click on the zoom panel while a model is armed
+  releases its editor, as a zoom of the board does (held by a test for zoom-out). The contract
+  recommends that a host's view change leaves an interaction open; the cure is a change of the
+  renderer.
+- **The first view (`first-fit.ts`).** The board is created with `fitOnImport: false`, because its
+  own fit is not capped at 100 % and is made at the import, into whatever box the board has then.
+  The app sets the view once: in the animation frame after the first text the board accepts, also
+  when a text before it was refused, and, where the slot has no size in that frame, as soon as a
+  ResizeObserver on the slot reports one, with the content the board holds at that moment. The
+  frame is there because of what VS Code does with a webview whose tab is covered (seen in a real
+  one, [Taken for granted about VS Code](#taken-for-granted-about-vs-code), 23 and 24): in 1.146
+  its page is 300 x 150 while a text editor is in front of it, which is a size like any other to
+  whoever asks, and the page is told nothing else. A board whose first valid text arrived then (a
+  broken file, repaired in the editor of the same file) was fitted into that box and sat tiny in a
+  corner when shown. A covered page gets no frame there, so the fit now waits until the board is
+  seen. A board that is empty at its first accepted text gets no fit, and nothing is fitted
+  afterwards: every later view is the person's, and an update keeps it. The view is not kept across
+  a reload (`host.state` is not read). A test that acts in the task its mount ends in acts on the
+  view from before the fit: the browser file's mount waits one frame.
+- **An invalid board file (`invalid.ts`).** When the board refuses a text, `importText` answers
+  false to the document sync and the app locks: `shell.canvas.inert = true` at once (the whole
+  slot, the board's toolbar and an armed editor with it, takes neither pointer nor key and loses
+  the focus), `shell.setReadOnly(true)` and the status box after the shell's
+  `INVALID_STATUS_DELAY_MS`, so that typing in a text editor beside the board does not flicker. The
+  status reads "This file isn't a valid board right now. The board shows the last valid version and
+  is read-only until you fix the text." followed by the reader's reason as a sentence, such as
+  "Line 4 is no JSON."; the reason is `parseBoardText`'s. While locked `canWrite` is false, so no
+  change of the board is written over the text somebody repairs, and the empty-file hint is off.
+  The canvas keeps the last valid version; the shell's zoom panel and keys still move it, a pan
+  does not (an inert slot takes no wheel). The next accepted text unlocks. A document the host
+  opened read only (`IdeDocument.readOnly`) is locked the same way for its whole life, without a
+  status. A lock that keeps the board readable by pointer is a change of the renderer.
+- **The sheet `board-ide-editor/app.css`** has three rules under `.cd-shell .board-root`, and it
+  may hold no more: every other look of the board is the renderer's. `.board-toolbar` gets
+  `margin-left: var(--cd-shell-frei)`: the toolbar starts where the shell's top row is free of the
+  menu trigger, at 64 px. `.board-toolbar__group[aria-label="Zoom"]` gets `display: none`: one zoom
+  control, the shell's. `.react-flow__attribution` is put at `right: var(--cd-shell-rand)` and at a
+  `bottom` of the shell's margin, row and gap (`--cd-shell-rand`, `--cd-shell-zeile`,
+  `--cd-shell-luecke`): React Flow's attribution stays in sight, above the zoom panel whose corner
+  it would share. The rules read the shell's size tokens and win by weight, wherever a bundle puts
+  the sheet; load it after the shell's sheet and the board's. The toolbar's top edge stays at React
+  Flow's 15 px, 3 px below the shell's trigger at 12 px. The [DOM contract](#dom-contract) has what
+  a host may put on the toolbar.
+- **What is polled, and why (`view-events.ts`).** The board reports its content and never its view,
+  and a wheel on the pane, a pan and the move to a model that is armed happen inside it, while the
+  shell's readout has to follow. So the app reads `getViewState()` once per animation frame and
+  tells the zoom panel when x, y or the zoom changed. It reads only while the zoom target has a
+  listener and the page is visible (`visibilitychange`), asks for no frame otherwise, and sees a
+  change made while the page was hidden with the first frame after it is back. The app's own steps
+  tell the panel at once. In VS Code the page of a hidden tab never says that it is hidden: its
+  visibility state stays `visible`. The poll rests there only where VS Code gives a hidden page
+  no frames, which 1.146 does and 1.96 does not for a board behind another webview
+  ([Taken for granted about VS Code](#taken-for-granted-about-vs-code), 24). A board that has
+  `board.onViewChanged` is listened to and never looked at: the module feature-detects the member,
+  so that renderer change, which waits for its owner's yes, needs no edit here.
+- **The teardown.** `destroy()` returns a promise. It disconnects the document, destroys the board,
+  and only a microtask later, behind the one in which the board unmounts its canvas and with it
+  every model's editor, disposes the host built from the files and destroys the shell. An editor
+  may write while it goes (a label that commits on the blur), so what it writes through is still
+  there until then. The files port stays its owner's: it is disposed once the promise resolved. The
+  board has no end signal, so the microtask is the one thing this rests on, and a test holds the
+  order through a port that writes down its ends (`text.close`, `bytes.off`, `dispose`).
+- **Known and not cured.** A step of the shell's zoom that leaves a model armed (a fit that only
+  pans) hands the focus to the pane, and the editor has the keys again after a click in it (by
+  reading). No view is kept across a reload, there is no export entry, and the problems pill gets
+  no count. What was found in the shell and in the renderer under it (the islands over an armed
+  editor's popup, the focus fallback, the three pixels between trigger and toolbar) is under
+  [Deferred](#deferred).
+- **The toolbar and the status box in a narrow window** (measured by a review on the webview test
+  page, in windows of 480 to 1280 px). The toolbar starts at 64 px. It is 591 px wide in a window
+  of 900 px and more, where the Done control has 200 px, and 521 px in one of 760 px and less,
+  where it has 130 px: the board's breakpoint reads the window. It is one row down to a window of
+  600 px and two rows below that, which end 95 px from the top. The shell's top inset of 88 px,
+  which the first fit and the fit button use, is clear of one row only. The status box lies over
+  neither row: it stands at 63 px in a window of 900 px and more, under the one row that ends at
+  55 px, and at 115 px in one of 760 px and less.
+- **An armed model in a narrow editor.** A model is edited at 100 % and at its node's size: the
+  arm rules move the board there. In an editor that is narrower than the node a part of the
+  model's editor is outside the window, and a pan or a zoom of the board ends the editing, so
+  that part is out of reach. Measured by the same review with the example's nodes of 800 px: in
+  a window of 600 x 800 the armed editor starts at x -224, with the first entries of the
+  notation's palette and the map's left axis outside; at 900 x 600 the armed node's title row
+  lies under the board's toolbar and its bottom right corner under the shell's zoom panel; at
+  1280 x 800 it fits. A board beside a text editor in VS Code has about 460 to 600 px. The cure
+  is the renderer's: to arm at the largest zoom at which the node fits the slot inside the
+  host's insets, or to let the board pan while a model is armed. The extension's README says it.
+- **The keys after a broken text is repaired under an armed model.** The lock's `inert` takes the
+  focus from the armed editor, and the unlock does not hand it back: the model is still armed
+  and its selection is there, but the Delete key does nothing until a click in the editor (seen
+  by the review on the test page). Not cured, on purpose: the cure is a `focus()` call from the
+  page when the lock ends, and the usual repair is typed in a text editor beside the board. By
+  the focus rules of a nested frame, and not tried in a real VS Code, such a call can take the
+  keys from the person who types. A cure has to hold first that the board's own page has the
+  focus when the lock ends (`document.hasFocus()`).
+- **Tried against the tests:** 34 single edits of the sources, applied in memory by a plugin in a
+  scratch config, each fail the browser file; three controls pass.
+
+## The VS Code extension (`apps/vscode`)
+
+`board-modeler` (publisher `miragon-gmbh`, a preview, `engines.vscode` `^1.96.0`,
+`activationEvents` `onCustomEditor:board.boardEditor`) is the board as a custom editor for
+`*.board`, view type `board.boardEditor`. The names are working names, the owner's to fix before a
+first publish. It has two halves. The host half is every source of `src` outside `src/webview` and
+runs in the extension host, in Node; `src/webview` is the page. The host half is tested against a
+fake VS Code in memory and the webview as a page inside the shell's VS Code stub. The packed
+extension also runs in a real VS Code: its smoke is under
+[The smoke in a real VS Code](#the-smoke-in-a-real-vs-code-test-smoke), and what the code takes for
+granted about VS Code, with what a real one showed of it, is the list after it.
+
+Two channels on one pipe. The board file itself rides on the shell's document plumbing unchanged:
+it is VS Code's text document, so dirty state, saving, undo, Git and a text editor beside the board
+are VS Code's, and every change on the canvas is one minimal edit of that document. The files a
+board shows (its models, its pictures) come through the files port, served over the same panel to
+the messages whose type starts with `board.`. The two never meet: the shell answers its own types
+(`ready`, `edit`, `insertExample`, `showProblems`, `info`, `error`) and hands every other one to
+the editor's options, which take the ones `isBoardMessage` accepts; in the page the document sync
+answers `init`, `update`, `problems` and `command` and hands every other one to the files channel,
+which takes its own. **The board file is never opened through the files port.** By the extension's
+rule a `.board` is neither a model nor a picture, so the server refuses its path before VS Code is
+asked, the list a page hears has no board file, and the page opens none. Held three ways:
+`boardEditor.test.ts` asks for the editor's own board file and for another one and counts no `stat`
+and no `openTextDocument`; `webview-rules.test.ts` holds the rule against the registry; and
+`files.spec.ts` runs the page on a repository that holds the board file, where the picker does not
+offer it, no message of the files names it, a change of the board is an edit of the document and no
+write into the repository, and asking the port for it all the same is refused.
+
+### The host half
+
+`src/boardEditor.ts` calls the shell's `registerModelerEditor` with `boardEditorOptions(...)` of
+`src/boardEditorOptions.ts`, which imports no `vscode`, so that a test page registers the same
+plumbing against the shell's host stub. `test/bundle.test.ts` reads the inputs of the production
+bundle: no React, no renderer, no diagram-js, none of the seven modelers.
+
+- **The files** are served over the editor's panel. `onDidOpen` starts `serveFiles` on a channel
+  whose `post` is the editor's and whose messages `onMessage` feeds, with the rule
+  `BOARD_FILES_RULE`: a model is a file with a suffix of `board-suite-editors/suffixes`, a picture
+  one with a suffix of `PICTURE_SUFFIXES`. There is one server per open editor and nothing is
+  pushed before that page's hello. The editor's close disposes the server first and the backend
+  after; a `post` into a panel that is gone is swallowed, whether it throws or rejects. A host that
+  hands a board no backend still answers every request ("this board has no files").
+- **The root** (`src/files/root.ts`) is the nearest folder above the board file that holds `.git`
+  (a folder in a clone, a file in a worktree or a submodule), else the workspace folder the board
+  is in, the innermost one, else none. It is asked with `workspace.fs.stat` for `.git` alone, the
+  nearest folder first, up to the top folder and no further than the first hit, without the board's
+  query and fragment (a board that Git shows from its history carries the revision there). The
+  repository comes first also where VS Code has only a folder inside it open, since designIQ reads
+  the same board against the repository's root. A board with no `.git` above it follows the
+  workspace folders: when the folder comes or goes, the list follows, and an open text hears that
+  its file is gone and, where the path names a file under the new root, its text. A `.git` that
+  appears later (`git init`) is not noticed until the board is opened again. Without a root the
+  list is empty, no model opens and a new picture fails with "this board is in no repository and in
+  no open folder, so it has no files". A hazard of the rule: the nearest `.git` may be far above
+  the board. A person who keeps dotfiles in a repository at their home folder and opens a board
+  that is in no nearer repository gets the home folder as the root, and the index searches and
+  watches all of it. And by the same rule `modelers/board/example/example.board`, opened inside a
+  checkout of the suite, has the suite's root for its root and finds none of its models, which are
+  `models/...` from the example folder: copy that folder out of the checkout to try the extension
+  on it.
+- **The index** (`src/files/file-index.ts`, after Wardley Maps' `WorkspaceMaps`) is one per root
+  for every open board of it (`createIndexPool`). It lists the models wherever they are and the
+  pictures under `assets/`, by two `findFiles` on a `RelativePattern` of the root with the exclude
+  `**/node_modules/**`, and keeps the list by one watcher on every entry below the root (`**/*`),
+  by VS Code's own file events for what a person does in the Explorer, and by a search again where
+  neither can say what changed. What changed while a search ran is applied to its answer, an older
+  search that answers later is dropped, and a failed search keeps the list. The list's listeners
+  are told once, 100 ms after the last change of a burst (`LIST_REST_MS`); a single file's event is
+  told at once. Never listed: a file in `node_modules`, a dot file or a file in a dot folder, a
+  picture outside `assets/`, which is read when a node asks and is not followed when it changes.
+- **Why the watcher is on every entry.** It was on the file names a board lists, and a real VS
+  Code showed what that misses (1.146.0 and 1.96.0, Linux). A folder that another program removes
+  or moves is one word, the folder's, and a glob of file names hears nothing: the picker kept the
+  files of a removed folder. A folder that arrives with its files names none of them. A file that
+  is written right after its folder was made comes with a change as its first word, or with none.
+  So a path that went takes every listed file at or below it off the list, each told to its open
+  text; a file whose first word is a change is listed; and a new entry that is no file a board
+  follows may be a folder: once the burst rests it is asked what it is (`workspace.fs.stat`), and
+  the root is searched again where it is a folder. A new file that is none costs that one question
+  and no search. Nothing is asked about an entry in a dot folder or in `node_modules`, and a burst
+  of more than `FOLDER_LOOKS` (8) new entries is answered with one search and no question: a build
+  that writes a thousand files costs one search. The Explorer's events still say more than the
+  watcher, both ends of a rename and at once, so the files of a renamed folder move in the list
+  without a search; the watcher's later word of the same folder costs one search, which finds what
+  the list has.
+- **The list holds what a search finds.** The search's glob reads a suffix by its letters as they
+  are, where the rule of what a board shows ignores their case (seen: `findFiles` does not find
+  `X.OWM` on Linux). Such a file opens for a node that names it, and its text hears of the file,
+  but it is never listed: listed by the watcher's word, it would leave the list with the next
+  search and its node would be told that the file is gone. Listed though a board opens neither: a
+  link to a file, which the search finds and the watcher names, and, after a search, a file
+  below a linked folder, since the search follows links and the index asks nothing about a file.
+  Picked, each is a node that says why it does not open.
+- **A model's text** (`src/files/documents.ts`) is the file's `TextDocument`. A write is one
+  minimal `WorkspaceEdit` through the shell's `createDocumentWriter` with `suppressEcho`, so the
+  file turns dirty and the person saves it: the host has no call that saves, and
+  `test/host-rules.test.ts` reads its sources for one. The echo of an own write is consumed and
+  tells nothing; every other change of the document (a text editor, undo, revert, a reload after a
+  checkout, the file's own modeler) is told, and a save, whose event has no content change, is not.
+  VS Code owns the document and lets go of a clean one that no editor shows: the text drops the
+  object at its close event, keeps the last text at hand for `text()`, and opens the document again
+  before the next write, with a new writer. While the document is closed the watcher's word of the
+  file reads it again and tells the text when it is another one; while it is open, a change of the
+  file is left to VS Code, which reads a clean document again itself. A write is refused, and the
+  page is then told the document's text, when the document has another text than the one the write
+  was made on (asked in the task that hands VS Code the edit), when VS Code refuses the edit
+  because the document moved meanwhile, and into a file that is gone. A write that would make the
+  file larger than `TEXT_LIMIT_BYTES` as UTF-8 is refused too, before VS Code is handed an edit:
+  a board opens no model above that size, so the saved file would open on no board again. The
+  page is told the document's text as after every refused write, so the person sees the edit go,
+  and nothing says so in words. Two boards on one model are
+  two texts on one document: what one writes, the other is told. A file that another program
+  removes keeps its document in VS Code (seen: no close event): the text hears that the file is
+  gone from the index alone, and when the file is back it tells the text of that same document,
+  which VS Code reads again.
+- **The version of a text** is the files server's own count and never `TextDocument.version`. By a
+  reading of VS Code's typings and source, its number starts at 1 again for a document that was let
+  go of and opened anew, and it moves with the page's own edits, which a page could only follow
+  with an acknowledgement the protocol does not have.
+- **Saving** is the person's, file by file: a model edited on a board is a dirty document of its
+  own. Whether saving the board's tab should also save the models that board made dirty is the
+  owner's to decide; nothing of it is built.
+- **Pictures** (`src/files/bytes.ts`) are read with `workspace.fs.readFile`, the type by the file's
+  suffix, and a new one is written to `assets/<name>`: `assets` is made when it is not there, and
+  the name is looked for first. The backend lists a stored picture and tells its bytes at once,
+  without waiting for the watcher.
+- **What the backend checks that a path's text cannot say, and what it does not.** Checked, each
+  with `workspace.fs.stat` before anything is read: no folder between the root and the file is a
+  symbolic link (`behindLink` in `root.ts`); a model or a picture that is a symbolic link is not
+  opened and not read (`FileType.SymbolicLink`); a model above 2 MiB (`TEXT_LIMIT_BYTES`) and a
+  picture above 10 MiB are not read; a new picture never replaces a file, a folder or a link of
+  its name, and is not written through an `assets` that is a link or a file. The same checks run
+  again whenever a document is opened anew, so a folder that turns into a link under an open text
+  ends that text's writes once VS Code let go of the document. NOT checked: how a file system
+  folds names (a path is compared as text, so on a disk that folds case another spelling of the
+  root is not below it; only a document is followed by the URI VS Code gives it); that a model is
+  a text at all (VS Code decides what it opens, and was seen to refuse a binary file); the folders
+  above the root; and the moment between a check and its use, `workspace.fs` having no write
+  that only makes a file. A file that is renamed is a file that went and one that came: `onMoved`
+  never fires in this increment.
+- **Every folder on the way is asked.** `stat` names an entry itself and never the way to it: a
+  file behind a linked folder is a plain file to it (type 1), while the folder is a link (type
+  66; both seen in a real VS Code). So `behindLink` asks each folder between the root and the
+  file on its own, the outermost first, stops at the first link, and nothing is asked about a
+  file behind one: "`<path>` is behind a link, and a board opens no link" for a model, "... reads
+  no link" for a picture. A folder that is not there says nothing, and the file's own check then
+  says that it does not exist. A link is refused wherever it leads, into the repository too: VS
+  Code's API resolves no link, so where one leads cannot be asked. That is as with a link to a
+  file, and it takes a linked folder away from an honest board as well. It costs one `stat` per
+  folder of a path at every open, and nothing is kept between two opens. **Decided in the closing
+  round of the second increment, not by the owner, who may turn it round.** The lead's L1 had
+  named a linked folder as what is not checked; a review then reached a model and a picture
+  outside the repository through one in a real VS Code, read and written (`out/secret.owm` behind
+  `out -> /tmp/…`, the model left as a dirty document). Seen afterwards in the runner, on VS Code
+  1.146.0 and 1.96.0: a model and a picture behind a linked folder are refused at every depth,
+  also behind a link that is deeper on the way, no document of such a file is opened, a node that
+  names one says "This file could not be opened. out/secret.owm is behind a link, and a board
+  opens no link", and a model and a picture behind plain folders open.
+- **A webview that closes in the middle of a write.** The edit of a page is applied whole or not at
+  all, since it is one `applyEdit`. One that reached the extension host lands though the panel is
+  gone, also where VS Code first has to open the document again: the server closes a text after its
+  last write, and the backend's `dispose()` ends the index and leaves the texts to the server. One
+  the host had not received is lost.
+- **A file that is read only.** `BackendText.readOnly` comes from `stat`'s `permissions`, and a
+  real VS Code says `Readonly` there for a read-only file system alone. A file whose mode forbids
+  writing has no permissions to an extension: the board takes it for writable, VS Code takes the
+  edit, and the save is what fails for the person.
+- **The fake VS Code** (`src/files/memory-vscode.ts`) is the workspace in memory that the backend
+  is tested against and that the `vscode` mock of the unit project (`test/__mocks__/vscode.ts`) is
+  built on: a disk with folders and links, documents that are opened on demand, turn dirty and are
+  let go of, edits that carry the version they were made on, a search with excludes, watchers, the
+  Explorer's gestures and the workspace folders. It imports nothing of Node or of a page.
+  `test/memory-vscode.test.ts` holds each behaviour the backend depends on as a sentence. Each was
+  read from VS Code's typings and its source at 1.96.0, and three were changed to what a real VS
+  Code showed: a watcher hears one word for a folder that goes or comes, the folder's, and a
+  folder that is made is named before the file in it; the document of a file another program
+  removes or moves away stays open; and `readOnly` stands for a read-only file system.
+- **Tried against the tests:** 89 single edits of the host's sources as the builders left them,
+  through a plugin in a scratch config. All 89 fail (88 by a failed test, one by an unhandled
+  rejection). Of the index as it is since the walk, eight more: the watcher on file names alone, a
+  change that is never an arrival, a new entry that is never looked at, dot folders looked at, no
+  cap on the questions, a folder that leaves its files, a look that outlives the index, and a file
+  listed whatever the case of its suffix. Each fails a test. Of the look at the way and the limit
+  of a write, twelve: no look before a model is opened or before a picture is read, only the
+  nearest folder asked, the root asked too, the way asked after the file, a folder that is not
+  there taken for a link, a link told by another bit, a URI without folders taken for clear, a
+  write of any size handed on, the limit itself refused, letters counted in place of bytes, and
+  a pair counted as six bytes. Each fails a test.
+
+### The webview half (`src/webview`)
+
+Three files. `main.ts` is the bundle's entry, `channel.ts` puts the files protocol on the
+webview's one pipe to the extension, and `paste.ts` aims a paste where a browser aims it.
+Everything else of the page is `board-ide-editor`, the shell and `board-suite-editors`.
+
+- **The entry's order.** `board-suite-editors/zod-jitless` first: zod probes for eval when it
+  builds its first schema, and the webview's policy reports the probe. Then the sheets by name: the
+  two Geist sheets, `@miragon/modeler-shell/shell.css`, `@miragon/board-renderer/assets/board.css`,
+  `board-suite-editors/base` (diagram-js's sheet and the canvas mapping once, with the host
+  package's preview rule), `board-ide-editor/app.css`. Only then code. A renderer's own sheet
+  follows all of them in the bundle's one sheet. `test/webview-rules.test.ts` holds the seven
+  imports in this order, and `test/webview-bundle.test.ts` the order in the built sheet.
+- **One API.** A webview may call `acquireVsCodeApi()` once. The shell's
+  `vsCodeEditorHost({ onMessage })` does, for the board file's own sync, and the files post through
+  the same object (`host.api`). `filesChannel()` gives `receive`, which is handed to the editor
+  host as `onMessage` and takes every message `isBoardMessage` accepts, and `over(api)`, the page's
+  side for `createFilesClient`. No source of the webview names `acquireVsCodeApi`, and the
+  production script names it once (both under a test).
+- **The first answers need the document sync.** The files' messages come in through the shell's
+  document sync, which hands on what it does not answer itself, so nothing arrives before the sync
+  listens. The client says hello when it is made, and `mountBoardEditor` connects the sync in the
+  same task, before its first await. An await between the two loses the answer to the hello. What a
+  person would see is an empty picker and nothing else: a node asks for its file by its path, so
+  the models and the pictures still open. A rule test forbids an await before the mount, and the
+  e2e tests of the init hold the picker's entries.
+- **The mount.**
+  `mountBoardEditor(host, { files, editors: SUITE_EDITORS, containHistoryKeys: true })`. Nothing of
+  the extension is awaited: the shell and the board stand in a page nobody answers, with the models
+  waiting. A mount that fails (a page without `#app`) disposes the files and stays the page's
+  rejection. In VS Code the default line of an invalid model is true ("Open it in its own editor to
+  repair it."), so no `invalidText` is passed.
+- **A paste (`paste.ts`).** VS Code keeps the paste key from a webview's page and pastes by a
+  command of its own, and the event of that command lands on `<body>` whatever has the focus (seen
+  in VS Code 1.146.0), where a browser aims a paste at the focused element. The board takes a
+  paste only when it is aimed at the board, so a pasted picture went nowhere. `aimPastes(document)`
+  hears a paste on the body on its way down, and where another element has the focus it tells the
+  paste again at that element, with the same clipboard, and stops the first one: the board's own
+  rules then decide as in a browser (the pane takes a picture, a textarea its text, an armed
+  editor what is its own). With nothing focused, or with the focus beside the board, the paste
+  stays where it was and the board does not take it. `files.spec.ts` holds the three cases with a
+  paste event made on the body; a real paste was seen in a real VS Code, on 1.146.0 and 1.96.0.
+  The cure in the renderer would be to read the focused element where a paste's target is the
+  body.
+- **`webview`**, the entry's one export, is for test pages: `{ files, mounted, destroy() }`. The
+  bundle is an IIFE and drops it; the shipped page publishes nothing on `window`. `destroy()` ends
+  the board first (its editors close their files and may still write while they go: a label that is
+  open is committed), then the host built from the files and the shell, and only then the files. It
+  does not wait for `files.settled()`: a message posted through VS Code's API is on its way and no
+  dispose takes it back, and in a page nobody answers the wait would never end. Nothing in VS Code
+  calls `destroy()`. A webview that closes is gone, the extension's files server closes what it had
+  open, and a reloaded webview says hello again, which starts the life of a page anew
+  (`webview-channel.test.ts` holds that over the channel: the last write of the page before landed,
+  and the new page counts its versions from 1).
+- **What is a model** is said twice in the extension: the page mounts an editor by the suffixes of
+  `SUITE_EDITORS`, and the extension host serves a text by `MODEL_SUFFIXES`, which is the suffix
+  table as plain data. `test/webview-rules.test.ts` holds the two lists and the two rules equal.
+- **The bundle** (`npm run board build:vscode`, `esbuild.config.mjs`). `dist/extension.cjs` is the
+  host: Node, CommonJS, target node20, `vscode` external, 27.9 kB minified. The page is one classic
+  script, `dist/webview.js` (2.79 MB minified), one sheet, `dist/webview.css` (297 kB), and eleven
+  font files in `dist/fonts`, which the sheet names by relative path. The policy lets one script
+  run, the nonce'd one, so there are no chunks: every notation's code is in the one script and runs
+  when its first node asks for it. One copy each of zod, React, React DOM, Yjs, React Flow and
+  diagram-js, and no file of the extension host (`test/webview-bundle.test.ts`, built in memory
+  from the extension's own esbuild config). The webview's HTML and its policy are the shell's
+  (`default-src 'none'`, a nonce on the one script, no `connect-src`, `dist` as the only local
+  resource root; `test/webviewHtml.test.ts`).
+- **The VSIX** (`npm run board package:vscode`, which runs the production build itself and packs
+  offline) is `apps/vscode/board-modeler.vsix`, 19 files and 1.01 MB: the manifest,
+  `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt`,
+  `extension/dist/extension.cjs`, the script, the sheet and the eleven fonts. `.vscodeignore`
+  leaves out `src`, `test`, `test-smoke`, `node_modules`, the esbuild config, the tsconfig and
+  source maps. A development build before it leaves its source maps in `dist`; the VSIX does not
+  take them. It has no CHANGELOG, no icon and no third-party notices yet.
+- **Tried against the tests:** 21 single edits of `main.ts` and `channel.ts` (a sheet or the zod
+  line taken out, the undo keys not contained, the files disposed before the board, no editors, no
+  files, a second acquire, the channel posting or delivering nothing, an await before the mount),
+  and one of the paste: the entry not aiming it. Each fails at least one test.
+
+### The webview test page and the project `vscode-webview` (`e2e`)
+
+`e2e/webview/webview-test.html` with `webview-test.ts` is the extension's webview as a page:
+`apps/vscode/src/webview/main.ts` from its source inside the shell's VS Code stub.
+`npm run dev:webview -w modelers/board/e2e` serves it on http://127.0.0.1:5194/webview-test.html
+(the port is strict; `E2E_WEBVIEW_PORT` overrides it). Like the web app's, its Vite config takes
+every package of the suite from its source, empties the base inside each renderer sheet and
+pre-bundles what the notations load; `e2e/tsconfig.json` has `allowJs` for the `.mjs` build helpers
+the config imports.
+
+- **The stub first.** `installVsCodeWebviewStub` (default styles, `<html>` as `renderWebviewHtml`
+  writes it, the body's theme classes, `acquireVsCodeApi`, the theme bridge) is in place before the
+  webview's entry is imported.
+- **`?host`** runs the extension's plumbing in the page as well: the shell's
+  `registerModelerEditor` with the extension's own `boardEditorOptions`, against
+  `createVsCodeHostStub()` and a `createMemoryBackend` that holds the example folder (the web app's
+  `EXAMPLE`) and the board file itself, as `example.board`. The board file's text is the stub's
+  document `/repository/example.board`. What the page posts reaches the panel, and what the
+  extension posts comes back as a `message` event on the window. So the board file's sync, the
+  files server, its rule and the protocol are the real ones. **The VS Code backend is not in the
+  page**: the files are in memory, and what the VS Code backend does is held by its unit tests
+  alone.
+- **Without `?host`** the page posts the document itself, as the extension answers `ready`, and
+  nothing answers for the files.
+- **`?board=empty`** opens an empty file, as somebody just created it. **`?root=none`** takes
+  `#app` out before the webview runs.
+- **On `window`**, for the tests and never in the shipped bundle: `vscodeHost` (`host`, `document`,
+  `panel`, `backend`, and `deliveries` with `hold()` and `release()`, which keep what the extension
+  posts on its way until a test lets it through), `webview` (the entry's export), `editor` (once
+  mounted), `webviewReady` (once the first text was imported or refused), and the stub as
+  `__modelerShellVsCodeStub` (what the page posted, its CSP violations and errors).
+
+`e2e/playwright.config.ts` has the project `vscode-webview` (`**/vscode/**/*.spec.ts`,
+http://127.0.0.1:5194). `tests/vscode/support/webview.ts` has what the specs share. 17 tests:
+
+- `document-sync.spec.ts` (4), the board file through the extension's real plumbing: the init shows
+  the example inside the shell with seven models ready, the picker's seven entries and the picture,
+  and writes nothing; a click on Group is one applied edit of one added line, and the document's
+  undo brings the canvas back to the fixture; an invalid text locks the board and names the line,
+  and a valid one unlocks it; an empty file shows the hint, and its first note is one edit that
+  writes the header too.
+- `files.spec.ts` (11), the files of the repository: a model armed by a real double-click and
+  changed by a real click and key is one write of that file and none of the board file; the undo
+  key inside the armed editor undoes there and a bubbling listener on the window sees nothing,
+  while on the board's pane the key reaches the window unprevented; a change from outside shows in
+  the node and nothing is written back; an edit made while the extension's word of an outside
+  change is still on its way is dropped whole, the file keeps the outside's text, the node shows
+  it, and the next edit lands on version 2; the board file is in the repository and is never a file
+  of the files; the picker follows a file that comes later, and a picked model is one line more in
+  the board file; a picture picked through the Image button is stored under `assets/` and its node
+  is one edit; a picture pasted as VS Code pastes, on the body, is the board's while the pane has
+  the focus and nobody's with the focus nowhere or on the shell's menu; the teardown ends the
+  board first (a label still being typed in lands in its file,
+  each of the seven editors closes its file, then the port is closed); a page nobody answers still
+  shows the board, its models waiting; a page without `#app` says why and keeps no files open.
+- `shipped-bundle.spec.ts` (2), the webview as the VSIX ships it: the spec builds `apps/vscode` for
+  production itself (`node esbuild.config.mjs --production`, once for the file, so it overwrites
+  `apps/vscode/dist`) and opens it through the shell's `openWebviewBundle` with the editor's own
+  options, behind the document and the policy the extension writes. There is no dev server and no
+  plumbing in the page: the test answers `ready`, `board.hello`, every `board.text.open` and the
+  picture's `board.bytes.read` as the extension would. The page stands before any answer; then
+  seven models are ready, the picture is drawn, Geist is loaded from `dist/fonts`, and the stub
+  recorded no CSP violation and no error. An edit there is one `board.text.edit` and no `edit` of
+  the board file.
+
+The only notation that is edited in these specs is Wardley Maps; all seven are shown. Without a
+test here: a dropped picture (Playwright's file chooser stands in for the dialog, and a paste is
+an event the test makes), a second board, a reloaded webview in a page, a dark or high-contrast
+theme, and everything the VS Code backend does, which the page does not run: that runs in the
+smoke, in a real VS Code.
+
+Run once as a probe and not kept: a board file whose lines stand in another order than the
+canonical one (after a hand edit or a merge that moved lines) is shown without a write, and the
+first change on the canvas is then one edit that replaces every line between the first and the last
+that differ (lines 1 to 13 of the example). The answer to the hello is needed only by the picker:
+with it lost, the models and the picture still open, since a node asks by its path.
+
+### The smoke in a real VS Code (`test-smoke`)
+
+`apps/vscode/test-smoke/vscode-smoke.test.ts` runs the packed extension in a real VS Code, on the
+shell's `runVsCodeSmoke`. It packs the VSIX itself (or takes the one `VSCODE_SMOKE_VSIX` names, as
+a release does), unpacks it and hands VS Code that folder, so the extension's files are the
+VSIX's, without `node_modules`. To VS Code it is still a development extension: the driver starts
+it with `--extensionDevelopmentPath` and writes `workbench.editorAssociations` for the fixture,
+and such a window keeps no backups of unsaved files. What an installed extension does differently
+is the last point below. `npm run board test:vscode` runs it where there is a display,
+`npm run board test:vscode:docker` in the suite's Docker runner; `VSCODE_VERSION` picks the VS
+Code, `VSCODE_SMOKE_KEEP=1` keeps the profile and its logs. Its config is apart from the unit and
+the browser project (`test-smoke/vitest.config.ts`), and `test-smoke/board-steps.ts` has what it
+does on the board.
+
+- **The workspace is the example.** The fixture is `example/example.board`, and the driver writes
+  the example's seven models and its picture beside it (`fixture.files`; the picture is an SVG, a
+  text). The folder has no `.git`, so the folder VS Code opens is the board's root.
+- **The driver's steps, as the board takes them.** `parse`: the saved text must be one
+  `parseBoardText` accepts. `themes: ["light"]`. `chrome: ["menu", "zoom"]`: the board has a
+  toolbar of its own and no palette of the shell's. `ready`: the board's toolbar is there and every
+  model node's editor says `data-embed-state="ready"`, seven of them. `edit`: a click on the
+  toolbar's Group button. The save step then reads the file, and the undo step presses the undo
+  key and saves again: the file must be the fixture's text byte for byte, which is what holds that
+  the key reaches VS Code's document from the board. The driver's own comparison in those steps
+  counts the shapes of diagram-js canvases, which on a board are the models' previews: a change of
+  the board moves none of them, so that comparison holds whatever the board does. The themes step
+  switches VS Code through its four default themes and takes a screenshot of each into
+  `test-results/vscode-smoke/board-<theme>.png`: the board stays light under each.
+- **Three steps of the driver are off**, each with its sentence in the test: `keys` (it focuses
+  the first diagram-js canvas of the page and selects and copies its elements, and on a board that
+  canvas is the inert preview of a model), `history` (it reads the view and the selection of a
+  diagram-js canvas across a redo and an undo) and `workbench` (motion, hidden and reload read a
+  diagram-js view as well, and the reload expects the view back, which the board does not keep).
+- **The custom step** holds what only a real VS Code with a real folder shows, in three parts.
+  Every model is drawn by its own modeler (each engine has shapes with a box) and the picture's
+  bytes arrived. The picker offers exactly the seven models of the folder, lists a model in a
+  folder that another program makes, and drops it when that folder is removed: VS Code's search
+  and its watcher, which names such a folder and none of its files. And a model that is armed by a
+  real double-click and changed by a real click and the Delete key turns up as a dirty tab of its
+  own (`tea.owm`), while the board's tab stays clean and the file on disk keeps its text.
+- **Run, in the Docker runner on the machine the increment was built on:** VS Code 1.146.0 (the
+  newest stable the runner took by default): 1 test passed, the smoke's own total 10.8 s, the
+  whole container run 25 s with the image and VS Code cached. VS Code 1.96.0, the manifest's
+  minimum: passed, 11.9 s; there the driver found the file opened as text first and opened it
+  again from the Explorer, twice. With the packed VSIX (`VSCODE_SMOKE_VSIX`, on 1.146.0): passed,
+  12.1 s, no build in the run. The screenshots show the board inside the shell (the menu trigger,
+  the board's toolbar beside it, the zoom panel), the group with the picture and the two notes,
+  and the seven models drawn in two rows, nothing cut and nothing twice; under the two
+  high-contrast themes the nodes have the stronger outlines. VS Code's own toast "It is not
+  recommended to run Code as root user." lies over the zoom panel in some of them: the runner is
+  root.
+- **It can fail.** Run once on a snapshot whose index watched files alone, as it did before the
+  walk: "after that folder was removed the picker should offer … it offers
+  made-later/one.owm, …", exit 1.
+- **Not run:** `npm run board test:vscode` outside the runner, and CI's job `vscode-smoke (board)`,
+  which calls it under `xvfb-run` on VS Code stable and on the minimum.
+- **Installed, as a person gets it.** No step of the smoke: seen by a review in the same runner,
+  on VS Code 1.146.0, in scratch. `code --install-extension apps/vscode/board-modeler.vsix`
+  printed "Extension 'board-modeler.vsix' was successfully installed.", the extension was listed
+  as `miragon-gmbh.board-modeler@0.0.0`, and VS Code was started without
+  `--extensionDevelopmentPath` and without an editor association on a copy of the example folder.
+  Opened from the Explorer, `example.board` showed the board within 1.0 s: seven models ready,
+  the picker's seven entries, the picture, both Geist faces. Two things differ from the smoke's
+  window. **A `.board` file given on the command line at the first start after the install
+  opened as plain text**, for the whole 60 s that were waited (two runs); closed and opened from
+  the Explorer it was the board, and after a restart the restored tab was the board's editor.
+  Nothing in the manifest differs from Business Model Canvas's in what decides this (one
+  `customEditors` entry, priority `default`); whether every custom editor of the suite does the
+  same, and a second start with a path, were not looked at. **Unsaved models survive a reload
+  there**: a model edited in place (its unsaved tab came after 840 ms, the file on disk as it
+  was) was still unsaved and still showed the edit after Developer: Reload Window and after a
+  quit and a start, which is VS Code's hot exit. The runner's development window dropped four
+  unsaved models at a reload without a question. So nothing the smoke or the walk saw about a
+  reload says what a person's window does with unsaved models.
+
+### Taken for granted about VS Code
+
+Everything here was read from VS Code's typings and its source at 1.96.0, or from the plan, and
+built into the fake the host half is tested against. It was then walked through in a real VS Code,
+item by item: each item says how it ended. **Seen**: VS Code does what was assumed. **Differs**:
+it does something else, and the item says what was changed for it. **Not reached**: the runner
+could not make the situation, and the item says why; these are left for a walk by hand.
+
+The walk was a scratch script that is not in the tree. It ran the packed extension through the
+shell's smoke driver in the suite's Docker runner, with real mouse and keyboard input, the test
+writing into the workspace folder as another program would, and a probe beside the extension in
+the extension host: the unpacked VSIX's `main` pointed at a wrapper that activated the real
+extension unchanged, wrote down what VS Code told it (documents, saves, tabs, file events, the
+messages between the extension and its page) and ran what the walk asked of the `vscode` API. It
+ran on **VS Code 1.146.0** (Chromium 150, Electron 43) and on **1.96.0** (Chromium 128, Electron
+32), on Linux, as root. "Both" below means both versions; where only one is named, the other was
+not looked at for that item. The script ran in three whole passes and seven partial ones on
+1.146.0 and in one whole pass on 1.96.0, all on 2026-11-15. An item's outcome was the same in
+every pass that looked at it after the last change the item names, unless it says "once". A thing
+that was looked at there and is no step of the smoke is **seen once in scratch**, which is all of
+the walk but the three parts of the smoke's custom step.
+
+Documents:
+
+1. `openTextDocument(uri)` hands out the document VS Code has, with its unsaved text, or reads the
+   file. **Seen** (both): a model whose document had an unsaved line was picked on a board, and
+   its node drew the unsaved component while the file on disk did not have it. That it rejects for
+   a missing file was not looked at: the backend asks `stat` first, and that rejects (17).
+2. VS Code lets go of a clean document that no editor shows, about 3 minutes after the last
+   `openTextDocument`. **Seen** (both): for both models a board only showed, the close event came
+   180.0 s after the open (opened at 1.3 s, closed at 181.3 s), `isClosed` was true, and the next
+   edit in place opened the document anew and landed. The limit of about 50 references was not
+   reached.
+3. `TextDocument.version` is 1 for a document just opened, one more with every change and 1 again
+   after a close and a reopen. **Seen** (both). One `applyEdit` is two events: one with the content
+   change, in which `isDirty` is still false, then one without a content change for the dirty
+   state.
+4. A dirty document is never let go of, and `applyEdit` on a file no editor shows makes it dirty
+   and saves nothing. **Seen**: after an edit in place the file on disk was unchanged and the
+   document dirty (both), and a dirty document was still open 234 s after its `openTextDocument`
+   (1.146.0, once). **The tab** the plan expects: VS Code opens a text editor tab for the document
+   about 800 ms after it turned dirty (802, 803 and 892 ms measured, both): in the board's editor
+   group, in the background, not as a preview. The board keeps the focus and the model stays
+   armed. With the notation's own extension installed that tab may be its custom editor: not
+   looked at, the runner's VS Code has the board's extension alone.
+5. A clean open document is read again when its file changes on disk, with a change event that has
+   content changes; a dirty one keeps its text. **Seen** (both): the node followed a write by
+   another program in about 130 ms; with an unsaved change in the document nothing was told and
+   the node kept it. Saving that document then fails: `save()` resolves false and VS Code shows
+   "Failed to save 'second.owm': The content of the file is newer. …". It notices by the file's
+   time and size: a change on disk to a text of the same length was saved over without a word
+   (1.146.0, once).
+6. The clean document of a deleted file is let go of. **Differs** (both): the document stays
+   open, with no close event, also 2 s later. The node still says that its file is gone, by the
+   watcher's word, and shows the file again when it is back, since VS Code reads the open document
+   again. The fake was changed (a removed or moved file keeps its document; a file a person
+   renames in the Explorer has its clean document let go of, which was seen in 14), and
+   `test/memory-vscode.test.ts` holds both. A dirty document of a deleted file was not looked at.
+
+Edits and events:
+
+7. `workspace.applyEdit` carries the version the extension host knows; if the document changed
+   meanwhile it resolves false and changes nothing; for a file the extension host has no document
+   of, it is applied to whatever the file has. **Seen** (both): of two calls in one tick on the
+   same lines the first resolved true and the second false, and the text had the first alone (VS
+   Code writes "… has changed in the meantime" into its developer console); an edit of a file
+   without a document resolved true and left a dirty document at version 2. **The refusal of a
+   stale edit as the page meets it** was made too (both): the extension's word of an outside
+   change was held on its way to the page, at VS Code's own `postMessage`, while a real key
+   deleted a component in the armed editor. The page's edit arrived with version 1 against the
+   server's 2 and was dropped whole: the document kept the outside's text throughout, the node
+   showed it once the word was let through and stayed armed, and the next edit landed on version 2.
+8. The change event of an own `applyEdit` reaches the extension host before its promise resolves.
+   **Seen** (both): event with the change, event for the dirty state, then the resolved promise.
+   Two quick edits of a model in place both landed, and nothing was undone or posted back.
+9. `onDidChangeTextDocument` fires with empty `contentChanges` for a save and for a change of the
+   dirty state, and with content changes for typing, undo, redo, revert and a reload. **Seen**
+   (both), with `reason` Undo and Redo for those two. A model saved in a text editor beside the
+   board posted nothing to the board; a revert reached its node.
+10. An inserted `\n` is written as the document's line break, and the shell's echo test recognises
+    it. **Seen** (both): a CRLF model edited in place was one change whose text carried `\r\n`,
+    nothing was posted back, and the saved file had 17 CRLF and no lone LF.
+
+The search, the watcher, the file events:
+
+11. `findFiles` with a `RelativePattern` searches below a root that is no workspace folder and
+    takes a brace group with a dot inside. **Seen** (both): a board with a `.git` above the folder
+    VS Code had open listed the models of the whole repository and none of `node_modules`; the
+    typings' sentence "Will return no results if no workspace folders are opened" does not hold
+    for a pattern with a base. `porter.vc.json` is found by the brace group (the smoke's picker).
+    **Differs:** the search reads a suffix by its letters as they are, so `X.OWM` is not found on
+    Linux, though the rule of what a board shows takes it. The index now lists what a search
+    finds and never such a file, which still opens for a node that names it. The search follows
+    links: it finds a link to a file and the files below a linked folder. That `files.exclude`
+    stays in force was not looked at.
+12. A watcher on a `RelativePattern` names a created, a changed and a deleted file below the root,
+    also outside the workspace folders. **Seen** (both): the picker and an open node followed
+    within about 250 ms, for a root above the open folder too. A new link is named like any
+    entry, whether it leads to a file or to a folder.
+13. What a watcher names for a folder that another program removes or moves. **Differs** (both)
+    from what the fake said (every file for `rm -r`): VS Code names the folder alone. `rm -r` is
+    "deleted" for the folder, `mv` is "deleted" for the old name and "created" for the new one, a
+    folder moved into the repository is "created" for the folder, and none of these names a file,
+    so a watcher whose glob matches file names hears nothing at all. A file written right after
+    its folder was made came with a change as its first word, or with no word. The picker kept
+    the files of a removed folder and never showed those of a new one. **Changed:** the index
+    watches every entry below the root, drops what is at or below a path that went, lists a file
+    whose first word is a change, and asks what a new entry is and searches again where it is a
+    folder ([The host half](#the-host-half)); the fake names folders as VS Code does; eight tests
+    of `file-index.test.ts` and the smoke's custom step hold it. Seen afterwards (both): the
+    picker follows a folder that is made and filled, one that arrives full, one that is moved
+    and one that is removed.
+14. `onDidCreateFiles`, `onDidDeleteFiles` and `onDidRenameFiles` fire after what a person does in
+    the Explorer, once for a folder, and not for another program. **Seen** (1.146.0): a folder
+    renamed with F2 in the Explorer was one rename event for the folder, the picker had the new
+    paths 152 ms later, and the node of the old path said "This file is gone. The board keeps its
+    place."; VS Code let go of the document at the old path and opened one at the new. A folder
+    deleted there was one delete event, and the picker followed in 11 ms. None of these events
+    came for what the walk did to the disk itself. A file created in the Explorer was not tried;
+    on 1.96.0 the walk's click did not find the folder in the Explorer's list.
+15. `onDidChangeWorkspaceFolders` in a multi-root workspace. **Not reached:** the runner's VS Code
+    opens one folder. A call of `updateWorkspaceFolders` there answered true and changed the
+    extension host's own list at once, while the window kept its one folder and no event came, so
+    a board whose list empties when its folder leaves the workspace is still to be seen in a
+    window that was opened on a `.code-workspace` file. A review tried it again with the same
+    outcome; a board in the added folder did open there and listed that folder's model.
+
+The disk and the panel:
+
+16. `workspace.fs.stat` of a link to a file has the `SymbolicLink` bit and the target's size; of a
+    file reached through a linked folder it is a plain `File`. **Seen** (both): type 65 with the
+    target's size for a link to `/etc/hostname` and for a link to a model beside it, and the node
+    read "models/link.owm is a link, and a board opens no link"; a model below a linked folder
+    was type 1 and opened. That was a way out of the repository, and a review walked it (both): a
+    model behind `out -> /tmp/…` was read and then written into a dirty document, and a picture
+    there was read. **Changed:** the backend asks every folder on the way to a file, and a linked
+    folder is type 66 to `stat` ([The host half](#the-host-half)). Seen afterwards (both): a model
+    and a picture behind a linked folder are refused at every depth, no document of such a file
+    is opened, a node that names one says "… is behind a link, and a board opens no link", and a
+    model behind plain folders opens. A link to a file and a file behind a linked folder are in
+    the picker's list, since the search follows links and the index asks nothing about a file it
+    lists; picked, each is refused.
+17. `stat` rejects for a missing path, also for `.git` asked in every folder above the board,
+    without a prompt or an error shown. **Seen** (both): `EntryNotFound`, no toast, and no error
+    in the extension host's log. `permissions` has `Readonly` for a read-only file: **differs**
+    (both). A file whose mode forbids writing has no `permissions` at all; VS Code keeps that as
+    `Locked` to itself and takes an edit of the file. `Readonly` is what a read-only file system
+    says, which is what the fake's `readOnly` now stands for. What the save of such a file does
+    for a person who may not write it was **not reached**: the runner is root, and the save went
+    through.
+18. `fs.createDirectory` and `fs.writeFile`. **Seen** (both): in a repository without an `assets`
+    folder the folder was made and the picture stored; a second picture of the same name became
+    `pixel-2.png` and the first was as it was.
+19. `openTextDocument` of a file that is no text. **Seen** (both): it rejects, and the node says
+    "models/binary.owm cannot be read as a text".
+20. A custom editor on a `git:` URI. **Seen** (1.146.0): a board opened on the `git:` URI of its
+    committed version, through the Git extension's API, had no files: its nodes said "this board
+    is in no repository and in no open folder, so it has no files" and its picker was empty. The
+    diff of the Source Control view was not opened.
+21. A panel that is disposed. **Seen** (both): a tab closed in the task that pressed Delete in an
+    armed model, and the edit landed in the model's document, with no error in the extension
+    host's log. That `panel.webview` throws afterwards, and the shell's unguarded `resync()`, the
+    walk did not reach; a review did (both), with a second board and, in one task of the
+    extension host, an outside `applyEdit` on the board document, the page's `edit` and
+    `panel.dispose()`. VS Code refused the page's edit ("… has changed in the meantime"),
+    `panel.webview` threw "Webview is disposed", and the promise of the shell's message handler
+    was rejected with that. Nothing else followed, and the document kept the outside's text. The
+    cure is the shell's ([Deferred](#deferred)).
+
+The webview:
+
+22. The extension activates from the VSIX, unpacked and without `node_modules`, and its webview
+    loads the script, the sheet and the fonts under the real origin and policy. **Seen** (both,
+    and with a VSIX packed beforehand): the page's origin is `vscode-webview://…`, Geist Variable
+    and Geist Mono Variable are loaded and are the toolbar's font, and VS Code's console had no
+    error and no violation of the policy. A review tried the policy from inside the page (both):
+    `eval` and `new Function` throw; a string timer, an inline script, an inline handler, a script
+    from a blob and a second script from `dist` without the nonce do not run; `fetch`,
+    XMLHttpRequest, WebSocket and `sendBeacon` are blocked; an image, a font, an `@import` and an
+    iframe from another site are blocked, while `data:` and `blob:` images load; a workspace
+    file and `extension/readme.md` asked through the resource origin are refused, `dist` being
+    the only root; a second `acquireVsCodeApi` throws. One thing is open: a `<base>` element takes
+    effect, since the shell's policy has no `base-uri` ([Deferred](#deferred)). The extension
+    was also installed there as a person installs it
+    ([The smoke in a real VS Code](#the-smoke-in-a-real-vs-code-test-smoke)).
+23. A custom editor in a hidden tab reports a slot of 0 x 0. **Differs**, and by version. In
+    1.146.0 a board behind another webview keeps its size; behind a text editor its page is 300 x
+    150, VS Code's stand-in, and a ResizeObserver fires when it is covered and when it is shown.
+    In 1.96.0 it keeps its size in both cases. A custom editor that is opened in a background tab
+    has no page at all until the tab is shown. No hidden board was ever 0 x 0. **What that
+    broke:** a board whose first valid text came while a text editor covered it (a broken file,
+    repaired in the editor of the same file) was fitted into 300 x 150 and stayed tiny in a corner
+    when shown. **Changed:** the first fit waits for an animation frame
+    ([The board inside the shell](#the-board-inside-the-shell-appside-editor)); seen afterwards
+    (both): fitted when shown. A board that is hidden and shown again keeps its armed model, its
+    selection and its view; the focus is on the body then, so the armed editor has the keys
+    again after a click in it.
+24. `requestAnimationFrame` stands still in a hidden webview. **Differs** by version. 1.146.0: no
+    frame in 4 s behind another webview and none in 2.5 s behind a text editor. 1.96.0: none
+    behind a text editor, and 241 frames in 4 s behind another webview, so the poll of
+    `view-events.ts` goes on there at the display's rate. In every case `document.visibilityState`
+    stays `visible` and no `visibilitychange` fires: the poll's stop on that event never happens
+    in VS Code.
+25. Where the focus is after the editor opens. **Seen**: in 1.146.0 the board opened with the
+    window, the webview had the focus, and Control+Equal before any click moved the shell's
+    readout from 52 % to 74 % and left VS Code's window zoom alone. In 1.96.0 the driver opened
+    the file by a click in the Explorer, which keeps the focus there: the same key zoomed VS
+    Code's window and the board stayed. The shell's keys are the board's once the webview has the
+    focus.
+26. The undo key. **Seen** (both): inside an armed editor Control+Z undid in the editor, never
+    reached the window, and the board document kept its text and its version; on the board's pane
+    it reached the window, VS Code took it, and the board document was undone (`reason` Undo)
+    while the model was left alone.
+27. The Image button's file dialog, a paste and a drop inside a webview. The dialog: **seen**
+    (both), as far as Playwright stands in for it: the page may open a file chooser, and the
+    picked picture is a file under `assets/`. A paste: **differs** (1.146.0). VS Code keeps the
+    paste key from the page and pastes by a command of its own, whose event lands on `<body>`
+    whatever has the focus, where a browser aims it at the focused element (seen in plain
+    Chromium); the board takes a paste that is aimed at it, so a pasted picture went nowhere.
+    **Changed:** `src/webview/paste.ts` aims such a paste at the focused element, held by an e2e
+    test; seen afterwards (both): a picture pasted with the focus on the pane is
+    `assets/image.png`. A drop: **not reached**, the runner has no pointer that carries a file. A
+    drop event the walk made up was taken and stored; after it, and not after a picked or a
+    pasted picture, the next double-click armed no model and the shell's Fit button took no click
+    until a click on the pane (both, unexplained, and no claim about a real drop).
+28. A reloaded webview. **Seen** (both), with Developer: Reload Webviews: a new document, the
+    models ready again and the picture drawn, and an edit of the board and one of a model still
+    landed. A tab moved into a new window was not tried.
+29. The Chromium of VS Code 1.96 (128). **Seen**: the smoke passes on 1.96.0 with all seven
+    notations drawn, and the walk ended there as on 1.146.0 but for 23, 24 and 25.
+30. Whether the save key reaches the extension while the board document is clean, and what
+    happens to a model that is dirty in a tab of its own. **Seen** (both): it does, and they are
+    one document. The measurement is under [Saving, as measured](#saving-as-measured).
+
+Seen beside the list, once in scratch: a `.board` file that another program rewrites while it is
+clean is read again and the board shows the new nodes; a model above 2 MiB, a dot folder and a
+model in `node_modules` end as the guide says (the last opens for a node that names it and is
+not listed); an invalid board file locks the canvas with "… Line 4 is no JSON."; VS Code's toasts
+lie over the shell's zoom panel while they show; and the extension host's log of a development
+window has warnings of VS Code's own for every search and watcher ("Accessing a resource scoped
+configuration without providing a resource is not expected. To get the effective value for
+'search.useIgnoreFiles' …", "'files.watcherExclude'"), and no error.
+
+### Saving, as measured
+
+Item 30 of the list is a measurement for a decision that is the owner's: (a) a model edited on a
+board is a dirty document the person saves, which is what is built; (b) saving the board's tab
+also saves the models that board made dirty; (c) every edit of a model is saved at once. Nothing
+of (b) or (c) is built. Measured in the walk, on VS Code 1.146.0 and 1.96.0 with the same
+outcome (the auto save on 1.146.0 alone), with `editor.formatOnSave` on and a formatter of the
+probe's own for `*.owm`:
+
+- **The save key on a clean board.** Control+S with the board's tab active, the board document
+  clean and a model dirty, with the focus in the armed editor and with the focus on the pane: VS
+  Code saves the clean board document. `onWillSaveTextDocument` fires for it with the reason
+  Manual, then `onDidSaveTextDocument`. Nothing is told about the model: it stays dirty, and its
+  file is as it was. So (b) has its moment: the extension hears every explicit save of a board,
+  dirty or not.
+- **A model that is dirty in a tab of its own.** Typing in its text editor reached the board's
+  node. An edit on the board then landed in the same document, which stayed dirty, with the file
+  untouched. Control+S in its own tab saved all of it: will-save with the reason Manual, the
+  formatter asked, did-save, the file equal to the document, and nothing posted to the board.
+- **Save All** saved every dirty document, the models a board made dirty among them (each had
+  its background tab by then): will-save with the reason Manual for each, the formatter asked for
+  each, did-save for each.
+- **A save from the extension.** `TextDocument.save()` on a model that was dirty in the
+  background answered true, and `workspace.save(uri)` answered the URI. Both ran VS Code's save as
+  a person's: will-save with the reason Manual, the formatter asked (so format on save and the
+  other save participants run), did-save. Where the file on disk had changed meanwhile to another size, `save()` answered
+  false and VS Code showed its toast "Failed to save …: The content of the file is newer. …".
+- **Saved at once.** An edit followed by `save()` in the same task left the document clean, and
+  VS Code opened no tab for it; a document left dirty got its background tab after about 0.9 s.
+- **Auto save.** With `files.autoSave` at `afterDelay`, a model edited in place was saved by VS
+  Code itself 1.2 to 1.3 s after the edit (will-save with the reason AfterDelay, no formatter
+  asked), where the smoke's and the walk's own setting is `off`.
+
+By reading and not run: a will-save listener has a time budget in VS Code, and a listener that
+keeps exceeding it is ignored, so (b) would rather save the models after the board's did-save
+than inside its will-save; and (b) needs to know which documents this board made dirty, which the
+backend can say, since every write goes through it.
 
 ## The first increment of the apps against its plan
 
@@ -1051,6 +2103,109 @@ of increment 1, and why:
   from outside under an armed Value Chain. The messages of the protocol and the declared exports
   are as the plan has them; `NEW_FILE_LIMIT_BYTES` is one export more.
 
+## The second increment of the apps against its plan
+
+**The lead's decisions for the increment.** The owner was told each and may turn each round; none
+is the owner's yes.
+
+- **L1, what a page may reach inside the root.** A page reaches only what a board can show: no dot
+  segment at any depth, a text only of a model and bytes only of a picture by the host's rule, and
+  a backend with a disk checks what a path's text cannot say. Built
+  ([The files port](#the-files-port-packagesfiles), [The host half](#the-host-half)). The lead
+  named a linked folder on the way as what would not be checked; since the closing round it is,
+  which is one more decision that is not the owner's.
+- **L2, a version of a text, `PROTOCOL` 2.** A crossing edit and outside change must not leave page
+  and place apart. Built: the outside wins, the edit that crossed is dropped whole.
+- **L3, the renderer stays as it is.** `BoardHandle.onViewChanged` waits for the owner's yes;
+  `apps/ide-editor` polls the view once per animation frame. No file of `packages/renderer/src` or
+  `packages/schema-model/src` changed, and the arming traces are the bytes they were. Of the
+  renderer's work package only one test case was written (see [DOM contract](#dom-contract)).
+- **L4, saving.** Built on a model as a dirty document of its own that the person saves. The lead's
+  recommendation to the owner, that saving the board's tab also saves the models the board made
+  dirty, is not decided and not built; what it would need was measured in a real VS Code
+  ([Saving, as measured](#saving-as-measured)).
+- **L5, a real VS Code.** The owner allowed one inside the suite's Docker runner on the machine the
+  increment was built on, so the smoke `apps/vscode/test-smoke` and its scripts were pulled forward
+  from the next increment, and the list of things only read about VS Code was walked there. The
+  smoke is written and passes in the runner on VS Code 1.146.0 and 1.96.0; the list has each item
+  as seen, as differing or as not reached. The owner's own walk with the VSIX is still to come.
+- **L6, root files.** `package-lock.json`, `release-please-config.json` and
+  `.release-please-manifest.json` changed, for what `test/release-config.test.ts` names.
+  `test/modeler-collection.test.ts` and every other root file stay as they are; what that test asks
+  for is under [State of the port](#state-of-the-port).
+- **L7, the working names** stand: extension `board-modeler`, publisher `miragon-gmbh`, view type
+  `board.boardEditor`, `engines.vscode` `^1.96.0`, a preview. The owner's to fix before a first
+  publish.
+- **L8, the dependency on other modelers** stays as built: in `apps/editors` alone
+  ([Packages](#packages)).
+
+**Where the tree differs from the plan, and why:**
+
+- **The files port.** A stale edit gets no answer of its own, where the plan says "refused and
+  answered": the update that made the newer version is already on its way, and a second one would
+  cost the page what it wrote since. The version is counted by `serveFiles`, per open text and per
+  life of a page, and a backend never sees it. `BackendText.write` and `TextSession.write` got a
+  second parameter, the text the write was made on, which the plan does not name: without it a
+  place that awaits before it writes could replace a change it has not told yet, and a drop made
+  under a held gesture replaced an outside text. The rule also holds for a create and for what a
+  page is told (the list, the changed bytes, the moves). New beside the plan: `board.text.settle`
+  with `BoardFiles.settled()`, a retry of the facade by the list of paths, `invalidText`, and a
+  guard that takes a place's word of the text it handed out last for no version.
+- **`createVsCodeBackend(vscode, { board, suffixes, indexes? })`**, not
+  `(vscode, { root, suffixes })`: the shell's `onDidOpen` is synchronous and the root is found with
+  stats, so the backend is made for the board file and looks for its root afterwards.
+  `boardEditorOptions(backendFor)` is generic over the document and serves a backend that answers
+  every request where it is handed none.
+- **The host counts its own version**, which is the files server's count; the plan left the choice
+  open. What the backend adds is the test of the write's base against the document's text in the
+  task that hands VS Code the edit.
+- **The list leaves out `node_modules`**, which the plan does not say (`findFiles` reads no
+  `.gitignore`), and a created folder is answered with a whole search again, not with a search
+  below it. A model's size cap is 2 MiB; the plan names no number. `BackendText.readOnly` comes
+  from `stat`'s permissions.
+- **`mountBoardEditor`**: `root` is optional (default `#app`); there is no `example` option; the
+  handle also has `document`; and `destroy()` returns a promise, because the board unmounts its
+  editors a microtask after its own `destroy()` and the files may only go after that.
+  `boardZoomTarget` takes one options object, since `canFit()` follows the content. New beside the
+  plan: a text the board already shows is not imported, and a document the host opened read only is
+  locked like an invalid one.
+- **The sheet's start margin** is the shell's token `--cd-shell-frei` and not the literal 64 px,
+  and the third rule puts React Flow's attribution above the zoom panel, where the plan only says
+  "clear of the zoom panel".
+- **The explicit fit is a jump**, not the 250 ms animation the shell's `ZoomTarget` describes: the
+  board's own Fit button jumps too, and every animation tick would be a board zoom under the arm
+  rules. The first fit is made only if the board has content at its first accepted text.
+- **No `tsconfigRaw` in `webviewBundle`**, which the plan's scratch build had
+  ([The suite's editors](#the-suites-editors-appseditors)).
+- **The webview's export** is `{ files, mounted, destroy() }` with `mounted` a promise:
+  `mountBoardEditor` is async and an IIFE bundle has no top-level await. Its teardown does not
+  await `files.settled()`.
+- **Playwright Test runs the project `vscode-webview`** on the machine the increment was built on,
+  through the local sandbox config; the plan had a Vitest browser file as the way out. The
+  shipped-bundle spec builds the extension itself and answers every request of the page, not one
+  `board.text.open`, so all seven renderers run under the policy.
+- **The scripts `test:vscode` and `test:vscode:docker`** are scripts of the board workspace, as in
+  Business Model Canvas, since the Docker runner's default command is `npm run test:vscode` in the
+  modeler's folder.
+- **More rules and more tests than the plan lists**: `vscode-host-no-page-code` reaches further
+  than the plan's sentence (React Flow, Yjs, the shell's entries for a page, all of `apps/editors`
+  but the suffix table), `packages-no-apps` names every app workspace, and both new workspaces have
+  more test files than the module layout names.
+- **Made by the integration:** the board file in the test page's repository and the test that it is
+  never a file of the files; the held deliveries of the test page and the test of an edit that
+  crosses a change from outside in the page; the test of a reloaded webview over the channel; and
+  the paragraphs of this guide.
+- **Made after the run in a real VS Code**, each for something a real one showed and the stand-ins
+  had not: the index's watcher on every entry, with its look at a new folder and the list kept to
+  what a search finds; `src/webview/paste.ts`; the first fit in an animation frame; the fake's
+  watcher, its documents of removed files and its read-only files; the smoke's custom step in
+  three parts, where the plan asks for a model drawn and the picture loaded.
+- **Made in the closing round**, after an independent review
+  ([State of the port](#state-of-the-port)): the look at every folder on the way to a file, and
+  the limit of a written model's size ([The host half](#the-host-half)). Both were seen afterwards
+  in the runner, on VS Code 1.146.0 and 1.96.0, by a scratch script that handed the extension
+  the messages of a page and wrote a node onto the board.
+
 ## DOM contract
 
 TSX, the stylesheet and the tests are written against these names; they are designIQ's at
@@ -1089,6 +2244,17 @@ TSX, the stylesheet and the tests are written against these names; they are desi
 
 A host may add classes and data attributes of its own to the `.board-engine` it was given, never a
 position or a size.
+
+A host with chrome of its own may put two rules of its own sheet on the toolbar: a start margin on
+`.board-toolbar` (it is React Flow's panel at `top: 0; left: 0` with a margin of 15 px), to clear
+the host's control in that corner, and `display: none` on
+`.board-toolbar__group[aria-label="Zoom"]` where the host has a zoom control of its own. With both,
+the toolbar starts at the margin, the Zoom group has no box, the Done control keeps its size and
+its place at the start of the toolbar, and the toolbar's top and bottom edge are where they were,
+so the band the arm rules keep free is unchanged. `chrome.browser.test.tsx` holds exactly that,
+with the two rules loaded as a style element, and `apps/ide-editor` writes them under `.cd-shell`.
+Nothing else of the toolbar is a host's to restyle, and the Done control is never hidden: it is how
+a person leaves an armed model.
 
 ## Stylesheet and theme files
 
@@ -1178,6 +2344,10 @@ position or a size.
   the import inside a barrel. Its third-party notices then need Tailwind's (MIT), for the base.
   The web app's built sheet does not keep that notice (`grep -c tailwindcss dist/assets/index-*.css`
   prints 0: Vite's CSS minifier drops the comment), and the web app has no notices file yet.
+- **A `*.css` declaration per workspace.** The renderer's entry imports its sheet, so every
+  workspace whose type check reaches `@miragon/board-renderer` declares `*.css` among its own
+  modules (a `css.d.ts`), and `*.css?base` as well where it imports `board-suite-editors/base`,
+  which is read as source. TypeScript 6 fails the program otherwise (TS2882).
 - **Several renderer sheets on one page.** Every renderer sheet of the suite imports diagram-js's
   sheet and the vendored `cd-canvas.css` after its tokens. With several renderers on a page, each
   later copy of that base comes after an earlier renderer's own rules and overrides them at
@@ -1202,7 +2372,11 @@ browser test of the board has to know (synthetic input, the lazy parts, the modu
 the window). Read it before you write a test. Here are the two projects and the rules.
 
 - `npm run board test` (project `unit`, Node) runs `packages/*/test/**/*.test.ts` and
-  `apps/*/test/**/*.test.ts` without the `test/browser` folders: 38 files, 734 tests.
+  `apps/*/test/**/*.test.ts` without the `test/browser` folders: 61 files, 1147 tests. The module
+  `vscode`, which exists only inside the editor, resolves there to
+  `apps/vscode/test/__mocks__/vscode.ts`: the module a test imports by its path for the control
+  surface `vscodeMock`, so a registration of the host and a test's question share one state. The
+  sources stay typed against `@types/vscode`.
   - The schema model and the renderer (16 files, 290 tests): the format, the order keys and the
     view (`packages/schema-model/test/`); the store, the actions, the arm rules, the board file
     at rest, under a Git merge and under two peers on one live document; and of the canvas side
@@ -1210,36 +2384,66 @@ the window). Read it before you write a test. Here are the two projects and the 
     contract factory (`collaborative-parts`), the two sheets (`theme.sync`, `styles.scope`), the
     reach of the dependency rule (`layers`), the one copy of each shared library
     (`single-copy`), the arming fixture as a file (`arming-fixture`).
-  - `packages/files/test` (5 files, 247 tests): the path rules (`paths`), each side of the
-    protocol alone, message by message, against a page that posts whatever it likes and against
-    a scripted host (`protocol`), client and server together on a memory backend with more than
-    one reader on a path (`fan-out`), the memory backend alone (`memory`) and `connectBackend`
-    over a real `MessageChannel` (`local`). `test/support/wire.ts` is the channel in memory they
-    share: it copies each message and delivers it later, in order.
-  - `packages/host/test` (6 files, 65 tests): the fit, the binding on a session double, the
+  - `packages/files/test` (5 files, 343 tests): the path rules (`paths`), each side of the protocol
+    alone, message by message, against a page that posts whatever it likes and against a scripted
+    host (`protocol`), client and server together on a memory backend with more than one reader on
+    a path (`fan-out`), the memory backend alone (`memory`) and `connectBackend` over a real
+    `MessageChannel` (`local`). `test/support/wire.ts` is the channel in memory they share: it
+    copies each message and delivers it later, in order. With the second increment: the version of
+    a text and the crossings (`protocol`, `fan-out`), the host's rule and the paths a board does
+    not reach, and the settle.
+  - `packages/host/test` (6 files, 70 tests): the fit, the binding on a session double, the
     registry's load, the model list and `describe`, the images, the host's parts, and the files
-    server's limit for a new file against the board's limit for a picture.
-    [`packages/host/test/README.md`](packages/host/test/README.md) says what each file holds.
-  - `apps/editors/test` (7 files, 75 tests): `suffixes.sync` (the table against the manifests,
-    the registry against the table and against `index.d.ts`), `aliases.sync`, `base.sync`,
-    `text-rules`, `zod-jitless`, `build-helpers` (two of its tests are Vite builds in memory) and
-    `cruise-rules`.
-  - `apps/webapp/test` (4 files, 57 tests): `storage` (what is kept, what is left out, a storage
-    that refuses, the reset, the pictures a board shows and the kept ones it does not), `keeping` (the repository in memory with its writes kept),
-    `example` (the board is canonical, one model per notation, every named file is in the
-    folder, the app reads the folder's bytes) and `check-build` (a whole build and one build per
-    missing part).
+    server's limit for a new file and the picture suffixes of a host's rule against the board's
+    own. [`packages/host/test/README.md`](packages/host/test/README.md) says what each file holds.
+  - `apps/editors/test` (8 files, 88 tests): `suffixes.sync` (the table against the manifests, the
+    registry against the table and against `index.d.ts`), `aliases.sync`, `base.sync`,
+    `text-rules`, `zod-jitless`, `build-helpers` (two of its tests are Vite builds in memory),
+    `webview-bundle` (one esbuild build in memory) and `cruise-rules`.
+  - `apps/webapp/test` (4 files, 60 tests): `storage` (what is kept, what is left out, a storage
+    that refuses, the reset, the pictures a board shows and the kept ones it does not), `keeping`
+    (the repository in memory with its writes kept), `example` (the board is canonical, one model
+    per notation, every named file is in the folder, the app reads the folder's bytes, the page's
+    rule reaches every file of it) and `check-build` (a whole build and one build per missing
+    part).
+  - `apps/ide-editor/test` (5 files, 41 tests): `zoom-target` (the shell's raster with 100 % to
+    135 % as one step, the fit against the shell's own `fitViewbox`, the smallest zoom, the members
+    of the target on a fake board), `first-fit` (once, in the frame after the first text, on a
+    page whose frames the test draws; a page that is not painted and has VS Code's stand-in size
+    until it is; a slot that gets its size later; an empty board; a wait that is stopped, for the
+    frame and for the size), `view-events` (one look per frame on a
+    page whose frames the test draws, no frame without a listener or while hidden, a board that
+    offers the event), `invalid` (the lock's calls on a shell double, the status sentence) and
+    `shortcuts`.
+  - `apps/vscode/test` (17 files, 255 tests). The host half: the fake VS Code held to what it
+    claims (`memory-vscode`), the root rule and the look at every folder on the way to a file
+    (`root`), the index of a root on fake timers
+    (`file-index`, among its cases the folders another program makes, fills, moves and removes
+    as a real VS Code names them), a model's text over documents, with the files a board does not
+    open and the size of a write (`documents`), pictures (`bytes`), the backend
+    behind the files server on a channel in memory (`backend`) and behind the page's own client
+    (`port`), the editor options on the shell's host stub with a memory backend
+    (`boardEditorOptions`), the registered extension against the `vscode` mock (`boardEditor`,
+    `webviewHtml`), the production host bundle built in memory and activated with nothing but
+    `vscode` and Node (`bundle`), the manifest and the VSIX's ignore file (`contributions`), what
+    the host's sources must not do (`host-rules`: no module of Node, no `fsPath`, no save,
+    `writeFile` only for a new picture, `vscode` imported only where the extension is registered)
+    and the mock's identity (`vscode-mock`). The webview half: `webview-channel` (the files channel
+    alone, then a page's files client over it against the editor's options on the shell's host
+    stub, a reloaded webview among its cases), `webview-rules` (the entry's order, the one API, no
+    await before the mount, and the two suffix lists held equal) and `webview-bundle` (the
+    production webview bundle built in memory).
 - `npm run board test:browser` (project `browser`, Chromium, a window of 1280 x 800) runs
   `packages/renderer/test/browser`, `packages/host/test/browser` and `apps/*/test/browser`, each
-  `**/*.test.{ts,tsx}`: 23 files, 784 tests. React Flow measures its nodes, so nothing of the
+  `**/*.test.{ts,tsx}`: 24 files, 825 tests. React Flow measures its nodes, so nothing of the
   canvas runs in jsdom or Node, and no diagram-js renderer mounts there either (Business Model
   Canvas's import throws `activeLayer.getBBox is not a function` under jsdom).
-  - The renderer's fifteen files (661 tests): the arm rules on a bench of fakes (`arming`), the
+  - The renderer's fifteen files (662 tests): the arm rules on a bench of fakes (`arming`), the
     sheet on static markup (`styles`), React Flow's store (`react-flow-internals`), the
     contract's kit (`conformance`), and boards mounted through the entry (`toolchain`, `canvas`,
     `canvas-behaviour`, `chrome`, `nodes`, `images`, `overlay-surface`, `hostile-host`,
     `contract-edges`, `embedded-model`, `live-document`).
-  - `packages/host/test/browser` (3 files, 57 tests): `embed` (the adapter alone in an element
+  - `packages/host/test/browser` (3 files, 66 tests): `embed` (the adapter alone in an element
     the test sizes, scales and arms), `files-host` (the real board on `createFilesHost` over
     `connectBackend(createMemoryBackend(...))`) and `real-input` (the command itself). The
     editor in them is a stand-in modeler of the contract (`test/support/stand-in-modeler.ts`),
@@ -1250,21 +2454,42 @@ the window). Read it before you write a test. Here are the two projects and the 
     `page-errors` (the watch itself). Its `support/` folder has `mountBoard` (a board on a
     memory backend with the registry), `mountAlone`, `shownChrome`, `shownView` and
     `watchPageErrors`, which a later browser test may import by relative path.
-  - `apps/webapp/test/browser/app.browser.test.ts` (13 tests): `startApp` on a store of the
-    test's own; the example shown, a model added from the picker, a Wardley component deleted
-    by a real double-click, click and key, a note by the Text button, a picked picture, a second
-    start on the same store, `?reset`, a storage that refuses, a picture the browser did not
-    keep, a kept picture no node shows, an unreadable kept board, `destroy()`. The five tests
-    under "what a person changes" are one story on one store, each going on where the one before
-    it ended, and keep their order in a shuffled run (`{ shuffle: false }`): shuffled, the file
-    failed 7 of its tests.
+  - `apps/ide-editor/test/browser/board-editor.browser.test.ts` (30 tests): `mountBoardEditor` on
+    the shell's real `mountShell` in the IDE column through a host of the test's own
+    (`support/ide-host.ts`, whose document keeps the rules of the shell's sync and is driven by the
+    test), with real input. The two chromes (no overlap of trigger and toolbar, the Done control at
+    the size it has without a shell, one visible zoom control, the attribution, the shortcuts
+    dialog from the menu); the first view (the shell's fit, capped, a hidden root, never again);
+    the shell's zoom (a real wheel followed by the readout, the four buttons, the four keys,
+    `fitView`, the board's lower limit); the document (one edit of one line for Group, Control+Z
+    left to the host and taken by the board for a host without a history, the same text not
+    imported, the empty-file hint); a refused text (lock, line, no edit, unlock; a refused first
+    text; a read-only document); a model of the repository with the suite's Wardley editor from the
+    registry (armed by a double-click, a click selects, the undo key contained or not, Done, a zoom
+    step that ends the editing, the teardown's order); the mount's refusals and the teardown (no
+    class on html, no child in the root, no frame requested afterwards). The files of every test
+    come from `support/files.ts` alone.
+  - `apps/webapp/test/browser/app.browser.test.ts` (14 tests): `startApp` on a store of the test's
+    own; the example shown, a model added from the picker, a Wardley component deleted by a real
+    double-click, click and key, a note by the Text button, a picked picture, a second start on the
+    same store, `?reset`, a storage that refuses, a picture the browser did not keep, a kept
+    picture no node shows, an unreadable kept board, a kept model its editor refuses, `destroy()`.
+    The five tests under "what a person changes" are one story on one store, each going on where
+    the one before it ended, and keep their order in a shuffled run (`{ shuffle: false }`):
+    shuffled, the file failed 7 of its tests.
 - Both projects take the other modelers from their sources through
   `apps/editors/build/aliases.mjs`, so no other modeler is built first, and the browser project
   pre-bundles what `apps/editors/build/prebundle.mjs` reads from those sources.
   `vitest.config.ts` exports the browser project as `browserProject`.
-- `npm run board test:e2e` (Playwright, `e2e/tests/webapp/board.spec.ts`, 2 tests): the page
-  opens with seven engines ready, the seven kinds in the node headers, the picture drawn and no
-  page error; a note is there after a reload, and the reset link brings the example back.
+- `npm run board test:e2e` (Playwright) runs 19 tests in two projects.
+  `e2e/tests/webapp/board.spec.ts` (2 tests): the page opens with seven engines ready, the seven
+  kinds in the node headers, the picture drawn and no page error; a note is there after a reload,
+  and the reset link brings the example back. `e2e/tests/vscode` (17 tests: `document-sync` 4,
+  `files` 11, `shipped-bundle` 2) is under
+  [The webview test page and the project `vscode-webview`](#the-webview-test-page-and-the-project-vscode-webview-e2e).
+- `npm run board test:vscode` runs the smoke: one test, the packed extension in a real VS Code
+  ([The smoke in a real VS Code](#the-smoke-in-a-real-vs-code-test-smoke)). Its files are in
+  `apps/vscode/test-smoke`, which no other project collects.
 
 **Real input.** `commands.realInput(ops)` (`test-support/real-input.ts`, registered by
 `vitest.config.ts`) sends real mouse and keyboard input through Playwright: `move`, `down`,
@@ -1346,20 +2571,37 @@ this cause (the README has what was measured), never to be answered with a longe
 ## Commands
 
 - `npm run board lint` (ESLint and the type check) · `typecheck` · `build` (the same type check) ·
-  `test` · `depcruise` · `format` · `format:check`. The type check is a chain: the board's
-  strict project (`tsconfig.json`: the packages, the web app's sources and tests, the test
-  support), `apps/webapp/tsconfig.config.json` (the Vite config), `apps/editors` under its own
-  weaker flags, and `e2e`.
+  `test` · `depcruise` · `format` · `format:check`. The type check is a chain: the board's strict
+  project (`tsconfig.json`: the packages, the web app's sources and tests, the test support),
+  `apps/webapp/tsconfig.config.json` (the Vite config), `apps/editors` under its own weaker flags,
+  `apps/ide-editor`, `apps/vscode` (with the types of `vscode` 1.96.0) and `e2e` (its specs, the
+  webview test page and that page's Vite config).
 - `npm run board dev:webapp`, then http://localhost:5184 (the port is strict). The dev server
   writes `apps/webapp/node_modules/.vite`.
 - `npm run board build:webapp`, then `npm run check:build -w modelers/board/apps/webapp`.
+- `npm run board build:vscode` builds the extension's two bundles into `apps/vscode/dist`
+  (unminified, with source maps), `npm run board dev:vscode` watches them, and
+  `npm run board package:vscode` writes `apps/vscode/board-modeler.vsix` (vsce runs the production
+  build itself and packs offline). esbuild prints an `ignored-bare-import` warning for the shell's
+  chunks in each: no failure.
+- `npm run dev:webview -w modelers/board/e2e`, then http://127.0.0.1:5194/webview-test.html?host:
+  the extension's webview as a page, with the extension's plumbing in the page (the port is
+  strict). It writes `e2e/node_modules/.vite`.
 - `npm run board test:browser`: the committed browser project. The root's `npm run test:browser`
   runs it with every other modeler's.
-- `npm run board test:e2e`: the committed Playwright config, which starts the dev server
-  itself. Flags go to the workspace: `npm run test:e2e -w modelers/board/e2e -- --project=webapp`.
+- `npm run board test:e2e`: the committed Playwright config, which starts both dev servers itself.
+  Flags go to the workspace: `npm run test:e2e -w modelers/board/e2e -- --project=vscode-webview`.
+- `npm run board test:vscode`: the smoke, the packed extension in a real VS Code. It opens a VS
+  Code window, so it needs a display (CI runs it under `xvfb-run -a`), downloads VS Code into
+  `~/.cache/miragon-modeler-shell/vscode-test` on its first run, and must not run twice at once.
+  `VSCODE_VERSION=1.96.0` picks the VS Code (default: the newest stable the manifest allows),
+  `VSCODE_SMOKE_VSIX=<file>` tests a VSIX that is packed already, `VSCODE_SMOKE_KEEP=1` keeps the
+  profile and VS Code's logs. The screenshots land in `test-results/vscode-smoke`.
+- `npm run board test:vscode:docker`: the same in the suite's Docker runner, with no window on the
+  machine. Options go to the workspace:
+  `npm run test:vscode:docker -w @miragon/board-modeler-workspace -- --env VSCODE_VERSION=1.96.0`.
+  The runner hands the container only what `--env` names.
 - `sha256sum -c .miragon/brand-assets.sha256` from the root: the vendored theme files.
-- Not there yet: every script of the extension (`build:vscode`, `package:vscode`, `test:vscode`,
-  `test:vscode:docker`, `dev:vscode`).
 
 **Where Chromium must not run without its sandbox** (the Miragon agent VM is such a machine):
 Playwright's default launch passes `--no-sandbox` there, so `npm run board test:browser`,
@@ -1428,14 +2670,52 @@ export default defineConfig({
 ```sh
 cd modelers/board/e2e
 npx playwright test --config playwright.sandbox.config.ts --project=webapp
+npx playwright test --config playwright.sandbox.config.ts --project=vscode-webview
 ```
 
-Playwright Test starts that way on the agent VM, with the `webServer` entry too.
+Playwright Test starts that way on the agent VM, with both `webServer` entries. Either project
+starts both dev servers (ports 5184 and 5194) and stops them again.
 
 `BOARD_VITE_CACHE` lets several people run it at once without sharing Vite's pre-bundle. A path
 with a `node_modules` segment keeps Vite from warning about Vitest's own pre-bundle ("The above
 dynamic import cannot be analyzed"); without one the warning comes with every run and fails
 nothing.
+
+**A real VS Code where Chromium must keep its sandbox.** On the agent VM a real VS Code runs only
+inside the suite's Docker runner (the shell's `modeler-shell-vscode-docker`, behind
+`npm run board test:vscode:docker`): the smoke starts VS Code with `--no-sandbox` inside the
+container, and the owner allowed exactly that. Chromium and Playwright started on the machine
+itself keep their sandbox. One run at a time: two runs would write into the same VS Code cache. The
+runner mounts the repository read-only, copies it without `node_modules` and `.git` and runs
+`npm ci` on the copy, so it runs on a snapshot whose lockfile is in step with its manifests. For a
+working tree with uncommitted work:
+
+```sh
+P=<a scratch folder>; mkdir -p $P/repo
+rsync -a --exclude node_modules --exclude .git --exclude test-results --exclude .vitest \
+  <the repository>/ $P/repo/    # keeps packages/api/dist and packages/shell/dist
+cd $P/repo/modelers/board
+node <the repository>/packages/shell/dist/vscode-docker.js \
+  --results modelers/board/test-results/vscode-smoke    # options: --script <name>, --env NAME=value
+```
+
+The results (the screenshots, and VS Code's logs with `--env VSCODE_SMOKE_KEEP=1`) land in
+`$P/repo/modelers/board/test-results/vscode-smoke`. The board's smoke ran this way, each run on a
+fresh snapshot:
+
+```sh
+node <the repository>/packages/shell/dist/vscode-docker.js \
+  --results modelers/board/test-results/vscode-smoke                  # the newest stable VS Code
+node … --results … --env VSCODE_VERSION=1.96.0                        # the manifest's minimum
+node … --results … --env VSCODE_SMOKE_VSIX=apps/vscode/board-modeler.vsix  # a packed VSIX
+```
+
+A path in `VSCODE_SMOKE_VSIX` is read from `modelers/board` inside the container, where the
+snapshot lies, so the VSIX has to be in the snapshot. With the image built and VS Code in the
+runner's cache a run takes about 25 s, of which `npm ci` is 10 s and the smoke 11 s. Docker keeps
+one image (`modeler-shell-vscode-smoke:node<version>-<hash>`, about 0.9 GB) and two volumes
+(`modeler-shell-vscode-cache` with each VS Code it downloaded, about 1.1 GB for 1.146.0 and 0.4 GB
+for 1.96.0, and `modeler-shell-npm-cache`); `docker volume rm` and `docker rmi` take them away.
 
 ## Deferred
 
@@ -1465,9 +2745,10 @@ changing one in passing is a regression nobody would see.
   drop listener will collide with a web app's drop zone, and the capture keydown is against the
   contract's "never stops a key it does not act on".
 - **The board's own toolbar**, inside React Flow's panel: the Done control, the zoom buttons, the
-  add actions, delete and the notices. The shell's chrome does not apply to the board as it is;
-  a view and command surface for a host's chrome, and a way to switch the toolbar off, are not
-  built. **`lucide-react`** for the icons, where the suite's renderers copy icon geometry.
+  add actions, delete and the notices. Under the shell the board keeps this toolbar and the shell
+  stands around it, with three rules of the app's sheet between the two (`apps/ide-editor`); a view
+  and command surface for a host's chrome, and a way to switch the toolbar off, are not built.
+  **`lucide-react`** for the icons, where the suite's renderers copy icon geometry.
 - **The fit.** Not capped at 100 %, `FIT_PADDING` applied inside the host's insets,
   `freeArea.center` accepted and not read: a new node lands in the middle of what the board
   shows. The padding's 88 px at the top are clear of a one-row toolbar only: on a board under
@@ -1491,17 +2772,21 @@ changing one in passing is a regression nobody would see.
 - Gestures under the contract: a gesture tracker, a selection of the board's own that empties at a
   drag's start, a cancel that makes a drop write nothing, an armed tool, a create by a held
   gesture. The board adds by click; the one drag that creates is an arrow drawn from a handle.
-- For a host of files: a retry for a model whose file is not there when the board opens (the
-  facade could try again when the port's list gains the path), a version or an acknowledgement
-  in the files protocol, a flush on the port, an end of the web app that waits for the board's
-  editors, a server that serves only what its backend lists or refuses dot folders (the open
-  decision under [The files port](#the-files-port-packagesfiles)), a text of the host's own for
-  the line of an invalid file, and the web app's notices file.
-- The apps of the later increments: the board inside the shell (`apps/ide-editor`), the VS Code
-  extension, a folder of the person's own behind the web app, arrows derived from model
-  references (`host.references`), and what a bare renderer in a node does not offer: by the
-  plan's reading of the modelers' apps, not tried here, a Business Model Canvas title or notes,
-  C4's inspector and views dialog, and any menu or export of a hosted modeler.
+- For a host of files: an acknowledgement of a write the place took, a text merge for an edit that
+  crosses a change from outside (the edit is dropped whole), an end of the web app that waits for
+  the board's editors, and the notices files of the web app and of the extension. Built with the
+  second increment: a retry for a model whose file comes later, the version of a text, `settled()`
+  on the port, the rule of what a page reaches, and a host's own line for an invalid file.
+- In the VS Code extension: the owner's own walk with the VSIX; following a file that is
+  renamed or moved (`onMoved` never fires: the node says its file is gone); saving the models
+  together with the board; the view kept across a reload; an entry in the Problems view; New Board
+  commands and a walkthrough; an export; a file no notation of the suite covers; a theme but light;
+  a CHANGELOG, an icon and the third-party notices.
+- The apps of the later increments: the web app inside the shell (through `apps/ide-editor`), a
+  folder of the person's own behind the web app, the Orca plugin, arrows derived from model
+  references (`host.references`), and what a bare renderer in a node does not offer: by the plan's
+  reading of the modelers' apps, not tried here, a Business Model Canvas title or notes, C4's
+  inspector and views dialog, and any menu or export of a hosted modeler.
 - An end signal for a host: a promise on `BoardHandle` that settles when the canvas is gone.
 - State per board, listeners of the board's own, the fit capped and aware of the toolbar's
   height, `freeArea.center` read.
@@ -1513,8 +2798,8 @@ changing one in passing is a regression nobody would see.
   mirrors, a build, a release-please component, a notice for `dompurify` and one for Tailwind's
   preflight (MIT), of which `assets/board-base.css` is a scoped copy.
 
-**Found while the apps were built, and not changed.** In the renderer, in the suite's tooling
-and in other modelers; each is its owner's to decide.
+**Found while the first increment of the apps was built, and not changed.** In the renderer, in
+the suite's tooling and in other modelers; each is its owner's to decide.
 
 - **`focus()` before the box** ([What is left with the host](#what-is-left-with-the-host)). The
   cure in the renderer is to write the box before the call in `placeHost`, a change of the
@@ -1546,7 +2831,96 @@ and in other modelers; each is its owner's to decide.
   newline at the end of `sample.cm`, two dropped blank lines in `order-checkout.storm`.
 - **Vitest keeps transformed modules on disk** under the root's `node_modules/.vitest-cache`,
   keyed by the plugins' names and not their options: two runs with a plugin of one name and
-  different options answer for each other. The tree's own configs have no such plugin.
+  different options answer for each other. The tree's own configs have no such plugin. A table
+  of single edits that is applied by such a plugin must not take a transform hook that did not
+  run for an edit that was not applied: on a second run the module comes from the cache.
+
+**Found while the second increment was built, and not changed.** In the shell, in the renderer and
+in the tooling; each is its owner's to decide. What was found in the files port, the host package
+and the extension stands in their own sections.
+
+- **The shell's focus fallback** (`focusCanvasOrTrigger` in `packages/shell/src/dom/mount.ts`, by
+  reading): it looks for `svg[tabindex]` in the slot. Under a board that is the svg of the first
+  model's editor, inert in a preview, so the focus falls to the menu trigger and never to the
+  board's pane. It runs when the empty-file hint hides while it holds the focus and when a dialog
+  closes without a remembered element. The zoom target's own `focus()` goes to the pane and is not
+  affected.
+- **The shell's stacking** (measured in the browser test of `apps/ide-editor`, pinned there as
+  built): `.cd-shell > .cd-shell-canvas` is `isolation: isolate; z-index: 0`, so a
+  `position: fixed` popup of an armed editor lies under the shell's islands whatever its z-index.
+- **The shell's `resync()` into a panel that is gone** (read in VS Code 1.96, then seen by a
+  review in VS Code 1.146.0 and 1.96.0, item 21 of
+  [Taken for granted about VS Code](#taken-for-granted-about-vs-code)): `panel.webview` throws
+  "Webview is disposed" once the panel is disposed, and the shell's `post` in
+  `vscode/extension/modeler-editor.ts` is `panel.webview.postMessage(message)`, so its resync after
+  an edit that VS Code refused while the panel closed rejects inside the shell's message handler.
+  Nothing else follows. The board's own channel catches a throw and a rejection. A guard, for the
+  shell's owner:
+  `const post = (message) => { try { return panel.webview.postMessage(message); } catch { return Promise.resolve(false); } }`.
+- **The shell shows any text a page posts as a notification** (`vscode/extension/modeler-editor.ts`,
+  the cases `info` and `error`). Seen by a review in VS Code 1.146.0 and 1.96.0: a message
+  `{ type: "info", message }` handed to the extension as the page posts it stood as a toast of
+  VS Code with exactly that text, and on the stub one of 100,000 characters did too. The board's
+  page posts neither type, so for the board this is only what a page that is no longer the
+  board's could do: put words of its own into a notification of the extension. `showProblems`
+  opens the Problems panel and nothing else, and no other message of a page runs a command. A
+  cure, for the shell's owner: an option of `registerModelerEditor` that turns the two answers
+  off for a modeler that posts none, or a cap on the length and a fixed prefix.
+- **The shell's policy leaves `base-uri` and `form-action` open** (`contentSecurityPolicy` in
+  `vscode/extension/html.ts`). A `<base href>` that a page adds takes effect (seen by the review:
+  `document.baseURI` was the other site's), though every load was still held by the other
+  directives. A cure, for the shell's owner: `base-uri 'none'; form-action 'none'`.
+- **A view the host sets ends an editing** (the arm rules' viewport watch): every step of the
+  shell's zoom panel while a model is armed, and, by the plan's spike and not run here, the zoom
+  keys pressed inside an armed editor whose focus is on its svg. The contract recommends that a
+  host's view change leaves an interaction open.
+- **Three pixels.** The toolbar's top edge is at 15 px (React Flow's panel margin), the shell's
+  menu trigger at 12 px. A cure is a fourth rule of the app's sheet, which moves the band the arm
+  rules read, or a change of the renderer.
+- **No end signal**, as under Not built: `mountBoardEditor` knows that the editors are gone only by
+  queueing a microtask behind the one `destroy()` queues. A change of that timing in the renderer
+  breaks the order for every host, and the order test of `apps/ide-editor` fails then.
+- **A board file whose lines are not in the canonical order** is shown as it is and rewritten in
+  the canonical order by the first gesture: one edit over every line between the first and the last
+  that differ.
+- **The cruise and an import that does not resolve.** A relative import into another modeler that
+  does not resolve is named by its specifier as written and is then not matched by
+  `packages-no-other-modeler`. Harmless in practice: the type check fails on the unresolved module.
+- **A build that leaves its maps behind.** `build:vscode` followed by `package:vscode` leaves the
+  development build's source maps in `apps/vscode/dist` beside the production bundle, since esbuild
+  does not clean. The VSIX leaves them out.
+
+**Found in a real VS Code, and not changed.** Each was seen in the walk
+([Taken for granted about VS Code](#taken-for-granted-about-vs-code)); what the walk found and
+cured is in the sections of the code it changed.
+
+- **The poll of the view goes on in a hidden tab** in VS Code 1.96: a board behind another
+  webview still gets its animation frames there (241 in 4 s), and in no version does the page
+  hear that it is hidden. `view-events.ts` then reads `getViewState()` at the display's rate for
+  every board in a background tab. The cure is the board's own view event (R1 of the plan), which
+  waits for the owner's yes.
+- **A link to a file, and a file behind a linked folder, are offered by the picker** and refused
+  when picked ("… is a link, and a board opens no link", "… is behind a link, and a board opens
+  no link"): the search follows links. Leaving them out of the list costs one `stat` per listed
+  file and per folder on its way.
+- **A `.board` file given on the command line at the first start after an install opens as
+  text** (VS Code 1.146.0, the VSIX installed with `code --install-extension`, two runs by a
+  review). Closed and opened from the Explorer it is the board, and so is the restored tab after
+  a restart. Nothing in the extension is known to cure it; the extension's README says what to do.
+- **A model that is edited in a narrow editor** is out of reach in part, and **a page can ask a
+  host for more than it should**: see [The board inside the shell](#the-board-inside-the-shell-appside-editor)
+  and [The files port](#the-files-port-packagesfiles).
+- **A file that may not be written** is not read only to an extension: `stat` has no permissions
+  for it, the edit is taken, and the save fails for the person. What that save shows was not
+  seen, since the runner is root.
+- **VS Code's toasts lie over the shell's zoom panel** while they show, for every modeler under
+  the shell.
+- **The focus after a tab was hidden** is on the body, so an armed editor has the keys again only
+  after a click in it.
+- **After a drop event the walk made up**, and not after a picked or a pasted picture, the next
+  double-click armed no model and the shell's Fit button took no click, until a click on the pane
+  (VS Code 1.146.0 and 1.96.0). Unexplained, and no claim about a real drop, which the runner
+  cannot make.
 
 **Found in the moved code and left as it was measured.** Each is a change of behaviour, so each
 wants its own decision and its own test.

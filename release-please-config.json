@@ -371,6 +371,31 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/business-model-canvas/e2e'].devDependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/board/apps/ide-editor/package.json",
+          "jsonpath": "$.dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/ide-editor'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/vscode'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/board/e2e/package.json",
+          "jsonpath": "$.devDependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/e2e'].devDependencies['@miragon/modeler-shell']"
         }
       ]
     },
@@ -1636,6 +1661,17 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/business-model-canvas/apps/orca'].version"
+        }
+      ]
+    },
+    "modelers/board/apps/vscode": {
+      "component": "board-vscode",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/vscode'].version"
         }
       ]
     }

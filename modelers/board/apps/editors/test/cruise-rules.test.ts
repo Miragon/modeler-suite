@@ -208,12 +208,157 @@ describe("files-no-canvas-libraries", () => {
   });
 });
 
+describe("ide-editor-no-suite-editors", () => {
+  const rule = ruleNamed("ide-editor-no-suite-editors");
+
+  it("keeps apps/editors out of the sources of apps/ide-editor, by name and by path", () => {
+    const targets = [
+      ...spellings("board-suite-editors"),
+      // the declared face, which the cruiser resolves the bare name to
+      "../../node_modules/board-suite-editors/index.d.ts",
+      "../../node_modules/board-suite-editors/src/base.ts",
+      "board-suite-editors/base",
+      "board-suite-editors/suffixes",
+      "apps/editors/src/registry.ts",
+      "apps/editors/src/notations/wardley.ts",
+    ];
+    expect(targets.filter((target) => !forbids(rule, target))).toEqual([]);
+    const sourcesOfIdeEditor = readdirSync(join(BOARD, "apps/ide-editor/src"), { recursive: true })
+      .map(String)
+      .filter((file) => file.endsWith(".ts"))
+      .map((file) => `apps/ide-editor/src/${file.split("\\").join("/")}`);
+    expect(sourcesOfIdeEditor.length).toBeGreaterThan(0);
+    expect(sourcesOfIdeEditor.filter((file) => !starts(rule, file))).toEqual([]);
+  });
+
+  it("leaves its tests, the webview, the shell and the board's packages alone", () => {
+    // a test of the board inside the shell may take a real editor from the registry
+    expect(starts(rule, "apps/ide-editor/test/browser/board-editor.browser.test.ts")).toBe(false);
+    expect(starts(rule, "apps/vscode/src/webview/main.ts")).toBe(false);
+    const allowed = [
+      ...packageNames("board").flatMap(spellings),
+      "../../node_modules/@miragon/modeler-shell/dist/ide.d.ts",
+      "@miragon/modeler-shell/ide",
+      "apps/ide-editor/src/zoom-target.ts",
+    ];
+    expect(allowed.filter((target) => forbids(rule, target))).toEqual([]);
+  });
+});
+
+describe("vscode-host-no-page-code", () => {
+  const rule = ruleNamed("vscode-host-no-page-code");
+  const SHELL = "@miragon/modeler-shell";
+  /** the entries of the shell an extension host loads: its own, the DOM-free core, the test kits */
+  const HOST_ENTRY = /^\.\/(vscode\/extension|core|testing(\/.+)?|package\.json)$/;
+
+  const shellEntries = Object.entries(
+    (
+      JSON.parse(readFileSync(join(BOARD, "../../packages/shell/package.json"), "utf8")) as {
+        exports: Record<string, unknown>;
+      }
+    ).exports,
+  );
+  const filesOf = (target: unknown): string[] =>
+    typeof target === "string" ? [target] : Object.values(target as object).flatMap(filesOf);
+  /** an entry of the shell as the cruiser names it: by every file it resolves to, and unresolved */
+  const namesOf = ([entry, target]: [string, unknown]): string[] => [
+    `${SHELL}${entry.slice(1)}`,
+    ...filesOf(target).map((file) => `../../node_modules/${SHELL}/${file.slice(2)}`),
+  ];
+
+  it("starts at every source of the extension but the webview's", () => {
+    const host = [
+      "apps/vscode/src/extension.ts",
+      "apps/vscode/src/boardEditor.ts",
+      "apps/vscode/src/boardEditorOptions.ts",
+      "apps/vscode/src/files/backend.ts",
+      "apps/vscode/src/files/memory-vscode.ts",
+    ];
+    expect(host.filter((file) => !starts(rule, file))).toEqual([]);
+    const others = [
+      "apps/vscode/src/webview/main.ts",
+      "apps/vscode/src/webview/channel.ts",
+      "apps/vscode/test/bundle.test.ts",
+      "apps/ide-editor/src/board-editor.ts",
+      "apps/webapp/src/app.ts",
+    ];
+    expect(others.filter((file) => starts(rule, file))).toEqual([]);
+  });
+
+  it("forbids the libraries of a page, the renderer, the host package and the other apps", () => {
+    const targets = [
+      "../../node_modules/react/index.js",
+      "../../node_modules/react-dom/client.js",
+      "../../node_modules/@xyflow/react/dist/esm/index.d.ts",
+      "../../node_modules/yjs/dist/src/index.d.ts",
+      "../../node_modules/diagram-js/lib/Diagram.js",
+      "../../node_modules/tiny-svg/dist/index.js",
+      "../../node_modules/min-dom/dist/index.js",
+      "../../node_modules/lucide-react/dist/lucide-react.d.ts",
+      "../../node_modules/dompurify/dist/purify.es.d.mts",
+      "../../node_modules/markdown-it/dist/markdown-it.d.mts",
+      ...spellings("@miragon/board-renderer"),
+      "../../node_modules/@miragon/board-renderer/src/assets/board.css",
+      ...spellings("@miragon/board-host"),
+      "packages/renderer/src/index.ts",
+      "packages/host/src/index.ts",
+      ...spellings("board-ide-editor"),
+      "board-ide-editor/app.css",
+      "apps/ide-editor/src/index.ts",
+      ...spellings("board-suite-editors"),
+      "../../node_modules/board-suite-editors/index.d.ts",
+      "../../node_modules/board-suite-editors/src/base.ts",
+      "../../node_modules/board-suite-editors/src/zod-jitless.ts",
+      "board-suite-editors/base",
+      "apps/editors/src/registry.ts",
+      "apps/editors/src/notations/c4.ts",
+    ];
+    expect(targets.filter((target) => !forbids(rule, target))).toEqual([]);
+  });
+
+  // The shell is one package with entries for a page and entries for a host. Read from its
+  // export map, so that an entry the shell adds is decided here before a host imports it.
+  it("forbids every entry of the shell but the host's own", () => {
+    const pageEntries = shellEntries.filter(([entry]) => !HOST_ENTRY.test(entry));
+    const hostEntries = shellEntries.filter(([entry]) => HOST_ENTRY.test(entry));
+    expect(pageEntries.map(([entry]) => entry)).toEqual(
+      expect.arrayContaining([".", "./ide", "./diagram-js", "./vscode/webview", "./shell.css"]),
+    );
+    expect(hostEntries.map(([entry]) => entry)).toEqual(
+      expect.arrayContaining(["./vscode/extension", "./core", "./testing/vscode-stub"]),
+    );
+    expect(pageEntries.flatMap(namesOf).filter((name) => !forbids(rule, name))).toEqual([]);
+    expect(hostEntries.flatMap(namesOf).filter((name) => forbids(rule, name))).toEqual([]);
+  });
+
+  it("allows what a host in Node reads: the files, the format, the suffix table, vscode", () => {
+    const allowed = [
+      ...spellings("@miragon/board-files"),
+      ...spellings("@miragon/board-schema-model"),
+      ...spellings("@miragon/modeler-api"),
+      "../../node_modules/board-suite-editors/src/suffixes.ts",
+      "board-suite-editors/suffixes",
+      "apps/editors/src/suffixes.ts",
+      "../../node_modules/@types/vscode/index.d.ts",
+      "path",
+      "apps/vscode/src/files/root.ts",
+      // a name that only starts like a forbidden one
+      "../../node_modules/react-is/index.js",
+      "../../node_modules/diagram-js-direct-editing/lib/index.js",
+    ];
+    expect(allowed.filter((target) => forbids(rule, target))).toEqual([]);
+  });
+});
+
 describe("what the cruise leaves out", () => {
   it("is the build output of the apps and nothing else", () => {
     const excluded = new RegExp(config.options.exclude?.path ?? "$^");
     expect(excluded.test("apps/webapp/dist/assets/index-CtaqJd8o.js")).toBe(true);
+    expect(excluded.test("apps/vscode/dist/extension.cjs")).toBe(true);
+    expect(excluded.test("apps/vscode/dist/webview.js")).toBe(true);
     const kept = [
       "apps/webapp/src/app.ts",
+      "apps/vscode/src/extension.ts",
       "apps/editors/build/aliases.mjs",
       "packages/renderer/src/index.ts",
       // the contract's build, which dom-free-contract-types-only resolves to

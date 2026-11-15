@@ -9,25 +9,41 @@
  * back; a write the host refused is answered with the text as the host has it; there is one
  * subscription per path however many readers the page has on it. A hello starts the life of a
  * page: what the page before it had open is closed, and a hello of another protocol is none.
+ *
+ * A text has a version, which the host counts and the page only repeats: 1 with
+ * `board.text.opened`, one more with every `board.text.update` of that open text. The page's own
+ * edits do not count. An edit carries the last version the page heard, and the host takes it
+ * only while that is still the last it told: an edit made on an older version crossed a text the
+ * page had not heard of yet, so it is dropped, and the update that is on its way to the page
+ * puts the host's text in its place there.
  */
 import type { FileMove } from "./port.js";
 
-export const PROTOCOL = 1;
+export const PROTOCOL = 2;
 
 /** page to host */
 export type ClientMessage =
   | { type: "board.hello"; protocol: number }
   | { type: "board.text.open"; requestId: number; path: string }
-  | { type: "board.text.edit"; path: string; text: string }
+  | { type: "board.text.edit"; path: string; text: string; version: number }
   | { type: "board.text.close"; path: string }
+  /** answered with `board.done` once every edit that came before it is dealt with */
+  | { type: "board.text.settle"; requestId: number }
   | { type: "board.bytes.read"; requestId: number; path: string }
   | { type: "board.file.create"; requestId: number; path: string; base64: string; mime: string };
 
 /** host to page; `board.paths` is the whole list, after the hello and after every change */
 export type HostMessage =
   | { type: "board.paths"; paths: string[] }
-  | { type: "board.text.opened"; requestId: number; path: string; text: string; readOnly: boolean }
-  | { type: "board.text.update"; path: string; text: string }
+  | {
+      type: "board.text.opened";
+      requestId: number;
+      path: string;
+      text: string;
+      readOnly: boolean;
+      version: number;
+    }
+  | { type: "board.text.update"; path: string; text: string; version: number }
   | { type: "board.text.gone"; path: string }
   | { type: "board.moved"; moves: FileMove[] }
   | { type: "board.bytes"; requestId: number; path: string; base64: string | null; mime: string }

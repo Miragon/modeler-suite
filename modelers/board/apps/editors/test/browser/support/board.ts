@@ -4,7 +4,13 @@
  * and the registry as it is, each entry wrapped only to count its loads and to hand a test the
  * modelers it made.
  */
-import { connectBackend, createMemoryBackend, type MemoryBackend } from "@miragon/board-files";
+import {
+  connectBackend,
+  createMemoryBackend,
+  PICTURE_SUFFIXES,
+  suffixRule,
+  type MemoryBackend,
+} from "@miragon/board-files";
 import {
   createFilesHost,
   embedModeler,
@@ -153,7 +159,12 @@ export async function mountBoard(options: MountOptions): Promise<MountedBoard> {
   const loads = new Map<string, number>();
   const made: Made[] = [];
   const backend = createMemoryBackend({ ...options.files });
-  const files = connectBackend(backend);
+  // the rule an app passes: the suffixes of the registry's editors, and the board's pictures
+  const rule = suffixRule({
+    models: SUITE_EDITORS.flatMap((entry) => entry.suffixes),
+    pictures: PICTURE_SUFFIXES,
+  });
+  const files = connectBackend(backend, rule);
   const zoomOf = (): number => (board.getViewState() as { zoom: number }).zoom;
   const host = createFilesHost({ files, editors: counted(loads, made, zoomOf) });
   const boardOptions: BoardModelerOptions = options.view ? { host, fitOnImport: false } : { host };

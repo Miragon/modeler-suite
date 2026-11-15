@@ -4,6 +4,8 @@
  */
 import {
   createMemoryBackend,
+  PICTURE_SUFFIXES,
+  suffixRule,
   type BackendText,
   type Channel,
   type ClientMessage,
@@ -11,6 +13,9 @@ import {
   type MemoryBackend,
   type MemoryFile,
 } from "../../src/index.js";
+
+/** the rule of the host these tests stand for: two kinds of model, and the board's pictures */
+export const RULE = suffixRule({ models: [".owm", ".tt"], pictures: PICTURE_SUFFIXES });
 
 export interface Wire {
   /** the page's end */
@@ -72,14 +77,28 @@ export const settled = (): Promise<void> => new Promise((resolve) => setTimeout(
 export interface CountingBackend extends MemoryBackend {
   /** what the server asked of the backend: the path of every call */
   readonly calls: { openText: string[]; readBytes: string[]; createFile: string[] };
+  /** the text each write was made on, as the server handed it over, in order */
+  readonly bases: string[];
   /** the texts that are open now */
   openTexts(): number;
   /** writes that were handed to a text after it was closed, or while another was on its way */
   wrongWrites(): number;
   /** the listeners on the list, the bytes and the moves that are subscribed now */
   subscriptions(): number;
-  /** replaces what the backend answers to a write; undefined is the backend's own answer */
-  onWrite: ((path: string, text: string) => Promise<boolean>) | undefined;
+  /**
+   * Replaces what the backend answers to a write; undefined is the backend's own answer. `write`
+   * is that own answer: the write of the text the server holds, which tells no reader of it.
+   */
+  onWrite:
+    | ((
+        path: string,
+        text: string,
+        base: string,
+        write: (text: string, base: string) => Promise<boolean>,
+      ) => Promise<boolean>)
+    | undefined;
+  /** the backend below the counting: a reader opened here is one the server does not hold */
+  readonly memory: MemoryBackend;
   /** every text is read-only while this is true at the time it is opened */
   readOnly: boolean;
 }
@@ -88,6 +107,7 @@ export interface CountingBackend extends MemoryBackend {
 export function createCountingBackend(files: Record<string, MemoryFile>): CountingBackend {
   const memory = createMemoryBackend(files);
   const calls: CountingBackend["calls"] = { openText: [], readBytes: [], createFile: [] };
+  const bases: string[] = [];
   let open = 0;
   let subscribed = 0;
   let wrong = 0;
@@ -106,7 +126,9 @@ export function createCountingBackend(files: Record<string, MemoryFile>): Counti
     };
   const backend: CountingBackend = {
     ...memory,
+    memory,
     calls,
+    bases,
     openTexts: () => open,
     wrongWrites: () => wrong,
     subscriptions: () => subscribed,
@@ -124,11 +146,13 @@ export function createCountingBackend(files: Record<string, MemoryFile>): Counti
       return {
         ...text,
         readOnly: backend.readOnly,
-        async write(value) {
+        async write(value, base) {
           if (closed || writing > 0) wrong += 1;
           writing += 1;
+          bases.push(base);
           try {
-            return await (backend.onWrite?.(path, value) ?? text.write(value));
+            const write = text.write.bind(text);
+            return await (backend.onWrite?.(path, value, base, write) ?? write(value, base));
           } finally {
             writing -= 1;
           }

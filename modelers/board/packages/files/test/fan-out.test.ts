@@ -7,6 +7,8 @@ import { createFilesClient, serveFiles, type BoardFiles, type TextSession } from
 import {
   createCountingBackend,
   createWire,
+  deferred,
+  RULE,
   settled,
   type CountingBackend,
   type Wire,
@@ -28,7 +30,7 @@ async function bench(): Promise<Bench> {
     "models/sample.tt": "{}",
     "assets/logo.png": { bytes: new Uint8Array([1, 2, 3]), mime: "image/png" },
   });
-  serveFiles(wire.host, backend);
+  serveFiles(wire.host, backend, RULE);
   const files = createFilesClient(wire.page);
   await settled();
   return { wire, backend, files };
@@ -278,6 +280,184 @@ describe("one path, two readers", () => {
   });
 });
 
+describe("an edit and a change from outside that cross", () => {
+  test("a write made before the page heard of the outside's change is not the file's: both end with the outside's text", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    const two = await files.openText(PATH);
+    const heardByOne = ears(one);
+    backend.outside(PATH, "title Outside\n");
+    // the host's word of it is on its way to the page, which writes meanwhile
+    one.write("title Mine\n");
+    await settled();
+    expect(backend.textOf(PATH)).toBe("title Outside\n");
+    expect([one.text(), two.text()]).toEqual(["title Outside\n", "title Outside\n"]);
+    // the writer is told the text that took its edit's place
+    expect(heardByOne).toEqual(["replace title Outside\n"]);
+    expect(backend.writes).toEqual([]);
+  });
+
+  test("a write that is on its way to the host when the outside changes the file is not the file's either", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    const heard = ears(one);
+    one.write("title Mine\n");
+    backend.outside(PATH, "title Outside\n");
+    await settled();
+    expect(backend.textOf(PATH)).toBe("title Outside\n");
+    expect(one.text()).toBe("title Outside\n");
+    expect(heard).toEqual(["replace title Outside\n"]);
+    expect(backend.writes).toEqual([]);
+  });
+
+  test("every write of the page that crossed is dropped, and the first one made after it heard is the file's", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    one.write("title One\n");
+    backend.outside(PATH, "title Outside\n");
+    one.write("title Two\n");
+    await settled();
+    expect(one.text()).toBe("title Outside\n");
+    expect(backend.textOf(PATH)).toBe("title Outside\n");
+    one.write("title Outside\ncomponent Mine [0.5, 0.5]\n");
+    await settled();
+    expect(backend.textOf(PATH)).toBe(one.text());
+    // not one of the two that crossed, whichever side of the outside's change it was posted on
+    expect(backend.writes.map((write) => write.text)).toEqual([
+      "title Outside\ncomponent Mine [0.5, 0.5]\n",
+    ]);
+  });
+
+  test("two changes from outside that cross one write leave page and file on the last of them", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    const heard = ears(one);
+    backend.outside(PATH, "title First\n");
+    one.write("title Mine\n");
+    backend.outside(PATH, "title Second\n");
+    await settled();
+    expect(one.text()).toBe("title Second\n");
+    expect(backend.textOf(PATH)).toBe("title Second\n");
+    expect(heard).toEqual(["replace title First\n", "replace title Second\n"]);
+  });
+
+  test("a write the host refused and a write behind it that crossed the answer: both readers end with the file's text", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    const two = await files.openText(PATH);
+    backend.onWrite = async () => false;
+    one.write("title Refused\n");
+    await settled();
+    // the answer is at the page; a write the page had posted before it would be on an old version
+    expect([one.text(), two.text()]).toEqual([TEA, TEA]);
+    backend.onWrite = undefined;
+    two.write("title Taken\n");
+    await settled();
+    expect(backend.textOf(PATH)).toBe("title Taken\n");
+    expect([one.text(), two.text()]).toEqual(["title Taken\n", "title Taken\n"]);
+  });
+
+  test("a reader that writes on a text it was told to replace loses that write, not the text", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    const two = await files.openText(PATH);
+    const heardByTwo = ears(two);
+    // what a binding holds while a gesture is held: the text from before the outside's change
+    const before = one.text();
+    backend.outside(PATH, "title Outside\n");
+    await settled();
+    heardByTwo.length = 0;
+    one.write("title Made on the old text\n", before);
+    await settled();
+    expect(one.text()).toBe("title Outside\n");
+    expect(backend.textOf(PATH)).toBe("title Outside\n");
+    expect(heardByTwo).toEqual([]);
+    expect(backend.writes).toEqual([]);
+    // and on the text it has, the same write is taken
+    one.write("title Made on the new text\n", one.text());
+    await settled();
+    expect(backend.textOf(PATH)).toBe("title Made on the new text\n");
+    expect(heardByTwo).toEqual(["replace title Made on the new text\n"]);
+  });
+});
+
+describe("waiting for the writes that are on their way", () => {
+  test("settled resolves once the file has the write, however long the place takes", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    const gate = deferred<void>();
+    backend.onWrite = async (_path, text, base, write) => {
+      await gate.promise;
+      return write(text, base);
+    };
+    one.write("title Slow\n");
+    let done = false;
+    const waited = files.settled().then(() => void (done = true));
+    await settled();
+    expect(done).toBe(false);
+    expect(backend.textOf(PATH)).toBe(TEA);
+    gate.resolve();
+    await waited;
+    expect(backend.textOf(PATH)).toBe("title Slow\n");
+  });
+
+  test("the last write of a session that closed, and of a page that goes right after, is in the file", async () => {
+    const wire = createWire();
+    const backend = createCountingBackend({ [PATH]: TEA });
+    const server = serveFiles(wire.host, backend, RULE);
+    const files = createFilesClient(wire.page);
+    const one = await files.openText(PATH);
+    const gate = deferred<void>();
+    backend.onWrite = async (_path, text, base, write) => {
+      await gate.promise;
+      return write(text, base);
+    };
+    one.write("title Last\n");
+    one.close();
+    const waited = files.settled();
+    await settled();
+    // the edit reached the host: what happens to the page now does not take it back
+    files.dispose();
+    server.dispose();
+    await expect(waited).rejects.toThrow("the files were closed");
+    expect(backend.openTexts()).toBe(1);
+    gate.resolve();
+    await settled();
+    expect(backend.textOf(PATH)).toBe("title Last\n");
+    expect(backend.openTexts()).toBe(0);
+  });
+
+  test("a write the page posts in the task in which its channel ends never reaches the file", async () => {
+    const wire = createWire();
+    const backend = createCountingBackend({ [PATH]: TEA });
+    const server = serveFiles(wire.host, backend, RULE);
+    const files = createFilesClient(wire.page);
+    const one = await files.openText(PATH);
+    one.write("title Too late\n");
+    // a webview that is closed in the task of its last edit: the host stops listening first
+    server.dispose();
+    await settled();
+    expect(backend.textOf(PATH)).toBe(TEA);
+    expect(backend.openTexts()).toBe(0);
+  });
+
+  test("settled is answered though a write was refused or dropped", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    backend.onWrite = async () => false;
+    one.write("title Refused\n");
+    await files.settled();
+    // the answer to the refusal is behind the page's ear before settled resolves
+    expect(one.text()).toBe(TEA);
+    backend.onWrite = undefined;
+    backend.outside(PATH, "title Outside\n");
+    one.write("title Crossed\n");
+    await files.settled();
+    expect(one.text()).toBe("title Outside\n");
+    expect(backend.textOf(PATH)).toBe("title Outside\n");
+  });
+});
+
 describe("a file that goes", () => {
   test("is gone for every reader, takes no write, and is back with its new text", async () => {
     const { wire, backend, files } = await bench();
@@ -483,6 +663,31 @@ describe("bytes and new files", () => {
     await expect(files.readBytes(path)).rejects.toThrow("this path is outside the repository");
     expect(backend.calls).toEqual({ openText: [], readBytes: [], createFile: [] });
   });
+
+  test("refuses a dot folder and whatever the host's rule does not let a board reach, each with its own word", async () => {
+    const { backend, files } = await bench();
+    backend.outside(".git/config", "[core]");
+    backend.outside("notes/readme.md", "# no model");
+    await settled();
+    const hidden = "a board reaches no dot file and no file in a dot folder";
+    await expect(files.openText(".git/config")).rejects.toThrow(hidden);
+    await expect(files.readBytes(".git/config")).rejects.toThrow(hidden);
+    await expect(files.openText("notes/readme.md")).rejects.toThrow(
+      "notes/readme.md is no model a board shows here",
+    );
+    await expect(files.openText("assets/logo.png")).rejects.toThrow(
+      "assets/logo.png is no model a board shows here",
+    );
+    await expect(files.readBytes(PATH)).rejects.toThrow(
+      "models/tea.owm is no picture a board shows here",
+    );
+    await expect(
+      files.createFile?.("assets/notes.txt", new Blob([new Uint8Array([9])])),
+    ).rejects.toThrow("assets/notes.txt is no picture a board shows here");
+    expect(backend.calls).toEqual({ openText: [], readBytes: [], createFile: [] });
+    // and the page was never told that those files are there
+    expect(files.paths()).toEqual(["assets/logo.png", "models/sample.tt", PATH]);
+  });
 });
 
 describe("a read-only file", () => {
@@ -509,7 +714,7 @@ describe("the end", () => {
   test("a disposed client and a disposed server leave nothing open at the backend", async () => {
     const wire = createWire();
     const backend = createCountingBackend({ [PATH]: TEA });
-    const server = serveFiles(wire.host, backend);
+    const server = serveFiles(wire.host, backend, RULE);
     const files = createFilesClient(wire.page);
     const session = await files.openText(PATH);
     const heard = ears(session);

@@ -44,5 +44,6 @@
   "modelers/business-model-canvas/apps/vscode": "0.2.0",
   "modelers/business-model-canvas/apps/webapp": "0.1.3",
   "modelers/business-model-canvas/apps/orca": "0.1.3",
+  "modelers/board/apps/vscode": "0.0.0",
   "extensions/modeler-collection": "1.6.0"
 }

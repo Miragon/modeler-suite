@@ -1,6 +1,8 @@
 /**
  * A text session as a binding: imports one after the other, the view kept across a re-import, no
- * echo, and the notation's own rules for the text that is written.
+ * echo, and the notation's own rules for the text that is written. A write says which text it
+ * was made from, so that one made while a newer text of the file waits to be imported is dropped
+ * by the session and never replaces that text.
  */
 import type { TextSession } from "@miragon/board-files";
 
@@ -83,10 +85,14 @@ export function bindTextSession(
     };
     const offChange = modeler.onContentChanged(() => {
       if (!bound || reconciled === undefined || problem !== undefined || session.readOnly) return;
-      const written = text.exported(reconciled);
-      if (written === reconciled) return;
+      const base = reconciled;
+      const written = text.exported(base);
+      if (written === base) return;
       reconciled = written;
-      session.write(written);
+      // Where the file has another text than `base` by now, the session drops this write. That
+      // text was told here and its import waits, behind a gesture or behind another import: it
+      // takes the canvas back to what the file has, and the person sees the change go.
+      session.write(written, base);
     });
     let waiting = false;
     const offGesture = modeler.interaction?.onChange((active) => {

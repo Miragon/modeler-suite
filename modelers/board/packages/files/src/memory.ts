@@ -70,8 +70,9 @@ export function createMemoryBackend(files: Record<string, MemoryFile>): MemoryBa
           const value = store.get(path);
           return typeof value === "string" ? value : "";
         },
-        async write(text) {
-          if (typeof store.get(path) !== "string") return false;
+        async write(text, base) {
+          // gone, or changed since the text this write was made on
+          if (store.get(path) !== base) return false;
           store.set(path, text);
           writes.push({ path, text });
           tellChange(path, text, own);

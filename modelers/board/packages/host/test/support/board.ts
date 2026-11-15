@@ -6,7 +6,10 @@
 import {
   connectBackend,
   createMemoryBackend,
+  PICTURE_SUFFIXES,
+  suffixRule,
   type BoardFiles,
+  type FilesRule,
   type MemoryBackend,
   type MemoryFile,
 } from "@miragon/board-files";
@@ -41,6 +44,8 @@ export interface HostBoard {
   readonly editors: StandInEditors;
   /** every text session the host opened on the port, with how often it was closed */
   readonly sessions: Array<{ path: string; closes: number }>;
+  /** every path the host asked the port to open as a text, in order, opened or refused */
+  readonly opens: string[];
   /** how often the board reported a change of its own file */
   boardChanges(): number;
   /** the React Flow wrapper of a node; throws when there is none */
@@ -61,6 +66,10 @@ export interface HostBoardOptions extends StandInEditorsOptions {
   containHistoryKeys?: boolean | undefined;
   /** the host gets a text session only once this settles; the port has opened it by then */
   sessionGate?: Promise<void> | undefined;
+  /** the line of a file its modeler refuses, where the host has one of its own */
+  invalidText?: string | undefined;
+  /** what the host lets a board reach; absent: the suffixes of its editors and the board's pictures */
+  rule?: FilesRule | undefined;
 }
 
 /** the first run of a file loads every lazy part of the board from the dev server */
@@ -121,11 +130,17 @@ export async function mountHostBoard(
   options: HostBoardOptions = {},
 ): Promise<HostBoard> {
   const backend = createMemoryBackend(files);
-  const port = connectBackend(backend);
+  const editors = standInEditors(options);
+  // what a host passes: the suffixes of the editors it shows, and the pictures a board draws
+  const rule =
+    options.rule ?? suffixRule({ models: editors.entry.suffixes, pictures: PICTURE_SUFFIXES });
+  const port = connectBackend(backend, rule);
   const sessions: HostBoard["sessions"] = [];
+  const opens: string[] = [];
   const counted: BoardFiles = {
     ...port,
     async openText(path) {
+      opens.push(path);
       const session = await port.openText(path);
       await options.sessionGate;
       const entry = { path, closes: 0 };
@@ -138,11 +153,11 @@ export async function mountHostBoard(
       return session;
     },
   };
-  const editors = standInEditors(options);
   const host = createFilesHost({
     files: counted,
     editors: [editors.entry],
     containHistoryKeys: options.containHistoryKeys,
+    invalidText: options.invalidText,
   });
   const size = options.size ?? { width: 1200, height: 720 };
   const element = attachedHost(size.width, size.height);
@@ -159,6 +174,7 @@ export async function mountHostBoard(
     host,
     editors,
     sessions,
+    opens,
     boardChanges: () => changes,
     node(id) {
       const wrapper = element.querySelector<HTMLElement>(

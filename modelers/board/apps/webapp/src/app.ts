@@ -14,6 +14,7 @@ import { createCollaborativeModeler, type CollaborativeBoard } from "@miragon/bo
 import { SUITE_EDITORS } from "board-suite-editors";
 import { EXAMPLE } from "./example.js";
 import { keeping } from "./keeping.js";
+import { REACH } from "./reach.js";
 import { createAppStorage, picturesOf, resetRequested, type KeyValueStore } from "./storage.js";
 
 export interface AppOptions {
@@ -35,6 +36,9 @@ const KEPT = "The example repository is kept in this browser.";
 const NOT_KEPT = "This browser did not keep all of your changes: its storage is blocked or full.";
 const MISSING = "A picture of this board is missing: this browser did not keep it.";
 const UNREADABLE = "The board kept in this browser could not be read. This is the example.";
+// The host package's own line sends a person to the file's editor, and this page has none.
+const INVALID =
+  "This file cannot be shown as it is. “Reset the example” restores it, and undoes every other change.";
 
 interface Page {
   /** the element the board is attached to */
@@ -97,8 +101,8 @@ export function startApp(root: HTMLElement, options: AppOptions): App {
     page.say(NOT_KEPT, true);
   };
 
-  const files = connectBackend(keeping(createMemoryBackend(repository), kept, saved));
-  const host = createFilesHost({ files, editors: SUITE_EDITORS });
+  const files = connectBackend(keeping(createMemoryBackend(repository), kept, saved), REACH);
+  const host = createFilesHost({ files, editors: SUITE_EDITORS, invalidText: INVALID });
   const modeler = createCollaborativeModeler({ host });
   modeler.onContentChanged(() => {
     const text = modeler.exportText();

@@ -558,11 +558,58 @@ describe("the facade without a board that reads its ready", () => {
     // whoever does wait is told
     await expect(editor.ready).rejects.toThrow("the fake opens no text");
 
-    expect(files.listening()).toBe(1);
+    // it follows a file that moves, and waits for one that comes
+    expect(files.listening()).toBe(2);
     editor.destroy();
     expect(target.element.children).toHaveLength(0);
     expect(target.element.dataset.embedState).toBeUndefined();
-    // it no longer follows a file that moves
     expect(files.listening()).toBe(0);
+  });
+
+  it("asks for its file again whenever the list changes and has its path, and never after its end", async () => {
+    const target = engine();
+    const { path } = target.context;
+    const files = fakeFiles([]);
+    const { entry } = standInEditors();
+    const editor = openEditor(target.context, { entry, files });
+    await expect.poll(() => target.element.dataset.embedState).toBe("failed");
+    expect(files.opens).toEqual([path]);
+
+    // a list without the path: the file is still not there
+    files.setPaths(["plans/another.items"]);
+    await settled();
+    expect(files.opens).toEqual([path]);
+
+    files.setPaths(["plans/another.items", path]);
+    await settled();
+    expect(files.opens).toEqual([path, path]);
+    // the fake refused again: the element says what the last try came to, and a later list is a new try
+    expect(target.element.dataset.embedState).toBe("failed");
+    files.setPaths([path]);
+    await settled();
+    expect(files.opens).toEqual([path, path, path]);
+    await settled();
+    expect(windowErrors.errors).toEqual([]);
+
+    editor.destroy();
+    files.setPaths([path, "plans/more.items"]);
+    await settled();
+    expect(files.opens).toEqual([path, path, path]);
+  });
+
+  it("asks once for two changes of the list in a row: not again while a try is on its way", async () => {
+    const target = engine();
+    const { path } = target.context;
+    const files = fakeFiles([]);
+    const { entry } = standInEditors();
+    const editor = openEditor(target.context, { entry, files });
+    await expect.poll(() => target.element.dataset.embedState).toBe("failed");
+
+    files.setPaths([path, "plans/a.items"]);
+    files.setPaths([path]);
+    await settled();
+
+    expect(files.opens).toEqual([path, path]);
+    editor.destroy();
   });
 });

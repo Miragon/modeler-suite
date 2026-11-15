@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig, defineProject } from "vitest/config";
 import { playwright } from "@vitest/browser-playwright";
 import { sourceAliases } from "./apps/editors/build/aliases.mjs";
@@ -8,6 +9,14 @@ import { realInput } from "./test-support/real-input.ts";
 // The other modelers from their sources, so that none of them is built first, and their shared
 // sheet base emptied inside each renderer sheet: a page loads it once (board-suite-editors/base).
 const alias = [...cssBaseAliases, ...sourceAliases];
+
+// The extension host imports the ambient `vscode` module, which exists only inside the editor.
+// The unit project reads a mock in its place, the same module a test imports by its path, so a
+// listener the host registers and an event a test fires share one state.
+const vscodeMock = {
+  find: /^vscode$/,
+  replacement: fileURLToPath(new URL("./apps/vscode/test/__mocks__/vscode.ts", import.meta.url)),
+};
 
 /**
  * The browser project, exported so that a config for a machine where Chromium must keep its
@@ -47,7 +56,7 @@ export default defineConfig({
   test: {
     projects: [
       {
-        resolve: { alias },
+        resolve: { alias: [...alias, vscodeMock] },
         test: {
           name: "unit",
           environment: "node",

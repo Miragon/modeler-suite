@@ -22,8 +22,14 @@ export interface TextSession {
   /**
    * Nothing happens for the text the path has already, on a read-only file and on one that is
    * gone. A write the host refused comes back through `onReplace` as the text the host has.
+   *
+   * `base` is the text the writer made `text` from. Where the path has another text by now, the
+   * write is dropped: the writer was told that text through `onReplace`, and a write over it
+   * would lose it. Without `base` the write counts as made on the text the path has. A write
+   * that crossed a change on its way to the host ends the same way: the host drops it, and its
+   * text comes through `onReplace`.
    */
-  write(text: string): void;
+  write(text: string, base?: string | undefined): void;
   /** a change this session did not write: another session on the path, or the outside */
   onReplace(listener: (text: string) => void): () => void;
   /** the file went away (false) or is back (true); the text of one that is back follows in `onReplace` */
@@ -53,6 +59,13 @@ export interface BoardFiles {
   /** files whose bytes are new: a file that was created, or one that changed outside */
   onBytesChanged(listener: (paths: readonly string[]) => void): () => void;
   onMoved(listener: (moves: readonly FileMove[]) => void): () => void;
+  /**
+   * Resolves once the host has dealt with every write made before the call: each is in the place
+   * that keeps the files, was refused there, or was dropped as made on an older text. Rejects
+   * when the files are closed first. Whoever must have its last write in the place awaits this
+   * before it disposes.
+   */
+  settled(): Promise<void>;
   /** ends every delivery and rejects whatever still waits for its answer */
   dispose(): void;
 }

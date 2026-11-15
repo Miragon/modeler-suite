@@ -1,7 +1,7 @@
-import { NEW_FILE_LIMIT_BYTES } from "@miragon/board-files";
+import { NEW_FILE_LIMIT_BYTES, PICTURE_SUFFIXES } from "@miragon/board-files";
 import { describe, expect, it } from "vitest";
 
-import { IMAGE_LIMIT_BYTES } from "../../renderer/src/store/actions.js";
+import { IMAGE_LIMIT_BYTES, IMAGE_TYPES } from "../../renderer/src/store/actions.js";
 import { createFilesHost } from "../src/index.js";
 import { fakeFiles } from "./support/fake-files.js";
 import { standInEditors } from "./support/stand-in-modeler.js";
@@ -42,5 +42,13 @@ describe("the two limits for a new picture", () => {
   // with a lower limit would refuse a picture the board had just taken.
   it("are one: the files server takes what the board takes", () => {
     expect(NEW_FILE_LIMIT_BYTES).toBe(IMAGE_LIMIT_BYTES);
+  });
+});
+
+describe("the pictures a host's rule lets a board read", () => {
+  // The same reason: the files package names the suffixes a second time. A rule with fewer
+  // would refuse the bytes of a picture the board had just stored.
+  it("are the ones the board draws", () => {
+    expect([...PICTURE_SUFFIXES].sort()).toEqual(Object.keys(IMAGE_TYPES).sort());
   });
 });

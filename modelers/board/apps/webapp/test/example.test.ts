@@ -12,6 +12,7 @@ import {
 import { SUITE_SUFFIXES } from "board-suite-editors/suffixes";
 import { describe, expect, test } from "vitest";
 import { EXAMPLE } from "../src/example.js";
+import { REACH } from "../src/reach.js";
 
 const FOLDER = fileURLToPath(new URL("../../../example/", import.meta.url));
 
@@ -112,5 +113,23 @@ describe("the example as the app reads it", () => {
     const picture = EXAMPLE.files["assets/miragon-komet-blau.svg"];
 
     expect(typeof picture === "string" ? undefined : picture?.mime).toBe("image/svg+xml");
+  });
+});
+
+describe("what the page lets its board reach", () => {
+  test("is every file of the example: a model as a text, a picture as bytes, and neither as the other", () => {
+    for (const file of repositoryFiles) {
+      const model = file.startsWith("models/");
+      expect([file, REACH.model(file), REACH.picture(file)]).toEqual([file, model, !model]);
+    }
+  });
+
+  test("is every suffix of the suite's table, and no file that is neither a model nor a picture", () => {
+    for (const { suffixes } of SUITE_SUFFIXES) {
+      for (const suffix of suffixes) expect(REACH.model(`models/a${suffix}`), suffix).toBe(true);
+    }
+    for (const file of ["example.board", "README.md", "package.json", "assets/notes.txt"]) {
+      expect([file, REACH.model(file), REACH.picture(file)]).toEqual([file, false, false]);
+    }
   });
 });

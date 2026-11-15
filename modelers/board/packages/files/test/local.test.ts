@@ -4,7 +4,7 @@
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { connectBackend, type BoardFiles } from "../src/index.js";
-import { createCountingBackend, type CountingBackend } from "./support/wire.js";
+import { createCountingBackend, deferred, RULE, type CountingBackend } from "./support/wire.js";
 
 const TEA = "title Tea\n";
 const PATH = "models/tea.owm";
@@ -20,7 +20,7 @@ function connect(): { backend: CountingBackend; files: BoardFiles } {
     [PATH]: TEA,
     "assets/logo.png": { bytes: new Uint8Array([1, 2, 3]), mime: "image/png" },
   });
-  const files = connectBackend(backend);
+  const files = connectBackend(backend, RULE);
   connected.push(files);
   return { backend, files };
 }
@@ -152,12 +152,48 @@ describe("connectBackend", () => {
     backend.outside(PATH, "title Outside\n");
     await expect(files.openText(PATH)).rejects.toThrow("the files were closed");
     // a second connection of the same backend is behind whatever the first could still send
-    const again = connectBackend(backend);
+    const again = connectBackend(backend, RULE);
     connected.push(again);
     await roundTrip(again);
     expect(heard).toEqual([]);
     expect(backend.writes).toEqual([]);
     files.dispose();
+  });
+
+  test("a write that was awaited with settled is in the backend when the dispose comes", async () => {
+    const { backend, files } = connect();
+    const session = await files.openText(PATH);
+    const gate = deferred<void>();
+    backend.onWrite = async (_path, text, base, write) => {
+      await gate.promise;
+      return write(text, base);
+    };
+    session.write("title Kept\n");
+    const waited = files.settled();
+    setTimeout(() => gate.resolve(), 5);
+    await waited;
+    files.dispose();
+    expect(backend.textOf(PATH)).toBe("title Kept\n");
+    expect(backend.openTexts()).toBe(0);
+  });
+
+  test("takes the host's rule: what it calls no model is not opened, though the files are in the page", async () => {
+    const { backend, files } = connect();
+    backend.outside("notes/readme.md", "# no model");
+    await roundTrip(files);
+    await expect(files.openText("notes/readme.md")).rejects.toThrow(
+      "notes/readme.md is no model a board shows here",
+    );
+    await expect(files.readBytes(PATH)).rejects.toThrow(
+      "models/tea.owm is no picture a board shows here",
+    );
+    expect(files.paths()).toEqual(["assets/logo.png", PATH]);
+    // the one read is the round trip's own
+    expect(backend.calls).toEqual({
+      openText: [],
+      readBytes: ["assets/logo.png"],
+      createFile: [],
+    });
   });
 
   test("dispose closes the channel: no port of it keeps a Node process alive", async () => {
@@ -174,7 +210,7 @@ describe("connectBackend", () => {
 
   test("two connections of one backend are two pages: each hears the other's write from outside", async () => {
     const { backend, files } = connect();
-    const other = connectBackend(backend);
+    const other = connectBackend(backend, RULE);
     connected.push(other);
     const mine = await files.openText(PATH);
     const theirs = await other.openText(PATH);

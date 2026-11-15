@@ -1,0 +1,12 @@
+{
+  "//": "jsx: the board's renderer is read from its TSX sources. test-support: the declaration of commands.realInput for the browser tests.",
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "../../test-support/**/*.ts"]
+}

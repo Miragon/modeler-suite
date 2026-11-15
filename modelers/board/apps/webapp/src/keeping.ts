@@ -12,8 +12,8 @@ export function keeping(
       return text.readOnly;
     },
     text: () => text.text(),
-    async write(next) {
-      const written = await text.write(next);
+    async write(next, base) {
+      const written = await text.write(next, base);
       // The backend logs every text it took, for tests. Nothing reads the log here, and a page
       // that stays open would hold every version of every model.
       memory.writes.length = 0;

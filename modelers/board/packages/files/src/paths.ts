@@ -1,10 +1,10 @@
 /**
- * What a path of the port may be. The server runs `repoPath` on every path before a backend sees
- * it: a page is not trusted with a path. The check reads the path's text and nothing else. It
- * keeps a path inside the repository's root; it does not say that the file is one the page
- * should have: a folder such as `.git`, a dot file, a link that leads out of the root and a name
- * the place folds onto another one all pass. What a backend offers is the backend's to decide,
- * and one with a disk behind it checks a path again against what it lists.
+ * What a path of the port may be, and which paths a board reaches. The server runs `repoPath` on
+ * every path before a backend sees it, and then asks the host's rule (`FilesRule`): a page is not
+ * trusted with a path. Both read the path's text and nothing else. They keep a path inside the
+ * repository's root, out of its dot folders and on the files a board shows; they do not follow a
+ * link that leads out of the root, and they do not know how the place folds one name onto
+ * another. A backend with a disk checks those two itself.
  */
 
 /** a character below the space, or the delete character: no name of a file has one */
@@ -17,20 +17,31 @@ function hasControlCharacter(text: string): boolean {
 }
 
 /**
- * A repository-relative path with forward slashes, or undefined for anything else: no string, an
- * empty one, more than 1024 characters, a backslash, a control character (a NUL, a line break),
- * a scheme or a drive letter, an absolute path, and a segment that is empty, `.` or `..`.
+ * Why a path is none of the port's, undefined for one that is. `outside`: no
+ * repository-relative path with forward slashes at all. `hidden`: such a path with a segment
+ * that starts with a dot, a dot file or a dot folder at any depth (`.git`, `.github`, `.vscode`,
+ * `.env`): what a repository keeps there is on no board.
  */
-export function repoPath(input: unknown): string | undefined {
-  if (typeof input !== "string" || input === "" || input.length > 1024) return undefined;
-  if (input.includes("\\") || hasControlCharacter(input)) return undefined;
-  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(input)) return undefined;
+export function pathProblem(input: unknown): "outside" | "hidden" | undefined {
+  if (typeof input !== "string" || input === "" || input.length > 1024) return "outside";
+  if (input.includes("\\") || hasControlCharacter(input)) return "outside";
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(input)) return "outside";
   // an empty segment is an absolute path, a doubled slash or a slash at the end
   const segments = input.split("/");
   if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
-    return undefined;
+    return "outside";
   }
-  return input;
+  return segments.some((segment) => segment.startsWith(".")) ? "hidden" : undefined;
+}
+
+/**
+ * A repository-relative path with forward slashes, or undefined for anything else: no string, an
+ * empty one, more than 1024 characters, a backslash, a control character (a NUL, a line break),
+ * a scheme or a drive letter, an absolute path, an empty segment, and a segment that starts with
+ * a dot (`.`, `..`, a dot file, a dot folder).
+ */
+export function repoPath(input: unknown): string | undefined {
+  return pathProblem(input) === undefined ? (input as string) : undefined;
 }
 
 /** the largest file a page may create: the board's own limit for a picture */
@@ -70,4 +81,47 @@ export function bySuffix<Entry extends { suffixes: readonly string[] }>(
     }
   }
   return best?.entry;
+}
+
+/**
+ * The host's rule of what a board may reach, asked by the server for every path a page sends and
+ * for every path of the list it tells the page. A path the rule refuses never reaches the
+ * backend.
+ */
+export interface FilesRule {
+  /** a file a board shows as a model: it is opened as a text, and written */
+  model(path: string): boolean;
+  /** a file a board draws as a picture: its bytes are read, and a new file is one */
+  picture(path: string): boolean;
+}
+
+/**
+ * The suffixes of the pictures a board draws, lower case and with the dot. The files package
+ * cannot import the board: `packages/host/test/files-host.test.ts` holds the list against the
+ * board's own.
+ */
+export const PICTURE_SUFFIXES: readonly string[] = [
+  ".avif",
+  ".gif",
+  ".jpeg",
+  ".jpg",
+  ".png",
+  ".svg",
+  ".webp",
+];
+
+/**
+ * A rule by the end of a file's name, as `bySuffix` reads it: the suffixes of the editors a host
+ * shows, and of the pictures its board draws (`PICTURE_SUFFIXES`).
+ */
+export function suffixRule(suffixes: {
+  models: readonly string[];
+  pictures: readonly string[];
+}): FilesRule {
+  const models = [{ suffixes: suffixes.models }];
+  const pictures = [{ suffixes: suffixes.pictures }];
+  return {
+    model: (path) => bySuffix(models, path) !== undefined,
+    picture: (path) => bySuffix(pictures, path) !== undefined,
+  };
 }

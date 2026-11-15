@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { bySuffix, isNewAssetPath, repoPath } from "../src/index.js";
+import { bySuffix, isNewAssetPath, PICTURE_SUFFIXES, repoPath, suffixRule } from "../src/index.js";
 
 describe("repoPath", () => {
   test.each([
@@ -9,12 +9,13 @@ describe("repoPath", () => {
     "assets/logo.png",
     "notes/a:b.txt",
     "with space/Über sicht.tt",
-    ".hidden/..file",
     "~/x",
+    // a dot anywhere but at the start of a segment
+    "models/v1.2/tea.owm",
+    "models/tea..owm",
+    "models/a.b/c.d.owm",
     // what only reads like a way out: no place decodes a path, and none of these is one
     "%2e%2e/secret.owm",
-    "..%2fsecret.owm",
-    "models/.. /secret.owm",
     "models/tea.owm.",
   ])("takes %j as it is", (path) => {
     expect(repoPath(path)).toBe(path);
@@ -43,6 +44,21 @@ describe("repoPath", () => {
     ["an escape character", "models/\u001b[2Jtea.owm"],
     ["the delete character", "models/tea\u007f.owm"],
     ["the empty string", ""],
+    // a segment that starts with a dot, at every depth: what a repository keeps there is on no board
+    ["a dot folder with a dot file in it", ".hidden/..file"],
+    ["Git's folder", ".git/config"],
+    ["a folder below Git's", ".git/hooks/pre-commit"],
+    ["the workflows", ".github/workflows/ci.yml"],
+    ["the editor's settings", ".vscode/settings.json"],
+    ["a dot file of the root", ".env"],
+    ["a model in a dot folder", ".drafts/tea.owm"],
+    ["a dot folder in the middle", "models/.drafts/tea.owm"],
+    ["a dot folder at the depth of five", "a/b/c/d/.e/tea.owm"],
+    ["a dot file at the end", "models/.tea.owm"],
+    ["a dot file below assets", "assets/.logo.png"],
+    ["two dots and a percent sign", "..%2fsecret.owm"],
+    ["two dots and a space", "models/.. /secret.owm"],
+    ["three dots", "models/.../tea.owm"],
     ["an empty segment", "models//tea.owm"],
     ["a slash at the end", "models/"],
     ["a network path", "//server/share/x"],
@@ -161,5 +177,49 @@ describe("bySuffix", () => {
     const first = { suffixes: [".owm"] };
     const second = { suffixes: [".owm"] };
     expect(bySuffix([first, second], "tea.owm")).toBe(first);
+  });
+});
+
+describe("suffixRule", () => {
+  const rule = suffixRule({ models: [".owm", ".vc.json"], pictures: [".png", ".svg"] });
+
+  test("calls a model what ends in a suffix of the editors, and a picture what ends in one of the pictures", () => {
+    expect(rule.model("models/tea.owm")).toBe(true);
+    expect(rule.model("porter.vc.json")).toBe(true);
+    expect(rule.model("models/TEA.OWM")).toBe(true);
+    expect(rule.picture("assets/logo.png")).toBe(true);
+    expect(rule.picture("assets/Drawing.SVG")).toBe(true);
+  });
+
+  test("keeps the two apart: a model is no picture and a picture no model", () => {
+    expect(rule.picture("models/tea.owm")).toBe(false);
+    expect(rule.model("assets/logo.png")).toBe(false);
+  });
+
+  test.each([
+    "notes/readme.md",
+    "package.json",
+    "example.board",
+    "models/tea",
+    "models/tea.owm.",
+    "models/tea.owm.bak",
+    "models.owm/readme.md",
+    "owm",
+  ])("calls %j neither", (path) => {
+    expect(rule.model(path)).toBe(false);
+    expect(rule.picture(path)).toBe(false);
+  });
+
+  test("a rule without suffixes lets a board reach nothing", () => {
+    const none = suffixRule({ models: [], pictures: [] });
+    expect(none.model("models/tea.owm")).toBe(false);
+    expect(none.picture("assets/logo.png")).toBe(false);
+  });
+
+  test("the pictures a board draws are named once, lower case and with the dot", () => {
+    expect(PICTURE_SUFFIXES).toEqual([".avif", ".gif", ".jpeg", ".jpg", ".png", ".svg", ".webp"]);
+    const pictures = suffixRule({ models: [], pictures: PICTURE_SUFFIXES });
+    for (const suffix of PICTURE_SUFFIXES) expect(pictures.picture(`assets/a${suffix}`)).toBe(true);
+    expect(pictures.picture("assets/a.bmp")).toBe(false);
   });
 });

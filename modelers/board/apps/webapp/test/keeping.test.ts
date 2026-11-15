@@ -27,8 +27,9 @@ describe("the repository in memory, kept in the browser", () => {
     const { memory, backend, answers, nextStart } = setUp();
     const text = await backend.openText("models/tea.owm");
 
-    expect(await text.write("title Tea Shop\ncomponent Cup [0.5, 0.5]\n")).toBe(true);
-    expect(await text.write("title Coffee Shop\n")).toBe(true);
+    const first = "title Tea Shop\ncomponent Cup [0.5, 0.5]\n";
+    expect(await text.write(first, "title Tea Shop\n")).toBe(true);
+    expect(await text.write("title Coffee Shop\n", first)).toBe(true);
 
     expect(memory.textOf("models/tea.owm")).toBe("title Coffee Shop\n");
     expect(nextStart()["models/tea.owm"]).toBe("title Coffee Shop\n");
@@ -41,8 +42,21 @@ describe("the repository in memory, kept in the browser", () => {
     const text = await backend.openText("models/tea.owm");
     memory.remove("models/tea.owm");
 
-    expect(await text.write("title Coffee Shop\n")).toBe(false);
+    expect(await text.write("title Coffee Shop\n", "title Tea Shop\n")).toBe(false);
 
+    expect(answers).toEqual([]);
+    expect(nextStart()["models/tea.owm"]).toBe("title Tea Shop\n");
+  });
+
+  test("a write made on another text than the repository has is refused there, and not kept", async () => {
+    const { memory, backend, answers, nextStart } = setUp();
+    const text = await backend.openText("models/tea.owm");
+    memory.outside("models/tea.owm", "title From Outside\n");
+
+    // the wrapper hands on what the write was made on: the repository is the one that knows
+    expect(await text.write("title Coffee Shop\n", "title Tea Shop\n")).toBe(false);
+
+    expect(memory.textOf("models/tea.owm")).toBe("title From Outside\n");
     expect(answers).toEqual([]);
     expect(nextStart()["models/tea.owm"]).toBe("title Tea Shop\n");
   });

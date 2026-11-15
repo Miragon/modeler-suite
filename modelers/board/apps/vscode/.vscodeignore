@@ -1,0 +1,11 @@
+# Sources and build tooling stay out of the VSIX: it ships dist/ (the two bundles, the sheet and
+# the font files), the manifest, the README and the LICENSE.
+src/**
+test/**
+test-smoke/**
+node_modules/**
+esbuild.config.mjs
+tsconfig.json
+**/*.map
+.gitignore
+**/tsconfig.tsbuildinfo

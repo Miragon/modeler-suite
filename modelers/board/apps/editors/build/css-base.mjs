@@ -23,8 +23,8 @@ const EMPTY_SHEET = fileURLToPath(new URL("./empty.css", import.meta.url));
 export const cssBaseAliases = [{ find: BASE_IMPORT, replacement: EMPTY_SHEET }];
 
 /**
- * What the plugin below uses of esbuild's `PluginBuild`, written out because this workspace does
- * not depend on esbuild: the app that bundles with it does.
+ * What the plugin below uses of esbuild's `PluginBuild`, written out so that a test can hand it
+ * a build of these two members alone.
  *
  * @typedef {{
  *   onResolve(

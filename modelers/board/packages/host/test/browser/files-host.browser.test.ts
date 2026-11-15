@@ -4,7 +4,7 @@
  * the one registered editor. What a person does is real input (`commands.realInput`); what the
  * outside does is a call on the backend.
  */
-import { fromBase64 } from "@miragon/board-files";
+import { fromBase64, PICTURE_SUFFIXES, suffixRule } from "@miragon/board-files";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { commands } from "vitest/browser";
 
@@ -38,6 +38,8 @@ const NODES = {
   other: modelNode("n_other", OTHER_PATH, 0, 440),
   readme: modelNode("n_readme", "notes/readme.md", 560, 440),
   outside: modelNode("n_outside", "../outside/secret.items", 1120, 0),
+  hidden: modelNode("n_hidden", ".drafts/plan.items", 0, 0),
+  late: modelNode("n_late", "plans/late.items", 0, 0),
   image: JSON.stringify({
     file: "assets/logo.png",
     height: 120,
@@ -251,6 +253,25 @@ describe("what the board shows of the host's files", () => {
     expect(mounted.sessions).toEqual([]);
   });
 
+  it("says that a board reaches no dot folder, and that a file is no model of this host", async () => {
+    // the page's registry shows .items, and the host's rule knows another kind of model only
+    const mounted = await mount([NODES.hidden, NODES.other], {
+      rule: suffixRule({ models: [".plan"], pictures: PICTURE_SUFFIXES }),
+    });
+
+    await expect.poll(() => stateOf(mounted, "n_hidden"), SOON).toBe("failed");
+    expect(badgeOf(mounted, "n_hidden").textContent).toBe(
+      "This file could not be opened. a board reaches no dot file and no file in a dot folder",
+    );
+    await expect.poll(() => stateOf(mounted, "n_other"), SOON).toBe("failed");
+    expect(badgeOf(mounted, "n_other").textContent).toBe(
+      "This file could not be opened. plans/other.items is no model a board shows here",
+    );
+    // and the picker offers neither: the page was not told that the host has such files
+    expect(mounted.files.paths()).toEqual(["assets/logo.png"]);
+    expect(mounted.sessions).toEqual([]);
+  });
+
   it("draws a picture of the repository", async () => {
     const mounted = await mount([NODES.image]);
     const figure = (): Element | null => mounted.node("n_image").querySelector(".board-image");
@@ -434,23 +455,85 @@ describe("a model that is edited in place", () => {
     ]);
     await expect.poll(() => editor.interaction?.active()).toBe(true);
 
-    // a change from outside waits for the drop, and the board refuses a zoom under a held press
-    mounted.backend.outside(PLAN_PATH, PLAN.replace("Beta", "Outside"));
+    // the board refuses a zoom under a held press
     mounted.modeler.setViewState({ x: 0, y: 0, zoom: 0.5 });
     await delivered(mounted);
     expect(mounted.runtime.armedId()).toBe("n_plan");
-    expect(editor.record.imports).toEqual([PLAN]);
 
     await commands.realInput([{ type: "up" }]);
     await expect.poll(() => mounted.backend.writes.length, SOON).toBe(1);
     await delivered(mounted);
 
-    // the drop is written over the text from outside, and the canvas shows what the file has
     expect(mounted.backend.writes).toEqual([
       { path: PLAN_PATH, text: "# the plan\na 40 30 Alpha\nb 200 100 Beta\n" },
     ]);
     expect(editor.record.imports).toEqual([PLAN]);
     expect(editor.exportText()).toBe("a 40 30 Alpha\nb 200 100 Beta\n");
+  });
+
+  it("does not write a drop over a change from outside that came while the drag was held", async () => {
+    const mounted = await mount([NODES.plan]);
+    await ready(mounted, "n_plan");
+    const editor = mounted.editorOf("n_plan");
+    await arm(mounted, "n_plan");
+    const from = centreOf(itemOf(mounted, "n_plan", "a"));
+    await commands.realInput([
+      { type: "move", ...from },
+      { type: "down" },
+      { type: "move", x: from.x + 40, y: from.y + 30, steps: 4 },
+    ]);
+    await expect.poll(() => editor.interaction?.active()).toBe(true);
+
+    // the outside's text waits for the end of the drag
+    const outside = PLAN.replace("Beta", "Outside");
+    mounted.backend.outside(PLAN_PATH, outside);
+    await delivered(mounted);
+    expect(editor.record.imports).toEqual([PLAN]);
+
+    await commands.realInput([{ type: "up" }]);
+    await expect.poll(() => editor.record.imports, SOON).toEqual([PLAN, outside]);
+    await mounted.files.settled();
+    await delivered(mounted);
+
+    // The drop was made on the text before the outside's change: the file keeps that change,
+    // and the canvas shows the file. The person sees the item back where it was.
+    expect(mounted.backend.writes).toEqual([]);
+    expect(mounted.backend.textOf(PLAN_PATH)).toBe(outside);
+    expect(editor.exportText()).toBe("a 0 0 Alpha\nb 200 100 Outside\n");
+    expect(stateOf(mounted, "n_plan")).toBe("ready");
+    expect(mounted.runtime.armedId()).toBe("n_plan");
+
+    // the next drag is made on the file's text and is written
+    const again = centreOf(itemOf(mounted, "n_plan", "a"));
+    await commands.realInput([
+      { type: "move", ...again },
+      { type: "down" },
+      { type: "move", x: again.x + 40, y: again.y + 30, steps: 4 },
+      { type: "up" },
+    ]);
+    await expect.poll(() => mounted.backend.writes.length, SOON).toBe(1);
+    expect(mounted.backend.textOf(PLAN_PATH)).toBe(
+      "# the plan\na 40 30 Alpha\nb 200 100 Outside\n",
+    );
+  });
+
+  it("an edit that crosses a change from outside on the channel is not the file's, and the canvas shows the file", async () => {
+    const mounted = await mount([NODES.plan]);
+    await ready(mounted, "n_plan");
+    const editor = mounted.editorOf("n_plan");
+    const outside = PLAN.replace("Beta", "Outside");
+
+    // in one task: the outside's change is on its way to the page when the canvas changes
+    mounted.backend.outside(PLAN_PATH, outside);
+    editor.commands.move("a", 5, 5);
+    await mounted.files.settled();
+    await expect.poll(() => editor.exportText(), SOON).toBe("a 0 0 Alpha\nb 200 100 Outside\n");
+    await delivered(mounted);
+
+    expect(mounted.backend.textOf(PLAN_PATH)).toBe(outside);
+    expect(mounted.backend.writes).toEqual([]);
+    expect(editor.record.imports).toEqual([PLAN, outside]);
+    expect(stateOf(mounted, "n_plan")).toBe("ready");
   });
 });
 
@@ -526,6 +609,19 @@ describe("a change of a file from outside", () => {
 
     editor.commands.move("c", 10, 10);
     await expect.poll(() => mounted.backend.writes.length, SOON).toBe(1);
+  });
+
+  it("that is invalid says what the host says a person can do about it, where the host has a line of its own", async () => {
+    const line = "This file cannot be shown as it is. Reset the example to get it back.";
+    const mounted = await mount([NODES.other], { invalidText: line });
+    await ready(mounted, "n_other");
+
+    mounted.backend.outside(OTHER_PATH, "this is no item\n");
+    await expect.poll(() => stateOf(mounted, "n_other"), SOON).toBe("invalid");
+    const badge = badgeOf(mounted, "n_other");
+    expect(badge.textContent).toBe(line);
+    // the modeler's reason stays where whoever repairs the file finds it
+    expect(badge.title).toBe('line 1: expected "<id> <x> <y> <name>"');
   });
 
   it("that is invalid or removes the file takes the armed editor's input until the file is back", async () => {
@@ -627,6 +723,73 @@ describe("a change of a file from outside", () => {
     // the node that shows another file heard nothing
     expect(mounted.editorOf("n_plan").record.imports).toEqual([PLAN]);
     expect(mounted.backend.writes).toEqual([]);
+  });
+});
+
+describe("a model whose file is not there when its node mounts", () => {
+  it("says so, and is shown and written once the file came", async () => {
+    const mounted = await mount([NODES.late, NODES.other]);
+    await ready(mounted, "n_other");
+    await expect.poll(() => stateOf(mounted, "n_late"), SOON).toBe("failed");
+    expect(badgeOf(mounted, "n_late").textContent).toBe(
+      "This file could not be opened. plans/late.items is no text file of this repository",
+    );
+    const asked = (): number => mounted.opens.filter((path) => path === "plans/late.items").length;
+    expect(asked()).toBe(1);
+
+    // a checkout, or a file somebody made beside the board
+    mounted.backend.outside("plans/late.items", PLAN);
+    await ready(mounted, "n_late");
+    const editor = mounted.editorOf("n_late");
+    expect(editor.exportText()).toBe("a 0 0 Alpha\nb 200 100 Beta\n");
+    expect(mounted.engine("n_late").querySelectorAll(".djs-shape")).toHaveLength(2);
+    expect(badgeOf(mounted, "n_late").hidden).toBe(true);
+    expect(asked()).toBe(2);
+    expect(mounted.sessions.map((session) => session.path)).toEqual([
+      OTHER_PATH,
+      "plans/late.items",
+    ]);
+
+    // it is bound as any other: a change on its canvas is its file's
+    editor.commands.move("a", 5, 5);
+    await expect.poll(() => mounted.backend.writes.length, SOON).toBe(1);
+    expect(mounted.backend.textOf("plans/late.items")).toBe(
+      "# the plan\na 5 5 Alpha\nb 200 100 Beta\n",
+    );
+    // the node's first ready stays as it settled: the board's own word of the editor is its first
+    expect(mounted.runtime.mounted("n_late")).toBe(false);
+  });
+
+  it("is not asked for again by a change of the list that does not have its path", async () => {
+    const mounted = await mount([NODES.late, NODES.outside]);
+    await expect.poll(() => stateOf(mounted, "n_late"), SOON).toBe("failed");
+    await expect.poll(() => stateOf(mounted, "n_outside"), SOON).toBe("failed");
+    const asked = [...mounted.opens];
+
+    mounted.backend.outside("plans/another.items", OTHER);
+    await expect.poll(() => mounted.files.paths(), SOON).toContain("plans/another.items");
+    await delivered(mounted);
+
+    expect(mounted.opens).toEqual(asked);
+    expect(stateOf(mounted, "n_late")).toBe("failed");
+    // a path the host refuses is on no list, so it is never asked for again
+    expect(badgeOf(mounted, "n_outside").textContent).toBe(
+      "This file could not be opened. this path is outside the repository",
+    );
+  });
+
+  it("leaves nothing behind when its node goes before the file came", async () => {
+    const mounted = await mount([NODES.late]);
+    await expect.poll(() => stateOf(mounted, "n_late"), SOON).toBe("failed");
+
+    await mounted.modeler.importText(boardText());
+    await expect.poll(() => mounted.element.querySelector(".board-engine"), SOON).toBeNull();
+    mounted.backend.outside("plans/late.items", PLAN);
+    await expect.poll(() => mounted.files.paths(), SOON).toContain("plans/late.items");
+    await delivered(mounted);
+
+    expect(mounted.opens).toEqual(["plans/late.items"]);
+    expect(mounted.sessions).toEqual([]);
   });
 });
 

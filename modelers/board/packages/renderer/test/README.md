@@ -110,9 +110,13 @@ the modeler's `CLAUDE.md`.
   wrapper that throws only inside the two tests of a part that throws.
 - `chrome.browser.test.tsx`: the model picker (title and kind, the host's list, one node and
   one change per choice); the Image button and a picked, a pasted and a refused image; the Done
-  control; the arrows derived from `host.references`; the presence layer (a peer's cursor,
-  name, colour and outline; this person's pointer and selection published, the cursor taken
-  back inside an armed editor, null when the board goes).
+  control; the two rules a host with chrome of its own may put on the toolbar, a start margin
+  on `.board-toolbar` and `display: none` on its Zoom group (the toolbar starts at the margin,
+  the Zoom group has no box, the Done control keeps its size and its place, the toolbar's top
+  and bottom edge are where they were); the arrows derived from `host.references`; the
+  presence layer (a peer's cursor, name, colour and outline; this person's pointer and
+  selection published, the cursor taken back inside an armed editor, null when the board
+  goes).
 - `images.browser.test.tsx`: the image port as a host fills it. A `store` that returns at once
   (the node in the same task, as measured), one that returns a promise (node and notice when it
   resolves, the files of one paste one after the other), one that throws or rejects (a refused

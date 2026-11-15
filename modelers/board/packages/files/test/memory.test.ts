@@ -80,7 +80,7 @@ describe("a text", () => {
     const heardByOne = ears(one);
     const heardByTwo = ears(two);
     const heardElsewhere = ears(elsewhere);
-    expect(await one.write("title Coffee\n")).toBe(true);
+    expect(await one.write("title Coffee\n", TEA)).toBe(true);
     expect(backend.textOf("models/tea.owm")).toBe("title Coffee\n");
     expect([one.text(), two.text()]).toEqual(["title Coffee\n", "title Coffee\n"]);
     expect(backend.writes).toEqual([{ path: "models/tea.owm", text: "title Coffee\n" }]);
@@ -111,13 +111,29 @@ describe("a text", () => {
     expect(backend.textOf("models/tea.owm")).toBeUndefined();
     // a file that is not there has no text
     expect(text.text()).toBe("");
-    expect(await text.write("title Into the void\n")).toBe(false);
+    expect(await text.write("title Into the void\n", TEA)).toBe(false);
+    // not on the text an open text of a missing file answers either
+    expect(await text.write("title Into the void\n", text.text())).toBe(false);
     expect(backend.textOf("models/tea.owm")).toBeUndefined();
     expect(backend.writes).toEqual([]);
     backend.outside("models/tea.owm", "title Back\n");
     expect(heard).toEqual(["gone", "change title Back\n"]);
-    expect(await text.write("title Written again\n")).toBe(true);
+    expect(await text.write("title Written again\n", "title Back\n")).toBe(true);
     expect(backend.textOf("models/tea.owm")).toBe("title Written again\n");
+  });
+
+  test("refuses a write made on another text than the file has, and takes it once it is made on that", async () => {
+    const backend = backendOf();
+    const text = await backend.openText("models/tea.owm");
+    const heard = ears(text);
+    backend.outside("models/tea.owm", "title Outside\n");
+    expect(await text.write("title Mine\n", TEA)).toBe(false);
+    expect(backend.textOf("models/tea.owm")).toBe("title Outside\n");
+    expect(backend.writes).toEqual([]);
+    expect(await text.write("title Mine\n", "title Outside\n")).toBe(true);
+    expect(backend.textOf("models/tea.owm")).toBe("title Mine\n");
+    // the refusal told nobody anything: the outside's change was told when it came
+    expect(heard).toEqual(["change title Outside\n"]);
   });
 
   test("a closed text and a listener taken off hear nothing more", async () => {
@@ -140,11 +156,11 @@ describe("a text", () => {
   test("the log of writes can be emptied by whoever keeps the backend for long", async () => {
     const backend = backendOf();
     const text = await backend.openText("models/tea.owm");
-    await text.write("one");
-    await text.write("two");
+    await text.write("one", TEA);
+    await text.write("two", "one");
     expect(backend.writes.map((write) => write.text)).toEqual(["one", "two"]);
     backend.writes.length = 0;
-    await text.write("three");
+    await text.write("three", "two");
     expect(backend.writes).toEqual([{ path: "models/tea.owm", text: "three" }]);
   });
 });

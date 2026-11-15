@@ -13,6 +13,8 @@ export interface ModelsOptions {
   editors: readonly EditorEntry[];
   /** see `EmbedOptions.containHistoryKeys` */
   containHistoryKeys?: boolean | undefined;
+  /** see `OpenEditorOptions.invalidText` */
+  invalidText?: string | undefined;
 }
 
 interface FileName {
@@ -83,6 +85,7 @@ export function modelsFrom(options: ModelsOptions): BoardModels {
         entry,
         files,
         containHistoryKeys: options.containHistoryKeys,
+        invalidText: options.invalidText,
       });
     },
   };

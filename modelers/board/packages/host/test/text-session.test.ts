@@ -122,6 +122,25 @@ describe("a change on the canvas", () => {
     expect(session.writes.at(-1)).toBe(TEXT);
   });
 
+  it("says with every write which text of the file it was made from", async () => {
+    const modeler = createStandInModeler({ fitOnImport: false });
+    const session = fakeSession("plans/plan.items", TEXT);
+    const bases: Array<string | undefined> = [];
+    const write = session.write.bind(session);
+    session.write = (text, base) => {
+      bases.push(base);
+      write(text, base);
+    };
+    await bindTextSession(session, standInRules)(modeler, () => undefined).ready;
+
+    modeler.commands.move("b", 40, 10);
+    modeler.commands.remove("a");
+
+    // the first from the file's text, the second from what the first wrote
+    expect(bases).toEqual([TEXT, "# the plan\na 0 0 Alpha\n\n# later\nb 240 10 Beta\n"]);
+    expect(session.dropped).toEqual([]);
+  });
+
   it("writes nothing before the first text was imported", async () => {
     const { modeler, session, ready } = bind();
     modeler.commands.add("Early");
@@ -272,6 +291,59 @@ describe("a change from outside", () => {
   });
 });
 
+describe("a change on the canvas that crosses one from outside", () => {
+  it("made while the outside's text waits behind an import is dropped, and the canvas ends on the file's text", async () => {
+    const { modeler, session, ready } = bind();
+    await ready;
+    const first = TEXT.replace("Alpha", "First");
+    const second = TEXT.replace("Alpha", "Second");
+    modeler.holdImports();
+    session.replace(first);
+    await settled();
+    // the import of the first text runs; the second waits behind it, and the person edits
+    session.replace(second);
+    modeler.commands.move("b", 40, 10);
+    modeler.releaseImports();
+    await settled();
+
+    expect(session.writes).toEqual([]);
+    expect(session.dropped).toHaveLength(1);
+    expect(session.text()).toBe(second);
+    expect(modeler.exportText()).toBe("a 0 0 Second\nb 200 0 Beta\n");
+  });
+
+  it("is written where the file still has the text the canvas was reconciled with", async () => {
+    const { modeler, session, ready } = bind();
+    await ready;
+    const outside = TEXT.replace("Alpha", "Outside");
+    session.replace(outside);
+    await settled();
+
+    modeler.commands.move("b", 40, 10);
+
+    expect(session.dropped).toEqual([]);
+    expect(session.writes).toEqual(["# the plan\na 0 0 Outside\n\n# later\nb 240 10 Beta\n"]);
+  });
+
+  it("that the session dropped twice in a row still ends on the file's text", async () => {
+    const { modeler, session, ready } = bind();
+    await ready;
+    const outside = TEXT.replace("Alpha", "Outside");
+
+    modeler.gesture.start();
+    session.replace(outside);
+    // two changes of the canvas before the import of the outside's text had its turn
+    modeler.gesture.drop("b", 40, 10);
+    modeler.commands.move("a", 5, 5);
+    await settled();
+
+    expect(session.writes).toEqual([]);
+    expect(session.dropped).toHaveLength(2);
+    expect(modeler.exportText()).toBe("a 0 0 Outside\nb 200 0 Beta\n");
+    expect(session.text()).toBe(outside);
+  });
+});
+
 describe("a file that goes and comes back", () => {
   it("is reported as gone, and as shown again when it is back with the same text", async () => {
     const { modeler, session, states, ready } = bind();
@@ -315,23 +387,32 @@ describe("a file that goes and comes back", () => {
 });
 
 describe("a gesture the person holds", () => {
-  it("keeps a change from outside off the canvas, and its drop is the one write", async () => {
+  it("keeps a change from outside off the canvas while it is held, and its drop does not replace that change", async () => {
     const { modeler, session, ready } = bind();
     await ready;
+    const outside = TEXT.replace("Alpha", "Outside");
 
     modeler.gesture.start();
-    session.replace(TEXT.replace("Alpha", "Outside"));
+    session.replace(outside);
     await settled();
     expect(modeler.record.imports).toEqual([TEXT]);
 
     modeler.gesture.drop("b", 40, 10);
     await settled();
 
-    // The drop was written over the text from outside: the canvas and the file say the same,
-    // and the text that waited is not imported over the drop.
-    expect(session.writes).toEqual(["# the plan\na 0 0 Alpha\n\n# later\nb 240 10 Beta\n"]);
-    expect(modeler.record.imports).toEqual([TEXT]);
-    expect(standInRules(modeler).same(session.text(), "")).toBe(true);
+    // The drop was made from the text before the outside's change. The session dropped it, the
+    // file keeps the outside's text, and the canvas shows that text: the person sees the drop go.
+    expect(session.writes).toEqual([]);
+    expect(session.dropped).toEqual([
+      { text: "# the plan\na 0 0 Alpha\n\n# later\nb 240 10 Beta\n", base: TEXT },
+    ]);
+    expect(session.text()).toBe(outside);
+    expect(modeler.record.imports).toEqual([TEXT, outside]);
+    expect(modeler.exportText()).toBe("a 0 0 Outside\nb 200 0 Beta\n");
+
+    // and the next change on the canvas is made from the outside's text, and written
+    modeler.commands.move("b", 40, 10);
+    expect(session.writes).toEqual(["# the plan\na 0 0 Outside\n\n# later\nb 240 10 Beta\n"]);
   });
 
   it("that is cancelled lets the change from outside in", async () => {

@@ -19,6 +19,7 @@ import {
   createWire,
   deferred,
   PNG_BASE64,
+  RULE,
   settled,
   type CountingBackend,
   type Wire,
@@ -37,7 +38,7 @@ const files = () => ({
 async function served(hello = true): Promise<{ wire: Wire; backend: CountingBackend }> {
   const wire = createWire();
   const backend = createCountingBackend(files());
-  serveFiles(wire.host, backend);
+  serveFiles(wire.host, backend, RULE);
   if (hello) {
     wire.send({ type: "board.hello", protocol: PROTOCOL });
     await settled();
@@ -58,6 +59,7 @@ describe("the messages", () => {
     "board.text.open": "page",
     "board.text.edit": "page",
     "board.text.close": "page",
+    "board.text.settle": "page",
     "board.bytes.read": "page",
     "board.file.create": "page",
     "board.paths": "host",
@@ -95,8 +97,8 @@ describe("the messages", () => {
     for (const type of SHELL_TYPES) expect(isBoardMessage({ type })).toBe(false);
   });
 
-  test("the protocol is version 1", () => {
-    expect(PROTOCOL).toBe(1);
+  test("the protocol is version 2", () => {
+    expect(PROTOCOL).toBe(2);
   });
 
   test("isBoardMessage takes an object with such a type and nothing else", () => {
@@ -138,6 +140,7 @@ describe("the server, before the hello", () => {
   test.each<[string, Record<string, unknown>]>([
     ["an open", { type: "board.text.open", requestId: 7, path: "models/tea.owm" }],
     ["a read", { type: "board.bytes.read", requestId: 7, path: "assets/logo.png" }],
+    ["a settle", { type: "board.text.settle", requestId: 7 }],
     [
       "a create",
       {
@@ -161,7 +164,7 @@ describe("the server, before the hello", () => {
 
   test("drops an edit and a close: nothing is written, nothing is answered", async () => {
     const { wire, backend } = await served(false);
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "gone" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "gone", version: 1 });
     wire.send({ type: "board.text.close", path: "models/tea.owm" });
     await settled();
     expect(wire.fromHost).toEqual([]);
@@ -171,7 +174,7 @@ describe("the server, before the hello", () => {
 
   test("a hello of another protocol is none: no list, and every request is told why", async () => {
     const { wire, backend } = await served(false);
-    wire.send({ type: "board.hello", protocol: 2 });
+    wire.send({ type: "board.hello", protocol: 1 });
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     backend.outside("models/new.owm", TEA);
     await settled();
@@ -179,7 +182,7 @@ describe("the server, before the hello", () => {
       {
         type: "board.failed",
         requestId: 1,
-        message: "this host speaks protocol 1, the page said 2",
+        message: "this host speaks protocol 2, the page said 1",
       },
     ]);
     expect(backend.calls.openText).toEqual([]);
@@ -199,7 +202,7 @@ describe("the server, before the hello", () => {
       {
         type: "board.failed",
         requestId: 3,
-        message: "this host speaks protocol 1, the page said undefined",
+        message: "this host speaks protocol 2, the page said undefined",
       },
     ]);
   });
@@ -296,6 +299,7 @@ describe("the server, a text", () => {
         path: "models/tea.owm",
         text: TEA,
         readOnly: false,
+        version: 1,
       },
     ]);
     expect(backend.openTexts()).toBe(1);
@@ -314,7 +318,12 @@ describe("the server, a text", () => {
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     await settled();
     taken(wire);
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "title Coffee\n" });
+    wire.send({
+      type: "board.text.edit",
+      path: "models/tea.owm",
+      text: "title Coffee\n",
+      version: 1,
+    });
     await settled();
     expect(backend.writes).toEqual([{ path: "models/tea.owm", text: "title Coffee\n" }]);
     expect(backend.textOf("models/tea.owm")).toBe("title Coffee\n");
@@ -326,7 +335,7 @@ describe("the server, a text", () => {
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     await settled();
     for (const text of ["one", "two", "three"]) {
-      wire.send({ type: "board.text.edit", path: "models/tea.owm", text });
+      wire.send({ type: "board.text.edit", path: "models/tea.owm", text, version: 1 });
     }
     await settled();
     expect(backend.writes.map((write) => write.text)).toEqual(["one", "two", "three"]);
@@ -338,10 +347,10 @@ describe("the server, a text", () => {
     await settled();
     taken(wire);
     backend.onWrite = async () => false;
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "refused" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "refused", version: 1 });
     await settled();
     expect(wire.fromHost).toEqual([
-      { type: "board.text.update", path: "models/tea.owm", text: TEA },
+      { type: "board.text.update", path: "models/tea.owm", text: TEA, version: 2 },
     ]);
     expect(backend.textOf("models/tea.owm")).toBe(TEA);
   });
@@ -352,10 +361,10 @@ describe("the server, a text", () => {
     await settled();
     taken(wire);
     backend.onWrite = () => Promise.reject(new Error("the disk is full"));
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "refused" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "refused", version: 1 });
     await settled();
     expect(wire.fromHost).toEqual([
-      { type: "board.text.update", path: "models/tea.owm", text: TEA },
+      { type: "board.text.update", path: "models/tea.owm", text: TEA, version: 2 },
     ]);
   });
 
@@ -372,7 +381,7 @@ describe("the server, a text", () => {
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     await settled();
     for (const text of ["one", "two", "three"]) {
-      wire.send({ type: "board.text.edit", path: "models/tea.owm", text });
+      wire.send({ type: "board.text.edit", path: "models/tea.owm", text, version: 1 });
     }
     await settled();
     expect(started).toEqual(["one"]);
@@ -399,8 +408,8 @@ describe("the server, a text", () => {
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     await settled();
     taken(wire);
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "one" });
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "two" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "one", version: 1 });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "two", version: 1 });
     await settled();
     gates[0]?.resolve(false);
     await settled();
@@ -422,18 +431,18 @@ describe("the server, a text", () => {
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     await settled();
     taken(wire);
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "one" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "one", version: 1 });
     await settled();
     // the place took the first write and made a text of its own of it
     expect(taken(wire)).toEqual([
-      { type: "board.text.update", path: "models/tea.owm", text: "kept one" },
+      { type: "board.text.update", path: "models/tea.owm", text: "kept one", version: 2 },
     ]);
     real.write = false;
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "two" });
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "three" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "two", version: 2 });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "three", version: 2 });
     await settled();
     expect(wire.fromHost).toEqual([
-      { type: "board.text.update", path: "models/tea.owm", text: "kept one" },
+      { type: "board.text.update", path: "models/tea.owm", text: "kept one", version: 3 },
     ]);
   });
 
@@ -448,8 +457,8 @@ describe("the server, a text", () => {
     };
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     await settled();
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "one" });
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "two" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "one", version: 1 });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "two", version: 1 });
     wire.send({ type: "board.text.close", path: "models/tea.owm" });
     await settled();
     // still open: the first write is on its way and the second waits behind it
@@ -472,11 +481,11 @@ describe("the server, a text", () => {
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     await settled();
     taken(wire);
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "not allowed" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "not allowed", version: 1 });
     await settled();
     expect(asked).toBe(0);
     expect(wire.fromHost).toEqual([
-      { type: "board.text.update", path: "models/tea.owm", text: TEA },
+      { type: "board.text.update", path: "models/tea.owm", text: TEA, version: 2 },
     ]);
   });
 
@@ -485,10 +494,15 @@ describe("the server, a text", () => {
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     await settled();
     taken(wire);
-    wire.send({ type: "board.text.edit", path: "models/sample.tt", text: "not open" });
-    wire.send({ type: "board.text.edit", path: "../models/tea.owm", text: "outside" });
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: { no: "text" } });
-    wire.send({ type: "board.text.edit", path: "models/tea.owm" });
+    wire.send({ type: "board.text.edit", path: "models/sample.tt", text: "not open", version: 1 });
+    wire.send({ type: "board.text.edit", path: "../models/tea.owm", text: "outside", version: 1 });
+    wire.send({
+      type: "board.text.edit",
+      path: "models/tea.owm",
+      text: { no: "text" },
+      version: 1,
+    });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", version: 1 });
     await settled();
     expect(backend.writes).toEqual([]);
     expect(wire.fromHost).toEqual([]);
@@ -502,7 +516,7 @@ describe("the server, a text", () => {
     backend.outside("models/tea.owm", "title Outside\n");
     await settled();
     expect(taken(wire)).toEqual([
-      { type: "board.text.update", path: "models/tea.owm", text: "title Outside\n" },
+      { type: "board.text.update", path: "models/tea.owm", text: "title Outside\n", version: 2 },
     ]);
     wire.send({ type: "board.text.close", path: "models/tea.owm" });
     await settled();
@@ -511,7 +525,7 @@ describe("the server, a text", () => {
     await settled();
     expect(wire.fromHost).toEqual([]);
     // and an edit of the closed path writes nothing
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "closed" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "closed", version: 1 });
     await settled();
     expect(backend.textOf("models/tea.owm")).toBe("title Later\n");
   });
@@ -538,7 +552,7 @@ describe("the server, a text", () => {
     await settled();
     expect(taken(wire)).toEqual([
       { type: "board.paths", paths: ["assets/logo.png", "models/sample.tt", "models/tea.owm"] },
-      { type: "board.text.update", path: "models/tea.owm", text: "title Back\n" },
+      { type: "board.text.update", path: "models/tea.owm", text: "title Back\n", version: 2 },
     ]);
   });
 
@@ -549,7 +563,12 @@ describe("the server, a text", () => {
     backend.remove("models/tea.owm");
     await settled();
     taken(wire);
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "into the void" });
+    wire.send({
+      type: "board.text.edit",
+      path: "models/tea.owm",
+      text: "into the void",
+      version: 1,
+    });
     await settled();
     expect(wire.fromHost).toEqual([]);
     expect(backend.list()).not.toContain("models/tea.owm");
@@ -558,10 +577,10 @@ describe("the server, a text", () => {
     await settled();
     taken(wire);
     backend.onWrite = async () => false;
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "refused" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "refused", version: 2 });
     await settled();
     expect(wire.fromHost).toEqual([
-      { type: "board.text.update", path: "models/tea.owm", text: "title Back\n" },
+      { type: "board.text.update", path: "models/tea.owm", text: "title Back\n", version: 3 },
     ]);
   });
 
@@ -617,8 +636,12 @@ describe("the server, a text", () => {
 
   test("fails an open the backend refuses with the backend's message, and asks anew next time", async () => {
     const { wire, backend } = await served();
+    // a model by its name, and bytes in the place
+    await backend.createFile("models/bytes.owm", PNG, "");
+    await settled();
+    taken(wire);
     wire.send({ type: "board.text.open", requestId: 1, path: "models/missing.owm" });
-    wire.send({ type: "board.text.open", requestId: 2, path: "assets/logo.png" });
+    wire.send({ type: "board.text.open", requestId: 2, path: "models/bytes.owm" });
     await settled();
     expect(taken(wire)).toEqual([
       {
@@ -629,9 +652,10 @@ describe("the server, a text", () => {
       {
         type: "board.failed",
         requestId: 2,
-        message: "assets/logo.png is no text file of this repository",
+        message: "models/bytes.owm is no text file of this repository",
       },
     ]);
+    expect(backend.calls.openText).toEqual(["models/missing.owm", "models/bytes.owm"]);
     expect(backend.openTexts()).toBe(0);
     backend.outside("models/missing.owm", TEA);
     await settled();
@@ -666,6 +690,380 @@ describe("the server, a text", () => {
   });
 });
 
+describe("the server, the version of a text", () => {
+  const PATH = "models/tea.owm";
+  const OUTSIDE = "title Outside\n";
+
+  /** the text open, as the page's request 1 */
+  async function opened(): Promise<{ wire: Wire; backend: CountingBackend }> {
+    const bench = await served();
+    bench.wire.send({ type: "board.text.open", requestId: 1, path: PATH });
+    await settled();
+    taken(bench.wire);
+    return bench;
+  }
+
+  test("counts what it tells the page: 1 with the opened text, one more with every update", async () => {
+    const { wire, backend } = await opened();
+    backend.outside(PATH, "title Two\n");
+    backend.outside(PATH, "title Three\n");
+    await settled();
+    expect(taken(wire)).toEqual([
+      { type: "board.text.update", path: PATH, text: "title Two\n", version: 2 },
+      { type: "board.text.update", path: PATH, text: "title Three\n", version: 3 },
+    ]);
+    // a second reader of the page's is told the text and the version the first one has by now
+    wire.send({ type: "board.text.open", requestId: 2, path: PATH });
+    await settled();
+    expect(wire.fromHost).toEqual([
+      {
+        type: "board.text.opened",
+        requestId: 2,
+        path: PATH,
+        text: "title Three\n",
+        readOnly: false,
+        version: 3,
+      },
+    ]);
+  });
+
+  test("does not count the page's own edits: each of them is made on the version it told last", async () => {
+    const { wire, backend } = await opened();
+    for (const text of ["one", "two", "three"]) {
+      wire.send({ type: "board.text.edit", path: PATH, text, version: 1 });
+    }
+    await settled();
+    expect(backend.writes.map((write) => write.text)).toEqual(["one", "two", "three"]);
+    expect(wire.fromHost).toEqual([]);
+    backend.outside(PATH, OUTSIDE);
+    await settled();
+    expect(wire.fromHost).toEqual([
+      { type: "board.text.update", path: PATH, text: OUTSIDE, version: 2 },
+    ]);
+  });
+
+  test("drops an edit made on an older version: the place keeps its text and nothing is said twice", async () => {
+    const { wire, backend } = await opened();
+    backend.outside(PATH, OUTSIDE);
+    // made before the page heard of the outside's text, which is on its way to it
+    wire.send({ type: "board.text.edit", path: PATH, text: "title Mine\n", version: 1 });
+    await settled();
+    expect(backend.textOf(PATH)).toBe(OUTSIDE);
+    expect(backend.writes).toEqual([]);
+    expect(backend.bases).toEqual([]);
+    expect(wire.fromHost).toEqual([
+      { type: "board.text.update", path: PATH, text: OUTSIDE, version: 2 },
+    ]);
+    // and the edit the page makes once it heard is the place's
+    wire.send({ type: "board.text.edit", path: PATH, text: "title Mine again\n", version: 2 });
+    await settled();
+    expect(backend.textOf(PATH)).toBe("title Mine again\n");
+  });
+
+  test.each<[string, unknown]>([
+    ["a version it has not told yet", 2],
+    ["no version", undefined],
+    ["a version that is a text", "1"],
+    ["a version that is no number", Number.NaN],
+    ["null", null],
+  ])("drops an edit with %s", async (_what, version) => {
+    const { wire, backend } = await opened();
+    wire.send({ type: "board.text.edit", path: PATH, text: "title Mine\n", version });
+    await settled();
+    expect(backend.textOf(PATH)).toBe(TEA);
+    expect(backend.bases).toEqual([]);
+    expect(wire.fromHost).toEqual([]);
+  });
+
+  test("asks when an edit's turn comes: one that waited behind a write the outside crossed is dropped", async () => {
+    const { wire, backend } = await opened();
+    const gate = deferred<boolean>();
+    const started: string[] = [];
+    backend.onWrite = (_path, text) => {
+      started.push(text);
+      return gate.promise;
+    };
+    wire.send({ type: "board.text.edit", path: PATH, text: "one", version: 1 });
+    wire.send({ type: "board.text.edit", path: PATH, text: "two", version: 1 });
+    await settled();
+    // the first is at the place when the outside changes the file
+    backend.outside(PATH, OUTSIDE);
+    gate.resolve(false);
+    await settled();
+    expect(started).toEqual(["one"]);
+    // the refusal needs no answer: the page was told the place's text since it wrote
+    expect(wire.fromHost).toEqual([
+      { type: "board.text.update", path: PATH, text: OUTSIDE, version: 2 },
+    ]);
+  });
+
+  test("answers a refused write once: an edit made before the page heard the answer is dropped without another", async () => {
+    const { wire, backend } = await opened();
+    backend.onWrite = async () => false;
+    wire.send({ type: "board.text.edit", path: PATH, text: "refused", version: 1 });
+    await settled();
+    expect(taken(wire)).toEqual([{ type: "board.text.update", path: PATH, text: TEA, version: 2 }]);
+    backend.onWrite = undefined;
+    wire.send({ type: "board.text.edit", path: PATH, text: "made on the refused one", version: 1 });
+    await settled();
+    expect(wire.fromHost).toEqual([]);
+    expect(backend.textOf(PATH)).toBe(TEA);
+    expect(backend.bases).toEqual([TEA]);
+  });
+
+  test("hands the place the text each write was made on: what the place told or took last", async () => {
+    const { wire, backend } = await opened();
+    wire.send({ type: "board.text.edit", path: PATH, text: "one", version: 1 });
+    wire.send({ type: "board.text.edit", path: PATH, text: "two", version: 1 });
+    await settled();
+    backend.outside(PATH, OUTSIDE);
+    wire.send({ type: "board.text.edit", path: PATH, text: "three", version: 2 });
+    await settled();
+    expect(backend.bases).toEqual([TEA, "one", OUTSIDE]);
+    expect(backend.textOf(PATH)).toBe("three");
+  });
+
+  test("takes the base of the next write from the place, which may make its own text of a write", async () => {
+    const { wire, backend } = await opened();
+    // the place writes every line break its own way and tells nobody
+    backend.onWrite = (_path, text, base, write) => write(text.replaceAll("\n", "\r\n"), base);
+    wire.send({ type: "board.text.edit", path: PATH, text: "one\n", version: 1 });
+    wire.send({ type: "board.text.edit", path: PATH, text: "two\n", version: 1 });
+    await settled();
+    expect(backend.bases).toEqual([TEA, "one\r\n"]);
+    expect(backend.textOf(PATH)).toBe("two\r\n");
+    expect(wire.fromHost).toEqual([]);
+  });
+
+  test("a write the place refuses because the outside was there first is told once, by the outside's text", async () => {
+    const { wire, backend } = await opened();
+    // another reader of the place writes while the page's write is on its way to it
+    const other = await backend.memory.openText(PATH);
+    backend.onWrite = async (_path, text, base, write) => {
+      expect(await other.write("title Theirs\n", TEA)).toBe(true);
+      return write(text, base);
+    };
+    wire.send({ type: "board.text.edit", path: PATH, text: "title Mine\n", version: 1 });
+    await settled();
+    expect(backend.textOf(PATH)).toBe("title Theirs\n");
+    expect(wire.fromHost).toEqual([
+      { type: "board.text.update", path: PATH, text: "title Theirs\n", version: 2 },
+    ]);
+  });
+
+  test("a place whose text changed without a word refuses the write made on the old one, and the page is told the text it has", async () => {
+    // a place with a disk whose watcher is late: its text is another one, and it has told nobody
+    const place = { text: TEA };
+    const writes: Array<{ text: string; base: string }> = [];
+    const none = (): (() => void) => () => {};
+    const wire = createWire();
+    serveFiles(
+      wire.host,
+      {
+        list: () => [PATH],
+        onListChanged: none,
+        openText: async () => ({
+          readOnly: false,
+          text: () => place.text,
+          async write(text, base) {
+            writes.push({ text, base });
+            if (place.text !== base) return false;
+            place.text = text;
+            return true;
+          },
+          onChange: none,
+          onGone: none,
+          close: () => {},
+        }),
+        readBytes: async () => undefined,
+        createFile: async () => {},
+        onBytesChanged: none,
+        onMoved: none,
+      },
+      RULE,
+    );
+    wire.send({ type: "board.hello", protocol: PROTOCOL });
+    wire.send({ type: "board.text.open", requestId: 1, path: PATH });
+    await settled();
+    taken(wire);
+    place.text = "title Changed on the disk\n";
+    wire.send({ type: "board.text.edit", path: PATH, text: "title Mine\n", version: 1 });
+    await settled();
+    expect(writes).toEqual([{ text: "title Mine\n", base: TEA }]);
+    expect(place.text).toBe("title Changed on the disk\n");
+    expect(wire.fromHost).toEqual([
+      { type: "board.text.update", path: PATH, text: "title Changed on the disk\n", version: 2 },
+    ]);
+    // made on what the page was told, the next write is the place's
+    wire.send({ type: "board.text.edit", path: PATH, text: "title Mine\n", version: 2 });
+    await settled();
+    expect(writes.at(-1)).toEqual({ text: "title Mine\n", base: "title Changed on the disk\n" });
+    expect(place.text).toBe("title Mine\n");
+  });
+
+  test("drops an edit that came while the place was still opening a text it then refused", async () => {
+    const { wire, backend } = await served();
+    const slow = deferred<void>();
+    backend.openText = async (path) => {
+      await slow.promise;
+      throw new Error(`${path} cannot be read`);
+    };
+    wire.send({ type: "board.text.open", requestId: 1, path: PATH });
+    wire.send({ type: "board.text.edit", path: PATH, text: "written blind", version: 1 });
+    wire.send({ type: "board.text.settle", requestId: 2 });
+    await settled();
+    slow.resolve();
+    await settled();
+    // the edit is dealt with, as nothing: the settle behind it is answered, and nothing is written
+    expect(wire.fromHost).toEqual([
+      { type: "board.failed", requestId: 1, message: "models/tea.owm cannot be read" },
+      { type: "board.done", requestId: 2 },
+    ]);
+    expect(backend.textOf(PATH)).toBe(TEA);
+  });
+
+  test("says nothing for a change that brings the text the place handed out last: no new version", async () => {
+    const { wire, backend } = await opened();
+    // a place that tells a save, or the echo of a write it took a moment ago
+    backend.outside(PATH, TEA);
+    wire.send({ type: "board.text.edit", path: PATH, text: "one", version: 1 });
+    await settled();
+    backend.outside(PATH, "one");
+    wire.send({ type: "board.text.edit", path: PATH, text: "two", version: 1 });
+    await settled();
+    expect(wire.fromHost).toEqual([]);
+    expect(backend.textOf(PATH)).toBe("two");
+    // a file that is back is told, though its text is the one it had
+    backend.remove(PATH);
+    backend.outside(PATH, "two");
+    await settled();
+    expect(wire.fromHost.filter((message) => message.type !== "board.paths")).toEqual([
+      { type: "board.text.gone", path: PATH },
+      { type: "board.text.update", path: PATH, text: "two", version: 2 },
+    ]);
+  });
+
+  test("starts at 1 again for a text that was closed and is opened anew", async () => {
+    const { wire, backend } = await opened();
+    backend.outside(PATH, OUTSIDE);
+    wire.send({ type: "board.text.close", path: PATH });
+    wire.send({ type: "board.text.open", requestId: 2, path: PATH });
+    await settled();
+    expect(wire.fromHost.at(-1)).toEqual({
+      type: "board.text.opened",
+      requestId: 2,
+      path: PATH,
+      text: OUTSIDE,
+      readOnly: false,
+      version: 1,
+    });
+  });
+
+  test("a file that went and is back is a new version: an edit from before it went is dropped", async () => {
+    const { wire, backend } = await opened();
+    backend.remove(PATH);
+    backend.outside(PATH, "title Back\n");
+    wire.send({ type: "board.text.edit", path: PATH, text: "title From before\n", version: 1 });
+    await settled();
+    expect(backend.textOf(PATH)).toBe("title Back\n");
+    expect(wire.fromHost.filter((message) => message.type === "board.text.update")).toEqual([
+      { type: "board.text.update", path: PATH, text: "title Back\n", version: 2 },
+    ]);
+  });
+});
+
+describe("the server, a settle", () => {
+  const PATH = "models/tea.owm";
+
+  test("is answered at once where no write is on its way", async () => {
+    const { wire } = await served();
+    wire.send({ type: "board.text.settle", requestId: 4 });
+    await settled();
+    expect(wire.fromHost).toEqual([{ type: "board.done", requestId: 4 }]);
+  });
+
+  test("is answered once every edit that came before it is in the place or was refused", async () => {
+    const { wire, backend } = await served();
+    const gates: Array<ReturnType<typeof deferred<boolean>>> = [];
+    backend.onWrite = () => {
+      const gate = deferred<boolean>();
+      gates.push(gate);
+      return gate.promise;
+    };
+    wire.send({ type: "board.text.open", requestId: 1, path: PATH });
+    wire.send({ type: "board.text.open", requestId: 2, path: "models/sample.tt" });
+    await settled();
+    taken(wire);
+    wire.send({ type: "board.text.edit", path: PATH, text: "one", version: 1 });
+    wire.send({ type: "board.text.edit", path: PATH, text: "two", version: 1 });
+    wire.send({ type: "board.text.edit", path: "models/sample.tt", text: "[]", version: 1 });
+    wire.send({ type: "board.text.settle", requestId: 3 });
+    await settled();
+    expect(wire.fromHost).toEqual([]);
+    // the two paths are written side by side: one write of each is at the place
+    expect(gates).toHaveLength(2);
+    gates[0]?.resolve(true);
+    gates[1]?.resolve(true);
+    await settled();
+    expect(wire.fromHost).toEqual([]);
+    gates[2]?.resolve(false);
+    await settled();
+    // the refusal is told first: the page has the place's text before it hears that all is dealt with
+    expect(wire.fromHost).toEqual([
+      { type: "board.text.update", path: PATH, text: TEA, version: 2 },
+      { type: "board.done", requestId: 3 },
+    ]);
+  });
+
+  test("waits for the write of a text that was closed right behind it", async () => {
+    const { wire, backend } = await served();
+    const gate = deferred<boolean>();
+    backend.onWrite = () => gate.promise;
+    wire.send({ type: "board.text.open", requestId: 1, path: PATH });
+    await settled();
+    taken(wire);
+    wire.send({ type: "board.text.edit", path: PATH, text: "one", version: 1 });
+    wire.send({ type: "board.text.close", path: PATH });
+    wire.send({ type: "board.text.settle", requestId: 2 });
+    await settled();
+    expect(wire.fromHost).toEqual([]);
+    gate.resolve(true);
+    await settled();
+    expect(wire.fromHost).toEqual([{ type: "board.done", requestId: 2 }]);
+  });
+
+  test("does not wait for an edit that comes after it", async () => {
+    const { wire, backend } = await served();
+    const gate = deferred<boolean>();
+    backend.onWrite = () => gate.promise;
+    wire.send({ type: "board.text.open", requestId: 1, path: PATH });
+    await settled();
+    taken(wire);
+    wire.send({ type: "board.text.settle", requestId: 2 });
+    wire.send({ type: "board.text.edit", path: PATH, text: "later", version: 1 });
+    await settled();
+    expect(wire.fromHost).toEqual([{ type: "board.done", requestId: 2 }]);
+    gate.resolve(true);
+  });
+
+  test("is not answered to the page after the one that asked", async () => {
+    const { wire, backend } = await served();
+    const gate = deferred<boolean>();
+    backend.onWrite = () => gate.promise;
+    wire.send({ type: "board.text.open", requestId: 1, path: PATH });
+    await settled();
+    wire.send({ type: "board.text.edit", path: PATH, text: "one", version: 1 });
+    wire.send({ type: "board.text.settle", requestId: 2 });
+    await settled();
+    wire.send({ type: "board.hello", protocol: PROTOCOL });
+    await settled();
+    taken(wire);
+    gate.resolve(true);
+    await settled();
+    expect(wire.fromHost).toEqual([]);
+  });
+});
+
 describe("the server, bytes and new files", () => {
   test("answers a read with the bytes and their type", async () => {
     const { wire } = await served();
@@ -682,14 +1080,18 @@ describe("the server, bytes and new files", () => {
     ]);
   });
 
-  test("answers null for a file that is not there and for one that is a text", async () => {
-    const { wire } = await served();
+  test("answers null for a file that is not there and for one the place has as a text", async () => {
+    const { wire, backend } = await served();
+    // a picture by its name, and a text in the place
+    backend.outside("assets/drawing.svg", "<svg/>");
+    await settled();
+    taken(wire);
     wire.send({ type: "board.bytes.read", requestId: 1, path: "assets/missing.png" });
-    wire.send({ type: "board.bytes.read", requestId: 2, path: "models/tea.owm" });
+    wire.send({ type: "board.bytes.read", requestId: 2, path: "assets/drawing.svg" });
     await settled();
     expect(wire.fromHost).toEqual([
       { type: "board.bytes", requestId: 1, path: "assets/missing.png", base64: null, mime: "" },
-      { type: "board.bytes", requestId: 2, path: "models/tea.owm", base64: null, mime: "" },
+      { type: "board.bytes", requestId: 2, path: "assets/drawing.svg", base64: null, mime: "" },
     ]);
   });
 
@@ -924,6 +1326,210 @@ describe("the server, the paths it refuses", () => {
   });
 });
 
+describe("the server, what a board may reach", () => {
+  const HIDDEN = "a board reaches no dot file and no file in a dot folder";
+
+  test.each([
+    ["Git's folder", ".git/config"],
+    ["a hook of Git", ".git/hooks/pre-commit"],
+    ["a dot file of the root", ".env"],
+    ["the editor's settings", ".vscode/settings.json"],
+    ["a workflow", ".github/workflows/ci.yml"],
+    ["a model in a dot folder", ".hidden/tea.owm"],
+    ["a model in a dot folder below a folder", "models/.drafts/tea.owm"],
+    ["a model that is a dot file", "models/.tea.owm"],
+    ["a picture in a dot folder", ".cache/logo.png"],
+  ])(
+    "fails an open, a read and a create with %s, and the backend never sees it",
+    async (_what, path) => {
+      const { wire, backend } = await served();
+      wire.send({ type: "board.text.open", requestId: 1, path });
+      wire.send({ type: "board.bytes.read", requestId: 2, path });
+      wire.send({
+        type: "board.file.create",
+        requestId: 3,
+        path,
+        base64: PNG_BASE64,
+        mime: "image/png",
+      });
+      await settled();
+      expect(wire.fromHost).toEqual([
+        { type: "board.failed", requestId: 1, message: HIDDEN },
+        { type: "board.failed", requestId: 2, message: HIDDEN },
+        { type: "board.failed", requestId: 3, message: HIDDEN },
+      ]);
+      expect(backend.calls).toEqual({ openText: [], readBytes: [], createFile: [] });
+    },
+  );
+
+  test.each([
+    ["a file no editor of the host shows", "notes/readme.md"],
+    ["a picture", "assets/logo.png"],
+    ["a board", "example.board"],
+    ["a file that only holds the suffix in a folder's name", "models.owm/readme.md"],
+    ["a file without a suffix", "models/tea"],
+    ["a name with percent signs that ends otherwise", "%2e%2e/secret"],
+    ["a model's name with a dot behind it", "models/tea.owm."],
+  ])("opens no text for %s: the rule calls it no model", async (_what, path) => {
+    const { wire, backend } = await served();
+    // there, and a text, so that the backend would open it
+    backend.outside(path, TEA);
+    await settled();
+    taken(wire);
+    wire.send({ type: "board.text.open", requestId: 1, path });
+    await settled();
+    expect(wire.fromHost).toEqual([
+      { type: "board.failed", requestId: 1, message: `${path} is no model a board shows here` },
+    ]);
+    expect(backend.calls.openText).toEqual([]);
+    // and what was never opened is never written
+    wire.send({ type: "board.text.edit", path, text: "written", version: 1 });
+    await settled();
+    expect(backend.textOf(path)).toBe(TEA);
+  });
+
+  test.each([
+    ["a model", "models/tea.owm"],
+    ["a file no editor of the host shows", "notes/readme.md"],
+    ["a file of another kind in assets", "assets/notes.txt"],
+    ["a file without a suffix", "assets/logo"],
+  ])("reads no bytes of %s: the rule calls it no picture", async (_what, path) => {
+    const { wire, backend } = await served();
+    await backend.createFile(path === "models/tea.owm" ? "models/other.owm" : path, PNG, "");
+    await settled();
+    taken(wire);
+    wire.send({ type: "board.bytes.read", requestId: 1, path });
+    await settled();
+    expect(wire.fromHost).toEqual([
+      { type: "board.failed", requestId: 1, message: `${path} is no picture a board shows here` },
+    ]);
+    expect(backend.calls.readBytes).toEqual([]);
+  });
+
+  test.each([
+    ["a text file", "assets/notes.txt"],
+    ["a model", "assets/tea.owm"],
+    ["a script", "assets/run.sh"],
+    ["a file without a suffix", "assets/logo"],
+  ])("creates no %s in assets: a new file is a picture", async (_what, path) => {
+    const { wire, backend } = await served();
+    wire.send({ type: "board.file.create", requestId: 1, path, base64: PNG_BASE64, mime: "" });
+    await settled();
+    expect(wire.fromHost).toEqual([
+      { type: "board.failed", requestId: 1, message: `${path} is no picture a board shows here` },
+    ]);
+    expect(backend.calls.createFile).toEqual([]);
+  });
+
+  test("asks the rule the host handed in, with the path as the page sent it", async () => {
+    const wire = createWire();
+    const backend = createCountingBackend({ "plans/a.plan": "a", "shots/b.shot": "b" });
+    const asked: string[] = [];
+    serveFiles(wire.host, backend, {
+      model: (path) => asked.push(`model ${path}`) > 0 && path.endsWith(".plan"),
+      picture: (path) => asked.push(`picture ${path}`) > 0 && path.endsWith(".shot"),
+    });
+    wire.send({ type: "board.hello", protocol: PROTOCOL });
+    await settled();
+    asked.length = 0;
+    wire.fromHost.length = 0;
+    wire.send({ type: "board.text.open", requestId: 1, path: "plans/a.plan" });
+    wire.send({ type: "board.text.open", requestId: 2, path: "shots/b.shot" });
+    wire.send({ type: "board.bytes.read", requestId: 3, path: "shots/b.shot" });
+    wire.send({ type: "board.bytes.read", requestId: 4, path: "plans/a.plan" });
+    await settled();
+    expect(asked).toEqual([
+      "model plans/a.plan",
+      "model shots/b.shot",
+      "picture shots/b.shot",
+      "picture plans/a.plan",
+    ]);
+    const answers = wire.fromHost.map((message) =>
+      "requestId" in message ? `${message.requestId} ${message.type}` : message.type,
+    );
+    expect(answers.sort()).toEqual([
+      "1 board.text.opened",
+      "2 board.failed",
+      "3 board.bytes",
+      "4 board.failed",
+    ]);
+    expect(backend.calls).toEqual({
+      openText: ["plans/a.plan"],
+      readBytes: ["shots/b.shot"],
+      createFile: [],
+    });
+  });
+
+  test("tells the page only the paths of the list that a board reaches", async () => {
+    const wire = createWire();
+    const backend = createCountingBackend({
+      ...files(),
+      ".git/config": "[core]",
+      ".github/models/tea.owm": TEA,
+      "models/.drafts/tea.owm": TEA,
+      "notes/readme.md": "# no model",
+      "example.board": "{}",
+      "assets/notes.txt": "no picture",
+      "../outside.owm": TEA,
+    });
+    serveFiles(wire.host, backend, RULE);
+    wire.send({ type: "board.hello", protocol: PROTOCOL });
+    await settled();
+    expect(wire.fromHost).toEqual([
+      { type: "board.paths", paths: ["assets/logo.png", "models/sample.tt", "models/tea.owm"] },
+    ]);
+    wire.fromHost.length = 0;
+    // and after a change of the list as well
+    backend.outside(".env", "SECRET=1");
+    backend.outside("models/new.owm", TEA);
+    await settled();
+    expect(wire.fromHost).toEqual([
+      { type: "board.paths", paths: ["assets/logo.png", "models/sample.tt", "models/tea.owm"] },
+      {
+        type: "board.paths",
+        paths: ["assets/logo.png", "models/new.owm", "models/sample.tt", "models/tea.owm"],
+      },
+    ]);
+  });
+});
+
+describe("the server, what it tells of a file a board does not reach", () => {
+  test("names no such file where bytes changed, and says nothing where every one is such a file", async () => {
+    const { wire, backend } = await served();
+    await backend.createFile(".cache/thumb.png", PNG, "image/png");
+    await backend.createFile("notes/export.bin", PNG, "");
+    await settled();
+    // the list is sent again, the same as before, and no word of the bytes
+    expect(taken(wire).map((message) => message.type)).toEqual(["board.paths", "board.paths"]);
+    await backend.createFile("assets/new.png", PNG, "image/png");
+    await settled();
+    expect(wire.fromHost.filter((message) => message.type === "board.bytes.changed")).toEqual([
+      { type: "board.bytes.changed", paths: ["assets/new.png"] },
+    ]);
+  });
+
+  test("tells no move out of a board's reach or into it: the open text is gone, and the list has neither path", async () => {
+    const { wire, backend } = await served();
+    wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
+    await settled();
+    taken(wire);
+    backend.move("models/tea.owm", ".trash/tea.owm");
+    await settled();
+    expect(taken(wire)).toEqual([
+      { type: "board.paths", paths: ["assets/logo.png", "models/sample.tt"] },
+      { type: "board.text.gone", path: "models/tea.owm" },
+    ]);
+    backend.move(".trash/tea.owm", "models/green-tea.owm");
+    backend.move("models/sample.tt", "notes/sample.txt");
+    await settled();
+    expect(wire.fromHost.filter((message) => message.type === "board.moved")).toEqual([]);
+    expect(wire.fromHost.at(-1)).toEqual({
+      type: "board.paths",
+      paths: ["assets/logo.png", "models/green-tea.owm"],
+    });
+  });
+});
+
 describe("the server, the lives of a page", () => {
   test("a second hello closes what the page before it had open and sends the list again", async () => {
     const { wire, backend } = await served();
@@ -1033,8 +1639,8 @@ describe("the server, the lives of a page", () => {
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     wire.send({ type: "board.text.open", requestId: 2, path: "models/sample.tt" });
     await settled();
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "refused" });
-    wire.send({ type: "board.text.edit", path: "models/sample.tt", text: "refused" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "refused", version: 1 });
+    wire.send({ type: "board.text.edit", path: "models/sample.tt", text: "refused", version: 1 });
     await settled();
     // one path is closed and opened again, then the whole page is new
     wire.send({ type: "board.text.close", path: "models/tea.owm" });
@@ -1044,7 +1650,7 @@ describe("the server, the lives of a page", () => {
     slow.resolve(false);
     await settled();
     expect(wire.fromHost).toEqual([
-      { type: "board.text.update", path: "models/sample.tt", text: "{}" },
+      { type: "board.text.update", path: "models/sample.tt", text: "{}", version: 2 },
     ]);
   });
 
@@ -1054,7 +1660,7 @@ describe("the server, the lives of a page", () => {
     backend.onWrite = () => slow.promise;
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     await settled();
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "refused" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "refused", version: 1 });
     await settled();
     wire.send({ type: "board.hello", protocol: PROTOCOL });
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
@@ -1081,7 +1687,7 @@ describe("the server, the lives of a page", () => {
   test("dispose closes every text, ends every subscription and answers nothing more", async () => {
     const wire = createWire();
     const backend = createCountingBackend(files());
-    const server = serveFiles(wire.host, backend);
+    const server = serveFiles(wire.host, backend, RULE);
     wire.send({ type: "board.hello", protocol: PROTOCOL });
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     await settled();
@@ -1114,7 +1720,7 @@ describe("the server, the lives of a page", () => {
   test("dispose lets a write that is on its way land, and closes the text after it", async () => {
     const wire = createWire();
     const backend = createCountingBackend(files());
-    const server = serveFiles(wire.host, backend);
+    const server = serveFiles(wire.host, backend, RULE);
     const gate = deferred<boolean>();
     let landed = 0;
     backend.onWrite = async () => {
@@ -1125,8 +1731,8 @@ describe("the server, the lives of a page", () => {
     wire.send({ type: "board.hello", protocol: PROTOCOL });
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     await settled();
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "one" });
-    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "two" });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "one", version: 1 });
+    wire.send({ type: "board.text.edit", path: "models/tea.owm", text: "two", version: 1 });
     await settled();
     taken(wire);
     server.dispose();
@@ -1144,7 +1750,7 @@ describe("the server, the lives of a page", () => {
   test("dispose closes a text the backend was still opening", async () => {
     const wire = createWire();
     const backend = createCountingBackend(files());
-    const server = serveFiles(wire.host, backend);
+    const server = serveFiles(wire.host, backend, RULE);
     const slow = deferred<void>();
     const openText = backend.openText.bind(backend);
     backend.openText = async (path) => {
@@ -1220,6 +1826,7 @@ describe("the client", () => {
       path: "models/tea.owm",
       text: TEA,
       readOnly: true,
+      version: 1,
     });
     wire.host.post({
       type: "board.bytes",
@@ -1293,7 +1900,7 @@ describe("the client", () => {
     const { wire, files: client } = page();
     wire.host.post({ type: "board.done", requestId: 99 });
     wire.host.post({ type: "board.failed", requestId: 98, message: "late" });
-    wire.host.post({ type: "board.text.update", path: "models/tea.owm", text: "x" });
+    wire.host.post({ type: "board.text.update", path: "models/tea.owm", text: "x", version: 2 });
     wire.host.post({ type: "board.text.gone", path: "models/tea.owm" });
     await settled();
     expect(client.paths()).toEqual([]);
@@ -1310,6 +1917,7 @@ describe("the client", () => {
       path: "models/tea.owm",
       text: TEA,
       readOnly: false,
+      version: 1,
     });
     const session = await opened;
     const heard: string[] = [];
@@ -1319,8 +1927,13 @@ describe("the client", () => {
     wire.host.post({ type: "board.text.gone", path: "models/tea.owm" });
     await settled();
     expect(heard).toEqual(["gone"]);
-    wire.host.post({ type: "board.text.update", path: "models/tea.owm", text: "back" });
-    wire.host.post({ type: "board.text.update", path: "models/tea.owm", text: "again" });
+    wire.host.post({ type: "board.text.update", path: "models/tea.owm", text: "back", version: 2 });
+    wire.host.post({
+      type: "board.text.update",
+      path: "models/tea.owm",
+      text: "again",
+      version: 3,
+    });
     await settled();
     expect(heard).toEqual(["gone", "back", "back", "again"]);
   });
@@ -1335,6 +1948,7 @@ describe("the client", () => {
       path: "models/tea.owm",
       text: TEA,
       readOnly: false,
+      version: 1,
     });
     wire.host.post({ type: "board.text.gone", path: "models/tea.owm" });
     await expect(opened).rejects.toThrow("models/tea.owm is gone");
@@ -1351,6 +1965,105 @@ describe("the client", () => {
       requestId: 2,
       path: "models/tea.owm",
     });
+  });
+
+  /** a session on the tea map, opened by the scripted host at version 1 */
+  async function reader(): Promise<{
+    wire: Wire;
+    files: ReturnType<typeof createFilesClient>;
+    session: Awaited<ReturnType<ReturnType<typeof createFilesClient>["openText"]>>;
+  }> {
+    const { wire, files: client } = page();
+    const opened = client.openText("models/tea.owm");
+    await settled();
+    wire.host.post({
+      type: "board.text.opened",
+      requestId: 1,
+      path: "models/tea.owm",
+      text: TEA,
+      readOnly: false,
+      version: 1,
+    });
+    const session = await opened;
+    wire.fromPage.length = 0;
+    return { wire, files: client, session };
+  }
+
+  test("says with every edit the version the host told last, and never counts one itself", async () => {
+    const { wire, session } = await reader();
+    session.write("one");
+    session.write("two");
+    wire.host.post({
+      type: "board.text.update",
+      path: "models/tea.owm",
+      text: "theirs",
+      version: 7,
+    });
+    await settled();
+    session.write("three");
+    await settled();
+    expect(wire.fromPage).toEqual([
+      { type: "board.text.edit", path: "models/tea.owm", text: "one", version: 1 },
+      { type: "board.text.edit", path: "models/tea.owm", text: "two", version: 1 },
+      { type: "board.text.edit", path: "models/tea.owm", text: "three", version: 7 },
+    ]);
+  });
+
+  test("drops a write made on another text than the path has, and takes one made on that text", async () => {
+    const { wire, files: client, session } = await reader();
+    const other = await client.openText("models/tea.owm");
+    const heardByOther: string[] = [];
+    other.onReplace((text) => heardByOther.push(text));
+    wire.host.post({
+      type: "board.text.update",
+      path: "models/tea.owm",
+      text: "theirs",
+      version: 2,
+    });
+    await settled();
+    heardByOther.length = 0;
+    // made on the text from before the update: it would take the update away
+    session.write("mine", TEA);
+    expect(session.text()).toBe("theirs");
+    expect(heardByOther).toEqual([]);
+    session.write("mine", "theirs");
+    expect(session.text()).toBe("mine");
+    expect(heardByOther).toEqual(["mine"]);
+    // a write that does not say what it was made on counts as made on the path's text
+    session.write("mine again");
+    await settled();
+    expect(wire.fromPage).toEqual([
+      { type: "board.text.edit", path: "models/tea.owm", text: "mine", version: 2 },
+      { type: "board.text.edit", path: "models/tea.owm", text: "mine again", version: 2 },
+    ]);
+  });
+
+  test("settled asks the host behind its edits and resolves with the answer", async () => {
+    const { wire, files: client, session } = await reader();
+    session.write("one");
+    let done = false;
+    const waited = client.settled().then(() => void (done = true));
+    await settled();
+    expect(wire.fromPage).toEqual([
+      { type: "board.text.edit", path: "models/tea.owm", text: "one", version: 1 },
+      { type: "board.text.settle", requestId: 2 },
+    ]);
+    expect(done).toBe(false);
+    wire.host.post({ type: "board.done", requestId: 2 });
+    await waited;
+    expect(done).toBe(true);
+  });
+
+  test("settled rejects where the host fails it and where the files are closed first", async () => {
+    const { wire, files: client } = page();
+    const failed = client.settled();
+    await settled();
+    wire.host.post({ type: "board.failed", requestId: 1, message: "the page has not said hello" });
+    await expect(failed).rejects.toThrow("the page has not said hello");
+    const waiting = client.settled();
+    client.dispose();
+    await expect(waiting).rejects.toThrow("the files were closed");
+    await expect(client.settled()).rejects.toThrow("the files were closed");
   });
 
   test("does not act on a message its channel delivers after the dispose", async () => {
@@ -1408,6 +2121,7 @@ describe("the client", () => {
       path: "models/tea.owm",
       text: TEA,
       readOnly: false,
+      version: 1,
     });
     const session = await opened;
     client.dispose();

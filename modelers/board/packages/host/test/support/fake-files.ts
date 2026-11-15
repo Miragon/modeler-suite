@@ -5,8 +5,10 @@
 import type { BoardFiles, FileMove, TextSession } from "@miragon/board-files";
 
 export interface FakeSession extends TextSession {
-  /** every text the session was asked to write, in order */
+  /** every text the session took, in order */
   readonly writes: string[];
+  /** every write it dropped as made on another text than it has, as the port's session does */
+  readonly dropped: Array<{ text: string; base: string }>;
   closed: number;
   /** a change this session did not write: the port has the text first, then tells */
   replace(text: string): void;
@@ -18,13 +20,19 @@ export function fakeSession(path: string, initial: string, readOnly = false): Fa
   const replaceListeners = new Set<(text: string) => void>();
   const availableListeners = new Set<(available: boolean) => void>();
   const writes: string[] = [];
+  const dropped: FakeSession["dropped"] = [];
   return {
     path,
     readOnly,
     writes,
+    dropped,
     closed: 0,
     text: () => text,
-    write(next) {
+    write(next, base) {
+      if (base !== undefined && base !== text) {
+        dropped.push({ text: next, base });
+        return;
+      }
       text = next;
       writes.push(next);
     },
@@ -64,6 +72,8 @@ export interface FakeFiles extends BoardFiles {
   readonly pending: PendingRead[];
   /** every path `readBytes` was asked for, in order */
   readonly reads: string[];
+  /** every path `openText` was asked for, in order; the fake refuses each */
+  readonly opens: string[];
   readonly created: Array<{ path: string; bytes: Blob }>;
   /** the paths `createFile` refuses, with the message */
   readonly refusing: Map<string, string>;
@@ -82,6 +92,7 @@ export function fakeFiles(
   const moveListeners = new Set<(moves: readonly FileMove[]) => void>();
   const pending: PendingRead[] = [];
   const reads: string[] = [];
+  const opens: string[] = [];
   const created: Array<{ path: string; bytes: Blob }> = [];
   const refusing = new Map<string, string>();
   const subscribe = <Listener>(listeners: Set<Listener>, listener: Listener) => {
@@ -91,13 +102,17 @@ export function fakeFiles(
   return {
     pending,
     reads,
+    opens,
     created,
     refusing,
     listening: () => pathListeners.size + bytesListeners.size + moveListeners.size,
     disposed: 0,
     paths: () => paths,
     onPaths: (listener) => subscribe(pathListeners, listener),
-    openText: () => Promise.reject(new Error("the fake opens no text")),
+    openText(path) {
+      opens.push(path);
+      return Promise.reject(new Error("the fake opens no text"));
+    },
     readBytes(path) {
       reads.push(path);
       return new Promise((resolve, reject) => {
@@ -115,6 +130,7 @@ export function fakeFiles(
         }),
     onBytesChanged: (listener) => subscribe(bytesListeners, listener),
     onMoved: (listener) => subscribe(moveListeners, listener),
+    settled: () => Promise.resolve(),
     dispose() {
       this.disposed += 1;
     },

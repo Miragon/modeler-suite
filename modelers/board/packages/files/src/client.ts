@@ -20,6 +20,8 @@ interface Reader {
 /** one path the page has open, however many sessions read it: the host hears of it once */
 interface OpenPath {
   text: string;
+  /** the host's count of what it told of this text: an edit says which of them it was made on */
+  version: number;
   readOnly: boolean;
   available: boolean;
   readonly sessions: Set<Reader>;
@@ -77,6 +79,7 @@ function receive(state: ClientState, message: HostMessage): void {
       const entry = state.open.get(message.path);
       if (!entry) return;
       entry.text = message.text;
+      entry.version = message.version;
       const cameBack = !entry.available;
       entry.available = true;
       tellReaders(entry, (reader) => {
@@ -118,6 +121,7 @@ function entryOf(state: ClientState, path: string): OpenPath {
   const asked = request(state, (requestId) => ({ type: "board.text.open", requestId, path }));
   const entry: OpenPath = {
     text: "",
+    version: 0,
     readOnly: false,
     available: true,
     sessions: new Set(),
@@ -125,6 +129,7 @@ function entryOf(state: ClientState, path: string): OpenPath {
     opened: asked.then((answer) => {
       if (answer.type !== "board.text.opened") throw new Error(`${path}: unexpected answer`);
       entry.text = answer.text;
+      entry.version = answer.version;
       entry.readOnly = answer.readOnly;
     }),
   };
@@ -160,12 +165,15 @@ function sessionOf(state: ClientState, path: string, entry: OpenPath): TextSessi
     path,
     readOnly: entry.readOnly,
     text: () => entry.text,
-    write(text) {
+    write(text, base) {
       if (closed || state.disposed || entry.readOnly || !entry.available) return;
+      // Made on a text the path has left: the writer was told the one it has now, and this
+      // write would take that one away from the place and from every other reader.
+      if (base !== undefined && base !== entry.text) return;
       if (text === entry.text) return;
       // Posted before the other readers hear of it: a reader that answers with a write of its
       // own is then behind this one on the channel, and the host ends with the text the page has.
-      state.channel.post({ type: "board.text.edit", path, text });
+      state.channel.post({ type: "board.text.edit", path, text, version: entry.version });
       entry.text = text;
       // the host never echoes this client's edit: the other readers of the path hear it here
       tellReaders(entry, (reader) => reader.replace(text), own);
@@ -256,6 +264,10 @@ export function createFilesClient(channel: Channel<ClientMessage, HostMessage>):
     onMoved(listener) {
       state.moveListeners.add(listener);
       return () => void state.moveListeners.delete(listener);
+    },
+    async settled() {
+      // behind every edit on the channel: the host answers once it dealt with those before it
+      await request(state, (requestId) => ({ type: "board.text.settle", requestId }));
     },
     dispose() {
       if (state.disposed) return;

@@ -422,6 +422,39 @@ describe("what a person changes", { shuffle: false }, () => {
   );
 });
 
+describe("a kept model its editor refuses", () => {
+  afterEach(stop);
+
+  test(
+    "says what this page can do about it: the reset, since the page has no editor for the file",
+    async () => {
+      const store = memoryStore();
+      // what another program, or a hand, can leave under the key of a model
+      keptIn(store).keepText("models/porter.vc.json", "{ this is no value chain");
+      root = document.createElement("div");
+      root.id = "app";
+      document.body.append(root);
+      app = startApp(root, { storage: store, search: "" });
+      await app.ready;
+
+      await expect
+        .poll(() => engineStates().sort(), { timeout: READY_MS, interval: 50 })
+        .toEqual(["invalid", ...Array.from({ length: 6 }, () => "ready")]);
+      const refused = one<HTMLElement>('.board-engine[data-embed-state="invalid"]');
+      expect(refused.dataset.notation).toBe("value-chain");
+      const line = one<HTMLElement>(":scope > .board-host-state", refused);
+      expect(line.textContent).toBe(
+        "This file cannot be shown as it is. “Reset the example” restores it, and undoes every other change.",
+      );
+      // the modeler's own reason is there for whoever looks closer
+      expect(line.title).not.toBe("");
+      // and the reset the line names is on the page
+      expect(one("a", one(".board-page__note")).textContent).toBe("Reset the example");
+    },
+    READY_MS + STEP_MS,
+  );
+});
+
 describe("a browser that does not keep", () => {
   afterEach(stop);
 

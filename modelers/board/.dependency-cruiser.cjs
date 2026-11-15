@@ -47,7 +47,13 @@ const config = modelerDependencyCruiserConfig(__dirname, {
         "apps/editors would bring the seven renderers in behind packages-no-other-modeler.",
       severity: "error",
       from: { path: "^packages/" },
-      to: { path: ["^apps/", "board-suite-editors", "@miragon/board-(webapp|e2e)"] },
+      to: {
+        path: [
+          "^apps/",
+          "board-(suite-editors|ide-editor|modeler)(/|$)",
+          "@miragon/board-(webapp|e2e)",
+        ],
+      },
     },
     {
       name: "host-no-editor-libraries",
@@ -75,12 +81,50 @@ const config = modelerDependencyCruiserConfig(__dirname, {
         ],
       },
     },
+    {
+      name: "ide-editor-no-suite-editors",
+      comment:
+        "The board inside the shell is handed its editors. No source of apps/ide-editor imports " +
+        "apps/editors, through which the seven renderers of the suite would come in; its tests " +
+        "may take an editor from there.",
+      severity: "error",
+      from: { path: "^apps/ide-editor/src/" },
+      to: { path: ["^apps/editors/", "board-suite-editors(/|$)"] },
+    },
+    {
+      name: "vscode-host-no-page-code",
+      comment:
+        "The extension host is every source of apps/vscode outside src/webview and runs in Node, " +
+        "where no page is: no React, no React Flow, no Yjs, no diagram-js and no DOM library, " +
+        "not the board's renderer or its host package, none of the shell's entries for a page, " +
+        "nothing of apps/ide-editor, and of apps/editors the suffix table alone. Only " +
+        "src/webview is a page.",
+      severity: "error",
+      from: { path: "^apps/vscode/src/", pathNot: "^apps/vscode/src/webview/" },
+      to: {
+        path: [
+          "node_modules/(react|react-dom|@xyflow|yjs|diagram-js|tiny-svg|min-dom|lucide-react|dompurify|markdown-it)/",
+          "@miragon/board-(renderer|host)(/|$)",
+          "^packages/(renderer|host)/",
+          // The shell by the file an entry resolves to, and by the specifier where the shell
+          // was not built. Its entries vscode/extension and core are the host's.
+          "@miragon/modeler-shell/dist/(index|ide|diagram-js|export|vscode-webview|orca-webview|shell)\\.",
+          "^@miragon/modeler-shell(/(ide|diagram-js|export|vscode/webview|orca/webview|shell\\.css))?$",
+          "^apps/ide-editor/",
+          "board-ide-editor(/|$)",
+          "^apps/editors/(?!src/suffixes\\.ts$)",
+          "board-suite-editors/(?!(src/)?suffixes(\\.ts)?$)",
+          "board-suite-editors$",
+        ],
+      },
+    },
   ],
 });
 
 // The web app's build is code-split, one chunk per notation, and its chunks import each other in
-// circles: built output is no source. Only the apps' own dist: a wider pattern would also hide
-// the contract's dist, which dom-free-contract-types-only resolves to.
+// circles: built output is no source, and neither are the extension's two bundles. Only the apps'
+// own dist: a wider pattern would also hide the contract's dist, which
+// dom-free-contract-types-only resolves to.
 config.options.exclude = { path: "^apps/[^/]+/dist/" };
 
 module.exports = config;
