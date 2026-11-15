@@ -108,8 +108,10 @@ function Presence({ presence }: { presence: BoardPresence }) {
   return (
     <ViewportPortal>
       <div className="board-presence" aria-hidden>
-        {peers.map((peer) => {
-          if (!peer.canvas) return null;
+        {/* What the peers announced is untrusted input: a list that is no array is nobody, and an
+            entry that is no peer or names no user is not drawn. Neither ends the layer */}
+        {(Array.isArray(peers) ? peers : []).map((peer: BoardPeer | null | undefined) => {
+          if (!peer?.user || !peer.canvas) return null;
           const color = safePresenceColor(peer.user.color);
           const selection = Array.isArray(peer.canvas.selection)
             ? peer.canvas.selection.slice(0, MAX_OUTLINES)

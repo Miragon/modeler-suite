@@ -15,6 +15,9 @@
  *   one takes them.
  * - Ready and release are the editor's own (`EmbeddedEditor.ready`, `release()`): the board
  *   reads nothing off an editor's DOM.
+ * - An editor is host code. What `release()`, `focus()`, `destroy()` or an `onArmedChange`
+ *   listener throws is written to the board's log and the surface goes on: the node is armed or
+ *   disarmed all the same, and the element of a destroyed editor is removed.
  */
 import { useStoreApi } from "@xyflow/react";
 import { useCallback, useLayoutEffect, useRef } from "react";
@@ -22,15 +25,45 @@ import { useCallback, useLayoutEffect, useRef } from "react";
 import type { EmbeddedEditor, EmbeddedEditorContext } from "../host/types.js";
 import { useBoardContext } from "../runtime/board-context.js";
 import type { SurfaceProps } from "../runtime/surface.js";
-import { type OverlayRuntime, placeHost } from "./place-host.js";
+import { callEditor, contained, type OverlayRuntime, placeHost } from "./place-host.js";
 
 export type { OverlayRuntime };
 
 const nextFrame = (): Promise<void> =>
   new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
+/**
+ * What a host's `open` resolved to is whatever the host returned. An editor has a `ready` to wait
+ * for and the two calls the board makes on every editor.
+ */
+function isEditor(answer: unknown): answer is EmbeddedEditor {
+  if (typeof answer !== "object" || answer === null) return false;
+  const { ready, release, destroy } = answer as Partial<Record<keyof EmbeddedEditor, unknown>>;
+  return (
+    typeof (ready as { then?: unknown } | null | undefined)?.then === "function" &&
+    typeof release === "function" &&
+    typeof destroy === "function"
+  );
+}
+
+/**
+ * Answers true once the component that calls it goes away, with its node or with the whole board.
+ * Called before the effect that mounts the editor, so that this cleanup runs first: a new path of
+ * the model runs the mount effect's cleanup alone, and there the node stays armed.
+ */
+function useLeaving(): () => boolean {
+  const leaving = useRef(false);
+  useLayoutEffect(() => {
+    leaving.current = false;
+    return () => {
+      leaving.current = true;
+    };
+  }, []);
+  return useCallback(() => leaving.current, []);
+}
+
 export function OverlaySurface({ nodeId, file, armed, width, height }: SurfaceProps) {
-  const { host, store, registerSurface, reportMount, overlayLayer } = useBoardContext();
+  const { host, store, registerSurface, reportMount, overlayLayer, log } = useBoardContext();
   const flow = useStoreApi();
   const slot = useRef<HTMLDivElement>(null);
   const runtime = useRef<OverlayRuntime | null>(null);
@@ -38,10 +71,11 @@ export function OverlaySurface({ nodeId, file, armed, width, height }: SurfacePr
   useLayoutEffect(() => {
     latest.current = { armed, width, height };
   });
+  const leaving = useLeaving();
 
   const place = useCallback(
-    (current: OverlayRuntime): void => placeHost(current, overlayLayer(), flow, nodeId),
-    [flow, nodeId, overlayLayer],
+    (current: OverlayRuntime): void => placeHost(current, overlayLayer(), flow, nodeId, log),
+    [flow, nodeId, overlayLayer, log],
   );
 
   useLayoutEffect(() => {
@@ -67,7 +101,9 @@ export function OverlaySurface({ nodeId, file, armed, width, height }: SurfacePr
       height: latest.current.height,
       placed: null,
       armedChanged: () => {
-        for (const listener of [...armedListeners]) listener(current.armed);
+        for (const listener of [...armedListeners]) {
+          contained(log, `${nodeId}: an onArmedChange listener`, () => listener(current.armed));
+        }
       },
     };
     runtime.current = current;
@@ -92,7 +128,8 @@ export function OverlaySurface({ nodeId, file, armed, width, height }: SurfacePr
       // `file` comes back as this component's prop, and the editor is mounted anew on it. Every
       // client that has the board open writes the same value
       relocate: (to) => {
-        if (!cancelled) store.gesture((tx) => tx.update(nodeId, { file: to }));
+        // nobody's gesture, so not on the history: an undo would send the node to a path that is gone
+        if (!cancelled) store.amend((tx) => tx.update(nodeId, { file: to }));
       },
     };
     let opened: Promise<EmbeddedEditor | undefined>;
@@ -121,24 +158,31 @@ export function OverlaySurface({ nodeId, file, armed, width, height }: SurfacePr
         failed(new Error(`${file} cannot be shown here`));
         return;
       }
+      if (!isEditor(editor)) {
+        failed(new Error(`${file}: the host returned no editor`));
+        return;
+      }
       if (cancelled) {
-        editor.destroy();
+        callEditor(editor, "destroy", nodeId, log);
         return;
       }
       current.editor = editor;
       place(current);
-      if (current.armed) editor.focus?.();
+      if (current.armed) callEditor(editor, "focus", nodeId, log);
       editor.ready.then(settleReady, failReady);
     }, failed);
 
     return () => {
       cancelled = true;
       unregister();
-      current.editor?.destroy();
+      // The node or the whole board goes while its model is edited: the editor ends what is open
+      // first, still armed and still in the layer, as before any other end of the editing
+      if (leaving() && current.armed) callEditor(current.editor, "release", nodeId, log);
+      callEditor(current.editor, "destroy", nodeId, log);
       element.remove();
       runtime.current = null;
     };
-  }, [host, store, nodeId, file, registerSurface, reportMount, place]);
+  }, [host, store, nodeId, file, registerSurface, reportMount, place, log, leaving]);
 
   useLayoutEffect(() => {
     const current = runtime.current;
@@ -147,13 +191,13 @@ export function OverlaySurface({ nodeId, file, armed, width, height }: SurfacePr
     current.height = height;
     if (armed !== current.armed) {
       // while the editor still shows its chrome and has the focus: the sheet hides both with the flag
-      if (!armed) current.editor?.release();
+      if (!armed) callEditor(current.editor, "release", nodeId, log);
       current.armed = armed;
       current.host.dataset.armed = String(armed);
       current.armedChanged();
     }
     place(current);
-  }, [place, armed, width, height]);
+  }, [place, armed, width, height, nodeId, log]);
 
   useLayoutEffect(() => {
     // Every update of React Flow's store, synchronously: a pan (a new transform) and a move or

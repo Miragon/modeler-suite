@@ -18,6 +18,8 @@ import {
 import * as Y from "yjs";
 
 import {
+  BOARD_AMEND,
+  BOARD_LOCAL,
   boardText,
   createBoardDoc,
   createBoardStore,
@@ -171,6 +173,26 @@ test("a finished gesture is one transaction, one notification and one changed li
   assert.match(id, /^n_[0-9a-f-]{13}$/);
   assert.equal(store.getSnapshot().nodes.at(-1)?.id, id);
   assert.ok(store.getSnapshot().nodes.at(-1)!.attrs.z > z2);
+  store.destroy();
+});
+
+test("an amend is the board's own change and never on the history", () => {
+  const store = createBoardStore(createBoardDoc(SEED));
+  const origins: unknown[] = [];
+  store.doc.on("afterTransaction", (transaction: Y.Transaction) =>
+    origins.push(transaction.origin),
+  );
+
+  writeGeometry(store, { n_model: { x: 300, y: 40 } });
+  store.amend((tx) => tx.update("n_model", { file: "processes/moved.bpmn" }));
+  assert.deepEqual(origins, [BOARD_LOCAL, BOARD_AMEND]);
+  assert.equal(store.undo.undoStack.length, 1, "the gesture, and not the amend");
+
+  store.undo.undo();
+  const model = readSnapshot(store.doc).elements.n_model;
+  assert.equal(model?.file, "processes/moved.bpmn", "an undo does not take the amend back");
+  assert.notEqual(model?.x, 300, "it takes the gesture before it back");
+  assert.equal(store.undo.undoStack.length, 0);
   store.destroy();
 });
 

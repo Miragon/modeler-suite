@@ -7,7 +7,7 @@
  * is imported, so nothing here waits for React.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cdp } from "vitest/browser";
+import { cdp, page } from "vitest/browser";
 
 import "../../src/assets/board.css";
 
@@ -36,6 +36,27 @@ const modelNode = (id: string, top: number, engine: string): string => `
       <div class="board-node__body" inert>
         <div class="board-surface" data-surface="overlay">
           <div class="board-surface__slot">${engine}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+/** a model node while it is edited: its editor stands in the layer, the placeholder in the node */
+const ARMED_NODE = `
+  <div class="react-flow__node react-flow__node-model nokey" data-id="n_armed"
+    style="left: 440px; top: 160px; width: ${NODE_WIDTH}px; height: ${NODE_HEIGHT}px">
+    ${handles}
+    <div class="board-node" data-armed="true" data-strategy="overlay">
+      <header class="board-node__header">
+        <svg class="board-node__grip" viewBox="0 0 24 24" aria-hidden="true"></svg>
+        <span class="board-node__title">Invoice</span>
+        <span class="board-node__notation">BPMN</span>
+        <button type="button" class="board-node__arm nodrag">Done</button>
+      </header>
+      <div class="board-node__body nodrag nopan nowheel nokey">
+        <div class="board-surface" data-surface="overlay">
+          <div class="board-surface__slot"></div>
+          <div class="board-surface__placeholder">Editing in the layer above the board</div>
         </div>
       </div>
     </div>
@@ -76,6 +97,7 @@ const MARKUP = `
             `<div class="board-engine board-engine--failed" data-strategy="overlay"
               data-armed="false" data-layout="preview">order.bpmn cannot be shown here</div>`,
           )}
+          ${ARMED_NODE}
           ${smallNode(
             "n_editing",
             "text",
@@ -134,13 +156,26 @@ const LINE = "rgb(230, 226, 226)";
 const FOCUS = "rgb(43, 80, 212)";
 const LINK = "rgb(43, 80, 212)";
 const TRANSPARENT = "rgba(0, 0, 0, 0)";
+const WHITE = "rgb(255, 255, 255)";
+/** --cd-blau: the fill of a primary button, the same in both modes (guide §8) */
+const PRIMARY_FILL = "rgb(51, 93, 229)";
+/** --cd-ui-interaktion in dark: what a ring or a mark of the board has there */
+const INTERACTION_IN_DARK = "rgb(107, 138, 255)";
+
+const ARMED_DONE = '.board-node[data-armed="true"] .board-node__arm';
+const TOOLBAR_DONE = ".board-toolbar__done";
 
 /** selector, property, the light value the sheet was measured with */
 const LIGHT_PICTURE: readonly (readonly [string, keyof CSSStyleDeclaration & string, string])[] = [
   [".board-root", "color", TEXT],
   [".board-root", "backgroundColor", "rgb(255, 255, 255)"],
-  [".board-toolbar__done", "backgroundColor", "rgb(51, 93, 229)"],
-  [".board-toolbar__done", "color", "rgb(255, 255, 255)"],
+  [TOOLBAR_DONE, "backgroundColor", PRIMARY_FILL],
+  [TOOLBAR_DONE, "borderTopColor", PRIMARY_FILL],
+  [TOOLBAR_DONE, "color", WHITE],
+  [ARMED_DONE, "backgroundColor", PRIMARY_FILL],
+  [ARMED_DONE, "borderTopColor", PRIMARY_FILL],
+  [ARMED_DONE, "color", WHITE],
+  [".board-toolbar__group", "color", "rgb(107, 102, 102)"],
   ["[data-board-zoom]", "backgroundColor", "rgb(255, 255, 255)"],
   ["[data-board-zoom]", "borderTopColor", "rgb(143, 138, 138)"],
   [".board-node__header", "backgroundColor", "rgb(249, 247, 247)"],
@@ -287,6 +322,133 @@ describe.each(PAGES)("the board's sheet on $page", ({ sheet }) => {
 
   it.each(LIGHT_PICTURE)("%s has the %s it was measured with: %s", (selector, property, value) => {
     expect(styleOf(selector)[property]).toBe(value);
+  });
+});
+
+/** WCAG 2 contrast of two computed `rgb()` colours. */
+function contrast(one: string, other: string): number {
+  const luminance = (colour: string): number => {
+    const [red, green, blue] = (colour.match(/\d+/g) ?? []).slice(0, 3).map((value) => {
+      const channel = Number(value) / 255;
+      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red! + 0.7152 * green! + 0.0722 * blue!;
+  };
+  const [light, dark] = [luminance(one), luminance(other)].sort((a, b) => b - a);
+  return (light! + 0.05) / (dark! + 0.05);
+}
+
+/** where a page writes the design system's theme: on <html>, or on the element a board is attached to */
+const DARK_PAGES = [
+  { where: "<html>", themed: (): HTMLElement => document.documentElement },
+  { where: "the element the board stands in", themed: (): HTMLElement => host },
+];
+
+describe.each(DARK_PAGES)(
+  'the board\'s sheet with data-cd-theme="dark" on $where',
+  ({ themed }) => {
+    beforeEach(() => {
+      mount("");
+      themed().setAttribute("data-cd-theme", "dark");
+    });
+
+    afterEach(() => {
+      themed().removeAttribute("data-cd-theme");
+    });
+
+    it("follows the page's roles", () => {
+      expect(styleOf(".board-root").backgroundColor).toBe("rgb(40, 40, 40)");
+      expect(styleOf(".board-root").color).toBe(WHITE);
+      // the ground under a host's editor too: one that draws light needs the light island below
+      expect(styleOf(".board-node__body").backgroundColor).toBe("rgb(29, 29, 29)");
+    });
+
+    it.each([TOOLBAR_DONE, ARMED_DONE])("keeps %s the fixed blue under white text", (selector) => {
+      const button = styleOf(selector);
+      expect(button.backgroundColor).toBe(PRIMARY_FILL);
+      expect(button.borderTopColor).toBe(PRIMARY_FILL);
+      expect(button.color).toBe(WHITE);
+      expect(contrast(button.color, button.backgroundColor)).toBeGreaterThan(4.5);
+    });
+
+    it("leaves the rings and marks on the role of the primary colour", () => {
+      // the ring of the armed node, the dot of a handle
+      expect(styleOf('.board-node[data-armed="true"]').boxShadow).toContain(
+        `${INTERACTION_IN_DARK} 0px 0px 0px 2px`,
+      );
+      expect(styleOf(".react-flow__handle", "::after").backgroundColor).toBe(INTERACTION_IN_DARK);
+    });
+  },
+);
+
+describe('the board\'s sheet as a light island: data-cd-theme="light" on its element, "dark" on <html>', () => {
+  beforeEach(() => {
+    mount("");
+    document.documentElement.setAttribute("data-cd-theme", "dark");
+    host.setAttribute("data-cd-theme", "light");
+  });
+
+  afterEach(() => {
+    document.documentElement.removeAttribute("data-cd-theme");
+  });
+
+  it("stands on a dark page", () => {
+    expect(getComputedStyle(document.documentElement).colorScheme).toBe("dark");
+  });
+
+  it.each(LIGHT_PICTURE)("%s has the %s it was measured with: %s", (selector, property, value) => {
+    expect(styleOf(selector)[property]).toBe(value);
+  });
+});
+
+describe("the sheet's one breakpoint, which reads the window and not the board", () => {
+  /** the window the browser project runs in (`browser.viewport` of the Vitest config) */
+  const DESKTOP = { width: 1280, height: 800 };
+  /** Vitest's own default window: below the breakpoint of 760 px */
+  const NARROW = { width: 414, height: 896 };
+  /** what the toolbar draws under itself for a file the board refused (canvas/toolbar.tsx) */
+  const NOTICE = `
+    <div class="board-notices">
+      <div class="board-notice" data-kind="refused" role="alert">
+        <svg viewBox="0 0 24 24" aria-hidden="true"></svg>
+        <span>${"a long name of a file the board did not take ".repeat(6)}</span>
+        <button type="button" title="Dismiss" aria-label="Dismiss"></button>
+      </div>
+    </div>`;
+  const narrow = (): boolean => matchMedia("(max-width: 760px)").matches;
+
+  beforeEach(() => {
+    mount("");
+    one(".board-toolbar").insertAdjacentHTML("beforeend", NOTICE);
+  });
+
+  afterEach(async () => {
+    await page.viewport(DESKTOP.width, DESKTOP.height);
+  });
+
+  it("gives the Done control 200 px and a notice up to 560 px in the desktop window the tests run in", () => {
+    expect(window.innerWidth).toBe(DESKTOP.width);
+    expect(narrow()).toBe(false);
+    expect(boxOf(TOOLBAR_DONE).width).toBe(200);
+    expect(styleOf(".board-notices").maxWidth).toBe("560px");
+    expect(boxOf(".board-notices").width).toBe(560);
+  });
+
+  it("gives the Done control 130 px and a notice 60 % of the window once the window is 760 px or less", async () => {
+    await page.viewport(NARROW.width, NARROW.height);
+    await expect.poll(() => window.innerWidth).toBe(NARROW.width);
+    expect(narrow()).toBe(true);
+    expect(boxOf(TOOLBAR_DONE).width).toBe(130);
+    // 60vw of 414 px, although the board itself is 1200 px wide here
+    expect(styleOf(".board-notices").maxWidth).toBe("248.4px");
+    expect(boxOf(".board-notices").width).toBeCloseTo(248.4, 1);
+
+    await page.viewport(760, NARROW.height);
+    await expect.poll(() => window.innerWidth).toBe(760);
+    expect(boxOf(TOOLBAR_DONE).width).toBe(130);
+    await page.viewport(761, NARROW.height);
+    await expect.poll(() => window.innerWidth).toBe(761);
+    expect(boxOf(TOOLBAR_DONE).width).toBe(200);
   });
 });
 

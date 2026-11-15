@@ -3,7 +3,7 @@
  * parts of one board share.
  */
 import { absoluteBoxes } from "@miragon/board-schema-model";
-import type { ElementBounds } from "@miragon/modeler-api";
+import type { ElementBounds, FreeAreaInsets } from "@miragon/modeler-api";
 import { getViewportForBounds, type ReactFlowInstance } from "@xyflow/react";
 import type { Root } from "react-dom/client";
 
@@ -44,6 +44,8 @@ export function asViewport(state: unknown): Viewport | undefined {
   return { x, y, zoom: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)) };
 }
 
+const NO_INSETS: FreeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+
 export interface ViewControl {
   contentBounds(): ElementBounds | undefined;
   fitted(): Viewport;
@@ -52,6 +54,7 @@ export interface ViewControl {
   bringIntoView(box: ElementBounds): void;
 }
 
+/** `mounted` settles once the canvas exists, or once the board went before its canvas did */
 export function createViewControl(
   session: Pick<BoardSession, "flow" | "view" | "host">,
   store: BoardStore,
@@ -74,13 +77,30 @@ export function createViewControl(
       ? { x: left, y: top, width: right - left, height: bottom - top }
       : undefined;
   };
+  // The host's free area is host code, and an import fits after it wrote: a call that fails is
+  // reported once and answered with the insets the host gave last, so no import rejects with a
+  // document it already replaced (L7)
+  let lastInsets = NO_INSETS;
+  let insetsFailed = false;
+  const hostInsets = (): FreeAreaInsets => {
+    try {
+      lastInsets = options.freeArea?.insets?.() ?? NO_INSETS;
+    } catch (error) {
+      if (!insetsFailed) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error("[board]", `options.freeArea.insets() failed: ${message}`, error);
+      }
+      insetsFailed = true;
+    }
+    return lastInsets;
+  };
   /** the content in the host's box, from the document alone: the same text in the same box gives the same view */
   const fitted = (): Viewport => {
     const bounds = contentBounds();
     const width = session.host?.clientWidth ?? 0;
     const height = session.host?.clientHeight ?? 0;
     if (!bounds || width === 0 || height === 0) return { x: 0, y: 0, zoom: 1 };
-    const insets = options.freeArea?.insets?.() ?? { top: 0, right: 0, bottom: 0, left: 0 };
+    const insets = hostInsets();
     const free = {
       width: width - insets.left - insets.right,
       height: height - insets.top - insets.bottom,
@@ -104,10 +124,14 @@ export function createViewControl(
   /** React committed what the document holds now */
   const rendered = async (): Promise<void> => {
     if (session.host && !session.flow) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
       await Promise.race([
         mounted,
-        new Promise<void>((resolve) => setTimeout(resolve, MOUNT_TIMEOUT_MS)),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, MOUNT_TIMEOUT_MS);
+        }),
       ]);
+      clearTimeout(timer);
     }
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
   };

@@ -8,6 +8,7 @@ import {
   fitImage,
   formatBytes,
   type Size,
+  takenIn,
 } from "../store/actions.js";
 import type { BoardStore } from "../store/board-store.js";
 import { notices } from "./notices.js";
@@ -32,9 +33,25 @@ async function naturalSize(blob: Blob): Promise<Size | undefined | "unreadable">
 }
 
 /**
+ * The boards that were destroyed, by their store; `destroy()` of the contract factory says so
+ * (collaborative.tsx). Reading a picture's size and a host's upload both take a moment, and a
+ * board that was destroyed meanwhile calls no `store` and writes no node: its document may be
+ * the host's own (`liveDocument`), where a late write would reach every peer. Not said by a part
+ * of the canvas: the Image button is the toolbar's, and a part that has not loaded yet, or that
+ * ended by an error of its own, says nothing about the board.
+ */
+const ended = new WeakSet<BoardStore>();
+
+/** the board on `store` was destroyed: an image of it that is still read or stored is given up */
+export function setBoardEnded(store: BoardStore): void {
+  ended.add(store);
+}
+
+/**
  * Image files become files of the repository (the host's images, `assets/<name>`) and one image
- * node each, which holds the path and nothing else. A file the board does not take is named in a
- * notice with the reason. Returns the ids of the new nodes.
+ * node each, which holds the path and nothing else. A node is written once the host has stored
+ * its file, which may take a promise's time. A file the board does not take, or the host refuses,
+ * is named in a notice with the reason. Returns the ids of the new nodes.
  */
 export async function importImages(
   board: { host: BoardHost; store: BoardStore },
@@ -61,12 +78,24 @@ export async function importImages(
     // the same bytes under the type its extension stands for: what the image route would answer with
     const blob = file.slice(0, file.size, check.type);
     const size = await naturalSize(blob);
+    if (ended.has(board.store)) return added;
     if (size === "unreadable") {
       notices.push("refused", `${name} was not added: it could not be read as an image.`);
       continue;
     }
-    const path = assetPath(file.name, check.extension, (taken) => images.read(taken) !== undefined);
-    images.store(path, blob);
+    let path: string;
+    try {
+      path = assetPath(file.name, check.extension, takenIn(images));
+      // a store that returns at once is followed by its node in the same task, as it was measured
+      const stored = images.store(path, blob);
+      if (stored !== undefined) await stored;
+    } catch (error) {
+      if (ended.has(board.store)) return added;
+      const reason = error instanceof Error ? error.message : String(error);
+      notices.push("refused", `${name} was not added: ${reason}`);
+      continue;
+    }
+    if (ended.has(board.store)) return added;
     const offset = added.length * 28;
     added.push(
       addNode(

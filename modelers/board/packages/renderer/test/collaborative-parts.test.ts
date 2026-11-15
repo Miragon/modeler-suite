@@ -1,11 +1,12 @@
 /**
  * The parts the contract factory is made of (src/collaborative/view.ts, selection.ts, imports.ts
  * and elements.ts), as far as they run without a canvas: what a host's view state is taken for,
- * the fit, the names and boxes of the elements, the selection, and the order of the imports. The
- * factory itself mounts React and runs in the browser project only.
+ * the fit, the wait for the canvas, the names and boxes of the elements, the selection, the order
+ * of the imports and what an import asks of the canvas. The factory itself mounts React and runs
+ * in the browser project only.
  */
 import type { ElementBounds } from "@miragon/modeler-api";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
 
 import type { Viewport } from "../src/arming/types.js";
@@ -39,6 +40,13 @@ function session(): BoardSession {
 /** all a fit reads of the element a board is attached to */
 const box = (clientWidth: number, clientHeight: number): Element =>
   ({ clientWidth, clientHeight }) as Element;
+
+const macrotask = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
 describe("a view a host hands in", () => {
   it("is taken when it has three finite numbers, and nothing else of it is kept", () => {
@@ -137,6 +145,39 @@ describe("the fit", () => {
     expect(fitOf(text, host, insets)).toEqual({ x: 0, y: 0, zoom: 1 });
   });
 
+  it("goes on with the insets it had when the host's free area throws, and says so once", () => {
+    const complaints = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let answer: "nothing" | "panel" | "throw" = "throw";
+    const options = {
+      freeArea: {
+        insets() {
+          if (answer === "throw") throw new Error("the side panel is gone");
+          return { top: 0, right: 0, bottom: 0, left: answer === "panel" ? 300 : 0 };
+        },
+      },
+    };
+    const view = createViewControl(
+      { ...session(), host: box(1100, 600) },
+      createBoardStore(createBoardDoc(BOARD_A)),
+      options,
+      Promise.resolve(),
+    );
+    // no answer yet: the whole box
+    expect(view.fitted()).toEqual(fitOf(BOARD_A, box(1100, 600)));
+    answer = "panel";
+    const beside = view.fitted();
+    expect(beside).toEqual(
+      fitOf(BOARD_A, box(1100, 600), { top: 0, right: 0, bottom: 0, left: 300 }),
+    );
+    answer = "throw";
+    expect(view.fitted()).toEqual(beside);
+    expect(complaints.mock.calls).toHaveLength(1);
+    expect(complaints.mock.calls[0]?.slice(0, 2)).toEqual([
+      "[board]",
+      "options.freeArea.insets() failed: the side panel is gone",
+    ]);
+  });
+
   it("has a tight content box from the document, and none for an empty board", () => {
     const boundsOf = (text: string): ElementBounds | undefined =>
       createViewControl(
@@ -148,6 +189,51 @@ describe("the fit", () => {
     expect(boundsOf(BOARD_A)).toEqual({ x: 0, y: 0, width: 1000, height: 420 });
     expect(boundsOf(BOARD_B)).toEqual({ x: 0, y: 0, width: 1200, height: 860 });
     expect(boundsOf(BOARD_EMPTY)).toBeUndefined();
+  });
+});
+
+describe("the wait for the canvas", () => {
+  const waitOn = (state: BoardSession, mounted: Promise<void>): (() => boolean) => {
+    const view = createViewControl(state, createBoardStore(createBoardDoc(BOARD_A)), {}, mounted);
+    let drawn = false;
+    void view.rendered().then(() => (drawn = true));
+    return () => drawn;
+  };
+
+  it("is one macrotask for a board that was never attached", async () => {
+    const drawn = waitOn(session(), new Promise<void>(() => undefined));
+    await macrotask();
+    await macrotask();
+    expect(drawn()).toBe(true);
+  });
+
+  it("lasts until the canvas of an attached board exists, and one macrotask more", async () => {
+    let exists!: () => void;
+    const mounted = new Promise<void>((resolve) => {
+      exists = resolve;
+    });
+    const drawn = waitOn({ ...session(), host: box(800, 600) }, mounted);
+    for (let turn = 0; turn < 5; turn++) await macrotask();
+    expect(drawn()).toBe(false);
+    exists();
+    await macrotask();
+    await macrotask();
+    expect(drawn()).toBe(true);
+  });
+
+  it("leaves no timer behind once the canvas came or the board went", async () => {
+    vi.useFakeTimers();
+    const view = createViewControl(
+      { ...session(), host: box(800, 600) },
+      createBoardStore(createBoardDoc(BOARD_A)),
+      {},
+      Promise.resolve(),
+    );
+    const drawn = view.rendered();
+    await vi.advanceTimersByTimeAsync(0);
+    await drawn;
+    // the ten seconds it would have waited for a canvas that never appears
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 
@@ -170,6 +256,16 @@ describe("the name of an element", () => {
     expect(firstLine("")).toBeUndefined();
     expect(firstLine("\n \n")).toBeUndefined();
     expect(firstLine("# \n> \n- ")).toBeUndefined();
+  });
+
+  it.each([
+    ["a number", 5],
+    ["an object", { a: 1 }],
+    ["a list", ["First note"]],
+    ["null", null],
+    ["true", true],
+  ])("is absent for %s where a text belongs", (_name, value) => {
+    expect(firstLine(value)).toBeUndefined();
   });
 });
 
@@ -211,6 +307,28 @@ describe("the elements of a board that has no canvas", () => {
     ]);
   });
 
+  it("lists an element whose text, label or file is no text under its id alone", () => {
+    // what a hand edit or another tool may leave: the reader takes it, and the view draws it
+    const odd = [
+      String.raw`{"format":"structured-model","meta":{},"version":1}`,
+      String.raw`{"id":"e_odd","kind":"edge","label":{"a":1},"source":"n_note","target":"n_model"}`,
+      String.raw`{"height":200,"id":"n_group","kind":"node","text":["Inbox"],"type":"group","width":300,"x":0,"y":300,"z":"c"}`,
+      String.raw`{"file":7,"height":100,"id":"n_model","kind":"node","type":"model","width":200,"x":300,"y":0,"z":"b"}`,
+      String.raw`{"height":100,"id":"n_note","kind":"node","text":5,"type":"text","width":200,"x":0,"y":0,"z":"a"}`,
+      String.raw`{"height":100,"id":"n_plain","kind":"node","text":"Still named","type":"text","width":200,"x":0,"y":150,"z":"d"}`,
+      "",
+    ].join("\n");
+    const { elements } = surfaceOf(odd);
+    expect(elements.list()).toEqual([
+      { id: "n_note" },
+      { id: "n_model" },
+      { id: "n_group" },
+      { id: "n_plain", name: "Still named" },
+      { id: "e_odd" },
+    ]);
+    expect(elements.bounds("n_note")).toEqual({ x: 0, y: 0, width: 200, height: 100 });
+  });
+
   it("gives a node its box on the board and an arrow the box around its two ends", () => {
     const { elements } = surfaceOf(BOARD_A);
     // a member's place is relative to its group in the file and absolute here
@@ -241,6 +359,23 @@ describe("the elements of a board that has no canvas", () => {
     expect(elements.selection()).toEqual(["n_note_a"]);
   });
 
+  it("does not tell a listener that an earlier listener of the same delivery took off", () => {
+    const { elements } = surfaceOf(BOARD_A);
+    const heard: string[] = [];
+    let leave = (): void => undefined;
+    elements.onSelection(() => {
+      heard.push("first");
+      leave();
+    });
+    leave = elements.onSelection(() => heard.push("second"));
+    elements.onSelection(() => heard.push("third"));
+    expect(elements.reveal("n_note_a")).toBe(true);
+    expect(heard).toEqual(["first", "third"]);
+    // the one that left stays away, the others hear the next selection too
+    expect(elements.reveal("n_note_b")).toBe(true);
+    expect(heard).toEqual(["first", "third", "first", "third"]);
+  });
+
   it("stops a delivery when a listener destroyed the board, and reveals nothing afterwards", () => {
     const state = session();
     const { elements } = surfaceOf(BOARD_A, state);
@@ -257,16 +392,30 @@ describe("the elements of a board that has no canvas", () => {
 });
 
 describe("the imports of a board", () => {
-  /** an import queue on a document, with a canvas that draws within one macrotask */
+  /**
+   * An import queue on a document, with a canvas that draws within one macrotask. `canvas.editing`
+   * says whether a model of the document is armed, and `canvas.dropped` holds the text the
+   * document had each time the queue gave up what the canvas held back.
+   */
   const queueOn = (doc: Y.Doc, options: { fitOnImport?: boolean | undefined } = {}) => {
     const store = createBoardStore(doc);
     const state = { destroyed: false, lastText: store.text() };
     const fits: Viewport[] = [];
-    const importText = createImportQueue(state, store, options, {
-      fitted: () => ({ x: 7, y: 7, zoom: 0.7 }),
-      setView: (next) => void fits.push(next),
-      rendered: () => new Promise<void>((resolve) => setTimeout(resolve, 0)),
-    });
+    const canvas = { editing: false, dropped: [] as string[] };
+    const importText = createImportQueue(
+      state,
+      store,
+      options,
+      {
+        fitted: () => ({ x: 7, y: 7, zoom: 0.7 }),
+        setView: (next) => void fits.push(next),
+        rendered: () => new Promise<void>((resolve) => setTimeout(resolve, 0)),
+      },
+      {
+        dropHeld: () => void canvas.dropped.push(store.text()),
+        editsModel: () => canvas.editing,
+      },
+    );
     /** every text the document went through and every import that settled, in that order */
     const events: string[] = [];
     const names = new Map([
@@ -285,7 +434,7 @@ describe("the imports of a board", () => {
         () => events.push(`imported ${names.get(text) ?? "another text"}`),
         (error: unknown) => events.push(`refused: ${(error as Error).message}`),
       );
-    return { store, state, fits, events, importText, run };
+    return { store, state, fits, canvas, events, importText, run };
   };
 
   it("starts none before the call returns", async () => {
@@ -360,6 +509,29 @@ describe("the imports of a board", () => {
     const plain = queueOn(new Y.Doc(), { fitOnImport: false });
     await plain.importText(BOARD_A);
     expect(plain.fits).toEqual([]);
+  });
+
+  it("leaves the view alone while a model of the document is edited in place", async () => {
+    const { fits, canvas, importText } = queueOn(new Y.Doc());
+    canvas.editing = true;
+    await importText(BOARD_B);
+    expect(fits).toEqual([]);
+    canvas.editing = false;
+    await importText(BOARD_B);
+    expect(fits).toHaveLength(1);
+  });
+
+  it("gives up what the canvas held back before it writes, and only for a text it accepts", async () => {
+    const { store, canvas, run, importText } = queueOn(createBoardDoc(BOARD_A));
+    await run("not a board at all");
+    expect(canvas.dropped).toEqual([]);
+    await importText(BOARD_B);
+    // asked once, while the document still held the text the held moves were made on
+    expect(canvas.dropped).toEqual([BOARD_A]);
+    expect(store.text()).toBe(BOARD_B);
+    // an import that changes nothing replaces the document all the same
+    await importText(BOARD_B);
+    expect(canvas.dropped).toEqual([BOARD_A, BOARD_B]);
   });
 
   it("empties the history, so an undo after it changes nothing", async () => {

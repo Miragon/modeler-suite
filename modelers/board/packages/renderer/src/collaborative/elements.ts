@@ -7,9 +7,16 @@ import type { CollaborativeBoard } from "./api.js";
 import type { SelectionMirror } from "./selection.js";
 import type { BoardSession, ViewControl } from "./view.js";
 
-/** the first line of a note's Markdown without its marks: what a host lists the element under */
-export function firstLine(text: string | undefined): string | undefined {
-  const line = text
+/** a text as the board's own gestures write it; a hand edit or another tool may have left anything else */
+const textOf = (value: unknown): string | undefined =>
+  typeof value === "string" ? value : undefined;
+
+/**
+ * The first line of a note's Markdown without its marks: what a host lists the element under.
+ * Anything but a text names nothing: the view checks an element's shape, not its texts.
+ */
+export function firstLine(text: unknown): string | undefined {
+  const line = textOf(text)
     ?.split("\n")
     .map((one) => one.replace(/^[#>*\-\s]+/, "").trim())
     .find((one) => one !== "");
@@ -66,7 +73,7 @@ export function createElementsSurface(
             node.id,
             node.attrs.type === "text" || node.attrs.type === "group"
               ? firstLine(node.attrs.text)
-              : node.attrs.file,
+              : textOf(node.attrs.file),
           ),
         ),
         ...snapshot.edges.map((edge) => named(edge.id, firstLine(edge.attrs.label))),

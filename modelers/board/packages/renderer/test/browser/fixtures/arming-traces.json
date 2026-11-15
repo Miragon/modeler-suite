@@ -2315,54 +2315,99 @@
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
       },
       {
-        "step": "5. press on the editor in the overlay layer",
+        "step": "5. ask beforeZoom(true)",
+        "at": 0,
+        "result": "true",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "6. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 6",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "7. press on the editor in the overlay layer",
         "at": 0,
         "result": "not prevented, reaches its target",
         "calls": "none",
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
       },
       {
-        "step": "6. ask beforeZoom(true)",
+        "step": "8. ask beforeZoom(true)",
         "at": 0,
         "result": "false",
         "calls": "none",
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
       },
       {
-        "step": "7. release by blur",
+        "step": "9. release by blur",
         "at": 0,
         "calls": "none",
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
       },
       {
-        "step": "8. press on the armed node's body",
+        "step": "10. ask beforeZoom(true)",
+        "at": 0,
+        "result": "true",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "11. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 11",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "12. press on the armed node's body",
         "at": 0,
         "result": "not prevented, reaches its target",
         "calls": "none",
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
       },
       {
-        "step": "9. ask beforeZoom(true)",
+        "step": "13. ask beforeZoom(true)",
         "at": 0,
         "result": "false",
         "calls": "none",
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
       },
       {
-        "step": "10. release by pointerup",
+        "step": "14. release by pointerup",
         "at": 0,
         "calls": "none",
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
       },
       {
-        "step": "11. press on the pane",
+        "step": "15. ask beforeZoom(true)",
+        "at": 0,
+        "result": "true",
+        "calls": "setArmedId(null)",
+        "state": "armed: none, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "16. arm n_order by button",
+        "at": 0,
+        "result": "a new promise",
+        "calls": "setArmedId(n_order)",
+        "settled": "step 16",
+        "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
+      },
+      {
+        "step": "17. press on the pane",
         "at": 0,
         "result": "not prevented, reaches its target",
         "calls": "none",
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
       },
       {
-        "step": "12. ask beforeZoom(true)",
+        "step": "18. ask beforeZoom(true)",
         "at": 0,
         "result": "true",
         "calls": "setArmedId(null)",
@@ -2372,7 +2417,7 @@
     "rests": "-76, -44, 1",
     "counters": {
       "transitions": 0,
-      "disarmsBeforeZoom": 1,
+      "disarmsBeforeZoom": 4,
       "disarmsAtTick": 0,
       "zoomsRefused": 3,
       "zoomsUndone": 0,
@@ -2680,9 +2725,9 @@
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
       },
       {
-        "step": "2. a script writes the viewport -76, -44, 0.8",
+        "step": "2. a script writes the viewport 10, 20, 0.8",
         "at": 0,
-        "calls": "setViewport(-76, -44, 0.8), setViewport(-76, -44, 1)",
+        "calls": "setViewport(10, 20, 0.8), setViewport(-76, -44, 1)",
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"
       }
     ],
@@ -4007,44 +4052,76 @@
         "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
       },
       {
-        "step": "5. the editor of n_order is up",
+        "step": "5. key Escape on the pane",
+        "at": 32,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "6. a fit is queued",
         "at": 32,
         "calls": "none",
         "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
       },
       {
-        "step": "6. frame",
+        "step": "7. the editor of n_order is up",
+        "at": 32,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "8. frame",
         "at": 48,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "9. key Escape on the pane",
+        "at": 48,
+        "result": "not prevented, reaches its target",
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "10. the fit is through",
+        "at": 48,
+        "calls": "none",
+        "state": "armed: none, moving: no, target: none, urlPending: yes, frames asked: 2"
+      },
+      {
+        "step": "11. frame",
+        "at": 64,
         "calls": "none",
         "state": "armed: none, moving: yes, target: n_order, urlPending: yes, frames asked: 2"
       },
       {
-        "step": "7. frame",
-        "at": 148,
+        "step": "12. frame",
+        "at": 164,
         "calls": "setViewport(-38.905, -15.406, 0.807)",
         "state": "armed: none, moving: yes, target: n_order, urlPending: yes, frames asked: 2"
       },
       {
-        "step": "8. frame",
-        "at": 248,
+        "step": "13. frame",
+        "at": 264,
         "calls": "setViewport(-73.626, -42.17, 0.988)",
         "state": "armed: none, moving: yes, target: n_order, urlPending: yes, frames asked: 2"
       },
       {
-        "step": "9. frame",
-        "at": 348,
+        "step": "14. frame",
+        "at": 364,
         "calls": "setViewport(-76, -44, 1), setArmedId(n_order)",
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 1"
       },
       {
-        "step": "10. frame",
-        "at": 364,
+        "step": "15. frame",
+        "at": 380,
         "calls": "none",
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 1"
       },
       {
-        "step": "11. frame",
-        "at": 380,
+        "step": "16. frame",
+        "at": 396,
         "calls": "none",
         "settled": "step 1",
         "state": "armed: n_order, moving: no, target: none, urlPending: no, frames asked: 0"

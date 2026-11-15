@@ -2,7 +2,7 @@
  * What the board reads of its host (src/host/defaults.ts): the answer of a host that offers
  * nothing, and the same object per host, which React needs of an external store.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { describeModel, imagesOf, modelListOf, referencesOf } from "../src/host/defaults.js";
 import type {
@@ -142,6 +142,35 @@ describe("a host's own parts", () => {
     expect(imagesOf(host).read("assets/new.png")).toBe(bytes);
   });
 
+  it("offer to ask whether a path is taken only where the host answers that", () => {
+    expect(imagesOf(createTestHost({ canStore: true })).taken).toBeUndefined();
+    const asked: string[] = [];
+    const port: BoardImages = {
+      read: () => undefined,
+      onChange: () => () => undefined,
+      taken(path) {
+        asked.push(path);
+        return path === "assets/plan.svg";
+      },
+    };
+    const { taken } = imagesOf({ images: port });
+    expect(taken?.("assets/plan.svg")).toBe(true);
+    expect(taken?.("assets/new.svg")).toBe(false);
+    expect(asked).toEqual(["assets/plan.svg", "assets/new.svg"]);
+  });
+
+  it("hand on what the host's store returns, a promise included", async () => {
+    const stored = Promise.resolve();
+    const port: BoardImages = {
+      read: () => undefined,
+      onChange: () => () => undefined,
+      store: () => stored,
+    };
+    const answer = imagesOf({ images: port }).store?.("assets/new.png", new Blob());
+    expect(answer).toBe(stored);
+    await answer;
+  });
+
   it("are never called unbound, so a host may be written as classes", () => {
     // a private field read on anything but the instance throws
     class Models implements BoardModels {
@@ -172,6 +201,9 @@ describe("a host's own parts", () => {
       store(path: string): void {
         this.stored.push(path);
       }
+      taken(path: string): boolean {
+        return this.stored.includes(path);
+      }
     }
     class References implements BoardReferences {
       readonly #list: readonly BoardReference[] = [];
@@ -195,13 +227,177 @@ describe("a host's own parts", () => {
     const { list, onChange } = modelListOf(host);
     expect(list()).toEqual([MODEL_PATH]);
     onChange(nobody)();
-    const { read, store, onChange: onImages } = imagesOf(host);
+    const { read, store, taken, onChange: onImages } = imagesOf(host);
     expect(read(IMAGE_PATH)).toBeInstanceOf(Blob);
-    store?.(IMAGE_PATH, new Blob());
+    expect(taken?.(IMAGE_PATH)).toBe(false);
+    void store?.(IMAGE_PATH, new Blob());
     expect(pictures.stored).toEqual([IMAGE_PATH]);
+    expect(taken?.(IMAGE_PATH)).toBe(true);
     onImages(nobody)();
     const { list: listReferences, onChange: onReferences } = referencesOf(host);
     expect(listReferences()).toEqual([]);
     onReferences(nobody)();
+  });
+});
+
+describe("a host whose calls go wrong", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** what the board said through console.error, as the lines a person reads */
+  function reports(): () => string[] {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    return () => spy.mock.calls.map((call) => call.slice(0, 2).join(" "));
+  }
+
+  const never = (): (() => void) => () => undefined;
+  const calls: BoardReference = { from: MODEL_PATH, to: "processes/sub.bpmn", relation: "calls" };
+
+  it("hands out the list before while a new array of the model list holds the same entries", () => {
+    let paths = [MODEL_PATH, "processes/other.bpmn"];
+    const host: BoardHost = {
+      models: { list: () => [...paths], onChange: never, open: () => undefined },
+    };
+    const { list } = modelListOf(host);
+    const first = list();
+    expect(first).toEqual(paths);
+    expect(list()).toBe(first);
+
+    paths = ["processes/other.bpmn", MODEL_PATH];
+    const reordered = list();
+    expect(reordered).toEqual(paths);
+    expect(reordered).not.toBe(first);
+    paths = [MODEL_PATH];
+    expect(list()).toEqual([MODEL_PATH]);
+    expect(list()).toBe(list());
+  });
+
+  it("hands out the list before while a new array of references says the same", () => {
+    let listed: BoardReference[] = [calls];
+    const host: BoardHost = {
+      references: { list: () => listed.map((reference) => ({ ...reference })), onChange: never },
+    };
+    const { list } = referencesOf(host);
+    const first = list();
+    expect(first).toEqual([calls]);
+    expect(list()).toBe(first);
+
+    for (const changed of [
+      { ...calls, from: "processes/other.bpmn" },
+      { ...calls, to: "processes/other.bpmn" },
+      { ...calls, relation: "decides" },
+    ]) {
+      listed = [changed];
+      expect(list()).toEqual([changed]);
+    }
+    listed = [];
+    expect(list()).toEqual([]);
+    expect(list()).toBe(list());
+  });
+
+  it("answers a list() that throws with the list before it, and reports it once", () => {
+    const said = reports();
+    let answer: "throws" | readonly string[] = "throws";
+    let listedReferences: "throws" | readonly BoardReference[] = "throws";
+    const host: BoardHost = {
+      models: {
+        list() {
+          if (answer === "throws") throw new Error("the repository is not read yet");
+          return answer;
+        },
+        onChange: never,
+        open: () => undefined,
+      },
+      references: {
+        list() {
+          if (listedReferences === "throws") throw new Error("the index is not loaded yet");
+          return listedReferences;
+        },
+        onChange: never,
+      },
+    };
+    const models = modelListOf(host);
+    const references = referencesOf(host);
+
+    // nothing good yet: the empty list, and the same one on every call
+    expect(models.list()).toEqual([]);
+    expect(models.list()).toBe(models.list());
+    expect(references.list()).toEqual([]);
+    expect(references.list()).toBe(references.list());
+
+    answer = [MODEL_PATH];
+    listedReferences = [calls];
+    const paths = models.list();
+    const listed = references.list();
+    expect(paths).toBe(answer);
+    expect(listed).toBe(listedReferences);
+
+    answer = "throws";
+    listedReferences = "throws";
+    expect(models.list()).toBe(paths);
+    expect(references.list()).toBe(listed);
+    expect(said()).toEqual([
+      "[board] host.models.list() failed: the repository is not read yet",
+      "[board] host.references.list() failed: the index is not loaded yet",
+    ]);
+  });
+
+  it("answers a list() that returns no array with the list before it", () => {
+    const said = reports();
+    const host: BoardHost = {
+      models: {
+        list: () => undefined as unknown as readonly string[],
+        onChange: never,
+        open: () => undefined,
+      },
+    };
+    expect(modelListOf(host).list()).toEqual([]);
+    expect(modelListOf(host).list()).toBe(modelListOf(host).list());
+    expect(said()).toEqual(["[board] host.models.list() failed: it returned no array"]);
+  });
+
+  it("names a model by its file where describe() throws, and reports it once", () => {
+    const said = reports();
+    const order: ModelDescription = { title: "Order to cash", kind: "BPMN" };
+    const host: BoardHost = {
+      models: {
+        list: () => [],
+        onChange: never,
+        open: () => undefined,
+        describe(path) {
+          if (path === MODEL_PATH) return order;
+          throw new Error(`no title for ${path}`);
+        },
+      },
+    };
+    expect(describeModel(host, "processes/broken.bpmn")).toEqual({ title: "broken" });
+    expect(describeModel(host, "decisions/discount.dmn")).toEqual({ title: "discount" });
+    expect(describeModel(host, "processes/broken.bpmn")).toBe(
+      describeModel(host, "processes/broken.bpmn"),
+    );
+    expect(describeModel(host, MODEL_PATH)).toBe(order);
+    expect(said()).toEqual([
+      "[board] host.models.describe() failed: no title for processes/broken.bpmn",
+    ]);
+  });
+
+  it("never asks the host to describe an empty path", () => {
+    const asked: string[] = [];
+    const host: BoardHost = {
+      models: {
+        list: () => [],
+        onChange: never,
+        open: () => undefined,
+        describe(path) {
+          asked.push(path);
+          return { title: `described ${path}` };
+        },
+      },
+    };
+    expect(describeModel(host, "")).toEqual({ title: "" });
+    expect(asked).toEqual([]);
+    expect(describeModel(host, MODEL_PATH)).toEqual({ title: `described ${MODEL_PATH}` });
+    expect(asked).toEqual([MODEL_PATH]);
   });
 });

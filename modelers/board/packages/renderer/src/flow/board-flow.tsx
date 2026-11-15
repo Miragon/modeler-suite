@@ -35,6 +35,7 @@ import {
 
 import { referencesOf } from "../host/defaults.js";
 import type { BoardHost } from "../host/types.js";
+import { useBoardContext } from "../runtime/board-context.js";
 import { writeDrop, writeRemoval } from "../store/actions.js";
 import { type BoardStore, newId } from "../store/board-store.js";
 import { derivedArrows } from "./derived-arrows.js";
@@ -176,6 +177,11 @@ export interface BoardFlow {
 
 /** arrow-key moves of the selected nodes rest this long before they are written, as one gesture */
 const KEY_MOVE_REST_MS = 400;
+/**
+ * The moves that wait, by node id, on an object without a prototype: a peer's live document can
+ * hold any id, and on a plain object the id `__proto__` would set the prototype and lose its move.
+ */
+const noMoves = (): Record<string, Point> => Object.create(null) as Record<string, Point>;
 
 export function useBoard(store: BoardStore, armedId: string | null): BoardFlow {
   const view = useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -199,7 +205,7 @@ export function useBoard(store: BoardStore, armedId: string | null): BoardFlow {
   // written yet wait here: a drag's are written at once by its stop handler, an arrow-key move has
   // no such handler and is written once the keys rest
   const ended = useRef<{ positions: Record<string, Point>; timer?: ReturnType<typeof setTimeout> }>(
-    { positions: {} },
+    { positions: noMoves() },
   );
   const writeMoves = useCallback(
     (also: readonly BoardFlowNode[] = []): void => {
@@ -209,7 +215,7 @@ export function useBoard(store: BoardStore, armedId: string | null): BoardFlow {
         ...pending.positions,
         ...Object.fromEntries(also.map((node) => [node.id, node.position])),
       };
-      pending.positions = {};
+      pending.positions = noMoves();
       // where the nodes are and whose they are (a node dropped into a group joins it), together
       if (Object.keys(positions).length > 0) writeDrop(store, positions);
     },
@@ -219,6 +225,28 @@ export function useBoard(store: BoardStore, armedId: string | null): BoardFlow {
     const pending = ended.current;
     return () => clearTimeout(pending.timer);
   }, []);
+  // An import replaces the document the waiting moves were made on: they are given up, and their
+  // nodes stand where the document has them again. Without that the canvas would show a place no
+  // file holds, and the next arrow key would write it after all
+  const dropMoves = useCallback((): void => {
+    const pending = ended.current;
+    clearTimeout(pending.timer);
+    const waiting = new Set(Object.keys(pending.positions));
+    pending.positions = noMoves();
+    if (waiting.size === 0) return;
+    setNodes((previous) =>
+      previous.map((node) => {
+        const { x, y } = node.data.element.attrs;
+        return waiting.has(node.id) ? { ...node, position: { x, y } } : node;
+      }),
+    );
+  }, []);
+  // whoever mounted the board ends what waits here: an import drops it, a destroy writes it
+  const { onHeldMoves } = useBoardContext();
+  useEffect(() => {
+    onHeldMoves?.({ drop: dropMoves, write: () => writeMoves() });
+    return () => onHeldMoves?.(null);
+  }, [onHeldMoves, dropMoves, writeMoves]);
 
   // React Flow's own changes stay in React state: drag frames, selection, measured sizes
   const onNodesChange = useCallback<OnNodesChange<BoardFlowNode>>(

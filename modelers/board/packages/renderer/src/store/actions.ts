@@ -443,6 +443,23 @@ export function assetPath(
   }
 }
 
+/** what the name check asks of a host's images: `BoardImages` (host/types.ts), as far as it reads it */
+export interface ImageNames {
+  read(path: string): unknown;
+  taken?: ((path: string) => boolean) | undefined;
+}
+
+/**
+ * Whether a path is in use, as `assetPath` asks it: the host's own answer where it gives one
+ * (`taken`), else whether the host has the bytes (`read`). A host that loads its images when a
+ * node shows them has no bytes for a file nobody looks at, so only `taken` keeps a new image from
+ * replacing such a file.
+ */
+export const takenIn =
+  (images: ImageNames) =>
+  (path: string): boolean =>
+    images.taken !== undefined ? images.taken(path) : images.read(path) !== undefined;
+
 /** the largest box a new image node gets; a larger picture is scaled down into it */
 export const IMAGE_BOX: Size = { width: 480, height: 360 };
 

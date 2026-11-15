@@ -2,6 +2,8 @@
  * What a peer announces about itself is untrusted input (src/canvas/presence-format.ts): the
  * colour lands in inline styles, the name on the canvas of everyone who has the board open.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -84,5 +86,25 @@ describe("the name of a peer", () => {
     ["an object", { name: "Ada" }],
   ])('is "?" for %s', (_what, name) => {
     expect(safePresenceLabel(name)).toBe("?");
+  });
+});
+
+describe("the source of the two functions", () => {
+  const source = readFileSync(
+    fileURLToPath(new URL("../src/canvas/presence-format.ts", import.meta.url)),
+    "utf8",
+  );
+  const comments = (source.match(/\/\*[\s\S]*?\*\/|\/\/.*$/gm) ?? []).join("\n");
+
+  it("opens with the comment it had where it came from: whose input this is", () => {
+    const head = /^\/\*\*\n(?: \*.*\n)+ \*\/\n/.exec(source)?.[0] ?? "";
+    expect(head).toContain("awareness states arrive from REMOTE peers");
+    expect(head).toContain("UNTRUSTED input");
+  });
+
+  it("is commented in the suite's spelling and without an em dash", () => {
+    expect(comments).toContain("hex colours only");
+    expect(comments).not.toMatch(/\bcolors?\b/);
+    expect(source).not.toContain("\u2014");
   });
 });

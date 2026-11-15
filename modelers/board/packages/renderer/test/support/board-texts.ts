@@ -1,7 +1,8 @@
 /**
  * The board texts the conformance kit and the browser tests run on: the ones designIQ's bench
  * measured the board with, cut from its kit page byte for byte. A changed byte here is a
- * different measurement, so the texts are never edited by hand.
+ * different measurement, so the texts are never edited by hand. BOARD_PROTO alone is the suite's
+ * own.
  */
 
 // ── the texts: hand-written in the canonical form (header, then one line per element sorted by id, keys sorted) ──
@@ -26,6 +27,18 @@ export const BOARD_B = lines(
 );
 /** a board without elements */
 export const BOARD_EMPTY = lines(String.raw`{"format":"structured-model","meta":{},"version":1}`);
+/**
+ * The shape of board A with the value `__proto__` as the group's name, as a note's whole text and
+ * as the arrow's label. Not one of the bench's texts: a reader that looks for the key `__proto__`
+ * in a line's text instead of its parsed keys refuses the board's own export of such a board.
+ */
+export const BOARD_PROTO = lines(
+  String.raw`{"format":"structured-model","meta":{"title":"Kit board proto","version":1},"version":1}`,
+  String.raw`{"id":"e_note_to_note","kind":"edge","label":"__proto__","source":"n_note_a","sourceHandle":"right","target":"n_note_b","targetHandle":"left"}`,
+  String.raw`{"height":420,"id":"n_group","kind":"node","text":"__proto__","type":"group","width":640,"x":0,"y":0,"z":"a"}`,
+  String.raw`{"height":160,"id":"n_note_a","kind":"node","parent":"n_group","text":"__proto__","type":"text","width":240,"x":40,"y":80,"z":"b"}`,
+  String.raw`{"height":160,"id":"n_note_b","kind":"node","text":"Second note","type":"text","width":240,"x":760,"y":80,"z":"c"}`,
+);
 
 /** board A as a person or another tool may leave it: other key order, other line order, blank lines, no last newline */
 export const LOOSE_A = [

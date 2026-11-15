@@ -84,13 +84,28 @@ export function decodeBoard(text: string): BoardSnapshot {
 
 export type ParsedBoard = { ok: true; snapshot: BoardSnapshot } | { ok: false; reason: string };
 
+/** whether the value, or anything at any depth below it, is an object with an own key `name` */
+function holdsKey(value: unknown, name: string): boolean {
+  // a list of what is left to look at and no recursion: JSON.parse reads a nesting deeper than
+  // the call stack
+  const open = [value];
+  while (open.length > 0) {
+    const next = open.pop();
+    if (next === null || typeof next !== "object") continue;
+    if (Object.hasOwn(next, name)) return true;
+    for (const child of Object.values(next)) open.push(child);
+  }
+  return false;
+}
+
 /**
  * The snapshot of a board text, or why it is refused. Accepted: an empty text (a new board), and
  * a text with exactly one header and any number of element lines in any order, each a JSON object
  * with a non-empty string `id` that no other line has. Attributes and element kinds this build
  * does not know are kept. Refused as a whole: a text holding anything `encodeBoard` would not
  * write back (a line that is no JSON, a second header, a repeated id, a header of another
- * version), so that an editor keeps the board it shows instead of losing a part of it.
+ * version, a key named `__proto__` at any depth), so that an editor keeps the board it shows
+ * instead of losing a part of it.
  */
 export function parseBoardText(text: string): ParsedBoard {
   const refuse = (line: number, why: string): ParsedBoard => ({
@@ -105,16 +120,19 @@ export function parseBoardText(text: string): ParsedBoard {
     number++;
     if (line.trim() === "") continue;
     rows++;
-    // assigned as a prototype by plain-object readers and lost: it would not be written back
-    if (line.includes('"__proto__"')) return refuse(number, "has a key named __proto__");
     let parsed: unknown;
     try {
       parsed = JSON.parse(line);
     } catch {
       return refuse(number, "is no JSON");
     }
+    // assigned as a prototype by plain-object readers and lost: it would not be written back. The
+    // key of the parsed line, never the line's text: a value "__proto__" is content like any other
+    if (holdsKey(parsed, "__proto__")) return refuse(number, "has a key named __proto__");
     if (!isObject(parsed)) return refuse(number, "is no JSON object");
     if (typeof parsed.id === "string" && parsed.id.length > 0) {
+      // an id is the key of its element in every map a board keeps: this one names no own key there
+      if (parsed.id === "__proto__") return refuse(number, "has the element id __proto__");
       if (Object.hasOwn(elements, parsed.id)) {
         return refuse(number, `repeats the element id ${parsed.id}`);
       }

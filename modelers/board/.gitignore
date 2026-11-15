@@ -13,8 +13,8 @@ __screenshots__/
 # Ignore only local Claude settings; project guardrails (settings.json, rules/) stay tracked
 .claude/settings.local.json
 .claude/logs/
-# Locally installed third-party skills (e.g. from plugins) must not get committed; this
-# modeler's skills live in plugins/business-model-canvas-modeler.
+# Locally installed third-party skills (e.g. from plugins) must not get committed; the board
+# has no skills of its own.
 .claude/skills/
 
 # VS Code extension packaging

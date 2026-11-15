@@ -36,6 +36,19 @@ export interface TestHostSeed {
   images?: Readonly<Record<string, Blob>> | undefined;
   /** default false: host.images.store is absent */
   canStore?: boolean | undefined;
+  /**
+   * How images.store answers where canStore is true. Default "sync": the image is there when
+   * store() returns. "manual": a promise that settleStore() decides, and the image is there once
+   * it resolved. "throw" and "reject": a throw, or a rejected promise, with the message
+   * "<path> was refused by the test host", and no image.
+   */
+  storing?: "sync" | "manual" | "throw" | "reject" | undefined;
+  /**
+   * Paths that are in use although read() has no bytes for them, as the files a host has not
+   * loaded. Present: the host has images.taken(), which answers true for these and for every
+   * image it holds. Absent: the host has no `taken`.
+   */
+  taken?: readonly string[] | undefined;
   references?: readonly BoardReference[] | undefined;
   /**
    * How open() answers. Default "sync"; "async" a promise that resolves one macrotask later, as
@@ -52,12 +65,18 @@ export interface TestHost extends BoardHost {
   /** the context of the editor opened last for a node */
   readonly contexts: Map<string, EmbeddedEditorContext>;
   readonly stored: Array<{ path: string; bytes: Blob }>;
+  /** every path images.store was called with, in call order, stored or not */
+  readonly storeCalls: string[];
+  /** every question about a path, in call order: which of images.read and images.taken was asked */
+  readonly asked: Array<{ via: "read" | "taken"; path: string }>;
   readonly published: Array<BoardCanvasPresence | null>;
   setModels(paths: readonly string[]): void;
   setReferences(references: readonly BoardReference[]): void;
   setImage(path: string, bytes: Blob | undefined): void;
   setPeers(peers: BoardPeer[]): void;
   settleReady(nodeId: string, error?: Error): void;
+  /** seed storing "manual": the store of `path` that waits longest resolves, or rejects with `error` */
+  settleStore(path: string, error?: Error): void;
 }
 
 const SKETCH =
@@ -90,6 +109,9 @@ export function createTestHost(seed: TestHostSeed = {}): TestHost {
   const events: EditorEvent[] = [];
   const contexts = new Map<string, EmbeddedEditorContext>();
   const stored: Array<{ path: string; bytes: Blob }> = [];
+  const storeCalls: string[] = [];
+  const asked: Array<{ via: "read" | "taken"; path: string }> = [];
+  const pendingStores: Array<{ path: string; settle: PendingReady }> = [];
   const published: Array<BoardCanvasPresence | null> = [];
   const pendingReady = new Map<string, PendingReady>();
 
@@ -160,13 +182,36 @@ export function createTestHost(seed: TestHostSeed = {}): TestHost {
     else pictures.set(path, bytes);
     imagesChanged.report();
   };
-  const store: NonNullable<BoardImages["store"]> = (path, bytes) => {
+  const keep = (path: string, bytes: Blob): void => {
     stored.push({ path, bytes });
     setImage(path, bytes);
   };
+  const storing = seed.storing ?? "sync";
+  const store: NonNullable<BoardImages["store"]> = (path, bytes) => {
+    storeCalls.push(path);
+    if (storing === "sync") return keep(path, bytes);
+    const refusal = new Error(`${path} was refused by the test host`);
+    if (storing === "throw") throw refusal;
+    if (storing === "reject") return Promise.reject(refusal);
+    return new Promise<void>((resolve, reject) => {
+      pendingStores.push({ path, settle: { resolve, reject } });
+    }).then(() => keep(path, bytes));
+  };
+  const inUse = seed.taken === undefined ? undefined : new Set(seed.taken);
   const images: BoardImages = {
-    read: (path) => pictures.get(path),
+    read(path) {
+      asked.push({ via: "read", path });
+      return pictures.get(path);
+    },
     onChange: imagesChanged.onChange,
+    ...(inUse === undefined
+      ? {}
+      : {
+          taken(path: string) {
+            asked.push({ via: "taken", path });
+            return inUse.has(path) || pictures.has(path);
+          },
+        }),
     ...(seed.canStore === true ? { store } : {}),
   };
 
@@ -196,6 +241,8 @@ export function createTestHost(seed: TestHostSeed = {}): TestHost {
     events,
     contexts,
     stored,
+    storeCalls,
+    asked,
     published,
     setModels(paths) {
       modelPaths = Object.freeze([...paths]);
@@ -218,6 +265,15 @@ export function createTestHost(seed: TestHostSeed = {}): TestHost {
       pendingReady.delete(nodeId);
       if (error === undefined) pending.resolve();
       else pending.reject(error);
+    },
+    settleStore(path, error) {
+      const index = pendingStores.findIndex((pending) => pending.path === path);
+      const [pending] = index < 0 ? [] : pendingStores.splice(index, 1);
+      if (pending === undefined) {
+        throw new Error(`settleStore: no store of ${path} waits (seed storing: "manual")`);
+      }
+      if (error === undefined) pending.settle.resolve();
+      else pending.settle.reject(error);
     },
   };
 }

@@ -3,11 +3,12 @@
  * at each of them. designIQ's batteries measured the board with the product's editors in exactly
  * this order, so a call that moves is a change nobody else measures here.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Viewport } from "../../src/arming/types.js";
 import type { BoardHost, EmbeddedEditor } from "../../src/host/types.js";
 import { writeRemoval } from "../../src/store/actions.js";
+import { elementsOf } from "../../src/store/document.js";
 import { BOARD_B, BOARD_EMPTY, MODEL_PATH } from "../support/board-texts.js";
 import { type MountedBoard, mountBoard } from "../support/mount-board.js";
 import { doubleClick } from "../support/pointer.js";
@@ -28,6 +29,7 @@ async function mount(...args: Parameters<typeof mountBoard>): Promise<MountedBoa
 afterEach(() => {
   mounted?.destroy();
   mounted = undefined;
+  vi.restoreAllMocks();
 });
 
 function present<T>(value: T | null | undefined, what: string): T {
@@ -90,7 +92,9 @@ function watchEditors(host: TestHost): Seen[] {
     });
     const answer = open(context);
     if (answer === undefined) return undefined;
-    return answer instanceof Promise ? answer.then(watched) : watched(answer);
+    return answer instanceof Promise
+      ? answer.then((editor) => editor && watched(editor))
+      : watched(answer);
   };
   return seen;
 }
@@ -250,6 +254,7 @@ describe("an editor the host cannot hand in", () => {
 
   it.each([
     ["answers undefined", { editors: "none" }, `${MODEL_PATH} cannot be shown here`],
+    ["resolves to undefined", {}, `${MODEL_PATH} cannot be shown here`],
     ["rejects", { editors: "reject" }, refused],
     ["throws", {}, thrown],
   ] as const)("shows the message in the node when open %s", async (how, seed, message) => {
@@ -258,6 +263,10 @@ describe("an editor the host cannot hand in", () => {
       present(host.models, "models").open = () => {
         throw new Error(thrown);
       };
+    }
+    // a host that loads its editors and finds out late that it has none for this file
+    if (how === "resolves to undefined") {
+      present(host.models, "models").open = () => Promise.resolve(undefined);
     }
     const board = await mount(BOARD_B, { host });
     const { runtime } = board;
@@ -376,6 +385,8 @@ describe("the end of an editor", () => {
     await board.settle();
     expect(destroys(host)).toBe(1);
     expect(seen.at(-1)).toEqual({ call: "destroy", ...PREVIEW });
+    // a preview has nothing open: no release before its end
+    expect(seen.map((entry) => entry.call)).toEqual(["open", "destroy"]);
     expect(engine.parentElement).toBeNull();
     expect(board.element.querySelector(".board-engine")).toBeNull();
     expect(board.runtime.surface(NODE)).toBeUndefined();
@@ -393,17 +404,102 @@ describe("the end of an editor", () => {
     expect(document.querySelector(".board-engine")).toBeNull();
   });
 
-  it("takes an armed editor's element out of the layer when the board is destroyed", async () => {
+  it("releases an armed editor, then destroys it and takes its element out of the layer, when the board is destroyed", async () => {
     const model = await mountModel();
     const { board, host, seen, engine } = model;
     await arm(model);
+    const complaints = vi.spyOn(console, "error");
 
     board.destroy();
     await expect.poll(() => host.events.at(-1)).toEqual({ event: "destroy", ...EDITOR });
     await board.settle();
     expect(destroys(host)).toBe(1);
-    expect(seen.at(-1)).toEqual({ call: "destroy", ...ARMED_IN_LAYER });
+    // both while the editor is still armed and in the layer: it can end what is open
+    expect(seen.slice(3)).toEqual([
+      { call: "release", ...ARMED_IN_LAYER },
+      { call: "destroy", ...ARMED_IN_LAYER },
+    ]);
+    expect(host.events.slice(3)).toEqual([
+      { event: "release", ...EDITOR, armed: true },
+      { event: "destroy", ...EDITOR },
+    ]);
     expect(engine.parentElement).toBeNull();
+    // the arming ends with the node, also while the whole canvas goes: nothing complains about it
+    expect(board.runtime.armedId()).toBeNull();
+    expect(board.runtime.lines).toEqual([]);
+    expect(complaints).not.toHaveBeenCalled();
+  });
+
+  const removals: ReadonlyArray<[string, (board: MountedBoard) => unknown]> = [
+    ["the person", (board) => writeRemoval(board.modeler.board.store, [NODE], [ARROW])],
+    [
+      "a peer",
+      ({ modeler }) => {
+        const { doc } = modeler.board.store;
+        doc.transact(() => {
+          elementsOf(doc).delete(ARROW);
+          elementsOf(doc).delete(NODE);
+        }, "a peer");
+      },
+    ],
+    // the fit of an empty board is zoom 1, where the armed board stands: no zoom disarms the node
+    ["an import", (board) => board.modeler.importText(BOARD_EMPTY)],
+  ];
+
+  it.each(removals)(
+    "releases an armed editor, then destroys it, and ends the arming when %s removes its node",
+    async (_who, remove) => {
+      const model = await mountModel();
+      const { board, host, seen, engine, layer } = model;
+      await arm(model);
+      const done = present(
+        board.element.querySelector<HTMLButtonElement>("[data-board-done]"),
+        "Done control",
+      );
+      await expect.poll(() => done.dataset.boardDone).toBe(NODE);
+      expect(done.disabled).toBe(false);
+      const complaints = vi.spyOn(console, "error");
+
+      await remove(board);
+      await expect.poll(() => host.events.at(-1)).toEqual({ event: "destroy", ...EDITOR });
+      await board.settle();
+      expect(seen.slice(3)).toEqual([
+        { call: "release", ...ARMED_IN_LAYER },
+        { call: "destroy", ...ARMED_IN_LAYER },
+      ]);
+      expect(host.events.slice(3)).toEqual([
+        { event: "release", ...EDITOR, armed: true },
+        { event: "destroy", ...EDITOR },
+      ]);
+      expect(engine.parentElement).toBeNull();
+      expect(layer.children).toHaveLength(0);
+      expect(board.runtime.surface(NODE)).toBeUndefined();
+
+      expect(board.runtime.armedId()).toBeNull();
+      await expect.poll(() => done.disabled).toBe(true);
+      expect(done.dataset.boardDone).toBe("");
+      expect(done.getAttribute("aria-label")).toBe("Done editing: no model is being edited");
+      expect(board.runtime.counters.arm.lateDisarms).toBe(0);
+      expect(board.runtime.lines).toEqual([]);
+      expect(complaints).not.toHaveBeenCalled();
+    },
+  );
+
+  it("brings a node that was removed while armed back as a preview", async () => {
+    const model = await mountModel();
+    const { board, host, seen, layer } = model;
+    await arm(model);
+
+    writeRemoval(board.modeler.board.store, [NODE], [ARROW]);
+    await expect.poll(() => host.events.at(-1)).toEqual({ event: "destroy", ...EDITOR });
+    board.modeler.board.undo();
+    await expect.poll(() => host.events.at(-1)).toEqual({ event: "open", ...EDITOR });
+    await board.settle();
+    expect(seen.at(-1)).toEqual({ call: "open", ...PREVIEW });
+    expect(host.events).toHaveLength(6);
+    expect(board.runtime.armedId()).toBeNull();
+    expect(layer.children).toHaveLength(0);
+    expect(board.node(NODE).querySelector(".board-node")?.getAttribute("data-armed")).toBe("false");
   });
 
   it("destroys an editor at once when it arrives after its node is gone", async () => {
@@ -444,17 +540,25 @@ describe("the end of an editor", () => {
 });
 
 describe("a model that moved to another path", () => {
-  it("writes the path as one gesture and opens the editor anew there", async () => {
+  it("writes the path as one change that is on no history, and opens the editor anew there", async () => {
     const { board, host, engine } = await mountModel();
     const { modeler, runtime } = board;
+    const { store } = modeler.board;
+    // what the person did before somebody renamed the model
+    store.gesture((tx) => tx.update("n_remark", { x: 1000 }));
+    const gestured = modeler.exportText();
+    expect(gestured).not.toBe(BOARD_B);
+    expect(store.undo.undoStack).toHaveLength(1);
     let changes = 0;
     modeler.onContentChanged(() => void changes++);
     const first = present(host.contexts.get(NODE), "editor context");
     const moved = { nodeId: NODE, path: MOVED_PATH };
 
     first.relocate(MOVED_PATH);
-    expect(modeler.exportText()).toBe(BOARD_B.replace(MODEL_PATH, MOVED_PATH));
+    expect(modeler.exportText()).toBe(gestured.replace(MODEL_PATH, MOVED_PATH));
     expect(changes).toBe(1);
+    expect(store.undo.undoStack).toHaveLength(1);
+    expect(store.undo.redoStack).toHaveLength(0);
     await expect.poll(() => host.events.at(-1)).toEqual({ event: "open", ...moved });
     expect(host.events).toEqual([
       { event: "open", ...EDITOR },
@@ -473,12 +577,19 @@ describe("a model that moved to another path", () => {
     // the editor that is gone may still call: its node shows another file now
     first.relocate("processes/too-late.bpmn");
     await board.settle();
-    expect(modeler.exportText()).toBe(BOARD_B.replace(MODEL_PATH, MOVED_PATH));
+    expect(modeler.exportText()).toBe(gestured.replace(MODEL_PATH, MOVED_PATH));
     expect(changes).toBe(1);
     expect(host.events).toHaveLength(3);
 
+    // an undo takes back what the person did before, and the model stays where it went
     modeler.board.undo();
-    expect(modeler.exportText()).toBe(BOARD_B);
+    expect(modeler.exportText()).toBe(BOARD_B.replace(MODEL_PATH, MOVED_PATH));
+    expect(changes).toBe(2);
+    expect(store.undo.undoStack).toHaveLength(0);
+    await board.settle();
+    expect(host.events).toHaveLength(3);
+    modeler.board.redo();
+    expect(modeler.exportText()).toBe(gestured.replace(MODEL_PATH, MOVED_PATH));
   });
 
   it("opens the new editor armed and in the layer when the node was armed", async () => {

@@ -3,6 +3,9 @@
  * Each port comes back as the SAME object for as long as the host holds the same part, with
  * functions that need no `this`: React reads them as an external store, where a new subscribe
  * function would subscribe anew on every render and a host's method would be called unbound.
+ *
+ * `list()` and `describe()` are host code that runs while React renders. Neither takes the board
+ * down: a call that fails is reported once and answered with what the board had before it.
  */
 import type {
   BoardHost,
@@ -36,19 +39,76 @@ function oncePer<Part extends object, Port>(make: (part: Part) => Port): (part: 
   };
 }
 
+const reported = new WeakMap<object, Set<string>>();
+
+/** says once per part of a host and call that the call failed: a render asks again and again */
+function reportOnce(part: object, call: string, error: unknown): void {
+  let calls = reported.get(part);
+  if (calls === undefined) {
+    calls = new Set();
+    reported.set(part, calls);
+  }
+  if (calls.has(call)) return;
+  calls.add(call);
+  const message = error instanceof Error ? error.message : String(error);
+  console.error("[board]", `${call} failed: ${message}`, error);
+}
+
+/**
+ * A host's `list()` as the snapshot of an external store. React compares snapshots by identity,
+ * so a host that builds its list anew on every call would render for ever: an answer with the
+ * same entries is the array handed out before. A call that fails is answered with that array too.
+ */
+function steadyList<Entry>(
+  part: object,
+  call: string,
+  read: () => readonly Entry[],
+  same: (entry: Entry, before: Entry) => boolean,
+  nothing: readonly Entry[],
+): () => readonly Entry[] {
+  let last = nothing;
+  return () => {
+    try {
+      const next = read();
+      if (!Array.isArray(next)) throw new TypeError("it returned no array");
+      const unchanged =
+        next === last ||
+        (next.length === last.length &&
+          next.every((entry, index) => same(entry, last[index] as Entry)));
+      if (!unchanged) last = next;
+    } catch (error) {
+      reportOnce(part, call, error);
+    }
+    return last;
+  };
+}
+
+const sameReference = (reference: BoardReference, before: BoardReference): boolean =>
+  reference === before ||
+  (reference.from === before.from &&
+    reference.to === before.to &&
+    reference.relation === before.relation);
+
 const modelList = oncePer<NonNullable<BoardHost["models"]>, ModelList>((models) => ({
-  list: () => models.list(),
+  list: steadyList(models, "host.models.list()", () => models.list(), Object.is, NO_PATHS),
   onChange: (listener) => models.onChange(listener),
 }));
 
 const images = oncePer<BoardImages, BoardImages>((port) => ({
   read: (path) => port.read(path),
   onChange: (listener) => port.onChange(listener),
+  ...(port.taken === undefined ? {} : { taken: (path) => Boolean(port.taken?.(path)) }),
   ...(port.store === undefined ? {} : { store: (path, bytes) => port.store?.(path, bytes) }),
 }));
 
 const references = oncePer<BoardReferences, BoardReferences>((port) => ({
-  list: () => port.list(),
+  list: steadyList(
+    port,
+    "host.references.list()",
+    () => port.list(),
+    sameReference,
+    NO_REFERENCE_LIST,
+  ),
   onChange: (listener) => port.onChange(listener),
 }));
 
@@ -61,9 +121,22 @@ function fallbackTitle(path: string): string {
   return dot === -1 ? name : name.slice(0, dot);
 }
 
+/** what the host calls a file; undefined where it says nothing, is not asked or fails */
+function describedByHost(host: BoardHost, path: string): ModelDescription | undefined {
+  const { models } = host;
+  // a node that names no file has nothing a host could describe
+  if (path === "" || models?.describe === undefined) return undefined;
+  try {
+    return models.describe(path);
+  } catch (error) {
+    reportOnce(models, "host.models.describe()", error);
+    return undefined;
+  }
+}
+
 /** the host's answer, else the file name up to its first dot and no kind */
 export function describeModel(host: BoardHost, path: string): ModelDescription {
-  const described = host.models?.describe?.(path);
+  const described = describedByHost(host, path);
   if (described !== undefined) return described;
   const known = fallbackDescriptions(host);
   let fallback = known.get(path);

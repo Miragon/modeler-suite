@@ -12,6 +12,28 @@ function snap(value: number): number {
   return Math.round(value * ratio) / ratio;
 }
 
+/**
+ * A call into host code: one of an editor's own, or a listener the editor registered. What it
+ * throws is written to the board's log, and the board goes on.
+ */
+export function contained(log: (line: string) => void, what: string, call: () => void): void {
+  try {
+    call();
+  } catch (error) {
+    log(`${what} failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/** one of the calls the board makes on a host's editor, contained */
+export function callEditor(
+  editor: EmbeddedEditor | null,
+  call: "release" | "focus" | "destroy",
+  nodeId: string,
+  log: (line: string) => void,
+): void {
+  contained(log, `${nodeId}: the editor's ${call}()`, () => editor?.[call]?.());
+}
+
 /** what `hooks.engine(nodeId)` hands a script for such a node */
 export interface OverlayRuntime {
   readonly nodeId: string;
@@ -40,6 +62,7 @@ export function placeHost(
   layer: HTMLElement | null,
   flow: Pick<FlowStore, "getState">,
   nodeId: string,
+  log: (line: string) => void,
 ): void {
   const { host, home } = current;
   if (current.armed && layer) {
@@ -54,7 +77,7 @@ export function placeHost(
       layer.appendChild(host);
       host.dataset.layout = "overlay";
       // the move took the focus from whatever had it inside
-      current.editor?.focus?.();
+      callEditor(current.editor, "focus", nodeId, log);
     }
     const { placed } = current;
     const state = flow.getState();

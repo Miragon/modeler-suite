@@ -16,22 +16,27 @@ about each other and the cursors of other people come from the host it is mounte
 `host`).
 
 The canvas was built and measured in designIQ and was moved here as it is. It is under tests in
-Chromium: a board mounts with a host's editor in a model node, the rules for editing a model run
-against traces recorded before their code was split, and the contract's conformance kit runs
-against the factory. Its stylesheet stands on the design system's roles and on a base of its own,
-so a board mounted here has the light picture that was measured; dark is not designed. The
-batteries the canvas was measured with need designIQ's editors and have not run here.
+Chromium: a board mounts with a recording stand-in for a host's editor in a model node, the rules
+for editing a model run against recorded traces (70 of the 73 from before their code was split,
+three recorded anew since, which the unsplit code gives byte for byte as well), and the
+contract's conformance kit runs against the factory, on a document of its own and on a live
+document of a host. Its stylesheet stands on the design system's roles and on a base of its own,
+so a board mounted here has the light picture that was measured; dark is not designed. No test
+here mounts an editor that draws, and the batteries the canvas was measured with need designIQ's
+editors and have not run here.
 
 Still to come before this is a modeler like the others:
 
 - what the contract's kit asks of a modeler and the board does not have: a viewer, themes, an
   image export and gestures a host can follow. The kit runs with seven of its cases skipped, each
-  pinned by name, where the suite's rule for a renderer is none;
-- the web app, the VS Code extension and the Orca plugin. Until then one repository-level check
-  fails for this folder (`test/modeler-collection.test.ts` wants an `apps/vscode`).
+  pinned by name and reason, where the suite's rule for a renderer is none;
+- the web app, the VS Code extension and the Orca plugin. Until they exist the suite's CI cannot
+  pass with this folder in the tree: `test/modeler-collection.test.ts` wants an `apps/vscode`,
+  and the jobs that build and test a modeler's apps find no script for the board.
 
 [`CLAUDE.md`](CLAUDE.md) says what is in the tree, what was run on it, what the host brings and
-what must not change in passing.
+what must not change in passing; the [test README](packages/renderer/test/README.md) says what
+each test holds.
 
 ## Not on diagram-js
 

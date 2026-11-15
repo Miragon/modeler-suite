@@ -7,6 +7,7 @@
  * - an arrow drawn from a handle and released on a node, not on one of its handles, ends at that
  *   node's nearest side (React Flow itself connects only within reach of a handle);
  * - an image file pasted or dropped onto the board becomes a repository file and an image node;
+ *   inside the armed editor both are the editor's, and the board takes neither;
  * - the board zoom reaches the stylesheet, so that arrow heads, labels and handles keep a size on
  *   screen one can read and grab when the board is zoomed out.
  *
@@ -19,6 +20,7 @@ import { ImagePlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { inArmedEditor } from "../arming/armed-editor.js";
 import type { BoardFlowEdge, BoardFlowNode } from "../flow/flow-types.js";
 import { importImages } from "../gestures/images.js";
 import { nextPlace } from "../gestures/placement.js";
@@ -156,8 +158,11 @@ export function BoardGestures() {
       if (!carriesFiles(event) || !ours(event)) return;
       // without this the browser would leave the page for the dropped file
       event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-      setDropping(true);
+      // over the armed editor the file is the editor's, as a paste there is: no hint, and the
+      // drop effect stays the editor's to choose
+      const editors = inArmedEditor(event.target);
+      if (event.dataTransfer && !editors) event.dataTransfer.dropEffect = "copy";
+      setDropping(!editors);
       // dragleave fires for every element the pointer crosses: the hint goes when dragover stops coming
       clearTimeout(idle);
       idle = setTimeout(() => setDropping(false), 200);
@@ -167,6 +172,7 @@ export function BoardGestures() {
       event.preventDefault();
       clearTimeout(idle);
       setDropping(false);
+      if (inArmedEditor(event.target)) return;
       const files = [...(event.dataTransfer?.files ?? [])];
       const onBoard = event.target instanceof Node && host?.contains(event.target) === true;
       const at = onBoard

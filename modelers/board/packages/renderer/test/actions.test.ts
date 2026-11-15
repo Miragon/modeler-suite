@@ -31,6 +31,7 @@ import {
   noteColor,
   reconnectArrow,
   regroup,
+  takenIn,
   writeDrop,
   writeNoteColor,
   writeRegroup,
@@ -430,6 +431,41 @@ test("a new image gets a path under assets/ that replaces no file", () => {
   assert.equal(assetPath("../../etc/passwd.svg", ".svg", has), "assets/passwd.svg");
   assert.equal(assetPath("", ".webp", has), "assets/image.webp");
   assert.equal(assetPath("....", ".gif", has), "assets/image.gif");
+});
+
+test("whether a path is in use is the host's own answer where it gives one, else whether it has the bytes", () => {
+  // a host without `taken`: a path is in use when read() has bytes for it
+  const loaded = new Map([["assets/photo.png", new Blob(["a photo"])]]);
+  const byBytes = takenIn({ read: (path) => loaded.get(path) });
+  assert.equal(byBytes("assets/photo.png"), true);
+  assert.equal(byBytes("assets/plan.svg"), false);
+  assert.equal(assetPath("photo.png", ".png", byBytes), "assets/photo-2.png");
+
+  // a host that has not loaded assets/plan.svg (read() answers undefined for it) says so itself:
+  // read() is not asked, and the new image does not get the file's path
+  const reads: string[] = [];
+  const names: string[] = [];
+  const lazy = {
+    files: new Set(["assets/plan.svg", "assets/plan-2.svg"]),
+    read(path: string): undefined {
+      reads.push(path);
+      return undefined;
+    },
+    // called as a method of the port: a host's `this` is its own
+    taken(path: string): boolean {
+      names.push(path);
+      return this.files.has(path);
+    },
+  };
+  assert.equal(assetPath("Plan.SVG", ".svg", takenIn(lazy)), "assets/plan-3.svg");
+  assert.deepEqual(names, ["assets/plan.svg", "assets/plan-2.svg", "assets/plan-3.svg"]);
+  assert.deepEqual(reads, []);
+
+  // a host whose read() has a placeholder for every path: with read() alone no name would be free
+  const placeholder = new Blob(["loading"]);
+  const eager = takenIn({ read: () => placeholder, taken: (path) => path === "assets/logo.png" });
+  assert.equal(assetPath("logo.png", ".png", eager), "assets/logo-2.png");
+  assert.equal(assetPath("new.png", ".png", eager), "assets/new.png");
 });
 
 test("an image node keeps the picture's proportions and is never larger than the picture", () => {

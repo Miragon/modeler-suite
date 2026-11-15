@@ -76,6 +76,17 @@ export interface BoardBench {
     | undefined;
 }
 
+/**
+ * Moves the canvas shows and has not written yet: an arrow-key move waits until the keys rest
+ * (board-flow.tsx).
+ */
+export interface HeldMoves {
+  /** gives them up: the nodes stand where the document has them again, and nothing is written */
+  drop(): void;
+  /** writes them now, as the one gesture they are */
+  write(): void;
+}
+
 /** everything a board is made of comes from whoever mounts it: a host, the contract module, the spike page */
 export interface BoardParts {
   /** the board document */
@@ -104,6 +115,16 @@ export interface BoardParts {
   onFlow?: ((flow: ReactFlowInstance<BoardFlowNode, BoardFlowEdge> | null) => void) | undefined;
   /** the selected nodes and stored arrows, by element id, after every change of the selection */
   onSelection?: ((ids: string[]) => void) | undefined;
+  /**
+   * The arm rules at work once the provider made them, null when the board unmounts: whoever
+   * mounted the board asks them whether it moves to arm a node.
+   */
+  onArming?: ((arming: BoardArming | null) => void) | undefined;
+  /**
+   * What the canvas holds back from the document, null when the board unmounts: whoever mounted
+   * the board gives it up before an import and writes it before the board goes.
+   */
+  onHeldMoves?: ((held: HeldMoves | null) => void) | undefined;
 }
 
 export interface BoardRuntime {
@@ -127,6 +148,10 @@ export interface BoardRuntime {
   onFlow?(flow: ReactFlowInstance<BoardFlowNode, BoardFlowEdge> | null): void;
   /** see BoardParts.onSelection */
   onSelection?(ids: string[]): void;
+  /** see BoardParts.onArming */
+  onArming?(arming: BoardArming | null): void;
+  /** see BoardParts.onHeldMoves */
+  onHeldMoves?(held: HeldMoves | null): void;
 
   /** a model node of the board */
   isModel(nodeId: string): boolean;
@@ -208,6 +233,8 @@ export function createBoardRuntime(params: BoardOptions, parts: BoardParts): Boa
     fitPadding: parts.fitPadding ?? FIT_PADDING,
     ...(parts.onFlow ? { onFlow: parts.onFlow } : {}),
     ...(parts.onSelection ? { onSelection: parts.onSelection } : {}),
+    ...(parts.onArming ? { onArming: parts.onArming } : {}),
+    ...(parts.onHeldMoves ? { onHeldMoves: parts.onHeldMoves } : {}),
 
     isModel,
     armedId: () => armed,
@@ -285,6 +312,11 @@ export function BoardProvider({
   // is loaded lazily): a zoom tick reaches the arm rules first, and an armed editor that is
   // disarmed there never hears of the tick
   useLayoutEffect(() => arming.watch(), [arming]);
+  const { onArming } = runtime;
+  useLayoutEffect(() => {
+    onArming?.(arming);
+    return () => onArming?.(null);
+  }, [onArming, arming]);
   const value = useMemo<BoardContextValue>(
     () => ({
       ...runtime,

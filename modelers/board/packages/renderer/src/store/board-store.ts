@@ -21,6 +21,13 @@ import { elementsOf, metaOf, readSnapshot, reconcileSnapshot } from "./document.
 /** origin of this client's board gestures: what the undo manager tracks */
 export const BOARD_LOCAL = "board-local";
 
+/**
+ * origin of a change the board makes that is nobody's gesture (a model's path follows a rename):
+ * the board's own change, so a host is told of it, but never on the history, so no undo takes it
+ * back
+ */
+export const BOARD_AMEND = "board-amend";
+
 /** some of an element's attributes; one given as `undefined` is removed from the element */
 export type Patch<T> = { [K in keyof T]?: T[K] | undefined };
 
@@ -39,6 +46,8 @@ export interface BoardStore {
   getSnapshot(): BoardView;
   /** one gesture, one transaction, origin BOARD_LOCAL */
   gesture(run: (tx: BoardTx) => void): void;
+  /** one change that is no gesture, one transaction, origin BOARD_AMEND: never on the history */
+  amend(run: (tx: BoardTx) => void): void;
   /** a key above every node's (bring to front, a new node) */
   zOnTop(): string;
   /** the board file as it is at rest */
@@ -64,6 +73,11 @@ export function createBoardDoc(seed: BoardSnapshot | string): Y.Doc {
   return doc;
 }
 
+/**
+ * The store of a board document. The document has to come from the copy of yjs this package
+ * loads: the store tells its elements by `instanceof Y.Map`, and one made with another copy is
+ * read as elements without attributes, with no error.
+ */
 export function createBoardStore(doc: Y.Doc): BoardStore {
   const elements = elementsOf(doc);
   const meta = metaOf(doc);
@@ -107,6 +121,7 @@ export function createBoardStore(doc: Y.Doc): BoardStore {
     },
     getSnapshot: () => view,
     gesture: (run) => doc.transact(() => run(tx), BOARD_LOCAL),
+    amend: (run) => doc.transact(() => run(tx), BOARD_AMEND),
     zOnTop: () =>
       fractionalIndexBetween(
         view.nodes.reduce((top, node) => (node.attrs.z > top ? node.attrs.z : top), ""),

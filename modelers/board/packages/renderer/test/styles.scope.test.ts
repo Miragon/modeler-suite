@@ -94,7 +94,7 @@ const ALL = Object.entries(SHEETS).flatMap(([sheet, css]) =>
 
 describe("styles.scope: the reader finds the rules", () => {
   it("reads both sheets, the rules inside @media and @supports included", () => {
-    // 182 and 52 when this was written: a reader that lost half of them would prove nothing
+    // 179 and 52 when this was last counted: a reader that lost half of them would prove nothing
     expect(selectorsOf(SHEETS["board.css"]).length).toBeGreaterThan(150);
     expect(selectorsOf(SHEETS["board-base.css"]).length).toBeGreaterThan(45);
     expect(
@@ -131,8 +131,28 @@ describe("styles.scope: every rule stays inside the board", () => {
   });
 
   it("holds no rule of the measuring bench", () => {
-    const bench = /\.board-(stub|frame)(?![\w-])/;
+    // the bench's toolbar lead was the one part that put a <label> into the toolbar
+    const bench = /\.board-(stub|frame)(?![\w-])|(?<![\w.#[-])label(?![\w-])/;
     expect(ALL.filter(({ selector }) => bench.test(selector))).toEqual([]);
+    expect(bench.test(".board-toolbar label")).toBe(true);
+    expect(bench.test(".board-group__label")).toBe(false);
+    expect(bench.test(".board-arrow-label[data-selected]")).toBe(false);
+    expect(bench.test('.board-toolbar [aria-label="Zoom"]')).toBe(false);
+  });
+
+  it("holds no rule for a part of React Flow the board never draws", () => {
+    // `updating` comes with React Flow's own reconnect anchors, which need the onReconnect prop the
+    // board does not pass; `__edge-text` is the label of its BaseEdge, and both edge types of the
+    // board draw theirs in the EdgeLabelRenderer
+    const neverDrawn = /\.react-flow__edge\.updating(?![\w-])|\.react-flow__edge-text(?![\w-])/;
+    expect(ALL.filter(({ selector }) => neverDrawn.test(selector))).toEqual([]);
+    expect(neverDrawn.test(".board-root .react-flow__edge.updating .react-flow__edge-path")).toBe(
+      true,
+    );
+    expect(neverDrawn.test(".board-root .react-flow__edge-text")).toBe(true);
+    expect(neverDrawn.test(".board-root .react-flow__edge.selected .board-arrow__line")).toBe(
+      false,
+    );
   });
 });
 

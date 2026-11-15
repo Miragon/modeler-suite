@@ -10,7 +10,10 @@
 /* The names the rules below read. Each was an alias of the ui-kit the sheet was written on and
    now reads the design-system role whose light value is the one that alias had, so the light
    picture is the measured one. Dark is not designed: on a dark page the board follows the page's
-   roles. The hover and the text of a primary button are the two fixed values of guide §8. */
+   roles. The fill, the hover and the text of a primary button are the fixed values of guide §8,
+   the same in both modes. --board-primary-fill is the one name the ui-kit did not have: its
+   --primary was the fixed blue and filled the two Done buttons too, while the role turns light
+   on a dark page, where white on it is 3.1:1. */
 .board-root {
   --board-background: var(--cd-ui-flaeche);
   --board-foreground: var(--cd-ui-text);
@@ -24,6 +27,7 @@
   --board-ring: var(--cd-ui-fokus);
   --board-link: var(--cd-ui-link);
   --board-primary: var(--cd-ui-interaktion);
+  --board-primary-fill: var(--cd-blau);
   --board-primary-hover: var(--cd-blau-link);
   --board-primary-foreground: var(--cd-weiss);
   --board-accent: color-mix(in srgb, var(--cd-ui-interaktion) 10%, transparent);
@@ -86,14 +90,8 @@
 .board-root .react-flow__attribution a {
   color: var(--board-muted-foreground);
 }
-.board-root .react-flow__edge.updating .react-flow__edge-path {
-  stroke: var(--board-primary);
-}
 .board-root .react-flow__resize-control.handle {
   border-color: var(--board-background);
-}
-.board-root .react-flow__edge-text {
-  font-family: var(--board-font-sans);
 }
 /* the board's group node is its own component: off with the look of the library's built-in "group" */
 .board-root .react-flow__node-group {
@@ -213,8 +211,8 @@
   height: 12px;
 }
 .board-node[data-armed="true"] .board-node__arm {
-  border-color: var(--board-primary);
-  background: var(--board-primary);
+  border-color: var(--board-primary-fill);
+  background: var(--board-primary-fill);
   color: var(--board-primary-foreground);
 }
 .board-node__body {
@@ -316,7 +314,6 @@
     var(--cd-shadow-1);
   font-size: 12px;
 }
-.board-toolbar label,
 .board-toolbar__group {
   display: inline-flex;
   align-items: center;
@@ -374,8 +371,8 @@
   }
 }
 .board-toolbar .board-toolbar__done:not(:disabled) {
-  border-color: var(--board-primary);
-  background: var(--board-primary);
+  border-color: var(--board-primary-fill);
+  background: var(--board-primary-fill);
   color: var(--board-primary-foreground);
 }
 .board-toolbar .board-toolbar__done:not(:disabled):hover {

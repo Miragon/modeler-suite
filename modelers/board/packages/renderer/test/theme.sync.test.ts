@@ -93,6 +93,7 @@ const LIGHT_VALUE_OF_ALIAS: Record<string, string> = {
   "--board-ring": "#2B50D4",
   "--board-link": "#2B50D4",
   "--board-primary": "#335DE5",
+  "--board-primary-fill": "#335DE5",
   "--board-primary-hover": "#2B50D4",
   "--board-primary-foreground": "#FFFFFF",
   "--board-destructive": "#CD1839",
@@ -104,8 +105,25 @@ const LIGHT_VALUE_OF_ALIAS: Record<string, string> = {
   "--board-info": "#335DE5",
 };
 
-/** Guide §8: the hover and the text of a primary button are the same in both modes. */
-const FIXED_ALIASES = ["--board-primary-hover", "--board-primary-foreground"];
+/**
+ * The one colour alias the measured page did not have. There `--primary` was the fixed blue and
+ * filled the two Done buttons; here `--board-primary` follows the mode, so the fill has a name of
+ * its own.
+ */
+const ALIASES_OF_THE_BOARDS_OWN = ["--board-primary-fill"];
+
+/** Guide §8: the fill, the hover and the text of a primary button are the same in both modes. */
+const FIXED_ALIASES = [
+  "--board-primary-fill",
+  "--board-primary-hover",
+  "--board-primary-foreground",
+];
+
+/** The two Done buttons: the armed node's own and the toolbar's. */
+const PRIMARY_BUTTONS = [
+  '.board-node[data-armed="true"] .board-node__arm',
+  ".board-toolbar .board-toolbar__done:not(:disabled)",
+];
 
 const FONT_STACKS: Record<string, string> = {
   "--board-font-sans":
@@ -136,13 +154,49 @@ function readAliases(): Record<string, string> {
   return aliases;
 }
 
-/** The light value of `var(--cd-…)`: a role through `hell`, a fixed token through `fest`. */
-function lightValueOf(expression: string): string {
+/** The value of `var(--cd-…)` in a mode: a role through that mode, a fixed token through `fest`. */
+function valueOf(expression: string, mode: "hell" | "dunkel"): string {
   const token = /^var\((--cd-[\w-]+)\)$/.exec(expression)?.[1];
   if (token === undefined) throw new Error(`not one token: ${expression}`);
-  const value = token.startsWith("--cd-ui-") ? tokens.hell[token] : tokens.fest[token];
+  const value = token.startsWith("--cd-ui-") ? tokens[mode][token] : tokens.fest[token];
   if (value === undefined) throw new Error(`${token} is not in cd-tokens.generated.json`);
   return value.toUpperCase();
+}
+
+const lightValueOf = (expression: string): string => valueOf(expression, "hell");
+
+interface Rule {
+  selector: string;
+  declarations: Record<string, string>;
+}
+
+/** The style rules of board.css, those inside `@media` included; a later declaration wins. */
+function rulesOf(css: string): Rule[] {
+  return [...withoutComments(css).matchAll(/([^{};]+)\{([^{}]*)\}/g)].map((match) => {
+    const declarations: Record<string, string> = {};
+    for (const declaration of match[2]!.split(";")) {
+      const colon = declaration.indexOf(":");
+      if (colon === -1) continue;
+      declarations[declaration.slice(0, colon).trim()] = declaration
+        .slice(colon + 1)
+        .trim()
+        .replace(/\s+/g, " ");
+    }
+    return { selector: match[1]!.trim().replace(/\s+/g, " "), declarations };
+  });
+}
+
+/** WCAG 2 contrast of two `#RRGGBB` colours. */
+function contrast(one: string, other: string): number {
+  const luminance = (hex: string): number => {
+    const [red, green, blue] = [1, 3, 5].map((start) => {
+      const channel = parseInt(hex.slice(start, start + 2), 16) / 255;
+      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red! + 0.7152 * green! + 0.0722 * blue!;
+  };
+  const [light, dark] = [luminance(one), luminance(other)].sort((a, b) => b - a);
+  return (light! + 0.05) / (dark! + 0.05);
 }
 
 describe("theme.sync: the board's sheets take every colour from the roles", () => {
@@ -194,11 +248,14 @@ describe("theme.sync: the board's sheets take every colour from the roles", () =
 describe("theme.sync: the alias block keeps the light picture the sheet was measured with", () => {
   const aliases = readAliases();
 
-  it("declares the 22 colour aliases and the 2 font aliases, and nothing else", () => {
+  it("declares the measured page's 22 colour aliases and 2 font aliases, the fill of a primary button, and nothing else", () => {
     expect(Object.keys(aliases).sort()).toEqual(
       [...Object.keys(LIGHT_VALUE_OF_ALIAS), "--board-accent", ...Object.keys(FONT_STACKS)].sort(),
     );
-    expect(Object.keys(aliases)).toHaveLength(NAMES_OF_THE_MEASURED_PAGE.length);
+    expect(Object.keys(aliases)).toHaveLength(
+      NAMES_OF_THE_MEASURED_PAGE.length + ALIASES_OF_THE_BOARDS_OWN.length,
+    );
+    for (const alias of ALIASES_OF_THE_BOARDS_OWN) expect(aliases).toHaveProperty(alias);
   });
 
   it.each(Object.entries(LIGHT_VALUE_OF_ALIAS))("%s resolves to %s in light", (alias, value) => {
@@ -222,6 +279,81 @@ describe("theme.sync: the alias block keeps the light picture the sheet was meas
 
   it.each(Object.entries(FONT_STACKS))("%s is the measured page's stack", (alias, stack) => {
     expect(aliases[alias]).toBe(stack);
+  });
+});
+
+describe("theme.sync: a primary button has guide §8's fixed fill in both modes", () => {
+  const aliases = readAliases();
+  const rules = rulesOf(boardCss);
+  const ruleOf = (selector: string): Rule => {
+    const found = rules.filter((rule) => rule.selector === selector);
+    expect(found, selector).toHaveLength(1);
+    return found[0]!;
+  };
+
+  it("the fill is the fixed blue, with the light value the role of the primary colour has", () => {
+    expect(aliases["--board-primary-fill"]).toBe("var(--cd-blau)");
+    expect(aliases["--board-primary-hover"]).toBe("var(--cd-blau-link)");
+    expect(aliases["--board-primary-foreground"]).toBe("var(--cd-weiss)");
+    expect(aliases["--board-primary"]).toBe("var(--cd-ui-interaktion)");
+    expect(lightValueOf(aliases["--board-primary-fill"]!)).toBe(
+      lightValueOf(aliases["--board-primary"]!),
+    );
+  });
+
+  it.each(PRIMARY_BUTTONS)("%s is filled with it and written in white", (selector) => {
+    expect(ruleOf(selector).declarations).toEqual({
+      "border-color": "var(--board-primary-fill)",
+      background: "var(--board-primary-fill)",
+      color: "var(--board-primary-foreground)",
+    });
+  });
+
+  it("the toolbar's Done button has the fixed hover", () => {
+    expect(ruleOf(".board-toolbar .board-toolbar__done:not(:disabled):hover").declarations).toEqual(
+      {
+        "border-color": "var(--board-primary-hover)",
+        background: "var(--board-primary-hover)",
+        color: "var(--board-primary-foreground)",
+      },
+    );
+  });
+
+  it("nothing but the two Done buttons reads the fill: rings and marks stay on the role", () => {
+    const readers = rules.filter((rule) =>
+      Object.values(rule.declarations).some((value) => value.includes("--board-primary-fill")),
+    );
+    expect(readers.map((rule) => rule.selector)).toEqual(PRIMARY_BUTTONS);
+    const onTheRole = rules.filter((rule) =>
+      Object.values(rule.declarations).some((value) => /var\(--board-primary\)/.test(value)),
+    );
+    expect(onTheRole.length).toBeGreaterThan(15);
+  });
+
+  it.each([
+    ["light", "hell"],
+    ["dark", "dunkel"],
+  ] as const)("white text on a ground of the sheet keeps 4.5:1 in %s", (_name, mode) => {
+    const white = valueOf(aliases["--board-primary-foreground"]!, mode);
+    const grounds = rules.flatMap(({ selector, declarations }) => {
+      const ground = /^var\((--board-[\w-]+)\)$/.exec(declarations.background ?? "")?.[1];
+      return declarations.color === "var(--board-primary-foreground)" && ground !== undefined
+        ? [{ selector, ground }]
+        : [];
+    });
+    expect(grounds.map(({ selector }) => selector)).toEqual([
+      ...PRIMARY_BUTTONS,
+      ".board-toolbar .board-toolbar__done:not(:disabled):hover",
+    ]);
+    for (const { selector, ground } of grounds) {
+      expect(contrast(white, valueOf(aliases[ground]!, mode)), selector).toBeGreaterThan(4.5);
+    }
+  });
+
+  it("the contrast reader tells the two blues apart", () => {
+    expect(contrast("#FFFFFF", "#335DE5")).toBeCloseTo(5.47, 2);
+    expect(contrast("#FFFFFF", "#6B8AFF")).toBeCloseTo(3.13, 2);
+    expect(contrast("#FFFFFF", "#000000")).toBeCloseTo(21, 5);
   });
 });
 

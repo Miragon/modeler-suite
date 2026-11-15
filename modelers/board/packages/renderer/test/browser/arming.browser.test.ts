@@ -4,6 +4,10 @@
  * script, and its whole trace against the text recorded while `createBoardArming` was one
  * function. The first says the rules do what the scenario's name says; the second says a split
  * of the function changed nothing else either.
+ *
+ * The recorded text is imported, not kept as a file snapshot: a snapshot that is missing is
+ * written anew outside CI and the run stays green, whatever the rules do by then. An import of a
+ * missing file fails, and no flag of the runner writes the file.
  */
 import { describe, expect, it } from "vitest";
 
@@ -19,6 +23,11 @@ import {
   type Trace,
   traceText,
 } from "../support/arming-scenarios.js";
+import fixture from "./fixtures/arming-traces.json";
+
+const recordedTraces: Readonly<Record<string, unknown>> = fixture;
+/** the file's own text: arming-fixture.test.ts holds the file to the form `traceText` writes */
+const recordedText = `${JSON.stringify(fixture, null, 2)}\n`;
 
 const NOTHING_COUNTED: ArmCounters = {
   transitions: 0,
@@ -126,6 +135,11 @@ describe("the arm rules at work", () => {
   it("leaves every trace as it was recorded from the one function", async () => {
     const traces: Trace[] = [];
     for (const scenario of SCENARIOS) traces.push(await traceOf(scenario));
-    await expect(traceText(traces)).toMatchFileSnapshot("./fixtures/arming-traces.json");
+    expect(Object.keys(recordedTraces)).toEqual(SCENARIOS.map(({ name }) => name));
+    const text = traceText(traces);
+    // scenario by scenario first: a trace that moved is named and shown alone
+    const now = JSON.parse(text) as Record<string, unknown>;
+    for (const { name } of SCENARIOS) expect(now[name], name).toEqual(recordedTraces[name]);
+    expect(text === recordedText, "the traces as text, byte for byte").toBe(true);
   });
 });

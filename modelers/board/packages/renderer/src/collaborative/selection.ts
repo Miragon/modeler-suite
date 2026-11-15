@@ -35,6 +35,8 @@ export function createSelectionMirror(
     for (const listener of [...selectionListeners]) {
       // a listener may destroy the board
       if (session.destroyed) return;
+      // or take a later one off, which is then not called either (contract 1.6)
+      if (!selectionListeners.has(listener)) continue;
       listener([...next]);
     }
   };

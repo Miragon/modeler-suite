@@ -812,6 +812,8 @@ const BACK = { armreturn: "back" } as const;
 const LOCK = { armedzoom: "lock" } as const;
 /** a zoom of the board under n_order as it stands armed */
 const ZOOMED_OUT: Viewport = { ...AT_ORDER, zoom: 0.8 };
+/** the same zoom with the board moved on both axes, as a zoom about the pointer leaves it */
+const ZOOMED_OUT_ELSEWHERE: Viewport = { x: 10, y: 20, zoom: 0.8 };
 
 const ARMING: Scenario[] = [
   {
@@ -1198,21 +1200,29 @@ const ZOOM_SEEN_COMING: Scenario[] = [
     name: "beforeZoom with a press held in the armed editor: refused until the release",
     board: { viewport: AT_ORDER },
     async script(bench) {
+      // Each kind of release is asked about before the next press. Asked only after it, a
+      // release that the rules did not hear would pass for one: the next press holds anew
       await bench.arm(ORDER, BUTTON);
       await bench.press("the armed node's body");
       await bench.beforeZoom(true);
       await bench.release("pointercancel");
+      await bench.beforeZoom(true);
+      await bench.arm(ORDER, BUTTON);
       await bench.press("the editor in the overlay layer");
       await bench.beforeZoom(true);
       await bench.release("blur");
+      await bench.beforeZoom(true);
+      await bench.arm(ORDER, BUTTON);
       await bench.press("the armed node's body");
       await bench.beforeZoom(true);
       await bench.release("pointerup");
+      await bench.beforeZoom(true);
       // a press that did not begin in the armed editor holds nothing
+      await bench.arm(ORDER, BUTTON);
       await bench.press("the pane");
       await bench.beforeZoom(true);
     },
-    expected: { armed: null, moves: [], counted: { zoomsRefused: 3, disarmsBeforeZoom: 1 } },
+    expected: { armed: null, moves: [], counted: { zoomsRefused: 3, disarmsBeforeZoom: 4 } },
   },
   {
     name: "a wheel on the board under disarm: a preview before the zoom gets it",
@@ -1303,7 +1313,8 @@ const ZOOM_NOT_SEEN_COMING: Scenario[] = [
     board: { viewport: AT_ORDER, rules: LOCK },
     async script(bench) {
       await bench.arm(ORDER, BUTTON);
-      await bench.write(ZOOMED_OUT);
+      // the tick moves the board on both axes too: x and y have to come back with the zoom
+      await bench.write(ZOOMED_OUT_ELSEWHERE);
     },
     expected: {
       armed: ORDER,
@@ -1539,9 +1550,18 @@ const URL_AND_REST: Scenario[] = [
     async script(bench) {
       await bench.whenRest();
       await bench.frame(16);
+      // the fit is through and the editor is not up: only the editor holds the arm back
       await bench.queueFit(false);
       await bench.frame(16);
+      // Escape ends a move. Here and below it finds none: an arm that did not wait would end
+      // here, and the node would never be armed
+      await bench.key("the pane", "Escape");
+      // the editor is up and a fit is queued again: only the fit holds the arm back
+      await bench.queueFit(true);
       await bench.editorUp(ORDER);
+      await bench.frame(16);
+      await bench.key("the pane", "Escape");
+      await bench.queueFit(false);
       await bench.frame(16);
       await bench.frame(100, 3);
       await bench.frame(16, 2);

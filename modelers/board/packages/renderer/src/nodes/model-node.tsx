@@ -14,7 +14,7 @@
  */
 import { type NodeProps, NodeResizer } from "@xyflow/react";
 import { Check, GripVertical, Pencil } from "lucide-react";
-import { memo, type MouseEvent, useEffect } from "react";
+import { memo, type MouseEvent, useEffect, useLayoutEffect } from "react";
 
 import type { BoardFlowNode } from "../flow/flow-types.js";
 import { describeModel } from "../host/defaults.js";
@@ -42,6 +42,16 @@ function ModelNodeFrame({ id, data, selected, width, height }: NodeProps<BoardFl
   useEffect(() => {
     if (!shown) surfaceFailed(id);
   }, [shown, id, surfaceFailed]);
+  // The node is gone (removed by the person, by an import or by a peer): nobody edits its model
+  // any more, so the arming ends with it. A model that moved to another path keeps this component,
+  // and with it the arming
+  const { arm, armedId } = board;
+  useLayoutEffect(
+    () => () => {
+      if (armedId() === id) void arm(null);
+    },
+    [id, arm, armedId],
+  );
 
   return (
     <>

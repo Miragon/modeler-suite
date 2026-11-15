@@ -39,6 +39,10 @@ export default defineConfig({
             enabled: true,
             provider: playwright(),
             headless: true,
+            // A desktop window: Vitest's own default is 414 x 896, where only the narrow branch
+            // of the sheet's breakpoint (760 px) is laid out. styles.browser.test.ts narrows the
+            // frame for that one
+            viewport: { width: 1280, height: 800 },
             instances: [{ browser: "chromium" }],
           },
         },

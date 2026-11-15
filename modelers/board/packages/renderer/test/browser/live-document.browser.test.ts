@@ -1,7 +1,8 @@
 /**
  * The option `liveDocument`: a board on a document the host shares with other people. The board
- * shows it without an import and fits it once, draws a peer's change without reporting one,
- * imports into it, and leaves it alone when it is destroyed.
+ * shows it without an import and fits it once (a document that is still empty when its first
+ * node arrives), draws a peer's change without reporting one, imports into it, and leaves it
+ * alone when it is destroyed.
  */
 import { attachedHost } from "@miragon/modeler-api/conformance";
 import { afterEach, describe, expect, it } from "vitest";
@@ -19,7 +20,7 @@ import {
   NEW_NODE,
   writeDrop,
 } from "../../src/index.js";
-import { BOARD_A, BOARD_B } from "../support/board-texts.js";
+import { BOARD_A, BOARD_B, BOARD_EMPTY } from "../support/board-texts.js";
 import { mountBoard } from "../support/mount-board.js";
 
 interface LiveBoard {
@@ -106,6 +107,77 @@ describe("a board on a live document of the host", () => {
       modeler.setViewState(chosen),
     );
     expect(viewed.modeler.getViewState()).toEqual(chosen);
+  });
+
+  /** board A as a provider's first sync brings it: one update, not this board's own */
+  const syncBoardA = (doc: Y.Doc): void =>
+    Y.applyUpdate(doc, Y.encodeStateAsUpdate(createBoardDoc(BOARD_A)), "peer");
+  const PLAIN = { x: 0, y: 0, zoom: 1 };
+
+  it("fits a document that was empty at the attach once a peer gives it its first node", async () => {
+    const doc = new Y.Doc();
+    const live = await mountLive(doc);
+    expect(live.modeler.getViewState()).toEqual(PLAIN);
+
+    syncBoardA(doc);
+    const fitted = (await mountOwn(BOARD_A)).getViewState();
+    expect(fitted).not.toEqual(PLAIN);
+    expect(live.modeler.getViewState()).toEqual(fitted);
+    expect(live.modeler.exportText()).toBe(BOARD_A);
+    expect(live.changes()).toBe(0);
+    await expect
+      .poll(() => shownNodes(live.element), SOON)
+      .toEqual(["n_group", "n_note_a", "n_note_b"]);
+
+    // once: what a peer changes afterwards moves no view
+    asPeer(doc, "n_note_b", { x: 4000 });
+    expect(live.modeler.getViewState()).toEqual(fitted);
+  });
+
+  it("fits it too when the first node arrives before the canvas is there", async () => {
+    const doc = new Y.Doc();
+    const element = attachedHost();
+    const modeler = createCollaborativeModeler({ liveDocument: doc });
+    cleanups.push(() => {
+      modeler.destroy();
+      element.parentElement?.remove();
+    });
+    modeler.attachTo(element);
+    syncBoardA(doc);
+    await modeler.board.mounted;
+    expect(modeler.getViewState()).toEqual((await mountOwn(BOARD_A)).getViewState());
+  });
+
+  it("does not fit it late for a host that fits itself, set a view or imported meanwhile", async () => {
+    const unfitted = await mountLive(new Y.Doc(), { fitOnImport: false });
+    syncBoardA(unfitted.modeler.board.store.doc);
+    expect(unfitted.modeler.getViewState()).toEqual(PLAIN);
+
+    const chosen = { x: -150, y: 60, zoom: 0.5 };
+    const viewed = await mountLive(new Y.Doc());
+    viewed.modeler.setViewState(chosen);
+    syncBoardA(viewed.modeler.board.store.doc);
+    expect(viewed.modeler.getViewState()).toEqual(chosen);
+
+    const imported = await mountLive(new Y.Doc());
+    await imported.modeler.importText(BOARD_EMPTY);
+    syncBoardA(imported.modeler.board.store.doc);
+    expect(imported.modeler.getViewState()).toEqual(PLAIN);
+  });
+
+  it("does not fit it for a first node this board's own gesture made, nor for what follows", async () => {
+    const doc = new Y.Doc();
+    const live = await mountLive(doc);
+    addNode(
+      live.modeler.board.store,
+      { type: "text", text: "Mine", ...NEW_NODE.text },
+      { x: 900, y: 700 },
+    );
+    expect(live.changes()).toBe(1);
+    expect(live.modeler.getViewState()).toEqual(PLAIN);
+
+    syncBoardA(doc);
+    expect(live.modeler.getViewState()).toEqual(PLAIN);
   });
 
   it("draws a peer's change and reports none, and reports this board's own gesture", async () => {
