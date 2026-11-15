@@ -1,0 +1,24 @@
+{
+  "name": "@miragon/board-modeler-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "modelerSuite": {
+    "domFreePackages": [
+      "schema-model"
+    ]
+  },
+  "scripts": {
+    "build": "npm run typecheck",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint . && npm run typecheck",
+    "format": "prettier --write . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",
+    "format:check": "prettier --check . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",
+    "test": "vitest run --project=unit",
+    "depcruise": "depcruise packages --config .dependency-cruiser.cjs"
+  }
+}

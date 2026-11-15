@@ -1,0 +1,22 @@
+{
+  "name": "@miragon/board-schema-model",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The board document model: the file format (one JSON line per element), its strict reader, the elements of a board and what a canvas draws of them.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "npm --prefix ../.. run test"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}
