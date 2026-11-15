@@ -63,7 +63,9 @@ the modeler's `CLAUDE.md`.
 - `toolchain.browser.test.tsx`: a board of notes mounts with its sheet and a pane that takes
   the focus, a model node asks the host once for its editor, a double-click arms it at board
   zoom 1 in the layer, a zoom of the board releases it, and `exportText()` gives back the
-  imported text. It also checks the test support itself.
+  imported text. It also checks the test support itself, `complaintsOf` among it: Vitest's
+  runner prints a window error without an error object through `console.error`, and the filter
+  leaves out Chromium's ResizeObserver line and nothing else.
 - `react-flow-internals.browser.test.tsx`: the fields of React Flow's store the board reads,
   and the shape of a connection in progress.
 - `arming.browser.test.ts`: the arm rules at work on a bench of fakes (React Flow's store as far
@@ -224,6 +226,8 @@ nothing), and two pairs of statements that cover for each other (the press and t
 - `support/mount-board.ts`: `mountBoard(text, options)`, a board through the entry, in the kit's
   800 x 600 host element.
 - `support/pointer.ts`: `click`, `doubleClick`, `key`.
+- `support/console-complaints.ts`: `complaintsOf(spy)`, what a `console.error` spy heard without
+  Chromium's ResizeObserver line (the notes below say why a test needs it).
 - `support/arming-scenarios.ts`: the bench of the arming test, its scenarios and `traceText`,
   which writes the fixture's text.
 
@@ -370,7 +374,12 @@ from the suite's rule of zero skips.
   set, so the other tests of the file get the part as it is. React reports the error it hands to
   the boundary through `console.error`.
 - Do not add a window `error` or `unhandledrejection` listener in a browser test: while one is
-  registered, Vitest stops counting real unhandled errors of that page.
+  registered, Vitest stops counting real unhandled errors of that page. A file that listens all
+  the same asserts its list itself after every test, as the browser files of `packages/host`
+  (`test/support/window-errors.ts`) and of `apps/webapp` do. Vitest tells a listener by the
+  calls of `window.addEventListener`, which it wraps:
+  `EventTarget.prototype.addEventListener.call(window, "error", listener)` goes past the wrapper,
+  so the run still counts the error (`apps/editors/test/browser/support/page-errors.ts`).
 - The window is 1280 x 800. A test of the narrow branch of the sheet narrows the frame with
   `page.viewport(width, height)` of `vitest/browser` and sets it back in `afterEach`.
 - `optimizeDeps.include` in `vitest.config.ts` names the twelve dependencies that are pre-bundled
@@ -387,3 +396,11 @@ from the suite's rule of zero skips.
   settle of two frames and 30 ms. If Vitest ever counts the line as an unhandled error, or it
   shows as an advisory, filter exactly that message or record the flicker here; never answer it
   with a longer skip list.
+- Vitest prints that line as `console.error(new Error(message))`, so a `console.error` spy hears
+  it. A test that compares everything the spy was called with reads it through `complaintsOf`
+  (`support/console-complaints.ts`). `contract-edges.browser.test.ts` ("resolves although the
+  host's free area throws") compared the raw calls and failed on the line in 4 of 31 runs of the
+  whole browser project and in 0 of 10 runs alone, on a machine with a load average of 12 to 16
+  on 12 cores. Its two comparisons and the two `not.toHaveBeenCalled()` of
+  `overlay-surface.browser.test.tsx` now read the filtered calls. Every watch of a page's errors
+  outside this package leaves out exactly that message as well.

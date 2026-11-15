@@ -1,0 +1,54 @@
+/* The page around the board: the board fills the window above one line that says where the
+   example is kept. Nothing here gives the board an ancestor with a transform, a filter, contain
+   or will-change: a fixed popup of an armed editor would be placed against it. */
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+.board-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.board-page__board {
+  flex: 1;
+  min-height: 0;
+}
+
+.board-page__note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--cd-ui-linie);
+  background: var(--cd-ui-flaeche);
+  color: var(--cd-ui-text-leise);
+  font-family:
+    "Geist Variable",
+    Geist,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.board-page__note[data-warning="true"] .board-page__kept {
+  color: var(--cd-ui-text);
+}
+
+.board-page__note a {
+  border-radius: var(--cd-radius-sm);
+  color: var(--cd-ui-link);
+}
+
+.board-page__note a:focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}

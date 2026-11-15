@@ -6,19 +6,25 @@ hook, tests in general, commits and pull requests are in the suite's
 [docs/ci-and-releases.md](../../docs/ci-and-releases.md). This file adds what is special to this
 modeler. AI agents: start with [`CLAUDE.md`](CLAUDE.md).
 
-**Work in progress.** The two packages are here; the web app, the VS Code extension, the Orca
-plugin, `e2e/`, `example/` and `docs/` are still to come. [`CLAUDE.md`](CLAUDE.md) says what is in
-the tree and what was run on it.
+**Work in progress.** Four packages, the web app on an example repository, `example/` and the
+first `e2e` project are here; the board inside the shell, the VS Code extension, the Orca plugin
+and `docs/` are still to come. [`CLAUDE.md`](CLAUDE.md) says what is in the tree and what was run
+on it.
 
 ## Packages
 
-| Package        | Purpose                                                                                     | DOM |
-| -------------- | ------------------------------------------------------------------------------------------- | --- |
-| `schema-model` | The `.board` format and its strict reader, the elements of a board, their order, their view | no  |
-| `renderer`     | The board as a live document on Yjs, the React Flow canvas, the contract factory, the sheet | yes |
+| Package        | Purpose                                                                                                           | DOM |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- | --- |
+| `schema-model` | The `.board` format and its strict reader, the elements of a board, their order, their view                       | no  |
+| `renderer`     | The board as a live document on Yjs, the React Flow canvas, the contract factory, the sheet                       | yes |
+| `files`        | The files of a repository as a board's page reads and writes them: port, protocol, client, server, memory backend | no  |
+| `host`         | A modeler of the contract as the editor of a model node, and a board host from files and a registry of editors    | yes |
 
-Every workspace is private and nothing goes to npm. The packages export their source, so there is
-nothing to build before the tests.
+The apps are `apps/editors` (the seven modelers of the suite as editors of model nodes, and the
+build helpers; the one workspace that imports another modeler), `apps/webapp` and `e2e`. Every
+workspace is private and nothing goes to npm. The packages export their source, and the tests
+take the other modelers from their sources too, so there is nothing to build before the tests
+but the shared packages.
 
 ## Inner loop
 
@@ -29,8 +35,13 @@ npm run board lint        # what the pre-commit hook runs
 npm run board depcruise
 ```
 
-`schema-model` is DOM-free (P1, enforced by ESLint and dependency-cruiser). Inside the renderer
-the document half (`store/`, `host/`, the arm rules) imports neither React nor React Flow nor a
+`npm run board dev:webapp` serves the web app on http://localhost:5184.
+
+`schema-model` and `files` are DOM-free (P1, enforced by ESLint and dependency-cruiser). No
+package and no app but `apps/editors` imports another modeler, neither a package of one by its
+name nor a file of one by a relative path; no package imports an app; and the sources of `host`
+import neither diagram-js nor React (`packages-no-other-modeler`, `packages-no-apps`,
+`host-no-editor-libraries`). Inside the renderer the document half (`store/`, `host/`, the arm rules) imports neither React nor React Flow nor a
 file of the layers after it: the rule `document-half-no-canvas` in `.dependency-cruiser.cjs`. Keep
 the format canonical: the same board gives the same bytes, and a change of one element changes
 one line.
@@ -45,8 +56,10 @@ never marked with a directive.
 
 ## Browser tests
 
-`npm run board test:browser` runs the canvas and the `@miragon/modeler-api` conformance kit
-(`packages/renderer/test/browser/conformance.browser.test.ts`) in Chromium. Run
+`npm run board test:browser` runs the canvas, the `@miragon/modeler-api` conformance kit
+(`packages/renderer/test/browser/conformance.browser.test.ts`), the host package on a stand-in
+modeler and the seven modelers of the suite in a board's nodes, in Chromium. A test of a preview
+or of an armed editor sends real input with `commands.realInput`. Run
 `npx playwright install chromium` once. The kit's skipped cases are pinned by name and reason,
 and the list may only shrink. `packages/renderer/test/browser/fixtures/arming-traces.json` holds
 the traces of the arm rules: 70 of the 73 as they were recorded before the arming was split, and
@@ -69,5 +82,6 @@ is an alias there and a row in that test.
 
 ## Pull requests
 
-Gates: `lint`, `test`, `test:browser`, `depcruise`. Scope `board`, e.g.
+Gates: `lint`, `test`, `test:browser`, `test:e2e`, `depcruise`, and `build:webapp` with the web
+app's `check:build`. Scope `board`, e.g.
 `feat(board): add an image export`.

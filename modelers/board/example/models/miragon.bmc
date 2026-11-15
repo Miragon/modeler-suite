@@ -1,0 +1,76 @@
+version: 1
+canvas:
+  title: Miragon Modeler Suite
+customer-segments:
+  items:
+    - id: consultants
+      text: Process consultants
+      color: sky
+    - id: agent-teams
+      text: Teams that code with agents
+      color: peach
+    - id: architects
+      text: Architects who model in text
+      color: lagoon
+value-propositions:
+  items:
+    - id: plain-text-models
+      text: Models as plain text that agents can edit
+      color: peach
+    - id: one-look
+      text: One look across every notation
+      notes:
+        - text: Reason to switch, or nice to have?
+    - id: diagrams-next-to-code
+      text: Diagrams that live next to the code
+      color: lagoon
+channels:
+  items:
+    - id: orca-catalog
+      text: Orca plugin catalog
+      color: peach
+    - id: vscode-marketplace
+      text: VS Code Marketplace
+    - id: workshops
+      text: Workshops and talks
+      color: sky
+customer-relationships:
+  items:
+    - id: self-service
+      text: Self-service with examples
+    - id: coaching
+      text: Training and coaching
+      color: sky
+revenue-streams:
+  items:
+    - id: consulting
+      text: Consulting projects
+      color: sky
+    - id: free-tier
+      text: Free tier (for students)
+key-resources:
+  items:
+    - id: platform
+      text: Shared modeler platform
+    - id: design-system
+      text: Design system
+key-activities:
+  items:
+    - id: build-modelers
+      text: Build and maintain the modelers
+    - id: write-skills
+      text: Write the Claude skills
+key-partners:
+  items:
+    - id: bpmn-io
+      text: bpmn.io community
+    - id: orca-team
+      text: Orca team
+cost-structure:
+  items:
+    - id: engineering
+      text: Engineering time
+    - id: ci
+      text: CI and release infrastructure
+  notes:
+    - text: No hosting costs, everything runs locally

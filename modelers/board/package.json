@@ -9,18 +9,22 @@
   },
   "modelerSuite": {
     "domFreePackages": [
-      "schema-model"
+      "schema-model",
+      "files"
     ]
   },
   "scripts": {
     "build": "npm run typecheck",
-    "typecheck": "tsc -p tsconfig.json",
+    "build:webapp": "npm run build -w apps/webapp",
+    "typecheck": "tsc -p tsconfig.json && tsc -p apps/webapp/tsconfig.config.json && npm run typecheck -w apps/editors && npm run typecheck -w e2e",
     "lint": "eslint . && npm run typecheck",
     "format": "prettier --write . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",
     "format:check": "prettier --check . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",
     "test": "vitest run --project=unit",
     "test:browser": "vitest run --project=browser",
-    "depcruise": "depcruise packages --config .dependency-cruiser.cjs"
+    "test:e2e": "npm run test:e2e -w e2e --",
+    "dev:webapp": "npm run dev -w apps/webapp",
+    "depcruise": "depcruise packages apps --config .dependency-cruiser.cjs"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

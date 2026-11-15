@@ -4,9 +4,10 @@
  * in-memory host, the synthetic input) drives it. What a part of the canvas does is checked in
  * that part's own file.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BOARD_A, BOARD_B, BOARD_EMPTY, MODEL_PATH } from "../support/board-texts.js";
+import { complaintsOf, RESIZE_OBSERVER_LINE } from "../support/console-complaints.js";
 import { type MountedBoard, mountBoard } from "../support/mount-board.js";
 import { click, doubleClick, key } from "../support/pointer.js";
 import { createTestHost } from "../support/test-host.js";
@@ -22,6 +23,7 @@ async function mount(...args: Parameters<typeof mountBoard>): Promise<MountedBoa
 afterEach(() => {
   mounted?.destroy();
   mounted = undefined;
+  vi.restoreAllMocks();
 });
 
 const shownNodes = (board: MountedBoard): string[] =>
@@ -169,5 +171,26 @@ describe("the test support on a mounted board", () => {
     expect(host.events.filter((entry) => entry.event === "destroy")).toHaveLength(1);
     expect(engine?.isConnected).toBe(false);
     expect(runtime.counters.arm.lateDisarms).toBe(0);
+  });
+});
+
+describe("what a test hears through console.error", () => {
+  it("leaves out Chromium's ResizeObserver line as Vitest prints it, and nothing else", () => {
+    const complaints = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    // as Chromium reports it: a window error with a message and no error object
+    window.dispatchEvent(new ErrorEvent("error", { message: RESIZE_OBSERVER_LINE }));
+    console.error("[board]", "the side panel is gone");
+    console.error(new Error("another error"));
+    console.error(RESIZE_OBSERVER_LINE);
+
+    // Vitest's runner printed the window error: without the filter it is a complaint of its own
+    expect(complaints.mock.calls).toHaveLength(4);
+    expect(complaints.mock.calls[0]).toEqual([new Error(RESIZE_OBSERVER_LINE)]);
+    expect(complaintsOf(complaints)).toEqual([
+      ["[board]", "the side panel is gone"],
+      [new Error("another error")],
+      [RESIZE_OBSERVER_LINE],
+    ]);
   });
 });

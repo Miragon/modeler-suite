@@ -1,0 +1,31 @@
+{
+  "name": "@miragon/board-host",
+  "version": "0.0.0",
+  "private": true,
+  "description": "What every host of a board shares: a modeler of @miragon/modeler-api as an editor in a model node, and a board host built from the files of a repository and a registry of editors.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./assets/embed.css": "./src/assets/embed.css",
+    "./package.json": "./package.json"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "npm --prefix ../.. run test",
+    "test:browser": "npm --prefix ../.. run test:browser"
+  },
+  "dependencies": {
+    "@miragon/board-files": "0.0.0",
+    "@miragon/board-renderer": "0.0.0",
+    "@miragon/modeler-api": "1.7.0"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

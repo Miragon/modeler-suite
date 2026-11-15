@@ -10,6 +10,7 @@ import type { BoardHost, EmbeddedEditor } from "../../src/host/types.js";
 import { writeRemoval } from "../../src/store/actions.js";
 import { elementsOf } from "../../src/store/document.js";
 import { BOARD_B, BOARD_EMPTY, MODEL_PATH } from "../support/board-texts.js";
+import { complaintsOf } from "../support/console-complaints.js";
 import { type MountedBoard, mountBoard } from "../support/mount-board.js";
 import { doubleClick } from "../support/pointer.js";
 import { createTestHost, type TestHost, type TestHostSeed } from "../support/test-host.js";
@@ -427,7 +428,7 @@ describe("the end of an editor", () => {
     // the arming ends with the node, also while the whole canvas goes: nothing complains about it
     expect(board.runtime.armedId()).toBeNull();
     expect(board.runtime.lines).toEqual([]);
-    expect(complaints).not.toHaveBeenCalled();
+    expect(complaintsOf(complaints)).toEqual([]);
   });
 
   const removals: ReadonlyArray<[string, (board: MountedBoard) => unknown]> = [
@@ -481,7 +482,7 @@ describe("the end of an editor", () => {
       expect(done.getAttribute("aria-label")).toBe("Done editing: no model is being edited");
       expect(board.runtime.counters.arm.lateDisarms).toBe(0);
       expect(board.runtime.lines).toEqual([]);
-      expect(complaints).not.toHaveBeenCalled();
+      expect(complaintsOf(complaints)).toEqual([]);
     },
   );
 

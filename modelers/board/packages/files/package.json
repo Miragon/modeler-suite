@@ -1,0 +1,22 @@
+{
+  "name": "@miragon/board-files",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The files of a repository as a board reads and writes them: the port, the message protocol between a page and its host, a client, a server that checks every path, and a memory backend.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "npm --prefix ../.. run test"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

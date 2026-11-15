@@ -9,7 +9,9 @@ lays out HTML nodes that hold whole editors.
 
 **Work in progress.** The board was built and measured in designIQ
 (`apps/web/src/notations/board` there, at commit `ce12684`), and its canvas was moved here as it
-was measured. The move is done and was reviewed; the apps around the board are not built.
+was measured. The move is done and was reviewed. Of the apps around the board the first
+increment is in the tree: a web app that shows an example repository in memory, with the seven
+modelers of the suite as the editors of its model nodes. There is no VS Code extension yet.
 [State of the port](#state-of-the-port) says what is in the tree, what was run on it and what is
 still to come.
 
@@ -26,15 +28,24 @@ In the tree: `schema-model`; the renderer with its document half (`store/`, `hos
 `arming/arm-rules.ts`, `arming/types.ts`), the canvas, moved from designIQ and cut over to the
 host interface (every other folder of `packages/renderer/src`), the contract factory with the
 options `host` and `liveDocument`, and the stylesheet on the design system's roles;
-`CONTRIBUTING.md` and `.claude/rules/package-json-fixed-versions.md`; 16 unit files with 289
-tests and 15 browser files with 660 tests.
+`CONTRIBUTING.md` and `.claude/rules/package-json-fixed-versions.md`. With the first increment of
+the apps: `packages/files` and `packages/host` (what every host of a board shares),
+`apps/editors` (the seven modelers of the suite as the editors of model nodes), `apps/webapp` on
+the example repository `example/`, and `e2e/` with the project `webapp`. That increment changed
+no file of `packages/renderer/src` or `packages/schema-model/src`. 38 unit files with 734 tests,
+23 browser files with 784 tests, and 2 Playwright tests.
 
-Read the browser count by what it stands on: 297 tests run the arm rules on a bench of fakes (73
-scripts, each run once and read by four tests, plus five), 82 hold static markup under the sheet,
-7 a bare React Flow, 73 are the contract's kit, and 201 are in the eleven files that mount a
-board. Every editor in them is the recording stand-in of `createTestHost`. No test mounts an
-editor that draws, and a synthetic event ignores `inert`: no test can fail when a preview takes
-real input or when the pointer math of an armed editor is off.
+Read the browser count by what it stands on. 661 tests are the renderer's: 297 run the arm rules
+on a bench of fakes (73 scripts, each run once and read by four tests, plus five), 82 hold static
+markup under the sheet, 7 a bare React Flow, 73 are the contract's kit, 201 are in the eleven
+files that mount a board, and one holds a filter of the test support. Every editor in them is the
+recording stand-in of `createTestHost` and every input is synthetic, which ignores `inert`: none
+of them can fail when a preview takes real input or when the pointer math of an armed editor is
+off. That is held outside the renderer, with real mouse and keyboard input
+(`commands.realInput`): 57 tests of `packages/host` (8 of the command itself, 49 on a stand-in
+modeler of the contract that draws boxes, alone and on the real board), 53 of `apps/editors` (49
+with the seven real modelers on a board, 2 for the order of their sheets, 2 for the watch the
+battery ends every test on) and 13 of `apps/webapp`.
 
 **After the move, a review.** Seven reviewers looked for what is wrong with the moved board. What
 they found is fixed and under a test, or stands under [Deferred](#deferred) as it was measured.
@@ -50,38 +61,81 @@ runs only under `BoardProvider`); `placeHost` takes the board's log and `createI
 `callEditor`, and `gestures/images.ts` exports `setBoardEnded`, which the factory's `destroy()`
 calls.
 
-**What was run, and what was not.** On the machine the review's fixes were integrated on, with
-the tree as it stands: `npm run board lint`, `test`, `depcruise` and `format:check` pass, the
-checksums of the theme files verify, and the browser project passes five runs in a row and one
-shuffled run through the local sandbox config (see [Commands](#commands)). Not run:
-`npm run board test:browser` with the committed config (that machine must not start Chromium
-without its sandbox), CI, brand-lint (the `miragon-brand` plugin was not on that machine) and
-designIQ's batteries.
+**What was run, and what was not.** On the machine the first increment of the apps was
+integrated on (the Miragon agent VM), with the tree as it stands:
 
-**CI and the root scripts with this branch.** The suite has no state for a modeler without apps:
-a pull request with this branch cannot pass `ci-ok`, and on `main` the branch would fail every
-later pull request. By a reading of the workflows and a run of `ci-paths.sh`, not by a CI run:
+- `npm run board lint`, `test` (38 files, 734 tests), `depcruise` (no violation, with and without a
+  built web app in the tree) and `format:check` pass; so do the root tests
+  `test/modeler-boundaries.test.ts` and `test/release-config.test.ts` (82 tests), and the checksums
+  of the theme files verify.
+- The whole browser project passes five runs in a row through the local sandbox config (23 files,
+  784 tests each; see [Commands](#commands)), one shuffled run and one run on a cold Vite cache.
+  Before the review's fixes, at 774 tests, it also passed four shuffled runs and twelve runs with
+  three at once.
+- The e2e project passes three runs in a row through the local Playwright sandbox config (2 tests
+  each), on the dev server it starts.
+- `npm run board build:webapp` and the web app's `check:build` pass, and the dev server serves its
+  page and its modules on port 5184.
+- No Chromium command line carried `--no-sandbox` in any sample of the process table taken during
+  these runs. While the work packages of the increment ran side by side, one system-wide sample
+  showed 160 of 448 Chromium command lines with the flag. The run it came from was not found; a
+  sample attributed by parent chain to the board's own runs at that time had none.
+- Not run: `npm run board test:browser` and `test:e2e` with the committed configs (that machine
+  must not start Chromium without its sandbox), CI, brand-lint (the `miragon-brand` plugin was not
+  on that machine), designIQ's batteries, and any browser but Chromium. The web app was opened by
+  tests and by the review below, which drove it with Playwright; its owner has not opened it.
+
+**A review of the increment.** After the increment was integrated, an independent reviewer ran its
+gate again, drove the web app with Playwright's mouse and keyboard (the dev server and the built
+app, at 1600 x 1000, 760 x 600 and 400 x 800, and at a device pixel ratio of 1.25 and 2, in scratch
+specs that are not in the tree), read the code, and tried 17 single edits of the sources and 25
+malformed messages against it. All seven notations passed every step there: the preview, the
+arming, a drag, a label, a delete, Done, a zoom of the board and a reload, each with its own file
+written and never the board's. What the review found:
+
+- **Fixed, each under a test.** `packages-no-other-modeler` caught an import by a package's name
+  only, and nothing kept diagram-js and React out of the host package's sources
+  ([Packages](#packages)). The files server stored a file for a create whose bytes were `null` or a
+  number, served a request whose id was `NaN`, took a path with a line break in it, and took a new
+  file that was a dot file, ended in a dot or carried a device name of Windows, at any size
+  ([The files port](#the-files-port-packagesfiles)). The web app kept the bytes of every picture
+  ever added, and a picture the browser had not kept was a hole without a word after a reload
+  ([The web app](#the-web-app-and-the-example-appswebapp-example-e2e)).
+- **Under a test now**, where this guide had said without one: a zoom of the board as the end of an
+  edit for all seven modelers, a second node on one file, and a change from outside while a real
+  editor is armed ([Real editors, as measured](#real-editors-as-measured)).
+- **Named and not changed:** what a page may reach inside the repository's root, which is the
+  owner's to settle before a host with a disk is written (The files port); the notices the web
+  app's build lacks, an armed editor in a window narrower than its node, and the invalid line's
+  advice in a host that has no editor for the file (The web app).
+  **CI and the root scripts with this branch.** The suite has no state for a modeler without a VS
+  Code extension: a pull request with this branch cannot pass `ci-ok`, and on `main` the branch
+  would fail every later pull request. By a reading of the workflows (and, before the apps, a run
+  of `ci-paths.sh`), not by a CI run:
 
 - `shared-test` fails in `npm run test:plugin`: `test/modeler-collection.test.ts` reads
   `modelers/board/apps/vscode/package.json` and fails while it is collected, so none of its tests
   runs and its guard for the seven published extensions is off. Nothing else fails in that script
-  (13 files and 286 tests pass here). The job runs for every pull request, a docs-only one too.
-- `modeler-check (board)` fails at `build:webapp` (no such script), `modeler-e2e (board)` at
-  `test:e2e`, `vscode-smoke (board)` at `test:vscode` and in the action that reads
-  `apps/vscode/package.json`. `modeler-test-browser (board)` runs the committed browser config,
-  which nobody has run.
+  (13 files and 289 tests pass here). The job runs for every pull request, a docs-only one too.
+- `modeler-check (board)` has its scripts up to the web app's build and `check:build`, each of
+  which passes here, and fails at `package:vscode` (no such script). `vscode-smoke (board)` fails
+  at `test:vscode` and in the action that reads `apps/vscode/package.json`.
+  `modeler-test-browser (board)` and `modeler-e2e (board)` run the committed browser and
+  Playwright configs, which nobody has run: the machine the apps were built on runs both only
+  through local configs that keep Chromium's sandbox.
 - After a merge a change of the lockfile reaches every modeler, so every Dependabot pull request
   runs the board's failing jobs, and the weekly smoke fails every Monday and opens its issue.
 - The board is in the root `modelers` alias: `npm test` stops in `test:shared` before any
-  modeler's unit tests run, `npm run build` fails in `build:apps`, and `npm run test:e2e`,
-  `npm run package:vscode` and `npm run modelers <an app's script>` exit 1.
+  modeler's unit tests run, `npm run build` fails in `build:apps` at `build:vscode`, and
+  `npm run package:vscode` and `npm run modelers <a script of the extension>` exit 1.
 
 Business Model Canvas and C4 each arrived complete in one pull request. Either this branch stays
 off `main` until the apps exist, or the suite gets one in-progress marker that `ci-paths.sh`, the
 root `modelers` alias and `test/modeler-collection.test.ts` all read: the owner's to settle.
 
-**Still to come:** `apps/webapp`, `apps/vscode`, the Orca plugin, `e2e/`, `example/`, `docs/`, a
-README per package, and the root files a modeler arrives with: the board's rows in the suite's
+**Still to come:** `apps/ide-editor` (the board inside the shell), `apps/vscode` with the e2e
+project `vscode-webview`, the Orca plugin, `docs/`, a README per package, a third-party notices
+file for the web app, and the root files a modeler arrives with: the board's rows in the suite's
 `CLAUDE.md` (paths, aliases, the DOM-free table, the commit scopes) and its sentences that are
 untrue with the board in the tree ("all seven", "one notation on diagram-js", "a skipped case or
 an advisory fails the run"), the root `CONTRIBUTING.md` and `README.md`, the issue templates, the
@@ -90,7 +144,8 @@ release-please components and manifest, `.miragon/product-shots.yaml`, the docs 
 
 **Without a test**: the gestures and behaviours the test README lists under "Without a test",
 among them the group that takes a dragged node, the resize of a model and of an image node, and
-the toolbar's buttons for the zoom, the fit and a group.
+the toolbar's buttons for the zoom, the fit and a group; and what the sections on the files
+port, the host package, the suite's editors and the web app name as without a test.
 
 ## Packages
 
@@ -98,29 +153,82 @@ Every workspace is `private`: the modeler publishes nothing to npm. The packages
 TypeScript source (`"exports": { ".": "./src/index.ts" }`), have no `dist`, and `build` is a type
 check.
 
-| Package                       | Purpose                                                                                                                                                                                                          | DOM |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
-| `@miragon/board-schema-model` | The file format and its strict reader (`format.ts`), the elements of a board (`types.ts`), their paint order as fractional indices (`order.ts`), what a canvas draws of a snapshot (`view.ts`)                   | no  |
-| `@miragon/board-renderer`     | The board as a live document on Yjs, its store and actions, the arm rules, the React Flow canvas, the contract factory `createCollaborativeModeler`, the stylesheet (`@miragon/board-renderer/assets/board.css`) | yes |
+| Package                       | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                  | DOM |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| `@miragon/board-schema-model` | The file format and its strict reader (`format.ts`), the elements of a board (`types.ts`), their paint order as fractional indices (`order.ts`), what a canvas draws of a snapshot (`view.ts`)                                                                                                                                                                                                                                           | no  |
+| `@miragon/board-renderer`     | The board as a live document on Yjs, its store and actions, the arm rules, the React Flow canvas, the contract factory `createCollaborativeModeler`, the stylesheet (`@miragon/board-renderer/assets/board.css`)                                                                                                                                                                                                                         | yes |
+| `@miragon/board-files`        | The files of a repository as a board's page reads and writes them: the port `BoardFiles`, the protocol between a page and the host that keeps the files, its client (`createFilesClient`) and its server (`serveFiles`, which keeps every path a page sends inside the repository's root), a memory backend, and `connectBackend` for a host whose files are in the page                                                                 | no  |
+| `@miragon/board-host`         | What every host of a board shares: a modeler of `@miragon/modeler-api` as the editor of a model node (`embedModeler`), its binding to a text session (`bindTextSession`), the facade a host's `open()` returns at once (`openEditor`), a board host from the files of a repository and a registry of editors (`createFilesHost`, `modelsFrom`, `imagesFrom`), the registry's types, and the sheet `@miragon/board-host/assets/embed.css` | yes |
 
-- **Boundaries.** `schema-model` is the suite's DOM-free package (`modelerSuite.domFreePackages`).
-  Two rules of the board's own in `.dependency-cruiser.cjs` add what the presets do not stop:
-  `schema-model-no-canvas-libraries` (no React, React Flow or Yjs in the schema model) and
-  `document-half-no-canvas` (`store/`, `host/`, `arming/arm-rules.ts` and `arming/types.ts` import
-  neither React nor React Flow, nor anything under `runtime/`, `flow/`, `gestures/`, `parts/`,
-  `canvas/`, `nodes/`, `edges/`, `surface/` and `collaborative/`, nor any other file of
-  `arming/`, nor `geometry.ts`). That rule names paths: a new folder or top-level file of `src`
-  that is not of the document half is added to its `to`, and `test/layers.test.ts` fails until it
-  is. `eslint.config.js` adds `eslint-plugin-react-hooks` for the renderer (`rules-of-hooks` an
-  error, `exhaustive-deps` a warning).
+Three app workspaces stand on the packages. They are no packages: nothing under `packages/`
+imports one.
+
+| Workspace                               | What                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `board-suite-editors` (`apps/editors`)  | The seven modelers of the suite as the editors of a board's model nodes: the suffix table (`./suffixes`, plain data without an import, for a host in Node), the registry `SUITE_EDITORS` (`.`), the shared sheet base (`./base`), `./zod-jitless` for a page under a CSP without eval, and the build helpers (`./build/*`). The one workspace of the board that imports another modeler |
+| `@miragon/board-webapp` (`apps/webapp`) | The board on the example repository `example/`, held in memory: a Vite app on port 5184 (strict)                                                                                                                                                                                                                                                                                        |
+| `@miragon/board-e2e` (`e2e`)            | Playwright, with the project `webapp`                                                                                                                                                                                                                                                                                                                                                   |
+
+- **Boundaries.** `schema-model` and `files` are the DOM-free packages
+  (`modelerSuite.domFreePackages`). `files` has no dependency, and its own `tsconfig.json` has no
+  DOM lib: `npx tsc -p packages/files/tsconfig.json` is the check that it uses nothing of a browser
+  (`Blob`, `btoa`, `atob` and `MessageChannel` come from the Node types and exist in a page as
+  well). Six rules of the board's own in `.dependency-cruiser.cjs` add what the presets do not
+  stop. Two are the renderer's: `schema-model-no-canvas-libraries` (no React, React Flow or Yjs in
+  the schema model) and `document-half-no-canvas` (`store/`, `host/`, `arming/arm-rules.ts` and
+  `arming/types.ts` import neither React nor React Flow, nor anything under `runtime/`, `flow/`,
+  `gestures/`, `parts/`, `canvas/`, `nodes/`, `edges/`, `surface/` and `collaborative/`, nor any
+  other file of `arming/`, nor `geometry.ts`). That rule names paths: a new folder or top-level
+  file of `src` that is not of the document half is added to its `to`, and `test/layers.test.ts`
+  fails until it is. Four came with the apps. `packages-no-other-modeler`: no file under
+  `packages/` and no app but `apps/editors` imports another modeler, tests included, neither a
+  package of one by its name nor a file of one by a relative path, which the cruiser names
+  `../<modeler>/...` from here; the contract and the shell are no modelers. The rule first caught
+  the name alone, and a relative import from `packages/host/src` into
+  `../wardley-maps/packages/renderer/src` passed the cruise and ESLint. `packages-no-apps`: no
+  package imports an app workspace, or `apps/editors` would bring the seven renderers in unseen.
+  `files-no-canvas-libraries`: no React, React Flow or Yjs in `files`, and nothing of the board's
+  renderer or host package. `host-no-editor-libraries`: no diagram-js, no React and no React Flow
+  in the sources of `packages/host`, not as a type either; its tests mount the real board and are
+  left alone. `npm run board depcruise` cruises `packages` and `apps` and leaves out the apps'
+  build output (`^apps/[^/]+/dist/`): the web app's build is code-split and its chunks import each
+  other in circles, 14 `no-circular` errors without the exclusion. No wider pattern: `(^|/)dist/`
+  would also hide the contract's `dist` from `dom-free-contract-types-only`.
+  `apps/editors/test/cruise-rules.test.ts` holds the reach of the four rules and of the exclusion
+  against the workspaces the suite has today. `@miragon/board-host` imports `@miragon/board-files`,
+  and types only from `@miragon/board-renderer` and `@miragon/modeler-api`; it names no renderer of
+  the suite, no diagram-js, no shell and no React. The rules and the preset's `packages-no-shell`
+  hold that sentence but for one part: that the renderer and the contract are imported for their
+  types alone is how the code stands, and no rule asks for it. `eslint.config.js` adds
+  `eslint-plugin-react-hooks` for the renderer (`rules-of-hooks` an error, `exhaustive-deps` a
+  warning).
+- **The owner's open decision: may an app workspace of the board depend on the other modelers'
+  renderers?** Not answered. The tree is built on the plan's recommendation: yes, in
+  `apps/editors` and nowhere else, kept so by `packages-no-other-modeler`. If the answer is no,
+  what goes is the 13 pins of `apps/editors/package.json` on the other modelers, 26 of the 28
+  `extra-files` entries this increment added (all but the two for `packages/host`'s pin on the
+  contract), the rule's exception for `apps/editors`, and with them the notation modules, their
+  battery and every model the web app draws: `apps/webapp` takes `SUITE_EDITORS` and
+  `board-suite-editors/base` in `src/app.ts`, the suffix table in `test/example.test.ts` and
+  the three build helpers in `vite.config.ts`.
 - **Dependencies.** Exact pins and no ranged peers while nothing is published (the Business Model
   Canvas rule; see `.claude/rules/package-json-fixed-versions.md`). The renderer depends on
   `@xyflow/react`, `react`, `react-dom`, `yjs`, `lucide-react`, `markdown-it`, `dompurify` and
-  `@miragon/modeler-api`; the pin on the contract has its two `extra-files` entries in
-  `release-please-config.json`. There must be one copy each of `yjs`, `react`, `react-dom` and
-  `@xyflow/react` under this modeler: the store tells its elements by `instanceof Y.Map`, and a
-  second React breaks every hook. `test/single-copy.test.ts` reads the lockfile for it, the job
-  ranged peers do in the published modelers.
+  `@miragon/modeler-api`; `packages/host` pins the contract as well, and `apps/editors` pins
+  thirteen packages of the other modelers (the seven renderers and the six packages its text
+  rules call: `wardley-dsl`, `wardley-schema-model`, `value-chain-schema-model`,
+  `business-model-canvas-dsl`, `team-topologies-schema-model`, `context-maps-schema-model`)
+  beside `diagram-js`, `didi`, `tiny-svg` and `zod`. Every pin on a release component has its
+  two `extra-files` entries in `release-please-config.json`: `test/release-config.test.ts` names
+  each missing one, and a further pin on a workspace package is a manifest line, an
+  `npm install` and the two entries that test then asks for. The tests of `apps/editors` import
+  `@miragon/board-files`, `@miragon/board-renderer` and `@miragon/board-schema-model` without a
+  line in its manifest; they resolve through the workspace links, as the test-only imports of
+  the other modelers' `e2e` workspaces do, and no check asks for more. There must be one copy
+  each of `yjs`, `react`, `react-dom` and `@xyflow/react` under this modeler: the store tells
+  its elements by `instanceof Y.Map`, and a second React breaks every hook.
+  `test/single-copy.test.ts` reads the lockfile for it, the job ranged peers do in the published
+  modelers.
 - **A bump is a change of what was measured.** A new version of `@xyflow/react`, `react`,
   `react-dom`, `yjs`, `markdown-it` or `dompurify` falls under
   [the rule of this port](#the-rule-of-this-port-moved-as-measured). The suite's Dependabot
@@ -384,6 +492,19 @@ the specification). Without any of them the board is one of notes, groups and ar
   comes after the move into the layer. `focus` is optional in the type and needed in practice:
   without it the focus is on `<body>` after the arming and neither the editor nor the board gets
   the keys.
+- **`focus()` comes before the box.** `placeHost` (`surface/place-host.ts`) appends the element
+  to the layer, calls the editor's `focus()` and only then writes the element's left, top, width
+  and height. For the length of that call the element is in the layer without a box of its own
+  and fills the whole board. An editor that lays out from client rects inside `focus()`
+  therefore measures the board, and no resize corrects it afterwards, since the layout size
+  before and after is the same. So the sentence above and the JSDoc of `host/types.ts`
+  (`EmbeddedEditorContext.element`, `EmbeddedEditor.focus`) are wrong for anything that reads
+  the element's box. Measured with C4's breadcrumb bar in a 420 px node that was a preview at
+  50 %: laid out inside `focus()` the bar is 396 px wide with no name cut and one name at 0 px;
+  laid out a microtask later it is the bar the modeler has alone (395.67 px, names cut to
+  26 px). An adapter lays out a microtask after `focus()`, as
+  `apps/editors/src/notations/c4.ts` does. Writing the box before the call is a change of the
+  renderer's measured order and was not made.
 - **The preview chrome rules.** A full editor is mounted from the start and its preview is `inert`
   and scaled with the board. Hiding the editor's own chrome in a preview (a palette, a context pad,
   popups) is the host's: rules of the host's sheet on `.board-engine[data-armed="false"]`.
@@ -481,10 +602,454 @@ pointer and pan parts also at a device pixel ratio of 1.25 and 2.
   the contract has nothing, so the modeler itself has to fit on its canvas size. `ready` is the
   promise of `importText`. A modeler's own label editor commits on the blur the re-parenting
   causes.
-- **Not run:** designIQ's product editors (bpmn-js and dmn-js are not in this repository), the
-  other five modelers, touch and pen, Firefox and WebKit, many model nodes at once. Such a
-  battery can run in the board's own browser project with config changes only: only designIQ's
-  product editors and its 1375 rows need designIQ.
+- **All seven, as a kept battery.** What the review ran in scratch for two modelers is in the
+  tree for all seven, on the host package's adapter:
+  `apps/editors/test/browser/real-editors.browser.test.ts` mounts the seven modelers through the
+  registry in a board on a memory backend and drives them with `commands.realInput`. For each of
+  the seven, on a board fitted at about 36 % and on one at 50 %: the editor reaches
+  `data-embed-state="ready"`; its view equals the same adapter alone in a box of the node's
+  layout size (800 x 508); a preview shows none of its chrome, and a real click on one of its
+  shapes selects nothing. From a preview at 50 %: a real double-click arms it (in
+  `.board-overlay-layer`, board zoom exactly 1, the focus on the editor's svg, the view
+  unchanged); a real click and Delete write its file once and leave the board's text and change
+  count alone; Done leaves no selection, no open pad, no further write and no chrome; and a
+  real turn of the wheel on the board's pane ends an editing as Done does, with the board
+  zoomed after it and nothing written. Once each: three Team Topologies nodes load the module
+  once; the second suffixes (`.wmap`, `.ttm.json`, `.cm.json`, `.vc`) open their editors; a real
+  drag of one Wardley component changes one line of a file with a comment in it, and a second
+  node on that file draws the move and writes nothing; a change from outside while Value Chain
+  is armed is drawn with the view state and the arming kept and nothing written back; C4's
+  breadcrumb bar in a 420 px node. Every
+  test ends on an empty list of window errors, unhandled rejections, `console.error` calls and
+  lines of the board's log. The first fit, the defect at the seam above, is the adapter's now
+  (see [The host package](#the-host-package-packageshost)), which is why the views are equal.
+- **Not run:** designIQ's product editors (bpmn-js and dmn-js are not in this repository), touch
+  and pen, Firefox and WebKit, a device pixel ratio other than 1 for the seven as a kept test (a
+  review ran their previews and their arming at 1.25 and 2 once), more than seven model nodes on
+  one board. Only designIQ's product editors and its 1375 rows need designIQ.
+
+## The files port (`packages/files`)
+
+`src/port.ts` is what a page asks for (`BoardFiles`, `TextSession`), `src/server.ts` what a host
+implements with its own file API (`FilesBackend`, `BackendText`), and `src/protocol.ts` the
+messages between the two. `src/client.ts` is the page's side, `src/memory.ts` a backend in
+memory (the web app's repository and every test's double), `src/local.ts` `connectBackend`:
+client and server on a `MessageChannel` of the page's own, so that a host in the page runs the
+same path checks and the same message order as one behind a webview. `src/paths.ts` has the path
+rules. The entry exports `createFilesClient`, `connectBackend`, `createMemoryBackend`,
+`serveFiles`, `bySuffix`, `isNewAssetPath`, `repoPath`, `fromBase64`, `toBase64`,
+`isBoardMessage`, `PROTOCOL`, `NEW_FILE_LIMIT_BYTES` and the types.
+
+- **The messages are frozen.** Every type starts with `board.`, so they share a webview's
+  channel with the shell's. The VS Code host of the next increment is written against the names
+  and shapes: a change to one is a new `PROTOCOL`, and a table in `protocol.test.ts` fails the
+  type check when a type is added and not listed.
+- **The rules both sides keep.** Nothing is pushed before the hello. Whatever the page awaits
+  carries a `requestId`, a whole number, and ends in its answer or in `board.failed`; a request
+  with any other id (none, a text, a fraction, `NaN`) is dropped, since no answer could reach it.
+  The page never gets its own edit back; the other sessions on the path hear it at once, in the
+  page. A write the place refused is answered with the text the place has, once the last write of
+  that path settled. One path is one subscription at the host however many nodes show it.
+- **A hello starts the life of a page.** A second hello on the same channel (a reloaded
+  webview) closes what the page before had open and sends the list again; an answer that was
+  awaited across it is never sent. A hello of another protocol is none: every request is then
+  failed with a message that names both numbers. A request before the hello is answered with
+  `board.failed` ("the page has not said hello"); an edit and a close before it are dropped. The
+  client says hello once, when it is made, so a server listens before the page starts.
+- **Paths.** `repoPath` refuses whatever is no repository-relative path with forward slashes (no
+  string, empty, more than 1024 characters, a backslash, a control character such as a NUL or a
+  line break, a scheme or a drive letter, an absolute path, a segment that is empty, `.` or `..`).
+  The server runs it on every path before a backend sees one. A backend refuses a path that is in
+  use: the server does not check the list.
+- **A new file** is taken only as `assets/<name>` with a name of letters, digits, dot, dash and
+  underscore, which is what the board makes of a picture's name, and not as a dot file
+  (`.gitignore`), a name that ends in a dot, which Windows drops, or a device name of Windows
+  (`nul`, `con.png`, `COM1.svg`). Its bytes are a base64 text: any other value is refused, where
+  `atob` would take `null` for the four letters of its name and store three bytes. They are at most
+  `NEW_FILE_LIMIT_BYTES`, 10 MiB, the board's own limit for a picture; the files package cannot
+  import the board, and `packages/host/test/files-host.test.ts` holds the two numbers equal. A type
+  that is no text is taken for none. One refused name is one the board itself makes: a picture a
+  person called `aux.png` or `con.png` is answered with "a new file cannot have this name", which
+  the board puts into its notice.
+- **The path check reads the path's text and nothing else.** It keeps a path inside the
+  repository's root and does not say that the file is one a page should have. `.git/config`,
+  `.git/hooks/pre-commit`, `.env`, `.vscode/settings.json`, a name with percent signs
+  (`%2e%2e/secret`), `models/a.owm.` and a path through a link that leads out of the root all pass
+  and reach the backend's `openText` and `readBytes`, and a text that is open is written by
+  `board.text.edit` (a review sent each to a recording backend; of 21 paths that lie outside the
+  root as a text none got there). The memory backend has only its own files, so the web app is not
+  exposed. A backend with a disk checks a path again: against what it lists, against links, and
+  against how its file system folds names. Whether the server does part of that for every backend
+  is **open, and the owner's to settle before the VS Code backend is written**. Either it serves
+  `openText` and `readBytes` only for a path of `backend.list()`, whose list then has to be
+  complete before the first hello is answered (a node whose file is not listed yet fails, and the
+  facade has no retry); or `repoPath` refuses a segment that starts with a dot, which keeps a model
+  in a dot folder off every board.
+- **Writes.** A place gets the writes of one path one at a time and in the page's order, and
+  `close()` after the last of them, also when the page went in the middle of one. `false` and a
+  rejection both mean refused.
+- **A file that goes.** Its sessions hear `onAvailable(false)` and keep their text; a write does
+  nothing meanwhile; when the file is back they hear `onAvailable(true)` and then its text. A
+  reader that comes while the file is gone is rejected with `<path> is gone`: a session cannot
+  say that its file was gone before it was made.
+- **`connectBackend`.** Each message is a task: `paths()` is empty until the hello was answered,
+  and `onPaths` says when the list is there. `dispose()` ends client and server in one call and
+  drops what the page posted in that task.
+- **Messages a node may show** (the facade prints them behind "This file could not be opened."):
+  "this path is outside the repository", "a new file goes into assets/", "`<path>` exists
+  already", "`<path>` is no text file of this repository", "`<path>` is gone", "the page has not
+  said hello", "the files were closed", "a new file cannot have this name", "the bytes of the new
+  file are no base64 text", "a new file may have up to 10 MiB".
+- **Known and not cured.** The protocol has no version of a text and no acknowledgement: an edit
+  and a change from outside that cross leave the page showing the outside text and the place
+  holding the page's edit, until the next change of either (run once in scratch on the test
+  channel; a cure needs a version or an acknowledgement, a new `PROTOCOL`). `BoardFiles` has no
+  flush, so a caller cannot wait for a write to land before it disposes, and `TextSession`
+  cannot be asked whether its file is there. The memory backend's `writes` is a log for tests
+  and grows with every write: whoever keeps a backend for long empties it, as the web app does.
+- **Without a test:** `port.start()` in `local.ts`, which only a browser needs (the browser files
+  of `packages/host` and of the apps run through `connectBackend`), and the two `port.close()`
+  calls there. Of 110 single edits of the sources that were tried against the tests, those two
+  pass. A review's edit that let a create decode any value as its bytes passed as well; it fails
+  now, as do twelve further edits of the path rules and of the server's checks of a message.
+
+## The host package (`packages/host`)
+
+`@miragon/board-host` is what a host of a board needs and the renderer does not have: the
+adapter under [Real editors, as measured](#real-editors-as-measured), built once for every
+modeler of the contract. It names no renderer: a modeler comes in through a registry entry, and
+everything done to it goes through the contract plus three things the contract has no call for:
+a fit in layout px through the diagram's `canvas` service, the focus (`canvas.focus()`), and the
+release from the DOM (`releaseDiagramJs`). A modeler without a `diagram` is mounted and bound
+all the same and gets no fit and no focus.
+
+- **The registry (`src/registry.ts`).** An `EditorEntry` is
+  `{ notation, kind, suffixes, insets?, load() }`; `load()` yields an `EditorModule`
+  `{ create(options), text?(modeler), relayout?(modeler) }`. An entry's code is loaded once,
+  however many nodes show the notation, and a failed load is tried again by the next node.
+  `notation` is checked against `meta.notation` of the modeler `create` made; another one is a
+  failed editor. `insets` is the room of the notation's own palette in the first fit (default
+  `EDITOR_INSETS`: 64 px at the top, 24 px at the other sides).
+- **The text rules.** `TextRules` is one object per mounted modeler: `exported(reconciled)` is
+  the text to write for the canvas as it is, given the text the file has (a notation keeps a
+  file's comments and order there); `same(text, reconciled)` says that a text draws what the
+  canvas shows, so it is not imported and the editor keeps its history; `imported()` runs after
+  an accepted import and before the view is put back. Without `text` the modeler's own export is
+  written and two texts are the same when their bytes are. `same` may throw for a text it cannot
+  read: that counts as not the same, and the import says what is wrong. `text(modeler)` is
+  called once per mounted modeler, `exported` once per change event and only after the first
+  text was accepted.
+- **The binding (`bindTextSession`).** Imports run one after the other and read the session's
+  text when they start, so the canvas always ends on what the file has: a text that waited
+  behind a gesture or behind another import is not imported over what this session wrote
+  meanwhile. A re-import keeps the view: the view state the contract answers, while the picture
+  is drawn anew and its scale may come out rounded (Value Chain's first fit drew 0.759596, the
+  re-import 0.76). A change on the canvas is one write, and none when the
+  text did not change, before the first text was accepted, while the last text was refused, or
+  into a read-only file. A change from outside waits for the end of a gesture the person holds
+  (`interaction`). A host with another kind of document passes its own `BindModel` to
+  `embedModeler`; the adapter fits on the first `{ kind: "ok" }` such a binding reports.
+- **A limit of every text host.** A change from outside that arrives while a person holds a
+  gesture is overwritten by that gesture's drop: the write is made from the text the canvas was
+  last reconciled with. The contract asks for a merge there, and the board has no text merge.
+- **What the adapter writes** on the `.board-engine` it is given, classes and data attributes
+  only: `data-embed="diagram-js"` and `data-notation` once the editor is mounted,
+  `data-embed-state` = `loading`, `ready`, `invalid`, `gone` or `failed` from the first moment,
+  and two children, `div.board-host-state` (what the node says about its file) and
+  `div.board-host-editor` (the modeler's host element: absolute, inset 0, clipped, a stacking
+  context of its own). It sets no position and no size on the element, and takes everything back
+  on destroy.
+- **The states.** `loading`: the code or the text is on its way; the board has no loading look,
+  so the facade says it in the element. `ready`: the canvas shows the file. `invalid`: the
+  modeler refused the file's text; the last canvas stays in sight under a line whose `title` is
+  the modeler's reason, nothing is written, and the next valid text is imported. `gone`: the
+  file went away; the board keeps the node, and the file's next text brings it back. `failed`:
+  the editor could not be made (a path outside the repository, a file that is no text, code that
+  did not load, another notation), with the message. While the state is `invalid` or `gone` the
+  editor is `inert`: a change of such a canvas could not be written and the next text would
+  replace it. A file that is not there when the board opens stays `failed` until its node is
+  mounted anew: there is no retry. The line of an invalid file reads "This file cannot be shown
+  as it is. Open it in its own editor to repair it.", which is advice for a host that has such
+  an editor; a host cannot set the line's text.
+- **The first fit** is the adapter's, never the modeler's (`create({ fitOnImport: false })`):
+  the content centred in the element minus the entry's insets, at most at 100 %, from the
+  canvas's layout size. It is made once, for the first text the modeler accepts, also when a
+  text before it was refused; every later import keeps the view the person has.
+- **The sheet `@miragon/board-host/assets/embed.css`** is loaded by the page beside the board's
+  sheet. It has the one preview rule, opt-in by the attribute the adapter writes:
+  `.board-engine[data-armed="false"][data-embed="diagram-js"] .djs-container > :not(svg):not(.djs-overlay-container) { display: none !important; }`.
+  An editor's chrome lies over its canvas and takes no part in its fit, so it goes without
+  keeping its room; an editor a host mounts another way is not reached. The sheet names
+  diagram-js and no renderer, and it reads the page's roles (`--cd-ui-plot`, `--cd-ui-text`,
+  `--cd-ui-text-leise`, `--cd-ui-danger-flaeche`, `--cd-ui-warning-flaeche`) and no colour
+  literal. The state line lies over the editor whatever z-index the editor's chrome has: the
+  editor's host element isolates its own stacking.
+- **Release and focus.** `release()` leaves nothing selected, open or focused below the element:
+  an Escape `keyup` on the document, a click on `.djs-container > svg`, a blur of what has the
+  focus inside, and the text selection inside removed. It touches neither the focus nor the
+  selected text outside the element. `focus()` calls the notation's `relayout` first and then
+  gives the canvas the keys; the element has no box of its own at that moment (see
+  [What is left with the host](#what-is-left-with-the-host)), so a `relayout` that measures
+  defers itself by a microtask.
+- **`containHistoryKeys`** (a host that owns the document's history, VS Code): Control or
+  Command with Z or Y from inside an armed editor never reaches the window. The listener is on
+  the document, as the last stop before the window, because Wardley Maps and Team Topologies
+  take their undo in a listener on the document; on the element it would keep the key from
+  them. A test holds that the editor still undoes.
+- **The host from files.** `createFilesHost({ files, editors })` gives the board `models` and
+  `images` and keeps them the same objects; `dispose()` ends what it listens to on the port and
+  leaves the port to its owner. The model list is the port's paths with a registered suffix, the
+  same array until the port has a new list. `describe(path)`: the kind is the entry's, the title
+  is the file name without the matched suffix, `<name> in <folder>` where two listed files share
+  the name, and with the suffix kept where they also share the folder (the example's
+  `sample.tt` and `sample.cm` are titled "sample.tt in models" and "sample.cm in models").
+  `open()` answers undefined for a path without an entry, a `.board` among them. A file that
+  moves is followed with `context.relocate`: one change of the board per node that shows it.
+- **The images.** `read(path)` loads the bytes when a node first asks and hands out the same
+  Blob until `onChange`; a changed image keeps its old Blob until the new bytes are there; an
+  image that goes is told. `taken(path)` answers from the port's list, loaded or not. `store` is
+  there only where the port can create a file; it has the bytes at hand before it tells, so the
+  node that is written next draws at once, and it passes the port's refusal on (a path in use, a
+  path outside the repository, a path outside `assets/`).
+- **Tried against the tests:** about a hundred single-statement changes of the sources, applied
+  by a Vite plugin in a scratch config so that no file of the tree changed. Eleven passed at
+  first and are each held by a test since; one, the state attribute written under another name,
+  did not finish inside its 300 s limit and has no result.
+
+## The suite's editors (`apps/editors`)
+
+`board-suite-editors` is the one workspace of the board that imports another modeler, and
+`packages-no-other-modeler` keeps it so (the open decision is under [Packages](#packages)).
+
+- **The registry.** `SUITE_EDITORS` has one entry per notation, in the order of
+  `SUITE_SUFFIXES`: wardley (`.wmap`, `.owm`), event-storming (`.storm`), team-topologies (`.tt`,
+  `.ttm.json`), context-maps (`.cm`, `.cm.json`), value-chain (`.vc`, `.vc.json`), c4 (`.c4`),
+  business-model-canvas (`.bmc`). `notation` is the renderer's `meta.notation`. C4's `.dsl` and
+  the `.png` editors are left out until it is decided whether a board shows them;
+  `suffixes.sync.test.ts` holds the table against the `customEditors` of the seven extension
+  manifests, so a suffix a modeler adds fails there. Each `load()` is a literal dynamic import of
+  `src/notations/<notation>.ts`, so a bundler makes a chunk per notation and a board without a
+  Wardley map never loads the Wardley renderer. C4 and Business Model Canvas carry insets of 24,
+  24, 24 and 80 px at the left, where their palette is a column; the others take the host's
+  default with 64 px at the top. The left inset is a choice seen in two screenshots, not a
+  measurement.
+- **The declared face.** The workspace's `.` export has a `types` condition, the hand-written
+  `index.d.ts`, before its source. The board's strict project and the apps read the declaration
+  and never follow into another modeler's source under their own flags (checked:
+  `tsc -p tsconfig.json --listFiles` names no file of another modeler); a bundler takes
+  `src/registry.ts`. `apps/editors` has its own tsconfig with the weakest renderer's flags and
+  one path per entry of `build/aliases.mjs` (`aliases.sync.test.ts`), and
+  `npx tsc -p apps/editors/tsconfig.json` (`npm run typecheck -w apps/editors`, in the
+  board's `typecheck` chain) is the one check of the notation modules against the other
+  modelers' sources and of the declaration against the registry. No other modeler has to be
+  built for it. The condition covers `.` only: `./base` is read as source, so an app that
+  imports it declares `*.css` and `*.css?base` among its own modules (`apps/webapp/src/css.d.ts`
+  does).
+- **A notation module** exports `create` (the renderer's `createCollaborativeModeler`), `text`
+  (the notation's text rules) and, for C4, `relayout`, and imports the renderer's sheet by name.
+  The rules are each modeler's own, as its ide-editor (C4: its webview) has them, written again
+  on the packages' public exports and not imported from the other modelers' apps: a change of a
+  modeler's rule there has to be made here as well. Wardley Maps patches the file's own text
+  (`patchDSL` with the map the text was last written from), so comments and the order of the
+  lines stay. Value Chain and Business Model Canvas hand back the file's own text while the
+  canvas shows the same model. Team Topologies, Context Maps and Event Storming write what the
+  modeler exports, so the first edit of a file that is not in the modeler's canonical form also
+  writes whatever the two forms differ in. For the example files a review measured how much that
+  is: the first edit of `sample.cm` differs from the file by the edit and one newline at its
+  end, that of `order-checkout.storm` by the edit and two blank lines that are dropped (4
+  changed lines of 24), and `sample.tt` keeps its formatting and order. Event Storming also
+  writes references anew when an element is renamed or removed (`#agg_order` as `Order`): the
+  modeler's own rules, written as they are. C4 hands back its text byte for byte and takes a
+  text that differs only in formatting or comments with `rebaseText`, which empties its history.
+- **The build helpers (`build/`)**, for Vite, Vitest and, in the next increment, esbuild.
+  `aliases.mjs` reads the folders under `modelers/*/packages` and maps each package name to its
+  `src/index.ts`, every exported subpath of a package before the package (39 entries over 27
+  packages), so that no other modeler is built first. `prebundle.mjs` names every third-party
+  module those sources load (82), for `optimizeDeps.include`: a dependency Vite meets only when
+  a notation loads would reload the page in the middle of a run or of an edit. `css-base.mjs` is
+  under [Stylesheet and theme files](#stylesheet-and-theme-files). A new package under any
+  modeler's `packages/` adds an alias, and `apps/editors/tsconfig.json` then needs the matching
+  path, or `aliases.sync.test.ts` fails for a change made in another modeler.
+- **Without a test:** a notation's first fit at any size but 800 x 508 and 420 x 508; the left
+  inset of C4 and Business Model Canvas against a narrow node; a label editor, a popup or a held
+  drag open at Done or at a zoom; an edit by the palette or the context pad; a change from outside
+  while armed for any notation but Value Chain, and a text from outside that the modeler refuses; a
+  second node on one file for any notation but Wardley Maps, and an edit in the second that the
+  first follows; a moved file that two nodes show; more than seven model nodes on one board; a
+  device pixel ratio other than 1; any browser but Chromium; touch. The text rules run on the real
+  renderers only for the write of a delete (all seven) and of a move (Wardley);
+  `text-rules.test.ts` runs them in Node on stand-in modelers with each notation's real parser and
+  serialiser, since no renderer of the suite mounts outside a browser.
+- **Run once by a review, with Playwright and not as kept tests**, and each held: a label editor
+  that is open at Done commits and is written, for all seven; two Wardley nodes on one file follow
+  each other in both directions, and Control + Z in the armed one undoes in both; a change from
+  outside while C4 is armed is imported with the view kept and nothing written back; a text from
+  outside that C4 refuses shows the line with C4's reason, leaves the last canvas, takes no input
+  and writes nothing, and the next valid text repairs it; a moved file that two nodes show is two
+  changes of the board; the previews and the arming at a device pixel ratio of 1.25 and 2.
+
+## The web app and the example (`apps/webapp`, `example/`, `e2e/`)
+
+The web app shows `modelers/board/example` as a repository in memory. It mounts no shell and has
+no menu and no drop zone of its own: the board's toolbar is its only chrome. It keeps the board
+and the changed files in the browser's local storage; there is no disk behind it.
+
+- **`startApp(root, { storage, search })`** (`src/app.ts`; `src/main.ts` calls it with
+  `window.localStorage`, or a store in memory where the browser blocks its own, and
+  `location.search`). It gives `root` the class `board-page` and two children:
+  `div.board-page__board`, which the board is attached to, and `footer.board-page__note` with
+  one status line (`.board-page__kept`, `role="status"`; `data-warning` on the footer) and the
+  link "Reset the example" (`href="?reset"`, a plain navigation). It builds
+  `createMemoryBackend` from the example and what is kept, wraps it (`src/keeping.ts`) so that
+  every write the backend took and every new file is kept, then `connectBackend`,
+  `createFilesHost({ files, editors: SUITE_EDITORS })` and `createCollaborativeModeler({ host })`,
+  imports the kept board text or the example's, and keeps the board text on every
+  `onContentChanged`. It returns `{ modeler, ready, destroy() }`.
+- **The sheets** are imported by name in `src/app.ts`, in this order:
+  `@miragon/board-renderer/assets/board.css`, `board-suite-editors/base` (diagram-js's sheet and
+  the canvas mapping once, then the host package's `embed.css`), `./page.css`. Each renderer's
+  own sheet comes with the chunk of its notation. `page.css` makes `html`, `body` and
+  `.board-page` a column that fills the window, the board above the one line. Nothing above the
+  board carries a transform, a filter, a perspective, `contain` or `will-change`, and a test
+  walks the ancestors. `index.html` has `data-cd-theme="light"` on `<html>`.
+- **Storage (`src/storage.ts`).** Keys `miragon-board-example:board`,
+  `miragon-board-example:text:<path>` and `miragon-board-example:bytes:<path>` (JSON
+  `{ mime, base64 }`). The example's own text is kept by removing the key, so a change that was
+  undone leaves nothing behind. A kept entry that fits no file of the example is left out: a text
+  for a path the example does not have, bytes outside `assets/<name>` or over a file of the
+  example, a value of another shape. A kept board text the board refuses is answered with the
+  example and the line "The board kept in this browser could not be read. This is the example.";
+  the kept text stays until the first gesture replaces it. `?reset` in the address forgets every
+  key of the prefix before the app starts, and `main.ts` then takes it out of the address. Two tabs
+  on one storage are not told apart: the last write wins.
+- **Pictures and the room of the storage.** A picture is kept when it is stored, and its node may
+  go a moment later. Within one life of the page an undo brings the node back, so the bytes stay;
+  at the next start the app forgets every kept picture that no image node of the kept board shows
+  (`picturesOf`, `forgetPictures`; a kept text that is no board forgets nothing). Before that the
+  storage only grew: a review picked a picture twice and removed its node twice, and both files
+  were still kept after a reload, for a board that showed neither, with the reset as the one way to
+  free them. A storage that throws never stops the app: the save answers false and the line reads
+  "This browser did not keep all of your changes: its storage is blocked or full." for the rest of
+  the page's life, whatever a later save does. A picture the browser had no room for is drawn until
+  the page goes; after a reload its node shows the missing-file figure and the line reads "A
+  picture of this board is missing: this browser did not keep it.", until that node is removed. The
+  room is the browser's and the app names no number: in Chromium a review saw a PNG of 4.3 MiB
+  drawn and not kept, about 3.7 MB of pictures for one site.
+- **The example (`src/example.ts`)** is the folder through `import.meta.glob`: `example.board`
+  and `models/**` as `?raw` text, `assets/**/*.svg` as `?raw` text encoded to bytes with the
+  type `image/svg+xml`. Vite has no import of a file's bytes, and its `?inline` of an SVG is a
+  rewritten data URL: a picture of another type needs a glob of its own, and `example.test.ts`
+  fails for a file no glob reads. `example.board` is canonical and holds seven model nodes of
+  800 x 540 in two rows, a group "Start here" with the picture and two notes, and an arrow from
+  the second note to the Value Chain. `models/` holds copies of the seven modelers' example
+  files, made with `cp` and never edited (no kept test compares them with their originals,
+  which would fail the board's tests when another modeler edits its example), and
+  `assets/miragon-komet-blau.svg` is a copy from `docs/public/logo`. Whoever changes the example
+  writes canonical bytes: `example.test.ts` compares the file with
+  `encodeBoard(parseBoardText(text))`.
+- **The build check.** `npm run check:build -w modelers/board/apps/webapp` after the build runs
+  `scripts/build-problems.mjs` on `dist`. The build writes one sheet that `index.html` links and
+  one sheet per notation. The check fails unless `<html>` has `data-cd-theme="light"`; the
+  linked sheet carries a `.board-root` rule and the preview rule on
+  `.board-engine[data-armed=false][data-embed=diagram-js]`; diagram-js's base rule
+  `.djs-context-pad.open{display:block}` is in the linked sheet exactly once and in no
+  notation's sheet; each of the seven renderer root classes is in some sheet and none comes
+  before the first `.djs-context-pad.open`; and the scripts keep the legal comment of
+  `lucide-react` and the icon-geometry comments of the Wardley Maps, Context Maps, Value Chain,
+  C4 and Business Model Canvas renderers (Event Storming and Team Topologies have none in their
+  sources).
+- **The e2e project.** `e2e/playwright.config.ts` has one project, `webapp`
+  (`**/webapp/**/*.spec.ts`, base URL `http://localhost:5184`, `E2E_PORT` overrides), and starts
+  `npm run dev -w apps/webapp -- --port 5184 --strictPort`. Outside CI it takes whatever answers
+  on that port for the app. Port 5194 is reserved for the project `vscode-webview`.
+- **`destroy()` is synchronous** and ends the host and the files in the call that ends the
+  board. The board unmounts its editors a microtask later (see
+  [The public API](#the-public-api)), so a write an editor makes while it is released or
+  destroyed, a label editor that commits on the blur for instance, goes into a port that is
+  already disposed and is dropped without a word. By reading, not run. Nothing in the page
+  calls `destroy()`; the tests do.
+- **Without a test of the web app itself:** a pasted or a dropped picture (a picked one is held;
+  paste and drop are held on the renderer's test host), a group or an arrow made by hand, Done and
+  a zoom of the board as the end of an edit (both held for the seven modelers in `apps/editors` and
+  on the stand-in in `packages/host`), and a second node on the same file (held for Wardley Maps in
+  `apps/editors` and on the stand-in). A review did each of them once in the served page with
+  Playwright's mouse and keyboard, a dropped picture excepted, and each worked: a pasted picture
+  (`assets/image.png`, drawn and kept), an empty group, an arrow drawn from a handle (one new line
+  of the board), the toolbar's zoom-out and a Control + wheel on the pane as the end of an edit for
+  all seven, a second node on `models/tea.owm` that follows the first and is followed by it, and a
+  reload that keeps all of it.
+- **In a window narrower than a model node the armed editor is cut.** A model is edited at board
+  zoom exactly 1 (the arm rules), where a node of 800 px does not fit. At 400 x 800 the review
+  found the armed Wardley node at left -327 px, the left half of the editor and of its palette off
+  the window; at 760 x 600 at left -64 px, with its header under the board's toolbar. A pan of the
+  board reaches the rest, and a delete and Done work in both. Arming at the fitted zoom where a
+  node does not fit is a change of the measured arm rules and the owner's.
+- **A file its modeler refuses** shows the host package's line, which tells the person to open the
+  file in its own editor. The web app has none: there only "Reset the example" brings the file
+  back, and it forgets every other change with it. The app itself writes no such text; the review
+  got there by writing the storage by hand, and found that Wardley Maps and Event Storming take
+  the same garbage for an empty canvas in the state `ready`.
+- **The notices the build lacks.** The built C4 chunk carries dagre's line "For license information
+  please see dagre.esm.js.LEGAL.txt", and the build holds no such file (it is in
+  `node_modules/@dagrejs/dagre/dist`, MIT). The built sheet drops Tailwind's notice (see
+  [Stylesheet and theme files](#stylesheet-and-theme-files)), and the font files of Geist come
+  without the OFL's text. `check:build` looks for none of the three and prints "6 licence comments
+  kept". They belong to the notices file that is still to come, and the check should then fail for
+  a script that names a licence file the build does not hold.
+- **Not known for it:** more than a handful of model nodes at once, any browser but Chromium, and
+  touch.
+
+## The first increment of the apps against its plan
+
+The apps are built after a plan, increment by increment. Where the tree differs from the plan
+of increment 1, and why:
+
+- **The alias list** maps every exported subpath of a package before the package, not only a
+  renderer's sheet: with string aliases `@miragon/board-host/assets/embed.css` would otherwise
+  be read as a file below `packages/host/src/index.ts`. It has 39 entries, and
+  `apps/editors/tsconfig.json` the same 39 paths, where the plan counted 22.
+- **A third dependency rule**, `packages-no-apps`, beside the two the plan asked for; and
+  `packages-no-other-modeler` covers every app but `apps/editors`, tests included.
+- **`commands.realInput` has no wait**, which the prototypes had: a test polls after the call.
+  It has `wheel`, `keydown`, `keyup` and `text` in addition.
+- **The files server** hands a place the writes of one path one at a time and answers a refused
+  write once the last write of that path settled; a second hello starts the page's life anew; a
+  hello of another protocol is none; a backend read that rejects is answered with
+  `board.failed`. The plan fixed the messages, which are unchanged, and said none of this. The
+  prototype it started from had nine defects that the plan's own test list brought up, each
+  repaired under a test.
+- **The binding reads the file's text when an import starts**, not the text that came with the
+  change event; the first fit is made on the first accepted text, not once the first import
+  settled; no write is made before the first text was accepted. Each repairs a defect of the
+  prototype.
+- **New behaviour the plan did not have:** while a node's state is `invalid` or `gone` its
+  editor is `inert`.
+- **The text rules are each modeler's own**, as its ide-editor has them. So only Value Chain and
+  Business Model Canvas hand back the file's own text for the same canvas; the plan's sentence
+  "the JSON notations hand back the file's own text" holds for Value Chain alone.
+- **C4's `relayout` runs a microtask after `focus()`**, where the plan has it in `focus()`.
+- **Two sheet test files** where the plan names one: a page keeps every sheet it loaded, so each
+  load order needs a page of its own.
+- **The web app** attaches the board to a child of `#app`, with the line below it in the page's
+  flow, so that nothing of the page lies over an armed editor; `startApp` takes `search` and
+  does the reset itself; the reset link is a plain navigation; the picture is read as text and
+  encoded; the build check is two files with a unit test and reads eight sheets, not one.
+- **Made by the integration:** the exclusion of the apps' build output from the cruise;
+  `src/keeping.ts`, cut out of `app.ts` so that the wrapper has a unit test, with the memory
+  backend's log emptied after every write; `apps/editors/test/cruise-rules.test.ts`; the filter for
+  Chromium's ResizeObserver line in the renderer's tests (`test/support/console-complaints.ts`, see
+  the test README) and in the watch of `apps/editors`, with a test of each; the limit of 90 s for a
+  test or a hook that loads the seven renderers first; and the kept order of the web app's one
+  story in a shuffled run.
+- **Made after the review:** the second pattern of `packages-no-other-modeler` and the rule
+  `host-no-editor-libraries`; in the files package the control characters `repoPath` refuses, the
+  names a new file may not have, `NEW_FILE_LIMIT_BYTES`, bytes that must be a base64 text and a
+  request id that must be a whole number; in the web app the pictures forgotten at the start, the
+  line for a picture that was not kept, and the wording of the line after a refused save (it read
+  "does not keep your changes" while a later change was kept); in the battery of `apps/editors` the
+  wheel as the end of an edit for all seven, the second node on the Wardley file and the change
+  from outside under an armed Value Chain. The messages of the protocol and the declared exports
+  are as the plan has them; `NEW_FILE_LIMIT_BYTES` is one export more.
 
 ## DOM contract
 
@@ -611,6 +1176,23 @@ position or a size.
   (`@miragon/board-renderer/assets/board.css`), as the Business Model Canvas web app does with its
   renderer's: the package marks only its CSS as having side effects, and Rollup then leaves out
   the import inside a barrel. Its third-party notices then need Tailwind's (MIT), for the base.
+  The web app's built sheet does not keep that notice (`grep -c tailwindcss dist/assets/index-*.css`
+  prints 0: Vite's CSS minifier drops the comment), and the web app has no notices file yet.
+- **Several renderer sheets on one page.** Every renderer sheet of the suite imports diagram-js's
+  sheet and the vendored `cd-canvas.css` after its tokens. With several renderers on a page, each
+  later copy of that base comes after an earlier renderer's own rules and overrides them at
+  equal weight: Context Maps' open context pad computed `block` in place of `flex` once another
+  sheet followed its own (a build without the cure has eight copies of the base).
+  `apps/editors/build/css-base.mjs` empties the two imports wherever they are written
+  (`cssBaseAliases` for Vite and Vitest, an alias because a plugin's `resolveId` does not reach
+  a sheet's `@import`; `cssBaseOnce` for esbuild), and a page loads the base once, before any
+  renderer sheet, through `board-suite-editors/base`: `diagram-js/assets/diagram-js.css?base`
+  and the copy of `cd-canvas.css` in Business Model Canvas's renderer, two specifiers the helper
+  does not catch, then the host package's `embed.css`. The seven copies of `cd-canvas.css` are
+  the same bytes (`base.sync.test.ts`). `build-helpers.test.ts` holds the cure and, as a
+  control, the eight copies; `sheets.browser.test.ts` and
+  `sheets.context-maps-last.browser.test.ts` hold the computed `flex` with Context Maps loaded
+  first and last, a page each. The board itself still vendors no `cd-canvas.css`.
 
 ## Tests
 
@@ -619,20 +1201,98 @@ holds, how the arming traces are recorded anew, how the conformance harness is b
 browser test of the board has to know (synthetic input, the lazy parts, the module-level state,
 the window). Read it before you write a test. Here are the two projects and the rules.
 
-- `npm run board test` (project `unit`, Node): the format, the order keys and the view
-  (`packages/schema-model/test/`); the store, the actions, the arm rules, the board file at rest,
-  under a Git merge and under two peers on one live document; and of the canvas side what needs
-  no browser: how the board reads a host (`host-defaults`), the parts of the contract factory
-  (`collaborative-parts`), the two sheets (`theme.sync`, `styles.scope`), the reach of the
-  dependency rule (`layers`), the one copy of each shared library (`single-copy`), the arming
-  fixture as a file (`arming-fixture`).
+- `npm run board test` (project `unit`, Node) runs `packages/*/test/**/*.test.ts` and
+  `apps/*/test/**/*.test.ts` without the `test/browser` folders: 38 files, 734 tests.
+  - The schema model and the renderer (16 files, 290 tests): the format, the order keys and the
+    view (`packages/schema-model/test/`); the store, the actions, the arm rules, the board file
+    at rest, under a Git merge and under two peers on one live document; and of the canvas side
+    what needs no browser: how the board reads a host (`host-defaults`), the parts of the
+    contract factory (`collaborative-parts`), the two sheets (`theme.sync`, `styles.scope`), the
+    reach of the dependency rule (`layers`), the one copy of each shared library
+    (`single-copy`), the arming fixture as a file (`arming-fixture`).
+  - `packages/files/test` (5 files, 247 tests): the path rules (`paths`), each side of the
+    protocol alone, message by message, against a page that posts whatever it likes and against
+    a scripted host (`protocol`), client and server together on a memory backend with more than
+    one reader on a path (`fan-out`), the memory backend alone (`memory`) and `connectBackend`
+    over a real `MessageChannel` (`local`). `test/support/wire.ts` is the channel in memory they
+    share: it copies each message and delivers it later, in order.
+  - `packages/host/test` (6 files, 65 tests): the fit, the binding on a session double, the
+    registry's load, the model list and `describe`, the images, the host's parts, and the files
+    server's limit for a new file against the board's limit for a picture.
+    [`packages/host/test/README.md`](packages/host/test/README.md) says what each file holds.
+  - `apps/editors/test` (7 files, 75 tests): `suffixes.sync` (the table against the manifests,
+    the registry against the table and against `index.d.ts`), `aliases.sync`, `base.sync`,
+    `text-rules`, `zod-jitless`, `build-helpers` (two of its tests are Vite builds in memory) and
+    `cruise-rules`.
+  - `apps/webapp/test` (4 files, 57 tests): `storage` (what is kept, what is left out, a storage
+    that refuses, the reset, the pictures a board shows and the kept ones it does not), `keeping` (the repository in memory with its writes kept),
+    `example` (the board is canonical, one model per notation, every named file is in the
+    folder, the app reads the folder's bytes) and `check-build` (a whole build and one build per
+    missing part).
 - `npm run board test:browser` (project `browser`, Chromium, a window of 1280 x 800) runs
-  `packages/renderer/test/browser/**/*.test.{ts,tsx}`: React Flow measures its nodes, so nothing
-  of the canvas runs in jsdom or Node. Fifteen files: the arm rules on a bench of fakes
-  (`arming`), the sheet on static markup (`styles`), React Flow's store (`react-flow-internals`),
-  the contract's kit (`conformance`), and boards mounted through the entry (`toolchain`,
-  `canvas`, `canvas-behaviour`, `chrome`, `nodes`, `images`, `overlay-surface`, `hostile-host`,
-  `contract-edges`, `embedded-model`, `live-document`).
+  `packages/renderer/test/browser`, `packages/host/test/browser` and `apps/*/test/browser`, each
+  `**/*.test.{ts,tsx}`: 23 files, 784 tests. React Flow measures its nodes, so nothing of the
+  canvas runs in jsdom or Node, and no diagram-js renderer mounts there either (Business Model
+  Canvas's import throws `activeLayer.getBBox is not a function` under jsdom).
+  - The renderer's fifteen files (661 tests): the arm rules on a bench of fakes (`arming`), the
+    sheet on static markup (`styles`), React Flow's store (`react-flow-internals`), the
+    contract's kit (`conformance`), and boards mounted through the entry (`toolchain`, `canvas`,
+    `canvas-behaviour`, `chrome`, `nodes`, `images`, `overlay-surface`, `hostile-host`,
+    `contract-edges`, `embedded-model`, `live-document`).
+  - `packages/host/test/browser` (3 files, 57 tests): `embed` (the adapter alone in an element
+    the test sizes, scales and arms), `files-host` (the real board on `createFilesHost` over
+    `connectBackend(createMemoryBackend(...))`) and `real-input` (the command itself). The
+    editor in them is a stand-in modeler of the contract (`test/support/stand-in-modeler.ts`),
+    which draws real boxes that take real input; no test of the package imports a renderer of
+    the suite.
+  - `apps/editors/test/browser` (4 files, 53 tests): `real-editors` (the battery under
+    [Real editors, as measured](#real-editors-as-measured)), the two sheet files and
+    `page-errors` (the watch itself). Its `support/` folder has `mountBoard` (a board on a
+    memory backend with the registry), `mountAlone`, `shownChrome`, `shownView` and
+    `watchPageErrors`, which a later browser test may import by relative path.
+  - `apps/webapp/test/browser/app.browser.test.ts` (13 tests): `startApp` on a store of the
+    test's own; the example shown, a model added from the picker, a Wardley component deleted
+    by a real double-click, click and key, a note by the Text button, a picked picture, a second
+    start on the same store, `?reset`, a storage that refuses, a picture the browser did not
+    keep, a kept picture no node shows, an unreadable kept board, `destroy()`. The five tests
+    under "what a person changes" are one story on one store, each going on where the one before
+    it ended, and keep their order in a shuffled run (`{ shuffle: false }`): shuffled, the file
+    failed 7 of its tests.
+- Both projects take the other modelers from their sources through
+  `apps/editors/build/aliases.mjs`, so no other modeler is built first, and the browser project
+  pre-bundles what `apps/editors/build/prebundle.mjs` reads from those sources.
+  `vitest.config.ts` exports the browser project as `browserProject`.
+- `npm run board test:e2e` (Playwright, `e2e/tests/webapp/board.spec.ts`, 2 tests): the page
+  opens with seven engines ready, the seven kinds in the node headers, the picture drawn and no
+  page error; a note is there after a reload, and the reset link brings the example back.
+
+**Real input.** `commands.realInput(ops)` (`test-support/real-input.ts`, registered by
+`vitest.config.ts`) sends real mouse and keyboard input through Playwright: `move`, `down`,
+`up`, `click`, `dblclick`, `wheel`, `press`, `keydown`, `keyup`, `text`, with `x` and `y` in
+client px of the test's window. A synthetic event ignores `inert`, hit testing and the focus, so
+a test of a preview or of an armed editor's pointer math uses the command. It has no wait: after
+the call a test polls. What a browser test with real editors has to know beyond the renderer's
+README: the first test or hook of a page that loads the seven renderers from their sources takes
+`LOAD_MS` (90 s, `apps/editors/test/browser/support/board.ts`) as its limit, since under
+Vitest's own limits (15 s for a test, 30 s for a hook) the two sheet files timed out in 3 of 9
+runs with three whole runs at once, a load average over 30 on 12 cores, and in 0 of 24 with the
+limit; `expect.poll` may not be called in a hook, so a board that is mounted in `beforeAll`
+waits with `vi.waitFor`; Done leaves the board at 100 %, where the editing took it, so a test
+that needs a preview at another zoom sets the view itself; `document.elementFromPoint` skips an
+inert preview, so a shape of a preview is found by its rectangle; a page keeps every sheet it
+loaded, so a test of another load order is a file of its own; a screenshot can only be written
+inside the workspace (a failed browser test writes its own to
+`modelers/board/.vitest/attachments`, which the board's `.gitignore` ignores); Context Maps hides
+an open context pad that has no entry; and in a test, a `new URL(...)` whose first argument is a
+template string (``new URL(`../${path}`, import.meta.url)``) is rewritten by Vite's asset
+handling into a path that ends in `undefined`: use `fileURLToPath(new URL("../", import.meta.url))`
+and `join`.
+
+**Chromium's ResizeObserver line** ("ResizeObserver loop completed with undelivered
+notifications.") is no error of a page. Every watch of a page's errors leaves out exactly that
+message: `complaintsOf` of the renderer's test support, `window-errors.ts` of `packages/host`,
+`page-errors.ts` of `apps/editors`, the web app's browser file and the e2e spec. The renderer's
+test README has what was measured.
 
 **The arming traces.** `test/browser/fixtures/arming-traces.json` was recorded from
 `createBoardArming` while it was still one function, and the split was accepted because the six
@@ -686,29 +1346,51 @@ this cause (the README has what was measured), never to be answered with a longe
 ## Commands
 
 - `npm run board lint` (ESLint and the type check) · `typecheck` · `build` (the same type check) ·
-  `test` · `depcruise` · `format` · `format:check`
+  `test` · `depcruise` · `format` · `format:check`. The type check is a chain: the board's
+  strict project (`tsconfig.json`: the packages, the web app's sources and tests, the test
+  support), `apps/webapp/tsconfig.config.json` (the Vite config), `apps/editors` under its own
+  weaker flags, and `e2e`.
+- `npm run board dev:webapp`, then http://localhost:5184 (the port is strict). The dev server
+  writes `apps/webapp/node_modules/.vite`.
+- `npm run board build:webapp`, then `npm run check:build -w modelers/board/apps/webapp`.
 - `npm run board test:browser`: the committed browser project. The root's `npm run test:browser`
   runs it with every other modeler's.
+- `npm run board test:e2e`: the committed Playwright config, which starts the dev server
+  itself. Flags go to the workspace: `npm run test:e2e -w modelers/board/e2e -- --project=webapp`.
 - `sha256sum -c .miragon/brand-assets.sha256` from the root: the vendored theme files.
-- Not there yet: every script of an app (`build:webapp`, `build:vscode`, `package:vscode`,
-  `dev:webapp`, `test:e2e`, `test:vscode`).
+- Not there yet: every script of the extension (`build:vscode`, `package:vscode`, `test:vscode`,
+  `test:vscode:docker`, `dev:vscode`).
 
 **Where Chromium must not run without its sandbox** (the Miragon agent VM is such a machine):
-Playwright's default launch passes `--no-sandbox` there, so `npm run board test:browser` and
-`vitest --project=browser` are never run on it, and neither is Chromium with `--no-sandbox`.
-Browser tests run only through a local config, `modelers/board/vitest.sandbox.config.ts`, which is
-never committed: add `modelers/*/vitest.sandbox.config.ts` to your own `.git/info/exclude`, which
-no clone brings along. The file is the browser project of `vitest.config.ts` as a config of its
-own: the same `optimizeDeps.include`, the same `test` block (`name`, `include`, `browser` with its
-`viewport`), and two differences, a cache folder from the environment and the sandbox:
+Playwright's default launch passes `--no-sandbox` there, so `npm run board test:browser`,
+`vitest --project=browser` and `npm run board test:e2e` are never run on it, and neither is
+Chromium with `--no-sandbox`. Browser tests run only through two local configs, which are never
+committed: add `modelers/*/vitest.sandbox.config.ts` and
+`modelers/*/e2e/playwright.sandbox.config.ts` to your own `.git/info/exclude`, which no clone
+brings along. Prettier does not read that file, so `npm run board format:check` checks both:
+keep them formatted.
+
+`modelers/board/vitest.sandbox.config.ts` spreads the exported browser project and replaces the
+provider alone, so the two run the same files with the same aliases, pre-bundle list, window and
+commands:
 
 ```ts
+import { defineConfig } from "vitest/config";
+import { playwright } from "@vitest/browser-playwright";
+import { browserProject } from "./vitest.config.ts";
+
 const cacheDir = process.env.BOARD_VITE_CACHE;
 
 export default defineConfig({
+  ...browserProject,
   ...(cacheDir ? { cacheDir } : {}),
-  // optimizeDeps and test as in vitest.config.ts, with this provider in test.browser:
-  // provider: playwright({ launchOptions: { chromiumSandbox: true } }),
+  test: {
+    ...browserProject.test,
+    browser: {
+      ...browserProject.test?.browser,
+      provider: playwright({ launchOptions: { chromiumSandbox: true } }),
+    },
+  },
 });
 ```
 
@@ -717,6 +1399,38 @@ cd modelers/board
 BOARD_VITE_CACHE=<a folder of your own>/node_modules/.vite-board \
   npx vitest run --config vitest.sandbox.config.ts <test files>
 ```
+
+`modelers/board/e2e/playwright.sandbox.config.ts` spreads the committed `playwright.config.ts`
+and sets `launchOptions.chromiumSandbox` in `use` and in every project, because a project's own
+`launchOptions` replace the shared ones whole:
+
+```ts
+import { defineConfig } from "@playwright/test";
+import committed from "./playwright.config.ts";
+
+type Use = NonNullable<typeof committed.use>;
+
+const sandboxed = (use: Use | undefined): Use => ({
+  ...use,
+  launchOptions: { ...use?.launchOptions, chromiumSandbox: true },
+});
+
+export default defineConfig({
+  ...committed,
+  use: sandboxed(committed.use),
+  projects: (committed.projects ?? []).map((project) => ({
+    ...project,
+    use: sandboxed(project.use),
+  })),
+});
+```
+
+```sh
+cd modelers/board/e2e
+npx playwright test --config playwright.sandbox.config.ts --project=webapp
+```
+
+Playwright Test starts that way on the agent VM, with the `webServer` entry too.
 
 `BOARD_VITE_CACHE` lets several people run it at once without sharing Vite's pre-bundle. A path
 with a `node_modules` segment keeps Vite from warning about Vitest's own pre-bundle ("The above
@@ -777,10 +1491,17 @@ changing one in passing is a regression nobody would see.
 - Gestures under the contract: a gesture tracker, a selection of the board's own that empties at a
   drag's start, a cancel that makes a drop write nothing, an armed tool, a create by a held
   gesture. The board adds by click; the one drag that creates is an arrow drawn from a handle.
-- An adapter that mounts a modeler of the suite as an embedded editor (what it needs is under
-  [Real editors, as measured](#real-editors-as-measured)), and a test file with a real editor
-  and real input, once it is settled whether the board's tests may depend on a modeler of the
-  suite.
+- For a host of files: a retry for a model whose file is not there when the board opens (the
+  facade could try again when the port's list gains the path), a version or an acknowledgement
+  in the files protocol, a flush on the port, an end of the web app that waits for the board's
+  editors, a server that serves only what its backend lists or refuses dot folders (the open
+  decision under [The files port](#the-files-port-packagesfiles)), a text of the host's own for
+  the line of an invalid file, and the web app's notices file.
+- The apps of the later increments: the board inside the shell (`apps/ide-editor`), the VS Code
+  extension, a folder of the person's own behind the web app, arrows derived from model
+  references (`host.references`), and what a bare renderer in a node does not offer: by the
+  plan's reading of the modelers' apps, not tried here, a Business Model Canvas title or notes,
+  C4's inspector and views dialog, and any menu or export of a hosted modeler.
 - An end signal for a host: a promise on `BoardHandle` that settles when the canvas is gone.
 - State per board, listeners of the board's own, the fit capped and aware of the toolbar's
   height, `freeArea.center` read.
@@ -791,6 +1512,41 @@ changing one in passing is a regression nobody would see.
 - Publishing: ranged peers for `yjs`, `react`, `react-dom` and `@xyflow/react` with exact
   mirrors, a build, a release-please component, a notice for `dompurify` and one for Tailwind's
   preflight (MIT), of which `assets/board-base.css` is a scoped copy.
+
+**Found while the apps were built, and not changed.** In the renderer, in the suite's tooling
+and in other modelers; each is its owner's to decide.
+
+- **`focus()` before the box** ([What is left with the host](#what-is-left-with-the-host)). The
+  cure in the renderer is to write the box before the call in `placeHost`, a change of the
+  measured order.
+- **`EmbeddedEditor.ready`.** The JSDoc of `host/types.ts` does not say that the board reads it
+  only for a node that is still there (`surface/overlay-surface.tsx` attaches its handlers after
+  the `cancelled` check). A host whose `ready` rejects for a node that went meanwhile gets an
+  unhandled rejection unless it marks the promise handled, as the host package's facade does.
+- **`relocate` is one amend per node**: a moved file that two nodes show is two changes of the
+  board (run once by a review with two nodes on the real renderers, in scratch; the kept test
+  holds one change for one node).
+- **The preset rule `dom-free-no-renderer`** (`tooling/dependency-cruiser.cjs`) matches relative
+  imports into `packages/renderer/src` only. An import of `@miragon/board-renderer` by name from
+  a DOM-free package is caught for `files` by the board's own rule and for `schema-model` by
+  nothing. A root file.
+- **Event Storming**, seen once in an exploratory run and not followed up: after a real Delete of
+  a sticky and Control + Z, `exportText()` was not the text from before the delete, and
+  `elements.list()` named the restored sticky last. In a board an undo after a delete would
+  leave the file with another line order.
+- **Business Model Canvas**, seen once: a real drag that drops a sticky where it was fires
+  `onContentChanged` while `exportText()` is unchanged. The binding absorbs it: nothing is
+  written.
+- **C4**, the bare renderer in a narrow box: the breadcrumb bar stands at left 12 px, top 64 px
+  and lies over the palette column, alone and in a board alike (measured at 420 px).
+- **The example files of Context Maps and Event Storming** (`example/sample.cm`,
+  `example/order-checkout.storm` of those modelers) are not in their modeler's canonical form:
+  right after `importText(example)`, `exportText()` is another text. Their own editors write
+  the export, so the first edit of such a file in a board also writes that difference: one
+  newline at the end of `sample.cm`, two dropped blank lines in `order-checkout.storm`.
+- **Vitest keeps transformed modules on disk** under the root's `node_modules/.vitest-cache`,
+  keyed by the plugins' names and not their options: two runs with a plugin of one name and
+  different options answer for each other. The tree's own configs have no such plugin.
 
 **Found in the moved code and left as it was measured.** Each is a change of behaviour, so each
 wants its own decision and its own test.

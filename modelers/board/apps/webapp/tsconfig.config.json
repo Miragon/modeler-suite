@@ -1,0 +1,12 @@
+{
+  "//": "allowJs: the build helpers of apps/editors are .mjs files, typed by their JSDoc.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "lib": ["ES2022"],
+    "types": ["node"]
+  },
+  "include": ["vite.config.ts"]
+}

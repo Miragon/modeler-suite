@@ -1,0 +1,45 @@
+{
+  "name": "board-suite-editors",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The seven modelers of the suite as editors in a board's model nodes: the registry, each notation's text rules, and the build helpers of the board's apps. The one workspace of the board that depends on another modeler.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./src/registry.ts"
+    },
+    "./suffixes": "./src/suffixes.ts",
+    "./base": "./src/base.ts",
+    "./zod-jitless": "./src/zod-jitless.ts",
+    "./build/*": "./build/*",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@miragon/board-host": "0.0.0",
+    "@miragon/business-model-canvas-dsl": "0.2.0",
+    "@miragon/business-model-canvas-renderer": "0.2.0",
+    "@miragon/c4-renderer": "0.2.0",
+    "@miragon/context-maps-renderer": "0.10.0",
+    "@miragon/context-maps-schema-model": "0.5.1",
+    "@miragon/event-storming-renderer": "0.10.0",
+    "@miragon/team-topologies-renderer": "0.22.2",
+    "@miragon/team-topologies-schema-model": "0.22.2",
+    "@miragon/value-chain-renderer": "0.11.0",
+    "@miragon/value-chain-schema-model": "0.7.3",
+    "@miragon/wardley-dsl": "0.10.0",
+    "@miragon/wardley-renderer": "0.18.0",
+    "@miragon/wardley-schema-model": "0.6.1",
+    "diagram-js": "15.28.1",
+    "didi": "12.0.0",
+    "tiny-svg": "4.1.4",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

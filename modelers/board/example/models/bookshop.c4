@@ -1,0 +1,135 @@
+workspace "Bookshop" "An online bookshop and the systems it works with." {
+
+    model {
+        customer = person "Customer" "Browses the catalogue and buys books."
+        bookshop = softwareSystem "Bookshop" "Sells books online." {
+            webApp = container "Web App" "Shows the catalogue and takes orders in the browser." "TypeScript, React"
+            api = container "API" "Serves the catalogue and handles orders." "Kotlin, Spring Boot" {
+                catalogue = component "Catalogue" "Finds books and their prices." "Spring MVC controller"
+                orders = component "Orders" "Places orders and takes payment." "Spring MVC controller"
+                notifications = component "Notifications" "Sends order confirmations." "Spring bean"
+            }
+            database = container "Database" "Stores books, customers and orders." "PostgreSQL" "Database"
+        }
+        payments = softwareSystem "Payment Provider" "Takes card payments." "Existing System"
+        mail = softwareSystem "E-mail System" "Delivers e-mails." "Existing System"
+
+        customer -> webApp "Browses and buys books with" "HTTPS"
+        webApp -> api "Makes API calls to" "JSON/HTTPS"
+        api -> database "Reads from and writes to" "SQL"
+        webApp -> catalogue "Searches books with" "JSON/HTTPS"
+        webApp -> orders "Places orders with" "JSON/HTTPS"
+        catalogue -> database "Reads books from" "SQL"
+        orders -> database "Stores orders in" "SQL"
+        orders -> notifications "Asks to confirm orders"
+        orders -> payments "Charges cards with" "HTTPS"
+        notifications -> mail "Sends e-mails with" "SMTP"
+        mail -> customer "Delivers order confirmations to"
+
+        deploymentEnvironment "Live" {
+            deploymentNode "Cloud" "Runs the bookshop." "Amazon Web Services" {
+                deploymentNode "Web server" "Serves the web app." "Nginx" {
+                    containerInstance webApp
+                }
+                deploymentNode "Application server" "Runs the API." "Docker" {
+                    containerInstance api
+                }
+                deploymentNode "Database server" "Hosts the database." "Amazon RDS" {
+                    containerInstance database
+                }
+            }
+        }
+    }
+
+    views {
+        systemLandscape "SystemLandscape" "The bookshop and the systems it works with." {
+            include *
+            autoLayout tb 300 160
+            properties {
+                "c4modeler.element.bookshop" "480,456"
+                "c4modeler.element.customer" "492,0"
+                "c4modeler.element.mail" "960,456"
+                "c4modeler.element.payments" "0,456"
+            }
+        }
+        systemContext bookshop "SystemContext-bookshop" "Who uses the bookshop and what it depends on." {
+            include *
+            autoLayout tb 300 160
+            properties {
+                "c4modeler.element.bookshop" "480,456"
+                "c4modeler.element.customer" "492,0"
+                "c4modeler.element.mail" "960,456"
+                "c4modeler.element.payments" "0,456"
+            }
+        }
+        container bookshop "Containers-bookshop" "The parts the bookshop is built from." {
+            include *
+            autoLayout tb 300 160
+            properties {
+                "c4modeler.element.api" "560,640"
+                "c4modeler.element.customer" "572,0"
+                "c4modeler.element.database" "560,920"
+                "c4modeler.element.mail" "1120,640"
+                "c4modeler.element.payments" "0,640"
+                "c4modeler.element.webApp" "560,360"
+            }
+        }
+        component api "Components-api" "Inside the API." {
+            include *
+            autoLayout tb 300 160
+            properties {
+                "c4modeler.element.catalogue" "80,320"
+                "c4modeler.element.database" "320,704"
+                "c4modeler.element.mail" "1000,1032"
+                "c4modeler.element.notifications" "1000,320"
+                "c4modeler.element.orders" "560,320"
+                "c4modeler.element.payments" "560,1032"
+                "c4modeler.element.webApp" "320,0"
+            }
+        }
+        dynamic api "PlaceOrder" "A customer places an order." {
+            webApp -> orders "Sends the order to"
+            orders -> payments "Charges the card with"
+            orders -> database "Stores the order in"
+            orders -> notifications "Asks to confirm the order"
+            notifications -> mail "Sends the confirmation with"
+            autoLayout lr
+        }
+        deployment bookshop "Live" "LiveDeployment" "Where the bookshop runs." {
+            include *
+            autoLayout lr
+        }
+
+        styles {
+            element "Person" {
+                shape person
+                background "#08427B"
+                color "#FFFFFF"
+                stroke "#052E57"
+            }
+            element "Software System" {
+                background "#1168BD"
+                color "#FFFFFF"
+                stroke "#0B4F91"
+            }
+            element "Container" {
+                background "#2D72B8"
+                color "#FFFFFF"
+                stroke "#1F5A96"
+            }
+            element "Component" {
+                background "#85BBF0"
+                color "#1D1D1D"
+                stroke "#4F86C0"
+            }
+            element "Existing System" {
+                background "#6B6B6B"
+                color "#FFFFFF"
+                stroke "#4D4D4D"
+            }
+            element "Database" {
+                shape cylinder
+            }
+        }
+    }
+}

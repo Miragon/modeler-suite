@@ -22,6 +22,7 @@ import {
   writeDrop,
 } from "../../src/index.js";
 import { BOARD_A, INVALID } from "../support/board-texts.js";
+import { complaintsOf } from "../support/console-complaints.js";
 import { type MountedBoard, mountBoard } from "../support/mount-board.js";
 import { key } from "../support/pointer.js";
 
@@ -220,7 +221,7 @@ describe("a move by the arrow keys", () => {
     expect(boardText(doc)).toBe(noteAt(760 + KEY_STEP, 80));
     await microtask();
     expect(board.element.querySelector(".board-module")).toBeNull();
-    expect(complaints.mock.calls.map((call) => call.slice(0, 2))).toEqual([
+    expect(complaintsOf(complaints).map((call) => call.slice(0, 2))).toEqual([
       ["[board]", "the last write of a destroyed board failed: the provider is closed"],
     ]);
   });
@@ -341,7 +342,7 @@ describe("an import and the canvas it waits for", () => {
     );
     expect(board.modeler.exportText()).toBe(BOARD_A);
     expect(board.modeler.getViewState()).toEqual(plain.modeler.getViewState());
-    expect(complaints.mock.calls.map((call) => call[0])).toEqual(["[board]"]);
+    expect(complaintsOf(complaints).map((call) => call[0])).toEqual(["[board]"]);
   });
 });
 

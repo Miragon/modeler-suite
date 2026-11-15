@@ -12,9 +12,11 @@ This applies to `dependencies` and `devDependencies`, including the internal
 `@miragon/board-schema-model` and the suite's `@miragon/modeler-api`, which are pinned to the
 exact current workspace version (not `*` or `workspace:*`); npm links them locally because the
 versions match. The board's own packages have no release-please component yet and stay on
-`0.0.0`. The pin on the contract is bumped by every release of `@miragon/modeler-api`, through its
+`0.0.0`. A pin on a release component is bumped by every release of that component, through its
 two `extra-files` entries in the root `release-please-config.json` (see the suite's
-[docs/ci-and-releases.md](../../../../docs/ci-and-releases.md)).
+[docs/ci-and-releases.md](../../../../docs/ci-and-releases.md)): the renderer's and the host
+package's pin on `@miragon/modeler-api`, and the thirteen pins of `apps/editors` on packages of
+the other modelers. `test/release-config.test.ts` at the root names every entry that is missing.
 
 **No ranged `peerDependencies` here.** The other modelers declare `zod` and the
 `diagram-js` / `didi` / `tiny-svg` ecosystem as ranged peers so that a host installing their npm

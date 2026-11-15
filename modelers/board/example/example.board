@@ -1,0 +1,13 @@
+{"format":"structured-model","meta":{"title":"Example board","version":1},"version":1}
+{"id":"e_files_to_value_chain","kind":"edge","label":"models/porter.vc.json","source":"n_files","sourceHandle":"bottom","target":"n_value_chain","targetHandle":"top"}
+{"height":300,"id":"n_about","kind":"node","text":"Start here","type":"group","width":1680,"x":0,"y":-380,"z":"a"}
+{"file":"models/miragon.bmc","height":540,"id":"n_business_model_canvas","kind":"node","type":"model","width":800,"x":1760,"y":0,"z":"g"}
+{"file":"models/bookshop.c4","height":540,"id":"n_c4_model","kind":"node","type":"model","width":800,"x":2640,"y":0,"z":"h"}
+{"file":"models/sample.cm","height":540,"id":"n_context_map","kind":"node","type":"model","width":800,"x":880,"y":640,"z":"j"}
+{"file":"models/order-checkout.storm","height":540,"id":"n_event_storming","kind":"node","type":"model","width":800,"x":0,"y":640,"z":"i"}
+{"color":"amber","height":180,"id":"n_files","kind":"node","parent":"n_about","text":"## Where an edit goes\n\nAn edit of a model is written into that model's own file under `models/`. The board file stores where a file sits, never what is in it.\n\nThis browser keeps the board and the changed files. **Reset the example** at the bottom of the page brings the first state back.","type":"text","width":680,"x":960,"y":80,"z":"d"}
+{"file":"assets/miragon-komet-blau.svg","height":180,"id":"n_logo","kind":"node","parent":"n_about","type":"image","width":180,"x":40,"y":80,"z":"b"}
+{"file":"models/sample.tt","height":540,"id":"n_team_topology","kind":"node","type":"model","width":800,"x":1760,"y":640,"z":"k"}
+{"file":"models/porter.vc.json","height":540,"id":"n_value_chain","kind":"node","type":"model","width":800,"x":880,"y":0,"z":"f"}
+{"file":"models/tea.owm","height":540,"id":"n_wardley_map","kind":"node","type":"model","width":800,"x":0,"y":0,"z":"e"}
+{"height":180,"id":"n_welcome","kind":"node","parent":"n_about","text":"## A board of a repository's own files\n\nEvery model here is a file of the example repository, drawn by its own modeler.\n\n- **Double-click** a model to edit it in place.\n- **Done**, or a zoom of the board, ends the editing.\n- Text, Image, Group and Model in the toolbar add to the board.","type":"text","width":660,"x":260,"y":80,"z":"c"}
