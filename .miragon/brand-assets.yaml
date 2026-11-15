@@ -50,3 +50,7 @@ files:
     out: modelers/business-model-canvas/packages/renderer/src/theme/cd-tokens.generated.json
   - source: skills/modeler-tool-design/assets/cd-canvas.css
     out: modelers/business-model-canvas/packages/renderer/src/theme/cd-canvas.css
+  - source: skills/modeler-tool-design/assets/cd-tokens.generated.css
+    out: modelers/board/packages/renderer/src/theme/cd-tokens.generated.css
+  - source: skills/modeler-tool-design/assets/cd-tokens.generated.json
+    out: modelers/board/packages/renderer/src/theme/cd-tokens.generated.json

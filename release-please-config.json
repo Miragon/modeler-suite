@@ -70,6 +70,16 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/business-model-canvas/packages/renderer'].dependencies['@miragon/modeler-api']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/board/packages/renderer/package.json",
+          "jsonpath": "$.dependencies['@miragon/modeler-api']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/packages/renderer'].dependencies['@miragon/modeler-api']"
         }
       ]
     },

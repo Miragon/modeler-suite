@@ -19,6 +19,12 @@
     "format": "prettier --write . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",
     "format:check": "prettier --check . --ignore-path .gitignore --ignore-path ../../.gitignore --ignore-path ../../.prettierignore",
     "test": "vitest run --project=unit",
+    "test:browser": "vitest run --project=browser",
     "depcruise": "depcruise packages --config .dependency-cruiser.cjs"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint-plugin-react-hooks": "7.1.1"
   }
 }
