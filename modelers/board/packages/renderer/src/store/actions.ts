@@ -17,6 +17,7 @@ import {
   type EdgeAttrs,
   type NodeAttrs,
   type NodeType,
+  type Point,
   type Side,
 } from "@miragon/board-schema-model";
 import { newId, type BoardStore } from "./board-store.js";
@@ -42,10 +43,6 @@ export const imageType = (path: string): string | undefined => {
   return Object.hasOwn(IMAGE_TYPES, extension) ? IMAGE_TYPES[extension] : undefined;
 };
 
-export interface Point {
-  x: number;
-  y: number;
-}
 export interface Size {
   width: number;
   height: number;

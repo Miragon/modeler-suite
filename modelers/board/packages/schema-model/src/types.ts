@@ -4,6 +4,12 @@
  * is in it: a model node holds the path of its model and nothing else.
  */
 
+/** a point in board coordinates, or on screen where a function says so */
+export interface Point {
+  x: number;
+  y: number;
+}
+
 /** an element's box in board coordinates */
 export interface Box {
   x: number;

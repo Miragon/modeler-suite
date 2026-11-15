@@ -20,6 +20,7 @@ export {
   type ElementAttrs,
   type NodeAttrs,
   type NodeType,
+  type Point,
   type Side,
 } from "./types.js";
 export { absoluteBox, absoluteBoxes, isEdgeAttrs, isNodeAttrs, projectBoard } from "./view.js";
