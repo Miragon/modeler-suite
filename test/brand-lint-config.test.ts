@@ -23,6 +23,11 @@ const TEMPLATE_CONFIG =
 const THIRD_PARTY_TEXTS = [
   "modelers/context-maps/apps/vscode/scripts/apache-2.0.txt",
   "modelers/board/apps/editors/build/licences/apache-2.0.txt",
+  "modelers/board/apps/editors/build/licences/bpmn-auto-layout.txt",
+  "modelers/board/apps/editors/build/licences/bpmn-io-semver-compat.txt",
+  "modelers/board/apps/editors/build/licences/bpmn-js-copy-as-image.txt",
+  "modelers/board/apps/editors/build/licences/bpmn-modeler-i18n.txt",
+  "modelers/board/apps/editors/build/licences/mit.txt",
   "modelers/board/apps/editors/build/licences/tailwindcss.txt",
 ];
 /** The Miragon docs kit, vendored unchanged and checked at its source in Miragon/corporate-identity. */

@@ -3,6 +3,7 @@ import { defineConfig, defineProject } from "vitest/config";
 import { playwright } from "@vitest/browser-playwright";
 import { sourceAliases } from "./apps/editors/build/aliases.mjs";
 import { cssBaseAliases } from "./apps/editors/build/css-base.mjs";
+import { bpmnSheetScopeVite } from "./apps/editors/build/css-scope.mjs";
 import { prebundle } from "./apps/editors/build/prebundle.mjs";
 import { realInput } from "./test-support/real-input.ts";
 
@@ -25,6 +26,7 @@ const vscodeMock = {
  */
 export const browserProject = defineProject({
   resolve: { alias },
+  plugins: [bpmnSheetScopeVite],
   // Pre-bundled up front: discovered during the run, Vite would reload the page mid-suite.
   optimizeDeps: {
     include: [...prebundle, "@miragon/modeler-api/conformance"],

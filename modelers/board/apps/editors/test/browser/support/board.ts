@@ -308,7 +308,8 @@ export async function mountAlone(
 /**
  * The HTML an editor lays over or beside its canvas and that a person can see right now: every
  * element below the editor's root that is neither the canvas (the svg and what holds it) nor in
- * diagram-js's overlay layer, by its first class name.
+ * diagram-js's overlay layer, by its first class name. The bpmn.io watermark is no chrome:
+ * bpmn-js's licence keeps it in sight wherever a diagram is drawn.
  */
 export function shownChrome(engine: HTMLElement): string[] {
   const root = engine.querySelector<HTMLElement>(".board-host-editor");
@@ -318,6 +319,7 @@ export function shownChrome(engine: HTMLElement): string[] {
   const walk = (parent: Element): void => {
     for (const child of parent.children) {
       if (child === canvas || child.classList.contains("djs-overlay-container")) continue;
+      if (child.classList.contains("bjs-powered-by")) continue;
       if (child.contains(canvas)) {
         walk(child);
         continue;

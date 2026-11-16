@@ -22,10 +22,10 @@ import {
 
 test.describe.configure({ timeout: 2 * MODELS_READY_MS });
 
-const PROCESS = "processes/order-to-cash.bpmn";
-const PROCESS_NODE = "n_zz_process";
+const DECISION = "decisions/credit-limit.dmn";
+const DECISION_NODE = "n_zz_decision";
 /** the node as a text editor beside the board writes it, on the line a board file has it on */
-const NODE_LINE = `{"file":"${PROCESS}","height":320,"id":"${PROCESS_NODE}","kind":"node","type":"model","width":480,"x":0,"y":1300,"z":"l"}`;
+const NODE_LINE = `{"file":"${DECISION}","height":320,"id":"${DECISION_NODE}","kind":"node","type":"model","width":480,"x":0,"y":1300,"z":"l"}`;
 
 test("a file no notation covers is a card: Open in its editor asks the extension to show it, and the page gets nothing of the file", async ({
   page,
@@ -36,7 +36,7 @@ test("a file no notation covers is a card: Open in its editor asks the extension
 
   // a file of the repository, and its node in the board file
   await page.evaluate(([path, text]) => window.vscodeHost?.backend.outside(path, text), [
-    PROCESS,
+    DECISION,
     "<definitions/>\n",
   ] as const);
   await page.evaluate(
@@ -46,9 +46,9 @@ test("a file no notation covers is a card: Open in its editor asks the extension
   await expect.poll(() => canvasText(page)).toBe(`${EXAMPLE_BOARD}${NODE_LINE}\n`);
   await page.locator('.cd-shell [data-zoom="fit"]').click();
 
-  const card = page.locator(`.react-flow__node[data-id="${PROCESS_NODE}"] .board-engine`);
+  const card = page.locator(`.react-flow__node[data-id="${DECISION_NODE}"] .board-engine`);
   await expect(card).toHaveAttribute("data-embed-state", "card");
-  await expect(card).toContainText("order-to-cash.bpmn");
+  await expect(card).toContainText("credit-limit.dmn");
   // no failure look, and the seven models beside it are as they were
   await expect(card).not.toHaveClass(/board-engine--failed/);
   await modelsReady(page);
@@ -63,15 +63,15 @@ test("a file no notation covers is a card: Open in its editor asks the extension
 
   await expect
     .poll(() => page.evaluate(() => [...(window.vscodeHost?.shown ?? [])]))
-    .toEqual([PROCESS]);
+    .toEqual([DECISION]);
   await expect(card).toContainText("Opened in its editor.");
   const posted = await postedMessages(page);
   expect(
     posted.filter((message) => message.type === "board.file.show").map(({ path }) => path),
-  ).toEqual([PROCESS]);
+  ).toEqual([DECISION]);
   // the page asked for nothing else of that file: neither its text nor its bytes
   expect(
-    posted.filter((message) => message.path === PROCESS && message.type !== "board.file.show"),
+    posted.filter((message) => message.path === DECISION && message.type !== "board.file.show"),
   ).toEqual([]);
   // and showing a file writes nothing into the board file
   expect(await appliedEdits(page)).toEqual([]);

@@ -229,6 +229,27 @@ describe("buildProblems", () => {
     ]);
   });
 
+  test("the BPMN modeler's sheet with its own base, held to its editors and not", () => {
+    const BPMN_SHEET =
+      ".djs-context-pad.open{display:block}.bio-properties-panel{position:relative}";
+    const held = buildProblems(
+      build({
+        sheets: sheetsWith({
+          "bpmn.css": `@font-face{font-family:bpmn}@scope ([data-notation=bpmn], .am-overlay-root){${BPMN_SHEET}}`,
+        }),
+      }),
+    );
+    expect(held.problems).toEqual([]);
+
+    const loose = buildProblems(build({ sheets: sheetsWith({ "bpmn.css": BPMN_SHEET }) }));
+    expect(loose.problems).toEqual([
+      "the BPMN modeler's sheet stands outside its @scope: its copy of diagram-js's base would " +
+        "override the other renderers' own rules",
+      "diagram-js's base rule of the context pad is in the page's sheet 1 times and in the " +
+        "notations' sheets 1 times: it belongs into the page's sheet, once",
+    ]);
+  });
+
   test("the shared base missing from the page's sheet: the first pad rule is a renderer's own", () => {
     const { problems } = buildProblems(
       build({

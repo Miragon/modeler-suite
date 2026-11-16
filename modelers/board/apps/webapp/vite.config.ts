@@ -1,6 +1,7 @@
 import { webHeadMarkup } from "@miragon/modeler-shell/core";
 import { sourceAliases } from "board-suite-editors/build/aliases.mjs";
 import { cssBaseAliases } from "board-suite-editors/build/css-base.mjs";
+import { bpmnSheetScopeVite } from "board-suite-editors/build/css-scope.mjs";
 import { noticesPlugin } from "board-suite-editors/build/notices-build.mjs";
 import { prebundle } from "board-suite-editors/build/prebundle.mjs";
 import { defineConfig, type Plugin } from "vite";
@@ -30,7 +31,12 @@ export default defineConfig({
   resolve: { alias: [...cssBaseAliases, ...sourceAliases] },
   // A production build writes its third-party notices from what it bundled and fails when they are
   // not whole; the check reads the source maps for what is in the build.
-  plugins: [modeMarkup(), noticesPlugin({ product: "The Modeler Board web app" })],
+  // The BPMN modeler's sheet is held to its editors (`css-scope.mjs`).
+  plugins: [
+    modeMarkup(),
+    bpmnSheetScopeVite,
+    noticesPlugin({ product: "The Modeler Board web app" }),
+  ],
   // A notation loads when a node first shows it. What its renderer imports is bundled up front:
   // met only then, the dev server would bundle it and reload the page under an open board.
   optimizeDeps: { include: prebundle },

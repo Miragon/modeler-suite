@@ -686,10 +686,10 @@ describe("a board without a repository", () => {
   );
 });
 
-describe("a file no notation of the suite covers", () => {
+describe("a file no editor of the board covers", () => {
   afterEach(stop);
 
-  const PROCESS = "processes/order-to-cash.bpmn";
+  const DECISION = "decisions/credit-limit.dmn";
   /** a card as a person meets it: what it says, and the buttons a pointer could press */
   function cardOf(nodeId: string): { text: string; buttons: string[] } {
     const engine = one<HTMLElement>(`.react-flow__node[data-id="${nodeId}"] .board-engine`);
@@ -710,13 +710,15 @@ describe("a file no notation of the suite covers", () => {
         "from-designiq.board",
         encodeBoard({
           meta: { title: "From another tool", version: 1 },
-          elements: { n_process: node("model", { file: PROCESS, x: 0, width: 480, height: 320 }) },
+          elements: {
+            n_decision: node("model", { file: DECISION, x: 0, width: 480, height: 320 }),
+          },
         }),
       );
 
       await expect.poll(engineStates, POLL).toEqual(["card"]);
-      const card = cardOf("n_process");
-      expect(card.text).toContain("order-to-cash.bpmn");
+      const card = cardOf("n_decision");
+      expect(card.text).toContain("credit-limit.dmn");
       expect(card.text).toContain(CARD_NOTE);
       expect(card.text).toContain(NO_SHOW_TEXT);
       expect(NO_SHOW_TEXT).toBe("This app cannot show this file.");
@@ -739,7 +741,7 @@ describe("a file no notation of the suite covers", () => {
           ...parsed.snapshot,
           elements: {
             ...parsed.snapshot.elements,
-            n_process: node("model", { file: PROCESS, x: 0, y: -400, width: 480, height: 320 }),
+            n_decision: node("model", { file: DECISION, x: 0, y: -400, width: 480, height: 320 }),
           },
         }),
       );
@@ -751,8 +753,8 @@ describe("a file no notation of the suite covers", () => {
       await expect
         .poll(() => engineStates().sort(), { timeout: READY_MS, interval: 50 })
         .toEqual(["card", ...Array.from({ length: 7 }, () => "ready")]);
-      const card = cardOf("n_process");
-      expect(card.text).toContain("order-to-cash.bpmn");
+      const card = cardOf("n_decision");
+      expect(card.text).toContain("credit-limit.dmn");
       expect(card.text).toContain(NO_SHOW_TEXT);
       expect(card.buttons).toEqual([]);
       // the picker still offers the seven notations' files only
@@ -760,7 +762,7 @@ describe("a file no notation of the suite covers", () => {
         all<HTMLOptionElement>("select.board-toolbar__models option:not([disabled])").map(
           (option) => option.value,
         ),
-      ).not.toContain(PROCESS);
+      ).not.toContain(DECISION);
     },
     READY_MS + STEP_MS,
   );

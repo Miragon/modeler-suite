@@ -65,6 +65,7 @@ describe("the board editor's options", () => {
       ".vc.json",
       ".c4",
       ".bmc",
+      ".bpmn",
     ]);
     expect(BOARD_FILES_RULE.model("models/tea.owm")).toBe(true);
     expect(BOARD_FILES_RULE.model("models/TEAM.TTM.JSON")).toBe(true);

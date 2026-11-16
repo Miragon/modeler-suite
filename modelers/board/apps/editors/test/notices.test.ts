@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,6 +35,8 @@ import {
   NOTICES_FILE,
   packageDirectory,
   SHIPPED_LICENCES,
+  SUPPLIED_TEXTS,
+  BPMN_IO_LICENCE,
 } from "../build/notices.mjs";
 
 /**
@@ -111,9 +121,19 @@ describe("the licence a package is taken under", () => {
     expect(licenceTaken(declared)).toBe(taken);
   });
 
-  it("ships permissive licences and the fonts' one, and no copyleft", () => {
+  it("ships permissive licences, the fonts' one and bpmn-js's, and no copyleft", () => {
     expect([...SHIPPED_LICENCES].sort()).toEqual(
-      ["0BSD", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MIT", "OFL-1.1"].sort(),
+      [
+        "0BSD",
+        "Apache-2.0",
+        "BSD-2-Clause",
+        "BSD-3-Clause",
+        "CC0-1.0",
+        "ISC",
+        BPMN_IO_LICENCE,
+        "MIT",
+        "OFL-1.1",
+      ].sort(),
     );
   });
 });
@@ -230,6 +250,75 @@ describe("the packages of a build", () => {
       "silent 1.0.0 names no licence in its manifest",
       "silent 1.0.0 has no licence file to quote",
     ]);
+  });
+
+  it("reads a manifest that names its licence in no SPDX words by the text it ships", () => {
+    const words = tree({
+      "node_modules/viewer/package.json": manifest({
+        name: "viewer",
+        version: "18.0.0",
+        license: "SEE LICENSE IN LICENSE",
+      }),
+      "node_modules/viewer/LICENSE":
+        "Copyright (c) 2014-present Camunda Services GmbH\n\nPermission is hereby granted.\n\n" +
+        "The source code responsible for displaying the bpmn.io project watermark MUST NOT be removed.",
+      "node_modules/viewer/index.js": "",
+      "node_modules/colours/package.json": manifest({
+        name: "colours",
+        version: "0.6.2",
+        license: "CC0",
+      }),
+      "node_modules/colours/LICENSE.md": "CC0 1.0 Universal\n\nStatement of Purpose",
+      "node_modules/colours/index.js": "",
+      "node_modules/elsewhere/package.json": manifest({
+        name: "elsewhere",
+        version: "1.0.0",
+        license: "SEE LICENSE IN LICENSE",
+      }),
+      "node_modules/elsewhere/LICENSE": "All rights reserved.",
+      "node_modules/elsewhere/index.js": "",
+    });
+    const { packages, problems } = bundledPackages(
+      ["viewer", "colours", "elsewhere"].map((name) =>
+        join(words, "node_modules", name, "index.js"),
+      ),
+    );
+    expect(packages.map(({ name, declared, licence }) => [name, declared, licence])).toEqual([
+      ["colours", "CC0-1.0", "CC0-1.0"],
+      ["elsewhere", "SEE LICENSE IN LICENSE", undefined],
+      ["viewer", BPMN_IO_LICENCE, BPMN_IO_LICENCE],
+    ]);
+    expect(problems).toEqual([
+      "elsewhere 1.0.0 is under SEE LICENSE IN LICENSE, which the suite does not ship " +
+        `(${SHIPPED_LICENCES.join(", ")})`,
+    ]);
+  });
+
+  it("quotes the repository's text for a package that ships none, and says so", () => {
+    const shipsNone = join(MODULES, "@bpmn-io/semver-compat");
+    expect(readdirSync(shipsNone).filter((name) => /licen[cs]e/i.test(name))).toEqual([]);
+    const files = [join(shipsNone, "dist/index.js")];
+    const { packages, problems } = bundledPackages(files);
+    expect(problems).toEqual([]);
+    expect(packages[0]?.texts.map(({ file: name }) => name)).toEqual([
+      SUPPLIED_TEXTS["@bpmn-io/semver-compat"]?.file,
+    ]);
+    expect(packages[0]?.texts[0]?.text).toMatch(/^The MIT License \(MIT\)\n\nCopyright/);
+    const { text } = composeNotices({ product: "A build", files });
+    expect(text).toContain(
+      `The package ships no licence text: ${SUPPLIED_TEXTS["@bpmn-io/semver-compat"]?.from}.`,
+    );
+  });
+
+  it("supplies a text only for a package that ships none, from a file it keeps", () => {
+    for (const [name, { file }] of Object.entries(SUPPLIED_TEXTS)) {
+      const directory = join(MODULES, name);
+      expect(existsSync(join(directory, "package.json")), name).toBe(true);
+      expect(readdirSync(directory).filter((one) => /^(licen[cs]e|copying)/i.test(one))).toEqual(
+        [],
+      );
+      expect(existsSync(join(EDITORS, "build/licences", file)), file).toBe(true);
+    }
   });
 
   it("names a package that an upstream build holds inside its own file", () => {

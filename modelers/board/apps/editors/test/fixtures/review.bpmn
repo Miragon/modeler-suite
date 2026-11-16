@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:acme="urn:example:acme" id="Definitions_review" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_review" name="Review" isExecutable="false">
+    <bpmn:startEvent id="Start_draft_ready" name="Draft ready">
+      <bpmn:outgoing>Flow_to_review</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:task id="Task_review_draft" name="Review draft" acme:owner="editorial">
+      <bpmn:extensionElements>
+        <acme:sla hours="4" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_to_review</bpmn:incoming>
+      <bpmn:outgoing>Flow_to_done</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:endEvent id="End_reviewed" name="Reviewed">
+      <bpmn:incoming>Flow_to_done</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_to_review" sourceRef="Start_draft_ready" targetRef="Task_review_draft" />
+    <bpmn:sequenceFlow id="Flow_to_done" sourceRef="Task_review_draft" targetRef="End_reviewed" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_review">
+    <bpmndi:BPMNPlane id="Plane_review" bpmnElement="Process_review">
+      <bpmndi:BPMNShape id="Start_draft_ready_di" bpmnElement="Start_draft_ready">
+        <dc:Bounds x="152" y="82" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="142" y="125" width="56" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_review_draft_di" bpmnElement="Task_review_draft">
+        <dc:Bounds x="240" y="60" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_reviewed_di" bpmnElement="End_reviewed">
+        <dc:Bounds x="392" y="82" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="386" y="125" width="48" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_to_review_di" bpmnElement="Flow_to_review">
+        <di:waypoint x="188" y="100" />
+        <di:waypoint x="240" y="100" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_to_done_di" bpmnElement="Flow_to_done">
+        <di:waypoint x="340" y="100" />
+        <di:waypoint x="392" y="100" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

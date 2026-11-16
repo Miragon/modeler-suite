@@ -6,7 +6,8 @@ Event Storming, Team Topologies, Context Maps, Value Chain, C4 model, Business M
 the board. Each of the seven is one notation on
 [diagram-js](https://github.com/bpmn-io/diagram-js) (MIT): DOM-free model packages, a renderer, a
 web app and a VS Code extension. The board is a canvas of a repository's own files on
-[React Flow](https://github.com/xyflow/xyflow) (MIT) that shows the models of the seven in place;
+[React Flow](https://github.com/xyflow/xyflow) (MIT) that shows the models of the seven in place,
+and BPMN files through Miragon's `@miragon/bpmn-modeler` from npm;
 it is **a preview, in progress**. One npm workspace, one lockfile, one pre-commit hook; every
 package keeps its own version, npm name and extension id.
 

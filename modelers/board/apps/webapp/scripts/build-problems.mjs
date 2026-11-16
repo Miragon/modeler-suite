@@ -8,14 +8,21 @@
  * board's, the shell's, the rules that make one picture of the two, and the preview rule of the
  * editors. The base every renderer sheet shares is there once and before any renderer's own
  * rules: a second copy after them overrides them at equal weight (Context Maps' open context pad
- * lost its flex that way). The scripts: the example's files, which the bundler reads from the
+ * lost its flex that way). The BPMN modeler's sheet keeps a copy of its own, held to the BPMN
+ * editors by one `@scope` (`board-suite-editors/build/css-scope.mjs`), where it reaches no other
+ * renderer. The scripts: the example's files, which the bundler reads from the
  * folder; React's production build and no development build; and the legal comments of the
  * icons, Lucide's (ISC, partly Feather, MIT), as the board loads them and as the shell and five
  * renderers inline their geometry. The public folder: the Miragon mark of the start screen, and
  * the icon the page links, which nothing else names.
  */
 
+import { topLevelStatements } from "board-suite-editors/build/css-scope.mjs";
+
 const BASE_RULE = /\.djs-context-pad\.open\s*\{\s*display:\s*block;?\s*\}/g;
+const BPMN_SCOPE = /^@scope\s*\(\s*\[data-notation="?bpmn"?\]\s*,\s*\.am-overlay-root\s*\)\s*\{/;
+/** a rule only the BPMN modeler's sheet has: its properties panel */
+const BPMN_RULE = /\.bio-properties-panel\s*\{/;
 const PAD_RULE = ".djs-context-pad.open";
 const PREVIEW_RULE = /\.board-engine\[data-armed="?false"?\]\[data-embed="?diagram-js"?\]/;
 const SHELL_RULE = /\.cd-shell-legal\s*\{/;
@@ -157,8 +164,16 @@ function sheetProblems(pageSheet, laterSheets) {
         "every preview would show its editor's palette",
     );
   }
+  const statements = topLevelStatements(laterSheets);
+  const outsideBpmn = statements.filter((statement) => !BPMN_SCOPE.test(statement)).join("\n");
+  if (BPMN_RULE.test(outsideBpmn)) {
+    problems.push(
+      "the BPMN modeler's sheet stands outside its @scope: its copy of diagram-js's base " +
+        "would override the other renderers' own rules",
+    );
+  }
   const baseInPage = count(pageSheet, BASE_RULE);
-  const baseLater = count(laterSheets, BASE_RULE);
+  const baseLater = count(outsideBpmn, BASE_RULE);
   if (baseInPage !== 1 || baseLater !== 0) {
     problems.push(
       `diagram-js's base rule of the context pad is in the page's sheet ${baseInPage} times and ` +

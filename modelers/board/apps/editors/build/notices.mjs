@@ -27,10 +27,18 @@ export const SHIPPED_LICENCES = [
   "Apache-2.0",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  "CC0-1.0",
   "ISC",
+  "LicenseRef-bpmn.io",
   "MIT",
   "OFL-1.1",
 ];
+
+/**
+ * bpmn-js's licence: MIT's terms plus the rule that the bpmn.io watermark of a rendered diagram
+ * stays fully visible. Its manifest names no SPDX id, so its text names it here.
+ */
+export const BPMN_IO_LICENCE = "LicenseRef-bpmn.io";
 
 /**
  * Packages whose published build holds another package's code in its own file, where no bundler
@@ -41,6 +49,38 @@ export const SHIPPED_LICENCES = [
 export const INLINED_BY_UPSTREAM = { "@dagrejs/dagre": ["@dagrejs/graphlib"] };
 
 const LICENCES = fileURLToPath(new URL("./licences/", import.meta.url));
+
+/**
+ * Packages that name a licence in their manifest and ship no text of it. The text is their
+ * repository's, kept here as it was read; one whose repository has none is quoted with the
+ * licence's own text, as SPDX publishes it.
+ *
+ * @type {Readonly<Record<string, { file: string, from: string }>>}
+ */
+export const SUPPLIED_TEXTS = {
+  "@bpmn-io/diagram-js-canvas-lock": {
+    file: "mit.txt",
+    from:
+      "it names MIT, and its repository (https://github.com/bpmn-io/diagram-js-canvas-lock) holds " +
+      "no licence file either, so the MIT License is quoted as SPDX publishes it",
+  },
+  "@bpmn-io/semver-compat": {
+    file: "bpmn-io-semver-compat.txt",
+    from: "quoted from the LICENSE of https://github.com/bpmn-io/semver-compat",
+  },
+  "@miragon/bpmn-modeler-i18n": {
+    file: "bpmn-modeler-i18n.txt",
+    from: "quoted from the LICENSE of https://github.com/Miragon/camunda-modeler-i18n-plugin",
+  },
+  "bpmn-auto-layout": {
+    file: "bpmn-auto-layout.txt",
+    from: "quoted from the LICENSE of https://github.com/bpmn-io/bpmn-auto-layout",
+  },
+  "bpmn-js-copy-as-image": {
+    file: "bpmn-js-copy-as-image.txt",
+    from: "quoted from the LICENSE of https://github.com/barmac/bpmn-js-copy-as-image",
+  },
+};
 const BOARD_RENDERER = fileURLToPath(new URL("../../../packages/renderer/", import.meta.url));
 
 /**
@@ -97,6 +137,7 @@ export const COPIED_WORKS = [
  *   licence: string | undefined,
  *   texts: LicenceText[],
  *   within?: string | undefined,
+ *   supplied?: string | undefined,
  * }} BundledPackage a package with a file in the build: `suite` for a workspace of this
  *   repository, `declared` as its manifest says, `licence` the shipped one it is taken under
  * @typedef {{
@@ -277,7 +318,28 @@ function licenceOfText(text) {
   if (text === undefined) return undefined;
   if (/^(The )?MIT License\b/.test(text)) return "MIT";
   if (/^ISC License\b/.test(text)) return "ISC";
+  if (/^CC0 1\.0 Universal\b/.test(text)) return "CC0-1.0";
+  if (
+    /^Copyright \(c\) 2014-present Camunda Services GmbH\b/.test(text) &&
+    /the bpmn\.io project watermark\b/.test(text)
+  ) {
+    return BPMN_IO_LICENCE;
+  }
   return /^\s*Apache License\s+Version 2\.0\b/.test(text) ? "Apache-2.0" : undefined;
+}
+
+/**
+ * A manifest that names its licence in words no SPDX expression has, read by the text the package
+ * ships: `SEE LICENSE IN LICENSE` (bpmn-js), `CC0` (randomcolor).
+ *
+ * @param {string} directory
+ * @param {string | undefined} declared
+ * @returns {string | undefined}
+ */
+function readByText(directory, declared) {
+  if (declared === undefined || !/^(SEE LICEN[CS]E IN\b|CC0$)/i.test(declared)) return declared;
+  const [first] = licenceTexts(directory, undefined, undefined);
+  return licenceOfText(first?.text) ?? declared;
 }
 
 /**
@@ -304,10 +366,24 @@ function packageAt(directory, suite) {
       texts,
     };
   }
-  const declared = declaredLicence(manifest);
+  const declared = readByText(directory, declaredLicence(manifest));
   const licence = licenceTaken(declared);
   const texts = licenceTexts(directory, declared, licence);
-  return { name: manifest.name, version, directory, suite, declared, licence, texts };
+  const supply = texts.length === 0 ? SUPPLIED_TEXTS[manifest.name] : undefined;
+  if (supply === undefined) {
+    return { name: manifest.name, version, directory, suite, declared, licence, texts };
+  }
+  const supplied = textsOf(LICENCES, [supply.file]);
+  return {
+    name: manifest.name,
+    version,
+    directory,
+    suite,
+    declared,
+    licence,
+    texts: supplied,
+    supplied: supply.from,
+  };
 }
 
 /**
@@ -551,11 +627,12 @@ function workSection({ work, carriers, comments, text }) {
  * @returns {string}
  */
 function packageSection(bundled, legal) {
-  const { name, version, declared, licence, texts, within } = bundled;
+  const { name, version, declared, licence, texts, within, supplied } = bundled;
   const lines = [`## ${name} ${version} (${namedLicence(bundled)})`];
   if (licence !== undefined && declared !== undefined && declared !== licence) {
     lines.push("", `Offered under \`${declared}\`; bundled under ${licence}.`);
   }
+  if (supplied !== undefined) lines.push("", `The package ships no licence text: ${supplied}.`);
   if (within !== undefined) lines.push("", `Inside the published build of \`${within}\`.`);
   const single = texts.length === 1;
   for (const { file, text } of texts)

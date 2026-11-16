@@ -8,7 +8,8 @@ import { webviewBundle } from "../build/esbuild.mjs";
 /**
  * `webviewBundle`, the options the VS Code webview is bundled with, held on one build of a page
  * that loads what such a page loads: the fonts, the board with its sheet, the shared base and the
- * seven notation modules through the registry. The build stays in memory; nothing is written.
+ * eight notation modules through the registry (the suite's seven and BPMN). The build stays in
+ * memory; nothing is written.
  */
 
 const BOARD = fileURLToPath(new URL("../../../", import.meta.url));
@@ -79,11 +80,11 @@ describe("webviewBundle", () => {
   }, 60_000);
 
   // A warning here is a source of some modeler that esbuild reads another way than Vite does.
-  it("bundles the seven modelers from their sources without a warning", () => {
+  it("bundles the seven modelers from their sources and BPMN without a warning", () => {
     expect(warnings.map((warning) => warning.text)).toEqual([]);
     expect(
       inputs.filter((input) => /^apps\/editors\/src\/notations\/[^/]+\.ts$/.test(input)),
-    ).toHaveLength(7);
+    ).toHaveLength(8);
     expect(inputs).toContain("../wardley-maps/packages/renderer/src/index.ts");
     expect(inputs).toContain("packages/renderer/src/index.ts");
     // a modeler's dist is there only after that modeler was built
@@ -126,6 +127,22 @@ describe("webviewBundle", () => {
     const mapping = offsetsOf(sheet(), CANVAS_MAPPING_RULE);
     expect(mapping).toHaveLength(1);
     expect(mapping[0]).toBeLessThan(firstOwnRule);
+  });
+
+  it("holds the BPMN modeler's sheet, with its own copy of the base, to the BPMN editors", () => {
+    const scope = offsetsOf(sheet(), "@scope ([data-notation=bpmn], .am-overlay-root) {");
+    expect(scope).toHaveLength(1);
+    // the modeler's own rules, its append menu and its properties panel, are all inside
+    for (const rule of [".am-panel {", ".bio-properties-panel {"]) {
+      const offsets = offsetsOf(sheet(), rule);
+      expect(offsets.length, rule).toBeGreaterThan(0);
+      for (const offset of offsets) expect(offset, rule).toBeGreaterThan(scope[0]!);
+    }
+    // its copy of diagram-js's rule is inside the scope, indented, and not at the top level
+    expect(offsetsOf(sheet(), "\n  .djs-context-pad.open {").length).toBeGreaterThan(0);
+    expect(offsetsOf(sheet(), BASE_PAD_RULE)).toHaveLength(1);
+    // the font and the animations it names stay page-wide, where `@scope` cannot hold them
+    expect(sheet().indexOf("@font-face {\n  font-family: bpmn;")).toBeLessThan(scope[0]!);
   });
 
   it("takes React's production build, whatever the caller minifies", () => {

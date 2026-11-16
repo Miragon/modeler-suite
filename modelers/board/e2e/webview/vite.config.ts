@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import { sourceAliases } from "../../apps/editors/build/aliases.mjs";
 import { cssBaseAliases } from "../../apps/editors/build/css-base.mjs";
+import { bpmnSheetScopeVite } from "../../apps/editors/build/css-scope.mjs";
 import { prebundle } from "../../apps/editors/build/prebundle.mjs";
 
 /**
@@ -13,6 +14,7 @@ import { prebundle } from "../../apps/editors/build/prebundle.mjs";
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
   resolve: { alias: [...cssBaseAliases, ...sourceAliases] },
+  plugins: [bpmnSheetScopeVite],
   // A notation loads when a node first shows it. What its renderer imports is bundled up front:
   // met only then, the dev server would bundle it and reload the page under a running test.
   optimizeDeps: { include: prebundle },

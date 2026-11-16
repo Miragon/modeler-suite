@@ -1,8 +1,10 @@
 /**
- * Seven renderer sheets on one page. Each of them was written to stand alone and imports
- * diagram-js's sheet and the canvas mapping itself; side by side every later copy of that base
- * would follow an earlier renderer's own rules and override them at equal weight. Context Maps
- * is the renderer that shows it: its rule for an open context pad has the weight of the base's.
+ * Seven renderer sheets on one page, and the BPMN modeler's. Each of the seven was written to
+ * stand alone and imports diagram-js's sheet and the canvas mapping itself; side by side every
+ * later copy of that base would follow an earlier renderer's own rules and override them at equal
+ * weight. Context Maps is the renderer that shows it: its rule for an open context pad has the
+ * weight of the base's. The BPMN sheet brings a copy of its own inside it, which the build holds
+ * to the BPMN editors with `@scope` (`build/css-scope.mjs`).
  */
 import { expect, it } from "vitest";
 import { commands } from "vitest/browser";
@@ -25,17 +27,28 @@ function rendererSheets(): string[] {
   );
 }
 
-/** How many rules of the page have exactly this selector, at any depth of layers and queries. */
-function rulesWith(selector: string): number {
-  const count = (rules: CSSRuleList): number =>
-    [...rules].reduce(
-      (sum, rule) =>
-        sum +
-        (rule instanceof CSSStyleRule && rule.selectorText === selector ? 1 : 0) +
-        ("cssRules" in rule ? count((rule as CSSGroupingRule).cssRules) : 0),
-      0,
-    );
-  return [...document.styleSheets].reduce((sum, sheet) => sum + count(sheet.cssRules), 0);
+const isBpmnScope = (rule: CSSRule): boolean =>
+  "start" in rule && String(rule.start).includes('data-notation="bpmn"');
+
+/**
+ * How many rules of the page have exactly this selector, at any depth of layers and queries:
+ * outside the BPMN sheet's `@scope`, or inside it alone.
+ */
+function rulesWith(selector: string, where: "page" | "bpmn" = "page"): number {
+  const count = (rules: CSSRuleList, inBpmn: boolean): number =>
+    [...rules].reduce((sum, rule) => {
+      const nested = inBpmn || isBpmnScope(rule);
+      const own =
+        rule instanceof CSSStyleRule &&
+        rule.selectorText === selector &&
+        nested === (where === "bpmn")
+          ? 1
+          : 0;
+      return (
+        sum + own + ("cssRules" in rule ? count((rule as CSSGroupingRule).cssRules, nested) : 0)
+      );
+    }, 0);
+  return [...document.styleSheets].reduce((sum, sheet) => sum + count(sheet.cssRules, false), 0);
 }
 
 async function load(notation: string): Promise<void> {
@@ -65,9 +78,11 @@ export function contextMapsPadCase(order: "first" | "last"): void {
       const sheets = rendererSheets();
       expect(sheets).toHaveLength(7);
       expect(order === "first" ? sheets[0] : sheets.at(-1)).toBe("context-maps");
-      // The base is on the page once, however many renderer sheets import it.
+      // The base is on the page once, however many renderer sheets import it, and the BPMN
+      // sheet's own copy is held to the BPMN editors.
       expect(rulesWith(".djs-context-pad.open")).toBe(1);
       expect(rulesWith(".cd-c-fill-grund")).toBe(1);
+      expect(rulesWith(".djs-context-pad.open", "bpmn")).toBe(1);
 
       const alone = await mountAlone("context-maps", exampleOf("context-maps").text, {
         width: 800,
