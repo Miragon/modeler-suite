@@ -220,7 +220,7 @@ describe("the release plan", () => {
     },
   );
 
-  // The board has no public package and no Orca plugin today, so a suite that has both stands in.
+  // A held modeler may have no public package or no Orca plugin, so a suite that has both stands in.
   it.each(HELD_BACK)(
     "holds the packages and the Orca plugin of %s back with its extension",
     (modeler) => {

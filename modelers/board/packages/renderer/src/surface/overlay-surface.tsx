@@ -63,7 +63,8 @@ function useLeaving(): () => boolean {
 }
 
 export function OverlaySurface({ nodeId, file, armed, width, height }: SurfaceProps) {
-  const { host, store, registerSurface, reportMount, overlayLayer, log } = useBoardContext();
+  const { host, store, registerSurface, reportMount, askEditor, overlayLayer, log } =
+    useBoardContext();
   const flow = useStoreApi();
   const slot = useRef<HTMLDivElement>(null);
   const runtime = useRef<OverlayRuntime | null>(null);
@@ -132,6 +133,8 @@ export function OverlaySurface({ nodeId, file, armed, width, height }: SurfacePr
         if (!cancelled) store.amend((tx) => tx.update(nodeId, { file: to }));
       },
     };
+    // the board is gone only once this answer was dealt with, also one that comes after the node went
+    const answered = askEditor();
     let opened: Promise<EmbeddedEditor | undefined>;
     try {
       opened = Promise.resolve(host.models?.open(context));
@@ -153,7 +156,7 @@ export function OverlaySurface({ nodeId, file, armed, width, height }: SurfacePr
       element.textContent = error instanceof Error ? error.message : String(error);
       failReady(error);
     };
-    opened.then((editor) => {
+    const dealtWith = opened.then((editor) => {
       if (editor === undefined) {
         failed(new Error(`${file} cannot be shown here`));
         return;
@@ -171,6 +174,8 @@ export function OverlaySurface({ nodeId, file, armed, width, height }: SurfacePr
       if (current.armed) callEditor(editor, "focus", nodeId, log);
       editor.ready.then(settleReady, failReady);
     }, failed);
+    // what the answer's handling throws stays unhandled, as it was before the count
+    void dealtWith.finally(answered);
 
     return () => {
       cancelled = true;
@@ -182,7 +187,7 @@ export function OverlaySurface({ nodeId, file, armed, width, height }: SurfacePr
       element.remove();
       runtime.current = null;
     };
-  }, [host, store, nodeId, file, registerSurface, reportMount, place, log, leaving]);
+  }, [host, store, nodeId, file, registerSurface, reportMount, askEditor, place, log, leaving]);
 
   useLayoutEffect(() => {
     const current = runtime.current;

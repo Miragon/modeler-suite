@@ -30,7 +30,7 @@ packages/
 modelers/<modeler>/      wardley-maps, event-storming, team-topologies, context-maps, value-chain, c4,
                          business-model-canvas, board (a preview, in progress)
   packages/              the npm libraries: schema-model, dsl / cml / layout / transforms, renderer;
-                         in the board also files and host
+                         in the board also files and host, which stay private
   apps/webapp            the web app
   apps/vscode            the VS Code extension
   e2e/                   Playwright suites for both apps

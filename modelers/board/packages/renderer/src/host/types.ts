@@ -198,8 +198,9 @@ export interface EmbeddedEditor {
    * all the same.
    *
    * The board's own `destroy()` returns BEFORE the editors are destroyed: the canvas is
-   * unmounted a microtask later, and nothing tells the host when. A host that ends the sessions
-   * itself, right after it destroyed the board, ends them under editors that are still bound.
+   * unmounted a microtask later. `board.unmounted` of the modeler resolves once every editor has
+   * had this call, a late one included. A host that ends the sessions itself waits for it: right
+   * after it destroyed the board, it ends them under editors that are still bound.
    */
   destroy(): void;
 }

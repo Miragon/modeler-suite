@@ -12,8 +12,9 @@ there, at commit `ce12684`), and its canvas was moved here as it was measured. T
 was reviewed. Of the apps around the board four increments are in the tree: a web app on an example
 repository, a VS Code extension whose smoke passes in a real VS Code inside the suite's Docker
 runner, what the suite's CI asks of a modeler, and daily use in VS Code, which was walked through in
-a real VS Code in that runner and not yet by a person. Nothing of the board is published, the
-suite's releases hold it back, and no pull request is open. [State of the port](#state-of-the-port)
+a real VS Code in that runner and not yet by a person. Two of its packages are public,
+`@miragon/board-schema-model` and `@miragon/board-renderer`: a release of the suite publishes them
+to npm beside the extension, and neither is on npm yet. [State of the port](#state-of-the-port)
 says what is in the tree and what is still to come; [`docs/state.md`](docs/state.md) says what was
 run on it, what a merge publishes and what holds the board back.
 
@@ -33,7 +34,7 @@ conventions. What belongs to one part is in that part's document, moved there as
 
 | Part                                                                                                                                                                                                                                         | Document                                     |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| The renderer beyond what every change needs (`packages/renderer`): the layout of its sources, what is left with the host, real editors as measured, the stylesheet and theme files                                                           | [`docs/renderer.md`](docs/renderer.md)       |
+| The renderer beyond what every change needs (`packages/renderer`): the layout of its sources, what is left with the host, real editors as measured, the stylesheet and theme files, the published build                                      | [`docs/renderer.md`](docs/renderer.md)       |
 | The files port (`packages/files`)                                                                                                                                                                                                            | [`docs/files.md`](docs/files.md)             |
 | The host package (`packages/host`)                                                                                                                                                                                                           | [`docs/host.md`](docs/host.md)               |
 | The suite's editors and the third-party notices of a build (`apps/editors`)                                                                                                                                                                  | [`docs/editors.md`](docs/editors.md)         |
@@ -81,7 +82,7 @@ New Empty Board, New Board from Example and Open Source to the Side with a walkt
 setting `miragon.board.saveModelsWithBoard` (off by default), which makes a person's save of a board
 also save the models that board made dirty; and in the root the hold that keeps a release from
 publishing anything of the board. No increment changed a file of `packages/renderer/src` or
-`packages/schema-model/src`. 77 unit files with 1621 tests, 27 browser files with 951 tests, 36
+`packages/schema-model/src`. 80 unit files with 1639 tests, 27 browser files with 957 tests, 36
 Playwright tests, and the smoke of the extension in a real VS Code, with steps for daily use. **The
 fourth increment was walked through in a real VS Code, in the suite's Docker runner on 1.146.0 and
 1.96.0 on Linux, and by no person yet**: of the sixteen things it takes for granted about VS Code
@@ -91,9 +92,9 @@ A review walked it again, and a closing round changed what it found, around an e
 a rename, what the setting saves, the kept view and what waits for a host
 ([`docs/vscode.md`](docs/vscode.md#the-review-of-the-fourth-increment-in-a-real-vs-code)).
 
-Read the browser count by what it stands on. 662 tests are the renderer's: 297 run the arm rules on
+Read the browser count by what it stands on. 668 tests are the renderer's: 297 run the arm rules on
 a bench of fakes (73 scripts, each run once and read by four tests, plus five), 82 hold static
-markup under the sheet, 7 a bare React Flow, 73 are the contract's kit, 202 are in the eleven files
+markup under the sheet, 7 a bare React Flow, 73 are the contract's kit, 208 are in the eleven files
 that mount a board, and one holds a filter of the test support. Every editor in them is the
 recording stand-in of `createTestHost` and every input is synthetic, which ignores `inert`: none of
 them can fail when a preview takes real input or when the pointer math of an armed editor is off.
@@ -119,10 +120,10 @@ that is not open when its files move, the file of a card that moves, the picker 
 budget in numbers for the new files of one editor, an undo that leaves a move alone); the owner's answers on the setting's name and
 default and on the hold; one chrome, the end of the [three
 deviations](docs/ide-editor.md#three-deviations-under-the-shell-each-with-an-end); the Orca plugin,
-a demo and screenshots under `docs/` and the board's page on the docs site, a README per package,
-`.miragon/product-shots.yaml` with the store images, `netlify.toml` and a site, a folder of the
-person's own behind the web app, an icon of the board's own, and, after the first publish, the entry
-in the modeler collection with its walkthrough step.
+a demo and screenshots under `docs/` and the board's page on the docs site, a README of
+`packages/files` and of `packages/host`, `.miragon/product-shots.yaml` with the store images,
+`netlify.toml` and a site, a folder of the person's own behind the web app, an icon of the board's
+own, and, after the first publish, the entry in the modeler collection with its walkthrough step.
 
 **Without a test**: the gestures and behaviours the test README lists under "Without a test",
 among them the group that takes a dragged node, the resize of a model and of an image node, and
@@ -131,9 +132,20 @@ port, the host package, the suite's editors and the web app name as without a te
 
 ## Packages
 
-Every workspace is `private`: the modeler publishes nothing to npm. The packages export their
-TypeScript source (`"exports": { ".": "./src/index.ts" }`), have no `dist`, and `build` is a type
-check.
+Two packages are public and go to npm with a release: `@miragon/board-schema-model` (tsup: ES
+module, CommonJS and types) and `@miragon/board-renderer` (a Vite build in lib mode: one ES entry
+with the lazy parts as chunks of their own, one sheet `board.css` with every `@import` inlined,
+declarations by `vite-plugin-dts`, and `THIRD_PARTY_NOTICES.md` for what the sheet carries). Their
+exports point to `dist`, and each has a README. `@miragon/board-files`, `@miragon/board-host` and
+every app stay `private` and export their TypeScript source. `npm run board build` builds the
+schema model, then the renderer, then runs the type check. Every check of the board reads the two
+public packages from their sources all the same, so nothing is built before lint, the tests or the
+apps: the `paths` of `tsconfig.base.json` for TypeScript, dependency-cruiser, the extension host's
+esbuild (which reads them) and the smoke's Vitest (`resolve.tsconfigPaths`), and
+`apps/editors/build/aliases.mjs`, which maps a `dist` export back to `src`, for Vitest, the web
+app, the e2e test page and the webview's esbuild. The renderer's declarations are built without
+those paths and import `@miragon/board-schema-model` by its name, from its `dist`; a declaration
+that does not type-check fails the build.
 
 | Package                       | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | DOM |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
@@ -188,10 +200,11 @@ imports one.
   Problems view and for the example) and the files of `example/` as texts; the rule is unchanged.
   A host file that needs something the rule forbids changes the rule and its test, with the
   reason.
-  `npm run board depcruise` cruises `packages` and `apps` and leaves out the apps' build output
-  (`^apps/[^/]+/dist/`): the web app's build is code-split and its chunks import each other in
-  circles, 14 `no-circular` errors without the exclusion. No wider pattern: `(^|/)dist/` would also
-  hide the contract's `dist` from `dom-free-contract-types-only`.
+  `npm run board depcruise` cruises `packages` and `apps` and leaves out the build output of the
+  apps and of the two published packages (`^(apps|packages)/[^/]+/dist/`): the web app's build is
+  code-split and its chunks import each other in circles, 14 `no-circular` errors without the
+  exclusion, and the packages' `dist` is no source either. No wider pattern: `(^|/)dist/` would
+  also hide the contract's `dist` from `dom-free-contract-types-only`.
   `apps/editors/test/cruise-rules.test.ts` holds the reach of the six rules for packages and apps
   and of the exclusion against the workspaces the suite has today; for the shell it reads the
   export map, so an entry the shell adds fails there until it is decided as a page's or a host's.
@@ -219,12 +232,17 @@ imports one.
   `scripts/check-build.mjs`; `apps/vscode` takes the
   suffix table in its host half, `SUITE_EDITORS`, the base and `zod-jitless` in its webview, and
   `webviewBundle` in its build; the test page `e2e/webview` takes the build helpers.
-- **Dependencies.** Exact pins and no ranged peers while nothing is published (the Business Model
-  Canvas rule; see `.claude/rules/package-json-fixed-versions.md`). The renderer depends on
-  `@xyflow/react`, `react`, `react-dom`, `yjs`, `lucide-react`, `markdown-it`, `dompurify` and
-  `@miragon/modeler-api`; `packages/host` pins the contract as well, and `apps/editors` pins
-  thirteen packages of the other modelers (the seven renderers and the six packages its text rules
-  call: `wardley-dsl`, `wardley-schema-model`, `value-chain-schema-model`,
+- **Dependencies.** Exact pins, and ranged peers on the published renderer alone
+  (`.claude/rules/package-json-fixed-versions.md`): `yjs` `^13.6.0`, `react` and `react-dom`
+  `^19.0.0`, and `@xyflow/react` `~12.12.1`, narrow because the canvas reads React Flow's internal
+  store as 12.12.1 has it, each mirrored by an exact `devDependency`. The renderer's dependencies
+  are `@miragon/board-schema-model`, `@miragon/modeler-api`, `lucide-react`, `markdown-it` and
+  `dompurify`, and it pins `vite-plugin-dts` 5.1.2 for its build. Every workspace that bundles the
+  renderer pins the four as well: `apps/ide-editor`, `apps/vscode` and `apps/webapp` as
+  dependencies, `packages/host` and `e2e` as devDependencies; `apps/editors` imports neither the
+  renderer nor the four in its sources. `packages/host` pins the contract as well, and
+  `apps/editors` pins thirteen packages of the other modelers (the seven renderers and the six
+  packages its text rules call: `wardley-dsl`, `wardley-schema-model`, `value-chain-schema-model`,
   `business-model-canvas-dsl`, `team-topologies-schema-model`, `context-maps-schema-model`) beside
   `diagram-js`, `didi`, `tiny-svg` and `zod`. Every pin on a release component has its
   `extra-files` entries in `release-please-config.json` (see the release components below).
@@ -241,8 +259,11 @@ imports one.
   `playwright-core` on the root's `playwright` version, and `@types/vscode` 1.96.0, equal to the
   `engines.vscode` floor, which vsce checks. There must be one copy each of `yjs`, `react`,
   `react-dom` and `@xyflow/react` under this modeler: the store tells its elements by
-  `instanceof Y.Map`, and a second React breaks every hook. `test/single-copy.test.ts` reads the
-  lockfile for it, the job ranged peers do in the published modelers.
+  `instanceof Y.Map`, and a second React breaks every hook. A host of the published renderer
+  dedupes them through its peers, and `test/peer-dependencies.sync.test.ts` holds every pin of the
+  board's workspaces inside the peer ranges, as the Wardley Maps renderer's test does. The board's
+  own apps bundle the renderer from source, where no range is read: `test/single-copy.test.ts`
+  reads the lockfile for one copy each.
 - **Release components.** Eight, in the Business Model Canvas pattern, one per workspace the
   extension or the web app bundles: `board-schema-model`, `board-renderer`, `board-files`,
   `board-host`, `board-editors` (`apps/editors`), `board-ide-editor`, `board-vscode` and
@@ -262,7 +283,10 @@ imports one.
   release-please writes each with the component's first release. Remove `initial-version` once
   the components have been released. The board was in `HELD_BACK` of
   `.github/scripts/release-plan.mjs` through its first release: 0.1.0 tagged the eight and
-  published nothing of them. Since it left that list a release publishes the extension;
+  published nothing of them. Since it left that list a release publishes the extension, and the
+  two public packages to npm with the next release of their components: the first publish of a
+  new npm name is bootstrapped by hand
+  ([the suite's guide](../../docs/ci-and-releases.md#the-first-release-of-a-new-npm-package)).
   `test/release-config.test.ts` fails for a component at 0.0.0 that names no `initial-version`.
   What a release of them publishes is under
   [CI and what a merge publishes](docs/state.md#ci-and-what-a-merge-publishes).
@@ -319,12 +343,13 @@ two implementations write the same bytes for the same board, so `BOARD_FORMAT` i
 
 One factory, `createCollaborativeModeler(options)`, with two options of the board's own, `host`
 and `liveDocument`, plus the document half's exports (the store, the actions, the arm rules). No
-React component, no React Flow type and no designIQ type crosses the boundary, so a host need not
-share a copy of React or React Flow with the board. Whoever hands the package a `Y.Doc` must load
-the same copy of `yjs` as the package: through `liveDocument`, and through every exported
-function of the store and the document (`createBoardStore`, `boardText`, `readSnapshot`,
-`reconcileSnapshot`). A document made with another copy is read as elements without attributes,
-with no error.
+React component, no React Flow type and no designIQ type crosses the boundary: a host calls the
+factory and never React. A host that installs the package from npm shares one copy of React,
+React DOM, React Flow and Yjs with it, the renderer's peers. Whoever hands the package a `Y.Doc`
+must load the same copy of `yjs` as the package: through `liveDocument`, and through every
+exported function of the store and the document (`createBoardStore`, `boardText`,
+`readSnapshot`, `reconcileSnapshot`). A document made with another copy is read as elements
+without attributes, with no error.
 
 ```ts
 import { createCollaborativeModeler } from "@miragon/board-renderer";
@@ -334,7 +359,7 @@ const modeler = createCollaborativeModeler({ host }); // every part of `host` is
 modeler.attachTo(element); // in the document, with a size
 await modeler.importText(text); // an empty text is a new board
 const stop = modeler.onContentChanged(() => save(modeler.exportText()));
-// when the board goes: stop(); modeler.destroy();
+// when the board goes: stop(); modeler.destroy(); await modeler.board.unmounted;
 ```
 
 - **The change event.** `onContentChanged` reports the board's gestures, its undo and redo, and
@@ -371,10 +396,12 @@ const stop = modeler.onContentChanged(() => save(modeler.exportText()));
   (no node is written for it), writes a resting arrow-key move into the document before it
   returns (no listener hears of it), and unmounts the canvas a microtask later, so that a host
   may call it from a listener a React event handler is still running. So it returns before the
-  editors are destroyed, and nothing tells the host when they are: a host that writes
-  `modeler.destroy(); hub.destroy();` ends every session under an editor that is still bound. An
-  import that waits for a canvas that has not mounted is rejected one macrotask after a
-  `destroy()`.
+  editors are destroyed. `board.unmounted` resolves once the canvas is unmounted and every editor
+  has had its `destroy()`, including one whose `open()` answers after the board went. It settles
+  once, also after a second `destroy()` and for a board that never mounted, and never rejects: a
+  host writes `modeler.destroy(); await modeler.board.unmounted; hub.destroy();`
+  ([docs/renderer.md](docs/renderer.md#what-is-left-with-the-host)). An import that waits for a
+  canvas that has not mounted is rejected one macrotask after a `destroy()`.
 - **Host code never takes the board down** where the board calls it while it renders or writes:
   `options.freeArea.insets()`, a host's `list()` and `describe()`. A call that throws is reported
   once through `console.error` with the prefix `[board]` and answered with what the board had
@@ -479,27 +506,30 @@ browser test of the board has to know (synthetic input, the lazy parts, the modu
 the window). Read it before you write a test. Here are the two projects and the rules.
 
 - `npm run board test` (project `unit`, Node) runs `packages/*/test/**/*.test.ts` and
-  `apps/*/test/**/*.test.ts` without the `test/browser` folders: 77 files, 1621 tests. The module
+  `apps/*/test/**/*.test.ts` without the `test/browser` folders: 80 files, 1639 tests. The module
   `vscode`, which exists only inside the editor, resolves there to
   `apps/vscode/test/__mocks__/vscode.ts`: the module a test imports by its path for the control
   surface `vscodeMock`, so a registration of the host and a test's question share one state. The
   sources stay typed against `@types/vscode`.
-  - The schema model and the renderer (16 files, 290 tests): the format, the order keys and the
+  - The schema model and the renderer (19 files, 307 tests): the format, the order keys and the
     view (`packages/schema-model/test/`); the store, the actions, the arm rules, the board file
     at rest, under a Git merge and under two peers on one live document; and of the canvas side
     what needs no browser: how the board reads a host (`host-defaults`), the parts of the
-    contract factory (`collaborative-parts`), the two sheets (`theme.sync`, `styles.scope`), the
-    reach of the dependency rule (`layers`), the one copy of each shared library
-    (`single-copy`), the arming fixture as a file (`arming-fixture`).
+    contract factory (`collaborative-parts`), the end of a board without a canvas
+    (`collaborative-end`), the two sheets (`theme.sync`, `styles.scope`), the reach of the
+    dependency rule (`layers`), the one copy of each shared library (`single-copy`), the peer
+    ranges of the published renderer against every pin of the board (`peer-dependencies.sync`),
+    the third-party notices of the built sheet (`notices`), the arming fixture as a file
+    (`arming-fixture`).
   - The files of `packages/files`, `packages/host`, `apps/editors`, `apps/webapp`,
     `apps/ide-editor` and `apps/vscode` are listed in the documents of those parts, each under
     "Tests of this part" ([The parts and their documents](#the-parts-and-their-documents)).
 - `npm run board test:browser` (project `browser`, Chromium, a window of 1280 x 800) runs
   `packages/renderer/test/browser`, `packages/host/test/browser` and `apps/*/test/browser`, each
-  `**/*.test.{ts,tsx}`: 27 files, 951 tests. React Flow measures its nodes, so nothing of the
+  `**/*.test.{ts,tsx}`: 27 files, 957 tests. React Flow measures its nodes, so nothing of the
   canvas runs in jsdom or Node, and no diagram-js renderer mounts there either (Business Model
   Canvas's import throws `activeLayer.getBBox is not a function` under jsdom).
-  - The renderer's fifteen files (662 tests): the arm rules on a bench of fakes (`arming`), the
+  - The renderer's fifteen files (668 tests): the arm rules on a bench of fakes (`arming`), the
     sheet on static markup (`styles`), React Flow's store (`react-flow-internals`), the
     contract's kit (`conformance`), and boards mounted through the entry (`toolchain`, `canvas`,
     `canvas-behaviour`, `chrome`, `nodes`, `images`, `overlay-surface`, `hostile-host`,
@@ -599,8 +629,10 @@ this cause (the README has what was measured), never to be answered with a longe
 
 ## Commands
 
-- `npm run board lint` (ESLint and the type check) · `typecheck` · `build` (the same type check) ·
-  `test` · `depcruise` · `format` · `format:check`. The type check is a chain: the board's strict
+- `npm run board lint` (ESLint and the type check) · `typecheck` · `build` (the schema model's
+  and the renderer's `dist`, then the same type check) · `test` · `depcruise` · `format` ·
+  `format:check`. `npm pack --dry-run -w modelers/board/packages/<schema-model|renderer>` after a
+  build shows what a release publishes. The type check is a chain: the board's strict
   project (`tsconfig.json`: the packages, the web app's sources and tests, the test support),
   `apps/webapp/tsconfig.config.json` (the Vite config), `apps/editors` under its own weaker flags,
   `apps/ide-editor`, `apps/vscode` (with the types of `vscode` 1.96.0) and `e2e` (its specs, the
@@ -792,15 +824,12 @@ changing one in passing is a regression nobody would see.
   references (`host.references`), and what a bare renderer in a node does not offer: by the plan's
   reading of the modelers' apps, not tried here, a Business Model Canvas title or notes, C4's
   inspector and views dialog, and any menu or export of a hosted modeler.
-- An end signal for a host: a promise on `BoardHandle` that settles when the canvas is gone.
 - State per board, listeners of the board's own, the fit capped and aware of the toolbar's
   height, `freeArea.center` read.
 - A design-system review: copied Lucide geometry, icon sizes, handles and tints, note colours in
   dark, `z-index: 2000` on the edge labels, the tap highlight and the text size adjustment on
   `.board-root`, a colour of its own for `.board-node__header`, and the comments that cite
   designIQ's documents or a file their statements left with a split.
-- Publishing to npm: ranged peers for `yjs`, `react`, `react-dom` and `@xyflow/react` with exact
-  mirrors, and a build.
 - What a modeler has beside its code: a demo and screenshots under `docs/` and a page on the docs
   site, the store images (`.miragon/product-shots.yaml`), and, after the first publish, the entry
   in the modeler collection with its walkthrough step.

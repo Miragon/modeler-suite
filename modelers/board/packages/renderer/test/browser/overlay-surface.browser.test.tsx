@@ -3,11 +3,13 @@
  * at each of them. designIQ's batteries measured the board with the product's editors in exactly
  * this order, so a call that moves is a change nobody else measures here.
  */
+import { attachedHost } from "@miragon/modeler-api/conformance";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Viewport } from "../../src/arming/types.js";
 import type { BoardHost, EmbeddedEditor } from "../../src/host/types.js";
-import { writeRemoval } from "../../src/store/actions.js";
+import { type CollaborativeBoard, createCollaborativeModeler } from "../../src/index.js";
+import { addNode, NEW_NODE, writeRemoval } from "../../src/store/actions.js";
 import { elementsOf } from "../../src/store/document.js";
 import { BOARD_B, BOARD_EMPTY, MODEL_PATH } from "../support/board-texts.js";
 import { complaintsOf } from "../support/console-complaints.js";
@@ -537,6 +539,163 @@ describe("the end of an editor", () => {
     await board.settle();
     expect(calls).toEqual(["open", "destroy"]);
     expect(board.runtime.mounted(NODE)).toBeUndefined();
+  });
+});
+
+describe("the end of the board", () => {
+  /** every microtask queued before it has run: what settles without a further event has settled */
+  const drained = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+  const SECOND_PATH = "processes/second.bpmn";
+
+  /** the editors' calls as `<call> <node>`, with `unmounted` where the board's end settled */
+  function endJournal(host: TestHost, modeler: CollaborativeBoard): () => string[] {
+    let endAt: number | undefined;
+    void modeler.board.unmounted.then(() => void (endAt = host.events.length));
+    return () => {
+      const calls = host.events.map(({ event, nodeId }) => `${event} ${nodeId}`);
+      if (endAt !== undefined) calls.splice(endAt, 0, "unmounted");
+      return calls;
+    };
+  }
+
+  it("settles after every editor of the board was destroyed, an armed one released first", async () => {
+    const model = await mountModel();
+    const { board, host } = model;
+    const second = addNode(
+      board.modeler.board.store,
+      { type: "model", file: SECOND_PATH, ...NEW_NODE.model },
+      { x: 400, y: 1400 },
+    );
+    await expect.poll(() => board.runtime.mounted(second)).toBe(true);
+    await arm(model);
+    const journal = endJournal(host, board.modeler);
+    const before = host.events.length;
+
+    board.destroy();
+    // destroy() returns first: the canvas goes a microtask later
+    expect(journal().slice(before)).toEqual([]);
+    await board.modeler.board.unmounted;
+    const end = journal().slice(before);
+    expect(end).toHaveLength(4);
+    expect(end.at(-1)).toBe("unmounted");
+    expect(end.slice(0, -1).sort()).toEqual(
+      [`release ${NODE}`, `destroy ${NODE}`, `destroy ${second}`].sort(),
+    );
+    expect(end.indexOf(`release ${NODE}`)).toBeLessThan(end.indexOf(`destroy ${NODE}`));
+    await drained();
+    expect(journal().slice(before)).toEqual(end);
+    expect(document.querySelector(".board-engine")).toBeNull();
+  });
+
+  it("settles once when destroy() is called twice, and destroys each editor once", async () => {
+    const { board, host } = await mountModel();
+    const signal = board.modeler.board.unmounted;
+    const journal = endJournal(host, board.modeler);
+    const before = host.events.length;
+
+    board.modeler.destroy();
+    board.modeler.destroy();
+    await signal;
+    board.modeler.destroy();
+    await drained();
+    expect(board.modeler.board.unmounted).toBe(signal);
+    expect(journal().slice(before)).toEqual([`destroy ${NODE}`, "unmounted"]);
+  });
+
+  it("settles for a board whose canvas never mounted, and opens no editor", async () => {
+    const host = createTestHost();
+    const element = attachedHost();
+    const modeler = createCollaborativeModeler({ host });
+    const journal = endJournal(host, modeler);
+    let canvas = false;
+    void modeler.board.mounted.then(() => void (canvas = true));
+    try {
+      modeler.attachTo(element);
+      modeler.destroy();
+      await modeler.board.unmounted;
+      await drained();
+      expect(canvas).toBe(false);
+      expect(journal()).toEqual(["unmounted"]);
+      expect(element.childElementCount).toBe(0);
+    } finally {
+      element.parentElement?.remove();
+    }
+  });
+
+  const lateAnswers: ReadonlyArray<[string, EmbeddedEditor | undefined]> = [
+    [
+      "an editor, destroyed as it comes",
+      {
+        ready: Promise.resolve(),
+        release: () => undefined,
+        destroy: () => undefined,
+      },
+    ],
+    ["no editor", undefined],
+  ];
+
+  it.each(lateAnswers)(
+    "waits for the answer of an open() that is still out when the board goes: %s",
+    async (_what, answer) => {
+      const calls: string[] = [];
+      const paths: readonly string[] = [MODEL_PATH];
+      let engine: HTMLElement | undefined;
+      let arrive: ((editor: EmbeddedEditor | undefined) => void) | undefined;
+      const host: BoardHost = {
+        models: {
+          list: () => paths,
+          onChange: () => () => undefined,
+          open(context) {
+            calls.push("open");
+            engine = context.element;
+            return new Promise((resolve) => {
+              arrive = resolve;
+            });
+          },
+        },
+      };
+      const board = await mount(BOARD_B, { host });
+      void board.modeler.board.unmounted.then(() => void calls.push("unmounted"));
+
+      board.destroy();
+      await expect.poll(() => engine?.isConnected).toBe(false);
+      await drained();
+      expect(calls).toEqual(["open"]);
+
+      const late = answer && { ...answer, destroy: () => void calls.push("destroy") };
+      present(arrive, "pending editor")(late);
+      await board.modeler.board.unmounted;
+      expect(calls).toEqual(late ? ["open", "destroy", "unmounted"] : ["open", "unmounted"]);
+    },
+  );
+
+  it("waits for an open() that is still out when the board goes and rejects then", async () => {
+    const calls: string[] = [];
+    const paths: readonly string[] = [MODEL_PATH];
+    let refuse: ((error: Error) => void) | undefined;
+    const host: BoardHost = {
+      models: {
+        list: () => paths,
+        onChange: () => () => undefined,
+        open() {
+          calls.push("open");
+          return new Promise((_resolve, reject) => {
+            refuse = reject;
+          });
+        },
+      },
+    };
+    const board = await mount(BOARD_B, { host });
+    void board.modeler.board.unmounted.then(() => void calls.push("unmounted"));
+
+    board.destroy();
+    await drained();
+    expect(calls).toEqual(["open"]);
+    present(refuse, "pending open")(new Error("the host gave up"));
+    await board.modeler.board.unmounted;
+    expect(calls).toEqual(["open", "unmounted"]);
+    expect(board.runtime.lines).toEqual([]);
   });
 });
 

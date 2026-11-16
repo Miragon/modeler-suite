@@ -376,6 +376,25 @@ machine allows, not by a CI run: no pull request is open.
 below record the time before it: the merge and the release 0.1.0 published nothing of the board,
 as they say. From its next release on, the extension goes to the VS Code Marketplace and Open VSX.
 
+**Two packages for npm.** `@miragon/board-schema-model` and `@miragon/board-renderer` are public
+since the pull request that built them for npm; `@miragon/board-files`, `@miragon/board-host` and
+every app stay `private`. `release-plan.mjs` lists a public workspace below a released component for
+npm, so a release of `board-schema-model` or `board-renderer` builds that package (`build / npm`:
+`npm run build:shared`, `npm run board build`, `npm pack`) and publishes the very tarball
+(`publish / npm`). Neither name is on npm yet: the first publish of each fails with the workflow's
+hint until a maintainer publishes that version once by hand and binds the trusted publisher
+([the suite's steps](../../../docs/ci-and-releases.md#the-first-release-of-a-new-npm-package)). What
+that pull request ran on its tree, on 2026-11-16 on the Miragon agent VM (Node 24.22.3), with
+Chromium's sandbox on: `npm run board build` with both `dist` folders read (the files, the sheet
+without an `@import`, no sheet imported by a script, every relative import of a declaration
+resolved, the nine lazy parts as chunks), `npm pack --dry-run` of both, the board's lint, depcruise,
+unit and browser tests, both e2e projects, the web app's build and check, the extension's build and
+VSIX, and a host outside the suite that installed the two packed tarballs with the four peers from
+npm: its type check of both READMEs' examples with `skipLibCheck: false` (no React type reached), a
+Vite build that kept the lazy chunks, and its page in Chromium, where a note drew its Markdown, the
+toolbar came, a model node opened the host's editor, and `board.unmounted` resolved after that
+editor's `destroy()`.
+
 **What a merge publishes.** Nothing of the board. At the merge itself `release-please.yml` puts
 the board into the suite's one release pull request, `chore: release main`: with a squash title of
 the type `feat` or `fix` all eight components are proposed at 0.1.0, their `initial-version`. The

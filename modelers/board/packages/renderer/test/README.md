@@ -30,6 +30,12 @@ covers the parts that need no browser:
   string, a listener unsubscribed inside a delivery, and what an import asks of the canvas (it
   gives up what the canvas holds back before it writes and only for a text it accepts; it
   leaves the view alone while a model is edited).
+- `collaborative-end.test.ts`: the end of a board without a canvas. `board.unmounted` of a board
+  that was never attached: pending until `destroy()`, settled once after it, also when
+  `destroy()` comes two and three times, and the same promise throughout; held back by an editor
+  a surface asked for (`runtime.askEditor()`) until that answer was dealt with. The runtime's
+  count of the editors on their way: answered at once with none, after the last answer in any
+  order, an answer given twice counted once, and every waiter told.
 - `arming-fixture.test.ts`: the recorded arming traces as a file. It is there, holds one trace
   per scenario (73) and is in the form `traceText` writes. The browser test compares the
   imported value, so this is what makes that comparison one of bytes, and what fails on a
@@ -52,6 +58,17 @@ covers the parts that need no browser:
   none selects a part of React Flow the board never draws (`.react-flow__edge.updating`,
   `.react-flow__edge-text`); every selector of the base has the scoped form, with
   pseudo-elements behind the `:not()`. It checks where a selector starts, not what it reaches.
+- `peer-dependencies.sync.test.ts`: the published renderer's ranged peers (`yjs`, `react`,
+  `react-dom`, `@xyflow/react`) are the only peers of the board, each mirrored by an exact
+  devDependency inside its range, and every workspace that depends on the renderer
+  (`packages/host`, `apps/ide-editor`, `apps/vscode`, `apps/webapp`) pins a version each range
+  accepts. npm and `pin-check` see neither; a host that pins such a version hits ERESOLVE.
+- `notices.test.ts`: `THIRD_PARTY_NOTICES.md`, which the build puts into `dist`, against what the
+  built sheet carries. It follows `board.css` through its imports (the tokens, React Flow's
+  sheet, the base) and finds one package of npm, `@xyflow/react`, whose installed `LICENSE` the
+  file quotes word for word, and one legal comment, the preflight of Tailwind CSS 4.3.5, whose
+  holder the file names. The build itself fails for a script that would carry a module of npm and
+  for a sheet of a package the file does not name.
 
 ## The browser project
 
@@ -142,7 +159,12 @@ the modeler's `CLAUDE.md`.
   Done control off, and an undo that brings the node back as a preview; `relocate` as one amend
   (one `onContentChanged`, the undo stack unchanged, an undo that takes back the gesture before
   it and leaves the new path), ignored after the unmount; the four failure looks (`open`
-  answers or resolves to `undefined`, rejects, throws).
+  answers or resolves to `undefined`, rejects, throws). The end of the board:
+  `board.unmounted` settles after every editor's `destroy()` (with two model nodes, the armed
+  one released first) and nothing comes after it; once, with each editor destroyed once, when
+  `destroy()` comes three times; for a board destroyed before its canvas mounted; and for an
+  `open()` that is still out when the board goes only once it answered (an editor, destroyed as
+  it comes; no editor; a rejection).
 - `hostile-host.browser.test.tsx`: host code that goes wrong. A list that is a new array on
   every call and a `list()` that throws, for references and for models; a `describe()` that
   throws, and the empty path it is never asked for; an editor whose `destroy()` throws (node
@@ -314,6 +336,9 @@ from the suite's rule of zero skips.
   `modeler.board.mounted` resolves once React Flow's viewport exists and never rejects;
   `importText` called after `attachTo` waits for it (10 s at most) and then one macrotask. Neither
   waits for the lazy parts.
+- `modeler.board.unmounted` resolves once the canvas and every editor of a board are gone after
+  `destroy()`, also when the board never mounted: a test that checks what is left after the end
+  awaits it in place of a poll.
 - `exportText()` is canonical, so only a text in canonical form comes back byte for byte.
 - Every synthetic `MouseEvent` needs `view: window`: d3-zoom and d3-drag, which React Flow pans,
   zooms and drags with, bind their move and release listeners on `event.view`. A click needs its

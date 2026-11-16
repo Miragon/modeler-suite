@@ -52,7 +52,7 @@ const PARAMS: BoardOptions = {
  * `destroy()` stops every delivery at once, gives up an image that is still read or stored,
  * writes a move by the arrow keys that still waits into the document, and unmounts the canvas a
  * microtask later: a host may call it from a listener that a React event handler is still
- * running.
+ * running. `board.unmounted` says when the canvas and every editor of a model node are gone.
  *
  * Not offered yet: a viewer mount, `interaction`, `appearance`, an image export and a text merge.
  */
@@ -77,6 +77,10 @@ export function createCollaborativeModeler(options: BoardModelerOptions = {}): C
   let settleGone!: () => void;
   const gone = new Promise<void>((resolve) => {
     settleGone = resolve;
+  });
+  let settleUnmounted!: () => void;
+  const unmounted = new Promise<void>((resolve) => {
+    settleUnmounted = resolve;
   });
   /** what the canvas hands in while it is mounted: the arm rules at work, the moves it holds back */
   let arming: BoardArming | null = null;
@@ -208,6 +212,10 @@ export function createCollaborativeModeler(options: BoardModelerOptions = {}): C
       queueMicrotask(() => {
         mountedRoot?.unmount();
         mountedElement?.remove();
+        // The unmount destroyed every editor the board holds, and one its host hands in later is
+        // destroyed as it comes. The host hears of the end after the document's end below, and
+        // also when that throws
+        void runtime.editorsAnswered().then(settleUnmounted);
         store.destroy();
         // a document the host handed in is the host's, and other people may still share it
         if (!options.liveDocument) doc.destroy();
@@ -228,6 +236,7 @@ export function createCollaborativeModeler(options: BoardModelerOptions = {}): C
       undo: () => void store.undo.undo(),
       redo: () => void store.undo.redo(),
       mounted,
+      unmounted,
     },
   };
   registerBoardRuntime(modeler, runtime);

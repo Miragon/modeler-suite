@@ -351,11 +351,14 @@ describe("vscode-host-no-page-code", () => {
 });
 
 describe("what the cruise leaves out", () => {
-  it("is the build output of the apps and nothing else", () => {
+  it("is the build output of the apps and of the published packages and nothing else", () => {
     const excluded = new RegExp(config.options.exclude?.path ?? "$^");
     expect(excluded.test("apps/webapp/dist/assets/index-CtaqJd8o.js")).toBe(true);
     expect(excluded.test("apps/vscode/dist/extension.cjs")).toBe(true);
     expect(excluded.test("apps/vscode/dist/webview.js")).toBe(true);
+    expect(excluded.test("packages/renderer/dist/index.js")).toBe(true);
+    expect(excluded.test("packages/renderer/dist/model-node-Ch9YOcao.js")).toBe(true);
+    expect(excluded.test("packages/schema-model/dist/index.cjs")).toBe(true);
     const kept = [
       "apps/webapp/src/app.ts",
       "apps/vscode/src/extension.ts",

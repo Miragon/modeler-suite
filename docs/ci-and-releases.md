@@ -149,14 +149,20 @@ changelog and a tag on every release: `business-model-canvas-schema-model`, `-ds
 for Orca, its `extra-files` move `orca-plugin.json`). Each starts with `initial-version` 0.1.0;
 remove that key once the components have been released.
 
-The board (`modelers/board`), a preview, **publishes its VS Code extension and nothing else**. It
-was [held back](#a-modeler-that-is-held-back) through its first release, 0.1.0, which was tagged
-and never published. Every one of its workspaces is `private`, and its web
-app and VS Code extension bundle its packages, and the other modelers' renderers, from source. Its
-eight components get a version, a changelog and a tag on every release: `board-schema-model`,
-`-renderer`, `-files`, `-host`, `-editors`, `-ide-editor`, `-vscode` (Marketplace and Open VSX)
-and `-webapp` (nothing: the board has no Netlify site). It has no Orca plugin. Each
-starts with `initial-version` 0.1.0; remove that key once the components have been released.
+The board (`modelers/board`), a preview, **publishes its VS Code extension and two npm
+packages**, `@miragon/board-schema-model` and `@miragon/board-renderer`. It was
+[held back](#a-modeler-that-is-held-back) through its first release, 0.1.0, which was tagged and
+never published, and neither package is on npm yet: the first publish of each name takes the
+[manual step](#the-first-release-of-a-new-npm-package) of every new npm package. The two are built
+by `npm run board build` (the schema model with tsup, the renderer with Vite in lib mode, with the
+four libraries it shares with a host, `yjs`, `react`, `react-dom` and `@xyflow/react`, as ranged
+peers). Every other workspace of the board is `private`, and its web app and VS Code extension
+bundle its packages, the two public ones included, and the other modelers' renderers, from
+source. Its eight components get a version, a changelog and a tag on every release:
+`board-schema-model` (npm), `-renderer` (npm), `-files`, `-host`, `-editors`, `-ide-editor`,
+`-vscode` (Marketplace and Open VSX) and `-webapp` (nothing: the board has no Netlify site). It has
+no Orca plugin. Each starts with `initial-version` 0.1.0; remove that key once the components have
+been released.
 
 A component that was never released stands at 0.0.0 in `.release-please-manifest.json` and needs an
 `initial-version`: without one release-please proposes 1.0.0 for its first release.

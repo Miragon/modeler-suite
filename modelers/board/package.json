@@ -14,7 +14,7 @@
     ]
   },
   "scripts": {
-    "build": "npm run typecheck",
+    "build": "npm run build -w packages/schema-model && npm run build -w packages/renderer && npm run typecheck",
     "build:webapp": "npm run build -w apps/webapp",
     "build:vscode": "npm run build -w apps/vscode",
     "package:vscode": "npm run package -w apps/vscode && npm run check:notices -w apps/vscode",

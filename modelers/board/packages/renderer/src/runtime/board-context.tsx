@@ -174,6 +174,18 @@ export interface BoardRuntime {
   surfaceFailed(nodeId: string): void;
   /** a surface calls it once per engine it mounts: more than 1 for a node means something remounted it */
   reportMount(nodeId: string): void;
+  /**
+   * A surface calls it as it asks the host for an editor, and calls what it returns once it has
+   * dealt with the answer: the editor taken, destroyed because its node went before it came, or
+   * no editor at all. A second call of what it returns counts as none.
+   */
+  askEditor(): () => void;
+  /**
+   * Resolves once every editor the host was asked for has been dealt with, at once while none is
+   * on its way. Whoever mounted the board waits for it after the unmount, when no surface asks
+   * again: an editor that comes after its node went is destroyed as it comes.
+   */
+  editorsAnswered(): Promise<void>;
   readonly counters: BoardCounters;
 
   /** page errors, sync errors and conflict notices */
@@ -187,6 +199,28 @@ export interface BoardRuntime {
    */
   overlayLayer(): HTMLElement | null;
   setOverlayLayer(layer: HTMLElement | null): void;
+}
+
+/** the editors a board asked its host for and has not dealt with yet, and who waits for the last of them */
+function createEditorAnswers(): Pick<BoardRuntime, "askEditor" | "editorsAnswered"> {
+  let onTheirWay = 0;
+  const waiting: Array<() => void> = [];
+  return {
+    askEditor() {
+      onTheirWay += 1;
+      let answered = false;
+      return () => {
+        if (answered) return;
+        answered = true;
+        onTheirWay -= 1;
+        if (onTheirWay === 0) for (const settle of waiting.splice(0)) settle();
+      };
+    },
+    editorsAnswered: () =>
+      onTheirWay === 0
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => void waiting.push(resolve)),
+  };
 }
 
 export function createBoardRuntime(params: BoardOptions, parts: BoardParts): BoardRuntime {
@@ -270,6 +304,7 @@ export function createBoardRuntime(params: BoardOptions, parts: BoardParts): Boa
     mounted: (nodeId) => status.get(nodeId),
     surfaceFailed: (nodeId) => void status.set(nodeId, false),
     reportMount: (nodeId) => void (counters.mounts[nodeId] = (counters.mounts[nodeId] ?? 0) + 1),
+    ...createEditorAnswers(),
     counters,
 
     log,

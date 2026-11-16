@@ -122,9 +122,9 @@ const config = modelerDependencyCruiserConfig(__dirname, {
 });
 
 // The web app's build is code-split, one chunk per notation, and its chunks import each other in
-// circles: built output is no source, and neither are the extension's two bundles. Only the apps'
-// own dist: a wider pattern would also hide the contract's dist, which
-// dom-free-contract-types-only resolves to.
-config.options.exclude = { path: "^apps/[^/]+/dist/" };
+// circles: built output is no source, and neither are the extension's two bundles or the dist of
+// the two packages the board publishes. Only the board's own dist folders: a wider pattern would
+// also hide the contract's dist, which dom-free-contract-types-only resolves to.
+config.options.exclude = { path: "^(apps|packages)/[^/]+/dist/" };
 
 module.exports = config;
