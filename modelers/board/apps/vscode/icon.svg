@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img">
+  <!-- Source of icon.png (256×256, Marketplace needs PNG): re-render it after changes. -->
+  <title>Miragon Modeler Board</title>
+  <rect width="512" height="512" rx="112" fill="#335DE5"/>
+  <g transform="translate(56 56) scale(16.6667)">
+    <rect x="3" y="3.5" width="18" height="12" rx="2" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M9.5 15.5L7.5 21M14.5 15.5L16.5 21" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="6.25" y="6.75" width="6" height="5.5" rx="1" fill="#00E676"/>
+    <rect x="14.25" y="6.75" width="3.5" height="5.5" rx="1" fill="#FFFFFF"/>
+  </g>
+</svg>

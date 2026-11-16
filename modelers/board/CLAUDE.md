@@ -774,10 +774,10 @@ changing one in passing is a regression nobody would see.
   that another program moves, a file below a renamed folder that the list does not hold, and
   the files of a board that is not open; a file dragged from VS Code's Explorer onto the board
   (it carries addresses and no file), and a drop of a picture without Shift, which VS Code takes
-  for itself; saving every edit of a model at once; an export; a theme but light; an icon of the
-  board's own (the extension shows the Miragon comet until the Miragon modeler icon set has a
-  board icon, which is a pull request in Miragon/corporate-identity; then the file is copied
-  from the set and the checksum in `apps/vscode/test/papers.test.ts` replaced). Built with the
+  for itself; saving every edit of a model at once; an export; a theme but light; the board's
+  icon in the Miragon modeler icon set (it was drawn here, in the set's system and on the owner's
+  word, with its source in `apps/vscode/icon.svg`; carrying it into the set is a pull request in
+  Miragon/corporate-identity). Built with the
   fourth increment and seen in a real VS Code in the runner: following a file a person renames
   or moves in VS Code, saving the models with the board as a setting, the view kept across a
   reload and a restart, an entry in the Problems view, the New Board commands with a

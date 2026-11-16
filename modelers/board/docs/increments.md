@@ -199,7 +199,9 @@ is the owner's yes.
   templates; the board is marked as in progress and unpublished there.
 - **M9, an icon.** The extension has one, the Miragon comet, copied and not drawn
   ([The webview half](vscode.md#the-webview-half-srcwebview), the papers). The web app's `favicon.svg`
-  follows the same decision.
+  follows the same decision. The owner turned this round after the merge: the board has an icon
+  of its own, a board on its stand, drawn in the icon system of the suite's modelers
+  (`apps/vscode/icon.svg`).
 
 **Where the tree differs from the plan, and why:**
 

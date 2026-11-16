@@ -590,9 +590,10 @@ Everything else of the page is `board-ide-editor`, the shell and `board-suite-ed
   adds where to find it. `CHANGELOG.md` is release-please's from the first release on; its one entry
   of the board's own, `## 0.0.0`, is the heading release-please writes its notes above (tried with
   release-please's updater: without a version heading it keeps the old text and doubles the title).
-  Business Model Canvas and C4 arrived without a CHANGELOG. `icon.png` is the Miragon comet on the
-  blue tile, byte for byte the file Business Model Canvas ships (256 x 256): the Miragon modeler
-  icon set has no board icon, and an icon is copied from that set and never drawn here. The manifest
+  Business Model Canvas and C4 arrived without a CHANGELOG. `icon.png` is a board on its
+  stand with two cards (256 x 256), rendered from `icon.svg`, which the VSIX leaves out: drawn in
+  the icon system of the suite's modelers on the owner's word, since the Miragon modeler icon set
+  has no board icon. The manifest
   names it and carries the banner every extension of the suite has (`#335DE5`, dark).
   `test/papers.test.ts` holds all of it, the icon by its checksum and the README's silence on a
   marketplace by its words. Nobody has looked at the icon or the README in a real Extensions view.

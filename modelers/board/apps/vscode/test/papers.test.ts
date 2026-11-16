@@ -48,12 +48,13 @@ describe("the extension's icon", () => {
     expect([icon.readUInt32BE(16), icon.readUInt32BE(20)]).toEqual([256, 256]);
   });
 
-  // The Miragon comet on the blue tile, the bytes Business Model Canvas ships while the Miragon
-  // modeler icon set has no icon of its own for it. The set has none for the board either. An
-  // icon is copied from the set and never drawn here: a new one changes this sum on purpose.
-  test("is the Miragon comet on blue, copied and not redrawn", () => {
+  // A board on its stand with two cards, drawn in the icon system of the suite's modelers (the
+  // blue tile, a white stroke of 2 on a grid of 24, one green accent) on the owner's word: the
+  // Miragon modeler icon set had no board icon. `icon.svg` is its source, and a new rendering
+  // changes this sum on purpose.
+  test("is the board on its stand, as icon.svg was rendered", () => {
     expect(createHash("sha256").update(icon).digest("hex")).toBe(
-      "0b8b3614c3ef8251ad8d25efc79c4d16c0606bcc683965fbd5e1654fc589b16b",
+      "ad753dfa9eda6bfbee8d71478dd9445d455727a4212ab4e9809a6eced2ce963d",
     );
   });
 
@@ -90,6 +91,7 @@ describe("what the VSIX takes of the papers", () => {
     "tsconfig.json",
     "dist/webview.js.map",
     "dist/extension.cjs.map",
+    "icon.svg",
   ])("leaves %s out", (path) => {
     expect(leftOut(path)).toBe(true);
   });
