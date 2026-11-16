@@ -372,6 +372,10 @@ machine allows, not by a CI run: no pull request is open.
   only), and npm's advisory endpoint asked about the 31 third-party packages the lockfile adds,
   which named no advisory on 2026-11-15. The plan expects two to four rounds.
 
+**The board is public since the pull request that took it off `HELD_BACK`.** The two paragraphs
+below record the time before it: the merge and the release 0.1.0 published nothing of the board,
+as they say. From its next release on, the extension goes to the VS Code Marketplace and Open VSX.
+
 **What a merge publishes.** Nothing of the board. At the merge itself `release-please.yml` puts
 the board into the suite's one release pull request, `chore: release main`: with a squash title of
 the type `feat` or `fix` all eight components are proposed at 0.1.0, their `initial-version`. The

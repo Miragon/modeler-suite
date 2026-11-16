@@ -7,7 +7,7 @@ special to it ([Wardley Maps](modelers/wardley-maps/CONTRIBUTING.md),
 [Context Maps](modelers/context-maps/CONTRIBUTING.md),
 [Value Chain](modelers/value-chain/CONTRIBUTING.md), [C4 model](modelers/c4/CONTRIBUTING.md),
 [Business Model Canvas](modelers/business-model-canvas/CONTRIBUTING.md),
-[the board](modelers/board/CONTRIBUTING.md), which is in progress and unpublished).
+[the board](modelers/board/CONTRIBUTING.md), which is a preview, in progress).
 CI, releases and publishing are in [docs/ci-and-releases.md](docs/ci-and-releases.md), the rules
 for agents in [CLAUDE.md](CLAUDE.md).
 
@@ -28,7 +28,7 @@ packages/
   api/                   @miragon/modeler-api: the collaborative-modeler contract and its conformance kit
   shell/                 @miragon/modeler-shell: the shared chrome, its conformance kit, the VS Code smoke driver
 modelers/<modeler>/      wardley-maps, event-storming, team-topologies, context-maps, value-chain, c4,
-                         business-model-canvas, board (in progress, unpublished)
+                         business-model-canvas, board (a preview, in progress)
   packages/              the npm libraries: schema-model, dsl / cml / layout / transforms, renderer;
                          in the board also files and host
   apps/webapp            the web app
@@ -216,7 +216,7 @@ from the `product-shots` skill of the `miragon-brand` plugin
 target, title, claim, icon and the recipe's options are in
 [`.miragon/product-shots.yaml`](.miragon/product-shots.yaml); `skillVersion` is the skill release
 the images were made with. Each modeler's VS Code images show its demo workspace in
-`modelers/<modeler>/docs/demo/`; the board, which is unpublished, has no store images yet. Build
+`modelers/<modeler>/docs/demo/`; the board has no store images yet. Build
 the VSIX (`npm run <modeler> package:vscode`) and the Orca plugins
 (`npm run <modeler> build:orca`) first, then, from the repository root:
 
@@ -260,10 +260,10 @@ patch, a breaking change a major (a minor on 0.x); `chore`, `ci`, `docs`, `test`
 `@deprecated` gets an issue that names its target version. Details, publishing and the first
 release of a new npm package are in [docs/ci-and-releases.md](docs/ci-and-releases.md).
 
-The board is held back from publishing: a release tags its components and publishes nothing of it,
-until the pull request that makes it public takes it off `HELD_BACK` in
-`.github/scripts/release-plan.mjs`
-([a modeler that is held back](docs/ci-and-releases.md#a-modeler-that-is-held-back)).
+A modeler can be on `main` before it is public: while `HELD_BACK` in
+`.github/scripts/release-plan.mjs` names it, a release tags its components and publishes nothing
+of it ([a modeler that is held back](docs/ci-and-releases.md#a-modeler-that-is-held-back)). None
+is held today; the board was, until the pull request that made it public.
 
 `@miragon/modeler-api` is on 1.x: a new optional surface of the contract or kit is a `feat`; a new
 required member, a stricter law or a breaking change to the kit's harness is breaking (`feat!:`).

@@ -6,7 +6,7 @@ hook, tests in general, commits and pull requests are in the suite's
 [docs/ci-and-releases.md](../../docs/ci-and-releases.md). This file adds what is special to this
 modeler. AI agents: start with [`CLAUDE.md`](CLAUDE.md).
 
-**Work in progress, unpublished.** Four packages, the board inside the suite's shell, the web app
+**Work in progress, a preview.** Four packages, the board inside the suite's shell, the web app
 (a start screen, a board of your own, and an example repository, `example/`), a VS Code extension
 that packs into a VSIX, and two `e2e` projects are here, and the extension's smoke runs in a real
 VS Code; the Orca plugin and a demo and screenshots under `docs/` are still to come.
@@ -146,11 +146,11 @@ app's `check:build`, and `package:vscode`. Scope `board`, e.g.
 A change under another modeler's `packages/` or `example/`, or to its `apps/vscode/package.json`,
 runs the board's CI jobs as well, because the board bundles those packages and reads those files.
 The board has eight release components (`board-schema-model`, `-renderer`, `-files`, `-host`,
-`-editors`, `-ide-editor`, `-vscode`, `-webapp`); a release tags them and publishes nothing of
-them: nothing goes to npm, and the extension stays off both marketplaces while the board is held
-back (`HELD_BACK` in `.github/scripts/release-plan.mjs`,
-[CI and releases](../../docs/ci-and-releases.md#a-modeler-that-is-held-back)). Never edit that
-list in passing: taking the board off it is the owner's decision to publish. Never bump a version
+`-editors`, `-ide-editor`, `-vscode`, `-webapp`); a release tags them and publishes the
+extension to the VS Code Marketplace and Open VSX, and nothing else: nothing goes to npm. The
+board was held back through its first release (`HELD_BACK` in `.github/scripts/release-plan.mjs`,
+[CI and releases](../../docs/ci-and-releases.md#a-modeler-that-is-held-back)), so 0.1.0 was
+tagged and never published. Never edit that list in passing: it is the owner's. Never bump a version
 or write a `CHANGELOG.md` by hand: the extension's has one entry from before its first release,
 and release-please writes above it.
 [`docs/state.md`](docs/state.md#ci-and-what-a-merge-publishes) says what a merge to `main`

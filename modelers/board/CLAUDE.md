@@ -260,8 +260,9 @@ imports one.
   stale one: a further pin on a workspace package is a manifest line, an `npm install` and the
   entry that test then asks for. No workspace but the extension has a `CHANGELOG.md`:
   release-please writes each with the component's first release. Remove `initial-version` once
-  the components have been released. While `board` is in `HELD_BACK` of
-  `.github/scripts/release-plan.mjs` a release tags the eight and publishes nothing of them;
+  the components have been released. The board was in `HELD_BACK` of
+  `.github/scripts/release-plan.mjs` through its first release: 0.1.0 tagged the eight and
+  published nothing of them. Since it left that list a release publishes the extension;
   `test/release-config.test.ts` fails for a component at 0.0.0 that names no `initial-version`.
   What a release of them publishes is under
   [CI and what a merge publishes](docs/state.md#ci-and-what-a-merge-publishes).

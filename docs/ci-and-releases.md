@@ -149,12 +149,13 @@ changelog and a tag on every release: `business-model-canvas-schema-model`, `-ds
 for Orca, its `extra-files` move `orca-plugin.json`). Each starts with `initial-version` 0.1.0;
 remove that key once the components have been released.
 
-The board (`modelers/board`), which is in progress and unpublished, **publishes nothing at all**: it
-is [held back](#a-modeler-that-is-held-back). Every one of its workspaces is `private`, and its web
+The board (`modelers/board`), a preview, **publishes its VS Code extension and nothing else**. It
+was [held back](#a-modeler-that-is-held-back) through its first release, 0.1.0, which was tagged
+and never published. Every one of its workspaces is `private`, and its web
 app and VS Code extension bundle its packages, and the other modelers' renderers, from source. Its
 eight components get a version, a changelog and a tag on every release: `board-schema-model`,
-`-renderer`, `-files`, `-host`, `-editors`, `-ide-editor`, `-vscode` (no marketplace while the board
-is held back) and `-webapp` (nothing: the board has no Netlify site). It has no Orca plugin. Each
+`-renderer`, `-files`, `-host`, `-editors`, `-ide-editor`, `-vscode` (Marketplace and Open VSX)
+and `-webapp` (nothing: the board has no Netlify site). It has no Orca plugin. Each
 starts with `initial-version` 0.1.0; remove that key once the components have been released.
 
 A component that was never released stands at 0.0.0 in `.release-please-manifest.json` and needs an
@@ -280,8 +281,8 @@ every build job for every package, extension and plugin and publishes nothing.
 ### A modeler that is held back
 
 A modeler can be on `main` before it is public. `HELD_BACK` in
-[`release-plan.mjs`](../.github/scripts/release-plan.mjs) names such a modeler by its folder; today
-it names the board. A release still gives a held modeler's components their versions, changelogs,
+[`release-plan.mjs`](../.github/scripts/release-plan.mjs) names such a modeler by its folder. Today
+it names none; the board was the first, from its merge until the pull request that made it public. A release still gives a held modeler's components their versions, changelogs,
 tags and GitHub releases, and the plan lists nothing of it: no package for npm, no extension for
 the VS Code Marketplace and Open VSX, no plugin for the Orca catalog. Its VSIX is not even built,
 so no artifact of that run carries it. Only the dry run lists a held modeler, to build and

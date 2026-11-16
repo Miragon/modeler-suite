@@ -13,6 +13,9 @@ first.
 
 ## Install
 
+Search for **Modeler Board** in the Extensions view, or run
+`code --install-extension miragon-gmbh.board-modeler`.
+
 From a VSIX: run **Extensions: Install from VSIX...** from the Command Palette
 (`Ctrl/Cmd+Shift+P`) and pick `board-modeler.vsix`, or run
 `code --install-extension board-modeler.vsix`. A checkout of the
