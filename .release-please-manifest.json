@@ -50,7 +50,7 @@
   "modelers/board/packages/host": "0.1.0",
   "modelers/board/apps/editors": "0.1.0",
   "modelers/board/apps/ide-editor": "0.1.0",
-  "modelers/board/apps/vscode": "0.1.0",
+  "modelers/board/apps/vscode": "0.2.0",
   "modelers/board/apps/webapp": "0.1.0",
   "extensions/modeler-collection": "1.6.0"
 }

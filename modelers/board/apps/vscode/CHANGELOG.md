@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/Miragon/modeler-suite/compare/board-vscode-v0.1.0...board-vscode-v0.2.0) (2026-11-16)
+
+
+### Features
+
+* **board:** publish the Modeler Board extension ([#659](https://github.com/Miragon/modeler-suite/issues/659)) ([8eef54b](https://github.com/Miragon/modeler-suite/commit/8eef54bab7ae884181de8fac029a108abedec038))
+
 ## 0.1.0 (2026-11-16)
 
 
